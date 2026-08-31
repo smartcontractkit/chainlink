@@ -38,10 +38,12 @@ type ExecutionHelper struct {
 	TimeProvider
 	SecretsFetcher
 
-	chainAllowed limits.GateLimiter
-	callLimiters map[capCall]limits.BoundLimiter[int]
-	mu           sync.Mutex
-	callCounts   map[limits.Limiter[int]]int
+	chainAllowed         limits.GateLimiter
+	callLimiters         map[capCall]limits.BoundLimiter[int]
+	concurrencyLimiters  map[capCall]limits.ResourcePoolLimiter[int]
+	mu                   sync.Mutex
+	callCounts           map[limits.Limiter[int]]int
+	sharedSecretsCounter *secretsCallCounter
 
 	executionProfile *executionProfileCollector
 
@@ -89,6 +91,11 @@ func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 
 		{"http-actions", "SendRequest"}:      limiters.HTTPActionCalls,
 		{"confidential-http", "SendRequest"}: limiters.ConfidentialHTTPCalls,
+
+		{"vault", "vault.secrets.get"}: limiters.SecretsCalls,
+	}
+	c.concurrencyLimiters = map[capCall]limits.ResourcePoolLimiter[int]{
+		{"vault", "vault.secrets.get"}: limiters.SecretsConcurrency,
 	}
 }
 
@@ -121,20 +128,37 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 
 	limiter, ok := c.callLimiters[capCall{name: capName, method: request.Method}]
 	if ok {
-		c.mu.Lock()
-		if c.callCounts == nil {
-			c.callCounts = make(map[limits.Limiter[int]]int)
-		}
-		cnt := c.callCounts[limiter] + 1
-		if err := limiter.Check(ctx, cnt); err != nil {
+		if c.sharedSecretsCounter != nil && capName == "vault" {
+			if err := c.sharedSecretsCounter.acquire(ctx, limiter); err != nil {
+				return nil, caperrors.NewPublicUserError(
+					fmt.Errorf("capability call limit exceeded for %s.%s: %w", capName, request.Method, err),
+					caperrors.LimitExceeded,
+				)
+			}
+		} else {
+			c.mu.Lock()
+			if c.callCounts == nil {
+				c.callCounts = make(map[limits.Limiter[int]]int)
+			}
+			cnt := c.callCounts[limiter] + 1
+			if err := limiter.Check(ctx, cnt); err != nil {
+				c.mu.Unlock()
+				return nil, caperrors.NewPublicUserError(
+					fmt.Errorf("capability call limit exceeded for %s.%s: %w", capName, request.Method, err),
+					caperrors.LimitExceeded,
+				)
+			}
+			c.callCounts[limiter] = cnt
 			c.mu.Unlock()
-			return nil, caperrors.NewPublicUserError(
-				fmt.Errorf("capability call limit exceeded for %s.%s: %w", capName, request.Method, err),
-				caperrors.LimitExceeded,
-			)
 		}
-		c.callCounts[limiter] = cnt
-		c.mu.Unlock()
+	}
+
+	if concurrencyLimiter, ok := c.concurrencyLimiters[capCall{name: capName, method: request.Method}]; ok {
+		freeConcurrency, err := concurrencyLimiter.Wait(ctx, 1)
+		if err != nil {
+			return nil, err
+		}
+		defer freeConcurrency()
 	}
 
 	free, err := c.capCallsSemaphore.Wait(ctx, 1)

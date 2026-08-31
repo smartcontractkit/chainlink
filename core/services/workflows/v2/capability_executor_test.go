@@ -1,12 +1,15 @@
 package v2
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -73,6 +76,132 @@ func TestExecutionHelper_ConfidentialHTTPPerWorkflowLimit(t *testing.T) {
 	require.ErrorAs(t, err, &capErr, "expected per-workflow call limit exceedance to be classified as capability user error")
 	require.Equal(t, caperrors.OriginUser, capErr.Origin())
 	require.Equal(t, caperrors.LimitExceeded, capErr.Code())
+}
+
+func TestExecutionHelper_VaultSecretsGetPerWorkflowLimit(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	lf := limits.Factory{Logger: lggr}
+
+	cfgFn := func(w *cresettings.Workflows) {
+		w.Secrets.CallLimit = settings.Int(1)
+	}
+
+	limiters, err := NewLimiters(lf, cfgFn)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = limiters.Close() })
+
+	exec := &ExecutionHelper{}
+	exec.initLimiters(limiters)
+	exec.sharedSecretsCounter = &secretsCallCounter{called: 1}
+
+	req := &sdk.CapabilityRequest{
+		Id:         "vault",
+		Method:     "vault.secrets.get",
+		CallbackId: 1,
+	}
+
+	_, err = exec.CallCapability(t.Context(), req)
+	require.Error(t, err, "expected CallCapability to fail when per-workflow secrets call limit is exceeded")
+	var capErr caperrors.Error
+	require.ErrorAs(t, err, &capErr, "expected per-workflow call limit exceedance to be classified as capability user error")
+	require.Equal(t, caperrors.OriginUser, capErr.Origin())
+	require.Equal(t, caperrors.LimitExceeded, capErr.Code())
+}
+
+func TestExecutionHelper_VaultSecretsGetSharedCallCounter(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	lf := limits.Factory{Logger: lggr}
+
+	cfgFn := func(w *cresettings.Workflows) {
+		w.Secrets.CallLimit = settings.Int(3)
+		w.SecretsConcurrencyLimit = settings.Int(100)
+	}
+
+	limiters, err := NewLimiters(lf, cfgFn)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = limiters.Close() })
+
+	exec := &ExecutionHelper{Engine: &Engine{}}
+	exec.initLimiters(limiters)
+	exec.capCallsSemaphore = limits.GlobalResourcePoolLimiter(0)
+	exec.sharedSecretsCounter = &secretsCallCounter{}
+
+	// Simulate 2 prior calls via the GetSecrets path (secretsFetcher increments
+	// the same shared counter).
+	exec.sharedSecretsCounter.called = 2
+	require.Equal(t, 2, exec.sharedSecretsCounter.called)
+
+	req := &sdk.CapabilityRequest{
+		Id:         "vault",
+		Method:     "vault.secrets.get",
+		CallbackId: 1,
+	}
+
+	// 3rd call: limit check should pass (counter 2->3, limit 3), then fail at
+	// the zero-capacity semaphore. The counter must be incremented to 3.
+	callCtx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	_, err = exec.CallCapability(callCtx, req)
+	require.Error(t, err, "expected call to fail at zero-capacity semaphore")
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Equal(t, 3, exec.sharedSecretsCounter.called, "shared counter should be incremented to 3 after a non-limit failure")
+
+	// 4th call: should be rejected at the limit check (counter 3 > limit 3).
+	_, err = exec.CallCapability(t.Context(), req)
+	require.Error(t, err, "expected CallCapability to fail when shared counter exceeds limit")
+	var capErr caperrors.Error
+	require.ErrorAs(t, err, &capErr)
+	require.Equal(t, caperrors.LimitExceeded, capErr.Code())
+	require.Equal(t, 3, exec.sharedSecretsCounter.called, "shared counter must not increment on a failed limit check")
+}
+
+func TestExecutionHelper_VaultSecretsGetConcurrencyLimit(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	lf := limits.Factory{Logger: lggr}
+
+	cfgFn := func(w *cresettings.Workflows) {
+		w.Secrets.CallLimit = settings.Int(100)
+		w.SecretsConcurrencyLimit = settings.Int(1)
+	}
+
+	limiters, err := NewLimiters(lf, cfgFn)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = limiters.Close() })
+
+	exec := &ExecutionHelper{}
+	exec.initLimiters(limiters)
+
+	capCallValue := capCall{name: "vault", method: "vault.secrets.get"}
+	concurrencyLimiter, ok := exec.concurrencyLimiters[capCallValue]
+	require.True(t, ok, "expected vault.secrets.get concurrency limiter to be configured")
+
+	ctx := contexts.WithCRE(t.Context(), contexts.CRE{
+		Owner:    "1111111111111111111111111111111111111111",
+		Workflow: "22222222222222222222222222222222222222222222222222222222222222222",
+	})
+
+	free, err := concurrencyLimiter.Wait(ctx, 1)
+	require.NoError(t, err)
+	defer free()
+
+	req := &sdk.CapabilityRequest{
+		Id:         "vault",
+		Method:     "vault.secrets.get",
+		CallbackId: 1,
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	defer cancel()
+
+	_, err = exec.CallCapability(callCtx, req)
+	require.Error(t, err, "expected CallCapability to fail when secrets concurrency limit is exhausted")
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func TestUserMetricTypeSuffix(t *testing.T) {
