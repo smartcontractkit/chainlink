@@ -94,6 +94,7 @@ func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
 				framework.L.Info().Msg("Running EVM Read Regression test")
 				EVMReadFailsTest(t, testEnv, tCase)
 			}
+			t.Fail()
 		})
 	}
 }

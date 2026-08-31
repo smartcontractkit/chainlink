@@ -16,6 +16,7 @@ import (
 	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	stellarcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/stellar"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
@@ -233,6 +234,8 @@ type OptInHasherConfig struct {
 	// zero time.Time{}), so WorkflowTag is included in the hash matching current
 	// prod behavior. After rollout, set to far-future window to exclude it.
 	IncludeWorkflowTag limits.RangeLimiter[config.Timestamp]
+
+	Logger logger.Logger
 }
 
 // baseMetadataFields returns a copy of the metadata containing only the
@@ -261,9 +264,18 @@ func baseMetadataFields(md capabilities.RequestMetadata) capabilities.RequestMet
 func applyMetadataFields(ctx context.Context, md capabilities.RequestMetadata, cfg OptInHasherConfig) capabilities.RequestMetadata {
 	result := baseMetadataFields(md)
 	ts := config.Timestamp(md.ExecutionTimestamp.Unix())
+	if cfg.Logger != nil {
+		cfg.Logger.Info("applyMetadataFields")
+	}
 
 	if cfg.IncludeWorkflowTag != nil {
+		if cfg.Logger != nil {
+			cfg.Logger.Info("applyMetadataFields tag not nil")
+		}
 		if err := cfg.IncludeWorkflowTag.Check(ctx, ts); err == nil {
+			if cfg.Logger != nil {
+				cfg.Logger.Info("applyMetadataFields removing tag")
+			}
 			result.WorkflowTag = md.WorkflowTag
 		}
 	}

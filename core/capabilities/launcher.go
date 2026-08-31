@@ -776,7 +776,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 			}
 
 			var requestHasher remotetypes.MessageHasher
-			optInCfg := executable.OptInHasherConfig{IncludeWorkflowTag: w.workflowTagHashFlag}
+			optInCfg := executable.OptInHasherConfig{IncludeWorkflowTag: w.workflowTagHashFlag, Logger: w.lggr}
 			switch config.RemoteExecutableConfig.RequestHasherType {
 			case capabilities.RequestHasherType_Simple:
 				requestHasher = executable.NewSimpleHasher(optInCfg)
