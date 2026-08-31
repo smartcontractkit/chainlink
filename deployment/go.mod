@@ -434,7 +434,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-canton v0.0.0-20260615233851-4e78e7c23a58 // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.6.0 // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.6.1-0.20260831172349-85965691908e // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260724142814-45996a1bcb72 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20260423135514-5b1a7565a99c // indirect
