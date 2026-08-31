@@ -772,12 +772,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 					}
 
 					routed := RoutedTriggerEvent{
-						WorkflowID:   e.cfg.WorkflowID,
-						TriggerCapID: triggerID,
-						TriggerIndex: idx,
-						ObservedAt:   e.cfg.Clock.Now(),
-						Lamport:      0,
-						Event:        event,
+						WorkflowID:     e.cfg.WorkflowID,
+						TriggerCapID:   triggerID,
+						TriggerIndex:   idx,
+						ObservedAt:     e.cfg.Clock.Now(),
+						SequenceNumber: 0,
+						Event:          event,
 					}
 
 					_ = e.Put(ctx, routed) // metrics are handled inside, error is ignored for now as this is a transitional method. Future dispatcher admitter (CRE-6176) will use this error.
@@ -838,8 +838,8 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 				TriggerIndex: queueHead.triggerIndex,
 				ObservedAt:   queueHead.timestamp,
 				// Deadline:     TODO: will be addressed on CRE-6175
-				Lamport: 0, // reserved, always 0 in M1
-				Event:   queueHead.event,
+				SequenceNumber: 0, // reserved, always 0 in M1
+				Event:          queueHead.event,
 			}
 			// Legacy path ignores the error on purpose. startExecution already handles all errors internally. not handling here to avoid duplication.
 			// future dispatcher admitter (CRE-6176) will use this error.
