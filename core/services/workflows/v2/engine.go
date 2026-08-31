@@ -781,7 +781,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 					}
 
 					if err := e.Put(ctx, routed); err != nil {
-						e.logger().Errorw("Failed to put routed trigger event", "triggerID", triggerID, "eventID", eventID, "err", err)
+						// Draining is expected during workflow deletion, so it logs at info rather than error level.
+						if errors.Is(err, ErrEngineDraining) {
+							e.logger().Infow("Dropping trigger event: engine draining", "triggerID", triggerID, "eventID", eventID)
+						} else {
+							e.logger().Errorw("Failed to put routed trigger event", "triggerID", triggerID, "eventID", eventID, "err", err)
+						}
 					}
 				}
 			}
@@ -843,9 +848,18 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 				SequenceNumber: 0, // reserved, always 0 in M1
 				Event:          queueHead.event,
 			}
-			// Legacy path ignores the error on purpose. startExecution already handles all errors internally. not handling here to avoid duplication.
-			// future dispatcher admitter (CRE-6176) will use this error.
-			_ = e.ExecuteTrigger(ctx, routed)
+			// Legacy path: startExecution handles all errors internally (metrics, ACK, hooks).
+			// This logs eventID context at the call site; the future dispatcher admitter
+			// (CRE-6176) will use this error for admission decisions.
+			if err := e.ExecuteTrigger(ctx, routed); err != nil {
+				// Dedup and shard-denial are expected outcomes (the event is handled,
+				// just not executed here), so they log at info rather than error level.
+				if errors.Is(err, ErrDuplicateExecution) || errors.Is(err, ErrShardDeniedNotOwner) {
+					e.logger().Infow("Skipping trigger event execution", "triggerID", routed.TriggerCapID, "eventID", routed.Event.Event.ID, "err", err)
+				} else {
+					e.logger().Errorw("Failed to execute trigger event", "triggerID", routed.TriggerCapID, "eventID", routed.Event.Event.ID, "err", err)
+				}
+			}
 		})
 	}
 }
