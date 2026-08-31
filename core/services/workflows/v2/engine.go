@@ -780,7 +780,9 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 						Event:          event,
 					}
 
-					_ = e.Put(ctx, routed) // metrics are handled inside, error is ignored for now as this is a transitional method. Future dispatcher admitter (CRE-6176) will use this error.
+					if err := e.Put(ctx, routed); err != nil {
+						e.logger().Errorw("Failed to put routed trigger event", "triggerID", triggerID, "eventID", eventID, "err", err)
+					}
 				}
 			}
 		})
