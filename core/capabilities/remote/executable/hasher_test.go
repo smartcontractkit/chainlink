@@ -1,6 +1,7 @@
 package executable
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -396,6 +397,39 @@ func TestSimpleHasher_IncludesWorkflowTag_WithZeroTimestamp(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotEqual(t, hash1, hash2) // WorkflowTag included even with zero timestamp
+}
+
+// TestSimpleHasher_IncludesWorkflowTag_WithScopedLimiterAndBareCtx reproduces
+// the production wiring: launcher.NewLauncher builds the flag via
+// limits.Factory.MakeRangeLimiter with the PerWorkflow (workflow-scoped)
+// setting, and server.Receive passes the don2don dispatcher's bare context
+// which carries no contexts.CRE values. Without deriving the CRE values from
+// the request metadata, the scoped limiter fails with "missing tenant" and
+// WorkflowTag is silently excluded from the hash on every node.
+func TestSimpleHasher_IncludesWorkflowTag_WithScopedLimiterAndBareCtx(t *testing.T) {
+	t.Parallel()
+
+	// ON-by-default window, scoped like cresettings.Default.PerWorkflow.FeatureRequestHashIncludeWorkflowTagActivePeriod
+	flagSpec := settings.TimeRange(
+		time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))
+	flagSpec.Scope = settings.ScopeWorkflow
+	flag, err := limits.MakeRangeLimiter[commonconfig.Timestamp](limits.Factory{}, flagSpec)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, flag.Close()) }()
+
+	req1 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v1")
+	req2 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v2")
+
+	hasher := NewSimpleHasher(OptInHasherConfig{IncludeWorkflowTag: flag})
+
+	// Bare ctx without CRE values, as delivered by the don2don dispatcher.
+	hash1, err := hasher.Hash(context.Background(), req1)
+	require.NoError(t, err)
+	hash2, err := hasher.Hash(context.Background(), req2)
+	require.NoError(t, err)
+
+	require.NotEqual(t, hash1, hash2) // WorkflowTag must still be included in the hash
 }
 
 func TestSimpleHasher_ExcludesWorkflowTag_WhenFlagInactive(t *testing.T) {

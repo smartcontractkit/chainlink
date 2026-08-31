@@ -261,9 +261,18 @@ func baseMetadataFields(md capabilities.RequestMetadata) capabilities.RequestMet
 // applyMetadataFields returns a copy of the metadata containing the base
 // allowlisted fields plus any optional fields whose per-field feature flag is
 // active for the given ExecutionTimestamp.
+//
+// The incoming ctx may not carry the CRE workflow/owner/org values (e.g. it
+// originates from the don2don dispatcher's bare stop-channel context). Scoped
+// limiters (PerWorkflow.*) resolve their tenant from contexts.CRE, so without
+// it Check fails with "missing tenant" and the optional field would be
+// silently excluded from the hash on every node. Derive the CRE values from
+// the request metadata itself, which is authoritative for the request being
+// hashed.
 func applyMetadataFields(ctx context.Context, md capabilities.RequestMetadata, cfg OptInHasherConfig) capabilities.RequestMetadata {
 	result := baseMetadataFields(md)
 	ts := config.Timestamp(md.ExecutionTimestamp.Unix())
+	ctx = md.ContextWithCRE(ctx)
 	if cfg.Logger != nil {
 		cfg.Logger.Info("applyMetadataFields")
 	}
@@ -274,9 +283,11 @@ func applyMetadataFields(ctx context.Context, md capabilities.RequestMetadata, c
 		}
 		if err := cfg.IncludeWorkflowTag.Check(ctx, ts); err == nil {
 			if cfg.Logger != nil {
-				cfg.Logger.Info("applyMetadataFields removing tag")
+				cfg.Logger.Info("applyMetadataFields including workflow tag")
 			}
 			result.WorkflowTag = md.WorkflowTag
+		} else if cfg.Logger != nil {
+			cfg.Logger.Infow("applyMetadataFields excluding workflow tag", "err", err)
 		}
 	}
 
