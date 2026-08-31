@@ -398,7 +398,13 @@ type EngineLimits struct {
 type LifecycleHooks struct {
 	// OnInitialized is used to emit a workflowActivated event after the engine
 	// has completed initialization. It is also helpful for testing.
-	OnInitialized          func(err error)
+	OnInitialized func(err error)
+
+	// OnSubscriptionsReady is called after the WASM Subscribe call returns
+	// and the subscriptions have been validated, but before trigger
+	// registration begins. It allows the caller (syncer/dispatcher) to
+	// inspect or modify the subscriptions before they are registered with
+	// the capabilities registry. Returning an error aborts initialization.
 	OnSubscriptionsReady   func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnTriggerEventDropped  func(triggerID, eventID, reason string)

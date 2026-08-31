@@ -62,8 +62,14 @@ type RoutedTriggerEvent struct {
 	WorkflowID   string
 	TriggerCapID string
 	TriggerIndex int
-	ObservedAt   time.Time
+
+	// ObservedAt is the time the RoutedTriggerEvent was constructed by the
+	// dispatcher. It is used for skew metrics (queue wait time)
+	// and deadline enforcement.
+	ObservedAt time.Time
 	// Deadline     time.Time TODO: will be addressed on CRE-6175
-	SequenceNumber uint64 // reserved, always 0 in M1
+
+	// SequenceNumber determines the execution order of trigger events across the DON. In M1 it is always 0 (no consensus ordering).
+	SequenceNumber uint64
 	Event          capabilities.TriggerResponse
 }
