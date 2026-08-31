@@ -46,7 +46,7 @@ func Test_CCIPMixedVersionDON(t *testing.T) {
 
 	chains := []chainsel.Chain{
 		chainsel.GETH_TESTNET,  // source
-		chainsel.TEST_90000001, // dest
+		chainsel.GETH_DEVNET_2, // dest
 	}
 	var chainIDs = []uint64{
 		chains[0].Selector,
@@ -145,7 +145,7 @@ func Test_CCIPRollingUpgrade(t *testing.T) {
 
 	chains := []chainsel.Chain{
 		chainsel.GETH_TESTNET,  // source
-		chainsel.TEST_90000001, // dest
+		chainsel.GETH_DEVNET_2, // dest
 	}
 	var chainIDs = []uint64{
 		chains[0].Selector,
