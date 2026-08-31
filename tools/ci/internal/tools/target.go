@@ -37,6 +37,7 @@ func DiscoverTargets(repoRoot, toolsDir string) ([]Target, error) {
 			if err != nil {
 				return err
 			}
+			relDir = filepath.ToSlash(relDir)
 			submodules = append(submodules, Target{
 				Name:        relDir,
 				Dir:         relDir,

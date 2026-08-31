@@ -1,6 +1,9 @@
 name: CI Tools
 run-name: CI Tools
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-tools-tests
   cancel-in-progress: true
@@ -32,6 +35,7 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
+          fetch-depth: 0
 
       - name: Setup CI CLI
         uses: ./.github/actions/setup-ci-cli

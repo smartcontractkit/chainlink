@@ -66,8 +66,8 @@ func NewWithOptions(out io.Writer, outputPath, envPath, summaryPath string) *Act
 // SetOutput writes a key-value pair to GITHUB_OUTPUT file, or falls back to out when unset.
 func (a *Action) SetOutput(key, value string) error {
 	if a.outputPath == "" {
-		fmt.Fprintf(a.out, "%s=%s\n", key, value)
-		return nil
+		_, err := fmt.Fprintf(a.out, "%s=%s\n", key, value)
+		return err
 	}
 	a.Action.SetOutput(key, value)
 	return nil
@@ -76,8 +76,8 @@ func (a *Action) SetOutput(key, value string) error {
 // SetEnv writes a key-value pair to GITHUB_ENV file, or falls back to out when unset.
 func (a *Action) SetEnv(key, value string) error {
 	if a.envPath == "" {
-		fmt.Fprintf(a.out, "%s=%s\n", key, value)
-		return nil
+		_, err := fmt.Fprintf(a.out, "%s=%s\n", key, value)
+		return err
 	}
 	a.Action.SetEnv(key, value)
 	return nil
@@ -86,8 +86,8 @@ func (a *Action) SetEnv(key, value string) error {
 // AddStepSummary writes markdown content to GITHUB_STEP_SUMMARY file, or falls back to out when unset.
 func (a *Action) AddStepSummary(markdown string) error {
 	if a.summaryPath == "" {
-		fmt.Fprintln(a.out, markdown)
-		return nil
+		_, err := fmt.Fprintln(a.out, markdown)
+		return err
 	}
 	a.Action.AddStepSummary(markdown)
 	return nil
