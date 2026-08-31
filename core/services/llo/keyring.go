@@ -30,7 +30,7 @@ type Key interface {
 	Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error)
 	Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool
 	SignBlob(b []byte) (sig []byte, err error)
-	VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b []byte, sig []byte) bool
+	VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b, sig []byte) bool
 	PublicKey() ocrtypes.OnchainPublicKey
 	MaxSignatureLength() int
 }
@@ -78,7 +78,7 @@ func (okr *onchainKeyring) MaxSignatureLength() (n int) {
 	for _, k := range okr.keys {
 		n += k.MaxSignatureLength()
 	}
-	return
+	return n
 }
 
 func (okr *onchainKeyring) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[llotypes.ReportInfo]) (signature []byte, err error) {

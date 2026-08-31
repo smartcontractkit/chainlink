@@ -189,7 +189,7 @@ func RunGQLTests(t *testing.T, testCases []GQLTestCase) {
 			}
 
 			// This does not print out the correct stack trace as the `RunTest`
-			// function does not call t.Helper(). It insteads displays the file
+			// function does not call t.Helper(). It instead displays the file
 			// and line location of the `gqltesting` package.
 			//
 			// This would need to be fixed upstream.

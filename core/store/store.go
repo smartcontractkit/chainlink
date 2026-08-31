@@ -194,7 +194,7 @@ func dumpSchema(dbURL url.URL, restrictKey string) (string, error) {
 	return string(schema), nil
 }
 
-func checkSchema(dbURL url.URL, prevSchema string, restrictKey string) error {
+func checkSchema(dbURL url.URL, prevSchema, restrictKey string) error {
 	newSchema, err := dumpSchema(dbURL, restrictKey)
 	if err != nil {
 		return err
@@ -262,7 +262,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	for gerr := range errCh {
 		err = errors.Join(err, gerr)
 	}
-	return
+	return err
 }
 
 type failedToRandomizeTestDBSequencesError struct{}

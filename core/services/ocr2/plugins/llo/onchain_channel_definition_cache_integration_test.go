@@ -212,7 +212,8 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	}
 	ht := headstest.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(
-		logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts)
+		logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts,
+	)
 	servicetest.Run(t, lp)
 
 	client := &mockHTTPClient{}
@@ -725,7 +726,8 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 	}
 	ht := headstest.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(
-		logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts)
+		logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts,
+	)
 	servicetest.Run(t, lp)
 
 	client := &mockHTTPClient{}

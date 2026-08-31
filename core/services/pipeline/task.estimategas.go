@@ -121,7 +121,7 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 	}
 	newExp := int64(gasLimitDecimal.Exponent()) + int64(multiplier.Decimal().Exponent())
 	if newExp > math.MaxInt32 || newExp < math.MinInt32 {
-		return Result{Error: ErrMultiplyOverlow}, retryableRunInfo()
+		return Result{Error: ErrMultiplyOverflow}, retryableRunInfo()
 	}
 	gasLimitWithMultiplier := gasLimitDecimal.Mul(multiplier.Decimal()).Truncate(0).BigInt()
 	if !gasLimitWithMultiplier.IsUint64() {

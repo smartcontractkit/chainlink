@@ -2120,10 +2120,13 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 			t.Fatal("Context cancelled waiting for HandleUserTriggerRequest to complete")
 		}
 
+		// After the response is sent, the callback is kept and marked processed
+		// (rather than removed) so that late responses are recognized.
 		handler.callbacksMu.Lock()
-		_, exists := handler.callbacks[req.ID]
+		saved, exists := handler.callbacks[req.ID]
 		handler.callbacksMu.Unlock()
-		require.False(t, exists, "callback should be removed after response is sent")
+		require.True(t, exists, "callback should be kept after response is sent so late responses are recognized")
+		require.True(t, saved.processed, "callback should be marked as processed after response is sent")
 
 		err = handler.Close()
 		require.NoError(t, err)
@@ -2173,7 +2176,8 @@ func createMultiShardTriggerHandler(t *testing.T, donName string, shardNodeSets 
 // TestHttpTriggerHandler_MultiShardQuorumRace verifies the core sharding
 // behavior: when a workflow is assigned to multiple shards, the FIRST shard to
 // reach quorum produces the user response. Late responses from the other shard
-// are rejected with "callback not found" after cleanup.
+// are recognized as already-processed (not errors) since the callback is kept
+// until the periodic reaper removes it.
 func TestHttpTriggerHandler_MultiShardQuorumRace(t *testing.T) {
 	t.Parallel()
 
@@ -2230,16 +2234,17 @@ func TestHttpTriggerHandler_MultiShardQuorumRace(t *testing.T) {
 	require.Equal(t, api.NoError, payload.ErrorCode)
 	require.NotEmpty(t, payload.RawResponse)
 
-	// Late response from shard 0 must be rejected: callback was already cleaned up.
+	// Late response from shard 0 is not an error: the request was already
+	// processed (shard 1 reached quorum first), so it is ignored with a debug log.
 	err = handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "n1")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "callback not found")
+	require.NoError(t, err)
 
-	// Callback should no longer exist.
+	// Callback is kept and marked processed until the periodic reaper removes it.
 	handler.callbacksMu.Lock()
-	_, exists := handler.callbacks[req.ID]
+	saved, exists := handler.callbacks[req.ID]
 	handler.callbacksMu.Unlock()
-	require.False(t, exists)
+	require.True(t, exists, "callback should be kept after processing so late responses are recognized")
+	require.True(t, saved.processed, "callback should be marked as processed")
 }
 
 // TestHttpTriggerHandler_NodeResponseFromUnassignedShard verifies that a node

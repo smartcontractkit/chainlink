@@ -11,8 +11,8 @@ import (
 type chainRWProvider struct{}
 
 // GetChainWriter chainRWProvider returns a new noop ContractWriter.
-func (n chainRWProvider) GetChainWriter(ctx context.Context, pararms common.ChainWriterProviderOpts) (types.ContractWriter, error) {
-	return pararms.Relayer.NewContractWriter(ctx, nil)
+func (n chainRWProvider) GetChainWriter(ctx context.Context, params common.ChainWriterProviderOpts) (types.ContractWriter, error) {
+	return params.Relayer.NewContractWriter(ctx, nil)
 }
 
 // GetChainReader returns a new ContractReader for Solana chains.

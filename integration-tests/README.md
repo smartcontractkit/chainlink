@@ -95,7 +95,7 @@ This directory represent a place for different types of integration and system l
 
    > [!WARNING]
    > **Parallelized tests and nonce issues**
-   > Most tests are paralelized by default. To avoid nonce-related issues, it is recommended to run tests with disabled parallelization, e.g. with `-p 1`.
+   > Most tests are parallelized by default. To avoid nonce-related issues, it is recommended to run tests with disabled parallelization, e.g. with `-p 1`.
 
 2. Alternatively, you may use `make` commands (see more in [Makefile .PHONY lines](./Makefile)) for running suites of tests.
     Example:

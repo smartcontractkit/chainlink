@@ -937,7 +937,6 @@ func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChain
 			ChainSelector: suiChainSel,
 		}),
 	})
-
 	if err != nil {
 		return cldf.Environment{}, nil, nil, err
 	}

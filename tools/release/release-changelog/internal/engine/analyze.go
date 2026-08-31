@@ -1,4 +1,4 @@
-package changelog
+package engine
 
 import (
 	"context"
@@ -10,10 +10,12 @@ import (
 
 // Report is the full changelog analysis between two core-repo refs.
 type Report struct {
-	Old, New  DepSnapshot
-	Repos     []RepoReport
-	Flags     []string // top-level audit flags
-	Generated time.Time
+	// ProductName is the product display name (e.g. "CCIP"), used in headers.
+	ProductName string
+	Old, New    DepSnapshot
+	Repos       []RepoReport
+	Flags       []string // top-level audit flags
+	Generated   time.Time
 }
 
 // RepoReport is the per-repository analysis.
@@ -32,22 +34,22 @@ type RepoReport struct {
 // keywordPattern flags commit titles interesting to a release audit.
 var keywordPattern = regexp.MustCompile(`(?i)\b(breaking|revert|hotfix|security|config)\b|fix!`)
 
-// Analyze computes the full report between two core-repo refs.
-// gh may be nil if only local processing is desired (external repos will
-// record errors instead of commit logs).
-func Analyze(ctx context.Context, g gitRunner, gh *ghClient, oldRef, newRef string) (*Report, error) {
-	oldSnap, err := LoadSnapshot(ctx, g, oldRef)
+// Analyze computes the full report for the given product between two
+// core-repo refs. gh may be nil if only local processing is desired
+// (external repos will record errors instead of commit logs).
+func Analyze(ctx context.Context, g gitRunner, gh *ghClient, product Product, oldRef, newRef string) (*Report, error) {
+	oldSnap, err := LoadSnapshot(ctx, g, product, oldRef)
 	if err != nil {
 		return nil, fmt.Errorf("loading old snapshot: %w", err)
 	}
-	newSnap, err := LoadSnapshot(ctx, g, newRef)
+	newSnap, err := LoadSnapshot(ctx, g, product, newRef)
 	if err != nil {
 		return nil, fmt.Errorf("loading new snapshot: %w", err)
 	}
 
-	rep := &Report{Old: oldSnap, New: newSnap, Generated: time.Now().UTC()}
+	rep := &Report{ProductName: product.DisplayName, Old: oldSnap, New: newSnap, Generated: time.Now().UTC()}
 
-	for _, cfg := range TrackedRepos {
+	for _, cfg := range product.Repos {
 		rr := analyzeRepo(ctx, g, gh, cfg, oldSnap, newSnap)
 		rep.Repos = append(rep.Repos, rr)
 		rep.Flags = append(rep.Flags, repoFlags(rr, oldSnap, newSnap)...)

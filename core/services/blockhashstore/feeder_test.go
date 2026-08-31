@@ -96,10 +96,12 @@ var (
 			requests: []Event{
 				{Block: 150, ID: "10001"},
 				{Block: 150, ID: "10002"},
-				{Block: 150, ID: "10003"}},
+				{Block: 150, ID: "10003"},
+			},
 			fulfillments: []Event{
 				{Block: 150, ID: "10001"},
-				{Block: 150, ID: "10003"}},
+				{Block: 150, ID: "10003"},
+			},
 			wait:                    25,
 			lookback:                100,
 			latest:                  200,
@@ -111,11 +113,13 @@ var (
 			requests: []Event{
 				{Block: 150, ID: "10001"},
 				{Block: 150, ID: "10002"},
-				{Block: 150, ID: "10003"}},
+				{Block: 150, ID: "10003"},
+			},
 			fulfillments: []Event{
 				{Block: 150, ID: "10001"},
 				{Block: 150, ID: "10002"},
-				{Block: 150, ID: "10003"}},
+				{Block: 150, ID: "10003"},
+			},
 			wait:                    25,
 			lookback:                100,
 			latest:                  200,
@@ -185,7 +189,8 @@ var (
 				{Block: 153, ID: "10006"},
 
 				// Block 154
-				{Block: 154, ID: "10007"}},
+				{Block: 154, ID: "10007"},
+			},
 			fulfillments: []Event{
 				// Block 150
 				{Block: 150, ID: "10001"},
@@ -199,7 +204,8 @@ var (
 				// Block 153 - no fulfillment
 
 				// Block 154
-				{Block: 154, ID: "10007"}},
+				{Block: 154, ID: "10007"},
+			},
 			wait:                    25,
 			lookback:                100,
 			latest:                  200,
@@ -235,7 +241,8 @@ func TestStartHeartbeats(t *testing.T) {
 			expectedDuration,
 			func(ctx context.Context) (uint64, error) {
 				return tests[0].latest, nil
-			})
+			},
+		)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		mockTimer := bhsmocks.NewTimer(t)
@@ -280,7 +287,8 @@ func TestStartHeartbeats(t *testing.T) {
 			expectedDuration,
 			func(ctx context.Context) (uint64, error) {
 				return tests[0].latest, nil
-			})
+			},
+		)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		mockTimer := bhsmocks.NewTimer(t)
@@ -327,7 +335,8 @@ func TestStartHeartbeats(t *testing.T) {
 			expectedDuration,
 			func(ctx context.Context) (uint64, error) {
 				return tests[0].latest, nil
-			})
+			},
+		)
 
 		mockTimer := bhsmocks.NewTimer(t)
 		mockLogger.On("Infow", "Not starting heartbeat blockhash using storeEarliest").Once()
@@ -379,7 +388,8 @@ func (test testCase) testFeeder(t *testing.T) {
 		600*time.Second,
 		func(ctx context.Context) (uint64, error) {
 			return test.latest, nil
-		})
+		},
+	)
 
 	err := feeder.Run(t.Context())
 	if test.expectedErrMsg == "" {
@@ -399,7 +409,7 @@ func TestFeederWithLogPollerVRFv2(t *testing.T) {
 }
 
 func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
-	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
+	coordinatorAddress := common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
 
 	// Instantiate log poller & coordinator.
 	lp := &lpmocks.LogPoller{}
@@ -477,7 +487,8 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 		600*time.Second,
 		func(ctx context.Context) (uint64, error) {
 			return test.latest, nil
-		})
+		},
+	)
 
 	// Run feeder and assert correct results.
 	err = feeder.Run(t.Context())
@@ -497,7 +508,7 @@ func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
 }
 
 func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
-	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
+	coordinatorAddress := common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
 
 	// Instantiate log poller & coordinator.
 	lp := &lpmocks.LogPoller{}
@@ -575,7 +586,8 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 		600*time.Second,
 		func(ctx context.Context) (uint64, error) {
 			return test.latest, nil
-		})
+		},
+	)
 
 	// Run feeder and assert correct results.
 	err = feeder.Run(t.Context())
@@ -607,7 +619,8 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 		600*time.Second,
 		func(ctx context.Context) (uint64, error) {
 			return 250, nil
-		})
+		},
+	)
 
 	// Should store block 100
 	require.NoError(t, feeder.Run(t.Context()))

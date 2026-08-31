@@ -466,7 +466,8 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 			tls.HTTPSPort(),
 			tls.CertFile(),
 			tls.KeyFile(),
-			config.WebServer().HTTPWriteTimeout())
+			config.WebServer().HTTPWriteTimeout(),
+		)
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), serverStartTimeoutDuration, runServer)
 	}
 

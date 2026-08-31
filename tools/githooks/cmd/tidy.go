@@ -20,19 +20,16 @@ func newTidyCmd() *cobra.Command {
 				return repoErr
 			}
 
+			// Diff against the merge-base with the default branch, not staged
+			// files or HEAD~1, so modules touched by earlier branch commits are
+			// still tidied. Matches the lint and generate commands.
 			files := args
 			if len(files) == 0 {
-				var stagedErr error
-				files, stagedErr = modules.GetStagedFiles(ctx, repoRoot)
-				if stagedErr != nil {
-					return fmt.Errorf("failed to get staged files: %w", stagedErr)
-				}
-				if len(files) == 0 {
-					var changedErr error
-					files, changedErr = modules.GetChangedFiles(ctx, repoRoot)
-					if changedErr != nil {
-						return fmt.Errorf("failed to get changed files: %w", changedErr)
-					}
+				rev := modules.GetMergeBase(ctx, repoRoot)
+				var changedErr error
+				files, changedErr = modules.GetChangedFilesSince(ctx, repoRoot, rev)
+				if changedErr != nil {
+					return fmt.Errorf("failed to get changed files: %w", changedErr)
 				}
 			}
 

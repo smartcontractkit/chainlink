@@ -190,7 +190,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	})
 }
 
-func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, methodName string, timestamp string, payload string) *api.Message {
+func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, methodName, timestamp, payload string) *api.Message {
 	messageID := "12345"
 	if methodName == "" {
 		methodName = MethodWebAPITrigger
@@ -362,7 +362,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		handler.mu.Unlock()
 	})
 
-	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
+	// TODO: Validate Senders and rate limit check, pending question in trigger about where senders and rate limits are validated
 }
 
 func TestHandleComputeActionMessage(t *testing.T) {

@@ -152,15 +152,15 @@ type Node struct {
 	App    chainlink.Application
 	Chains []uint64 // chain selectors
 	// Transmitter key/OCR keys for this node
-	Keys       Keys
-	Addr       net.TCPAddr
-	IsBoostrap bool
-	Labels     []*ptypes.Label
+	Keys        Keys
+	Addr        net.TCPAddr
+	IsBootstrap bool
+	Labels      []*ptypes.Label
 }
 
 func (n Node) MultiAddr() string {
 	a := ""
-	if n.IsBoostrap {
+	if n.IsBootstrap {
 		a = fmt.Sprintf("%s@%s", strings.TrimPrefix(n.Keys.PeerID.String(), "p2p_"), n.Addr.String())
 	}
 	return a
@@ -236,7 +236,7 @@ func (n Node) DeploymentNode() (deployment.Node, error) {
 		PeerID:         n.Keys.PeerID,
 		AdminAddr:      admin,
 		MultiAddr:      n.MultiAddr(),
-		IsBootstrap:    n.IsBoostrap,
+		IsBootstrap:    n.IsBootstrap,
 	}, nil
 }
 
@@ -317,7 +317,7 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			Ocr1Config:     nil,
 			Ocr2Config: &nodev1.OCR2Config{
 				Enabled:     true,
-				IsBootstrap: n.IsBoostrap,
+				IsBootstrap: n.IsBootstrap,
 				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
 					PeerId: n.Keys.PeerID.String(),
 				},
@@ -545,14 +545,14 @@ func NewNode(
 
 	setupJD(t, app)
 	return &Node{
-		Name:       "node-" + keys.PeerID.String(),
-		ID:         app.ID().String(),
-		App:        app,
-		Chains:     nodecfg.BlockChains.ListChainSelectors(),
-		Keys:       keys,
-		Addr:       net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: nodecfg.Port},
-		IsBoostrap: nodecfg.Bootstrap,
-		Labels:     nodeLabels,
+		Name:        "node-" + keys.PeerID.String(),
+		ID:          app.ID().String(),
+		App:         app,
+		Chains:      nodecfg.BlockChains.ListChainSelectors(),
+		Keys:        keys,
+		Addr:        net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: nodecfg.Port},
+		IsBootstrap: nodecfg.Bootstrap,
+		Labels:      nodeLabels,
 	}
 }
 

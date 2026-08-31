@@ -51,7 +51,8 @@ func fundNodesSol(t *testing.T, solChain cldf_solana.Chain, nodes []*Node) {
 		transmitter := solkeys[0]
 		err = retry.Do(func() error {
 			_, e := solChain.Client.RequestAirdrop(
-				t.Context(), transmitter.PublicKey(), 1000*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)
+				t.Context(), transmitter.PublicKey(), 1000*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed,
+			)
 			return e
 		},
 			retry.Context(t.Context()),
@@ -75,11 +76,13 @@ func enrichSolanaAirdropErr(ctx context.Context, solChain cldf_solana.Chain, air
 	if _, herr := solChain.Client.GetHealth(ctx); herr != nil {
 		return fmt.Sprintf(
 			"Solana validator RPC unreachable at %s after %d airdrop attempts: %v — validator container likely died (check runner OOM/resource pressure)",
-			solChain.URL, solanaAirdropAttempts, airdropErr)
+			solChain.URL, solanaAirdropAttempts, airdropErr,
+		)
 	}
 	return fmt.Sprintf(
 		"Solana airdrop failed after %d attempts at %s although RPC /health is ok: %v",
-		solanaAirdropAttempts, solChain.URL, airdropErr)
+		solanaAirdropAttempts, solChain.URL, airdropErr,
+	)
 }
 
 // suiGasCoinPoolSize is how many gas coins each Sui transmitter is funded with. A Sui transmitter

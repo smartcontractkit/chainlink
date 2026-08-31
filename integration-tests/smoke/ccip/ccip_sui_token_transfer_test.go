@@ -220,7 +220,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert(t *testing.T) {
 					Token:         "0x0",
 					Amount:        1e9,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -247,7 +248,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert(t *testing.T) {
 					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
 					Amount:        1500000000,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -388,7 +390,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain(t *testing.T) {
 					Token:         "0x0",
 					Amount:        1e9,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -415,7 +418,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain(t *testing.T) {
 					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
 					Amount:        1500000000,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -495,7 +499,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 					Token:         linkTokenOutput.Objects.MintedLinkTokenObjectId,
 					Amount:        2000000000,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -634,7 +639,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_DenylistedSe
 				Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
 				Amount:        1500000000,
 			},
-		}}
+		},
+	}
 
 	baseOpts := []ccipclient.SendReqOpts{
 		ccipclient.WithSourceChain(sourceChain),
@@ -794,7 +800,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
 					Amount:        999999999999,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -809,7 +816,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	})
 }
 
-func mintLinkTokenOnSui(t *testing.T, e cldf.Environment, sourceChain uint64, amount uint64) sui_ops.OpTxResult[linkops.MintLinkTokenOutput] {
+func mintLinkTokenOnSui(t *testing.T, e cldf.Environment, sourceChain, amount uint64) sui_ops.OpTxResult[linkops.MintLinkTokenOutput] {
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
@@ -905,7 +912,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 					Token:         linkTokenOutput.Objects.MintedLinkTokenObjectId,
 					Amount:        1500000000,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1122,7 +1130,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_WithRateLimit(t *testing.T)
 					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
 					Amount:        20000000000,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1188,7 +1197,8 @@ func Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_WithRateLimit(t *testing.T)
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(5e18), // send 5 LINK
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1346,7 +1356,8 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1376,7 +1387,8 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(1),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1402,7 +1414,8 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 					Token:  common.HexToAddress("0x0000000000000000000000000000000000000000"), // Invalid token
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -2085,7 +2098,7 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
 }
 
-func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64) {
+func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sourceChain, destChain uint64) {
 	e, _, _ = testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -2301,7 +2314,7 @@ func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(
 	require.Equal(t, honestExpectedExecStates, honestExecStates, "honest EVM2Sui message must execute after the rejected exploit (lane not stuck)")
 }
 
-func testSetupHelperEvm2Sui(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64, deployerSourceChain *bind.TransactOpts, suiTokenBytes []byte, suiAddr [32]byte) {
+func testSetupHelperEvm2Sui(t *testing.T) (e testhelpers.DeployedEnv, sourceChain, destChain uint64, deployerSourceChain *bind.TransactOpts, suiTokenBytes []byte, suiAddr [32]byte) {
 	e, _, _ = testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -2361,7 +2374,7 @@ func getOpTxDeps(suiChain sui.Chain) sui_ops.OpTxDeps {
 	}
 }
 
-func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertErrorMsg string, execRevertCauseErrorMsg string) {
+func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertErrorMsg, execRevertCauseErrorMsg string) {
 	require.Error(t, err)
 	fmt.Println("Error: ", err.Error())
 	require.Contains(t, err.Error(), execRevertErrorMsg)

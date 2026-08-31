@@ -82,7 +82,7 @@ func (s *Service) HealthReport() map[string]error {
 // pollAllBridges polls all registered bridges using pagination
 func (s *Service) pollAllBridges(ctx context.Context) {
 	var allBridges []bridges.BridgeType
-	var offset = 0
+	offset := 0
 
 	// Paginate through all bridges
 	for {
@@ -135,7 +135,7 @@ func (s *Service) handleBridgeError(ctx context.Context, bridgeName string, jobs
 }
 
 // pollBridge polls a single bridge's status endpoint
-func (s *Service) pollBridge(ctx context.Context, bridgeName string, bridgeURL string) {
+func (s *Service) pollBridge(ctx context.Context, bridgeName, bridgeURL string) {
 	s.eng.Debugw("Polling bridge", "bridge", bridgeName, "url", bridgeURL)
 
 	// Look up jobs associated with this bridge first

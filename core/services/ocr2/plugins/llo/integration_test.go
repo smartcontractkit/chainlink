@@ -336,7 +336,7 @@ func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.Onch
 
 	require.NoError(t, err)
 
-	return
+	return signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig
 }
 
 // generateOCR31Config maps the shared OCRConfig to ocr3_1confighelper's OCR3.1
@@ -936,7 +936,7 @@ lloConfigMode = "bluegreen"
 					},
 				}),
 			},
-			// Sample funding rate scheam
+			// Sample funding rate schema
 			4: {
 				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 				Streams: []llotypes.Stream{
@@ -1915,7 +1915,8 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     0,
 		DefaultMinReportIntervalNanoseconds: 0,
-		EnableObservationCompression:        false}
+		EnableObservationCompression:        false,
+	}
 	for _, ocr31 := range []bool{false, true} {
 		name := "OCR3.0/v30"
 		if ocr31 {
@@ -3174,7 +3175,7 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
 		})
 	}
-	return
+	return oracles, nodes
 }
 
 func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.ChannelDefinitions) (url string, sha [32]byte) {
@@ -3225,11 +3226,11 @@ func newSingleABIEncoder(typ string, multiplier *sqlutil.Big) (enc lloevm.ABIEnc
 		if err != nil {
 			panic(err)
 		}
-		return
+		return enc
 	}
 	err := json.Unmarshal(fmt.Appendf(nil, `{"type":"%s","multiplier":"%s"}`, typ, multiplier.String()), &enc)
 	if err != nil {
 		panic(err)
 	}
-	return
+	return enc
 }

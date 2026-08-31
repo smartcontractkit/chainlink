@@ -1,4 +1,4 @@
-package changelog
+package engine
 
 import (
 	"testing"
@@ -48,7 +48,7 @@ require (
 func TestParseGoMod(t *testing.T) {
 	t.Parallel()
 
-	mods, err := ParseGoMod([]byte(testGoMod))
+	mods, err := ParseGoMod([]byte(testGoMod), testProduct.Repos)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ plugins:
 func TestParsePluginsYAML(t *testing.T) {
 	t.Parallel()
 
-	plugins, err := ParsePluginsYAML([]byte(testPluginsYAML))
+	plugins, err := ParsePluginsYAML([]byte(testPluginsYAML), testProduct.Repos)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,24 +127,24 @@ func TestParsePluginsYAML(t *testing.T) {
 func TestPinFor_PrimarySelection(t *testing.T) {
 	t.Parallel()
 
-	mods, _ := ParseGoMod([]byte(testGoMod))
-	plugins, _ := ParsePluginsYAML([]byte(testPluginsYAML))
+	mods, _ := ParseGoMod([]byte(testGoMod), testProduct.Repos)
+	plugins, _ := ParsePluginsYAML([]byte(testPluginsYAML), testProduct.Repos)
 	snap := DepSnapshot{Ref: "v1", SHA: "sha", Modules: mods, Plugins: plugins}
 
 	// ccip: no plugin -> primary go.mod module.
-	ccip := pinFor(TrackedRepos[0], snap)
+	ccip := pinFor(testProduct.Repos[0], snap)
 	if ccip.PrimarySHA != "e5618f5682ee" {
 		t.Errorf("ccip primary SHA = %q", ccip.PrimarySHA)
 	}
 
 	// aptos: plugin gitRef is primary, not the codec module.
-	aptos := pinFor(TrackedRepos[1], snap)
+	aptos := pinFor(testProduct.Repos[1], snap)
 	if aptos.PrimarySHA != "e953eeb028a7" {
 		t.Errorf("aptos primary SHA = %q, want plugin gitRef SHA", aptos.PrimarySHA)
 	}
 
 	// ton: plugin primary even though go.mod module exists (same SHA here).
-	ton := pinFor(TrackedRepos[4], snap)
+	ton := pinFor(testProduct.Repos[4], snap)
 	if ton.PrimarySHA != "c52e07523035" {
 		t.Errorf("ton primary SHA = %q", ton.PrimarySHA)
 	}

@@ -62,7 +62,7 @@ func (m *mockRegistry) Get(streamID streams.StreamID) (p streams.Pipeline, exist
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	p, exists = m.pipelines[streamID]
-	return
+	return p, exists
 }
 
 func makePipelineWithSingleResult[T any](runID int64, res T, err error) *mockPipeline {
@@ -111,18 +111,21 @@ func (m *mockOpts) SeqNr() uint64 {
 	}
 	return m.seqNr
 }
+
 func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
 	if m.configDigest.Hex() == "" {
 		return ocr2types.ConfigDigest{6, 5, 4}
 	}
 	return m.configDigest
 }
+
 func (m *mockOpts) ObservationTimestamp() time.Time {
 	if m.observationTimestamp.IsZero() {
 		return time.Unix(1737936858, 0)
 	}
 	return m.observationTimestamp
 }
+
 func (m *mockOpts) LifeCycleStage() llotypes.LifeCycleStage {
 	if m.lifeCycleStage == "" {
 		return lloprotocol.LifeCycleStageProduction
@@ -152,6 +155,7 @@ func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.
 	defer m.mu.Unlock()
 	m.v3PremiumLegacyPackets = append(m.v3PremiumLegacyPackets, v3PremiumLegacyPacket{run, trrs, streamID, opts, val, err})
 }
+
 func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts telem.DSOpts, size int) (ch chan<- any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -159,12 +163,14 @@ func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts telem.DSOpts, size
 
 	return m.ch
 }
+
 func (m *mockTelemeter) GetOutcomeTelemetryCh() chan<- *lloprotocol.LLOOutcomeTelemetry {
 	return nil
 }
 func (m *mockTelemeter) GetReportTelemetryCh() chan<- *lloprotocol.LLOReportTelemetry { return nil }
 func (m *mockTelemeter) CaptureEATelemetry() bool                                     { return true }
-func (m *mockTelemeter) CaptureObservationTelemetry() bool                            { return true }
+
+func (m *mockTelemeter) CaptureObservationTelemetry() bool { return true }
 
 var observationTimeout = 500 * time.Millisecond
 
@@ -249,6 +255,39 @@ func Test_DataSource(t *testing.T) {
 				2: lloprotocol.ToDecimal(decimal.NewFromInt(40602)),
 				3: lloprotocol.ToDecimal(decimal.NewFromInt(15)),
 			}, vals, "vals: %v", vals)
+			ds.Close()
+		})
+
+		t.Run("caches nothing for a pipeline whose quote violates the bid/benchmark/ask invariant", func(t *testing.T) {
+			t.Parallel()
+			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+
+			reg.mu.Lock()
+			sids := []streams.StreamID{1, 2, 3}
+			multi := makePipelineWithMultipleStreamResults(sids, []any{
+				decimal.NewFromInt(2181),
+				decimal.NewFromInt(40602),
+				map[string]any{
+					"streamValueType": int64(lloprotocol.LLOStreamValue_Quote),
+					"bid":             "9.9", // above the benchmark
+					"benchmark":       "2.2",
+					"ask":             "3.3",
+				},
+			})
+			for _, sid := range sids {
+				reg.pipelines[sid] = multi
+			}
+			reg.mu.Unlock()
+
+			vals := makeStreamValues()
+			ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
+			defer cancel()
+			require.NoError(t, ds.Observe(ctx, vals, opts))
+
+			// The whole group failed, so nothing was cached: every stream of the
+			// pipeline stays nil, not just the one with the bad quote.
+			assert.Equal(t, makeStreamValues(), vals, "vals: %v", vals)
 			ds.Close()
 		})
 

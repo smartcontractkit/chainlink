@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -57,7 +58,7 @@ type ORM interface {
 // has completed initialization (including trigger subscriptions). For v2 engines, this is wired to
 // the OnInitialized lifecycle hook. For v1 legacy DAG engines, nil is sent immediately after engine
 // creation since they don't support async initialization hooks.
-type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
+type engineFactoryFn func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
 
 type DrainableService interface {
 	Drain() bool
@@ -147,7 +148,7 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 
 func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ string, _ []byte, _ []byte, _ string, initDone chan<- error) (services.Service, error) {
+		e.engineFactory = func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, initDone chan<- error) (services.Service, error) {
 			// For static engines (used in tests), signal immediate initialization success
 			if initDone != nil {
 				initDone <- nil
@@ -580,6 +581,17 @@ func (h *eventHandler) workflowActivatedEvent(
 	return h.workflowRegisteredEvent(ctx, registeredPayload)
 }
 
+// workflowTagBackfillActive reports whether the cresettings
+// PerWorkflow.FeatureWorkflowTagBackfillActivePeriod window covers time.Now().
+// Fail-closed: any error or missing limiter is treated as inactive so a
+// misconfigured deploy cannot silently start rewriting workflow_tag.
+func (h *eventHandler) workflowTagBackfillActive(ctx context.Context) bool {
+	if h.featureFlags == nil || h.featureFlags.WorkflowTagBackfill == nil {
+		return false
+	}
+	return h.featureFlags.WorkflowTagBackfill.Check(ctx, config.Timestamp(time.Now().Unix())) == nil
+}
+
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
 // This method must remain idempotent and must not error if retried multiple times.
 // workflowRegisteredEvent proceeds in two phases:
@@ -647,7 +659,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		// Status-only flip: no artifact-persistence transition, no delta.
 	}
 
-	// backfill registered_at, source when necessary
+	// backfill registered_at, source, workflow_tag when necessary
 	backfill := false
 	if spec.RegisteredAt == 0 && payload.CreatedAt > 0 {
 		spec.RegisteredAt = int64(payload.CreatedAt) //nolint:gosec // G115: CreatedAt is a timestamp that cannot overflow int64
@@ -657,9 +669,40 @@ func (h *eventHandler) workflowRegisteredEvent(
 		spec.Source = payload.Source
 		backfill = true
 	}
+	// WorkflowTag is used by remote capability requests; an empty local value
+	// diverges the request hash from nodes that have the on-chain tag. Gated by
+	// cresettings PerWorkflow.FeatureWorkflowTagBackfillActivePeriod: the
+	// backfill only fires when time.Now() falls inside the configured window,
+	// so ops can coordinate a healing pass across the DON. Default window is
+	// far-future, so a fresh deploy is a no-op.
+	var (
+		tagBackfilled bool
+		tagBefore     string
+	)
+	if h.workflowTagBackfillActive(ctx) &&
+		spec.WorkflowTag != payload.WorkflowTag && payload.WorkflowTag != "" {
+		tagBefore = spec.WorkflowTag
+		spec.WorkflowTag = payload.WorkflowTag
+		backfill = true
+		tagBackfilled = true
+	}
 	if backfill {
 		if _, err := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); err != nil {
-			h.lggr.Warnw("failed to backfill registered_at/source", "workflowID", spec.WorkflowID, "err", err)
+			h.lggr.Warnw("failed to backfill registered_at/source/workflow_tag", "workflowID", spec.WorkflowID, "err", err)
+		} else if tagBackfilled {
+			reason := "refreshed"
+			if tagBefore == "" {
+				reason = "filled_empty"
+			}
+			h.lggr.Infow("backfilled workflow_tag",
+				"workflowID", spec.WorkflowID,
+				"workflowOwner", spec.WorkflowOwner,
+				"workflowName", spec.WorkflowName,
+				"tagBefore", tagBefore,
+				"tagAfter", spec.WorkflowTag,
+				"reason", reason,
+			)
+			h.metrics.incrementWorkflowTagBackfill(ctx, reason)
 		}
 	}
 
@@ -783,7 +826,7 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 	return organizationID, nil
 }
 
-func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 	var sdkName string
@@ -1304,7 +1347,8 @@ func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
 				return fmt.Errorf("capabilities registry not ready: %w", err)
 			}
 			return nil
-		})
+		},
+	)
 }
 
 // customerFacingError returns a deterministic, user-actionable error for beholder emission.
