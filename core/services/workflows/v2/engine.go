@@ -301,8 +301,8 @@ type resolvedOrg struct {
 	Reason string
 }
 
-// HandleTriggerEvent is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
-func (e *Engine) HandleTriggerEvent(ctx context.Context, event trigger.RoutedTriggerEvent) error {
+// ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
+func (e *Engine) ExecuteTrigger(ctx context.Context, event trigger.RoutedTriggerEvent) error {
 	e.activeExecutions.Add(1)
 	defer e.activeExecutions.Add(-1)
 
@@ -844,7 +844,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			}
 			// Legacy path ignores the error on purpose. startExecution already handles all errors internally. not handling here to avoid duplication.
 			// future dispatcher admitter (CRE-6176) will use this error.
-			_ = e.HandleTriggerEvent(ctx, routed)
+			_ = e.ExecuteTrigger(ctx, routed)
 		})
 	}
 }

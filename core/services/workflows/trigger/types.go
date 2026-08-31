@@ -9,7 +9,7 @@ import (
 
 // EventSink is how trigger events are delivered to an engine for execution.
 type EventSink interface {
-	HandleTriggerEvent(ctx context.Context, event RoutedTriggerEvent) error
+	ExecuteTrigger(ctx context.Context, event RoutedTriggerEvent) error
 }
 
 // Acknowledger acknowledges a trigger event without the engine owning the

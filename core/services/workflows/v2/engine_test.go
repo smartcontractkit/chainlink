@@ -2415,7 +2415,7 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 	_ = cfg // Keep reference
 }
 
-func TestEngine_HandleTriggerEvent(t *testing.T) {
+func TestEngine_ExecuteTrigger(t *testing.T) {
 	t.Parallel()
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -2492,7 +2492,7 @@ func TestEngine_HandleTriggerEvent(t *testing.T) {
 				Once()
 		})
 
-		err := ew.engine.HandleTriggerEvent(ctx, makeEvent("happy_event"))
+		err := ew.engine.ExecuteTrigger(ctx, makeEvent("happy_event"))
 		require.NoError(t, err)
 
 		require.Equal(t, "completed", <-ew.executionFinishedCh)
@@ -2515,7 +2515,7 @@ func TestEngine_HandleTriggerEvent(t *testing.T) {
 
 		// startExecution catches the error internally and returns nil —
 		// the execution ran, it just failed. The error surfaces via hooks.
-		err := ew.engine.HandleTriggerEvent(ctx, makeEvent("module_error_event"))
+		err := ew.engine.ExecuteTrigger(ctx, makeEvent("module_error_event"))
 		require.NoError(t, err)
 
 		require.Equal(t, "errored", <-ew.executionFinishedCh)
@@ -2540,7 +2540,7 @@ func TestEngine_HandleTriggerEvent(t *testing.T) {
 				Once()
 		})
 
-		err := ew.engine.HandleTriggerEvent(ctx, makeEvent("result_error_event"))
+		err := ew.engine.ExecuteTrigger(ctx, makeEvent("result_error_event"))
 		require.NoError(t, err)
 
 		require.Equal(t, "errored", <-ew.executionFinishedCh)
@@ -2567,12 +2567,12 @@ func TestEngine_HandleTriggerEvent(t *testing.T) {
 		event := makeEvent("dup_event")
 
 		// First call succeeds.
-		err := ew.engine.HandleTriggerEvent(ctx, event)
+		err := ew.engine.ExecuteTrigger(ctx, event)
 		require.NoError(t, err)
 		require.Equal(t, "completed", <-ew.executionFinishedCh)
 
 		// Second call with the same event ID must be rejected.
-		err = ew.engine.HandleTriggerEvent(ctx, event)
+		err = ew.engine.ExecuteTrigger(ctx, event)
 		require.ErrorIs(t, err, v2.ErrDuplicateExecution)
 
 		// No second execution should have fired.
