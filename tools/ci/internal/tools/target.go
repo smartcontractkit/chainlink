@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Target represents a runnable Go test target in the tools directory.
+// Target represents a runnable Go test target.
 type Target struct {
 	Name        string `json:"name"`
 	Dir         string `json:"dir"`

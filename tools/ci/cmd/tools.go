@@ -131,19 +131,35 @@ func getGitChangedFiles(ctx context.Context, repoRoot, baseRef string) ([]string
 	if baseRef == "" {
 		baseRef = os.Getenv("GITHUB_BASE_REF")
 	}
-	if baseRef == "" {
-		baseRef = "origin/develop"
+
+	var candidates []string
+	if baseRef != "" {
+		candidates = append(candidates, baseRef)
+		if !strings.HasPrefix(baseRef, "origin/") {
+			candidates = append(candidates, "origin/"+baseRef)
+		}
+	}
+	candidates = append(candidates, "origin/develop", "develop")
+
+	var (
+		out []byte
+		err error
+	)
+
+	for _, ref := range candidates {
+		// #nosec G204,G702
+		diffCmd := exec.CommandContext(ctx, "git", "diff", "--name-only", ref+"...HEAD")
+		diffCmd.Dir = repoRoot
+		out, err = diffCmd.Output()
+		if err == nil {
+			break
+		}
 	}
 
-	// Try git diff against baseRef
-	// #nosec G204,G702
-	diffCmd := exec.CommandContext(ctx, "git", "diff", "--name-only", baseRef+"...HEAD")
-	diffCmd.Dir = repoRoot
-	out, err := diffCmd.Output()
 	if err != nil {
 		// Fallback to diff against HEAD~1
 		// #nosec G204
-		diffCmd = exec.CommandContext(ctx, "git", "diff", "--name-only", "HEAD~1")
+		diffCmd := exec.CommandContext(ctx, "git", "diff", "--name-only", "HEAD~1")
 		diffCmd.Dir = repoRoot
 		out, err = diffCmd.Output()
 		if err != nil {

@@ -32,14 +32,6 @@ jobs:
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
         }}
-      should-run-tools-tests: >-
-        ${{
-          steps.match-some.outputs.workflow == 'true' ||
-          steps.match-some.outputs.tools == 'true' ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
-        }}
-      tools-matrix: ${{ steps.tools-matrix.outputs.matrix }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -58,8 +50,6 @@ jobs:
             workflow:
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
-            tools:
-              - 'tools/**'
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: match-every
         with:
@@ -168,15 +158,6 @@ jobs:
             **
             !core/scripts/cre/environment/examples/workflows/**
 
-      - name: Setup CI CLI
-        uses: ./.github/actions/setup-ci-cli
-
-      - name: Generate tools test matrix
-        id: tools-matrix
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_BASE_REF: ${{ github.base_ref }}
-        run: ci tools matrix
 
   golangci:
     name: GolangCI Lint
@@ -565,34 +546,6 @@ jobs:
             ./coverage.txt
           retention-days: 7
 
-  tools-tests:
-    name: Tools Unit Tests (${{ matrix.target.name }})
-    needs: [filter]
-    if: ${{ needs.filter.outputs.tools-matrix != '[]' && needs.filter.outputs.tools-matrix != '' }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target: ${{ fromJson(needs.filter.outputs.tools-matrix) }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: ${{ matrix.target.dir }}/go.mod
-          cache: true
-          cache-dependency-path: |
-            go.sum
-            tools/**/go.sum
-
-      - name: Setup gotestsum
-        uses: ./.github/actions/setup-gotestsum
-
-      - name: Run tests
-        working-directory: ${{ matrix.target.dir }}
-        run: gotestsum --format github-actions -- ${{ matrix.target.packages }}
 
   clean:
     name: Clean Go Tidy & Generate

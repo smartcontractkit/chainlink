@@ -1,0 +1,73 @@
+name: CI Tools
+run-name: CI Tools
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-tools-tests
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - develop
+      - "release/*"
+  merge_group:
+  pull_request:
+    paths:
+      - "tools/**"
+      - ".github/workflows/ci-tools.yml"
+      - ".github/actions/**"
+  schedule:
+    - cron: "0 0,1,2,3,4,5,6,20,21,22,23 * * *"
+  workflow_dispatch:
+
+jobs:
+  matrix:
+    name: Generate Tools Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.tools-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+
+      - name: Setup CI CLI
+        uses: ./.github/actions/setup-ci-cli
+
+      - name: Generate tools test matrix
+        id: tools-matrix
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: ci tools matrix
+
+  tools-tests:
+    name: Tools Unit Tests (${{ matrix.target.name }})
+    needs: [matrix]
+    if: ${{ needs.matrix.outputs.matrix != '[]' && needs.matrix.outputs.matrix != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ matrix.target.dir }}/go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            tools/**/go.sum
+
+      - name: Setup gotestsum
+        uses: ./.github/actions/setup-gotestsum
+
+      - name: Run tests
+        working-directory: ${{ matrix.target.dir }}
+        run: gotestsum --format github-actions -- ${{ matrix.target.packages }}
