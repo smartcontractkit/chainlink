@@ -76,6 +76,7 @@ require (
 	github.com/go-openapi/swag/stringutils v0.25.4 // indirect
 	github.com/go-openapi/swag/typeutils v0.25.4 // indirect
 	github.com/go-openapi/swag/yamlutils v0.25.4 // indirect
+	github.com/smartcontractkit/chainlink-ccip/chains/solana/deployment v0.0.0-20260828182042-4bb1a87ff7dd // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
@@ -573,6 +574,14 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 
 // requires https://github.com/gagliardetto/binary/pull/12 to parse optional values in ParseEventSol
 replace github.com/gagliardetto/binary => github.com/archseer/binary v0.0.0-20250226104222-b87d7f4fd58a
+
+// DEV-ONLY (chainlink-ccip PR #2239, branch solana-contracts/v1.6.4-candidate): the ccipsolana
+// SuiExtraArgsV1 codec arm references fee_quoter.SuiExtraArgsV1, which is only generated on the
+// candidate branch. Point the Solana submodules at a local checkout of that branch until the PR
+// merges and a tagged release is pulled in via the nix pin. REVERT these two lines before committing.
+replace github.com/smartcontractkit/chainlink-ccip/chains/solana => /tmp/chainlink-ccip-v164-candidate/chains/solana
+
+replace github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings => /tmp/chainlink-ccip-v164-candidate/chains/solana/gobindings
 
 // Exclude Juno's placeholder dependency. It is only intended to be resolved via
 // Juno's local replace directive and is not used directly by chainlink
