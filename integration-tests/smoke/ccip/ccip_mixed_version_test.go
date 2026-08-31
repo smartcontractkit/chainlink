@@ -94,9 +94,6 @@ func Test_CCIPMixedVersionDON(t *testing.T) {
 		)
 	)
 
-	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
-	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
-
 	t.Run("data message to eoa on mixed version DON", func(t *testing.T) {
 		out = mt.Run(
 			t,
@@ -197,9 +194,6 @@ func Test_CCIPRollingUpgrade(t *testing.T) {
 			false, // testRouter
 		)
 	)
-
-	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
-	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
 	// Send a baseline message before any upgrades.
 	t.Run("baseline message before upgrade", func(t *testing.T) {
