@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -23,14 +24,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	cldlegacysolmcms "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
@@ -65,6 +62,8 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
@@ -190,14 +189,8 @@ func ReplayLogs(t *testing.T, oc cldf_offchain.Client, replayBlocks map[uint64]u
 // start): RescanFrom re-emits the below-watermark checkpoints directly, bypassing the stalled live
 // poller. The replay window is the default ReplayCheckpointCount (100), re-scanning only ~100
 // checkpoints from the pre-send tip — matching the prior bind-rescan volume, not the whole chain.
-// This is a blind sleep (WaitForEventFilterRegistration is a no-op for Sui — the harness has no
-// signal for when the relayer registered its CCIP event selectors), so the value is a
-// flake-risk-vs-wall-clock trade-off rather than a derived constant. 20s leaves comfortable margin
-// over a realistic bind: the relayer is already running and the Sui RPC is synced by the time the
-// test reaches the replay, and the upgrade end-to-end test self-settles via its long pre-work with
-// no explicit sleep. Drop further only if CI stays green across slow/loaded runners — below ~10s
-// risks racing the bind under load.
-const suiSourceReplaySettle = 25 * time.Second
+// Tunable down once Sui chainreader bind timing is confirmed.
+const suiSourceReplaySettle = 30 * time.Second
 
 // ReplaySuiSourceFromCheckpoint settles (so the relayer has registered its CCIP event selectors) and
 // then replays a Sui source chain from the given checkpoint sequence so the relayer re-indexes onramp
@@ -380,7 +373,7 @@ func LatestBlocksByChain(ctx context.Context, env cldf.Environment) (map[uint64]
 	return latestBlocks, nil
 }
 
-func allocateCCIPChainSelectors(chains map[uint64]cldf_evm.Chain) (homeChainSel uint64, feeChainSel uint64) {
+func allocateCCIPChainSelectors(chains map[uint64]cldf_evm.Chain) (homeChainSel, feeChainSel uint64) {
 	// Lower chainSel is home chain.
 	var chainSels []uint64
 	// Say first chain is home chain.
@@ -797,7 +790,11 @@ func SendRequestSol(
 			return nil, err
 		}
 
-		tokenIndexes = append(tokenIndexes, byte(len(base.AccountMetaSlice)-requiredAccounts))
+		idx := len(base.AccountMetaSlice) - requiredAccounts
+		if idx > math.MaxUint8 {
+			return nil, fmt.Errorf("too many token accounts, overflows uint8: %d", idx)
+		}
+		tokenIndexes = append(tokenIndexes, byte(idx)) //nolint:gosec // G115
 		base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
 		maps.Copy(addressTables, tokenAddressTables)
 	}
@@ -951,8 +948,10 @@ func MatchTokenToTokenPool(ctx context.Context, client *rpc.Client, tokenPubKey 
 }
 
 // bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
-const GenericExtraArgsV2Tag = "0x181dcf10"
-const SVMExtraArgsV1Tag = "0x1f3b3aba"
+const (
+	GenericExtraArgsV2Tag = "0x181dcf10"
+	SVMExtraArgsV1Tag     = "0x1f3b3aba"
+)
 
 // MakeEVMExtraArgsV2 creates the extra args for the EVM2Any message that is destined
 // for an EVM chain. The extra args contain the gas limit and allow out of order flag.
@@ -1736,13 +1735,13 @@ func NewMintTokenInfo(auth *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnM
 	return MintTokenInfo{auth: auth, tokens: tokens}
 }
 
-func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnMintERC677) MintTokenInfo {
+func NewMintTokenWithCustomSender(auth, sender *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnMintERC677) MintTokenInfo {
 	return MintTokenInfo{auth: auth, sender: sender, tokens: tokens}
 }
 
 // ApproveToken approves the router to spend the given amount of tokens
 // Keeping this proxy method in order to not break compatibility
-func ApproveToken(env cldf.Environment, src uint64, tokenAddress common.Address, routerAddress common.Address, amount *big.Int) error {
+func ApproveToken(env cldf.Environment, src uint64, tokenAddress, routerAddress common.Address, amount *big.Int) error {
 	evmChains := env.BlockChains.EVMChains()
 	ch, ok := evmChains[src]
 	if !ok {
@@ -1936,8 +1935,6 @@ func TransferMultiple(
 	expectedExecutionStates := make(map[SourceDestPair]map[uint64]int)
 	expectedTokenBalances := make(TokenBalanceAccumulator)
 
-	// Capture each Sui source's latest checkpoint before any send so we can replay from it
-	// afterwards (replaces the removed bind-time RescanRecent — see ReplaySuiSourceFromCheckpoint).
 	suiSourceStarts := make(map[uint64]uint64)
 	for _, tt := range requests {
 		family, err := chainsel.GetSelectorFamily(tt.SourceChain)
@@ -1998,7 +1995,8 @@ func TransferMultiple(
 			}
 
 			msg, blocks := Transfer(
-				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs, tt.FeeToken)
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs, tt.FeeToken,
+			)
 			if _, ok := expectedExecutionStates[pairId]; !ok {
 				expectedExecutionStates[pairId] = make(map[uint64]int)
 			}
@@ -2040,7 +2038,8 @@ type TokenBalanceAccumulator map[uint64][]ExpectedTokenBalance
 func (t TokenBalanceAccumulator) add(
 	destChain uint64,
 	receiver []byte,
-	expectedBalances []ExpectedBalance) {
+	expectedBalances []ExpectedBalance,
+) {
 	for _, expected := range expectedBalances {
 		token := expected.Token
 		balance := expected.Amount
@@ -2379,7 +2378,7 @@ func TransferOwnershipSolanaV0_1_0(
 	solSelector uint64,
 	needTimelockDeployed bool,
 	contractsToTransfer ccipChangeSetSolanaV0_1_0.CCIPContractsToTransfer,
-) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
+) (timelockSignerPDA, mcmSignerPDA solana.PublicKey) {
 	var err error
 	if needTimelockDeployed {
 		*e, _, err = commoncs.ApplyChangesets(t, *e, []commoncs.ConfiguredChangeSet{
@@ -2437,9 +2436,7 @@ func GenTestTransferOwnershipConfig(
 	state stateview.CCIPOnChainState,
 	withTestRouterTransfer bool,
 ) mcmschangesets.TransferToMCMSWithTimelockConfig {
-	var (
-		contracts = make(map[uint64][]common.Address)
-	)
+	contracts := make(map[uint64][]common.Address)
 
 	// chain contracts
 	for _, chain := range chains {
@@ -2548,9 +2545,9 @@ func UpdateFeeQuoterForToken(
 						},
 					},
 				},
-			}),
+			},
+		),
 	)
-
 	if err != nil {
 		lggr.Errorw("Failed to apply token transfer fee config updates", "err", err, "config", config)
 		return err
