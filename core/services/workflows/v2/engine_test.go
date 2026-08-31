@@ -58,6 +58,7 @@ import (
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -2447,13 +2448,15 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 
 	// newTestEngine creates a fresh engine + hooks for each subtest.
 	// setupModule is called to set module expectations BEFORE NewEngine.
+	// Optional cfgFn overrides are applied to the per-subtest config copy
+	// (e.g. sharding, billing) before the engine is constructed.
 	type engineWithChans struct {
 		engine              *v2.Engine
 		executionFinishedCh chan string // receives status
 		executionErrorCh    chan string // receives error message
 		resultReceivedCh    chan *sdkpb.ExecutionResult
 	}
-	newTestEngine := func(t *testing.T, setupModule func(module *modulemocks.ModuleV2)) engineWithChans {
+	newTestEngine := func(t *testing.T, setupModule func(module *modulemocks.ModuleV2), cfgFn ...func(*v2.EngineConfig)) engineWithChans {
 		t.Helper()
 		module := modulemocks.NewModuleV2(t)
 		setupModule(module)
@@ -2474,6 +2477,9 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 			OnResultReceived: func(res *sdkpb.ExecutionResult) {
 				resultReceivedCh <- res
 			},
+		}
+		for _, fn := range cfgFn {
+			fn(&testCfg)
 		}
 
 		engine, err := v2.NewEngine(&testCfg)
@@ -2583,6 +2589,100 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		}
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
+
+	t.Run("shard denial not owner returns ErrShardDeniedNotOwner", func(t *testing.T) {
+		t.Parallel()
+		ack := &recordingAcknowledger{}
+		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+			// No Module.Execute expectation: the execution must never reach WASM.
+		}, func(cfg *v2.EngineConfig) {
+			cfg.ShardingEnabled = true
+			cfg.MyShardID = 1
+			cfg.ShardResolver = &stubShardResolver{shardID: 2, found: true}
+			cfg.TriggerAcknowledger = ack
+		})
+
+		err := ew.engine.ExecuteTrigger(ctx, makeEvent("shard_not_owner_event"))
+		require.ErrorIs(t, err, v2.ErrShardDeniedNotOwner)
+
+		// The engine ACKs the skipped event before returning.
+		registrationID := v2.TriggerRegistrationID(baseCfg.WorkflowID, 0)
+		require.Equal(t, []string{registrationID + "/shard_not_owner_event"}, ack.ackCalls())
+
+		// No execution lifecycle hooks should have fired.
+		select {
+		case status := <-ew.executionFinishedCh:
+			t.Fatalf("unexpected OnExecutionFinished: %s", status)
+		default:
+		}
+		select {
+		case msg := <-ew.executionErrorCh:
+			t.Fatalf("unexpected OnExecutionError: %s", msg)
+		default:
+		}
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
+
+	t.Run("shard resolver error returns ErrShardDeniedOrchestrator", func(t *testing.T) {
+		t.Parallel()
+		ack := &recordingAcknowledger{}
+		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+			// No Module.Execute expectation: the execution must never reach WASM.
+		}, func(cfg *v2.EngineConfig) {
+			cfg.ShardingEnabled = true
+			cfg.MyShardID = 1
+			cfg.ShardResolver = &stubShardResolver{err: errors.New("ring ocr unavailable")}
+			cfg.TriggerAcknowledger = ack
+		})
+
+		err := ew.engine.ExecuteTrigger(ctx, makeEvent("shard_orchestrator_error_event"))
+		require.ErrorIs(t, err, v2.ErrShardDeniedOrchestrator)
+
+		// The engine ACKs the skipped event before returning.
+		registrationID := v2.TriggerRegistrationID(baseCfg.WorkflowID, 0)
+		require.Equal(t, []string{registrationID + "/shard_orchestrator_error_event"}, ack.ackCalls())
+
+		select {
+		case status := <-ew.executionFinishedCh:
+			t.Fatalf("unexpected OnExecutionFinished: %s", status)
+		default:
+		}
+		select {
+		case msg := <-ew.executionErrorCh:
+			t.Fatalf("unexpected OnExecutionError: %s", msg)
+		default:
+		}
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
+
+	t.Run("metering reserve failure returns ErrMeteringReserveFailed", func(t *testing.T) {
+		t.Parallel()
+		ack := &recordingAcknowledger{}
+		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+			// No Module.Execute expectation: the execution must never reach WASM.
+		}, func(cfg *v2.EngineConfig) {
+			cfg.BillingClient = setupFailingReserveBillingClient(t)
+			cfg.TriggerAcknowledger = ack
+		})
+
+		err := ew.engine.ExecuteTrigger(ctx, makeEvent("metering_reserve_failed_event"))
+		require.ErrorIs(t, err, v2.ErrMeteringReserveFailed)
+
+		// No ACK is sent on metering reserve failure; the caller may retry.
+		require.Empty(t, ack.ackCalls())
+
+		select {
+		case status := <-ew.executionFinishedCh:
+			t.Fatalf("unexpected OnExecutionFinished: %s", status)
+		default:
+		}
+		select {
+		case msg := <-ew.executionErrorCh:
+			t.Fatalf("unexpected OnExecutionError: %s", msg)
+		default:
+		}
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
 }
 
 // setupMockBillingClient creates a mock billing client with default expectations.
@@ -2619,6 +2719,73 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 		})).
 		Return(&emptypb.Empty{}, nil).Maybe()
 	return billingClient
+}
+
+// setupFailingReserveBillingClient creates a mock billing client whose
+// ReserveCredits call fails (Success: false), which drives the engine to
+// return ErrMeteringReserveFailed.
+func setupFailingReserveBillingClient(t *testing.T) *metmocks.BillingClient {
+	billingClient := metmocks.NewBillingClient(t)
+
+	billingClient.EXPECT().
+		GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+		Return(&billing.GetWorkflowExecutionRatesResponse{
+			RateCards: []*billing.RateCard{
+				{
+					ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+					UnitsPerCredit:  "0.0001",
+				},
+			},
+		}, nil)
+	billingClient.EXPECT().
+		ReserveCredits(mock.Anything, mock.Anything).
+		Return(&billing.ReserveCreditsResponse{
+			Success: false,
+		}, nil)
+	return billingClient
+}
+
+// stubShardResolver is a fixed-response shardownership.ShardResolver for engine tests.
+type stubShardResolver struct {
+	shardID uint32
+	found   bool
+	err     error
+}
+
+var _ shardownership.ShardResolver = (*stubShardResolver)(nil)
+
+func (s *stubShardResolver) ResolveShard(_ context.Context, _ string, _ string) (uint32, bool, error) {
+	return s.shardID, s.found, s.err
+}
+
+func (s *stubShardResolver) ResolveShards(_ context.Context, _ []string, _ []string) (map[string]uint32, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return map[string]uint32{}, nil
+}
+
+// recordingAcknowledger records Ack calls so tests can assert the engine's
+// ACK contract on execution-intrinsic gate failures.
+type recordingAcknowledger struct {
+	mu    sync.Mutex
+	calls []string
+}
+
+var _ v2.Acknowledger = (*recordingAcknowledger)(nil)
+
+func (a *recordingAcknowledger) Ack(_ context.Context, _ string, triggerRegistrationID, eventID string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.calls = append(a.calls, triggerRegistrationID+"/"+eventID)
+	return nil
+}
+
+func (a *recordingAcknowledger) ackCalls() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]string(nil), a.calls...)
 }
 
 type observedBaseMessage struct {
