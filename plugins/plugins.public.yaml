@@ -10,7 +10,7 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260708114855-e953eeb028a7"
+      gitRef: "v0.0.0-20260729172123-588778bf8e20"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
@@ -18,7 +18,7 @@ plugins:
       # IMP: consult chainlink-sui team before updating this version
       # Must track the gRPC-migrated chainlink-sui used in go.mod, otherwise the DON runs a
       # pre-migration relayer (no gRPC ChainPoller) and never observes Sui source events.
-      gitRef: "v0.0.0-20260821005832-e896796fceed"
+      gitRef: "v0.0.0-20260827120130-362c4a408695"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
