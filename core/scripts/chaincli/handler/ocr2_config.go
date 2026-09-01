@@ -13,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/renderer"
+	"github.com/olekukonko/tablewriter/tw"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
@@ -98,7 +100,7 @@ func configFromBlock(bl *types.Block, addr common.Address, detail keeper_registr
 	return nil, errors.New("public config not found")
 }
 
-func printConfigValues(config *confighelper.PublicConfig) {
+func printConfigValues(config *confighelper.PublicConfig) error {
 	data := [][]string{}
 
 	data = append(data, []string{"DeltaProgress", config.DeltaProgress.String()})
@@ -127,9 +129,11 @@ func printConfigValues(config *confighelper.PublicConfig) {
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Field", "Value"})
+	table.Header([]string{"Field", "Value"})
 	// table.SetFooter([]string{"", "", "Total", "$146.93"}) // Add Footer
-	table.SetBorder(false) // Set Border to false
-	table.AppendBulk(data) // Add Bulk Data
-	table.Render()
+	table.Options(tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{Borders: tw.BorderNone})))
+	if err := table.Bulk(data); err != nil { // Add Bulk Data
+		return err
+	}
+	return table.Render()
 }
