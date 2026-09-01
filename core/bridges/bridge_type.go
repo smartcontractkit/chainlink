@@ -55,16 +55,16 @@ type BridgeTypeAuthentication struct {
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name                   BridgeName
-	URL                    models.WebURL
-	Confirmations          uint32
-	IncomingTokenHash      string
-	Salt                   string
-	OutgoingToken          string
-	MinimumContractPayment *assets.Link
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
-	UseConnectionManager   bool `json:"useConnectionManager"`
+	Name                   BridgeName     `db:"name"`
+	URL                    models.WebURL    `db:"url"`
+	Confirmations          uint32          `db:"confirmations"`
+	IncomingTokenHash      string          `db:"incoming_token_hash"`
+	Salt                   string          `db:"salt"`
+	OutgoingToken          string          `db:"outgoing_token"`
+	MinimumContractPayment *assets.Link   `db:"minimum_contract_payment"`
+	CreatedAt              time.Time       `db:"created_at"`
+	UpdatedAt              time.Time       `db:"updated_at"`
+	UseConnectionManager   bool            `db:"use_connection_manager" json:"useConnectionManager"`
 }
 
 // NewBridgeType returns a bridge type authentication (with plaintext

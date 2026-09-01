@@ -344,6 +344,13 @@ const (
 	TaskTypeVRFV2            TaskType = "vrfv2"
 	TaskTypeVRFV2Plus        TaskType = "vrfv2plus"
 
+	// Experimental tasks — not yet stable, subject to change.
+	TaskTypeSample          TaskType = "sample"
+	TaskTypeNormalize       TaskType = "normalize"
+	TaskTypeStaleness       TaskType = "staleness"
+	TaskTypeWinsorizedMean  TaskType = "winsorizedmean"
+	TaskTypeWeightedMean    TaskType = "weightedmean"
+
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
 	TaskTypeMemo  TaskType = "memo"
@@ -447,6 +454,16 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) 
 		task = &Base64EncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeCoalesce:
 		task = &CoalesceTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeSample:
+		task = &SampleTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeNormalize:
+		task = &NormalizeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeStaleness:
+		task = &StalenessTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeWinsorizedMean:
+		task = &WinsorizedMeanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeWeightedMean:
+		task = &WeightedMeanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, pkgerrors.Errorf(`unknown task type: "%v"`, taskType)
 	}
