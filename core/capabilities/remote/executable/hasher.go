@@ -262,6 +262,7 @@ func applyMetadataFields(ctx context.Context, md capabilities.RequestMetadata, c
 	result := baseMetadataFields(md)
 	ts := config.Timestamp(md.ExecutionTimestamp.Unix())
 
+	ctx = md.ContextWithCRE(ctx)
 	if cfg.IncludeWorkflowTag != nil {
 		if err := cfg.IncludeWorkflowTag.Check(ctx, ts); err == nil {
 			result.WorkflowTag = md.WorkflowTag
