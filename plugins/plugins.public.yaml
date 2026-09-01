@@ -10,7 +10,7 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260708114855-e953eeb028a7"
+      gitRef: "v0.0.0-20260828090428-9828cc37ebc2"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
@@ -36,7 +36,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.3.1-0.20260803170030-90043607d911"
+      gitRef: "v1.3.1-0.20260828163002-995f1f057c76"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
@@ -71,29 +71,29 @@ plugins:
 
   capability-cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "127afb79d5b5bef542aca04b9308c787d483d3cf"
+      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
       installPath: "."
       flags: "-tags timetzdata"
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "977e430d6ff4db1fba42a4d8a20bc92c8b2ceaba"
+      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
       installPath: "."
 
   capability-workflowevent:
     - enabled: false
       moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
-      gitRef: "977e430d6ff4db1fba42a4d8a20bc92c8b2ceaba"
+      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
       installPath: "."
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "977e430d6ff4db1fba42a4d8a20bc92c8b2ceaba"
+      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "977e430d6ff4db1fba42a4d8a20bc92c8b2ceaba"
+      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
       installPath: "."
 
   capability-evm:
@@ -103,7 +103,7 @@ plugins:
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "0de7433796544b33fd29c66d592b3a913d59f7e2"
+      gitRef: "0586555e87afe32461b557a2ad046f71fc48255a"
       installPath: "."
 
   capability-aptos:

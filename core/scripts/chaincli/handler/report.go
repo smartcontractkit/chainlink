@@ -18,6 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/renderer"
+	"github.com/olekukonko/tablewriter/tw"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -128,13 +130,13 @@ func OCR2AutomationReports(hdlr *baseHandler, txs []string) error {
 	})
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Hash", "ChainID", "Block", "Error", "From", "To", "Keys", "CheckBlocks"})
+	table.Header([]string{"Hash", "ChainID", "Block", "Error", "From", "To", "Keys", "CheckBlocks"})
 	// table.SetFooter([]string{"", "", "Total", "$146.93"}) // Add Footer
-	table.SetBorder(false) // Set Border to false
-	table.AppendBulk(data) // Add Bulk Data
-	table.Render()
-
-	return nil
+	table.Options(tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{Borders: tw.BorderNone})))
+	if err = table.Bulk(data); err != nil { // Add Bulk Data
+		return err
+	}
+	return table.Render()
 }
 
 func getTransactionDetailForHashes(hdlr *baseHandler, txs []string) ([]*map[string]any, []error, error) {
