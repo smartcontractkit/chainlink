@@ -107,3 +107,7 @@ pre-push:
         - "go.mod"
         - "go.sum"
       run: tools/githooks/.bin/githooks test {push_files}
+
+    pr-size-guard:
+      tags: [guard, diff]
+      run: tools/githooks/.bin/githooks pr-size --fail-on-large
