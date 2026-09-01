@@ -67,9 +67,6 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
-// dontimeCapabilityID is the registry capability ID for DONTime.
-const dontimeCapabilityID = "dontime@1.0.0"
-
 // Keystore is the minimal interface needed from keystore for CRE
 type Keystore interface {
 	CSA() keystore.CSA
