@@ -535,7 +535,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 func (h *handler) recordInvalidNodeResponseEnvelope(ctx context.Context, reason string) {
 	h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
-		attribute.String("don_id", h.donConfig.DonId),
+		attribute.String("don_id", h.donConfig.DonID),
 		attribute.String("error", reason),
 	))
 }
