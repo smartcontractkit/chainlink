@@ -51,18 +51,6 @@ func newChangesetCheckTagsCmd() *cobra.Command {
 				return err
 			}
 
-			joinedTags := strings.Join(res.FoundTags, ",")
-
-			if os.Getenv("GITHUB_OUTPUT") != "" {
-				act := ghaction.New(cmd.OutOrStdout(), "", "")
-				if err := act.SetOutput("has_tags", strconv.FormatBool(res.HasTags)); err != nil {
-					return err
-				}
-				if err := act.SetOutput("found_tags", joinedTags); err != nil {
-					return err
-				}
-			}
-
 			if jsonOutput {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
@@ -77,17 +65,11 @@ func newChangesetCheckTagsCmd() *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "Error: No tags found in %s\n", filePath)
 			}
 
-			if os.Getenv("GITHUB_OUTPUT") == "" {
-				act := ghaction.New(cmd.OutOrStdout(), "", "")
-				if err := act.SetOutput("has_tags", strconv.FormatBool(res.HasTags)); err != nil {
-					return err
-				}
-				if err := act.SetOutput("found_tags", joinedTags); err != nil {
-					return err
-				}
+			act := ghaction.New(cmd.OutOrStdout(), "", "")
+			if err := act.SetOutput("has_tags", strconv.FormatBool(res.HasTags)); err != nil {
+				return err
 			}
-
-			return nil
+			return act.SetOutput("found_tags", strings.Join(res.FoundTags, ","))
 		},
 	}
 

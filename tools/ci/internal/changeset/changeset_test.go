@@ -11,6 +11,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/ci/internal/changeset"
 )
 
+func TestAllowedTags(t *testing.T) {
+	t.Parallel()
+	want := []string{
+		"#nops",
+		"#added",
+		"#changed",
+		"#removed",
+		"#updated",
+		"#deprecation_notice",
+		"#breaking_change",
+		"#db_update",
+		"#wip",
+		"#bugfix",
+		"#internal",
+	}
+	assert.Equal(t, want, changeset.AllowedTags)
+}
+
 func TestCheckTags_Valid(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
@@ -61,7 +79,7 @@ Some text #added
 
 	_, err := changeset.CheckTags(file)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid changeset semvar value for 'chainlink'")
+	assert.Contains(t, err.Error(), "invalid changeset semver value for 'chainlink'")
 }
 
 func TestCheckTags_FileNotFound(t *testing.T) {

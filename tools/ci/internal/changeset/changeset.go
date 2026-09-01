@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"bufio"
+	"embed"
 	"errors"
 	"fmt"
 	"os"
@@ -10,19 +11,31 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// AllowedTags is the list of valid changeset tags recognized by the release process.
-var AllowedTags = []string{
-	"#nops",
-	"#added",
-	"#changed",
-	"#removed",
-	"#updated",
-	"#deprecation_notice",
-	"#breaking_change",
-	"#db_update",
-	"#wip",
-	"#bugfix",
-	"#internal",
+// tagsFile is the canonical list of valid changeset release tags, one per line.
+// It mirrors what the release process expects. A golden test (TestAllowedTags)
+// guards the exact set so any addition, removal, or typo here fails CI until it
+// is intentionally updated.
+//
+//go:embed tags.txt
+var tagsFile embed.FS
+
+// AllowedTags is the list of valid changeset tags recognized by the release process,
+// loaded from tags.txt at startup.
+var AllowedTags = loadAllowedTags()
+
+func loadAllowedTags() []string {
+	data, err := tagsFile.ReadFile("tags.txt")
+	if err != nil {
+		panic(fmt.Sprintf("failed to read embedded tags.txt: %v", err))
+	}
+
+	tags := make([]string, 0, 11)
+	for line := range strings.SplitSeq(string(data), "\n") {
+		if tag := strings.TrimSpace(line); tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
 }
 
 // Result contains the result of changeset tag validation.
@@ -63,7 +76,7 @@ func CheckTags(filePath string) (Result, error) {
 
 	semverVal, ok := meta["chainlink"]
 	if !ok || (semverVal != "major" && semverVal != "minor" && semverVal != "patch") {
-		return Result{}, errors.New("invalid changeset semvar value for 'chainlink'. Must be 'major', 'minor', or 'patch'")
+		return Result{}, errors.New("invalid changeset semver value for 'chainlink'. Must be 'major', 'minor', or 'patch'")
 	}
 
 	// Scan lines for tags
