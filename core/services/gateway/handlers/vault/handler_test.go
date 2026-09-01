@@ -228,6 +228,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestID,
+			Method: vaulttypes.MethodSecretsCreate,
 			Result: (*json.RawMessage)(&resultBytes),
 		}
 		wg.Go(func() {
@@ -1044,6 +1045,139 @@ func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknow
 	// signature-validated response.
 	_, cachedPublicKey := h.(*handler).getCachedPublicKey()
 	require.Nil(t, cachedPublicKey, "expected the master public key not to be cached")
+}
+
+func setupSignedResponseHandler(t *testing.T, requestID string) (handlers.Handler, *common.Callback, jsonrpc.Response[json.RawMessage]) {
+	t.Helper()
+	h, callback, _, _ := setupHandler(t)
+
+	signedResp, nodes := makeSignedCreateSecretsResponse(t, requestID, 4)
+	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
+	h.(*handler).aggregator = &baseAggregator{
+		capabilitiesRegistry: mcr,
+		metrics:              h.(*handler).metrics,
+		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
+	}
+
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     requestID,
+		Method: vaulttypes.MethodSecretsCreate,
+	}
+	_, err := h.(*handler).newActiveRequest(req, callback)
+	require.NoError(t, err)
+
+	return h, callback, signedResp
+}
+
+func TestVaultHandler_HandleNodeMessage_DropsTamperedOuterError(t *testing.T) {
+	t.Parallel()
+	const requestID = "req-a2-error"
+	h, callback, signedResp := setupSignedResponseHandler(t, requestID)
+
+	poisoned := signedResp
+	poisoned.Error = &jsonrpc.WireError{
+		Code:    api.ToJSONRPCErrorCode(api.InvalidParamsError),
+		Message: "forged node error",
+	}
+	require.NoError(t, h.HandleNodeMessage(t.Context(), &poisoned, NodeOne.Address))
+
+	assert.NotNil(t, h.(*handler).getActiveRequest(requestID), "tampered response must not finalize the request")
+
+	clean := signedResp
+	require.NoError(t, h.HandleNodeMessage(t.Context(), &clean, "0xhonest1"))
+
+	resp, err := callback.Wait(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, api.NoError, resp.ErrorCode)
+
+	var secretsResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	require.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+	assert.Nil(t, secretsResponse.Error, "user response must not carry the forged outer error")
+	assert.Empty(t, secretsResponse.Result.Error, "user response must not carry a forged inner error")
+	assert.Equal(t, vaulttypes.MethodSecretsCreate, secretsResponse.Method)
+	assert.Equal(t, requestID, secretsResponse.ID)
+
+	payloadRequestID, err := vaultutils.SignedPayloadRequestID(secretsResponse.Method, secretsResponse.Result.Payload)
+	require.NoError(t, err)
+	assert.Equal(t, requestID, payloadRequestID)
+	assert.Nil(t, h.(*handler).getActiveRequest(requestID), "request must be finalized only after the honest response")
+}
+
+func TestVaultHandler_HandleNodeMessage_DropsMethodRelabeledResponse(t *testing.T) {
+	t.Parallel()
+	const requestID = "req-a2-method"
+	h, callback, signedResp := setupSignedResponseHandler(t, requestID)
+
+	relabeled := signedResp
+	relabeled.Method = vaulttypes.MethodSecretsList
+	require.NoError(t, h.HandleNodeMessage(t.Context(), &relabeled, NodeOne.Address))
+
+	assert.NotNil(t, h.(*handler).getActiveRequest(requestID), "relabeled response must not finalize the request")
+
+	clean := signedResp
+	require.NoError(t, h.HandleNodeMessage(t.Context(), &clean, "0xhonest1"))
+
+	resp, err := callback.Wait(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, api.NoError, resp.ErrorCode)
+
+	var secretsResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	require.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+	assert.Nil(t, secretsResponse.Error)
+	assert.Equal(t, vaulttypes.MethodSecretsCreate, secretsResponse.Method, "relabeled method must not reach the user")
+	assert.Equal(t, requestID, secretsResponse.ID)
+}
+
+func TestVaultHandler_HandleNodeMessage_StillAcceptsErrorOnlyResponses(t *testing.T) {
+	t.Parallel()
+	h, callback, _, _ := setupHandler(t)
+
+	signers := []string{
+		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",
+		"327aa349c9718cd36c877d1e90458fe1929768ad000000000000000000000000",
+		"e9bf394856d73402b30e160d0e05c847796f0e29000000000000000000000000",
+		"efd5bdb6c3256f04489a6ca32654d547297f48b9000000000000000000000000",
+	}
+	nodes := makeNodes(t, signers)
+	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
+	h.(*handler).aggregator = &baseAggregator{
+		capabilitiesRegistry: mcr,
+		metrics:              h.(*handler).metrics,
+		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
+	}
+
+	const requestID = "req-a2-err-only"
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     requestID,
+		Method: vaulttypes.MethodSecretsCreate,
+	}
+	_, err := h.(*handler).newActiveRequest(req, callback)
+	require.NoError(t, err)
+
+	errorResp := jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      requestID,
+		Method:  vaulttypes.MethodSecretsCreate,
+		Error: &jsonrpc.WireError{
+			Code:    api.ToJSONRPCErrorCode(api.InvalidParamsError),
+			Message: "invalid params error: secret ID must not be nil",
+		},
+	}
+	for _, nodeAddr := range []string{"0xn0", "0xn1", "0xn2"} {
+		r := errorResp
+		require.NoError(t, h.HandleNodeMessage(t.Context(), &r, nodeAddr))
+	}
+
+	resp, err := callback.Wait(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, api.InvalidParamsError, resp.ErrorCode)
+
+	var errResponse jsonrpc.Response[json.RawMessage]
+	require.NoError(t, json.Unmarshal(resp.RawResponse, &errResponse))
+	assert.Nil(t, errResponse.Result)
+	require.NotNil(t, errResponse.Error)
+	assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), errResponse.Error.Code)
+	assert.Nil(t, h.(*handler).getActiveRequest(requestID))
 }
 
 func TestVaultHandler_PublicKeyGet(t *testing.T) {
