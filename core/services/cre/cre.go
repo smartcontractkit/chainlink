@@ -489,7 +489,7 @@ func (s *Services) newRegistrySyncer(
 			var ocr2Delegate *ocr.Delegate
 
 			newServicesFn := func(ctx context.Context, capID string, donID uint32, command string, configJSON string, ocr3Config *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
-				if capID == dontimeCapabilityID {
+				if strings.HasPrefix(capID, "dontime") {
 					if ocr2Delegate == nil {
 						return nil, fmt.Errorf("OCR2 delegate not yet initialized for capability %q", capID)
 					}
