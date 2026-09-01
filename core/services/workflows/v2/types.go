@@ -70,6 +70,7 @@ type RoutedTriggerEvent struct {
 
 	// Deadline is the expiry of this event in the dispatch queue,
 	// stamped once at dispatch as ObservedAt + TriggerEventQueueTimeout.
+	// A settings change after dispatch does not affect already-queued events
 	Deadline time.Time
 
 	// SequenceNumber determines the execution order of trigger events across the DON. In M1 it is always 0 (no consensus ordering).
