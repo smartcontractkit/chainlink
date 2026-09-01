@@ -10,6 +10,9 @@ import (
 
 type JSONRPCCodec struct{}
 
+// Deprecated: Use JSONRPCCodec instead.
+type JsonRPCCodec = JSONRPCCodec //nolint:revive // backward compatibility alias
+
 var _ Codec = (*JSONRPCCodec)(nil)
 
 func (j *JSONRPCCodec) DecodeRawRequest(msgBytes []byte, jwtToken string) (*Message, error) {

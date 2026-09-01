@@ -167,7 +167,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 func (s *webSocketServer) Start(ctx context.Context) error {
 	return s.StartOnce("GatewayWebSocketServer", func() error {
 		s.lggr.Info("starting gateway WebSocket server")
-		return s.runServer()
+		return s.runServer(ctx)
 	})
 }
 
@@ -181,8 +181,9 @@ func (s *webSocketServer) Close() error {
 	})
 }
 
-func (s *webSocketServer) runServer() error {
-	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", s.server.Addr)
+func (s *webSocketServer) runServer(ctx context.Context) error {
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "tcp", s.server.Addr)
 	if err != nil {
 		return err
 	}

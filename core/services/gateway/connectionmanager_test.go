@@ -476,8 +476,8 @@ func doHandshake(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Cl
 func doHandshakeForDON(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Clock, donID string, node gc.TestNode, conn *websocket.Conn) {
 	t.Helper()
 	authHeaderElems := network.AuthHeaderElems{
-		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // G115: uint32 timestamp matches the auth handshake protocol //nolint:gosec // test clock is always small positive
-		DonID:     "my_don_1",
+		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // G115: uint32 timestamp matches the auth handshake protocol
+		DonID:     donID,
 		GatewayID: "my_gateway_no_3",
 	}
 	attemptID, challenge, err := mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, node.PrivateKey))
