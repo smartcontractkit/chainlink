@@ -1,4 +1,4 @@
-# See https://github.com/rhysd/actionlint/blob/main/docs/config.md
+# See https://github.com/kjanat/actionlint/blob/main/docs/config.md
 
 paths:
   .github/workflows/**/*.{yml,yaml}:
@@ -11,4 +11,3 @@ paths:
       - '.*SC2002:style:.*'
       # ignore if: false, as it's a common pattern to temporarily disable a job or step
       - 'constant expression "false" in condition.*'
-
