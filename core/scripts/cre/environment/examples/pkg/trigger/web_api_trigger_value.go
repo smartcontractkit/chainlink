@@ -65,9 +65,9 @@ func WebAPITriggerValue(gatewayURL, donID, privateKey string, timeout time.Durat
 
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: uuid.New().String(),
+			MessageID: uuid.New().String(),
 			Method:    Method,
-			DonId:     donID,
+			DonID:     donID,
 			Payload:   json.RawMessage(payloadJSON),
 			Sender:    publicAddress.String(),
 		},
@@ -76,7 +76,7 @@ func WebAPITriggerValue(gatewayURL, donID, privateKey string, timeout time.Durat
 		return errors.Wrap(err, "error signing message")
 	}
 
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	rawMsg, err := codec.EncodeLegacyRequest(msg)
 	if err != nil {
 		return errors.Wrap(err, "error JSON-RPC encoding")
@@ -87,7 +87,7 @@ func WebAPITriggerValue(gatewayURL, donID, privateKey string, timeout time.Durat
 		if err == nil {
 			req.Header.Set("Content-Type", "application/json")
 		}
-		return
+		return req, err
 	}
 
 	client := &http.Client{}
