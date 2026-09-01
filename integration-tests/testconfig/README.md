@@ -259,12 +259,7 @@ eth_funds = 3
 
     ```bash
     # Go
-    BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -p 1 ./smoke/<product>_test.go
-
-    - - - - - - - - - - - - 
-
-    # Make command
-    BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) make test_node_migrations_verbose
+    BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -p 1 ./smoke/ccip/...
     ```
 
 ### Automation
@@ -315,7 +310,7 @@ offchain_aggregators = ["0xc1ce3815d6e7f3705265c2577F1342344752A5Eb"]
 
 # If [OCR.Contracts.Settings.<OCR aggregator address>] is not present, we assume it should be used and configured
 
-- - - - - - - - - - - - 
+- - - - - - - - - - - -
 
 # For OCRv2
 [OCR2.Contracts]
@@ -327,7 +322,7 @@ offchain_aggregators = ["0xc1ce3815d6e7f3705265c2577F1342344752A5Eb"]
 use = false # Default: true. Reuse existing OCR contracts?
 configure = false # Default: true. Configure existing OCR contracts?
 
-- - - - - - - - - - - - 
+- - - - - - - - - - - -
 
 # Non-compliant configurations
 [OCR.Contracts]
