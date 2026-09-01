@@ -545,7 +545,9 @@ func Test_DataSource(t *testing.T) {
 				wg.Go(func() {
 					vals := lloprotocol.StreamValues{1: nil}
 					err := ds.Observe(ctx, vals, opts)
-					assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
+					if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+						return
+					}
 					assert.Equal(t, lloprotocol.StreamValues{1: lloprotocol.ToDecimal(decimal.NewFromInt(100))}, vals)
 				})
 			}
