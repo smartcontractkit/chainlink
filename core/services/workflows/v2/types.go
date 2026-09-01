@@ -67,7 +67,10 @@ type RoutedTriggerEvent struct {
 	// dispatcher. It is used for skew metrics (queue wait time)
 	// and deadline enforcement.
 	ObservedAt time.Time
-	// Deadline     time.Time TODO: will be addressed on CRE-6175
+
+	// Deadline is the expiry of this event in the dispatch queue,
+	// stamped once at dispatch as ObservedAt + TriggerEventQueueTimeout.
+	Deadline time.Time
 
 	// SequenceNumber determines the execution order of trigger events across the DON. In M1 it is always 0 (no consensus ordering).
 	SequenceNumber uint64
