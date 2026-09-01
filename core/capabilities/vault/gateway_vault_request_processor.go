@@ -22,12 +22,16 @@ import (
 //
 // Pipeline invariant:
 //
-//	ValidateStructureBeforeAuth → AuthorizeRequest → Prefix ID → StampAuthorizedParams
-//	    (no param mutation)        (on raw bytes)               (namespace + request_id)
+//	ValidateStructureBeforeAuth → AuthorizeRequest → Prefix ID → StampAuthorizedParams → ValidateOwnerScopedLimits
+//	    (no param mutation)        (on raw bytes)               (namespace + request_id)      (ciphertext size)
 //
 // AuthorizeRequest runs while params are still digest-safe. It also applies the replay guard
 // (digest deduplication) and validates that payload owners match the authorized workflow owner
 // before this processor rewrites the request ID or stamps params.
+//
+// Owner-scoped limit checks are deferred until after authorization: each new owner tenant
+// registered by a scoped limiter spawns a persistent background updater, so checking them
+// pre-auth would let unauthenticated callers create unbounded limiter tenants.
 type GatewayVaultRequestProcessor struct {
 	validator               *RequestValidator
 	authorizer              Authorizer
@@ -60,7 +64,7 @@ func (p *GatewayVaultRequestProcessor) Close() error {
 	return p.validator.Close()
 }
 
-// ProcessRequest runs validate → authorize → prefix ID → stamp params.
+// ProcessRequest runs validate structure → authorize → prefix ID → stamp params → validate owner-scoped limits.
 func (p *GatewayVaultRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	req *jsonrpc.Request[json.RawMessage],
@@ -108,15 +112,23 @@ func (p *GatewayVaultRequestProcessor) processCreateSecretsRequest(
 	}
 
 	skipLabelValidation := publicKey == nil
-	if err := p.validator.ValidateCreateSecretsRequest(ctx, publicKey, &createReq, skipLabelValidation); err != nil {
+	if err := p.validator.ValidateEncryptedSecretsStructure(ctx, publicKey, createReq.RequestId, createReq.EncryptedSecrets, skipLabelValidation); err != nil {
 		return nil, p.validationError(req, err)
 	}
 
-	return p.authorizeAndStamp(ctx, req, func(prefixedRequestID string) error {
+	authorized, err := p.authorizeAndStamp(ctx, req, func(prefixedRequestID string) error {
 		createReq.RequestId = prefixedRequestID
 		vaultutils.ApplyEncryptedSecretNamespaceDefaults(createReq.EncryptedSecrets)
 		return marshalVaultParams(req, &createReq)
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.validator.ValidateCiphertextSizes(ctx, authorized.AuthResult.AuthorizedOwner(), createReq.EncryptedSecrets); err != nil {
+		return nil, p.validationError(req, err)
+	}
+	return authorized, nil
 }
 
 func (p *GatewayVaultRequestProcessor) processUpdateSecretsRequest(
@@ -142,15 +154,23 @@ func (p *GatewayVaultRequestProcessor) processUpdateSecretsRequest(
 	}
 
 	skipLabelValidation := publicKey == nil
-	if err := p.validator.ValidateUpdateSecretsRequest(ctx, publicKey, &updateReq, skipLabelValidation); err != nil {
+	if err := p.validator.ValidateEncryptedSecretsStructure(ctx, publicKey, updateReq.RequestId, updateReq.EncryptedSecrets, skipLabelValidation); err != nil {
 		return nil, p.validationError(req, err)
 	}
 
-	return p.authorizeAndStamp(ctx, req, func(prefixedRequestID string) error {
+	authorized, err := p.authorizeAndStamp(ctx, req, func(prefixedRequestID string) error {
 		updateReq.RequestId = prefixedRequestID
 		vaultutils.ApplyEncryptedSecretNamespaceDefaults(updateReq.EncryptedSecrets)
 		return marshalVaultParams(req, &updateReq)
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.validator.ValidateCiphertextSizes(ctx, authorized.AuthResult.AuthorizedOwner(), updateReq.EncryptedSecrets); err != nil {
+		return nil, p.validationError(req, err)
+	}
+	return authorized, nil
 }
 
 func (p *GatewayVaultRequestProcessor) processDeleteSecretsRequest(
