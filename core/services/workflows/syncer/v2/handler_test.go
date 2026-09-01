@@ -162,7 +162,7 @@ func (m *mockDrainableEngine) Close() error {
 
 // mockEngineFactory returns a standard mock engine factory for tests.
 // It sends nil to initDone to signal successful initialization.
-func mockEngineFactory(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+func mockEngineFactory(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
 	if initDone != nil {
 		initDone <- nil
 	}
@@ -262,7 +262,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	defaultValidationFnWithFetch := func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+	defaultValidationFnWithFetch := func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
 		defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
 		// Verify that the URLs have been called
@@ -317,7 +317,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
 				if _, err := hex.DecodeString(name.Hex()); err != nil {
 					return nil, fmt.Errorf("invalid workflow name: %w", err)
 				}
@@ -361,7 +361,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
 				if initDone != nil {
 					initDone <- nil
 				}
@@ -384,7 +384,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
-				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string,
+				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string,
 			) {
 				err := h.workflowRegisteredEvent(ctx, event)
 				require.Error(t, err)
@@ -420,7 +420,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					ConfigURL:     configURLFactory(hex.EncodeToString(wfID)),
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
 				me := &mockEngine{}
 				err := h.engineRegistry.Add(wfID, event.Source, me)
 				require.NoError(t, err)
@@ -458,7 +458,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 			},
 			engineFactoryFn: mockEngineFactory,
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
 				me := &mockEngine{}
 				oldWfIDBytes := [32]byte{0, 1, 2, 3, 5}
 				err := h.engineRegistry.Add(oldWfIDBytes, event.Source, me)
@@ -500,7 +500,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
-				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string,
+				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string,
 			) {
 				err := h.workflowRegisteredEvent(ctx, event)
 				require.NoError(t, err)
@@ -548,7 +548,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			},
 			engineFactoryFn: mockEngineFactory,
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
-				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string,
+				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string,
 			) {
 				// Create the record in the database
 				entry := &job.WorkflowSpec{
@@ -597,7 +597,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				})
 			},
 			engineFactoryFn: mockEngineFactory,
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
 				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
 				// Verify that the URLs have been called
@@ -634,7 +634,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				})
 			},
 			engineFactoryFn: mockEngineFactory,
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
 				// Create the record in the database
 				entry := &job.WorkflowSpec{
 					Workflow:      hex.EncodeToString(binary),
@@ -959,8 +959,8 @@ type testCase struct {
 	WFOwner          []byte
 	fetcherFactory   func(wfID []byte) *mockFetcher
 	Event            func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent
-	validationFn     func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string)
-	engineFactoryFn  func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
+	validationFn     func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string)
+	engineFactoryFn  func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -1696,7 +1696,11 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	s := grpc.NewServer()
 	linkingclient.RegisterLinkingServiceServer(s, mockLinking)
 	go func() {
-		assert.NoError(t, s.Serve(lis))
+		if err := s.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside goroutine
+				return
+			}
+		}
 	}()
 	defer s.Stop()
 	linkingURL := lis.Addr().String()
@@ -1876,10 +1880,12 @@ type testActionBase struct {
 
 var _ commoncap.ExecutableAndTriggerCapability = (*testActionBase)(nil)
 
-func (t *testActionBase) AckEvent(_ context.Context, _ string, _ string, _ string) error { return nil }
+func (t *testActionBase) AckEvent(_ context.Context, _, _, _ string) error { return nil }
+
 func (t *testActionBase) RegisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
 	panic("not implemented for this test")
 }
+
 func (t *testActionBase) UnregisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) error {
 	return nil
 }
