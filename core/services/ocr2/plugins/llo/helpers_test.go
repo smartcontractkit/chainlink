@@ -83,7 +83,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 
 	t.Cleanup(s.Stop)
 
-	return
+	return serverURL
 }
 
 //nolint:containedctx // it's just to pass the context back for testing
@@ -342,7 +342,8 @@ observationSource = """
 		askBridgeName,
 	))
 }
-func addBootstrapJob(t *testing.T, bootstrapNode Node, configuratorAddress common.Address, name string, relayType, relayConfig string) {
+
+func addBootstrapJob(t *testing.T, bootstrapNode Node, configuratorAddress common.Address, name, relayType, relayConfig string) {
 	bootstrapNode.AddBootstrapJob(t, fmt.Sprintf(`
 type                              = "bootstrap"
 relay                             = "%s"
@@ -415,7 +416,9 @@ func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decim
 		val := p.String()
 		resp := fmt.Sprintf(`{"result": %s}`, val)
 		_, err = res.Write([]byte(resp))
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 	}))
 	t.Cleanup(bridge.Close)
 	u, _ := url.Parse(bridge.URL)
@@ -541,7 +544,7 @@ func createGRPCStreamBridge(t *testing.T, name string, i int, p decimal.Decimal,
 	return bridgeName
 }
 
-func createBridge(t *testing.T, bridgeName string, responseJSON string, borm bridges.ORM) {
+func createBridge(t *testing.T, bridgeName, responseJSON string, borm bridges.ORM) {
 	ctx := t.Context()
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusOK)

@@ -713,7 +713,9 @@ answer1      [type=median index=0];
 			time.Sleep(1 * time.Millisecond)
 			res.WriteHeader(http.StatusOK)
 			_, err := res.Write([]byte(`{"USD":10.1}`))
-			assert.NoError(t, err)
+			if !assert.NoError(t, err) {
+				return
+			}
 		}))
 		defer serv.Close()
 
