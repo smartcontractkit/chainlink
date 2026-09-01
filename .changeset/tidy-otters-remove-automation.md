@@ -1,5 +1,5 @@
 ---
-"chainlink": major
+"chainlink": minor
 ---
 
 Remove Chainlink Automation from the node.
