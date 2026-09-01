@@ -102,12 +102,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - display_name: "Automation Soak Test"
-            testcmd: "go test -v -timeout 4h -run TestLoad/registry_2_1"
-            envcmd: "cl u env.toml,env-geth.toml,products/automation/soak.toml; cl obs up -f"
-            runner: "ubuntu24.04-16cores-64GB"
-            tests_dir: "automation"
-            logs_archive_name: "automation-soak"
           - display_name: "Test DF1 (OCR2) Soak"
             testcmd: "go test -v -timeout 4h -run TestOCR2Soak/clean"
             envcmd: "cl u env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml; cl obs up -f"

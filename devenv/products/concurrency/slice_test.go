@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/devenv/products/automation/concurrency"
+	"github.com/smartcontractkit/chainlink/devenv/products/concurrency"
 )
 
 func TestDivideSlice(t *testing.T) {
