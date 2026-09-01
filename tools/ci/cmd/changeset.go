@@ -42,9 +42,14 @@ func newChangesetCheckTagsCmd() *cobra.Command {
 			if filePath == "" {
 				filePath = os.Getenv("CHANGESET_FILE_PATH")
 			}
-			if filePath == "" {
+			paths := strings.Fields(filePath)
+			if len(paths) == 0 {
 				return errors.New("no changeset file path provided")
 			}
+			if len(paths) > 1 {
+				return fmt.Errorf("multiple changeset file paths provided (%d); please run once per file or pass a single path: %q", len(paths), filePath)
+			}
+			filePath = paths[0]
 
 			res, err := changeset.CheckTags(filePath)
 			if err != nil {
@@ -65,11 +70,16 @@ func newChangesetCheckTagsCmd() *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "Error: No tags found in %s\n", filePath)
 			}
 
-			act := ghaction.New(cmd.OutOrStdout(), "", "")
-			if err := act.SetOutput("has_tags", strconv.FormatBool(res.HasTags)); err != nil {
-				return err
+			if os.Getenv("GITHUB_OUTPUT") != "" {
+				act := ghaction.New(cmd.OutOrStdout(), "", "")
+				if err := act.SetOutput("has_tags", strconv.FormatBool(res.HasTags)); err != nil {
+					return err
+				}
+				if err := act.SetOutput("found_tags", strings.Join(res.FoundTags, ",")); err != nil {
+					return err
+				}
 			}
-			return act.SetOutput("found_tags", strings.Join(res.FoundTags, ","))
+			return nil
 		},
 	}
 

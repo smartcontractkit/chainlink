@@ -43,6 +43,46 @@ Fixing issue #bugfix
 	assert.Equal(t, []string{"#bugfix"}, res.FoundTags)
 }
 
+func TestChangesetCheckTags_CLI_MultipleFiles(t *testing.T) {
+	t.Setenv("CHANGESET_FILE_PATH", "a.md b.md")
+
+	rootCmd := cmd.NewRootCmd()
+	var out bytes.Buffer
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+	rootCmd.SetArgs([]string{"changeset", "check-tags"})
+
+	err := rootCmd.ExecuteContext(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "multiple changeset file paths")
+}
+
+func TestChangesetCheckTags_CLI_Human_NoOutputPollution(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "test.md")
+	content := `---
+"chainlink": patch
+---
+
+Fixing issue #bugfix
+`
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0o600))
+
+	rootCmd := cmd.NewRootCmd()
+	var out bytes.Buffer
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+	rootCmd.SetArgs([]string{"changeset", "check-tags", filePath})
+
+	err := rootCmd.ExecuteContext(context.Background())
+	require.NoError(t, err)
+	assert.Contains(t, out.String(), "Found tag: #bugfix in "+filePath)
+	assert.NotContains(t, out.String(), "has_tags=")
+	assert.NotContains(t, out.String(), "found_tags=")
+}
+
 func TestChangesetCheckTags_CLI_Human_Env(t *testing.T) {
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "test.md")

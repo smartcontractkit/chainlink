@@ -52,8 +52,11 @@ func CheckTags(filePath string) (Result, error) {
 	}
 
 	info, err := os.Stat(filePath)
-	if err != nil || info.IsDir() {
-		return Result{}, fmt.Errorf("file '%s' does not exist", filePath)
+	if err != nil {
+		return Result{}, fmt.Errorf("file '%s' does not exist: %w", filePath, err)
+	}
+	if info.IsDir() {
+		return Result{}, fmt.Errorf("path '%s' is a directory; expected a file", filePath)
 	}
 
 	contentBytes, err := os.ReadFile(filePath)

@@ -88,3 +88,11 @@ func TestCheckTags_FileNotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist")
 }
+
+func TestCheckTags_Directory(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	_, err := changeset.CheckTags(tmpDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "is a directory")
+}
