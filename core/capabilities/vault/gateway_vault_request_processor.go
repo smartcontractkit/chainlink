@@ -65,16 +65,34 @@ func (p *GatewayVaultRequestProcessor) Close() error {
 }
 
 // ProcessRequest runs validate structure → authorize → prefix ID → stamp params → validate owner-scoped limits.
+// In node mode (stripOwnerPrefixForAuth), the envelope ID received from the gateway (owner::id)
+// is restored on error so error responses remain matchable by the gateway, which tracks active
+// requests by the exact envelope ID it forwarded to the nodes.
 func (p *GatewayVaultRequestProcessor) ProcessRequest(
 	ctx context.Context,
 	req *jsonrpc.Request[json.RawMessage],
 	publicKey *tdh2easy.PublicKey,
 ) (*AuthorizedGatewayVaultRequest, error) {
-	if p.stripOwnerPrefixForAuth {
-		originalRequestID, _ := stripPrefixedVaultRequestID(req.ID)
-		req.ID = originalRequestID
+	if !p.stripOwnerPrefixForAuth {
+		return p.processRequest(ctx, req, publicKey)
 	}
 
+	envelopeID := req.ID
+	strippedID, _ := stripPrefixedVaultRequestID(req.ID)
+	req.ID = strippedID
+	authorized, err := p.processRequest(ctx, req, publicKey)
+	if err != nil {
+		req.ID = envelopeID
+		return nil, err
+	}
+	return authorized, nil
+}
+
+func (p *GatewayVaultRequestProcessor) processRequest(
+	ctx context.Context,
+	req *jsonrpc.Request[json.RawMessage],
+	publicKey *tdh2easy.PublicKey,
+) (*AuthorizedGatewayVaultRequest, error) {
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
 		return p.processCreateSecretsRequest(ctx, req, publicKey)
