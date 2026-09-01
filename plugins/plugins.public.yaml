@@ -71,29 +71,29 @@ plugins:
 
   capability-cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "127afb79d5b5bef542aca04b9308c787d483d3cf"
+      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
       installPath: "."
       flags: "-tags timetzdata"
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "977e430d6ff4db1fba42a4d8a20bc92c8b2ceaba"
+      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
       installPath: "."
 
   capability-workflowevent:
     - enabled: false
       moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
-      gitRef: "977e430d6ff4db1fba42a4d8a20bc92c8b2ceaba"
+      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
       installPath: "."
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "977e430d6ff4db1fba42a4d8a20bc92c8b2ceaba"
+      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "977e430d6ff4db1fba42a4d8a20bc92c8b2ceaba"
+      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
       installPath: "."
 
   capability-evm:
