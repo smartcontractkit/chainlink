@@ -70,6 +70,17 @@ func (c TransparentUpgradeableProxyChangesetConfig) reserveRefs() (*datastore.Me
 	return shared.ReserveRefs(c.PlannedRefs())
 }
 
+func (c TransparentUpgradeableProxyChangesetConfig) validateDeployment(e cldf.Environment) error {
+	if _, err := c.reserveRefs(); err != nil {
+		return fmt.Errorf("transparent proxy datastore refs conflict: %w", err)
+	}
+	if err := shared.ValidateAddressRefsStrict(e, c.PlannedRefs()); err != nil {
+		return fmt.Errorf("transparent proxy datastore refs conflict: %w", err)
+	}
+
+	return c.Validate(e)
+}
+
 type TransparentUpgradeableProxyRole string
 
 const (
@@ -89,13 +100,6 @@ type TransparentUpgradeableProxyGrantRoleChangesetConfig struct {
 }
 
 func (c TransparentUpgradeableProxyChangesetConfig) Validate(e cldf.Environment) error {
-	if _, err := c.reserveRefs(); err != nil {
-		return fmt.Errorf("transparent proxy datastore refs conflict: %w", err)
-	}
-	if err := shared.ValidateAddressRefsStrict(e, c.PlannedRefs()); err != nil {
-		return fmt.Errorf("transparent proxy datastore refs conflict: %w", err)
-	}
-
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -177,7 +181,7 @@ func (c TransparentUpgradeableProxyGrantRoleChangesetConfig) Validate(e cldf.Env
 
 // DeployTransparentUpgradeableProxy deploys TransparentUpgradeableProxy contracts for the specified tokens on the specified chains.
 func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradeableProxyChangesetConfig) (cldf.ChangesetOutput, error) {
-	if err := c.Validate(e); err != nil {
+	if err := c.validateDeployment(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid TransparentUpgradeableProxyChangesetConfig: %w", err)
 	}
 
