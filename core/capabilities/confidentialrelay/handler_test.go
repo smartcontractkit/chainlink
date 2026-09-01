@@ -389,6 +389,7 @@ func secretsGetTestParams(t *testing.T) confidentialrelaytypes.SecretsRequestPar
 		Owner:            "0xab5801a7d398351b8be11c439e05c5b3259aec9b", // lowercase, should be normalized
 		ExecutionID:      "0000000000000000000000000000000000000000000000000000000000000001",
 		OrgID:            "org-123",
+		CallbackID:       7,
 		EnclavePublicKey: "aabbcc",
 		EnclaveConfig:    testEnclaveConfigPtr(),
 		Secrets: []confidentialrelaytypes.SecretIdentifier{
@@ -585,6 +586,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.Len(t, helper.lastSecretsRequest.Requests, 1)
 				assert.Equal(t, "API_KEY", helper.lastSecretsRequest.Requests[0].Id)
 				assert.Equal(t, "main", helper.lastSecretsRequest.Requests[0].Namespace)
+				assert.Equal(t, int32(7), helper.lastSecretsRequest.CallbackId)
 			},
 		},
 		{

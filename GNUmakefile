@@ -292,6 +292,16 @@ modgraph:
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
+CI_CLI_BIN = tools/ci/.bin/ci
+CI_CLI_SRCS = $(shell find tools/ci -name "*.go" -not -path "*/.bin/*" 2>/dev/null)
+
+$(CI_CLI_BIN): $(CI_CLI_SRCS) tools/ci/go.mod tools/ci/go.sum
+	@mkdir -p tools/ci/.bin
+	@go -C tools/ci build -o .bin/ci .
+
+.PHONY: ci-cli
+ci-cli: $(CI_CLI_BIN) ## Build the tools/ci CLI binary
+
 TOOLS_TEST_BIN = tools/test/.bin/test
 TOOLS_TEST_SRCS = $(shell find tools/test -name "*.go" -not -path "*/.bin/*" 2>/dev/null)
 
@@ -305,6 +315,7 @@ test: $(TOOLS_TEST_BIN) ## Run the testing harness. E.g. make test ARGS="./core/
 	else \
 		$(TOOLS_TEST_BIN) $(ARGS); \
 	fi
+
 
 .PHONY: gocs
 gocs: ## Run gocs to generate changeset markdown files.

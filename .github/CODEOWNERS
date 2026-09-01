@@ -84,6 +84,7 @@
 /tools/plugout/ @smartcontractkit/devex-cicd @smartcontractkit/core
 /tools/test/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 /tools/githooks/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
+/tools/ci/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 
