@@ -315,6 +315,7 @@ func planChangesetMerge(env cldf.Environment, dest, src cldf.ChangesetOutput) (*
 // planAddressBook stages the merged address book in a fresh book, so the destination is only
 // replaced once the whole merge is known to be legal, and works out which entries the
 // environment is still missing.
+// The merged book consists of addresses in dest, src, and env.ExistingAddresses
 func (p *changesetMergePlan) planAddressBook(env cldf.Environment, dest, src cldf.AddressBook) error {
 	if isNilStore(src) {
 		return nil
@@ -406,6 +407,23 @@ func (p *changesetMergePlan) planDataStore(env cldf.Environment, dest, src datas
 			return fmt.Errorf("failed to merge data store: address %s on chain %d has no version: %w",
 				ref.Address, ref.ChainSelector, datastore.ErrAddressRefVersionRequired)
 		}
+	}
+
+	// MemoryDataStore keeps a record alongside a staged deletion until Merge applies it. Do not
+	// validate or publish those records: they are not part of the resulting store.
+	if srcRefsStore, ok := src.Addresses().(*datastore.MemoryAddressRefStore); ok && len(srcRefsStore.DeletedRemoteKeys) > 0 {
+		deleted := make(map[string]struct{}, len(srcRefsStore.DeletedRemoteKeys))
+		for _, key := range srcRefsStore.DeletedRemoteKeys {
+			deleted[key] = struct{}{}
+		}
+
+		activeRefs := srcRefs[:0]
+		for _, ref := range srcRefs {
+			if _, isDeleted := deleted[ref.Key().String()]; !isDeleted {
+				activeRefs = append(activeRefs, ref)
+			}
+		}
+		srcRefs = activeRefs
 	}
 
 	// Two sub-changesets of one run claiming the same key is a mistake, not a redeploy: only
