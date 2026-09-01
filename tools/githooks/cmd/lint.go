@@ -57,6 +57,7 @@ func newLintCmd() *cobra.Command {
 				Rev:      rev,
 				Stdout:   cmd.OutOrStdout(),
 				Stderr:   cmd.ErrOrStderr(),
+				UI:       uiForCmd(cmd),
 			}
 
 			return lint.Run(ctx, cfg)

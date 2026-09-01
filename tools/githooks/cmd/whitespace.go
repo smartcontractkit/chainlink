@@ -54,13 +54,18 @@ func newWhitespaceCmd() *cobra.Command {
 
 			if len(result.ModifiedFiles) > 0 {
 				if !quiet {
-					action := "Fixing trailing whitespace in"
+					u := uiForCmd(cmd)
+					tag := "FIXED"
 					if check {
-						action = "Erroneous trailing whitespace found in"
+						tag = "CHECK FAIL"
 					}
 					for _, f := range result.ModifiedFiles {
 						if verbose || check {
-							fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", action, f)
+							note := ""
+							if check {
+								note = "erroneous trailing whitespace"
+							}
+							fmt.Fprintln(cmd.OutOrStdout(), u.StatusItem(tag, f, note))
 						}
 					}
 				}
