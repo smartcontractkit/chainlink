@@ -13,6 +13,10 @@ import (
 
 //nolint:paralleltest // t.Chdir is process-global; subtests cannot run in parallel
 func TestTidyCmdDiffBase(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
 	//nolint:paralleltest // t.Chdir is process-global
 	t.Run("tidies modules touched by earlier branch commits, not just staged", func(t *testing.T) {
 		dir := initRepoWithOrigin(t)
