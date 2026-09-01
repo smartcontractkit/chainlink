@@ -652,15 +652,21 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		// TODO: assert finding the id
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]any{}
-		assert.NoError(t, json.NewEncoder(w).Encode(response))
+		if !assert.NoError(t, json.NewEncoder(w).Encode(response)) {
+			return
+		}
 	})
 
 	// 1. Setup bridge
@@ -782,15 +788,21 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		assert.Contains(t, reqBody.ResponseURL, "http://localhost:6688/v2/resume/")
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]any{}
-		assert.NoError(t, json.NewEncoder(w).Encode(response))
+		if !assert.NoError(t, json.NewEncoder(w).Encode(response)) {
+			return
+		}
 	})
 
 	// 1. Setup bridge
