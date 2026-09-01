@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -48,7 +49,10 @@ func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON,
 }
 
 func setupHandlerWithLimitsFactory(t *testing.T, limitsFactory limits.Factory) (handlers.Handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
-	lggr := logger.Test(t)
+	return setupHandlerWithLogger(t, logger.Test(t), limitsFactory)
+}
+
+func setupHandlerWithLogger(t *testing.T, lggr logger.Logger, limitsFactory limits.Factory) (handlers.Handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
 	don := mocks.NewDON(t)
 	donConfig := &config.DONConfig{
 		DonId:   "test_don_id",
@@ -967,6 +971,51 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		_, err = callback.Wait(ctx)
 		require.Error(t, err)
 	})
+}
+
+func TestVaultHandler_InvalidParamsDoesNotLogRawParams(t *testing.T) {
+	t.Parallel()
+
+	// Observed at Info level so the pre-existing whole-request Debug log is excluded.
+	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
+	h, callback, don, _ := setupHandlerWithLogger(t, lggr, limits.Factory{Settings: cresettings.DefaultGetter})
+	// Don't expect SendToNode to be called for invalid params
+	don.AssertNotCalled(t, "SendToNode")
+
+	const marker = "SENSITIVE_MARKER_123"
+	invalidParams := json.RawMessage(`{"request_id":"req-1","injected":"` + marker + `"}`)
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "invalid-params-logs",
+		Method: vaulttypes.MethodSecretsCreate,
+		Params: &invalidParams,
+	}
+
+	// The invalid-params response is sent synchronously, so no goroutine is needed.
+	err := h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+	require.NoError(t, err)
+
+	resp, err := callback.Wait(t.Context())
+	require.NoError(t, err)
+	var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+	require.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+	assert.Equal(t, req.ID, secretsResponse.ID, "Request ID should match")
+	assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
+
+	invalidParamsLogs := logs.FilterMessage("invalid params")
+	entries := invalidParamsLogs.All()
+	require.Len(t, entries, 1, "expected exactly one 'invalid params' log entry")
+	assert.Equal(t, zapcore.ErrorLevel, entries[0].Level)
+	assert.Equal(t, req.ID, entries[0].ContextMap()["requestID"])
+	assert.NotContains(t, entries[0].ContextMap(), "params", "raw params must not be logged")
+
+	for _, e := range logs.All() {
+		assert.NotContains(t, e.Message, marker)
+		for k, v := range e.ContextMap() {
+			if s, ok := v.(string); ok {
+				assert.NotContains(t, s, marker, "log field %q must not contain raw request params", k)
+			}
+		}
+	}
 }
 
 func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknownFields(t *testing.T) {
