@@ -297,6 +297,7 @@ flowchart LR
 	click chainlink-aptos/deployment href "https://github.com/smartcontractkit/chainlink-aptos"
 	chainlink-automation --> chainlink-common
 	click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
+	chainlink-canton --> chainlink-ccv/integration/evm
 	chainlink-canton --> chainlink/deployment
 	click chainlink-canton href "https://github.com/smartcontractkit/chainlink-canton"
 	chainlink-ccip --> chainlink-common
@@ -325,6 +326,8 @@ flowchart LR
 	click chainlink-ccv/build/devenv href "https://github.com/smartcontractkit/chainlink-ccv"
 	chainlink-ccv/deployment
 	click chainlink-ccv/deployment href "https://github.com/smartcontractkit/chainlink-ccv"
+	chainlink-ccv/integration/evm
+	click chainlink-ccv/integration/evm href "https://github.com/smartcontractkit/chainlink-ccv"
 	chainlink-common --> chainlink-common/pkg/chipingress
 	chainlink-common --> chainlink-protos/billing/go
 	chainlink-common --> chainlink-protos/cre/go
@@ -431,7 +434,6 @@ flowchart LR
 	click chainlink-solana/contracts href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink-stellar --> chainlink-ccv/build/devenv
 	chainlink-stellar --> chainlink-ccv/deployment
-	chainlink-stellar --> chainlink/deployment
 	click chainlink-stellar href "https://github.com/smartcontractkit/chainlink-stellar"
 	chainlink-stellar/bindings
 	click chainlink-stellar/bindings href "https://github.com/smartcontractkit/chainlink-stellar"
@@ -495,7 +497,6 @@ flowchart LR
 	chainlink/deployment --> chainlink-ccip/deployment
 	chainlink/deployment --> chainlink-solana/contracts
 	chainlink/deployment --> chainlink-stellar
-	chainlink/deployment --> chainlink-stellar/bindings
 	chainlink/deployment --> chainlink-sui/deployment
 	chainlink/deployment --> chainlink-ton/deployment
 	chainlink/deployment --> chainlink/v2
@@ -638,6 +639,7 @@ flowchart LR
 	click libocr href "https://github.com/smartcontractkit/libocr"
 	mcms --> chainlink-canton
 	mcms --> chainlink-protos/job-distributor
+	mcms --> chainlink-stellar/bindings
 	mcms --> chainlink-sui
 	mcms --> chainlink-ton
 	mcms --> go-daml
@@ -712,6 +714,7 @@ flowchart LR
 		 chainlink-ccv
 		 chainlink-ccv/build/devenv
 		 chainlink-ccv/deployment
+		 chainlink-ccv/integration/evm
 	end
 	click chainlink-ccv-repo href "https://github.com/smartcontractkit/chainlink-ccv"
 
