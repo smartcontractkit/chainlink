@@ -23,5 +23,21 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Run actionlint
-        uses: reviewdog/action-actionlint@50842263c20a7c46bd0065b9e624d3c569db061e # v1.73.0
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Install actionlint and reviewdog
+        shell: bash
+        run: |
+          go install actionlint.kjanat.dev/cmd/actionlint@latest
+          go install github.com/reviewdog/reviewdog/cmd/reviewdog@latest
+
+      - name: Run actionlint with reviewdog
+        shell: bash
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          actionlint -oneline | reviewdog -f=actionlint -reporter=github-pr-check -filter-mode=nofilter -fail-level=error
