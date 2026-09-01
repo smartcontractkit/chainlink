@@ -48,6 +48,28 @@ type TransparentUpgradeableProxyChangesetConfig struct {
 	MCMS   *cldfproposalutils.TimelockConfig
 }
 
+// PlannedRefs returns every datastore key this changeset will write. The qualifier is the
+// configured symbol, not the map key.
+func (c TransparentUpgradeableProxyChangesetConfig) PlannedRefs() []datastore.AddressRef {
+	version := deployment.Version1_6_1
+	refs := make([]datastore.AddressRef, 0)
+	for chainSelector, tokens := range c.Tokens {
+		for _, config := range tokens {
+			refs = append(refs, datastore.AddressRef{
+				ChainSelector: chainSelector,
+				Type:          datastore.ContractType(shared.TransparentUpgradeableProxy),
+				Version:       &version,
+				Qualifier:     config.Symbol,
+			})
+		}
+	}
+	return refs
+}
+
+func (c TransparentUpgradeableProxyChangesetConfig) reserveRefs() (*datastore.MemoryDataStore, error) {
+	return shared.ReserveRefs(c.PlannedRefs())
+}
+
 type TransparentUpgradeableProxyRole string
 
 const (
@@ -67,6 +89,13 @@ type TransparentUpgradeableProxyGrantRoleChangesetConfig struct {
 }
 
 func (c TransparentUpgradeableProxyChangesetConfig) Validate(e cldf.Environment) error {
+	if _, err := c.reserveRefs(); err != nil {
+		return fmt.Errorf("transparent proxy datastore refs conflict: %w", err)
+	}
+	if err := shared.ValidateAddressRefsStrict(e, c.PlannedRefs()); err != nil {
+		return fmt.Errorf("transparent proxy datastore refs conflict: %w", err)
+	}
+
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -153,7 +182,10 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 	}
 
 	addressBook := cldf.NewMemoryAddressBook()
-	ds := datastore.NewMemoryDataStore()
+	ds, err := c.reserveRefs()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("transparent proxy datastore refs conflict: %w", err)
+	}
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := e.BlockChains.EVMChains()[chainSelector]

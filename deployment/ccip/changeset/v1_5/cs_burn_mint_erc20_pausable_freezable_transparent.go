@@ -18,7 +18,35 @@ type BurnMintERC20PausableFreezableTransparentChangesetConfig struct {
 	Tokens map[uint64][]string
 }
 
+// PlannedRefs returns every datastore key this changeset will write.
+func (c BurnMintERC20PausableFreezableTransparentChangesetConfig) PlannedRefs() []datastore.AddressRef {
+	version := deployment.Version1_5_0
+	refs := make([]datastore.AddressRef, 0)
+	for chainSelector, tokens := range c.Tokens {
+		for _, token := range tokens {
+			refs = append(refs, datastore.AddressRef{
+				ChainSelector: chainSelector,
+				Type:          datastore.ContractType(shared.BurnMintERC20PausableFreezableTransparentToken),
+				Version:       &version,
+				Qualifier:     token,
+			})
+		}
+	}
+	return refs
+}
+
+func (c BurnMintERC20PausableFreezableTransparentChangesetConfig) reserveRefs() (*datastore.MemoryDataStore, error) {
+	return shared.ReserveRefs(c.PlannedRefs())
+}
+
 func (c BurnMintERC20PausableFreezableTransparentChangesetConfig) Validate(e cldf.Environment) error {
+	if _, err := c.reserveRefs(); err != nil {
+		return fmt.Errorf("pausable token datastore refs conflict: %w", err)
+	}
+	if err := shared.ValidateAddressRefsStrict(e, c.PlannedRefs()); err != nil {
+		return fmt.Errorf("pausable token datastore refs conflict: %w", err)
+	}
+
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -52,7 +80,10 @@ func DeployBurnMintERC20PausableFreezableTransparent(e cldf.Environment, c BurnM
 	}
 
 	addressBook := cldf.NewMemoryAddressBook()
-	ds := datastore.NewMemoryDataStore()
+	ds, err := c.reserveRefs()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("pausable token datastore refs conflict: %w", err)
+	}
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := e.BlockChains.EVMChains()[chainSelector]
