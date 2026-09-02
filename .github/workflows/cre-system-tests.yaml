@@ -81,6 +81,10 @@ jobs:
       - name: Define test matrix
         id: define-matrix
         shell: bash
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          SPOT_FLAG: ${{ steps.spot.outputs.spot_flag }}
         run: |
           TOPOLOGIES_JSON='[
             {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
@@ -138,11 +142,11 @@ jobs:
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade | grep -v '^TestMain$')
 
           tests=$(echo "$test_names" | jq -c -R -s \
-            --argjson run_id "${{ github.run_id }}" \
-            --arg run_attempt "${{ github.run_attempt }}" \
+            --argjson run_id "$RUN_ID" \
+            --arg run_attempt "$RUN_ATTEMPT" \
             --argjson tops "$TOPOLOGIES_JSON" \
             --argjson per "$PER_TEST_TOPOLOGIES_JSON" \
-            --arg spot_flag "${{ steps.spot.outputs.spot_flag }}" '
+            --arg spot_flag "$SPOT_FLAG" '
             (split("\n") | map(select(length>0))) as $names
             | [ $names[] as $name | $tops[] | {test_name:$name} + . ] as $baseAll
             | ($baseAll | map(select(.test_name as $n | ($per[$n] | type) == "array" | not))) as $base

@@ -122,6 +122,10 @@ jobs:
       - name: Define mixed-env test matrix
         id: define-matrix
         shell: bash
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          SPOT_FLAG: ${{ steps.spot.outputs.spot_flag }}
         run: |
           # Tests worth running under mixed-env: the OCR3/DON2DON-heavy ones.
           # The confidential relay test runs against its own topology (the
@@ -143,9 +147,9 @@ jobs:
           matrix=$(jq -c -n \
             --argjson tests "$TESTS" \
             --argjson per "$PER_TEST_CONFIGS" \
-            --argjson run_id "${{ github.run_id }}" \
-            --arg run_attempt "${{ github.run_attempt }}" \
-            --arg spot_flag "${{ steps.spot.outputs.spot_flag }}" '
+            --argjson run_id "$RUN_ID" \
+            --arg run_attempt "$RUN_ATTEMPT" \
+            --arg spot_flag "$SPOT_FLAG" '
             $tests | to_entries | map({
               test_name: .value,
               test_id: .key,
