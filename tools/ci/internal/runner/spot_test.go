@@ -2,7 +2,6 @@ package runner_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -10,11 +9,30 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/ci/internal/runner"
 )
 
-func TestResolveSpot(t *testing.T) {
+func TestResolveSpot_InvalidStrategyOverride(t *testing.T) {
 	t.Parallel()
 
-	weekdayTime := time.Date(2026, time.March, 11, 14, 0, 0, 0, time.UTC) // Wednesday 14:00 UTC (peak)
-	weekendTime := time.Date(2026, time.March, 15, 10, 0, 0, 0, time.UTC) // Sunday 10:00 UTC (weekend)
+	_, err := runner.ResolveSpot(runner.SpotInput{
+		EventName:        "pull_request",
+		StrategyOverride: "bogus",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid spot strategy override")
+}
+
+func TestResolveSpot_InvalidDefaultStrategy(t *testing.T) {
+	t.Parallel()
+
+	_, err := runner.ResolveSpot(runner.SpotInput{
+		EventName:       "pull_request",
+		DefaultStrategy: "bogus",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid default spot strategy")
+}
+
+func TestResolveSpot(t *testing.T) {
+	t.Parallel()
 
 	tests := []struct {
 		name             string
@@ -32,7 +50,6 @@ func TestResolveSpot(t *testing.T) {
 				EventName: "merge_group",
 				Ref:       "refs/heads/gh-readonly-queue/develop/pr-123-abcdef",
 				RefName:   "gh-readonly-queue/develop/pr-123-abcdef",
-				Timestamp: weekdayTime,
 			},
 			expectedSpot:     "false",
 			expectedFlag:     "spot=false",
@@ -46,7 +63,6 @@ func TestResolveSpot(t *testing.T) {
 				EventName: "push",
 				Ref:       "refs/heads/gh-readonly-queue/main/pr-456",
 				RefName:   "gh-readonly-queue/main/pr-456",
-				Timestamp: weekdayTime,
 			},
 			expectedSpot:     "false",
 			expectedFlag:     "spot=false",
@@ -61,7 +77,6 @@ func TestResolveSpot(t *testing.T) {
 				Ref:       "refs/tags/v2.16.0",
 				RefType:   "tag",
 				RefName:   "v2.16.0",
-				Timestamp: weekdayTime,
 			},
 			expectedSpot:     "false",
 			expectedFlag:     "spot=false",
@@ -76,7 +91,6 @@ func TestResolveSpot(t *testing.T) {
 				Ref:       "refs/tags/v2.16.0-rc1",
 				RefType:   "tag",
 				RefName:   "v2.16.0-rc1",
-				Timestamp: weekdayTime,
 			},
 			expectedSpot:     "false",
 			expectedFlag:     "spot=false",
@@ -90,7 +104,6 @@ func TestResolveSpot(t *testing.T) {
 				EventName: "push",
 				Ref:       "refs/heads/release/2.57.1",
 				RefName:   "release/2.57.1",
-				Timestamp: weekdayTime,
 			},
 			expectedSpot:     "false",
 			expectedFlag:     "spot=false",
@@ -104,7 +117,6 @@ func TestResolveSpot(t *testing.T) {
 				EventName: "push",
 				Ref:       "refs/heads/releases/v2.0.0",
 				RefName:   "releases/v2.0.0",
-				Timestamp: weekdayTime,
 			},
 			expectedSpot:     "false",
 			expectedFlag:     "spot=false",
@@ -118,7 +130,6 @@ func TestResolveSpot(t *testing.T) {
 				EventName: "push",
 				Ref:       "refs/heads/hotfix/core-bug",
 				RefName:   "hotfix/core-bug",
-				Timestamp: weekdayTime,
 			},
 			expectedSpot:     "false",
 			expectedFlag:     "spot=false",
@@ -132,7 +143,6 @@ func TestResolveSpot(t *testing.T) {
 				EventName: "pull_request",
 				BaseRef:   "release/2.57.1",
 				HeadRef:   "fix-something",
-				Timestamp: weekdayTime,
 			},
 			expectedSpot:     "false",
 			expectedFlag:     "spot=false",
@@ -146,7 +156,6 @@ func TestResolveSpot(t *testing.T) {
 				EventName: "push",
 				Ref:       "refs/heads/develop",
 				RefName:   "develop",
-				Timestamp: weekdayTime,
 			},
 			expectedSpot:     "co",
 			expectedFlag:     "spot=co",
@@ -159,7 +168,6 @@ func TestResolveSpot(t *testing.T) {
 				EventName: "push",
 				Ref:       "refs/heads/main",
 				RefName:   "main",
-				Timestamp: weekdayTime,
 			},
 			expectedSpot:     "co",
 			expectedFlag:     "spot=co",
@@ -172,7 +180,6 @@ func TestResolveSpot(t *testing.T) {
 				EventName: "pull_request",
 				BaseRef:   "develop",
 				HeadRef:   "feature/DX-5101",
-				Timestamp: weekdayTime,
 			},
 			expectedSpot:     "pco",
 			expectedFlag:     "spot=pco",
@@ -184,7 +191,6 @@ func TestResolveSpot(t *testing.T) {
 			input: runner.SpotInput{
 				EventName: "schedule",
 				Ref:       "refs/heads/develop",
-				Timestamp: weekendTime,
 			},
 			expectedSpot:     "pco",
 			expectedFlag:     "spot=pco",
@@ -198,7 +204,6 @@ func TestResolveSpot(t *testing.T) {
 				BaseRef:       "develop",
 				HeadRef:       "feature/some-feature",
 				ForceOnDemand: true,
-				Timestamp:     weekendTime,
 			},
 			expectedSpot:     "false",
 			expectedFlag:     "spot=false",
@@ -212,7 +217,6 @@ func TestResolveSpot(t *testing.T) {
 				BaseRef:          "develop",
 				HeadRef:          "feature/some-feature",
 				StrategyOverride: runner.SpotLowestPrice,
-				Timestamp:        weekendTime,
 			},
 			expectedSpot:     "lowest-price",
 			expectedFlag:     "spot=lowest-price",
@@ -226,7 +230,6 @@ func TestResolveSpot(t *testing.T) {
 				BaseRef:         "develop",
 				HeadRef:         "feature/some-feature",
 				DefaultStrategy: runner.SpotCapacityOptimized,
-				Timestamp:       weekdayTime,
 			},
 			expectedSpot:     "co",
 			expectedFlag:     "spot=co",

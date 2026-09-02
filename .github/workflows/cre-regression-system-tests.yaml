@@ -78,6 +78,7 @@ jobs:
         id: spot
         uses: ./.github/actions/setup-runner-spot
 
+      # TODO(DX-5101): replace this inline grep/jq matrix step with `ci matrix system --suite cre-regression`
       - name: Define test matrix
         id: define-matrix
         shell: bash

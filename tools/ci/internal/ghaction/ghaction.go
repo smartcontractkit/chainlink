@@ -2,10 +2,10 @@ package ghaction
 
 import (
 	"fmt"
-	"html/template"
 	"io"
 	"os"
 	"sort"
+	"text/template"
 
 	"github.com/sethvargo/go-githubactions"
 )
