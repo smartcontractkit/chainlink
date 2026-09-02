@@ -10,38 +10,41 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	crebindings "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/cre"
 	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"
-	stellarforwarder "github.com/smartcontractkit/chainlink-stellar/deployment/cre/forwarder"
 )
 
-var _ cldf.ChangeSetV2[*AddForwardersRequest] = AddForwarders{}
+var _ cldf.ChangeSetV2[*ClearConfigRequest] = ClearConfigs{}
 
-// AddForwarders authorizes transmitter accounts on a deployed Stellar CRE forwarder.
-//
-// The Soroban forwarder's report() calls require_valid_forwarder(transmitter): only
-// accounts registered via add_forwarder may submit reports. The DON worker nodes
-// submit report() from their relayer signing accounts, so each must be authorized
-// here or report() reverts with UnauthorizedForwarder.
-type AddForwarders struct{}
+// ClearConfigs removes a DON signer configuration from deployed Stellar CRE
+// forwarders. Used to rotate out a bad or retired DON config; reports for the
+// cleared (donID, configVersion) pair are rejected afterwards.
+type ClearConfigs struct{}
 
-type AddForwardersRequest struct {
-	// Transmitters are Stellar account addresses (G… StrKey) authorized to submit a report
-	Transmitters []string
+type ClearConfigRequest struct {
+	DonID         uint32
+	ConfigVersion uint32
 
-	// Chains is optional. When set, only those selectors are configured.
+	// Chains is optional. When set, only those selectors are cleared.
 	Chains    map[uint64]struct{}
 	Qualifier string
 	Version   string
 
+	// MCMS, when set, builds a governed clear_config timelock proposal instead
+	// of sending directly with the deployer key. Required once the forwarder
+	// is owned by the MCMS timelock. Its Qualifier selects the MCMS instance.
 	MCMS *cldf.MCMSTimelockProposalInput
 }
 
-func (cs AddForwarders) VerifyPreconditions(env cldf.Environment, req *AddForwardersRequest) error {
+func (cs ClearConfigs) VerifyPreconditions(env cldf.Environment, req *ClearConfigRequest) error {
 	if req == nil {
 		return errors.New("request is required")
 	}
-	if len(req.Transmitters) == 0 {
-		return errors.New("at least one transmitter is required")
+	if req.DonID == 0 {
+		return errors.New("DON ID is required")
+	}
+	if req.ConfigVersion == 0 {
+		return errors.New("config version is required")
 	}
 	if req.Qualifier == "" {
 		return errors.New("forwarder qualifier is required")
@@ -75,10 +78,11 @@ func (cs AddForwarders) VerifyPreconditions(env cldf.Environment, req *AddForwar
 			return fmt.Errorf("failed to get stellar forwarder for ref key %s: %w", refKey, err)
 		}
 	}
+
 	return nil
 }
 
-func (cs AddForwarders) Apply(env cldf.Environment, req *AddForwardersRequest) (cldf.ChangesetOutput, error) {
+func (cs ClearConfigs) Apply(env cldf.Environment, req *ClearConfigRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
 
 	version := semver.MustParse(req.Version)
@@ -111,13 +115,13 @@ func (cs AddForwarders) Apply(env cldf.Environment, req *AddForwardersRequest) (
 				return out, err
 			}
 
-			batchOp, err := addForwardersBatchOp(sel, addrRef.Address, req.Transmitters)
+			batchOp, err := forwarderClearConfigBatchOp(sel, addrRef.Address, req.DonID, req.ConfigVersion)
 			if err != nil {
-				return out, fmt.Errorf("failed to build add_forwarder batch operation for stellar forwarder %s on chain selector %d: %w", addrRef.Address, sel, err)
+				return out, fmt.Errorf("failed to build clear_config batch operation for stellar forwarder %s on chain selector %d: %w", addrRef.Address, sel, err)
 			}
 			batchOps = append(batchOps, batchOp)
 
-			env.Logger.Infow("Built governed Stellar forwarder add_forwarder operations", "chainSelector", sel, "forwarder", addrRef.Address, "transmitters", len(req.Transmitters))
+			env.Logger.Infow("Built governed Stellar forwarder clear_config operation", "chainSelector", sel, "forwarder", addrRef.Address, "donID", req.DonID, "configVersion", req.ConfigVersion)
 
 			continue
 		}
@@ -127,12 +131,12 @@ func (cs AddForwarders) Apply(env cldf.Environment, req *AddForwardersRequest) (
 			return out, fmt.Errorf("failed to build stellar deployer for chain selector %d: %w", sel, err)
 		}
 
-		for _, transmitter := range req.Transmitters {
-			if err := stellarforwarder.AddForwarder(env.GetContext(), deployer, addrRef.Address, transmitter); err != nil {
-				return out, fmt.Errorf("failed to authorize transmitter %s on stellar forwarder %s (chain selector %d): %w", transmitter, addrRef.Address, sel, err)
-			}
-			env.Logger.Infow("Authorized Stellar forwarder transmitter", "chainSelector", sel, "forwarder", addrRef.Address, "transmitter", transmitter)
+		client := crebindings.NewForwarderClient(deployer, addrRef.Address)
+		if err := client.ClearConfig(env.GetContext(), req.DonID, req.ConfigVersion); err != nil {
+			return out, fmt.Errorf("failed to clear config on stellar forwarder %s (chain selector %d): %w", addrRef.Address, sel, err)
 		}
+
+		env.Logger.Infow("Cleared Stellar CRE forwarder config", "chainSelector", sel, "forwarder", addrRef.Address, "donID", req.DonID, "configVersion", req.ConfigVersion)
 	}
 
 	if req.MCMS != nil {
