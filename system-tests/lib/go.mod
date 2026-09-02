@@ -37,7 +37,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.108
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260828090428-9828cc37ebc2
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260828143819-eb996f0a6c8b
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260831181702-e32c7284ce1c
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-confidential-compute v1.3.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.120.1-0.20260828145648-3e1bcd2ac1da
@@ -47,6 +47,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260821155228-fa1d775e2138
+	github.com/smartcontractkit/chainlink-stellar v0.0.6-0.20260901125625-2d505ff46c8f
+	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260901125625-2d505ff46c8f
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.7
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
@@ -58,6 +60,7 @@ require (
 	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342
 	github.com/smartcontractkit/smdkg v0.0.0-20260819115032-4afa3ab56bc4
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c
+	github.com/stellar/go-stellar-sdk v0.7.3
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/ratelimit v0.3.1
 	go.uber.org/zap v1.28.0
@@ -519,8 +522,6 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.3.0 // indirect
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1 // indirect
-	github.com/smartcontractkit/chainlink-stellar v0.0.5 // indirect
-	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260828132741-4eb62ddc67fb // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260827120130-362c4a408695 // indirect
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9 // indirect
@@ -535,7 +536,6 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/stellar/go-stellar-sdk v0.7.3 // indirect
 	github.com/stellar/go-xdr v0.0.0-20260806060815-dc590f17552a // indirect
 	github.com/stephenlacy/go-ethereum-hdwallet v0.0.0-20230913225845-a4fa94429863 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect

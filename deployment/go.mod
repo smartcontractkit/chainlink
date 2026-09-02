@@ -49,7 +49,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260821001950-7520b255725e
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260828143819-eb996f0a6c8b
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260831181702-e32c7284ce1c
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-data-streams v1.1.1
 	github.com/smartcontractkit/chainlink-deployments-framework v0.120.1-0.20260828145648-3e1bcd2ac1da
@@ -61,8 +61,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1
-	github.com/smartcontractkit/chainlink-stellar v0.0.5
-	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260828132741-4eb62ddc67fb
+	github.com/smartcontractkit/chainlink-stellar v0.0.6-0.20260901125625-2d505ff46c8f
+	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260901125625-2d505ff46c8f
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260827120130-362c4a408695
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260827120130-362c4a408695
