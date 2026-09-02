@@ -1373,8 +1373,8 @@ github.com/smartcontractkit/ccip-owner-contracts v0.2.1 h1:HgrVtzpyqrPCQiyIeoUKc
 github.com/smartcontractkit/ccip-owner-contracts v0.2.1/go.mod h1:dpKtlTVEKohsbhnPe/r1oLFqfq7TP7iKvMaUOiidAaM=
 github.com/smartcontractkit/chain-selectors v1.0.108 h1:LiFpgxGiT2o94z3YttLPaxB+jI+4S+uySTfo2SS16+0=
 github.com/smartcontractkit/chain-selectors v1.0.108/go.mod h1:qy7whtgG5g+7z0jt0nRyii9bLND9m15NZTzuQPkMZ5w=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20260708114855-e953eeb028a7 h1:rZKkKvbAEIVQS82bW5PxT5yw8hRWpWf4jWoMZp8p4/4=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20260708114855-e953eeb028a7/go.mod h1:9bJTQnOBV87Be2XvCx7M0p5frvl0lYEdq+jFAKygnuI=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20260729172123-588778bf8e20 h1:iWvnFT2r5oesFtgMf1UV8CjQWEZty57q5wD2rS1mu+0=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20260729172123-588778bf8e20/go.mod h1:KeOaQvQWoJaSOSc/8XLjntIN+7EL6WHY/nXG9rM3Xno=
 github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260716230027-bd85997bc03c h1:aDS7I+SK9mWkDcWlfP5JrDY4NnicC/4KVm30dG7HQaw=
 github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260716230027-bd85997bc03c/go.mod h1:/ABThVk5DzhpsO1A4io8C6cAmqpF8RzgQDlGj98hke0=
 github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260706100550-d43558069754 h1:bFgzlJz8H+y0TLyV0Z+ix2WqcvKRMhcS0SmMc9BRZ4g=
