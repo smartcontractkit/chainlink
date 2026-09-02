@@ -69,21 +69,17 @@ jobs:
           ref: ${{ inputs.chainlink_version || github.sha }}
       # we cannot pass this resolved image to `test-nightly` job, because when it contains secrets
       # github sets its value to an empty string to avoid leaking secrets.
+      - name: Setup CI CLI
+        uses: ./.github/actions/setup-ci-cli
       - name: Resolve Chainlink image
         id: resolve-chainlink-image
-        working-directory: .github/scripts
-        shell: bash
         env:
           CHAINLINK_IMAGE_REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
           CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
           ECR_TYPE: ${{ inputs.ecr }}
           AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-        run: |
-          resolved_image="$(bash resolve-chainlink-image.sh)"
-          [[ -n "$resolved_image" ]] || { echo "resolved_image is empty"; exit 1; }
-          echo "$resolved_image"
-          echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
+        run: ci image resolve
       - name: Print Summary
         working-directory: .
         run: |
@@ -252,21 +248,17 @@ jobs:
         run: |
           go mod download
 
+      - name: Setup CI CLI
+        uses: ./.github/actions/setup-ci-cli
       - name: Resolve Chainlink image
         id: resolve-chainlink-image
-        working-directory: .github/scripts
-        shell: bash
         env:
           CHAINLINK_IMAGE_REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
           CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
           ECR_TYPE: ${{ inputs.ecr }}
           AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-        run: |
-          resolved_image="$(bash resolve-chainlink-image.sh)"
-          [[ -n "$resolved_image" ]] || { echo "resolved_image is empty"; exit 1; }
-          echo "$resolved_image"
-          echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
+        run: ci image resolve
 
       - name: Set environment variables
         run: |
