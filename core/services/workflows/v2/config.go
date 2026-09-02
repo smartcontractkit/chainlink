@@ -89,7 +89,7 @@ type EngineLimiters struct {
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
 	TriggerSubscription      limits.BoundLimiter[int]
-	TriggerEventQueue        limits.QueueLimiter[enqueuedTriggerEvent]
+	TriggerEventQueue        limits.QueueLimiter[RoutedTriggerEvent]
 	TriggerEventQueueTime    limits.TimeLimiter
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
@@ -154,7 +154,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.TriggerEventQueue, err = limits.MakeQueueLimiter[enqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+	l.TriggerEventQueue, err = limits.MakeQueueLimiter[RoutedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
 	if err != nil {
 		return
 	}
