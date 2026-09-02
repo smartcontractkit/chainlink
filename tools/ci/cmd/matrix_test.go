@@ -137,4 +137,11 @@ func TestMatrixMixedEnv_CLI(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, res, 6)
 	assert.Equal(t, "Test_CRE_V2_Suite_Bucket_A", res[0].TestName)
+	assert.Equal(t, 0, res[0].TestID)
+	assert.Equal(t, "configs/mixed-env-don.toml", res[0].Configs)
+	assert.Equal(t, "runs-on=321-0-1/cpu=16/ram=64/family=m7i+m8i/spot=pco/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", res[0].RunsOn)
+	assert.Equal(t, "Test_CRE_V2_ConfidentialWorkflows_Relay", res[5].TestName)
+	assert.Equal(t, 5, res[5].TestID)
+	assert.Equal(t, "configs/mixed-env-confidential-workflows.toml", res[5].Configs)
+	assert.Equal(t, "runs-on=321-5-1/cpu=16/ram=64/family=m7i+m8i/spot=pco/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", res[5].RunsOn)
 }
