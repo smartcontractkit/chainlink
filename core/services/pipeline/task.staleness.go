@@ -43,19 +43,19 @@ func (d *DurationMsParam) UnmarshalPipelineParam(val any) error {
 //
 // Input:  samples ([]Sample) — fresh from sample or normalize
 // Output: []Sample — same samples with Weight replaced by W * f(age); w==0 dropped
-// Fails:  if method is unknown, or halfLife is missing for exp/cooldown
+// Fails:  if method is unknown, or halfLife is missing for exp/exp_cooldown
 //
 // Methods:
 //   cutoff    — 1 if age <= threshold, else 0 (binary, discontinuous)
 //   linear    — 1 - age/threshold, reaches 0 at threshold
 //   exp       — 2^(-age/halfLife), truncated to 0 at threshold
-//   cooldown  — 1 if age <= threshold, else 2^(-(age-threshold)/halfLife)
+//   exp_cooldown  — 1 if age <= threshold, else 2^(-(age-threshold)/halfLife)
 //   piecewise — linear interpolation of user-supplied (age:weight) points
 //
 // Optional safety parameters:
 //   decayThreshold (K) — when the decay multiplier falls below K, the sample is
 //   dropped entirely (assigned "no data" state). Recommended value: 0.03.
-//   Applies to exp and cooldown methods (where decay is asymptotic).
+//   Applies to exp and exp_cooldown methods (where decay is asymptotic).
 //
 //   cutoff — hard time limit; when age exceeds cutoff, the sample is dropped
 //   regardless of the decay function value. Acts as a safety valve.
@@ -119,7 +119,7 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	halfLifeS := float64(halfLifeMs) / 1000.0
 	cutoffMsVal := int64(cutoffMs)
 	kVal := decayThreshold.Decimal()
-	applyK := (m == "exp" || m == "cooldown") && kVal.GreaterThan(decimal.Zero)
+	applyK := (m == "exp" || m == "exp_cooldown") && kVal.GreaterThan(decimal.Zero)
 
 	var pw []piecewisePoint
 	if m == "piecewise" {
@@ -129,8 +129,8 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 			return Result{Error: errors.Wrap(err, "points")}, runInfo
 		}
 	}
-	if (m == "exp" || m == "cooldown") && halfLifeS <= 0 {
-		return Result{Error: errors.New("halfLife required for exp/cooldown staleness")}, runInfo
+	if (m == "exp" || m == "exp_cooldown") && halfLifeS <= 0 {
+		return Result{Error: errors.New("halfLife required for exp/exp_cooldown staleness")}, runInfo
 	}
 
 	nowMs := time.Now().UnixMilli()
@@ -153,7 +153,7 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 			return Result{Error: err}, runInfo
 		}
 
-		// Decay threshold K: for asymptotic methods (exp, cooldown), drop
+		// Decay threshold K: for asymptotic methods (exp, exp_cooldown), drop
 		// samples whose decay multiplier falls below K ("no data" state).
 		if applyK && mult.LessThan(kVal) {
 			continue
@@ -244,7 +244,7 @@ func decayMultiplier(method string, ageMs int64, ageS float64, thresholdMs int64
 			return decimal.Zero, nil
 		}
 		return decimal.NewFromFloat(math.Pow(2, -ageS/halfLifeS)), nil
-	case "cooldown":
+	case "exp_cooldown":
 		if ageS <= thresholdS {
 			return decimal.NewFromInt(1), nil
 		}
