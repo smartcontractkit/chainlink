@@ -26,10 +26,11 @@ var ErrInsufficientWeightMass = errors.New("insufficient weight mass")
 // Fails:  ErrWrongInputCardinality if no samples survive
 //
 // Method values:
-//   (omitted)    — plain weighted mean, no clamping (default)
-//   winsor       — winsorize: clamp to [m×(1-band), m×(1+band)]
-//   winsor_abs   — winsorize: clamp to [m-band, m+band]
-//   winsor_mad   — winsorize: clamp to [m-band×MAD, m+band×MAD]
+//
+//	(omitted)    — plain weighted mean, no clamping (default)
+//	winsor       — winsorize: clamp to [m×(1-band), m×(1+band)]
+//	winsor_abs   — winsorize: clamp to [m-band, m+band]
+//	winsor_mad   — winsorize: clamp to [m-band×MAD, m+band×MAD]
 type WeightedMeanTask struct {
 	BaseTask      `mapstructure:",squash"`
 	Samples       string `json:"samples"`
@@ -49,13 +50,13 @@ func (t *WeightedMeanTask) Type() TaskType {
 
 func (t *WeightedMeanTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
-		samplesAndErrs    SliceParam
-		referenceAndErrs  SliceParam
-		band              DecimalParam
-		minMass           DecimalParam
-		method            StringParam
-		winsorRef         StringParam
-		maybePrecision    MaybeInt32Param
+		samplesAndErrs   SliceParam
+		referenceAndErrs SliceParam
+		band             DecimalParam
+		minMass          DecimalParam
+		method           StringParam
+		winsorRef        StringParam
+		maybePrecision   MaybeInt32Param
 	)
 
 	resolveOpt := func(out PipelineParamUnmarshaler, getters ...GetterFunc) error {

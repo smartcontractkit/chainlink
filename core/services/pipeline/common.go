@@ -345,10 +345,10 @@ const (
 	TaskTypeVRFV2Plus        TaskType = "vrfv2plus"
 
 	// Experimental tasks. These are not yet stable, subject to change.
-	TaskTypeSample          TaskType = "sample"
-	TaskTypeNormalize       TaskType = "normalize"
-	TaskTypeStaleness       TaskType = "staleness"
-	TaskTypeWeightedMean    TaskType = "weightedmean"
+	TaskTypeSample       TaskType = "sample"
+	TaskTypeNormalize    TaskType = "normalize"
+	TaskTypeStaleness    TaskType = "staleness"
+	TaskTypeWeightedMean TaskType = "weightedmean"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"

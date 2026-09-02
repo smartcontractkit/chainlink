@@ -85,7 +85,7 @@ func TestSampleTask(t *testing.T) {
 			TsUnit:    "s",
 		}
 		input := map[string]any{
-			"data":      map[string]any{"binance": map[string]any{"mid": 100.0}},
+			"data":       map[string]any{"binance": map[string]any{"mid": 100.0}},
 			"timestamps": map[string]any{"ts": 1725000000},
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: input}})

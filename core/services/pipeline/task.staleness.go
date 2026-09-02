@@ -46,19 +46,21 @@ func (d *DurationMsParam) UnmarshalPipelineParam(val any) error {
 // Fails:  if method is unknown, or halfLife is missing for exp/exp_cooldown
 //
 // Methods:
-//   cutoff    — 1 if age <= threshold, else 0 (binary, discontinuous)
-//   linear    — 1 - age/threshold, reaches 0 at threshold
-//   exp       — 2^(-age/halfLife), truncated to 0 at threshold
-//   exp_cooldown  — 1 if age <= threshold, else 2^(-(age-threshold)/halfLife)
-//   piecewise — linear interpolation of user-supplied (age:weight) points
+//
+//	cutoff    — 1 if age <= threshold, else 0 (binary, discontinuous)
+//	linear    — 1 - age/threshold, reaches 0 at threshold
+//	exp       — 2^(-age/halfLife), truncated to 0 at threshold
+//	exp_cooldown  — 1 if age <= threshold, else 2^(-(age-threshold)/halfLife)
+//	piecewise — linear interpolation of user-supplied (age:weight) points
 //
 // Optional safety parameters:
-//   decayThreshold (K) — when the decay multiplier falls below K, the sample is
-//   dropped entirely (assigned "no data" state). Recommended value: 0.03.
-//   Applies to exp and exp_cooldown methods (where decay is asymptotic).
 //
-//   cutoff — hard time limit; when age exceeds cutoff, the sample is dropped
-//   regardless of the decay function value. Acts as a safety valve.
+//	decayThreshold (K) — when the decay multiplier falls below K, the sample is
+//	dropped entirely (assigned "no data" state). Recommended value: 0.03.
+//	Applies to exp and exp_cooldown methods (where decay is asymptotic).
+//
+//	cutoff — hard time limit; when age exceeds cutoff, the sample is dropped
+//	regardless of the decay function value. Acts as a safety valve.
 type StalenessTask struct {
 	BaseTask       `mapstructure:",squash"`
 	Samples        string `json:"samples"`

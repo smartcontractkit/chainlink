@@ -19,7 +19,9 @@ import (
 // Input:  samples ([]Sample) — values in various units
 // Input:  factors ([]Sample, optional) — Source names the unit this factor converts
 // Input:  unitMap (map, optional) — explicit {unit: factor} mapping; takes priority over factors
-//   e.g. unitMap={"USDC":$(usdc_factor),"USDT":$(usdt_factor)} — var-refs are bare JSON values
+//
+//	e.g. unitMap={"USDC":$(usdc_factor),"USDT":$(usdt_factor)} — var-refs are bare JSON values
+//
 // Output: []Sample — all values in targetUnit; unconvertible samples dropped (or error)
 // Fails:  if a sample's unit has no factor and onMissingRate != "drop"
 type NormalizeTask struct {

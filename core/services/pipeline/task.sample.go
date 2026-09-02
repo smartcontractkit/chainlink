@@ -20,12 +20,12 @@ import (
 // becomes multiple self-contained samples, not parallel arrays of metadata
 // that can drift out of alignment.
 type Sample struct {
-	Source string          `json:"source"`           // grouping + weighting key
-	Value  decimal.Decimal `json:"value"`              // the measured value
-	TsMs   int64           `json:"ts_ms"`             // the source's own clock, milliseconds
-	Weight decimal.Decimal `json:"weight"`             // nominal weight, scaled in place by staleness
-	Unit   string          `json:"unit,omitempty"`    // "" = already the common unit
-	Tag    string          `json:"tag,omitempty"`     // free label, diagnostics only
+	Source string          `json:"source"`         // grouping + weighting key
+	Value  decimal.Decimal `json:"value"`          // the measured value
+	TsMs   int64           `json:"ts_ms"`          // the source's own clock, milliseconds
+	Weight decimal.Decimal `json:"weight"`         // nominal weight, scaled in place by staleness
+	Unit   string          `json:"unit,omitempty"` // "" = already the common unit
+	Tag    string          `json:"tag,omitempty"`  // free label, diagnostics only
 }
 
 // SampleParam parses a single Sample from various representations.
@@ -238,16 +238,16 @@ func (a *AnyParam) UnmarshalPipelineParam(val any) error {
 // Fails:  if valuePath or tsPath is missing, or the upstream input errored
 // Fails:  if the JSON path does not resolve to a valid number
 type SampleTask struct {
-	BaseTask `mapstructure:",squash"`
-	Input    string `json:"input"`
-	Source   string `json:"source"`
-	Weight   string `json:"weight"`
-	Unit     string `json:"unit"`
-	Tag      string `json:"tag"`
+	BaseTask  `mapstructure:",squash"`
+	Input     string `json:"input"`
+	Source    string `json:"source"`
+	Weight    string `json:"weight"`
+	Unit      string `json:"unit"`
+	Tag       string `json:"tag"`
 	ValuePath string `json:"valuePath"`
 	TsPath    string `json:"tsPath"`
 	TsUnit    string `json:"tsUnit"`
-	Decimals string `json:"decimals"`
+	Decimals  string `json:"decimals"`
 }
 
 var _ Task = (*SampleTask)(nil)
@@ -258,15 +258,15 @@ func (t *SampleTask) Type() TaskType {
 
 func (t *SampleTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
-		input   AnyParam
-		source  StringParam
-		weight  DecimalParam
-		unit    StringParam
-		tag     StringParam
+		input     AnyParam
+		source    StringParam
+		weight    DecimalParam
+		unit      StringParam
+		tag       StringParam
 		valuePath JSONPathParam
-		tsPath  JSONPathParam
-		tsUnit  StringParam
-		decimals MaybeInt32Param
+		tsPath    JSONPathParam
+		tsUnit    StringParam
+		decimals  MaybeInt32Param
 	)
 	// Default separator for JSONPathParam is comma.
 	valuePath = NewJSONPathParam("")
@@ -351,5 +351,3 @@ func sampleInputToMap(v any) (map[string]any, error) {
 		return nil, errors.Errorf("expected JSON string or map, got %T", v)
 	}
 }
-
-

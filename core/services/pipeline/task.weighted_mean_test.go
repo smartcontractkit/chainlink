@@ -270,10 +270,10 @@ func TestWeightedMeanTaskDefault(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		inputs   []pipeline.Sample
-		minMass  string
-		want     string
+		name    string
+		inputs  []pipeline.Sample
+		minMass string
+		want    string
 	}{
 		{
 			name: "equal values, equal weights",

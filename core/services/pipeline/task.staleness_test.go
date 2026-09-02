@@ -16,8 +16,8 @@ func TestStalenessTask(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now().UnixMilli()
-	fresh := now - 1000   // 1 second old
-	stale := now - 30000  // 30 seconds old
+	fresh := now - 1000  // 1 second old
+	stale := now - 30000 // 30 seconds old
 
 	makeSamples := func() []pipeline.Result {
 		return []pipeline.Result{
@@ -29,8 +29,8 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("cutoff drops stale samples", func(t *testing.T) {
 		task := pipeline.StalenessTask{
-			BaseTask: pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:   "cutoff",
+			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
+			Method:    "cutoff",
 			Threshold: "10s",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
@@ -44,8 +44,8 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("linear scales weight continuously", func(t *testing.T) {
 		task := pipeline.StalenessTask{
-			BaseTask: pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:   "linear",
+			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
+			Method:    "linear",
 			Threshold: "10s",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
@@ -68,10 +68,10 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("exponential decay", func(t *testing.T) {
 		task := pipeline.StalenessTask{
-			BaseTask: pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:   "exp",
+			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
+			Method:    "exp",
 			Threshold: "60s",
-			HalfLife: "5s",
+			HalfLife:  "5s",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
 		require.NoError(t, out.Error)
@@ -87,10 +87,10 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("exp_cooldown holds flat then decays", func(t *testing.T) {
 		task := pipeline.StalenessTask{
-			BaseTask: pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:   "exp_cooldown",
+			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
+			Method:    "exp_cooldown",
 			Threshold: "10s",
-			HalfLife: "5s",
+			HalfLife:  "5s",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
 		require.NoError(t, out.Error)
@@ -108,10 +108,10 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("piecewise interpolation", func(t *testing.T) {
 		task := pipeline.StalenessTask{
-			BaseTask: pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:   "piecewise",
+			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
+			Method:    "piecewise",
 			Threshold: "60s",
-			Points:   "0s:1;5s:1;10s:0.5;30s:0",
+			Points:    "0s:1;5s:1;10s:0.5;30s:0",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
 		require.NoError(t, out.Error)
@@ -165,11 +165,11 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("cutoff drops samples older than cutoff time", func(t *testing.T) {
 		task := pipeline.StalenessTask{
-			BaseTask: pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:   "exp_cooldown",
+			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
+			Method:    "exp_cooldown",
 			Threshold: "10s",
-			HalfLife: "5s",
-			Cutoff:   "20s",
+			HalfLife:  "5s",
+			Cutoff:    "20s",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
 		require.NoError(t, out.Error)
@@ -182,11 +182,11 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("cutoff does not affect fresh samples", func(t *testing.T) {
 		task := pipeline.StalenessTask{
-			BaseTask: pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:   "exp_cooldown",
+			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
+			Method:    "exp_cooldown",
 			Threshold: "10s",
-			HalfLife: "5s",
-			Cutoff:   "60s",
+			HalfLife:  "5s",
+			Cutoff:    "60s",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
 		require.NoError(t, out.Error)
