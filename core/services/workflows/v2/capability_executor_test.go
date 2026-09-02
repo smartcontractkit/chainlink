@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -101,6 +102,81 @@ func TestExecutionHelper_SystemCapabilityResolvedBypass(t *testing.T) {
 	assert.Contains(t, err.Error(), "system-only")
 }
 
+// TestExecutionHelper_VaultAndDonTimeSystemCapabilitiesBlocked ensures the
+// vault and dontime capabilities cannot be invoked through the raw
+// CallCapability path, regardless of the requested version resolving to the
+// registered system-only one.
+func TestExecutionHelper_VaultAndDonTimeSystemCapabilitiesBlocked(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		registeredID string
+		requestID    string
+	}{
+		{"vault exact ID", vault.CapabilityID, vault.CapabilityID},
+		{"vault version-resolved", vault.CapabilityID, "vault@1.0.0-0"},
+		{"vault unversioned", vault.CapabilityID, "vault"},
+		{"dontime exact ID", "dontime@1.0.0", "dontime@1.0.0"},
+		{"dontime version-resolved", "dontime@1.0.0", "dontime@1.0.0-0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			resolvedInfo := capabilities.CapabilityInfo{ID: tt.registeredID}
+			reg := stubRegistry{cap: stubExecutableCapability{CapabilityInfo: resolvedInfo}}
+
+			engine := &Engine{cfg: &EngineConfig{
+				Lggr:        logger.TestLogger(t),
+				CapRegistry: reg,
+			}}
+			engine.setLogger(commonlogger.Sugared(commonlogger.Test(t)))
+			exec := &ExecutionHelper{Engine: engine}
+
+			req := &sdk.CapabilityRequest{
+				Id:         tt.requestID,
+				Method:     "Execute",
+				CallbackId: 1,
+			}
+
+			_, err := exec.callCapability(t.Context(), req)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "system-only")
+		})
+	}
+}
+
+func TestIsSystemCapability(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		capID string
+		want  bool
+	}{
+		{"confidential-workflows registered ID", confidentialWorkflowsCapabilityID, true},
+		{"vault registered ID", vault.CapabilityID, true},
+		{"dontime registered ID", dontimeCapabilityID, true},
+		{"confidential-workflows other version", "confidential-workflows@1.0.0", false},
+		{"vault other version", "vault@2.0.0", false},
+		{"vault unversioned", "vault", false},
+		{"vault with labels", "vault:ChainSelector:123@1.0.0", false},
+		{"dontime other version", "dontime@2.0.0", false},
+		{"confidential-http is not system-only", "confidential-http@1.0.0", false},
+		{"evm with labels is not system-only", "evm:ChainSelector:1@1.0.0", false},
+		{"empty ID", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, isSystemCapability(tt.capID))
+		})
+	}
+}
+
 func TestExecutionHelper_ConfidentialHTTPPerWorkflowLimit(t *testing.T) {
 	t.Parallel()
 
@@ -143,6 +219,46 @@ func TestExecutionHelper_ConfidentialHTTPPerWorkflowLimit(t *testing.T) {
 	require.ErrorAs(t, err, &capErr, "expected per-workflow call limit exceedance to be classified as capability user error")
 	require.Equal(t, caperrors.OriginUser, capErr.Origin())
 	require.Equal(t, caperrors.LimitExceeded, capErr.Code())
+}
+
+// TestExecutionHelper_DefaultCallLimitForUnknownCapabilities ensures raw
+// CallCapability calls for (capability, method) pairs without a dedicated
+// limiter entry are bounded by the default call limit instead of unbounded.
+func TestExecutionHelper_DefaultCallLimitForUnknownCapabilities(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	lf := limits.Factory{Logger: lggr}
+
+	limiters, err := NewLimiters(lf, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = limiters.Close() })
+
+	exec := &ExecutionHelper{}
+	exec.initLimiters(limiters)
+
+	require.NoError(t, exec.defaultCallLimiter.Check(t.Context(), defaultCapabilityCallLimit))
+	err = exec.defaultCallLimiter.Check(t.Context(), defaultCapabilityCallLimit+1)
+	require.ErrorContains(t, err, "limited: cannot use 6, limit is 5")
+
+	// Prime the counter to the default limit, then call an unknown capability
+	// through the raw path; the next call must be rejected.
+	exec.callCounts = make(map[limits.Limiter[int]]int)
+	exec.callCounts[exec.defaultCallLimiter] = defaultCapabilityCallLimit
+
+	req := &sdk.CapabilityRequest{
+		Id:         "future-capability@1.0.0",
+		Method:     "DoThing",
+		CallbackId: 1,
+	}
+
+	_, err = exec.CallCapability(t.Context(), req)
+	require.Error(t, err, "expected CallCapability to fail when the default call limit is exceeded for an unknown capability")
+	var capErr caperrors.Error
+	require.ErrorAs(t, err, &capErr, "expected default call limit exceedance to be classified as capability user error")
+	require.Equal(t, caperrors.OriginUser, capErr.Origin())
+	require.Equal(t, caperrors.LimitExceeded, capErr.Code())
+	require.ErrorContains(t, err, "capability call limit exceeded for future-capability.DoThing")
 }
 
 func TestUserMetricTypeSuffix(t *testing.T) {
