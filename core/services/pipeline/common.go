@@ -344,7 +344,7 @@ const (
 	TaskTypeVRFV2            TaskType = "vrfv2"
 	TaskTypeVRFV2Plus        TaskType = "vrfv2plus"
 
-	// Experimental tasks — not yet stable, subject to change.
+	// Experimental tasks. These are not yet stable, subject to change.
 	TaskTypeSample          TaskType = "sample"
 	TaskTypeNormalize       TaskType = "normalize"
 	TaskTypeStaleness       TaskType = "staleness"
