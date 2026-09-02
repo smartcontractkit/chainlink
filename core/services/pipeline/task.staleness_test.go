@@ -122,4 +122,78 @@ func TestStalenessTask(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("decayThreshold drops samples below K", func(t *testing.T) {
+		now := time.Now().UnixMilli()
+		// 50s old: cooldown T=10s, H=5s -> decay = 2^(-(50-10)/5) = 2^-8 = 0.0039 < 0.03
+		inputs := []pipeline.Result{
+			{Value: pipeline.Sample{Source: "fresh", Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1), TsMs: now - 1000}},
+			{Value: pipeline.Sample{Source: "stale", Value: decimal.NewFromInt(101), Weight: decimal.NewFromInt(1), TsMs: now - 50000}},
+		}
+		task := pipeline.StalenessTask{
+			BaseTask:       pipeline.NewBaseTask(0, "stale", nil, nil, 0),
+			Method:         "cooldown",
+			Threshold:      "10s",
+			HalfLife:       "5s",
+			DecayThreshold: "0.03",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), inputs)
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 1, "50s old sample with decay=0.0039 should be dropped by K=0.03")
+		assert.Equal(t, "fresh", res[0].Source)
+	})
+
+	t.Run("decayThreshold keeps samples above K", func(t *testing.T) {
+		now := time.Now().UnixMilli()
+		// 15s old: cooldown T=10s, H=5s -> decay = 2^-((15-10)/5) = 2^-1 = 0.5 > 0.03
+		inputs := []pipeline.Result{
+			{Value: pipeline.Sample{Source: "a", Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1), TsMs: now - 15000}},
+		}
+		task := pipeline.StalenessTask{
+			BaseTask:       pipeline.NewBaseTask(0, "stale", nil, nil, 0),
+			Method:         "cooldown",
+			Threshold:      "10s",
+			HalfLife:       "5s",
+			DecayThreshold: "0.03",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), inputs)
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 1, "15s old sample with decay=0.5 should survive K=0.03")
+	})
+
+	t.Run("cutoff drops samples older than cutoff time", func(t *testing.T) {
+		task := pipeline.StalenessTask{
+			BaseTask: pipeline.NewBaseTask(0, "stale", nil, nil, 0),
+			Method:   "cooldown",
+			Threshold: "10s",
+			HalfLife: "5s",
+			Cutoff:   "20s",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 2, "30s old sample b should be dropped by cutoff=20s")
+		for _, s := range res {
+			assert.NotEqual(t, "b", s.Source)
+		}
+	})
+
+	t.Run("cutoff does not affect fresh samples", func(t *testing.T) {
+		task := pipeline.StalenessTask{
+			BaseTask: pipeline.NewBaseTask(0, "stale", nil, nil, 0),
+			Method:   "cooldown",
+			Threshold: "10s",
+			HalfLife: "5s",
+			Cutoff:   "60s",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		// b is 30s old, cutoff 60s -> not cutoff-dropped, but decayed
+		// 30s old: cooldown T=10s, H=5s -> 2^-((30-10)/5) = 2^-4 = 0.0625 * 0.3 = 0.01875
+		// All 3 samples survive (decay > 0)
+		require.Len(t, res, 3)
+	})
 }

@@ -2,29 +2,70 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	stderrors "errors"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// Experimental: NormalizeTask converts sample values onto a common unit using FX rates
-// provided as their own Sample slice. Samples already in the target unit (or
-// with no unit) pass through unchanged.
+// Experimental: NormalizeTask converts sample values onto a common unit using
+// conversion factors provided as a Sample slice or an explicit unitMap.
+// Samples already in the target unit (or with no unit) pass through unchanged.
 //
 // Input:  samples ([]Sample) — values in various units
-// Input:  rates ([]Sample, optional) — Source names the unit this rate converts
+// Input:  factors ([]Sample, optional) — Source names the unit this factor converts
+// Input:  unitMap (map, optional) — explicit {unit: factor} mapping; takes priority over factors
+//   e.g. unitMap={"USDC":$(usdc_factor),"USDT":$(usdt_factor)} — var-refs are bare JSON values
 // Output: []Sample — all values in targetUnit; unconvertible samples dropped (or error)
-// Fails:  if a sample's unit has no rate and onMissingRate != "drop"
+// Fails:  if a sample's unit has no factor and onMissingRate != "drop"
 type NormalizeTask struct {
 	BaseTask      `mapstructure:",squash"`
 	Samples       string `json:"samples"`
-	Rates         string `json:"rates"`
+	Factors       string `json:"factors"`
+	UnitMap       string `json:"unitMap"`
 	TargetUnit    string `json:"targetUnit"`
 	Enabled       string `json:"enabled"`
 	OnMissingRate string `json:"onMissingRate"`
+}
+
+// UnitMapParam parses a JSON object mapping unit names to rate values.
+// Values may be Samples (from upstream tasks) or raw numbers.
+type UnitMapParam map[string]decimal.Decimal
+
+func (u *UnitMapParam) UnmarshalPipelineParam(val any) error {
+	switch v := val.(type) {
+	case nil:
+		return ErrParameterEmpty
+	case map[string]any:
+		out := make(map[string]decimal.Decimal, len(v))
+		for unit, raw := range v {
+			if s, ok := raw.(Sample); ok {
+				out[unit] = s.Value
+				continue
+			}
+			d, err := utils.ToDecimal(raw)
+			if err != nil {
+				return errors.Wrapf(ErrBadInput, "unitMap[%q]: %v", unit, err)
+			}
+			out[unit] = d
+		}
+		*u = out
+		return nil
+	case []byte:
+		var m map[string]any
+		if err := json.Unmarshal(v, &m); err != nil {
+			return errors.Wrap(ErrBadInput, err.Error())
+		}
+		return u.UnmarshalPipelineParam(m)
+	case string:
+		return u.UnmarshalPipelineParam([]byte(v))
+	default:
+		return errors.Wrapf(ErrBadInput, "expected unit map, got %T", val)
+	}
 }
 
 var _ Task = (*NormalizeTask)(nil)
@@ -36,7 +77,8 @@ func (t *NormalizeTask) Type() TaskType {
 func (t *NormalizeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		samplesAndErrs SliceParam
-		ratesAndErrs   SliceParam
+		factorsAndErrs SliceParam
+		unitMapParam   UnitMapParam
 		targetUnit     StringParam
 		enabled        BoolParam
 		onMissingRate  StringParam
@@ -52,7 +94,8 @@ func (t *NormalizeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 
 	err := stderrors.Join(
 		errors.Wrap(ResolveParam(&samplesAndErrs, From(VarExpr(t.Samples, vars), JSONWithVarExprs(t.Samples, vars, true), Inputs(inputs))), "samples"),
-		resolveOpt(&ratesAndErrs, VarExpr(t.Rates, vars), JSONWithVarExprs(t.Rates, vars, true)),
+		resolveOpt(&factorsAndErrs, VarExpr(t.Factors, vars), JSONWithVarExprs(t.Factors, vars, true)),
+		resolveOpt(&unitMapParam, VarExpr(t.UnitMap, vars), JSONWithVarExprs(t.UnitMap, vars, true)),
 		errors.Wrap(ResolveParam(&targetUnit, From(NonemptyString(t.TargetUnit))), "targetUnit"),
 		errors.Wrap(ResolveParam(&enabled, From(NonemptyString(t.Enabled), true)), "enabled"),
 		errors.Wrap(ResolveParam(&onMissingRate, From(NonemptyString(t.OnMissingRate), "drop")), "onMissingRate"),
@@ -71,28 +114,29 @@ func (t *NormalizeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		return Result{Value: []Sample(samples)}, runInfo
 	}
 
-	ratesRaw, _ := ratesAndErrs.FilterErrors()
-	var rates SampleSliceParam
-	if err := rates.UnmarshalPipelineParam(ratesRaw); err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "rates: %v", err)}, runInfo
-	}
-
-	// Build a lookup from unit name to rate value. The proposal says the Source
-	// field on a rate sample names the unit it converts; fall back to Unit if
-	// Source is empty.
-	rateByUnit := make(map[string]decimal.Decimal, len(rates))
-	for _, r := range rates {
-		if r.Value.IsZero() {
-			continue
+	// Build factor lookup: prefer explicit unitMap, fall back to source-keyed factors.
+	factorByUnit := make(map[string]decimal.Decimal)
+	if len(unitMapParam) > 0 {
+		factorByUnit = unitMapParam
+	} else {
+		factorsRaw, _ := factorsAndErrs.FilterErrors()
+		var factors SampleSliceParam
+		if err := factors.UnmarshalPipelineParam(factorsRaw); err != nil {
+			return Result{Error: errors.Wrapf(ErrBadInput, "factors: %v", err)}, runInfo
 		}
-		unit := r.Source
-		if unit == "" {
-			unit = r.Unit
+		for _, f := range factors {
+			if f.Value.IsZero() {
+				continue
+			}
+			unit := f.Source
+			if unit == "" {
+				unit = f.Unit
+			}
+			if unit == "" {
+				continue
+			}
+			factorByUnit[unit] = f.Value
 		}
-		if unit == "" {
-			continue
-		}
-		rateByUnit[unit] = r.Value
 	}
 
 	out := make([]Sample, 0, len(samples))
@@ -101,14 +145,14 @@ func (t *NormalizeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 			out = append(out, s)
 			continue
 		}
-		rate, ok := rateByUnit[s.Unit]
+		factor, ok := factorByUnit[s.Unit]
 		if !ok {
 			if string(onMissingRate) == "drop" {
 				continue
 			}
-			return Result{Error: errors.Errorf("no rate for unit %q", s.Unit)}, runInfo
+			return Result{Error: errors.Errorf("no factor for unit %q", s.Unit)}, runInfo
 		}
-		s.Value = s.Value.Mul(rate)
+		s.Value = s.Value.Mul(factor)
 		s.Unit = string(targetUnit)
 		out = append(out, s)
 	}

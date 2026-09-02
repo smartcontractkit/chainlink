@@ -348,7 +348,6 @@ const (
 	TaskTypeSample          TaskType = "sample"
 	TaskTypeNormalize       TaskType = "normalize"
 	TaskTypeStaleness       TaskType = "staleness"
-	TaskTypeWinsorizedMean  TaskType = "winsorizedmean"
 	TaskTypeWeightedMean    TaskType = "weightedmean"
 
 	// Testing only.
@@ -460,8 +459,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) 
 		task = &NormalizeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeStaleness:
 		task = &StalenessTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
-	case TaskTypeWinsorizedMean:
-		task = &WinsorizedMeanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeWeightedMean:
 		task = &WeightedMeanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
