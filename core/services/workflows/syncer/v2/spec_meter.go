@@ -25,13 +25,10 @@ import (
 const (
 	meterService      = "workflow-syncer-v2"
 	meterResourcePool = "workflow_specs_v2"
-	// meterResourceType is the workflow-count billing unit: one durable spec
-	// registration per workflow.
+	// meterResourceType is the workflow-count billing unit
 	meterResourceType = "operations"
 	// meterResourceTypeBytes is the storage billing unit: the durable storage
 	// footprint in bytes (raw decoded binary + config) held by a registration.
-	// Bytes are billed for the registration lifetime (register -> delete),
-	// surviving pause tombstoning.
 	meterResourceTypeBytes = "storage_bytes"
 	// meterBytesEventNamespace scopes the storage-delta event_ids so they never
 	// collide with the count-delta event_ids in the consumer's dedup key space.
