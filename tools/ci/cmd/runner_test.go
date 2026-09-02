@@ -37,7 +37,7 @@ func TestRunnerSpot_CLI_JSON(t *testing.T) {
 }
 
 func TestRunnerSpot_CLI_Human(t *testing.T) {
-	t.Parallel()
+	t.Setenv("GITHUB_OUTPUT", "")
 
 	rootCmd := cmd.NewRootCmd()
 	var out bytes.Buffer
@@ -74,6 +74,7 @@ func TestRunnerSpot_CLI_GithubOutput(t *testing.T) {
 }
 
 func TestRunnerSpot_CLI_EnvFallback(t *testing.T) {
+	t.Setenv("GITHUB_OUTPUT", "")
 	t.Setenv("GITHUB_EVENT_NAME", "merge_group")
 	t.Setenv("GITHUB_REF", "refs/heads/gh-readonly-queue/develop/pr-123")
 

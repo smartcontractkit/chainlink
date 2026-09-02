@@ -73,6 +73,7 @@ func TestGHAction_IsGitHubActions(t *testing.T) {
 	assert.True(t, act1.IsGitHubActions())
 
 	t.Setenv("GITHUB_ACTIONS", "")
+	t.Setenv("GITHUB_OUTPUT", "")
 	act2 := ghaction.NewWithOptions(&stdout, "", "", "")
 	assert.False(t, act2.IsGitHubActions())
 }
