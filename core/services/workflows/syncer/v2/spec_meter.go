@@ -18,14 +18,24 @@ import (
 
 // Service-level metering identity constants for the workflow syncer. Service is
 // the stable service constant; ResourcePool identifies the workflow_specs_v2
-// pool. The billing unit (ResourceType) and per-resource id (ResourceID) are
+// pool. The billing units (ResourceTypes) and per-resource id (ResourceID) are
 // carried on each Utilization. The coarse deployment/node/DON dimensions
 // (product, tenant, environment, zone, don_id, node_id) are supplied at
 // construction via NewSpecMeter.
 const (
 	meterService      = "workflow-syncer-v2"
 	meterResourcePool = "workflow_specs_v2"
+	// meterResourceType is the workflow-count billing unit: one durable spec
+	// registration per workflow.
 	meterResourceType = "operations"
+	// meterResourceTypeBytes is the storage billing unit: the durable storage
+	// footprint in bytes (raw decoded binary + config) held by a registration.
+	// Bytes are billed for the registration lifetime (register -> delete),
+	// surviving pause tombstoning.
+	meterResourceTypeBytes = "storage_bytes"
+	// meterBytesEventNamespace scopes the storage-delta event_ids so they never
+	// collide with the count-delta event_ids in the consumer's dedup key space.
+	meterBytesEventNamespace = "workflow-spec-storage-bytes"
 )
 
 // SpecLister is the read-only view of durable workflow-spec storage the
@@ -118,10 +128,16 @@ func (sm *SpecMeter) SetWorkflowDon(don commoncap.DON) {
 	sm.resolvedDonID.Store(&donID)
 }
 
-// EmitSpecDelta emits one metering.v1.MeterRecord (METER_ACTION_UPDATE)
-// capturing a signed ±delta to the durable workflow_specs_v2 level for
-// workflowID
-func (sm *SpecMeter) EmitSpecDelta(ctx context.Context, delta int64, workflowID, owner, eventID string) {
+// EmitSpecDelta emits two metering.v1.MeterRecord (METER_ACTION_UPDATE)
+// messages capturing a signed ±delta to the durable workflow_specs_v2 level
+// for workflowID: one on the workflow-count billing unit (resource_type
+// "operations", value delta) and one on the storage billing unit
+// (resource_type "storage_bytes", value delta*storageBytes).
+//
+// The count record carries eventID exactly as supplied. The bytes record
+// carries a distinct but equally deterministic id derived from eventID, so the
+// two records for the same transition never collide
+func (sm *SpecMeter) EmitSpecDelta(ctx context.Context, delta, storageBytes int64, workflowID, owner, eventID string) {
 	if sm == nil {
 		return
 	}
@@ -136,6 +152,11 @@ func (sm *SpecMeter) EmitSpecDelta(ctx context.Context, delta int64, workflowID,
 	// resource_id = workflow_id (the syncer meters one durable spec per workflow).
 	sm.rm.EmitDelta(ctx, sm.baseIdentity(), eventID, delta, resourcemanager.UtilizationFields{
 		ResourceType: meterResourceType,
+		ResourceID:   workflowID,
+		OrgID:        orgID,
+	})
+	sm.rm.EmitDelta(ctx, sm.baseIdentity(), resourcemanager.EventID(meterBytesEventNamespace, eventID), delta*storageBytes, resourcemanager.UtilizationFields{
+		ResourceType: meterResourceTypeBytes,
 		ResourceID:   workflowID,
 		OrgID:        orgID,
 	})
@@ -162,6 +183,10 @@ func (sm *SpecMeter) baseIdentity() resourcemanager.ResourceIdentity {
 // SnapshotEntry per persisted workflow_specs_v2 spec. The durable resource is
 // the stored spec, NOT the running engine.
 //
+// Each entry carries two billed dimensions: the workflow-count level (value 1,
+// resource_type "operations") and the storage level (value storage_bytes,
+// resource_type "storage_bytes"
+
 // resource_id is the workflow_id; the organization is resolved fail-open from
 // the spec's stored owner through the org resolver. Must fail open.
 func (sm *SpecMeter) GetUtilization(ctx context.Context) []resourcemanager.SnapshotEntry {
@@ -189,6 +214,11 @@ func (sm *SpecMeter) GetUtilization(ctx context.Context) []resourcemanager.Snaps
 			Utilizations: []*meteringpb.Utilization{
 				resourcemanager.NewUtilizationInt(1, resourcemanager.UtilizationFields{
 					ResourceType: meterResourceType,
+					ResourceID:   spec.WorkflowID,
+					OrgID:        orgID,
+				}),
+				resourcemanager.NewUtilizationInt(spec.StorageBytes, resourcemanager.UtilizationFields{
+					ResourceType: meterResourceTypeBytes,
 					ResourceID:   spec.WorkflowID,
 					OrgID:        orgID,
 				}),
