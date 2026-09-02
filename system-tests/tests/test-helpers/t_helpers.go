@@ -77,6 +77,7 @@ import (
 	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
 	solread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
+	datafeedswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write/config"
 	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -317,6 +318,7 @@ type WorkflowConfig interface {
 		AptosReadWorkflowConfig |
 		StellarReadWorkflowConfig |
 		StellarWriteWorkflowConfig |
+		datafeedswrite_config.Config |
 		aptoswrite_config.Config |
 		aptoswriteroundtrip_config.Config |
 		crontypes.WorkflowConfig |
@@ -507,6 +509,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create stellar write workflow config file")
 			testLogger.Info().Msg("Stellar write workflow config file created.")
+
+		case *datafeedswrite_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create stellar data feeds write workflow config file")
+			testLogger.Info().Msg("Stellar data feeds write workflow config file created.")
 
 		case *aptoswrite_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)

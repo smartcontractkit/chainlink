@@ -27,6 +27,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -207,6 +209,33 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn     standardcapabilities.NewOracleFactoryFn
 	EVMFactoryConfigFn     func(*EVMFactoryConfig)
 	DonTimeStore           *dontime.Store
+}
+
+// safeDefaultBootstrappers returns the configured default bootstrappers from
+// Capabilities.Peering.V2, or nil when the config or sub-configs are not set.
+func safeDefaultBootstrappers(cfg GeneralConfig) []ocrcommontypes.BootstrapperLocator {
+	if cfg == nil || cfg.Capabilities() == nil || cfg.Capabilities().Peering() == nil || cfg.Capabilities().Peering().V2() == nil {
+		return nil
+	}
+	return cfg.Capabilities().Peering().V2().DefaultBootstrappers()
+}
+
+// safeExternalRegistryAddress returns the Capabilities ExternalRegistry address,
+// or empty string when the config or sub-configs are not set.
+func safeExternalRegistryAddress(cfg GeneralConfig) string {
+	if cfg == nil || cfg.Capabilities() == nil || cfg.Capabilities().ExternalRegistry() == nil {
+		return ""
+	}
+	return cfg.Capabilities().ExternalRegistry().Address()
+}
+
+// safeExternalRegistryChainID returns the Capabilities ExternalRegistry chain ID,
+// or empty string when the config or sub-configs are not set.
+func safeExternalRegistryChainID(cfg GeneralConfig) string {
+	if cfg == nil || cfg.Capabilities() == nil || cfg.Capabilities().ExternalRegistry() == nil {
+		return ""
+	}
+	return cfg.Capabilities().ExternalRegistry().ChainID()
 }
 
 // NewApplication initializes a new store if one is not already
@@ -713,6 +742,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		atomicSettings,
 		creServices.OCRConfigService,
 		cfg.Capabilities().Local(),
+		safeDefaultBootstrappers(cfg),
+		safeExternalRegistryAddress(cfg),
+		safeExternalRegistryChainID(cfg),
 	)
 	delegates[job.StandardCapabilities] = stdcapDelegate
 	if creServices.SetDelegatesDeps != nil {

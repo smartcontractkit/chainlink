@@ -96,7 +96,7 @@ type Engine struct {
 	// used to separate registration and unregistration phases
 	triggersRegMu sync.Mutex
 
-	allTriggerEventsQueueCh limits.QueueLimiter[enqueuedTriggerEvent]
+	allTriggerEventsQueueCh limits.QueueLimiter[RoutedTriggerEvent]
 	executionsSemaphore     limits.ResourcePoolLimiter[int]
 	capCallsSemaphore       limits.ResourcePoolLimiter[int]
 
@@ -123,13 +123,6 @@ type triggerCapability struct {
 	capabilities.TriggerCapability
 	payload *anypb.Any
 	method  string
-}
-
-type enqueuedTriggerEvent struct {
-	triggerCapID string
-	triggerIndex int
-	timestamp    time.Time
-	event        capabilities.TriggerResponse
 }
 
 func TriggerRegistrationID(workflowID string, triggerIndex int) string {
@@ -396,12 +389,22 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 		e.cfg.Hooks.OnTriggerEventDropped(triggerID, eventID, "draining")
 		return ErrEngineDraining
 	}
-	if err := e.allTriggerEventsQueueCh.Put(ctx, enqueuedTriggerEvent{
-		triggerCapID: triggerID,
-		triggerIndex: idx,
-		timestamp:    e.cfg.Clock.Now(),
-		event:        event.Event,
-	}); err != nil {
+
+	// Stamp the deadline once at dispatch: observedAt + queue timeout.
+	// If ObservedAt is not set, use the current time.
+	if event.ObservedAt.IsZero() {
+		event.ObservedAt = e.cfg.Clock.Now()
+	}
+	queueTimeout, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
+	if err != nil {
+		e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
+		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonQueueAgeLimitReadFailed)
+		return ErrEnqueueFailed
+	}
+	event.Deadline = event.ObservedAt.Add(queueTimeout)
+
+	if err := e.allTriggerEventsQueueCh.Put(ctx, event); err != nil {
 		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
 		tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
 		retErr := ErrEnqueueFailed
@@ -808,30 +811,27 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		if err != nil {
 			return
 		}
-		eventID := queueHead.event.Event.ID
-		triggerMetricLabels := e.metrics.With(platform.KeyTriggerID, queueHead.triggerCapID)
+		eventID := queueHead.Event.Event.ID
+		triggerMetricLabels := e.metrics.With(platform.KeyTriggerID, queueHead.TriggerCapID)
 		if e.Draining() {
 			triggerMetricLabels.IncrementTriggerEventDequeueDroppedCounter(ctx)
 			triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonDequeueDraining)
-			e.cfg.Hooks.OnTriggerEventDropped(queueHead.triggerCapID, eventID, "draining")
-			e.logger().Infow("Engine is draining, stopping trigger handling loop", "eventID", eventID, "triggerID", queueHead.triggerCapID)
+			e.cfg.Hooks.OnTriggerEventDropped(queueHead.TriggerCapID, eventID, "draining")
+			e.logger().Infow("Engine is draining, stopping trigger handling loop", "eventID", eventID, "triggerID", queueHead.TriggerCapID)
 			return
 		}
-		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
+
+		now := e.cfg.Clock.Now()
+		eventAge := now.Sub(queueHead.ObservedAt)
 		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 		triggerMetricLabels.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
-		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
-		if err != nil {
-			e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
-			triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonQueueAgeLimitReadFailed)
-			continue
-		}
-		if eventAge > triggerEventMaxAge {
-			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+		if now.After(queueHead.Deadline) {
+			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.TriggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 			triggerMetricLabels.IncrementTriggerEventExpiredCounter(ctx)
 			triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExpired)
 			continue
 		}
+
 		semWaitStart := e.cfg.Clock.Now()
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
 		triggerMetricLabels.RecordExecutionSemaphoreWaitSeconds(ctx, e.cfg.Clock.Now().Sub(semWaitStart).Seconds())
@@ -843,25 +843,17 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
-			routed := RoutedTriggerEvent{
-				WorkflowID:   e.cfg.WorkflowID,
-				TriggerCapID: queueHead.triggerCapID,
-				TriggerIndex: queueHead.triggerIndex,
-				ObservedAt:   queueHead.timestamp,
-				// Deadline:     TODO: will be addressed on CRE-6175
-				SequenceNumber: 0, // reserved, always 0 in M1
-				Event:          queueHead.event,
-			}
+
 			// Legacy path: startExecution handles all errors internally (metrics, ACK, hooks).
 			// This logs eventID context at the call site; the future dispatcher admitter
 			// (CRE-6176) will use this error for admission decisions.
-			if err := e.ExecuteTrigger(ctx, routed); err != nil {
+			if err := e.ExecuteTrigger(ctx, queueHead); err != nil {
 				// Dedup and shard-denial are expected outcomes (the event is handled,
 				// just not executed here), so they log at info rather than error level.
 				if errors.Is(err, ErrDuplicateExecution) || errors.Is(err, ErrShardDeniedNotOwner) {
-					e.logger().Infow("Skipping trigger event execution", "triggerID", routed.TriggerCapID, "eventID", routed.Event.Event.ID, "err", err)
+					e.logger().Infow("Skipping trigger event execution", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
 				} else {
-					e.logger().Errorw("Failed to execute trigger event", "triggerID", routed.TriggerCapID, "eventID", routed.Event.Event.ID, "err", err)
+					e.logger().Errorw("Failed to execute trigger event", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
 				}
 			}
 		})
