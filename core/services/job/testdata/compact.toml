@@ -10,7 +10,6 @@ contractConfigTrackerPollInterval = '1s'
 contractConfigConfirmations = 1
 pluginType = 'median'
 captureEATelemetry = false
-captureAutomationCustomTelemetry = false
 allowNoBootstrappers = false
 
 [relayConfig]

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink/devenv/products/automation/concurrency"
+	"github.com/smartcontractkit/chainlink/devenv/products/concurrency"
 )
 
 type result struct {
@@ -171,7 +171,7 @@ func TestExecuteFailFast(t *testing.T) {
 
 			expectedExecutions := 1000
 
-			configs := []config{}
+			configs := make([]config, 0, expectedExecutions)
 			for range expectedExecutions {
 				configs = append(configs, struct{}{})
 			}
@@ -277,7 +277,7 @@ func TestParentContext(t *testing.T) {
 
 	taskCount := 1000
 
-	configs := []config{}
+	configs := make([]config, 0, taskCount)
 	for range taskCount {
 		configs = append(configs, struct{}{})
 	}
