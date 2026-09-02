@@ -23,30 +23,24 @@ import (
 type testPluginOption func(*testPluginBuildOpts)
 
 type testPluginBuildOpts struct {
-	lggr                                    logger.Logger
-	store                                   *requests.Store[*vaulttypes.Request]
-	publicKey                               *tdh2easy.PublicKey
-	privateKeyShare                         *tdh2easy.PrivateShare
-	onchainCfg                              ocr3types.ReportingPluginConfig
-	maxSecretsPerOwner                      int
-	maxCiphertextLengthBytes                int
-	maxIdentifierOwnerLengthBytes           int
-	maxIdentifierNamespaceLengthBytes       int
-	maxIdentifierKeyLengthBytes             int
-	maxRequestBatchSize                     int
-	batchSize                               int
-	maxBlobPayloadBytes                     int
-	vaultOptimizationsEnabled               bool
-	vaultJSONOmitUnpopulatedEnabled         bool
-	vaultSignedResponseRequestIDEnabled     bool
-	vaultShareAggregationIncludesPublicKeys bool
-	vaultGetSecretsRelaxedConsensusEnabled  bool
-	vaultIncludeInvalidPendingItemsEnabled  bool
-	vaultPendingQueueStallThreshold         int
-	marshalBlob                             func(ocr3_1types.BlobHandle) ([]byte, error)
-	unmarshalBlob                           func([]byte) (ocr3_1types.BlobHandle, error)
-	maxObservationBytesOverride             int
-	maxReportsPlusPrecursorBytesOverride    int
+	lggr                                 logger.Logger
+	store                                *requests.Store[*vaulttypes.Request]
+	publicKey                            *tdh2easy.PublicKey
+	privateKeyShare                      *tdh2easy.PrivateShare
+	onchainCfg                           ocr3types.ReportingPluginConfig
+	maxSecretsPerOwner                   int
+	maxCiphertextLengthBytes             int
+	maxIdentifierOwnerLengthBytes        int
+	maxIdentifierNamespaceLengthBytes    int
+	maxIdentifierKeyLengthBytes          int
+	maxRequestBatchSize                  int
+	batchSize                            int
+	maxBlobPayloadBytes                  int
+	vaultPendingQueueStallThreshold      int
+	marshalBlob                          func(ocr3_1types.BlobHandle) ([]byte, error)
+	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
+	maxObservationBytesOverride          int
+	maxReportsPlusPrecursorBytesOverride int
 }
 
 func withLggr(lggr logger.Logger) testPluginOption {
@@ -80,32 +74,8 @@ func withMaxSecretsPerOwner(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.maxSecretsPerOwner = n }
 }
 
-func withVaultOptimizationsEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
-}
-
-func withVaultGetSecretsShareAggregationIncludesPublicKeys() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultShareAggregationIncludesPublicKeys = true }
-}
-
-func withVaultJSONOmitUnpopulatedEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultJSONOmitUnpopulatedEnabled = true }
-}
-
-func withVaultGetSecretsRelaxedConsensusEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultGetSecretsRelaxedConsensusEnabled = true }
-}
-
-func withVaultIncludeInvalidPendingItemsEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultIncludeInvalidPendingItemsEnabled = true }
-}
-
 func withVaultPendingQueueStallThreshold(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultPendingQueueStallThreshold = n }
-}
-
-func withVaultSignedResponseRequestIDEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultSignedResponseRequestIDEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -158,21 +128,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		opt(&o)
 	}
 	cfg := makeReportingPluginConfig(t, o.batchSize, o.publicKey, o.privateKeyShare, o.maxSecretsPerOwner, o.maxBlobPayloadBytes)
-	if o.vaultOptimizationsEnabled {
-		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
-	}
-	if o.vaultShareAggregationIncludesPublicKeys {
-		cfg.VaultGetSecretsShareAggregationIncludesPublicKeys = limits.NewGateLimiter(true)
-	}
-	if o.vaultJSONOmitUnpopulatedEnabled {
-		cfg.VaultJSONOmitUnpopulatedEnabled = limits.NewGateLimiter(true)
-	}
-	if o.vaultGetSecretsRelaxedConsensusEnabled {
-		cfg.VaultGetSecretsRelaxedConsensusEnabled = limits.NewGateLimiter(true)
-	}
-	if o.vaultIncludeInvalidPendingItemsEnabled {
-		cfg.VaultIncludeInvalidPendingItemsEnabled = limits.NewGateLimiter(true)
-	}
 	if o.vaultPendingQueueStallThreshold > 0 {
 		stallLimiter, err := limits.MakeUpperBoundLimiter(
 			limits.Factory{Settings: cresettings.DefaultGetter},
@@ -180,9 +135,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		)
 		require.NoError(t, err)
 		cfg.VaultPendingQueueStallThreshold = stallLimiter
-	}
-	if o.vaultSignedResponseRequestIDEnabled {
-		cfg.VaultSignedResponseRequestIDEnabled = limits.NewGateLimiter(true)
 	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
@@ -284,21 +236,15 @@ func makeReportingPluginConfig(
 	require.NoError(t, err)
 
 	return &ReportingPluginConfig{
-		MaxBatchSize:                                      bsl,
-		MaxPendingQueueWriteSize:                          maxPendingQueueWriteSizeLimiter,
-		PublicKey:                                         publicKey,
-		PrivateKeyShare:                                   privateKeyShare,
-		MaxSecretsPerOwner:                                msl,
-		MaxShareLengthBytes:                               shareLimiter,
-		MaxBlobPayloadBytes:                               maxBlobPayloadLimiter,
-		VaultForceEmptyOCRRounds:                          limits.NewGateLimiter(false),
-		VaultOptimizationsEnabled:                         limits.NewGateLimiter(false),
-		VaultJSONOmitUnpopulatedEnabled:                   limits.NewGateLimiter(false),
-		VaultSignedResponseRequestIDEnabled:               limits.NewGateLimiter(false),
-		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
-		VaultGetSecretsRelaxedConsensusEnabled:            limits.NewGateLimiter(false),
-		VaultIncludeInvalidPendingItemsEnabled:            limits.NewGateLimiter(false),
-		VaultPendingQueueStallThreshold:                   pendingQueueStallThresholdLimiter,
+		MaxBatchSize:                    bsl,
+		MaxPendingQueueWriteSize:        maxPendingQueueWriteSizeLimiter,
+		PublicKey:                       publicKey,
+		PrivateKeyShare:                 privateKeyShare,
+		MaxSecretsPerOwner:              msl,
+		MaxShareLengthBytes:             shareLimiter,
+		MaxBlobPayloadBytes:             maxBlobPayloadLimiter,
+		VaultForceEmptyOCRRounds:        limits.NewGateLimiter(false),
+		VaultPendingQueueStallThreshold: pendingQueueStallThresholdLimiter,
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -104,7 +105,7 @@ func ProcessConfig[T any](
 		if err != nil {
 			return err
 		}
-		err = cldf.MergeChangesetOutput(*e, finalOutput, output)
+		err = changeset.MergeChangesetOutput(*e, finalOutput, output)
 		if err != nil {
 			return fmt.Errorf("failed to merge changeset output: %w", err)
 		}
@@ -342,7 +343,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to initialize global config for token pool: %w", err)
 		}
-		if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err = changeset.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running InitGlobalConfigTokenPoolProgram: %w", err)
 		}
 	}
@@ -350,42 +351,42 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool and lookup table: %w", err)
 	}
-	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+	if err = changeset.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running AddTokenPoolAndLookupTable: %w", err)
 	}
 	output, err = SetupTokenPoolForRemoteChain(e, remotePoolConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to setup token pool for remote chain: %w", err)
 	}
-	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+	if err = changeset.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running SetupTokenPoolForRemoteChain: %w", err)
 	}
 	output, err = RegisterTokenAdminRegistry(e, registerTokenAdminRegistryCfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to register token admin registry: %w", err)
 	}
-	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+	if err = changeset.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running RegisterTokenAdminRegistry: %w", err)
 	}
 	output, err = AcceptAdminRoleTokenAdminRegistry(e, acceptAdminRoleTokenAdminRegistryCfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept admin role: %w", err)
 	}
-	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+	if err = changeset.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running AcceptAdminRoleTokenAdminRegistry: %w", err)
 	}
 	output, err = SetPool(e, setPoolCfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set pool: %w", err)
 	}
-	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+	if err = changeset.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running SetPool: %w", err)
 	}
 	output, err = v1_5_1.ConfigureMultiplePoolLogic(e, evmToSolanaRemotePoolCfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool contracts: %w", err)
 	}
-	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+	if err = changeset.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running ConfigureTokenPoolContractsChangeset: %w", err)
 	}
 	// and finally lets transfer away the pool to timelock
@@ -394,7 +395,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ccip to mcms with timelock: %w", err)
 		}
-		if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err = changeset.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running TransferCCIPToMCMSWithTimelockSolana: %w", err)
 		}
 	}
@@ -419,11 +420,20 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
+	// Preserve the datastore accumulated by MergeChangesetOutput: it already carries the
+	// sub-changesets' semantic qualifiers, metadata, and deletions. Rebuilding it from the
+	// address book would discard all of that. The address book has no qualifiers, so it can only
+	// contribute the singleton refs the sub-changesets did not write to the datastore; merge
+	// those in rather than replacing the accumulated store.
+	singletons, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
-	finalCSOut.DataStore = ds
+	if finalCSOut.DataStore == nil {
+		finalCSOut.DataStore = singletons
+	} else if err := finalCSOut.DataStore.Merge(singletons.Seal()); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address-book refs into DataStore: %w", err)
+	}
 	return *finalCSOut, nil
 }

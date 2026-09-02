@@ -1,15 +1,19 @@
 package v2
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	core "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -18,7 +22,15 @@ import (
 func TestExecutionHelper_SystemCapabilityBlocked(t *testing.T) {
 	t.Parallel()
 
-	exec := &ExecutionHelper{}
+	resolvedInfo := capabilities.CapabilityInfo{ID: confidentialWorkflowsCapabilityID}
+	reg := stubRegistry{cap: stubExecutableCapability{CapabilityInfo: resolvedInfo}}
+
+	engine := &Engine{cfg: &EngineConfig{
+		Lggr:        logger.TestLogger(t),
+		CapRegistry: reg,
+	}}
+	engine.setLogger(commonlogger.Sugared(commonlogger.Test(t)))
+	exec := &ExecutionHelper{Engine: engine}
 
 	req := &sdk.CapabilityRequest{
 		Id:         confidentialWorkflowsCapabilityID,
@@ -26,7 +38,65 @@ func TestExecutionHelper_SystemCapabilityBlocked(t *testing.T) {
 		CallbackId: 1,
 	}
 
-	_, err := exec.CallCapability(t.Context(), req)
+	_, err := exec.callCapability(t.Context(), req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "system-only")
+}
+
+// stubExecutableCapability satisfies capabilities.ExecutableCapability. Its
+// Info reports the canonical registered ID, simulating a registry that
+// resolved a requested version to a registered system-only capability.
+type stubExecutableCapability struct {
+	capabilities.CapabilityInfo
+}
+
+func (stubExecutableCapability) Execute(context.Context, capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+	return capabilities.CapabilityResponse{}, nil
+}
+func (stubExecutableCapability) RegisterToWorkflow(context.Context, capabilities.RegisterToWorkflowRequest) error {
+	return nil
+}
+func (stubExecutableCapability) UnregisterFromWorkflow(context.Context, capabilities.UnregisterFromWorkflowRequest) error {
+	return nil
+}
+
+// stubRegistry embeds the unimplemented base and only overrides GetExecutable.
+type stubRegistry struct {
+	core.UnimplementedCapabilitiesRegistry
+	cap capabilities.ExecutableCapability
+}
+
+func (s stubRegistry) GetExecutable(context.Context, string) (capabilities.ExecutableCapability, error) {
+	return s.cap, nil
+}
+
+// TestExecutionHelper_SystemCapabilityResolvedBypass ensures the deny list is
+// re-checked against the resolved canonical capability ID. GetExecutable
+// performs SemVer-compatible resolution, so a request for a lower prerelease
+// (e.g. "confidential-workflows@1.0.0-0") that resolves to the registered
+// "confidential-workflows@1.0.0-alpha" must still be rejected.
+func TestExecutionHelper_SystemCapabilityResolvedBypass(t *testing.T) {
+	t.Parallel()
+
+	resolvedInfo := capabilities.CapabilityInfo{ID: confidentialWorkflowsCapabilityID}
+	reg := stubRegistry{cap: stubExecutableCapability{CapabilityInfo: resolvedInfo}}
+
+	engine := &Engine{cfg: &EngineConfig{
+		Lggr:        logger.TestLogger(t),
+		CapRegistry: reg,
+	}}
+	engine.setLogger(commonlogger.Sugared(commonlogger.Test(t)))
+	exec := &ExecutionHelper{Engine: engine}
+
+	// Request a version strictly below the registered system-only one; the raw
+	// ID is not in the deny map, so the fast-path check does not catch it.
+	req := &sdk.CapabilityRequest{
+		Id:         "confidential-workflows@1.0.0-0",
+		Method:     "Execute",
+		CallbackId: 1,
+	}
+
+	_, err := exec.callCapability(t.Context(), req)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "system-only")
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -28,13 +27,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
 
-	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
-	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
-	ocr2keepers20coordinator "github.com/smartcontractkit/chainlink-automation/pkg/v2/coordinator"
-	ocr2keepers20polling "github.com/smartcontractkit/chainlink-automation/pkg/v2/observer/polling"
-	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
-	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
@@ -56,10 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-	ocr2keeper21core "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	evmrelay "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -74,8 +63,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
 	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -229,7 +216,6 @@ type ocr2Config interface {
 	SimulateTransactions() bool
 	TraceLogging() bool
 	SampleTelemetry() bool
-	CaptureAutomationCustomTelemetry() bool
 	AllowNoBootstrappers() bool
 	KeyValueStoreRootDir() string
 }
@@ -392,20 +378,7 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 	}
 	lp := chain.LogPoller()
 
-	var filters []string
 	switch spec.PluginType {
-	case types.OCR2Keeper:
-		// Not worth the effort to validate and parse the job spec config to figure out whether this is v2.0 or v2.1,
-		// simpler and faster to just Unregister them both
-		filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
-		if err != nil {
-			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
-		}
-		filters21, err2 := ocr2keeper.FilterNamesFromSpec21(spec)
-		if err2 != nil {
-			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
-		}
-		filters = append(filters, filters21...)
 	case types.LLO:
 		var pluginCfg lloconfig.PluginConfig
 		err = json.Unmarshal(spec.PluginConfig.Bytes(), &pluginCfg)
@@ -426,30 +399,6 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 	default:
 		return nil
 	}
-
-	rargs := types.RelayArgs{
-		ExternalJobID: jb.ExternalJobID,
-		JobID:         jb.ID,
-		ContractID:    spec.ContractID,
-		New:           false,
-		RelayConfig:   spec.RelayConfig.Bytes(),
-	}
-
-	relayFilters, err := evmrelay.FilterNamesFromRelayArgs(rargs)
-	if err != nil {
-		d.lggr.Errorw("Failed to derive evm relay filter names from relay args", "err", err, "rargs", rargs)
-		return nil
-	}
-
-	filters = append(filters, relayFilters...)
-	for _, filter := range filters {
-		d.lggr.Debugf("Unregistering %s filter", filter)
-		err = lp.UnregisterFilter(ctx, filter)
-		if err != nil {
-			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
-		}
-	}
-	return nil
 }
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
@@ -554,9 +503,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 
 	case types.Median:
 		return d.newServicesMedian(ctx, lggr, jb, bootstrapPeers, kb, kvStore, ocrDB, lc)
-
-	case types.OCR2Keeper:
-		return d.newServicesOCR2Keepers(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.GenericPlugin:
 		return d.newServicesGenericPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry,
@@ -1792,321 +1738,6 @@ func (d *Delegate) newServicesMedian(
 	medianServices = append(medianServices, ocrLogger)
 
 	return medianServices, err2
-}
-
-func (d *Delegate) newServicesOCR2Keepers(
-	ctx context.Context,
-	lggr logger.SugaredLogger,
-	jb job.Job,
-	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
-	ocrDB *db,
-	lc ocrtypes.LocalConfig,
-) ([]job.ServiceCtx, error) {
-	spec := jb.OCR2OracleSpec
-	var cfg ocr2keeper.PluginConfig
-	if err := json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
-		return nil, errors.Wrap(err, "unmarshal ocr2keepers plugin config")
-	}
-
-	if err := ocr2keeper.ValidatePluginConfig(cfg); err != nil {
-		return nil, errors.Wrap(err, "ocr2keepers plugin config validation failure")
-	}
-
-	switch cfg.ContractVersion {
-	case "v2.1":
-		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, cfg, spec)
-	case "v2.1+":
-		// Future contracts of v2.1 (v2.x) will use the same job spec as v2.1
-		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, cfg, spec)
-	case "v2.0":
-		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, cfg, spec)
-	default:
-		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, cfg, spec)
-	}
-}
-
-func (d *Delegate) newServicesOCR2Keepers21(
-	ctx context.Context,
-	lggr logger.SugaredLogger,
-	jb job.Job,
-	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
-	ocrDB *db,
-	lc ocrtypes.LocalConfig,
-	cfg ocr2keeper.PluginConfig,
-	spec *job.OCR2OracleSpec,
-) ([]job.ServiceCtx, error) {
-	credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "failed to get mercury credential name")
-	}
-
-	mc := d.cfg.Mercury().Credentials(credName)
-	rid, err := spec.RelayID()
-	if err != nil {
-		return nil, JobSpecNoRelayerError{Err: err, PluginName: "keeper2"}
-	}
-	if rid.Network != relay.NetworkEVM {
-		return nil, fmt.Errorf("keeper2 services: expected EVM relayer got %q", rid.Network)
-	}
-
-	transmitterID := spec.TransmitterID.String
-	relayer, err := d.Get(rid)
-	if err != nil {
-		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: "ocr2keepers"}
-	}
-
-	provider, err := relayer.NewPluginProvider(ctx,
-		types.RelayArgs{
-			ExternalJobID:      jb.ExternalJobID,
-			JobID:              jb.ID,
-			ContractID:         spec.ContractID,
-			New:                d.isNewlyCreatedJob,
-			RelayConfig:        spec.RelayConfig.Bytes(),
-			ProviderType:       string(spec.PluginType),
-			MercuryCredentials: mc,
-		}, types.PluginArgs{
-			TransmitterID: transmitterID,
-			PluginConfig:  spec.PluginConfig.Bytes(),
-		})
-	if err != nil {
-		return nil, err
-	}
-
-	keeperProvider, ok := provider.(types.AutomationProvider)
-	if !ok {
-		return nil, errors.New("could not coerce PluginProvider to AutomationProvider")
-	}
-
-	services, err := ocr2keeper.EVMDependencies21(kb)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not build dependencies for ocr2 keepers")
-	}
-	// set some defaults
-	conf := ocr2keepers21config.ReportingFactoryConfig{
-		CacheExpiration:       ocr2keepers21config.DefaultCacheExpiration,
-		CacheEvictionInterval: ocr2keepers21config.DefaultCacheClearInterval,
-		MaxServiceWorkers:     ocr2keepers21config.DefaultMaxServiceWorkers,
-		ServiceQueueLength:    ocr2keepers21config.DefaultServiceQueueLength,
-	}
-
-	// override if set in config
-	if cfg.CacheExpiration.Value() != 0 {
-		conf.CacheExpiration = cfg.CacheExpiration.Value()
-	}
-
-	if cfg.CacheEvictionInterval.Value() != 0 {
-		conf.CacheEvictionInterval = cfg.CacheEvictionInterval.Value()
-	}
-
-	if cfg.MaxServiceWorkers != 0 {
-		conf.MaxServiceWorkers = cfg.MaxServiceWorkers
-	}
-
-	if cfg.ServiceQueueLength != 0 {
-		conf.ServiceQueueLength = cfg.ServiceQueueLength
-	}
-	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
-		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
-	})
-
-	dConf := ocr2keepers21.DelegateConfig{
-		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
-		V2Bootstrappers:              bootstrapPeers,
-		ContractTransmitter:          evmrelay.NewKeepersOCR3ContractTransmitter(keeperProvider.ContractTransmitter()),
-		ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
-		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
-		KeepersDatabase:              ocrDB,
-		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR3Automation),
-		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
-		OffchainKeyring:              kb,
-		OnchainKeyring:               services.Keyring(),
-		LocalConfig:                  lc,
-		LogProvider:                  keeperProvider.LogEventProvider(),
-		EventProvider:                keeperProvider.TransmitEventProvider(),
-		Runnable:                     keeperProvider.Registry(),
-		Encoder:                      keeperProvider.Encoder(),
-		BlockSubscriber:              keeperProvider.BlockSubscriber(),
-		RecoverableProvider:          keeperProvider.LogRecoverer(),
-		PayloadBuilder:               keeperProvider.PayloadBuilder(),
-		UpkeepProvider:               keeperProvider.UpkeepProvider(),
-		UpkeepStateUpdater:           keeperProvider.UpkeepStateStore(),
-		UpkeepTypeGetter:             ocr2keeper21core.GetUpkeepType,
-		WorkIDGenerator:              ocr2keeper21core.UpkeepWorkID,
-		// TODO: Clean up the config
-		CacheExpiration:       cfg.CacheExpiration.Value(),
-		CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),
-		MaxServiceWorkers:     cfg.MaxServiceWorkers,
-		ServiceQueueLength:    cfg.ServiceQueueLength,
-	}
-
-	pluginService, err := ocr2keepers21.NewDelegate(dConf)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
-	}
-
-	automationServices := []job.ServiceCtx{
-		keeperProvider,
-		keeperProvider.Registry(),
-		keeperProvider.BlockSubscriber(),
-		keeperProvider.LogEventProvider(),
-		keeperProvider.LogRecoverer(),
-		keeperProvider.UpkeepStateStore(),
-		keeperProvider.TransmitEventProvider(),
-		pluginService,
-		ocrLogger,
-	}
-
-	if cfg.CaptureAutomationCustomTelemetry != nil && *cfg.CaptureAutomationCustomTelemetry ||
-		cfg.CaptureAutomationCustomTelemetry == nil && d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
-		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.AutomationCustom)
-		customTelemService, custErr := autotelemetry21.NewAutomationCustomTelemetryService(
-			endpoint,
-			lggr,
-			keeperProvider.BlockSubscriber(),
-			keeperProvider.ContractConfigTracker(),
-		)
-		if custErr != nil {
-			return nil, errors.Wrap(custErr, "Error when creating AutomationCustomTelemetryService")
-		}
-		automationServices = append(automationServices, customTelemService)
-	}
-
-	return automationServices, nil
-}
-
-func (d *Delegate) newServicesOCR2Keepers20(
-	ctx context.Context,
-	lggr logger.SugaredLogger,
-	jb job.Job,
-	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
-	ocrDB *db,
-	lc ocrtypes.LocalConfig,
-	cfg ocr2keeper.PluginConfig,
-	spec *job.OCR2OracleSpec,
-) ([]job.ServiceCtx, error) {
-	rid, err := spec.RelayID()
-	if err != nil {
-		return nil, JobSpecNoRelayerError{Err: err, PluginName: "keepers2.0"}
-	}
-	if rid.Network != relay.NetworkEVM {
-		return nil, fmt.Errorf("keepers2.0 services: expected EVM relayer got %q", rid.Network)
-	}
-	chainService, err2 := d.legacyChains.Get(rid.ChainID)
-	if err2 != nil {
-		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
-	}
-	chain, ok := chainService.(legacyevm.Chain)
-	if !ok {
-		return nil, fmt.Errorf("keepers is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
-	}
-
-	cid := chain.ID()
-	ks := keys.NewChainStore(keystore.NewEthSigner(d.ethKs, cid), cid)
-	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(ctx, jb, d.ds, lggr, chain, ks)
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
-	}
-
-	w := &logWriter{log: lggr.Named("Automation Dependencies")}
-
-	// set some defaults
-	conf := ocr2keepers20config.ReportingFactoryConfig{
-		CacheExpiration:       ocr2keepers20config.DefaultCacheExpiration,
-		CacheEvictionInterval: ocr2keepers20config.DefaultCacheClearInterval,
-		MaxServiceWorkers:     ocr2keepers20config.DefaultMaxServiceWorkers,
-		ServiceQueueLength:    ocr2keepers20config.DefaultServiceQueueLength,
-	}
-
-	// override if set in config
-	if cfg.CacheExpiration.Value() != 0 {
-		conf.CacheExpiration = cfg.CacheExpiration.Value()
-	}
-
-	if cfg.CacheEvictionInterval.Value() != 0 {
-		conf.CacheEvictionInterval = cfg.CacheEvictionInterval.Value()
-	}
-
-	if cfg.MaxServiceWorkers != 0 {
-		conf.MaxServiceWorkers = cfg.MaxServiceWorkers
-	}
-
-	if cfg.ServiceQueueLength != 0 {
-		conf.ServiceQueueLength = cfg.ServiceQueueLength
-	}
-
-	runr, err2 := ocr2keepers20runner.NewRunner(
-		log.New(w, "[automation-plugin-runner] ", log.Lshortfile),
-		rgstry,
-		encoder,
-		conf.MaxServiceWorkers,
-		conf.ServiceQueueLength,
-		conf.CacheExpiration,
-		conf.CacheEvictionInterval,
-	)
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "failed to create automation pipeline runner")
-	}
-
-	condObs := &ocr2keepers20polling.PollingObserverFactory{
-		Logger:  log.New(w, "[automation-plugin-conditional-observer] ", log.Lshortfile),
-		Source:  rgstry,
-		Heads:   rgstry,
-		Runner:  runr,
-		Encoder: encoder,
-	}
-
-	coord := &ocr2keepers20coordinator.CoordinatorFactory{
-		Logger:     log.New(w, "[automation-plugin-coordinator] ", log.Lshortfile),
-		Encoder:    encoder,
-		Logs:       logProvider,
-		CacheClean: conf.CacheEvictionInterval,
-	}
-
-	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
-		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
-	})
-
-	dConf := ocr2keepers20.DelegateConfig{
-		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
-		V2Bootstrappers:              bootstrapPeers,
-		ContractTransmitter:          keeperProvider.ContractTransmitter(),
-		ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
-		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
-		KeepersDatabase:              ocrDB,
-		LocalConfig:                  lc,
-		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.OCR2Automation),
-		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
-		OffchainKeyring:              kb,
-		OnchainKeyring:               kb,
-		ConditionalObserverFactory:   condObs,
-		CoordinatorFactory:           coord,
-		Encoder:                      encoder,
-		Runner:                       runr,
-		// the following values are not needed in the delegate config anymore
-		CacheExpiration:       cfg.CacheExpiration.Value(),
-		CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),
-		MaxServiceWorkers:     cfg.MaxServiceWorkers,
-		ServiceQueueLength:    cfg.ServiceQueueLength,
-	}
-
-	pluginService, err := ocr2keepers20.NewDelegate(dConf)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
-	}
-
-	return []job.ServiceCtx{
-		job.NewServiceAdapter(runr),
-		keeperProvider,
-		rgstry,
-		logProvider,
-		ocrLogger,
-		pluginService,
-	}, nil
 }
 
 // errorLog implements [loop.ErrorLog]

@@ -88,20 +88,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			if parallelEnabled {
 				t.Parallel()
 			}
-			allowlistSubtestName := "allowlist_auth_when_jwt_auth_disabled"
-			jwtSubtestName := "jwt_auth_rejected_when_jwt_auth_disabled"
+			allowlistSubtestName := "allowlist_auth"
 			vaultConfig := getVaultDefaultTestConfig(t)
-			if isVaultJWTAuthEnabledTopology(topology) {
-				vaultConfig = getVaultJWTAuthEnabledTestConfig(t)
-				allowlistSubtestName = "allowlist_auth_when_jwt_auth_enabled"
-				jwtSubtestName = "jwt_auth_when_jwt_auth_enabled"
-			} else if isVaultOptimizationsEnabledTopology(topology) {
-				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
-				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
-			} else if isVaultIncludeInvalidEnabledTopology(topology) {
-				vaultConfig = getVaultIncludeInvalidEnabledTestConfig(t)
-				allowlistSubtestName = "allowlist_auth_when_vault_include_invalid_enabled"
-			} else if isVaultStallPurgeTopology(topology) {
+			if isVaultStallPurgeTopology(topology) {
 				vaultConfig = getVaultStallPurgeTestConfig(t)
 				allowlistSubtestName = "pending_queue_stall_purge"
 			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
@@ -115,7 +104,7 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 					t.Parallel()
 				}
 				allowlistEnv := fixture.TestEnv
-				if parallelEnabled && isVaultJWTAuthEnabledTopology(topology) {
+				if parallelEnabled {
 					allowlistEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
 				}
 				if isVaultStallPurgeTopology(topology) {
@@ -124,27 +113,18 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				}
 				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
 			})
-			if isVaultJWTAuthEnabledTopology(topology) {
-				t.Run(jwtSubtestName, func(t *testing.T) {
-					if parallelEnabled {
-						t.Parallel()
-					}
-					jwtEnv := fixture.TestEnv
-					if parallelEnabled {
-						jwtEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
-					}
-					ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
-				})
-				return
-			}
 			if isVaultStallPurgeTopology(topology) {
 				return
 			}
-			t.Run(jwtSubtestName, func(t *testing.T) {
+			t.Run("jwt_auth", func(t *testing.T) {
 				if parallelEnabled {
 					t.Parallel()
 				}
-				ExecuteVaultJWTDisabledTest(t, fixture)
+				jwtEnv := fixture.TestEnv
+				if parallelEnabled {
+					jwtEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+				}
+				ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
 			})
 		})
 	case suite_config.SuiteScenarioCronChipIngressStack:
@@ -320,6 +300,12 @@ func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 		t.Parallel()
 		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
 		executeStellarWriteTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
+
+	t.Run("StellarDataFeedsWrite", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarDataFeedsWriteTest(t, env, chain, userLogsCh, baseMessageCh)
 	})
 }
 
