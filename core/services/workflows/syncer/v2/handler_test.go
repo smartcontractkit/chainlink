@@ -668,6 +668,66 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 			},
 		},
+		{
+			// Regression: pausing tombstones the spec row (status=paused, artifact payload
+			// cleared). Re-activation must refetch from the URLs; serving the tombstone as a
+			// cache hit restores empty artifacts and the activation dies on the workflowID
+			// check with a non-retryable "workflowID mismatch".
+			Name:             "re-activates a paused workflow by refetching cleared artifacts",
+			GiveConfig:       config,
+			ConfigURLFactory: configURLFactory,
+			BinaryURLFactory: binaryURLFactory,
+			GiveBinary:       binary,
+			WFOwner:          wfOwner,
+			fetcherFactory: func(wfID []byte) *mockFetcher {
+				wfIDString := hex.EncodeToString(wfID)
+				signedBinaryURL := binaryURLFactory(wfIDString) + signedURLParameter
+				signedConfigURL := configURLFactory(wfIDString) + signedURLParameter
+				return newMockFetcher(map[string]mockFetchResp{
+					wfIDString + "-ARTIFACT_TYPE_BINARY": {Body: []byte(signedBinaryURL), Err: nil},
+					wfIDString + "-ARTIFACT_TYPE_CONFIG": {Body: []byte(signedConfigURL), Err: nil},
+					signedBinaryURL:                      {Body: encodedBinary, Err: nil},
+					signedConfigURL:                      {Body: config, Err: nil},
+				})
+			},
+			engineFactoryFn: mockEngineFactory,
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
+
+				require.NoError(t, h.workflowPausedEvent(ctx, WorkflowPausedEvent{WorkflowID: wfID}))
+				paused, err := s.GetWorkflowSpec(ctx, wfID.Hex())
+				require.NoError(t, err)
+				require.Equal(t, job.WorkflowSpecStatusPaused, paused.Status)
+				require.Empty(t, paused.Workflow, "pause must clear the artifact payload")
+
+				require.NoError(t, h.workflowActivatedEvent(ctx, WorkflowActivatedEvent(event)))
+
+				restored, err := s.GetWorkflowSpec(ctx, wfID.Hex())
+				require.NoError(t, err)
+				require.Equal(t, job.WorkflowSpecStatusActive, restored.Status)
+				require.Equal(t, hex.EncodeToString(binary), restored.Workflow, "artifacts must be refetched, not restored empty")
+
+				engine, ok := h.engineRegistry.Get(wfID)
+				require.True(t, ok)
+				require.NoError(t, engine.Ready())
+
+				// One fetch for the initial activation, one for the post-pause restore.
+				require.Equal(t, 2, fetcher.Calls(binaryURL+signedURLParameter))
+				require.Equal(t, 2, fetcher.Calls(configURL+signedURLParameter))
+			},
+			Event: func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent {
+				wfIDString := hex.EncodeToString(wfID)
+				return WorkflowRegisteredEvent{
+					Status:        WorkflowStatusActive,
+					WorkflowID:    [32]byte(wfID),
+					WorkflowOwner: wfOwner,
+					WorkflowName:  wfName,
+					WorkflowTag:   workflowTag,
+					BinaryURL:     binaryURLFactory(wfIDString),
+					ConfigURL:     configURLFactory(wfIDString),
+				}
+			},
+		},
 	}
 
 	for _, tc := range tt {
