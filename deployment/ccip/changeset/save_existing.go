@@ -64,8 +64,12 @@ func (cfg ExistingContractsConfig) Validate() error {
 	return nil
 }
 
-// SaveExistingContractsChangeset saves the existing contracts to the address book.
-// Caller should update the environment's address book with the returned addresses.
+// SaveExistingContractsChangeset saves the existing contracts to the address book only. It does
+// not emit a datastore: imported contracts have no caller-known qualifier, so forcing them into
+// the (chain, type, version, qualifier)-keyed datastore would either collide (multiple same-type
+// contracts) or leave them with an unusable empty qualifier. Imported contracts remain resolvable
+// through the address book. Caller should update the environment's address book with the returned
+// addresses.
 func SaveExistingContractsChangeset(env cldf.Environment, cfg ExistingContractsConfig) (cldf.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {

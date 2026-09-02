@@ -171,6 +171,7 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
+	addrToMetadata := make(map[string]string)
 	err = v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -195,7 +196,7 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		e.Logger.Debugw("Skipping solana build as no build config provided")
 	}
 
-	batches, err := deployChainContractsSolana(e, chain, newAddresses, c)
+	batches, err := deployChainContractsSolana(e, chain, newAddresses, c, addrToMetadata)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
 		return cldf.ChangesetOutput{}, err
@@ -213,7 +214,11 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
 
-		ds, err := shared.PopulateDataStore(newAddresses)
+		qualifiers, err := shared.QualifiersByAddress(newAddresses, addrToMetadata)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build Solana ref qualifiers: %w", err)
+		}
+		ds, err := shared.PopulateDataStore(newAddresses, qualifiers)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 		}
@@ -225,7 +230,11 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		}, nil
 	}
 
-	ds, err := shared.PopulateDataStore(newAddresses)
+	qualifiers, err := shared.QualifiersByAddress(newAddresses, addrToMetadata)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build Solana ref qualifiers: %w", err)
+	}
+	ds, err := shared.PopulateDataStore(newAddresses, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
@@ -278,6 +287,7 @@ func deployChainContractsSolana(
 	chain cldf_solana.Chain,
 	ab cldf.AddressBook,
 	config DeployChainContractsConfig,
+	addrToMetadata map[string]string,
 ) ([]mcmsTypes.BatchOperation, error) {
 	// we may need to gather instructions and submit them as part of MCMS
 	batches := make([]mcmsTypes.BatchOperation, 0)
@@ -534,6 +544,9 @@ func deployChainContractsSolana(
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
+		// Solana pool programs are keyed by pool-set metadata (not token), so that is their
+		// datastore qualifier.
+		addrToMetadata[burnMintTokenPool.String()] = metadata
 	} else if config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil {
 		burnMintTokenPool = chainState.BurnMintTokenPools[metadata]
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool)
@@ -563,6 +576,9 @@ func deployChainContractsSolana(
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
+		// Solana pool programs are keyed by pool-set metadata (not token), so that is their
+		// datastore qualifier.
+		addrToMetadata[lockReleaseTokenPool.String()] = metadata
 	} else if config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil {
 		lockReleaseTokenPool = chainState.LockReleaseTokenPools[metadata]
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool)
@@ -583,6 +599,23 @@ func deployChainContractsSolana(
 
 	// MCMS
 	// this should selectively deploy and initialise anything if required
+	mcmsQualifier := ""
+	if config.MCMSWithTimelockConfig != nil && config.MCMSWithTimelockConfig.Qualifier != nil {
+		mcmsQualifier = *config.MCMSWithTimelockConfig.Qualifier
+	}
+	// Snapshot the addresses added so far so we can later qualify only the MCMS-related
+	// accounts (and not the chain-singleton programs) under the configured MCMS qualifier.
+	var mcmsAddrsBefore map[string]struct{}
+	if mcmsQualifier != "" {
+		existing, err := ab.AddressesForChain(chain.Selector)
+		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
+			return batches, fmt.Errorf("failed to get existing addresses for chain %v: %w", chain.Selector, err)
+		}
+		mcmsAddrsBefore = make(map[string]struct{}, len(existing))
+		for addr := range existing {
+			mcmsAddrsBefore[addr] = struct{}{}
+		}
+	}
 	if config.MCMSWithTimelockConfig != nil {
 		_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, *config.MCMSWithTimelockConfig)
 		if err != nil {
@@ -638,6 +671,21 @@ func deployChainContractsSolana(
 				ChainSelector: mcmsTypes.ChainSelector(chain.Selector),
 				Transactions:  newTxns,
 			})
+		}
+	}
+
+	// Qualify the MCMS program/access-controller/timelock/role accounts added by the MCMS
+	// deploy and any MCMS program upgrades under the configured MCMS qualifier, so they are
+	// resolvable in the datastore under that qualifier.
+	if mcmsAddrsBefore != nil {
+		after, err := ab.AddressesForChain(chain.Selector)
+		if err != nil {
+			return batches, fmt.Errorf("failed to get addresses for chain %v: %w", chain.Selector, err)
+		}
+		for addr := range after {
+			if _, ok := mcmsAddrsBefore[addr]; !ok {
+				addrToMetadata[addr] = mcmsQualifier
+			}
 		}
 	}
 

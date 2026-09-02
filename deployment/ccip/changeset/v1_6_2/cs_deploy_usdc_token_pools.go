@@ -173,7 +173,11 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(newAddresses)
+	qualifiers, err := shared.QualifiersForAddressBook(newAddresses, string(shared.USDCSymbol))
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build USDC pool qualifiers: %w", err)
+	}
+	ds, err := shared.PopulateDataStore(newAddresses, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

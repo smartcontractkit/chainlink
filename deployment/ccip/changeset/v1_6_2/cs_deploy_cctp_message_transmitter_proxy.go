@@ -95,7 +95,7 @@ func deployCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c Depl
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(newAddresses)
+	ds, err := shared.PopulateDataStore(newAddresses, nil) // skipped: this changeset deploys only chain-singletons
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

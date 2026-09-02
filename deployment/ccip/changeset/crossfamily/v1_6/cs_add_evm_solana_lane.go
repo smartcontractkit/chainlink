@@ -530,9 +530,43 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute addEVMAndSolanaLane sequence: %w", err)
 	}
 
-	ds, err := shared.PopulateDataStore(report.Output.AddressBook)
+	// The lane-scoped refs (RemoteSource/RemoteDest) carry their remote chain selector as the
+	// sole label; qualify each by that selector so they land in the datastore and are resolvable.
+	// Key off the ref type so an unrelated single label on some other ref in
+	// the sequence output cannot be mis-qualified, and fail loudly if a lane ref is missing its
+	// selector label rather than falling through unqualified to a duplicate-key abort.
+	qualifiers := make(map[shared.AddressKey]string)
+	abAddrs, err := report.Output.AddressBook.Addresses()
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to read address book: %w", err)
+	}
+	for chainSelector, chainAddresses := range abAddrs {
+		for address, tv := range chainAddresses {
+			if tv.Type != shared.RemoteSource && tv.Type != shared.RemoteDest {
+				continue
+			}
+			labels := tv.Labels.List()
+			if len(labels) != 1 {
+				// The sequence has already confirmed transactions and created lane PDAs, so keep
+				// the partial output (proposals + address book) alongside the error rather than
+				// losing the record of everything deployed.
+				return cldf.ChangesetOutput{
+					MCMSTimelockProposals: report.Output.Proposals,
+					//nolint:staticcheck // SA1019: AddressBook is deprecated, migration to DataStore pending
+					AddressBook: report.Output.AddressBook,
+				}, fmt.Errorf("lane ref %s (%s) on chain %d must carry exactly one selector label, got %d", address, tv.Type, chainSelector, len(labels))
+			}
+			// the sole label is the remote chain selector; the lane qualifier is that selector
+			qualifiers[shared.AddressKey{ChainSelector: chainSelector, Address: address}] = labels[0]
+		}
+	}
+	ds, err := shared.PopulateDataStore(report.Output.AddressBook, qualifiers)
+	if err != nil {
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: report.Output.Proposals,
+			//nolint:staticcheck // SA1019: AddressBook is deprecated, migration to DataStore pending
+			AddressBook: report.Output.AddressBook,
+		}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{

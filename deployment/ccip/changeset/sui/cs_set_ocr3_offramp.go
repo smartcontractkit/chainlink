@@ -217,7 +217,7 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(ab)
+	ds, err := shared.PopulateDataStore(ab, nil) // skipped: this changeset deploys only chain-singletons
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
