@@ -1120,7 +1120,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return nonRetryable(fmt.Errorf("invalid workflow id: %w", err))
 	}
 	if !types.WorkflowID(hash).Equal(wid) {
-		return nonRetryable(fmt.Errorf("workflowID mismatch: %x != %x", hash, wid))
+		return nonRetryable(fmt.Errorf("workflowID mismatch: %s != %s", types.WorkflowID(hash).Hex(), wid.Hex()))
 	}
 
 	// Start a new WorkflowEngine instance, and add it to local engine registry
