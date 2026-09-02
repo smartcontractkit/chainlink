@@ -168,6 +168,7 @@ func TestWeightedMeanTaskGate(t *testing.T) {
 	}
 
 	t.Run("mass below minimum blocks", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.WeightedMeanTask{
 			BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 			MinWeightMass: "0.5",
@@ -178,6 +179,7 @@ func TestWeightedMeanTaskGate(t *testing.T) {
 	})
 
 	t.Run("mass above minimum passes", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.WeightedMeanTask{
 			BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 			MinWeightMass: "0.3",
