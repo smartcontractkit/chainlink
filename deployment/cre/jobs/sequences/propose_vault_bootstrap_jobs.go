@@ -38,8 +38,8 @@ type ProposeVaultBootstrapJobsOutput struct {
 	Specs map[string][]string
 }
 
-var ProposeVaultBootstrapJobs = operations.NewSequence[ProposeVaultBootstrapJobsInput, ProposeVaultBootstrapJobsOutput, ProposeVaultBootstrapJobsDeps](
-	"propose-vault-boostrap-jobs-seq",
+var ProposeVaultBootstrapJobs = operations.NewSequence(
+	"propose-vault-boostrap-jobs-seq", // typos:ignore // 'boostrap' should be 'bootstrap', changing now might cause errors?
 	semver.MustParse("1.0.0"),
 	"Propose Vault Bootstrap Jobs",
 	func(b operations.Bundle, deps ProposeVaultBootstrapJobsDeps, input ProposeVaultBootstrapJobsInput) (ProposeVaultBootstrapJobsOutput, error) {

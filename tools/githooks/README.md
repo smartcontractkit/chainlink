@@ -4,6 +4,8 @@
 
 ## Features
 
+- **End-of-File Normalization:** Ensures eligible text and code files (`.go`, `.py`, `.md`, `.yaml`, `.json`, etc.) end with exactly one newline (`\n`), leaving empty files 0 bytes.
+- **Trailing Whitespace Fixing:** Fixes erroneous trailing whitespace across eligible text and document files (preserving Markdown 2-space hard line breaks).
 - **Module & Package Resolution:** Automatically maps changed or staged Go files to their enclosing `go.mod` module roots and specific package paths (e.g. `./core/logger`).
 - **Targeted Code Generation:** Runs `go generate` only for packages where `.proto` or generate files changed, updates config schema docs and `go.md` when relevant files change, and regenerates mocks via `mockery` when affected packages are listed in a `.mockery.yaml`.
 - **Parallel Module Tidy:** Runs `go mod tidy` in parallel across all affected modules.
@@ -14,12 +16,44 @@
 
 ## Commands
 
+### `end-of-file-fixer` (aliases: `eof`, `eof-fixer`)
+
+Ensures eligible files end with a single newline.
+
+```bash
+# Fix end-of-file for staged files
+go -C tools/githooks run . end-of-file-fixer
+
+# Fix specific files
+go -C tools/githooks run . end-of-file-fixer README.md core/services/app.go
+
+# Check mode (exits with error if issues found without modifying files)
+go -C tools/githooks run . end-of-file-fixer --check
+```
+
+### `whitespace-fixer` (aliases: `whitespace`, `ws-fixer`, `trailing-whitespace`)
+
+Fixes erroneous trailing whitespace across eligible text and document files (preserving Markdown 2-space hard line breaks).
+
+```bash
+# Fix whitespace for staged files
+go -C tools/githooks run . whitespace-fixer
+
+# Fix specific files
+go -C tools/githooks run . whitespace-fixer README.md scripts/build.sh
+
+# Check mode (exits with error if issues found without modifying files)
+go -C tools/githooks run . whitespace-fixer --check
+```
+
 ### `generate`
 
 Runs targeted code generators (`protoc`, config schema docs, `go.md`, `mockery`) only when relevant files change.
+Like `lint`, the default diff base is the merge-base with the origin default branch, so generators triggered
+by earlier commits on the current branch still run.
 
 ```bash
-# Run code generators from staged files
+# Run code generators for files changed since the merge-base with the default branch
 go -C tools/githooks run . generate
 
 # Run code generators for specific files
@@ -34,10 +68,12 @@ Mockery scoping rules:
 
 ### `tidy`
 
-Runs `go mod tidy` in parallel across all changed Go modules.
+Runs `go mod tidy` in parallel across all changed Go modules. Like `lint` and `generate`, the default diff
+base is the merge-base with the origin default branch, so modules touched by earlier branch commits are
+still tidied.
 
 ```bash
-# Tidy all affected modules from staged files
+# Tidy all modules changed since the merge-base with the default branch
 go -C tools/githooks run . tidy
 
 # Tidy specific modules by passing changed file paths
@@ -46,10 +82,12 @@ go -C tools/githooks run . tidy core/services/app.go deployment/environment.go
 
 ### `lint`
 
-Runs `golangci-lint` only on the changed packages within affected modules.
+Runs `golangci-lint` only on the changed packages within affected modules. By default the diff base is the
+merge-base with the origin default branch — the same base CI's `only-new-issues` uses — so issues introduced
+by any commit on the current branch are caught and fixed, not just the currently staged ones.
 
 ```bash
-# Lint changed packages from staged files
+# Lint packages changed since the merge-base with the default branch
 go -C tools/githooks run . lint
 
 # Lint specific files / packages across modules
@@ -57,7 +95,7 @@ go -C tools/githooks run . lint core/services/app.go deployment/environment/env.
 
 # Flags
 #   --fix        Fix issues automatically where possible (default: true)
-#   --rev string Show issues in modified lines since rev (default: "HEAD")
+#   --rev string Show issues introduced since rev (default: merge-base with the origin default branch)
 go -C tools/githooks run . lint --fix=false --rev=origin/develop
 ```
 

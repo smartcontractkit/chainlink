@@ -127,22 +127,6 @@ func validateGetSecretsShareLabels(secretReq *vaultcommon.SecretRequest, data *v
 	return nil
 }
 
-func buildPendingGetSecretsByID(items []*vaultcommon.StoredPendingQueueItem) (map[string]*vaultcommon.GetSecretsRequest, error) {
-	out := make(map[string]*vaultcommon.GetSecretsRequest, len(items))
-	for _, item := range items {
-		payload, err := item.Item.UnmarshalNew()
-		if err != nil {
-			return nil, fmt.Errorf("pending queue item %s: %w", item.Id, err)
-		}
-		req, ok := payload.(*vaultcommon.GetSecretsRequest)
-		if !ok {
-			continue
-		}
-		out[item.Id] = req
-	}
-	return out, nil
-}
-
 func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
 	maxQueryBytes, err := resolveVaultOCRBoundLimitInt(ctx, limitsFactory, cresettings.Default.VaultMaxQuerySizeLimit, "VaultMaxQuerySizeLimit")
 	if err != nil {

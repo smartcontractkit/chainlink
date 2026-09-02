@@ -325,8 +325,8 @@ func (s *KVStore) deletePendingQueue() error {
 			return fmt.Errorf("failed to unmarshal existing pending queue index: %w", err)
 		}
 
-		for i := 0; i < int(index.Length); i++ {
-			if err := s.writer.Delete([]byte(pendingQueueItemPrefix + strconv.Itoa(i))); err != nil {
+		for i := range index.Length {
+			if err := s.writer.Delete([]byte(pendingQueueItemPrefix + strconv.FormatInt(i, 10))); err != nil {
 				return fmt.Errorf("failed to delete pending queue item at index %d: %w", i, err)
 			}
 		}

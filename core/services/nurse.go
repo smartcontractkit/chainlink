@@ -286,7 +286,7 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 		n.eng.Debug("gather cpu received stop")
 
 	case <-time.After(n.cfg.GatherDuration().Duration()):
-		n.eng.Debugf("gather cpu duration elapsed %s. stoping profiling.", n.cfg.GatherDuration().Duration().String())
+		n.eng.Debugf("gather cpu duration elapsed %s. stopping profiling.", n.cfg.GatherDuration().Duration().String())
 	}
 
 	pprof.StopCPUProfile()

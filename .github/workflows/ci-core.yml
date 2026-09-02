@@ -158,6 +158,7 @@ jobs:
             **
             !core/scripts/cre/environment/examples/workflows/**
 
+
   golangci:
     name: GolangCI Lint
     needs: [filter, run-frequency]
@@ -172,14 +173,14 @@ jobs:
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
     runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index
-      }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+      }}/cpu=16/ram=32/family=c8g+c9g/spot=co/image=ubuntu24-full-arm64/extras=s3-cache
     strategy:
       fail-fast: false
       matrix:
         modules: ${{ fromJson(needs.filter.outputs.affected-modules) }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -197,15 +198,24 @@ jobs:
           # so restrict checkpoint writes to push events where the matrix is the push diff.
           build-cache-write: ${{ github.event_name == 'push' && 'default-branch-only' || 'never' }}
 
+      - name: Debug Slack message
+        if: always()
+        env:
+          SLACK_TEXT: ":red-warn: golangci-lint: module `${{ matrix.modules }}` has ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues across ${{ steps.golang-lint.outputs.golang-report-file-count }} files\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}|View Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Download Report>\n*By severity*: ${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\n*By linter*: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
+        run: |
+          echo "Would send Slack message (send-if = failure && critical>0 && weekday):"
+          echo "channel=${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}"
+          echo "text=${SLACK_TEXT}"
+
       - name: Notify Slack
         if: ${{ failure() && steps.golang-lint.outputs.golang-report-critical-issue-count > 0 && needs.run-frequency.outputs.one-per-weekday-frequency == 'true' }}
-        uses: slackapi/slack-github-action@03ea5433c137af7c0495bc0cad1af10403fc800c # 3.0.2
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             channel: ${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}
-            text: ":red-warn: golangci-lint: module `${{ matrix.modules }}` has ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues across ${{ steps.golang-lint.outputs.golang-report-file-count }} files\n<${{ format('https://github.com/{0}/actions/runs/{1}/jobs/{2}', github.repository, github.run_id, github.job_id) }}|View Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Download Report>\n*By severity*: ${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\n*By linter*: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
+            text: ":red-warn: golangci-lint: module `${{ matrix.modules }}` has ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues across ${{ steps.golang-lint.outputs.golang-report-file-count }} files\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}|View Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Download Report>\n*By severity*: ${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\n*By linter*: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
 
   # Fails if any golangci-lint matrix jobs fails and silently succeeds otherwise
   # Consolidates golangci-lint matrix job results under one required `lint` check
@@ -284,7 +294,7 @@ jobs:
 
           - cmd: go_core_fuzz
             os: runs-on=${{
-              github.run_id}}-fuzz/cpu=8/ram=32/family=m7id+m7idn+m8id+m8idn/spot=co/image=ubuntu24-full-x64/extras=s3-cache
+              github.run_id}}-fuzz/cpu=8/family=c7id+c7idn+c8id+c8idn/spot=co/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "false"
             go-mod-directory: ""
@@ -322,7 +332,7 @@ jobs:
       actions: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0
         with:
           metrics: cpu,network,memory,disk,io
 
@@ -536,26 +546,39 @@ jobs:
             ./coverage.txt
           retention-days: 7
 
+
   clean:
     name: Clean Go Tidy & Generate
     if: ${{ github.actor != 'dependabot[bot]' }}
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on:
+      - runs-on=${{ github.run_id }}
+      - cpu=8
+      - family=c7i+c8i
+      - image=ubuntu24-full-x64
+      - extras=s3-cache
+      - spot=co
     defaults:
       run:
         shell: bash
     steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Setup Go
-        uses: ./.github/actions/setup-go
+        uses: actions/setup-go@v7
         with:
-          only-modules: "true"
-      - name: Install protoc-gen-go-wsrpc
-        run: curl
-          https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc
-          --output "$HOME/go/bin/protoc-gen-go-wsrpc" && chmod +x
-          "$HOME/go/bin/protoc-gen-go-wsrpc"
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: "**/go.sum"
+      - name: Cache Protoc
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.local/bin/protoc
+            ~/.local/include
+          key: ${{ runner.os }}-${{ runner.arch }}-protoc-29.3
       - name: make generate
         run: |
           make rm-mocked
@@ -592,9 +615,9 @@ jobs:
             # Not a scheduled event - no frequencies to set. They default to false.
             exit 0
           fi
-          
-          curent_day=$(date +%u)
-          if [ "$curent_day" -ge 6 ]; then
+
+          current_day=$(date +%u)
+          if [ "$current_day" -ge 6 ]; then
             # Weekend
             exit 0
           fi

@@ -129,7 +129,7 @@ func StartDONs(
 		}
 
 		if hasEnvVarsInTomlConfig && len(nodeSets[donIdx].EnvVars) > 0 {
-			return nil, fmt.Errorf("extra env vars for Chainlink Nodes are provided in the TOML config for the %s DON, but you tried to provide them programatically. Please set them only in one place", donMetadata.Name)
+			return nil, fmt.Errorf("extra env vars for Chainlink Nodes are provided in the TOML config for the %s DON, but you tried to provide them programmatically. Please set them only in one place", donMetadata.Name)
 		}
 	}
 

@@ -313,7 +313,10 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
-	secretsRequest := &sdkpb.GetSecretsRequest{Requests: make([]*sdkpb.SecretRequest, 0, len(params.Secrets))}
+	secretsRequest := &sdkpb.GetSecretsRequest{
+		Requests:   make([]*sdkpb.SecretRequest, 0, len(params.Secrets)),
+		CallbackId: params.CallbackID,
+	}
 
 	for _, s := range params.Secrets {
 		secretsRequest.Requests = append(secretsRequest.Requests, &sdkpb.SecretRequest{
@@ -333,7 +336,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	defer cancel()
 	handler, ok := h.executionHandlers.GetExecutionWithWait(waitCtx, params.WorkflowID, params.ExecutionID)
 	if !ok {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
 	}
 
 	vaultResp, err := handler.GetRawSecrets(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
@@ -343,7 +346,11 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 
 	result, err := translateVaultResponse(vaultResp, params.EnclavePublicKey)
 	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+		code := jsonrpc.ErrInternal
+		if IsUserError(err) {
+			code = jsonrpc.ErrInvalidParams
+		}
+		return h.errorResponse(ctx, gatewayID, req, code, err)
 	}
 
 	signedResult, err := h.signSecretsResponse(params, result)
@@ -382,7 +389,7 @@ func translateVaultResponse(vaultResp []*vault.SecretResponse, enclaveKey string
 
 	for _, sr := range vaultResp {
 		if sr.GetError() != "" {
-			return nil, fmt.Errorf("vault error for secret %s/%s: %s", sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
+			return nil, newVaultSecretError(sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
 		}
 
 		data := sr.GetData()
@@ -489,7 +496,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	defer cancel()
 	handler, ok := h.executionHandlers.GetExecutionWithWait(waitCtx, params.WorkflowID, params.ExecutionID)
 	if !ok {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
 	}
 
 	capResp, execErr := handler.CallCapability(ctx, sdkReq)

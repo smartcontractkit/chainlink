@@ -275,7 +275,11 @@ func newHTTPFetcher(baseURL string, lggr logger.Logger) types.FetcherFunc {
 			return nil, fmt.Errorf("HTTP request failed with status code: %d", resp.StatusCode)
 		}
 
-		data, err := io.ReadAll(resp.Body)
+		reader := resp.Body
+		if req.MaxResponseBytes > 0 {
+			reader = http.MaxBytesReader(nil, resp.Body, int64(req.MaxResponseBytes))
+		}
+		data, err := io.ReadAll(reader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}

@@ -76,7 +76,7 @@ jobs:
             fi
             args+=(--slack-thread "$SLACK_THREAD")
           fi
-          go run ./tools/ccip/ccip-release-changelog/cmd/ccip-release-changelog "${args[@]}"
+          go run ./tools/release/release-changelog/cmd/release-changelog "${args[@]}"
 
       - name: Upload report artifact
         if: always()

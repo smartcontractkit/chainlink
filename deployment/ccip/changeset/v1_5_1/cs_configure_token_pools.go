@@ -74,7 +74,7 @@ type RateLimiterConfig struct {
 	Outbound *token_pool.RateLimiterConfig `json:"outbound,omitempty"`
 }
 
-// validateRateLimterConfig validates rate and capacity in accordance with on-chain code.
+// validateRateLimiterConfig validates rate and capacity in accordance with on-chain code.
 // see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/ccip/libraries/RateLimiter.sol.
 func validateRateLimiterConfig(rateLimiterConfig token_pool.RateLimiterConfig) error {
 	zero := big.NewInt(0)

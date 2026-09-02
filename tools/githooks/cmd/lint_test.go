@@ -26,6 +26,8 @@ func TestRootCmd(t *testing.T) {
 	assert.Contains(t, buf.String(), "test")
 	assert.Contains(t, buf.String(), "tidy")
 	assert.Contains(t, buf.String(), "generate")
+	assert.Contains(t, buf.String(), "end-of-file-fixer")
+	assert.Contains(t, buf.String(), "whitespace-fixer")
 }
 
 func TestLintCmdHelp(t *testing.T) {
@@ -39,7 +41,7 @@ func TestLintCmdHelp(t *testing.T) {
 
 	err := root.Execute()
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "Discovers enclosing Go modules and packages for changed/staged files")
+	assert.Contains(t, buf.String(), "Discovers enclosing Go modules and packages for files changed since the merge-base with the default branch")
 	assert.Contains(t, buf.String(), "--fix")
 	assert.Contains(t, buf.String(), "--rev")
 }

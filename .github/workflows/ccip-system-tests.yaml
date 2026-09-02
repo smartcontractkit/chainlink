@@ -73,7 +73,7 @@ jobs:
           TESTS_JSON='[
             {"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2"},
             {"test_name":"TestRMN_GlobalCurseTwoMessagesOnTwoLanes","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","rmn_rageproxy_version":"master-amd6416f5d86","rmn_afn2proxy_version":"master-amd64-10b42b2"},
-            {"test_name":"TestDeleteCCIPJobs|TestRevokeJobs","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","job_timeout":20}
+            {"test_name":"TestDeleteCCIPJobs-TestRevokeJobs","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","job_timeout":20}
           ]'
 
           tests=$(echo "$TESTS_JSON" | jq -c \
@@ -166,23 +166,8 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Cache gotestsum
-        id: cache-gotestsum
-        uses: actions/cache@v6
-        with:
-          path: ~/go/bin/gotestsum
-          key: ${{ runner.os }}-${{ runner.arch }}-gotestsum-1.13.0
-
-      - name: Set up gotestsum
-        shell: bash
-        run: |
-          if [ -f ~/go/bin/gotestsum ]; then
-            echo "Using cached gotestsum"
-          else
-            echo "::group::Install gotestsum"
-            go install gotest.tools/gotestsum@v1.13.0
-            echo "::endgroup::"
-          fi
+      - name: Setup gotestsum
+        uses: ./.github/actions/setup-gotestsum
 
       - name: Run CCIP smoke tests
         id: run-tests

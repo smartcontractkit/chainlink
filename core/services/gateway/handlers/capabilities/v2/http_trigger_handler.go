@@ -43,11 +43,15 @@ type savedCallback struct {
 	handlers.Callback
 	requestStartTime time.Time
 	createdAt        time.Time
+	// processed is set once the aggregated response has been sent to the user.
+	// The entry stays in the callbacks map so late node responses can be told
+	// apart from unknown request IDs, and is removed later by the async reaper.
+	processed bool
 	// responseAggregators holds one IdenticalNodeResponseAggregator per shard the
 	// workflow is assigned to, keyed by shard donID. The first shard to reach its
 	// quorum produces the user response.
 	responseAggregators map[string]*aggregation.IdenticalNodeResponseAggregator
-	doneCh              chan struct{} // closed when callback is responded to. signals sendWithRetries to stop retrying
+	doneCh              chan struct{} // closed when callback is responded to (processed) or reaped unanswered. signals sendWithRetries to stop retrying
 }
 
 type httpTriggerHandler struct {
@@ -275,7 +279,7 @@ func validateHexInput(input string, expectedLength int) error {
 	return nil
 }
 
-func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID, requestID string, callback handlers.Callback) error {
 	if err := validateHexInput(workflowID, workflowIDLength); err != nil {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID "+err.Error(), callback)
 		return errors.New("workflowID " + err.Error())
@@ -284,7 +288,7 @@ func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID 
 	return nil
 }
 
-func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflowOwner string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflowOwner, requestID string, callback handlers.Callback) error {
 	if err := validateHexInput(workflowOwner, workflowOwnerLength); err != nil {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner "+err.Error(), callback)
 		return errors.New("workflowOwner " + err.Error())
@@ -294,7 +298,7 @@ func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflow
 }
 
 // validateWorkflowName validates the workflowName length and format
-func (h *httpTriggerHandler) validateWorkflowName(ctx context.Context, workflowName string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowName(ctx context.Context, workflowName, requestID string, callback handlers.Callback) error {
 	if len(workflowName) == 0 {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowName cannot be empty", callback)
 		return errors.New("workflowName cannot be empty")
@@ -309,7 +313,7 @@ func (h *httpTriggerHandler) validateWorkflowName(ctx context.Context, workflowN
 }
 
 // validateWorkflowTag validates the workflowTag length and format
-func (h *httpTriggerHandler) validateWorkflowTag(ctx context.Context, workflowTag string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowTag(ctx context.Context, workflowTag, requestID string, callback handlers.Callback) error {
 	if len(workflowTag) == 0 {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowTag cannot be empty", callback)
 		return errors.New("workflowTag cannot be empty")
@@ -379,8 +383,7 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: workflowRef.workflowOwner, Workflow: workflowID})
 	if err := h.userRateLimiter.AllowErr(ctx); err != nil {
 		lggr := logger.With(h.lggr, platform.KeyWorkflowID, workflowID, platform.KeyWorkflowOwner, workflowRef.workflowOwner, "requestID", requestID, "err", err)
-		var errLimited limits.ErrorRateLimited
-		if errors.As(err, &errLimited) {
+		if errLimited, ok := errors.AsType[limits.ErrorRateLimited](err); ok {
 			switch errLimited.Scope {
 			case settings.ScopeWorkflow:
 				lggr.Errorf("failed to start execution: per workflow rate limit exceeded")
@@ -435,14 +438,19 @@ func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string
 	return doneCh, nil
 }
 
-// cleanupCallback removes a callback and signals sendWithRetries to stop.
+// cleanupCallback removes a callback and, if it was never processed, closes
+// doneCh to signal sendWithRetries to stop. When the entry was already
+// processed, doneCh was closed by markCallbackProcessed, so it is only
+// deleted here.
 // Must be called while holding callbacksMu lock.
 func (h *httpTriggerHandler) cleanupCallback(requestID string) {
 	saved, exists := h.callbacks[requestID]
 	if !exists {
 		return
 	}
-	close(saved.doneCh)
+	if !saved.processed {
+		close(saved.doneCh)
+	}
 	delete(h.callbacks, requestID)
 }
 
@@ -453,6 +461,10 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 	saved, exists := h.callbacks[resp.ID]
 	if !exists {
 		return errors.New("callback not found for request ID: " + resp.ID)
+	}
+	if saved.processed {
+		h.lggr.Debugw("request already processed, ignoring late response", "requestID", resp.ID, "nodeAddr", nodeAddr)
+		return nil
 	}
 
 	// Route the response into the aggregator for the shard that owns this node.
@@ -487,12 +499,17 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 		return err
 	}
 
-	// First shard to reach quorum wins: only after successfully sending the
-	// response, clean up the callback (closes doneCh, stopping all shard sends).
-	h.cleanupCallback(resp.ID)
+	// First shard to reach quorum wins: after successfully sending the response,
+	// mark the callback as processed and close doneCh, stopping all shard sends.
+	// The entry is kept in the map so late responses are recognized as such and
+	// is removed later by the periodic reaper.
+	saved.processed = true
+	close(saved.doneCh)
+	h.callbacks[resp.ID] = saved
 	latencyMs := time.Since(saved.requestStartTime).Milliseconds()
 	h.metrics.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
 	h.metrics.IncrementRequestSuccess(ctx, h.lggr)
+	h.lggr.Debugw("Sent response to user", "requestID", resp.ID, "latencyMs", latencyMs)
 	return nil
 }
 
@@ -532,7 +549,9 @@ func (h *httpTriggerHandler) reapExpiredCallbacks(ctx context.Context) {
 	var expiredCount int
 	for reqID, callback := range h.callbacks {
 		if now.Sub(callback.createdAt) > time.Duration(h.config.CleanUpPeriodMs)*time.Millisecond {
-			h.metrics.IncrementRequestErrors(ctx, jsonrpc.ErrInternal, h.lggr)
+			if !callback.processed {
+				h.metrics.IncrementRequestErrors(ctx, jsonrpc.ErrInternal, h.lggr)
+			}
 			h.cleanupCallback(reqID)
 			expiredCount++
 		}

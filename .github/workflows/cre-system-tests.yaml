@@ -83,8 +83,6 @@ jobs:
           PER_TEST_TOPOLOGIES_JSON='{
             "Test_CRE_V2_Suite_Bucket_B": [
                {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
-               {"topology":"workflow-gateway-capabilities-vault-jwt_auth-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"},
-               {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"},
                {"topology":"workflow-gateway-capabilities-vault-stall-purge","configs":"configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"}
              ],
             "Test_CRE_V2_Aptos_Suite": [
@@ -102,13 +100,16 @@ jobs:
             "Test_CRE_V2_Solana_Read_Accounts": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
-          "Test_CRE_V2_Solana_Read_Block": [
+            "Test_CRE_V2_Solana_Read_Block": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
-          "Test_CRE_V2_Solana_Read_Tx": [
+            "Test_CRE_V2_Solana_Read_Tx": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
             "Test_CRE_V2_Sharding": [
+               {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
+             ],
+            "Test_CRE_V2_ShardingWithHttpTrigger": [
                {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
              ],
             "Test_CRE_V2_ShardManualAssignment": [
@@ -228,23 +229,8 @@ jobs:
         env:
           AWS_REGION: us-east-1
 
-      - name: Cache gotestsum
-        id: cache-gotestsum
-        uses: actions/cache@v6
-        with:
-          path: ~/go/bin/gotestsum
-          key: ${{ runner.os }}-${{ runner.arch }}-gotestsum-1.13.0
-
-      - name: Set up gotestsum
-        shell: bash
-        run: |
-          if [ -f ~/go/bin/gotestsum ]; then
-            echo "Using cached gotestsum"
-          else
-            echo "::group::Install gotestsum"
-            go install gotest.tools/gotestsum@v1.13.0
-            echo "::endgroup::"
-          fi
+      - name: Setup gotestsum
+        uses: ./.github/actions/setup-gotestsum
 
       - name: Setup Aptos CLI
         if: ${{ matrix.tests.test_name == 'Test_CRE_V2_Aptos_Suite' }}

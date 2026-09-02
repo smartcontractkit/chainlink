@@ -318,13 +318,20 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			meta.WorkflowIds = meta.WorkflowIds[:maxBatchedWorkflowIDs]
 		}
 		for idx, workflowID := range meta.WorkflowIds {
+			s.mu.RLock()
+			_, found := s.registeredWorkflows[workflowID]
+			s.mu.RUnlock()
+			if !found {
+				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "sender", sender)
+				continue
+			}
+			s.mu.Lock()
 			var triggerID string
 			if idx < len(meta.TriggerIds) {
 				triggerID = meta.TriggerIds[idx]
 			}
-			s.mu.RLock()
-			triggerMap, found := s.registeredWorkflows[workflowID]
 			var registration *subRegState
+			triggerMap, found := s.registeredWorkflows[workflowID]
 			if found {
 				if triggerID != "" {
 					// received a message from updated publisher, which provided a triggerID
@@ -341,10 +348,9 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 					}
 				}
 			}
-			s.mu.RUnlock()
 			if registration == nil {
 				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "triggerID", triggerID, "sender", sender)
-				continue
+				continue // was unregistered in the meantime
 			}
 
 			key := triggerEventKey{
@@ -353,7 +359,6 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				triggerID:      triggerID,
 			}
 			rk := ackReplayKey{triggerID: triggerID, triggerEventID: meta.TriggerEventId}
-			s.mu.Lock()
 			if _, ok := s.ackReplayCache[rk]; ok {
 				// Event has already been ACKd by engine, so we don't need to re-deliver
 				s.mu.Unlock()
@@ -372,17 +377,24 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			nowMs := time.Now().UnixMilli()
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
 			ready, payloads := s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
+			if !ready {
+				s.mu.Unlock()
+				s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
+				continue
+			}
+
+			aggregatedResponse, err := cfg.aggregator.Aggregate(meta.TriggerEventId, payloads)
+			if err != nil {
+				s.mu.Unlock()
+				s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
+				s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "err", err)
+				continue
+			}
+			s.messageCache.MarkDelivered(key)
 			s.mu.Unlock()
 			s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
-			if ready {
-				aggregatedResponse, err := cfg.aggregator.Aggregate(meta.TriggerEventId, payloads)
-				if err != nil {
-					s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "err", err)
-					continue
-				}
-				s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID)
-				registration.callback <- aggregatedResponse
-			}
+			s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID)
+			registration.callback <- aggregatedResponse
 		}
 	case types.MethodTriggerRegistrationCheck:
 		meta := msg.GetTriggerEventMetadata()
