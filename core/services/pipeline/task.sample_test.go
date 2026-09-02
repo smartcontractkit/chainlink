@@ -28,6 +28,7 @@ func TestSampleTask(t *testing.T) {
 	}
 
 	t.Run("from map input", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.SampleTask{
 			BaseTask:  pipeline.NewBaseTask(0, "s", nil, nil, 0),
 			Source:    "binance",
@@ -49,6 +50,7 @@ func TestSampleTask(t *testing.T) {
 	})
 
 	t.Run("from JSON string input", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.SampleTask{
 			BaseTask:  pipeline.NewBaseTask(0, "s", nil, nil, 0),
 			Source:    "binance",
@@ -65,6 +67,7 @@ func TestSampleTask(t *testing.T) {
 	})
 
 	t.Run("missing tsPath errors", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.SampleTask{
 			BaseTask:  pipeline.NewBaseTask(0, "s", nil, nil, 0),
 			Source:    "binance",
@@ -76,6 +79,7 @@ func TestSampleTask(t *testing.T) {
 	})
 
 	t.Run("tsUnit seconds", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.SampleTask{
 			BaseTask:  pipeline.NewBaseTask(0, "s", nil, nil, 0),
 			Source:    "binance",
@@ -95,6 +99,7 @@ func TestSampleTask(t *testing.T) {
 	})
 
 	t.Run("default weight is 1", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.SampleTask{
 			BaseTask:  pipeline.NewBaseTask(0, "s", nil, nil, 0),
 			Source:    "x",

@@ -129,9 +129,9 @@ func toInt64(v any) (int64, error) {
 	case int32:
 		return int64(tv), nil
 	case uint64:
-		return int64(tv), nil
+		return int64(tv), nil //nolint:gosec // G115: timestamps from upstream JSON
 	case uint:
-		return int64(tv), nil
+		return int64(tv), nil //nolint:gosec // G115: timestamps from upstream JSON
 	case float64:
 		return int64(tv), nil
 	case float32:

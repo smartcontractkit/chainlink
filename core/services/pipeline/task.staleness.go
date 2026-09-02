@@ -138,10 +138,7 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	nowMs := time.Now().UnixMilli()
 	out := make([]Sample, 0, len(samples))
 	for _, s := range samples {
-		ageMs := nowMs - s.TsMs
-		if ageMs < 0 {
-			ageMs = 0
-		}
+		ageMs := max(nowMs-s.TsMs, 0)
 
 		// Hard cutoff: drop samples older than the cutoff time limit.
 		if cutoffMsVal > 0 && ageMs > cutoffMsVal {
@@ -213,7 +210,7 @@ func piecewiseValue(points []piecewisePoint, ageS float64) decimal.Decimal {
 	if ageS >= points[last].ageS {
 		return points[last].value
 	}
-	for i := 0; i < last; i++ {
+	for i := range last {
 		lo, hi := points[i], points[i+1]
 		if ageS >= lo.ageS && ageS <= hi.ageS {
 			if hi.ageS == lo.ageS {

@@ -28,6 +28,7 @@ func TestStalenessTask(t *testing.T) {
 	}
 
 	t.Run("cutoff drops stale samples", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.StalenessTask{
 			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
 			Method:    "cutoff",
@@ -43,6 +44,7 @@ func TestStalenessTask(t *testing.T) {
 	})
 
 	t.Run("linear scales weight continuously", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.StalenessTask{
 			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
 			Method:    "linear",
@@ -67,6 +69,7 @@ func TestStalenessTask(t *testing.T) {
 	})
 
 	t.Run("exponential decay", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.StalenessTask{
 			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
 			Method:    "exp",
@@ -86,6 +89,7 @@ func TestStalenessTask(t *testing.T) {
 	})
 
 	t.Run("exp_cooldown holds flat then decays", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.StalenessTask{
 			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
 			Method:    "exp_cooldown",
@@ -107,6 +111,7 @@ func TestStalenessTask(t *testing.T) {
 	})
 
 	t.Run("piecewise interpolation", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.StalenessTask{
 			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
 			Method:    "piecewise",
@@ -124,6 +129,7 @@ func TestStalenessTask(t *testing.T) {
 	})
 
 	t.Run("decayThreshold drops samples below K", func(t *testing.T) {
+		t.Parallel()
 		now := time.Now().UnixMilli()
 		// 50s old: exp_cooldown T=10s, H=5s -> decay = 2^(-(50-10)/5) = 2^-8 = 0.0039 < 0.03
 		inputs := []pipeline.Result{
@@ -145,6 +151,7 @@ func TestStalenessTask(t *testing.T) {
 	})
 
 	t.Run("decayThreshold keeps samples above K", func(t *testing.T) {
+		t.Parallel()
 		now := time.Now().UnixMilli()
 		// 15s old: exp_cooldown T=10s, H=5s -> decay = 2^-((15-10)/5) = 2^-1 = 0.5 > 0.03
 		inputs := []pipeline.Result{
@@ -164,6 +171,7 @@ func TestStalenessTask(t *testing.T) {
 	})
 
 	t.Run("cutoff drops samples older than cutoff time", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.StalenessTask{
 			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
 			Method:    "exp_cooldown",
@@ -181,6 +189,7 @@ func TestStalenessTask(t *testing.T) {
 	})
 
 	t.Run("cutoff does not affect fresh samples", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.StalenessTask{
 			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
 			Method:    "exp_cooldown",

@@ -141,9 +141,6 @@ func (t *WeightedMeanTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 		}
 
 		m := bandReference(ref, strings.ToLower(string(winsorRef)))
-		if m.IsZero() && len(ref) > 0 {
-			// A zero median is legal only if all values are zero. Keep it.
-		}
 
 		b := band.Decimal()
 		lo, hi, err := computeBand(m, b, methodMode, ref)
@@ -172,7 +169,7 @@ func (t *WeightedMeanTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 
 	var out decimal.Decimal
 	if prec, isSet := maybePrecision.Int32(); isSet {
-		out = num.DivRound(den, int32(prec))
+		out = num.DivRound(den, prec)
 	} else {
 		out = num.Div(den)
 	}

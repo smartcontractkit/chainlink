@@ -23,6 +23,7 @@ func TestNormalizeTask(t *testing.T) {
 	}
 
 	t.Run("converts non-target unit by multiplying factor", func(t *testing.T) {
+		t.Parallel()
 		vars := pipeline.NewVarsFrom(map[string]any{
 			"factor":  pipeline.Sample{Source: "U1", Value: decimal.RequireFromString("3"), Unit: "T", Weight: decimal.NewFromInt(1), TsMs: 1},
 			"samples": makeSamples(),
@@ -44,6 +45,7 @@ func TestNormalizeTask(t *testing.T) {
 	})
 
 	t.Run("drops unconvertible sample when onMissingRate=drop", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.NormalizeTask{
 			BaseTask:      pipeline.NewBaseTask(0, "norm", nil, nil, 0),
 			TargetUnit:    "T",
@@ -62,6 +64,7 @@ func TestNormalizeTask(t *testing.T) {
 	})
 
 	t.Run("errors on missing factor when onMissingRate=error", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.NormalizeTask{
 			BaseTask:      pipeline.NewBaseTask(0, "norm", nil, nil, 0),
 			TargetUnit:    "T",
@@ -77,6 +80,7 @@ func TestNormalizeTask(t *testing.T) {
 	})
 
 	t.Run("disabled returns samples unchanged", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.NormalizeTask{
 			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
 			TargetUnit: "T",
@@ -94,6 +98,7 @@ func TestNormalizeTask(t *testing.T) {
 	})
 
 	t.Run("sample with empty unit passes through unchanged", func(t *testing.T) {
+		t.Parallel()
 		vars := pipeline.NewVarsFrom(map[string]any{
 			"factor": pipeline.Sample{Source: "U1", Value: decimal.NewFromInt(3), Weight: decimal.NewFromInt(1), TsMs: 1},
 		})
@@ -104,9 +109,9 @@ func TestNormalizeTask(t *testing.T) {
 			TargetUnit: "T",
 			Enabled:    "true",
 		}
-		vars.Set("noUnit", []pipeline.Sample{
+		require.NoError(t, vars.Set("noUnit", []pipeline.Sample{
 			{Source: "srcC", Value: decimal.NewFromInt(42), Unit: "", Weight: decimal.NewFromInt(1), TsMs: 1},
-		})
+		}))
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
 		require.NoError(t, out.Error)
 		res := out.Value.([]pipeline.Sample)
@@ -126,6 +131,7 @@ func TestNormalizeTaskUnitMap(t *testing.T) {
 	}
 
 	t.Run("unitMap with var-ref to Sample", func(t *testing.T) {
+		t.Parallel()
 		vars := pipeline.NewVarsFrom(map[string]any{
 			"u1Factor": pipeline.Sample{Source: "U1", Value: decimal.RequireFromString("2.5"), Weight: decimal.NewFromInt(1), TsMs: 1},
 			"samples":  unitMapSamples(),
@@ -147,6 +153,7 @@ func TestNormalizeTaskUnitMap(t *testing.T) {
 	})
 
 	t.Run("unitMap with literal number", func(t *testing.T) {
+		t.Parallel()
 		vars := pipeline.NewVarsFrom(map[string]any{
 			"samples": unitMapSamples(),
 		})
@@ -165,6 +172,7 @@ func TestNormalizeTaskUnitMap(t *testing.T) {
 	})
 
 	t.Run("unitMap takes priority over factors", func(t *testing.T) {
+		t.Parallel()
 		vars := pipeline.NewVarsFrom(map[string]any{
 			"u1Factor":    pipeline.Sample{Source: "U1", Value: decimal.RequireFromString("2.5"), Weight: decimal.NewFromInt(1), TsMs: 1},
 			"wrongFactor": pipeline.Sample{Source: "U1", Value: decimal.RequireFromString("99"), Weight: decimal.NewFromInt(1), TsMs: 1},
@@ -186,6 +194,7 @@ func TestNormalizeTaskUnitMap(t *testing.T) {
 	})
 
 	t.Run("unitMap missing unit drops sample", func(t *testing.T) {
+		t.Parallel()
 		vars := pipeline.NewVarsFrom(map[string]any{
 			"samples": []pipeline.Sample{
 				{Source: "srcA", Value: decimal.NewFromInt(100), Unit: "U1", Weight: decimal.NewFromInt(1), TsMs: 1},
