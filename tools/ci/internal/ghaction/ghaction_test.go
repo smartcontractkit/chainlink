@@ -67,6 +67,19 @@ func TestGHAction_AddStepSummaryTemplate(t *testing.T) {
 	assert.Equal(t, "### Hello Runner\n", stdout.String())
 }
 
+func TestGHAction_AddStepSummaryTemplate_NoHTMLEscaping(t *testing.T) {
+	t.Setenv("GITHUB_STEP_SUMMARY", "")
+	var stdout bytes.Buffer
+	act := ghaction.NewWithOptions(&stdout, "", "", "")
+
+	data := struct {
+		Name string
+	}{Name: "Runner & <team>"}
+	err := act.AddStepSummaryTemplate("### Hello {{.Name}}", data)
+	require.NoError(t, err)
+	assert.Equal(t, "### Hello Runner & <team>\n", stdout.String())
+}
+
 func TestGHAction_IsGitHubActions(t *testing.T) {
 	var stdout bytes.Buffer
 	act1 := ghaction.New(&stdout, "/path/to/output", "")

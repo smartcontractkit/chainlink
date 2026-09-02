@@ -3,7 +3,6 @@ package runner
 import (
 	"fmt"
 	"strings"
-	"time"
 )
 
 // SpotStrategy represents a RunsOn spot allocation strategy or on-demand setting.
@@ -28,7 +27,6 @@ type SpotInput struct {
 	RefName          string       // GITHUB_REF_NAME (e.g., "develop", "release/2.57.1", "v2.57.1")
 	BaseRef          string       // GITHUB_BASE_REF (target branch for PR, e.g., "develop", "release/2.57.1")
 	HeadRef          string       // GITHUB_HEAD_REF (source branch for PR)
-	Timestamp        time.Time    // Evaluation timestamp (for time/day-of-week heuristics)
 	ForceOnDemand    bool         // Explicit flag to disable spot
 	StrategyOverride SpotStrategy // Explicit strategy override
 	DefaultStrategy  SpotStrategy // Default strategy if spot is enabled (defaults to pco)
@@ -94,19 +92,19 @@ func isDefaultBranch(ref, refName string) bool {
 		cleanName == "develop" || cleanName == "main" || cleanName == "master"
 }
 
-func normalizeStrategy(s SpotStrategy) (SpotStrategy, string) {
+func normalizeStrategy(s SpotStrategy) (SpotStrategy, string, error) {
 	lower := strings.ToLower(strings.TrimSpace(string(s)))
 	switch lower {
 	case "false", "off", "0", "no", "on-demand", "ondemand", "none":
-		return SpotDisabled, "false"
+		return SpotDisabled, "false", nil
 	case "co", "capacity-optimized", "capacity_optimized":
-		return SpotCapacityOptimized, "co"
+		return SpotCapacityOptimized, "co", nil
 	case "pco", "price-capacity-optimized", "price_capacity_optimized", "true", "on", "1", "yes":
-		return SpotPriceCapacityOptimized, "pco"
+		return SpotPriceCapacityOptimized, "pco", nil
 	case "lp", "lowest-price", "lowest_price":
-		return SpotLowestPrice, "lowest-price"
+		return SpotLowestPrice, "lowest-price", nil
 	default:
-		return SpotStrategy(lower), lower
+		return SpotStrategy(lower), lower, fmt.Errorf("invalid spot strategy %q (expected 'false', 'co', 'pco', or 'lowest-price')", s)
 	}
 }
 
@@ -127,7 +125,10 @@ func ResolveSpot(input SpotInput) (SpotResult, error) {
 
 	// 2. Check explicit strategy override
 	if input.StrategyOverride != "" {
-		strategyOverride, spotVal := normalizeStrategy(input.StrategyOverride)
+		strategyOverride, spotVal, err := normalizeStrategy(input.StrategyOverride)
+		if err != nil {
+			return SpotResult{}, fmt.Errorf("invalid spot strategy override %q: %w", input.StrategyOverride, err)
+		}
 		enabled := strategyOverride != SpotDisabled
 		flag := "spot=" + spotVal
 		return SpotResult{
@@ -181,7 +182,10 @@ func ResolveSpot(input SpotInput) (SpotResult, error) {
 	if defaultStrategy == "" {
 		defaultStrategy = SpotPriceCapacityOptimized
 	}
-	resolvedStrategy, spotVal := normalizeStrategy(defaultStrategy)
+	resolvedStrategy, spotVal, err := normalizeStrategy(defaultStrategy)
+	if err != nil {
+		return SpotResult{}, fmt.Errorf("invalid default spot strategy %q: %w", input.DefaultStrategy, err)
+	}
 	enabled := resolvedStrategy != SpotDisabled
 	flag := "spot=" + spotVal
 

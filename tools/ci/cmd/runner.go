@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -31,7 +30,6 @@ func newRunnerSpotCmd() *cobra.Command {
 		refName         string
 		baseRef         string
 		headRef         string
-		evalTimeStr     string
 		forceOnDemand   bool
 		strategy        string
 		defaultStrategy string
@@ -64,6 +62,24 @@ func newRunnerSpotCmd() *cobra.Command {
 			if headRef == "" && ctx != nil {
 				headRef = ctx.HeadRef
 			}
+			if eventName == "" {
+				eventName = act.Getenv("GITHUB_EVENT_NAME")
+			}
+			if ref == "" {
+				ref = act.Getenv("GITHUB_REF")
+			}
+			if refType == "" {
+				refType = act.Getenv("GITHUB_REF_TYPE")
+			}
+			if refName == "" {
+				refName = act.Getenv("GITHUB_REF_NAME")
+			}
+			if baseRef == "" {
+				baseRef = act.Getenv("GITHUB_BASE_REF")
+			}
+			if headRef == "" {
+				headRef = act.Getenv("GITHUB_HEAD_REF")
+			}
 			if !forceOnDemand {
 				envForce := act.GetInput("force_on_demand")
 				if envForce == "" {
@@ -86,24 +102,6 @@ func newRunnerSpotCmd() *cobra.Command {
 				defaultStrategy = act.Getenv("RUNNER_DEFAULT_SPOT_STRATEGY")
 			}
 
-			var evalTime time.Time
-			if evalTimeStr == "" {
-				evalTimeStr = act.GetInput("time")
-			}
-			if evalTimeStr != "" {
-				var err error
-				evalTime, err = time.Parse(time.RFC3339, evalTimeStr)
-				if err != nil {
-					return fmt.Errorf("invalid time format %q (expected RFC3339): %w", evalTimeStr, err)
-				}
-			} else if envTime := act.Getenv("CI_EVAL_TIME"); envTime != "" {
-				var err error
-				evalTime, err = time.Parse(time.RFC3339, envTime)
-				if err != nil {
-					return fmt.Errorf("invalid CI_EVAL_TIME format %q (expected RFC3339): %w", envTime, err)
-				}
-			}
-
 			res, err := runner.ResolveSpot(runner.SpotInput{
 				EventName:        eventName,
 				Ref:              ref,
@@ -111,7 +109,6 @@ func newRunnerSpotCmd() *cobra.Command {
 				RefName:          refName,
 				BaseRef:          baseRef,
 				HeadRef:          headRef,
-				Timestamp:        evalTime,
 				ForceOnDemand:    forceOnDemand,
 				StrategyOverride: runner.SpotStrategy(strategy),
 				DefaultStrategy:  runner.SpotStrategy(defaultStrategy),
@@ -156,7 +153,6 @@ func newRunnerSpotCmd() *cobra.Command {
 	cmd.Flags().StringVar(&refName, "ref-name", "", "GitHub ref name (env: GITHUB_REF_NAME)")
 	cmd.Flags().StringVar(&baseRef, "base-ref", "", "Target branch for PR (env: GITHUB_BASE_REF)")
 	cmd.Flags().StringVar(&headRef, "head-ref", "", "Source branch for PR (env: GITHUB_HEAD_REF)")
-	cmd.Flags().StringVar(&evalTimeStr, "time", "", "Evaluation timestamp in RFC3339 format (env: CI_EVAL_TIME)")
 	cmd.Flags().BoolVar(&forceOnDemand, "force-on-demand", false, "Force on-demand / disable spot (env: RUNNER_FORCE_ON_DEMAND)")
 	cmd.Flags().StringVar(&strategy, "strategy", "", "Explicit spot strategy override ('co', 'pco', 'lowest-price', 'false') (env: RUNNER_SPOT_STRATEGY)")
 	cmd.Flags().StringVar(&defaultStrategy, "default-strategy", "", "Default spot strategy if enabled ('pco', 'co') (env: RUNNER_DEFAULT_SPOT_STRATEGY)")
