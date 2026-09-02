@@ -68,6 +68,10 @@ func (m *mockOCRConfigService) GetConfigDigester(
 	return &mockConfigDigester{}, nil
 }
 
+func (m *mockOCRConfigService) GetContractConfig(capabilityID string, ocrConfigKey string) (ocrtypes.ContractConfig, bool) {
+	return ocrtypes.ContractConfig{}, false
+}
+
 type mockConfigTracker struct{}
 
 func (m *mockConfigTracker) Notify() <-chan struct{} { return nil }

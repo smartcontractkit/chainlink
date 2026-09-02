@@ -9,6 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -40,7 +41,8 @@ type oracleFactory struct {
 	ocrKeystore            keystore.OCR2
 	ethKeystore            keystore.Eth
 	ocrConfigService       capregconfig.OCRConfigService
-	capabilityID           string // Capability ID for registry-based config lookup
+	capabilityID           string
+	defaultBootstrappers   []ocrcommontypes.BootstrapperLocator
 }
 
 type OracleFactoryParams struct {
@@ -58,8 +60,9 @@ type OracleFactoryParams struct {
 	// OCRConfigService provides OCR config from the capabilities registry.
 	// When set, the factory will use dynamic tracker/digester that can switch
 	// between registry-based and legacy contract-based config.
-	OCRConfigService capregconfig.OCRConfigService
-	CapabilityID     string
+	OCRConfigService     capregconfig.OCRConfigService
+	CapabilityID         string
+	DefaultBootstrappers []ocrcommontypes.BootstrapperLocator
 }
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
@@ -78,6 +81,7 @@ func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 		ethKeystore:            params.EthKeystore,
 		ocrConfigService:       params.OCRConfigService,
 		capabilityID:           params.CapabilityID,
+		defaultBootstrappers:   params.DefaultBootstrappers,
 	}, nil
 }
 
@@ -159,6 +163,12 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 	bootstrapPeers, err := ocrcommon.ParseBootstrapPeers(of.config.BootstrapPeers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse bootstrap peers: %w", err)
+	}
+	if len(bootstrapPeers) == 0 {
+		bootstrapPeers = of.defaultBootstrappers
+	}
+	if len(bootstrapPeers) == 0 {
+		return nil, errors.New("no bootstrap peers found in job spec or Capabilities.Peering.V2.DefaultBootstrappers")
 	}
 
 	keyBundles := map[string]ocr2key.KeyBundle{}
