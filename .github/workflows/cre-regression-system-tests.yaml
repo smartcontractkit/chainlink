@@ -81,6 +81,10 @@ jobs:
       - name: Define test matrix
         id: define-matrix
         shell: bash
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          SPOT_FLAG: ${{ steps.spot.outputs.spot_flag }}
         run: |
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/regression/cre/*_test.go)
 
@@ -89,10 +93,10 @@ jobs:
           }'
 
           tests=$(echo "$test_names" | jq -c -R -s \
-            --argjson run_id "${{ github.run_id }}" \
-            --arg run_attempt "${{ github.run_attempt }}" \
+            --argjson run_id "$RUN_ID" \
+            --arg run_attempt "$RUN_ATTEMPT" \
             --argjson per "$per_test_configs" \
-            --arg spot_flag "${{ steps.spot.outputs.spot_flag }}" '
+            --arg spot_flag "$SPOT_FLAG" '
             split("\n") | map(select(length>0))
             | to_entries
             | map({
