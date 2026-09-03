@@ -292,23 +292,8 @@ jobs:
             echo "Baseline image: ${image}:${version}"
           fi
 
-      - name: Cache gotestsum
-        id: cache-gotestsum
-        uses: actions/cache@v6
-        with:
-          path: ~/go/bin/gotestsum
-          key: ${{ runner.os }}-${{ runner.arch }}-gotestsum-1.13.0
-
-      - name: Set up gotestsum
-        shell: bash
-        run: |
-          if [ -f ~/go/bin/gotestsum ]; then
-            echo "Using cached gotestsum"
-          else
-            echo "::group::Install gotestsum"
-            go install gotest.tools/gotestsum@v1.13.0
-            echo "::endgroup::"
-          fi
+      - name: Setup gotestsum
+        uses: ./.github/actions/setup-gotestsum
 
       - name: Run CCIP smoke tests
         id: run-tests
