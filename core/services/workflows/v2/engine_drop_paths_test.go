@@ -56,7 +56,7 @@ func (f *failAfterNBoundLimiter[N]) Limit(context.Context) (N, error) {
 	defer f.mu.Unlock()
 	f.calls++
 	if f.calls > f.n {
-		return f.ok, f.failErr // last known good value, not zero; err is advisory
+		return f.ok, f.failErr // resolved value, not zero; err is advisory
 	}
 	return f.ok, nil
 }
@@ -252,13 +252,13 @@ func TestEngine_LimitReadFallback_ExecutesAnyway(t *testing.T) { //nolint:parall
 	}
 }
 
-// TestEngine_LimitReadFallback_UsesLastKnownGoodValue: on a read failure, the engine
-// must use whatever value the limiter returns, not substitute its own compiled default.
-func TestEngine_LimitReadFallback_UsesLastKnownGoodValue(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
-	const lastKnownGood = config.Size(12345)
+// TestEngine_LimitReadFallback_UsesLimiterValue: on a read failure, the engine must use
+// whatever value the limiter returns, not substitute its own compiled default.
+func TestEngine_LimitReadFallback_UsesLimiterValue(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+	const resolvedValue = config.Size(12345)
 
 	harness := newDropPathHarness(t, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
-		cfg.LocalLimiters.ExecutionResponse = &failAfterNBoundLimiter[config.Size]{n: 1, ok: lastKnownGood, failErr: errors.New("limit read boom")}
+		cfg.LocalLimiters.ExecutionResponse = &failAfterNBoundLimiter[config.Size]{n: 1, ok: resolvedValue, failErr: errors.New("limit read boom")}
 	})
 
 	var gotMaxResponseSize uint64
@@ -268,13 +268,13 @@ func TestEngine_LimitReadFallback_UsesLastKnownGoodValue(t *testing.T) { //nolin
 		}).
 		Return(nil, nil).Once()
 	harness.eventCh <- capabilities.TriggerResponse{
-		Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_last_known_good"},
+		Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_limiter_value"},
 	}
 
 	executionID := <-harness.executionFinishedCh
 	require.NotEmpty(t, executionID)
 
-	assert.Equal(t, uint64(lastKnownGood), gotMaxResponseSize,
+	assert.Equal(t, uint64(resolvedValue), gotMaxResponseSize,
 		"engine must use the value the limiter returned, not fall back to its own compiled default")
 }
 
