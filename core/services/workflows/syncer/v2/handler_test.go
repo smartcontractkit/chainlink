@@ -1546,6 +1546,82 @@ func Test_tryEngineCleanup_ToleratesErrAlreadyStopped(t *testing.T) {
 	assert.False(t, ok)
 }
 
+// Test_stopEngine_FreesWorkflowLimit is a regression test for a bug found in
+// CRE-6176: tryEngineCreate acquires one workflow-count-limit slot (per-owner
+// and global) before constructing the engine, but the code that returns it on
+// cleanup was deleted from the engine (moved out per AC 5) and never added
+// back anywhere. stopEngine (the pause/delete cleanup path) must free the
+// slot it a workflow's engine originally acquired, or the limit fills up and
+// never drains as workflows churn.
+func Test_stopEngine_FreesWorkflowLimit(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	lf := limits.Factory{Logger: lggr}
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 1, PerOwner: 1}, lf)
+	require.NoError(t, err)
+
+	const owner = "workflow-owner-a"
+	workflowID := types.WorkflowID{9}
+	creCtx := contexts.WithCRE(t.Context(), contexts.CRE{Owner: owner, Workflow: workflowID.Hex()})
+
+	// Simulate what tryEngineCreate does before constructing the engine.
+	require.NoError(t, workflowLimits.Use(creCtx, 1))
+
+	// The per-owner limit is now exhausted: a second workflow for the same
+	// owner must be rejected until the first one's slot is freed.
+	require.Error(t, workflowLimits.Use(creCtx, 1), "expected the limit to already be exhausted before cleanup")
+
+	engine := &mockDrainableEngine{}
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", engine))
+
+	h := &eventHandler{
+		lggr:           lggr,
+		engineRegistry: registry,
+		workflowLimits: workflowLimits,
+	}
+
+	_, err = h.stopEngine(t.Context(), workflowID, owner)
+	require.NoError(t, err)
+
+	// The slot must be available again for the same owner now that the
+	// engine has been closed and cleaned up.
+	require.NoError(t, workflowLimits.Use(creCtx, 1), "workflow limit slot was not freed by stopEngine")
+}
+
+// Test_tryEngineCleanup_FreesWorkflowLimit is the equivalent regression test
+// for the reconcile-to-inactive / replace-draining-engine cleanup path, which
+// had the identical bug (see Test_stopEngine_FreesWorkflowLimit).
+func Test_tryEngineCleanup_FreesWorkflowLimit(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	lf := limits.Factory{Logger: lggr}
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 1, PerOwner: 1}, lf)
+	require.NoError(t, err)
+
+	const owner = "workflow-owner-b"
+	workflowID := types.WorkflowID{10}
+	creCtx := contexts.WithCRE(t.Context(), contexts.CRE{Owner: owner, Workflow: workflowID.Hex()})
+
+	require.NoError(t, workflowLimits.Use(creCtx, 1))
+
+	engine := &mockDrainableEngine{}
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", engine))
+
+	h := &eventHandler{
+		lggr:           lggr,
+		engineRegistry: registry,
+		workflowLimits: workflowLimits,
+	}
+
+	require.NoError(t, h.tryEngineCleanup(workflowID, owner))
+
+	require.NoError(t, workflowLimits.Use(creCtx, 1), "workflow limit slot was not freed by tryEngineCleanup")
+}
+
 func Test_workflowRegisteredEvent_DrainingEngineNotTreatedAsHealthy(t *testing.T) {
 	t.Parallel()
 
