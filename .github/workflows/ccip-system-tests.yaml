@@ -31,6 +31,16 @@ on:
           "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
+      baseline_ref:
+        required: false
+        type: string
+        default: ""
+        description: "Base-branch sha for mixed-version baseline image. Empty for non-PR events."
+      base_ref_name:
+        required: false
+        type: string
+        default: ""
+        description: "Base-branch name (e.g. 'develop'). Controls mixed-version fallback behavior."
   workflow_call:
     inputs:
       chainlink_image_repository_path:
@@ -57,6 +67,16 @@ on:
           "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
+      baseline_ref:
+        required: false
+        type: string
+        default: ""
+        description: "Base-branch sha for mixed-version baseline image. Empty for non-PR events."
+      base_ref_name:
+        required: false
+        type: string
+        default: ""
+        description: "Base-branch name (e.g. 'develop'). Controls mixed-version fallback behavior."
 
 jobs:
   define-test-matrix:
@@ -73,7 +93,9 @@ jobs:
           TESTS_JSON='[
             {"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2"},
             {"test_name":"TestRMN_GlobalCurseTwoMessagesOnTwoLanes","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","rmn_rageproxy_version":"master-amd6416f5d86","rmn_afn2proxy_version":"master-amd64-10b42b2"},
-            {"test_name":"TestDeleteCCIPJobs-TestRevokeJobs","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","job_timeout":20}
+            {"test_name":"TestDeleteCCIPJobs-TestRevokeJobs","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","job_timeout":20},
+            {"test_name":"Test_CCIPMixedVersionDON","timeout":"20m","selected_network":"SIMULATED_1,SIMULATED_2","mixed_version":true},
+            {"test_name":"Test_CCIPRollingUpgrade","timeout":"30m","selected_network":"SIMULATED_1,SIMULATED_2","mixed_version":true}
           ]'
 
           tests=$(echo "$TESTS_JSON" | jq -c \
@@ -168,6 +190,53 @@ jobs:
 
       - name: Setup gotestsum
         uses: ./.github/actions/setup-gotestsum
+      
+      - name: Resolve baseline image for mixed-version tests
+        id: baseline
+        shell: bash
+        env:
+          BASELINE_REF: ${{ inputs.baseline_ref }}
+          BASE_REF_NAME: ${{ inputs.base_ref_name }}
+          ECR_ACCOUNT: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          ECR_REGION: ${{ secrets.QA_AWS_REGION }}
+          IS_MIXED_VERSION: ${{ matrix.tests.mixed_version || false }}
+        run: |
+          if [[ "${IS_MIXED_VERSION}" != "true" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          REGISTRY="${ECR_ACCOUNT}.dkr.ecr.${ECR_REGION}.amazonaws.com"
+          skip=false
+          image=""
+          version=""
+
+          if [[ -n "${BASELINE_REF}" ]] && docker manifest inspect "${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}" >/dev/null 2>&1; then
+            image="${REGISTRY}/chainlink-integration-tests"
+            version="${BASELINE_REF}"
+          elif [[ "${BASE_REF_NAME}" == release/* ]]; then
+            echo "::warning::No baseline image for release base branch '${BASE_REF_NAME}'. Skipping mixed-version test."
+            skip=true
+          else
+            DATE="$(date +'%Y%m%d')"
+            image="${REGISTRY}/chainlink"
+            version="nightly-${DATE}"
+            if ! docker manifest inspect "${image}:${version}" >/dev/null 2>&1; then
+              echo "::warning::Develop nightly image not available. Skipping mixed-version test."
+              skip=true
+            fi
+          fi
+
+          {
+            echo "skip=${skip}"
+            echo "image=${image}"
+            echo "version=${version}"
+          } >> "$GITHUB_OUTPUT"
+          if [[ "${skip}" == "true" ]]; then
+            echo "Mixed-version test skipped (no valid baseline for base branch '${BASE_REF_NAME}')."
+          else
+            echo "Baseline image: ${image}:${version}"
+          fi
 
       - name: Run CCIP smoke tests
         id: run-tests
@@ -184,7 +253,17 @@ jobs:
           E2E_RMN_AFN2PROXY_VERSION: ${{ matrix.tests.rmn_afn2proxy_version || '' }}
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag }}
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
+          CCIP_PR_IMAGE: ${{ env.E2E_TEST_CHAINLINK_IMAGE }}
+          CCIP_PR_VERSION: ${{ inputs.chainlink_image_tag }}
+          CCIP_BASELINE_IMAGE: ${{ steps.baseline.outputs.image }}
+          CCIP_BASELINE_VERSION: ${{ steps.baseline.outputs.version }}
         run: |
+          if [[ "${{ matrix.tests.mixed_version || false }}" == "true" && "${{ steps.baseline.outputs.skip }}" == "true" ]]; then
+            echo "Skipping ${TEST_NAME}: no baseline image available for mixed-version test"
+            echo "tests_result=⏭️ Skipped (no baseline)" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
           echo "Starting test: '${TEST_NAME}'"
           if [ -f "./bin/ccip-smoke.test" ]; then
             echo "Using precompiled binary"
