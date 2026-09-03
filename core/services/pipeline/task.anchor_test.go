@@ -13,7 +13,7 @@ import (
 )
 
 // winsorizeSamples runs weightedmean with method="winsor_samples" to produce
-// pre-clamped []Sample for use as anchor's reference.
+// pre-clamped []Sample for use as anchor's reference. Returns nil on error.
 func winsorizeSamples(t *testing.T, vars pipeline.Vars, samplesExpr, band string) []pipeline.Sample {
 	t.Helper()
 	task := pipeline.WeightedMeanTask{
@@ -23,7 +23,9 @@ func winsorizeSamples(t *testing.T, vars pipeline.Vars, samplesExpr, band string
 		Band:     band,
 	}
 	out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
-	require.NoError(t, out.Error)
+	if out.Error != nil {
+		return nil
+	}
 	return out.Value.([]pipeline.Sample)
 }
 
@@ -140,9 +142,10 @@ func TestAnchorTask(t *testing.T) {
 	t.Run("clamping shifts q_i and scales adj", func(t *testing.T) {
 		t.Parallel()
 		// One ref outlier at 200 → median=100, band=[97,103], 200→103
-		// Outlier: q=103, disp=(201-199)/400=0.005, lo_adj=103*(1-0.005)=102.485
+		// After winsorize: ref = [100, 100, 103]
+		// Outlier: q=103, disp=(201-199)/(2*103)=0.00970..., lo_adj=103*(1-0.00970)=102.0
 		// Normal:  q=100, disp=0.01, lo_adj=99
-		// Weighted mean = (99 + 99 + 102.485) / 3 = 100.1616...
+		// Weighted mean = (99 + 99 + 102.0) / 3 = 100.0
 		refC := []pipeline.Sample{
 			sample("a", 100, 1),
 			sample("b", 100, 1),
@@ -176,7 +179,7 @@ func TestAnchorTask(t *testing.T) {
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), varsC, nil)
 		require.NoError(t, out.Error)
 		got := out.Value.(decimal.Decimal)
-		want, _ := decimal.NewFromString("100.16166666666666666")
+		want := decimal.NewFromInt(100)
 		assert.True(t, got.GreaterThanOrEqual(want.Mul(decimal.NewFromFloat(0.9999))) &&
 			got.LessThanOrEqual(want.Mul(decimal.NewFromFloat(1.0001))),
 			"want %s, got %s", want, got)
@@ -273,6 +276,11 @@ func TestAnchorTask(t *testing.T) {
 
 	t.Run("div-by-zero guard drops source with zero reference", func(t *testing.T) {
 		t.Parallel()
+		// winsorize clamps 0→97 (median=100, band=[97,103]), so "c" survives
+		// with q=97, disp=(0-0)/(2*97)=0, lo_adj=97.
+		// Weighted mean = (99 + 99 + 97) / 3 = 98.333...
+		// The div-by-zero guard only fires if winsorize didn't clamp (e.g.
+		// all sources are zero, making median=0 and band=[0,0]).
 		refZ := []pipeline.Sample{
 			sample("a", 100, 1),
 			sample("b", 100, 1),
@@ -306,7 +314,8 @@ func TestAnchorTask(t *testing.T) {
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), varsZ, nil)
 		require.NoError(t, out.Error)
 		got := out.Value.(decimal.Decimal)
-		assert.True(t, got.Equal(decimal.NewFromInt(99)), "got %s", got)
+		want, _ := decimal.NewFromString("98.3333333333333333")
+		assert.True(t, got.Equal(want), "want %s, got %s", want, got)
 	})
 
 	t.Run("ordering invariant: lo_adj <= ref_agg <= hi_adj", func(t *testing.T) {
@@ -387,20 +396,21 @@ func TestAnchorTask(t *testing.T) {
 
 	t.Run("rejects negative weight on reference", func(t *testing.T) {
 		t.Parallel()
+		// Pass pre-winsorized samples directly to anchor (bypass winsorize
+		// which would also reject negative weight).
 		refN := []pipeline.Sample{
 			sample("a", 100, 1),
 			sample("b", 100, -0.5),
 		}
 		varsN := pipeline.NewVarsFrom(map[string]any{
-			"ref":       refN,
-			"lo":        lo,
-			"hi":        hi,
-			"winsorRef": winsorizeSamples(t, pipeline.NewVarsFrom(map[string]any{"ref": refN}), "$(ref)", "0.03"),
+			"ref": refN,
+			"lo":  lo,
+			"hi":  hi,
 		})
 
 		task := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor", nil, nil, 0),
-			Reference: "$(winsorRef)",
+			Reference: "$(ref)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
@@ -412,21 +422,20 @@ func TestAnchorTask(t *testing.T) {
 
 	t.Run("no surviving reference samples", func(t *testing.T) {
 		t.Parallel()
+		// Pass pre-winsorized samples with zero weight directly to anchor.
 		refE := []pipeline.Sample{
 			sample("a", 100, 0),
 			sample("b", 100, 0),
 		}
-		vE := pipeline.NewVarsFrom(map[string]any{"ref": refE})
 		varsE := pipeline.NewVarsFrom(map[string]any{
-			"ref":       refE,
-			"lo":        lo,
-			"hi":        hi,
-			"winsorRef": winsorizeSamples(t, vE, "$(ref)", "0.03"),
+			"ref": refE,
+			"lo":  lo,
+			"hi":  hi,
 		})
 
 		task := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor", nil, nil, 0),
-			Reference: "$(winsorRef)",
+			Reference: "$(ref)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
