@@ -56,13 +56,14 @@ type ReportingPluginConfig struct {
 	PrivateKeyShare *tdh2easy.PrivateShare
 
 	// Sourced from the offchain config
-	MaxSecretsPerOwner              limits.BoundLimiter[int]
-	MaxShareLengthBytes             limits.BoundLimiter[pkgconfig.Size]
-	MaxBatchSize                    limits.BoundLimiter[int]
-	MaxPendingQueueWriteSize        limits.BoundLimiter[int]
-	MaxBlobPayloadBytes             limits.BoundLimiter[pkgconfig.Size]
-	VaultForceEmptyOCRRounds        limits.GateLimiter
-	VaultPendingQueueStallThreshold limits.BoundLimiter[int]
+	MaxSecretsPerOwner                limits.BoundLimiter[int]
+	MaxShareLengthBytes               limits.BoundLimiter[pkgconfig.Size]
+	MaxBatchSize                      limits.BoundLimiter[int]
+	MaxPendingQueueWriteSize          limits.BoundLimiter[int]
+	MaxBlobPayloadBytes               limits.BoundLimiter[pkgconfig.Size]
+	VaultForceEmptyOCRRounds          limits.GateLimiter
+	VaultPendingQueueStallThreshold   limits.BoundLimiter[int]
+	VaultNodeSettingsConsensusEnabled limits.GateLimiter
 }
 
 func NewReportingPluginFactory(
@@ -187,6 +188,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultPendingQueueStallThreshold: %w", err)
 	}
 
+	vaultNodeSettingsConsensusEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultNodeSettingsConsensusEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("VaultNodeSettingsConsensusEnabled: %w", err)
+	}
+
 	maxBlobPayloadBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
@@ -198,11 +204,12 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 	}
 
 	return &ReportingPluginConfig{
-		MaxShareLengthBytes:             maxShareLengthBytesLimiter,
-		MaxBlobPayloadBytes:             maxBlobPayloadBytesLimiter,
-		MaxPendingQueueWriteSize:        maxPendingQueueWriteSizeLimiter,
-		VaultForceEmptyOCRRounds:        vaultForceEmptyOCRRounds,
-		VaultPendingQueueStallThreshold: vaultPendingQueueStallThreshold,
+		MaxShareLengthBytes:               maxShareLengthBytesLimiter,
+		MaxBlobPayloadBytes:               maxBlobPayloadBytesLimiter,
+		MaxPendingQueueWriteSize:          maxPendingQueueWriteSizeLimiter,
+		VaultForceEmptyOCRRounds:          vaultForceEmptyOCRRounds,
+		VaultPendingQueueStallThreshold:   vaultPendingQueueStallThreshold,
+		VaultNodeSettingsConsensusEnabled: vaultNodeSettingsConsensusEnabled,
 	}, nil
 }
 
@@ -315,6 +322,10 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 			return handle.MarshalBinary()
 		},
 	}
+	// The resolver is never nil: before the first OCR round initializes it (and
+	// whenever consensus is disabled), all resolution falls back to node-local
+	// configuration.
+	plugin.activeSettings = plugin.newDonSettingsResolver(context.Background(), nil)
 	return plugin, ocr3_1types.ReportingPluginInfo1{
 		Name:   "VaultReportingPlugin",
 		Limits: pluginLimits,
@@ -340,6 +351,9 @@ type ReportingPlugin struct {
 	marshalBlob   func(handle ocr3_1types.BlobHandle) ([]byte, error)
 
 	pendingQueueStallTracker pendingQueueStallTracker
+
+	activeSettings      *donSettingsResolver
+	activeSettingsSeqNr uint64
 }
 
 type pendingQueueStallTracker struct {
@@ -622,6 +636,11 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 	r.pendingQueueStallTracker.record(seqNr)
 
+	readKV := NewReadStore(keyValueReader, r.metrics)
+	if err := r.ensureActiveSettingsForRound(ctx, seqNr, readKV); err != nil {
+		return nil, err
+	}
+
 	// First, generate a random nonce that we'll use to sort the observations.
 	// Each node generates a nonce independently, to be concatenated later on.
 	nonce, ierr := generateRandomNonce()
@@ -643,7 +662,10 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		return types.Observation(obsb), nil
 	}
 
-	readKV := NewReadStore(keyValueReader, r.metrics)
+	// Attach NodeSettings before pending-queue packing so wire-size accounting reserves headroom.
+	if r.nodeSettingsConsensusEnabled(ctx) {
+		obspb.NodeSettings = r.localNodeSettings(ctx)
+	}
 
 	var currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem
 	var err error
@@ -684,7 +706,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		pendingQueueHasID[item.Id] = true
 	}
 
-	maxBlobBytesSz, err := r.cfg.MaxBlobPayloadBytes.Limit(ctx)
+	maxBlobBytesSz, err := r.activeSettings.maxBlobPayloadBytes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch max blob payload size limit: %w", err)
 	}
@@ -1287,7 +1309,20 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		return nil
 	}
 
+	if r.nodeSettingsConsensusEnabled(ctx) {
+		if obs.NodeSettings == nil {
+			return errors.New("invalid observation: node settings are required when VaultNodeSettingsConsensusEnabled is on")
+		}
+		if err := validateObservedNodeSettings(obs.NodeSettings); err != nil {
+			return err
+		}
+	}
+
 	readKV := NewReadStore(keyValueReader, r.metrics)
+	if err := r.ensureActiveSettingsForRound(ctx, seqNr, readKV); err != nil {
+		return err
+	}
+
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
 	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
 		var err error
@@ -1551,6 +1586,9 @@ func (r *ReportingPlugin) chooseGetSecretsObservations(totalForID int, shaToObs 
 func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReadWriter ocr3_1types.KeyValueStateReadWriter, blobFetcher ocr3_1types.BlobFetcher) (ocr3_1types.ReportsPlusPrecursor, error) {
 	l := r.roundLggr(seqNr)
 	writeKV := NewWriteStore(keyValueReadWriter, r.metrics)
+	if err := r.ensureActiveSettingsForRound(ctx, seqNr, writeKV); err != nil {
+		return ocr3_1types.ReportsPlusPrecursor{}, err
+	}
 
 	marshalledObs := map[uint8]*vaultcommon.Observations{}
 	for _, ao := range aos {
@@ -1784,6 +1822,13 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	if len(os.Outcomes) > 0 {
 		l.Debugw("State transition complete", "outcomeCount", len(os.Outcomes))
 	}
+
+	if r.nodeSettingsConsensusEnabled(ctx) {
+		if _, err := r.mergeAndPersistDONSettingsFromObservationQuorum(ctx, writeKV, marshalledObs); err != nil {
+			return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("failed to persist DON settings: %w", err)
+		}
+	}
+
 	return ocr3_1types.ReportsPlusPrecursor(ospb), nil
 }
 
@@ -1881,7 +1926,7 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 		return bytes.Compare(sortKey(i.Id, salt), sortKey(j.Id, salt))
 	})
 
-	if err := r.cfg.MaxPendingQueueWriteSize.Check(ctx, len(keptItems)); err != nil {
+	if err := r.activeSettings.checkMaxPendingQueueWriteSize(ctx, len(keptItems)); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[int]
 		if !errors.As(err, &errBoundLimited) {
 			return fmt.Errorf("failed to check pending queue write size limit: %w", err)
@@ -2418,5 +2463,6 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxBlobPayloadBytes.Close(),
 		r.cfg.VaultForceEmptyOCRRounds.Close(),
 		r.cfg.VaultPendingQueueStallThreshold.Close(),
+		r.cfg.VaultNodeSettingsConsensusEnabled.Close(),
 	)
 }

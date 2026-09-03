@@ -83,7 +83,8 @@ jobs:
           PER_TEST_TOPOLOGIES_JSON='{
             "Test_CRE_V2_Suite_Bucket_B": [
                {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
-               {"topology":"workflow-gateway-capabilities-vault-stall-purge","configs":"configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"}
+               {"topology":"workflow-gateway-capabilities-vault-stall-purge","configs":"configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"},
+               {"topology":"workflow-gateway-capabilities-vault-node-settings-consensus-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-node-settings-consensus-enabled.toml"}
              ],
             "Test_CRE_V2_Aptos_Suite": [
                {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}

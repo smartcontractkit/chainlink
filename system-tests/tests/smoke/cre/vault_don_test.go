@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -244,6 +246,12 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	t.Run("include_invalid_pending_items_liveness", func(t *testing.T) {
 		ExecuteVaultIncludeInvalidLivenessSmokeTest(t, fixture, testEnv)
 	})
+
+	if isVaultNodeSettingsConsensusTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		t.Run("don_settings_consensus", func(t *testing.T) {
+			assertVaultDONSettingsQuorumInDockerLogs(t)
+		})
+	}
 }
 
 func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
@@ -910,8 +918,95 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 	}
 }
 
+// assertVaultDONSettingsQuorumInDockerLogs polls chainlink-related container logs until it observes
+// a 'DON settings field quorum reached' log line emitted by the vault OCR state transition when it
+// commits DON-wide settings via per-field 2f+1 consensus.
+func assertVaultDONSettingsQuorumInDockerLogs(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("docker log scan skipped in -short mode")
+	}
+	dockerBin, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("docker not in PATH; skipping DON settings consensus log scan")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				require.Fail(t, "timed out waiting for docker while scanning for DON settings field quorum reached")
+			case <-ticker.C:
+			}
+			continue
+		}
+		for name := range strings.SplitSeq(strings.TrimSpace(string(psOut)), "\n") {
+			if name == "" {
+				continue
+			}
+			ln := strings.ToLower(name)
+			if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
+				continue
+			}
+			logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
+			if err != nil {
+				continue
+			}
+			if strings.Contains(string(logs), "DON settings field quorum reached") {
+				framework.L.Info().Str("container", name).Msg("observed vault OCR DON settings per-field quorum commit log")
+				return
+			}
+		}
+		select {
+		case <-ctx.Done():
+			require.Fail(t, "timed out waiting for DON settings field quorum reached line in docker logs (is the local CRE stack running with VaultNodeSettingsConsensusEnabled?)")
+		case <-ticker.C:
+		}
+	}
+}
+
+// vaultConfigLoadMu serializes envconfig.Config.Load calls: Load mutates the process-global
+// CTF_CONFIGS env var, so parallel config-load tests would otherwise race and read each
+// other's topology files.
+var vaultConfigLoadMu sync.Mutex
+
+func TestVaultNodeSettingsConsensusTopology_LoadExpectedConfig(t *testing.T) {
+	t.Parallel()
+
+	vaultConfigLoadMu.Lock()
+	defer vaultConfigLoadMu.Unlock()
+
+	cfg := &envconfig.Config{}
+	require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, vaultNodeSettingsConsensusConfigPath).EnvironmentConfigPath))
+
+	for _, nodeSet := range cfg.NodeSets {
+		switch nodeSet.Name {
+		case "workflow", "capabilities", "bootstrap-gateway":
+		default:
+			continue
+		}
+		settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
+		require.NotEmpty(t, settingsRaw)
+		var configuredSettings map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal([]byte(settingsRaw), &configuredSettings))
+		require.JSONEq(t, `"true"`, string(configuredSettings["VaultNodeSettingsConsensusEnabled"]))
+	}
+}
+
+func TestVaultNodeSettingsConsensusEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
+	require.False(t, cresettings.Default.VaultNodeSettingsConsensusEnabled.DefaultValue)
+}
+
 func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
+
+	vaultConfigLoadMu.Lock()
+	defer vaultConfigLoadMu.Unlock()
 
 	cfg := &envconfig.Config{}
 	require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, vaultStallPurgeConfigPath).EnvironmentConfigPath))
