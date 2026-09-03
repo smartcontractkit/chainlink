@@ -32,6 +32,7 @@ import (
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
@@ -771,12 +772,11 @@ func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	require.NotEmpty(t, dEnv.HomeChainSel)
 	require.NotEmpty(t, dEnv.Env.BlockChains.EVMChains())
 	ab := cldf.NewMemoryAddressBook()
-	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.BlockChains.EVMChains(), tc.LinkPrice, tc.WethPrice)
+	ds := datastore.NewMemoryDataStore()
+	crConfig, _ := DeployTestContracts(t, lggr, ab, ds, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.BlockChains.EVMChains(), tc.LinkPrice, tc.WethPrice)
 	tEnv.StartNodes(t, crConfig)
 	dEnv = tEnv.DeployedEnvironment()
 	dEnv.Env.ExistingAddresses = ab
-	ds, err := shared.PopulateDataStore(ab)
-	require.NoError(t, err)
 	dEnv.Env.DataStore = ds.Seal()
 	return dEnv
 }

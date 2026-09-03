@@ -10,7 +10,7 @@ obs up -f
 To run any test, open two terminals and setup corresponding commands, `envcmd` and `testcmd` fields from [devenv-nightly](/.github/workflows/devenv-nightly.yml):
 ```bash
 $envcmd (from devenv dir)
-$testcmd (from tests/$product dir, for example "tests/automation")
+$testcmd (from tests/$product dir, for example "tests/ocr2")
 ```
 
 ## Dashboards

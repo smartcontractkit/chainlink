@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -110,9 +111,46 @@ type DeployUSDCTokenPoolContractsConfig struct {
 	// USDCPools defines the per-chain configuration of each new USDC pool.
 	USDCPools    map[uint64]DeployUSDCTokenPoolInput
 	IsTestRouter bool
+	// ForceDatastoreOverwrite permits this changeset to overwrite pool refs that already exist in
+	// the environment datastore. Without it, a redeploy over an existing entry is rejected by the
+	// precondition rather than silently replacing it.
+	ForceDatastoreOverwrite bool
+}
+
+// PlannedRefs returns the datastore refs this changeset will write, derived from config alone so
+// they can be checked before anything is deployed. Both pool types are deployed at v1.6.2 and
+// qualified by the USDC symbol, so two entries for one chain collide unless their pool types
+// differ.
+func (c DeployUSDCTokenPoolContractsConfig) PlannedRefs() []datastore.AddressRef {
+	version := deployment.Version1_6_2
+	refs := make([]datastore.AddressRef, 0, len(c.USDCPools))
+	for chainSelector, poolConfig := range c.USDCPools {
+		refs = append(refs, datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(poolConfig.PoolType),
+			Version:       &version,
+			Qualifier:     string(shared.USDCSymbol),
+		})
+	}
+	return refs
 }
 
 func deployUSDCTokenPoolContractsPrecondition(env cldf.Environment, c DeployUSDCTokenPoolContractsConfig) error {
+	// Reserve the keys to prove the refs can all be recorded, then check them against the
+	// environment. Both run before anything is deployed.
+	if _, err := shared.ReserveRefs(c.PlannedRefs()); err != nil {
+		return fmt.Errorf("USDC token pool datastore refs conflict: %w", err)
+	}
+	// Taking over a key the environment already holds is a redeploy: rejected unless the caller
+	// asked for it, in which case it is logged rather than passing unremarked.
+	validateRefs := shared.ValidateAddressRefsStrict
+	if c.ForceDatastoreOverwrite {
+		validateRefs = shared.ValidateAddressRefs
+	}
+	if err := validateRefs(env, c.PlannedRefs()); err != nil {
+		return fmt.Errorf("USDC token pool datastore refs conflict: %w", err)
+	}
+
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -142,6 +180,7 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployUSDCTokenPoolContractsConfig: %w", err)
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
@@ -161,9 +200,9 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 		var deployErr error
 		switch poolConfig.PoolType {
 		case shared.USDCTokenPool:
-			deployErr = deployUSDCTokenPool(env.Logger, chain, newAddresses, poolConfig, chainState, router.Address())
+			deployErr = deployUSDCTokenPool(env.Logger, chain, newAddresses, ds, poolConfig, chainState, router.Address())
 		case shared.HybridLockReleaseUSDCTokenPool:
-			deployErr = deployHybridLockReleaseUSDCTokenPool(env.Logger, chain, newAddresses, poolConfig, chainState, router.Address())
+			deployErr = deployHybridLockReleaseUSDCTokenPool(env.Logger, chain, newAddresses, ds, poolConfig, chainState, router.Address())
 		default:
 			return cldf.ChangesetOutput{},
 				fmt.Errorf("failed to deploy %s on %s: unknown pool type", poolConfig.PoolType, chain)
@@ -173,19 +212,14 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(newAddresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-	}
-
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 		DataStore:   ds,
 	}, nil
 }
 
-func deployUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Chain, newAddresses *cldf.AddressBookMap, poolConfig DeployUSDCTokenPoolInput, chainState evm.CCIPChainState, routerAddr common.Address) error {
-	_, err := cldf.DeployContract(lggr, chain, newAddresses,
+func deployUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Chain, newAddresses *cldf.AddressBookMap, ds datastore.MutableDataStore, poolConfig DeployUSDCTokenPoolInput, chainState evm.CCIPChainState, routerAddr common.Address) error {
+	_, err := shared.DeployContractAndRecord(lggr, chain, newAddresses, ds, cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_6_2), string(shared.USDCSymbol),
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 			previousPoolAddress := poolConfig.PreviousPoolAddress
 
@@ -222,8 +256,8 @@ func deployUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Chain, newAddresses 
 	return err
 }
 
-func deployHybridLockReleaseUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Chain, newAddresses *cldf.AddressBookMap, poolConfig DeployUSDCTokenPoolInput, chainState evm.CCIPChainState, routerAddr common.Address) error {
-	_, err := cldf.DeployContract(lggr, chain, newAddresses,
+func deployHybridLockReleaseUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Chain, newAddresses *cldf.AddressBookMap, ds datastore.MutableDataStore, poolConfig DeployUSDCTokenPoolInput, chainState evm.CCIPChainState, routerAddr common.Address) error {
+	_, err := shared.DeployContractAndRecord(lggr, chain, newAddresses, ds, cldf.NewTypeAndVersion(shared.HybridLockReleaseUSDCTokenPool, deployment.Version1_6_2), string(shared.USDCSymbol),
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*hybrid_lock_release_usdc_token_pool.HybridLockReleaseUSDCTokenPool] {
 			previousPoolAddress := poolConfig.PreviousPoolAddress
 

@@ -360,7 +360,7 @@ type ocr2Config interface {
 	SimulateTransactions() bool
 }
 
-var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.OCR2Keeper, types.Functions}
+var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.Functions}
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
@@ -386,7 +386,6 @@ type OCR2OracleSpec struct {
 	CreatedAt                         time.Time            `toml:"-"`
 	UpdatedAt                         time.Time            `toml:"-"`
 	CaptureEATelemetry                bool                 `toml:"captureEATelemetry"`
-	CaptureAutomationCustomTelemetry  bool                 `toml:"captureAutomationCustomTelemetry"`
 	// AllowNoBootstrappers is a flag that allows the job to start without any bootstrappers
 	// This is useful for testing and deployments where the node is not configured to conduct consensus (i.e. f = 0 and n = 1).
 	AllowNoBootstrappers bool `toml:"allowNoBootstrappers"`

@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -989,7 +990,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 	execOCRConfigPerSelector := make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
 	chainType := v1_6.Default
-	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.BlockChains.EVMChains()[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
+	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, datastore.NewMemoryDataStore(), e.BlockChains.EVMChains()[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
 	if err != nil {
 		return *e, fmt.Errorf("failed to deploy feeds: %w", err)
 	}

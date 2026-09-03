@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -76,6 +77,8 @@ type EngineConfig struct {
 	MyShardID               uint32
 	ShardRoutingSteady      *shardownership.SteadySignal
 	ShardResolver           shardownership.ShardResolver
+
+	TriggerAcknowledger Acknowledger
 }
 
 type EngineLimiters struct {
@@ -86,7 +89,7 @@ type EngineLimiters struct {
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
 	TriggerSubscription      limits.BoundLimiter[int]
-	TriggerEventQueue        limits.QueueLimiter[enqueuedTriggerEvent]
+	TriggerEventQueue        limits.QueueLimiter[RoutedTriggerEvent]
 	TriggerEventQueueTime    limits.TimeLimiter
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
@@ -151,7 +154,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.TriggerEventQueue, err = limits.MakeQueueLimiter[enqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+	l.TriggerEventQueue, err = limits.MakeQueueLimiter[RoutedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
 	if err != nil {
 		return
 	}
@@ -403,7 +406,14 @@ type EngineLimits struct {
 type LifecycleHooks struct {
 	// OnInitialized is used to emit a workflowActivated event after the engine
 	// has completed initialization. It is also helpful for testing.
-	OnInitialized          func(err error)
+	OnInitialized func(err error)
+
+	// OnSubscriptionsReady is called after the WASM Subscribe call returns
+	// and the subscriptions have been validated, but before trigger
+	// registration begins. It allows the caller (syncer/dispatcher) to
+	// inspect or modify the subscriptions before they are registered with
+	// the capabilities registry. Returning an error aborts initialization.
+	OnSubscriptionsReady   func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnTriggerEventDropped  func(triggerID, eventID, reason string)
 	OnExecutionFinished    func(executionID string, status string)
@@ -481,6 +491,9 @@ func (l *EngineLimits) setDefaultLimits() {
 func (h *LifecycleHooks) setDefaultHooks() {
 	if h.OnInitialized == nil {
 		h.OnInitialized = func(err error) {}
+	}
+	if h.OnSubscriptionsReady == nil {
+		h.OnSubscriptionsReady = func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error { return nil }
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}

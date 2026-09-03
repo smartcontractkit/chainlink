@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -66,12 +67,13 @@ func DeployBurnMintERC20Transparent(e cldf.Environment, c BurnMintERC20Transpare
 	}
 
 	addressBook := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := e.BlockChains.EVMChains()[chainSelector]
 
 		for token := range tokens {
-			_, err := cldf.DeployContract(e.Logger, chain, addressBook,
+			_, err := shared.DeployContractAndRecord(e.Logger, chain, addressBook, ds, cldf.NewTypeAndVersion(shared.BurnMintERC20TransparentToken, deployment.Version1_5_0), token,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20_transparent.BurnMintERC20Transparent] {
 					address, tx, transparent, err := burn_mint_erc20_transparent.DeployBurnMintERC20Transparent(chain.DeployerKey, chain.Client)
 					return cldf.ContractDeploy[*burn_mint_erc20_transparent.BurnMintERC20Transparent]{
@@ -88,11 +90,6 @@ func DeployBurnMintERC20Transparent(e cldf.Environment, c BurnMintERC20Transpare
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy BurnMintERC20Transparent for %s token on %s: %w", token, chain, err)
 			}
 		}
-	}
-
-	ds, err := shared.PopulateDataStore(addressBook)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{

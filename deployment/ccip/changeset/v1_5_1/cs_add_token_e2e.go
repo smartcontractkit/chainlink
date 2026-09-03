@@ -22,11 +22,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipcommoncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -304,7 +306,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		//  1. Deploys tokens ( specifically TestTokens) optionally if DeployTokenConfig is provided and
 		//     populates the pool deployment configuration for each token.
 		if len(tokenDeployCfg) > 0 {
-			deployedTokens, ab, err := deployTokens(e, tokenDeployCfg)
+			deployedTokens, ab, tokenDS, err := deployTokens(e, tokenDeployCfg)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -314,6 +316,13 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 			e.Logger.Infow("deployed token and created pool deployment config", "token", token)
 			if err := finalCSOut.AddressBook.Merge(ab); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
+			}
+			// The token datastore carries the deployed token refs keyed by token symbol; merge it
+			// into the accumulated output datastore so the qualifiers survive.
+			if finalCSOut.DataStore == nil {
+				finalCSOut.DataStore = tokenDS
+			} else if err := finalCSOut.DataStore.Merge(tokenDS.Seal()); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge datastore for token %s: %w", token, err)
 			}
 			// populate the configuration for deploying and configuring token pools and token admin registry
 			if err := cfg.newConfigurePoolAndTokenAdminRegConfig(e, token, config.MCMS); err != nil {
@@ -332,7 +341,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy token pool for token %s: %w", token, err)
 			}
-			if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+			if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 			}
 			newAddresses, err := output.AddressBook.Addresses() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
@@ -366,7 +375,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 						return cldf.ChangesetOutput{}, fmt.Errorf("failed to run TransferToMCMSWithTimelock on chain with selector %d: %w", chainID, err)
 					}
 
-					if err := cldf.MergeChangesetOutput(e, finalCSOut, transferOwnershipProposalOutput); err != nil {
+					if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, transferOwnershipProposalOutput); err != nil {
 						return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after transferring ownership of pool(s): %w", err)
 					}
 				}
@@ -382,7 +391,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose admin role for token %s: %w", token, err)
 		}
-		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to changeset output after configuring token admin reg for token %s: %w",
 				token, err)
 		}
@@ -414,7 +423,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept admin role for token %s: %w", token, err)
 		}
-		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 		}
 		e.Logger.Infow("accepted admin role", "token", token, "config", updatedConfigureTokenAdminReg)
@@ -422,7 +431,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set pool for token %s: %w", token, err)
 		}
-		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 		}
 		e.Logger.Infow("set pool", "token", token, "config", updatedConfigureTokenAdminReg)
@@ -444,7 +453,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool for token %s: %w", token, err)
 		}
-		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after configuring token pool for token %s: %w", token, err)
 		}
 		e.Logger.Infow("configured token pool", "token", token)
@@ -465,22 +474,32 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		finalCSOut.MCMSTimelockProposals = []mcms.TimelockProposal{*aggregatedProposals}
 	}
 
-	ds, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
+	// Preserve the datastore accumulated by MergeChangesetOutput: it already carries the
+	// sub-changesets' semantic qualifiers, metadata, and deletions. Rebuilding it from the
+	// address book would discard all of that. The address book has no qualifiers, so it can only
+	// contribute the singleton refs the sub-changesets did not write to the datastore; merge
+	// those in rather than replacing the accumulated store.
+	singletons, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
-	finalCSOut.DataStore = ds
+	if finalCSOut.DataStore == nil {
+		finalCSOut.DataStore = singletons
+	} else if err := finalCSOut.DataStore.Merge(singletons.Seal()); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address-book refs into DataStore: %w", err)
+	}
 	return *finalCSOut, nil
 }
 
-func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfig) (map[uint64]common.Address, cldf.AddressBook, error) {
+func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfig) (map[uint64]common.Address, cldf.AddressBook, *datastore.MemoryDataStore, error) {
 	ab := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 	tokenAddresses := make(map[uint64]common.Address) // This will hold the token addresses for each chain.
 	for selector, cfg := range tokenDeployCfg {
 		switch cfg.Type {
 		case shared.BurnMintToken:
-			token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], ab,
+			token, err := shared.DeployContractAndRecord(e.Logger, e.BlockChains.EVMChains()[selector], ab, ds, cldf.NewTypeAndVersion(cfg.Type, deployment.Version1_0_0), string(cfg.TokenSymbol),
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 						e.BlockChains.EVMChains()[selector].DeployerKey,
@@ -500,19 +519,19 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 				},
 			)
 			if err != nil {
-				return nil, ab, fmt.Errorf("failed to deploy BurnMintERC677 token "+
+				return nil, ab, nil, fmt.Errorf("failed to deploy BurnMintERC677 token "+
 					"%s on chain %d: %w", cfg.TokenName, selector, err)
 			}
 			if err := addMinterAndMintTokenERC677(e, selector, token.Contract, e.BlockChains.EVMChains()[selector].DeployerKey.From,
 				new(big.Int).Mul(big.NewInt(1_000), big.NewInt(1_000_000_000))); err != nil {
-				return nil, ab, fmt.Errorf("failed to add minter and mint token "+
+				return nil, ab, nil, fmt.Errorf("failed to add minter and mint token "+
 					"%s on chain %d: %w", cfg.TokenName, selector, err)
 			}
 			if len(cfg.MintTokenForRecipients) > 0 {
 				for recipient, amount := range cfg.MintTokenForRecipients {
 					if err := addMinterAndMintTokenERC677(e, selector, token.Contract, recipient,
 						amount); err != nil {
-						return nil, ab, fmt.Errorf("failed to add minter and mint "+
+						return nil, ab, nil, fmt.Errorf("failed to add minter and mint "+
 							"token %s on chain %d: %w", cfg.TokenName, selector, err)
 					}
 				}
@@ -520,7 +539,7 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 
 			tokenAddresses[selector] = token.Address
 		case shared.ERC20Token:
-			token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], ab,
+			token, err := shared.DeployContractAndRecord(e.Logger, e.BlockChains.EVMChains()[selector], ab, ds, cldf.NewTypeAndVersion(cfg.Type, deployment.Version1_0_0), string(cfg.TokenSymbol),
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*erc20.ERC20] {
 					tokenAddress, tx, token, err := erc20.DeployERC20(
 						e.BlockChains.EVMChains()[selector].DeployerKey,
@@ -538,11 +557,11 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 				},
 			)
 			if err != nil {
-				return nil, ab, fmt.Errorf("failed to deploy ERC20 token %s on chain %d: %w", cfg.TokenName, selector, err)
+				return nil, ab, nil, fmt.Errorf("failed to deploy ERC20 token %s on chain %d: %w", cfg.TokenName, selector, err)
 			}
 			tokenAddresses[selector] = token.Address
 		case shared.ERC677Token:
-			token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], ab,
+			token, err := shared.DeployContractAndRecord(e.Logger, e.BlockChains.EVMChains()[selector], ab, ds, cldf.NewTypeAndVersion(cfg.Type, deployment.Version1_0_0), string(cfg.TokenSymbol),
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*erc677.ERC677] {
 					tokenAddress, tx, token, err := erc677.DeployERC677(
 						e.BlockChains.EVMChains()[selector].DeployerKey,
@@ -560,11 +579,11 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 				},
 			)
 			if err != nil {
-				return nil, ab, fmt.Errorf("failed to deploy ERC677 token %s on chain %d: %w", cfg.TokenName, selector, err)
+				return nil, ab, nil, fmt.Errorf("failed to deploy ERC677 token %s on chain %d: %w", cfg.TokenName, selector, err)
 			}
 			tokenAddresses[selector] = token.Address
 		case shared.ERC677TokenHelper:
-			token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], ab,
+			token, err := shared.DeployContractAndRecord(e.Logger, e.BlockChains.EVMChains()[selector], ab, ds, cldf.NewTypeAndVersion(cfg.Type, deployment.Version1_0_0), string(cfg.TokenSymbol),
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20_with_drip.BurnMintERC20WithDrip] {
 					tokenAddress, tx, token, err := burn_mint_erc20_with_drip.DeployBurnMintERC20WithDrip(
 						e.BlockChains.EVMChains()[selector].DeployerKey,
@@ -582,26 +601,26 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 				},
 			)
 			if err != nil {
-				return nil, ab, fmt.Errorf("failed to deploy ERC677 token %s on chain %d: %w", cfg.TokenName, selector, err)
+				return nil, ab, nil, fmt.Errorf("failed to deploy ERC677 token %s on chain %d: %w", cfg.TokenName, selector, err)
 			}
 
 			if err := addMinterAndMintTokenERC677Helper(e, selector, token.Contract, e.BlockChains.EVMChains()[selector].DeployerKey.From,
 				new(big.Int).Mul(big.NewInt(1_000), big.NewInt(1_000_000_000))); err != nil {
-				return nil, ab, fmt.Errorf("failed to add minter and mint token "+
+				return nil, ab, nil, fmt.Errorf("failed to add minter and mint token "+
 					"%s on chain %d: %w", cfg.TokenName, selector, err)
 			}
 			if len(cfg.MintTokenForRecipients) > 0 {
 				for recipient, amount := range cfg.MintTokenForRecipients {
 					if err := addMinterAndMintTokenERC677Helper(e, selector, token.Contract, recipient,
 						amount); err != nil {
-						return nil, ab, fmt.Errorf("failed to add minter and mint "+
+						return nil, ab, nil, fmt.Errorf("failed to add minter and mint "+
 							"token %s on chain %d: %w", cfg.TokenName, selector, err)
 					}
 				}
 			}
 			tokenAddresses[selector] = token.Address
 		case shared.BurnMintERC20Token:
-			token, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], ab,
+			token, err := shared.DeployContractAndRecord(e.Logger, e.BlockChains.EVMChains()[selector], ab, ds, cldf.NewTypeAndVersion(cfg.Type, deployment.Version1_0_0), string(cfg.TokenSymbol),
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20.BurnMintERC20] {
 					if cfg.MaxSupply == nil {
 						cfg.MaxSupply = big.NewInt(0)
@@ -628,27 +647,27 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 				},
 			)
 			if err != nil {
-				return nil, ab, fmt.Errorf("failed to deploy BurnMintERC20Token "+
+				return nil, ab, nil, fmt.Errorf("failed to deploy BurnMintERC20Token "+
 					"%s on chain %d: %w", cfg.TokenName, selector, err)
 			}
 
 			if err := setCCIPAdminForBurnMintERC20Token(e, selector, token.Contract, cfg.CCIPAdmin); err != nil {
-				return nil, ab, fmt.Errorf("failed to set CCIP admin for %s on chain %d: %w",
+				return nil, ab, nil, fmt.Errorf("failed to set CCIP admin for %s on chain %d: %w",
 					cfg.CCIPAdmin, selector, err)
 			}
 
 			if err := grantDefaultAdminRoleForBurnMintERC20Token(e, selector, token.Contract, cfg.CCIPAdmin); err != nil {
-				return nil, ab, fmt.Errorf("failed to grant default admin role for BurnMintERC20 token %s on chain %d: %w",
+				return nil, ab, nil, fmt.Errorf("failed to grant default admin role for BurnMintERC20 token %s on chain %d: %w",
 					cfg.TokenName, selector, err)
 			}
 
 			tokenAddresses[selector] = token.Address
 		default:
-			return nil, ab, fmt.Errorf("unsupported token %s type %s for deployment on chain %d", cfg.TokenName, cfg.Type, selector)
+			return nil, ab, nil, fmt.Errorf("unsupported token %s type %s for deployment on chain %d", cfg.TokenName, cfg.Type, selector)
 		}
 	}
 
-	return tokenAddresses, ab, nil
+	return tokenAddresses, ab, ds, nil
 }
 
 // addMinterAndMintTokenERC677 adds the minter role to the recipient and mints the specified amount of tokens to the recipient's address.

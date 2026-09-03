@@ -22,6 +22,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
+	ccipcommoncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -1035,7 +1036,7 @@ func ConfigureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPo
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool: %w", err)
 		}
-		err = cldf.MergeChangesetOutput(env, &finalOutput, output)
+		err = ccipcommoncs.MergeChangesetOutput(env, &finalOutput, output)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output: %w", err)
 		}
