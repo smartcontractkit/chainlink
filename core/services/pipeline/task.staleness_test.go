@@ -157,11 +157,11 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("decayThreshold drops samples below K", func(t *testing.T) {
 		t.Parallel()
-		now := time.Now().UnixMilli()
+		subNow := time.Now().UnixMilli()
 		// 50s old: exp_cooldown T=10s, H=5s -> decay = 2^(-(50-10)/5) = 2^-8 = 0.0039 < 0.03
 		inputs := []pipeline.Result{
-			{Value: pipeline.Sample{Source: "fresh", Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1), TsMs: now - 1000}},
-			{Value: pipeline.Sample{Source: "stale", Value: decimal.NewFromInt(101), Weight: decimal.NewFromInt(1), TsMs: now - 50000}},
+			{Value: pipeline.Sample{Source: "fresh", Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1), TsMs: subNow - 1000}},
+			{Value: pipeline.Sample{Source: "stale", Value: decimal.NewFromInt(101), Weight: decimal.NewFromInt(1), TsMs: subNow - 50000}},
 		}
 		task := pipeline.StalenessTask{
 			BaseTask:       pipeline.NewBaseTask(0, "stale", nil, nil, 0),
@@ -179,10 +179,10 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("decayThreshold keeps samples above K", func(t *testing.T) {
 		t.Parallel()
-		now := time.Now().UnixMilli()
+		subNow := time.Now().UnixMilli()
 		// 15s old: exp_cooldown T=10s, H=5s -> decay = 2^-((15-10)/5) = 2^-1 = 0.5 > 0.03
 		inputs := []pipeline.Result{
-			{Value: pipeline.Sample{Source: "a", Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1), TsMs: now - 15000}},
+			{Value: pipeline.Sample{Source: "a", Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1), TsMs: subNow - 15000}},
 		}
 		task := pipeline.StalenessTask{
 			BaseTask:       pipeline.NewBaseTask(0, "stale", nil, nil, 0),
