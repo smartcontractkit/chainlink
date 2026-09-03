@@ -14,7 +14,6 @@ import (
 )
 
 // DurationParam parses a duration string (e.g. "10s") into a time.Duration.
-// It stores nanoseconds, matching time.Duration's native unit.
 type DurationParam time.Duration
 
 func (d *DurationParam) UnmarshalPipelineParam(val any) error {
