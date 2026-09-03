@@ -20,35 +20,37 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-type ExecutionCompletedHandler func(msg *ringpb.ExecutionCompleted)
+type ExecutionStatusUpdateHandler func(msg *ringpb.ExecutionStatusUpdate)
 
-type ExecutionCompletedReceiver struct {
+type ExecutionStatusUpdateReceiver struct {
 	services.StateMachine
 	stopCh  services.StopChan
 	primary commoncap.DON
-	handler ExecutionCompletedHandler
+	handler ExecutionStatusUpdateHandler
 	lggr    logger.SugaredLogger
 	wg      sync.WaitGroup
 
 	mu              sync.Mutex
 	seenByHash      map[string]map[p2ptypes.PeerID]bool
-	deliveredHashes map[string]bool
+	seenAt          map[string]time.Time
+	deliveredHashes map[string]time.Time
 	expiryDuration  time.Duration
 }
 
-func NewExecutionCompletedReceiver(primary commoncap.DON, handler ExecutionCompletedHandler, lggr logger.Logger) *ExecutionCompletedReceiver {
-	return &ExecutionCompletedReceiver{
+func NewExecutionStatusUpdateReceiver(primary commoncap.DON, handler ExecutionStatusUpdateHandler, lggr logger.Logger) *ExecutionStatusUpdateReceiver {
+	return &ExecutionStatusUpdateReceiver{
 		stopCh:          make(services.StopChan),
 		primary:         primary,
 		handler:         handler,
-		lggr:            logger.Sugared(logger.With(lggr, "component", "ExecutionCompletedReceiver")),
+		lggr:            logger.Sugared(logger.With(lggr, "component", "ExecutionStatusUpdateReceiver")),
 		seenByHash:      make(map[string]map[p2ptypes.PeerID]bool),
-		deliveredHashes: make(map[string]bool),
+		seenAt:          make(map[string]time.Time),
+		deliveredHashes: make(map[string]time.Time),
 		expiryDuration:  10 * time.Minute,
 	}
 }
 
-func (r *ExecutionCompletedReceiver) Start(ctx context.Context) error {
+func (r *ExecutionStatusUpdateReceiver) Start(ctx context.Context) error {
 	return r.StartOnce(r.Name(), func() error {
 		r.wg.Add(1)
 		go r.pruneLoop()
@@ -56,7 +58,7 @@ func (r *ExecutionCompletedReceiver) Start(ctx context.Context) error {
 	})
 }
 
-func (r *ExecutionCompletedReceiver) Close() error {
+func (r *ExecutionStatusUpdateReceiver) Close() error {
 	return r.StopOnce(r.Name(), func() error {
 		close(r.stopCh)
 		r.wg.Wait()
@@ -64,7 +66,7 @@ func (r *ExecutionCompletedReceiver) Close() error {
 	})
 }
 
-func (r *ExecutionCompletedReceiver) pruneLoop() {
+func (r *ExecutionStatusUpdateReceiver) pruneLoop() {
 	defer r.wg.Done()
 	ticker := time.NewTicker(r.expiryDuration / 2)
 	defer ticker.Stop()
@@ -78,15 +80,25 @@ func (r *ExecutionCompletedReceiver) pruneLoop() {
 			return
 		case <-ticker.C:
 			r.mu.Lock()
-			r.seenByHash = make(map[string]map[p2ptypes.PeerID]bool)
-			r.deliveredHashes = make(map[string]bool)
+			now := time.Now()
+			for hash, deliveredAt := range r.deliveredHashes {
+				if now.Sub(deliveredAt) >= r.expiryDuration {
+					delete(r.deliveredHashes, hash)
+				}
+			}
+			for hash, seenTime := range r.seenAt {
+				if now.Sub(seenTime) >= r.expiryDuration {
+					delete(r.seenByHash, hash)
+					delete(r.seenAt, hash)
+				}
+			}
 			r.mu.Unlock()
 		}
 	}
 }
 
-func (r *ExecutionCompletedReceiver) Receive(ctx context.Context, msg *remotetypes.MessageBody) {
-	if msg.Method != remotetypes.MethodExecutionCompleted {
+func (r *ExecutionStatusUpdateReceiver) Receive(ctx context.Context, msg *remotetypes.MessageBody) {
+	if msg.Method != remotetypes.MethodExecutionStatusUpdate {
 		return
 	}
 
@@ -97,7 +109,7 @@ func (r *ExecutionCompletedReceiver) Receive(ctx context.Context, msg *remotetyp
 	}
 
 	if !isPeerInDON(sender, r.primary.Members) {
-		r.lggr.Warnw("ExecutionCompleted from peer not in primary shard DON", "peerID", sender)
+		r.lggr.Warnw("ExecutionStatusUpdate from peer not in primary shard DON", "peerID", sender)
 		return
 	}
 
@@ -105,7 +117,7 @@ func (r *ExecutionCompletedReceiver) Receive(ctx context.Context, msg *remotetyp
 	hashKey := hex.EncodeToString(hash[:])
 
 	r.mu.Lock()
-	if r.deliveredHashes[hashKey] {
+	if _, ok := r.deliveredHashes[hashKey]; ok {
 		r.mu.Unlock()
 		return
 	}
@@ -114,6 +126,7 @@ func (r *ExecutionCompletedReceiver) Receive(ctx context.Context, msg *remotetyp
 	if !ok {
 		peers = make(map[p2ptypes.PeerID]bool)
 		r.seenByHash[hashKey] = peers
+		r.seenAt[hashKey] = time.Now()
 	}
 	if peers[sender] {
 		r.mu.Unlock()
@@ -124,23 +137,25 @@ func (r *ExecutionCompletedReceiver) Receive(ctx context.Context, msg *remotetyp
 	quorum := int(r.primary.F) + 1
 	reached := len(peers) >= quorum
 	if reached {
-		r.deliveredHashes[hashKey] = true
+		r.deliveredHashes[hashKey] = time.Now()
+		delete(r.seenByHash, hashKey)
+		delete(r.seenAt, hashKey)
 	}
 	r.mu.Unlock()
 
 	if !reached {
-		r.lggr.Debugw("ExecutionCompleted quorum not yet reached",
+		r.lggr.Debugw("ExecutionStatusUpdate quorum not yet reached",
 			"hash", hashKey, "received", len(peers), "required", quorum)
 		return
 	}
 
-	var execCompleted ringpb.ExecutionCompleted
+	var execCompleted ringpb.ExecutionStatusUpdate
 	if err := proto.Unmarshal(msg.Payload, &execCompleted); err != nil {
-		r.lggr.Errorw("failed to unmarshal ExecutionCompleted", "err", err)
+		r.lggr.Errorw("failed to unmarshal ExecutionStatusUpdate", "err", err)
 		return
 	}
 
-	r.lggr.Infow("ExecutionCompleted quorum reached, invoking handler",
+	r.lggr.Infow("ExecutionStatusUpdate quorum reached, invoking handler",
 		"workflowID", execCompleted.WorkflowId,
 		"triggerEventID", execCompleted.TriggerEventId,
 		"status", execCompleted.Status,
@@ -149,11 +164,11 @@ func (r *ExecutionCompletedReceiver) Receive(ctx context.Context, msg *remotetyp
 	r.handler(&execCompleted)
 }
 
-func (r *ExecutionCompletedReceiver) Name() string {
-	return fmt.Sprintf("ExecutionCompletedReceiver-primary-%d", r.primary.ID)
+func (r *ExecutionStatusUpdateReceiver) Name() string {
+	return fmt.Sprintf("ExecutionStatusUpdateReceiver-primary-%d", r.primary.ID)
 }
 
-func (r *ExecutionCompletedReceiver) HealthReport() map[string]error {
+func (r *ExecutionStatusUpdateReceiver) HealthReport() map[string]error {
 	return map[string]error{r.Name(): r.Healthy()}
 }
 

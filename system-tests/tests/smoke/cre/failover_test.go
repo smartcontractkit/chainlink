@@ -85,6 +85,15 @@ hashed_default_assignment = false
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed on primary shard")
 	testLogger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on primary shard (shard 0)")
 
+	// Phase 2: Swap workflows and shard assignment.
+	// We deploy fresh workflows (failover_swap*) rather than reusing the originals
+	// because the original workflows already executed on shard 0 — their execution
+	// IDs are in the store and would be deduplicated. The new workflows give us
+	// clean execution IDs to verify on the new primary.
+	// We do NOT wait for these new workflows to execute before proposing the new
+	// assignment because we want to test the failover itself: the assignment swap
+	// should route execution of these workflows to shard 1 (the new primary), not
+	// shard 0 (the old primary).
 	for i := range numWorkflows {
 		workflowName := fmt.Sprintf("failover_swap%d", i)
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
@@ -126,6 +135,11 @@ hashed_default_assignment = false
 	testLogger.Info().Int("executedCount", len(swappedExecuted)).Msg("All workflows executed on new primary shard (shard 1) after manual failover swap")
 }
 
+// secondaryAssignmentTOML swaps the shard roles: shard 1 becomes primary, shard 0
+// becomes secondary. Both static_default_assignment and per_org_assignment must be
+// modified because per_org_assignment overrides the default for the test org.
+// hashed_default_assignment remains false so the static assignment is used directly
+// instead of hash-based routing.
 const secondaryAssignmentTOML = `
 static_default_assignment = [1,0]
 hashed_default_assignment = false

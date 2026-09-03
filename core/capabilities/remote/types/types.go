@@ -19,7 +19,7 @@ const (
 	MethodTriggerEvent             = "TriggerEvent"
 	MethodExecute                  = "Execute"
 	MethodTriggerEventAck          = "TriggerEventACK"
-	MethodExecutionCompleted       = "ExecutionCompleted"
+	MethodExecutionStatusUpdate    = "ExecutionStatusUpdate"
 	MethodShardHeartbeat           = "ShardHeartbeat"
 )
 

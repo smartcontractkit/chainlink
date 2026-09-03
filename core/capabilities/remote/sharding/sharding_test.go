@@ -23,7 +23,7 @@ func makePeerID(b byte) ragetypes.PeerID {
 	return id
 }
 
-func TestExecutionCompletedSender_SendsToAllMembers(t *testing.T) {
+func TestExecutionStatusUpdateSender_SendsToAllMembers(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	dispatcher := dispatchermocks.NewDispatcher(t)
@@ -35,12 +35,12 @@ func TestExecutionCompletedSender_SendsToAllMembers(t *testing.T) {
 		Members: []ragetypes.PeerID{makePeerID(1), makePeerID(2), makePeerID(3)},
 	}
 
-	sender := NewExecutionCompletedSender(dispatcher, 1, secondary, logger.Test(t))
+	sender := NewExecutionStatusUpdateSender(dispatcher, 1, secondary, logger.Test(t))
 	err := sender.Start(ctx)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sender.Close() })
 
-	msg := &ringpb.ExecutionCompleted{
+	msg := &ringpb.ExecutionStatusUpdate{
 		WorkflowId:     "wf-1",
 		TriggerEventId: "evt-1",
 		TriggerIndex:   0,
@@ -53,7 +53,7 @@ func TestExecutionCompletedSender_SendsToAllMembers(t *testing.T) {
 	dispatcher.AssertNumberOfCalls(t, "Send", len(secondary.Members))
 }
 
-func TestExecutionCompletedReceiver_QuorumAggregation(t *testing.T) {
+func TestExecutionStatusUpdateReceiver_QuorumAggregation(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	primary := commoncap.DON{
@@ -62,17 +62,17 @@ func TestExecutionCompletedReceiver_QuorumAggregation(t *testing.T) {
 		Members: []ragetypes.PeerID{makePeerID(1), makePeerID(2), makePeerID(3)},
 	}
 
-	received := make(chan *ringpb.ExecutionCompleted, 1)
-	handler := func(msg *ringpb.ExecutionCompleted) {
+	received := make(chan *ringpb.ExecutionStatusUpdate, 1)
+	handler := func(msg *ringpb.ExecutionStatusUpdate) {
 		received <- msg
 	}
 
-	rcvr := NewExecutionCompletedReceiver(primary, handler, logger.Test(t))
+	rcvr := NewExecutionStatusUpdateReceiver(primary, handler, logger.Test(t))
 	err := rcvr.Start(ctx)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = rcvr.Close() })
 
-	msg := &ringpb.ExecutionCompleted{
+	msg := &ringpb.ExecutionStatusUpdate{
 		WorkflowId:     "wf-1",
 		TriggerEventId: "evt-1",
 		TriggerIndex:   0,
@@ -83,7 +83,7 @@ func TestExecutionCompletedReceiver_QuorumAggregation(t *testing.T) {
 	require.NoError(t, err)
 
 	body := &remotetypes.MessageBody{
-		Method:  remotetypes.MethodExecutionCompleted,
+		Method:  remotetypes.MethodExecutionStatusUpdate,
 		Payload: payload,
 		Sender:  primary.Members[0][:],
 	}
@@ -107,7 +107,7 @@ func TestExecutionCompletedReceiver_QuorumAggregation(t *testing.T) {
 	}
 }
 
-func TestExecutionCompletedReceiver_IgnoresUnknownPeers(t *testing.T) {
+func TestExecutionStatusUpdateReceiver_IgnoresUnknownPeers(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	primary := commoncap.DON{
@@ -117,16 +117,16 @@ func TestExecutionCompletedReceiver_IgnoresUnknownPeers(t *testing.T) {
 	}
 
 	handlerCalled := false
-	handler := func(msg *ringpb.ExecutionCompleted) {
+	handler := func(msg *ringpb.ExecutionStatusUpdate) {
 		handlerCalled = true
 	}
 
-	rcvr := NewExecutionCompletedReceiver(primary, handler, logger.Test(t))
+	rcvr := NewExecutionStatusUpdateReceiver(primary, handler, logger.Test(t))
 	err := rcvr.Start(ctx)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = rcvr.Close() })
 
-	msg := &ringpb.ExecutionCompleted{
+	msg := &ringpb.ExecutionStatusUpdate{
 		WorkflowId:     "wf-1",
 		TriggerEventId: "evt-1",
 		Status:         ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS,
@@ -136,7 +136,7 @@ func TestExecutionCompletedReceiver_IgnoresUnknownPeers(t *testing.T) {
 
 	unknownPeer := makePeerID(99)
 	body := &remotetypes.MessageBody{
-		Method:  remotetypes.MethodExecutionCompleted,
+		Method:  remotetypes.MethodExecutionStatusUpdate,
 		Payload: payload,
 		Sender:  unknownPeer[:],
 	}

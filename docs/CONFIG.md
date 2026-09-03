@@ -2966,7 +2966,7 @@ ShardingFailoverEnabled = false # Default
 ```
 ShardingFailoverEnabled enables primary/secondary failover for workflow sharding.
 When true, secondary shards load assigned workflows and cache trigger events without executing.
-The primary shard sends ExecutionCompleted notifications so the secondary can drain its cache.
+The primary shard sends ExecutionStatusUpdate notifications so the secondary can drain its cache.
 Requires ShardingEnabled=true.
 
 ### ArbiterPort

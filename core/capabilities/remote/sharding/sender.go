@@ -15,7 +15,7 @@ import (
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
-type ExecutionCompletedSender struct {
+type ExecutionStatusUpdateSender struct {
 	services.StateMachine
 	stopCh     services.StopChan
 	dispatcher remotetypes.Dispatcher
@@ -24,54 +24,54 @@ type ExecutionCompletedSender struct {
 	lggr       logger.SugaredLogger
 }
 
-func NewExecutionCompletedSender(dispatcher remotetypes.Dispatcher, primaryID uint32, secondary commoncap.DON, lggr logger.Logger) *ExecutionCompletedSender {
-	return &ExecutionCompletedSender{
+func NewExecutionStatusUpdateSender(dispatcher remotetypes.Dispatcher, primaryID uint32, secondary commoncap.DON, lggr logger.Logger) *ExecutionStatusUpdateSender {
+	return &ExecutionStatusUpdateSender{
 		stopCh:     make(services.StopChan),
 		dispatcher: dispatcher,
 		secondary:  secondary,
 		primaryID:  primaryID,
-		lggr:       logger.Sugared(logger.With(lggr, "component", "ExecutionCompletedSender")),
+		lggr:       logger.Sugared(logger.With(lggr, "component", "ExecutionStatusUpdateSender")),
 	}
 }
 
-func (s *ExecutionCompletedSender) Start(ctx context.Context) error {
+func (s *ExecutionStatusUpdateSender) Start(ctx context.Context) error {
 	return s.StartOnce(s.Name(), func() error { return nil })
 }
 
-func (s *ExecutionCompletedSender) Close() error {
+func (s *ExecutionStatusUpdateSender) Close() error {
 	return s.StopOnce(s.Name(), func() error {
 		close(s.stopCh)
 		return nil
 	})
 }
 
-func (s *ExecutionCompletedSender) Send(ctx context.Context, msg *ringpb.ExecutionCompleted) {
+func (s *ExecutionStatusUpdateSender) Send(ctx context.Context, msg *ringpb.ExecutionStatusUpdate) {
 	payload, err := proto.Marshal(msg)
 	if err != nil {
-		s.lggr.Errorw("failed to marshal ExecutionCompleted", "err", err)
+		s.lggr.Errorw("failed to marshal ExecutionStatusUpdate", "err", err)
 		return
 	}
 
 	messageID := fmt.Sprintf("%s:%s:%d", msg.WorkflowId, msg.TriggerEventId, msg.TriggerIndex)
 	for _, peerID := range s.secondary.Members {
 		body := &remotetypes.MessageBody{
-			Method:          remotetypes.MethodExecutionCompleted,
+			Method:          remotetypes.MethodExecutionStatusUpdate,
 			Payload:         payload,
 			CallerDonId:     s.primaryID,
 			CapabilityDonId: s.secondary.ID,
 			MessageId:       []byte(messageID),
 		}
 		if err := s.dispatcher.Send(peerID, body); err != nil {
-			s.lggr.Errorw("failed to send ExecutionCompleted", "peerID", peerID, "err", err)
+			s.lggr.Errorw("failed to send ExecutionStatusUpdate", "peerID", peerID, "err", err)
 		}
 	}
 }
 
-func (s *ExecutionCompletedSender) Name() string {
-	return fmt.Sprintf("ExecutionCompletedSender-primary-%d", s.primaryID)
+func (s *ExecutionStatusUpdateSender) Name() string {
+	return fmt.Sprintf("ExecutionStatusUpdateSender-primary-%d", s.primaryID)
 }
 
-func (s *ExecutionCompletedSender) HealthReport() map[string]error {
+func (s *ExecutionStatusUpdateSender) HealthReport() map[string]error {
 	return map[string]error{s.Name(): s.Healthy()}
 }
 

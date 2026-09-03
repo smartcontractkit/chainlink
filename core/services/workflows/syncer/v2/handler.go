@@ -1290,18 +1290,18 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 	if isPrimary {
 		secondaryDon := h.resolveSecondaryDon()
 		if secondaryDon == nil {
-			h.lggr.Warnw("shard failover: no secondary DON found, primary will not send ExecutionCompleted", "primaryShardID", h.myShardID)
+			h.lggr.Warnw("shard failover: no secondary DON found, primary will not send ExecutionStatusUpdate", "primaryShardID", h.myShardID)
 			return
 		}
 
-		sender := sharding.NewExecutionCompletedSender(h.shardDispatcher, h.myShardID, *secondaryDon, h.lggr)
+		sender := sharding.NewExecutionStatusUpdateSender(h.shardDispatcher, h.myShardID, *secondaryDon, h.lggr)
 		h.shardFailoverMu.Lock()
 		h.shardFailoverServices = append(h.shardFailoverServices, sender)
 		h.shardFailoverMu.Unlock()
 
-		cfg.Hooks.OnExecutionCompleted = func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
+		cfg.Hooks.OnExecutionStatusUpdate = func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
 			execStatus := mapExecutionStatus(status, errClass)
-			sender.Send(context.Background(), &ringpb.ExecutionCompleted{
+			sender.Send(context.Background(), &ringpb.ExecutionStatusUpdate{
 				WorkflowId:     workflowID,
 				TriggerEventId: triggerEventID,
 				TriggerIndex:   uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
@@ -1310,7 +1310,7 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 			})
 		}
 
-		h.lggr.Infow("shard failover: wired ExecutionCompletedSender on primary", "primaryShardID", h.myShardID, "secondaryShardID", secondaryDon.ID)
+		h.lggr.Infow("shard failover: wired ExecutionStatusUpdateSender on primary", "primaryShardID", h.myShardID, "secondaryShardID", secondaryDon.ID)
 	} else {
 		primaryDon := h.resolvePrimaryDon()
 		if primaryDon == nil {
@@ -1318,17 +1318,17 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 			return
 		}
 
-		receiver := sharding.NewExecutionCompletedReceiver(*primaryDon, func(msg *ringpb.ExecutionCompleted) {
-			h.lggr.Infow("secondary received ExecutionCompleted", "workflowID", msg.WorkflowId, "triggerEventID", msg.TriggerEventId, "status", msg.Status)
+		receiver := sharding.NewExecutionStatusUpdateReceiver(*primaryDon, func(msg *ringpb.ExecutionStatusUpdate) {
+			h.lggr.Infow("secondary received ExecutionStatusUpdate", "workflowID", msg.WorkflowId, "triggerEventID", msg.TriggerEventId, "status", msg.Status)
 		}, h.lggr)
 
-		if regErr := h.shardDispatcher.SetReceiverForMethod("shard-execution-completed", primaryDon.ID, remotetypes.MethodExecutionCompleted, receiver); regErr != nil {
-			h.lggr.Errorw("shard failover: failed to register ExecutionCompletedReceiver", "err", regErr)
+		if regErr := h.shardDispatcher.SetReceiverForMethod("shard-execution-status-update", primaryDon.ID, remotetypes.MethodExecutionStatusUpdate, receiver); regErr != nil {
+			h.lggr.Errorw("shard failover: failed to register ExecutionStatusUpdateReceiver", "err", regErr)
 		} else {
 			h.shardFailoverMu.Lock()
 			h.shardFailoverServices = append(h.shardFailoverServices, receiver)
 			h.shardFailoverMu.Unlock()
-			h.lggr.Infow("shard failover: wired ExecutionCompletedReceiver on secondary", "myShardID", h.myShardID, "primaryShardID", primaryDon.ID)
+			h.lggr.Infow("shard failover: wired ExecutionStatusUpdateReceiver on secondary", "myShardID", h.myShardID, "primaryShardID", primaryDon.ID)
 		}
 	}
 }

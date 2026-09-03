@@ -397,15 +397,15 @@ type EngineLimits struct {
 type LifecycleHooks struct {
 	// OnInitialized is used to emit a workflowActivated event after the engine
 	// has completed initialization. It is also helpful for testing.
-	OnInitialized          func(err error)
-	OnSubscribedToTriggers func(triggerIDs []string)
-	OnTriggerEventDropped  func(triggerID, eventID, reason string)
-	OnExecutionFinished    func(executionID string, status string)
-	OnExecutionError       func(msg string)
-	OnExecutionCompleted   func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification)
-	OnResultReceived       func(*sdkpb.ExecutionResult)
-	OnRateLimited          func(executionID string)
-	OnNodeSynced           func(node commoncap.Node, err error)
+	OnInitialized           func(err error)
+	OnSubscribedToTriggers  func(triggerIDs []string)
+	OnTriggerEventDropped   func(triggerID, eventID, reason string)
+	OnExecutionFinished     func(executionID string, status string)
+	OnExecutionError        func(msg string)
+	OnExecutionStatusUpdate func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification)
+	OnResultReceived        func(*sdkpb.ExecutionResult)
+	OnRateLimited           func(executionID string)
+	OnNodeSynced            func(node commoncap.Node, err error)
 
 	// Used by the standalone engine
 	OnRequirementsSet func(executionId string, requirements *sdkpb.Requirements)
@@ -492,8 +492,8 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	if h.OnExecutionFinished == nil {
 		h.OnExecutionFinished = func(executionID string, status string) {}
 	}
-	if h.OnExecutionCompleted == nil {
-		h.OnExecutionCompleted = func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
+	if h.OnExecutionStatusUpdate == nil {
+		h.OnExecutionStatusUpdate = func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
 		}
 	}
 	if h.OnRateLimited == nil {
