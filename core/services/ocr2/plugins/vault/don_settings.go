@@ -36,16 +36,21 @@ func (r *ReportingPlugin) localNodeSettings(ctx context.Context) *vaultcommon.No
 	return populateLocalNodeSettings(ctx, r)
 }
 
+// ensureActiveSettingsForRound installs the resolver holding the round's
+// DON-agreed settings. Resolvers are fully initialized before publication and
+// never mutated afterwards, so the atomic publication below is safe for
+// concurrent callers (libocr invokes ValidateObservation from background
+// goroutines).
 func (r *ReportingPlugin) ensureActiveSettingsForRound(ctx context.Context, seqNr uint64, store ReadKVStore) error {
-	if r.activeSettings.initialized && r.activeSettingsSeqNr == seqNr {
+	if active := r.activeSettings.Load(); active.initialized && r.activeSettingsSeqNr.Load() == seqNr {
 		return nil
 	}
 	resolver := r.newDonSettingsResolver(ctx, store)
 	if err := resolver.init(ctx); err != nil {
 		return err
 	}
-	r.activeSettings = resolver
-	r.activeSettingsSeqNr = seqNr
+	r.activeSettings.Store(resolver)
+	r.activeSettingsSeqNr.Store(seqNr)
 	return nil
 }
 
@@ -111,6 +116,9 @@ func (r *ReportingPlugin) mergeAndPersistDONSettingsFromObservationQuorum(
 		if err := store.WriteDONSettings(ctx, merged); err != nil {
 			return nil, fmt.Errorf("failed to write DON settings: %w", err)
 		}
+		// Logged at info level: DON settings commits are rare, DON-wide events
+		// and are asserted on by system tests scanning container logs.
+		r.lggr.Infow("DON settings committed from per-field observation quorum (initial seed)", "threshold", threshold)
 		return merged, nil
 	}
 
@@ -118,6 +126,7 @@ func (r *ReportingPlugin) mergeAndPersistDONSettingsFromObservationQuorum(
 		if err := store.WriteDONSettings(ctx, merged); err != nil {
 			return nil, fmt.Errorf("failed to write DON settings: %w", err)
 		}
+		r.lggr.Infow("DON settings updated from per-field observation quorum", "threshold", threshold)
 	}
 	return merged, nil
 }

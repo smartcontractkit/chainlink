@@ -84,7 +84,7 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 // settings have been committed. Privileged per-owner limits that exceed the
 // configured default are still honored on top of the DON baseline.
 func (r *ReportingPlugin) checkSecretIdentifier(ctx context.Context, idKey, idOwner, idNamespace string) error {
-	donLimits, err := r.activeSettings.secretIdentifierLimits(ctx)
+	donLimits, err := r.activeSettings.Load().secretIdentifierLimits(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to resolve secret identifier limits: %w", err)
 	}
@@ -99,7 +99,7 @@ func (r *ReportingPlugin) checkSecretIdentifier(ctx context.Context, idKey, idOw
 // DON-wide settings, falling back to node-local configuration when no DON
 // settings have been committed.
 func (r *ReportingPlugin) checkRequestBatchSize(ctx context.Context, batchSize int) error {
-	maxBatch := r.activeSettings.maxRequestBatchSize(ctx)
+	maxBatch := r.activeSettings.Load().maxRequestBatchSize(ctx)
 	return r.validator.CheckRequestBatchSize(ctx, batchSize, &maxBatch)
 }
 

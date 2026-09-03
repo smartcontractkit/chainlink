@@ -919,8 +919,10 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 }
 
 // assertVaultDONSettingsQuorumInDockerLogs polls chainlink-related container logs until it observes
-// a 'DON settings field quorum reached' log line emitted by the vault OCR state transition when it
-// commits DON-wide settings via per-field 2f+1 consensus.
+// a 'DON settings committed/updated from per-field observation quorum' log line emitted by the
+// vault OCR state transition when it commits DON-wide settings via per-field 2f+1 consensus.
+// These lines are logged at info level: containers run at the default info log level, so
+// debug-level quorum detail lines are not visible in docker logs.
 func assertVaultDONSettingsQuorumInDockerLogs(t *testing.T) {
 	t.Helper()
 	if testing.Short() {
@@ -939,7 +941,7 @@ func assertVaultDONSettingsQuorumInDockerLogs(t *testing.T) {
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				require.Fail(t, "timed out waiting for docker while scanning for DON settings field quorum reached")
+				require.Fail(t, "timed out waiting for docker while scanning for DON settings quorum commit log")
 			case <-ticker.C:
 			}
 			continue
@@ -956,14 +958,16 @@ func assertVaultDONSettingsQuorumInDockerLogs(t *testing.T) {
 			if err != nil {
 				continue
 			}
-			if strings.Contains(string(logs), "DON settings field quorum reached") {
-				framework.L.Info().Str("container", name).Msg("observed vault OCR DON settings per-field quorum commit log")
+			logsStr := string(logs)
+			if strings.Contains(logsStr, "DON settings committed from per-field observation quorum") ||
+				strings.Contains(logsStr, "DON settings updated from per-field observation quorum") {
+				framework.L.Info().Str("container", name).Msg("observed vault OCR DON settings quorum commit log")
 				return
 			}
 		}
 		select {
 		case <-ctx.Done():
-			require.Fail(t, "timed out waiting for DON settings field quorum reached line in docker logs (is the local CRE stack running with VaultNodeSettingsConsensusEnabled?)")
+			require.Fail(t, "timed out waiting for DON settings quorum commit log line in docker logs (is the local CRE stack running with VaultNodeSettingsConsensusEnabled?)")
 		case <-ticker.C:
 		}
 	}

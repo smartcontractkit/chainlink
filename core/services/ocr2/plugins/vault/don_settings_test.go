@@ -3,10 +3,13 @@ package vault
 import (
 	"context"
 	"errors"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -16,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // perOwnerKeyLimiter is a BoundLimiter that resolves the key length limit per
@@ -231,6 +235,50 @@ func TestPlugin_StateTransition_DONSettings_PerFieldQuorum_AllAgree(t *testing.T
 	assert.True(t, proto.Equal(merged, stored))
 }
 
+// TestPlugin_StateTransition_DONSettings_CommitLoggedAtInfoLevel guards the
+// log level of DON settings commit events: system tests scan container logs
+// for these lines, and containers run at the default info log level, so a
+// revert to debug would silently break that coverage.
+func TestPlugin_StateTransition_DONSettings_CommitLoggedAtInfoLevel(t *testing.T) {
+	t.Parallel()
+	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.InfoLevel)
+	r := newTestReportingPlugin(t, withLggr(lggr), withVaultNodeSettingsConsensusEnabled(), withOnchainCfg(4, 1))
+	kvStore := &kv{m: make(map[string]response)}
+	writeKV := newTestWriteStore(t, kvStore)
+
+	initial := nodeSettings(600)
+	marshalledObs := map[uint8]*vaultcommon.Observations{
+		0: {NodeSettings: initial},
+		1: {NodeSettings: initial},
+		2: {NodeSettings: initial},
+	}
+
+	_, err := r.mergeAndPersistDONSettingsFromObservationQuorum(t.Context(), writeKV, marshalledObs)
+	require.NoError(t, err)
+
+	updated := nodeSettings(800)
+	for i := uint8(0); i < 3; i++ {
+		marshalledObs[i] = &vaultcommon.Observations{NodeSettings: updated}
+	}
+	_, err = r.mergeAndPersistDONSettingsFromObservationQuorum(t.Context(), writeKV, marshalledObs)
+	require.NoError(t, err)
+
+	var sawInitialSeed, sawUpdate bool
+	for _, entry := range observedLogs.All() {
+		if entry.Level != zapcore.InfoLevel {
+			continue
+		}
+		switch {
+		case strings.Contains(entry.Message, "DON settings committed from per-field observation quorum"):
+			sawInitialSeed = true
+		case strings.Contains(entry.Message, "DON settings updated from per-field observation quorum"):
+			sawUpdate = true
+		}
+	}
+	require.True(t, sawInitialSeed, "expected info-level log for initial DON settings commit")
+	require.True(t, sawUpdate, "expected info-level log for DON settings update")
+}
+
 func TestPlugin_StateTransition_DONSettings_PerFieldQuorum_OneFieldSplit(t *testing.T) {
 	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled(), withOnchainCfg(4, 1))
@@ -303,7 +351,7 @@ func TestPlugin_StateTransition_DONSettings_EnforcesKVSettingsOverLocalCfg(t *te
 	require.NoError(t, writeKV.WriteDONSettings(t.Context(), kvSettings))
 
 	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
-	shareLimit, err := r.activeSettings.maxShareLengthBytes(t.Context())
+	shareLimit, err := r.activeSettings.Load().maxShareLengthBytes(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, pkgconfig.Size(1000), shareLimit)
 }
@@ -318,7 +366,7 @@ func TestPlugin_StateTransition_DONSettings_UsesLocalCfgWhenKVEmpty(t *testing.T
 	readKV := newTestReadStore(t, kvStore)
 
 	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, readKV))
-	shareLimit, err := r.activeSettings.maxShareLengthBytes(t.Context())
+	shareLimit, err := r.activeSettings.Load().maxShareLengthBytes(t.Context())
 	require.NoError(t, err)
 	// No DON settings committed yet: falls back to the node-local default.
 	assert.Equal(t, pkgconfig.Size(600), shareLimit)
@@ -334,7 +382,7 @@ func TestPlugin_StateTransition_DONSettings_LocalCfgIgnoredWhenKVSet(t *testing.
 	require.NoError(t, writeKV.WriteDONSettings(t.Context(), nodeSettings(400)))
 
 	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
-	shareLimit, err := r.activeSettings.maxShareLengthBytes(t.Context())
+	shareLimit, err := r.activeSettings.Load().maxShareLengthBytes(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, pkgconfig.Size(400), shareLimit)
 }
@@ -403,7 +451,7 @@ func TestPlugin_ActiveSettings_EnforcesKVIdentifierKeyLimit(t *testing.T) {
 
 	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
 
-	limits, err := r.activeSettings.secretIdentifierLimits(t.Context())
+	limits, err := r.activeSettings.Load().secretIdentifierLimits(t.Context())
 	require.NoError(t, err)
 
 	err = r.validator.ValidateSecretIdentifier(t.Context(), "longkey", "owner", "ns", &limits)
@@ -481,7 +529,7 @@ func TestPlugin_StateTransition_DONSettings_PersistedAfterTransitionNotAppliedSa
 	require.NoError(t, err)
 
 	// Same-round enforcement still reflects committed settings from round start.
-	shareLimit, err := r.activeSettings.maxShareLengthBytes(t.Context())
+	shareLimit, err := r.activeSettings.Load().maxShareLengthBytes(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, pkgconfig.Size(500), shareLimit)
 
@@ -489,4 +537,40 @@ func TestPlugin_StateTransition_DONSettings_PersistedAfterTransitionNotAppliedSa
 	require.NoError(t, err)
 	require.NotNil(t, stored)
 	assert.Equal(t, uint64(800), stored.MaxShareLengthBytes)
+}
+
+// TestPlugin_ActiveSettings_ConcurrentAccess reproduces the libocr calling
+// pattern that makes ValidateObservation impure: it runs on background
+// goroutines concurrently with the round loop, all touching the active
+// settings resolver. Run with -race, this guards the atomic publication of
+// activeSettings/activeSettingsSeqNr.
+func TestPlugin_ActiveSettings_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
+	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
+	kvStore := &kv{m: make(map[string]response)}
+	writeKV := newTestWriteStore(t, kvStore)
+	require.NoError(t, writeKV.WriteDONSettings(t.Context(), nodeSettings(600)))
+
+	b := marshalObservationsWithSettings(t, r.localNodeSettings(t.Context()))
+
+	const goroutines = 8
+	var wg sync.WaitGroup
+	for i := range goroutines {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			seqNr := uint64(1 + i%2)
+			for range 25 {
+				err := r.ValidateObservation(t.Context(), seqNr, types.AttributedQuery{}, types.AttributedObservation{
+					Observer:    0,
+					Observation: types.Observation(b),
+				}, kvStore, nil)
+				assert.NoError(t, err)
+
+				_, err = r.activeSettings.Load().maxShareLengthBytes(t.Context())
+				assert.NoError(t, err)
+			}
+		}()
+	}
+	wg.Wait()
 }

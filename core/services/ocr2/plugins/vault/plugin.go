@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/curve25519"
@@ -325,7 +326,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	// The resolver is never nil: before the first OCR round initializes it (and
 	// whenever consensus is disabled), all resolution falls back to node-local
 	// configuration.
-	plugin.activeSettings = plugin.newDonSettingsResolver(context.Background(), nil)
+	plugin.activeSettings.Store(plugin.newDonSettingsResolver(context.Background(), nil))
 	return plugin, ocr3_1types.ReportingPluginInfo1{
 		Name:   "VaultReportingPlugin",
 		Limits: pluginLimits,
@@ -352,8 +353,12 @@ type ReportingPlugin struct {
 
 	pendingQueueStallTracker pendingQueueStallTracker
 
-	activeSettings      *donSettingsResolver
-	activeSettingsSeqNr uint64
+	// activeSettings holds the current round's DON settings resolver. It is
+	// published atomically: resolvers are fully initialized before publication
+	// and never mutated afterwards, so concurrent callers (libocr invokes
+	// ValidateObservation from background goroutines) can read it safely.
+	activeSettings      atomic.Pointer[donSettingsResolver]
+	activeSettingsSeqNr atomic.Uint64
 }
 
 type pendingQueueStallTracker struct {
@@ -706,7 +711,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		pendingQueueHasID[item.Id] = true
 	}
 
-	maxBlobBytesSz, err := r.activeSettings.maxBlobPayloadBytes(ctx)
+	maxBlobBytesSz, err := r.activeSettings.Load().maxBlobPayloadBytes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch max blob payload size limit: %w", err)
 	}
@@ -1926,7 +1931,7 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 		return bytes.Compare(sortKey(i.Id, salt), sortKey(j.Id, salt))
 	})
 
-	if err := r.activeSettings.checkMaxPendingQueueWriteSize(ctx, len(keptItems)); err != nil {
+	if err := r.activeSettings.Load().checkMaxPendingQueueWriteSize(ctx, len(keptItems)); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[int]
 		if !errors.As(err, &errBoundLimited) {
 			return fmt.Errorf("failed to check pending queue write size limit: %w", err)

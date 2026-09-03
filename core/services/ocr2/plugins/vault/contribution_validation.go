@@ -327,7 +327,7 @@ func classifyContributions(obs []*vaultcommon.Observation) (ok, err []*vaultcomm
 // have been committed.
 func (r *ReportingPlugin) checkMaxShareLength(ctx context.Context, shareSize int) error {
 	amount := pkgconfig.Size(shareSize) * pkgconfig.Byte
-	limit, err := r.activeSettings.maxShareLengthBytes(ctx)
+	limit, err := r.activeSettings.Load().maxShareLengthBytes(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check share size: %w", err)
 	}

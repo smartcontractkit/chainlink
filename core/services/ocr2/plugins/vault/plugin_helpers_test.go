@@ -176,7 +176,7 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		maxObservationBytes:          maxObs,
 		maxReportsPlusPrecursorBytes: maxPrec,
 	}
-	rp.activeSettings = rp.newDonSettingsResolver(context.Background(), nil)
+	rp.activeSettings.Store(rp.newDonSettingsResolver(context.Background(), nil))
 	return rp
 }
 
