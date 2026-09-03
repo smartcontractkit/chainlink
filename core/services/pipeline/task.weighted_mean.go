@@ -158,6 +158,23 @@ func (t *WeightedMeanTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 			return Result{Error: err}, runInfo
 		}
 
+		// winsor_samples: return clamped []Sample instead of collapsing to a scalar.
+		if methodMode == "winsor_samples" {
+			out := make([]Sample, len(active))
+			for i, s := range active {
+				q := s.Value
+				if q.LessThan(lo) {
+					q = lo
+				}
+				if q.GreaterThan(hi) {
+					q = hi
+				}
+				s.Value = q
+				out[i] = s
+			}
+			return Result{Value: out}, runInfo
+		}
+
 		// Clamp each sample's value into [lo, hi] around the reference median,
 		// then accumulate the weighted sum. This bounds how far one corrupted
 		// source can move the output: at most omega_k * 2*band*median.
@@ -227,7 +244,7 @@ func computeBand(m, b decimal.Decimal, method string, ref []Sample) (lo, hi deci
 	one := decimal.NewFromInt(1)
 	negOne := decimal.NewFromInt(-1)
 	switch method {
-	case "winsor":
+	case "winsor", "winsor_samples":
 		// Relative band centered on m. For negative median, the uncentered
 		// formulas flip lo and hi; anchor against |m| so lo <= hi always.
 		if m.IsNegative() {

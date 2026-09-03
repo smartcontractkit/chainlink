@@ -12,6 +12,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
+// winsorizeSamples runs weightedmean with method="winsor_samples" to produce
+// pre-clamped []Sample for use as anchor's reference.
+func winsorizeSamples(t *testing.T, vars pipeline.Vars, samplesExpr, band string) []pipeline.Sample {
+	t.Helper()
+	task := pipeline.WeightedMeanTask{
+		BaseTask: pipeline.NewBaseTask(0, "winsor", nil, nil, 0),
+		Samples:  samplesExpr,
+		Method:   "winsor_samples",
+		Band:     band,
+	}
+	out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
+	require.NoError(t, out.Error)
+	return out.Value.([]pipeline.Sample)
+}
+
 func TestAnchorTask(t *testing.T) {
 	t.Parallel()
 
@@ -40,17 +55,17 @@ func TestAnchorTask(t *testing.T) {
 		"lo":  lo,
 		"hi":  hi,
 	})
+	vars.Set("winsorRef", winsorizeSamples(t, vars, "$(ref)", "0.03"))
 
 	t.Run("basic: lo_adj and hi_adj", func(t *testing.T) {
 		t.Parallel()
 
 		loTask := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor_lo", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
-			Band:      "0.03",
 		}
 		out, _ := loTask.Run(t.Context(), logger.TestLogger(t), vars, nil)
 		require.NoError(t, out.Error)
@@ -59,11 +74,10 @@ func TestAnchorTask(t *testing.T) {
 
 		hiTask := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor_hi", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "high",
-			Band:      "0.03",
 		}
 		out, _ = hiTask.Run(t.Context(), logger.TestLogger(t), vars, nil)
 		require.NoError(t, out.Error)
@@ -92,18 +106,18 @@ func TestAnchorTask(t *testing.T) {
 			sample("c", 103, 1),
 		}
 		varsA := pipeline.NewVarsFrom(map[string]any{
-			"ref": refA,
-			"lo":  loA,
-			"hi":  hiA,
+			"ref":       refA,
+			"lo":        loA,
+			"hi":        hiA,
+			"winsorRef": winsorizeSamples(t, vars, "$(ref)", "0.03"),
 		})
 
 		loTask := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor_lo", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
-			Band:      "0.03",
 		}
 		out, _ := loTask.Run(t.Context(), logger.TestLogger(t), varsA, nil)
 		require.NoError(t, out.Error)
@@ -112,11 +126,10 @@ func TestAnchorTask(t *testing.T) {
 
 		hiTask := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor_hi", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "high",
-			Band:      "0.03",
 		}
 		out, _ = hiTask.Run(t.Context(), logger.TestLogger(t), varsA, nil)
 		require.NoError(t, out.Error)
@@ -145,19 +158,20 @@ func TestAnchorTask(t *testing.T) {
 			sample("b", 101, 1),
 			sample("c", 201, 1),
 		}
+		vC := pipeline.NewVarsFrom(map[string]any{"ref": refC, "lo": loC, "hi": hiC})
 		varsC := pipeline.NewVarsFrom(map[string]any{
-			"ref": refC,
-			"lo":  loC,
-			"hi":  hiC,
+			"ref":       refC,
+			"lo":        loC,
+			"hi":        hiC,
+			"winsorRef": winsorizeSamples(t, vC, "$(ref)", "0.03"),
 		})
 
 		task := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor_lo", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
-			Band:      "0.03",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), varsC, nil)
 		require.NoError(t, out.Error)
@@ -184,19 +198,20 @@ func TestAnchorTask(t *testing.T) {
 			sample("b", 101, 1),
 			sample("c", 101, 1),
 		}
+		vU := pipeline.NewVarsFrom(map[string]any{"ref": refU, "lo": loU, "hi": hiU})
 		varsU := pipeline.NewVarsFrom(map[string]any{
-			"ref": refU,
-			"lo":  loU,
-			"hi":  hiU,
+			"ref":       refU,
+			"lo":        loU,
+			"hi":        hiU,
+			"winsorRef": winsorizeSamples(t, vU, "$(ref)", "0.03"),
 		})
 
 		task := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
-			Band:      "0.03",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), varsU, nil)
 		require.NoError(t, out.Error)
@@ -220,24 +235,24 @@ func TestAnchorTask(t *testing.T) {
 			sample("a", 101, 1),
 			sample("b", 101, 1),
 		}
+		vU := pipeline.NewVarsFrom(map[string]any{"ref": refU, "lo": loU, "hi": hiU})
 		varsU := pipeline.NewVarsFrom(map[string]any{
-			"ref": refU,
-			"lo":  loU,
-			"hi":  hiU,
+			"ref":       refU,
+			"lo":        loU,
+			"hi":        hiU,
+			"winsorRef": winsorizeSamples(t, vU, "$(ref)", "0.03"),
 		})
 
 		task := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
-			Band:      "0.03",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), varsU, nil)
 		require.NoError(t, out.Error)
 		got := out.Value.(decimal.Decimal)
-		// "c" dropped from high → only "a" and "b" survive
 		assert.True(t, got.Equal(decimal.NewFromInt(99)), "got %s", got)
 	})
 
@@ -245,11 +260,10 @@ func TestAnchorTask(t *testing.T) {
 		t.Parallel()
 		task := pipeline.AnchorTask{
 			BaseTask:      pipeline.NewBaseTask(0, "anchor", nil, nil, 0),
-			Reference:     "$(ref)",
+			Reference:     "$(winsorRef)",
 			Low:           "$(lo)",
 			High:          "$(hi)",
 			Select:        "low",
-			Band:          "0.03",
 			MinWeightMass: "10",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
@@ -274,19 +288,20 @@ func TestAnchorTask(t *testing.T) {
 			sample("b", 101, 1),
 			sample("c", 0, 1),
 		}
+		vZ := pipeline.NewVarsFrom(map[string]any{"ref": refZ, "lo": loZ, "hi": hiZ})
 		varsZ := pipeline.NewVarsFrom(map[string]any{
-			"ref": refZ,
-			"lo":  loZ,
-			"hi":  hiZ,
+			"ref":       refZ,
+			"lo":        loZ,
+			"hi":        hiZ,
+			"winsorRef": winsorizeSamples(t, vZ, "$(ref)", "0.03"),
 		})
 
 		task := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
-			Band:      "0.03",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), varsZ, nil)
 		require.NoError(t, out.Error)
@@ -311,17 +326,18 @@ func TestAnchorTask(t *testing.T) {
 			sample("b", 105, 2),
 			sample("c", 50001, 1),
 		}
+		vO := pipeline.NewVarsFrom(map[string]any{"ref": refO, "lo": loO, "hi": hiO})
+		winsorRef := winsorizeSamples(t, vO, "$(ref)", "0.03")
 		varsO := pipeline.NewVarsFrom(map[string]any{
-			"ref": refO,
-			"lo":  loO,
-			"hi":  hiO,
+			"ref":       refO,
+			"lo":        loO,
+			"hi":        hiO,
+			"winsorRef": winsorRef,
 		})
 
 		refTask := pipeline.WeightedMeanTask{
 			BaseTask: pipeline.NewBaseTask(0, "wm_ref", nil, nil, 0),
-			Samples:  "$(ref)",
-			Method:   "winsor",
-			Band:     "0.03",
+			Samples:  "$(winsorRef)",
 		}
 		refOut, _ := refTask.Run(t.Context(), logger.TestLogger(t), varsO, nil)
 		require.NoError(t, refOut.Error)
@@ -329,11 +345,10 @@ func TestAnchorTask(t *testing.T) {
 
 		loTask := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor_lo", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
-			Band:      "0.03",
 		}
 		loOut, _ := loTask.Run(t.Context(), logger.TestLogger(t), varsO, nil)
 		require.NoError(t, loOut.Error)
@@ -341,11 +356,10 @@ func TestAnchorTask(t *testing.T) {
 
 		hiTask := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor_hi", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "high",
-			Band:      "0.03",
 		}
 		hiOut, _ := hiTask.Run(t.Context(), logger.TestLogger(t), varsO, nil)
 		require.NoError(t, hiOut.Error)
@@ -359,11 +373,10 @@ func TestAnchorTask(t *testing.T) {
 		t.Parallel()
 		task := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
-			Band:      "0.03",
 			Precision: "2",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
@@ -379,37 +392,22 @@ func TestAnchorTask(t *testing.T) {
 			sample("b", 100, -0.5),
 		}
 		varsN := pipeline.NewVarsFrom(map[string]any{
-			"ref": refN,
-			"lo":  lo,
-			"hi":  hi,
+			"ref":       refN,
+			"lo":        lo,
+			"hi":        hi,
+			"winsorRef": winsorizeSamples(t, pipeline.NewVarsFrom(map[string]any{"ref": refN}), "$(ref)", "0.03"),
 		})
 
 		task := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
-			Band:      "0.03",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), varsN, nil)
 		require.Error(t, out.Error)
 		assert.Contains(t, out.Error.Error(), "negative weight")
-	})
-
-	t.Run("rejects negative band", func(t *testing.T) {
-		t.Parallel()
-		task := pipeline.AnchorTask{
-			BaseTask:  pipeline.NewBaseTask(0, "anchor", nil, nil, 0),
-			Reference: "$(ref)",
-			Low:       "$(lo)",
-			High:      "$(hi)",
-			Select:    "low",
-			Band:      "-0.03",
-		}
-		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
-		require.Error(t, out.Error)
-		assert.Contains(t, out.Error.Error(), "band must be non-negative")
 	})
 
 	t.Run("no surviving reference samples", func(t *testing.T) {
@@ -418,19 +416,20 @@ func TestAnchorTask(t *testing.T) {
 			sample("a", 100, 0),
 			sample("b", 100, 0),
 		}
+		vE := pipeline.NewVarsFrom(map[string]any{"ref": refE})
 		varsE := pipeline.NewVarsFrom(map[string]any{
-			"ref": refE,
-			"lo":  lo,
-			"hi":  hi,
+			"ref":       refE,
+			"lo":        lo,
+			"hi":        hi,
+			"winsorRef": winsorizeSamples(t, vE, "$(ref)", "0.03"),
 		})
 
 		task := pipeline.AnchorTask{
 			BaseTask:  pipeline.NewBaseTask(0, "anchor", nil, nil, 0),
-			Reference: "$(ref)",
+			Reference: "$(winsorRef)",
 			Low:       "$(lo)",
 			High:      "$(hi)",
 			Select:    "low",
-			Band:      "0.03",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), varsE, nil)
 		require.Error(t, out.Error)
@@ -479,18 +478,19 @@ func TestAnchorTaskOutlierProtection(t *testing.T) {
 		sample("e", 709.7, 1),
 	}
 
+	vBase := pipeline.NewVarsFrom(map[string]any{"ref": ref, "lo": lo, "hi": hi})
+	winsorRef := winsorizeSamples(t, vBase, "$(ref)", "0.03")
 	vars := pipeline.NewVarsFrom(map[string]any{
-		"ref": ref,
-		"lo":  lo,
-		"hi":  hi,
+		"ref":       ref,
+		"lo":        lo,
+		"hi":        hi,
+		"winsorRef": winsorRef,
 	})
 
-	// Reference aggregate (winsorized weighted mean) — already protected
+	// Reference aggregate (plain weighted mean on pre-winsorized samples)
 	refTask := pipeline.WeightedMeanTask{
 		BaseTask: pipeline.NewBaseTask(0, "wm_ref", nil, nil, 0),
-		Samples:  "$(ref)",
-		Method:   "winsor",
-		Band:     "0.03",
+		Samples:  "$(winsorRef)",
 	}
 	refOut, _ := refTask.Run(t.Context(), logger.TestLogger(t), vars, nil)
 	require.NoError(t, refOut.Error)
@@ -499,27 +499,23 @@ func TestAnchorTaskOutlierProtection(t *testing.T) {
 	refF, _ := refVal.Float64()
 	assert.InDelta(t, 716.0, refF, 20.0, "ref should be near good sources, got %s", refVal)
 
-	// lo via anchor
 	loTask := pipeline.AnchorTask{
 		BaseTask:  pipeline.NewBaseTask(0, "anchor_lo", nil, nil, 0),
-		Reference: "$(ref)",
+		Reference: "$(winsorRef)",
 		Low:       "$(lo)",
 		High:      "$(hi)",
 		Select:    "low",
-		Band:      "0.03",
 	}
 	loOut, _ := loTask.Run(t.Context(), logger.TestLogger(t), vars, nil)
 	require.NoError(t, loOut.Error)
 	loVal := loOut.Value.(decimal.Decimal)
 
-	// hi via anchor
 	hiTask := pipeline.AnchorTask{
 		BaseTask:  pipeline.NewBaseTask(0, "anchor_hi", nil, nil, 0),
-		Reference: "$(ref)",
+		Reference: "$(winsorRef)",
 		Low:       "$(lo)",
 		High:      "$(hi)",
 		Select:    "high",
-		Band:      "0.03",
 	}
 	hiOut, _ := hiTask.Run(t.Context(), logger.TestLogger(t), vars, nil)
 	require.NoError(t, hiOut.Error)

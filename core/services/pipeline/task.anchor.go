@@ -12,21 +12,21 @@ import (
 )
 
 // Experimental: AnchorTask rebases a lower or upper sample stream onto a
-// reference stream using a spread-derived per-source displacement, then
-// returns the weighted mean.
+// pre-winsorized reference stream using a spread-derived per-source
+// displacement, then returns the weighted mean.
 //
 // For each surviving source i:
 //
 //	disp_i = (high_i - low_i) / (2 * ref_i)
-//	q_i = clamp(ref_i, m*(1-band), m*(1+band))
 //
-// When select="low":  adj_i = q_i * (1 - disp_i)
-// When select="high": adj_i = q_i * (1 + disp_i)
+// When select="low":  adj_i = ref_i * (1 - disp_i)
+// When select="high": adj_i = ref_i * (1 + disp_i)
 //
+// The reference stream should already be winsorized (via the winsorize task).
 // Weights come from the reference stream. Sources missing from low or high
 // are dropped. A reference value of zero drops that source.
 //
-// Input:  reference ([]Sample) — the anchor stream; drives weights + band
+// Input:  reference ([]Sample) — pre-winsorized anchor; drives weights
 // Input:  low ([]Sample) — the lower stream
 // Input:  high ([]Sample) — the upper stream
 // Output: decimal.Decimal — the weighted mean of rebased values
@@ -37,7 +37,6 @@ type AnchorTask struct {
 	Low           string `json:"low"`
 	High          string `json:"high"`
 	Select        string `json:"select"`
-	Band          string `json:"band"`
 	MinWeightMass string `json:"minWeightMass"`
 	Precision     string `json:"precision"`
 }
@@ -51,9 +50,9 @@ func (t *AnchorTask) Type() TaskType {
 func (t *AnchorTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		referenceAndErrs, lowAndErrs, highAndErrs SliceParam
-		band, minMass                             DecimalParam
-		selectParam                               StringParam
-		maybePrecision                            MaybeInt32Param
+		minMass                                  DecimalParam
+		selectParam                              StringParam
+		maybePrecision                           MaybeInt32Param
 	)
 
 	if err := stderrors.Join(
@@ -61,7 +60,6 @@ func (t *AnchorTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		errors.Wrap(ResolveParam(&lowAndErrs, From(VarExpr(t.Low, vars), JSONWithVarExprs(t.Low, vars, true), Inputs(inputs))), "low"),
 		errors.Wrap(ResolveParam(&highAndErrs, From(VarExpr(t.High, vars), JSONWithVarExprs(t.High, vars, true))), "high"),
 		errors.Wrap(ResolveParam(&selectParam, From(NonemptyString(t.Select), "low")), "select"),
-		errors.Wrap(ResolveParam(&band, From(VarExpr(t.Band, vars), NonemptyString(t.Band), "0.03")), "band"),
 		errors.Wrap(ResolveParam(&minMass, From(VarExpr(t.MinWeightMass, vars), NonemptyString(t.MinWeightMass), "0")), "minWeightMass"),
 		errors.Wrap(ResolveParam(&maybePrecision, From(VarExpr(t.Precision, vars), t.Precision)), "precision"),
 	); err != nil {
@@ -111,12 +109,6 @@ func (t *AnchorTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no surviving reference samples")}, runInfo
 	}
 
-	b := band.Decimal()
-	if b.IsNegative() {
-		return Result{Error: errors.Errorf("band must be non-negative, got %s", b)}, runInfo
-	}
-	loBand, hiBand, _ := computeBand(bandReference(ref, "median"), b, "winsor", ref)
-
 	sign := decimal.NewFromInt(-1)
 	if strings.ToLower(string(selectParam)) == "high" {
 		sign = decimal.NewFromInt(1)
@@ -133,15 +125,8 @@ func (t *AnchorTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		if !ok {
 			continue
 		}
-		q := r.Value
-		if q.LessThan(loBand) {
-			q = loBand
-		}
-		if q.GreaterThan(hiBand) {
-			q = hiBand
-		}
 		disp := hiS.Value.Sub(loS.Value).Div(two.Mul(r.Value))
-		adj := q.Mul(decimal.NewFromInt(1).Add(sign.Mul(disp)))
+		adj := r.Value.Mul(decimal.NewFromInt(1).Add(sign.Mul(disp)))
 		num = num.Add(r.Weight.Mul(adj))
 		den = den.Add(r.Weight)
 	}
