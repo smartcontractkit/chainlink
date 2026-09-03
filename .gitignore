@@ -141,3 +141,6 @@ core/scripts/cre/environment/binaries/*
 .cursor/
 .gemini/
 opencode.json
+
+# Local git worktrees
+.worktrees/
