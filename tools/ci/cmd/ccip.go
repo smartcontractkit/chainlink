@@ -67,9 +67,9 @@ stdout). Replaces .github/scripts/resolve-ccip-release-baseline.sh.`,
 			// base URL (used to point at a mirror or an httptest fake).
 			repoPath := repo
 			baseURL := ""
-			if idx := strings.Index(repo, "/"); idx >= 0 {
-				baseURL = "https://" + repo[:idx]
-				repoPath = repo[idx+1:]
+			if host, path, ok := strings.Cut(repo, "/"); ok {
+				baseURL = "https://" + host
+				repoPath = path
 			}
 			if registryURL != "" {
 				baseURL = registryURL

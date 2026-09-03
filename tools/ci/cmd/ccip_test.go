@@ -142,7 +142,7 @@ func TestCcipResolveBaseline_CLI_JSON(t *testing.T) {
 }
 
 func TestCcipResolveBaseline_CLI_LocalKV(t *testing.T) {
-	t.Parallel()
+	t.Setenv("GITHUB_OUTPUT", "") // force local stdout k=v (CI runner sets GITHUB_OUTPUT)
 	base := fakeRegistry(t, []string{"2.62.0-ccip-rc.0"})
 
 	// No GITHUB_OUTPUT -> k=v lines on stdout for local execution.
@@ -169,6 +169,7 @@ func TestCcipResolveBaseline_CLI_EnvFallback(t *testing.T) {
 	base := fakeRegistry(t, []string{"2.63.0-ccip-rc.0"})
 	t.Setenv("CHAINLINK_VERSION", "v2.63.1-rc.4")
 	t.Setenv("CCIP_IMAGE_REPO", "public.ecr.aws/chainlink/ccip")
+	t.Setenv("GITHUB_OUTPUT", "") // force local stdout k=v (CI runner sets GITHUB_OUTPUT)
 
 	rootCmd := cmd.NewRootCmd()
 	var out bytes.Buffer
