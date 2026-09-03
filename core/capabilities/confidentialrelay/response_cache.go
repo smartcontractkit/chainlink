@@ -1,7 +1,7 @@
 package confidentialrelay
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,7 +24,7 @@ func capExecKey(p confidentialrelaytypes.CapabilityRequestParams) string {
 // secretsKey is the deterministic cache key for a secrets-get request, built
 // from its logical identity: workflow, execution, callback id.
 func secretsKey(p confidentialrelaytypes.SecretsRequestParams) string {
-	return strings.Join([]string{secretsGetDomain, p.WorkflowID, p.ExecutionID, fmt.Sprintf("%d", p.CallbackID)}, "/")
+	return strings.Join([]string{secretsGetDomain, p.WorkflowID, p.ExecutionID, strconv.Itoa(int(p.CallbackID))}, "/")
 }
 
 // responseMemo caches a completed relay-DON signed result so the enclave's
