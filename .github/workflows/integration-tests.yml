@@ -718,6 +718,8 @@ jobs:
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+      baseline_ref: ${{ github.event.pull_request.base.sha }}
+      base_ref_name: ${{ github.event.pull_request.base.ref }}
     secrets: inherit
 
   check-e2e-test-results:
