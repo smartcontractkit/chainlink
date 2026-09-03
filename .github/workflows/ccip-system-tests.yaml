@@ -294,6 +294,53 @@ jobs:
 
       - name: Setup gotestsum
         uses: ./.github/actions/setup-gotestsum
+      
+      - name: Resolve baseline image for mixed-version tests
+        id: baseline
+        shell: bash
+        env:
+          BASELINE_REF: ${{ inputs.baseline_ref }}
+          BASE_REF_NAME: ${{ inputs.base_ref_name }}
+          ECR_ACCOUNT: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          ECR_REGION: ${{ secrets.QA_AWS_REGION }}
+          IS_MIXED_VERSION: ${{ matrix.tests.mixed_version || false }}
+        run: |
+          if [[ "${IS_MIXED_VERSION}" != "true" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          REGISTRY="${ECR_ACCOUNT}.dkr.ecr.${ECR_REGION}.amazonaws.com"
+          skip=false
+          image=""
+          version=""
+
+          if [[ -n "${BASELINE_REF}" ]] && docker manifest inspect "${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}" >/dev/null 2>&1; then
+            image="${REGISTRY}/chainlink-integration-tests"
+            version="${BASELINE_REF}"
+          elif [[ "${BASE_REF_NAME}" == release/* ]]; then
+            echo "::warning::No baseline image for release base branch '${BASE_REF_NAME}'. Skipping mixed-version test."
+            skip=true
+          else
+            DATE="$(date +'%Y%m%d')"
+            image="${REGISTRY}/chainlink"
+            version="nightly-${DATE}"
+            if ! docker manifest inspect "${image}:${version}" >/dev/null 2>&1; then
+              echo "::warning::Develop nightly image not available. Skipping mixed-version test."
+              skip=true
+            fi
+          fi
+
+          {
+            echo "skip=${skip}"
+            echo "image=${image}"
+            echo "version=${version}"
+          } >> "$GITHUB_OUTPUT"
+          if [[ "${skip}" == "true" ]]; then
+            echo "Mixed-version test skipped (no valid baseline for base branch '${BASE_REF_NAME}')."
+          else
+            echo "Baseline image: ${image}:${version}"
+          fi
 
       - name: Run CCIP smoke tests
         id: run-tests
