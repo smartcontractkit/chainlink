@@ -44,6 +44,38 @@ jobs:
                       exit 1
                   fi
                   echo "Trigger validated successfully"
+
+    # Resolve the CCIP baseline image for mixed-version / rollout tests.
+    # Only RC releases produce a fresh CCIP image (docker-ccip builds for
+    # prereleases only), so this is gated to -rc. versions. The baseline is the
+    # rc.0 of the base version (this minor's .0 for patches, the previous
+    # minor's .0 otherwise), probed against public.ecr.aws/chainlink/ccip.
+    resolve-ccip-baseline:
+        name: Resolve CCIP Release Baseline
+        needs: validate-trigger
+        if: contains(github.event.inputs.chainlink_version, '-rc.')
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        outputs:
+            ccip_pr_tag: ${{ steps.resolve.outputs.ccip_pr_tag }}
+            baseline_image_tag: ${{ steps.resolve.outputs.baseline_image_tag }}
+            skip: ${{ steps.resolve.outputs.skip }}
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch so the resolver script is the merged version
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
+            - name: Resolve CCIP baseline image
+              id: resolve
+              shell: bash
+              env:
+                  CHAINLINK_VERSION: ${{ github.event.inputs.chainlink_version }}
+              run: |
+                  bash ./.github/scripts/resolve-ccip-release-baseline.sh
+
     # Upgrade compatibility tests
     # Include rc and beta releases, since we will be upgrading from them on canary servers
     df1-compat:
@@ -132,6 +164,29 @@ jobs:
             chainlink_version: ${{ github.event.inputs.chainlink_version }}
             chainlink_image_repository_path: "chainlink/chainlink"
             chainlink_image_tag: ${{ github.event.inputs.chainlink_image_tag }}
+        secrets: inherit
+
+    # CCIP mixed-version / rolling-upgrade rollout test for RC releases.
+    # Uses the CCIP image (public.ecr.aws/chainlink/ccip) whose tag is derived
+    # from chainlink_version, with the rc.0 baseline resolved above. Runs only
+    # the mixed_version matrix entries (Test_CCIPMixedVersionDON,
+    # Test_CCIPRollingUpgrade).
+    ccip-rollout-tests:
+        name: CCIP Rollout Tests
+        needs: [validate-trigger, resolve-ccip-baseline]
+        if: contains(github.event.inputs.chainlink_version, '-rc.') && needs.resolve-ccip-baseline.outputs.skip != 'true'
+        permissions:
+            actions: read
+            contents: read
+            id-token: write
+        uses: ./.github/workflows/ccip-system-tests.yaml
+        with:
+            ecr: "public"
+            chainlink_version: ${{ github.event.inputs.chainlink_version }}
+            chainlink_image_repository_path: "chainlink/ccip"
+            chainlink_image_tag: ${{ needs.resolve-ccip-baseline.outputs.ccip_pr_tag }}
+            baseline_image_tag: ${{ needs.resolve-ccip-baseline.outputs.baseline_image_tag }}
+            mixed_version_only: true
         secrets: inherit
 
     # Slack notifications
@@ -251,6 +306,30 @@ jobs:
               with:
                   status: ${{ needs.cre-regression-tests.result }}
                   job_name: "CRE Regression Tests"
+                  run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
+                      github.repository, github.run_id) }}
+                  slack_thread_ts: ${{ github.event.inputs.slack_thread_ts }}
+                  slack_channel_id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
+                  slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
+
+    ccip-rollout-tests-notify:
+        runs-on: ubuntu-latest
+        needs: [ ccip-rollout-tests ]
+        if: always() && github.event.inputs.slack_thread_ts
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
+            - name: Notify Slack Jobs Result
+              uses: ./.github/actions/notify-slack-jobs-result
+              with:
+                  status: ${{ needs.ccip-rollout-tests.result }}
+                  job_name: "CCIP Rollout Tests"
                   run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
                       github.repository, github.run_id) }}
                   slack_thread_ts: ${{ github.event.inputs.slack_thread_ts }}

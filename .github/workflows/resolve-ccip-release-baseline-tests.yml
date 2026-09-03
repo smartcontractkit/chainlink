@@ -1,0 +1,36 @@
+name: Resolve CCIP Release Baseline Tests
+
+on:
+  pull_request:
+    paths:
+      - ".github/scripts/resolve-ccip-release-baseline.sh"
+      - ".github/scripts/resolve-ccip-release-baseline_test.sh"
+      - ".github/workflows/resolve-ccip-release-baseline-tests.yml"
+      - ".github/workflows/ccip-system-tests.yaml"
+      - ".github/workflows/post-build-publish.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-ccip-release-baseline-tests:
+    name: Resolve CCIP Release Baseline Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run resolver tests (stubbed registry)
+        shell: bash
+        run: bash ./.github/scripts/resolve-ccip-release-baseline_test.sh
+
+      - name: Run resolver tests against live public ECR
+        shell: bash
+        env:
+          LIVE_ECR: "1"
+        run: bash ./.github/scripts/resolve-ccip-release-baseline_test.sh

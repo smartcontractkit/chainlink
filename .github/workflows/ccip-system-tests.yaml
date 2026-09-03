@@ -41,6 +41,21 @@ on:
         type: string
         default: ""
         description: "Base-branch name (e.g. 'develop'). Controls mixed-version fallback behavior."
+      baseline_image_tag:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Pre-resolved baseline image tag for mixed-version tests (release
+          path). When non-empty, used directly as the baseline and bypasses the
+          PR-sha / nightly baseline resolution. Empty for PR-driven runs."
+      mixed_version_only:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "When true, restricts the matrix to tests flagged mixed_version=true
+          (used by the release rollout job)."
   workflow_call:
     inputs:
       chainlink_image_repository_path:
@@ -77,6 +92,21 @@ on:
         type: string
         default: ""
         description: "Base-branch name (e.g. 'develop'). Controls mixed-version fallback behavior."
+      baseline_image_tag:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Pre-resolved baseline image tag for mixed-version tests (release
+          path). When non-empty, used directly as the baseline and bypasses the
+          PR-sha / nightly baseline resolution. Empty for PR-driven runs."
+      mixed_version_only:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "When true, restricts the matrix to tests flagged mixed_version=true
+          (used by the release rollout job)."
 
 jobs:
   define-test-matrix:
@@ -106,6 +136,12 @@ jobs:
               runs_on: ("runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=r6i+r7i+r8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs")
             })
           ')
+
+          # Release rollout callers pass mixed_version_only=true to run only the
+          # mixed-version / rolling-upgrade tests instead of the full smoke suite.
+          if [[ "${{ inputs.mixed_version_only }}" == "true" ]]; then
+            tests=$(echo "$tests" | jq -c '[ .[] | select(.mixed_version == true) ]')
+          fi
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
@@ -194,12 +230,33 @@ jobs:
         env:
           BASELINE_REF: ${{ inputs.baseline_ref }}
           BASE_REF_NAME: ${{ inputs.base_ref_name }}
+          ECR: ${{ inputs.ecr }}
+          REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
+          BASELINE_IMAGE_TAG: ${{ inputs.baseline_image_tag }}
           ECR_ACCOUNT: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           ECR_REGION: ${{ secrets.QA_AWS_REGION }}
           IS_MIXED_VERSION: ${{ matrix.tests.mixed_version || false }}
         run: |
           if [[ "${IS_MIXED_VERSION}" != "true" ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Release path: a pre-resolved baseline tag was provided by the caller
+          # (post-build-publish). Use it directly from the same registry/repo as
+          # the image under test, bypassing the PR-sha / nightly resolution below.
+          if [[ -n "${BASELINE_IMAGE_TAG}" ]]; then
+            if [[ "${ECR}" == "public" ]]; then
+              image="public.ecr.aws/${REPO_PATH}"
+            else
+              image="${ECR_ACCOUNT}.dkr.ecr.${ECR_REGION}.amazonaws.com/${REPO_PATH}"
+            fi
+            {
+              echo "skip=false"
+              echo "image=${image}"
+              echo "version=${BASELINE_IMAGE_TAG}"
+            } >> "$GITHUB_OUTPUT"
+            echo "Baseline image (release-resolved): ${image}:${BASELINE_IMAGE_TAG}"
             exit 0
           fi
 
