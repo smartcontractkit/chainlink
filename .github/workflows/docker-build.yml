@@ -49,9 +49,9 @@ jobs:
         shell: bash
         env:
           SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id
-            }}/cpu=16/ram=64/family=m8g+m9g/spot=false/image=ubuntu24-full-arm64/volume=100gb/extras=s3-cache
+            }}/cpu=16/ram=64/family=m8g+m9g/spot=false/image=ubuntu24-full-arm64/volume=100gb:gp3:500mbs:4000iops/extras=s3-cache
           SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id
-            }}/cpu=16/ram=64/family=m7i+m8i/spot=false/image=ubuntu24-full-x64/volume=100gb/extras=s3-cache
+            }}/cpu=16/ram=64/family=m7i+m8i/spot=false/image=ubuntu24-full-x64/volume=100gb:gp3:500mbs:4000iops/extras=s3-cache
           GH_RUNNER_LABEL_ARM64: ubuntu-24.04-arm
           GH_RUNNER_LABEL_AMD64: ubuntu-24.04
         run: |
@@ -87,7 +87,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@0f2f08d26f3b5b001ddc8afda08bb1be1637f56b # DEBUG: update back to reusable-docker-build-publish/v1
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -100,7 +100,7 @@ jobs:
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
       docker-manifest-sign: true
-      docker-cache-behaviour: "enable"
+      docker-cache-behaviour: "write-on-trunk"
       # go-build-cache only; see integration-tests.yml build-chainlink for rationale.
       # Object form with explicit id is required so the cache id matches the Dockerfile mount.
       docker-cache-map: '{"cache-mount/go-build-cache": {"id": "go-build-cache", "target": "/var/cache-target"}}'
@@ -124,7 +124,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@0f2f08d26f3b5b001ddc8afda08bb1be1637f56b # DEBUG: update back to reusable-docker-build-publish/v1
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -139,7 +139,7 @@ jobs:
         CL_INSTALL_PRIVATE_PLUGINS=true
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
-      docker-cache-behaviour: "enable"
+      docker-cache-behaviour: "write-on-trunk"
       # go-build-cache only; see integration-tests.yml build-chainlink for rationale.
       # Object form with explicit id is required so the cache id matches the Dockerfile mount.
       docker-cache-map: '{"cache-mount/go-build-cache": {"id": "go-build-cache", "target": "/var/cache-target"}}'
@@ -163,7 +163,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@0f2f08d26f3b5b001ddc8afda08bb1be1637f56b # DEBUG: update back to reusable-docker-build-publish/v1
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -179,7 +179,7 @@ jobs:
         CL_INSTALL_TESTING_PLUGINS=true
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins-testing"
-      docker-cache-behaviour: "enable"
+      docker-cache-behaviour: "write-on-trunk"
       # go-build-cache only; see integration-tests.yml build-chainlink for rationale.
       # Object form with explicit id is required so the cache id matches the Dockerfile mount.
       docker-cache-map: '{"cache-mount/go-build-cache": {"id": "go-build-cache", "target": "/var/cache-target"}}'
@@ -203,7 +203,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@0f2f08d26f3b5b001ddc8afda08bb1be1637f56b # DEBUG: update back to reusable-docker-build-publish/v1
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -219,7 +219,7 @@ jobs:
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
       docker-manifest-sign: true
-      docker-cache-behaviour: "enable"
+      docker-cache-behaviour: "write-on-trunk"
       # go-build-cache only; see integration-tests.yml build-chainlink for rationale.
       # Object form with explicit id is required so the cache id matches the Dockerfile mount.
       docker-cache-map: '{"cache-mount/go-build-cache": {"id": "go-build-cache", "target": "/var/cache-target"}}'
@@ -243,7 +243,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@0f2f08d26f3b5b001ddc8afda08bb1be1637f56b # DEBUG: update back to reusable-docker-build-publish/v1
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -259,7 +259,7 @@ jobs:
         CL_CHAIN_DEFAULTS=/ccip-config
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
-      docker-cache-behaviour: "enable"
+      docker-cache-behaviour: "write-on-trunk"
       # go-build-cache only; see integration-tests.yml build-chainlink for rationale.
       # Object form with explicit id is required so the cache id matches the Dockerfile mount.
       docker-cache-map: '{"cache-mount/go-build-cache": {"id": "go-build-cache", "target": "/var/cache-target"}}'
