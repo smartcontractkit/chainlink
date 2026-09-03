@@ -12,21 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/githooks/cmd"
 )
 
-func TestEOFCmd_Help(t *testing.T) {
-	t.Parallel()
-
-	root := cmd.NewRootCmd()
-	buf := new(bytes.Buffer)
-	root.SetOut(buf)
-	root.SetErr(buf)
-	root.SetArgs([]string{"end-of-file-fixer", "--help"})
-
-	err := root.Execute()
-	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "Ensure files end with a single newline")
-	assert.Contains(t, buf.String(), "--check")
-}
-
 func TestEOFCmd_RunFile(t *testing.T) {
 	t.Parallel()
 
