@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1181,4 +1182,73 @@ func TestHandler_ServesRequestsConcurrently(t *testing.T) {
 	close(helper.release)
 	require.Eventually(t, func() bool { return gwConn.respCount() == concurrent },
 		testWaitTimeout, time.Millisecond, "expected one response per request")
+}
+
+// TestHandler_RetryServesCachedResult verifies the completed-result memo: a
+// second gateway request for the same logical identity (same params, new
+// request id — what the enclave's retry loop produces) returns the cached
+// signed result without re-executing the capability.
+func TestHandler_RetryServesCachedResult(t *testing.T) {
+	t.Parallel()
+	reg := withEnclaveConfig(&mockCapRegistry{})
+	gwConn := &mockGatewayConnector{}
+	h := newTestHandler(t, reg, gwConn)
+	helper := &countingExecutionHelper{
+		capResp: &sdkpb.CapabilityResponse{
+			Response: &sdkpb.CapabilityResponse_Payload{Payload: &anypb.Any{Value: []byte("result-proto-bytes")}},
+		},
+	}
+	h.executionHandlers.AddExecution("wf-1", capExecExecutionID, helper)
+
+	mkReq := func(id string) *jsonrpc.Request[json.RawMessage] {
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   capExecExecutionID,
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+		req.ID = id
+		return req
+	}
+
+	// First request: executes the capability and returns a signed response.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-1")))
+	resp1 := gwConn.waitResp(t)
+	require.Nil(t, resp1.Error)
+	require.NotNil(t, resp1.Result)
+	require.Equal(t, int32(1), helper.calls.Load(), "first request executes the capability")
+
+	// Second request with the same logical identity but a different gateway id
+	// (a retry): must return the cached signed result without re-executing.
+	gwConn.mu.Lock()
+	gwConn.resps = nil
+	gwConn.mu.Unlock()
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-2")))
+	resp2 := gwConn.waitResp(t)
+	require.Nil(t, resp2.Error)
+	require.NotNil(t, resp2.Result)
+	require.Equal(t, int32(1), helper.calls.Load(), "retry is served from the memo, no re-execution")
+
+	// Both responses carry the same signed payload (params-bound, not id-bound).
+	var signed1, signed2 confidentialrelaytypes.SignedCapabilityResponseResult
+	require.NoError(t, json.Unmarshal(*resp1.Result, &signed1))
+	require.NoError(t, json.Unmarshal(*resp2.Result, &signed2))
+	require.Equal(t, signed1.Result.Payload, signed2.Result.Payload)
+}
+
+// countingExecutionHelper is a host.ExecutionHelperWithRawSecrets stub that
+// counts CallCapability invocations, for the memo test.
+type countingExecutionHelper struct {
+	host.ExecutionHelperWithRawSecrets
+	capResp *sdkpb.CapabilityResponse
+	calls   atomic.Int32
+}
+
+func (c *countingExecutionHelper) CallCapability(_ context.Context, _ *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
+	c.calls.Add(1)
+	return c.capResp, nil
 }
