@@ -83,10 +83,7 @@ func Candidates(chainlinkVersion string, maxFallback int) ([]string, error) {
 	if err := validateVersion(chainlinkVersion); err != nil {
 		return nil, err
 	}
-	core, pre, err := splitCore(strings.TrimPrefix(chainlinkVersion, "v"))
-	if err != nil {
-		return nil, err
-	}
+	core, pre := splitCore(strings.TrimPrefix(chainlinkVersion, "v"))
 	major, minor, patch, err := parseCore(core)
 	if err != nil {
 		return nil, err
@@ -94,8 +91,8 @@ func Candidates(chainlinkVersion string, maxFallback int) ([]string, error) {
 
 	// rc number N (0 for stable / beta / rc.0).
 	n := 0
-	if strings.HasPrefix(pre, "rc.") {
-		nn, err := strconv.Atoi(strings.TrimPrefix(pre, "rc."))
+	if rest, ok := strings.CutPrefix(pre, "rc."); ok {
+		nn, err := strconv.Atoi(rest)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse rc number: %s", pre)
 		}
@@ -105,7 +102,7 @@ func Candidates(chainlinkVersion string, maxFallback int) ([]string, error) {
 	var candidates []string
 	if n > 0 {
 		// rcN: first try rc0 of the exact same version.
-		candidates = append(candidates, fmt.Sprintf("%s-ccip-rc.0", core))
+		candidates = append(candidates, core+"-ccip-rc.0")
 	}
 
 	// Anchor minor for the rc0/stable/beta rule and the fallback walk.
@@ -164,7 +161,7 @@ func Resolve(ctx context.Context, opts ResolveOptions, prober Prober) (ResolveRe
 // A definitive absent (false, nil) is returned immediately without retry.
 func probeWithRetry(ctx context.Context, prober Prober, tag string, attempts int, delay time.Duration) (bool, error) {
 	var lastErr error
-	for attempt := 0; attempt < attempts; attempt++ {
+	for attempt := range attempts {
 		published, err := prober.IsPublished(ctx, tag)
 		if err == nil {
 			return published, nil
@@ -224,10 +221,10 @@ func (p *RegistryProbe) IsPublished(ctx context.Context, tag string) (bool, erro
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)
 
-	switch {
-	case resp.StatusCode == http.StatusOK:
+	switch resp.StatusCode {
+	case http.StatusOK:
 		return true, nil
-	case resp.StatusCode == http.StatusNotFound:
+	case http.StatusNotFound:
 		return false, nil
 	default:
 		return false, fmt.Errorf("registry returned status %d for %s:%s", resp.StatusCode, p.repo, tag)
@@ -273,12 +270,9 @@ func validateVersion(v string) error {
 
 // splitCore splits a stripped version into its core and pre-release parts.
 // "2.63.1-rc.4" -> ("2.63.1", "rc.4"); "2.63.0" -> ("2.63.0", "").
-func splitCore(ver string) (core, pre string, err error) {
-	idx := strings.Index(ver, "-")
-	if idx < 0 {
-		return ver, "", nil
-	}
-	return ver[:idx], ver[idx+1:], nil
+func splitCore(ver string) (string, string) {
+	core, pre, _ := strings.Cut(ver, "-")
+	return core, pre
 }
 
 // parseCore parses a "major.minor.patch" core into its integer components.

@@ -427,6 +427,7 @@ func TestResolve_AgainstHTTPFakeRegistry_SkipWhenAbsent(t *testing.T) {
 // endpoints end-to-end. Skipped unless CCIP_LIVE_ECR=1 (run manually / in a
 // dedicated job); mirrors the former bash harness's LIVE_ECR=1 cases.
 func TestResolve_LivePublicECR(t *testing.T) {
+	t.Parallel()
 	if os.Getenv("CCIP_LIVE_ECR") != "1" {
 		t.Skip("skipping live public-ECR test; set CCIP_LIVE_ECR=1 to run")
 	}
