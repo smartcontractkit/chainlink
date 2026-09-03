@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	stderrors "errors"
@@ -47,6 +48,15 @@ func (u *UnitMapParam) UnmarshalPipelineParam(val any) error {
 				out[unit] = s.Value
 				continue
 			}
+			n, ok := raw.(json.Number)
+			if ok {
+				d, err := decimal.NewFromString(n.String())
+				if err != nil {
+					return errors.Wrapf(ErrBadInput, "unitMap[%q]: %v", unit, err)
+				}
+				out[unit] = d
+				continue
+			}
 			d, err := utils.ToDecimal(raw)
 			if err != nil {
 				return errors.Wrapf(ErrBadInput, "unitMap[%q]: %v", unit, err)
@@ -56,8 +66,10 @@ func (u *UnitMapParam) UnmarshalPipelineParam(val any) error {
 		*u = out
 		return nil
 	case []byte:
+		jd := json.NewDecoder(bytes.NewReader(v))
+		jd.UseNumber()
 		var m map[string]any
-		if err := json.Unmarshal(v, &m); err != nil {
+		if err := jd.Decode(&m); err != nil {
 			return errors.Wrap(ErrBadInput, err.Error())
 		}
 		return u.UnmarshalPipelineParam(m)

@@ -428,3 +428,51 @@ func TestWeightedMeanTaskDefaultNoSurvivingSamples(t *testing.T) {
 	require.Error(t, out.Error)
 	assert.Contains(t, out.Error.Error(), "no surviving samples")
 }
+
+func TestWeightedMeanTask_Validation(t *testing.T) {
+	t.Parallel()
+	t.Run("rejects negative weight on sample", func(t *testing.T) {
+		t.Parallel()
+		inputs := []pipeline.Result{
+			{Value: sample("a", 100, 1)},
+			{Value: sample("b", 101, -0.5)},
+		}
+		task := pipeline.WeightedMeanTask{
+			BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), inputs)
+		require.Error(t, out.Error)
+		assert.Contains(t, out.Error.Error(), "negative weight")
+	})
+	t.Run("rejects negative band", func(t *testing.T) {
+		t.Parallel()
+		inputs := []pipeline.Result{
+			{Value: sample("a", 100, 1)},
+			{Value: sample("b", 101, 1)},
+		}
+		task := pipeline.WeightedMeanTask{
+			BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+			Method:   "winsor",
+			Band:     "-0.03",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), inputs)
+		require.Error(t, out.Error)
+		assert.Contains(t, out.Error.Error(), "band must be non-negative")
+	})
+	t.Run("winsor with negative median does not flip interval", func(t *testing.T) {
+		t.Parallel()
+		// Identical samples at -100 with the default band should return -100,
+		// not a clipped value outside the sample range.
+		inputs := []pipeline.Result{
+			{Value: sample("a", -100, 1)},
+			{Value: sample("b", -100, 1)},
+		}
+		task := pipeline.WeightedMeanTask{
+			BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
+			Method:   "winsor",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), inputs)
+		require.NoError(t, out.Error)
+		assert.True(t, out.Value.(decimal.Decimal).Equal(decimal.NewFromInt(-100)), "got %s", out.Value)
+	})
+}

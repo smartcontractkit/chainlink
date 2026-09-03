@@ -368,3 +368,21 @@ func TestNormalizeTaskUnitMap(t *testing.T) {
 		assert.True(t, res[0].Value.Equal(decimal.NewFromInt(-100)), "-50 * 2 = -100")
 	})
 }
+
+func TestUnitMapParam_UnmarshalPipelineParam(t *testing.T) {
+	t.Parallel()
+	t.Run("preserves high-precision decimal from JSON bytes", func(t *testing.T) {
+		t.Parallel()
+		var u pipeline.UnitMapParam
+		err := u.UnmarshalPipelineParam([]byte(`{"USDC":0.123456789012345678}`))
+		require.NoError(t, err)
+		assert.True(t, u["USDC"].Equal(decimal.RequireFromString("0.123456789012345678")))
+	})
+	t.Run("preserves high-precision decimal from JSON string", func(t *testing.T) {
+		t.Parallel()
+		var u pipeline.UnitMapParam
+		err := u.UnmarshalPipelineParam(`{"USDC":0.123456789012345678}`)
+		require.NoError(t, err)
+		assert.True(t, u["USDC"].Equal(decimal.RequireFromString("0.123456789012345678")))
+	})
+}

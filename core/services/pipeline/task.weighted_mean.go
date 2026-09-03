@@ -87,8 +87,13 @@ func (t *WeightedMeanTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 	}
 
 	// Drop zero-weight samples (this is defensive against upstream tasks that don't drop weight 0 tasks).
+	// Reject negative weights: the weighted mean is undefined for negative mass, and negative
+	// weights can produce results outside the sample range or distort the min-mass gate.
 	active := make([]Sample, 0, len(samples))
 	for _, s := range samples {
+		if s.Weight.IsNegative() {
+			return Result{Error: errors.Errorf("negative weight %s on sample %q", s.Weight.String(), s.Source)}, runInfo
+		}
 		if !s.Weight.IsZero() {
 			active = append(active, s)
 		}
@@ -130,6 +135,9 @@ func (t *WeightedMeanTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 			}
 			ref = make([]Sample, 0, len(refSamples))
 			for _, s := range refSamples {
+				if s.Weight.IsNegative() {
+					return Result{Error: errors.Errorf("reference: negative weight %s on sample %q", s.Weight.String(), s.Source)}, runInfo
+				}
 				if !s.Weight.IsZero() {
 					ref = append(ref, s)
 				}
@@ -142,6 +150,9 @@ func (t *WeightedMeanTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 		m := bandReference(ref, strings.ToLower(string(winsorRef)))
 
 		b := band.Decimal()
+		if b.IsNegative() {
+			return Result{Error: errors.Errorf("band must be non-negative, got %s", b.String())}, runInfo
+		}
 		lo, hi, err := computeBand(m, b, methodMode, ref)
 		if err != nil {
 			return Result{Error: err}, runInfo
@@ -214,14 +225,18 @@ func weightedMedian(samples []Sample) decimal.Decimal {
 
 func computeBand(m, b decimal.Decimal, method string, ref []Sample) (lo, hi decimal.Decimal, err error) {
 	one := decimal.NewFromInt(1)
+	negOne := decimal.NewFromInt(-1)
 	switch method {
 	case "winsor":
-		// Relative band: scales with median magnitude. Use when tolerance is
-		// proportion-like (e.g. ±3% of price).
-		lo = m.Mul(one.Sub(b))
-		hi = m.Mul(one.Add(b))
-		if lo.IsNegative() {
-			lo = decimal.Zero
+		// Relative band centered on m. For negative median, the uncentered
+		// formulas flip lo and hi; anchor against |m| so lo <= hi always.
+		if m.IsNegative() {
+			scale := m.Abs()
+			lo = negOne.Mul(scale).Mul(one.Add(b)) // -|m|*(1+b)
+			hi = negOne.Mul(scale).Mul(one.Sub(b)) // -|m|*(1-b)
+		} else {
+			lo = m.Mul(one.Sub(b))
+			hi = m.Mul(one.Add(b))
 		}
 	case "winsor_abs":
 		// Absolute band: fixed distance around median. Use when the tolerance

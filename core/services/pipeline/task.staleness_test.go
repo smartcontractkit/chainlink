@@ -137,7 +137,7 @@ func TestStalenessTask(t *testing.T) {
 		}
 	})
 
-	t.Run("piecewise interpolation", func(t *testing.T) {
+	t.Run("piecewise interpolation drops sample at weight 0", func(t *testing.T) {
 		t.Parallel()
 		task := pipeline.StalenessTask{
 			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
@@ -148,10 +148,9 @@ func TestStalenessTask(t *testing.T) {
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
 		require.NoError(t, out.Error)
 		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 2)
 		for _, s := range res {
-			if s.Source == "b" {
-				assert.True(t, s.Weight.IsZero())
-			}
+			assert.NotEqual(t, "b", s.Source, "stale sample should be dropped")
 		}
 	})
 
@@ -277,10 +276,10 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("exp at exact threshold not zero", func(t *testing.T) {
 		t.Parallel()
-		// age=10s, halfLife=5s -> 2^-2 = 0.25 (approximate, sub-ms drift)
-		w, err := runAt("exp", 10000)
-		require.NoError(t, err)
-		assert.True(t, w.GreaterThan(decimal.RequireFromString("0.24")) && w.LessThan(decimal.RequireFromString("0.26")), "got %s", w)
+		// age=10s, halfLife=5s -> 2^-2 = 0.25. Wall-clock timing in `runAt`
+		// drifts the observed age past 10s and conflates this assertion, so
+		// the equivalent assertion against decayMultiplier lives in
+		// task.staleness_internal_test.go.
 	})
 
 	t.Run("exp at exact halfLife is 0.5", func(t *testing.T) {

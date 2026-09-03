@@ -100,7 +100,7 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	err := stderrors.Join(
 		errors.Wrap(ResolveParam(&samplesAndErrs, From(VarExpr(t.Samples, vars), JSONWithVarExprs(t.Samples, vars, true), Inputs(inputs))), "samples"),
 		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method))), "method"),
-		errors.Wrap(ResolveParam(&thresholdMs, From(NonemptyString(t.Threshold))), "threshold"),
+		resolveOpt(&thresholdMs, NonemptyString(t.Threshold)),
 		errors.Wrap(ResolveParam(&halfLifeMs, From(NonemptyString(t.HalfLife), "0s")), "halfLife"),
 		errors.Wrap(ResolveParam(&points, From(t.Points, "")), "points"),
 		resolveOpt(&cutoffMs, VarExpr(t.Cutoff, vars), NonemptyString(t.Cutoff)),
@@ -128,6 +128,8 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		if err != nil {
 			return Result{Error: errors.Wrap(err, "points")}, runInfo
 		}
+	} else if int64(thresholdMs) <= 0 {
+		return Result{Error: errors.New("threshold required for non-piecewise staleness")}, runInfo
 	}
 	if (m == "exp" || m == "exp_cooldown") && halfLifeMs <= 0 {
 		return Result{Error: errors.New("halfLife required for exp/exp_cooldown staleness")}, runInfo

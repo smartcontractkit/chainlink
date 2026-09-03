@@ -1,9 +1,11 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	stderrors "errors"
+	"math"
 	"strconv"
 	"strings"
 
@@ -133,8 +135,21 @@ func toInt64(v any) (int64, error) {
 	case uint:
 		return int64(tv), nil //nolint:gosec // G115: timestamps from upstream JSON
 	case float64:
+		if tv != math.Trunc(tv) {
+			return 0, errors.Errorf("float %v is not an integer timestamp", tv)
+		}
+		if tv < math.MinInt64 || tv > math.MaxInt64 {
+			return 0, errors.Errorf("float %v out of int64 range", tv)
+		}
 		return int64(tv), nil
 	case float32:
+		f := float64(tv)
+		if f != math.Trunc(f) {
+			return 0, errors.Errorf("float %v is not an integer timestamp", tv)
+		}
+		if f < math.MinInt64 || f > math.MaxInt64 {
+			return 0, errors.Errorf("float %v out of int64 range", tv)
+		}
 		return int64(tv), nil
 	case string:
 		return strconv.ParseInt(tv, 10, 64)
@@ -342,8 +357,10 @@ func sampleInputToMap(v any) (map[string]any, error) {
 	case string:
 		return sampleInputToMap([]byte(x))
 	case []byte:
+		jd := json.NewDecoder(bytes.NewReader(x))
+		jd.UseNumber()
 		var m map[string]any
-		if err := json.Unmarshal(x, &m); err != nil {
+		if err := jd.Decode(&m); err != nil {
 			return nil, err
 		}
 		return m, nil
