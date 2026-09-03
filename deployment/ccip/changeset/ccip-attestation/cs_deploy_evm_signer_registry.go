@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -69,6 +70,7 @@ func signerRegistryDeploymentPrecondition(env cldf.Environment, config SignerReg
 
 func signerRegistryDeploymentLogic(e cldf.Environment, config SignerRegistryChangesetConfig) (cldf.ChangesetOutput, error) {
 	addressBook := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	for _, chain := range e.BlockChains.EVMChains() {
 		// Only deploy on Base Mainnet and Base Sepolia
@@ -76,7 +78,7 @@ func signerRegistryDeploymentLogic(e cldf.Environment, config SignerRegistryChan
 			e.Logger.Infof("Skipping deployment on chain %s (selector: %d) - only deploying on Base chains", chain.String(), chain.ChainSelector())
 			continue
 		}
-		signerRegistry, err := cldf.DeployContract(e.Logger, chain, addressBook,
+		signerRegistry, err := shared.DeployContractAndRecord(e.Logger, chain, addressBook, ds, cldf.NewTypeAndVersion(shared.EVMSignerRegistry, deployment.Version1_0_0), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*signer_registry.SignerRegistry] {
 				address, tx, signerRegistry, err := signer_registry.DeploySignerRegistry(
 					chain.DeployerKey,
@@ -99,11 +101,6 @@ func signerRegistryDeploymentLogic(e cldf.Environment, config SignerRegistryChan
 		}
 
 		e.Logger.Infof("Successfully deployed signer registry %s on %s", signerRegistry.Address.String(), chain.String())
-	}
-
-	ds, err := shared.PopulateDataStore(addressBook)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{AddressBook: addressBook, DataStore: ds}, nil

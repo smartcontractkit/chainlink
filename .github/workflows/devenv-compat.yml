@@ -162,6 +162,7 @@ jobs:
           cache-dependency-path: ${{ env.WORKING_DIR }}/go.sum
 
       - name: Download Go dependencies
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           go mod download
 

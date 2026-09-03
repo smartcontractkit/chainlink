@@ -22,6 +22,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
+	ccipcommoncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -74,7 +75,7 @@ type RateLimiterConfig struct {
 	Outbound *token_pool.RateLimiterConfig `json:"outbound,omitempty"`
 }
 
-// validateRateLimterConfig validates rate and capacity in accordance with on-chain code.
+// validateRateLimiterConfig validates rate and capacity in accordance with on-chain code.
 // see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/ccip/libraries/RateLimiter.sol.
 func validateRateLimiterConfig(rateLimiterConfig token_pool.RateLimiterConfig) error {
 	zero := big.NewInt(0)
@@ -1035,7 +1036,7 @@ func ConfigureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPo
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool: %w", err)
 		}
-		err = cldf.MergeChangesetOutput(env, &finalOutput, output)
+		err = ccipcommoncs.MergeChangesetOutput(env, &finalOutput, output)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output: %w", err)
 		}

@@ -51,7 +51,7 @@ var (
 
 				report, err := operations.ExecuteOperation(b, CCTPMessageTransmitterProxyConfigOp, chains[chainSelector], input)
 				if err != nil {
-					return map[uint64][]opsutils.EVMCallOutput{}, fmt.Errorf("failed to set CCTP message transmitt proxy config for chain %d: %w", chainSelector, err)
+					return map[uint64][]opsutils.EVMCallOutput{}, fmt.Errorf("failed to set CCTP message transmit proxy config for chain %d: %w", chainSelector, err)
 				}
 				out[chainSelector] = []opsutils.EVMCallOutput{report.Output}
 			}
@@ -75,24 +75,24 @@ func (i ConfigureCCTPMessageTransmitterProxyInput) Validate(ctx context.Context,
 	if _, ok := state.CCTPMessageTransmitterProxies[deployment.Version1_6_2]; !ok {
 		return fmt.Errorf("no CCTP proxy with version %s found on %s", deployment.Version1_6_2, chain.Name())
 	}
-	for _, allowedCalleUpdate := range i.AllowedCallerUpdates {
-		if allowedCalleUpdate.AllowedCaller == utils.ZeroAddress {
+	for _, allowedCallerUpdate := range i.AllowedCallerUpdates {
+		if allowedCallerUpdate.AllowedCaller == utils.ZeroAddress {
 			return fmt.Errorf("allowed caller must be defined for chain %s", chain.Name())
 		}
 
 		// Skip allowed caller validation against USDC token pools when removing callers
-		if !allowedCalleUpdate.Enabled {
+		if !allowedCallerUpdate.Enabled {
 			continue
 		}
 
 		matchedPool := false
 		for _, usdcTokenPool := range state.USDCTokenPoolsV1_6 {
-			if usdcTokenPool.Address().Cmp(allowedCalleUpdate.AllowedCaller) == 0 {
+			if usdcTokenPool.Address().Cmp(allowedCallerUpdate.AllowedCaller) == 0 {
 				matchedPool = true
 			}
 		}
 		if !matchedPool {
-			return fmt.Errorf("allowed caller does not match any existing 1.6 USDC token pools (%s)", allowedCalleUpdate.AllowedCaller.Hex())
+			return fmt.Errorf("allowed caller does not match any existing 1.6 USDC token pools (%s)", allowedCallerUpdate.AllowedCaller.Hex())
 		}
 	}
 

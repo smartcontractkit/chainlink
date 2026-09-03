@@ -7,7 +7,7 @@ import (
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"

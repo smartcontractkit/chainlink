@@ -47,7 +47,7 @@ type generalConfig struct {
 
 // GeneralConfigOpts holds configuration options for creating a coreconfig.GeneralConfig via New().
 //
-// See ParseTOML to initilialize Config and Secrets from TOML.
+// See ParseTOML to initialize Config and Secrets from TOML.
 type GeneralConfigOpts struct {
 	ConfigStrings  []string
 	SecretsStrings []string

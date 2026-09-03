@@ -76,7 +76,7 @@ func NewApp(s *Shell) *cli.App {
 		s.secretsFileIsSet = c.IsSet("secrets")
 
 		// Default to using a stdout logger only.
-		// This is overidden for server commands which may start a rotating
+		// This is overridden for server commands which may start a rotating
 		// logger instead.
 		lggr, closeFn := logger.NewLogger()
 
@@ -255,7 +255,7 @@ func NewApp(s *Shell) *cli.App {
 
 				logFileMaxSizeMB := s.Config.Log().File().MaxSize() / utils.MB
 				if logFileMaxSizeMB > 0 {
-					err = utils.EnsureDirAndMaxPerms(s.Config.Log().File().Dir(), os.FileMode(0700))
+					err = utils.EnsureDirAndMaxPerms(s.Config.Log().File().Dir(), os.FileMode(0o700))
 					if err != nil {
 						return err
 					}
@@ -344,7 +344,7 @@ func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
 }
 
-func initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFiles []string) (chainlink.GeneralConfig, error) {
+func initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles, secretsFiles []string) (chainlink.GeneralConfig, error) {
 	err := opts.Setup(configFiles, secretsFiles)
 	if err != nil {
 		return nil, err

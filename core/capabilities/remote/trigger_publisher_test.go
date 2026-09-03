@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -34,7 +36,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 
 	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 1, time.Second)
 
-	// invalid sender case - node 0 is not a member of the workflow DON, registration shoudn't happen
+	// invalid sender case - node 0 is not a member of the workflow DON, registration shouldn't happen
 	regEvent := newRegisterTriggerMessage(t, workflowDONID, peers[0])
 	publisher.Receive(ctx, regEvent)
 	require.Empty(t, underlyingTriggerCap.registrationsCh)
@@ -237,7 +239,7 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 	})
 }
 
-func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, maxBatchSize uint32, batchCollectionPeriod time.Duration) (*testTrigger, remotetypes.ReceiverService, *mocks.Dispatcher, []p2ptypes.PeerID) {
+func newServices(t *testing.T, capabilityDONID, workflowDONID, maxBatchSize uint32, batchCollectionPeriod time.Duration) (*testTrigger, remotetypes.ReceiverService, *mocks.Dispatcher, []p2ptypes.PeerID) {
 	t.Helper()
 	lggr := logger.Test(t)
 	capInfo := commoncap.CapabilityInfo{
@@ -292,6 +294,7 @@ func allowRegistrationChecks(dispatcher *mocks.Dispatcher) {
 func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
 	// trigger registration event
 	triggerRequest := commoncap.TriggerRegistrationRequest{
+		TriggerID: t.Name() + strconv.Itoa(rand.Int()),
 		Metadata: commoncap.RequestMetadata{
 			WorkflowID: workflowID1,
 		},
@@ -306,7 +309,7 @@ func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes
 	}
 }
 
-func newAckEventMessage(t *testing.T, eventID string, triggerID string, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
+func newAckEventMessage(t *testing.T, eventID, triggerID string, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
 	return &remotetypes.MessageBody{
 		Sender:      sender[:],
 		Method:      remotetypes.MethodTriggerEventAck,
@@ -356,7 +359,7 @@ func (tr *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.Tr
 	return nil
 }
 
-func (tr *testTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
+func (tr *testTrigger) AckEvent(_ context.Context, triggerID, eventID, method string) error {
 	tr.eventAckd = true
 	tr.ackCount.Add(1)
 	if tr.ackBlock != nil {
@@ -634,7 +637,6 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for registration check message")
 	}
-
 }
 
 func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
@@ -1280,7 +1282,7 @@ func (tr *errTrigger) UnregisterTrigger(_ context.Context, _ commoncap.TriggerRe
 	return nil
 }
 
-func (tr *errTrigger) AckEvent(_ context.Context, _ string, _ string, _ string) error {
+func (tr *errTrigger) AckEvent(_ context.Context, _, _, _ string) error {
 	return nil
 }
 
@@ -1324,7 +1326,7 @@ func (tr *multiTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error
 	return tr.info, nil
 }
 
-func (tr *multiTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
+func (tr *multiTrigger) AckEvent(_ context.Context, triggerID, eventID, method string) error {
 	return nil
 }
 

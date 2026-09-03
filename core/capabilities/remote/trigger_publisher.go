@@ -314,6 +314,10 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
+		if !validation.IsValidID(req.TriggerID) {
+			p.lggr.Errorw("received trigger request with invalid trigger ID", "triggerID", SanitizeLogString(req.TriggerID))
+			return
+		}
 		if err = validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
 			p.lggr.Errorw("received trigger request with invalid workflow ID", "workflowId", SanitizeLogString(req.Metadata.WorkflowID), "err", err)
 			return
@@ -342,7 +346,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		// error, or a fresh registration flow).
 		//
 		// This did not matter when registration was synchronous—the "already exists" check
-		// above returned early without causing unncessary RegisterTrigger calls. With async registration,
+		// above returned early without causing unnecessary RegisterTrigger calls. With async registration,
 		// that check may pass in time, so once=true prevents duplicate RegisterTrigger calls for the same trigger.
 		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
 		if !ready {
@@ -375,6 +379,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.lggr.Errorw("failed to unmarshal request", "err", unmarshalErr)
 			return
 		}
+		p.messageCache.MarkDelivered(key)
 		p.mu.Unlock()
 
 		capAttrs := metric.WithAttributes(
@@ -486,6 +491,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.lggr.Debugw("unregister trigger", "workflowID", key.workflowID, "triggerID", key.triggerID,
 			"callerDonId", msg.CallerDonId, "minRequired", minRequired, "sender", sender)
 		delete(p.registrations, key)
+		p.unregisterCache.MarkDelivered(key)
 		p.unregisterCache.Delete(key)
 		p.messageCache.Delete(key)
 		p.mu.Unlock()
@@ -637,11 +643,16 @@ func (p *triggerPublisher) cacheCleanupLoop() {
 			// no longer want a registration respond to MethodTriggerRegistrationCheck
 			// with MethodUnregisterTrigger, which is handled in Receive.
 			p.mu.Lock()
-			deleted := p.ackCache.DeleteOlderThan(now - cfg.remoteConfig.MessageExpiry.Milliseconds())
+			ts := now - cfg.remoteConfig.MessageExpiry.Milliseconds()
+			ackDel := p.ackCache.DeleteOlderThan(ts)
+			msgDel := p.messageCache.DeleteOlderThan(ts)
 			p.mu.Unlock()
 
-			if deleted > 0 {
-				p.lggr.Debugw("cleaned expired AckCache entries", "deleted", deleted)
+			if ackDel > 0 {
+				p.lggr.Debugw("cleaned expired AckCache entries", "deleted", ackDel)
+			}
+			if msgDel > 0 {
+				p.lggr.Debugw("cleaned expired message entries", "deleted", msgDel)
 			}
 		}
 	}

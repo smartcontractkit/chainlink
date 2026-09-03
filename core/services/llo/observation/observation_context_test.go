@@ -91,7 +91,7 @@ func TestObservationContext_Observe(t *testing.T) { //nolint:paralleltest // sub
 	}
 
 	r.pipelines = map[streams.StreamID]*mockPipeline{
-		streamID1:  &mockPipeline{},
+		streamID1:  {},
 		streamID2:  makePipelineWithSingleResult[decimal.Decimal](rand.Int64(), decimal.NewFromFloat(12.34), nil),
 		streamID3:  makeErroringPipeline(),
 		streamID4:  multiPipelineDecimal,
@@ -217,11 +217,12 @@ type mockBridgeConfig struct{}
 func (m *mockBridgeConfig) BridgeResponseURL() *url.URL {
 	return nil
 }
+
 func (m *mockBridgeConfig) BridgeCacheTTL() time.Duration {
 	return 0
 }
 
-func createBridge(t testing.TB, name string, val string, borm bridges.ORM, maxCalls int64) {
+func createBridge(t testing.TB, name, val string, borm bridges.ORM, maxCalls int64) {
 	callcount := atomic.NewInt64(0)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		n := callcount.Inc()
@@ -284,7 +285,7 @@ func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
 			PipelineSpec: &pipeline.Spec{
 				DotDagSource: `
 // Benchmark Price
-result1          [type=memo value="900.0022"];
+result1          [type=memo value="123.9"];
 multiply2 	  	 [type=multiply times=1 streamID=1 index=0]; // force conversion to decimal
 
 result2          [type=bridge name="foo-bridge" requestData="{\"data\":{\"data\":\"foo\"}}"];
@@ -309,7 +310,7 @@ result3 -> result3_parse -> multiply3;
 
 		val, err := oc.Observe(ctx, streams.StreamID(1), opts)
 		require.NoError(t, err)
-		assert.Equal(t, "900.0022", val.(*lloprotocol.Decimal).String())
+		assert.Equal(t, "123.9", val.(*lloprotocol.Decimal).String())
 		val, err = oc.Observe(ctx, streams.StreamID(2), opts)
 		require.NoError(t, err)
 		assert.Equal(t, "123.456", val.(*lloprotocol.Decimal).String())
@@ -321,9 +322,51 @@ result3 -> result3_parse -> multiply3;
 		require.NoError(t, err)
 		assert.Equal(t, &lloprotocol.Quote{
 			Bid:       decimal.NewFromFloat32(123.456),
-			Benchmark: decimal.NewFromFloat32(900.0022),
+			Benchmark: decimal.NewFromFloat32(123.9),
 			Ask:       decimal.NewFromFloat32(124.456),
 		}, val.(*lloprotocol.Quote))
+	})
+
+	t.Run("an invalid job-level quote fails the tagged streams of the same pipeline", func(t *testing.T) {
+		t.Parallel()
+		badJobStreamID := streams.StreamID(15)
+		jb := job.Job{
+			Type:     job.Stream,
+			StreamID: &badJobStreamID,
+			PipelineSpec: &pipeline.Spec{
+				// Benchmark deliberately above the ask. No bridges here: the shared
+				// ones only serve a single request.
+				DotDagSource: `
+result1          [type=memo value="900.0022"];
+multiply1 	  	 [type=multiply times=1 streamID=11 index=0];
+
+result2          [type=memo value="123.456"];
+multiply2 	  	 [type=multiply times=1 streamID=12 index=1];
+
+result3          [type=memo value="124.456"];
+multiply3 	  	 [type=multiply times=1 streamID=13 index=2];
+
+result1 -> multiply1;
+result2 -> multiply2;
+result3 -> multiply3;
+`,
+			},
+		}
+		badReg := streams.NewRegistry(lggr, runner)
+		require.NoError(t, badReg.Register(jb, nil))
+
+		oc := newObservationContext(lggr, badReg, &mockTelemeter{})
+		opts := llov30.DSOpts(nil)
+
+		// The quote is only assembled for the job-level stream, but the whole set
+		// fails: the tagged streams come from the same pipeline run.
+		for _, sid := range []streams.StreamID{11, 12, 13, badJobStreamID} {
+			val, err := oc.Observe(ctx, sid, opts)
+			assert.Nil(t, val, "stream %d should have no value", sid)
+			var qerr QuoteInvariantError
+			require.ErrorAs(t, err, &qerr, "stream %d", sid)
+			assert.Equal(t, badJobStreamID, qerr.StreamID)
+		}
 	})
 }
 
@@ -473,4 +516,202 @@ result3 -> result3_parse -> multiply3;
 	if err := g.Wait(); err != nil {
 		b.Fatalf("Observation failed: %v", err)
 	}
+}
+
+// quoteResultMap builds the map form of a tagged Quote stream result.
+// benchmarkKey lets a test exercise the "mid" alias.
+func quoteResultMap(bid, benchmarkKey, benchmark, ask string) map[string]any {
+	m := map[string]any{
+		"streamValueType": int64(lloprotocol.LLOStreamValue_Quote),
+		"bid":             bid,
+		"ask":             ask,
+	}
+	if benchmarkKey != "" {
+		m[benchmarkKey] = benchmark
+	}
+	return m
+}
+
+func makeLegacyQuotePipeline(benchmark, bid, ask string) *mockPipeline {
+	// Untagged terminal tasks, ordered Benchmark, Bid, Ask.
+	trrs := make(pipeline.TaskRunResults, 0, 3)
+	for _, v := range []string{benchmark, bid, ask} {
+		trrs = append(trrs, pipeline.TaskRunResult{Task: &pipeline.MemoTask{}, Result: pipeline.Result{Value: v}})
+	}
+	return &mockPipeline{run: &pipeline.Run{}, trrs: trrs}
+}
+
+func TestObservationContext_Observe_quotes(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	opts := llov30.DSOpts(nil)
+
+	newOC := func(t *testing.T, pipelines map[streams.StreamID]*mockPipeline) ObservationContext {
+		r := &mockRegistry{pipelines: pipelines}
+		return newObservationContext(logger.TestLogger(t), r, &mockTelemeter{})
+	}
+
+	t.Run("parses a tagged quote", func(t *testing.T) {
+		t.Parallel()
+		sid := streams.StreamID(1)
+		p := makePipelineWithMultipleStreamResults([]streams.StreamID{sid}, []any{quoteResultMap("1.1", "benchmark", "2.2", "3.3")})
+		val, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+		require.NoError(t, err)
+		q, ok := val.(*lloprotocol.Quote)
+		require.True(t, ok, "expected *lloprotocol.Quote, got %T", val)
+		assert.Equal(t, "1.1", q.Bid.String())
+		assert.Equal(t, "2.2", q.Benchmark.String())
+		assert.Equal(t, "3.3", q.Ask.String())
+	})
+
+	t.Run("accepts mid as an alias for benchmark", func(t *testing.T) {
+		t.Parallel()
+		sid := streams.StreamID(1)
+		p := makePipelineWithMultipleStreamResults([]streams.StreamID{sid}, []any{quoteResultMap("1.1", "mid", "2.2", "3.3")})
+		val, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+		require.NoError(t, err)
+		assert.Equal(t, "2.2", val.(*lloprotocol.Quote).Benchmark.String())
+	})
+
+	t.Run("rejects both benchmark and mid", func(t *testing.T) {
+		t.Parallel()
+		sid := streams.StreamID(1)
+		m := quoteResultMap("1.1", "benchmark", "2.2", "3.3")
+		m["mid"] = "2.2"
+		p := makePipelineWithMultipleStreamResults([]streams.StreamID{sid}, []any{m})
+		_, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+		require.ErrorContains(t, err, "expected exactly one of 'benchmark' or 'mid', got both")
+	})
+
+	t.Run("errors on a malformed tagged quote", func(t *testing.T) {
+		t.Parallel()
+		for name, m := range map[string]map[string]any{
+			"missing benchmark": quoteResultMap("1.1", "", "", "3.3"),
+			"missing ask":       {"streamValueType": int64(lloprotocol.LLOStreamValue_Quote), "bid": "1.1", "benchmark": "2.2"},
+			"unparseable bid":   quoteResultMap("not-a-number", "benchmark", "2.2", "3.3"),
+		} {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				sid := streams.StreamID(1)
+				p := makePipelineWithMultipleStreamResults([]streams.StreamID{sid}, []any{m})
+				_, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+				require.ErrorContains(t, err, "failed to parse Quote")
+			})
+		}
+	})
+
+	t.Run("fails a tagged quote violating the bid/benchmark/ask invariant", func(t *testing.T) {
+		t.Parallel()
+		for name, m := range map[string]map[string]any{
+			"bid above benchmark": quoteResultMap("3.3", "benchmark", "2.2", "4.4"),
+			"benchmark above ask": quoteResultMap("1.1", "benchmark", "5.5", "4.4"),
+			"bid above ask":       quoteResultMap("5.5", "mid", "4.4", "3.3"),
+		} {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				sid := streams.StreamID(1)
+				p := makePipelineWithMultipleStreamResults([]streams.StreamID{sid}, []any{m})
+				_, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+				var qerr QuoteInvariantError
+				require.ErrorAs(t, err, &qerr)
+				assert.Equal(t, sid, qerr.StreamID)
+				assert.Contains(t, err.Error(), "quote invariant violation for stream 1")
+			})
+		}
+	})
+
+	t.Run("accepts a quote with equal bid, benchmark and ask", func(t *testing.T) {
+		t.Parallel()
+		sid := streams.StreamID(1)
+		p := makePipelineWithMultipleStreamResults([]streams.StreamID{sid}, []any{quoteResultMap("2.2", "benchmark", "2.2", "2.2")})
+		_, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+		require.NoError(t, err)
+	})
+
+	t.Run("fails every stream of a pipeline when one tagged quote is invalid", func(t *testing.T) {
+		t.Parallel()
+		plain, badQuote, goodQuote := streams.StreamID(4), streams.StreamID(5), streams.StreamID(6)
+		p := makePipelineWithMultipleStreamResults(
+			[]streams.StreamID{plain, badQuote, goodQuote},
+			[]any{
+				decimal.NewFromFloat(12.34),
+				quoteResultMap("9.9", "benchmark", "2.2", "3.3"), // bid > benchmark
+				quoteResultMap("1.1", "benchmark", "2.2", "3.3"),
+			},
+		)
+		oc := newOC(t, map[streams.StreamID]*mockPipeline{plain: p, badQuote: p, goodQuote: p})
+
+		for _, sid := range []streams.StreamID{plain, badQuote, goodQuote} {
+			val, err := oc.Observe(ctx, sid, opts)
+			assert.Nil(t, val, "stream %d should have no value", sid)
+			var qerr QuoteInvariantError
+			require.ErrorAs(t, err, &qerr, "stream %d should fail with QuoteInvariantError", sid)
+			// The violation is always attributed to the offending stream, not the
+			// stream that was asked for.
+			assert.Equal(t, badQuote, qerr.StreamID)
+		}
+		assert.Equal(t, int32(1), p.runCount.Load(), "pipeline should only run once")
+	})
+
+	t.Run("fails every stream concurrently observing a pipeline with an invalid quote", func(t *testing.T) {
+		t.Parallel()
+		sids := []streams.StreamID{1, 2, 3}
+		p := makePipelineWithMultipleStreamResults(sids, []any{
+			decimal.NewFromFloat(1),
+			decimal.NewFromFloat(2),
+			quoteResultMap("9.9", "benchmark", "2.2", "3.3"),
+		})
+		pipelines := map[streams.StreamID]*mockPipeline{}
+		for _, sid := range sids {
+			pipelines[sid] = p
+		}
+		oc := newOC(t, pipelines)
+
+		var mu sync.Mutex
+		errsBySID := map[streams.StreamID]error{}
+		var wg sync.WaitGroup
+		for _, sid := range sids {
+			for range 10 {
+				wg.Go(func() {
+					_, err := oc.Observe(ctx, sid, opts)
+					mu.Lock()
+					defer mu.Unlock()
+					errsBySID[sid] = err
+				})
+			}
+		}
+		wg.Wait()
+
+		require.Len(t, errsBySID, len(sids))
+		for sid, err := range errsBySID {
+			var qerr QuoteInvariantError
+			require.ErrorAs(t, err, &qerr, "stream %d", sid)
+			assert.Equal(t, streams.StreamID(3), qerr.StreamID)
+		}
+		assert.Equal(t, int32(1), p.runCount.Load())
+	})
+
+	t.Run("fails a legacy three-terminal quote violating the invariant", func(t *testing.T) {
+		t.Parallel()
+		sid := streams.StreamID(1)
+		// Ordering is Benchmark, Bid, Ask.
+		p := makeLegacyQuotePipeline("2.2", "9.9", "3.3")
+		val, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+		assert.Nil(t, val)
+		var qerr QuoteInvariantError
+		require.ErrorAs(t, err, &qerr)
+		assert.Equal(t, sid, qerr.StreamID)
+	})
+
+	t.Run("returns a valid legacy three-terminal quote", func(t *testing.T) {
+		t.Parallel()
+		sid := streams.StreamID(1)
+		p := makeLegacyQuotePipeline("2.2", "1.1", "3.3")
+		val, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+		require.NoError(t, err)
+		q := val.(*lloprotocol.Quote)
+		assert.Equal(t, "1.1", q.Bid.String())
+		assert.Equal(t, "2.2", q.Benchmark.String())
+		assert.Equal(t, "3.3", q.Ask.String())
+	})
 }

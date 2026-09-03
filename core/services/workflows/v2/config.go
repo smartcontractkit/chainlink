@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -78,6 +79,8 @@ type EngineConfig struct {
 	MyShardID               uint32
 	ShardRoutingSteady      *shardownership.SteadySignal
 	ShardResolver           shardownership.ShardResolver
+
+	TriggerAcknowledger Acknowledger
 }
 
 type EngineLimiters struct {
@@ -88,7 +91,7 @@ type EngineLimiters struct {
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
 	TriggerSubscription      limits.BoundLimiter[int]
-	TriggerEventQueue        limits.QueueLimiter[enqueuedTriggerEvent]
+	TriggerEventQueue        limits.QueueLimiter[RoutedTriggerEvent]
 	TriggerEventQueueTime    limits.TimeLimiter
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
@@ -153,7 +156,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.TriggerEventQueue, err = limits.MakeQueueLimiter[enqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+	l.TriggerEventQueue, err = limits.MakeQueueLimiter[RoutedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
 	if err != nil {
 		return
 	}
@@ -369,7 +372,11 @@ func (l *EngineLimiters) Close() error {
 }
 
 type EngineFeatureFlags struct {
-	// put feature flags here and create them in NewFeatureFlags
+	// WorkflowTagBackfill gates the reconciler backfill of workflow_specs_v2.workflow_tag.
+	// The Check succeeds only when time.Now() is inside the configured active period,
+	// which lets ops schedule a healing window across the DON via cresettings.
+	// Nil when construction fails; call sites must nil-check.
+	WorkflowTagBackfill limits.RangeLimiter[config.Timestamp]
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -377,9 +384,13 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
-	// example:
-	// featureXYZFlag, err := limits.MakeRangeLimiter(lf, cfg.FeatureXYZActivePeriod)
-	return &EngineFeatureFlags{}, nil
+	workflowTagBackfill, err := limits.MakeRangeLimiter[config.Timestamp](lf, cfg.FeatureWorkflowTagBackfillActivePeriod)
+	if err != nil {
+		return nil, fmt.Errorf("workflow tag backfill flag: %w", err)
+	}
+	return &EngineFeatureFlags{
+		WorkflowTagBackfill: workflowTagBackfill,
+	}, nil
 }
 
 const (
@@ -397,7 +408,14 @@ type EngineLimits struct {
 type LifecycleHooks struct {
 	// OnInitialized is used to emit a workflowActivated event after the engine
 	// has completed initialization. It is also helpful for testing.
-	OnInitialized           func(err error)
+	OnInitialized func(err error)
+
+	// OnSubscriptionsReady is called after the WASM Subscribe call returns
+	// and the subscriptions have been validated, but before trigger
+	// registration begins. It allows the caller (syncer/dispatcher) to
+	// inspect or modify the subscriptions before they are registered with
+	// the capabilities registry. Returning an error aborts initialization.
+	OnSubscriptionsReady    func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error
 	OnSubscribedToTriggers  func(triggerIDs []string)
 	OnTriggerEventDropped   func(triggerID, eventID, reason string)
 	OnExecutionFinished     func(executionID string, status string)
@@ -476,6 +494,9 @@ func (l *EngineLimits) setDefaultLimits() {
 func (h *LifecycleHooks) setDefaultHooks() {
 	if h.OnInitialized == nil {
 		h.OnInitialized = func(err error) {}
+	}
+	if h.OnSubscriptionsReady == nil {
+		h.OnSubscriptionsReady = func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error { return nil }
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}

@@ -73,8 +73,8 @@ func TestLoopRegistry(t *testing.T) {
 
 	// note we expect this to be an ordered result
 	expectedLabels := []model.LabelSet{
-		model.LabelSet{"__metrics_path__": model.LabelValue(expectedCoreEndPoint)},
-		model.LabelSet{
+		{"__metrics_path__": model.LabelValue(expectedCoreEndPoint)},
+		{
 			"__metrics_path__":      model.LabelValue(expectedLooppEndPoint),
 			web.LabelMetaPluginName: model.LabelValue("mockLoopImpl"),
 		},

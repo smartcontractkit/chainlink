@@ -333,7 +333,7 @@ func addBootstrapNodeConfig(
 		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstrapperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
@@ -366,7 +366,8 @@ func addBootstrapNodeConfig(
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{
@@ -420,7 +421,7 @@ func addWorkerNodeConfig(
 	donMetadata *cre.DonMetadata,
 	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstrapperPeerID, []string{ocrPeeringData.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
@@ -468,7 +469,8 @@ func addWorkerNodeConfig(
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{
@@ -616,10 +618,16 @@ func addGatewayNodeConfig(
 		existingConfig.P2P.V2.ListenAddresses = new([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)})
 	}
 
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstrapperPeerID, []string{ocrPeeringData.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
+	if ocrBErr != nil {
+		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
+	}
+
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{

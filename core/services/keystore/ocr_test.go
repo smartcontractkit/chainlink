@@ -20,7 +20,7 @@ func Test_OCRKeyStore_E2E(t *testing.T) {
 	require.NoError(t, keyStore.Unlock(t.Context(), cltest.Password))
 	ks := keyStore.OCR()
 	reset := func() {
-		ctx := context.Background() // Executed on cleaup
+		ctx := context.Background() // Executed on cleanup
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
 		keyStore.ResetXXXTestOnly()
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))

@@ -26,6 +26,7 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -106,6 +107,9 @@ type TokenPoolConfig struct {
 type AddTokenPoolAndLookupTableConfig struct {
 	ChainSelector    uint64
 	TokenPoolConfigs []TokenPoolConfig
+	// ForceDatastoreOverwrite is propagated to the lookup-table step; see
+	// TokenPoolLookupTableConfig.ForceDatastoreOverwrite.
+	ForceDatastoreOverwrite bool
 }
 
 type TokenPoolConfigWithMCM struct {
@@ -141,6 +145,22 @@ func (cfg NewMintTokenPoolConfig) Validate(e cldf.Environment, chainState solana
 	return chainState.ValidatePoolDeployment(&e, cfg.PoolType, cfg.ChainSelector, cfg.TokenPubKey, false, cfg.Metadata)
 }
 
+// PlannedRefs returns all lookup-table refs produced by this aggregate changeset. Keeping the
+// complete key set at the aggregate boundary prevents a later child validation from discovering a
+// duplicate after an earlier token-pool transaction has already been confirmed.
+func (cfg AddTokenPoolAndLookupTableConfig) PlannedRefs() []datastore.AddressRef {
+	refs := make([]datastore.AddressRef, 0, len(cfg.TokenPoolConfigs))
+	for _, tokenPoolCfg := range cfg.TokenPoolConfigs {
+		refs = append(refs, (TokenPoolLookupTableConfig{
+			ChainSelector: cfg.ChainSelector,
+			TokenPubKey:   tokenPoolCfg.TokenPubKey,
+			PoolType:      tokenPoolCfg.PoolType,
+			Metadata:      tokenPoolCfg.Metadata,
+		}).PlannedRefs()...)
+	}
+	return refs
+}
+
 func (cfg AddTokenPoolAndLookupTableConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
 	for _, tokenPoolCfg := range cfg.TokenPoolConfigs {
 		if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPoolCfg.TokenPubKey); err != nil {
@@ -152,6 +172,16 @@ func (cfg AddTokenPoolAndLookupTableConfig) Validate(e cldf.Environment, chainSt
 		if err := chainState.ValidatePoolDeployment(&e, tokenPoolCfg.PoolType, cfg.ChainSelector, tokenPoolCfg.TokenPubKey, false, tokenPoolCfg.Metadata); err != nil {
 			return err
 		}
+	}
+	if _, err := shared.ReserveRefs(cfg.PlannedRefs()); err != nil {
+		return fmt.Errorf("lookup table datastore refs conflict: %w", err)
+	}
+	validateRefs := shared.ValidateAddressRefsStrict
+	if cfg.ForceDatastoreOverwrite {
+		validateRefs = shared.ValidateAddressRefs
+	}
+	if err := validateRefs(e, cfg.PlannedRefs()); err != nil {
+		return fmt.Errorf("lookup table datastore refs conflict: %w", err)
 	}
 	return nil
 }
@@ -167,6 +197,10 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	addressBook := cldf.NewMemoryAddressBook()
+	ds, err := shared.ReserveRefs(cfg.PlannedRefs())
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("lookup table datastore refs conflict: %w", err)
+	}
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	rmnRemoteAddress := chainState.RMNRemote
 
@@ -282,10 +316,11 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		// add token pool lookup table
 		csOutput, err := AddTokenPoolLookupTable(e, TokenPoolLookupTableConfig{
-			ChainSelector: cfg.ChainSelector,
-			TokenPubKey:   tokenPoolCfg.TokenPubKey,
-			PoolType:      tokenPoolCfg.PoolType,
-			Metadata:      tokenPoolCfg.Metadata,
+			ChainSelector:           cfg.ChainSelector,
+			TokenPubKey:             tokenPoolCfg.TokenPubKey,
+			PoolType:                tokenPoolCfg.PoolType,
+			Metadata:                tokenPoolCfg.Metadata,
+			ForceDatastoreOverwrite: cfg.ForceDatastoreOverwrite,
 		})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
@@ -294,11 +329,12 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
 		}
-	}
-
-	ds, err := shared.PopulateDataStore(addressBook)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		// The sub-changeset already recorded the lookup table under its own qualifier.
+		if csOutput.DataStore != nil {
+			if err := ds.Merge(csOutput.DataStore.Seal()); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge lookup table datastore: %w", err)
+			}
+		}
 	}
 
 	return cldf.ChangesetOutput{
@@ -956,9 +992,40 @@ type TokenPoolLookupTableConfig struct {
 	TokenPubKey   solana.PublicKey
 	PoolType      cldf.ContractType
 	Metadata      string
+	// ForceDatastoreOverwrite permits this changeset to overwrite a lookup-table ref that already
+	// exists in the environment datastore. Without it, re-adding a lookup table for the same
+	// (mint, pool type, metadata) is rejected during validation rather than silently replacing it.
+	ForceDatastoreOverwrite bool
+}
+
+// PlannedRefs returns the datastore ref this changeset will write, derived from config alone so
+// it can be checked before the lookup table is created on chain. A lookup table is identified by
+// (mint, pool type, metadata), all of which are config fields.
+func (cfg TokenPoolLookupTableConfig) PlannedRefs() []datastore.AddressRef {
+	version := deployment.Version1_0_0
+	return []datastore.AddressRef{{
+		ChainSelector: cfg.ChainSelector,
+		Type:          datastore.ContractType(shared.TokenPoolLookupTable),
+		Version:       &version,
+		Qualifier:     shared.TokenPoolLookupTableQualifier(cfg.TokenPubKey.String(), cfg.PoolType.String(), cfg.Metadata),
+	}}
 }
 
 func (cfg TokenPoolLookupTableConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
+	// Reserve the keys to prove the refs can all be recorded, then check them against the
+	// environment. Both run before anything is deployed.
+	if _, err := shared.ReserveRefs(cfg.PlannedRefs()); err != nil {
+		return fmt.Errorf("lookup table datastore ref conflict: %w", err)
+	}
+	// Taking over a key the environment already holds is a redeploy: rejected unless the caller
+	// asked for it, in which case it is logged rather than passing unremarked.
+	validateRefs := shared.ValidateAddressRefsStrict
+	if cfg.ForceDatastoreOverwrite {
+		validateRefs = shared.ValidateAddressRefs
+	}
+	if err := validateRefs(e, cfg.PlannedRefs()); err != nil {
+		return fmt.Errorf("lookup table datastore ref conflict: %w", err)
+	}
 	if err := chainState.CommonValidation(e, cfg.ChainSelector, cfg.TokenPubKey); err != nil {
 		return err
 	}
@@ -972,7 +1039,7 @@ func (cfg TokenPoolLookupTableConfig) Validate(e cldf.Environment, chainState so
 }
 
 // this changeset is called in AddTokenPoolAndLookupTable
-// call this indepently only for some very specific reason, otherwise this should not be called and
+// call this independently only for some very specific reason, otherwise this should not be called and
 // AddTokenPoolAndLookupTable should be called instead
 func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Adding token pool lookup table", "cfg", cfg)
@@ -1026,20 +1093,17 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to await slot change while extending lookup table: %w", err)
 	}
 	newAddressBook := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 	tv := cldf.NewTypeAndVersion(shared.TokenPoolLookupTable, deployment.Version1_0_0)
 	tv.Labels.Add(tokenPubKey.String())
 	tv.Labels.Add(cfg.PoolType.String())
 	tv.Labels.Add(cfg.Metadata)
-	if err := newAddressBook.Save(cfg.ChainSelector, table.String(), tv); err != nil {
+	if err := shared.RecordAddress(newAddressBook, ds, cfg.ChainSelector, table.String(), tv, shared.TokenPoolLookupTableQualifier(tokenPubKey.String(), cfg.PoolType.String(), cfg.Metadata)); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to save tokenpool address lookup table: %w", err)
 	}
 	e.Logger.Infow("Added token pool lookup table", "token_pubkey", tokenPubKey.String())
 
-	ds, err := shared.PopulateDataStore(newAddressBook)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-	}
-
+	// the token pool lookup table is qualified by its full identity (token mint, pool type, metadata)
 	return cldf.ChangesetOutput{
 		AddressBook: newAddressBook,
 		DataStore:   ds,

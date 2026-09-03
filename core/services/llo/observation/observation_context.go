@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"math/big"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -37,7 +39,25 @@ type execution struct {
 	run  *pipeline.Run
 	trrs pipeline.TaskRunResults
 	err  error
+
+	// vals holds the stream values resolved from trrs by the executing
+	// goroutine, keyed by stream ID. Read-only once done is closed.
+	vals resolvedStreamValues
 }
+
+// resolvedStreamValue is the outcome of converting one pipeline output into a
+// StreamValue. err is scoped to this stream only; a group-fatal failure is
+// reported through execution.err instead.
+type resolvedStreamValue struct {
+	val        lloprotocol.StreamValue
+	err        error
+	finishedAt time.Time // zero if the task did not report a finish time
+	// fallback is true if the value came from the terminal outputs of the
+	// pipeline rather than from a streamID-tagged task.
+	fallback bool
+}
+
+type resolvedStreamValues map[streams.StreamID]resolvedStreamValue
 
 type observationContext struct {
 	l logger.Logger
@@ -58,78 +78,199 @@ func newObservationContext(l logger.Logger, r Registry, t Telemeter) *observatio
 }
 
 func (oc *observationContext) Observe(ctx context.Context, streamID streams.StreamID, opts telem.DSOpts) (val lloprotocol.StreamValue, err error) {
-	run, trrs, err := oc.run(ctx, streamID)
+	ex, err := oc.run(ctx, streamID)
 	observationFinishedAt := time.Now()
 	if err != nil {
+		// Either the pipeline itself failed, or one of the stream values it
+		// produced violated an invariant. In both cases every stream served by
+		// this pipeline fails for this observation round.
+		var run *pipeline.Run
+		var trrs pipeline.TaskRunResults
+		if ex != nil {
+			run, trrs = ex.run, ex.trrs
+		}
 		// FIXME: This is a hack specific for V3 telemetry, future schemas should
 		// use a generic stream value telemetry instead
 		// https://smartcontract-it.atlassian.net/browse/MERC-6290
-		oc.t.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, err)
+		oc.t.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, nil, err)
+		oc.enqueueObservationTelemetry(ctx, streamID, opts, nil, observationFinishedAt, err)
 		return nil, err
 	}
-	// Extract stream value based on streamID attribute
-	found := false
-	for _, trr := range trrs {
-		if trr.Task.TaskStreamID() != nil && *trr.Task.TaskStreamID() == streamID {
-			val, err = resultToStreamValue(trr.Result.Value)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert result to StreamValue for streamID %d: %w", streamID, err)
-			}
-			if trr.FinishedAt.Valid {
-				observationFinishedAt = trr.FinishedAt.Time
-			}
-			found = true
-			break
-		}
-	}
+
+	rsv, found := ex.vals[streamID]
 	if !found {
-		// If no streamID attribute is found in the task results, then assume the
-		// final output is the stream ID and return that. This is safe to do since
-		// the registry will never return a spec that doesn't match either by tag
-		// or by spec streamID.
-		val, err = extractFinalResultAsStreamValue(trrs)
-		if oc.t.CaptureEATelemetry() {
-			// FIXME: This is a hack specific for V3 telemetry, future schemas should
-			// use the generic stream value telemetry instead
-			// https://smartcontract-it.atlassian.net/browse/MERC-6290
-			oc.t.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, err)
+		// The pipeline tags stream IDs, but none of them is the one we were
+		// asked for. Assume the final output is this stream, same as for an
+		// untagged pipeline.
+		rsv = resolveFinalResult(ex.trrs)
+		if rsv.err == nil {
+			rsv.err = validateStreamValue(streamID, rsv.val)
+			if rsv.err != nil {
+				rsv.val = nil
+			}
 		}
 	}
-	if ch := GetObservationTelemetryCh(ctx); ch != nil {
-		cd := opts.ConfigDigest()
-		ot := &telem.LLOObservationTelemetry{
-			StreamId:              streamID,
-			ObservationTimestamp:  opts.ObservationTimestamp().UnixNano(),
-			ObservationFinishedAt: observationFinishedAt.UnixNano(),
-			SeqNr:                 opts.SeqNr(),
-			ConfigDigest:          cd[:],
-		}
+	if rsv.fallback && oc.t.CaptureEATelemetry() {
+		// FIXME: This is a hack specific for V3 telemetry, future schemas should
+		// use the generic stream value telemetry instead
+		// https://smartcontract-it.atlassian.net/browse/MERC-6290
+		oc.t.EnqueueV3PremiumLegacy(ex.run, ex.trrs, streamID, opts, rsv.val, rsv.err)
+	}
+	if !rsv.finishedAt.IsZero() {
+		observationFinishedAt = rsv.finishedAt
+	}
+	oc.enqueueObservationTelemetry(ctx, streamID, opts, rsv.val, observationFinishedAt, rsv.err)
+	if rsv.err != nil {
+		// Scoped to this stream: sibling streams from the same pipeline are
+		// still usable.
+		return nil, rsv.err
+	}
+	return rsv.val, nil
+}
+
+func (oc *observationContext) enqueueObservationTelemetry(ctx context.Context, streamID streams.StreamID, opts telem.DSOpts, val lloprotocol.StreamValue, observationFinishedAt time.Time, obsErr error) {
+	ch := GetObservationTelemetryCh(ctx)
+	if ch == nil {
+		return
+	}
+	cd := opts.ConfigDigest()
+	ot := &telem.LLOObservationTelemetry{
+		StreamId:              streamID,
+		ObservationTimestamp:  opts.ObservationTimestamp().UnixNano(),
+		ObservationFinishedAt: observationFinishedAt.UnixNano(),
+		SeqNr:                 opts.SeqNr(),
+		ConfigDigest:          cd[:],
+	}
+	if obsErr != nil {
+		ot.ObservationError = new(string)
+		*ot.ObservationError = obsErr.Error()
+	}
+	if val != nil {
+		ot.StreamValueType = int32(val.Type())
+		b, err := val.MarshalBinary()
 		if err != nil {
-			ot.ObservationError = new(string)
-			*ot.ObservationError = err.Error()
+			oc.l.Errorw("failed to MarshalBinary on stream value", "error", err)
+		} else {
+			ot.StreamValueBinary = b
 		}
-		if val != nil {
-			ot.StreamValueType = int32(val.Type())
-			b, err := val.MarshalBinary()
-			if err != nil {
-				oc.l.Errorw("failed to MarshalBinary on stream value", "error", err)
-			} else {
-				ot.StreamValueBinary = b
-			}
-			s, err := val.MarshalText()
-			if err != nil {
-				oc.l.Errorw("failed to MarshalText on stream value", "error", err)
-			} else {
-				ot.StreamValueText = string(s)
-			}
-		}
-		select {
-		case ch <- ot:
-		default:
-			oc.l.Error("telemetry channel is full, dropping observation telemetry")
+		s, err := val.MarshalText()
+		if err != nil {
+			oc.l.Errorw("failed to MarshalText on stream value", "error", err)
+		} else {
+			ot.StreamValueText = string(s)
 		}
 	}
-	return
+	select {
+	case ch <- ot:
+	default:
+		oc.l.Error("telemetry channel is full, dropping observation telemetry")
+	}
+}
+
+// resolvePipelineStreamValues converts every output of a single pipeline run
+// into StreamValues, keyed by stream ID. All streamID-tagged tasks are
+// converted, not just the requested one, so that an invariant violation on a
+// sibling stream is visible to the caller. If the requested stream ID has no
+// tagged task, the terminal outputs are resolved for it as a fallback.
+//
+// Conversion failures are recorded per stream rather than returned, so that one
+// broken stream does not take down its siblings.
+func resolvePipelineStreamValues(p streams.Pipeline, streamID streams.StreamID, trrs pipeline.TaskRunResults) resolvedStreamValues {
+	resolved := make(resolvedStreamValues, len(trrs))
+	for _, trr := range trrs {
+		sid := trr.Task.TaskStreamID()
+		if sid == nil {
+			continue
+		}
+		if _, exists := resolved[*sid]; exists {
+			// Duplicate tag; first one wins.
+			continue
+		}
+		var rsv resolvedStreamValue
+		val, err := resultToStreamValue(trr.Result.Value)
+		if err != nil {
+			rsv.err = fmt.Errorf("failed to convert result to StreamValue for streamID %d: %w", *sid, err)
+		} else {
+			rsv.val = val
+		}
+		if trr.FinishedAt.Valid {
+			rsv.finishedAt = trr.FinishedAt.Time
+		}
+		resolved[*sid] = rsv
+	}
+	// Any stream served by this pipeline that has no tagged task takes its value
+	// from the terminal outputs. Resolve those here too, even if the caller did
+	// not ask for them, so that a quote produced this way is validated together
+	// with its siblings.
+	untagged := append([]streams.StreamID(nil), p.StreamIDs()...)
+	untagged = append(untagged, streamID)
+	for _, sid := range untagged {
+		if _, exists := resolved[sid]; exists {
+			continue
+		}
+		resolved[sid] = resolveFinalResult(trrs)
+	}
+	return resolved
+}
+
+// resolveFinalResult treats the terminal outputs of the pipeline as the value
+// for a stream with no streamID-tagged task. This is safe to do since the
+// registry will never return a spec that doesn't match either by tag or by spec
+// streamID.
+func resolveFinalResult(trrs pipeline.TaskRunResults) resolvedStreamValue {
+	val, err := extractFinalResultAsStreamValue(trrs)
+	if err != nil {
+		return resolvedStreamValue{err: err, fallback: true}
+	}
+	return resolvedStreamValue{val: val, fallback: true}
+}
+
+// QuoteInvariantError is returned when a Quote stream value violates the
+// Bid <= Benchmark <= Ask invariant. It fails every stream served by the
+// pipeline that produced it, not just the offending stream, since a pipeline
+// emitting a nonsensical quote cannot be trusted for its sibling streams
+// either.
+type QuoteInvariantError struct {
+	StreamID streams.StreamID
+	Quote    *lloprotocol.Quote
+}
+
+func (e QuoteInvariantError) Error() string {
+	desc := "<nil>"
+	if e.Quote != nil {
+		if b, err := e.Quote.MarshalText(); err == nil {
+			desc = string(b)
+		} else {
+			desc = fmt.Sprintf("Q{Bid: %s, Benchmark: %s, Ask: %s}", e.Quote.Bid.String(), e.Quote.Benchmark.String(), e.Quote.Ask.String())
+		}
+	}
+	return fmt.Sprintf("quote invariant violation for stream %d, expected Bid <= Benchmark <= Ask, got: %s", e.StreamID, desc)
+}
+
+// validateStreamValues returns the first invariant violation found across all
+// streams produced by one pipeline run. Streams are visited in ascending stream
+// ID order so the reported violation is deterministic.
+func validateStreamValues(resolved resolvedStreamValues) error {
+	for _, sid := range slices.Sorted(maps.Keys(resolved)) {
+		rsv := resolved[sid]
+		if rsv.err != nil {
+			// Conversion already failed for this stream; it is reported to that
+			// stream alone.
+			continue
+		}
+		if err := validateStreamValue(sid, rsv.val); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateStreamValue(streamID streams.StreamID, val lloprotocol.StreamValue) error {
+	q, ok := val.(*lloprotocol.Quote)
+	if !ok || q.IsValid() {
+		return nil
+	}
+	return QuoteInvariantError{StreamID: streamID, Quote: q}
 }
 
 func resultToStreamValue(val any) (lloprotocol.StreamValue, error) {
@@ -176,6 +317,12 @@ func resultMapToStreamValue(m map[string]any) (lloprotocol.StreamValue, error) {
 		streamValueType = lloprotocol.LLOStreamValue_Type(rawInt64) //nolint:gosec // G115 // won't overflow due to check above
 	}
 	switch streamValueType {
+	case lloprotocol.LLOStreamValue_Quote:
+		r, err := resultMapToQuote(m)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse Quote: %w", err)
+		}
+		return r, nil
 	case lloprotocol.LLOStreamValue_TimestampedStreamValue:
 		r, err := resultMapToTimestampedStreamValue(m)
 		if err != nil {
@@ -185,6 +332,49 @@ func resultMapToStreamValue(m map[string]any) (lloprotocol.StreamValue, error) {
 	default:
 		return nil, fmt.Errorf("unknown streamValueType: %v", m["streamValueType"])
 	}
+}
+
+// expects something in the form of:
+//
+//	{
+//	  "streamValueType": 1,
+//	  "bid": "123.456",
+//	  "benchmark": "123.789",
+//	  "ask": "124.012"
+//	}
+//
+// "mid" is accepted as an alias for "benchmark"; supplying both is an error.
+func resultMapToQuote(m map[string]any) (*lloprotocol.Quote, error) {
+	const benchmarkKey, midKey = "benchmark", "mid"
+	_, hasBenchmark := m[benchmarkKey]
+	_, hasMid := m[midKey]
+	if hasBenchmark && hasMid {
+		return nil, fmt.Errorf("expected exactly one of '%s' or '%s', got both", benchmarkKey, midKey)
+	}
+	benchmarkAlias := benchmarkKey
+	if hasMid {
+		benchmarkAlias = midKey
+	}
+	q := new(lloprotocol.Quote)
+	for _, f := range []struct {
+		key string
+		dst *decimal.Decimal
+	}{
+		{"bid", &q.Bid},
+		{benchmarkAlias, &q.Benchmark},
+		{"ask", &q.Ask},
+	} {
+		raw, exists := m[f.key]
+		if !exists || raw == nil {
+			return nil, fmt.Errorf("expected a key labeled '%s'", f.key)
+		}
+		d, err := utils.ToDecimal(raw)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse '%s' as a decimal: %w", f.key, err)
+		}
+		*f.dst = d
+	}
+	return q, nil
 }
 
 // expects something in the form of:
@@ -326,10 +516,10 @@ func (e MissingStreamError) Error() string {
 	return fmt.Sprintf("no pipeline for stream: %d", e.StreamID)
 }
 
-func (oc *observationContext) run(ctx context.Context, streamID streams.StreamID) (*pipeline.Run, pipeline.TaskRunResults, error) {
+func (oc *observationContext) run(ctx context.Context, streamID streams.StreamID) (*execution, error) {
 	p, exists := oc.r.Get(streamID)
 	if !exists {
-		return nil, nil, MissingStreamError{StreamID: streamID}
+		return nil, MissingStreamError{StreamID: streamID}
 	}
 
 	// In case of multiple streamIDs per pipeline then the
@@ -347,7 +537,7 @@ func (oc *observationContext) run(ctx context.Context, streamID streams.StreamID
 		// while others do not. Blocking on ex.done ensures all goroutines for
 		// the same pipeline receive the identical (run, trrs, err) tuple.
 		<-ex.done
-		return ex.run, ex.trrs, ex.err
+		return ex, ex.err
 	}
 
 	// execute here
@@ -359,8 +549,15 @@ func (oc *observationContext) run(ctx context.Context, streamID streams.StreamID
 	run, trrs, err := p.Run(ctx)
 	ex.run = run
 	ex.trrs = trrs
+	if err == nil {
+		// Resolve and validate once, here, so that every stream served by this
+		// pipeline observes the same outcome. A quote invariant violation on any
+		// stream fails the whole set.
+		ex.vals = resolvePipelineStreamValues(p, streamID, trrs)
+		err = validateStreamValues(ex.vals)
+	}
 	ex.err = err
 	close(ch)
 
-	return run, trrs, err
+	return ex, err
 }

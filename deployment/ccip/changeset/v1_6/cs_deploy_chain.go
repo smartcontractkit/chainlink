@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -41,19 +42,16 @@ func DeployChainContractsChangeset(env cldf.Environment, c ccipseq.DeployChainCo
 		}, fmt.Errorf("failed to deploy CCIP contracts: %w", err)
 	}
 	addressBook := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 	for chainSel, addresses := range report.Output {
 		for address, typeAndVersion := range addresses {
-			err := addressBook.Save(chainSel, address, cldf.MustTypeAndVersionFromString(typeAndVersion))
+			err := shared.RecordAddress(addressBook, ds, chainSel, address, cldf.MustTypeAndVersionFromString(typeAndVersion), "")
 			if err != nil {
 				return cldf.ChangesetOutput{
 					Reports: report.ExecutionReports,
 				}, fmt.Errorf("failed to save address %s for chain %d: %w", address, chainSel, err)
 			}
 		}
-	}
-	ds, err := shared.PopulateDataStore(addressBook)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 	return cldf.ChangesetOutput{
 		Reports:     report.ExecutionReports,

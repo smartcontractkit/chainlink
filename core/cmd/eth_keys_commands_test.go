@@ -27,9 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-//go:fix inline
-func ptr[T any](t T) *T { return new(t) }
-
 func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
@@ -103,7 +100,7 @@ func TestShell_ListETHKeys(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 
-	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
@@ -128,7 +125,7 @@ func TestShell_ListETHKeys_Error(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 
-	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
@@ -152,7 +149,7 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 	require.Len(t, keys, 1)
 	k := keys[0]
 
-	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
@@ -277,7 +274,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 
 	// Export the key
 	testdir := filepath.Join(os.TempDir(), t.Name())
-	err = os.MkdirAll(testdir, 0700|os.ModeDir)
+	err = os.MkdirAll(testdir, 0o700|os.ModeDir)
 	require.NoError(t, err)
 	defer os.RemoveAll(testdir)
 	keyfilepath := filepath.Join(testdir, "key")
@@ -344,6 +341,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	require.Error(t, err, "Error exporting")
 	require.Error(t, utils.JustError(os.Stat(keyName)))
 }
+
 func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	t.Parallel()
 
@@ -385,7 +383,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 
 	// Export the key
 	testdir := filepath.Join(os.TempDir(), t.Name())
-	err = os.MkdirAll(testdir, 0700|os.ModeDir)
+	err = os.MkdirAll(testdir, 0o700|os.ModeDir)
 	require.NoError(t, err)
 	defer os.RemoveAll(testdir)
 	keyfilepath := filepath.Join(testdir, "key")

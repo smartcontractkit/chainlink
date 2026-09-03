@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
@@ -45,6 +46,39 @@ type TransparentUpgradeableProxy struct {
 type TransparentUpgradeableProxyChangesetConfig struct {
 	Tokens map[uint64]map[string]TransparentUpgradeableProxy
 	MCMS   *cldfproposalutils.TimelockConfig
+}
+
+// PlannedRefs returns every datastore key this changeset will write. The qualifier is the
+// configured symbol, not the map key.
+func (c TransparentUpgradeableProxyChangesetConfig) PlannedRefs() []datastore.AddressRef {
+	version := deployment.Version1_6_1
+	refs := make([]datastore.AddressRef, 0)
+	for chainSelector, tokens := range c.Tokens {
+		for _, config := range tokens {
+			refs = append(refs, datastore.AddressRef{
+				ChainSelector: chainSelector,
+				Type:          datastore.ContractType(shared.TransparentUpgradeableProxy),
+				Version:       &version,
+				Qualifier:     config.Symbol,
+			})
+		}
+	}
+	return refs
+}
+
+func (c TransparentUpgradeableProxyChangesetConfig) reserveRefs() (*datastore.MemoryDataStore, error) {
+	return shared.ReserveRefs(c.PlannedRefs())
+}
+
+func (c TransparentUpgradeableProxyChangesetConfig) validateDeployment(e cldf.Environment) error {
+	if _, err := c.reserveRefs(); err != nil {
+		return fmt.Errorf("transparent proxy datastore refs conflict: %w", err)
+	}
+	if err := shared.ValidateAddressRefsStrict(e, c.PlannedRefs()); err != nil {
+		return fmt.Errorf("transparent proxy datastore refs conflict: %w", err)
+	}
+
+	return c.Validate(e)
 }
 
 type TransparentUpgradeableProxyRole string
@@ -147,17 +181,21 @@ func (c TransparentUpgradeableProxyGrantRoleChangesetConfig) Validate(e cldf.Env
 
 // DeployTransparentUpgradeableProxy deploys TransparentUpgradeableProxy contracts for the specified tokens on the specified chains.
 func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradeableProxyChangesetConfig) (cldf.ChangesetOutput, error) {
-	if err := c.Validate(e); err != nil {
+	if err := c.validateDeployment(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid TransparentUpgradeableProxyChangesetConfig: %w", err)
 	}
 
 	addressBook := cldf.NewMemoryAddressBook()
+	ds, err := c.reserveRefs()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("transparent proxy datastore refs conflict: %w", err)
+	}
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := e.BlockChains.EVMChains()[chainSelector]
 
 		for token, config := range tokens {
-			_, err := cldf.DeployContract(e.Logger, chain, addressBook,
+			_, err := shared.DeployContractAndRecord(e.Logger, chain, addressBook, ds, cldf.NewTypeAndVersion(shared.TransparentUpgradeableProxy, deployment.Version1_6_1), config.Symbol,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*transparent_upgradeable_proxy.TransparentUpgradeableProxy] {
 					var errs []error
 
@@ -214,11 +252,6 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(addressBook)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-	}
-
 	return cldf.ChangesetOutput{
 		AddressBook: addressBook,
 		DataStore:   ds,
@@ -233,6 +266,7 @@ func SaveProxyAdmin(e cldf.Environment, c TransparentUpgradeableProxyChangesetCo
 	}
 
 	addressBook := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := e.BlockChains.EVMChains()[chainSelector]
@@ -254,15 +288,10 @@ func SaveProxyAdmin(e cldf.Environment, c TransparentUpgradeableProxyChangesetCo
 			}
 
 			proxyAdmin := common.BytesToAddress(storageBytes)
-			if err := addressBook.Save(chainSelector, proxyAdmin.String(), cldf.NewTypeAndVersion(shared.ProxyAdmin, deployment.Version1_6_1)); err != nil {
+			if err := shared.RecordAddress(addressBook, ds, chainSelector, proxyAdmin.String(), cldf.NewTypeAndVersion(shared.ProxyAdmin, deployment.Version1_6_1), config.Symbol); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to save ProxyAdmin at %s for %s token on %s: %w", proxyAdmin, config.Symbol, chain.Name(), err)
 			}
 		}
-	}
-
-	ds, err := shared.PopulateDataStore(addressBook)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{

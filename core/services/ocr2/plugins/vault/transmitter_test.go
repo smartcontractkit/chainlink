@@ -87,8 +87,8 @@ func TestTransmitter(t *testing.T) {
 		1,
 		report.ReportWithInfo,
 		[]types.AttributedOnchainSignature{
-			types.AttributedOnchainSignature{Signature: []byte{0: 2}},
-			types.AttributedOnchainSignature{Signature: []byte{0: 3}},
+			{Signature: []byte{0: 2}},
+			{Signature: []byte{0: 3}},
 		},
 	)
 	require.NoError(t, err)
