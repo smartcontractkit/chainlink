@@ -50,7 +50,8 @@ func fakeRegistry(t *testing.T, knownTags []string) string {
 }
 
 func TestCcipResolveBaseline_CLI_GitHubOutput(t *testing.T) {
-	base := fakeRegistry(t, []string{"2.63.0-ccip-rc.0"})
+	// rcN: same-version rc.0 is published -> it is the baseline (not the prior patch).
+	base := fakeRegistry(t, []string{"2.63.1-ccip-rc.0"})
 
 	tmpDir := t.TempDir()
 	ghOutput := filepath.Join(tmpDir, "gh_output")
@@ -76,11 +77,11 @@ func TestCcipResolveBaseline_CLI_GitHubOutput(t *testing.T) {
 	assert.Contains(t, string(ghContent), "ccip_pr_tag")
 	assert.Contains(t, string(ghContent), "2.63.1-ccip-rc.4")
 	assert.Contains(t, string(ghContent), "baseline_image_tag")
-	assert.Contains(t, string(ghContent), "2.63.0-ccip-rc.0")
+	assert.Contains(t, string(ghContent), "2.63.1-ccip-rc.0")
 	assert.Contains(t, string(ghContent), "skip<<_GitHubActionsFileCommandDelimeter_\nfalse\n_GitHubActionsFileCommandDelimeter_\n") //typos:ignore `Delimeter` should be `Delimiter` // From GitHub
 
 	// Human-readable summary on stdout.
-	assert.Contains(t, out.String(), "Baseline for v2.63.1-rc.4: public.ecr.aws/chainlink/ccip:2.63.0-ccip-rc.0")
+	assert.Contains(t, out.String(), "Baseline for v2.63.1-rc.4: public.ecr.aws/chainlink/ccip:2.63.1-ccip-rc.0")
 }
 
 func TestCcipResolveBaseline_CLI_SkipWarning(t *testing.T) {
@@ -117,7 +118,8 @@ func TestCcipResolveBaseline_CLI_SkipWarning(t *testing.T) {
 
 func TestCcipResolveBaseline_CLI_JSON(t *testing.T) {
 	t.Parallel()
-	base := fakeRegistry(t, []string{"2.63.0-ccip-rc.0"})
+	// rcN: same-version rc.0 is published -> it is the baseline.
+	base := fakeRegistry(t, []string{"2.63.1-ccip-rc.0"})
 
 	rootCmd := cmd.NewRootCmd()
 	var out bytes.Buffer
@@ -137,7 +139,7 @@ func TestCcipResolveBaseline_CLI_JSON(t *testing.T) {
 	var payload map[string]any
 	require.NoError(t, json.Unmarshal(out.Bytes(), &payload))
 	assert.Equal(t, "2.63.1-ccip-rc.4", payload["ccip_pr_tag"])
-	assert.Equal(t, "2.63.0-ccip-rc.0", payload["baseline_image_tag"])
+	assert.Equal(t, "2.63.1-ccip-rc.0", payload["baseline_image_tag"])
 	assert.Equal(t, false, payload["skip"])
 }
 
@@ -166,7 +168,8 @@ func TestCcipResolveBaseline_CLI_LocalKV(t *testing.T) {
 }
 
 func TestCcipResolveBaseline_CLI_EnvFallback(t *testing.T) {
-	base := fakeRegistry(t, []string{"2.63.0-ccip-rc.0"})
+	// rcN: same-version rc.0 is published -> it is the baseline.
+	base := fakeRegistry(t, []string{"2.63.1-ccip-rc.0"})
 	t.Setenv("CHAINLINK_VERSION", "v2.63.1-rc.4")
 	t.Setenv("CCIP_IMAGE_REPO", "public.ecr.aws/chainlink/ccip")
 	t.Setenv("GITHUB_OUTPUT", "") // force local stdout k=v (CI runner sets GITHUB_OUTPUT)
@@ -184,7 +187,37 @@ func TestCcipResolveBaseline_CLI_EnvFallback(t *testing.T) {
 	err := rootCmd.ExecuteContext(context.Background())
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "ccip_pr_tag=2.63.1-ccip-rc.4")
-	assert.Contains(t, out.String(), "baseline_image_tag=2.63.0-ccip-rc.0")
+	assert.Contains(t, out.String(), "baseline_image_tag=2.63.1-ccip-rc.0")
+}
+
+func TestCcipResolveBaseline_CLI_PrefersSameVersionRC0(t *testing.T) {
+	// Both the same-version rc.0 and the prior-patch rc.0 are published. The
+	// baseline rule prefers the same-version rc.0 (in-cycle RC upgrade), so it
+	// must win over the fallback. This is the only test that publishes two
+	// candidates and so guards candidate ordering at the CLI layer.
+	t.Parallel()
+	base := fakeRegistry(t, []string{"2.63.1-ccip-rc.0", "2.63.0-ccip-rc.0"})
+
+	rootCmd := cmd.NewRootCmd()
+	var out bytes.Buffer
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+	rootCmd.SetArgs([]string{
+		"ccip", "resolve-baseline",
+		"--chainlink-version", "v2.63.1-rc.4",
+		"--registry-url", base,
+		"--probe-retry-delay", "0s",
+		"--json",
+	})
+
+	err := rootCmd.ExecuteContext(context.Background())
+	require.NoError(t, err)
+
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal(out.Bytes(), &payload))
+	assert.Equal(t, "2.63.1-ccip-rc.4", payload["ccip_pr_tag"])
+	assert.Equal(t, "2.63.1-ccip-rc.0", payload["baseline_image_tag"])
+	assert.Equal(t, false, payload["skip"])
 }
 
 func TestCcipResolveBaseline_CLI_RejectsNonVTag(t *testing.T) {
