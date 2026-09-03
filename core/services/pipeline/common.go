@@ -349,6 +349,7 @@ const (
 	TaskTypeNormalize    TaskType = "normalize"
 	TaskTypeStaleness    TaskType = "staleness"
 	TaskTypeWeightedMean TaskType = "weightedmean"
+	TaskTypeAnchor       TaskType = "anchor"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -461,6 +462,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) 
 		task = &StalenessTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeWeightedMean:
 		task = &WeightedMeanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeAnchor:
+		task = &AnchorTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, pkgerrors.Errorf(`unknown task type: "%v"`, taskType)
 	}
