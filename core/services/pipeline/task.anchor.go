@@ -51,9 +51,9 @@ func (t *AnchorTask) Type() TaskType {
 func (t *AnchorTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		referenceAndErrs, lowAndErrs, highAndErrs SliceParam
-		band, minMass                            DecimalParam
-		selectParam                              StringParam
-		maybePrecision                           MaybeInt32Param
+		band, minMass                             DecimalParam
+		selectParam                               StringParam
+		maybePrecision                            MaybeInt32Param
 	)
 
 	if err := stderrors.Join(
