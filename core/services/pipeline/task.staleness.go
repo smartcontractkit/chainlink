@@ -13,11 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-// DurationMsParam parses a duration string (e.g. "10s") into milliseconds.
-// Integer durations keep linear staleness exact and avoid floating-point drift.
-type DurationMsParam int64
+// DurationParam parses a duration string (e.g. "10s") into a time.Duration.
+// It stores nanoseconds, matching time.Duration's native unit.
+type DurationParam time.Duration
 
-func (d *DurationMsParam) UnmarshalPipelineParam(val any) error {
+func (d *DurationParam) UnmarshalPipelineParam(val any) error {
 	switch v := val.(type) {
 	case string:
 		if v == "" {
@@ -27,10 +27,10 @@ func (d *DurationMsParam) UnmarshalPipelineParam(val any) error {
 		if err != nil {
 			return errors.Wrap(ErrBadInput, err.Error())
 		}
-		*d = DurationMsParam(dur.Milliseconds())
+		*d = DurationParam(dur)
 		return nil
 	case time.Duration:
-		*d = DurationMsParam(v.Milliseconds())
+		*d = DurationParam(v)
 		return nil
 	default:
 		return errors.Wrapf(ErrBadInput, "expected duration, got %T", val)
@@ -79,9 +79,9 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	var (
 		samplesAndErrs SliceParam
 		method         StringParam
-		thresholdMs    DurationMsParam
-		halfLifeMs     DurationMsParam
-		cutoffMs       DurationMsParam
+		threshold      DurationParam
+		halfLife       DurationParam
+		cutoff         DurationParam
 		decayThreshold DecimalParam
 	)
 
@@ -96,9 +96,9 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	err := stderrors.Join(
 		errors.Wrap(ResolveParam(&samplesAndErrs, From(VarExpr(t.Samples, vars), JSONWithVarExprs(t.Samples, vars, true), Inputs(inputs))), "samples"),
 		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method))), "method"),
-		resolveOpt(&thresholdMs, NonemptyString(t.Threshold)),
-		errors.Wrap(ResolveParam(&halfLifeMs, From(NonemptyString(t.HalfLife), "0s")), "halfLife"),
-		resolveOpt(&cutoffMs, VarExpr(t.Cutoff, vars), NonemptyString(t.Cutoff)),
+		resolveOpt(&threshold, NonemptyString(t.Threshold)),
+		errors.Wrap(ResolveParam(&halfLife, From(NonemptyString(t.HalfLife), "0s")), "halfLife"),
+		resolveOpt(&cutoff, VarExpr(t.Cutoff, vars), NonemptyString(t.Cutoff)),
 		resolveOpt(&decayThreshold, VarExpr(t.DecayThreshold, vars), NonemptyString(t.DecayThreshold)),
 	)
 	if err != nil {
@@ -112,28 +112,28 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	m := strings.ToLower(string(method))
-	cutoffMsVal := int64(cutoffMs)
+	cutoffVal := time.Duration(cutoff)
 	kVal := decayThreshold.Decimal()
 	applyK := (m == "exp" || m == "exp_cooldown") && kVal.GreaterThan(decimal.Zero)
 
-	if int64(thresholdMs) <= 0 {
+	if time.Duration(threshold) <= 0 {
 		return Result{Error: errors.New("threshold required for staleness")}, runInfo
 	}
-	if (m == "exp" || m == "exp_cooldown") && halfLifeMs <= 0 {
+	if (m == "exp" || m == "exp_cooldown") && halfLife <= 0 {
 		return Result{Error: errors.New("halfLife required for exp/exp_cooldown staleness")}, runInfo
 	}
 
-	nowMs := time.Now().UnixMilli()
+	nowNs := time.Now().UnixNano()
 	out := make([]Sample, 0, len(samples))
 	for _, s := range samples {
-		ageMs := max(nowMs-s.TsMs, 0)
+		ageNs := max(nowNs-s.TsMs*int64(time.Millisecond), 0)
 
 		// Hard cutoff: drop samples older than the cutoff time limit.
-		if cutoffMsVal > 0 && ageMs > cutoffMsVal {
+		if cutoffVal > 0 && ageNs > int64(cutoffVal) {
 			continue
 		}
 
-		mult, err := decayMultiplier(m, ageMs, int64(thresholdMs), int64(halfLifeMs))
+		mult, err := decayMultiplier(m, time.Duration(ageNs), time.Duration(threshold), time.Duration(halfLife))
 		if err != nil {
 			return Result{Error: err}, runInfo
 		}
@@ -154,28 +154,28 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	return Result{Value: out}, runInfo
 }
 
-func decayMultiplier(method string, ageMs, thresholdMs, halfLifeMs int64) (decimal.Decimal, error) {
+func decayMultiplier(method string, age, threshold, halfLife time.Duration) (decimal.Decimal, error) {
 	switch method {
 	case "cutoff":
-		if ageMs <= thresholdMs {
+		if age <= threshold {
 			return decimal.NewFromInt(1), nil
 		}
 		return decimal.Zero, nil
 	case "linear":
-		if ageMs <= 0 {
+		if age <= 0 {
 			return decimal.NewFromInt(1), nil
 		}
-		if ageMs >= thresholdMs {
+		if age >= threshold {
 			return decimal.Zero, nil
 		}
-		return decimal.NewFromInt(thresholdMs - ageMs).Div(decimal.NewFromInt(thresholdMs)), nil
+		return decimal.NewFromInt(int64(threshold - age)).Div(decimal.NewFromInt(int64(threshold))), nil
 	case "exp":
-		return decimal.NewFromFloat(math.Pow(2, -float64(ageMs)/float64(halfLifeMs))), nil
+		return decimal.NewFromFloat(math.Pow(2, -float64(age)/float64(halfLife))), nil
 	case "exp_cooldown":
-		if ageMs <= thresholdMs {
+		if age <= threshold {
 			return decimal.NewFromInt(1), nil
 		}
-		return decimal.NewFromFloat(math.Pow(2, -float64(ageMs-thresholdMs)/float64(halfLifeMs))), nil
+		return decimal.NewFromFloat(math.Pow(2, -float64(age-threshold)/float64(halfLife))), nil
 	default:
 		return decimal.Zero, errors.Errorf("unknown staleness method %q", method)
 	}
