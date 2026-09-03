@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -36,8 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
-	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -1261,7 +1261,8 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	// limited workflow is rejected before module compilation. Freed by
 	// releaseWorkflowLimit after the engine is cleaned up.
 	creCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: spec.WorkflowOwner, Workflow: spec.WorkflowID})
-	if err := h.workflowLimits.Use(creCtx, 1); err != nil {
+	err = h.workflowLimits.Use(creCtx, 1)
+	if err != nil {
 		if errLimited, ok := errors.AsType[limits.ErrorResourceLimited[int]](err); ok {
 			switch errLimited.Scope {
 			case settings.ScopeOwner:
@@ -1269,13 +1270,13 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 				if r, ok := h.triggerDispatcher.(WorkflowLimitReporter); ok {
 					r.ReportWorkflowLimitPerOwner(ctx)
 				}
-				return fmt.Errorf("%w: %v", types.ErrPerOwnerWorkflowCountLimitReached, err)
+				return fmt.Errorf("%w: %w", types.ErrPerOwnerWorkflowCountLimitReached, err)
 			case settings.ScopeGlobal:
 				h.lggr.Infow("Global workflow count limit reached", "err", err)
 				if r, ok := h.triggerDispatcher.(WorkflowLimitReporter); ok {
 					r.ReportWorkflowLimitGlobal(ctx)
 				}
-				return fmt.Errorf("%w: %v", types.ErrGlobalWorkflowCountLimitReached, err)
+				return fmt.Errorf("%w: %w", types.ErrGlobalWorkflowCountLimitReached, err)
 			default:
 				h.lggr.Errorw("Workflow count limit reached for unexpected scope", "scope", errLimited.Scope, "err", err)
 				return err

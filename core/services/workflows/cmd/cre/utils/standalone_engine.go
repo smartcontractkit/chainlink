@@ -65,11 +65,11 @@ var _ v2.Acknowledger = (*standaloneAcknowledger)(nil)
 func (s *standaloneAcknowledger) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
 	// The standalone runner registers triggers with the capability directly;
 	// acknowledge through the registry's trigger lookup.
-	cap, err := s.capReg.GetTrigger(ctx, triggerCapID)
+	triggerCap, err := s.capReg.GetTrigger(ctx, triggerCapID)
 	if err != nil {
 		return fmt.Errorf("failed to find trigger %s: %w", triggerCapID, err)
 	}
-	return cap.AckEvent(ctx, triggerRegistrationID, eventID, "")
+	return triggerCap.AckEvent(ctx, triggerRegistrationID, eventID, "")
 }
 
 func NewStandaloneEngine(

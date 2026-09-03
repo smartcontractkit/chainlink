@@ -332,11 +332,11 @@ func (d *testDispatcher) registeredTriggerIDs(subs []*sdkpb.TriggerSubscription)
 // Ack forwards the engine's acknowledgement to the trigger capability.
 func (d *testDispatcher) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
 	d.mu.Lock()
-	cap, ok := d.triggers[triggerCapID]
+	triggerCap, ok := d.triggers[triggerCapID]
 	method := d.methods[triggerCapID]
 	d.mu.Unlock()
 	if !ok {
 		return fmt.Errorf("failed to find trigger %s", triggerCapID)
 	}
-	return cap.AckEvent(ctx, triggerRegistrationID, eventID, method)
+	return triggerCap.AckEvent(ctx, triggerRegistrationID, eventID, method)
 }
