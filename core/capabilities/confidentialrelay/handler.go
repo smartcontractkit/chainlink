@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/patrickmn/go-cache"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
@@ -156,8 +157,12 @@ type Handler struct {
 
 	// responseMemo caches completed signed results so the enclave's retry loop
 	// (re-fan-out after a gateway rotation or timeout) returns the cached result
-	// without re-executing the capability or vault fetch.
-	responseMemo *responseMemo
+	// without re-executing the capability or vault fetch. Only completed results
+	// are cached; in-flight calls are not deduplicated, so a burst of concurrent
+	// same-identity requests each execute (preserving parallel dispatch). The
+	// cap- and sec-prefixed keys share one cache instance; go-cache runs its own
+	// background cleanup goroutine, so there is no separate sweep to stop.
+	responseMemo *cache.Cache
 }
 
 func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool) (*Handler, error) {
@@ -195,7 +200,7 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *Execut
 		limitsFactory:     lf,
 		serveTime:         serveTime,
 		getExecutionWait:  defaultGetExecutionWait,
-		responseMemo:      newResponseMemo(memoTTL, memoCleanup),
+		responseMemo:      cache.New(memoTTL, memoCleanup),
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -334,7 +339,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	// instead of re-fetching from the vault. The signed result is params-bound,
 	// not id-bound, so jsonResponse re-wraps it with this request's id.
 	key := secretsKey(params)
-	if cached := h.responseMemo.getSec(key); cached != nil {
+	if cached, ok := h.responseMemo.Get(key); ok {
 		if signed, ok := cached.(*confidentialrelaytypes.SignedSecretsResponseResult); ok {
 			return h.jsonResponse(req, signed)
 		}
@@ -385,7 +390,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign secrets response: %w", err))
 	}
 
-	h.responseMemo.putSec(key, signedResult)
+	h.responseMemo.SetDefault(key, signedResult)
 	return h.jsonResponse(req, signedResult)
 }
 
@@ -510,7 +515,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	// instead of re-executing the capability. The signed result is params-bound,
 	// not id-bound, so jsonResponse re-wraps it with this request's id.
 	key := capExecKey(params)
-	if cached := h.responseMemo.getCap(key); cached != nil {
+	if cached, ok := h.responseMemo.Get(key); ok {
 		if signed, ok := cached.(*confidentialrelaytypes.SignedCapabilityResponseResult); ok {
 			return h.jsonResponse(req, signed)
 		}
@@ -560,7 +565,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign capability response: %w", err))
 	}
 
-	h.responseMemo.putCap(key, signedResult)
+	h.responseMemo.SetDefault(key, signedResult)
 	return h.jsonResponse(req, signedResult)
 }
 
