@@ -13,6 +13,7 @@ import (
 	"github.com/urfave/cli"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -81,6 +82,17 @@ func (c Config) JsonWrapperKey() string {
 	return ""
 }
 
+func TestAuditLoggerRegistersForHealthChecks(t *testing.T) {
+	t.Parallel()
+
+	auditLogger, err := audit.NewAuditLogger(logger.TestLogger(t), Config{})
+	require.NoError(t, err)
+	require.Equal(t, "AuditLogger", auditLogger.Name())
+
+	healthChecker := commonservices.HealthCheckerConfig{}.New()
+	require.NoError(t, healthChecker.Register(auditLogger))
+}
+
 func TestCheckLoginAuditLog(t *testing.T) {
 	t.Parallel()
 
@@ -99,7 +111,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 	auditLoggerTestConfig := Config{}
 
 	// Create new AuditLoggerService
-	auditLogger, err := audit.NewAuditLogger(logger.Named("AuditLogger"), &auditLoggerTestConfig)
+	auditLogger, err := audit.NewAuditLogger(logger, &auditLoggerTestConfig)
 	assert.NoError(t, err)
 
 	// Cast to concrete type so we can swap out the internals
