@@ -3,6 +3,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -151,4 +152,68 @@ func ResolveFeeQuoterAddressAndVersion(
 	}
 
 	return common.HexToAddress(bestRef.Address), *bestVersion, nil
+}
+
+// CollectAddressRefs returns a plain (unkeyed) slice of address refs drawn from both the
+// environment's datastore and its existing address book, including labels. It does not key or
+// dedup, so duplicate/multi-instance refs are all retained. Use it to resolve chain-singleton
+// contracts (e.g. FeeQuoter) over existing state without going through a keyed datastore. It
+// returns an error if either source cannot be read, so callers do not silently resolve from an
+// incomplete set.
+func CollectAddressRefs(e deployment.Environment) ([]datastore.AddressRef, error) {
+	var refs []datastore.AddressRef
+	if e.DataStore != nil {
+		r, err := e.DataStore.Addresses().Fetch()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch address refs from environment datastore: %w", err)
+		}
+		refs = append(refs, r...)
+	}
+	if e.ExistingAddresses != nil {
+		addrs, err := e.ExistingAddresses.Addresses()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch addresses from environment address book: %w", err)
+		}
+		for sel, chainAddresses := range addrs {
+			for addr, tv := range chainAddresses {
+				ref := datastore.AddressRef{
+					ChainSelector: sel,
+					Address:       addr,
+					Type:          datastore.ContractType(tv.Type),
+					Version:       &tv.Version,
+				}
+				if !tv.Labels.IsEmpty() {
+					ref.Labels = datastore.NewLabelSet(tv.Labels.List()...)
+				}
+				refs = append(refs, ref)
+			}
+		}
+	}
+	return refs, nil
+}
+
+// QualifierFromParts joins the parts that identify one instance into a datastore qualifier.
+//
+// Each part is quoted rather than joined on a bare separator: parts are often caller-supplied
+// free-form text, so a plain join would let ("A", "B/C") and ("A/B", "C") produce the same
+// qualifier and collide. Quoting escapes any separator inside a part, so distinct inputs always
+// yield distinct qualifiers.
+func QualifierFromParts(parts ...string) string {
+	quoted := make([]string, 0, len(parts))
+	for _, p := range parts {
+		quoted = append(quoted, fmt.Sprintf("%q", p))
+	}
+
+	return strings.Join(quoted, "/")
+}
+
+// TokenPoolLookupTableQualifier returns the datastore qualifier for a Solana token-pool lookup
+// table, which is uniquely identified by (token mint, pool type, metadata).
+//
+// Each component is quoted rather than joined on a bare separator. metadata is caller-supplied
+// free-form text, so a plain "a/b/c" join would let ("A", "B/C") and ("A/B", "C") produce the same
+// qualifier and collide in the datastore. Quoting escapes any separator inside a component, so
+// distinct inputs always yield distinct qualifiers.
+func TokenPoolLookupTableQualifier(tokenPubKey, poolType, metadata string) string {
+	return QualifierFromParts(tokenPubKey, poolType, metadata)
 }

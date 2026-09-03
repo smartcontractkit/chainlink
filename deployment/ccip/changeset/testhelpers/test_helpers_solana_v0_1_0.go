@@ -61,6 +61,7 @@ import (
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
@@ -288,13 +289,14 @@ func WaitForEventFilterRegistrationOnLane(t *testing.T, onchainState stateview.C
 func DeployTestContracts(t *testing.T,
 	lggr logger.Logger,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	homeChainSel,
 	feedChainSel uint64,
 	chains map[uint64]cldf_evm.Chain,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
-) deployment.CapabilityRegistryConfig {
-	capReg, err := cldf.DeployContract(lggr, chains[homeChainSel], ab,
+) (deployment.CapabilityRegistryConfig, map[shared.TokenSymbol]common.Address) {
+	capReg, err := shared.DeployContractAndRecord(lggr, chains[homeChainSel], ab, ds, cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0), "",
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 				chain.DeployerKey,
@@ -306,7 +308,7 @@ func DeployTestContracts(t *testing.T,
 		})
 	require.NoError(t, err)
 
-	_, err = DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
+	feedSymbolToAddress, err := DeployFeeds(lggr, ab, ds, chains[feedChainSel], linkPrice, wethPrice)
 	require.NoError(t, err)
 
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
@@ -316,7 +318,7 @@ func DeployTestContracts(t *testing.T,
 		EVMChainID:  evmChainID,
 		Contract:    capReg.Address,
 		NetworkType: relay.NetworkEVM,
-	}
+	}, feedSymbolToAddress
 }
 
 func LatestBlock(ctx context.Context, env cldf.Environment, chainSelector uint64) (uint64, error) {
@@ -1332,10 +1334,11 @@ func ToPackedFee(execFee, daFee *big.Int) *big.Int {
 func DeployFeeds(
 	lggr logger.Logger,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	chain cldf_evm.Chain,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
-) (map[string]common.Address, error) {
+) (map[shared.TokenSymbol]common.Address, error) {
 	linkTV := cldf.NewTypeAndVersion(shared.PriceFeed, deployment.Version1_0_0)
 	mockLinkFeed := func(chain cldf_evm.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
@@ -1364,33 +1367,33 @@ func DeployFeeds(
 		}
 	}
 
-	linkFeedAddress, linkFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockLinkFeed, shared.LinkSymbol)
+	linkFeedAddress, _, err := deploySingleFeed(lggr, ab, ds, chain, mockLinkFeed, shared.LinkSymbol)
 	if err != nil {
 		return nil, err
 	}
 
-	wethFeedAddress, wethFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockWethFeed, shared.WethSymbol)
+	wethFeedAddress, _, err := deploySingleFeed(lggr, ab, ds, chain, mockWethFeed, shared.WethSymbol)
 	if err != nil {
 		return nil, err
 	}
 
-	descriptionToAddress := map[string]common.Address{
-		linkFeedDescription: linkFeedAddress,
-		wethFeedDescription: wethFeedAddress,
-	}
-
-	return descriptionToAddress, nil
+	return map[shared.TokenSymbol]common.Address{
+		shared.LinkSymbol: linkFeedAddress,
+		shared.WethSymbol: wethFeedAddress,
+	}, nil
 }
 
 func deploySingleFeed(
 	lggr logger.Logger,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	chain cldf_evm.Chain,
 	deployFunc func(cldf_evm.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
 	symbol shared.TokenSymbol,
 ) (common.Address, string, error) {
 	// tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
-	mockTokenFeed, err := cldf.DeployContract(lggr, chain, ab, deployFunc)
+	mockTokenFeed, err := shared.DeployContractAndRecord(lggr, chain, ab, ds,
+		cldf.NewTypeAndVersion(shared.PriceFeed, deployment.Version1_0_0), string(symbol), deployFunc)
 	if err != nil {
 		lggr.Errorw("Failed to deploy token feed", "err", err, "symbol", symbol)
 		return common.Address{}, "", err

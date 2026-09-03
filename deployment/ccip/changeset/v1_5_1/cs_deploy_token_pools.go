@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -139,12 +140,93 @@ type DeployTokenPoolContractsConfig struct {
 	NewPools map[uint64]DeployTokenPoolInput
 	// IsTestRouter indicates whether or not the test router should be used.
 	IsTestRouter bool
+	// ForceDatastoreOverwrite permits this changeset to overwrite pool refs that already exist in
+	// the environment datastore. Without it, a redeploy over an existing (chain, type, version,
+	// TokenSymbol) entry is rejected during validation rather than silently replacing it.
+	ForceDatastoreOverwrite bool
+}
+
+// deployedTypeAndVersion returns the TypeAndVersion the pool will actually be deployed under.
+//
+// The version is not simply poolConfig.Version: several pool types are pinned to a version of
+// their own regardless of what the config asked for, and two more honour an explicit 1.6.1. The
+// datastore key is built from this version, so the rule has to live in one function that both the
+// key and the deployment read. Deriving the key from poolConfig.Version instead would key some
+// pools under a version they were never deployed at.
+func deployedTypeAndVersion(poolConfig DeployTokenPoolInput) cldf.TypeAndVersion {
+	version := shared.CurrentTokenPoolVersion
+
+	switch poolConfig.Type {
+	case shared.BurnMintTokenPool, shared.LockReleaseTokenPool:
+		if poolConfig.Version == deployment.Version1_6_1 {
+			version = deployment.Version1_6_1
+		}
+	case shared.BurnMintFastTransferTokenPool:
+		version = deployment.Version1_6_3Dev
+	case shared.BurnMintWithExternalMinterFastTransferTokenPool,
+		shared.HybridWithExternalMinterFastTransferTokenPool,
+		shared.BurnMintWithExternalMinterTokenPool,
+		shared.HybridWithExternalMinterTokenPool:
+		version = deployment.Version1_6_0
+	}
+
+	return cldf.NewTypeAndVersion(poolConfig.Type, version)
+}
+
+// plannedRefs returns the datastore ref for every pool this changeset will deploy.
+//
+// A ref is keyed on (chain, type, version, qualifier) and none of that depends on the address, so
+// the whole set is known before a single transaction is sent. This is the only place these keys
+// are derived: Validate checks them and reserveRefs claims them, so the check and the write are
+// the same computation rather than two that can drift apart.
+func (c DeployTokenPoolContractsConfig) plannedRefs() []datastore.AddressRef {
+	refs := make([]datastore.AddressRef, 0, len(c.NewPools))
+	for chainSelector, poolConfig := range c.NewPools {
+		tv := deployedTypeAndVersion(poolConfig)
+		version := tv.Version
+		refs = append(refs, datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(tv.Type),
+			Version:       &version,
+			Qualifier:     string(c.TokenSymbol),
+		})
+	}
+
+	return refs
+}
+
+// reserveRefs claims every planned key. The deployment then fills each one in as it confirms, so
+// the store is complete by the time the changeset returns and there is no derivation step left
+// that could fail once the pools already exist on chain.
+func (c DeployTokenPoolContractsConfig) reserveRefs() (*datastore.MemoryDataStore, error) {
+	ds, err := shared.ReserveRefs(c.plannedRefs())
+	if err != nil {
+		return nil, fmt.Errorf("%s token pools: %w", c.TokenSymbol, err)
+	}
+
+	return ds, nil
 }
 
 func (c DeployTokenPoolContractsConfig) Validate(env cldf.Environment) error {
 	// Ensure that required fields are populated
 	if c.TokenSymbol == shared.TokenSymbol("") {
 		return errors.New("token symbol must be defined")
+	}
+
+	// Reserve the keys to prove the config can be recorded, then check them against the
+	// environment. Both run before anything is deployed.
+	if _, err := c.reserveRefs(); err != nil {
+		return err
+	}
+	refs := c.plannedRefs()
+	// Taking over a key the environment already holds is a redeploy. It is rejected unless the
+	// caller asked for it, in which case it is logged rather than passing unremarked.
+	validateRefs := shared.ValidateAddressRefsStrict
+	if c.ForceDatastoreOverwrite {
+		validateRefs = shared.ValidateAddressRefs
+	}
+	if err := validateRefs(env, refs); err != nil {
+		return fmt.Errorf("token pool datastore refs conflict: %w", err)
 	}
 
 	state, err := stateview.LoadOnchainState(env)
@@ -196,16 +278,22 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
+	// Claim every datastore key before deploying. After this the store is only ever filled in,
+	// never re-keyed, so there is no post-deploy datastore step that can fail.
+	ds, err := c.reserveRefs()
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	deployGrp := errgroup.Group{}
 
 	for chainSelector, poolConfig := range c.NewPools {
 		deployGrp.Go(func() error {
-			if poolConfig.Version.String() == "0.0.0" {
-				poolConfig.Version = shared.CurrentTokenPoolVersion
-			}
 			chain := env.BlockChains.EVMChains()[chainSelector]
 			chainState := state.Chains[chainSelector]
-			contract, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
+			// The ref is written by deployTokenPool at the moment the deployment confirms, onto
+			// the key this chain reserved above. Nothing is left to record afterwards.
+			contract, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, ds, string(c.TokenSymbol), deployedTypeAndVersion(poolConfig), poolConfig, c.IsTestRouter)
 			if err != nil {
 				return fmt.Errorf("failed to deploy token pool contract: %w", err)
 			}
@@ -231,11 +319,9 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 			c.TokenSymbol, err)
 	}
 
-	ds, err := shared.PopulateDataStore(newAddresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-	}
-
+	// No datastore is derived here. Every ref was keyed before the first transaction and filled
+	// in as each pool was confirmed, so by this point the store is already complete and there is
+	// nothing left that can fail.
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 		DataStore:   ds,
@@ -248,6 +334,9 @@ func deployTokenPool(
 	chain cldf_evm.Chain,
 	chainState evm.CCIPChainState,
 	addressBook cldf.AddressBook,
+	ds datastore.MutableDataStore,
+	qualifier string,
+	tv cldf.TypeAndVersion,
 	poolConfig DeployTokenPoolInput,
 	isTestRouter bool,
 ) (*cldf.ContractDeploy[*token_pool.TokenPool], error) {
@@ -257,16 +346,14 @@ func deployTokenPool(
 	}
 	rmnProxy := chainState.RMNProxy
 
-	return cldf.DeployContract(logger, chain, addressBook,
+	return shared.DeployContractAndRecord(logger, chain, addressBook, ds, tv, qualifier,
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_pool.TokenPool] {
 			var tpAddr common.Address
 			var tx *types.Transaction
 			var err error
-			tokenPoolVersion := shared.CurrentTokenPoolVersion
 			switch poolConfig.Type {
 			case shared.BurnMintTokenPool:
 				if poolConfig.Version == deployment.Version1_6_1 {
-					tokenPoolVersion = deployment.Version1_6_1
 					tpAddr, tx, _, err = burn_mint_token_pool_v1_6_1.DeployBurnMintTokenPool(
 						chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 						poolConfig.AllowList, rmnProxy.Address(), router.Address(),
@@ -289,7 +376,6 @@ func deployTokenPool(
 				)
 			case shared.LockReleaseTokenPool:
 				if poolConfig.Version == deployment.Version1_6_1 {
-					tokenPoolVersion = deployment.Version1_6_1
 					tpAddr, tx, _, err = lock_release_token_pool_v1_6_1.DeployLockReleaseTokenPool(
 						chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 						poolConfig.AllowList, rmnProxy.Address(), router.Address(),
@@ -301,31 +387,26 @@ func deployTokenPool(
 					)
 				}
 			case shared.BurnMintFastTransferTokenPool:
-				tokenPoolVersion = deployment.Version1_6_3Dev
 				tpAddr, tx, _, err = fast_transfer_token_pool.DeployBurnMintFastTransferTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(), chain.Selector,
 				)
 			case shared.BurnMintWithExternalMinterFastTransferTokenPool:
-				tokenPoolVersion = deployment.Version1_6_0
 				tpAddr, tx, _, err = burn_mint_with_external_minter_fast_transfer_token_pool.DeployBurnMintWithExternalMinterFastTransferTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
 			case shared.HybridWithExternalMinterFastTransferTokenPool:
-				tokenPoolVersion = deployment.Version1_6_0
 				tpAddr, tx, _, err = hybrid_with_external_minter_fast_transfer_token_pool.DeployHybridWithExternalMinterFastTransferTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.ExternalMinter, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
 			case shared.BurnMintWithExternalMinterTokenPool:
-				tokenPoolVersion = deployment.Version1_6_0
 				tpAddr, tx, _, err = burn_mint_with_external_minter_token_pool.DeployBurnMintWithExternalMinterTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenGovernor, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
 			case shared.HybridWithExternalMinterTokenPool:
-				tokenPoolVersion = deployment.Version1_6_0
 				tpAddr, tx, _, err = hybrid_with_external_minter_token_pool.DeployHybridWithExternalMinterTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenGovernor, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
@@ -338,7 +419,7 @@ func deployTokenPool(
 			return cldf.ContractDeploy[*token_pool.TokenPool]{
 				Address:  tpAddr,
 				Contract: tp,
-				Tv:       cldf.NewTypeAndVersion(poolConfig.Type, tokenPoolVersion),
+				Tv:       tv,
 				Tx:       tx,
 				Err:      err,
 			}
