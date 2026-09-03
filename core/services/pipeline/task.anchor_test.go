@@ -57,7 +57,7 @@ func TestAnchorTask(t *testing.T) {
 		"lo":  lo,
 		"hi":  hi,
 	})
-	vars.Set("winsorRef", winsorizeSamples(t, vars, "$(ref)", "0.03"))
+	require.NoError(t, vars.Set("winsorRef", winsorizeSamples(t, vars, "$(ref)", "0.03")))
 
 	t.Run("basic: lo_adj and hi_adj", func(t *testing.T) {
 		t.Parallel()
