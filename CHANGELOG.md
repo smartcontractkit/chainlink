@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.62.3
+
+### Minor Changes
+
+- [#23647](https://github.com/smartcontractkit/chainlink/pull/23647) [`550a2a5`](https://github.com/smartcontractkit/chainlink/commit/550a2a58f10da500c833eb29fef5f4bc34fb58b5) - #added Adding new experimental tasks in pipeline package. Anchor, Normalize, Sample, Staleness, WeightedMean.
+
 ## 2.62.0
 
 ### Minor Changes
