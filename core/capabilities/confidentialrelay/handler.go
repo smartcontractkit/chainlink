@@ -153,6 +153,11 @@ type Handler struct {
 	// carries no deadline of its own, so this is what keeps a stalled vault call
 	// from outliving the request it belongs to.
 	serveTime limits.TimeLimiter
+
+	// responseMemo caches completed signed results so the enclave's retry loop
+	// (re-fan-out after a gateway rotation or timeout) returns the cached result
+	// without re-executing the capability or vault fetch.
+	responseMemo *responseMemo
 }
 
 func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool) (*Handler, error) {
@@ -168,6 +173,16 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *Execut
 		return nil, fmt.Errorf("failed to create serve time limiter: %w", err)
 	}
 
+	memoCfg := cresettings.Default.ConfidentialCompute.RelayResponseCache
+	memoTTL, err := memoCfg.TTL.GetOrDefault(context.Background(), lf.Settings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read relay response cache TTL: %w", err)
+	}
+	memoCleanup, err := memoCfg.CleanupInterval.GetOrDefault(context.Background(), lf.Settings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read relay response cache cleanup interval: %w", err)
+	}
+
 	h := &Handler{
 		capRegistry:       capRegistry,
 		executionHandlers: executionHandlers,
@@ -180,6 +195,7 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *Execut
 		limitsFactory:     lf,
 		serveTime:         serveTime,
 		getExecutionWait:  defaultGetExecutionWait,
+		responseMemo:      newResponseMemo(memoTTL, memoCleanup),
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -313,6 +329,17 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
+	// A retry (same logical identity, new gateway request id) re-fans-out the
+	// same request; return the already-computed signed result from the memo
+	// instead of re-fetching from the vault. The signed result is params-bound,
+	// not id-bound, so jsonResponse re-wraps it with this request's id.
+	key := secretsKey(params)
+	if cached := h.responseMemo.getSec(key); cached != nil {
+		if signed, ok := cached.(*confidentialrelaytypes.SignedSecretsResponseResult); ok {
+			return h.jsonResponse(req, signed)
+		}
+	}
+
 	secretsRequest := &sdkpb.GetSecretsRequest{
 		Requests:   make([]*sdkpb.SecretRequest, 0, len(params.Secrets)),
 		CallbackId: params.CallbackID,
@@ -358,6 +385,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign secrets response: %w", err))
 	}
 
+	h.responseMemo.putSec(key, signedResult)
 	return h.jsonResponse(req, signedResult)
 }
 
@@ -477,6 +505,17 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
+	// A retry (same logical identity, new gateway request id) re-fans-out the
+	// same request; return the already-computed signed result from the memo
+	// instead of re-executing the capability. The signed result is params-bound,
+	// not id-bound, so jsonResponse re-wraps it with this request's id.
+	key := capExecKey(params)
+	if cached := h.responseMemo.getCap(key); cached != nil {
+		if signed, ok := cached.(*confidentialrelaytypes.SignedCapabilityResponseResult); ok {
+			return h.jsonResponse(req, signed)
+		}
+	}
+
 	payloadBytes, err := base64.StdEncoding.DecodeString(params.Payload)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("failed to decode payload: %w", err))
@@ -521,6 +560,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign capability response: %w", err))
 	}
 
+	h.responseMemo.putCap(key, signedResult)
 	return h.jsonResponse(req, signedResult)
 }
 
