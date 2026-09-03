@@ -4,7 +4,6 @@ import (
 	"context"
 	stderrors "errors"
 	"math"
-	"sort"
 	"strings"
 	"time"
 
@@ -51,7 +50,6 @@ func (d *DurationMsParam) UnmarshalPipelineParam(val any) error {
 //	linear    — 1 - age/threshold, reaches 0 at threshold
 //	exp       — 2^(-age/halfLife), truncated to 0 at threshold
 //	exp_cooldown  — 1 if age <= threshold, else 2^(-(age-threshold)/halfLife)
-//	piecewise — linear interpolation of user-supplied (age:weight) points
 //
 // Optional safety parameters:
 //
@@ -67,7 +65,6 @@ type StalenessTask struct {
 	Method         string `json:"method"`
 	Threshold      string `json:"threshold"`
 	HalfLife       string `json:"halfLife"`
-	Points         string `json:"points"`
 	Cutoff         string `json:"cutoff"`
 	DecayThreshold string `json:"decayThreshold"`
 }
@@ -84,7 +81,6 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		method         StringParam
 		thresholdMs    DurationMsParam
 		halfLifeMs     DurationMsParam
-		points         StringParam
 		cutoffMs       DurationMsParam
 		decayThreshold DecimalParam
 	)
@@ -102,7 +98,6 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method))), "method"),
 		resolveOpt(&thresholdMs, NonemptyString(t.Threshold)),
 		errors.Wrap(ResolveParam(&halfLifeMs, From(NonemptyString(t.HalfLife), "0s")), "halfLife"),
-		errors.Wrap(ResolveParam(&points, From(t.Points, "")), "points"),
 		resolveOpt(&cutoffMs, VarExpr(t.Cutoff, vars), NonemptyString(t.Cutoff)),
 		resolveOpt(&decayThreshold, VarExpr(t.DecayThreshold, vars), NonemptyString(t.DecayThreshold)),
 	)
@@ -121,15 +116,8 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	kVal := decayThreshold.Decimal()
 	applyK := (m == "exp" || m == "exp_cooldown") && kVal.GreaterThan(decimal.Zero)
 
-	var pw []piecewisePoint
-	if m == "piecewise" {
-		var err error
-		pw, err = parsePiecewisePoints(string(points))
-		if err != nil {
-			return Result{Error: errors.Wrap(err, "points")}, runInfo
-		}
-	} else if int64(thresholdMs) <= 0 {
-		return Result{Error: errors.New("threshold required for non-piecewise staleness")}, runInfo
+	if int64(thresholdMs) <= 0 {
+		return Result{Error: errors.New("threshold required for staleness")}, runInfo
 	}
 	if (m == "exp" || m == "exp_cooldown") && halfLifeMs <= 0 {
 		return Result{Error: errors.New("halfLife required for exp/exp_cooldown staleness")}, runInfo
@@ -145,7 +133,7 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 			continue
 		}
 
-		mult, err := decayMultiplier(m, ageMs, int64(thresholdMs), int64(halfLifeMs), pw)
+		mult, err := decayMultiplier(m, ageMs, int64(thresholdMs), int64(halfLifeMs))
 		if err != nil {
 			return Result{Error: err}, runInfo
 		}
@@ -166,62 +154,7 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	return Result{Value: out}, runInfo
 }
 
-type piecewisePoint struct {
-	ageMs int64
-	value decimal.Decimal
-}
-
-func parsePiecewisePoints(s string) ([]piecewisePoint, error) {
-	parts := strings.Split(s, ";")
-	points := make([]piecewisePoint, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		av := strings.SplitN(p, ":", 2)
-		if len(av) != 2 {
-			return nil, errors.Errorf("invalid piecewise point %q", p)
-		}
-		dur, err := time.ParseDuration(strings.TrimSpace(av[0]))
-		if err != nil {
-			return nil, err
-		}
-		val, err := decimal.NewFromString(strings.TrimSpace(av[1]))
-		if err != nil {
-			return nil, err
-		}
-		points = append(points, piecewisePoint{ageMs: dur.Milliseconds(), value: val})
-	}
-	if len(points) == 0 {
-		return nil, errors.New("piecewise points cannot be empty")
-	}
-	sort.Slice(points, func(i, j int) bool { return points[i].ageMs < points[j].ageMs })
-	return points, nil
-}
-
-func piecewiseValue(points []piecewisePoint, ageMs int64) decimal.Decimal {
-	if ageMs <= points[0].ageMs {
-		return points[0].value
-	}
-	last := len(points) - 1
-	if ageMs >= points[last].ageMs {
-		return points[last].value
-	}
-	for i := range last {
-		lo, hi := points[i], points[i+1]
-		if ageMs >= lo.ageMs && ageMs <= hi.ageMs {
-			if hi.ageMs == lo.ageMs {
-				return lo.value
-			}
-			t := float64(ageMs-lo.ageMs) / float64(hi.ageMs-lo.ageMs)
-			return lo.value.Add(hi.value.Sub(lo.value).Mul(decimal.NewFromFloat(t)))
-		}
-	}
-	return points[last].value
-}
-
-func decayMultiplier(method string, ageMs, thresholdMs, halfLifeMs int64, points []piecewisePoint) (decimal.Decimal, error) {
+func decayMultiplier(method string, ageMs, thresholdMs, halfLifeMs int64) (decimal.Decimal, error) {
 	switch method {
 	case "cutoff":
 		if ageMs <= thresholdMs {
@@ -237,17 +170,12 @@ func decayMultiplier(method string, ageMs, thresholdMs, halfLifeMs int64, points
 		}
 		return decimal.NewFromInt(thresholdMs - ageMs).Div(decimal.NewFromInt(thresholdMs)), nil
 	case "exp":
-		if ageMs > thresholdMs {
-			return decimal.Zero, nil
-		}
 		return decimal.NewFromFloat(math.Pow(2, -float64(ageMs)/float64(halfLifeMs))), nil
 	case "exp_cooldown":
 		if ageMs <= thresholdMs {
 			return decimal.NewFromInt(1), nil
 		}
 		return decimal.NewFromFloat(math.Pow(2, -float64(ageMs-thresholdMs)/float64(halfLifeMs))), nil
-	case "piecewise":
-		return piecewiseValue(points, ageMs), nil
 	default:
 		return decimal.Zero, errors.Errorf("unknown staleness method %q", method)
 	}

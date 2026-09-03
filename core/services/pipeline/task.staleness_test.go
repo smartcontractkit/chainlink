@@ -137,23 +137,6 @@ func TestStalenessTask(t *testing.T) {
 		}
 	})
 
-	t.Run("piecewise interpolation drops sample at weight 0", func(t *testing.T) {
-		t.Parallel()
-		task := pipeline.StalenessTask{
-			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:    "piecewise",
-			Threshold: "60s",
-			Points:    "0s:1;5s:1;10s:0.5;30s:0",
-		}
-		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
-		require.NoError(t, out.Error)
-		res := out.Value.([]pipeline.Sample)
-		require.Len(t, res, 2)
-		for _, s := range res {
-			assert.NotEqual(t, "b", s.Source, "stale sample should be dropped")
-		}
-	})
-
 	t.Run("decayThreshold drops samples below K", func(t *testing.T) {
 		t.Parallel()
 		subNow := time.Now().UnixMilli()
@@ -250,30 +233,6 @@ func TestStalenessTask(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("piecewise invalid points returns error", func(t *testing.T) {
-		t.Parallel()
-		task := pipeline.StalenessTask{
-			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:    "piecewise",
-			Threshold: "60s",
-			Points:    "5s,1",
-		}
-		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
-		require.Error(t, out.Error)
-	})
-
-	t.Run("piecewise empty points returns error", func(t *testing.T) {
-		t.Parallel()
-		task := pipeline.StalenessTask{
-			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:    "piecewise",
-			Threshold: "60s",
-			Points:    "",
-		}
-		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
-		require.Error(t, out.Error)
-	})
-
 	t.Run("exp at exact threshold not zero", func(t *testing.T) {
 		t.Parallel()
 		// age=10s, halfLife=5s -> 2^-2 = 0.25. Wall-clock timing in `runAt`
@@ -311,41 +270,6 @@ func TestStalenessTask(t *testing.T) {
 		assert.True(t, w.IsZero(), "got %s", w)
 	})
 
-	t.Run("piecewise interpolates between points", func(t *testing.T) {
-		t.Parallel()
-		// points: 0s:1; 10s:0.5; 20s:0 -> 5s old should be ~0.75
-		task := pipeline.StalenessTask{
-			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:    "piecewise",
-			Threshold: "60s",
-			Points:    "0s:1;10s:0.5;20s:0",
-		}
-		sampleAt := time.Now().UnixMilli() - 5000
-		sample := pipeline.Sample{Source: "x", Value: decimal.NewFromInt(1), Weight: decimal.NewFromInt(1), TsMs: sampleAt}
-		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: sample}})
-		require.NoError(t, out.Error)
-		res := out.Value.([]pipeline.Sample)
-		require.Len(t, res, 1)
-		assert.True(t, res[0].Weight.GreaterThan(decimal.RequireFromString("0.74")) && res[0].Weight.LessThan(decimal.RequireFromString("0.76")), "got %s", res[0].Weight)
-	})
-
-	t.Run("piecewise clamps past last point", func(t *testing.T) {
-		t.Parallel()
-		// points: 0s:1; 5s:0.5 -> after 5s, value stays 0.5
-		task := pipeline.StalenessTask{
-			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-			Method:    "piecewise",
-			Threshold: "60s",
-			Points:    "0s:1;5s:0.5",
-		}
-		sample := pipeline.Sample{Source: "x", Value: decimal.NewFromInt(1), Weight: decimal.NewFromInt(1), TsMs: now - 60000}
-		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: sample}})
-		require.NoError(t, out.Error)
-		res := out.Value.([]pipeline.Sample)
-		require.Len(t, res, 1)
-		assert.True(t, res[0].Weight.Equal(decimal.RequireFromString("0.5")), "got %s", res[0].Weight)
-	})
-
 	t.Run("decayThreshold ignored for linear", func(t *testing.T) {
 		t.Parallel()
 		// linear at 5s with 10s threshold -> 0.5, K=10 should NOT drop it
@@ -364,14 +288,14 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("cutoff zero is disabled", func(t *testing.T) {
 		t.Parallel()
-		// Use piecewise so the method alone wouldn't drop anything. cutoff=0 must not
-		// drop any sample; cutoff=20s must drop the 30s-old `b`.
+		// Use cutoff method with a threshold larger than all sample ages so the
+		// method alone wouldn't drop anything. cutoff=0 must not drop any sample;
+		// cutoff=20s must drop the 30s-old `b`.
 		mk := func(c string) []pipeline.Sample {
 			task := pipeline.StalenessTask{
 				BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
-				Method:    "piecewise",
-				Threshold: "60s",
-				Points:    "0s:1;120s:1",
+				Method:    "cutoff",
+				Threshold: "120s",
 				Cutoff:    c,
 			}
 			out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), makeSamples())
