@@ -16,7 +16,7 @@ import (
 
 // Sample is one measurement from one source at one instant.
 // It bundles the value with the metadata (source, weight, unit, timestamp) that
-// downstream tasks consume. A source with multiple fields (e.g. mid, bid, ask)
+// downstream tasks consume. A source with multiple fields (e.g. mid, bid, ask, ts)
 // becomes multiple self-contained samples, not parallel arrays of metadata
 // that can drift out of alignment.
 type Sample struct {
@@ -292,13 +292,9 @@ func (t *SampleTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		return Result{Error: errors.Wrap(err, "input")}, runInfo
 	}
 
-	valueRaw, err := traverseJSONPath(decoded, valuePath, false)
+	valueRaw, err := getJSONRaw(decoded, valuePath)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "valuePath")}, runInfo
-	}
-	valueRaw, err = normalizeJSONNumber(valueRaw)
-	if err != nil {
-		return Result{Error: err}, runInfo
 	}
 	value, err := utils.ToDecimal(valueRaw)
 	if err != nil {
@@ -309,13 +305,9 @@ func (t *SampleTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		value = value.Div(decimal.New(1, dec))
 	}
 
-	tsRaw, err := traverseJSONPath(decoded, tsPath, false)
+	tsRaw, err := getJSONRaw(decoded, tsPath)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "tsPath")}, runInfo
-	}
-	tsRaw, err = normalizeJSONNumber(tsRaw)
-	if err != nil {
-		return Result{Error: err}, runInfo
 	}
 	tsMs, err := toInt64(tsRaw)
 	if err != nil {
@@ -333,6 +325,14 @@ func (t *SampleTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		Unit:   string(unit),
 		Tag:    string(tag),
 	}}, runInfo
+}
+
+func getJSONRaw(decoded any, path []string) (any, error) {
+	v, err := traverseJSONPath(decoded, path, false)
+	if err != nil {
+		return nil, err
+	}
+	return normalizeJSONNumber(v)
 }
 
 func sampleInputToMap(v any) (map[string]any, error) {

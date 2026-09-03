@@ -31,7 +31,7 @@ func TestNormalizeTask(t *testing.T) {
 		task := pipeline.NormalizeTask{
 			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
 			Samples:    "$(samples)",
-			Factors:    "$(factor)",
+			UnitMap:    `{"U1":$(factor)}`,
 			TargetUnit: "T",
 			Enabled:    "true",
 		}
@@ -105,7 +105,7 @@ func TestNormalizeTask(t *testing.T) {
 		task := pipeline.NormalizeTask{
 			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
 			Samples:    `$(noUnit)`,
-			Factors:    "$(factor)",
+			UnitMap:    `{"U1":$(factor)}`,
 			TargetUnit: "T",
 			Enabled:    "true",
 		}
@@ -171,28 +171,6 @@ func TestNormalizeTaskUnitMap(t *testing.T) {
 		assert.True(t, res[0].Value.Equal(decimal.RequireFromString("250")))
 	})
 
-	t.Run("unitMap takes priority over factors", func(t *testing.T) {
-		t.Parallel()
-		vars := pipeline.NewVarsFrom(map[string]any{
-			"u1Factor":    pipeline.Sample{Source: "U1", Value: decimal.RequireFromString("2.5"), Weight: decimal.NewFromInt(1), TsMs: 1},
-			"wrongFactor": pipeline.Sample{Source: "U1", Value: decimal.RequireFromString("99"), Weight: decimal.NewFromInt(1), TsMs: 1},
-			"samples":     unitMapSamples(),
-		})
-		task := pipeline.NormalizeTask{
-			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
-			Samples:    "$(samples)",
-			Factors:    "$(wrongFactor)",
-			UnitMap:    `{"U1":$(u1Factor)}`,
-			TargetUnit: "T",
-			Enabled:    "true",
-		}
-		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
-		require.NoError(t, out.Error)
-		res := out.Value.([]pipeline.Sample)
-		require.Len(t, res, 2)
-		assert.True(t, res[0].Value.Equal(decimal.RequireFromString("250")), "expected unitMap factor (2.5), not factors value (99); got %s", res[0].Value)
-	})
-
 	t.Run("unitMap missing unit drops sample", func(t *testing.T) {
 		t.Parallel()
 		vars := pipeline.NewVarsFrom(map[string]any{
@@ -214,5 +192,179 @@ func TestNormalizeTaskUnitMap(t *testing.T) {
 		res := out.Value.([]pipeline.Sample)
 		require.Len(t, res, 1)
 		assert.Equal(t, "srcA", res[0].Source)
+	})
+
+	t.Run("unitMap with multiple units", func(t *testing.T) {
+		t.Parallel()
+		vars := pipeline.NewVarsFrom(map[string]any{
+			"samples": []pipeline.Sample{
+				{Source: "a", Value: decimal.NewFromInt(10), Unit: "U1", Weight: decimal.NewFromInt(1), TsMs: 1},
+				{Source: "b", Value: decimal.NewFromInt(20), Unit: "U2", Weight: decimal.NewFromInt(1), TsMs: 1},
+				{Source: "c", Value: decimal.NewFromInt(30), Unit: "T", Weight: decimal.NewFromInt(1), TsMs: 1},
+			},
+		})
+		task := pipeline.NormalizeTask{
+			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
+			Samples:    "$(samples)",
+			UnitMap:    `{"U1":2,"U2":3}`,
+			TargetUnit: "T",
+			Enabled:    "true",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 3)
+		assert.True(t, res[0].Value.Equal(decimal.NewFromInt(20)), "10 * 2")
+		assert.True(t, res[1].Value.Equal(decimal.NewFromInt(60)), "20 * 3")
+		assert.True(t, res[2].Value.Equal(decimal.NewFromInt(30)), "already in target unit, unchanged")
+	})
+
+	t.Run("all samples already in target unit", func(t *testing.T) {
+		t.Parallel()
+		vars := pipeline.NewVarsFrom(map[string]any{
+			"samples": []pipeline.Sample{
+				{Source: "a", Value: decimal.NewFromInt(1), Unit: "T", Weight: decimal.NewFromInt(1), TsMs: 1},
+				{Source: "b", Value: decimal.NewFromInt(2), Unit: "T", Weight: decimal.NewFromInt(1), TsMs: 1},
+			},
+		})
+		task := pipeline.NormalizeTask{
+			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
+			Samples:    "$(samples)",
+			UnitMap:    `{"U1":2.5}`,
+			TargetUnit: "T",
+			Enabled:    "true",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 2)
+		assert.True(t, res[0].Value.Equal(decimal.NewFromInt(1)))
+		assert.True(t, res[1].Value.Equal(decimal.NewFromInt(2)))
+	})
+
+	t.Run("unitMap zero factor multiplies value to 0", func(t *testing.T) {
+		// Documents the deliberate new behavior: a zero factor is applied, not
+		// treated as missing. Old factors path skipped IsZero; unitMap does not.
+		t.Parallel()
+		vars := pipeline.NewVarsFrom(map[string]any{
+			"samples": []pipeline.Sample{
+				{Source: "a", Value: decimal.NewFromInt(100), Unit: "U1", Weight: decimal.NewFromInt(1), TsMs: 1},
+			},
+		})
+		task := pipeline.NormalizeTask{
+			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
+			Samples:    "$(samples)",
+			UnitMap:    `{"U1":0}`,
+			TargetUnit: "T",
+			Enabled:    "true",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 1)
+		assert.True(t, res[0].Value.IsZero(), "100 * 0 = 0")
+	})
+
+	t.Run("unitMap from JSON string", func(t *testing.T) {
+		t.Parallel()
+		vars := pipeline.NewVarsFrom(map[string]any{
+			"samples": []pipeline.Sample{
+				{Source: "a", Value: decimal.NewFromInt(100), Unit: "U1", Weight: decimal.NewFromInt(1), TsMs: 1},
+			},
+			"unitMap": `{"U1":2}`,
+		})
+		task := pipeline.NormalizeTask{
+			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
+			Samples:    "$(samples)",
+			UnitMap:    "$(unitMap)",
+			TargetUnit: "T",
+			Enabled:    "true",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 1)
+		assert.True(t, res[0].Value.Equal(decimal.NewFromInt(200)))
+	})
+
+	t.Run("unitMap with bad value errors", func(t *testing.T) {
+		t.Parallel()
+		vars := pipeline.NewVarsFrom(map[string]any{
+			"samples": []pipeline.Sample{
+				{Source: "a", Value: decimal.NewFromInt(100), Unit: "U1", Weight: decimal.NewFromInt(1), TsMs: 1},
+			},
+		})
+		task := pipeline.NormalizeTask{
+			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
+			Samples:    "$(samples)",
+			UnitMap:    `{"U1":"not-a-number"}`,
+			TargetUnit: "T",
+			Enabled:    "true",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
+		require.Error(t, out.Error)
+	})
+
+	t.Run("fractional factor scales down", func(t *testing.T) {
+		t.Parallel()
+		vars := pipeline.NewVarsFrom(map[string]any{
+			"samples": []pipeline.Sample{
+				{Source: "a", Value: decimal.NewFromInt(100), Unit: "U1", Weight: decimal.NewFromInt(1), TsMs: 1},
+			},
+		})
+		task := pipeline.NormalizeTask{
+			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
+			Samples:    "$(samples)",
+			UnitMap:    `{"U1":0.5}`,
+			TargetUnit: "T",
+			Enabled:    "true",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 1)
+		assert.True(t, res[0].Value.Equal(decimal.RequireFromString("50")), "100 * 0.5 = 50")
+	})
+
+	t.Run("negative factor flips sign", func(t *testing.T) {
+		t.Parallel()
+		vars := pipeline.NewVarsFrom(map[string]any{
+			"samples": []pipeline.Sample{
+				{Source: "a", Value: decimal.NewFromInt(100), Unit: "U1", Weight: decimal.NewFromInt(1), TsMs: 1},
+			},
+		})
+		task := pipeline.NormalizeTask{
+			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
+			Samples:    "$(samples)",
+			UnitMap:    `{"U1":-1}`,
+			TargetUnit: "T",
+			Enabled:    "true",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 1)
+		assert.True(t, res[0].Value.Equal(decimal.NewFromInt(-100)), "100 * -1 = -100")
+	})
+
+	t.Run("negative value scales through", func(t *testing.T) {
+		t.Parallel()
+		vars := pipeline.NewVarsFrom(map[string]any{
+			"samples": []pipeline.Sample{
+				{Source: "a", Value: decimal.NewFromInt(-50), Unit: "U1", Weight: decimal.NewFromInt(1), TsMs: 1},
+			},
+		})
+		task := pipeline.NormalizeTask{
+			BaseTask:   pipeline.NewBaseTask(0, "norm", nil, nil, 0),
+			Samples:    "$(samples)",
+			UnitMap:    `{"U1":2}`,
+			TargetUnit: "T",
+			Enabled:    "true",
+		}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 1)
+		assert.True(t, res[0].Value.Equal(decimal.NewFromInt(-100)), "-50 * 2 = -100")
 	})
 }

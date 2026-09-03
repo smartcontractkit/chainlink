@@ -16,7 +16,7 @@ func TestSampleTask(t *testing.T) {
 
 	inputMap := map[string]any{
 		"data": map[string]any{
-			"binance": map[string]any{
+			"src": map[string]any{
 				"mid": 399.30,
 				"bid": 399.20,
 				"ask": 399.40,
@@ -31,10 +31,10 @@ func TestSampleTask(t *testing.T) {
 		t.Parallel()
 		task := pipeline.SampleTask{
 			BaseTask:  pipeline.NewBaseTask(0, "s", nil, nil, 0),
-			Source:    "binance",
+			Source:    "src",
 			Weight:    "0.333",
 			Unit:      "USDT",
-			ValuePath: "data,binance,mid",
+			ValuePath: "data,src,mid",
 			TsPath:    "timestamps,providerIndicatedTimeUnixMs",
 		}
 		out, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: inputMap}})
@@ -42,7 +42,7 @@ func TestSampleTask(t *testing.T) {
 		require.NoError(t, out.Error)
 		s, ok := out.Value.(pipeline.Sample)
 		require.True(t, ok)
-		assert.Equal(t, "binance", s.Source)
+		assert.Equal(t, "src", s.Source)
 		assert.True(t, s.Value.Equal(decimal.RequireFromString("399.30")))
 		assert.Equal(t, int64(1725000000000), s.TsMs)
 		assert.True(t, s.Weight.Equal(decimal.RequireFromString("0.333")))
@@ -53,12 +53,12 @@ func TestSampleTask(t *testing.T) {
 		t.Parallel()
 		task := pipeline.SampleTask{
 			BaseTask:  pipeline.NewBaseTask(0, "s", nil, nil, 0),
-			Source:    "binance",
+			Source:    "src",
 			Weight:    "1",
-			ValuePath: "data,binance,mid",
+			ValuePath: "data,src,mid",
 			TsPath:    "timestamps,providerIndicatedTimeUnixMs",
 		}
-		inputJSON := `{"data":{"binance":{"mid":399.30}},"timestamps":{"providerIndicatedTimeUnixMs":1725000000000}}`
+		inputJSON := `{"data":{"src":{"mid":399.30}},"timestamps":{"providerIndicatedTimeUnixMs":1725000000000}}`
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: inputJSON}})
 		require.NoError(t, out.Error)
 		s := out.Value.(pipeline.Sample)
@@ -70,9 +70,9 @@ func TestSampleTask(t *testing.T) {
 		t.Parallel()
 		task := pipeline.SampleTask{
 			BaseTask:  pipeline.NewBaseTask(0, "s", nil, nil, 0),
-			Source:    "binance",
+			Source:    "src",
 			Weight:    "1",
-			ValuePath: "data,binance,mid",
+			ValuePath: "data,src,mid",
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: inputMap}})
 		require.Error(t, out.Error)
@@ -82,14 +82,14 @@ func TestSampleTask(t *testing.T) {
 		t.Parallel()
 		task := pipeline.SampleTask{
 			BaseTask:  pipeline.NewBaseTask(0, "s", nil, nil, 0),
-			Source:    "binance",
+			Source:    "src",
 			Weight:    "1",
-			ValuePath: "data,binance,mid",
+			ValuePath: "data,src,mid",
 			TsPath:    "timestamps,ts",
 			TsUnit:    "s",
 		}
 		input := map[string]any{
-			"data":       map[string]any{"binance": map[string]any{"mid": 100.0}},
+			"data":       map[string]any{"src": map[string]any{"mid": 100.0}},
 			"timestamps": map[string]any{"ts": 1725000000},
 		}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: input}})

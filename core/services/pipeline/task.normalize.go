@@ -12,13 +12,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// Experimental: NormalizeTask converts sample values onto a common unit using
-// conversion factors provided as a Sample slice or an explicit unitMap.
-// Samples already in the target unit (or with no unit) pass through unchanged.
+// Experimental: NormalizeTask converts sample values onto a common unit using a
+// user-provided unit→factor map. Samples already in the target unit (or with
+// no unit) pass through unchanged.
 //
 // Input:  samples ([]Sample) — values in various units
-// Input:  factors ([]Sample, optional) — Source names the unit this factor converts
-// Input:  unitMap (map, optional) — explicit {unit: factor} mapping; takes priority over factors
+// Input:  unitMap (map, required when enabled) — explicit {unit: factor} mapping
 //
 //	e.g. unitMap={"USDC":$(usdc_factor),"USDT":$(usdt_factor)} — var-refs are bare JSON values
 //
@@ -27,7 +26,6 @@ import (
 type NormalizeTask struct {
 	BaseTask      `mapstructure:",squash"`
 	Samples       string `json:"samples"`
-	Factors       string `json:"factors"`
 	UnitMap       string `json:"unitMap"`
 	TargetUnit    string `json:"targetUnit"`
 	Enabled       string `json:"enabled"`
@@ -79,7 +77,6 @@ func (t *NormalizeTask) Type() TaskType {
 func (t *NormalizeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		samplesAndErrs SliceParam
-		factorsAndErrs SliceParam
 		unitMapParam   UnitMapParam
 		targetUnit     StringParam
 		enabled        BoolParam
@@ -96,7 +93,6 @@ func (t *NormalizeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 
 	err := stderrors.Join(
 		errors.Wrap(ResolveParam(&samplesAndErrs, From(VarExpr(t.Samples, vars), JSONWithVarExprs(t.Samples, vars, true), Inputs(inputs))), "samples"),
-		resolveOpt(&factorsAndErrs, VarExpr(t.Factors, vars), JSONWithVarExprs(t.Factors, vars, true)),
 		resolveOpt(&unitMapParam, VarExpr(t.UnitMap, vars), JSONWithVarExprs(t.UnitMap, vars, true)),
 		errors.Wrap(ResolveParam(&targetUnit, From(NonemptyString(t.TargetUnit))), "targetUnit"),
 		errors.Wrap(ResolveParam(&enabled, From(NonemptyString(t.Enabled), true)), "enabled"),
@@ -116,30 +112,7 @@ func (t *NormalizeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		return Result{Value: []Sample(samples)}, runInfo
 	}
 
-	// Build factor lookup: prefer explicit unitMap, fall back to source-keyed factors.
-	factorByUnit := make(map[string]decimal.Decimal)
-	if len(unitMapParam) > 0 {
-		factorByUnit = unitMapParam
-	} else {
-		factorsRaw, _ := factorsAndErrs.FilterErrors()
-		var factors SampleSliceParam
-		if err := factors.UnmarshalPipelineParam(factorsRaw); err != nil {
-			return Result{Error: errors.Wrapf(ErrBadInput, "factors: %v", err)}, runInfo
-		}
-		for _, f := range factors {
-			if f.Value.IsZero() {
-				continue
-			}
-			unit := f.Source
-			if unit == "" {
-				unit = f.Unit
-			}
-			if unit == "" {
-				continue
-			}
-			factorByUnit[unit] = f.Value
-		}
-	}
+	factorByUnit := map[string]decimal.Decimal(unitMapParam)
 
 	out := make([]Sample, 0, len(samples))
 	for _, s := range samples {

@@ -86,8 +86,7 @@ func (t *WeightedMeanTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 		return Result{Error: errors.Wrapf(ErrBadInput, "samples: %v", err)}, runInfo
 	}
 
-	// Drop zero-weight samples (staleness already set weight=0 and dropped them,
-	// but this is defensive against upstream tasks that don't filter).
+	// Drop zero-weight samples (this is defensive against upstream tasks that don't drop weight 0 tasks).
 	active := make([]Sample, 0, len(samples))
 	for _, s := range samples {
 		if !s.Weight.IsZero() {
@@ -115,7 +114,7 @@ func (t *WeightedMeanTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 	den := decimal.Zero
 
 	if methodMode == "" || methodMode == "none" {
-		// Plain weighted mean — no clamping. Skip band computation entirely.
+		// Plain weighted mean
 		for _, s := range active {
 			num = num.Add(s.Weight.Mul(s.Value))
 			den = den.Add(s.Weight)
@@ -217,15 +216,23 @@ func computeBand(m, b decimal.Decimal, method string, ref []Sample) (lo, hi deci
 	one := decimal.NewFromInt(1)
 	switch method {
 	case "winsor":
+		// Relative band: scales with median magnitude. Use when tolerance is
+		// proportion-like (e.g. ±3% of price).
 		lo = m.Mul(one.Sub(b))
 		hi = m.Mul(one.Add(b))
 		if lo.IsNegative() {
 			lo = decimal.Zero
 		}
 	case "winsor_abs":
+		// Absolute band: fixed distance around median. Use when the tolerance
+		// is in raw units (e.g. ±0.50 USDT) rather than a fraction of price.
 		lo = m.Sub(b)
 		hi = m.Add(b)
 	case "winsor_mad":
+		// Adaptive band: scale = median(|x - median|). Use when sources may
+		// realistically disagree by varying amounts round-to-round. If all
+		// sources agree, MAD→0 and the band collapses onto the median —
+		// consider flooring band if this matters.
 		vals := make([]decimal.Decimal, len(ref))
 		for i, r := range ref {
 			vals[i] = r.Value.Sub(m).Abs()
