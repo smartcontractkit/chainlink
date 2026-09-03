@@ -28,6 +28,7 @@ func TestRootCmd(t *testing.T) {
 	assert.Contains(t, buf.String(), "generate")
 	assert.Contains(t, buf.String(), "end-of-file-fixer")
 	assert.Contains(t, buf.String(), "whitespace-fixer")
+	assert.Contains(t, buf.String(), "pr-size")
 }
 
 func TestLintCmdHelp(t *testing.T) {
