@@ -527,6 +527,16 @@ func (s *SliceParam) UnmarshalPipelineParam(val any) error {
 	case []any:
 		*s = v
 		return nil
+	case []Sample:
+		ssp := make([]any, len(v))
+		for i, x := range v {
+			ssp[i] = x
+		}
+		*s = ssp
+		return nil
+	case Sample:
+		*s = []any{v}
+		return nil
 	case string:
 		return s.UnmarshalPipelineParam([]byte(v))
 
