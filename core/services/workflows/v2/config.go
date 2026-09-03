@@ -420,7 +420,7 @@ type LifecycleHooks struct {
 	OnTriggerEventDropped   func(triggerID, eventID, reason string)
 	OnExecutionFinished     func(executionID string, status string)
 	OnExecutionError        func(msg string)
-	OnExecutionStatusUpdate func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification)
+	OnExecutionStatusUpdate func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification)
 	OnResultReceived        func(*sdkpb.ExecutionResult)
 	OnRateLimited           func(executionID string)
 	OnNodeSynced            func(node commoncap.Node, err error)
@@ -514,7 +514,7 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		h.OnExecutionFinished = func(executionID string, status string) {}
 	}
 	if h.OnExecutionStatusUpdate == nil {
-		h.OnExecutionStatusUpdate = func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
+		h.OnExecutionStatusUpdate = func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
 		}
 	}
 	if h.OnRateLimited == nil {

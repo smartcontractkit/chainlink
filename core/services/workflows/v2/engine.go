@@ -1095,7 +1095,7 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			}
 		}
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
-		e.cfg.Hooks.OnExecutionStatusUpdate(e.cfg.WorkflowID, triggerEvent.ID, event.TriggerIndex, executionStatus, execErrClass)
+		e.cfg.Hooks.OnExecutionStatusUpdate(e.cfg.WorkflowID, executionID, triggerEvent.ID, event.TriggerIndex, executionStatus, execErrClass)
 		if execErr != nil {
 			e.cfg.Hooks.OnExecutionError(execErr.Error())
 		}

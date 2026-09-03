@@ -1342,10 +1342,11 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 		h.shardFailoverServices = append(h.shardFailoverServices, sender)
 		h.shardFailoverMu.Unlock()
 
-		cfg.Hooks.OnExecutionStatusUpdate = func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
+		cfg.Hooks.OnExecutionStatusUpdate = func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
 			execStatus := mapExecutionStatus(status, errClass)
 			sender.Send(context.Background(), &ringpb.ExecutionStatusUpdate{
 				WorkflowId:     workflowID,
+				ExecutionId:    executionID,
 				TriggerEventId: triggerEventID,
 				TriggerIndex:   uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
 				Status:         execStatus,
@@ -1362,7 +1363,7 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 		}
 
 		receiver := sharding.NewExecutionStatusUpdateReceiver(*primaryDon, func(msg *ringpb.ExecutionStatusUpdate) {
-			h.lggr.Infow("secondary received ExecutionStatusUpdate", "workflowID", msg.WorkflowId, "triggerEventID", msg.TriggerEventId, "status", msg.Status)
+			h.lggr.Infow("secondary received ExecutionStatusUpdate", "workflowID", msg.WorkflowId, "executionID", msg.ExecutionId, "triggerEventID", msg.TriggerEventId, "status", msg.Status)
 		}, h.lggr)
 
 		if regErr := h.shardDispatcher.SetReceiverForMethod("shard-execution-status-update", primaryDon.ID, remotetypes.MethodExecutionStatusUpdate, receiver); regErr != nil {
