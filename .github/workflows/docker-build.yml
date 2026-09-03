@@ -49,9 +49,9 @@ jobs:
         shell: bash
         env:
           SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id
-            }}/cpu=16/ram=64/family=m8g+m9g/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+            }}/cpu=16/ram=64/family=m8g+m9g/spot=false/image=ubuntu24-full-arm64/volume=100gb/extras=s3-cache
           SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id
-            }}/cpu=16/ram=64/family=m7i+m8i/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            }}/cpu=16/ram=64/family=m7i+m8i/spot=false/image=ubuntu24-full-x64/volume=100gb/extras=s3-cache
           GH_RUNNER_LABEL_ARM64: ubuntu-24.04-arm
           GH_RUNNER_LABEL_AMD64: ubuntu-24.04
         run: |
