@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-#added Adding new experimental tasks in pipeline package. Sample, Staleness, WeightedMean, Normalize.  
+#added Adding new experimental tasks in pipeline package. Anchor, Normalize, Sample, Staleness, WeightedMean.
