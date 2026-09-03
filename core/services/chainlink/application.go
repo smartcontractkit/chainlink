@@ -805,6 +805,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				OrgResolver:                    creServices.OrgResolver,
 				LimitsFactory:                  limitsFactory,
 				OCRConfigService:               creServices.OCRConfigService,
+				DefaultBootstrappers:           safeDefaultBootstrappers(cfg),
+				CapRegistryAddress:             safeExternalRegistryAddress(cfg),
+				CapRegistryChainID:             safeExternalRegistryChainID(cfg),
 			},
 			ocr2DelegateConfig,
 		)
@@ -812,6 +815,15 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			return nil, errors.New("ocr2.NewDelegate() returned nil")
 		}
 		delegates[job.OffchainReporting2] = ocr2Delegate
+		if creServices.SetOCR2DelegatesDeps != nil {
+			depSvc, depErr := creServices.SetOCR2DelegatesDeps(ocr2Delegate)
+			if depErr != nil {
+				return nil, fmt.Errorf("failed to set CRE OCR2 delegates dependencies: %w", depErr)
+			}
+			if depSvc != nil {
+				srvcs = append(srvcs, depSvc)
+			}
+		}
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,
 			jobORM,

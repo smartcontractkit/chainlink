@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -143,6 +144,13 @@ type Delegate struct {
 	OrgResolver                    orgresolver.OrgResolver
 	limitsFactory                  limits.Factory
 	ocrConfigService               capregconfig.OCRConfigService
+
+	// Registry-driven launch support: when the delegate is used via
+	// LocalCapabilityManager (no job spec), these fields provide the
+	// defaults that would otherwise come from the job spec.
+	defaultBootstrappers []commontypes.BootstrapperLocator
+	capRegistryAddress   string
+	capRegistryChainID   string
 }
 
 type DelegateConfig interface {
@@ -272,6 +280,12 @@ type DelegateOpts struct {
 	OrgResolver                    orgresolver.OrgResolver
 	LimitsFactory                  limits.Factory
 	OCRConfigService               capregconfig.OCRConfigService
+
+	// Registry-driven launch support: defaults for capabilities launched
+	// via LocalCapabilityManager (no job spec).
+	DefaultBootstrappers []commontypes.BootstrapperLocator
+	CapRegistryAddress   string
+	CapRegistryChainID   string
 }
 
 func NewDelegate(
@@ -307,6 +321,9 @@ func NewDelegate(
 		OrgResolver:                    opts.OrgResolver,
 		limitsFactory:                  opts.LimitsFactory,
 		ocrConfigService:               opts.OCRConfigService,
+		defaultBootstrappers:           opts.DefaultBootstrappers,
+		capRegistryAddress:             opts.CapRegistryAddress,
+		capRegistryChainID:             opts.CapRegistryChainID,
 	}
 }
 
@@ -503,6 +520,146 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
+}
+
+// NewServices builds OCR2 services for a capability launched via the
+// LocalCapabilityManager (registry-driven path, no job spec).
+//
+// capabilityID is the registry capability ID (e.g. "dontime@1.0.0").
+// donID is the on-chain DON ID this plugin process is being spawned for.
+// pluginType identifies which OCR2 plugin to create (currently only DonTimePlugin).
+// configJSON is the per-capability config from the registry.
+// registryOCRConfig is the on-chain OCR3 config from the registry, or nil
+// when none is available yet.
+func (d *Delegate) NewServices(
+	ctx context.Context,
+	capabilityID string,
+	donID uint32,
+	pluginType types.OCR2PluginType,
+	configJSON string,
+	registryOCRConfig *ocrtypes.ContractConfig,
+) ([]job.ServiceCtx, error) {
+	if d.peerWrapper == nil || !d.peerWrapper.IsStarted() {
+		return nil, errors.New("cannot setup OCR2 service, libp2p peer was missing or not started")
+	}
+	if d.cfg == nil {
+		return nil, errors.New("cannot setup OCR2 service, delegate config was missing")
+	}
+
+	externalJobID := uuid.New()
+	jobID := int32(0)
+	lggrCtx := loop.ContextValues{
+		JobID:   jobID,
+		JobName: capabilityID,
+	}
+	lggr := logger.Sugared(d.lggr.Named(string(job.OffchainReporting2)).Named(externalJobID.String()).With(lggrCtx.Args()...))
+	ctx = lggrCtx.ContextWithValues(ctx)
+
+	// Resolve OCR key bundle from keystore.
+	kbID, err := d.cfg.OCR2().KeyBundleID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default OCR2 key bundle ID: %w", err)
+	}
+	kb, err := d.ks.Get(kbID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OCR2 key bundle: %w", err)
+	}
+
+	// Resolve bootstrap peers from TOML config defaults.
+	bootstrapPeers := d.defaultBootstrappers
+	if len(bootstrapPeers) == 0 {
+		bootstrapPeers = d.peerWrapper.P2PConfig().V2().DefaultBootstrappers()
+	}
+
+	// Resolve transmitter from the on-chain OCR config when available,
+	// falling back to a keystore round-robin address.
+	var transmitterID string
+	if registryOCRConfig != nil {
+		if t, ok := generic.TransmitterForSigner(*registryOCRConfig, kb.PublicKey()); ok {
+			transmitterID = t
+		}
+	}
+	if transmitterID == "" && d.ethKs != nil && d.capRegistryChainID != "" {
+		t, tErr := generic.DefaultTransmitterForChain(ctx, d.ethKs, d.capRegistryChainID)
+		if tErr != nil {
+			return nil, fmt.Errorf("failed to resolve transmitter: %w", tErr)
+		}
+		transmitterID = t
+	}
+
+	// Build local config from delegate defaults.
+	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), job.OCR2OracleSpec{
+		PluginType:    pluginType,
+		TransmitterID: null.StringFrom(transmitterID),
+		Relay:         fmt.Sprintf("%s/%s", relay.NetworkEVM, d.capRegistryChainID),
+		OnchainSigningStrategy: job.JSONConfig{
+			"strategyName": "multi-chain",
+			"config":       map[string]any{"evm": kbID},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to build local config: %w", err)
+	}
+	if err = libocr2.SanityCheckLocalConfig(lc); err != nil {
+		return nil, fmt.Errorf("local config sanity check failed: %w", err)
+	}
+
+	ocrDB := NewDB(d.ds, jobID, 0, lggr)
+
+	// Build a synthetic job spec so the existing newDonTimePlugin can be reused.
+	// This avoids duplicating the service-creation logic; the job spec fields
+	// that newDonTimePlugin reads are populated from the resolved config.
+	jb := job.Job{
+		ID:            jobID,
+		ExternalJobID: externalJobID,
+		Type:          job.OffchainReporting2,
+		OCR2OracleSpec: &job.OCR2OracleSpec{
+			PluginType:             pluginType,
+			ContractID:             d.capRegistryAddress,
+			TransmitterID:          null.StringFrom(transmitterID),
+			Relay:                  fmt.Sprintf("%s/%s", relay.NetworkEVM, d.capRegistryChainID),
+			P2PV2Bootstrappers:     bootstrapPeersToStrings(bootstrapPeers),
+			OCRKeyBundleID:         null.StringFrom(kbID),
+			OnchainSigningStrategy: job.JSONConfig{"strategyName": "multi-chain", "config": map[string]any{"evm": kbID}},
+			PluginConfig:           job.JSONConfig{},
+		},
+	}
+	if configJSON != "" {
+		jb.OCR2OracleSpec.PluginConfig = job.JSONConfig{}
+		if jErr := json.Unmarshal([]byte(configJSON), &jb.OCR2OracleSpec.PluginConfig); jErr != nil {
+			return nil, fmt.Errorf("failed to parse plugin config JSON: %w", jErr)
+		}
+	}
+
+	lggr.Infow("launching OCR2 capability from registry",
+		"capabilityID", capabilityID,
+		"donID", donID,
+		"pluginType", pluginType,
+		"transmitterID", transmitterID,
+		"ocrKeyBundleID", kbID,
+		"capRegistryAddress", d.capRegistryAddress,
+		"capRegistryChainID", d.capRegistryChainID,
+		"numBootstrapPeers", len(bootstrapPeers),
+		"hasOCRContractConfig", registryOCRConfig != nil)
+
+	switch pluginType {
+	case types.DonTimePlugin:
+		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+	default:
+		return nil, errors.Errorf("plugin type %s not supported for registry-driven launch", pluginType)
+	}
+}
+
+// bootstrapPeersToStrings converts BootstrapperLocator slice to string slice
+// for the job spec P2PV2Bootstrappers field.
+func bootstrapPeersToStrings(peers []commontypes.BootstrapperLocator) []string {
+	result := make([]string, 0, len(peers))
+	for _, p := range peers {
+		for _, addr := range p.Addrs {
+			result = append(result, fmt.Sprintf("%s@%s", p.PeerID, addr))
+		}
+	}
+	return result
 }
 
 func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, evm types.EVMService, lggr logger.SugaredLogger) (string, error) {

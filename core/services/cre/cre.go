@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
+	ocr "github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2pmain "github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -125,6 +126,9 @@ type Services struct {
 
 	// callback to wire Delegates into CRE services (e.g. Launcher) when ready
 	SetDelegatesDeps func(*standardcapabilities.Delegate) (commonsrv.Service, error)
+
+	// callback to wire OCR2 Delegates into CRE services (e.g. Launcher) when ready
+	SetOCR2DelegatesDeps func(*ocr.Delegate) (commonsrv.Service, error)
 }
 
 func (s *Services) close() error {
@@ -473,15 +477,36 @@ func (s *Services) newRegistrySyncer(
 	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	localCfg := cfg.Capabilities().Local()
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
+		// Both delegates are wired into a single LocalCapabilityManager.
+		// The newServicesFn routes to the correct delegate based on the capability ID:
+		// - "dontime@1.0.0" → OCR2 delegate (DonTimePlugin)
+		// - everything else → standard capabilities delegate
 		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) (commonsrv.Service, error) {
+			// ocr2Delegate will be set by SetOCR2DelegatesDeps later.
+			var ocr2Delegate *ocr.Delegate
+
 			newServicesFn := func(ctx context.Context, capID string, donID uint32, command string, configJSON string, ocr3Config *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
+				if strings.HasPrefix(capID, "dontime") {
+					if ocr2Delegate == nil {
+						return nil, fmt.Errorf("OCR2 delegate not yet initialized for capability %q", capID)
+					}
+					return ocr2Delegate.NewServices(ctx, capID, donID, commontypes.DonTimePlugin, configJSON, ocr3Config)
+				}
 				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), nil, donID, ocr3Config)
 			}
+
 			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
 			if lcmErr != nil {
 				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}
 			wfLauncher.SetLocalCapabilityManager(localCapMgr)
+
+			// Store the OCR2 delegate setter so SetOCR2DelegatesDeps can wire it later.
+			s.SetOCR2DelegatesDeps = func(d *ocr.Delegate) (commonsrv.Service, error) {
+				ocr2Delegate = d
+				return nil, nil // already wired into the LocalCapabilityManager above
+			}
+
 			return localCapMgr, nil
 		}
 	}
