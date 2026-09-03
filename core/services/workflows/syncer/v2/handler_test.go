@@ -162,9 +162,12 @@ func (m *mockDrainableEngine) Close() error {
 
 // mockEngineFactory returns a standard mock engine factory for tests.
 // It sends nil to initDone to signal successful initialization.
-func mockEngineFactory(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+func mockEngineFactory(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error, subsCh chan<- subscriptionsReady) (services.Service, error) {
 	if initDone != nil {
 		initDone <- nil
+	}
+	if subsCh != nil {
+		subsCh <- subscriptionsReady{cre: contexts.CRE{Owner: owner, Workflow: wfid}}
 	}
 	return &mockEngine{}, nil
 }
@@ -317,7 +320,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error, _ chan<- subscriptionsReady) (services.Service, error) {
 				if _, err := hex.DecodeString(name.Hex()); err != nil {
 					return nil, fmt.Errorf("invalid workflow name: %w", err)
 				}
@@ -361,7 +364,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error, _ chan<- subscriptionsReady) (services.Service, error) {
 				if initDone != nil {
 					initDone <- nil
 				}
@@ -900,7 +903,7 @@ type testCase struct {
 	fetcherFactory   func(wfID []byte) *mockFetcher
 	Event            func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent
 	validationFn     func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string)
-	engineFactoryFn  func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
+	engineFactoryFn  func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error, _ chan<- subscriptionsReady) (services.Service, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -1485,13 +1488,13 @@ func Test_tryEngineCleanup_ClosesEngineThenRemovesFromRegistry(t *testing.T) {
 		engineRegistry: registry,
 	}
 
-	require.NoError(t, h.tryEngineCleanup(workflowID))
+	require.NoError(t, h.tryEngineCleanup(workflowID, ""))
 	assert.Equal(t, int32(1), engine.closeCalls.Load())
 	_, ok := registry.Get(workflowID)
 	assert.False(t, ok, "engine should be removed from the registry after a successful close")
 
 	// Cleanup for an already-removed workflow is a no-op and does not close again.
-	require.NoError(t, h.tryEngineCleanup(workflowID))
+	require.NoError(t, h.tryEngineCleanup(workflowID, ""))
 	assert.Equal(t, int32(1), engine.closeCalls.Load())
 }
 
@@ -1510,13 +1513,13 @@ func Test_tryEngineCleanup_KeepsEngineInRegistryOnCloseFailure(t *testing.T) {
 	}
 
 	// A failing close leaves the engine in the registry so the cleanup can be retried later.
-	require.Error(t, h.tryEngineCleanup(workflowID))
+	require.Error(t, h.tryEngineCleanup(workflowID, ""))
 	_, ok := registry.Get(workflowID)
 	require.True(t, ok, "engine must remain in the registry so the close can be retried")
 
 	// Once the (spurious) failure clears, the retry succeeds and only then is the engine removed.
 	engine.CloseErr = nil
-	require.NoError(t, h.tryEngineCleanup(workflowID))
+	require.NoError(t, h.tryEngineCleanup(workflowID, ""))
 	assert.Equal(t, int32(2), engine.closeCalls.Load())
 	_, ok = registry.Get(workflowID)
 	assert.False(t, ok)
@@ -1538,7 +1541,7 @@ func Test_tryEngineCleanup_ToleratesErrAlreadyStopped(t *testing.T) {
 
 	// ErrAlreadyStopped means the engine was already closed on a prior attempt; treat it as
 	// success and remove the registry entry.
-	require.NoError(t, h.tryEngineCleanup(workflowID))
+	require.NoError(t, h.tryEngineCleanup(workflowID, ""))
 	_, ok := registry.Get(workflowID)
 	assert.False(t, ok)
 }

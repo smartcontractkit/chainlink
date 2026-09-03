@@ -17,15 +17,18 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -34,6 +37,7 @@ import (
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -43,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -55,10 +60,18 @@ type ORM interface {
 }
 
 // engineFactoryFn creates a workflow engine. The initDone channel is used to signal when the engine
-// has completed initialization (including trigger subscriptions). For v2 engines, this is wired to
-// the OnInitialized lifecycle hook. For v1 legacy DAG engines, nil is sent immediately after engine
-// creation since they don't support async initialization hooks.
-type engineFactoryFn func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
+// has completed initialization (including the WASM Subscribe call). The subsCh channel receives
+// the engine's trigger subscriptions via the OnSubscriptionsReady hook, for the handler to
+// register with the trigger dispatcher. For v1 legacy DAG engines, nil is sent immediately after
+// engine creation since they don't support async initialization hooks.
+type engineFactoryFn func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error, subsCh chan<- subscriptionsReady) (services.Service, error)
+
+// subscriptionsReady carries the subscriptions an engine obtained from its
+// WASM Subscribe call, plus the tenant context to register them under.
+type subscriptionsReady struct {
+	subs []*sdkpb.TriggerSubscription
+	cre  contexts.CRE
+}
 
 type DrainableService interface {
 	Drain() bool
@@ -92,6 +105,7 @@ type eventHandler struct {
 	workflowEncryptionKey  workflowkey.Key
 	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
+	clock                  clockwork.Clock
 
 	// specMeter owns all metering for durable workflow-spec storage (the
 	// ResourceManager lifecycle, identity, snapshots). Nil when metering is
@@ -126,6 +140,13 @@ type eventHandler struct {
 	shardRoutingSteady      *shardownership.SteadySignal
 	shardResolver           shardownership.ShardResolver
 
+	// triggerDispatcher owns trigger registration, handles, event reading,
+	// and acknowledgement for all workflows on this node.
+	triggerDispatcher TriggerDispatcher
+	// workflowDon is the launcher-resolved workflow DON identity, used for
+	// trigger registration metadata. Set via SetWorkflowDon.
+	workflowDon commoncap.DON
+
 	metrics *metrics
 }
 
@@ -148,10 +169,18 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 
 func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.engineFactory = func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, initDone chan<- error) (services.Service, error) {
-			// For static engines (used in tests), signal immediate initialization success
+		e.engineFactory = func(_ context.Context, wfid, owner string, _ types.WorkflowName, _ string, _, _ []byte, _ string, initDone chan<- error, subsCh chan<- subscriptionsReady) (services.Service, error) {
+			// For static engines (used in tests), signal immediate initialization
+			// success and no trigger subscriptions, so tryEngineCreate's
+			// <-subsCh does not block forever waiting for a real engine's
+			// OnSubscriptionsReady hook, which a static engine never fires. The
+			// CRE tenant must still be populated: RegisterTriggers validates
+			// cre.Workflow even for an empty subscription list.
 			if initDone != nil {
 				initDone <- nil
+			}
+			if subsCh != nil {
+				subsCh <- subscriptionsReady{cre: contexts.CRE{Owner: owner, Workflow: wfid}}
 			}
 			return engine, nil
 		}
@@ -336,6 +365,7 @@ func NewEventHandler(
 		workflowArtifactsStore: workflowArtifacts,
 		workflowEncryptionKey:  workflowEncryptionKey,
 		workflowDonSubscriber:  workflowDonSubscriber,
+		clock:                  clockwork.NewRealClock(),
 		// default, enable via WithDebugMode
 		tracer: noop.NewTracerProvider().Tracer(""),
 	}
@@ -344,15 +374,32 @@ func NewEventHandler(
 		return nil, fmt.Errorf("new metrics: %w", metricsErr)
 	}
 	eh.metrics = metricsInst
-	eh.engineFactory = eh.engineFactoryFn
+	eh.engineFactory = func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error, subsCh chan<- subscriptionsReady) (services.Service, error) {
+		return eh.engineFactoryFn(ctx, wfid, owner, name, tag, config, binary, binaryURL, initDone, subsCh)
+	}
 	for _, o := range opts {
 		o(eh)
 	}
 
+	// The dispatcher is started and stopped alongside the handler and is
+	// the engine's acknowledger: engines are constructed with it injected.
+	dispatcherMetrics, err := monitoring.InitMonitoringResources()
+	if err != nil {
+		return nil, fmt.Errorf("failed to init dispatcher metrics: %w", err)
+	}
+	eh.triggerDispatcher = NewTriggerDispatcher(
+		lggr,
+		capRegistry,
+		engineRegistry,
+		engineLimiters.TriggerRegistrationsTime,
+		monitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), dispatcherMetrics),
+		eh.clock,
+	)
+
 	eh.Service, eh.eng = services.Config{
 		Name: "EventHandler",
-		// The workflow store and the spec meter are started and stopped
-		// alongside the handler.
+		// The workflow store, the spec meter, and the trigger dispatcher are
+		// started and stopped alongside the handler.
 		NewSubServices: func(logger.Logger) []services.Service {
 			var subs []services.Service
 			if eh.workflowStore != nil {
@@ -361,7 +408,7 @@ func NewEventHandler(
 			if eh.specMeter != nil {
 				subs = append(subs, eh.specMeter)
 			}
-			return subs
+			return append(subs, eh.triggerDispatcher)
 		},
 		Start: eh.start,
 		Close: eh.close,
@@ -378,10 +425,12 @@ func (h *eventHandler) start(context.Context) error {
 }
 
 // SetWorkflowDon supplies the launcher-resolved workflow DON identity for
-// metering. Called by the registry after WaitForDon, before any event is
-// dispatched; the value is static for the life of the node.
+// metering and trigger registration metadata. Called by the registry after
+// WaitForDon, before any event is dispatched; the value is static for the life
+// of the node.
 func (h *eventHandler) SetWorkflowDon(don commoncap.DON) {
 	h.specMeter.SetWorkflowDon(don)
+	h.workflowDon = don
 }
 
 func (h *eventHandler) close() error {
@@ -711,7 +760,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 	// Let's try to clean one up if it exists
 	if spec.Status != job.WorkflowSpecStatusActive {
-		return h.tryEngineCleanup(payload.WorkflowID)
+		return h.tryEngineCleanup(payload.WorkflowID, spec.WorkflowOwner)
 	}
 
 	// We know we need an engine, let's make sure that there isn't already one running for this workflow ID.
@@ -738,7 +787,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// - state isn't active
 	// Let's clean up and recreate
 
-	cleanupErr := h.tryEngineCleanup(payload.WorkflowID)
+	cleanupErr := h.tryEngineCleanup(payload.WorkflowID, spec.WorkflowOwner)
 	if cleanupErr != nil {
 		return fmt.Errorf("could not clean up old engine: %w", cleanupErr)
 	}
@@ -826,7 +875,7 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 	return organizationID, nil
 }
 
-func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error, subsCh chan<- subscriptionsReady) (services.Service, error) {
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 	var sdkName string
@@ -889,9 +938,31 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 	)
 	cfg := h.newV2EngineConfig(selectingModule, workflowID, owner, tag, sdkName, name, config)
 
+	// The dispatcher is the engine's acknowledger: it owns the trigger
+	// handles the engine's ACK call sites resolve.
+	cfg.TriggerAcknowledger = h.triggerDispatcher
+
 	h.wireInitDoneHook(cfg, initDone)
+	h.wireSubscriptionsHook(cfg, subsCh)
 
 	return v2.NewEngine(cfg)
+}
+
+// wireSubscriptionsHook wires the subscriptions channel to the
+// OnSubscriptionsReady lifecycle hook, composing with any existing hook so
+// test-provided hooks keep firing.
+func (h *eventHandler) wireSubscriptionsHook(cfg *v2.EngineConfig, subsCh chan<- subscriptionsReady) {
+	if subsCh == nil {
+		return
+	}
+	existingHook := cfg.Hooks.OnSubscriptionsReady
+	cfg.Hooks.OnSubscriptionsReady = func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error {
+		subsCh <- subscriptionsReady{subs: subs, cre: cre}
+		if existingHook != nil {
+			return existingHook(subs, cre)
+		}
+		return nil
+	}
 }
 
 func (h *eventHandler) createEngineModule(
@@ -920,10 +991,21 @@ func (h *eventHandler) createEngineModule(
 	return engineModule
 }
 
-// stopEngine drains (returning ErrDrainInProgress while executions remain) and
-// closes the engine for workflowID if one is registered.
-// Returns the drainable handle (nil-able) for drain-completed metrics.
-func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.WorkflowID) (DrainableService, error) {
+// stopEngine unregisters the workflow's triggers (stopping event ingress
+// while retaining handles for in-flight ACKs), drains (returning
+// ErrDrainInProgress while executions remain) and closes the engine for
+// workflowID if one is registered. Returns the drainable handle (nil-able) for
+// drain-completed metrics. owner is used to free the workflow count limit
+// under the same tenant scope it was acquired under in tryEngineCreate.
+func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.WorkflowID, owner string) (DrainableService, error) {
+	// Unregister triggers first: ingress stops immediately, but the
+	// dispatcher retains the handles so in-flight executions can still
+	// acknowledge until ReleaseHandles is called after the engine closes.
+	if h.triggerDispatcher != nil {
+		if err := h.triggerDispatcher.UnregisterTriggers(workflowID.Hex()); err != nil {
+			h.lggr.Errorw("failed to unregister triggers", "workflowID", workflowID.Hex(), "err", err)
+		}
+	}
 	e, ok := h.engineRegistry.Get(workflowID)
 	var drainable DrainableService
 	if ok {
@@ -949,6 +1031,23 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 
 		if innerErr := e.Close(); innerErr != nil && !errors.Is(innerErr, services.ErrAlreadyStopped) {
 			return nil, fmt.Errorf("failed to close workflow engine: %w", innerErr)
+		}
+
+		// The engine is closing for good (not deferred by an active drain
+		// above): release the workflow count limit acquired for it in
+		// tryEngineCreate, under the same owner/workflow tenant scope.
+		if h.workflowLimits != nil {
+			creCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner, Workflow: workflowID.Hex()})
+			if freeErr := h.workflowLimits.Free(creCtx, 1); freeErr != nil {
+				h.lggr.Errorw("failed to free workflow count limit", "workflowID", workflowID.Hex(), "err", freeErr)
+			}
+		}
+	}
+	// The engine is closed and drained; in-flight executions have finished, so
+	// the retained trigger handles can be dropped.
+	if h.triggerDispatcher != nil {
+		if err := h.triggerDispatcher.ReleaseHandles(workflowID.Hex()); err != nil {
+			h.lggr.Errorw("failed to release trigger handles", "workflowID", workflowID.Hex(), "err", err)
 		}
 	}
 	return drainable, nil
@@ -992,7 +1091,7 @@ func (h *eventHandler) workflowPausedEvent(
 	payload WorkflowPausedEvent,
 ) error {
 	workflowID := payload.WorkflowID.Hex()
-	if _, err := h.stopEngine(ctx, payload.WorkflowID); err != nil {
+	if _, err := h.stopEngine(ctx, payload.WorkflowID, hex.EncodeToString(payload.WorkflowOwner)); err != nil {
 		return err
 	}
 	if err := h.workflowArtifactsStore.PauseWorkflowArtifacts(ctx, workflowID); err != nil {
@@ -1012,7 +1111,7 @@ func (h *eventHandler) workflowDeletedEvent(
 	owner string,
 ) error {
 	workflowID := payload.WorkflowID.Hex()
-	drainable, err := h.stopEngine(ctx, payload.WorkflowID)
+	drainable, err := h.stopEngine(ctx, payload.WorkflowID, owner)
 	if err != nil {
 		return err
 	}
@@ -1041,11 +1140,21 @@ func (h *eventHandler) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSp
 }
 
 // tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
-// workflow engine is not running.
-func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
+// workflow engine is not running. owner is used to unregister/release the workflow's trigger handles
+// and free the workflow count limit under the same tenant scope they were acquired under.
+func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID, owner string) error {
 	e, ok := h.engineRegistry.Get(workflowID)
 	if !ok {
 		return nil
+	}
+
+	// Stop ingress immediately; the dispatcher retains the handles until
+	// ReleaseHandles below, so any execution still in flight during Close can
+	// still acknowledge.
+	if h.triggerDispatcher != nil {
+		if err := h.triggerDispatcher.UnregisterTriggers(workflowID.Hex()); err != nil {
+			h.lggr.Errorw("failed to unregister triggers", "workflowID", workflowID.Hex(), "err", err)
+		}
 	}
 
 	// Close the engine, then remove it from the registry only once cleanup has succeeded. The
@@ -1055,6 +1164,18 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 	// already closed on a prior attempt and is treated as success rather than a failure.
 	if err := e.Close(); err != nil && !errors.Is(err, services.ErrAlreadyStopped) {
 		return fmt.Errorf("failed to close workflow engine: %w", err)
+	}
+
+	if h.triggerDispatcher != nil {
+		if err := h.triggerDispatcher.ReleaseHandles(workflowID.Hex()); err != nil {
+			h.lggr.Errorw("failed to release trigger handles", "workflowID", workflowID.Hex(), "err", err)
+		}
+	}
+	if h.workflowLimits != nil {
+		creCtx := contexts.WithCRE(context.Background(), contexts.CRE{Owner: owner, Workflow: workflowID.Hex()})
+		if freeErr := h.workflowLimits.Free(creCtx, 1); freeErr != nil {
+			h.lggr.Errorw("failed to free workflow count limit", "workflowID", workflowID.Hex(), "err", freeErr)
+		}
 	}
 
 	h.cleanupModuleCache(workflowID.Hex())
@@ -1129,13 +1250,47 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return nonRetryable(fmt.Errorf("invalid workflow name: %w", err))
 	}
 
-	// Create a channel to receive the initialization result.
-	// This allows us to wait for the engine to complete initialization (including trigger subscriptions)
-	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
+	// Create a channel to receive the engine's trigger subscriptions. The
+	// engine fires OnSubscriptionsReady during init; the handler registers
+	// them with the dispatcher once the engine is in the registry.
 	initDone := make(chan error, 1)
+	subsCh := make(chan subscriptionsReady, 1)
 	var engine services.Service
 
-	engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, spec.BinaryURL, initDone)
+	// Acquire the workflow count limit before constructing the engine, so a
+	// limited workflow is rejected before module compilation. Freed by
+	// releaseWorkflowLimit after the engine is cleaned up.
+	creCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: spec.WorkflowOwner, Workflow: spec.WorkflowID})
+	if err := h.workflowLimits.Use(creCtx, 1); err != nil {
+		if errLimited, ok := errors.AsType[limits.ErrorResourceLimited[int]](err); ok {
+			switch errLimited.Scope {
+			case settings.ScopeOwner:
+				h.lggr.Infow("Per owner workflow count limit reached", "err", err)
+				if r, ok := h.triggerDispatcher.(WorkflowLimitReporter); ok {
+					r.ReportWorkflowLimitPerOwner(ctx)
+				}
+				return fmt.Errorf("%w: %v", types.ErrPerOwnerWorkflowCountLimitReached, err)
+			case settings.ScopeGlobal:
+				h.lggr.Infow("Global workflow count limit reached", "err", err)
+				if r, ok := h.triggerDispatcher.(WorkflowLimitReporter); ok {
+					r.ReportWorkflowLimitGlobal(ctx)
+				}
+				return fmt.Errorf("%w: %v", types.ErrGlobalWorkflowCountLimitReached, err)
+			default:
+				h.lggr.Errorw("Workflow count limit reached for unexpected scope", "scope", errLimited.Scope, "err", err)
+				return err
+			}
+		}
+		return err
+	}
+	limitAcquired := true
+	defer func() {
+		if limitAcquired {
+			_ = h.workflowLimits.Free(creCtx, 1)
+		}
+	}()
+
+	engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, spec.BinaryURL, initDone, subsCh)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
@@ -1144,8 +1299,9 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
-	// Wait for the engine to complete initialization (including trigger subscriptions).
-	// This ensures we don't emit workflowActivated events before the engine initializes successfully.
+	// Wait for the engine to complete initialization (including the WASM
+	// Subscribe call). Registration happens below, after the engine is in the
+	// registry, so the dispatcher's readers can resolve it for the first event.
 	select {
 	case <-ctx.Done():
 		// Context cancelled while waiting for initialization
@@ -1163,7 +1319,9 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		}
 	}
 
-	// Engine is fully initialized, add to registry with source tracking and identity fingerprint
+	// Engine is fully initialized; add it to the registry BEFORE registering
+	// triggers, so the dispatcher's readers can resolve it via the registry
+	// for the first event.
 	reconcileKey, err := ReconcileKey(ownerBytes, spec.WorkflowName)
 	if err != nil {
 		return fmt.Errorf("failed to compute reconcile key: %w", err)
@@ -1188,6 +1346,38 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		// This shouldn't happen because we call the handler serially and
 		// check for running engines above, see the call to engineRegistry.Contains.
 		return fmt.Errorf("invariant violation: %w", err)
+	}
+
+	// Register the workflow's triggers with the dispatcher. The engine is
+	// already in the registry, so the dispatcher's readers can resolve it for
+	// the first event. On failure the engine is torn down and the error is
+	// retried by the source.
+	subsReady := <-subsCh
+	regCtx := contexts.WithCRE(ctx, subsReady.cre)
+	triggerIDs, regErr := h.triggerDispatcher.RegisterTriggers(regCtx, subsReady.cre, RegistrationParams{
+		WorkflowName:                  workflowName.String(),
+		WorkflowTag:                   spec.WorkflowTag,
+		WorkflowDonID:                 h.workflowDon.ID,
+		WorkflowRegistryAddress:       h.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
+	}, subsReady.subs)
+	if regErr != nil {
+		if closeErr := engine.Close(); closeErr != nil {
+			h.lggr.Errorw("failed to close engine after trigger registration failure", "error", closeErr, "workflowID", spec.WorkflowID)
+		}
+		if _, popErr := h.engineRegistry.Pop(wid); popErr != nil && !errors.Is(popErr, ErrNotFound) {
+			h.lggr.Errorw("failed to remove engine from registry after trigger registration failure", "error", popErr, "workflowID", spec.WorkflowID)
+		}
+		return fmt.Errorf("failed to register triggers: %w", regErr)
+	}
+
+	// The engine is live and its triggers registered; the workflow count
+	// limit stays held until the engine is cleaned up.
+	limitAcquired = false
+	if eng, ok := engine.(interface {
+		FireOnSubscribedToTriggers(triggerIDs []string)
+	}); ok {
+		eng.FireOnSubscribedToTriggers(triggerIDs)
 	}
 	return nil
 }

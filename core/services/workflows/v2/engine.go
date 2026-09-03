@@ -17,10 +17,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -30,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -66,8 +63,7 @@ var (
 // to validation on the forwarder side. What matters is DON ID and the set of signer public keys.
 const pinnedWorkflowDonConfigVersion = 1
 
-// TODO: remove acknowledger check after CRE-6002 is implemented.
-var _ Acknowledger = (*Engine)(nil)
+// TODO: remove EventSink check after the dispatcher owns admission (CRE-6179).
 var _ EventSink = (*Engine)(nil)
 
 type Engine struct {
@@ -88,13 +84,6 @@ type Engine struct {
 
 	loggerLabels atomic.Pointer[map[string]string]
 	localNode    atomic.Pointer[capabilities.Node]
-
-	workflowLimitUsed atomic.Bool // true if GlobalWorkflowLimit must be freed
-
-	// registration ID -> trigger capability
-	triggers map[string]*triggerCapability
-	// used to separate registration and unregistration phases
-	triggersRegMu sync.Mutex
 
 	allTriggerEventsQueueCh limits.QueueLimiter[RoutedTriggerEvent]
 	executionsSemaphore     limits.ResourcePoolLimiter[int]
@@ -117,12 +106,6 @@ type Engine struct {
 	draining         atomic.Bool
 	activeExecutions atomic.Int32
 	drainStartedAtNs atomic.Int64
-}
-
-type triggerCapability struct {
-	capabilities.TriggerCapability
-	payload *anypb.Any
-	method  string
 }
 
 func TriggerRegistrationID(workflowID string, triggerIndex int) string {
@@ -200,6 +183,14 @@ func (e *Engine) ActiveExecutions() int32 {
 	return e.activeExecutions.Load()
 }
 
+// FireOnSubscribedToTriggers fires the OnSubscribedToTriggers lifecycle hook
+// with the trigger capability IDs a registration produced. The syncer calls
+// this after registering the engine's subscriptions with the trigger
+// dispatcher, which owns registration.
+func (e *Engine) FireOnSubscribedToTriggers(triggerIDs []string) {
+	e.cfg.Hooks.OnSubscribedToTriggers(triggerIDs)
+}
+
 func (e *Engine) DrainStartedAt() (time.Time, bool) {
 	ns := e.drainStartedAtNs.Load()
 	if ns == 0 {
@@ -231,16 +222,15 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	// Create engine first so we can use the buildLabels method
 	engine := &Engine{
 		cfg:                     cfg,
-		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
 		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
 		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
 	}
 
-	// Self-inject: the engine is its own acknowledger in M1.
-	// In M2, the OCR reporting plugin implements the Acknowledger.
+	// The acknowledger must be injected by the caller (the syncer wires the
+	// TriggerDispatcher here). The standalone engine injects itself.
 	if cfg.TriggerAcknowledger == nil {
-		cfg.TriggerAcknowledger = engine
+		return nil, errors.New("trigger acknowledger not set")
 	}
 
 	// Build labels using the helper method
@@ -395,14 +385,14 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 	if event.ObservedAt.IsZero() {
 		event.ObservedAt = e.cfg.Clock.Now()
 	}
-	queueTimeout, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
+	triggerEventQueueTimeout, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
 	if err != nil {
 		e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
 		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
 		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonQueueAgeLimitReadFailed)
 		return ErrEnqueueFailed
 	}
-	event.Deadline = event.ObservedAt.Add(queueTimeout)
+	event.Deadline = event.ObservedAt.Add(triggerEventQueueTimeout)
 
 	if err := e.allTriggerEventsQueueCh.Put(ctx, event); err != nil {
 		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
@@ -427,33 +417,6 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 	return nil
 }
 
-// Ack acknowledges a trigger event via the injected TriggerAcknowledger.
-// In M1 this is the existing engine's internal acknowledger logic. In M2 the
-// OCR reporting plugin implements this to ACK.
-func (e *Engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
-	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
-
-	tm := e.metrics.With(platform.KeyTriggerID, triggerCapID)
-
-	e.triggersRegMu.Lock()
-	trigger, ok := e.triggers[triggerRegistrationID]
-	e.triggersRegMu.Unlock()
-
-	if !ok {
-		tm.IncrementTriggerEventAckFailureCounter(ctx)
-		return fmt.Errorf("failed to find trigger %s", triggerRegistrationID)
-	}
-	err := trigger.AckEvent(ctx, triggerRegistrationID, eventID, trigger.method)
-	if err != nil {
-		tm.IncrementTriggerEventAckFailureCounter(ctx)
-		return err
-	}
-	tm.IncrementTriggerEventAckSuccessCounter(ctx)
-	return nil
-}
-
-// resolveOrgID resolves the organization ID for the given workflow owner.
-// If resolution fails, the returned ID is empty and Reason explains why.
 // The original error from the resolver (if any) is preserved in Err and
 // logged via the provided logger.
 func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflowOwner string, lggr logger.SugaredLogger) resolvedOrg {
@@ -501,31 +464,6 @@ func (e *Engine) init(ctx context.Context) {
 		))
 	defer span.End()
 
-	// apply global engine instance limits
-	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
-	err := e.cfg.GlobalWorkflowLimit.Use(ctx, 1)
-	if err != nil {
-		if errLimited, ok := errors.AsType[limits.ErrorResourceLimited[int]](err); ok {
-			switch errLimited.Scope {
-			case settings.ScopeOwner:
-				e.logger().Infow("Per owner workflow count limit reached", "err", err)
-				e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
-				e.cfg.Hooks.OnInitialized(types.ErrPerOwnerWorkflowCountLimitReached)
-			case settings.ScopeGlobal:
-				e.logger().Infow("Global workflow count limit reached", "err", err)
-				e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
-				e.cfg.Hooks.OnInitialized(types.ErrGlobalWorkflowCountLimitReached)
-			default:
-				e.logger().Errorw("Workflow count limit reached for unexpected scope", "scope", errLimited.Scope, "err", err)
-				e.cfg.Hooks.OnInitialized(err)
-			}
-		} else {
-			e.cfg.Hooks.OnInitialized(err)
-		}
-		return
-	}
-	e.workflowLimitUsed.Store(true)
-
 	donSubCh, cleanup, err := e.cfg.DonSubscriber.Subscribe(ctx)
 	if err != nil {
 		e.logger().Errorw("failed to subscribe to DON notifier", "error", err)
@@ -560,13 +498,6 @@ func (e *Engine) init(ctx context.Context) {
 	cre := contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
 	if err = e.cfg.Hooks.OnSubscriptionsReady(subscriptions, cre); err != nil {
 		e.logger().Errorw("OnSubscriptionsReady hook failed", "err", err)
-		e.cfg.Hooks.OnInitialized(err)
-		return
-	}
-
-	err = e.runTriggerSubscriptionPhase(ctx, subscriptions)
-	if err != nil {
-		e.logger().Errorw("Workflow Engine initialization failed", "err", err)
 		e.cfg.Hooks.OnInitialized(err)
 		return
 	}
@@ -620,189 +551,6 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 	e.storeLoggerLabels(labelsMap)
 
 	e.cfg.Hooks.OnNodeSynced(localNode, nil)
-}
-
-func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions []*sdkpb.TriggerSubscription) error {
-	// check if all requested triggers exist in the registry
-	triggers := make([]capabilities.TriggerCapability, 0, len(subscriptions))
-	for _, sub := range subscriptions {
-		_, labels, _ := capabilities.ParseID(sub.Id)
-		chainSelector, err2 := capabilities.ChainSelectorLabel(labels)
-		if err2 != nil {
-			return fmt.Errorf("invalid chain selector for ID %s: %w", sub.Id, err2)
-		}
-		if chainSelector != nil {
-			err2 := e.cfg.LocalLimiters.ChainAllowed.AllowErr(contexts.WithChainSelector(ctx, *chainSelector))
-			if err2 != nil {
-				if errors.Is(err2, limits.ErrorNotAllowed{}) {
-					return fmt.Errorf("unable to subscribe to capability %s: ChainSelector %d: %w", sub.Id, *chainSelector, err2)
-				}
-				return fmt.Errorf("failed to check access for ChainSelector %d: %w", *chainSelector, err2)
-			}
-		}
-		triggerCap, triggerErr := e.cfg.CapRegistry.GetTrigger(ctx, sub.Id)
-		if triggerErr != nil {
-			return fmt.Errorf("trigger capability not found: %w", triggerErr)
-		}
-		triggers = append(triggers, triggerCap)
-	}
-
-	// register to all triggers concurrently
-	regCtx, regCancel, err := e.cfg.LocalLimiters.TriggerRegistrationsTime.WithTimeout(ctx)
-	if err != nil {
-		return err
-	}
-	defer regCancel()
-
-	// trigger registration results for use in concurrent trigger subscriptions
-	type triggerRegResult struct {
-		index          int
-		registrationID string
-		triggerCap     capabilities.TriggerCapability
-		eventCh        <-chan capabilities.TriggerResponse
-		payload        *anypb.Any
-		method         string
-		triggerCapID   string
-	}
-
-	resultsCh := make(chan triggerRegResult, len(subscriptions))
-	g, gCtx := errgroup.WithContext(regCtx)
-
-	// Launch concurrent trigger registrations
-	for i, sub := range subscriptions {
-		triggerCap := triggers[i]
-		g.Go(func() error {
-			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, i)
-			args := []any{"triggerID", sub.Id, "method", sub.Method}
-			if sub.Payload != nil {
-				args = append(args, "payload", protojson.Format(sub.Payload))
-			}
-			e.logger().Infow("Registering trigger", args...)
-			metadata := capabilities.RequestMetadata{
-				WorkflowID:                    e.cfg.WorkflowID,
-				WorkflowOwner:                 e.cfg.WorkflowOwner,
-				WorkflowName:                  e.cfg.WorkflowName.Hex(),
-				WorkflowTag:                   e.cfg.WorkflowTag,
-				DecodedWorkflowName:           e.cfg.WorkflowName.String(),
-				WorkflowDonID:                 e.localNode.Load().WorkflowDON.ID,
-				WorkflowDonConfigVersion:      pinnedWorkflowDonConfigVersion,
-				ReferenceID:                   fmt.Sprintf("trigger_%d", i),
-				WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
-				WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
-				EngineVersion:                 platform.ValueWorkflowVersionV2,
-				// no WorkflowExecutionID needed (or available at this stage)
-			}
-			var creGetter settings.Getter
-			if e.cfg.LocalLimiters != nil {
-				creGetter = e.cfg.LocalLimiters.Settings
-			}
-			propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(gCtx, creGetter)
-			if propagateOrgIDMeta && e.orgID != "" {
-				metadata.OrgID = e.orgID
-			}
-			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
-				TriggerID: registrationID,
-				Metadata:  metadata,
-				Payload:   sub.Payload,
-				Method:    sub.Method,
-				// no Config needed - NoDAG uses Payload
-			})
-			if regErr != nil {
-				e.logger().Errorw("Trigger registration failed", "triggerID", sub.Id, "err", regErr)
-				e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(gCtx)
-				return fmt.Errorf("failed to register trigger %s: %w", sub.Id, regErr)
-			}
-			// Send successful result
-			resultsCh <- triggerRegResult{
-				index:          i,
-				registrationID: registrationID,
-				triggerCap:     triggerCap,
-				eventCh:        triggerEventCh,
-				payload:        sub.Payload,
-				method:         sub.Method,
-				triggerCapID:   sub.Id,
-			}
-			return nil
-		})
-	}
-
-	// wait for all registrations to complete.
-	// returns first non-nil error.
-	registrationErr := g.Wait()
-	close(resultsCh)
-
-	// Collect results into e.triggers map
-	e.triggersRegMu.Lock()
-	defer e.triggersRegMu.Unlock()
-
-	eventChans := make([]<-chan capabilities.TriggerResponse, len(subscriptions))
-	triggerCapIDs := make([]string, len(subscriptions))
-
-	for result := range resultsCh {
-		e.triggers[result.registrationID] = &triggerCapability{
-			TriggerCapability: result.triggerCap,
-			payload:           result.payload,
-			method:            result.method,
-		}
-		eventChans[result.index] = result.eventCh
-		triggerCapIDs[result.index] = result.triggerCapID
-	}
-
-	// If any registration failed, unregister successful ones and return error
-	if registrationErr != nil {
-		e.logger().Errorw("One or more trigger registrations failed - reverting all", "err", registrationErr)
-		e.unregisterAllTriggers(ctx) // needs to be called under e.triggersRegMu lock
-		return registrationErr
-	}
-
-	// start listening for trigger events only if all registrations succeeded
-	for idx, triggerEventCh := range eventChans {
-		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case event, isOpen := <-triggerEventCh:
-					if !isOpen {
-						return
-					}
-					triggerID := subscriptions[idx].Id
-					eventID := event.Event.ID
-					e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventReceivedCounter(ctx)
-					e.logger().Debugw("Processing trigger event", "triggerID", triggerID, "eventID", eventID)
-					if event.Err != nil {
-						e.logger().Errorw("Received a trigger event with error, dropping", "triggerID", triggerID, "err", event.Err)
-						tm := e.metrics.With(platform.KeyTriggerID, triggerID)
-						tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
-						tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonTriggerResponseError)
-						continue
-					}
-
-					routed := RoutedTriggerEvent{
-						WorkflowID:     e.cfg.WorkflowID,
-						TriggerCapID:   triggerID,
-						TriggerIndex:   idx,
-						ObservedAt:     e.cfg.Clock.Now(),
-						SequenceNumber: 0,
-						Event:          event,
-					}
-
-					if err := e.Put(ctx, routed); err != nil {
-						// Draining is expected during workflow deletion, so it logs at info rather than error level.
-						if errors.Is(err, ErrEngineDraining) {
-							e.logger().Infow("Dropping trigger event: engine draining", "triggerID", triggerID, "eventID", eventID)
-						} else {
-							e.logger().Errorw("Failed to put routed trigger event", "triggerID", triggerID, "eventID", eventID, "err", err)
-						}
-					}
-				}
-			}
-		})
-	}
-	e.logger().Infow("All triggers registered successfully", "numTriggers", len(subscriptions), "triggerIDs", triggerCapIDs)
-	e.metrics.IncrementWorkflowRegisteredCounter(ctx)
-	e.cfg.Hooks.OnSubscribedToTriggers(triggerCapIDs)
-	return nil
 }
 
 func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
@@ -1263,10 +1011,6 @@ func (e *Engine) close() error {
 	defer cancel()
 
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
-	e.triggersRegMu.Lock()
-	e.unregisterAllTriggers(ctx)
-	e.triggersRegMu.Unlock()
-	e.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 
 	if err := e.cfg.ExecutionsStore.DeleteByWorkflowID(ctx, e.cfg.WorkflowID); err != nil {
 		e.logger().Errorw("Failed to purge executions on close", "err", err)
@@ -1289,33 +1033,7 @@ func (e *Engine) close() error {
 
 	// reset metering mode metric so that a positive value does not persist
 	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)
-	var err error
-	if e.workflowLimitUsed.Load() { // init called Use
-		err = e.cfg.GlobalWorkflowLimit.Free(ctx, 1)
-	}
-	return err
-}
-
-// NOTE: needs to be called under the triggersRegMu lock
-func (e *Engine) unregisterAllTriggers(ctx context.Context) {
-	failCount := 0
-	for registrationID, trigger := range e.triggers {
-		err := trigger.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
-			TriggerID: registrationID,
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID:    e.cfg.WorkflowID,
-				WorkflowDonID: e.localNode.Load().WorkflowDON.ID,
-			},
-			Payload: trigger.payload,
-			Method:  trigger.method,
-		})
-		if err != nil {
-			e.logger().Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
-			failCount++
-		}
-	}
-	e.logger().Infow("All triggers unregistered", "numTriggers", len(e.triggers), "failed", failCount)
-	e.triggers = make(map[string]*triggerCapability)
+	return nil
 }
 
 func (e *Engine) heartbeatLoop(ctx context.Context) {
