@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -57,24 +58,15 @@ func DeployPrerequisitesChangeset(env cldf.Environment, cfg DeployPrerequisiteCo
 		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", err, cldf.ErrInvalidConfig)
 	}
 	ab := cldf.NewMemoryAddressBook()
-	err = deployPrerequisiteChainContracts(env, ab, cfg)
+	ds := datastore.NewMemoryDataStore()
+	err = deployPrerequisiteChainContracts(env, ab, ds, cfg)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
-
-		ds, err := shared.PopulateDataStore(ab)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-		}
 
 		return cldf.ChangesetOutput{
 			AddressBook: ab,
 			DataStore:   ds,
 		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
-	}
-
-	ds, err := shared.PopulateDataStore(ab)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
@@ -153,7 +145,7 @@ func WithLegacyDeploymentEnabled(cfg V1_5DeploymentConfig) PrerequisiteOpt {
 	}
 }
 
-func deployPrerequisiteChainContracts(e cldf.Environment, ab cldf.AddressBook, cfg DeployPrerequisiteConfig) error {
+func deployPrerequisiteChainContracts(e cldf.Environment, ab cldf.AddressBook, ds datastore.MutableDataStore, cfg DeployPrerequisiteConfig) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -163,7 +155,9 @@ func deployPrerequisiteChainContracts(e cldf.Environment, ab cldf.AddressBook, c
 	for _, c := range cfg.Configs {
 		chain := e.BlockChains.EVMChains()[c.ChainSelector]
 		deployGrp.Go(func() error {
-			err := deployPrerequisiteContracts(e, ab, state, chain, c.Opts...)
+			// MemoryDataStore guards its own writes, so the per-chain goroutines record into it
+			// directly and no per-chain merge is needed.
+			err := deployPrerequisiteContracts(e, ab, ds, state, chain, c.Opts...)
 			if err != nil {
 				e.Logger.Errorw("Failed to deploy prerequisite contracts", "chain", chain.String(), "err", err)
 				return err
@@ -171,12 +165,14 @@ func deployPrerequisiteChainContracts(e cldf.Environment, ab cldf.AddressBook, c
 			return nil
 		})
 	}
+	// Refs recorded before a failure stay in ds, so the error path still returns a partial
+	// datastore for the chains that did deploy.
 	return deployGrp.Wait()
 }
 
 // deployPrerequisiteContracts deploys the contracts that can be ported from previous CCIP version to the new one.
 // This is only required for staging and test environments where the contracts are not already deployed.
-func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain cldf_evm.Chain, opts ...PrerequisiteOpt) error {
+func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, ds datastore.MutableDataStore, state stateview.CCIPOnChainState, chain cldf_evm.Chain, opts ...PrerequisiteOpt) error {
 	deployOpts := &DeployPrerequisiteContractsOpts{}
 	for _, opt := range opts {
 		if opt != nil {
@@ -236,7 +232,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		rmnAddr = chainState.RMN.Address()
 	// if RMN is not found in state and LegacyDeploymentCfg is provided, deploy RMN contract based on the config
 	case deployOpts.LegacyDeploymentCfg != nil && deployOpts.LegacyDeploymentCfg.RMNConfig != nil:
-		rmn, err := cldf.DeployContract(lggr, chain, ab,
+		rmn, err := shared.DeployContractAndRecord(lggr, chain, ab, ds, cldf.NewTypeAndVersion(shared.RMN, deployment.Version1_5_0), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*rmn_contract.RMNContract] {
 				var (
 					rmnAddress common.Address
@@ -263,7 +259,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 	default:
 		// otherwise deploy the mock RMN contract
 		if chainState.MockRMN == nil {
-			rmn, err := cldf.DeployContract(lggr, chain, ab,
+			rmn, err := shared.DeployContractAndRecord(lggr, chain, ab, ds, cldf.NewTypeAndVersion(shared.MockRMN, deployment.Version1_0_0), "",
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*mock_rmn_contract.MockRMNContract] {
 					var (
 						rmnAddress common.Address
@@ -291,7 +287,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		}
 	}
 	if rmnProxy == nil {
-		RMNProxy, err := cldf.DeployContract(lggr, chain, ab,
+		RMNProxy, err := shared.DeployContractAndRecord(lggr, chain, ab, ds, cldf.NewTypeAndVersion(shared.ARMProxy, deployment.Version1_0_0), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*rmn_proxy_contract.RMNProxy] {
 				var (
 					rmnProxyAddr common.Address
@@ -349,7 +345,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		}
 	}
 	if tokenAdminReg == nil {
-		tokenAdminRegistry, err := cldf.DeployContract(e.Logger, chain, ab,
+		tokenAdminRegistry, err := shared.DeployContractAndRecord(e.Logger, chain, ab, ds, cldf.NewTypeAndVersion(shared.TokenAdminRegistry, deployment.Version1_5_0), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
 				var (
 					tokenAdminRegistryAddr common.Address
@@ -382,7 +378,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		regAddresses = append(regAddresses, reg.Address())
 	}
 	if len(regAddresses) == 0 {
-		customRegistryModule, err := cldf.DeployContract(e.Logger, chain, ab,
+		customRegistryModule, err := shared.DeployContractAndRecord(e.Logger, chain, ab, ds, cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
 				var (
 					regModAddr common.Address
@@ -440,7 +436,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 	}
 
 	if weth9Contract == nil {
-		weth, err := cldf.DeployContract(lggr, chain, ab,
+		weth, err := shared.DeployContractAndRecord(lggr, chain, ab, ds, cldf.NewTypeAndVersion(shared.WETH9, deployment.Version1_0_0), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*weth9.WETH9] {
 				var (
 					weth9Addr common.Address
@@ -469,7 +465,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 
 	// if router is not already deployed, we deploy it
 	if r == nil {
-		routerContract, err := cldf.DeployContract(e.Logger, chain, ab,
+		routerContract, err := shared.DeployContractAndRecord(e.Logger, chain, ab, ds, cldf.NewTypeAndVersion(shared.Router, deployment.Version1_2_0), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*router.Router] {
 				var (
 					routerAddr common.Address
@@ -516,7 +512,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 				return err
 			}
 			tokenPoolFactoryAddr = tpfReport.Output.Address
-			err = ab.Save(chain.ChainSelector(), tpfReport.Output.Address.Hex(), cldf.MustTypeAndVersionFromString(tpfReport.Output.TypeAndVersion))
+			err = shared.RecordAddress(ab, ds, chain.ChainSelector(), tpfReport.Output.Address.Hex(), cldf.MustTypeAndVersionFromString(tpfReport.Output.TypeAndVersion), "")
 			if err != nil {
 				return fmt.Errorf("failed to save address %s for chain %d: %w", tpfReport.Output.Address.Hex(), chain.ChainSelector(), err)
 			}
@@ -525,7 +521,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			tokenPoolFactoryAddr = tokenPoolFactory.Address()
 		}
 
-		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err = deployTokenPools(e.Logger, chain, ab, rmnProxy.Address(), r.Address(),
+		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err = deployTokenPools(e.Logger, chain, ab, ds, rmnProxy.Address(), r.Address(),
 			factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool)
 		if err != nil {
 			return err
@@ -541,7 +537,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		)
 	}
 	if deployOpts.Multicall3Enabled && mc3 == nil {
-		_, err := cldf.DeployContract(e.Logger, chain, ab,
+		_, err := shared.DeployContractAndRecord(e.Logger, chain, ab, ds, cldf.NewTypeAndVersion(shared.Multicall3, deployment.Version1_0_0), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*multicall3.Multicall3] {
 				var (
 					multicall3Addr    common.Address
@@ -566,7 +562,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		e.Logger.Info("ccip multicall already deployed", "chain", chain.String(), "addr", mc3.Address)
 	}
 	if deployOpts.USDCEnabled {
-		token, pool, messenger, transmitter, err1 := deployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
+		token, pool, messenger, transmitter, err1 := deployUSDC(e.Logger, chain, ab, ds, rmnProxy.Address(), r.Address())
 		if err1 != nil {
 			return err1
 		}
@@ -579,7 +575,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		)
 	}
 	if deployOpts.LBTCEnabled {
-		token, pool, err1 := deployLBTC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
+		token, pool, err1 := deployLBTC(e.Logger, chain, ab, ds, rmnProxy.Address(), r.Address())
 		if err1 != nil {
 			return err1
 		}
@@ -590,7 +586,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		)
 	}
 	if chainState.Receiver == nil {
-		_, err := cldf.DeployContract(e.Logger, chain, ab,
+		_, err := shared.DeployContractAndRecord(e.Logger, chain, ab, ds, cldf.NewTypeAndVersion(shared.CCIPReceiver, deployment.Version1_0_0), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
 				var (
 					receiverAddr common.Address
@@ -622,7 +618,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			if err1 != nil {
 				return fmt.Errorf("failed to get link token address for chain %s: %w", chain.String(), err1)
 			}
-			_, err := cldf.DeployContract(lggr, chain, ab,
+			_, err := shared.DeployContractAndRecord(lggr, chain, ab, ds, cldf.NewTypeAndVersion(shared.PriceRegistry, deployment.Version1_2_0), "",
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*price_registry_1_2_0.PriceRegistry] {
 					var (
 						priceRegAddr  common.Address
@@ -661,6 +657,7 @@ func deployTokenPools(
 	lggr logger.Logger,
 	chain cldf_evm.Chain,
 	addresses cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	rmnProxy common.Address,
 	router common.Address,
 	factoryBurnMintERC20 *factory_burn_mint_erc20.FactoryBurnMintERC20,
@@ -680,7 +677,7 @@ func deployTokenPools(
 	// are contracts that get deployed by the TokenPoolFactory.
 	// We deploy them here so that we can verify them. All subsequent user deployments would then be verified.
 	if factoryBurnMintERC20 == nil {
-		factoryBurnMintERC20ContractDeploy, err := cldf.DeployContract(lggr, chain, addresses,
+		factoryBurnMintERC20ContractDeploy, err := shared.DeployContractAndRecord(lggr, chain, addresses, ds, cldf.NewTypeAndVersion(shared.FactoryBurnMintERC20Token, deployment.Version1_6_2), string(shared.FactoryBurnMintERC20Symbol),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20] {
 				var (
 					factoryBurnMintERC20Addr common.Address
@@ -714,7 +711,7 @@ func deployTokenPools(
 		lggr.Infow("factory burn mint erc20 already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
 	}
 	if burnMintTokenPool == nil {
-		burnMintTokenPoolContractDeploy, err := cldf.DeployContract(lggr, chain, addresses,
+		burnMintTokenPoolContractDeploy, err := shared.DeployContractAndRecord(lggr, chain, addresses, ds, cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_5_1), string(shared.FactoryBurnMintERC20Symbol),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
 				var (
 					burnMintTokenPoolAddr common.Address
@@ -747,7 +744,7 @@ func deployTokenPools(
 		lggr.Infow("burn mint token pool already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
 	}
 	if burnFromMintTokenPool == nil {
-		burnFromMintTokenPoolContractDeploy, err := cldf.DeployContract(lggr, chain, addresses,
+		burnFromMintTokenPoolContractDeploy, err := shared.DeployContractAndRecord(lggr, chain, addresses, ds, cldf.NewTypeAndVersion(shared.BurnFromMintTokenPool, deployment.Version1_5_1), string(shared.FactoryBurnMintERC20Symbol),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_from_mint_token_pool.BurnFromMintTokenPool] {
 				var (
 					burnFromMintTokenPoolAddr common.Address
@@ -779,7 +776,7 @@ func deployTokenPools(
 		lggr.Infow("burn from mint token pool already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
 	}
 	if burnWithFromMintTokenPool == nil {
-		burnWithFromMintTokenPoolContractDeploy, err := cldf.DeployContract(lggr, chain, addresses,
+		burnWithFromMintTokenPoolContractDeploy, err := shared.DeployContractAndRecord(lggr, chain, addresses, ds, cldf.NewTypeAndVersion(shared.BurnWithFromMintTokenPool, deployment.Version1_5_1), string(shared.FactoryBurnMintERC20Symbol),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool] {
 				var (
 					burnWithFromMintTokenPoolAddr common.Address
@@ -812,7 +809,7 @@ func deployTokenPools(
 		lggr.Infow("burn with from mint token pool already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
 	}
 	if lockReleaseTokenPool == nil {
-		lockReleaseTokenPoolContractDeploy, err := cldf.DeployContract(lggr, chain, addresses,
+		lockReleaseTokenPoolContractDeploy, err := shared.DeployContractAndRecord(lggr, chain, addresses, ds, cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_5_1), string(shared.FactoryBurnMintERC20Symbol),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*lock_release_token_pool.LockReleaseTokenPool] {
 				var (
 					lockReleaseTokenPoolAddr common.Address
@@ -853,6 +850,7 @@ func deployUSDC(
 	lggr logger.Logger,
 	chain cldf_evm.Chain,
 	addresses cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	rmnProxy common.Address,
 	router common.Address,
 ) (
@@ -862,7 +860,7 @@ func deployUSDC(
 	*mock_usdc_token_transmitter.MockE2EUSDCTransmitter,
 	error,
 ) {
-	token, err := cldf.DeployContract(lggr, chain, addresses,
+	token, err := shared.DeployContractAndRecord(lggr, chain, addresses, ds, cldf.NewTypeAndVersion(shared.USDCToken, deployment.Version1_0_0), string(shared.USDCSymbol),
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			var (
 				tokenAddress  common.Address
@@ -902,7 +900,7 @@ func deployUSDC(
 		return nil, nil, nil, nil, err
 	}
 
-	transmitter, err := cldf.DeployContract(lggr, chain, addresses,
+	transmitter, err := shared.DeployContractAndRecord(lggr, chain, addresses, ds, cldf.NewTypeAndVersion(shared.USDCMockTransmitter, deployment.Version1_0_0), "",
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
 			var (
 				transmitterAddress  common.Address
@@ -931,7 +929,7 @@ func deployUSDC(
 		return nil, nil, nil, nil, err
 	}
 
-	messenger, err := cldf.DeployContract(lggr, chain, addresses,
+	messenger, err := shared.DeployContractAndRecord(lggr, chain, addresses, ds, cldf.NewTypeAndVersion(shared.USDCTokenMessenger, deployment.Version1_0_0), "",
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
 			var (
 				messengerAddress  common.Address
@@ -959,7 +957,7 @@ func deployUSDC(
 		return nil, nil, nil, nil, err
 	}
 
-	tokenPool, err := cldf.DeployContract(lggr, chain, addresses,
+	tokenPool, err := shared.DeployContractAndRecord(lggr, chain, addresses, ds, cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1), string(shared.USDCSymbol),
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 			var (
 				tokenPoolAddress  common.Address
@@ -997,6 +995,7 @@ func deployLBTC(
 	lggr logger.Logger,
 	chain cldf_evm.Chain,
 	addresses cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	rmnProxy common.Address,
 	router common.Address,
 ) (
@@ -1004,7 +1003,7 @@ func deployLBTC(
 	*mock_lbtc_token_pool.MockE2ELBTCTokenPool,
 	error,
 ) {
-	token, err := cldf.DeployContract(lggr, chain, addresses,
+	token, err := shared.DeployContractAndRecord(lggr, chain, addresses, ds, cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0), string(shared.LBTCSymbol),
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			var (
 				tokenAddress  common.Address
@@ -1044,7 +1043,7 @@ func deployLBTC(
 		return nil, nil, err
 	}
 
-	tokenPool, err := cldf.DeployContract(lggr, chain, addresses,
+	tokenPool, err := shared.DeployContractAndRecord(lggr, chain, addresses, ds, cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_5_1), string(shared.LBTCSymbol),
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*mock_lbtc_token_pool.MockE2ELBTCTokenPool] {
 			var (
 				tokenPoolAddress  common.Address

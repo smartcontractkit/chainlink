@@ -33,13 +33,20 @@ func TestMessageCache_InsertReady(t *testing.T) {
 	ready, _ = cache.Ready(eventID1, 2, 150, true)
 	require.False(t, ready)
 
-	// ready with two messages (once only)
+	// ready with two messages — Ready does not commit delivery state;
+	// it returns true every time the threshold is met until MarkDelivered.
 	ready, messages := cache.Ready(eventID1, 2, 100, true)
 	require.True(t, ready)
 	require.Equal(t, []byte(payloadA), messages[0])
 	require.Equal(t, []byte(payloadA), messages[1])
 
-	// not ready again for the same event ID
+	// still ready before MarkDelivered (failed aggregation can retry)
+	ready, _ = cache.Ready(eventID1, 2, 100, true)
+	require.True(t, ready)
+	require.False(t, cache.WasReady(eventID1))
+
+	// after MarkDelivered, once=true returns false and WasReady reports true
+	cache.MarkDelivered(eventID1)
 	ready, _ = cache.Ready(eventID1, 2, 100, true)
 	require.False(t, ready)
 	require.True(t, cache.WasReady(eventID1))

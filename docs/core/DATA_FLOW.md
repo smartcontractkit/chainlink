@@ -126,23 +126,6 @@ flowchart TB
                 functions-processOracleEvents -- "Retrieve()" --> functions-mbOracleEvents
             end
         end
-        subgraph keeper [keeper]
-            subgraph UpkeepExecuter [UpkeepExecuter]
-                direction TB 
-                UpkeepExecuter-mailbox>mailbox]
-                UpkeepExecuter-Start(["Start()"]) -- "Deliver()" --> UpkeepExecuter-mailbox
-                UpkeepExecuter-OnNewLongestChain(["OnNewLongestChain()"]) -- "Deliver()" --> UpkeepExecuter-mailbox
-                UpkeepExecuter-mailbox -- "Notify()" --> UpkeepExecuter-run(["run()"])
-                UpkeepExecuter-run --> UpkeepExecuter-processActiveUpkeeps(["processActiveUpkeeps()"]) -- "Retrieve()" ---> UpkeepExecuter-mailbox
-            end
-            subgraph RegistrySynchronizer [RegistrySynchronizer]
-                direction TB
-                RegistrySynchronizer-mbLogs{{"mbLogs (5000)"}}
-                RegistrySynchronizer-HandleLog(["HandleLog()"]) -- "Deliver()" --> RegistrySynchronizer-mbLogs
-                RegistrySynchronizer-mbLogs -- "Notify()" --> RegistrySynchronizer-run(["run()"])
-                RegistrySynchronizer-run --> RegistrySynchronizer-processLogs(["processLogs()"]) -- "RetrieveAll()" ---> RegistrySynchronizer-mbLogs 
-            end
-        end
         subgraph ocr [ocr]
             subgraph OCRContractTracker [OCRContractTracker]
                 direction TB
@@ -175,16 +158,14 @@ flowchart TB
     HeadTrackable --> BlockHistoryEstimator
     HeadTrackable --> broadcaster
     HeadTrackable ---> Txm
-    HeadTrackable ---> UpkeepExecuter
     HeadTrackable ---> promreporter-type
     
     Listener --> listener  
     Listener --> FunctionsListener
-    Listener --> RegistrySynchronizer  
     Listener --> OCRContractTracker  
     Listener --> listenerV2  
     
     
     classDef package fill:none,stroke-dasharray: 10
-    class core/chains/evm,gas,headtracker-pkg,txmgr,log,services,directrequest,functions,keeper,ocr,promReporter,vrf package
+    class core/chains/evm,gas,headtracker-pkg,txmgr,log,services,directrequest,functions,ocr,promReporter,vrf package
 ```

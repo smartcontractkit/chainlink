@@ -38,7 +38,6 @@ concurrency:
 
 env:
   # for run-test variables and environment
-  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.sha }}
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink-integration-tests' }}
   CHAINLINK_REF: ${{ inputs.cl_ref || github.sha }}
   TEST_SUITE: smoke
@@ -719,6 +718,8 @@ jobs:
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+      baseline_ref: ${{ github.event.pull_request.base.sha }}
+      base_ref_name: ${{ github.event.pull_request.base.ref }}
     secrets: inherit
 
   check-e2e-test-results:
