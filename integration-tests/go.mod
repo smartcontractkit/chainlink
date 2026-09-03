@@ -446,7 +446,7 @@ require (
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6 // indirect
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260713162202-124316cd10ff // indirect
-	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260902152943-b12adc83fd66 // indirect
+	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260902185017-c25fcd2d6ef7 // indirect
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260601214705-1ab0adfd785f // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
