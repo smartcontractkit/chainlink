@@ -997,6 +997,8 @@ URL = "" # Default
 TLSEnabled = true # Default
 # RequestTimeout bounds each organization lookup against the linking service.
 RequestTimeout = '2s' # Default
+# CacheEnabled turns on durable Postgres-backed caching of owner->orgID mappings.
+CacheEnabled = false # Default
 
 # Billing holds settings for connecting to the billing service.
 [Billing]

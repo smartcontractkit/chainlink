@@ -240,13 +240,12 @@ func (s *Services) newSubservices(
 
 	if cfg.CRE().Linking().URL() != "" {
 		lggr.Debugw("Creating OrgResolver")
-		inner, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
+		resolver, ierr := newOrgResolver(cfg, capCfg, opts, ds, lggr)
 		if ierr != nil {
 			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
-		fallbackResolver := orgresolver.NewOrgResolverWithFallback(inner, lggr)
-		s.OrgResolver = fallbackResolver
-		srvs = append(srvs, fallbackResolver)
+		s.OrgResolver = resolver
+		srvs = append(srvs, resolver)
 	} else {
 		lggr.Warn("Skipping orgResolver, no linking service configured")
 	}
@@ -631,6 +630,7 @@ func newOrgResolver(
 	cfg Config,
 	capCfg config.Capabilities,
 	opts Opts,
+	ds sqlutil.DataSource,
 	lggr logger.Logger,
 ) (orgresolver.OrgResolver, error) {
 	var wrChainDetails chainselectors.ChainDetails
@@ -661,7 +661,19 @@ func newOrgResolver(
 		return nil, fmt.Errorf("failed to create org resolver: %w", err)
 	}
 
-	return resolver, nil
+	if !cfg.CRE().Linking().CacheEnabled() {
+		return resolver, nil
+	}
+
+	cachingResolver, err := orgresolver.NewCachingResolver(resolver, orgresolver.CachingResolverConfig{
+		Cache: NewOrgResolverStore(ds),
+		Meter: opts.Meter,
+	}, lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create caching org resolver: %w", err)
+	}
+
+	return cachingResolver, nil
 }
 
 func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.BillingClient, error) {

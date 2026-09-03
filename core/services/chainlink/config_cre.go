@@ -83,6 +83,7 @@ type linkingConfig struct {
 	url            string
 	tlsEnabled     bool
 	requestTimeout time.Duration
+	cacheEnabled   bool
 }
 
 func (l *linkingConfig) URL() string {
@@ -95,6 +96,10 @@ func (l *linkingConfig) TLSEnabled() bool {
 
 func (l *linkingConfig) RequestTimeout() time.Duration {
 	return l.requestTimeout
+}
+
+func (l *linkingConfig) CacheEnabled() bool {
+	return l.cacheEnabled
 }
 
 func (c *creConfig) Linking() config.CRELinking {
@@ -117,7 +122,12 @@ func (c *creConfig) Linking() config.CRELinking {
 		requestTimeout = c.c.Linking.RequestTimeout.Duration()
 	}
 
-	return &linkingConfig{url: url, tlsEnabled: tlsEnabled, requestTimeout: requestTimeout}
+	cacheEnabled := false // default
+	if c.c.Linking.CacheEnabled != nil {
+		cacheEnabled = *c.c.Linking.CacheEnabled
+	}
+
+	return &linkingConfig{url: url, tlsEnabled: tlsEnabled, requestTimeout: requestTimeout, cacheEnabled: cacheEnabled}
 }
 
 type confidentialRelayConfig struct {
