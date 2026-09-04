@@ -896,35 +896,6 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 
 	triggerEvent := event.Event.Event
 
-	// disallow duplicate executions
-	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
-	if addErr != nil {
-		if errors.Is(addErr, store.ErrDuplicateExecution) {
-			lggr.Infow("Skipping duplicate execution", "executionID", executionID, "triggerID", event.TriggerCapID, "triggerIndex", event.TriggerIndex)
-			tm := e.metrics.With(platform.KeyTriggerID, event.TriggerCapID)
-			tm.IncrementTriggerExecutionDeduplicatedCounter(ctx)
-			tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
-			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonDuplicateExecution)
-			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-			ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID)
-			if ackErr != nil {
-				e.lggr.Errorw("failed to re-ACK trigger event", "eventID", triggerEvent.ID, "err", ackErr)
-			}
-			return ErrDuplicateExecution
-		}
-		lggr.Errorw("Failed to register execution in store, proceeding anyway", "executionID", executionID, "err", addErr)
-	}
-
-	var executionStatus string
-	defer func() {
-		if executionStatus == "" {
-			executionStatus = store.StatusErrored
-		}
-		if _, finishErr := e.cfg.ExecutionsStore.FinishExecution(ctx, executionID, executionStatus); finishErr != nil {
-			lggr.Errorw("Failed to finish execution in store", "executionID", executionID, "status", executionStatus, "err", finishErr)
-		}
-	}()
-
 	needShardOwnerCheck := e.cfg.ShardRoutingSteady == nil || !e.cfg.ShardRoutingSteady.SkipCommittedOwnerCheck()
 	if e.cfg.ShardingEnabled && needShardOwnerCheck {
 		var verdict shardownership.Verdict
@@ -955,13 +926,22 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			lggr.Warnw("Shard ownership check failed (orchestrator error); skipping execution", "err", ownErr)
 			e.metrics.IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx)
 			triggerDrop(monitoring.TriggerDropReasonShardDeniedOrchestrator)
-			executionStatus = store.StatusErrored
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
 			if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID); ackErr != nil {
 				e.logger().Errorw("failed to ACK trigger after shard ownership orchestrator error", "eventID", triggerEvent.ID, "err", ackErr)
 			}
 			return ErrShardDeniedOrchestrator
 		case shardownership.DenyNotOwner:
+			if e.cfg.ShardingFailoverEnabled {
+				lggr.Infow("Secondary shard: caching trigger event for failover",
+					"executionID", executionID,
+					"myShardID", e.cfg.MyShardID,
+					"eventID", triggerEvent.ID,
+					"workflowID", e.cfg.WorkflowID,
+					"triggerIndex", event.TriggerIndex)
+				e.metrics.IncrementTriggerEventDroppedTotal(ctx, "secondary_cached")
+				return nil
+			}
 			logFields := []any{
 				"executionID", executionID,
 				"myShardID", e.cfg.MyShardID,
@@ -974,7 +954,6 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			lggr.Infow("Skipping execution: workflow not owned by this shard per orchestrator", logFields...)
 			e.metrics.IncrementShardExecutionDeniedNotOwnerCounter(ctx)
 			triggerDrop(monitoring.TriggerDropReasonShardDeniedNotOwner)
-			executionStatus = store.StatusErrored
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
 			if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID); ackErr != nil {
 				e.logger().Errorw("failed to ACK trigger after shard ownership denial", "eventID", triggerEvent.ID, "err", ackErr)
@@ -982,6 +961,35 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			return ErrShardDeniedNotOwner
 		}
 	}
+
+	// disallow duplicate executions
+	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
+	if addErr != nil {
+		if errors.Is(addErr, store.ErrDuplicateExecution) {
+			lggr.Infow("Skipping duplicate execution", "executionID", executionID, "triggerID", event.TriggerCapID, "triggerIndex", event.TriggerIndex)
+			tm := e.metrics.With(platform.KeyTriggerID, event.TriggerCapID)
+			tm.IncrementTriggerExecutionDeduplicatedCounter(ctx)
+			tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonDuplicateExecution)
+			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
+			ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID)
+			if ackErr != nil {
+				e.lggr.Errorw("failed to re-ACK trigger event", "eventID", triggerEvent.ID, "err", ackErr)
+			}
+			return ErrDuplicateExecution
+		}
+		lggr.Errorw("Failed to register execution in store, proceeding anyway", "executionID", executionID, "err", addErr)
+	}
+
+	var executionStatus string
+	defer func() {
+		if executionStatus == "" {
+			executionStatus = store.StatusErrored
+		}
+		if _, finishErr := e.cfg.ExecutionsStore.FinishExecution(ctx, executionID, executionStatus); finishErr != nil {
+			lggr.Errorw("Failed to finish execution in store", "executionID", executionID, "status", executionStatus, "err", finishErr)
+		}
+	}()
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
@@ -1087,6 +1095,7 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			}
 		}
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
+		e.cfg.Hooks.OnExecutionStatusUpdate(e.cfg.WorkflowID, executionID, triggerEvent.ID, event.TriggerIndex, executionStatus, execErrClass)
 		if execErr != nil {
 			e.cfg.Hooks.OnExecutionError(execErr.Error())
 		}

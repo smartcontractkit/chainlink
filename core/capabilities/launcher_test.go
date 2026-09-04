@@ -492,8 +492,8 @@ func TestLauncher_DonPairsToUpdate_BootstrapConnectsIsolatedCapShard(t *testing.
 	require.Contains(t, res, shard0Cross, "cap shard must connect to its paired workflow shard")
 	require.NotContains(t, res, crossShard, "cap shard must not connect to a workflow shard in a different shard family")
 
-	// 2 cross-pairs (shard-0, shard-1) + 4 self-pairs (one per DON).
-	require.Len(t, res, 6)
+	// 2 cross-pairs (shard-0, shard-1) + 1 workflow-to-workflow pair (shard0-shard1) + 4 self-pairs (one per DON).
+	require.Len(t, res, 7)
 }
 
 func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {

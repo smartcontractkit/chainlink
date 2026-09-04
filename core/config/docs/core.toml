@@ -1050,6 +1050,11 @@ RequireBFTQuorum = false # Default
 # When false (default), all workflows are processed by this node (backwards compatible mode).
 # When true, workflows are distributed across shards based on ShardIndex and shard orchestrator mappings.
 ShardingEnabled = false # Default
+# ShardingFailoverEnabled enables primary/secondary failover for workflow sharding.
+# When true, secondary shards load assigned workflows and cache trigger events without executing.
+# The primary shard sends ExecutionStatusUpdate notifications so the secondary can drain its cache.
+# Requires ShardingEnabled=true.
+ShardingFailoverEnabled = false # Default
 # ArbiterPort is the port the Arbiter gRPC server listens on.
 ArbiterPort = 9876 # Default
 # ArbiterPollInterval is how often to poll the ShardConfig contract.

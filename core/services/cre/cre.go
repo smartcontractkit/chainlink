@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -318,6 +320,7 @@ func (s *Services) newSubservices(
 		s.OrgResolver,
 		s.GatewayConnectorWrapper,
 		meterIdentity,
+		dispatcherWrapper.dispatcher,
 	)
 	if err != nil {
 		return nil, err
@@ -596,6 +599,18 @@ func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *capabiliti
 	return &capabilities.TestMetadataRegistry{}
 }
 
+func newShardDonLookup(capRegistry *capabilities.Registry) func(uint32) *commoncap.DON {
+	return func(shardID uint32) *commoncap.DON {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		don, err := capRegistry.DONByID(ctx, shardID)
+		if err != nil {
+			return nil
+		}
+		return &don
+	}
+}
+
 // newDispatcherWrapper creates a new dispatcherWrapper service with peer wrappers if peering is enabled
 func newDispatcherWrapper(
 	cfg Config,
@@ -805,6 +820,7 @@ func newWorkflowRegistrySyncerV2(
 	orgResolver orgresolver.OrgResolver,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	meterIdentity resourcemanager.ResourceIdentity,
+	shardDispatcher remotetypes.Dispatcher,
 ) (syncerV2.WorkflowRegistrySyncer, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 	wfReg := capCfg.WorkflowRegistry()
@@ -870,6 +886,7 @@ func newWorkflowRegistrySyncerV2(
 	}
 
 	shardingEnabled := cfg.Sharding().ShardingEnabled()
+	shardingFailoverEnabled := cfg.Sharding().ShardingFailoverEnabled()
 	shardIndex := uint32(cfg.Sharding().ShardIndex())
 
 	var shardRoutingSteady *shardownership.SteadySignal
@@ -906,8 +923,15 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
 		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
+		syncerV2.WithHandlerShardFailoverEnabled(shardingFailoverEnabled),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 		syncerV2.WithShardResolver(shardResolver),
+	}
+	if shardingFailoverEnabled && shardDispatcher != nil {
+		handlerOpts = append(handlerOpts,
+			syncerV2.WithShardDispatcher(shardDispatcher),
+			syncerV2.WithShardDonLookup(newShardDonLookup(opts.CapabilitiesRegistry)),
+		)
 	}
 
 	// The spec meter (and its ResourceManager) exists only when metering is
@@ -1034,6 +1058,7 @@ func newWorkflowRegistrySyncerV2(
 		registryOpts = append(registryOpts,
 			syncerV2.WithShardEnabled(true),
 			syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
+			syncerV2.WithShardFailoverEnabled(shardingFailoverEnabled),
 		)
 		if shardRoutingSteady != nil {
 			registryOpts = append(registryOpts, syncerV2.WithRegistryShardRoutingObserver(shardRoutingSteady))
@@ -1078,6 +1103,7 @@ func newWorkflowRegistrySyncer(
 	orgResolver orgresolver.OrgResolver,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	meterIdentity resourcemanager.ResourceIdentity,
+	shardDispatcher remotetypes.Dispatcher,
 ) (syncerV2.WorkflowRegistrySyncer, metering.BillingClient, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 
@@ -1112,6 +1138,7 @@ func newWorkflowRegistrySyncer(
 		orgResolver,
 		gatewayConnectorWrapper,
 		meterIdentity,
+		shardDispatcher,
 	)
 	return syncer, billingClient, srvcs, err
 }

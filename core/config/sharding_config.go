@@ -7,6 +7,7 @@ import (
 
 type Sharding interface {
 	ShardingEnabled() bool
+	ShardingFailoverEnabled() bool
 	ArbiterPort() uint16
 	ArbiterPollInterval() time.Duration
 	ArbiterRetryInterval() time.Duration

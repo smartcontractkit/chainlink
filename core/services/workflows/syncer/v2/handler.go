@@ -33,9 +33,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
+	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
@@ -122,9 +125,15 @@ type eventHandler struct {
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardingEnabled         bool
+	shardingFailoverEnabled bool
 	myShardID               uint32
 	shardRoutingSteady      *shardownership.SteadySignal
 	shardResolver           shardownership.ShardResolver
+	shardDispatcher         remotetypes.Dispatcher
+	shardDonLookup          func(uint32) *commoncap.DON
+
+	shardStatusSender   *sharding.ExecutionStatusUpdateSender
+	shardStatusReceiver *sharding.ExecutionStatusUpdateReceiver
 
 	metrics *metrics
 }
@@ -183,6 +192,12 @@ func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingE
 	}
 }
 
+func WithHandlerShardFailoverEnabled(failoverEnabled bool) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardingFailoverEnabled = failoverEnabled
+	}
+}
+
 func WithShardRoutingSteady(signal *shardownership.SteadySignal) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardRoutingSteady = signal
@@ -192,6 +207,18 @@ func WithShardRoutingSteady(signal *shardownership.SteadySignal) func(*eventHand
 func WithShardResolver(resolver shardownership.ShardResolver) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardResolver = resolver
+	}
+}
+
+func WithShardDispatcher(dispatcher remotetypes.Dispatcher) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardDispatcher = dispatcher
+	}
+}
+
+func WithShardDonLookup(lookup func(uint32) *commoncap.DON) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardDonLookup = lookup
 	}
 }
 
@@ -399,6 +426,13 @@ func (h *eventHandler) close() error {
 	for _, e := range es {
 		cs = append(cs, e)
 	}
+	if h.shardStatusSender != nil {
+		cs = append(cs, h.shardStatusSender)
+	}
+	if h.shardStatusReceiver != nil {
+		cs = append(cs, h.shardStatusReceiver)
+	}
+
 	return services.CloseAll(cs...)
 }
 
@@ -1221,7 +1255,7 @@ func (h *eventHandler) newV2EngineConfig(
 	name types.WorkflowName,
 	config []byte,
 ) *v2.EngineConfig {
-	return &v2.EngineConfig{
+	cfg := &v2.EngineConfig{
 		Lggr:                  h.lggr,
 		Module:                module,
 		WorkflowConfig:        config,
@@ -1258,13 +1292,156 @@ func (h *eventHandler) newV2EngineConfig(
 
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
+		ShardingFailoverEnabled: h.shardingFailoverEnabled,
 		MyShardID:               h.myShardID,
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,
 	}
+
+	if h.shardingFailoverEnabled && h.shardDispatcher != nil {
+		h.wireShardFailoverHooks(cfg)
+	}
+
+	return cfg
 }
 
-// wireInitDoneHook wires the initDone channel to the OnInitialized lifecycle hook.
+func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	sub, unsub, err := h.workflowDonSubscriber.Subscribe(ctx)
+	if err != nil {
+		h.lggr.Warnw("shard failover: failed to subscribe to DON updates, skipping hook wiring", "err", err)
+		return
+	}
+	defer unsub()
+
+	var don commoncap.DON
+	select {
+	case don = <-sub:
+	case <-ctx.Done():
+		h.lggr.Warnw("shard failover: timed out waiting for DON info, skipping hook wiring")
+		return
+	}
+
+	isPrimary := h.isPrimaryShardForDon(don)
+
+	if isPrimary {
+		secondaryDon := h.resolveSecondaryDon()
+		if secondaryDon == nil {
+			h.lggr.Warnw("shard failover: no secondary DON found, primary will not send ExecutionStatusUpdate", "primaryShardID", h.myShardID)
+			return
+		}
+
+		sender := sharding.NewExecutionStatusUpdateSender(h.shardDispatcher, h.myShardID, *secondaryDon, h.lggr)
+		if err := sender.Start(ctx); err != nil {
+			h.lggr.Errorw("shard failover: failed to start sender", "err", err)
+			return
+		}
+		h.shardStatusSender = sender
+
+		cfg.Hooks.OnExecutionStatusUpdate = func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
+			execStatus := mapExecutionStatus(status, errClass)
+			sender.Send(context.Background(), &ringpb.ExecutionStatusUpdate{
+				WorkflowId:     workflowID,
+				ExecutionId:    executionID,
+				TriggerEventId: triggerEventID,
+				TriggerIndex:   uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
+				Status:         execStatus,
+				PrimaryShardId: h.myShardID,
+			})
+		}
+
+		h.lggr.Infow("shard failover: wired ExecutionStatusUpdateSender on primary", "primaryShardID", h.myShardID, "secondaryShardID", secondaryDon.ID)
+	} else {
+		primaryDon := h.resolvePrimaryDon()
+		if primaryDon == nil {
+			h.lggr.Warnw("shard failover: no primary DON found, secondary will not register receiver", "myShardID", h.myShardID)
+			return
+		}
+
+		receiver := sharding.NewExecutionStatusUpdateReceiver(*primaryDon, func(msg *ringpb.ExecutionStatusUpdate) {
+			h.lggr.Infow("secondary received ExecutionStatusUpdate", "workflowID", msg.WorkflowId, "executionID", msg.ExecutionId, "triggerEventID", msg.TriggerEventId, "status", msg.Status)
+		}, h.lggr)
+
+		if regErr := h.shardDispatcher.SetReceiverForMethod("shard-execution-status-update", primaryDon.ID, remotetypes.MethodExecutionStatusUpdate, receiver); regErr != nil {
+			h.lggr.Errorw("shard failover: failed to register ExecutionStatusUpdateReceiver", "err", regErr)
+		} else {
+			if err := receiver.Start(ctx); err != nil {
+				h.lggr.Errorw("shard failover: failed to start receiver", "err", err)
+				return
+			}
+			h.shardStatusReceiver = receiver
+			h.lggr.Infow("shard failover: wired ExecutionStatusUpdateReceiver on secondary", "myShardID", h.myShardID, "primaryDonID", primaryDon.ID)
+		}
+	}
+}
+
+func (h *eventHandler) isPrimaryShardForDon(_ commoncap.DON) bool {
+	if h.shardResolver == nil {
+		return h.myShardID == 0
+	}
+	allResolver, ok := h.shardResolver.(shardownership.AllShardsResolver)
+	if !ok {
+		return h.myShardID == 0
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	shards, found, err := allResolver.ResolveAllShards(ctx, "", "")
+	if err != nil || !found || len(shards) == 0 {
+		return h.myShardID == 0
+	}
+	return shards[0] == h.myShardID
+}
+
+func (h *eventHandler) resolveSecondaryDon() *commoncap.DON {
+	if h.shardDonLookup == nil {
+		return nil
+	}
+	allResolver, ok := h.shardResolver.(shardownership.AllShardsResolver)
+	if !ok {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	shards, found, err := allResolver.ResolveAllShards(ctx, "", "")
+	if err != nil || !found || len(shards) < 2 {
+		return nil
+	}
+	return h.shardDonLookup(shards[1])
+}
+
+func (h *eventHandler) resolvePrimaryDon() *commoncap.DON {
+	if h.shardDonLookup == nil {
+		return nil
+	}
+	allResolver, ok := h.shardResolver.(shardownership.AllShardsResolver)
+	if !ok {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	shards, found, err := allResolver.ResolveAllShards(ctx, "", "")
+	if err != nil || !found || len(shards) == 0 {
+		return nil
+	}
+	return h.shardDonLookup(shards[0])
+}
+
+func mapExecutionStatus(status string, errClass events.ErrorClassification) ringpb.ExecutionStatus {
+	switch status {
+	case store.StatusCompleted, store.StatusCompletedEarlyExit:
+		return ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS
+	case store.StatusErrored, store.StatusTimeout:
+		if errClass == events.ErrorClassificationUser {
+			return ringpb.ExecutionStatus_EXECUTION_STATUS_USER_ERROR
+		}
+		return ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR
+	default:
+		return ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED
+	}
+}
+
 // This will be called when the engine completes initialization (including trigger subscriptions).
 // We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
 func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- error) {

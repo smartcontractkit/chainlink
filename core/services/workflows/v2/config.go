@@ -23,6 +23,7 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -74,6 +75,7 @@ type EngineConfig struct {
 
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardingEnabled         bool
+	ShardingFailoverEnabled bool
 	MyShardID               uint32
 	ShardRoutingSteady      *shardownership.SteadySignal
 	ShardResolver           shardownership.ShardResolver
@@ -413,14 +415,15 @@ type LifecycleHooks struct {
 	// registration begins. It allows the caller (syncer/dispatcher) to
 	// inspect or modify the subscriptions before they are registered with
 	// the capabilities registry. Returning an error aborts initialization.
-	OnSubscriptionsReady   func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error
-	OnSubscribedToTriggers func(triggerIDs []string)
-	OnTriggerEventDropped  func(triggerID, eventID, reason string)
-	OnExecutionFinished    func(executionID string, status string)
-	OnExecutionError       func(msg string)
-	OnResultReceived       func(*sdkpb.ExecutionResult)
-	OnRateLimited          func(executionID string)
-	OnNodeSynced           func(node commoncap.Node, err error)
+	OnSubscriptionsReady    func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error
+	OnSubscribedToTriggers  func(triggerIDs []string)
+	OnTriggerEventDropped   func(triggerID, eventID, reason string)
+	OnExecutionFinished     func(executionID string, status string)
+	OnExecutionError        func(msg string)
+	OnExecutionStatusUpdate func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification)
+	OnResultReceived        func(*sdkpb.ExecutionResult)
+	OnRateLimited           func(executionID string)
+	OnNodeSynced            func(node commoncap.Node, err error)
 
 	// Used by the standalone engine
 	OnRequirementsSet func(executionId string, requirements *sdkpb.Requirements)
@@ -509,6 +512,10 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnExecutionFinished == nil {
 		h.OnExecutionFinished = func(executionID string, status string) {}
+	}
+	if h.OnExecutionStatusUpdate == nil {
+		h.OnExecutionStatusUpdate = func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
+		}
 	}
 	if h.OnRateLimited == nil {
 		h.OnRateLimited = func(executionID string) {}
