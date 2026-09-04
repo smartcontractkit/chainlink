@@ -18,6 +18,10 @@ type donSettingsResolver struct {
 	initialized    bool
 	initErr        error
 	cachedSettings *vaultcommon.NodeSettings
+
+	// seqNr is the OCR round this resolver was installed for. Set before
+	// publication and never mutated afterwards.
+	seqNr uint64
 }
 
 func (r *ReportingPlugin) newDonSettingsResolver(ctx context.Context, store ReadKVStore) *donSettingsResolver {
@@ -36,22 +40,40 @@ func (r *ReportingPlugin) localNodeSettings(ctx context.Context) *vaultcommon.No
 	return populateLocalNodeSettings(ctx, r)
 }
 
-// ensureActiveSettingsForRound installs the resolver holding the round's
-// DON-agreed settings. Resolvers are fully initialized before publication and
-// never mutated afterwards, so the atomic publication below is safe for
-// concurrent callers (libocr invokes ValidateObservation from background
-// goroutines).
-func (r *ReportingPlugin) ensureActiveSettingsForRound(ctx context.Context, seqNr uint64, store ReadKVStore) error {
-	if active := r.activeSettings.Load(); active.initialized && r.activeSettingsSeqNr.Load() == seqNr {
-		return nil
+// ensureActiveSettingsForRound installs and returns the resolver holding the
+// round's DON-agreed settings. Callers must use the returned resolver for the
+// whole call via withRoundDonSettings: the shared slot may be swapped by a
+// concurrent round mid-computation.
+func (r *ReportingPlugin) ensureActiveSettingsForRound(ctx context.Context, seqNr uint64, store ReadKVStore) (*donSettingsResolver, error) {
+	if active := r.activeSettings.Load(); active.initialized && active.seqNr == seqNr {
+		return active, nil
 	}
 	resolver := r.newDonSettingsResolver(ctx, store)
 	if err := resolver.init(ctx); err != nil {
-		return err
+		return nil, err
 	}
+	resolver.seqNr = seqNr
 	r.activeSettings.Store(resolver)
-	r.activeSettingsSeqNr.Store(seqNr)
-	return nil
+	return resolver, nil
+}
+
+// roundDonSettingsCtxKey keys the round-pinned settings resolver in a call's
+// context.
+type roundDonSettingsCtxKey struct{}
+
+// withRoundDonSettings pins the round's resolver in the context so settings
+// resolved within the call are unaffected by concurrent slot swaps.
+func withRoundDonSettings(ctx context.Context, d *donSettingsResolver) context.Context {
+	return context.WithValue(ctx, roundDonSettingsCtxKey{}, d)
+}
+
+// donSettingsForCall returns the round-pinned resolver from the context, or
+// the most recently installed resolver when no round is pinned.
+func (r *ReportingPlugin) donSettingsForCall(ctx context.Context) *donSettingsResolver {
+	if d, ok := ctx.Value(roundDonSettingsCtxKey{}).(*donSettingsResolver); ok && d != nil {
+		return d
+	}
+	return r.activeSettings.Load()
 }
 
 func (d *donSettingsResolver) init(ctx context.Context) error {

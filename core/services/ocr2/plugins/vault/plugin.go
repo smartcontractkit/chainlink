@@ -353,12 +353,9 @@ type ReportingPlugin struct {
 
 	pendingQueueStallTracker pendingQueueStallTracker
 
-	// activeSettings holds the current round's DON settings resolver. It is
-	// published atomically: resolvers are fully initialized before publication
-	// and never mutated afterwards, so concurrent callers (libocr invokes
-	// ValidateObservation from background goroutines) can read it safely.
-	activeSettings      atomic.Pointer[donSettingsResolver]
-	activeSettingsSeqNr atomic.Uint64
+	// activeSettings caches the current round's DON settings resolver so that
+	// repeated calls within a round skip re-reading the KV state.
+	activeSettings atomic.Pointer[donSettingsResolver]
 }
 
 type pendingQueueStallTracker struct {
@@ -642,9 +639,11 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	r.pendingQueueStallTracker.record(seqNr)
 
 	readKV := NewReadStore(keyValueReader, r.metrics)
-	if err := r.ensureActiveSettingsForRound(ctx, seqNr, readKV); err != nil {
-		return nil, err
+	settingsResolver, settingsErr := r.ensureActiveSettingsForRound(ctx, seqNr, readKV)
+	if settingsErr != nil {
+		return nil, settingsErr
 	}
+	ctx = withRoundDonSettings(ctx, settingsResolver)
 
 	// First, generate a random nonce that we'll use to sort the observations.
 	// Each node generates a nonce independently, to be concatenated later on.
@@ -711,7 +710,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		pendingQueueHasID[item.Id] = true
 	}
 
-	maxBlobBytesSz, err := r.activeSettings.Load().maxBlobPayloadBytes(ctx)
+	maxBlobBytesSz, err := settingsResolver.maxBlobPayloadBytes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch max blob payload size limit: %w", err)
 	}
@@ -1324,9 +1323,11 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	}
 
 	readKV := NewReadStore(keyValueReader, r.metrics)
-	if err := r.ensureActiveSettingsForRound(ctx, seqNr, readKV); err != nil {
-		return err
+	settingsResolver, settingsErr := r.ensureActiveSettingsForRound(ctx, seqNr, readKV)
+	if settingsErr != nil {
+		return settingsErr
 	}
+	ctx = withRoundDonSettings(ctx, settingsResolver)
 
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
 	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
@@ -1591,9 +1592,11 @@ func (r *ReportingPlugin) chooseGetSecretsObservations(totalForID int, shaToObs 
 func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReadWriter ocr3_1types.KeyValueStateReadWriter, blobFetcher ocr3_1types.BlobFetcher) (ocr3_1types.ReportsPlusPrecursor, error) {
 	l := r.roundLggr(seqNr)
 	writeKV := NewWriteStore(keyValueReadWriter, r.metrics)
-	if err := r.ensureActiveSettingsForRound(ctx, seqNr, writeKV); err != nil {
-		return ocr3_1types.ReportsPlusPrecursor{}, err
+	settingsResolver, settingsErr := r.ensureActiveSettingsForRound(ctx, seqNr, writeKV)
+	if settingsErr != nil {
+		return ocr3_1types.ReportsPlusPrecursor{}, settingsErr
 	}
+	ctx = withRoundDonSettings(ctx, settingsResolver)
 
 	marshalledObs := map[uint8]*vaultcommon.Observations{}
 	for _, ao := range aos {
@@ -1931,7 +1934,7 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 		return bytes.Compare(sortKey(i.Id, salt), sortKey(j.Id, salt))
 	})
 
-	if err := r.activeSettings.Load().checkMaxPendingQueueWriteSize(ctx, len(keptItems)); err != nil {
+	if err := r.donSettingsForCall(ctx).checkMaxPendingQueueWriteSize(ctx, len(keptItems)); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[int]
 		if !errors.As(err, &errBoundLimited) {
 			return fmt.Errorf("failed to check pending queue write size limit: %w", err)

@@ -350,8 +350,9 @@ func TestPlugin_StateTransition_DONSettings_EnforcesKVSettingsOverLocalCfg(t *te
 	kvSettings := nodeSettings(1000)
 	require.NoError(t, writeKV.WriteDONSettings(t.Context(), kvSettings))
 
-	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
-	shareLimit, err := r.activeSettings.Load().maxShareLengthBytes(t.Context())
+	resolver, err := r.ensureActiveSettingsForRound(t.Context(), 1, writeKV)
+	require.NoError(t, err)
+	shareLimit, err := resolver.maxShareLengthBytes(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, pkgconfig.Size(1000), shareLimit)
 }
@@ -365,8 +366,9 @@ func TestPlugin_StateTransition_DONSettings_UsesLocalCfgWhenKVEmpty(t *testing.T
 	kvStore := &kv{m: make(map[string]response)}
 	readKV := newTestReadStore(t, kvStore)
 
-	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, readKV))
-	shareLimit, err := r.activeSettings.Load().maxShareLengthBytes(t.Context())
+	resolver, err := r.ensureActiveSettingsForRound(t.Context(), 1, readKV)
+	require.NoError(t, err)
+	shareLimit, err := resolver.maxShareLengthBytes(t.Context())
 	require.NoError(t, err)
 	// No DON settings committed yet: falls back to the node-local default.
 	assert.Equal(t, pkgconfig.Size(600), shareLimit)
@@ -381,8 +383,9 @@ func TestPlugin_StateTransition_DONSettings_LocalCfgIgnoredWhenKVSet(t *testing.
 	// Committed DON settings tighten the share limit below the node-local default.
 	require.NoError(t, writeKV.WriteDONSettings(t.Context(), nodeSettings(400)))
 
-	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
-	shareLimit, err := r.activeSettings.Load().maxShareLengthBytes(t.Context())
+	resolver, err := r.ensureActiveSettingsForRound(t.Context(), 1, writeKV)
+	require.NoError(t, err)
+	shareLimit, err := resolver.maxShareLengthBytes(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, pkgconfig.Size(400), shareLimit)
 }
@@ -395,7 +398,7 @@ func TestPlugin_EnsureActiveSettingsForRound_FailsClosedOnKVReadErrorWhenConsens
 	}}
 	readKV := newTestReadStore(t, kvStore)
 
-	err := r.ensureActiveSettingsForRound(t.Context(), 1, readKV)
+	_, err := r.ensureActiveSettingsForRound(t.Context(), 1, readKV)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read DON settings from KV")
 }
@@ -449,9 +452,10 @@ func TestPlugin_ActiveSettings_EnforcesKVIdentifierKeyLimit(t *testing.T) {
 	writeKV := newTestWriteStore(t, kvStore)
 	require.NoError(t, writeKV.WriteDONSettings(t.Context(), kvSettings))
 
-	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
+	resolver, err := r.ensureActiveSettingsForRound(t.Context(), 1, writeKV)
+	require.NoError(t, err)
 
-	limits, err := r.activeSettings.Load().secretIdentifierLimits(t.Context())
+	limits, err := resolver.secretIdentifierLimits(t.Context())
 	require.NoError(t, err)
 
 	err = r.validator.ValidateSecretIdentifier(t.Context(), "longkey", "owner", "ns", &limits)
@@ -491,7 +495,8 @@ func TestPlugin_ActiveSettings_PrivilegedOwnerKeepsOverrideOverDONLimits(t *test
 	kvSettings := nodeSettings(600)
 	kvSettings.MaxIdentifierKeyLengthBytes = 4
 	require.NoError(t, writeKV.WriteDONSettings(t.Context(), kvSettings))
-	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
+	_, err := r.ensureActiveSettingsForRound(t.Context(), 1, writeKV)
+	require.NoError(t, err)
 
 	longKey := "averylongkeyname" // 16 bytes: above the DON limit (4) and default (5), within the privileged override (20)
 
@@ -499,7 +504,7 @@ func TestPlugin_ActiveSettings_PrivilegedOwnerKeepsOverrideOverDONLimits(t *test
 	require.NoError(t, r.checkSecretIdentifier(t.Context(), longKey, privilegedOwner, "ns"))
 
 	// Regular owner is held to the DON-wide limit.
-	err := r.checkSecretIdentifier(t.Context(), longKey, "regularowner", "ns")
+	err = r.checkSecretIdentifier(t.Context(), longKey, "regularowner", "ns")
 	require.Error(t, err)
 	require.ErrorContains(t, err, "key exceeds maximum length")
 }
@@ -543,7 +548,7 @@ func TestPlugin_StateTransition_DONSettings_PersistedAfterTransitionNotAppliedSa
 // pattern that makes ValidateObservation impure: it runs on background
 // goroutines concurrently with the round loop, all touching the active
 // settings resolver. Run with -race, this guards the atomic publication of
-// activeSettings/activeSettingsSeqNr.
+// activeSettings.
 func TestPlugin_ActiveSettings_ConcurrentAccess(t *testing.T) {
 	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
@@ -573,4 +578,44 @@ func TestPlugin_ActiveSettings_ConcurrentAccess(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+// TestPlugin_ActiveSettings_RoundPinnedAgainstMidComputationSwap guards that
+// a round's settings stay pinned for the whole call, even when a stale
+// goroutine from an earlier round swaps the shared resolver slot mid-flight.
+func TestPlugin_ActiveSettings_RoundPinnedAgainstMidComputationSwap(t *testing.T) {
+	t.Parallel()
+	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled(), withOnchainCfg(4, 1))
+	kvStore := &kv{m: make(map[string]response)}
+	writeKV := newTestWriteStore(t, kvStore)
+
+	// Round 1 pins the committed 500-byte share limit.
+	require.NoError(t, writeKV.WriteDONSettings(t.Context(), nodeSettings(500)))
+	round1, err := r.ensureActiveSettingsForRound(t.Context(), 1, writeKV)
+	require.NoError(t, err)
+
+	// Round 1's state transition commits a raised 800-byte share limit.
+	require.NoError(t, writeKV.WriteDONSettings(t.Context(), nodeSettings(800)))
+	round2, err := r.ensureActiveSettingsForRound(t.Context(), 2, writeKV)
+	require.NoError(t, err)
+	round2Limit, err := round2.maxShareLengthBytes(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, pkgconfig.Size(800), round2Limit)
+
+	// A stale round-1 goroutine swaps the shared slot while round 2's call is
+	// in flight.
+	r.activeSettings.Store(round1)
+
+	// The slot now resolves the old limit...
+	slotLimit, err := r.activeSettings.Load().maxShareLengthBytes(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, pkgconfig.Size(500), slotLimit)
+
+	// ...but the round-2 call, pinned via the context, accepts a 700-byte
+	// share: above round 1's limit, within round 2's.
+	ctx := withRoundDonSettings(t.Context(), round2)
+	require.NoError(t, r.checkMaxShareLength(ctx, 700))
+
+	// A caller with no pinned round falls back to the swapped slot.
+	require.Error(t, r.checkMaxShareLength(t.Context(), 700))
 }
