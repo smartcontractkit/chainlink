@@ -184,11 +184,10 @@ func WithSpecMeter(sm *SpecMeter) func(*eventHandler) {
 	}
 }
 
-func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool, donID uint32) func(*eventHandler) {
+func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardOrchestratorClient = client
 		e.shardingEnabled = shardingEnabled
-		e.myDonID = donID
 	}
 }
 
@@ -415,9 +414,10 @@ func (h *eventHandler) start(ctx context.Context) error {
 }
 
 // SetWorkflowDon supplies the launcher-resolved workflow DON identity for
-// metering. Called by the registry after WaitForDon, before any event is
-// dispatched; the value is static for the life of the node.
+// metering and shard ownership. Called by the registry after WaitForDon,
+// before any event is dispatched; the value is static for the life of the node.
 func (h *eventHandler) SetWorkflowDon(don commoncap.DON) {
+	h.myDonID = don.ID
 	h.specMeter.SetWorkflowDon(don)
 }
 
