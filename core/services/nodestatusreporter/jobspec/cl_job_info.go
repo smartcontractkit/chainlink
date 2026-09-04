@@ -7,6 +7,7 @@ import (
 
 	"github.com/pelletier/go-toml"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
@@ -69,9 +70,9 @@ func BuildCLJobInfo(jb job.Job, trigger commonv1.CLJobInfoTrigger, id NodeIdenti
 		JobType:           string(jb.Type),
 		SchemaVersion:     jb.SchemaVersion,
 		ForwardingAllowed: jb.ForwardingAllowed,
-		CreatedAt:         formatCLJobInfoTime(jb.CreatedAt),
+		CreatedAt:         timestampOrNil(jb.CreatedAt),
 		Trigger:           trigger,
-		Timestamp:         now.UTC().Format(time.RFC3339Nano),
+		Timestamp:         timestamppb.New(now),
 	}
 	if jb.GasLimit.Valid {
 		info.GasLimit = new(jb.GasLimit.Uint32)
@@ -83,8 +84,8 @@ func BuildCLJobInfo(jb job.Job, trigger commonv1.CLJobInfoTrigger, id NodeIdenti
 		info.FeedsManagerId = &prop.FeedsManagerID
 		info.RemoteUuid = &prop.RemoteUUID
 		info.SpecVersion = &prop.SpecVersion
-		info.ProposedAt = new(formatCLJobInfoTime(prop.ProposedAt))
-		info.ApprovedAt = new(formatCLJobInfoTime(prop.ApprovedAt))
+		info.ProposedAt = timestampOrNil(prop.ProposedAt)
+		info.ApprovedAt = timestampOrNil(prop.ApprovedAt)
 	}
 
 	specTOML, err := jobTOML(jb)
@@ -126,9 +127,15 @@ func jobTOML(jb job.Job) (string, error) {
 	return string(out), nil
 }
 
-func formatCLJobInfoTime(t time.Time) string {
+// timestampOrNil converts t to a protobuf Timestamp, leaving an unset time as
+// nil rather than mapping it onto the epoch. google.protobuf.Timestamp is used
+// throughout the Job Distributor protos and, unlike an RFC3339Nano string,
+// orders correctly for consumers: Go trims trailing zeros from the fractional
+// seconds, so those strings are variable-width and do not sort lexicographically
+// in chronological order.
+func timestampOrNil(t time.Time) *timestamppb.Timestamp {
 	if t.IsZero() {
-		return ""
+		return nil
 	}
-	return t.UTC().Format(time.RFC3339Nano)
+	return timestamppb.New(t)
 }
