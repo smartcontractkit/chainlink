@@ -124,8 +124,9 @@ type workflowRegistry struct {
 	shardRoutingSteady      shardRoutingSteadyObserver
 	shardResolver           shardownership.ShardResolver
 
-	// myDonID is the DON ID of the shard this syncer belongs to. Used to filter workflows.
-	myDonID         uint32
+	// myDonID is the DON ID of the shard this syncer belongs to.
+	// Set from don.ID after WaitForDon resolves. Used to filter workflows.
+	myDonID          uint32
 	shardingEnabled bool
 	shardingFailoverEnabled bool
 
@@ -303,13 +304,6 @@ func WithShardFailoverEnabled(failoverEnabled bool) Option {
 	}
 }
 
-// WithDonID enables shard filtering and sets the DON ID for this syncer.
-func WithDonID(donID uint32) Option {
-	return func(wr *workflowRegistry) {
-		wr.myDonID = donID
-	}
-}
-
 func WithRegistryShardRoutingObserver(signal shardRoutingSteadyObserver) Option {
 	return func(wr *workflowRegistry) {
 		wr.shardRoutingSteady = signal
@@ -440,13 +434,14 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			case <-ctx.Done():
 				return
 			}
-			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
-			don, err := w.workflowDonNotifier.WaitForDon(ctx)
-			if err != nil {
-				w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
-				return
-			}
-			w.handler.SetWorkflowDon(don)
+		w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
+		don, err := w.workflowDonNotifier.WaitForDon(ctx)
+		if err != nil {
+			w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
+			return
+		}
+		w.myDonID = don.ID
+		w.handler.SetWorkflowDon(don)
 			w.syncUsingReconciliationStrategy(ctx)
 		})
 
