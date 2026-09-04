@@ -1141,7 +1141,11 @@ func blockingCapExecRequest(t *testing.T, id string) *jsonrpc.Request[json.RawMe
 		WorkflowID:    "wf-1",
 		Owner:         testOwner,
 		ExecutionID:   capExecExecutionID,
-		ReferenceID:   "1",
+		// ReferenceID varies with the request id so the burst is 8 distinct
+		// logical identities: the pending-claim dedup intentionally collapses
+		// same-identity requests, and this test guards dispatch concurrency, not
+		// dedup behavior.
+		ReferenceID:   id,
 		CapabilityID:  "my-cap@1.0.0",
 		Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
 		EnclaveConfig: testEnclaveConfigPtr(),
@@ -1251,4 +1255,78 @@ type countingExecutionHelper struct {
 func (c *countingExecutionHelper) CallCapability(_ context.Context, _ *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
 	c.calls.Add(1)
 	return c.capResp, nil
+}
+
+// TestHandler_RetryWhileInFlightWaits verifies that a retry arriving while
+// the original execution is still in flight waits for the claimant to complete
+// and then responds with its signed result, rather than re-executing.
+// Re-executing would hit the remote request server's duplicate-requester check
+// and return a well-formed error the enclave's retry loop treats as terminal.
+func TestHandler_RetryWhileInFlightWaits(t *testing.T) {
+	t.Parallel()
+	reg := withEnclaveConfig(&mockCapRegistry{})
+	gwConn := &mockGatewayConnector{}
+	h := newTestHandler(t, reg, gwConn)
+	helper := newBlockingExecutionHelper(2)
+	h.executionHandlers.AddExecution("wf-1", capExecExecutionID, helper)
+
+	mkReq := func(id string) *jsonrpc.Request[json.RawMessage] {
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   capExecExecutionID,
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+		req.ID = id
+		return req
+	}
+
+	// First request: enters CallCapability and blocks on release, so its
+	// pending claim is held while we dispatch the duplicate.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-1")))
+	select {
+	case <-helper.entered:
+	case <-time.After(testWaitTimeout):
+		t.Fatal("first request never entered CallCapability")
+	}
+	require.Zero(t, gwConn.respCount(), "leader is in flight, no response yet")
+
+	// Duplicate with the same logical identity while the first is in flight:
+	// waits on the claim (no second execution, no response until the leader
+	// completes). The gate receive above drained the leader's entry, so "no new
+	// entry" is len == 0.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-2")))
+	require.Eventually(t, func() bool { return len(helper.entered) == 0 },
+		testWaitTimeout, time.Millisecond, "duplicate must not enter CallCapability")
+	require.Zero(t, gwConn.respCount(), "duplicate waits, no send before the leader completes")
+
+	// Release the original: both requests respond — the leader's own, and the
+	// waiter's re-wrapped copy of the same signed result.
+	close(helper.release)
+	require.Eventually(t, func() bool { return gwConn.respCount() == 2 },
+		testWaitTimeout, time.Millisecond, "leader and waiter both respond")
+
+	gwConn.mu.Lock()
+	resps := append([]*jsonrpc.Response[json.RawMessage](nil), gwConn.resps...)
+	gwConn.resps = nil
+	gwConn.mu.Unlock()
+	payloads := make([]string, 0, len(resps))
+	for _, r := range resps {
+		require.Nil(t, r.Error)
+		var signed confidentialrelaytypes.SignedCapabilityResponseResult
+		require.NoError(t, json.Unmarshal(*r.Result, &signed))
+		payloads = append(payloads, signed.Result.Payload)
+	}
+	require.Len(t, payloads, 2)
+	require.Equal(t, payloads[0], payloads[1], "waiter responds with the claimant's signed result")
+
+	// A retry after completion is served from the memo, not re-executed.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-3")))
+	resp := gwConn.waitResp(t)
+	require.Nil(t, resp.Error)
+	require.Empty(t, helper.entered, "post-completion retry is served from the memo, no re-execution")
 }
