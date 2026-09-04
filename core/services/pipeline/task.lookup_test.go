@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -34,7 +35,7 @@ func Test_LookupTask(t *testing.T) {
 
 		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
-		assert.NoError(t, res.Error)
+		require.NoError(t, res.Error)
 		assert.Nil(t, res.Value)
 	})
 	t.Run("errors when input is not a map", func(t *testing.T) {
@@ -43,7 +44,7 @@ func Test_LookupTask(t *testing.T) {
 
 		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
-		assert.EqualError(t, res.Error, "unexpected input type: string")
+		require.EqualError(t, res.Error, "unexpected input type: string")
 		assert.Nil(t, res.Value)
 	})
 	t.Run("errors when input is error", func(t *testing.T) {
@@ -52,7 +53,7 @@ func Test_LookupTask(t *testing.T) {
 
 		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
-		assert.EqualError(t, res.Error, "task inputs: too many errors")
+		require.EqualError(t, res.Error, "task inputs: too many errors")
 		assert.Nil(t, res.Value)
 	})
 	t.Run("errors with too many inputs", func(t *testing.T) {
@@ -61,7 +62,7 @@ func Test_LookupTask(t *testing.T) {
 
 		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
-		assert.EqualError(t, res.Error, "task inputs: min: 1 max: 1 (got 2): wrong number of task inputs")
+		require.EqualError(t, res.Error, "task inputs: min: 1 max: 1 (got 2): wrong number of task inputs")
 		assert.Nil(t, res.Value)
 	})
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -24,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn"
 )
@@ -66,7 +66,7 @@ type runner struct {
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
 	runReaperWorker        *commonutils.SleeperTask
-	lggr                   logger.Logger
+	lggr                   common.SugaredLogger
 	httpClient             *http.Client
 	unrestrictedHTTPClient *http.Client
 	bridgeConnManager      bridgeconn.BridgeConnManager
@@ -114,14 +114,14 @@ func NewRunner(
 	legacyChains legacyevm.LegacyChainContainer,
 	ethks ETHKeyStore,
 	vrfks VRFKeyStore,
-	lggr logger.Logger,
+	lggr common.Logger,
 	httpClient, unrestrictedHTTPClient *http.Client,
 ) *runner {
-	lggr = lggr.Named("PipelineRunner")
+	sugaredLggr := common.Sugared(lggr).Named("PipelineRunner")
 
 	r := &runner{
 		orm:                    orm,
-		btORM:                  bridges.NewCache(btORM, lggr, bridges.DefaultUpsertInterval),
+		btORM:                  bridges.NewCache(btORM, sugaredLggr, bridges.DefaultUpsertInterval),
 		config:                 cfg,
 		bridgeConfig:           bridgeCfg,
 		legacyEVMChains:        legacyChains,
@@ -130,10 +130,10 @@ func NewRunner(
 		chStop:                 make(chan struct{}),
 		wgDone:                 sync.WaitGroup{},
 		runFinished:            func(*Run) {},
-		lggr:                   lggr,
+		lggr:                   sugaredLggr,
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
-		bridgeConnManager:      bridgeconn.NewBridgeConnManager(lggr),
+		bridgeConnManager:      bridgeconn.NewBridgeConnManager(sugaredLggr),
 	}
 
 	r.runReaperWorker = commonutils.NewSleeperTask(
@@ -229,11 +229,11 @@ type memoryTaskRun struct {
 }
 
 // When a task panics, we catch the panic and wrap it in an error for reporting to the scheduler.
-type ErrRunPanicked struct {
+type RunPanickedError struct {
 	v any
 }
 
-func (err ErrRunPanicked) Error() string {
+func (err RunPanickedError) Error() string {
 	return fmt.Sprintf("goroutine panicked when executing run: %v", err.v)
 }
 
@@ -326,7 +326,7 @@ func (r *runner) ExecuteRun(ctx context.Context, spec Spec, vars Vars) (*Run, Ta
 func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 	pipeline, err = spec.GetOrParsePipeline()
 	if err != nil {
-		return
+		return pipeline, err
 	}
 
 	// initialize certain task params
@@ -409,7 +409,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 			scheduler.report(reportCtx, TaskRunResult{
 				ID:         uuid.New(),
 				Task:       taskRun.task,
-				Result:     Result{Error: ErrRunPanicked{err}},
+				Result:     Result{Error: RunPanickedError{err}},
 				FinishedAt: null.TimeFrom(t),
 				CreatedAt:  t, // TODO: more accurate start time
 			})
@@ -485,12 +485,12 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	}
 
 	// TODO: drop this once we stop using TaskRunResults
-	var taskRunResults TaskRunResults
+	taskRunResults := make(TaskRunResults, 0, len(scheduler.results))
 	for _, result := range scheduler.results {
 		taskRunResults = append(taskRunResults, result)
 	}
 
-	var idxs []int32
+	idxs := make([]int32, 0, len(taskRunResults))
 	for i := range taskRunResults {
 		idxs = append(idxs, taskRunResults[i].Task.OutputIndex())
 	}
@@ -536,7 +536,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	return taskRunResults
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.Logger) TaskRunResult {
+func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l common.SugaredLogger) TaskRunResult {
 	start := time.Now()
 	l = l.With("taskName", taskRun.task.DotID(),
 		"taskType", taskRun.task.Type(),
@@ -564,13 +564,13 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	}
 
 	result, runInfo := taskRun.task.Run(ctx, l, taskRun.vars, taskRun.inputs)
-	loggerFields := []any{"runInfo", runInfo,
+	loggerFields := []any{
+		"runInfo", runInfo,
 		"resultValue", result.Value,
 		"resultError", result.Error,
 		"resultType", fmt.Sprintf("%T", result.Value),
 	}
-	switch v := result.Value.(type) {
-	case []byte:
+	if v, ok := result.Value.([]byte); ok {
 		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))
 		loggerFields = append(loggerFields, "resultHex", hex.EncodeToString(v))
 	}
