@@ -64,6 +64,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cljobinfo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
@@ -624,6 +625,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, workflowORM)
 
+	// Superseded by cljobinfo.Reporter (wired below), which emits a full,
+	// type-agnostic job definition; retained until consumers migrate off the
+	// flat submitter-address projection.
 	nodePlatformJobInfo := NewNodePlatformJobInfoService(NewNodePlatformJobInfoConfig(opts, jobORM, relayChainInterops))
 	srvcs = append(srvcs, &nodePlatformJobInfo)
 
@@ -912,6 +916,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 
 	hostname, _ := os.Hostname()
+	// Superseded by cljobinfo.Reporter (wired below); this OCR2-only reporter is
+	// retained until its consumers migrate to the generic CLJobInfo schema.
 	jobSpecReporter := jobspec.NewJobSpecReporter(
 		cfg.JobSpecReporter(),
 		jobSpawner,
@@ -923,6 +929,17 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		globalLogger,
 	)
 	srvcs = append(srvcs, jobSpecReporter)
+
+	// CLJobInfo: single, type-agnostic reporter that emits a full job
+	// definition (as TOML) on create/delete/heartbeat for every job type.
+	clJobInfoReporter := cljobinfo.NewReporter(
+		jobSpawner,
+		beholder.GetEmitter(),
+		cljobinfo.NodeIdentity{CSAPublicKey: csaPubKeyHex, NodeVersion: static.Version, Hostname: hostname},
+		cljobinfo.DefaultPollInterval,
+		globalLogger,
+	)
+	srvcs = append(srvcs, clJobInfoReporter)
 
 	for _, s := range srvcs {
 		if s == nil {
