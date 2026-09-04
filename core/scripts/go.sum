@@ -1747,8 +1747,8 @@ github.com/smartcontractkit/chainlink-protos/op-catalog v0.1.0 h1:hGEJFD2X3oNIPX
 github.com/smartcontractkit/chainlink-protos/op-catalog v0.1.0/go.mod h1:PjZD54vr6rIKEKQj6HNA4hllvYI/QpT+Zefj3tqkFAs=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0 h1:NXKTdIESAiCkVnPS6dyZP+NXVek3GzXa6P4uFAs0o8Y=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0/go.mod h1:m/A3lqD7ms/RsQ9BT5P2uceYY0QX5mIt4KQxT2G6qEo=
-github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260903132649-68da69752479 h1:59yyk9su0929HTG4kXahXaNHasjLU7nSHik+3BepM0k=
-github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260903132649-68da69752479/go.mod h1:JLcaMt8kx+k6ZtB0L4ohXT0E8Gr1ebrMfOou1XZ2VAo=
+github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260904122233-4d79005babd9 h1:i/V75g8h4drDvbxtxiqY2SUiYZo68RfaAohai3ZjUCI=
+github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260904122233-4d79005babd9/go.mod h1:SdzX3Z0FN2+3KGQs0Xslxrbi1ZTOrWDiRLDy1JXpP0w=
 github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 h1:L6KJ4kGv/yNNoCk8affk7Y1vAY0qglPMXC/hevV/IsA=
 github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6/go.mod h1:FRwzI3hGj4CJclNS733gfcffmqQ62ONCkbGi49s658w=
 github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 h1:B7itmjy+CMJ26elVw/cAJqqhBQ3Xa/mBYWK0/rQ5MuI=
