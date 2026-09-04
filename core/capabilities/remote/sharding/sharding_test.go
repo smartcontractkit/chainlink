@@ -51,6 +51,9 @@ func TestExecutionStatusUpdateSender_SendsToAllMembers(t *testing.T) {
 	sender.Send(ctx, msg)
 
 	dispatcher.AssertNumberOfCalls(t, "Send", len(secondary.Members))
+	for _, peer := range secondary.Members {
+		dispatcher.AssertCalled(t, "Send", peer, mock.Anything)
+	}
 }
 
 func TestExecutionStatusUpdateReceiver_QuorumAggregation(t *testing.T) {
