@@ -48,7 +48,7 @@ jobs:
   tools-tests:
     name: Tools Unit Tests (${{ matrix.target.name }})
     needs: [matrix]
-    if: ${{ needs.matrix.outputs.matrix != '[]' && needs.matrix.outputs.matrix != '' }}
+    if: ${{ needs.matrix.outputs.matrix != '[]' && needs.matrix.outputs.matrix != '' && needs.matrix.outputs.matrix != 'null' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
