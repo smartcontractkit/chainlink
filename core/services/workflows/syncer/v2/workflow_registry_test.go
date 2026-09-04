@@ -1971,7 +1971,7 @@ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
 	wr := &workflowRegistry{
 		shardOrchestratorClient: client,
 		shardResolver:           shardownership.NewRingOCRShardResolver(client, logger.TestLogger(t)),
-		myDonID:                  1,
+		myDonID:                 1,
 		shardingEnabled:         true,
 	}
 

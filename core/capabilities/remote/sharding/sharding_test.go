@@ -45,7 +45,7 @@ func TestExecutionStatusUpdateSender_SendsToAllMembers(t *testing.T) {
 		TriggerEventId: "evt-1",
 		TriggerIndex:   0,
 		Status:         ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS,
-		PrimaryDonId: 1,
+		PrimaryDonId:   1,
 	}
 
 	sender.Send(ctx, msg)
@@ -77,7 +77,7 @@ func TestExecutionStatusUpdateReceiver_QuorumAggregation(t *testing.T) {
 		TriggerEventId: "evt-1",
 		TriggerIndex:   0,
 		Status:         ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS,
-		PrimaryDonId: 1,
+		PrimaryDonId:   1,
 	}
 	payload, err := proto.Marshal(msg)
 	require.NoError(t, err)
@@ -165,7 +165,7 @@ func TestShardHeartbeatReceiver_UpdatesLastSeen(t *testing.T) {
 
 	hb := &ringpb.ShardHeartbeat{
 		PrimaryDonId: 1,
-		Timestamp:      12345,
+		Timestamp:    12345,
 	}
 	payload, err := proto.Marshal(hb)
 	require.NoError(t, err)

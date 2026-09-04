@@ -64,8 +64,8 @@ func (s *Server) GetWorkflowShardMapping(_ context.Context, req *ringpb.GetWorkf
 	for workflowID, meta := range mappings {
 		simpleMappings[workflowID] = meta.NewDonID
 		mappingStates[workflowID] = &ringpb.WorkflowMappingState{
-			OldDonId:   meta.OldDonID,
-			NewDonId:   meta.NewDonID,
+			OldDonId:     meta.OldDonID,
+			NewDonId:     meta.NewDonID,
 			InTransition: meta.InTransition,
 		}
 	}

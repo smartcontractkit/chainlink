@@ -132,7 +132,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		ctx := t.Context()
 
 		resp, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
-			SourceDonId:        3,
+			SourceDonId:          3,
 			RegisteredWorkflows:  map[string]uint32{},
 			TotalActiveWorkflows: 0,
 		})

@@ -267,7 +267,7 @@ func (s *Store) GetWorkflowMappingsBatch(workflowIDs []string) (map[string]*Mapp
 				}
 			} else {
 				result[wfID] = &MappingMeta{
-					NewDonID: donID,
+					NewDonID:  donID,
 					UpdatedAt: time.Now(),
 				}
 			}
@@ -316,7 +316,7 @@ func (s *Store) SyncRoutes(routes map[string]uint32) {
 		if waiters, ok := s.pendingAllocs[wfID]; ok {
 			for _, ch := range waiters {
 				select {
-		case ch <- donID:
+				case ch <- donID:
 				default:
 				}
 			}

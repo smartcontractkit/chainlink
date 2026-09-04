@@ -1297,7 +1297,7 @@ func (h *eventHandler) newV2EngineConfig(
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
 		ShardingFailoverEnabled: h.shardingFailoverEnabled,
-		MyDonID:                  h.myDonID,
+		MyDonID:                 h.myDonID,
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,
 	}
@@ -1350,7 +1350,7 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 				TriggerEventId: triggerEventID,
 				TriggerIndex:   uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
 				Status:         execStatus,
-				PrimaryDonId: h.myDonID,
+				PrimaryDonId:   h.myDonID,
 			})
 		}
 
