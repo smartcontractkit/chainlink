@@ -2666,7 +2666,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 			// No Module.Execute expectation: the execution must never reach WASM.
 		}, func(cfg *v2.EngineConfig) {
 			cfg.ShardingEnabled = true
-			cfg.MyShardID = 1
+			cfg.MyDonID = 1
 			cfg.ShardResolver = &stubShardResolver{shardID: 2, found: true}
 			cfg.TriggerAcknowledger = ack
 		})
@@ -2699,7 +2699,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 			// No Module.Execute expectation: the execution must never reach WASM.
 		}, func(cfg *v2.EngineConfig) {
 			cfg.ShardingEnabled = true
-			cfg.MyShardID = 1
+			cfg.MyDonID = 1
 			cfg.ShardResolver = &stubShardResolver{err: errors.New("ring ocr unavailable")}
 			cfg.TriggerAcknowledger = ack
 		})

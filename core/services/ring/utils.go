@@ -45,8 +45,8 @@ func newShardRing(healthyShards []uint32) *consistent.Consistent {
 		return nil
 	}
 	members := make([]consistent.Member, len(healthyShards))
-	for i, shardID := range healthyShards {
-		members[i] = ShardMember(strconv.FormatUint(uint64(shardID), 10))
+	for i, donID := range healthyShards {
+		members[i] = ShardMember(strconv.FormatUint(uint64(donID), 10))
 	}
 	return consistent.New(members, consistentHashConfig())
 }
@@ -59,9 +59,9 @@ func locateShard(ring *consistent.Consistent, workflowID string) (uint32, error)
 	if member == nil {
 		return 0, errInvalidMember
 	}
-	shardID, err := strconv.ParseUint(member.String(), 10, 32)
+	donID, err := strconv.ParseUint(member.String(), 10, 32)
 	if err != nil {
 		return 0, err
 	}
-	return uint32(shardID), nil
+	return uint32(donID), nil
 }

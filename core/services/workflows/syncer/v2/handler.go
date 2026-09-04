@@ -126,7 +126,7 @@ type eventHandler struct {
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardingEnabled         bool
 	shardingFailoverEnabled bool
-	myShardID               uint32
+	myDonID                 uint32
 	shardRoutingSteady      *shardownership.SteadySignal
 	shardResolver           shardownership.ShardResolver
 	shardDispatcher         remotetypes.Dispatcher
@@ -184,11 +184,11 @@ func WithSpecMeter(sm *SpecMeter) func(*eventHandler) {
 	}
 }
 
-func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool, shardID uint32) func(*eventHandler) {
+func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool, donID uint32) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardOrchestratorClient = client
 		e.shardingEnabled = shardingEnabled
-		e.myShardID = shardID
+		e.myDonID = donID
 	}
 }
 
@@ -1297,7 +1297,7 @@ func (h *eventHandler) newV2EngineConfig(
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
 		ShardingFailoverEnabled: h.shardingFailoverEnabled,
-		MyShardID:               h.myShardID,
+		MyDonID:                  h.myDonID,
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,
 	}
@@ -1333,11 +1333,11 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 	if isPrimary {
 		secondaryDon := h.resolveSecondaryDon()
 		if secondaryDon == nil {
-			h.lggr.Warnw("shard failover: no secondary DON found, primary will not send ExecutionStatusUpdate", "primaryShardID", h.myShardID)
+			h.lggr.Warnw("shard failover: no secondary DON found, primary will not send ExecutionStatusUpdate", "primaryDonID", h.myDonID)
 			return
 		}
 
-		sender := sharding.NewExecutionStatusUpdateSender(h.shardDispatcher, h.myShardID, *secondaryDon, h.lggr)
+		sender := sharding.NewExecutionStatusUpdateSender(h.shardDispatcher, h.myDonID, *secondaryDon, h.lggr)
 		h.shardFailoverMu.Lock()
 		h.shardFailoverServices = append(h.shardFailoverServices, sender)
 		h.shardFailoverMu.Unlock()
@@ -1350,15 +1350,15 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 				TriggerEventId: triggerEventID,
 				TriggerIndex:   uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
 				Status:         execStatus,
-				PrimaryShardId: h.myShardID,
+				PrimaryDonId: h.myDonID,
 			})
 		}
 
-		h.lggr.Infow("shard failover: wired ExecutionStatusUpdateSender on primary", "primaryShardID", h.myShardID, "secondaryShardID", secondaryDon.ID)
+		h.lggr.Infow("shard failover: wired ExecutionStatusUpdateSender on primary", "primaryDonID", h.myDonID, "secondaryDonID", secondaryDon.ID)
 	} else {
 		primaryDon := h.resolvePrimaryDon()
 		if primaryDon == nil {
-			h.lggr.Warnw("shard failover: no primary DON found, secondary will not register receiver", "myShardID", h.myShardID)
+			h.lggr.Warnw("shard failover: no primary DON found, secondary will not register receiver", "myDonID", h.myDonID)
 			return
 		}
 
@@ -1372,26 +1372,26 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 			h.shardFailoverMu.Lock()
 			h.shardFailoverServices = append(h.shardFailoverServices, receiver)
 			h.shardFailoverMu.Unlock()
-			h.lggr.Infow("shard failover: wired ExecutionStatusUpdateReceiver on secondary", "myShardID", h.myShardID, "primaryShardID", primaryDon.ID)
+			h.lggr.Infow("shard failover: wired ExecutionStatusUpdateReceiver on secondary", "myDonID", h.myDonID, "primaryDonID", primaryDon.ID)
 		}
 	}
 }
 
 func (h *eventHandler) isPrimaryShardForDon(_ commoncap.DON) bool {
 	if h.shardResolver == nil {
-		return h.myShardID == 0
+		return h.myDonID == 0
 	}
 	allResolver, ok := h.shardResolver.(shardownership.AllShardsResolver)
 	if !ok {
-		return h.myShardID == 0
+		return h.myDonID == 0
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	shards, found, err := allResolver.ResolveAllShards(ctx, "", "")
 	if err != nil || !found || len(shards) == 0 {
-		return h.myShardID == 0
+		return h.myDonID == 0
 	}
-	return shards[0] == h.myShardID
+	return shards[0] == h.myDonID
 }
 
 func (h *eventHandler) resolveSecondaryDon() *commoncap.DON {
