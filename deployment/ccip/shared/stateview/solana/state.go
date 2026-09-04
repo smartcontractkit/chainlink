@@ -387,7 +387,7 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 		LockReleaseTokenPools: make(map[string]solana.PublicKey),
 		SPL2022Tokens:         make([]solana.PublicKey, 0),
 		SPLTokens:             make([]solana.PublicKey, 0),
-		WSOL:                  solana.SolMint,
+			WSOL:                  solana.WrappedSol,
 		TokenPoolLookupTable:  make(map[solana.PublicKey]map[cldf.ContractType]map[string]solana.PublicKey),
 	}
 	// Most programs upgraded in place, but some are not so we always want to
