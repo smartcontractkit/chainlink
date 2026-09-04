@@ -21,7 +21,7 @@ func TestDeleteCCIPJobs(t *testing.T) {
 	require.NoError(t, err)
 
 	// gather all the jobIDs
-	jobIDs := make([]string, 0)
+	jobIDs := make([]string, 0, len(nopsView))
 	jobUUIDsByNode := make(map[string][]string)
 	for _, nop := range nopsView {
 		jobIDs = append(jobIDs, maps.Keys(nop.ApprovedJobspecs)...)
@@ -55,7 +55,7 @@ func TestRevokeJobs(t *testing.T) {
 	require.NoError(t, err)
 
 	// gather all the jobIDs
-	jobIDs := make([]string, 0)
+	jobIDs := make([]string, 0, len(nopsView))
 	jobUUIDsByNode := make(map[string][]string)
 	for _, nop := range nopsView {
 		jobIDs = append(jobIDs, maps.Keys(nop.ApprovedJobspecs)...)

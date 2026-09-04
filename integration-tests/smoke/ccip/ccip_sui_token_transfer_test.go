@@ -201,7 +201,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert(t *testing.T) {
 	suiFeeQuoterDestChainConfig, err := suifeeQuoter.DevInspect().GetDestChainConfig(ctx, &suiBind.CallOpts{
 		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
 		WaitForExecution: true,
-	}, suiBind.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
+	}, codec.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
 	require.NoError(t, err, "Failed to get destination chain config")
 
 	state, err = stateview.LoadOnchainState(e.Env)
@@ -374,7 +374,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain(t *testing.T) {
 	suiFeeQuoterDestChainConfig, err := suifeeQuoter.DevInspect().GetDestChainConfig(ctx, &suiBind.CallOpts{
 		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
 		WaitForExecution: true,
-	}, suiBind.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
+	}, codec.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
 	require.NoError(t, err, "Failed to get destination chain config")
 
 	t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
