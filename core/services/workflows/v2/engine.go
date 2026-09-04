@@ -909,13 +909,13 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			case resolveErr != nil:
 				verdict = shardownership.DenyOrchestratorError
 				ownErr = resolveErr
-			case !found || shardID != e.cfg.MyShardID:
+			case !found || shardID != e.cfg.MyDonID:
 				verdict = shardownership.DenyNotOwner
 			default:
 				verdict = shardownership.Allow
 			}
 		case e.cfg.ShardOrchestratorClient != nil:
-			verdict, mapResp, ownErr = shardownership.CheckCommittedOwner(ctx, e.cfg.ShardOrchestratorClient, e.cfg.WorkflowID, e.cfg.MyShardID)
+			verdict, mapResp, ownErr = shardownership.CheckCommittedOwner(ctx, e.cfg.ShardOrchestratorClient, e.cfg.WorkflowID, e.cfg.MyDonID)
 		default:
 			verdict = shardownership.Allow
 		}
@@ -935,7 +935,7 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			if e.cfg.ShardingFailoverEnabled {
 				lggr.Infow("Secondary shard: caching trigger event for failover",
 					"executionID", executionID,
-					"myShardID", e.cfg.MyShardID,
+					"myDonID", e.cfg.MyDonID,
 					"eventID", triggerEvent.ID,
 					"workflowID", e.cfg.WorkflowID,
 					"triggerIndex", event.TriggerIndex)
@@ -944,7 +944,7 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			}
 			logFields := []any{
 				"executionID", executionID,
-				"myShardID", e.cfg.MyShardID,
+				"myDonID", e.cfg.MyDonID,
 				"routingStateId", mapResp.GetRoutingStateId(),
 				"routingSteady", mapResp.GetRoutingSteady(),
 			}

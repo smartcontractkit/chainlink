@@ -600,10 +600,10 @@ func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *capabiliti
 }
 
 func newShardDonLookup(capRegistry *capabilities.Registry) func(uint32) *commoncap.DON {
-	return func(shardID uint32) *commoncap.DON {
+	return func(donID uint32) *commoncap.DON {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		don, err := capRegistry.DONByID(ctx, shardID)
+		don, err := capRegistry.DONByID(ctx, donID)
 		if err != nil {
 			return nil
 		}
@@ -722,14 +722,14 @@ func newSyncerMeterIdentity(cfg Config) resourcemanager.ResourceIdentity {
 }
 
 func newShardOrchestratorClient(cfg Config, lggr logger.Logger) (*shardorchestrator.Client, error) {
-	shardID := cfg.Sharding().ShardIndex()
-	if shardID == 0 {
+	shardIndex := cfg.Sharding().ShardIndex()
+	if shardIndex == 0 {
 		return nil, nil
 	}
 
 	address := cfg.Sharding().ShardOrchestratorAddress()
 	if address == nil {
-		return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardID)
+		return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardIndex)
 	}
 
 	client, err := shardorchestrator.NewClient(address.String(), lggr)
@@ -737,7 +737,7 @@ func newShardOrchestratorClient(cfg Config, lggr logger.Logger) (*shardorchestra
 		return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
 	}
 
-	lggr.Infow("ShardOrchestrator gRPC client created", "shardID", shardID, "serverAddress", address)
+	lggr.Infow("ShardOrchestrator gRPC client created", "shardIndex", shardIndex, "serverAddress", address)
 	return client, nil
 }
 
@@ -887,7 +887,6 @@ func newWorkflowRegistrySyncerV2(
 
 	shardingEnabled := cfg.Sharding().ShardingEnabled()
 	shardingFailoverEnabled := cfg.Sharding().ShardingFailoverEnabled()
-	shardIndex := uint32(cfg.Sharding().ShardIndex())
 
 	var shardRoutingSteady *shardownership.SteadySignal
 	if shardingEnabled {
@@ -922,7 +921,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
-		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
+		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled),
 		syncerV2.WithHandlerShardFailoverEnabled(shardingFailoverEnabled),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 		syncerV2.WithShardResolver(shardResolver),
@@ -1057,7 +1056,6 @@ func newWorkflowRegistrySyncerV2(
 	if cfg.Sharding().ShardingEnabled() {
 		registryOpts = append(registryOpts,
 			syncerV2.WithShardEnabled(true),
-			syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
 			syncerV2.WithShardFailoverEnabled(shardingFailoverEnabled),
 		)
 		if shardRoutingSteady != nil {

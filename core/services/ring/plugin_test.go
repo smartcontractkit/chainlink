@@ -144,8 +144,8 @@ func TestPlugin_Outcome(t *testing.T) {
 		for wf := range expectedWorkflows {
 			route, exists := outcomeProto.Routes[wf]
 			require.True(t, exists, "workflow %s should be assigned", wf)
-			require.LessOrEqual(t, route.Shard, uint32(2), "shard should be healthy (0-2)")
-			t.Logf("  %s → shard %d", wf, route.Shard)
+			require.LessOrEqual(t, route.DonId, uint32(2), "shard should be healthy (0-2)")
+			t.Logf("  %s → shard %d", wf, route.DonId)
 		}
 
 		// Verify determinism: run again, should get same assignments
@@ -160,7 +160,7 @@ func TestPlugin_Outcome(t *testing.T) {
 		for wf, route1 := range outcomeProto.Routes {
 			route2, exists := outcomeProto2.Routes[wf]
 			require.True(t, exists)
-			require.Equal(t, route1.Shard, route2.Shard, "workflow %s should assign to same shard", wf)
+			require.Equal(t, route1.DonId, route2.DonId, "workflow %s should assign to same shard", wf)
 		}
 	})
 }
@@ -400,7 +400,7 @@ func TestPlugin_NewPlugin_NilArbiter(t *testing.T) {
 func TestPlugin_getHealthyShards(t *testing.T) {
 	tests := []struct {
 		name  string
-		votes map[uint32]int // shardID -> vote count
+		votes map[uint32]int // donID -> vote count
 		f     int
 		want  int
 	}{
@@ -527,7 +527,7 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 
 	route, exists := outcomeProto.Routes["workflow-123"]
 	require.True(t, exists, "workflow-123 should be in routes")
-	require.Equal(t, uint32(0), route.Shard, "workflow-123 should be assigned to shard 0 (fallback)")
+	require.Equal(t, uint32(0), route.DonId, "workflow-123 should be assigned to shard 0 (fallback)")
 }
 
 func TestPlugin_ValidateObservation_RejectsWantShardsZero(t *testing.T) {
@@ -688,10 +688,10 @@ func TestPlugin_RingStoreIntegration(t *testing.T) {
 
 		workflowsOnShard2 := []string{}
 		for wfID, route := range baselineProto.Routes {
-			if route.Shard == 2 {
+			if route.DonId == 2 {
 				workflowsOnShard2 = append(workflowsOnShard2, wfID)
 			}
-			t.Logf("Baseline: %s on shard %d", wfID, route.Shard)
+			t.Logf("Baseline: %s on shard %d", wfID, route.DonId)
 		}
 		require.NotEmpty(t, workflowsOnShard2, "at least one workflow should be on shard 2 for this test")
 
@@ -721,8 +721,8 @@ func TestPlugin_RingStoreIntegration(t *testing.T) {
 
 		for _, wfID := range workflowsOnShard2 {
 			newRoute := outcomeProto.Routes[wfID]
-			require.NotEqual(t, uint32(2), newRoute.Shard, "workflow should have moved from shard 2")
-			t.Logf("Workflow %s moved from shard 2 → %d", wfID, newRoute.Shard)
+			require.NotEqual(t, uint32(2), newRoute.DonId, "workflow should have moved from shard 2")
+			t.Logf("Workflow %s moved from shard 2 → %d", wfID, newRoute.DonId)
 		}
 	})
 }

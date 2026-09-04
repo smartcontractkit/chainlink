@@ -285,7 +285,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				ringStoreForShard0 = ring.NewStore()
 				server := shardorchestrator.NewServer(ringStoreForShard0, globalLogger)
 				shardOrchestratorClient = shardorchestrator.NewLocalClient(server, globalLogger)
-				globalLogger.Infow("ShardOrchestrator in-process client created", "shardID", shardIdx)
+				globalLogger.Infow("ShardOrchestrator in-process client created", "shardIndex", shardIdx)
 			} else {
 				shardOrchestratorAddr := cfg.Sharding().ShardOrchestratorAddress()
 				if shardOrchestratorAddr == nil {
@@ -296,7 +296,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 					return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
 				}
 				shardOrchestratorClient = client
-				globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardIdx, "serverAddress", shardOrchestratorAddr.String())
+				globalLogger.Infow("ShardOrchestrator gRPC client created", "shardIndex", shardIdx, "serverAddress", shardOrchestratorAddr.String())
 			}
 		}
 	} else {

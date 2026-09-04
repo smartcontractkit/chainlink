@@ -33,15 +33,15 @@ static_default_assignment = [0]
 
 	r := NewManualShardResolver(settings, nil, nopLogger)
 
-	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+	donID, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(1), shard)
+	assert.Equal(t, uint32(1), donID)
 
-	shard, found, err = r.ResolveShard(context.Background(), "wf-2", "0x70997970c51812dc3a010c7d01b50e0d17dc79c8")
+	donID, found, err = r.ResolveShard(context.Background(), "wf-2", "0x70997970c51812dc3a010c7d01b50e0d17dc79c8")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(0), shard)
+	assert.Equal(t, uint32(0), donID)
 }
 
 func TestManualShardResolver_StaticDefaultFallback(t *testing.T) {
@@ -53,10 +53,10 @@ static_default_assignment = [0]
 
 	r := NewManualShardResolver(settings, nil, nopLogger)
 
-	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
+	donID, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(0), shard)
+	assert.Equal(t, uint32(0), donID)
 }
 
 func TestManualShardResolver_HashedOwnerDelegatesToRingOCR(t *testing.T) {
@@ -68,10 +68,10 @@ hashed_owner_assignment = ["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"]
 
 	r := NewManualShardResolver(settings, nil, nopLogger)
 
-	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+	donID, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 	require.NoError(t, err)
 	assert.False(t, found)
-	assert.Equal(t, uint32(0), shard)
+	assert.Equal(t, uint32(0), donID)
 }
 
 func TestManualShardResolver_HashedDefaultDelegatesToRingOCR(t *testing.T) {
@@ -94,10 +94,10 @@ func TestManualShardResolver_NilConfig(t *testing.T) {
 	settings := &loop.AtomicSettings{}
 	r := NewManualShardResolver(settings, nil, nopLogger)
 
-	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
+	donID, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
 	require.NoError(t, err)
 	assert.False(t, found)
-	assert.Equal(t, uint32(0), shard)
+	assert.Equal(t, uint32(0), donID)
 }
 
 func TestManualShardResolver_ResolveShards(t *testing.T) {
@@ -133,10 +133,10 @@ static_default_assignment = [0]
 	mockRing := &mockRingOCRResolver{mappings: map[string]uint32{"wf-1": 0}}
 	r := NewOverrideShardResolver(settings, nil, &shardResolverAdapter{inner: mockRing}, nopLogger)
 
-	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+	donID, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(1), shard)
+	assert.Equal(t, uint32(1), donID)
 }
 
 func TestOverrideShardResolver_RingOCRWinsForHashed(t *testing.T) {
@@ -149,10 +149,10 @@ hashed_default_assignment = true
 	mockRing := &mockRingOCRResolver{mappings: map[string]uint32{"wf-1": 1}}
 	r := NewOverrideShardResolver(settings, nil, &shardResolverAdapter{inner: mockRing}, nopLogger)
 
-	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
+	donID, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(1), shard)
+	assert.Equal(t, uint32(1), donID)
 }
 
 func TestOverrideShardResolver_ResolveShards_Mixed(t *testing.T) {
@@ -194,15 +194,15 @@ static_default_assignment = [0]
 	}}
 	r := NewManualShardResolver(settings, orgR, nopLogger)
 
-	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+	donID, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(2), shard)
+	assert.Equal(t, uint32(2), donID)
 
-	shard, found, err = r.ResolveShard(context.Background(), "wf-2", "0x70997970c51812dc3a010c7d01b50e0d17dc79c8")
+	donID, found, err = r.ResolveShard(context.Background(), "wf-2", "0x70997970c51812dc3a010c7d01b50e0d17dc79c8")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(1), shard)
+	assert.Equal(t, uint32(1), donID)
 }
 
 func TestManualShardResolver_PerOwnerWinsOverPerOrg(t *testing.T) {
@@ -223,10 +223,10 @@ static_default_assignment = [0]
 	}}
 	r := NewManualShardResolver(settings, orgR, nopLogger)
 
-	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+	donID, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(3), shard)
+	assert.Equal(t, uint32(3), donID)
 }
 
 func TestManualShardResolver_PerOrgFallsBackToStaticDefault(t *testing.T) {
@@ -244,10 +244,10 @@ static_default_assignment = [0]
 	}}
 	r := NewManualShardResolver(settings, orgR, nopLogger)
 
-	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
+	donID, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(0), shard)
+	assert.Equal(t, uint32(0), donID)
 }
 
 func TestManualShardResolver_PerOrgNilOrgResolver(t *testing.T) {
@@ -262,10 +262,10 @@ static_default_assignment = [0]
 
 	r := NewManualShardResolver(settings, nil, nopLogger)
 
-	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
+	donID, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(0), shard)
+	assert.Equal(t, uint32(0), donID)
 }
 
 func TestOverrideShardResolver_PerOrgAssignment(t *testing.T) {
@@ -286,15 +286,15 @@ hashed_default_assignment = true
 	mockRing := &mockRingOCRResolver{mappings: map[string]uint32{"wf-2": 0}}
 	r := NewOverrideShardResolver(settings, orgR, &shardResolverAdapter{inner: mockRing}, nopLogger)
 
-	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
+	donID, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(1), shard)
+	assert.Equal(t, uint32(1), donID)
 
-	shard, found, err = r.ResolveShard(context.Background(), "wf-2", "0x0000000000000000000000000000000000000001")
+	donID, found, err = r.ResolveShard(context.Background(), "wf-2", "0x0000000000000000000000000000000000000001")
 	require.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, uint32(0), shard)
+	assert.Equal(t, uint32(0), donID)
 }
 
 type mockRingOCRResolver struct {
