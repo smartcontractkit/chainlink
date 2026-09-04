@@ -85,8 +85,7 @@ func TestEngine_Init(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	module.EXPECT().Start().Once()
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
@@ -115,8 +114,7 @@ func TestEngine_DrainSetsStateAndHealth(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	module.EXPECT().Start().Once()
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
@@ -180,8 +178,7 @@ func TestEngine_DrainSkipsNewTriggerExecutions(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	module.EXPECT().Start().Once()
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
@@ -215,78 +212,10 @@ func TestEngine_DrainSkipsNewTriggerExecutions(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
-func TestEngine_Start_RateLimited(t *testing.T) {
-	t.Parallel()
-	getter, err := settings.NewTOMLGetter([]byte(`
-[global]
-WorkflowLimit = "2"
-[global.PerOwner]
-WorkflowLimit = "1"
-`))
-	require.NoError(t, err)
-	sLimiter, err := syncerlimiter.NewWorkflowLimits(logger.Test(t), syncerlimiter.Config{
-		Global:   0,
-		PerOwner: 0,
-	}, limits.Factory{Settings: getter})
-	require.NoError(t, err)
-
-	module := modulemocks.NewModuleV2(t)
-	module.EXPECT().Start()
-	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Times(2)
-	module.EXPECT().Close()
-	capreg := regmocks.NewCapabilitiesRegistry(t)
-	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	initDoneCh := make(chan error)
-	hooks := v2.LifecycleHooks{
-		OnInitialized: func(err error) {
-			initDoneCh <- err
-		},
-	}
-
-	cfg := defaultTestConfig(t, nil)
-	cfg.Module = module
-	cfg.CapRegistry = capreg
-	cfg.GlobalWorkflowLimit = sLimiter
-	cfg.Hooks = hooks
-	var engine1, engine2, engine3, engine4 *v2.Engine
-
-	t.Run("engine 1 inits successfully", func(t *testing.T) { //nolint:paralleltest // subtests share setup
-		engine1, err = v2.NewEngine(cfg)
-		require.NoError(t, err)
-		require.NoError(t, engine1.Start(t.Context()))
-		require.NoError(t, <-initDoneCh)
-	})
-
-	t.Run("engine 2 gets rate-limited by per-owner limit", func(t *testing.T) { //nolint:paralleltest // subtests share setup
-		engine2, err = v2.NewEngine(cfg)
-		require.NoError(t, err)
-		require.NoError(t, engine2.Start(t.Context()))
-		initErr := <-initDoneCh
-		require.Equal(t, types.ErrPerOwnerWorkflowCountLimitReached, initErr)
-	})
-
-	t.Run("engine 3 inits successfully", func(t *testing.T) { //nolint:paralleltest // subtests share setup
-		cfg.WorkflowOwner = testWorkflowOwnerB
-		engine3, err = v2.NewEngine(cfg)
-		require.NoError(t, err)
-		require.NoError(t, engine3.Start(t.Context()))
-		require.NoError(t, <-initDoneCh)
-	})
-
-	t.Run("engine 4 gets rate-limited by global limit", func(t *testing.T) { //nolint:paralleltest // subtests share setup
-		cfg.WorkflowOwner = testWorkflowOwnerC
-		engine4, err = v2.NewEngine(cfg)
-		require.NoError(t, err)
-		require.NoError(t, engine4.Start(t.Context()))
-		initErr := <-initDoneCh
-		require.Equal(t, types.ErrGlobalWorkflowCountLimitReached, initErr)
-	})
-
-	require.NoError(t, engine1.Close())
-	require.NoError(t, engine2.Close())
-	require.NoError(t, engine3.Close())
-	require.NoError(t, engine4.Close())
-}
+// Workflow count limit enforcement (per-owner and global) moved from the
+// engine to the syncer in CRE-6176 (AC5): the engine no longer acquires or
+// frees cfg.GlobalWorkflowLimit, so it can no longer be exercised at this
+// layer. See syncer/v2's Test_tryEngineCreate* for the equivalent coverage.
 
 func TestEngine_TriggerRegistrationMetadata(t *testing.T) {
 	t.Parallel()
@@ -311,8 +240,7 @@ func TestEngine_TriggerRegistrationMetadata(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	module.EXPECT().Start().Once()
 	module.EXPECT().Close().Once()
@@ -374,8 +302,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 				subscribedToTriggersCh <- triggerIDs
 			},
 		}
-		engine, err := v2.NewEngine(cfg2)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, cfg2)
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
 		servicetest.Run(t, engine)
 		var errLimited limits.ErrorBoundLimited[int]
@@ -389,8 +316,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	})
 
 	t.Run("trigger capability not found in the registry", func(t *testing.T) { //nolint:paralleltest // subtests share setup
-		engine, err := v2.NewEngine(cfg)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, cfg)
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
 		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(nil, errors.New("not found")).Once()
 		servicetest.Run(t, engine)
@@ -398,8 +324,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	})
 
 	t.Run("successful trigger registration", func(t *testing.T) { //nolint:paralleltest // subtests share setup
-		engine, err := v2.NewEngine(cfg)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, cfg)
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
 		trigger0, trigger1 := capmocks.NewTriggerCapability(t), capmocks.NewTriggerCapability(t)
 		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger0, nil).Once()
@@ -415,8 +340,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	})
 
 	t.Run("failed trigger registration and rollback", func(t *testing.T) { //nolint:paralleltest // subtests share setup
-		engine, err := v2.NewEngine(cfg)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, cfg)
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
 		trigger0, trigger1 := capmocks.NewTriggerCapability(t), capmocks.NewTriggerCapability(t)
 		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger0, nil).Once()
@@ -470,8 +394,7 @@ func TestEngine_TriggerRegistrationLogging(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	module.EXPECT().Start()
 	module.EXPECT().Close()
@@ -560,8 +483,7 @@ func TestEngine_OrganizationIdLogger(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	// Setup trigger registration
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
@@ -646,8 +568,7 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	// Setup trigger registration
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
@@ -760,8 +681,7 @@ func TestEngine_OrganizationIdPreservedAfterLocalNodeSync(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
 	trigger := capmocks.NewTriggerCapability(t)
@@ -896,8 +816,7 @@ func TestEngine_Execution(t *testing.T) {
 
 	t.Run("successful execution with no capability calls", func(t *testing.T) {
 		t.Parallel()
-		engine, err := v2.NewEngine(cfg)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, cfg)
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
 		trigger := capmocks.NewTriggerCapability(t)
 		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil)
@@ -1011,8 +930,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	// Setup trigger registration
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
@@ -1100,8 +1018,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	// Setup trigger registration
 	trigger := capmocks.NewTriggerCapability(t)
@@ -1495,8 +1412,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	// Setup trigger registration
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
@@ -1629,8 +1545,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 	t.Run("OK happy path", func(t *testing.T) {
 		t.Parallel()
 		wantResponse := "Hello, world!"
-		engine, err := v2.NewEngine(cfg)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, cfg)
 
 		// Simple wasm binary (v2/cmd) uses trigger-only workflow; no GetExecutable/ConfigForCapability.
 		capreg.EXPECT().
@@ -1725,8 +1640,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 
 	t.Run("OK received expected config", func(t *testing.T) {
 		t.Parallel()
-		engine, err := v2.NewEngine(cfg)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, cfg)
 
 		capreg.EXPECT().
 			GetTrigger(matches.AnyContext, triggerID).
@@ -1931,8 +1845,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		nil,
 	)
 	cfg.SecretsFetcher = secretsFetcher
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 	t.Cleanup(func() {
 		require.NoError(t, engine.Close())
 	})
@@ -2004,8 +1917,7 @@ func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	// Two trigger subscriptions with the exact same trigger ID (same capability, same config)
 	sameTriggerID := "id_dup"
@@ -2095,8 +2007,7 @@ func TestEngine_DeduplicatesSameEventID(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	// Single trigger subscription.
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
@@ -2199,8 +2110,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 			},
 		}
 
-		engine, err := v2.NewEngine(cfg)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, cfg)
 
 		module.EXPECT().Start().Once()
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
@@ -2253,8 +2163,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 		}
 
 		// instantiate and run the engine
-		engine, err := v2.NewEngine(cfg)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, cfg)
 		require.NoError(t, engine.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
 
@@ -2292,8 +2201,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 			},
 		}
 
-		engine, err := v2.NewEngine(cfg)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, cfg)
 
 		require.NoError(t, engine.Start(t.Context()))
 
@@ -2345,8 +2253,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 			},
 		}
 
-		engine, err := v2.NewEngine(cfg)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, cfg)
 
 		require.NoError(t, engine.Start(t.Context()))
 
@@ -2551,8 +2458,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 			fn(&testCfg)
 		}
 
-		engine, err := v2.NewEngine(&testCfg)
-		require.NoError(t, err)
+		engine := newDispatchedEngine(t, &testCfg)
 		return engineWithChans{engine, executionFinishedCh, executionErrorCh, resultReceivedCh}
 	}
 
@@ -3267,8 +3173,7 @@ func createTestEngineForDonVersionTest(
 		WorkflowRegistryChainSelector: "11155111",
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	return engine, cfg
 }

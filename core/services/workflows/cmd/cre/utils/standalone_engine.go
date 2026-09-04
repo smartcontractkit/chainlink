@@ -52,6 +52,26 @@ func (m mockSubscriber) Subscribe(_ context.Context) (<-chan commoncap.DON, func
 	return make(<-chan commoncap.DON), func() {}, nil
 }
 
+// standaloneAcknowledger acknowledges trigger events for the standalone
+// engine, which registers its own triggers (via the runner) and has no
+// dispatcher. It resolves the trigger capability by registration ID through
+// the capabilities registry.
+type standaloneAcknowledger struct {
+	capReg *capabilities.Registry
+}
+
+var _ v2.Acknowledger = (*standaloneAcknowledger)(nil)
+
+func (s *standaloneAcknowledger) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
+	// The standalone runner registers triggers with the capability directly;
+	// acknowledge through the registry's trigger lookup.
+	triggerCap, err := s.capReg.GetTrigger(ctx, triggerCapID)
+	if err != nil {
+		return fmt.Errorf("failed to find trigger %s: %w", triggerCapID, err)
+	}
+	return triggerCap.AckEvent(ctx, triggerRegistrationID, eventID, "")
+}
+
 func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
@@ -166,7 +186,10 @@ func NewStandaloneEngine(
 		SecretsFetcher: secretsFetcher,
 		DebugMode:      true,
 	}
-
+	// The standalone engine has no dispatcher: it acknowledges its own
+	// trigger events. Registration is likewise performed by the runner via
+	// the returned subscriptions (see Runner.Run).
+	cfg.TriggerAcknowledger = &standaloneAcknowledger{capReg: registry}
 	engine, err := v2.NewEngine(cfg)
 	if err != nil {
 		return nil, nil, err
