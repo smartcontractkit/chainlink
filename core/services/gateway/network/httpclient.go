@@ -476,13 +476,14 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 
 	resp, err := c.client.Do(r)
 	if err != nil {
+		truncatedErr := truncateLogError(err)
 		c.metrics.recordTotal(ctx, req.Method, 0, false, traceState.connReused.Load(), time.Since(requestStart))
 		if isBlockedRequest(err) {
-			c.lggr.Warnw("HTTP request blocked", "err", truncateLogError(err))
-			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, err)
+			c.lggr.Warnw("HTTP request blocked", "err", truncatedErr)
+			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, truncatedErr)
 		}
-		c.lggr.Errorw("failed to send HTTP request", "err", truncateLogError(err))
-		return nil, errors.Join(err, ErrHTTPSend)
+		c.lggr.Errorw("failed to send HTTP request", "err", truncatedErr)
+		return nil, errors.Join(truncatedErr, ErrHTTPSend)
 	}
 	defer resp.Body.Close()
 
