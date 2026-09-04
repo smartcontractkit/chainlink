@@ -1314,7 +1314,7 @@ func TestHandler_RetryWhileInFlightWaits(t *testing.T) {
 	resps := append([]*jsonrpc.Response[json.RawMessage](nil), gwConn.resps...)
 	gwConn.resps = nil
 	gwConn.mu.Unlock()
-	var payloads []string
+	payloads := make([]string, 0, len(resps))
 	for _, r := range resps {
 		require.Nil(t, r.Error)
 		var signed confidentialrelaytypes.SignedCapabilityResponseResult
@@ -1328,5 +1328,5 @@ func TestHandler_RetryWhileInFlightWaits(t *testing.T) {
 	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-3")))
 	resp := gwConn.waitResp(t)
 	require.Nil(t, resp.Error)
-	require.Zero(t, len(helper.entered), "post-completion retry is served from the memo, no re-execution")
+	require.Empty(t, helper.entered, "post-completion retry is served from the memo, no re-execution")
 }
