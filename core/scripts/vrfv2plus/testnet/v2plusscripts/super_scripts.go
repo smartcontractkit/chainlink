@@ -18,11 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/jobs"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
@@ -34,6 +29,10 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/jobs"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
 
@@ -142,15 +141,15 @@ func SmokeTestVRF(e helpers.Environment) {
 		SetCoordinatorConfig(
 			e,
 			*coordinator,
-			uint16(*minConfs),
-			uint32(*maxGasLimit),
-			uint32(*stalenessSeconds),
-			uint32(*gasAfterPayment),
+			uint16(*minConfs),         //nolint:gosec // min confs fits in uint16
+			uint32(*maxGasLimit),      //nolint:gosec // max gas limit fits in uint32
+			uint32(*stalenessSeconds), //nolint:gosec // staleness fits in uint32
+			uint32(*gasAfterPayment),  //nolint:gosec // gas after payment fits in uint32
 			fallbackWeiPerUnitLink,
-			uint32(*flatFeeNativePPM),
-			uint32(*flatFeeLinkDiscountPPM),
-			uint8(*nativePremiumPercentage),
-			uint8(*linkPremiumPercentage),
+			uint32(*flatFeeNativePPM),       //nolint:gosec // flat fee fits in uint32
+			uint32(*flatFeeLinkDiscountPPM), //nolint:gosec // flat fee fits in uint32
+			uint8(*nativePremiumPercentage), //nolint:gosec // premium fits in uint8
+			uint8(*linkPremiumPercentage),   //nolint:gosec // premium fits in uint8
 		)
 	}
 
@@ -167,12 +166,7 @@ func SmokeTestVRF(e helpers.Environment) {
 	helpers.PanicErr(err)
 	pk, err := crypto.UnmarshalPubkey(pubBytes)
 	helpers.PanicErr(err)
-	var pkBytes []byte
-	if big.NewInt(0).Mod(pk.Y, big.NewInt(2)).Uint64() != 0 {
-		pkBytes = append(pk.X.Bytes(), 1)
-	} else {
-		pkBytes = append(pk.X.Bytes(), 0)
-	}
+	pkBytes := crypto.CompressPubkey(pk)
 	var newPK secp256k1.PublicKey
 	copy(newPK[:], pkBytes)
 
@@ -190,7 +184,11 @@ func SmokeTestVRF(e helpers.Environment) {
 		panic(fmt.Sprintf("unexpected compressed public key %s, expected %s", compressedPkHex, key.PublicKey.String()))
 	}
 
-	kh1, err := coordinator.HashOfKey(nil, [2]*big.Int{pk.X, pk.Y})
+	point, err := key.PublicKey.Point()
+	helpers.PanicErr(err)
+	x, y := secp256k1.Coordinates(point)
+
+	kh1, err := coordinator.HashOfKey(nil, [2]*big.Int{x, y})
 	helpers.PanicErr(err)
 	fmt.Println("key hash from coordinator:", hexutil.Encode(kh1[:]))
 	if !bytes.Equal(kh1[:], keyHash[:]) {
@@ -198,12 +196,8 @@ func SmokeTestVRF(e helpers.Environment) {
 	}
 
 	fmt.Println("\nRegistering proving key...")
-	point, err := key.PublicKey.Point()
-	helpers.PanicErr(err)
-	x, y := secp256k1.Coordinates(point)
 	fmt.Println("proving key points x:", x, ", y:", y)
-	fmt.Println("proving key points from unmarshal:", pk.X, pk.Y)
-	tx, err := coordinator.RegisterProvingKey(e.Owner, [2]*big.Int{x, y}, uint64(*gasLaneMaxGas))
+	tx, err := coordinator.RegisterProvingKey(e.Owner, [2]*big.Int{x, y}, uint64(*gasLaneMaxGas)) //nolint:gosec // gas lane max gas fits in uint64
 	helpers.PanicErr(err)
 	registerReceipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "register proving key on", coordinatorAddress.String())
 	var provingKeyRegisteredLog *vrf_coordinator_v2_5.VRFCoordinatorV25ProvingKeyRegistered
@@ -308,7 +302,7 @@ func SmokeTestVRF(e helpers.Environment) {
 		PreSeed:          preSeed,
 		BlockHash:        rwrLog.Raw.BlockHash,
 		BlockNum:         rwrLog.Raw.BlockNumber,
-		SubId:            rwrLog.SubId,
+		SubID:            rwrLog.SubId,
 		CallbackGasLimit: rwrLog.CallbackGasLimit,
 		NumWords:         rwrLog.NumWords,
 		Sender:           rwrLog.Sender,
@@ -603,10 +597,10 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		StalenessSeconds:                  *stalenessSeconds,
 		GasAfterPayment:                   *gasAfterPayment,
 		FallbackWeiPerUnitLink:            fallbackWeiPerUnitLink,
-		FulfillmentFlatFeeNativePPM:       uint32(*flatFeeNativePPM),
-		FulfillmentFlatFeeLinkDiscountPPM: uint32(*flatFeeLinkDiscountPPM),
-		NativePremiumPercentage:           uint8(*nativePremiumPercentage),
-		LinkPremiumPercentage:             uint8(*linkPremiumPercentage),
+		FulfillmentFlatFeeNativePPM:       uint32(*flatFeeNativePPM),       //nolint:gosec // fee fits in uint32
+		FulfillmentFlatFeeLinkDiscountPPM: uint32(*flatFeeLinkDiscountPPM), //nolint:gosec // fee fits in uint32
+		NativePremiumPercentage:           uint8(*nativePremiumPercentage), //nolint:gosec // percentage fits in uint8
+		LinkPremiumPercentage:             uint8(*linkPremiumPercentage),   //nolint:gosec // percentage fits in uint8
 	}
 
 	vrfKeyRegistrationConfig := model.VRFKeyRegistrationConfig{
@@ -642,8 +636,8 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		bhsJobSpecConfig,
 		*simulationBlock,
 		*coordinatorType,
-		uint8(*optimismL1GasFeeCalculationMode),
-		uint8(*optimismL1GasFeeCoefficient),
+		uint8(*optimismL1GasFeeCalculationMode), //nolint:gosec // mode fits in uint8
+		uint8(*optimismL1GasFeeCoefficient),     //nolint:gosec // coefficient fits in uint8
 	)
 
 	vrfPrimaryNode := nodesMap[model.VRFPrimaryNodeName]
@@ -682,12 +676,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		helpers.PanicErr(err)
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
 		helpers.PanicErr(err)
-		var pkBytes []byte
-		if big.NewInt(0).Mod(pk.Y, big.NewInt(2)).Uint64() != 0 {
-			pkBytes = append(pk.X.Bytes(), 1)
-		} else {
-			pkBytes = append(pk.X.Bytes(), 0)
-		}
+		pkBytes := crypto.CompressPubkey(pk)
 		var newPK secp256k1.PublicKey
 		copy(newPK[:], pkBytes)
 
@@ -733,10 +722,10 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	SetCoordinatorConfig(
 		e,
 		*coordinator,
-		uint16(coordinatorConfig.MinConfs),
-		uint32(coordinatorConfig.MaxGasLimit),
-		uint32(coordinatorConfig.StalenessSeconds),
-		uint32(coordinatorConfig.GasAfterPayment),
+		uint16(coordinatorConfig.MinConfs),    //nolint:gosec // min confs fits in uint16
+		uint32(coordinatorConfig.MaxGasLimit), //nolint:gosec // max gas limit fits in uint32
+		uint32(coordinatorConfig.StalenessSeconds), //nolint:gosec // staleness fits in uint32
+		uint32(coordinatorConfig.GasAfterPayment),  //nolint:gosec // gas after payment fits in uint32
 		coordinatorConfig.FallbackWeiPerUnitLink,
 		coordinatorConfig.FulfillmentFlatFeeNativePPM,
 		coordinatorConfig.FulfillmentFlatFeeLinkDiscountPPM,
@@ -966,14 +955,14 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 	helpers.PanicErr(err)
 
-	var subId *big.Int
+	var subID *big.Int
 	if *subscriptionID == "" {
-		subId, err = EoaCreateSub(e, *coordinator)
+		subID, err = EoaCreateSub(e, *coordinator)
 		helpers.PanicErr(err)
-		fmt.Println("Created subscription ID:", subId)
+		fmt.Println("Created subscription ID:", subID)
 	} else {
-		subId = parseSubID(*subscriptionID)
-		fmt.Println("Using existing subscription ID:", subId)
+		subID = parseSubID(*subscriptionID)
+		fmt.Println("Using existing subscription ID:", subID)
 	}
 
 	fmt.Println()
@@ -982,7 +971,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 		common.HexToAddress(*linkAddress),
 		common.HexToAddress(*linkNativeFeedAddress),
 		common.HexToAddress(*coordinatorAddress),
-		subId,
+		subID,
 		*wrapperType,
 	)
 
@@ -1001,16 +990,16 @@ func DeployWrapperUniverse(e helpers.Environment) {
 		*keyHash,
 		*maxNumWords,
 		decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
-		uint32(*stalenessSeconds),
-		uint32(*fulfillmentFlatFeeNativePPM),
-		uint32(*fulfillmentFlatFeeLinkDiscountPPM),
+		uint32(*stalenessSeconds),                  //nolint:gosec // staleness fits in uint32
+		uint32(*fulfillmentFlatFeeNativePPM),       //nolint:gosec // fee fits in uint32
+		uint32(*fulfillmentFlatFeeLinkDiscountPPM), //nolint:gosec // fee fits in uint32
 	)
 
 	fmt.Println("Configured wrapper")
 	fmt.Println()
 
 	if *wrapperType == "optimism" {
-		WrapperSetL1FeeCalculation(e, wrapper, uint8(*optimismL1GasFeeCalculationMode), uint8(*optimismL1GasFeeCoefficient))
+		WrapperSetL1FeeCalculation(e, wrapper, uint8(*optimismL1GasFeeCalculationMode), uint8(*optimismL1GasFeeCoefficient)) //nolint:gosec // parameters fit in uint8
 		fmt.Println("Set L1 gas fee calculation")
 		fmt.Println()
 	}
@@ -1023,7 +1012,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	fmt.Println()
 
 	// for v2plus we need to add wrapper as a consumer to the subscription
-	EoaAddConsumerToSub(e, *coordinator, subId, wrapper.String())
+	EoaAddConsumerToSub(e, *coordinator, subID, wrapper.String())
 
 	fmt.Println("Added wrapper as the subscription consumer")
 	fmt.Println()
@@ -1040,9 +1029,9 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	fmt.Println("Funded wrapper consumer")
 	fmt.Println()
 
-	EoaFundSubWithLink(e, *coordinator, *linkAddress, subAmountLink, subId)
+	EoaFundSubWithLink(e, *coordinator, *linkAddress, subAmountLink, subID)
 	// e.Owner.Value is hardcoded inside this helper function, make sure to run it as the last one in the script
-	EoaFundSubWithNative(e, common.HexToAddress(*coordinatorAddress), subId, subAmountNative)
+	EoaFundSubWithNative(e, common.HexToAddress(*coordinatorAddress), subID, subAmountNative)
 
 	fmt.Println("Funded wrapper subscription")
 	fmt.Println()
@@ -1051,7 +1040,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	fmt.Println("Wrapper address:", wrapper.String())
 	fmt.Println("Wrapper type:", *wrapperType)
 	fmt.Println("Wrapper consumer address:", consumer.String())
-	fmt.Println("Wrapper subscription ID:", subId)
+	fmt.Println("Wrapper subscription ID:", subID)
 	fmt.Printf("Send native request example: go run . wrapper-consumer-request --consumer-address=%s --cb-gas-limit=1000000 --native-payment=true\n", consumer.String())
 	fmt.Printf("Send LINK request example: go run . wrapper-consumer-request --consumer-address=%s --cb-gas-limit=1000000 --native-payment=false\n", consumer.String())
 }

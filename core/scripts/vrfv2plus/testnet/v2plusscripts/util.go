@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/montanaflynn/stats"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
@@ -224,10 +223,10 @@ func RegisterCoordinatorProvingKey(e helpers.Environment,
 	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, gasLaneMaxGas uint64) {
 	pubBytes, err := hex.DecodeString(uncompressed)
 	helpers.PanicErr(err)
-	pk, err := crypto.UnmarshalPubkey(pubBytes)
-	helpers.PanicErr(err)
+	x := new(big.Int).SetBytes(pubBytes[1:33])
+	y := new(big.Int).SetBytes(pubBytes[33:65])
 	tx, err := coordinator.RegisterProvingKey(e.Owner,
-		[2]*big.Int{pk.X, pk.Y}, gasLaneMaxGas)
+		[2]*big.Int{x, y}, gasLaneMaxGas)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(
 		context.Background(),
@@ -330,14 +329,14 @@ func WrapperConfigure(
 
 	tx, err := wrapper.SetConfig(
 		e.Owner,
-		uint32(wrapperGasOverhead),
-		uint32(coordinatorGasOverheadNative),
-		uint32(coordinatorGasOverheadLink),
-		uint16(coordinatorGasOverheadPerWord),
-		uint8(nativePremiumPercentage),
-		uint8(linkPremiumPercentage),
+		uint32(wrapperGasOverhead),            //nolint:gosec // wrapper overhead fits in uint32
+		uint32(coordinatorGasOverheadNative),  //nolint:gosec // overhead fits in uint32
+		uint32(coordinatorGasOverheadLink),    //nolint:gosec // overhead fits in uint32
+		uint16(coordinatorGasOverheadPerWord), //nolint:gosec // overhead fits in uint16
+		uint8(nativePremiumPercentage),        //nolint:gosec // percentage fits in uint8
+		uint8(linkPremiumPercentage),          //nolint:gosec // percentage fits in uint8
 		common.HexToHash(keyHash),
-		uint8(maxNumWords),
+		uint8(maxNumWords), //nolint:gosec // max words fits in uint8
 		stalenessSeconds,
 		fallbackWeiPerUnitLink,
 		fulfillmentFlatFeeNativePPM,
