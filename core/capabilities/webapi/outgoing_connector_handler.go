@@ -147,8 +147,8 @@ func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, 
 	lggr.Debugw("sending request to gateway")
 
 	body := &api.MessageBody{
-		MessageId: messageID,
-		DonId:     donID,
+		MessageID: messageID,
+		DonID:     donID,
 		Method:    c.method,
 		Payload:   payload,
 	}
@@ -170,8 +170,8 @@ func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, 
 
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: body.MessageId,
-			DonId:     body.DonId,
+			MessageID: body.MessageID,
+			DonID:     body.DonID,
 			Method:    body.Method,
 			Payload:   body.Payload,
 			Receiver:  body.Receiver,
@@ -307,9 +307,9 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 		return nil
 	}
 	body := &msg.Body
-	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageId)
+	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageID)
 
-	ch, ok := c.responses.get(body.MessageId)
+	ch, ok := c.responses.get(body.MessageID)
 	if !ok {
 		l.Warnw("no response channel found; this may indicate that the node timed out the request")
 		return nil
@@ -339,7 +339,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 		}
 		errMsg := api.Message{
 			Body: api.MessageBody{
-				MessageId: body.MessageId,
+				MessageID: body.MessageID,
 				Method:    api.MethodInternalError,
 				Payload:   errPayload,
 			},
@@ -409,6 +409,7 @@ func incomingRateLimiterConfigDefaults(config ratelimit.RateLimiterConfig) ratel
 	}
 	return config
 }
+
 func outgoingRateLimiterConfigDefaults(config ratelimit.RateLimiterConfig) ratelimit.RateLimiterConfig {
 	if config.GlobalBurst == 0 {
 		config.GlobalBurst = DefaultGlobalBurst
@@ -480,7 +481,7 @@ type metrics struct {
 	method            string
 }
 
-func (m *metrics) recordSingleNodeRequestDuration(ctx context.Context, d time.Duration, status string, wid string) {
+func (m *metrics) recordSingleNodeRequestDuration(ctx context.Context, d time.Duration, status, wid string) {
 	m.handleDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
 		attribute.String("status", status),
 		attribute.String("workflowID", wid),
@@ -488,7 +489,7 @@ func (m *metrics) recordSingleNodeRequestDuration(ctx context.Context, d time.Du
 	))
 }
 
-func (m *metrics) recordAwaitConnectionDuration(ctx context.Context, d time.Duration, wid string, gateway string, success bool) {
+func (m *metrics) recordAwaitConnectionDuration(ctx context.Context, d time.Duration, wid, gateway string, success bool) {
 	successStr := "false"
 	if success {
 		successStr = "true"
