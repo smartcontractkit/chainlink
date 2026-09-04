@@ -844,7 +844,11 @@ type WorkflowSpec struct {
 	RegisteredAt  int64              `toml:"-" db:"registered_at"`
 	// Source records which workflow metadata source produced this spec (e.g.
 	// "ContractWorkflowSource").
-	Source      string `toml:"-" db:"source"`
+	Source string `toml:"-" db:"source"`
+	// StorageBytes is the workflow + config size in bytes. Set at registration
+	// and not cleared by pausing the workflow
+	StorageBytes int64 `toml:"-" db:"storage_bytes"`
+
 	sdkWorkflow *sdk.WorkflowSpec
 	rawSpec     []byte
 	config      []byte

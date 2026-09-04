@@ -494,6 +494,18 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
+	if resp.Result != nil && resp.Error != nil {
+		l.Errorw("node response contains both a result and an error, dropping", "nodeAddr", nodeAddr)
+		h.recordInvalidNodeResponseEnvelope(ctx, "node_response_result_and_error")
+		return nil //nolint:nilerr // tampered envelope is intentionally dropped; handling succeeded so there is no error to report
+	}
+
+	if resp.Method != ar.req.Method {
+		l.Errorw("node response method does not match request method, dropping", "nodeAddr", nodeAddr, "responseMethod", resp.Method, "requestMethod", ar.req.Method)
+		h.recordInvalidNodeResponseEnvelope(ctx, "node_response_method_mismatch")
+		return nil
+	}
+
 	ok := ar.addResponseForNode(nodeAddr, resp)
 	if !ok {
 		l.Errorw("duplicate response from node, ignoring", "nodeAddr", nodeAddr)
@@ -519,6 +531,13 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	return h.sendSuccessResponse(ctx, l, ar, resp)
+}
+
+func (h *handler) recordInvalidNodeResponseEnvelope(ctx context.Context, reason string) {
+	h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("don_id", h.donConfig.DonId),
+		attribute.String("error", reason),
+	))
 }
 
 func (h *handler) unmarshal(r io.Reader, to any) error {
@@ -745,11 +764,7 @@ func (h *handler) errorResponse(
 		// Intentionally hide the error from the user
 		err = errors.New(errorCode.String())
 	case api.InvalidParamsError:
-		paramsStr := ""
-		if req.Params != nil {
-			paramsStr = string(*req.Params)
-		}
-		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", paramsStr)
+		h.lggr.Errorw("invalid params", "requestID", req.ID, "error", err.Error())
 		err = errors.New("invalid params error: " + err.Error())
 	case api.UnsupportedMethodError:
 		h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())

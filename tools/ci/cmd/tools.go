@@ -98,6 +98,9 @@ func runToolsMatrix(ctx context.Context, cmd *cobra.Command, opts *toolsMatrixOp
 		ChangedFiles: changedFileList,
 		All:          opts.all,
 	})
+	if filteredTargets == nil {
+		filteredTargets = []tools.Target{}
+	}
 
 	jsonData, err := json.Marshal(filteredTargets)
 	if err != nil {
