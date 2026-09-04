@@ -184,3 +184,22 @@ func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
 
 	<-waitCh
 }
+
+func TestWSServer_WSClient_HandshakeRejected(t *testing.T) {
+	t.Parallel()
+	_, acceptor, urlStr := startNewWSServer(t, 10_000)
+
+	acceptor.On("StartHandshake", mock.Anything).Return("", []byte{}, errors.New("unauthorized"))
+
+	initiator := mocks.NewConnectionInitiator(t)
+	initiator.On("NewAuthHeader", mock.Anything, mock.Anything).Return([]byte{}, nil)
+
+	client := network.NewWebSocketClient(network.WebSocketClientConfig{}, initiator, logger.Test(t))
+
+	urlStr = strings.Replace(urlStr, "http", "ws", 1)
+	parsedURL, err := url.Parse(urlStr)
+	require.NoError(t, err)
+	conn, err := client.Connect(t.Context(), parsedURL)
+	require.Error(t, err)
+	require.Nil(t, conn)
+}

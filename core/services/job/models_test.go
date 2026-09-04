@@ -73,7 +73,8 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 		want    types.RelayID
 		wantErr bool
 	}{
-		{name: "err no chain id",
+		{
+			name:    "err no chain id",
 			fields:  fields{},
 			want:    types.RelayID{},
 			wantErr: true,
@@ -270,7 +271,8 @@ func TestOCR2OracleSpec(t *testing.T) {
 				"publicKey": "0xdeadbeef",
 			},
 		},
-		PluginConfig: map[string]any{"juelsPerFeeCoinSource": `  // data source 1
+		PluginConfig: map[string]any{
+			"juelsPerFeeCoinSource": `  // data source 1
   ds1          [type=bridge name="%s"];
   ds1_parse    [type=jsonparse path="data"];
   ds1_multiply [type=multiply times=2];
@@ -398,7 +400,8 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			config = "%s"
 		`
 		configLocation := "testdata/config.json"
-		tomlSpec := fmt.Sprintf(wasmWorkflowTomlTemplate,
+		tomlSpec := fmt.Sprintf(
+			wasmWorkflowTomlTemplate,
 			"0x0123456789012345678901234567890123456788",
 			"wf-2",
 			job.WASMFile,
