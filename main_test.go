@@ -60,10 +60,7 @@ func TestScripts(t *testing.T) {
 	}
 
 	tmp := t.TempDir()
-	require.NoError(t, os.Setenv("GOTMPDIR", tmp))
-	t.Cleanup(func() {
-		require.NoError(t, os.Unsetenv("GOTMPDIR"))
-	})
+	os.Setenv("GOTMPDIR", tmp) //nolint:usetesting // t.Setenv cannot be used in parallel tests
 	t.Parallel()
 
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {

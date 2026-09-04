@@ -98,7 +98,7 @@ func TestAtomicCoreSwap(t *testing.T) {
 
 	lggrCfg := Config{
 		LogLevel:       zapcore.InfoLevel,
-		JsonConsole:    true,
+		JSONConsole:    true,
 		UnixTS:         false,
 		FileMaxSizeMB:  0,
 		FileMaxAgeDays: 0,

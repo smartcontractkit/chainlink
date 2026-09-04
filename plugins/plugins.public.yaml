@@ -118,10 +118,18 @@ plugins:
 
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-http/capability"
+<<<<<<< HEAD
       gitRef: "43d023a4661588e488e0d3db5cecb7fc0efd024d"
+=======
+      gitRef: "b9926f01321595b1db0fa169fdafb3dbd24dd161"
+>>>>>>> 9a7056bece (lint(root): fix violations (batch_015))
       installPath: "./cmd/confidential-http"
 
   confidential-workflows:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-workflows/capability"
+<<<<<<< HEAD
       gitRef: "43d023a4661588e488e0d3db5cecb7fc0efd024d"
+=======
+      gitRef: "b9926f01321595b1db0fa169fdafb3dbd24dd161"
+>>>>>>> 9a7056bece (lint(root): fix violations (batch_015))
       installPath: "./cmd/confidential-workflows"
