@@ -420,20 +420,11 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		}
 	}
 
-	// Preserve the datastore accumulated by MergeChangesetOutput: it already carries the
-	// sub-changesets' semantic qualifiers, metadata, and deletions. Rebuilding it from the
-	// address book would discard all of that. The address book has no qualifiers, so it can only
-	// contribute the singleton refs the sub-changesets did not write to the datastore; merge
-	// those in rather than replacing the accumulated store.
-	singletons, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-	}
-
-	if finalCSOut.DataStore == nil {
-		finalCSOut.DataStore = singletons
-	} else if err := finalCSOut.DataStore.Merge(singletons.Seal()); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address-book refs into DataStore: %w", err)
-	}
+	// Preserve the datastore accumulated by MergeChangesetOutput: it carries the
+	// sub-changesets' semantic qualifiers, metadata, and deletions. Every merged sub-changeset
+	// that produces an address writes it natively (AddTokenPoolAndLookupTable records the
+	// lookup tables under their full (mint, pool type, metadata) qualifier; the global-config,
+	// registry, remote-chain and ownership changesets deploy nothing). Rebuilding from the
+	// merged address book could only mint address-derived qualifiers, so nothing is re-derived.
 	return *finalCSOut, nil
 }

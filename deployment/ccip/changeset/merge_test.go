@@ -177,6 +177,35 @@ func TestMergeChangesetOutputRejectsRefWithoutVersion(t *testing.T) {
 	require.ErrorContains(t, err, "0xaaa")
 }
 
+func TestMergeChangesetOutputRejectsEmptyAddressRef(t *testing.T) {
+	t.Parallel()
+	e := mergeTestEnvironment(t)
+
+	// A reserved-but-never-filled key (as ReserveRefs leaves behind when a changeset returns
+	// without deploying everything it planned) is a pending claim, not a record.
+	src := datastore.NewMemoryDataStore()
+	require.NoError(t, src.Addresses().Add(datastore.AddressRef{
+		ChainSelector: 5009297550715157269,
+		Address:       "",
+		Type:          datastore.ContractType("Router"),
+		Version:       semver.MustParse("1.6.0"),
+		Qualifier:     "",
+	}))
+
+	dest := cldf.ChangesetOutput{DataStore: datastore.NewMemoryDataStore()}
+
+	err := MergeChangesetOutput(e, &dest, cldf.ChangesetOutput{DataStore: src})
+	require.ErrorContains(t, err, "has no address")
+
+	envRefs, envErr := e.DataStore.Addresses().Fetch()
+	require.NoError(t, envErr)
+	require.Empty(t, envRefs, "the reservation must not reach the environment")
+
+	destRefs, destErr := dest.DataStore.Addresses().Fetch()
+	require.NoError(t, destErr)
+	require.Empty(t, destRefs, "the reservation must not reach the destination")
+}
+
 func TestMergeChangesetOutputComparesAddressesExactly(t *testing.T) {
 	t.Parallel()
 	e := mergeTestEnvironment(t)

@@ -26,8 +26,8 @@ func createTestRequest(method, url string) gateway_common.OutboundHTTPRequest {
 	return gateway_common.OutboundHTTPRequest{
 		Method: method,
 		URL:    url,
-		Headers: map[string]string{
-			"Content-Type": "application/json",
+		MultiHeaders: map[string][]string{
+			"Content-Type": {"application/json"},
 		},
 		Body: []byte(`{"test": "data"}`),
 		CacheSettings: gateway_common.CacheSettings{
@@ -41,8 +41,8 @@ func createTestResponse(statusCode int, body string) gateway_common.OutboundHTTP
 	return gateway_common.OutboundHTTPResponse{
 		StatusCode: statusCode,
 		Body:       []byte(body),
-		Headers: map[string]string{
-			"Content-Type": "application/json",
+		MultiHeaders: map[string][]string{
+			"Content-Type": {"application/json"},
 		},
 	}
 }
@@ -606,9 +606,9 @@ func TestEdgeCases(t *testing.T) {
 		req := createTestRequest("GET", "https://example.com/nil-headers")
 
 		resp := gateway_common.OutboundHTTPResponse{
-			StatusCode: 200,
-			Body:       []byte("test"),
-			Headers:    nil,
+			StatusCode:   200,
+			Body:         []byte("test"),
+			MultiHeaders: nil,
 		}
 
 		cache.Set(req, resp)

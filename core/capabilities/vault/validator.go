@@ -38,16 +38,25 @@ type SecretIdentifierLimits struct {
 }
 
 func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest, skipLabelValidation bool) error {
-	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets, skipLabelValidation)
+	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets, skipLabelValidation, true)
 }
 
 func (r *RequestValidator) ValidateUpdateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.UpdateSecretsRequest, skipLabelValidation bool) error {
-	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets, skipLabelValidation)
+	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets, skipLabelValidation, true)
+}
+
+// ValidateEncryptedSecretsStructure calls validateWriteRequest without the
+// owner-scoped ciphertext-size limit, which must be checked separately after
+// authorization via ValidateCiphertextSizes.
+func (r *RequestValidator) ValidateEncryptedSecretsStructure(ctx context.Context, publicKey *tdh2easy.PublicKey, requestID string, encryptedSecrets []*vaultcommon.EncryptedSecret, skipLabelValidation bool) error {
+	return r.validateWriteRequest(ctx, publicKey, requestID, encryptedSecrets, skipLabelValidation, false)
 }
 
 // validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests.
 // It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet.
-func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret, skipLabelValidation bool) error {
+// includeCiphertextSize controls the owner-scoped ciphertext-size check, which must be
+// skipped before authorization (see ValidateEncryptedSecretsStructure).
+func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret, skipLabelValidation bool, includeCiphertextSize bool) error {
 	if id == "" {
 		return errors.New("request ID must not be empty")
 	}
@@ -77,8 +86,10 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace, nil); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
-		if err := r.ValidateCiphertextSize(ctx, req.Id.Owner, req.EncryptedValue); err != nil {
-			return fmt.Errorf("secret encrypted value at index %d is invalid: %w", idx, err)
+		if includeCiphertextSize {
+			if err := r.ValidateCiphertextSize(ctx, req.Id.Owner, req.EncryptedValue); err != nil {
+				return fmt.Errorf("secret encrypted value at index %d is invalid: %w", idx, err)
+			}
 		}
 		if skipLabelValidation {
 			if _, err := verifyEncryptedSecret(publicKey, req.EncryptedValue); err != nil {
@@ -113,6 +124,25 @@ func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner, en
 			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check ciphertext size limit: %w", err)
+	}
+	return nil
+}
+
+// ValidateCiphertextSizes checks the owner-scoped ciphertext-size limit for each
+// encrypted secret in a write request that already passed structure validation
+// (ValidateEncryptedSecretsStructure). It must only be called after
+// authorization, with the authorized workflow owner: checking the scoped
+// limiter registers a per-owner tenant that spawns a persistent background
+// updater, so running it pre-auth would let unauthenticated callers create
+// unbounded limiter tenants.
+func (r *RequestValidator) ValidateCiphertextSizes(ctx context.Context, owner string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
+	for idx, secret := range encryptedSecrets {
+		if secret == nil {
+			return errors.New("encrypted secret must not be nil at index " + strconv.Itoa(idx))
+		}
+		if err := r.ValidateCiphertextSize(ctx, owner, secret.EncryptedValue); err != nil {
+			return fmt.Errorf("secret encrypted value at index %d is invalid: %w", idx, err)
+		}
 	}
 	return nil
 }
