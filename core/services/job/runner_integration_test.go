@@ -346,7 +346,8 @@ answer1      [type=median index=0];
 			switch run.GetDotID() {
 			case "ds1":
 				assert.True(t, run.Error.IsZero())
-				require.NotNil(t, resp, run.Output)
+				require.True(t, run.Output.Valid)
+				require.NotNil(t, run.Output.Val)
 				assert.Equal(t, resp, run.Output.Val)
 			case "ds1_parse":
 				assert.True(t, run.Error.IsZero())
