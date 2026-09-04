@@ -132,8 +132,8 @@ type eventHandler struct {
 	shardDispatcher         remotetypes.Dispatcher
 	shardDonLookup          func(uint32) *commoncap.DON
 
-	shardFailoverServices []services.Service
-	shardFailoverMu       sync.Mutex
+	shardStatusSender   *sharding.ExecutionStatusUpdateSender
+	shardStatusReceiver *sharding.ExecutionStatusUpdateReceiver
 
 	metrics *metrics
 }
@@ -402,15 +402,6 @@ func (h *eventHandler) start(ctx context.Context) error {
 		h.moduleLRU.Start()
 	}
 
-	h.shardFailoverMu.Lock()
-	for _, svc := range h.shardFailoverServices {
-		if err := svc.Start(ctx); err != nil {
-			h.shardFailoverMu.Unlock()
-			return fmt.Errorf("failed to start shard failover service: %w", err)
-		}
-	}
-	h.shardFailoverMu.Unlock()
-
 	return nil
 }
 
@@ -436,11 +427,12 @@ func (h *eventHandler) close() error {
 	for _, e := range es {
 		cs = append(cs, e)
 	}
-	h.shardFailoverMu.Lock()
-	for _, svc := range h.shardFailoverServices {
-		cs = append(cs, svc)
+	if h.shardStatusSender != nil {
+		cs = append(cs, h.shardStatusSender)
 	}
-	h.shardFailoverMu.Unlock()
+	if h.shardStatusReceiver != nil {
+		cs = append(cs, h.shardStatusReceiver)
+	}
 
 	return services.CloseAll(cs...)
 }
@@ -1337,10 +1329,12 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 			return
 		}
 
-		sender := sharding.NewExecutionStatusUpdateSender(h.shardDispatcher, h.myShardID, *secondaryDon, h.lggr)
-		h.shardFailoverMu.Lock()
-		h.shardFailoverServices = append(h.shardFailoverServices, sender)
-		h.shardFailoverMu.Unlock()
+		sender := sharding.NewExecutionStatusUpdateSender(h.shardDispatcher, h.myDonID, *secondaryDon, h.lggr)
+		if err := sender.Start(ctx); err != nil {
+			h.lggr.Errorw("shard failover: failed to start sender", "err", err)
+			return
+		}
+		h.shardStatusSender = sender
 
 		cfg.Hooks.OnExecutionStatusUpdate = func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
 			execStatus := mapExecutionStatus(status, errClass)
@@ -1369,10 +1363,12 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 		if regErr := h.shardDispatcher.SetReceiverForMethod("shard-execution-status-update", primaryDon.ID, remotetypes.MethodExecutionStatusUpdate, receiver); regErr != nil {
 			h.lggr.Errorw("shard failover: failed to register ExecutionStatusUpdateReceiver", "err", regErr)
 		} else {
-			h.shardFailoverMu.Lock()
-			h.shardFailoverServices = append(h.shardFailoverServices, receiver)
-			h.shardFailoverMu.Unlock()
-			h.lggr.Infow("shard failover: wired ExecutionStatusUpdateReceiver on secondary", "myShardID", h.myShardID, "primaryShardID", primaryDon.ID)
+			if err := receiver.Start(ctx); err != nil {
+				h.lggr.Errorw("shard failover: failed to start receiver", "err", err)
+				return
+			}
+			h.shardStatusReceiver = receiver
+			h.lggr.Infow("shard failover: wired ExecutionStatusUpdateReceiver on secondary", "myDonID", h.myDonID, "primaryDonID", primaryDon.ID)
 		}
 	}
 }
