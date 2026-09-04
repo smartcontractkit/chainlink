@@ -37,6 +37,7 @@ type testPluginBuildOpts struct {
 	batchSize                            int
 	maxBlobPayloadBytes                  int
 	vaultPendingQueueStallThreshold      int
+	vaultNodeSettingsConsensusEnabled    bool
 	marshalBlob                          func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
 	maxObservationBytesOverride          int
@@ -76,6 +77,10 @@ func withMaxSecretsPerOwner(n int) testPluginOption {
 
 func withVaultPendingQueueStallThreshold(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultPendingQueueStallThreshold = n }
+}
+
+func withVaultNodeSettingsConsensusEnabled() testPluginOption {
+	return func(o *testPluginBuildOpts) { o.vaultNodeSettingsConsensusEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -136,6 +141,9 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		require.NoError(t, err)
 		cfg.VaultPendingQueueStallThreshold = stallLimiter
 	}
+	if o.vaultNodeSettingsConsensusEnabled {
+		cfg.VaultNodeSettingsConsensusEnabled = limits.NewGateLimiter(true)
+	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
@@ -149,7 +157,7 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	}
 	lc, err := vaultcap.NewRequestLifecycleTracker(o.lggr)
 	require.NoError(t, err)
-	return &ReportingPlugin{
+	rp := &ReportingPlugin{
 		lggr:       o.lggr,
 		store:      o.store,
 		metrics:    newTestMetrics(t),
@@ -168,6 +176,8 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		maxObservationBytes:          maxObs,
 		maxReportsPlusPrecursorBytes: maxPrec,
 	}
+	rp.activeSettings.Store(rp.newDonSettingsResolver(context.Background(), nil))
+	return rp
 }
 
 func makeTestValidator(
@@ -236,15 +246,16 @@ func makeReportingPluginConfig(
 	require.NoError(t, err)
 
 	return &ReportingPluginConfig{
-		MaxBatchSize:                    bsl,
-		MaxPendingQueueWriteSize:        maxPendingQueueWriteSizeLimiter,
-		PublicKey:                       publicKey,
-		PrivateKeyShare:                 privateKeyShare,
-		MaxSecretsPerOwner:              msl,
-		MaxShareLengthBytes:             shareLimiter,
-		MaxBlobPayloadBytes:             maxBlobPayloadLimiter,
-		VaultForceEmptyOCRRounds:        limits.NewGateLimiter(false),
-		VaultPendingQueueStallThreshold: pendingQueueStallThresholdLimiter,
+		MaxBatchSize:                      bsl,
+		MaxPendingQueueWriteSize:          maxPendingQueueWriteSizeLimiter,
+		PublicKey:                         publicKey,
+		PrivateKeyShare:                   privateKeyShare,
+		MaxSecretsPerOwner:                msl,
+		MaxShareLengthBytes:               shareLimiter,
+		MaxBlobPayloadBytes:               maxBlobPayloadLimiter,
+		VaultForceEmptyOCRRounds:          limits.NewGateLimiter(false),
+		VaultPendingQueueStallThreshold:   pendingQueueStallThresholdLimiter,
+		VaultNodeSettingsConsensusEnabled: limits.NewGateLimiter(false),
 	}
 }
 

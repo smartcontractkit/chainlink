@@ -90,12 +90,16 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			}
 			allowlistSubtestName := "allowlist_auth"
 			vaultConfig := getVaultDefaultTestConfig(t)
-			if isVaultStallPurgeTopology(topology) {
+			switch {
+			case isVaultStallPurgeTopology(topology):
 				vaultConfig = getVaultStallPurgeTestConfig(t)
 				allowlistSubtestName = "pending_queue_stall_purge"
-			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
+			case isVaultWorkflowDONBindingEnabledTopology(topology):
 				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
+			case isVaultNodeSettingsConsensusTopology(topology):
+				vaultConfig = getVaultNodeSettingsConsensusTestConfig(t)
+				allowlistSubtestName = "allowlist_auth_when_vault_node_settings_consensus_enabled"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
 
@@ -111,9 +115,15 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 					ExecuteVaultPendingQueueStallPurgeSmokeTest(t, fixture, allowlistEnv)
 					return
 				}
+				if isVaultNodeSettingsConsensusTopology(topology) {
+					ExecuteVaultNodeSettingsConsensusSmokeTest(t, fixture, allowlistEnv)
+					return
+				}
 				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
 			})
-			if isVaultStallPurgeTopology(topology) {
+			// The stall-purge and node-settings-consensus topologies run focused subsets above; the full
+			// allowlist and JWT suites already run on the default vault topology in the same bucket.
+			if isVaultStallPurgeTopology(topology) || isVaultNodeSettingsConsensusTopology(topology) {
 				return
 			}
 			t.Run("jwt_auth", func(t *testing.T) {

@@ -68,7 +68,7 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 		namespace = vaulttypes.DefaultNamespace
 	}
 
-	if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, namespace); err != nil {
+	if err := r.checkSecretIdentifier(ctx, id.Key, id.Owner, namespace); err != nil {
 		return nil, vaulttypes.NewUserError(err.Error())
 	}
 
@@ -77,6 +77,30 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 		Owner:     id.Owner,
 		Namespace: namespace,
 	}, nil
+}
+
+// checkSecretIdentifier validates a secret identifier against the round-pinned
+// DON-wide settings, falling back to node-local configuration when no DON
+// settings have been committed. Privileged per-owner limits that exceed the
+// configured default are still honored on top of the DON baseline.
+func (r *ReportingPlugin) checkSecretIdentifier(ctx context.Context, idKey, idOwner, idNamespace string) error {
+	donLimits, err := r.donSettingsForCall(ctx).secretIdentifierLimits(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to resolve secret identifier limits: %w", err)
+	}
+	effective, err := r.validator.EffectiveSecretIdentifierLimits(ctx, idOwner, donLimits)
+	if err != nil {
+		return fmt.Errorf("failed to resolve secret identifier limits: %w", err)
+	}
+	return r.validator.ValidateSecretIdentifier(ctx, idKey, idOwner, idNamespace, &effective)
+}
+
+// checkRequestBatchSize validates a request batch size against the round-pinned
+// DON-wide settings, falling back to node-local configuration when no DON
+// settings have been committed.
+func (r *ReportingPlugin) checkRequestBatchSize(ctx context.Context, batchSize int) error {
+	maxBatch := r.donSettingsForCall(ctx).maxRequestBatchSize(ctx)
+	return r.validator.CheckRequestBatchSize(ctx, batchSize, &maxBatch)
 }
 
 func (r *ReportingPlugin) validateDuplicateSecretIdentifierUserError(id *vaultcommon.SecretIdentifier, counts map[string]int) error {
@@ -168,7 +192,7 @@ func (r *ReportingPlugin) validateDeleteSecretsRequestItem(
 }
 
 func (r *ReportingPlugin) validateGetSecretsRequestPayload(ctx context.Context, req *vaultcommon.GetSecretsRequest) error {
-	if err := r.validator.CheckRequestBatchSize(ctx, len(req.Requests)); err != nil {
+	if err := r.checkRequestBatchSize(ctx, len(req.Requests)); err != nil {
 		return err
 	}
 
@@ -185,7 +209,7 @@ func (r *ReportingPlugin) validateGetSecretsRequestPayload(ctx context.Context, 
 }
 
 func (r *ReportingPlugin) validateDeleteSecretsRequestPayload(ctx context.Context, req *vaultcommon.DeleteSecretsRequest) error {
-	if err := r.validator.CheckRequestBatchSize(ctx, len(req.Ids)); err != nil {
+	if err := r.checkRequestBatchSize(ctx, len(req.Ids)); err != nil {
 		return err
 	}
 
@@ -209,7 +233,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersOwnerNonempty(req *vaultc
 }
 
 func (r *ReportingPlugin) validateListSecretIdentifiersOwnerWire(ctx context.Context, req *vaultcommon.ListSecretIdentifiersRequest) error {
-	return r.validator.ValidateSecretIdentifier(ctx, req.Owner, req.Owner, req.Namespace)
+	return r.checkSecretIdentifier(ctx, req.Owner, req.Owner, req.Namespace)
 }
 
 func (r *ReportingPlugin) validateListSecretIdentifiersResponseSize(ctx context.Context, owner string, identifierCount int) error {

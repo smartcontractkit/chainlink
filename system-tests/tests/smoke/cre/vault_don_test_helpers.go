@@ -60,6 +60,7 @@ const (
 	vaultDefaultConfigPath                   = "/configs/workflow-gateway-capabilities-don.toml"
 	vaultWorkflowDONBindingEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-workflow-don-binding-enabled.toml"
 	vaultStallPurgeConfigPath                = "/configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"
+	vaultNodeSettingsConsensusConfigPath     = "/configs/workflow-gateway-capabilities-don-vault-node-settings-consensus-enabled.toml"
 	vaultJWTIssuerListenAddr                 = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
@@ -304,12 +305,22 @@ func getVaultWorkflowDONBindingEnabledTestConfig(t *testing.T) *ttypes.TestConfi
 	return t_helpers.GetTestConfig(t, vaultWorkflowDONBindingEnabledConfigPath)
 }
 
+func getVaultNodeSettingsConsensusTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultNodeSettingsConsensusConfigPath)
+}
+
 func isVaultStallPurgeTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-stall-purge")
 }
 
 func isVaultWorkflowDONBindingEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-workflow-don-binding-enabled")
+}
+
+func isVaultNodeSettingsConsensusTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-node-settings-consensus-enabled")
 }
 
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {
