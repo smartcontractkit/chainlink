@@ -872,7 +872,10 @@ func (n *Node) ApproveProposals(ctx context.Context, proposalIDs []string) error
 }
 
 func (n *Node) ExportOCR2Keys(id string) (*clclient.ExportedOCR2Key, error) {
-	keys, _, err := n.Clients.RestClient.ExportOCR2Key(id)
+	keys, resp, err := n.Clients.RestClient.ExportOCR2Key(id)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return nil, err
 	}

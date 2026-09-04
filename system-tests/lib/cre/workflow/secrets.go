@@ -14,6 +14,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
