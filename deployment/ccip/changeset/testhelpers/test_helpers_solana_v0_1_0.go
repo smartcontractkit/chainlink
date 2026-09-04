@@ -53,9 +53,9 @@ import (
 	ccipsolstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
@@ -112,8 +112,7 @@ var (
 func Context(tb testing.TB) context.Context {
 	ctx := context.Background()
 	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
+	if t, ok := tb.(*testing.T); ok {
 		if d, ok := t.Deadline(); ok {
 			ctx, cancel = context.WithDeadline(ctx, d)
 		}
@@ -1320,7 +1319,7 @@ func AddLanesForAll(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainSta
 	for _, source := range chains {
 		for _, dest := range chains {
 			if source != dest {
-				AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false)
+				require.NoError(t, AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false))
 			}
 		}
 	}
@@ -1953,7 +1952,7 @@ func TransferMultiple(
 
 	for _, tt := range requests {
 		t.Run(tt.Name, func(t *testing.T) {
-			pairId := SourceDestPair{
+			pairID := SourceDestPair{
 				SourceChainSelector: tt.SourceChain,
 				DestChainSelector:   tt.DestChain,
 			}
@@ -2000,22 +1999,22 @@ func TransferMultiple(
 			msg, blocks := Transfer(
 				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs, tt.FeeToken,
 			)
-			if _, ok := expectedExecutionStates[pairId]; !ok {
-				expectedExecutionStates[pairId] = make(map[uint64]int)
+			if _, ok := expectedExecutionStates[pairID]; !ok {
+				expectedExecutionStates[pairID] = make(map[uint64]int)
 			}
-			expectedExecutionStates[pairId][msg.SequenceNumber] = tt.ExpectedStatus
+			expectedExecutionStates[pairID][msg.SequenceNumber] = tt.ExpectedStatus
 
 			if prev, ok := startBlocks[tt.DestChain]; !ok || *blocks[tt.DestChain] < *prev {
 				startBlocks[tt.DestChain] = blocks[tt.DestChain]
 			}
 
-			seqNr, ok := expectedSeqNums[pairId]
+			seqNr, ok := expectedSeqNums[pairID]
 			if ok {
-				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+				expectedSeqNums[pairID] = cciptypes.NewSeqNumRange(
 					seqNr.Start(), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			} else {
-				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+				expectedSeqNums[pairID] = cciptypes.NewSeqNumRange(
 					cciptypes.SeqNum(msg.SequenceNumber), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			}

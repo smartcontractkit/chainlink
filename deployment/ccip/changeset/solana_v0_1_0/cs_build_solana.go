@@ -3,6 +3,7 @@ package solana
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -68,7 +69,7 @@ type BuildSolanaConfig struct {
 
 // Run a command in a specific directory
 func runCommand(command string, args []string, workDir string) (string, error) {
-	cmd := exec.Command(command, args...)
+	cmd := exec.CommandContext(context.Background(), command, args...)
 	cmd.Dir = workDir
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

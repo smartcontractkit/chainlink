@@ -82,13 +82,13 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 		// appear in the datastore without a matching address-book entry on a partial output.
 
 		return cldf.ChangesetOutput{
-			AddressBook: ab,
+			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:   ds,
 		}, err
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: ab,
+		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }
@@ -511,7 +511,7 @@ func addNodes(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	chain cldf_evm.Chain,
-	p2pIDsByNodeOpId map[uint32][][32]byte,
+	p2pIDsByNodeOpID map[uint32][][32]byte,
 ) error {
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	nodes, err := capReg.GetNodes(nil)
@@ -528,7 +528,7 @@ func addNodes(
 			HashedCapabilityIds: node.HashedCapabilityIds,
 		}
 	}
-	for nopID, p2pIDs := range p2pIDsByNodeOpId {
+	for nopID, p2pIDs := range p2pIDsByNodeOpID {
 		for _, p2pID := range p2pIDs {
 			// if any p2pIDs are empty throw error
 			if p2pID == ([32]byte{}) {
@@ -555,7 +555,7 @@ func addNodes(
 		lggr.Infow("No new nodes to add")
 		return nil
 	}
-	lggr.Infow("Adding nodes", "chain", chain.String(), "nodes", p2pIDsByNodeOpId)
+	lggr.Infow("Adding nodes", "chain", chain.String(), "nodes", p2pIDsByNodeOpID)
 	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
 	if err != nil {
 		lggr.Errorw("Failed to add nodes", "chain", chain.String(),
@@ -586,10 +586,7 @@ func (c RemoveDONsConfig) Validate(homeChain evm.CCIPChainState) error {
 	if homeChain.CCIPHome == nil {
 		return errors.New("ccip home does not exist")
 	}
-	if err := internal.DONIdExists(homeChain.CapabilityRegistry, c.DonIDs); err != nil {
-		return err
-	}
-	return nil
+	return internal.DONIdExists(homeChain.CapabilityRegistry, c.DonIDs)
 }
 
 // RemoveDONs removes DONs from the CapabilitiesRegistry contract.

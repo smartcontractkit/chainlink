@@ -338,7 +338,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: addressBook,
+		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }
@@ -1105,7 +1105,7 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 
 	// the token pool lookup table is qualified by its full identity (token mint, pool type, metadata)
 	return cldf.ChangesetOutput{
-		AddressBook: newAddressBook,
+		AddressBook: newAddressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }

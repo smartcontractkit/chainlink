@@ -486,10 +486,13 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	ds := finalDS
 
 	if proposal == nil {
-		return cldf.ChangesetOutput{AddressBook: newAddresses, DataStore: ds}, nil
+		return cldf.ChangesetOutput{
+			AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			DataStore:   ds,
+		}, nil
 	}
 	return cldf.ChangesetOutput{
-		AddressBook:           newAddresses,
+		AddressBook:           newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:             ds,
 		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 	}, nil
@@ -992,11 +995,11 @@ func runAndSaveAddresses(fn func() (cldf.ChangesetOutput, error), newAddresses c
 	if err != nil {
 		return fmt.Errorf("failed to run changeset: %w", err)
 	}
-	err = newAddresses.Merge(output.AddressBook)
+	err = newAddresses.Merge(output.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
 	if err != nil {
 		return fmt.Errorf("failed to update new address book: %w", err)
 	}
-	err = existingAddresses.Merge(output.AddressBook)
+	err = existingAddresses.Merge(output.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
 	if err != nil {
 		return fmt.Errorf("failed to update existing address book: %w", err)
 	}

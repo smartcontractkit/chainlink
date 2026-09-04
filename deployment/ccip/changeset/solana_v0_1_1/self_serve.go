@@ -203,30 +203,30 @@ func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, regist
 			return nil, fmt.Errorf("failed to extract data payload from ccip admin propose admin instruction: %w", err)
 		}
 		return solana.NewInstruction(routerState.routerProgramID, tempIx.Accounts(), ixData), nil
-	} else {
-		if !tokenAdminRegistryAccount.Administrator.IsZero() {
-			e.Logger.Infow("Skipping Override Pending Administrator as there is already an administrator")
-			return nil, nil
-		}
-		e.Logger.Infow("Running NewCcipAdminOverridePendingAdministratorInstruction")
-		// Use this if the proposed token admin registry admin set was incorrect
-		overridePendingAdministratorIx, err := solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
-			registerTokenConfig.ProposedOwner, // customer's admin of the tokenAdminRegistry PDA in the Router
-			routerState.routerConfigPDA,
-			tokenAdminRegistryPDA,
-			tokenMint,
-			routerState.ccipAdmin,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate instruction to override pending administrator: %w", err)
-		}
-		ixData, err := overridePendingAdministratorIx.Data()
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract data payload from ccip admin override pending admin instruction: %w", err)
-		}
-		return solana.NewInstruction(routerState.routerProgramID, overridePendingAdministratorIx.Accounts(), ixData), nil
 	}
+
+	if !tokenAdminRegistryAccount.Administrator.IsZero() {
+		e.Logger.Infow("Skipping Override Pending Administrator as there is already an administrator")
+		return nil, nil
+	}
+	e.Logger.Infow("Running NewCcipAdminOverridePendingAdministratorInstruction")
+	// Use this if the proposed token admin registry admin set was incorrect
+	overridePendingAdministratorIx, err := solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
+		registerTokenConfig.ProposedOwner, // customer's admin of the tokenAdminRegistry PDA in the Router
+		routerState.routerConfigPDA,
+		tokenAdminRegistryPDA,
+		tokenMint,
+		routerState.ccipAdmin,
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate instruction to override pending administrator: %w", err)
+	}
+	ixData, err := overridePendingAdministratorIx.Data()
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract data payload from ccip admin override pending admin instruction: %w", err)
+	}
+	return solana.NewInstruction(routerState.routerProgramID, overridePendingAdministratorIx.Accounts(), ixData), nil
 }
 
 func generateInitializeCLLTokenPoolIx(e cldf.Environment, config OnboardTokenPoolConfig, state tokenPoolSolanaState, solChainState globalState) (solana.Instruction, error) {
@@ -336,13 +336,13 @@ func loadRouterSolanaState(e cldf.Environment, cfg OnboardTokenPoolsForSelfServe
 		"",
 	)
 	return globalState{
-			chain:      chain,
-			chainState: chainState,
-		}, routerSolanaState{
-			routerProgramID: routerProgramAddress,
-			routerConfigPDA: routerConfigPDA,
-			ccipAdmin:       ccipAdmin,
-		}, nil
+		chain:      chain,
+		chainState: chainState,
+	}, routerSolanaState{
+		routerProgramID: routerProgramAddress,
+		routerConfigPDA: routerConfigPDA,
+		ccipAdmin:       ccipAdmin,
+	}, nil
 }
 
 type tokenPoolSolanaState struct {
