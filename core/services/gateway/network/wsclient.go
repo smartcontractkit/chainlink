@@ -50,6 +50,9 @@ func (c *webSocketClient) Connect(ctx context.Context, url *url.URL) (*websocket
 
 	conn, resp, err := c.dialer.DialContext(ctx, url.String(), hdr)
 	if err != nil {
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		c.lggr.Errorf("WebSocketClient: couldn't connect to %s: %v", url.String(), err)
 		c.tryCloseConn(conn)
 		return nil, err
