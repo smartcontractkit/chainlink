@@ -11,9 +11,12 @@ import (
 	"math/big"
 	"os"
 
+	//nolint:staticcheck // aws-sdk-go v1 is used across this package
 	"github.com/aws/aws-sdk-go/aws/session"
 
+	//nolint:staticcheck // aws-sdk-go v1 is used across this package
 	"github.com/aws/aws-sdk-go/aws"
+	//nolint:staticcheck // aws-sdk-go v1 is used across this package
 	"github.com/aws/aws-sdk-go/service/kms"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -47,19 +50,19 @@ type asn1ECDSASig struct {
 }
 
 // TODO: Mockery gen then test with a regular eth key behind the interface.
-type KMSClient interface {
+type Client interface {
 	GetPublicKey(input *kms.GetPublicKeyInput) (*kms.GetPublicKeyOutput, error)
 	Sign(input *kms.SignInput) (*kms.SignOutput, error)
 }
 
 type KMS struct {
-	KmsDeployerKeyId     string
+	KmsDeployerKeyID     string
 	KmsDeployerKeyRegion string
 	AwsProfileName       string
 }
 
-func NewKMSClient(config KMS) (KMSClient, error) {
-	if config.KmsDeployerKeyId == "" {
+func NewKMSClient(config KMS) (Client, error) {
+	if config.KmsDeployerKeyID == "" {
 		return nil, errors.New("KMS key ID is required")
 	}
 	if config.KmsDeployerKeyRegion == "" {
@@ -75,12 +78,12 @@ func NewKMSClient(config KMS) (KMSClient, error) {
 }
 
 type EVMKMSClient struct {
-	Client    KMSClient
+	Client    Client
 	KeyID     string
 	PublicKey *ecdsa.PublicKey // singleton
 }
 
-func NewEVMKMSClient(client KMSClient, keyID string) *EVMKMSClient {
+func NewEVMKMSClient(client Client, keyID string) *EVMKMSClient {
 	return &EVMKMSClient{
 		Client: client,
 		KeyID:  keyID,
@@ -148,7 +151,7 @@ func (c *EVMKMSClient) SignHash(hash []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to get public key: %w", err)
 	}
 
-	sig, err := kmsToEthSig(signOutput.Signature, secp256k1.S256().Marshal(pubKey.X, pubKey.Y), hash)
+	sig, err := kmsToEthSig(signOutput.Signature, secp256k1.S256().Marshal(pubKey.X, pubKey.Y), hash) //nolint:staticcheck // raw coordinates for secp256k1 marshalling
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert KMS signature to Ethereum signature: %w", err)
 	}
@@ -163,7 +166,7 @@ func (c *EVMKMSClient) GetECDSAPublicKey() (*ecdsa.PublicKey, error) {
 	}
 
 	getPubKeyOutput, err := c.Client.GetPublicKey(&kms.GetPublicKeyInput{
-		KeyId: new(c.KeyID),
+		KeyId: &c.KeyID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("can not get public key from KMS for KeyId=%s: %w", c.KeyID, err)
@@ -182,15 +185,15 @@ func (c *EVMKMSClient) GetECDSAPublicKey() (*ecdsa.PublicKey, error) {
 	return c.PublicKey, nil
 }
 
-func kmsToEthSig(kmsSig, ecdsaPubKeyBytes, hash []byte) ([]byte, error) {
-	var asn1Sig asn1ECDSASig
-	_, err := asn1.Unmarshal(kmsSig, &asn1Sig)
+func kmsToEthSig(signature, ecdsaPubKeyBytes, hash []byte) ([]byte, error) {
+	var ecdsaSig asn1ECDSASig
+	_, err := asn1.Unmarshal(signature, &ecdsaSig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal signature: %w", err)
 	}
 
-	rBytes := asn1Sig.R.Bytes
-	sBytes := asn1Sig.S.Bytes
+	rBytes := ecdsaSig.R.Bytes
+	sBytes := ecdsaSig.S.Bytes
 
 	// Adjust S value from signature to match Eth standard.
 	//   See: https://aws.amazon.com/blogs/database/part2-use-aws-kms-to-securely-manage-ethereum-accounts/
@@ -207,7 +210,9 @@ func kmsToEthSig(kmsSig, ecdsaPubKeyBytes, hash []byte) ([]byte, error) {
 // See: https://aws.amazon.com/blogs/database/part2-use-aws-kms-to-securely-manage-ethereum-accounts/
 func recoverEthSignature(expectedPublicKeyBytes, txHash, r, s []byte) ([]byte, error) {
 	rsSig := append(padTo32Bytes(r), padTo32Bytes(s)...)
-	ethSig := append(rsSig, []byte{0}...)
+	ethSig := make([]byte, len(rsSig)+1)
+	copy(ethSig, rsSig)
+	ethSig[len(rsSig)] = 0
 
 	recoveredPublicKeyBytes, err := crypto.Ecrecover(txHash, ethSig)
 	if err != nil {
@@ -215,7 +220,7 @@ func recoverEthSignature(expectedPublicKeyBytes, txHash, r, s []byte) ([]byte, e
 	}
 
 	if hex.EncodeToString(recoveredPublicKeyBytes) != hex.EncodeToString(expectedPublicKeyBytes) {
-		ethSig = append(rsSig, []byte{1}...)
+		ethSig[len(rsSig)] = 1
 		recoveredPublicKeyBytes, err = crypto.Ecrecover(txHash, ethSig)
 		if err != nil {
 			return nil, fmt.Errorf("failing to call Ecrecover: %w", err)
@@ -243,7 +248,7 @@ type AwsSessionFn func(config KMS) *session.Session
 var awsSessionFromEnvVarsFn = func(config KMS) *session.Session {
 	return session.Must(
 		session.NewSession(&aws.Config{
-			Region:                        new(config.KmsDeployerKeyRegion),
+			Region:                        &config.KmsDeployerKeyRegion,
 			CredentialsChainVerboseErrors: new(true),
 		}))
 }
@@ -254,16 +259,16 @@ var awsSessionFromProfileFn = func(config KMS) *session.Session {
 			SharedConfigState: session.SharedConfigEnable,
 			Profile:           config.AwsProfileName,
 			Config: aws.Config{
-				Region:                        new(config.KmsDeployerKeyRegion),
+				Region:                        &config.KmsDeployerKeyRegion,
 				CredentialsChainVerboseErrors: new(true),
 			},
 		}))
 }
 
-func KMSConfigFromEnvVars() (KMS, error) {
+func ConfigFromEnvVars() (KMS, error) {
 	var config KMS
 	var exists bool
-	config.KmsDeployerKeyId, exists = os.LookupEnv("KMS_DEPLOYER_KEY_ID")
+	config.KmsDeployerKeyID, exists = os.LookupEnv("KMS_DEPLOYER_KEY_ID")
 	if !exists {
 		return config, errors.New("KMS_DEPLOYER_KEY_ID is required")
 	}

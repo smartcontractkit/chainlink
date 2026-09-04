@@ -55,7 +55,7 @@ func deployReadBalanceLogic(env cldf.Environment, c types.DeployTronConfig) (cld
 		}
 	}
 
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil //nolint:staticcheck // SA1019 AddressBook is deprecated
 }
 
 func deployReadBalancePrecondition(env cldf.Environment, c types.DeployTronConfig) error {

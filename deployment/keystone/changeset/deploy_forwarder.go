@@ -127,6 +127,9 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 		Name:             req.WFDonName,
 		RegistryChainSel: req.RegistryChainSel,
 	})
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get registered don: %w", err)
+	}
 	cfg := creforwarder.DonConfiguration{
 		Name: req.WFDonName,
 		ID:   wfDon.Info.Id,

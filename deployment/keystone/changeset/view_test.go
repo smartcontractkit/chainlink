@@ -308,7 +308,7 @@ func TestKeystoneView(t *testing.T) {
 		resp, err := changeset.DeployOCR3V2(env.Env, &changeset.DeployRequestV2{ChainSel: env.RegistrySelector})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
+		require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook)) //nolint:staticcheck // SA1019 AddressBook is deprecated
 
 		var prevView json.RawMessage = []byte("{}")
 		a, err := changeset.ViewKeystone(env.Env, prevView)
