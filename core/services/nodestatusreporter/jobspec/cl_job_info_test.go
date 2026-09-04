@@ -1,4 +1,4 @@
-package cljobinfo_test
+package jobspec_test
 
 import (
 	"testing"
@@ -16,12 +16,12 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/cljobinfo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func sampleJob() job.Job {
+func clJobInfoSampleJob() job.Job {
 	streamID := uint32(42)
 	return job.Job{
 		ID:                7,
@@ -42,20 +42,19 @@ func sampleJob() job.Job {
 				"sendingKeys": []any{"0x1111111111111111111111111111111111111111"},
 			},
 		},
-		VRFSpec: nil,
 		Pipeline: pipeline.Pipeline{Tasks: []pipeline.Task{
 			&pipeline.ETHTxTask{From: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
 		}},
 	}
 }
 
-// TestBuild_EncodesFullSpecAsTOML is the load-bearing check: an arbitrary job
-// must round-trip to TOML with no per-type code.
-func TestBuild_EncodesFullSpecAsTOML(t *testing.T) {
-	jb := sampleJob()
-	id := cljobinfo.NodeIdentity{CSAPublicKey: "csa", NodeVersion: "1.2.3", Hostname: "host-1"}
+// TestBuildCLJobInfo_EncodesFullSpecAsTOML is the load-bearing check: an
+// arbitrary job must round-trip to TOML with no per-type code.
+func TestBuildCLJobInfo_EncodesFullSpecAsTOML(t *testing.T) {
+	jb := clJobInfoSampleJob()
+	id := jobspec.NodeIdentity{CSAPublicKey: "csa", NodeVersion: "1.2.3", Hostname: "host-1"}
 
-	info, err := cljobinfo.Build(jb, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, id, time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC))
+	info, err := jobspec.BuildCLJobInfo(jb, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, id, nil, time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 
 	require.Equal(t, "csa", info.CsaPublicKey)
@@ -79,7 +78,7 @@ func TestBuild_EncodesFullSpecAsTOML(t *testing.T) {
 	require.Contains(t, info.SpecToml, "0xcccccccccccccccccccccccccccccccccccccccc")
 }
 
-func TestBuild_HandlesMultipleJobTypesGenerically(t *testing.T) {
+func TestBuildCLJobInfo_HandlesMultipleJobTypesGenerically(t *testing.T) {
 	jobs := []job.Job{
 		{Type: job.VRF, VRFSpec: &job.VRFSpec{
 			EVMChainID:    sqlutil.NewI(4),
@@ -88,25 +87,66 @@ func TestBuild_HandlesMultipleJobTypesGenerically(t *testing.T) {
 		{Type: job.BlockhashStore, BlockhashStoreSpec: &job.BlockhashStoreSpec{EVMChainID: sqlutil.NewI(5)}},
 	}
 	for _, jb := range jobs {
-		info, err := cljobinfo.Build(jb, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_HEARTBEAT, cljobinfo.NodeIdentity{}, time.Now())
+		info, err := jobspec.BuildCLJobInfo(jb, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_HEARTBEAT, jobspec.NodeIdentity{}, nil, time.Now())
 		require.NoErrorf(t, err, "job type %s should encode without per-type code", jb.Type)
 		require.NotEmpty(t, info.SpecToml)
 	}
 }
 
-func TestEmit_PublishesToBeholder(t *testing.T) {
+// TestBuildCLJobInfo_CarriesJobDistributorProvenance covers the JD join key:
+// remote_uuid is what links this event back to api.job.v1.Job.uuid.
+func TestBuildCLJobInfo_CarriesJobDistributorProvenance(t *testing.T) {
+	proposedAt := time.Date(2026, 7, 20, 9, 0, 0, 0, time.UTC)
+	approvedAt := time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC)
+	prop := &jobspec.JobProposal{
+		FeedsManagerID: 3,
+		RemoteUUID:     "6d7d9d1a-0d0f-4b3f-9a2f-2e4a1c0b8d55",
+		SpecVersion:    2,
+		ProposedAt:     proposedAt,
+		ApprovedAt:     approvedAt,
+	}
+
+	info, err := jobspec.BuildCLJobInfo(clJobInfoSampleJob(), commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, jobspec.NodeIdentity{}, prop, time.Now())
+	require.NoError(t, err)
+
+	require.NotNil(t, info.FeedsManagerId)
+	require.Equal(t, int64(3), *info.FeedsManagerId)
+	require.NotNil(t, info.RemoteUuid)
+	require.Equal(t, "6d7d9d1a-0d0f-4b3f-9a2f-2e4a1c0b8d55", *info.RemoteUuid)
+	require.NotNil(t, info.SpecVersion)
+	require.Equal(t, int32(2), *info.SpecVersion)
+	require.NotNil(t, info.ProposedAt)
+	require.Equal(t, proposedAt.Format(time.RFC3339Nano), *info.ProposedAt)
+	require.NotNil(t, info.ApprovedAt)
+	require.Equal(t, approvedAt.Format(time.RFC3339Nano), *info.ApprovedAt)
+}
+
+// TestBuildCLJobInfo_UnmanagedJobHasNoProvenance: an unset feeds_manager_id is
+// how a consumer tells a directly-created job from a JD-managed one.
+func TestBuildCLJobInfo_UnmanagedJobHasNoProvenance(t *testing.T) {
+	info, err := jobspec.BuildCLJobInfo(clJobInfoSampleJob(), commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, jobspec.NodeIdentity{}, nil, time.Now())
+	require.NoError(t, err)
+
+	require.Nil(t, info.FeedsManagerId)
+	require.Nil(t, info.RemoteUuid)
+	require.Nil(t, info.SpecVersion)
+	require.Nil(t, info.ProposedAt)
+	require.Nil(t, info.ApprovedAt)
+}
+
+func TestEmitCLJobInfo_PublishesToBeholder(t *testing.T) {
 	obs := beholdertest.NewObserver(t)
 
-	info, err := cljobinfo.Build(sampleJob(), commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, cljobinfo.NodeIdentity{CSAPublicKey: "csa"}, time.Now())
+	info, err := jobspec.BuildCLJobInfo(clJobInfoSampleJob(), commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, jobspec.NodeIdentity{CSAPublicKey: "csa"}, nil, time.Now())
 	require.NoError(t, err)
-	require.NoError(t, cljobinfo.Emit(t.Context(), beholder.GetEmitter(), info))
+	require.NoError(t, jobspec.EmitCLJobInfo(t.Context(), beholder.GetEmitter(), info))
 
-	msgs := obs.Messages(t, beholder.AttrKeyEntity, cljobinfo.Entity)
+	msgs := obs.Messages(t, beholder.AttrKeyEntity, jobspec.Entity)
 	require.NotEmpty(t, msgs)
 
 	msg := msgs[0]
-	require.Equal(t, cljobinfo.Domain, msg.Attrs[beholder.AttrKeyDomain])
-	require.Equal(t, cljobinfo.DataSchema, msg.Attrs[beholder.AttrKeyDataSchema])
+	require.Equal(t, jobspec.Domain, msg.Attrs[beholder.AttrKeyDomain])
+	require.Equal(t, jobspec.DataSchema, msg.Attrs[beholder.AttrKeyDataSchema])
 
 	var payload commonv1.CLJobInfo
 	require.NoError(t, proto.Unmarshal(msg.Body, &payload))
