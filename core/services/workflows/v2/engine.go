@@ -935,7 +935,7 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			if e.cfg.ShardingFailoverEnabled {
 				lggr.Infow("Secondary shard: caching trigger event for failover",
 					"executionID", executionID,
-				"myDonID", e.cfg.MyDonID,
+					"myDonID", e.cfg.MyDonID,
 					"eventID", triggerEvent.ID,
 					"workflowID", e.cfg.WorkflowID,
 					"triggerIndex", event.TriggerIndex)

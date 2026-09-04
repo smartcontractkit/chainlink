@@ -34,8 +34,8 @@ func (m *mockShardOrchestratorServer) GetWorkflowShardMapping(ctx context.Contex
 		if shardID, ok := m.mappings[wfID]; ok {
 			mappings[wfID] = shardID
 			mappingStates[wfID] = &ringpb.WorkflowMappingState{
-				OldDonId:   0,
-				NewDonId:   shardID,
+				OldDonId:     0,
+				NewDonId:     shardID,
 				InTransition: false,
 			}
 		}
@@ -236,7 +236,7 @@ func TestLocalClient_ReportWorkflowTriggerRegistration(t *testing.T) {
 	client := NewLocalClient(server, lggr)
 
 	req := &ringpb.ReportWorkflowTriggerRegistrationRequest{
-		SourceDonId:        1,
+		SourceDonId:          1,
 		RegisteredWorkflows:  map[string]uint32{"wf-1": 0, "wf-2": 0},
 		TotalActiveWorkflows: 2,
 	}

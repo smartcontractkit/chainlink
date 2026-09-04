@@ -76,7 +76,7 @@ type EngineConfig struct {
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardingEnabled         bool
 	ShardingFailoverEnabled bool
-	MyDonID                  uint32
+	MyDonID                 uint32
 	ShardRoutingSteady      *shardownership.SteadySignal
 	ShardResolver           shardownership.ShardResolver
 

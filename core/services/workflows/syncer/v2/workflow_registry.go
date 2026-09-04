@@ -126,8 +126,8 @@ type workflowRegistry struct {
 
 	// myDonID is the DON ID of the shard this syncer belongs to.
 	// Set from don.ID after WaitForDon resolves. Used to filter workflows.
-	myDonID          uint32
-	shardingEnabled bool
+	myDonID                 uint32
+	shardingEnabled         bool
 	shardingFailoverEnabled bool
 
 	centralizedOwnerVerificationEnabled limits.GateLimiter
@@ -434,14 +434,14 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			case <-ctx.Done():
 				return
 			}
-		w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
-		don, err := w.workflowDonNotifier.WaitForDon(ctx)
-		if err != nil {
-			w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
-			return
-		}
-		w.myDonID = don.ID
-		w.handler.SetWorkflowDon(don)
+			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
+			don, err := w.workflowDonNotifier.WaitForDon(ctx)
+			if err != nil {
+				w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
+				return
+			}
+			w.myDonID = don.ID
+			w.handler.SetWorkflowDon(don)
 			w.syncUsingReconciliationStrategy(ctx)
 		})
 
@@ -847,12 +847,12 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 					filtered = append(filtered, wf)
 				}
 			} else {
-			if shardID, ok := mappings[id]; ok && shardID == w.myDonID {
-				filtered = append(filtered, wf)
+				if shardID, ok := mappings[id]; ok && shardID == w.myDonID {
+					filtered = append(filtered, wf)
+				}
 			}
-		}
-	} else {
-		if shardID, ok := mappings[id]; ok && shardID == w.myDonID {
+		} else {
+			if shardID, ok := mappings[id]; ok && shardID == w.myDonID {
 				filtered = append(filtered, wf)
 			}
 		}

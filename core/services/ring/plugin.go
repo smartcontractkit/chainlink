@@ -144,10 +144,10 @@ func (p *Plugin) collectShardInfo(aos []types.AttributedObservation) (shardHealt
 		observation := &ringpb.Observation{}
 		_ = proto.Unmarshal(ao.Observation, observation) // validated in ValidateObservation
 
-	for donID, status := range observation.ShardStatus {
-		if status != nil && status.IsHealthy {
-			shardHealth[donID]++
-		}
+		for donID, status := range observation.ShardStatus {
+			if status != nil && status.IsHealthy {
+				shardHealth[donID]++
+			}
 		}
 
 		workflows = append(workflows, observation.WorkflowIds...)
