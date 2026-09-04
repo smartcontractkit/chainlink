@@ -544,7 +544,7 @@ func subscribeVRF(
 	require.NoError(t, err)
 	backend.Commit()
 
-	subID, err := consumerContract.SSubId(nil)
+	subID, err := consumerContract.SSubID(nil)
 	require.NoError(t, err)
 
 	sub, err := coordinator.GetSubscription(nil, subID)
@@ -745,7 +745,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 		events = append(events, iter.Event())
 	}
 
-	requestID, err = vrfConsumerHandle.SRequestId(nil)
+	requestID, err = vrfConsumerHandle.SRequestID(nil)
 	require.NoError(t, err)
 
 	event := events[len(events)-1]
@@ -1811,7 +1811,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		assets.Ether(1).ToInt(),
 		big.NewInt(0),
 	})
-	subID, err := carolContract.SSubId(nil)
+	subID, err := carolContract.SSubID(nil)
 	require.NoError(t, err)
 	subStart, err := uni.rootContract.GetSubscription(nil, subID)
 	require.NoError(t, err)
@@ -1977,7 +1977,7 @@ func TestRequestCost(t *testing.T) {
 			big.NewInt(1000000000000000000)) // 0.1 LINK
 		require.NoError(tt, err)
 		uni.backend.Commit()
-		subID, err := carolContract.SSubId(nil)
+		subID, err := carolContract.SSubID(nil)
 		require.NoError(tt, err)
 		// Ensure even with large number of consumers its still cheap
 		addrs := make([]common.Address, 0, 99)
@@ -2009,7 +2009,7 @@ func TestRequestCost(t *testing.T) {
 		require.NoError(tt, err)
 		t.Log("gas used by proxied CreateSubscriptionAndFund:", r.GasUsed)
 
-		subID, err := consumerContract.SSubId(nil)
+		subID, err := consumerContract.SSubID(nil)
 		require.NoError(tt, err)
 		_, err = uni.rootContract.GetSubscription(nil, subID)
 		require.NoError(tt, err)
@@ -2043,7 +2043,7 @@ func TestMaxConsumersCost(t *testing.T) {
 		big.NewInt(1000000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
 	uni.backend.Commit()
-	subID, err := carolContract.SSubId(nil)
+	subID, err := carolContract.SSubID(nil)
 	require.NoError(t, err)
 	addrs := make([]common.Address, 0, 98)
 	for range 98 {
@@ -2091,7 +2091,7 @@ func TestFulfillmentCost(t *testing.T) {
 			big.NewInt(1000000000000000000)) // 0.1 LINK
 		require.NoError(tt, err)
 		uni.backend.Commit()
-		subID, err := carolContract.SSubId(nil)
+		subID, err := carolContract.SSubID(nil)
 		require.NoError(tt, err)
 
 		gasRequested := 50_000
@@ -2110,7 +2110,7 @@ func TestFulfillmentCost(t *testing.T) {
 			PreSeed:          s,
 			BlockHash:        requestLog.Raw().BlockHash,
 			BlockNum:         requestLog.Raw().BlockNumber,
-			SubId:            subID.Uint64(),
+			SubID:            subID.Uint64(),
 			CallbackGasLimit: uint32(gasRequested),
 			NumWords:         uint32(nw),
 			Sender:           carolContractAddress,
@@ -2133,7 +2133,7 @@ func TestFulfillmentCost(t *testing.T) {
 		_, err := consumerContract.CreateSubscriptionAndFund(consumerOwner, assets.Ether(5).ToInt())
 		require.NoError(t, err)
 		uni.backend.Commit()
-		subID, err := consumerContract.SSubId(nil)
+		subID, err := consumerContract.SSubID(nil)
 		require.NoError(t, err)
 		gasRequested := 50_000
 		nw := 1
@@ -2152,7 +2152,7 @@ func TestFulfillmentCost(t *testing.T) {
 			PreSeed:          s,
 			BlockHash:        requestLog.Raw().BlockHash,
 			BlockNum:         requestLog.Raw().BlockNumber,
-			SubId:            subID.Uint64(),
+			SubID:            subID.Uint64(),
 			CallbackGasLimit: uint32(gasRequested),
 			NumWords:         uint32(nw),
 			Sender:           consumerContractAddress,

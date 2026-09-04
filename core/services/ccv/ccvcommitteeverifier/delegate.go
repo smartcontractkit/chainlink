@@ -19,10 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink-ccv/verifier/pkg/commit"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -44,7 +44,7 @@ type Delegate struct {
 
 func NewDelegate(lggr logger.Logger, ds sqlutil.DataSource, ccvConfig config.CCV, ocrKs keystore.OCR2, chainServices []commontypes.ChainService) *Delegate {
 	return &Delegate{
-		delegateLogger: lggr.Named("CCVCommitteeVerifierDelegate"),
+		delegateLogger: logger.Named(lggr, "CCVCommitteeVerifierDelegate"),
 		lggr:           lggr,
 		ds:             ds,
 		ccvConfig:      ccvConfig,
@@ -83,7 +83,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	}
 
 	// Chains in the committee verifier configuration should dictate what we end up verifying for.
-	var chainsInConfig = make([]protocol.ChainSelector, 0, len(decodedCfg.CommitteeVerifierAddresses))
+	chainsInConfig := make([]protocol.ChainSelector, 0, len(decodedCfg.CommitteeVerifierAddresses))
 	for chainSelStr := range decodedCfg.CommitteeVerifierAddresses {
 		parsed, err2 := strconv.ParseUint(chainSelStr, 10, 64)
 		if err2 != nil {
@@ -131,9 +131,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	}
 
 	vc, err := constructors.NewVerificationCoordinator(
-		d.lggr.
-			Named("CCVCommitteeVerificationCoordinator").
-			Named(decodedCfg.VerifierID),
+		logger.Named(
+			logger.Named(d.lggr, "CCVCommitteeVerificationCoordinator"),
+			decodedCfg.VerifierID,
+		),
 		decodedCfg,
 		aggregatorSecrets,
 		common.HexToAddress(decodedCfg.SignerAddress).Bytes(),

@@ -9,7 +9,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -21,7 +21,7 @@ type DelegateConfig interface {
 }
 
 type Delegate struct {
-	lggr     logger.Logger
+	lggr     common.Logger
 	registry Registry
 	runner   ocrcommon.Runner
 	cfg      DelegateConfig
@@ -29,8 +29,8 @@ type Delegate struct {
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(lggr logger.Logger, registry Registry, runner ocrcommon.Runner, cfg DelegateConfig) *Delegate {
-	return &Delegate{lggr.Named("StreamsDelegate"), registry, runner, cfg}
+func NewDelegate(lggr common.Logger, registry Registry, runner ocrcommon.Runner, cfg DelegateConfig) *Delegate {
+	return &Delegate{lggr: common.Named(lggr, "StreamsDelegate"), registry: registry, runner: runner, cfg: cfg}
 }
 
 func (d *Delegate) JobType() job.Type {
@@ -43,7 +43,7 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job)                {}
 func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {
-	lggr := d.lggr.Named(fmt.Sprintf("Job.%d", jb.ID)).With("jobID", jb.ID)
+	lggr := common.With(common.Named(d.lggr, fmt.Sprintf("Job.%d", jb.ID)), "jobID", jb.ID)
 
 	rrs := ocrcommon.NewResultRunSaver(d.runner, lggr, d.cfg.MaxSuccessfulRuns(), d.cfg.ResultWriteQueueDepth())
 	services = append(services, rrs, &StreamService{
@@ -62,7 +62,7 @@ type ResultRunSaver interface {
 type StreamService struct {
 	registry Registry
 	jb       job.Job
-	lggr     logger.Logger
+	lggr     common.Logger
 	rrs      ResultRunSaver
 }
 
@@ -79,7 +79,7 @@ func (s *StreamService) Close() error {
 }
 
 func ValidatedStreamSpec(tomlString string) (job.Job, error) {
-	var jb = job.Job{ExternalJobID: uuid.New()}
+	jb := job.Job{ExternalJobID: uuid.New()}
 
 	r := strings.NewReader(tomlString)
 	d := toml.NewDecoder(r)

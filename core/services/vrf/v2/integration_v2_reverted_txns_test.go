@@ -109,6 +109,7 @@ func TestVRFV2Integration_ForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 
 	t.Log("Done!")
 }
+
 func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 	t.Parallel()
 
@@ -135,18 +136,30 @@ func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testin
 func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
 	t.Parallel()
 	revertedForceTxns := []v2.TxnReceiptDB{
-		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
-			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
-		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
-			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0}},
-		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
-		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0}},
-		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 3, EVMReceipt: types.Receipt{Status: 0}},
-		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 4, EVMReceipt: types.Receipt{Status: 0}},
+		{
+			RequestID:               common.BigToHash(big.NewInt(1)).Hex(),
+			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0},
+		},
+		{
+			RequestID:               common.BigToHash(big.NewInt(1)).Hex(),
+			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0},
+		},
+		{
+			RequestID:               common.BigToHash(big.NewInt(2)).Hex(),
+			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0},
+		},
+		{
+			RequestID:               common.BigToHash(big.NewInt(2)).Hex(),
+			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0},
+		},
+		{
+			RequestID:               common.BigToHash(big.NewInt(2)).Hex(),
+			ForceFulfillmentAttempt: 3, EVMReceipt: types.Receipt{Status: 0},
+		},
+		{
+			RequestID:               common.BigToHash(big.NewInt(2)).Hex(),
+			ForceFulfillmentAttempt: 4, EVMReceipt: types.Receipt{Status: 0},
+		},
 	}
 	allForceTxns := revertedForceTxns
 	res := v2.UniqueByReqID(revertedForceTxns, allForceTxns)
@@ -164,18 +177,30 @@ func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
 func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
 	t.Parallel()
 	revertedForceTxns := []v2.TxnReceiptDB{
-		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
-			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
-		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
-			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0}},
-		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
-		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0}},
-		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 3, EVMReceipt: types.Receipt{Status: 0}},
-		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 4, EVMReceipt: types.Receipt{Status: 0}},
+		{
+			RequestID:               common.BigToHash(big.NewInt(1)).Hex(),
+			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0},
+		},
+		{
+			RequestID:               common.BigToHash(big.NewInt(1)).Hex(),
+			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0},
+		},
+		{
+			RequestID:               common.BigToHash(big.NewInt(2)).Hex(),
+			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0},
+		},
+		{
+			RequestID:               common.BigToHash(big.NewInt(2)).Hex(),
+			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0},
+		},
+		{
+			RequestID:               common.BigToHash(big.NewInt(2)).Hex(),
+			ForceFulfillmentAttempt: 3, EVMReceipt: types.Receipt{Status: 0},
+		},
+		{
+			RequestID:               common.BigToHash(big.NewInt(2)).Hex(),
+			ForceFulfillmentAttempt: 4, EVMReceipt: types.Receipt{Status: 0},
+		},
 	}
 	allForceTxns := make([]v2.TxnReceiptDB, 0, len(revertedForceTxns)+1)
 	allForceTxns = append(allForceTxns, revertedForceTxns...)
@@ -232,7 +257,8 @@ func checkForForceFulfilledEvent(t *testing.T,
 	th *revertTxnTH,
 	req *vrfReq,
 	sub *vrfSub,
-	numForcedLogs int) {
+	numForcedLogs int,
+) {
 	requestID := req.requestID
 	it, err := th.uni.vrfOwnerNew.FilterRandomWordsForced(indexedFilterOpts(t, th.uni.backend), []*big.Int{requestID},
 		[]uint64{sub.subID}, []common.Address{th.eoaConsumerAddr})
@@ -272,7 +298,8 @@ func fulfillVRFReq(t *testing.T,
 	req *vrfReq,
 	sub *vrfSub,
 	forceFulfill bool,
-	forceFulfilmentAttempt *uint64) *vrfReq {
+	forceFulfilmentAttempt *uint64,
+) *vrfReq {
 	// Generate VRF proof and commitment
 	reqUpdated := genReqProofNCommitment(t, th, *req, sub)
 	req = &reqUpdated
@@ -390,7 +417,8 @@ func fulfilBatchVRFReq(t *testing.T,
 func genReqProofNCommitment(t *testing.T,
 	th *revertTxnTH,
 	req vrfReq,
-	sub *vrfSub) vrfReq {
+	sub *vrfSub,
+) vrfReq {
 	// Generate VRF proof
 	requestLog := FindLatestRandomnessRequestedLog(t, th.uni.rootContract, th.keyHash, req.requestID)
 	s, err := prooflib.BigToSeed(requestLog.PreSeed())
@@ -399,7 +427,7 @@ func genReqProofNCommitment(t *testing.T,
 		PreSeed:          s,
 		BlockHash:        requestLog.Raw().BlockHash,
 		BlockNum:         requestLog.Raw().BlockNumber,
-		SubId:            sub.subID,
+		SubID:            sub.subID,
 		CallbackGasLimit: req.callbackGasLimit,
 		NumWords:         req.numWords,
 		Sender:           th.eoaConsumerAddr,
@@ -481,7 +509,7 @@ func createVRFJobsNew(
 	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
 	// only be useful for tests, probably a more robust way is to have the job spawner accept a signal that a
 	// job is fully up and running and not add it to the active jobs list before then)
-	return
+	return jobs, vrfKeyIDs
 }
 
 // Get txn receipt from txstore DB for a given txID. Useful to get status
@@ -502,7 +530,7 @@ func getTxnReceiptDB(db *sqlx.DB, txesID int64) ([]v2.TxnReceiptDB, error) {
 			FROM evm.receipts
 			WHERE tx_hash IN (SELECT hash FROM attempts)
 		)
-		SELECT r.tx_hash, 
+		SELECT r.tx_hash,
 			r.receipt,
 			t.from_address,
 			t.meta->>'SubId' as sub_id,
@@ -572,7 +600,8 @@ func newRevertTxnTH(t *testing.T,
 	uni *coordinatorV2Universe,
 	ownerKey ethkey.KeyV2,
 	batchEnabled bool,
-	subBalances []uint64) (th *revertTxnTH) {
+	subBalances []uint64,
+) (th *revertTxnTH) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -634,7 +663,8 @@ func newRevertTxnTH(t *testing.T,
 		*uni,
 		batchEnabled,
 		th.chainID,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	vrfKey := jbs[0].VRFSpec.PublicKey
 
 	th.keyHash = vrfKey.MustHash()
@@ -667,7 +697,7 @@ func newRevertTxnTH(t *testing.T,
 	return th
 }
 
-func setupSub(t *testing.T, th *revertTxnTH, subID uint64, balance uint64) {
+func setupSub(t *testing.T, th *revertTxnTH, subID, balance uint64) {
 	uni := th.uni
 	coordinator := uni.rootContract
 	coordinatorAddress := uni.rootContractAddress
