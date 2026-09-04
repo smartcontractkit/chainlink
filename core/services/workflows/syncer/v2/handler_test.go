@@ -2347,13 +2347,16 @@ func Test_handler_SourceParity_PauseActivateCycle(t *testing.T) {
 			require.NoError(t, h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID, Source: source}, "aabbccdd"))
 			assertStubState(t, store, false, "", true, 0)
 
-			// Both sources produce identical metering: one +1, one -1, same ids
+			// Both sources produce identical metering: one +pair at register,
+			// one -pair at delete, same ids per billing unit.
 			records := emitter.Records()
-			require.Len(t, records, 2)
-			requireSpecDelta(t, records[0], "1", wfID.Hex(),
-				resourcemanager.EventID("workflow-spec-register", wfID.Hex(), strconv.FormatUint(createdAt, 10)))
-			requireSpecDelta(t, records[1], "-1", wfID.Hex(),
-				resourcemanager.EventID("workflow-spec-delete", wfID.Hex(), strconv.FormatUint(createdAt, 10)))
+			require.Len(t, records, 4)
+			wantRegisterID := resourcemanager.EventID("workflow-spec-register", wfID.Hex(), strconv.FormatUint(createdAt, 10))
+			requireSpecDelta(t, records[0], "1", wfID.Hex(), wantRegisterID)
+			requireSpecBytesDelta(t, records[1], "12", wfID.Hex(), meteringBytesEventID(wantRegisterID))
+			wantDeleteID := resourcemanager.EventID("workflow-spec-delete", wfID.Hex(), strconv.FormatUint(createdAt, 10))
+			requireSpecDelta(t, records[2], "-1", wfID.Hex(), wantDeleteID)
+			requireSpecBytesDelta(t, records[3], "-12", wfID.Hex(), meteringBytesEventID(wantDeleteID))
 		})
 	}
 }
