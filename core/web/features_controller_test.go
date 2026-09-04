@@ -25,6 +25,7 @@ func Test_FeaturesController_List(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Get("/v2/features")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 

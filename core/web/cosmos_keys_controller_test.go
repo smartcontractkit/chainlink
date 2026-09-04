@@ -21,6 +21,7 @@ func TestCosmosKeysController_Index_HappyPath(t *testing.T) {
 	keys, _ := keyStore.Cosmos().GetAll()
 
 	response, cleanup := client.Get("/v2/keys/cosmos")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -44,6 +45,7 @@ func TestCosmosKeysController_Create_HappyPath(t *testing.T) {
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/cosmos", nil)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -68,6 +70,7 @@ func TestCosmosKeysController_Delete_NonExistentCosmosKeyID(t *testing.T) {
 
 	nonExistentCosmosKeyID := "foobar"
 	response, cleanup := client.Delete("/v2/keys/cosmos/" + nonExistentCosmosKeyID)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
@@ -83,6 +86,7 @@ func TestCosmosKeysController_Delete_HappyPath(t *testing.T) {
 	key, _ := keyStore.Cosmos().Create(ctx)
 
 	response, cleanup := client.Delete("/v2/keys/cosmos/" + key.ID())
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	require.Error(t, utils.JustError(keyStore.Cosmos().Get(key.ID())))

@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
@@ -22,7 +22,7 @@ type GQLSession struct {
 // to validate whether it requires an authenticated user.
 //
 // We currently only support GQL authentication by session cookie.
-func AuthenticateGQL(authenticator Authenticator, lggr logger.Logger) gin.HandlerFunc {
+func AuthenticateGQL(authenticator Authenticator, lggr common.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 		session := sessions.Default(c)

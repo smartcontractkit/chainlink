@@ -52,6 +52,7 @@ func TestHealthController_Readyz(t *testing.T) {
 
 			client := app.NewHTTPClient(nil)
 			resp, cleanup := client.Get("/readyz")
+			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			assert.Equal(t, tc.status, resp.StatusCode)
 		})
@@ -92,6 +93,7 @@ func TestHealthController_PublicReadyz(t *testing.T) {
 
 			// Base path returns status only, no body.
 			resp, cleanup := client.Get("/public-readyz")
+			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			assert.Equal(t, tc.status, resp.StatusCode)
 			body, err := io.ReadAll(resp.Body)
@@ -100,6 +102,7 @@ func TestHealthController_PublicReadyz(t *testing.T) {
 
 			// ?full=true must NOT expose per-check details on this endpoint.
 			respFull, cleanupFull := client.Get("/public-readyz?full=true")
+			defer respFull.Body.Close()
 			t.Cleanup(cleanupFull)
 			assert.Equal(t, tc.status, respFull.StatusCode)
 			bodyFull, err := io.ReadAll(respFull.Body)
@@ -141,6 +144,7 @@ func TestHealthController_Health_status(t *testing.T) {
 
 			client := app.NewHTTPClient(nil)
 			resp, cleanup := client.Get("/health")
+			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			assert.Equal(t, tc.status, resp.StatusCode)
 		})
@@ -197,6 +201,7 @@ func TestHealthController_Health_body(t *testing.T) {
 
 			client := app.NewHTTPClient(nil)
 			resp, cleanup := client.Get(tc.path, tc.headers)
+			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			assert.Equal(t, http.StatusMultiStatus, resp.StatusCode)
 			body, err := io.ReadAll(resp.Body)

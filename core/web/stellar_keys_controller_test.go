@@ -21,6 +21,7 @@ func TestStellarKeysController_Index_HappyPath(t *testing.T) {
 	keys, _ := keyStore.Stellar().GetAll()
 
 	response, cleanup := client.Get("/v2/keys/stellar")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -43,6 +44,7 @@ func TestStellarKeysController_Create_HappyPath(t *testing.T) {
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/stellar", nil)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -67,6 +69,7 @@ func TestStellarKeysController_Delete_NonExistentStellarKeyID(t *testing.T) {
 
 	nonExistentStellarKeyID := "foobar"
 	response, cleanup := client.Delete("/v2/keys/stellar/" + nonExistentStellarKeyID)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
@@ -82,6 +85,7 @@ func TestStellarKeysController_Delete_HappyPath(t *testing.T) {
 	key, _ := keyStore.Stellar().Create(ctx)
 
 	response, cleanup := client.Delete("/v2/keys/stellar/" + key.ID())
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	require.Error(t, utils.JustError(keyStore.Stellar().Get(key.ID())))

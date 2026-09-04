@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -38,7 +38,7 @@ type KeysController interface {
 
 type keysController[K keystore.Key, R jsonapi.EntityNamer] struct {
 	ks           Keystore[K]
-	lggr         logger.SugaredLogger
+	lggr         common.SugaredLogger
 	auditLogger  audit.AuditLogger
 	typ          string
 	resourceName string
@@ -46,7 +46,7 @@ type keysController[K keystore.Key, R jsonapi.EntityNamer] struct {
 	newResources func([]K) []R
 }
 
-func NewKeysController[K keystore.Key, R jsonapi.EntityNamer](ks Keystore[K], lggr logger.Logger, auditLogger audit.AuditLogger, resourceName string,
+func NewKeysController[K keystore.Key, R jsonapi.EntityNamer](ks Keystore[K], lggr common.Logger, auditLogger audit.AuditLogger, resourceName string,
 	newResource func(K) *R, newResources func([]K) []R) KeysController {
 	var k K
 	typ, err := keystore.GetFieldNameForKey(k)
@@ -55,7 +55,7 @@ func NewKeysController[K keystore.Key, R jsonapi.EntityNamer](ks Keystore[K], lg
 	}
 	return &keysController[K, R]{
 		ks:           ks,
-		lggr:         logger.Sugared(lggr),
+		lggr:         common.Sugared(lggr),
 		auditLogger:  auditLogger,
 		typ:          typ,
 		resourceName: resourceName,
