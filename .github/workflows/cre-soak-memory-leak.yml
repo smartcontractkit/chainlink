@@ -28,8 +28,14 @@ jobs:
     environment:
       name: integration
       deployment: false
-    runs-on: runs-on=${{ github.run_id
-      }}/cpu=32/ram=128/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+    runs-on:
+      - runs-on=${{ github.run_id }}
+      - cpu=32
+      - ram=128
+      - family=m6id+m6idn
+      - spot=false
+      - image=ubuntu24-full-x64
+      - extras=s3-cache
     timeout-minutes: 270 # 4h30m — test timeout is 4h20m
     permissions:
       contents: read
@@ -40,7 +46,7 @@ jobs:
         uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           persist-credentials: false

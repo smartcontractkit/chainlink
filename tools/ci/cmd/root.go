@@ -23,7 +23,9 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newToolsCmd())
 	rootCmd.AddCommand(newImageCmd())
 	rootCmd.AddCommand(newChangesetCmd())
-	rootCmd.AddCommand(newCcipCmd())
+	rootCmd.AddCommand(newCCIPCmd())
+	rootCmd.AddCommand(newRunnerCmd())
+	rootCmd.AddCommand(newMatrixCmd())
 
 	return rootCmd
 }

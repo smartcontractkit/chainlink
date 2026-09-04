@@ -69,9 +69,39 @@ func runToolsMatrix(ctx context.Context, cmd *cobra.Command, opts *toolsMatrixOp
 		return fmt.Errorf("failed to discover tool targets: %w", err)
 	}
 
+	act := ghaction.NewAction(cmd.OutOrStdout())
+	ghCtx, _ := act.Context()
+
 	eventName := opts.eventName
+	if eventName == "" && ghCtx != nil {
+		eventName = ghCtx.EventName
+	}
 	if eventName == "" {
-		eventName = os.Getenv("GITHUB_EVENT_NAME")
+		eventName = act.GetInput("event_name")
+	}
+	if eventName == "" {
+		eventName = act.Getenv("GITHUB_EVENT_NAME")
+	}
+
+	baseRef := opts.baseRef
+	if baseRef == "" && ghCtx != nil {
+		baseRef = ghCtx.BaseRef
+	}
+	if baseRef == "" {
+		baseRef = act.GetInput("base_ref")
+	}
+	if baseRef == "" {
+		baseRef = act.Getenv("GITHUB_BASE_REF")
+	}
+
+	if opts.changedFiles == "" {
+		opts.changedFiles = act.GetInput("changed_files")
+	}
+	if !opts.all {
+		allInput := act.GetInput("all")
+		if allInput == "true" || allInput == "1" {
+			opts.all = true
+		}
 	}
 
 	var changedFileList []string
@@ -86,7 +116,7 @@ func runToolsMatrix(ctx context.Context, cmd *cobra.Command, opts *toolsMatrixOp
 		}
 	} else if !opts.all && eventName != "schedule" && eventName != "workflow_dispatch" {
 		var diffErr error
-		changedFileList, diffErr = getGitChangedFiles(ctx, repoRoot, opts.baseRef)
+		changedFileList, diffErr = getGitChangedFiles(ctx, repoRoot, baseRef)
 		if diffErr != nil {
 			// Fall back to running all tool targets if diff cannot be resolved (e.g. shallow clone in CI)
 			opts.all = true
@@ -113,16 +143,15 @@ func runToolsMatrix(ctx context.Context, cmd *cobra.Command, opts *toolsMatrixOp
 		if err := enc.Encode(filteredTargets); err != nil {
 			return fmt.Errorf("failed to encode targets to JSON: %w", err)
 		}
-	} else if os.Getenv("GITHUB_OUTPUT") == "" {
+	} else if act.Getenv("GITHUB_OUTPUT") == "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "Discovered %d targets (%d selected):\n", len(allTargets), len(filteredTargets))
 		for _, t := range filteredTargets {
 			fmt.Fprintf(cmd.OutOrStdout(), "  - %s (dir: %s, packages: %s)\n", t.Name, t.Dir, t.Packages)
 		}
 	}
 
-	if os.Getenv("GITHUB_OUTPUT") != "" {
-		gha := ghaction.New(cmd.OutOrStdout(), "", "")
-		if err := gha.SetOutput("matrix", string(jsonData)); err != nil {
+	if act.Getenv("GITHUB_OUTPUT") != "" {
+		if err := act.SetOutput("matrix", string(jsonData)); err != nil {
 			return fmt.Errorf("failed to set GitHub action output: %w", err)
 		}
 	}
@@ -132,7 +161,7 @@ func runToolsMatrix(ctx context.Context, cmd *cobra.Command, opts *toolsMatrixOp
 
 func getGitChangedFiles(ctx context.Context, repoRoot, baseRef string) ([]string, error) {
 	if baseRef == "" {
-		baseRef = os.Getenv("GITHUB_BASE_REF")
+		baseRef = "origin/develop"
 	}
 
 	var candidates []string

@@ -63,6 +63,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
+      spot_flag: ${{ steps.spot.outputs.spot_flag }}
+      spot_param: ${{ steps.spot.outputs.spot_param }}
     permissions:
       contents: read
     steps:
@@ -72,9 +74,18 @@ jobs:
           ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
 
+      - name: Resolve Spot Setting
+        id: spot
+        uses: ./.github/actions/setup-runner-spot
+
+      # TODO(DX-5101): replace this inline grep/jq matrix step with `ci matrix system --suite cre-smoke`
       - name: Define test matrix
         id: define-matrix
         shell: bash
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          SPOT_FLAG: ${{ steps.spot.outputs.spot_flag }}
         run: |
           TOPOLOGIES_JSON='[
             {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
@@ -132,10 +143,11 @@ jobs:
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade | grep -v '^TestMain$')
 
           tests=$(echo "$test_names" | jq -c -R -s \
-            --argjson run_id "${{ github.run_id }}" \
-            --arg run_attempt "${{ github.run_attempt }}" \
+            --argjson run_id "$RUN_ID" \
+            --arg run_attempt "$RUN_ATTEMPT" \
             --argjson tops "$TOPOLOGIES_JSON" \
-            --argjson per "$PER_TEST_TOPOLOGIES_JSON" '
+            --argjson per "$PER_TEST_TOPOLOGIES_JSON" \
+            --arg spot_flag "$SPOT_FLAG" '
             (split("\n") | map(select(length>0))) as $names
             | [ $names[] as $name | $tops[] | {test_name:$name} + . ] as $baseAll
             | ($baseAll | map(select(.test_name as $n | ($per[$n] | type) == "array" | not))) as $base
@@ -146,7 +158,7 @@ jobs:
             | to_entries
             | map(.value + {
                 test_id: .key,
-                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/\($spot_flag)/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
               })
           ')
 
