@@ -392,7 +392,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 	})
 
 	t.Run("WASM can validate from TOML", func(t *testing.T) {
-		const wasmWorkfowTomlTemplate = `
+		const wasmWorkflowTomlTemplate = `
 			workflow_owner = "%s"
 			workflow_name = "%s"
 			spec_type = "%s"
@@ -400,7 +400,8 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			config = "%s"
 		`
 		configLocation := "testdata/config.json"
-		tomlSpec := fmt.Sprintf(wasmWorkfowTomlTemplate,
+		tomlSpec := fmt.Sprintf(
+			wasmWorkflowTomlTemplate,
 			"0x0123456789012345678901234567890123456788",
 			"wf-2",
 			job.WASMFile,

@@ -416,7 +416,7 @@ func (ks *eth) GetRoundRobinAddress(ctx context.Context, chainID *big.Int, white
 		case len(whitelist) == 0:
 			err = errors.Errorf("no sending keys available for chain %s", chainID.String())
 		default:
-			err = errors.Errorf("no sending keys available for chain %s that match whitelist: %v", chainID, whitelist)
+			err = errors.Errorf("no sending keys available for chain %s that match whitelist: %v", chainID.String(), whitelist)
 		}
 		return common.Address{}, err
 	}

@@ -192,7 +192,7 @@ func TestWSServer_WSClient_HandshakeRejected(t *testing.T) {
 	acceptor.On("StartHandshake", mock.Anything).Return("", []byte{}, errors.New("unauthorized"))
 
 	initiator := mocks.NewConnectionInitiator(t)
-	initiator.On("NewAuthHeader", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return([]byte{}, nil)
+	initiator.On("NewAuthHeader", mock.Anything, mock.Anything).Return([]byte{}, nil)
 
 	client := network.NewWebSocketClient(network.WebSocketClientConfig{}, initiator, logger.Test(t))
 
