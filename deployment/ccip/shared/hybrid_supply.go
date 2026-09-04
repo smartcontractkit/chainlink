@@ -16,7 +16,6 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 )
 
@@ -277,19 +276,29 @@ func aptosFungibleAssetDecimals(
 		return 0, false, fmt.Errorf("failed to read decimals for fungible asset %s on %s: %w", metadataAddress.String(), remoteChain.String(), err)
 	}
 
-	if len(values) == 0 {
-		return 0, false, fmt.Errorf("remote chain %d: decimals view returned no value for fungible asset %s", remoteChainSelector, metadataAddress.String())
+	decimals, err := parseAptosDecimals(values)
+	if err != nil {
+		return 0, false, fmt.Errorf("remote chain %d: fungible asset %s: %w", remoteChainSelector, metadataAddress.String(), err)
 	}
 
-	// Aptos view results arrive as JSON numbers.
+	return decimals, true, nil
+}
+
+// parseAptosDecimals reads the single u8 returned by the decimals view, which the Aptos
+// client surfaces as a JSON number.
+func parseAptosDecimals(values []any) (uint8, error) {
+	if len(values) == 0 {
+		return 0, errors.New("decimals view returned no value")
+	}
+
 	decimals, ok := values[0].(float64)
 	if !ok {
-		return 0, false, fmt.Errorf("remote chain %d: decimals view returned %T, want a number", remoteChainSelector, values[0])
+		return 0, fmt.Errorf("decimals view returned %T, want a number", values[0])
 	}
 
-	if decimals < 0 || decimals > math.MaxUint8 {
-		return 0, false, fmt.Errorf("remote chain %d: decimals view returned %v, which is out of range", remoteChainSelector, decimals)
+	if decimals != math.Trunc(decimals) || decimals < 0 || decimals > math.MaxUint8 {
+		return 0, fmt.Errorf("decimals view returned %v, which is not a uint8", decimals)
 	}
 
-	return uint8(decimals), true, nil
+	return uint8(decimals), nil
 }

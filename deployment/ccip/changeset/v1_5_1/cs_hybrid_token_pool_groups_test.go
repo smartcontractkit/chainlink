@@ -7,6 +7,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -15,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 )
 
 // configureHybridTokenPoolChains sets up supported chains for hybrid token pools
@@ -499,15 +498,15 @@ func TestHybridTokenPoolUpdateGroupsChangeset_NoOpUpdate(t *testing.T) {
 
 // setupHybridPoolsForDecimalTests brings up two chains with hybrid pools and the lane
 // between them.
-func setupHybridPoolsForDecimalTests(t *testing.T) (cldf.Environment, uint64, uint64) {
+func setupHybridPoolsForDecimalTests(t *testing.T) (env cldf.Environment, selectorA, selectorB uint64) {
 	t.Helper()
 
-	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
+	env, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
 
-	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, e, selectorA, tokens[selectorA].Address)
-	externalMinterB, _ := testhelpers.DeployTokenGovernor(t, e, selectorB, tokens[selectorB].Address)
+	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, env, selectorA, tokens[selectorA].Address)
+	externalMinterB, _ := testhelpers.DeployTokenGovernor(t, env, selectorB, tokens[selectorB].Address)
 
-	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
+	env = testhelpers.DeployTestTokenPools(t, env, map[uint64]v1_5_1.DeployTokenPoolInput{
 		selectorA: {
 			Type:               shared.HybridWithExternalMinterFastTransferTokenPool,
 			TokenAddress:       tokens[selectorA].Address,
@@ -522,9 +521,9 @@ func setupHybridPoolsForDecimalTests(t *testing.T) (cldf.Environment, uint64, ui
 		},
 	}, false)
 
-	configureHybridTokenPoolChains(t, e, selectorA, selectorB, false)
+	configureHybridTokenPoolChains(t, env, selectorA, selectorB, false)
 
-	return e, selectorA, selectorB
+	return env, selectorA, selectorB
 }
 
 func hybridGroupConfig(selectorA, selectorB uint64, update v1_5_1.GroupUpdateConfig) v1_5_1.HybridTokenPoolUpdateGroupsConfig {
@@ -542,6 +541,7 @@ func hybridGroupConfig(selectorA, selectorB uint64, update v1_5_1.GroupUpdateCon
 // Both test chains use 18-decimal tokens, so a claim of 6 remote decimals is caught by the
 // remote-token cross-check.
 func TestHybridTokenPoolUpdateGroupsChangeset_RemoteSupplyErrors(t *testing.T) {
+	t.Parallel()
 	e, selectorA, selectorB := setupHybridPoolsForDecimalTests(t)
 
 	testCases := []struct {
@@ -597,6 +597,8 @@ func TestHybridTokenPoolUpdateGroupsChangeset_RemoteSupplyErrors(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			config := hybridGroupConfig(selectorA, selectorB, tc.update)
 			_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.HybridTokenPoolUpdateGroupsChangeset, config))
 			require.Error(t, err)
@@ -608,6 +610,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_RemoteSupplyErrors(t *testing.T) {
 // Validate is exercised directly rather than through Apply: executing a migration needs a
 // token exposing mint(uint256) for TokenGovernor, which BurnMintERC677 does not have.
 func TestHybridTokenPoolUpdateGroupsChangeset_RemoteSupplyAccepted(t *testing.T) {
+	t.Parallel()
 	e, selectorA, selectorB := setupHybridPoolsForDecimalTests(t)
 
 	const remoteRawSupply = 1_000_000
@@ -625,6 +628,7 @@ func TestHybridTokenPoolUpdateGroupsChangeset_RemoteSupplyAccepted(t *testing.T)
 }
 
 func TestHybridTokenPoolUpdateGroupsChangeset_ZeroSupplyNeedsNoRemoteSupply(t *testing.T) {
+	t.Parallel()
 	e, selectorA, selectorB := setupHybridPoolsForDecimalTests(t)
 
 	state, err := stateview.LoadOnchainState(e)

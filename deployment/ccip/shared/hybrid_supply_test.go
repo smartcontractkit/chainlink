@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
@@ -107,19 +106,19 @@ func TestNormalizeRemoteSupply(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := shared.NormalizeRemoteSupply(tt.amount, tt.remoteDecimals, tt.localDecimals)
-			if tt.wantErrMsg != "" {
+			got, err := shared.NormalizeRemoteSupply(tc.amount, tc.remoteDecimals, tc.localDecimals)
+			if tc.wantErrMsg != "" {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.wantErrMsg)
+				require.Contains(t, err.Error(), tc.wantErrMsg)
 				return
 			}
 
 			require.NoError(t, err)
-			require.Zero(t, tt.want.Cmp(got), "want %s, got %s", tt.want, got)
+			require.Zero(t, tc.want.Cmp(got), "want %s, got %s", tc.want, got)
 		})
 	}
 }
@@ -222,16 +221,16 @@ func TestValidateRemoteChainSupply(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			err := shared.ValidateRemoteChainSupply(
-				tt.remoteSupply, tt.suppliedLocal, tt.localDecimals, remoteChainSelector,
+				tc.remoteSupply, tc.suppliedLocal, tc.localDecimals, remoteChainSelector,
 			)
-			if tt.wantErrMsg != "" {
+			if tc.wantErrMsg != "" {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.wantErrMsg)
+				require.Contains(t, err.Error(), tc.wantErrMsg)
 				require.Contains(t, err.Error(), "124615329519749607", "error should name the remote chain")
 				return
 			}
@@ -290,21 +289,21 @@ func TestVerifyRemoteDecimals(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			verified, err := shared.VerifyRemoteDecimals(
-				t.Context(), cldf.Environment{}, tt.chainSelector, tt.tokenAddress, 6,
+				t.Context(), cldf.Environment{}, tc.chainSelector, tc.tokenAddress, 6,
 			)
-			if tt.wantErrMsg != "" {
+			if tc.wantErrMsg != "" {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.wantErrMsg)
+				require.Contains(t, err.Error(), tc.wantErrMsg)
 				return
 			}
 
 			require.NoError(t, err)
-			require.Equal(t, tt.wantVerified, verified)
+			require.Equal(t, tc.wantVerified, verified)
 		})
 	}
 }
