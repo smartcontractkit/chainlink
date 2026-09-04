@@ -241,12 +241,6 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	t.Run("include_invalid_pending_items_liveness", func(t *testing.T) {
 		ExecuteVaultIncludeInvalidLivenessSmokeTest(t, fixture, testEnv)
 	})
-
-	if isVaultNodeSettingsConsensusTopology(testEnv.TestConfig.EnvironmentConfigPath) {
-		t.Run("don_settings_consensus", func(t *testing.T) {
-			assertVaultDONSettingsQuorumInDockerLogs(t)
-		})
-	}
 }
 
 func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
@@ -910,61 +904,6 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 
 	if !sawObsTrunc && !sawOutcomeTrunc {
 		framework.L.Info().Msg("no observation: more pending queue items than can be observed or state transition: more observations than can be included in response in recent docker logs — observation and precursor outcome packing did not truncate in the sampled window (expected under default limits)")
-	}
-}
-
-// assertVaultDONSettingsQuorumInDockerLogs polls chainlink-related container logs until it observes
-// a 'DON settings committed/updated from per-field observation quorum' log line emitted by the
-// vault OCR state transition when it commits DON-wide settings via per-field 2f+1 consensus.
-// These lines are logged at info level: containers run at the default info log level, so
-// debug-level quorum detail lines are not visible in docker logs.
-func assertVaultDONSettingsQuorumInDockerLogs(t *testing.T) {
-	t.Helper()
-	if testing.Short() {
-		t.Skip("docker log scan skipped in -short mode")
-	}
-	dockerBin, err := exec.LookPath("docker")
-	if err != nil {
-		t.Skip("docker not in PATH; skipping DON settings consensus log scan")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
-	defer cancel()
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-	for {
-		psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
-		if err != nil {
-			select {
-			case <-ctx.Done():
-				require.Fail(t, "timed out waiting for docker while scanning for DON settings quorum commit log")
-			case <-ticker.C:
-			}
-			continue
-		}
-		for name := range strings.SplitSeq(strings.TrimSpace(string(psOut)), "\n") {
-			if name == "" {
-				continue
-			}
-			ln := strings.ToLower(name)
-			if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
-				continue
-			}
-			logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
-			if err != nil {
-				continue
-			}
-			logsStr := string(logs)
-			if strings.Contains(logsStr, "DON settings committed from per-field observation quorum") ||
-				strings.Contains(logsStr, "DON settings updated from per-field observation quorum") {
-				framework.L.Info().Str("container", name).Msg("observed vault OCR DON settings quorum commit log")
-				return
-			}
-		}
-		select {
-		case <-ctx.Done():
-			require.Fail(t, "timed out waiting for DON settings quorum commit log line in docker logs (is the local CRE stack running with VaultNodeSettingsConsensusEnabled?)")
-		case <-ticker.C:
-		}
 	}
 }
 

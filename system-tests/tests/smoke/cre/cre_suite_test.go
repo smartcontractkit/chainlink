@@ -115,9 +115,15 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 					ExecuteVaultPendingQueueStallPurgeSmokeTest(t, fixture, allowlistEnv)
 					return
 				}
+				if isVaultNodeSettingsConsensusTopology(topology) {
+					ExecuteVaultNodeSettingsConsensusSmokeTest(t, fixture, allowlistEnv)
+					return
+				}
 				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
 			})
-			if isVaultStallPurgeTopology(topology) {
+			// The stall-purge and node-settings-consensus topologies run focused subsets above; the full
+			// allowlist and JWT suites already run on the default vault topology in the same bucket.
+			if isVaultStallPurgeTopology(topology) || isVaultNodeSettingsConsensusTopology(topology) {
 				return
 			}
 			t.Run("jwt_auth", func(t *testing.T) {

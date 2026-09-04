@@ -257,7 +257,7 @@ func TestPlugin_StateTransition_DONSettings_CommitLoggedAtInfoLevel(t *testing.T
 	require.NoError(t, err)
 
 	updated := nodeSettings(800)
-	for i := uint8(0); i < 3; i++ {
+	for i := range uint8(3) {
 		marshalledObs[i] = &vaultcommon.Observations{NodeSettings: updated}
 	}
 	_, err = r.mergeAndPersistDONSettingsFromObservationQuorum(t.Context(), writeKV, marshalledObs)
@@ -561,21 +561,19 @@ func TestPlugin_ActiveSettings_ConcurrentAccess(t *testing.T) {
 	const goroutines = 8
 	var wg sync.WaitGroup
 	for i := range goroutines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			seqNr := uint64(1 + i%2)
 			for range 25 {
 				err := r.ValidateObservation(t.Context(), seqNr, types.AttributedQuery{}, types.AttributedObservation{
 					Observer:    0,
 					Observation: types.Observation(b),
 				}, kvStore, nil)
-				assert.NoError(t, err)
+				assert.NoError(t, err) //nolint:testifylint // require.NoError inside a goroutine is unsafe
 
 				_, err = r.activeSettings.Load().maxShareLengthBytes(t.Context())
 				assert.NoError(t, err)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }
