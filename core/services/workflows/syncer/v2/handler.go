@@ -397,11 +397,10 @@ func NewEventHandler(
 	return eh, nil
 }
 
-func (h *eventHandler) start(ctx context.Context) error {
+func (h *eventHandler) start(context.Context) error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Start()
 	}
-
 	return nil
 }
 
