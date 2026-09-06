@@ -29,6 +29,14 @@ type RequestValidator struct {
 	MaxIdentifierNamespaceLengthLimiter limits.BoundLimiter[pkgconfig.Size]
 }
 
+// SecretIdentifierLimits carries resolved identifier length limits for validation.
+// When nil, RequestValidator falls back to its configured limiters.
+type SecretIdentifierLimits struct {
+	MaxOwnerLength     pkgconfig.Size
+	MaxNamespaceLength pkgconfig.Size
+	MaxKeyLength       pkgconfig.Size
+}
+
 func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest, skipLabelValidation bool) error {
 	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets, skipLabelValidation, true)
 }
@@ -75,7 +83,7 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
 
-		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace); err != nil {
+		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace, nil); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
 		if includeCiphertextSize {
@@ -139,7 +147,7 @@ func (r *RequestValidator) ValidateCiphertextSizes(ctx context.Context, owner st
 	return nil
 }
 
-func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey, idOwner, idNamespace string) error {
+func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey, idOwner, idNamespace string, identifierLimits *SecretIdentifierLimits) error {
 	if idKey == "" {
 		return errors.New("key cannot be empty")
 	}
@@ -149,6 +157,16 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey, 
 
 	if !isValidIDComponent(idKey) || !isValidIDComponent(idOwner) || (idNamespace != "" && !isValidIDComponent(idNamespace)) {
 		return errors.New("key, owner and namespace must only contain alphanumeric characters")
+	}
+
+	if identifierLimits != nil {
+		if err := checkIdentifierComponentLength("owner", idOwner, identifierLimits.MaxOwnerLength); err != nil {
+			return err
+		}
+		if err := checkIdentifierComponentLength("namespace", idNamespace, identifierLimits.MaxNamespaceLength); err != nil {
+			return err
+		}
+		return checkIdentifierComponentLength("key", idKey, identifierLimits.MaxKeyLength)
 	}
 
 	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
@@ -177,6 +195,44 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey, 
 	return nil
 }
 
+// EffectiveSecretIdentifierLimits returns donLimits adjusted for the given
+// owner: a component is raised only when the owner's resolved per-owner limit
+// exceeds the configured default (an explicit privileged override), so
+// DON-wide settings remain the authoritative baseline while privileged owners
+// keep their allowances. Per-owner limits at or below the default are
+// superseded by the DON baseline.
+func (r *RequestValidator) EffectiveSecretIdentifierLimits(ctx context.Context, owner string, donLimits SecretIdentifierLimits) (SecretIdentifierLimits, error) {
+	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
+	ownerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner})
+	applyOverride := func(limiter limits.BoundLimiter[pkgconfig.Size], base pkgconfig.Size) (pkgconfig.Size, error) {
+		perOwner, err := limiter.Limit(ownerCtx)
+		if err != nil {
+			return 0, err
+		}
+		def, err := limiter.Limit(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if perOwner > def {
+			return max(base, perOwner), nil
+		}
+		return base, nil
+	}
+
+	out := donLimits
+	var err error
+	if out.MaxOwnerLength, err = applyOverride(r.MaxIdentifierOwnerLengthLimiter, donLimits.MaxOwnerLength); err != nil {
+		return SecretIdentifierLimits{}, fmt.Errorf("failed to resolve owner length limit: %w", err)
+	}
+	if out.MaxNamespaceLength, err = applyOverride(r.MaxIdentifierNamespaceLengthLimiter, donLimits.MaxNamespaceLength); err != nil {
+		return SecretIdentifierLimits{}, fmt.Errorf("failed to resolve namespace length limit: %w", err)
+	}
+	if out.MaxKeyLength, err = applyOverride(r.MaxIdentifierKeyLengthLimiter, donLimits.MaxKeyLength); err != nil {
+		return SecretIdentifierLimits{}, fmt.Errorf("failed to resolve key length limit: %w", err)
+	}
+	return out, nil
+}
+
 func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, request *vaultcommon.GetSecretsRequest) error {
 	if len(request.Requests) == 0 {
 		return errors.New("no GetSecret request specified in request")
@@ -193,7 +249,7 @@ func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, reques
 		if req.Id.Key == "" {
 			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
 		}
-		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace); err != nil {
+		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace, nil); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
 
@@ -212,7 +268,7 @@ func (r *RequestValidator) ValidateListSecretIdentifiersRequest(ctx context.Cont
 	if request.RequestId == "" || request.Owner == "" {
 		return errors.New("requestID or owner must not be empty")
 	}
-	if err := r.ValidateSecretIdentifier(ctx, request.Owner, request.Owner, request.Namespace); err != nil {
+	if err := r.ValidateSecretIdentifier(ctx, request.Owner, request.Owner, request.Namespace, nil); err != nil {
 		return fmt.Errorf("invalid secret identifier: %w", err)
 	}
 	return nil
@@ -237,7 +293,7 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 		if id == nil {
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
 		}
-		if err := r.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace); err != nil {
+		if err := r.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace, nil); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
 
@@ -251,14 +307,34 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 	return nil
 }
 
-func (r *RequestValidator) CheckRequestBatchSize(ctx context.Context, batchSize int) error {
-	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, batchSize); err != nil {
+func checkIdentifierComponentLength(component, value string, limit pkgconfig.Size) error {
+	if pkgconfig.Size(len(value)) > limit {
+		return fmt.Errorf("%s exceeds maximum length of %s: %w", component, limit, limits.ErrorBoundLimited[pkgconfig.Size]{Limit: limit, Amount: pkgconfig.Size(len(value))})
+	}
+	return nil
+}
+
+// CheckRequestBatchSize validates a request batch size. When maxBatchSize is
+// non-nil (e.g. a DON-wide agreed limit), it takes precedence over the
+// configured limiter.
+func (r *RequestValidator) CheckRequestBatchSize(ctx context.Context, batchSize int, maxBatchSize *int) error {
+	if err := r.checkRequestBatchSize(ctx, batchSize, maxBatchSize); err != nil {
 		if _, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
 			return fmt.Errorf("max batch size exceeded for request: %w", err)
 		}
-		return errors.New("failed to check batch size")
+		return fmt.Errorf("failed to check batch size: %w", err)
 	}
 	return nil
+}
+
+func (r *RequestValidator) checkRequestBatchSize(ctx context.Context, batchSize int, maxBatchSize *int) error {
+	if maxBatchSize != nil {
+		if batchSize > *maxBatchSize {
+			return limits.ErrorBoundLimited[int]{Limit: *maxBatchSize, Amount: batchSize}
+		}
+		return nil
+	}
+	return r.MaxRequestBatchSizeLimiter.Check(ctx, batchSize)
 }
 
 func NewRequestValidator(

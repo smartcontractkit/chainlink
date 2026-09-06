@@ -489,7 +489,7 @@ func TestValidateSecretIdentifier(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateSecretIdentifier(t.Context(), tt.key, tt.owner, tt.namespace)
+			err := validator.ValidateSecretIdentifier(t.Context(), tt.key, tt.owner, tt.namespace, nil)
 			if tt.errSubstr == "" {
 				require.NoError(t, err)
 				return
@@ -521,13 +521,96 @@ func TestValidateSecretIdentifier_OwnerSpecificKeyLimit(t *testing.T) {
 	longKey := "averylongkeyname" // 16 bytes: exceeds default (5) but within privileged (20)
 
 	// Regular owner cannot use the long key
-	err := validator.ValidateSecretIdentifier(t.Context(), longKey, "owner1", "main")
+	err := validator.ValidateSecretIdentifier(t.Context(), longKey, "owner1", "main", nil)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "key exceeds maximum length")
 
 	// Privileged owner is allowed the same long key
-	err = validator.ValidateSecretIdentifier(t.Context(), longKey, privilegedOwner, "main")
+	err = validator.ValidateSecretIdentifier(t.Context(), longKey, privilegedOwner, "main", nil)
 	require.NoError(t, err)
+}
+
+func TestRequestValidator_EffectiveSecretIdentifierLimits(t *testing.T) {
+	t.Parallel()
+
+	const (
+		defaultKeyLimit = 5 * pkgconfig.Byte
+		privilegedOwner = "privilegedowner"
+		privilegedLimit = 20 * pkgconfig.Byte
+	)
+
+	newValidator := func(keyLimiter limits.BoundLimiter[pkgconfig.Size]) *RequestValidator {
+		return NewRequestValidator(
+			limits.NewUpperBoundLimiter(10),
+			limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+			keyLimiter,
+			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		)
+	}
+
+	donLimits := func(keyLimit pkgconfig.Size) SecretIdentifierLimits {
+		return SecretIdentifierLimits{
+			MaxOwnerLength:     64 * pkgconfig.Byte,
+			MaxNamespaceLength: 64 * pkgconfig.Byte,
+			MaxKeyLength:       keyLimit,
+		}
+	}
+
+	t.Run("regular owner keeps DON baseline", func(t *testing.T) {
+		t.Parallel()
+		validator := newValidator(&ownerOverrideLimiter{
+			defaultBound: defaultKeyLimit,
+			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
+		})
+		don := donLimits(4 * pkgconfig.Byte)
+
+		effective, err := validator.EffectiveSecretIdentifierLimits(t.Context(), "regularowner", don)
+		require.NoError(t, err)
+		require.Equal(t, don, effective)
+	})
+
+	t.Run("privileged owner raises key limit above DON baseline", func(t *testing.T) {
+		t.Parallel()
+		validator := newValidator(&ownerOverrideLimiter{
+			defaultBound: defaultKeyLimit,
+			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
+		})
+		don := donLimits(4 * pkgconfig.Byte)
+
+		effective, err := validator.EffectiveSecretIdentifierLimits(t.Context(), privilegedOwner, don)
+		require.NoError(t, err)
+		require.Equal(t, privilegedLimit, effective.MaxKeyLength)
+		require.Equal(t, don.MaxOwnerLength, effective.MaxOwnerLength)
+		require.Equal(t, don.MaxNamespaceLength, effective.MaxNamespaceLength)
+	})
+
+	t.Run("DON baseline above override is kept", func(t *testing.T) {
+		t.Parallel()
+		validator := newValidator(&ownerOverrideLimiter{
+			defaultBound: defaultKeyLimit,
+			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
+		})
+		don := donLimits(100 * pkgconfig.Byte)
+
+		effective, err := validator.EffectiveSecretIdentifierLimits(t.Context(), privilegedOwner, don)
+		require.NoError(t, err)
+		require.Equal(t, don.MaxKeyLength, effective.MaxKeyLength)
+	})
+
+	t.Run("per-owner limit below default is superseded by DON baseline", func(t *testing.T) {
+		t.Parallel()
+		const tightenedOwner = "tightenedowner"
+		validator := newValidator(&ownerOverrideLimiter{
+			defaultBound: defaultKeyLimit,
+			overrides:    map[string]pkgconfig.Size{tightenedOwner: 2 * pkgconfig.Byte},
+		})
+		don := donLimits(4 * pkgconfig.Byte)
+
+		effective, err := validator.EffectiveSecretIdentifierLimits(t.Context(), tightenedOwner, don)
+		require.NoError(t, err)
+		require.Equal(t, don.MaxKeyLength, effective.MaxKeyLength)
+	})
 }
 
 func TestRequestValidator_IdentifierLengths(t *testing.T) {

@@ -145,7 +145,7 @@ func (r *ReportingPlugin) validateGetSecretsContribution(ctx context.Context, re
 		if secretResponse.Id == nil {
 			return errors.New("GetSecrets response contains nil secret identifier")
 		}
-		if err := r.validator.ValidateSecretIdentifier(ctx, secretResponse.Id.Key, secretResponse.Id.Owner, secretResponse.Id.Namespace); err != nil {
+		if err := r.checkSecretIdentifier(ctx, secretResponse.Id.Key, secretResponse.Id.Owner, secretResponse.Id.Namespace); err != nil {
 			return fmt.Errorf("GetSecrets response contains invalid secret identifier: %w", err)
 		}
 		key := vaulttypes.KeyFor(secretResponse.Id)
@@ -163,7 +163,7 @@ func (r *ReportingPlugin) validateCreateSecretsContribution(ctx context.Context,
 		return errors.New("embedded CreateSecrets request does not match pending queue request")
 	}
 
-	if err := r.validator.CheckRequestBatchSize(ctx, len(req.EncryptedSecrets)); err != nil {
+	if err := r.checkRequestBatchSize(ctx, len(req.EncryptedSecrets)); err != nil {
 		return err
 	}
 
@@ -197,7 +197,7 @@ func (r *ReportingPlugin) validateUpdateSecretsContribution(ctx context.Context,
 		return errors.New("embedded UpdateSecrets request does not match pending queue request")
 	}
 
-	if err := r.validator.CheckRequestBatchSize(ctx, len(req.EncryptedSecrets)); err != nil {
+	if err := r.checkRequestBatchSize(ctx, len(req.EncryptedSecrets)); err != nil {
 		return err
 	}
 
@@ -322,6 +322,22 @@ func classifyContributions(obs []*vaultcommon.Observation) (ok, err []*vaultcomm
 	return ok, err
 }
 
+// checkMaxShareLength validates a share size against the round-pinned
+// DON-wide settings, falling back to node-local configuration when no DON
+// settings have been committed.
+func (r *ReportingPlugin) checkMaxShareLength(ctx context.Context, shareSize int) error {
+	amount := pkgconfig.Size(shareSize) * pkgconfig.Byte
+	limit, err := r.donSettingsForCall(ctx).maxShareLengthBytes(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check share size: %w", err)
+	}
+	limitBytes := limit * pkgconfig.Byte
+	if amount > limitBytes {
+		return limits.ErrorBoundLimited[pkgconfig.Size]{Limit: limitBytes, Amount: amount}
+	}
+	return nil
+}
+
 // validateEncryptedShareSize validates the structure and size limit of a single
 // encrypted share entry. Returns nil if the share is valid.
 func (r *ReportingPlugin) validateEncryptedShareSize(ctx context.Context, es *vaultcommon.EncryptedShares) error {
@@ -332,7 +348,7 @@ func (r *ReportingPlugin) validateEncryptedShareSize(ctx context.Context, es *va
 	if err != nil {
 		return err
 	}
-	if err := r.cfg.MaxShareLengthBytes.Check(ctx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
+	if err := r.checkMaxShareLength(ctx, shareSize); err != nil {
 		if _, ok := errors.AsType[limits.ErrorBoundLimited[pkgconfig.Size]](err); ok {
 			return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
 		}
