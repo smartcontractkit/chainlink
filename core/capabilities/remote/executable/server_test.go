@@ -124,44 +124,6 @@ func Test_Server_DefaultExcludedAttributes(t *testing.T) {
 	closeServices(t, srvcs)
 }
 
-func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-
-	numCapabilityPeers := 4
-
-	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{RequestHashExcludedAttributes: []string{"signed_report.Signatures"}},
-		&TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute, nil)
-
-	for idx, caller := range callers {
-		rawInputs := map[string]any{
-			"signed_report": map[string]any{"Signatures": "sig" + strconv.Itoa(idx), "Price": 20},
-		}
-
-		inputs, err := values.NewMap(rawInputs)
-		require.NoError(t, err)
-
-		_, err = caller.Execute(t.Context(),
-			commoncap.CapabilityRequest{
-				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          workflowID1,
-					WorkflowExecutionID: workflowExecutionID1,
-				},
-				Inputs: inputs,
-			})
-		require.NoError(t, err)
-	}
-
-	for _, caller := range callers {
-		for range numCapabilityPeers {
-			msg := <-caller.receivedMessages
-			assert.Equal(t, remotetypes.Error_OK, msg.Error)
-		}
-	}
-	closeServices(t, srvcs)
-}
-
 func Test_Server_Execute_RespondsAfterSufficientRequests(t *testing.T) {
 	t.Parallel()
 
@@ -260,7 +222,7 @@ func Test_Server_V2Request_ExcludesNonDeterministicInputAttributes(t *testing.T)
 
 	numCapabilityPeers := 4
 
-	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{RequestHashExcludedAttributes: []string{"signed_report.Signatures"}},
+	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{},
 		&TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute, &v2WriteChainMessageHasher{})
 
 	report := []byte("report01234")
@@ -505,9 +467,8 @@ func Test_Server_SetConfig(t *testing.T) {
 
 		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
 		config := &commoncap.RemoteExecutableConfig{
-			RequestHashExcludedAttributes: []string{"test"},
-			RequestTimeout:                requestTimeout,
-			ServerMaxParallelRequests:     maxParallelRequests,
+			RequestTimeout:            requestTimeout,
+			ServerMaxParallelRequests: maxParallelRequests,
 		}
 
 		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
@@ -642,9 +603,8 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 
 	// Set initial config
 	config1 := &commoncap.RemoteExecutableConfig{
-		RequestHashExcludedAttributes: []string{"attr1"},
-		RequestTimeout:                5 * time.Second,
-		ServerMaxParallelRequests:     3,
+		RequestTimeout:            5 * time.Second,
+		ServerMaxParallelRequests: 3,
 	}
 	err := server.SetConfig(config1, underlying, capInfo, localDonInfo, workflowDONs, nil)
 	require.NoError(t, err)
@@ -654,9 +614,8 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 
 	// Replace with new config
 	config2 := &commoncap.RemoteExecutableConfig{
-		RequestHashExcludedAttributes: []string{"attr2", "attr3"},
-		RequestTimeout:                10 * time.Second,
-		ServerMaxParallelRequests:     5,
+		RequestTimeout:            10 * time.Second,
+		ServerMaxParallelRequests: 5,
 	}
 	err = server.SetConfig(config2, underlying, capInfo, localDonInfo, workflowDONs, nil)
 	require.NoError(t, err)

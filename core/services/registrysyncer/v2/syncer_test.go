@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -262,14 +261,6 @@ func TestReader_Integration(t *testing.T) {
 	// Create capability configuration
 	config := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(20 * time.Second),
-				RegistrationExpiry:      durationpb.New(60 * time.Second),
-				MinResponsesToAggregate: uint32(1) + 1,
-				MessageExpiry:           durationpb.New(120 * time.Second),
-			},
-		},
 	}
 	configb, err := proto.Marshal(config)
 	require.NoError(t, err)
@@ -479,13 +470,6 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 	// Create capability configuration
 	config := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(20 * time.Second),
-				RegistrationExpiry:      durationpb.New(60 * time.Second),
-				MinResponsesToAggregate: uint32(1) + 1,
-			},
-		},
 	}
 	configb, err := proto.Marshal(config)
 	require.NoError(t, err)
@@ -785,14 +769,6 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	// Create capability configurations
 	capConfig := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(20 * time.Second),
-				RegistrationExpiry:      durationpb.New(60 * time.Second),
-				MinResponsesToAggregate: uint32(1) + 1,
-				MessageExpiry:           durationpb.New(120 * time.Second),
-			},
-		},
 	}
 	configb, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
