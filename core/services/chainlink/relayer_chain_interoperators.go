@@ -388,8 +388,10 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		totalErr error
 		result   []types.NodeStatus
 	)
+	// Copy under the lock: Get inserts dummy relayers lazily, so the live map cannot be iterated unlocked.
+	relayers := rs.GetIDToRelayerMap()
 	if len(relayerIDs) == 0 {
-		keys := slices.Collect(maps.Keys(rs.loopRelayers))
+		keys := slices.Collect(maps.Keys(relayers))
 		slices.SortFunc(keys, func(a, b types.RelayID) int {
 			if c := strings.Compare(a.Network, b.Network); c != 0 {
 				return c
@@ -397,7 +399,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 			return strings.Compare(a.ChainID, b.ChainID)
 		})
 		for _, key := range keys {
-			lr := rs.loopRelayers[key]
+			lr := relayers[key]
 			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
@@ -408,7 +410,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		}
 	} else {
 		for _, rid := range relayerIDs {
-			lr, exist := rs.loopRelayers[rid]
+			lr, exist := relayers[rid]
 			if !exist {
 				totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
 				continue
@@ -469,11 +471,9 @@ func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInte
 // Returns a slice of [loop.Relayer]. A typically usage pattern to is
 // use [List(criteria)].Slice() for range based operations
 func (rs *CoreRelayerChainInteroperators) Slice() []loop.Relayer {
-	var result []loop.Relayer
-	for _, r := range rs.loopRelayers {
-		result = append(result, r)
-	}
-	return result
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	return slices.Collect(maps.Values(rs.loopRelayers))
 }
 func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
 	return rs.srvs
