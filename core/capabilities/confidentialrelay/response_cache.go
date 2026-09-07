@@ -37,8 +37,13 @@ func secretsKey(p confidentialrelaytypes.SecretsRequestParams) string {
 // and all are woken together.
 type pendingRequest struct {
 	done chan struct{}
-	// signed is the owner's published result, set before done closes.
+	// The owner's published outcome, exactly one set before done closes:
+	// signed on success, err on failure (a relayError, so it carries the
+	// JSON-RPC code the owner answered with). Waiters share the owner's
+	// execution, so they answer with its outcome either way rather than
+	// inventing one of their own.
 	signed any
+	err    error
 }
 
 // checkPendingRequest returns the pending request in flight for key, or nil
@@ -70,8 +75,8 @@ func (h *Handler) checkOrCreatePendingRequest(key string) (*pendingRequest, erro
 }
 
 // completePendingRequest publishes the owner's signed result and wakes any
-// waiters. Called on the execution's success path only, after the memo is set,
-// so requests arriving later hit the memo instead. An owner that dies without
+// waiters. Called on the execution's success path, after the memo is set, so
+// requests arriving later hit the memo instead. An owner that dies without
 // completing never publishes; the TTL ages its entry out and waiters fail on
 // their own deadlines, which is the "unknown failure" outcome.
 func (h *Handler) completePendingRequest(key string, signed any) {
@@ -84,15 +89,32 @@ func (h *Handler) completePendingRequest(key string, signed any) {
 	h.pendingRequests.Delete(key)
 }
 
-// waitForPendingRequest blocks until the owner completes (returning its
-// published signed result) or ctx is done. A waiter whose context expires
-// drops: the gateway has already timed out its request by then, so there is
-// nobody to answer.
-func waitForPendingRequest(ctx context.Context, pr *pendingRequest) (any, bool) {
+// failPendingRequest publishes the owner's failure to any waiters and clears
+// the entry. err is the error the owner is answering with — a relayError, so
+// it carries that answer's JSON-RPC code — which lets waiters report the real
+// cause (vault failure, missing execution handler, ...) rather than a vague
+// error of their own.
+func (h *Handler) failPendingRequest(key string, err error) {
+	h.lggr.Debugw("publishing pending relay request failure", "key", key, "err", err)
+	if v, ok := h.pendingRequests.Get(key); ok {
+		if pr, ok := v.(*pendingRequest); ok {
+			pr.err = err
+			close(pr.done)
+		}
+	}
+	h.pendingRequests.Delete(key)
+}
+
+// waitForPendingRequest blocks until the owner publishes its outcome — a
+// signed result, or the error it failed with — or until ctx is done. ok is
+// false only on the caller's own deadline; the gateway has already timed that
+// request out by then. The owner writes the fields before closing done, so
+// observing the close is enough to read them.
+func waitForPendingRequest(ctx context.Context, pr *pendingRequest) (signed any, ok bool, err error) {
 	select {
 	case <-pr.done:
-		return pr.signed, true
+		return pr.signed, true, pr.err
 	case <-ctx.Done():
-		return nil, false
+		return nil, false, nil
 	}
 }
