@@ -73,7 +73,7 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 		return nil, errors.New("no services or DONs configured - Gateway has to use service-based configuration")
 	}
 
-	codec := &api.JsonRPCCodec{}
+	codec := &api.JSONRPCCodec{}
 	gMetrics, err := monitoring.NewGatewayMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("error creating gateway metrics: %w", err)
@@ -213,7 +213,7 @@ func (g *gateway) Close() error {
 		for _, handler := range g.serviceToMultiHandler {
 			err = errors.Join(err, handler.Close())
 		}
-		return
+		return err
 	})
 }
 
@@ -232,10 +232,10 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 		// Arbitrary limit to prevent abuse
 		return newError(jsonRequest.ID, api.UserMessageParseError, "request ID is too long: "+strconv.Itoa(len(jsonRequest.ID))+". max is 200 characters")
 	}
-	var isLegacyRequest = false
+	isLegacyRequest := false
 	var h handlers.Handler
 	var handlerKey string
-	if msg == nil || msg.Body.DonId == "" {
+	if msg == nil || msg.Body.DonID == "" {
 		serviceName := jsonRequest.ServiceName()
 		if handler, ok := g.serviceToMultiHandler[serviceName]; ok {
 			h = handler
@@ -256,7 +256,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 		if err = msg.Validate(); err != nil {
 			return newError(jsonRequest.ID, api.UserMessageParseError, err.Error())
 		}
-		handlerKey = msg.Body.DonId
+		handlerKey = msg.Body.DonID
 		var ok bool
 		h, ok = g.handlers[handlerKey]
 		if !ok {
@@ -291,7 +291,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 
 	g.lggr.Debugw("received response from handler", "handler", handlerKey, "response", response, "requestID", jsonRequest.ID)
 	promRequest.WithLabelValues(response.ErrorCode.String()).Inc()
-	return response.RawResponse, api.ToHttpErrorCode(response.ErrorCode)
+	return response.RawResponse, api.ToHTTPErrorCode(response.ErrorCode)
 }
 
 func newError(id string, errCode api.ErrorCode, errMsg string) ([]byte, int) {
@@ -309,7 +309,7 @@ func newError(id string, errCode api.ErrorCode, errMsg string) ([]byte, int) {
 		rawResponse = []byte("fatal error" + err.Error())
 	}
 	promRequest.WithLabelValues(errCode.String()).Inc()
-	return rawResponse, api.ToHttpErrorCode(errCode)
+	return rawResponse, api.ToHTTPErrorCode(errCode)
 }
 
 func (g *gateway) GetUserPort() int {
