@@ -55,7 +55,7 @@ const (
 	// lets a straggling node register and still sign, instead of dropping below
 	// quorum. Kept well under the gateway relay request timeout (RequestTimeoutSec,
 	// default 30s) so the node still answers in time to be counted.
-	defaultGetExecutionWait = 5 * time.Second
+	defaultGetExecutionWait = 15 * time.Second
 )
 
 // relayError couples a failure with the JSON-RPC code the handler answered it
