@@ -1367,7 +1367,7 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 				return
 			}
 			h.shardStatusReceiver = receiver
-			h.lggr.Infow("shard failover: wired ExecutionStatusUpdateReceiver on secondary", "myShardID", h.myShardID, "primaryDonID", primaryDon.ID)
+			h.lggr.Infow("shard failover: wired ExecutionStatusUpdateReceiver on secondary", "myDonID", h.myDonID, "primaryDonID", primaryDon.ID)
 		}
 	}
 }
