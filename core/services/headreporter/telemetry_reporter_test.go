@@ -19,11 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	mocks2 "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -71,7 +68,7 @@ func Test_EVMTelemetryReporter_NewHead(t *testing.T) {
 		Return(monitoringEndpoint)
 	reporter := headreporter.NewLegacyEVMTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), big.NewInt(100))
 
-	err = reporter.ReportNewHead(testutils.Context(t), &head)
+	err = reporter.ReportNewHead(t.Context(), &head)
 	assert.NoError(t, err)
 }
 
@@ -101,7 +98,7 @@ func Test_EVMTelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
 		Return(monitoringEndpoint)
 	reporter := headreporter.NewLegacyEVMTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), big.NewInt(100))
 
-	err = reporter.ReportNewHead(testutils.Context(t), &head)
+	err = reporter.ReportNewHead(t.Context(), &head)
 	assert.NoError(t, err)
 }
 
@@ -115,7 +112,7 @@ func Test_EVMTelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
 
 	head := evmtypes.Head{Number: 42, EVMChainID: sqlutil.NewI(100)}
 
-	err := reporter.ReportNewHead(testutils.Context(t), &head)
+	err := reporter.ReportNewHead(t.Context(), &head)
 	assert.Errorf(t, err, "No monitoring endpoint provided chain_id=100")
 }
 
@@ -176,7 +173,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
 
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
 
-	err = reporter.ReportPeriodic(testutils.Context(t))
+	err = reporter.ReportPeriodic(t.Context())
 	assert.NoError(t, err)
 }
 
@@ -199,7 +196,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_EmptyBlockHeight(t *testing.T) 
 
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
 
-	err := reporter.ReportPeriodic(testutils.Context(t))
+	err := reporter.ReportPeriodic(t.Context())
 	assert.ErrorContains(t, err, "latest block height returned by relayer is empty for {Solana testchain}")
 }
 
@@ -217,7 +214,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
 
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
 
-	err := reporter.ReportPeriodic(testutils.Context(t))
+	err := reporter.ReportPeriodic(t.Context())
 	assert.Errorf(t, err, "No monitoring endpoint provided chain_id=testchain")
 }
 
@@ -261,7 +258,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_WithFinalizedHead(t *testing.T)
 
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
 
-	err = reporter.ReportPeriodic(testutils.Context(t))
+	err = reporter.ReportPeriodic(t.Context())
 	assert.NoError(t, err)
 }
 
@@ -300,6 +297,6 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_FinalizedHeadError(t *testing.T
 
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
 
-	err = reporter.ReportPeriodic(testutils.Context(t))
+	err = reporter.ReportPeriodic(t.Context())
 	assert.NoError(t, err)
 }

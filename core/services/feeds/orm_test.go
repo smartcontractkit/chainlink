@@ -54,7 +54,7 @@ func setupORM(t *testing.T) *TestORM {
 
 func Test_ORM_CreateManager_CountManagers(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm = setupORM(t)
@@ -81,7 +81,7 @@ func Test_ORM_CreateManager_CountManagers(t *testing.T) {
 
 func Test_ORM_CreateManager(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm = setupORM(t)
@@ -108,7 +108,7 @@ func Test_ORM_CreateManager(t *testing.T) {
 
 func Test_ORM_GetManager(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm = setupORM(t)
@@ -137,7 +137,7 @@ func Test_ORM_GetManager(t *testing.T) {
 
 func Test_ORM_ListManagers(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm = setupORM(t)
@@ -165,7 +165,7 @@ func Test_ORM_ListManagers(t *testing.T) {
 
 func Test_ORM_ListManagersByIDs(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm = setupORM(t)
@@ -193,7 +193,7 @@ func Test_ORM_ListManagersByIDs(t *testing.T) {
 
 func Test_ORM_UpdateManager(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm = setupORM(t)
@@ -227,7 +227,7 @@ func Test_ORM_UpdateManager(t *testing.T) {
 
 func Test_ORM_EnableAndDisableManager(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm = setupORM(t)
@@ -257,7 +257,7 @@ func Test_ORM_EnableAndDisableManager(t *testing.T) {
 
 func Test_ORM_CreateChainConfig(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm  = setupORM(t)
@@ -307,7 +307,7 @@ func Test_ORM_CreateChainConfig(t *testing.T) {
 
 func Test_ORM_CreateBatchChainConfig(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm  = setupORM(t)
@@ -371,7 +371,7 @@ func Test_ORM_CreateBatchChainConfig(t *testing.T) {
 
 func Test_ORM_DeleteChainConfig(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm  = setupORM(t)
@@ -401,7 +401,7 @@ func Test_ORM_DeleteChainConfig(t *testing.T) {
 
 func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm  = setupORM(t)
@@ -452,7 +452,7 @@ func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 
 func Test_ORM_UpdateChainConfig(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm  = setupORM(t)
@@ -515,7 +515,7 @@ func Test_ORM_UpdateChainConfig(t *testing.T) {
 
 func Test_ORM_CreateJobProposal(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
@@ -549,7 +549,7 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 
 func Test_ORM_GetJobProposal(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
@@ -645,7 +645,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 		{
 			name: "correctly counts when there are no job proposals",
 			before: func(t *testing.T, orm *TestORM) *feeds.JobProposalCounts {
-				ctx := testutils.Context(t)
+				ctx := t.Context()
 				counts, err := orm.CountJobProposalsByStatus(ctx)
 				require.NoError(t, err)
 
@@ -655,7 +655,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 		{
 			name: "correctly counts a pending and cancelled job proposal by status",
 			before: func(t *testing.T, orm *TestORM) *feeds.JobProposalCounts {
-				ctx := testutils.Context(t)
+				ctx := t.Context()
 				fmID := createFeedsManager(t, orm)
 				createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 				createJobProposal(t, orm, feeds.JobProposalStatusCancelled, fmID)
@@ -673,7 +673,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 			// spec is considered pending if its status is pending OR pending_update is TRUE
 			name: "correctly counts the pending specs when pending_update is true but the status itself is not pending",
 			before: func(t *testing.T, orm *TestORM) *feeds.JobProposalCounts {
-				ctx := testutils.Context(t)
+				ctx := t.Context()
 				fmID := createFeedsManager(t, orm)
 
 				// Create a pending job proposal.
@@ -708,7 +708,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 		{
 			name: "correctly counts when approving a job proposal",
 			before: func(t *testing.T, orm *TestORM) *feeds.JobProposalCounts {
-				ctx := testutils.Context(t)
+				ctx := t.Context()
 				fmID := createFeedsManager(t, orm)
 
 				// Create a pending job proposal.
@@ -737,7 +737,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 		{
 			name: "correctly counts when revoking a job proposal",
 			before: func(t *testing.T, orm *TestORM) *feeds.JobProposalCounts {
-				ctx := testutils.Context(t)
+				ctx := t.Context()
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 				specID := createJobSpec(t, orm, jpID)
@@ -756,7 +756,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 		{
 			name: "correctly counts when deleting a job proposal",
 			before: func(t *testing.T, orm *TestORM) *feeds.JobProposalCounts {
-				ctx := testutils.Context(t)
+				ctx := t.Context()
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 				createJobSpec(t, orm, jpID)
@@ -775,7 +775,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 		{
 			name: "correctly counts when deleting a job proposal with an approved spec",
 			before: func(t *testing.T, orm *TestORM) *feeds.JobProposalCounts {
-				ctx := testutils.Context(t)
+				ctx := t.Context()
 				fmID := createFeedsManager(t, orm)
 
 				// Create a pending job proposal.
@@ -830,7 +830,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 
 func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
@@ -863,7 +863,7 @@ func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
 
 func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
@@ -885,7 +885,7 @@ func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 
 func Test_ORM_UpsertJobProposal(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm           = setupORM(t)
@@ -1003,7 +1003,7 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 
 func Test_ORM_ApproveSpec(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm           = setupORM(t)
@@ -1088,7 +1088,7 @@ func Test_ORM_CancelSpec(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			orm := setupORM(t)
 
 			jpID, specID := tc.before(t, orm)
@@ -1141,7 +1141,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 		{
 			name: "approved proposal with approved spec",
 			before: func(t *testing.T, orm *TestORM) int64 {
-				ctx := testutils.Context(t)
+				ctx := t.Context()
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 				specID := createJobSpec(t, orm, jpID)
@@ -1164,7 +1164,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 		{
 			name: "approved proposal with pending spec",
 			before: func(t *testing.T, orm *TestORM) int64 {
-				ctx := testutils.Context(t)
+				ctx := t.Context()
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 				specID := createJobSpec(t, orm, jpID)
@@ -1248,7 +1248,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			orm := setupORM(t)
 
 			jpID := tc.before(t, orm)
@@ -1298,7 +1298,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 		{
 			name: "approved proposal",
 			before: func(t *testing.T, orm *TestORM) (int64, int64) {
-				ctx := testutils.Context(t)
+				ctx := t.Context()
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 				specID := createJobSpec(t, orm, jpID)
@@ -1365,7 +1365,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			orm := setupORM(t)
 
 			jpID, specID := tc.before(t, orm)
@@ -1393,7 +1393,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 
 func Test_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm  = setupORM(t)
@@ -1414,7 +1414,7 @@ func Test_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
 
 func Test_ORM_GetSpec(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm    = setupORM(t)
@@ -1434,7 +1434,7 @@ func Test_ORM_GetSpec(t *testing.T) {
 
 func Test_ORM_GetApprovedSpec(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm           = setupORM(t)
@@ -1470,7 +1470,7 @@ func Test_ORM_GetApprovedSpec(t *testing.T) {
 
 func Test_ORM_GetLatestSpec(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm  = setupORM(t)
@@ -1499,7 +1499,7 @@ func Test_ORM_GetLatestSpec(t *testing.T) {
 
 func Test_ORM_ListSpecsByJobProposalIDs(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm  = setupORM(t)
@@ -1557,7 +1557,7 @@ func Test_ORM_RejectSpec(t *testing.T) {
 		{
 			name: "approved proposal",
 			before: func(t *testing.T, orm *TestORM) (int64, int64) {
-				ctx := testutils.Context(t)
+				ctx := t.Context()
 				fmID := createFeedsManager(t, orm)
 				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 				specID := createJobSpec(t, orm, jpID)
@@ -1612,7 +1612,7 @@ func Test_ORM_RejectSpec(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			orm := setupORM(t)
 
 			jpID, specID := tc.before(t, orm)
@@ -1642,7 +1642,7 @@ func Test_ORM_RejectSpec(t *testing.T) {
 
 func Test_ORM_UpdateSpecDefinition(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm    = setupORM(t)
@@ -1673,7 +1673,7 @@ func Test_ORM_UpdateSpecDefinition(t *testing.T) {
 
 func Test_ORM_IsJobManaged(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm           = setupORM(t)
@@ -1707,7 +1707,7 @@ func Test_ORM_IsJobManaged(t *testing.T) {
 
 func Test_ORM_IsJobManagedByFeedsManager(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		orm   = setupORM(t)
@@ -1812,7 +1812,7 @@ func createFeedsManager(t *testing.T, orm feeds.ORM) int64 {
 		PublicKey: publicKey,
 	}
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	id, err := orm.CreateManager(ctx, mgr)
 	require.NoError(t, err)
 
@@ -1821,7 +1821,7 @@ func createFeedsManager(t *testing.T, orm feeds.ORM) int64 {
 
 func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		config       = configtest.NewGeneralConfig(t, nil)
@@ -1868,7 +1868,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 func createJobProposal(t *testing.T, orm feeds.ORM, status feeds.JobProposalStatus, fmID int64) int64 {
 	t.Helper()
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	id, err := orm.CreateJobProposal(ctx, &feeds.JobProposal{
 		RemoteUUID:     uuid.New(),
 		Status:         status,
@@ -1883,7 +1883,7 @@ func createJobProposal(t *testing.T, orm feeds.ORM, status feeds.JobProposalStat
 func createJobSpec(t *testing.T, orm feeds.ORM, jpID int64) int64 {
 	t.Helper()
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	id, err := orm.CreateSpec(ctx, feeds.JobProposalSpec{
 		Definition:    "spec data",
 		Version:       1,

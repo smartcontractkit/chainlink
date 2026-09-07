@@ -46,7 +46,7 @@ func NewDeferableWriteCloser(wc io.WriteCloser) *DeferableWriteCloser {
 
 // Close closes the WriterCloser. The underlying Closer
 // is Closed exactly once and resulting error is cached.
-// Should be called explicitly AND defered
+// Should be called explicitly AND deferred
 // Thread safe
 func (wc *DeferableWriteCloser) Close() error {
 	wc.mu.Lock()

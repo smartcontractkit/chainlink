@@ -4,14 +4,16 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
+
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -215,4 +217,47 @@ func ValidateSignatures(resp *SignedOCRResponse, allowedSigners []common.Address
 	}
 
 	return fmt.Errorf("only %d valid signatures, need at least %d", len(validSigners), minRequired)
+}
+
+// UserError is a vault error caused by the caller (e.g. requesting a secret
+// that does not exist, providing an invalid public key, exceeding the per-owner
+// secret limit). It lives in the shared vaulttypes package so both the vault
+// OCR plugin and downstream consumers (e.g. the confidential relay handler) can
+// use errors.As to distinguish user errors from internal failures.
+type UserError struct {
+	msg string
+}
+
+// NewUserError creates a *UserError with the given message.
+func NewUserError(msg string) *UserError {
+	return &UserError{msg: msg}
+}
+
+func (u *UserError) Error() string {
+	return u.msg
+}
+
+func (u *UserError) Is(target error) bool {
+	_, ok := target.(*UserError)
+	return ok
+}
+
+// IsUserError reports whether err is a vault UserError.
+func IsUserError(err error) bool {
+	var ue *UserError
+	return errors.As(err, &ue)
+}
+
+// SecretGetSystemErrorFallback is the generic message the vault OCR plugin
+// substitutes for a non-user (system) failure on a get-secrets request item
+// (see userFacingError). The Go error type is lost at the protobuf
+// SecretResponse.error string boundary, so downstream consumers cannot recover
+// it; this constant is the shared marker they match against to keep system
+// failures classified as internal rather than user errors.
+const SecretGetSystemErrorFallback = "failed to handle get secret request"
+
+// IsSecretGetSystemError reports whether msg is the get-secrets system-error
+// fallback, i.e. a failure that must not be classified as a user error.
+func IsSecretGetSystemError(msg string) bool {
+	return msg == SecretGetSystemErrorFallback
 }

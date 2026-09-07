@@ -56,8 +56,7 @@ func (p *CosmosMsgPresenter) RenderTable(rt RendererTable) error {
 		hash,
 	})
 
-	render(fmt.Sprintf("Cosmos Message %v", p.ID), table)
-	return nil
+	return render(fmt.Sprintf("Cosmos Message %v", p.ID), table)
 }
 
 // CosmosSendNativeToken transfers coins from the node's account to a specified address.

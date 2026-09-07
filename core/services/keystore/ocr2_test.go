@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -18,7 +17,7 @@ import (
 func Test_OCR2KeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := keystore.ExposedNewMaster(t, db)
-	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))
+	require.NoError(t, keyStore.Unlock(t.Context(), cltest.Password))
 	ks := keyStore.OCR2()
 	reset := func() {
 		ctx := context.Background() // Executed on cleanup
@@ -44,7 +43,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("creates a key with valid type", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		// lopp through different chain types
 		for _, chain := range corekeys.SupportedChainTypes {
 			key, err := ks.Create(ctx, chain)
@@ -57,7 +56,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("gets keys by type", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 
 		created := map[corekeys.ChainType]bool{}
 		for _, chain := range corekeys.SupportedChainTypes {
@@ -85,14 +84,14 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("errors when creating a key with an invalid type", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		_, err := ks.Create(ctx, "foobar")
 		require.Error(t, err)
 	})
 
 	t.Run("imports and exports a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		for _, chain := range corekeys.SupportedChainTypes {
 			key, err := ks.Create(ctx, chain)
 			require.NoError(t, err)
@@ -120,7 +119,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		for _, chain := range corekeys.SupportedChainTypes {
 			newKey, err := ocr2key.New(chain)
 			require.NoError(t, err)
@@ -145,7 +144,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := ks.EnsureKeys(ctx, corekeys.SupportedChainTypes...)
 		assert.NoError(t, err)
 
@@ -166,7 +165,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key only for enabled chains", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := ks.EnsureKeys(ctx, corekeys.EVM)
 		assert.NoError(t, err)
 

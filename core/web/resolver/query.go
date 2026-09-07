@@ -12,11 +12,11 @@ import (
 	"github.com/pkg/errors"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -630,6 +630,19 @@ func (r *Resolver) SuiKeys(ctx context.Context) (*SuiKeysPayloadResolver, error)
 	}
 
 	return NewSuiKeysPayload(keys), nil
+}
+
+func (r *Resolver) StellarKeys(ctx context.Context) (*StellarKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	keys, err := r.App.GetKeyStore().Stellar().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewStellarKeysPayload(keys), nil
 }
 
 func (r *Resolver) StarkNetKeys(ctx context.Context) (*StarkNetKeysPayloadResolver, error) {

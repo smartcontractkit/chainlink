@@ -6,6 +6,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"

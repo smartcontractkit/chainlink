@@ -1,15 +1,13 @@
 version: 2
 updates:
-  - package-ecosystem: gomod
-    directory: "/"
+  # Go: Dependabot still resolves the module graph, but opens no PRs.
+  # Security patches are handled by our own workflow via the alerts API. See ./workflows/dependabump.yml
+  - package-ecosystem: "gomod"
+    directories: [ "**/*" ]
     schedule:
-      interval: monthly
-    open-pull-requests-limit: 0
+      interval: "weekly"
     ignore:
-      # Old versions are pinned for libocr.
-      - dependency-name: github.com/libp2p/go-libp2p-core
-      - dependency-name: github.com/libp2p/go-libp2p-peerstore
-      - dependency-name: github.com/multiformats/go-multiaddr
+      - dependency-name: "*"
   - package-ecosystem: npm
     directory: "/"
     schedule:
@@ -28,123 +26,3 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 0
-  - package-ecosystem: gomod
-    directory: "/lib"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "ctf"
-  - package-ecosystem: gomod
-    directory: "/wasp"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "ctf"
-  - package-ecosystem: gomod
-    directory: "/seth"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "ctf"
-  - package-ecosystem: gomod
-    directory: "/havoc"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "ctf"
-  - package-ecosystem: gomod
-    directory: "/k8s-test-runner"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "ctf"
-  - package-ecosystem: gomod
-    directory: "/system-tests/tests"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "tests"
-  - package-ecosystem: gomod
-    directory: "/system-tests/tests/smoke/cre/httpaction"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "tests"
-  - package-ecosystem: gomod
-    directory: "/system-tests/tests/smoke/cre/evm/evmread"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "tests"
-  - package-ecosystem: gomod
-    directory: "/system-tests/tests/smoke/cre/evm/logtrigger"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "tests"
-  - package-ecosystem: gomod
-    directory: "/system-tests/tests/regression/cre/consensus"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "tests"
-  - package-ecosystem: gomod
-    directory: "/system-tests/tests/regression/cre/http"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "tests"
-  - package-ecosystem: gomod
-    directory: "/system-tests/tests/regression/cre/evm/evmread-negative"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "tests"
-  - package-ecosystem: gomod
-    directory: "/system-tests/tests/regression/cre/evm/evmwrite-negative"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "tests"
-  - package-ecosystem: gomod
-    directory: "/system-tests/tests/regression/cre/evm/logtrigger-negative"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "tests"
-  - package-ecosystem: gomod
-    directory: "/system-tests/tests/regression/cre/httpaction-negative"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "tests"

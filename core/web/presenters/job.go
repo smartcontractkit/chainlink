@@ -15,7 +15,6 @@ import (
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -338,7 +337,7 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 	}
 }
 
-// BlockHeaderFeederSpec defines the job parameters for a blcok header feeder job.
+// BlockHeaderFeederSpec defines the job parameters for a block header feeder job.
 type BlockHeaderFeederSpec struct {
 	CoordinatorV1Address       *types.EIP55Address  `json:"coordinatorV1Address"`
 	CoordinatorV2Address       *types.EIP55Address  `json:"coordinatorV2Address"`

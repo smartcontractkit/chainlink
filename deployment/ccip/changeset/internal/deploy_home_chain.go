@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -466,6 +467,7 @@ func BuildOCR3ConfigForCCIPHome(
 	addressCodec := ccipcommon.NewAddressCodec(map[string]ccipcommon.ChainSpecificAddressCodec{
 		chain_selectors.FamilyEVM:    ccipevm.AddressCodec{},
 		chain_selectors.FamilySolana: ccipsolana.AddressCodec{},
+		chain_selectors.FamilyAptos:  ccipaptos.AddressCodec{},
 	})
 
 	// check if we have info from this node for another chain in the same destFamily

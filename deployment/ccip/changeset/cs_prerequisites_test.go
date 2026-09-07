@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -23,21 +22,6 @@ func TestDeployPrerequisites(t *testing.T) {
 
 	e, err := environment.New(t.Context(),
 		environment.WithEVMSimulatedN(t, 2),
-		environment.WithLogger(logger.Test(t)),
-	)
-	require.NoError(t, err)
-
-	testDeployPrerequisitesWithEnv(t, *e)
-}
-
-func TestDeployPrerequisitesZk(t *testing.T) {
-	// Timeouts in CI
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
-
-	t.Parallel()
-
-	e, err := environment.New(t.Context(),
-		environment.WithZKSyncContainerN(t, 2),
 		environment.WithLogger(logger.Test(t)),
 	)
 	require.NoError(t, err)

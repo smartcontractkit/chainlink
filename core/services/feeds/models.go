@@ -12,7 +12,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
-
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 

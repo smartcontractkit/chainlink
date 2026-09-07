@@ -70,6 +70,8 @@ func makeHTTPRequest(
 
 	if statusCode >= 400 {
 		err = errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, bestEffortExtractError(responseBytes))
+	} else if statusCode >= 300 {
+		err = errors.Errorf("redirect error %s: (status code %v) %s", url.String(), statusCode, bestEffortExtractError(responseBytes))
 	}
 	return
 }

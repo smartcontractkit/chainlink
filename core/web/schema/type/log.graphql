@@ -12,13 +12,11 @@ type GlobalLogLevel {
 union GlobalLogLevelPayload = GlobalLogLevel
 
 type LogLevelConfig {
-    keeper: LogLevel
     headTracker: LogLevel
     fluxMonitor: LogLevel
 }
 
 input LogLevelConfigInput {
-    keeper: LogLevel
     headTracker: LogLevel
     fluxMonitor: LogLevel
 }

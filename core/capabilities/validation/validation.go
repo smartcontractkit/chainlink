@@ -29,7 +29,7 @@ func IsValidID(id string) bool {
 	if len(id) == 0 || len(id) > maxIDLen {
 		return false
 	}
-	for i := 0; i < len(id); i++ {
+	for i := range len(id) {
 		if !unicode.IsPrint(rune(id[i])) {
 			return false
 		}

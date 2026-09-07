@@ -11,19 +11,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-
-	"github.com/stretchr/testify/require"
 )
 
 type mockFetchResp struct {
@@ -87,7 +85,7 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 	require.NoError(t, err)
 
 	// Delete the workflow artifacts by ID
-	err = h.DeleteWorkflowArtifacts(t.Context(), workflowID)
+	_, err = h.DeleteWorkflowArtifacts(t.Context(), workflowID)
 	require.NoError(t, err)
 
 	// Check that the workflow no longer exists
@@ -278,5 +276,77 @@ func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
 	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)
+	require.Equal(t, []byte(configData), config)
+}
+
+// Test_Store_FetchWorkflowArtifacts_PauseTombstone covers re-activation after a pause.
+// PauseWorkflowSpec keeps the row but clears the artifact payload, so the row must not be
+// mistaken for a warm cache: returning the tombstone's empty binary/config makes the caller
+// persist empty artifacts and then fail activation with a workflowID mismatch.
+func Test_Store_FetchWorkflowArtifacts_PauseTombstone(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	workflowID := "id-" + uuid.New().String()[:8]
+	encryptionKey, err := workflowkey.New()
+	require.NoError(t, err)
+
+	binaryURL := fmt.Sprintf("http://some-url-%s.com/binary.wasm", workflowID)
+	binaryData := "binary-data"
+	configURL := fmt.Sprintf("http://some-url-%s.com/config.yaml", workflowID)
+	configData := "config-data"
+	fetcher := &mockFetcher{
+		responseMap: map[string]mockFetchResp{
+			binaryURL: {Body: []byte(base64.StdEncoding.EncodeToString([]byte(binaryData)))},
+			configURL: {Body: []byte(configData)},
+		},
+	}
+
+	h, err := NewStore(
+		lggr,
+		orm,
+		fetcher.Fetch,
+		fetcher.RetrieveURL,
+		clockwork.NewFakeClock(),
+		encryptionKey,
+		custmsg.NewLabeler(),
+		limits.Factory{Logger: lggr},
+		WithConfig(StoreConfig{
+			ArtifactStorageHost: "storage.chain.link",
+		}),
+	)
+	require.NoError(t, err)
+
+	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Workflow: workflowID})
+
+	// Active row with artifacts: served from the DB cache.
+	_, err = orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
+		Workflow:      hex.EncodeToString([]byte(binaryData)),
+		Config:        configData,
+		WorkflowID:    workflowID,
+		WorkflowOwner: "owner-1",
+		WorkflowName:  "name-1",
+		Status:        job.WorkflowSpecStatusActive,
+		BinaryURL:     binaryURL,
+		ConfigURL:     configURL,
+		CreatedAt:     time.Now(),
+		SpecType:      job.WASMFile,
+	})
+	require.NoError(t, err)
+
+	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
+	require.NoError(t, err)
+	require.Equal(t, []byte(binaryData), binary)
+	require.Equal(t, []byte(configData), config)
+
+	// Pause tombstones the row; the next fetch must go back to the URLs rather than
+	// returning the cleared payload.
+	require.NoError(t, h.PauseWorkflowArtifacts(ctx, workflowID))
+
+	binary, config, err = h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
+	require.NoError(t, err)
+	require.Equal(t, []byte(binaryData), binary, "tombstoned row must not be served as a cache hit")
 	require.Equal(t, []byte(configData), config)
 }

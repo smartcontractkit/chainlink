@@ -16,7 +16,7 @@ func TestSignedPayloadRequestID(t *testing.T) {
 	payload, err := ToCanonicalJSON(&vaultcommon.CreateSecretsResponse{
 		RequestId: "owner::req-1",
 		Responses: []*vaultcommon.CreateSecretResponse{},
-	}, false)
+	})
 	require.NoError(t, err)
 
 	got, err := SignedPayloadRequestID(vaulttypes.MethodSecretsCreate, json.RawMessage(payload))

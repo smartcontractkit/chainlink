@@ -16,7 +16,7 @@ const (
 	btTimeout = 120 * time.Second
 )
 
-// ProposeBtJobsToJDChangeset is a changeset that reads a boostrap spec from a file and proposes jobs to JD
+// ProposeBtJobsToJDChangeset is a changeset that reads a bootstrap spec from a file and proposes jobs to JD
 var ProposeBtJobsToJDChangeset = cldf.CreateChangeSet(proposeBtJobsToJDLogic, proposeBtJobsToJDPrecondition)
 
 func proposeBtJobsToJDLogic(env cldf.Environment, c types.ProposeBtJobsConfig) (cldf.ChangesetOutput, error) {

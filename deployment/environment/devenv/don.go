@@ -558,7 +558,7 @@ func (n *Node) ReplayLogs(blockByChain map[uint64]uint64) error {
 		if err != nil {
 			return err
 		}
-		response, _, err := n.restClient.ReplayLogPollerFromBlock(int64(block), int64(chainID))
+		response, _, err := n.restClient.ReplayLogPollerFromBlock(int64(block), int64(chainID)) //nolint:gosec // G115
 		if err != nil {
 			return err
 		}

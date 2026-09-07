@@ -42,7 +42,7 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			req, err := http.NewRequestWithContext(t.Context(), "GET", app.Server.URL+tc.path, nil)
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, app.Server.URL+tc.path, nil)
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)
@@ -74,7 +74,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			req, err := http.NewRequestWithContext(t.Context(), "GET", app.Server.URL+tc.path, nil)
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, app.Server.URL+tc.path, nil)
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	// Make calls equal to the rate limit
 	rateLimit := 20
 	for range rateLimit {
-		req, err := http.NewRequestWithContext(t.Context(), "GET", app.Server.URL+"/", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, app.Server.URL+"/", nil)
 		require.NoError(t, err)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	}
 
 	// Last request fails
-	req, err := http.NewRequestWithContext(t.Context(), "GET", app.Server.URL+"/", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, app.Server.URL+"/", nil)
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -122,14 +122,14 @@ func TestGuiAssets_AssetsFS(t *testing.T) {
 		engine.GET("/fixtures/operator_ui/*filepath", handler)
 
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), "GET", "/fixtures/operator_ui/assets/main.js", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/fixtures/operator_ui/assets/main.js", nil)
 		require.NoError(t, err)
 		engine.ServeHTTP(recorder, req)
 
 		require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
 
 		recorder = httptest.NewRecorder()
-		req, err = http.NewRequestWithContext(t.Context(), "GET", "/fixtures/operator_ui/assets/kinda_main.js", nil)
+		req, err = http.NewRequestWithContext(t.Context(), http.MethodGet, "/fixtures/operator_ui/assets/kinda_main.js", nil)
 		require.NoError(t, err)
 		engine.ServeHTTP(recorder, req)
 
@@ -142,7 +142,7 @@ func TestGuiAssets_AssetsFS(t *testing.T) {
 		engine.GET("/fixtures/operator_ui/*filepath", handler)
 
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), "GET", "/fixtures/operator_ui/assets/main.js", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/fixtures/operator_ui/assets/main.js", nil)
 		require.NoError(t, err)
 		req.Header.Set("Accept-Encoding", "gzip")
 		engine.ServeHTTP(recorder, req)
@@ -151,7 +151,7 @@ func TestGuiAssets_AssetsFS(t *testing.T) {
 		require.Equal(t, "gzip", recorder.Result().Header.Get("Content-Encoding"))
 
 		recorder = httptest.NewRecorder()
-		req, err = http.NewRequestWithContext(t.Context(), "GET", "/fixtures/operator_ui/assets/kinda_main.js", nil)
+		req, err = http.NewRequestWithContext(t.Context(), http.MethodGet, "/fixtures/operator_ui/assets/kinda_main.js", nil)
 		require.NoError(t, err)
 		req.Header.Set("Accept-Encoding", "gzip")
 		engine.ServeHTTP(recorder, req)

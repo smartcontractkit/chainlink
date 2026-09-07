@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -67,7 +65,7 @@ targets:
 func TestYamlSpecFactory_GetSpec(t *testing.T) {
 	t.Parallel()
 
-	actual, raw, actualSha, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), anyYamlSpec, "")
+	actual, raw, actualSha, err := job.YAMLSpecFactory{}.Spec(t.Context(), anyYamlSpec, "")
 	require.NoError(t, err)
 
 	expected, err := commonworkflows.ParseWorkflowSpecYaml(anyYamlSpec)
@@ -82,7 +80,7 @@ func TestYamlSpecFactory_Config(t *testing.T) {
 	t.Parallel()
 
 	config := "config"
-	actual, err := job.YAMLSpecFactory{}.Config(testutils.Context(t), config)
+	actual, err := job.YAMLSpecFactory{}.Config(t.Context(), config)
 	require.NoError(t, err)
 	assert.Equal(t, []byte(config), actual)
 }

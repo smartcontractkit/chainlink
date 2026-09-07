@@ -1,9 +1,14 @@
 package chainlink
 
 import (
+	"time"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
+
+// defaultLinkingRequestTimeout mirrors the [CRE.Linking] RequestTimeout default in docs/core.toml.
+const defaultLinkingRequestTimeout = 2 * time.Second
 
 type creConfig struct {
 	s toml.CreSecrets
@@ -75,8 +80,9 @@ func (c *creConfig) EnableDKGRecipient() bool {
 }
 
 type linkingConfig struct {
-	url        string
-	tlsEnabled bool
+	url            string
+	tlsEnabled     bool
+	requestTimeout time.Duration
 }
 
 func (l *linkingConfig) URL() string {
@@ -87,9 +93,13 @@ func (l *linkingConfig) TLSEnabled() bool {
 	return l.tlsEnabled
 }
 
+func (l *linkingConfig) RequestTimeout() time.Duration {
+	return l.requestTimeout
+}
+
 func (c *creConfig) Linking() config.CRELinking {
 	if c.c.Linking == nil {
-		return &linkingConfig{url: "", tlsEnabled: true} // default TLS enabled
+		return &linkingConfig{url: "", tlsEnabled: true, requestTimeout: defaultLinkingRequestTimeout}
 	}
 
 	url := ""
@@ -102,7 +112,12 @@ func (c *creConfig) Linking() config.CRELinking {
 		tlsEnabled = *c.c.Linking.TLSEnabled
 	}
 
-	return &linkingConfig{url: url, tlsEnabled: tlsEnabled}
+	requestTimeout := defaultLinkingRequestTimeout
+	if c.c.Linking.RequestTimeout != nil {
+		requestTimeout = c.c.Linking.RequestTimeout.Duration()
+	}
+
+	return &linkingConfig{url: url, tlsEnabled: tlsEnabled, requestTimeout: requestTimeout}
 }
 
 type confidentialRelayConfig struct {

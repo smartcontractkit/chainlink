@@ -8,13 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap/zaptest/observer"
-
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newTestLogger(t *testing.T, cfg Config) Logger {
@@ -63,7 +62,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
+		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2 //nolint:gosec // G115
 
 		lggr := newTestLogger(t, local)
 
@@ -93,7 +92,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
+		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2 //nolint:gosec // G115
 
 		lggr := newTestLogger(t, local)
 
@@ -124,7 +123,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
+		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2 //nolint:gosec // G115
 
 		lggr := newTestLogger(t, local)
 
@@ -172,7 +171,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
+		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2 //nolint:gosec // G115
 
 		lggr := newTestLogger(t, local)
 
@@ -274,6 +273,10 @@ func TestZapLogger_Name(t *testing.T) {
 }
 
 func TestLogger_Leak(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	ac := NewUpdatableCore()
 	defer ac.Close()
 	startObjectsNum := heapObjects()

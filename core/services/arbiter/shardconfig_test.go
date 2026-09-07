@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -116,6 +115,10 @@ func TestShardConfigSyncer_GetDesiredShardCount_BeforeFetch(t *testing.T) {
 }
 
 func TestShardConfigSyncer_GetDesiredShardCount_AfterFetch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigContractReader{shardCount: 42}
 	factory := mockShardConfigReaderFactory(mockReader)

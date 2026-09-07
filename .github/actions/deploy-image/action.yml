@@ -44,6 +44,12 @@ inputs:
     description: "Whether to create pull request as draft"
     required: false
     default: "true"
+  pr-head-branch-override:
+    description: "Override the head branch for the PR. A literal '{product}' token is replaced with the product name. Otherwise, auto generate one."
+    required: false
+  pr-title-override:
+    description: "Override the title for the PR. A literal '{product}' token is replaced with the product name. Otherwise, auto generate one."
+    required: false
   products:
     description: "Products to deploy (multiline string)"
     required: true
@@ -76,6 +82,8 @@ runs:
         PR_BASE_BRANCH: ${{ inputs.pr-base-branch }}
         PR_LABELS: ${{ inputs.pr-labels }}
         PR_DRAFT: ${{ inputs.pr-draft }}
+        PR_HEAD_BRANCH_OVERRIDE: ${{ inputs.pr-head-branch-override }}
+        PR_TITLE_OVERRIDE: ${{ inputs.pr-title-override }}
         PRODUCTS: ${{ inputs.products }}
       run: |
         gh workflow run "${WORKFLOW_FILE_NAME}" \
@@ -87,4 +95,6 @@ runs:
           --field "pr-labels=${PR_LABELS}" \
           --field "pr-draft=${PR_DRAFT}" \
           --field "pr-close-enabled=${{ inputs.pr-close-enabled }}" \
+          --field "pr-head-branch-override=${PR_HEAD_BRANCH_OVERRIDE}" \
+          --field "pr-title-override=${PR_TITLE_OVERRIDE}" \
           --field "products=${PRODUCTS}"

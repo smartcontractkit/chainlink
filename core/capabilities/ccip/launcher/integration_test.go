@@ -5,25 +5,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
-
-	it "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	it "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func TestIntegration_Launcher(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	uni := it.NewTestUniverse(ctx, t, lggr)
 	// We need 3*f + 1 p2pIDs to have enough nodes to bootstrap
@@ -65,8 +62,8 @@ func TestIntegration_Launcher(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, launcher.Close()) })
 
 	encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
-		GasPriceDeviationPPB:    cciptypes.NewBigIntFromInt64(1000),
-		DAGasPriceDeviationPPB:  cciptypes.NewBigIntFromInt64(1_000_000),
+		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
+		DAGasPriceDeviationPPB:  ccipocr3.NewBigIntFromInt64(1_000_000),
 		OptimisticConfirmations: 1,
 	})
 	require.NoError(t, err)
@@ -90,7 +87,8 @@ func TestIntegration_Launcher(t *testing.T) {
 		ccipCapabilityID,
 		it.ChainA,
 		it.FChainA,
-		p2pIDs)
+		p2pIDs,
+	)
 
 	require.Eventually(t, func() bool {
 		return len(launcher.runningDONIDs()) == 1
@@ -128,5 +126,7 @@ func (o *oracleCreatorPrints) Type() cctypes.OracleType {
 	return cctypes.OracleTypePlugin
 }
 
-var _ cctypes.OracleCreator = &oracleCreatorPrints{}
-var _ cctypes.CCIPOracle = &oraclePrints{}
+var (
+	_ cctypes.OracleCreator = &oracleCreatorPrints{}
+	_ cctypes.CCIPOracle    = &oraclePrints{}
+)

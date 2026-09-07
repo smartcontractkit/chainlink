@@ -553,6 +553,27 @@ func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
 	}
 }
 
+func TestTelemetryConfig_MetricViewsDenyAttributes(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  []string
+	}{
+		{"DenylistSet", toml.Telemetry{MetricViewsDenyAttributes: []string{"event_id"}}, []string{"event_id"}},
+		{"DenylistNil", toml.Telemetry{MetricViewsDenyAttributes: nil}, nil},
+		{"DenylistEmpty", toml.Telemetry{MetricViewsDenyAttributes: []string{}}, []string{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.MetricViewsDenyAttributes())
+		})
+	}
+}
+
 func TestTelemetryConfig_MetricCardinalityLimit(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

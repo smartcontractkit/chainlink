@@ -20,7 +20,7 @@ type BeholderMetricsPublisher struct {
 
 // NewBeholderMetricsPublisher creates a new Beholder-based metrics publisher for OCR3 observation metrics
 func NewBeholderMetricsPublisher(logger logger.Logger, packageName string) (*BeholderMetricsPublisher, error) {
-	bhClient := beholder.GetClient().ForPackage(packageName)
+	bhClient := beholder.GetClient().ForName(packageName)
 
 	sentObservationsMetric, err := bhClient.Meter.Int64Counter("ocr3_sent_observations_total")
 	if err != nil {

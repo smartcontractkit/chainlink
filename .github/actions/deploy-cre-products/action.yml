@@ -21,6 +21,12 @@ inputs:
     description: "Optionally close previous PRs."
     required: false
     default: "false"
+  pr-head-branch-override:
+    description: "Override the head branch for the PR. A literal '{product}' token is replaced with the product name. Otherwise, auto generate one."
+    required: false
+  pr-title-override:
+    description: "Override the title for the PR. A literal '{product}' token is replaced with the product name. Otherwise, auto generate one."
+    required: false
 
 runs:
   using: composite
@@ -35,6 +41,8 @@ runs:
         oci-image-tag: ${{ inputs.oci-image-tag }}
         oci-repository-url: public.ecr.aws/chainlink/chainlink
         pr-close-enabled: ${{ inputs.pr-close-enabled }}
+        pr-head-branch-override: ${{ inputs.pr-head-branch-override }}
+        pr-title-override: ${{ inputs.pr-title-override }}
         pr-draft: false
         pr-labels: ""
         products: |

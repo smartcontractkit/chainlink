@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -88,9 +89,56 @@ type DeployUSDCTokenPoolContractsConfig struct {
 	// USDCPools defines the per-chain configuration of each new USDC pool.
 	USDCPools    map[uint64]DeployUSDCTokenPoolInput
 	IsTestRouter bool
+	// ForceDatastoreOverwrite permits this changeset to overwrite pool refs that already exist in
+	// the environment datastore. Without it, a redeploy over an existing entry is rejected during
+	// validation rather than silently replacing it.
+	ForceDatastoreOverwrite bool
+}
+
+// PlannedRefs returns the datastore refs this changeset will write, derived from config alone so
+// they can be checked before anything is deployed. It is the single source of truth for these
+// keys: validation and the deployment both read it, so the check and the write cannot drift.
+func (c DeployUSDCTokenPoolContractsConfig) PlannedRefs() []datastore.AddressRef {
+	version := deployment.Version1_5_1
+	refs := make([]datastore.AddressRef, 0, len(c.USDCPools))
+	for chainSelector := range c.USDCPools {
+		refs = append(refs, datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(shared.USDCTokenPool),
+			Version:       &version,
+			Qualifier:     string(shared.USDCSymbol),
+		})
+	}
+	return refs
+}
+
+// reserveRefs claims every planned key. The deployment fills each one in as it confirms, so the
+// store is complete when the changeset returns and no derivation step remains that could fail.
+func (c DeployUSDCTokenPoolContractsConfig) reserveRefs() (*datastore.MemoryDataStore, error) {
+	ds, err := shared.ReserveRefs(c.PlannedRefs())
+	if err != nil {
+		return nil, fmt.Errorf("USDC token pools: %w", err)
+	}
+
+	return ds, nil
 }
 
 func (c DeployUSDCTokenPoolContractsConfig) Validate(env cldf.Environment) error {
+	// Reserve the keys to prove the refs can all be recorded, then check them against the
+	// environment. Both run before anything is deployed.
+	if _, err := c.reserveRefs(); err != nil {
+		return fmt.Errorf("USDC token pool datastore refs conflict: %w", err)
+	}
+	// Taking over a key the environment already holds is a redeploy: rejected unless the caller
+	// asked for it, in which case it is logged rather than passing unremarked.
+	validateRefs := shared.ValidateAddressRefsStrict
+	if c.ForceDatastoreOverwrite {
+		validateRefs = shared.ValidateAddressRefs
+	}
+	if err := validateRefs(env, c.PlannedRefs()); err != nil {
+		return fmt.Errorf("USDC token pool datastore refs conflict: %w", err)
+	}
+
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -137,6 +185,13 @@ func DeployUSDCTokenPoolContractsChangeset(env cldf.Environment, c DeployUSDCTok
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
+	// Claim every datastore key before deploying. After this the store is only filled in, never
+	// re-keyed, so there is no post-deploy datastore step left that can fail.
+	ds, err := c.reserveRefs()
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	for chainSelector, poolConfig := range c.USDCPools {
 		chain := env.BlockChains.EVMChains()[chainSelector]
 		chainState := state.Chains[chainSelector]
@@ -144,7 +199,9 @@ func DeployUSDCTokenPoolContractsChangeset(env cldf.Environment, c DeployUSDCTok
 		if c.IsTestRouter {
 			router = chainState.TestRouter
 		}
-		_, err := cldf.DeployContract(env.Logger, chain, newAddresses,
+		// The ref is written at the moment the deployment confirms, onto the key this chain
+		// reserved above. Nothing is left to record afterwards.
+		_, err := shared.DeployContractAndRecord(env.Logger, chain, newAddresses, ds, cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1), string(shared.USDCSymbol),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 				poolAddress, tx, usdcTokenPool, err := usdc_token_pool.DeployUSDCTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenMessenger, poolConfig.TokenAddress,
@@ -164,11 +221,8 @@ func DeployUSDCTokenPoolContractsChangeset(env cldf.Environment, c DeployUSDCTok
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(newAddresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-	}
-
+	// No datastore is derived here: every ref was keyed before the first transaction and filled
+	// in as each pool was confirmed, so the store is already complete.
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 		DataStore:   ds,

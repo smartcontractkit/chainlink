@@ -37,10 +37,10 @@ func Test_DB_ReadWriteState(t *testing.T) {
 			HighestReceivedEpoch: []uint32{3},
 		}
 
-		err := odb.WriteState(testutils.Context(t), configDigest, state)
+		err := odb.WriteState(t.Context(), configDigest, state)
 		require.NoError(t, err)
 
-		readState, err := odb.ReadState(testutils.Context(t), configDigest)
+		readState, err := odb.ReadState(t.Context(), configDigest)
 		require.NoError(t, err)
 
 		require.Equal(t, state, *readState)
@@ -54,10 +54,10 @@ func Test_DB_ReadWriteState(t *testing.T) {
 			HighestReceivedEpoch: []uint32{4, 5},
 		}
 
-		err := odb.WriteState(testutils.Context(t), configDigest, newState)
+		err := odb.WriteState(t.Context(), configDigest, newState)
 		require.NoError(t, err)
 
-		readState, err := odb.ReadState(testutils.Context(t), configDigest)
+		readState, err := odb.ReadState(t.Context(), configDigest)
 		require.NoError(t, err)
 
 		require.Equal(t, newState, *readState)
@@ -71,13 +71,13 @@ func Test_DB_ReadWriteState(t *testing.T) {
 			HighestReceivedEpoch: []uint32{5, 6},
 		}
 
-		err := odb.WriteState(testutils.Context(t), configDigest, state)
+		err := odb.WriteState(t.Context(), configDigest, state)
 		require.NoError(t, err)
 
 		// db with different spec
 		odb = ocr.NewTestDB(t, db, -1)
 
-		readState, err := odb.ReadState(testutils.Context(t), configDigest)
+		readState, err := odb.ReadState(t.Context(), configDigest)
 		require.NoError(t, err)
 
 		require.Nil(t, readState)
@@ -91,10 +91,10 @@ func Test_DB_ReadWriteState(t *testing.T) {
 			HighestReceivedEpoch: []uint32{6, 7},
 		}
 
-		err := odb.WriteState(testutils.Context(t), configDigest, state)
+		err := odb.WriteState(t.Context(), configDigest, state)
 		require.NoError(t, err)
 
-		readState, err := odb.ReadState(testutils.Context(t), cltest.MakeConfigDigest(t))
+		readState, err := odb.ReadState(t.Context(), cltest.MakeConfigDigest(t))
 		require.NoError(t, err)
 
 		require.Nil(t, readState)
@@ -121,10 +121,10 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	t.Run("reads and writes config", func(t *testing.T) {
 		db := ocr.NewTestDB(t, sqlDB, spec.ID)
 
-		err := db.WriteConfig(testutils.Context(t), config)
+		err := db.WriteConfig(t.Context(), config)
 		require.NoError(t, err)
 
-		readConfig, err := db.ReadConfig(testutils.Context(t))
+		readConfig, err := db.ReadConfig(t.Context())
 		require.NoError(t, err)
 
 		require.Equal(t, &config, readConfig)
@@ -142,10 +142,10 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 			Encoded:              []byte{2, 3, 4, 5, 6},
 		}
 
-		err := db.WriteConfig(testutils.Context(t), newConfig)
+		err := db.WriteConfig(t.Context(), newConfig)
 		require.NoError(t, err)
 
-		readConfig, err := db.ReadConfig(testutils.Context(t))
+		readConfig, err := db.ReadConfig(t.Context())
 		require.NoError(t, err)
 
 		require.Equal(t, &newConfig, readConfig)
@@ -154,12 +154,12 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
 		db := ocr.NewTestDB(t, sqlDB, spec.ID)
 
-		err := db.WriteConfig(testutils.Context(t), config)
+		err := db.WriteConfig(t.Context(), config)
 		require.NoError(t, err)
 
 		db = ocr.NewTestDB(t, sqlDB, -1)
 
-		readConfig, err := db.ReadConfig(testutils.Context(t))
+		readConfig, err := db.ReadConfig(t.Context())
 		require.NoError(t, err)
 
 		require.Nil(t, readConfig)
@@ -215,9 +215,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               testutils.Random32Byte(),
 		}
 
-		err := odb.StorePendingTransmission(testutils.Context(t), k, p)
+		err := odb.StorePendingTransmission(t.Context(), k, p)
 		require.NoError(t, err)
-		m, err := odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
+		m, err := odb.PendingTransmissionsWithConfigDigest(t.Context(), configDigest)
 		require.NoError(t, err)
 		assertPendingTransmissionEqual(t, m[k], p)
 
@@ -230,9 +230,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{testutils.Random32Byte()},
 			Vs:               testutils.Random32Byte(),
 		}
-		err = odb.StorePendingTransmission(testutils.Context(t), k, p)
+		err = odb.StorePendingTransmission(t.Context(), k, p)
 		require.NoError(t, err)
-		m, err = odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
+		m, err = odb.PendingTransmissionsWithConfigDigest(t.Context(), configDigest)
 		require.NoError(t, err)
 		assertPendingTransmissionEqual(t, m[k], p)
 
@@ -245,7 +245,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               testutils.Random32Byte(),
 		}
 
-		err = odb.StorePendingTransmission(testutils.Context(t), k2, p2)
+		err = odb.StorePendingTransmission(t.Context(), k2, p2)
 		require.NoError(t, err)
 
 		kRedHerring := ocrtypes.ReportTimestamp{
@@ -262,10 +262,10 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               testutils.Random32Byte(),
 		}
 
-		err = odb.StorePendingTransmission(testutils.Context(t), kRedHerring, pRedHerring)
+		err = odb.StorePendingTransmission(t.Context(), kRedHerring, pRedHerring)
 		require.NoError(t, err)
 
-		m, err = odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
+		m, err = odb.PendingTransmissionsWithConfigDigest(t.Context(), configDigest)
 		require.NoError(t, err)
 
 		require.Len(t, m, 2)
@@ -285,7 +285,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		require.Equal(t, p2, m[k2])
 
 		// No keys for this oracleSpecID yet
-		m, err = odb2.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
+		m, err = odb2.PendingTransmissionsWithConfigDigest(t.Context(), configDigest)
 		require.NoError(t, err)
 		require.Empty(t, m)
 	})
@@ -299,20 +299,20 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{testutils.Random32Byte()},
 			Vs:               testutils.Random32Byte(),
 		}
-		err := odb.StorePendingTransmission(testutils.Context(t), k, p)
+		err := odb.StorePendingTransmission(t.Context(), k, p)
 		require.NoError(t, err)
-		err = odb2.StorePendingTransmission(testutils.Context(t), k, p)
-		require.NoError(t, err)
-
-		err = odb.DeletePendingTransmission(testutils.Context(t), k)
+		err = odb2.StorePendingTransmission(t.Context(), k, p)
 		require.NoError(t, err)
 
-		m, err := odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
+		err = odb.DeletePendingTransmission(t.Context(), k)
+		require.NoError(t, err)
+
+		m, err := odb.PendingTransmissionsWithConfigDigest(t.Context(), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 
 		// Did not affect other oracleSpecID
-		m, err = odb2.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
+		m, err = odb2.PendingTransmissionsWithConfigDigest(t.Context(), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 	})
@@ -326,10 +326,10 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{testutils.Random32Byte()},
 			Vs:               testutils.Random32Byte(),
 		}
-		err := odb.StorePendingTransmission(testutils.Context(t), k2, p)
+		err := odb.StorePendingTransmission(t.Context(), k2, p)
 		require.NoError(t, err)
 
-		m, err := odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
+		m, err := odb.PendingTransmissionsWithConfigDigest(t.Context(), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 		require.Equal(t, p.Median, m[k2].Median)
@@ -345,7 +345,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               testutils.Random32Byte(),
 		}
 
-		err := odb.StorePendingTransmission(testutils.Context(t), k, p)
+		err := odb.StorePendingTransmission(t.Context(), k, p)
 		require.NoError(t, err)
 
 		p2 := ocrtypes.PendingTransmission{
@@ -356,7 +356,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{testutils.Random32Byte()},
 			Vs:               testutils.Random32Byte(),
 		}
-		err = odb.StorePendingTransmission(testutils.Context(t), k2, p2)
+		err = odb.StorePendingTransmission(t.Context(), k2, p2)
 		require.NoError(t, err)
 
 		p2 = ocrtypes.PendingTransmission{
@@ -368,19 +368,19 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               testutils.Random32Byte(),
 		}
 
-		err = odb.StorePendingTransmission(testutils.Context(t), k2, p2)
+		err = odb.StorePendingTransmission(t.Context(), k2, p2)
 		require.NoError(t, err)
 
-		err = odb.DeletePendingTransmissionsOlderThan(testutils.Context(t), time.Unix(900, 0))
+		err = odb.DeletePendingTransmissionsOlderThan(t.Context(), time.Unix(900, 0))
 		require.NoError(t, err)
 
-		m, err := odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
+		m, err := odb.PendingTransmissionsWithConfigDigest(t.Context(), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 
 		// Didn't affect other oracleSpecIDs
 		odb = ocr.NewTestDB(t, sqlDB, spec2.ID)
-		m, err = odb.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
+		m, err = odb.PendingTransmissionsWithConfigDigest(t.Context(), configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 	})
@@ -406,7 +406,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	}
 
 	t.Run("saves latest round requested", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := odb.SaveLatestRoundRequested(ctx, rr)
 		require.NoError(t, err)
 
@@ -426,7 +426,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	})
 
 	t.Run("loads latest round requested", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		// There is no round for db2
 		lrr, err := odb2.LoadLatestRoundRequested(ctx)
 		require.NoError(t, err)

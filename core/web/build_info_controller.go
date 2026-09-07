@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
-// BuildVersonController has the build_info endpoint.
+// BuildInfoController has the build_info endpoint.
 type BuildInfoController struct {
 	App chainlink.Application
 }

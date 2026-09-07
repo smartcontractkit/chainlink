@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 	"time"
-
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -35,8 +35,10 @@ type Cache struct {
 	mu                   sync.RWMutex
 }
 
-var _ ORM = (*Cache)(nil)
-var _ services.Service = (*Cache)(nil)
+var (
+	_ ORM              = (*Cache)(nil)
+	_ services.Service = (*Cache)(nil)
+)
 
 func NewCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) *Cache {
 	c := &Cache{
@@ -123,7 +125,7 @@ func (c *Cache) DeleteBridgeType(ctx context.Context, bt *BridgeType) error {
 	return err
 }
 
-func (c *Cache) BridgeTypes(ctx context.Context, offset int, limit int) ([]BridgeType, int, error) {
+func (c *Cache) BridgeTypes(ctx context.Context, offset, limit int) ([]BridgeType, int, error) {
 	return c.ORM.BridgeTypes(ctx, offset, limit)
 }
 
@@ -201,7 +203,7 @@ func (c *Cache) start(_ context.Context) error {
 
 func (c *Cache) doBulkUpsert(ctx context.Context) {
 	c.mu.RLock()
-	values := maps.Values(c.bridgeLastValueCache)
+	values := slices.AppendSeq(make([]BridgeResponse, 0, len(c.bridgeLastValueCache)), maps.Values(c.bridgeLastValueCache))
 	c.mu.RUnlock()
 
 	if len(values) == 0 {

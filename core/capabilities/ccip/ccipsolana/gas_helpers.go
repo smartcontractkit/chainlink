@@ -3,7 +3,6 @@ package ccipsolana
 import (
 	"fmt"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
@@ -29,7 +28,7 @@ func (gp EstimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
 }
 
 // CalculateMessageMaxGas calculates the maximum gas required for a message.
-func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 {
+func (gp EstimateProvider) CalculateMessageMaxGas(msg ccipocr3.Message) uint64 {
 	maxGas, err := gp.CalculateMessageMaxGasWithError(msg)
 	if err != nil {
 		panic(err)
@@ -37,7 +36,7 @@ func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 
 	return maxGas
 }
 
-func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message) (uint64, error) {
+func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg ccipocr3.Message) (uint64, error) {
 	decodedMap, err := gp.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decode extra args: %w", err)

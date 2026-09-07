@@ -392,7 +392,7 @@ func (t *CronTicker) Stop() bool {
 	return false
 }
 
-// Ticks returns the underlying chanel.
+// Ticks returns the underlying channel.
 func (t *CronTicker) Ticks() <-chan time.Time {
 	return t.ch
 }

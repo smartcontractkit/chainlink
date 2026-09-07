@@ -10,7 +10,7 @@ type SugaredLogger interface {
 	// ErrorIf logs the error if present.
 	ErrorIf(err error, msg string)
 	// ErrorIfFn calls fn() and logs any returned error along with msg.
-	// Unlike ErrorIf, this can be deffered inline, since the function call is delayed.
+	// Unlike ErrorIf, this can be deferred inline, since the function call is delayed.
 	ErrorIfFn(fn func() error, msg string)
 }
 

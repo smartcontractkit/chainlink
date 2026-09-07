@@ -530,9 +530,13 @@ func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 		return nil, fmt.Errorf("error fetching revert reason %v: %w", txnReceiptDB.TxHash, err)
 	}
 	revertErr, err := evmclient.ExtractRPCError(rpcError)
+	var data any
+	if revertErr != nil {
+		data = revertErr.Data
+	}
 	lsn.l.Infow("InsufficientBalRevertedTxn",
 		"RawRevertData", rpcError,
-		"ParsedRevertData", revertErr.Data,
+		"ParsedRevertData", data,
 		"ParsingErr", err,
 	)
 	if err != nil {
@@ -604,6 +608,9 @@ func (lsn *listenerV2) filterBatchRevertedTxn(ctx context.Context,
 	// BatchVRFCoordinatorV2
 	revertedTxns := make([]RevertedVRFTxn, 0)
 	for _, log := range txnReceiptDB.EVMReceipt.Logs {
+		if len(log.Topics) < 2 {
+			continue
+		}
 		if log.Topics[0] != batchCoordinatorV2ABI.Events["RawErrorReturned"].ID {
 			continue
 		}
@@ -729,7 +736,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 		"RequestID", revertedTxn.DBReceipt.RequestID,
 		"RequestTxHash", revertedTxn.DBReceipt.RequestTxHash,
 	)
-	forceFulfiled := true
+	forceFulfilled := true
 	forceFulfillmentAttempt := revertedTxn.DBReceipt.ForceFulfillmentAttempt + 1
 	etx, err = lsn.chain.TxManager().CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:    fromAddress,
@@ -741,7 +748,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 			RequestID:               &reqID,
 			SubID:                   &revertedTxn.DBReceipt.SubID,
 			RequestTxHash:           &reqTxHash,
-			ForceFulfilled:          &forceFulfiled,
+			ForceFulfilled:          &forceFulfilled,
 			ForceFulfillmentAttempt: &forceFulfillmentAttempt,
 			// No max link since simulation failed
 		},

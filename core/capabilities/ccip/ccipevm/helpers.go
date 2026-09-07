@@ -12,16 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
-// abiEncodeMethodInputs encodes the inputs for a method call.
-// example abi: `[{ "name" : "method", "type": "function", "inputs": [{"name": "a", "type": "uint256"}]}]`
-func abiEncodeMethodInputs(abiDef abi.ABI, inputs ...any) ([]byte, error) {
-	packed, err := abiDef.Pack("method", inputs...)
-	if err != nil {
-		return nil, err
-	}
-	return packed[4:], nil // remove the method selector
-}
-
 func ABITypeOrPanic(t string) abi.Type {
 	abiType, err := abi.NewType(t, "", nil)
 	if err != nil {
@@ -85,7 +75,7 @@ func EVM2AnyToCCIPMsg(
 	onrampAddress common.Address,
 	any2EVM onramp.InternalEVM2AnyRampMessage,
 ) ccipocr3.Message {
-	var tokenAmounts []ccipocr3.RampTokenAmount
+	tokenAmounts := make([]ccipocr3.RampTokenAmount, 0, len(any2EVM.TokenAmounts))
 	for _, ta := range any2EVM.TokenAmounts {
 		tokenAmounts = append(tokenAmounts, ccipocr3.RampTokenAmount{
 			SourcePoolAddress: ta.SourcePoolAddress.Bytes(),

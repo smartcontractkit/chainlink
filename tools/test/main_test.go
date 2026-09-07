@@ -55,6 +55,13 @@ func TestNoopResourcesMatchTestrigContract(t *testing.T) {
 }
 
 func TestDBProviderSkipsPostgresForConfigPackages(t *testing.T) {
+	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+		t.Skip("skipping in CI: requires local repository context and docker environment")
+	}
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
 	repoRoot := findRepoRoot(t)
 	t.Chdir(repoRoot)
 	t.Setenv("CL_DATABASE_URL", "")

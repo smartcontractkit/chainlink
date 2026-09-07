@@ -20,8 +20,6 @@
   - [Test type and case specific configurations](#test-type-and-case-specific-configurations)
   - [Product-specific configurations](#product-specific-configurations)
     - [Migration tests](#migration-tests)
-    - [Automation](#automation)
-      - [Specific test secrets](#specific-test-secrets)
     - [OCR](#ocr)
       - [Common OCR configurations](#common-ocr-configurations)
       - [Reuse OCR contracts](#reuse-ocr-contracts)
@@ -237,7 +235,7 @@ eth_funds = 3
 
 > [!TIP]
 > Find which configurations are applicable to a specific product in structs of the `testconfig/product directory/config.go (or <product>.go)`.
-> Examples: [ocr2/ocr2.go](./ocr2/ocr2.go), [automation/config.go](./automation/config.go).
+> Example: [ocr2/ocr2.go](./ocr2/ocr2.go).
 
 ### Migration tests
 
@@ -259,23 +257,8 @@ eth_funds = 3
 
     ```bash
     # Go
-    BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -p 1 ./smoke/<product>_test.go
-
-    - - - - - - - - - - - - 
-
-    # Make command
-    BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) make test_node_migrations_verbose
+    BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -p 1 ./smoke/ccip/...
     ```
-
-### Automation
-
-#### Specific test secrets
-
-| Secret                        | Env Var                                                             | Example                                      | Description                                                                          |
-| ----------------------------- | ------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Data Streams Url              | `E2E_TEST_DATA_STREAMS_URL`                                         | `E2E_TEST_DATA_STREAMS_URL=url`              | Required by some automation tests to connect to data streams.                         |
-| Data Streams Username         | `E2E_TEST_DATA_STREAMS_USERNAME`                                    | `E2E_TEST_DATA_STREAMS_USERNAME=username`    | Required by some automation tests to connect to data streams.    |
-| Data Streams Password         | `E2E_TEST_DATA_STREAMS_PASSWORD`                                    | `E2E_TEST_DATA_STREAMS_PASSWORD=password`    | Required by some automation tests to connect to data streams. |
 
 ### OCR
 
@@ -315,7 +298,7 @@ offchain_aggregators = ["0xc1ce3815d6e7f3705265c2577F1342344752A5Eb"]
 
 # If [OCR.Contracts.Settings.<OCR aggregator address>] is not present, we assume it should be used and configured
 
-- - - - - - - - - - - - 
+- - - - - - - - - - - -
 
 # For OCRv2
 [OCR2.Contracts]
@@ -327,7 +310,7 @@ offchain_aggregators = ["0xc1ce3815d6e7f3705265c2577F1342344752A5Eb"]
 use = false # Default: true. Reuse existing OCR contracts?
 configure = false # Default: true. Configure existing OCR contracts?
 
-- - - - - - - - - - - - 
+- - - - - - - - - - - -
 
 # Non-compliant configurations
 [OCR.Contracts]

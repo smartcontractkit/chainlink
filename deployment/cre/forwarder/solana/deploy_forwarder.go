@@ -1,22 +1,15 @@
 package solana
 
 import (
-	"encoding/binary"
-	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
-	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
-
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -130,6 +123,163 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 	return out, nil
 }
 
+// UpgradeForwarderRequest upgrades an already deployed forwarder program in place. The program ID
+// does not change, so the forwarder state and every oracles config written against it stay valid.
+type UpgradeForwarderRequest struct {
+	ChainSel uint64
+	// BuildConfig is optional. When building locally, the forwarder is built against the deployed
+	// program ID unless LocalBuild.UpgradeKeys already pins one.
+	BuildConfig *helpers.BuildSolanaConfig
+	Qualifier   string
+	// Version identifies the deployed forwarder to upgrade.
+	Version string
+	// NewVersion is optional. When set, the upgraded program and its state are additionally
+	// recorded in the datastore under this version.
+	NewVersion string
+	LabelSet   datastore.LabelSet
+	MCMS       *cldfproposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+}
+
+var _ cldf.ChangeSetV2[*UpgradeForwarderRequest] = UpgradeForwarder{}
+
+type UpgradeForwarder struct{}
+
+func (cs UpgradeForwarder) VerifyPreconditions(env cldf.Environment, req *UpgradeForwarderRequest) error {
+	if _, ok := env.BlockChains.SolanaChains()[req.ChainSel]; !ok {
+		return fmt.Errorf("solana chain not found for chain selector %d", req.ChainSel)
+	}
+
+	version, err := semver.NewVersion(req.Version)
+	if err != nil {
+		return err
+	}
+	if req.NewVersion != "" {
+		if _, err = semver.NewVersion(req.NewVersion); err != nil {
+			return fmt.Errorf("invalid new version: %w", err)
+		}
+	}
+
+	forwarderKey := datastore.NewAddressRefKey(req.ChainSel, ForwarderContract, version, req.Qualifier)
+	if _, err = env.DataStore.Addresses().Get(forwarderKey); err != nil {
+		return fmt.Errorf("failed to load forwarder: %w", err)
+	}
+
+	if req.MCMS != nil {
+		refs := env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(req.ChainSel))
+		if _, err = helpers.FetchTimelockSigner(refs); err != nil {
+			return fmt.Errorf("failed fetch timelock signer: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (cs UpgradeForwarder) Apply(env cldf.Environment, req *UpgradeForwarderRequest) (cldf.ChangesetOutput, error) {
+	var out cldf.ChangesetOutput
+
+	version := semver.MustParse(req.Version)
+
+	ch, ok := env.BlockChains.SolanaChains()[req.ChainSel]
+	if !ok {
+		return out, fmt.Errorf("solana chain not found for chain selector %d", req.ChainSel)
+	}
+
+	forwarderKey := datastore.NewAddressRefKey(req.ChainSel, ForwarderContract, version, req.Qualifier)
+	forwarderRef, err := env.DataStore.Addresses().Get(forwarderKey)
+	if err != nil {
+		return out, fmt.Errorf("failed to load forwarder: %w", err)
+	}
+	programID, err := solana.PublicKeyFromBase58(forwarderRef.Address)
+	if err != nil {
+		return out, fmt.Errorf("failed to parse forwarder program ID %q: %w", forwarderRef.Address, err)
+	}
+
+	if req.BuildConfig != nil {
+		if err = buildForUpgrade(env, *req.BuildConfig, programID); err != nil {
+			return out, err
+		}
+	}
+
+	deps := operation.Deps{
+		Datastore: env.DataStore,
+		Env:       env,
+		Chain:     ch,
+	}
+
+	upgradeSeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.UpgradeForwarderSeq, deps, seq.UpgradeForwarderSeqInput{
+		ChainSel:    req.ChainSel,
+		ProgramName: solutils.ProgKeystoneForwarder,
+		ProgramID:   programID,
+		MCMS:        req.MCMS,
+	})
+	if err != nil {
+		return out, err
+	}
+
+	out.MCMSTimelockProposals = upgradeSeqReport.Output.Proposals
+
+	if req.NewVersion == "" {
+		return out, nil
+	}
+
+	// The addresses are unchanged by an in place upgrade, only the recorded version moves. The refs
+	// of the previous version are left in place, since the datastore of a changeset output is
+	// merged into the environment rather than replacing it.
+	newVersion := semver.MustParse(req.NewVersion)
+	stateKey := datastore.NewAddressRefKey(req.ChainSel, ForwarderState, version, req.Qualifier)
+	stateRef, err := env.DataStore.Addresses().Get(stateKey)
+	if err != nil {
+		return out, fmt.Errorf("failed to load forwarder state: %w", err)
+	}
+
+	out.DataStore = datastore.NewMemoryDataStore()
+	for _, ref := range []datastore.AddressRef{forwarderRef, stateRef} {
+		err = out.DataStore.Addresses().Upsert(datastore.AddressRef{
+			Address:       ref.Address,
+			ChainSelector: req.ChainSel,
+			Type:          ref.Type,
+			Version:       newVersion,
+			Qualifier:     req.Qualifier,
+			Labels:        req.LabelSet,
+		})
+		if err != nil {
+			return out, err
+		}
+	}
+
+	return out, nil
+}
+
+// buildForUpgrade builds the forwarder artifacts against the deployed program ID.
+func buildForUpgrade(env cldf.Environment, buildConfig helpers.BuildSolanaConfig, programID solana.PublicKey) error {
+	if err := helpers.BuildSolana(env, withPinnedUpgradeKey(buildConfig, programID), keystoneBuildParams); err != nil {
+		return fmt.Errorf("failed build solana artifacts: %w", err)
+	}
+
+	return nil
+}
+
+// withPinnedUpgradeKey pins the program ID a local build declares to the deployed one. Without this
+// the upgraded binary would reject every instruction addressed to it, since anchor checks the ID
+// baked in at build time. A key the caller pinned itself wins, and the request of the caller is
+// left untouched.
+func withPinnedUpgradeKey(buildConfig helpers.BuildSolanaConfig, programID solana.PublicKey) helpers.BuildSolanaConfig {
+	if !buildConfig.LocalBuild.BuildLocally {
+		return buildConfig
+	}
+
+	upgradeKeys := maps.Clone(buildConfig.LocalBuild.UpgradeKeys)
+	if upgradeKeys == nil {
+		upgradeKeys = make(map[cldf.ContractType]string)
+	}
+	if _, ok := upgradeKeys[keystoneForwarder]; !ok {
+		upgradeKeys[keystoneForwarder] = programID.String()
+	}
+	buildConfig.LocalBuild.UpgradeKeys = upgradeKeys
+
+	return buildConfig
+}
+
 type SetForwarderUpgradeAuthorityRequest = struct {
 	ChainSel            uint64
 	NewUpgradeAuthority solana.PublicKey
@@ -229,27 +379,7 @@ func (cs ConfigureForwarders) VerifyPreconditions(env cldf.Environment, req *Con
 		return err
 	}
 
-	if req.Chains != nil {
-		for sel := range req.Chains {
-			if _, ok := env.BlockChains.SolanaChains()[sel]; !ok {
-				return fmt.Errorf("solana chain not found for chain selector %d", sel)
-			}
-			forwarderKey := datastore.NewAddressRefKey(sel, ForwarderContract, version, req.Qualifier)
-			_, err := env.DataStore.Addresses().Get(forwarderKey)
-
-			if err != nil {
-				return fmt.Errorf("failed get fowarder for chain selector %d: %w", sel, err)
-			}
-			if req.MCMS != nil {
-				_, err = solstate.MaybeLoadMCMSWithTimelockChainStateV2(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(sel)))
-				if err != nil {
-					return fmt.Errorf("failed to load MCMS for chain selector %d: %w", sel, err)
-				}
-			}
-		}
-	}
-
-	return nil
+	return verifyForwarderChains(env, req.Chains, version, req.Qualifier, req.MCMS)
 }
 
 func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarderRequest) (cldf.ChangesetOutput, error) {
@@ -263,82 +393,30 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 	if req.MCMS == nil {
 		return out, nil
 	}
-	env.Logger.Info("req delay", req.MCMS.MinDelay)
 
-	var proposals []mcms.TimelockProposal
-	for chainSel, batch := range mcmsBatches {
-		// get timelocks, proposers, inspectors per chain
-		solChain := env.BlockChains.SolanaChains()[chainSel]
-
-		addresses := env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSel))
-		mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainStateV2(addresses)
-		if mcmState.TimelockProgram.IsZero() {
-			return cldf.ChangesetOutput{}, errors.New("timelock is not found")
-		}
-
-		timelocks := map[uint64]string{}
-		proposers := map[uint64]string{}
-		inspectors := map[uint64]sdk.Inspector{}
-		timelocks[solChain.Selector] = mcmsSolana.ContractAddress(
-			mcmState.TimelockProgram,
-			mcmsSolana.PDASeed(mcmState.TimelockSeed),
-		)
-
-		proposers[solChain.Selector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
-		inspectors[solChain.Selector] = mcmsSolana.NewInspector(solChain.Client)
-		proposal, err := proposeutils.BuildProposalFromBatchesV2(
-			env,
-			timelocks,
-			proposers,
-			inspectors,
-			[]mcmsTypes.BatchOperation{batch},
-			"proposal to transfer ownership of keystone forwarder contract to timelock",
-			*req.MCMS)
-
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-		proposals = append(proposals, *proposal)
+	out.MCMSTimelockProposals, err = buildTimelockProposals(env, mcmsBatches, *req.MCMS,
+		"proposal to configure keystone forwarder contract")
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
 	}
-	out.MCMSTimelockProposals = proposals
 
 	return out, nil
 }
 
 func configureForwarders(env cldf.Environment, req *ConfigureForwarderRequest) (map[uint64]mcmsTypes.BatchOperation, error) {
-	ops := make(map[uint64]mcmsTypes.BatchOperation)
 	version := semver.MustParse(req.Version)
 
 	cfg, err := req.DON.ForwarderConfig(chain_selectors.FamilySolana, env.Offchain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get forwarder config: %w", err)
 	}
+	signers := toSolSigners(cfg.Signers)
 
-	for _, chain := range env.BlockChains.SolanaChains() {
-		if _, shouldInclude := req.Chains[chain.Selector]; len(req.Chains) > 0 && !shouldInclude {
-			continue
-		}
-		forwarderStateRef := datastore.NewAddressRefKey(chain.Selector, ForwarderState, version, req.Qualifier)
-		forwarderRef := datastore.NewAddressRefKey(chain.Selector, ForwarderContract, version, req.Qualifier)
-		forwarderState, err := env.DataStore.Addresses().Get(forwarderStateRef)
+	batches := make(map[uint64]mcmsTypes.BatchOperation)
+	for chain := range forwarderChains(env, req.Chains) {
+		target, err := resolveForwarderConfigTarget(env, chain, version, req.Qualifier, cfg.DonID, cfg.ConfigVersion, req.MCMS)
 		if err != nil {
-			return nil, fmt.Errorf("failed load forwarder state for chain sel %d", chain.Selector)
-		}
-		forwarderProgramID, err := env.DataStore.Addresses().Get(forwarderRef)
-		if err != nil {
-			return nil, fmt.Errorf("failed load forwarder for chain sel %d", chain.Selector)
-		}
-		configPDA := getConfigPDA(solana.MustPublicKeyFromBase58(forwarderState.Address),
-			cfg.DonID, cfg.ConfigVersion, solana.MustPublicKeyFromBase58(forwarderProgramID.Address))
-
-		owner := chain.DeployerKey.PublicKey()
-		if req.MCMS != nil {
-			// get timelock from datastore
-			timelockPDA, err := helpers.FetchTimelockSigner(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chain.Selector)))
-			if err != nil {
-				return nil, err
-			}
-			owner = timelockPDA
+			return nil, fmt.Errorf("chain selector %d: %w", chain.Selector, err)
 		}
 
 		deps := operation.Deps{
@@ -346,43 +424,20 @@ func configureForwarders(env cldf.Environment, req *ConfigureForwarderRequest) (
 			Env:       env,
 			Chain:     chain,
 		}
-		signers := toSolSigners(cfg.Signers)
-		opOut, err := operations.ExecuteOperation(env.OperationsBundle, operation.ConfigureForwarderOp, deps, operation.ConfigureForwarderInput{
-			ProgramID:      solana.MustPublicKeyFromBase58(forwarderProgramID.Address),
-			MCMS:           req.MCMS,
-			Owner:          owner.String(),
-			Signers:        signers,
-			DonID:          cfg.DonID,
-			ConfigVersion:  cfg.ConfigVersion,
-			F:              cfg.F,
-			ForwarderState: solana.MustPublicKeyFromBase58(forwarderState.Address),
-			ConfigPDA:      configPDA.String(),
-			Type:           cldf.ContractType(ForwarderContract),
-		})
 
+		opOut, err := operations.ExecuteOperation(env.OperationsBundle, operation.ConfigureForwarderOp, deps, operation.ConfigureForwarderInput{
+			ForwarderConfigTarget: target,
+			Signers:               signers,
+			F:                     cfg.F,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
 		}
 
-		ops[chain.Selector] = opOut.Output.Batch
+		batches[chain.Selector] = opOut.Output.Batch
 	}
 
-	return ops, nil
-}
-
-func getConfigPDA(statePubkey solana.PublicKey, donID uint32, configVersion uint32, programID solana.PublicKey) solana.PublicKey {
-	configID := getConfigID(donID, configVersion)
-	reqIDBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(reqIDBytes, configID)
-
-	seeds := [][]byte{
-		[]byte("config"),
-		statePubkey.Bytes(),
-		reqIDBytes,
-	}
-
-	addr, _, _ := solana.FindProgramAddress(seeds, programID)
-	return addr
+	return batches, nil
 }
 
 func toSolSigners(ss []common.Address) [][20]uint8 {
@@ -395,8 +450,4 @@ func toSolSigners(ss []common.Address) [][20]uint8 {
 	}
 
 	return ret
-}
-
-func getConfigID(donID uint32, configVersion uint32) uint64 {
-	return (uint64(donID) << 32) | uint64(configVersion)
 }

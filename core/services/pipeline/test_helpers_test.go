@@ -9,13 +9,12 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-
-	"github.com/jmoiron/sqlx"
 )
 
 func fakeExternalAdapter(t *testing.T, expectedRequest, response any) http.Handler {

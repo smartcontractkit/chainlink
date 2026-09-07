@@ -176,7 +176,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 			if err != nil {
 				return 0, errors.Wrap(err, "getting chain head")
 			}
-			return uint64(head.BlockNumber), nil
+			return uint64(head.BlockNumber), nil //nolint:gosec //G115
 		})
 
 	return []job.ServiceCtx{&service{

@@ -7,8 +7,11 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/retry"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -43,7 +46,7 @@ var DeployOp = operations.NewOperation[DeployOpInput, DeployOpOutput, DeployOpDe
 		if !ok {
 			return DeployOpOutput{}, fmt.Errorf("deploy-keystone-forwarder-op failed: chain selector %d not found in environment", input.ChainSelector)
 		}
-		addr, tv, err := deploy(b.GetContext(), chain.DeployerKey, chain)
+		addr, tv, err := deploy(b.GetContext(), deps.Env.Logger, chain.DeployerKey, chain)
 		if err != nil {
 			return DeployOpOutput{}, fmt.Errorf("deploy-keystone-forwarder-op failed: %w", err)
 		}
@@ -79,37 +82,50 @@ const (
 	DeploymentHashLabel  = "deployment-hash"
 )
 
-func deploy(ctx context.Context, auth *bind.TransactOpts, chain evm.Chain) (*common.Address, *cldf.TypeAndVersion, error) {
-	forwarderAddr, tx, forwarder, err := forwarder.DeployKeystoneForwarder(
+func deploy(ctx context.Context, lggr logger.Logger, auth *bind.TransactOpts, chain evm.Chain) (*common.Address, *cldf.TypeAndVersion, error) {
+	forwarderAddr, tx, fwd, err := forwarder.DeployKeystoneForwarder(
 		auth,
 		chain.Client)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
 	}
-
-	_, err = chain.Confirm(tx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to confirm and save KeystoneForwarder: %w", err)
+	retryStrategy := retry.Strategy[*cldf.TypeAndVersion]{
+		MaxRetries: 10,
+		Backoff:    retry.BackoffStrategyDefault.Copy(),
 	}
-	tvStr, err := forwarder.TypeAndVersion(&bind.CallOpts{})
+	tv, err := retryStrategy.Do(ctx, lggr, func(ctx context.Context) (*cldf.TypeAndVersion, error) {
+		return getTypeAndVersionOnce(ctx, chain, tx, fwd)
+	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get type and version: %w", err)
 	}
+
+	return &forwarderAddr, tv, nil
+}
+
+func getTypeAndVersionOnce(ctx context.Context, chain evm.Chain, tx *types.Transaction, fwd *forwarder.KeystoneForwarder) (*cldf.TypeAndVersion, error) {
+	_, err := chain.Confirm(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to confirm and save KeystoneForwarder: %w", err)
+	}
+	tvStr, err := fwd.TypeAndVersion(&bind.CallOpts{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get type and version: %w", err)
+	}
 	tv, err := cldf.TypeAndVersionFromString(tvStr)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
+		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
 	txHash := tx.Hash()
 	txReceipt, err := chain.Client.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get transaction receipt: %w", err)
+		return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
 	}
 	hashLabel := fmt.Sprintf("%s: %s", DeploymentHashLabel, txHash.Hex())
 	blockLabel := fmt.Sprintf("%s: %s", DeploymentBlockLabel, txReceipt.BlockNumber.String())
 	tv.Labels.Add(blockLabel)
 	tv.Labels.Add(hashLabel)
-
-	return &forwarderAddr, &tv, nil
+	return &tv, nil
 }
 
 type DeploySequenceDeps struct {

@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -34,7 +33,7 @@ func TestConditionalTask(t *testing.T) {
 				task := pipeline.ConditionalTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Data:     test.input.(string)}
-				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
+				result, runInfo := task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
 
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)
@@ -54,7 +53,7 @@ func TestConditionalTask(t *testing.T) {
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Data:     "$(foo.bar)",
 				}
-				result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{})
+				result, runInfo := task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{})
 
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)

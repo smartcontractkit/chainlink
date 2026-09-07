@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	stellarfwd "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
-	"github.com/smartcontractkit/chainlink/deployment/cre/stellar"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -79,16 +78,10 @@ func deployStellarForwarders(
 
 	version := forwarderVersion(creEnv)
 
-	buildCfg, err := stellarBuildConfig(ctx, stellar.ForwarderWasm)
-	if err != nil {
-		return fmt.Errorf("failed to resolve stellar forwarder WASM source: %w", err)
-	}
-
 	out, err := (stellarfwd.DeployForwarder{}).Apply(*creEnv.CldfEnvironment, &stellarfwd.DeployForwarderRequest{
-		ChainSel:    chain.ChainSelector(),
-		Qualifier:   stellarfwd.DefaultForwarderQualifier,
-		Version:     version.String(),
-		BuildConfig: &buildCfg,
+		ChainSel:  chain.ChainSelector(),
+		Qualifier: stellarfwd.DefaultForwarderQualifier,
+		Version:   version.String(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to deploy stellar forwarder via CLDF: %w", err)

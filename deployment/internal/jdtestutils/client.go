@@ -64,7 +64,7 @@ func (j JobClient) ReplayLogs(ctx context.Context, selectorToBlock map[uint64]ui
 // Checks if a filter exists in DB for event name in all nodes
 func (j JobClient) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventName string, address []byte) (bool, error) {
 	for _, node := range j.list() {
-		if node.IsBoostrap {
+		if node.IsBootstrap {
 			continue
 		}
 		registered, err := node.IsLogFilterRegistered(ctx, chainSel, eventName, address)

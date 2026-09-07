@@ -1,6 +1,6 @@
 package presenters
 
-// CosmosMsgResource repesents a Cosmos message JSONAPI resource.
+// CosmosMsgResource represents a Cosmos message JSONAPI resource.
 type CosmosMsgResource struct {
 	JAID
 	ChainID    string

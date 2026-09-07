@@ -3,19 +3,18 @@ package streams
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type mockRegistry struct{}
 
-func (m *mockRegistry) Get(streamID StreamID) (p Pipeline, exists bool) { return }
+func (m *mockRegistry) Get(streamID StreamID) (p Pipeline, exists bool) { return p, exists }
 func (m *mockRegistry) Register(jb job.Job, rrs ResultRunSaver) error {
 	return nil
 }
@@ -36,12 +35,12 @@ func Test_Delegate(t *testing.T) {
 	t.Run("ServicesForSpec", func(t *testing.T) {
 		jb := job.Job{PipelineSpec: &pipeline.Spec{ID: 1}}
 		t.Run("no error if job is missing streamID", func(t *testing.T) {
-			_, err := d.ServicesForSpec(testutils.Context(t), jb)
+			_, err := d.ServicesForSpec(t.Context(), jb)
 			require.NoError(t, err)
 		})
 		jb.StreamID = new(uint32(42))
 		t.Run("returns services", func(t *testing.T) {
-			srvs, err := d.ServicesForSpec(testutils.Context(t), jb)
+			srvs, err := d.ServicesForSpec(t.Context(), jb)
 			require.NoError(t, err)
 
 			assert.Len(t, srvs, 2)
@@ -57,7 +56,7 @@ func Test_Delegate(t *testing.T) {
 }
 
 func Test_ValidatedStreamSpec(t *testing.T) {
-	var tt = []struct {
+	tt := []struct {
 		name      string
 		toml      string
 		assertion func(t *testing.T, os job.Job, err error)
@@ -91,7 +90,7 @@ answer1      [type=median index=0];
 			name: "unparseable toml",
 			toml: `not toml`,
 			assertion: func(t *testing.T, jb job.Job, err error) {
-				assert.EqualError(t, err, "toml unmarshal error on job: toml: expected character =")
+				assert.EqualError(t, err, "toml unmarshal error on job: toml: expected '=' after key")
 			},
 		},
 		{

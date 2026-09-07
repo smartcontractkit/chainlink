@@ -10,7 +10,7 @@ func (f Fields) With(xs ...any) Fields {
 	}
 	f2 := make(Fields, len(f)+(len(xs)/2))
 	maps.Copy(f2, f)
-	for i := 0; i < len(xs)/2; i++ {
+	for i := range len(xs) / 2 {
 		key, is := xs[i*2].(string)
 		if !is {
 			continue

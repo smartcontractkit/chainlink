@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,6 +28,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/smartcontractkit/wsrpc/credentials"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
@@ -35,9 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
-	"github.com/smartcontractkit/wsrpc/credentials"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -46,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn/streamspb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
@@ -181,10 +182,16 @@ func setupNode(
 		// [OCR2]
 		c.OCR2.Enabled = new(true)
 		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+		// Unique per-node root for the OCR3.1 (llo/v31) pebble key-value store so the
+		// nodes in this process don't share state and nothing is written to ~/.chainlink-data.
+		c.OCR2.KeyValueStoreRootDir = new(t.TempDir())
 
 		// [P2P]
 		c.P2P.PeerID = new(p2pKey.PeerID())
 		c.P2P.TraceLogging = new(true)
+		// Required for OCR3.1 (llo/v31) networking (the "2" endpoint factory needs
+		// the experimental ragep2p host). Backward-compatible with OCR3.0.
+		c.P2P.EnableExperimentalRageP2P = new(true)
 
 		// [P2P.V2]
 		c.P2P.V2.Enabled = new(true)
@@ -454,6 +461,83 @@ func createSingleDecimalCountingBridge(t *testing.T, name string, i int, p decim
 		URL:  models.WebURL(*u),
 	}))
 
+	return bridgeName
+}
+
+// grpcStreamBridgeServer is a minimal stand-in for a streams-adapter EA: it
+// implements the streamspb.StreamServiceServer side of BridgeConnManager's
+// protocol and, for every subscription it receives, immediately replies with a
+// fixed price under the payload hash BridgeConnManager expects to find in its
+// observation cache (see bridgeConnManager.bridgeObservationCacheKey).
+type grpcStreamBridgeServer struct {
+	streamspb.UnimplementedStreamServiceServer
+	bridgeName string // trimmed of the "bridge-" prefix, matching bridgeConnManager's own trimming
+	price      decimal.Decimal
+}
+
+func (s *grpcStreamBridgeServer) Subscribe(stream streamspb.StreamService_SubscribeServer) error {
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			return nil //nolint:nilerr // client closing the stream ends the test happy-path; no error to report
+		}
+		for _, sub := range req.GetSubscriptions() {
+			hash, err := grpcStreamBridgeObservationHash(s.bridgeName, sub.GetData().AsMap())
+			if err != nil {
+				return err
+			}
+			resp := &streamspb.SubscribeResponse{
+				Timestamp:       time.Now().UTC().Format(time.RFC3339),
+				ObservationJson: fmt.Appendf(nil, `{"result": %s}`, s.price.String()),
+				PayloadHash:     hash[:],
+			}
+			if err := stream.Send(resp); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// grpcStreamBridgeObservationHash mirrors bridgeConnManager's
+// bridgeObservationCacheKey so this fake EA's responses land in the real cache.
+func grpcStreamBridgeObservationHash(bridgeName string, data map[string]any) ([32]byte, error) {
+	lookupBytes, err := json.Marshal(data)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	b := make([]byte, 0, len(bridgeName)+len(lookupBytes))
+	b = append(b, bridgeName...)
+	b = append(b, lookupBytes...)
+	return sha256.Sum256(b), nil
+}
+
+// createGRPCStreamBridge starts a plaintext gRPC server implementing the
+// streams-adapter side of BridgeConnManager's protocol and registers a bridge
+// with UseConnectionManager=true pointing at it, so BridgeTask.Run reads
+// observations from BridgeConnManager's cache instead of making an HTTP call.
+func createGRPCStreamBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM) (bridgeName string) {
+	ctx := t.Context()
+	trimmedName := fmt.Sprintf("%s-%d", name, i)
+	bridgeName = "bridge-" + trimmedName
+
+	var lc net.ListenConfig
+	lis, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	s := grpc.NewServer()
+	streamspb.RegisterStreamServiceServer(s, &grpcStreamBridgeServer{bridgeName: trimmedName, price: p})
+	go func() {
+		_ = s.Serve(lis)
+	}()
+	t.Cleanup(s.Stop)
+
+	u, err := url.Parse("http://" + lis.Addr().String())
+	require.NoError(t, err)
+	require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
+		Name:                 bridges.BridgeName(bridgeName),
+		URL:                  models.WebURL(*u),
+		UseConnectionManager: true,
+	}))
 	return bridgeName
 }
 

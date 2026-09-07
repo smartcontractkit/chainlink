@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
-
 	cnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 )
@@ -345,6 +344,13 @@ const (
 	TaskTypeVRFV2            TaskType = "vrfv2"
 	TaskTypeVRFV2Plus        TaskType = "vrfv2plus"
 
+	// Experimental tasks. These are not yet stable, subject to change.
+	TaskTypeSample       TaskType = "sample"
+	TaskTypeNormalize    TaskType = "normalize"
+	TaskTypeStaleness    TaskType = "staleness"
+	TaskTypeWeightedMean TaskType = "weightedmean"
+	TaskTypeAnchor       TaskType = "anchor"
+
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
 	TaskTypeMemo  TaskType = "memo"
@@ -448,6 +454,16 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) 
 		task = &Base64EncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeCoalesce:
 		task = &CoalesceTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeSample:
+		task = &SampleTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeNormalize:
+		task = &NormalizeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeStaleness:
+		task = &StalenessTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeWeightedMean:
+		task = &WeightedMeanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeAnchor:
+		task = &AnchorTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, pkgerrors.Errorf(`unknown task type: "%v"`, taskType)
 	}

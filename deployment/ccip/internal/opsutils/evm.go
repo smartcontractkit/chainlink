@@ -1,22 +1,17 @@
 package opsutils
 
 import (
-	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
-	"github.com/zksync-sdk/zksync2-go/accounts"
-	"github.com/zksync-sdk/zksync2-go/clients"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -245,19 +240,15 @@ type EVMDeployOutput struct {
 // Deployment operations must define defaults for these options in case users do not provide them.
 // These options allow operators to deploy new bytecodes for the same ABI.
 type ContractOpts struct {
-	Version          *semver.Version
-	EVMBytecode      []byte
-	ZkSyncVMBytecode []byte
+	Version     *semver.Version
+	EVMBytecode []byte
 }
 
-func (c *ContractOpts) Validate(isZkSyncVM bool) error {
+func (c *ContractOpts) Validate() error {
 	if c.Version == nil {
 		return errors.New("version must be defined")
 	}
-	if isZkSyncVM && len(c.ZkSyncVMBytecode) == 0 {
-		return errors.New("zkSyncVM bytecode must be defined")
-	}
-	if !isZkSyncVM && len(c.EVMBytecode) == 0 {
+	if len(c.EVMBytecode) == 0 {
 		return errors.New("evm bytecode must be defined")
 	}
 	return nil
@@ -292,7 +283,7 @@ func NewEVMDeployOperation[IN any](
 			if contractOpts == nil {
 				return EVMDeployOutput{}, errors.New("must define ContractOpts for deployment, no defaults provided")
 			}
-			if err := contractOpts.Validate(chain.IsZkSyncVM); err != nil {
+			if err := contractOpts.Validate(); err != nil {
 				return EVMDeployOutput{}, fmt.Errorf("invalid ContractOpts: %w", err)
 			}
 			typeAndVersion := cldf.NewTypeAndVersion(contractType, *contractOpts.Version)
@@ -304,39 +295,21 @@ func NewEVMDeployOperation[IN any](
 				return EVMDeployOutput{}, fmt.Errorf("ABI is nil for %s", typeAndVersion)
 			}
 
-			var (
-				addr common.Address
-				tx   *types.Transaction
+			addr, tx, _, err := bind.DeployContract(
+				CloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice),
+				*parsedABI,
+				contractOpts.EVMBytecode,
+				chain.Client,
+				makeArgs(input.DeployInput)...,
 			)
-			if chain.IsZkSyncVM {
-				addr, err = deployZkContract(
-					nil,
-					contractOpts.ZkSyncVMBytecode,
-					chain.ClientZkSyncVM,
-					chain.DeployerKeyZkSyncVM,
-					parsedABI,
-					makeArgs(input.DeployInput)...,
-				)
-			} else {
-				addr, tx, _, err = bind.DeployContract(
-					CloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice),
-					*parsedABI,
-					contractOpts.EVMBytecode,
-					chain.Client,
-					makeArgs(input.DeployInput)...,
-				)
-			}
 			if err != nil {
 				b.Logger.Errorw("Failed to deploy contract", "typeAndVersion", typeAndVersion, "chain", chain.String(), "err", err.Error())
 				return EVMDeployOutput{}, fmt.Errorf("failed to deploy %s on %s: %w", typeAndVersion, chain, err)
 			}
-			// ZkSync transactions are confirmed in deployZkContract
-			if !chain.IsZkSyncVM {
-				_, err := chain.Confirm(tx)
-				if err != nil {
-					b.Logger.Errorw("Failed to confirm deployment", "typeAndVersion", typeAndVersion, "chain", chain.String(), "err", err.Error())
-					return EVMDeployOutput{}, fmt.Errorf("failed to confirm deployment of %s on %s: %w", typeAndVersion, chain, err)
-				}
+			_, err = chain.Confirm(tx)
+			if err != nil {
+				b.Logger.Errorw("Failed to confirm deployment", "typeAndVersion", typeAndVersion, "chain", chain.String(), "err", err.Error())
+				return EVMDeployOutput{}, fmt.Errorf("failed to confirm deployment of %s on %s: %w", typeAndVersion, chain, err)
 			}
 			return EVMDeployOutput{
 				Address:        addr,
@@ -452,47 +425,4 @@ func GetBoostedGasForAttempt(cfg cldfproposalutils.GasBoostConfig, attempt uint)
 	gasPrice = initialGasPrice + uint64(attempt)*gasPriceIncrement
 
 	return
-}
-
-func deployZkContract(
-	deployOpts *accounts.TransactOpts,
-	bytecode []byte,
-	client *clients.Client,
-	wallet *accounts.Wallet,
-	parsedABI *abi.ABI,
-	args ...any,
-) (common.Address, error) {
-	var calldata []byte
-	var err error
-	if len(args) > 0 {
-		calldata, err = parsedABI.Pack("", args...)
-		if err != nil {
-			return common.Address{}, fmt.Errorf("failed to pack constructor args: %w", err)
-		}
-	}
-
-	salt := make([]byte, 32)
-	n, err := rand.Read(salt)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to read random bytes: %w", err)
-	}
-	if n != len(salt) {
-		return common.Address{}, fmt.Errorf("failed to read random bytes: expected %d, got %d", len(salt), n)
-	}
-
-	txHash, err := wallet.Deploy(deployOpts, accounts.Create2Transaction{
-		Bytecode: bytecode,
-		Calldata: calldata,
-		Salt:     salt,
-	})
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to deploy zk contract: %w", err)
-	}
-
-	receipt, err := client.WaitMined(context.Background(), txHash)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to confirm zk contract deployment: %w", err)
-	}
-
-	return receipt.ContractAddress, nil
 }

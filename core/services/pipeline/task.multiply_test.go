@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -119,7 +118,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 			t.Run("without vars through job DAG", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.MultiplyTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Times: test.times}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("without vars through input param", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
@@ -128,7 +127,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 					Input:    fmt.Sprintf("%v", test.input),
 					Times:    test.times,
 				}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(map[string]any{
@@ -140,7 +139,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 					Input:    "$(foo.bar)",
 					Times:    "$(chain.link)",
 				}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 		})
 	}
@@ -173,7 +172,7 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 				Input:    test.input,
 				Times:    test.times,
 			}
-			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(t.Context(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			require.ErrorIs(t, result.Error, test.wantErrorCause)
@@ -203,8 +202,8 @@ func TestMultiplyTask_Overflow(t *testing.T) {
 		"b": d2,
 	})
 
-	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: "123"}})
+	result, runInfo := task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: "123"}})
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
-	require.Equal(t, pipeline.ErrMultiplyOverlow, errors.Cause(result.Error))
+	require.Equal(t, pipeline.ErrMultiplyOverflow, errors.Cause(result.Error))
 }

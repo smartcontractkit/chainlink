@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes/gateway"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 

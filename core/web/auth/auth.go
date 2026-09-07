@@ -140,8 +140,6 @@ func AuthenticateExternalInitiator(c *gin.Context, store Authenticator) error {
 		return auth.ErrorAuthFailed
 	}
 
-	c.Set(SessionExternalInitiatorKey, ei)
-
 	// External initiator endpoints (wrapped with AuthenticateExternalInitiator) inherently assume the role
 	// of 'run' (required to trigger job runs)
 	c.Set(SessionExternalInitiatorKey, ei)

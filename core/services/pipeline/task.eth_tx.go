@@ -163,7 +163,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 	} else if minOutgoingConfirmations > 0 {
 		// Store the task run ID, so we can resume the pipeline after minOutgoingConfirmations
 		txRequest.PipelineTaskRunID = &t.uuid
-		txRequest.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
+		txRequest.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations)) //nolint:gosec // G115
 	}
 
 	_, err = txManager.CreateTransaction(ctx, txRequest)
@@ -251,7 +251,7 @@ func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.TxMeta) {
 	}
 	switch v := jobID.(type) {
 	case int64:
-		vv := int32(v)
+		vv := int32(v) //nolint:gosec // G115
 		meta.JobID = &vv
 	default:
 		logger.Sugared(lggr).AssumptionViolationf("expected type int32 for vars.jobSpec.databaseID; got: %T (value: %v)", jobID, jobID)

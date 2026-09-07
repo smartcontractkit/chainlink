@@ -89,7 +89,7 @@ func main() {
 	}
 	client := &client{privateKey: sampleKey, lggr: lggr}
 	// client acts as a signer here
-	connector, _ := connector.NewGatewayConnector(&cfg, client, clockwork.NewRealClock(), lggr)
+	connector, _ := connector.NewGatewayConnector(&cfg, client, clockwork.NewRealClock(), lggr, "")
 	err = connector.AddHandler(context.Background(), []string{"test_method"}, client)
 	if err != nil {
 		fmt.Println("error adding handler:", err)

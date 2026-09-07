@@ -4,10 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -84,57 +80,28 @@ func DeployRegistryModuleChangeset(e cldf.Environment, cfg DeployRegistryModuleC
 
 		e.Logger.Infow("Deploying RegistryModuleOwnerCustom 1.6.0", "chain", chainSel)
 
-		registryModule, err := cldf.DeployContract(e.Logger, chain, addressBook,
-			func(chain cldf_evm.Chain) cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
-				var (
-					regModAddr common.Address
-					tx         *types.Transaction
-					regMod     *registry_module_owner_custom.RegistryModuleOwnerCustom
-					err2       error
-				)
+		tv := cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0)
+		tv.Labels = cldf.NewLabelSet("RegistryModuleOwnerCustom 1.6.0")
 
-				if chain.IsZkSyncVM {
-					regModAddr, _, regMod, err2 = registry_module_owner_custom.DeployRegistryModuleOwnerCustomZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						chainState.TokenAdminRegistry.Address(),
-					)
-					// ZkSync deployment doesn't return a transaction, so tx remains nil
-				} else {
-					regModAddr, tx, regMod, err2 = registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
-						chain.DeployerKey,
-						chain.Client,
-						chainState.TokenAdminRegistry.Address(),
-					)
-				}
+		registryModule, err := shared.DeployContractAndRecord(e.Logger, chain, addressBook, ds, tv, "",
+			func(chain cldf_evm.Chain) cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
+				regModAddr, tx, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
+					chain.DeployerKey,
+					chain.Client,
+					chainState.TokenAdminRegistry.Address(),
+				)
 
 				return cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
 					Address:  regModAddr,
 					Contract: regMod,
 					Tx:       tx,
-					Tv:       cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0),
+					Tv:       tv,
 					Err:      err2,
 				}
 			})
 
 		if err != nil {
 			return cldf.ChangesetOutput{DataStore: ds}, fmt.Errorf("failed to deploy registry module on chain %d: %w", chainSel, err)
-		}
-
-		// Add the address reference to the datastore
-		if err = ds.Addresses().Add(datastore.AddressRef{
-			ChainSelector: chainSel,
-			Address:       registryModule.Address.Hex(),
-			Type:          datastore.ContractType(shared.RegistryModule),
-			Version:       semver.MustParse("1.6.0"),
-			Labels: datastore.NewLabelSet(
-				"RegistryModuleOwnerCustom 1.6.0",
-			),
-		}); err != nil {
-			return cldf.ChangesetOutput{DataStore: ds},
-				fmt.Errorf("failed to save address ref for chain %d: %w", chainSel, err)
 		}
 
 		e.Logger.Infow("Successfully deployed RegistryModuleOwnerCustom 1.6.0",

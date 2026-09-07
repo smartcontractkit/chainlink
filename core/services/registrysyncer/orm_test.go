@@ -18,15 +18,13 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	orm := registrysyncer.NewORM(db, lggr)
 
@@ -149,7 +147,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 
 func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	orm := registrysyncer.NewORM(db, lggr)
 

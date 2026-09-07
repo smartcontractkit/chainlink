@@ -64,28 +64,16 @@
       #docker_file = "core/chainlink.Dockerfile"
       image = "chainlink-tmp:latest"
       user_config_overrides = """
+      # [Telemetry], [Billing], and [Metering] are framework-managed and are
+      # REJECTED here (see validateUserConfigOverrides in system-tests/lib):
+      # the framework generates them itself, pointing telemetry at the
+      # chip-router so downstream subscribers (e.g. the CI test sink) see all
+      # events. To enable metering, set enable_metering = true on the nodeset.
       [Log]
       Level = 'debug'
       JSONConsole = true
 
-      [Telemetry]
-      Enabled = true
-      # assumes that CTF's observability stack is running on the local host
-      # 4317 is OTEL ingress port of the stack (LGTM)
-      # command: ctf obs up
-      Endpoint = 'host.docker.internal:4317'
-      # default service-name and port used by locally running Chip Ingress
-      # command: go run . env chip-ingress-stack start
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
-
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
-
-      [Billing]
-      URL = "host.docker.internal:2223"
-      TLSEnabled = false
       """

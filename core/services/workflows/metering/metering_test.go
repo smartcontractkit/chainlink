@@ -1292,6 +1292,134 @@ func Test_Report_FormatReport(t *testing.T) {
 		assert.Equal(t, expected, report.FormatReport().Steps)
 		billingClient.AssertExpectations(t)
 	})
+
+	t.Run("gas spend with spend_value_in_gas_units skips shift", func(t *testing.T) {
+		t.Parallel()
+
+		numSteps := 1
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRatesMulti,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "10000000000", // 10 gwei per credit
+				},
+			}, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		expected := map[string]*eventspb.MeteringReportStep{}
+
+		for i := range numSteps {
+			stepRef := strconv.Itoa(i)
+
+			_, err := report.Deduct(stepRef, ByResource(testUnitA, "", decimal.NewFromInt(1)))
+			require.NoError(t, err)
+
+			require.NoError(t, report.Settle(stepRef, capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+				{Peer2PeerID: "xyz", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "42"},
+				{Peer2PeerID: "abc", SpendUnit: testUnitGas, SpendValue: "0.000001", SpendValueInGasUnits: "1000000000000"}, // 1000 gwei in wei, no shift needed
+			}}))
+
+			expected[stepRef] = &eventspb.MeteringReportStep{
+				Nodes: []*eventspb.MeteringReportNodeDetail{
+					{
+						Peer_2PeerId:  "xyz",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValue:    "42",
+						SpendValueCre: "84.0000000000",
+					},
+					{
+						Peer_2PeerId:         "abc",
+						SpendUnit:            testUnitGas,
+						SpendValue:           "0.000001",
+						SpendValueCre:        "100.0000000000",
+						SpendValueInGasUnits: "1000000000000",
+					},
+				},
+				AggSpendValue:    "1000000000000.0000000000",
+				AggSpendUnit:     "GAS.5009297550715157269",
+				AggSpendValueCre: "100.0000000000",
+				CapdonN:          1,
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValueCre: "84.0000000000",
+					},
+					{
+						SpendValue:    "1000000000000.0000000000",
+						SpendUnit:     testUnitGas,
+						SpendValueCre: "100.0000000000",
+					},
+				},
+			}
+		}
+
+		assert.Equal(t, expected, report.FormatReport().Steps)
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("mixed legacy and new gas nodes switches to metering mode", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRatesMulti,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "10000000000", // 10 gwei per credit
+				},
+			}, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", decimal.NewFromInt(1)))
+		require.NoError(t, err)
+
+		// One node sends the new SpendValueInGasUnits, another sends only legacy SpendValue
+		require.NoError(t, report.Settle("ref1", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "abc", SpendUnit: testUnitGas, SpendValue: "0.000001", SpendValueInGasUnits: "1000000000000"},
+			{Peer2PeerID: "lmno", SpendUnit: testUnitGas, SpendValue: "0.000001"},
+		}}))
+
+		assert.True(t, report.meteringMode)
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("ignores invalid spend_value_in_gas_units", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRatesMulti,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "10000000000", // 10 gwei per credit
+				},
+			}, nil)
+		report := newTestReport(t, lggr, billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", decimal.NewFromInt(1)))
+		require.NoError(t, err)
+
+		// One node sends invalid SpendValueInGasUnits (skipped), another sends valid value
+		require.NoError(t, report.Settle("ref1", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "abc", SpendUnit: testUnitGas, SpendValue: "0.000000000000000001", SpendValueInGasUnits: "????"},
+			{Peer2PeerID: "xyz", SpendUnit: testUnitGas, SpendValue: "0.000000000000000001", SpendValueInGasUnits: "1"},
+		}}))
+
+		assert.Len(t, logs.All(), 1)
+		billingClient.AssertExpectations(t)
+	})
 }
 
 func Test_Report_SendReceipt(t *testing.T) {

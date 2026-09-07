@@ -2,17 +2,35 @@ package stellar
 
 import "github.com/smartcontractkit/chainlink-stellar/deployment/cre"
 
-// Artifact filenames produced by `stellar contract build` in the chainlink-stellar
-// cargo workspace (target/wasm32v1-none/release/). These are duplicated from
-// chainlink-stellar/deployment/cre/artifacts.go so callers in the deployment
-// module and downstream system-tests/lib do not need to import chainlink-stellar.
+// Artifact filenames for Stellar contracts embedded in chainlink-stellar.
+//
+// Deployment changesets should use this package instead of importing the
+// chainlink-stellar artifact package directly.
 const (
-	// ReadFixtureWasm is the CRE ReadContract test fixture (contracts/cre/test/read_fixture).
+	// MCMSWasm is the Stellar Many Chain MultiSig contract.
+	MCMSWasm = cre.MCMSWasm
+
+	// TimelockWasm is the Stellar Timelock contract.
+	TimelockWasm = cre.TimelockWasm
+
+	// ReadFixtureWasm is the CRE ReadContract test fixture.
 	ReadFixtureWasm = cre.ReadFixtureWasm
 
-	// ForwarderWasm is the CRE forwarder (contracts/cre/forwarder).
+	// ForwarderWasm is the CRE Forwarder contract.
 	ForwarderWasm = cre.ForwarderWasm
 
-	// ReceiverWasm is the CRE test receiver (contracts/cre/test/receiver).
+	// ReceiverWasm is the CRE test receiver.
 	ReceiverWasm = cre.ReceiverWasm
+
+	// RejectingReceiverWasm is the CRE test receiver that always rejects
+	// on_report calls.
+	RejectingReceiverWasm = cre.RejectingReceiverWasm
 )
+
+// Artifact returns the compiled WASM for the requested Stellar contract.
+//
+// The artifacts are embedded in the pinned chainlink-stellar module. Nothing
+// is compiled, downloaded, or resolved at deployment time.
+func Artifact(name string) ([]byte, error) {
+	return cre.Artifact(name)
+}

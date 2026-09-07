@@ -1,0 +1,14 @@
+*CCIP Release Changelog* `v2.55.0` → `v2.56.0`
+<https://github.com/smartcontractkit/chainlink/compare/oldoldoldold...newnewnewnew|core compare> · <https://github.com/smartcontractkit/chainlink/blob/newnewnewnewnewnewnewnewnewnewnewnew0000/CHANGELOG.md|core changelog>
+
+:warning: *Flags (5)*
+• *chainlink-ccip*: keyword match — feat: add fast lane config ([`deadbeef0000`](https://github.com/smartcontractkit/chainlink-ccip/commit/deadbeef0000))
+• *chainlink-solana*: ROLLBACK — new pin `333333333333` is BEHIND old pin `333333333333`
+• *chainlink-ton*: plugin `ton` gitRef changed `v1.0.5-0.20260101000000-111111111111` → `v1.0.5-0.20260202000000-555555555555`
+• *chainlink-ton*: DRIFT at new ref — plugin `ton` pins `555555555555` but go.mod `chainlink-ton` pins `444444444444`
+• *chainlink-ton*: keyword match — hotfix for gas estimator ([`cafe0000cafe`](https://github.com/smartcontractkit/chainlink-ton/commit/cafe0000cafe))
+
+*Commits per repo*
+chainlink-ccip: 2 · chainlink-aptos: ⚠️ error · chainlink-sui: no change · chainlink-solana: 0 · chainlink-ton: 1 · chainlink-evm: no change · chainlink: 1
+
+Full report attached below :point_down:

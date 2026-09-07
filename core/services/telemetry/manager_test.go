@@ -186,7 +186,7 @@ func TestNewManager(t *testing.T) {
 
 	require.Equal(t, "TelemetryManager", m.Name())
 
-	require.NoError(t, m.Start(testutils.Context(t)))
+	require.NoError(t, m.Start(t.Context()))
 	t.Cleanup(func() {
 		require.NoError(t, m.Close())
 	})
@@ -382,7 +382,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 
 		tm := NewManager(tic, ks, lggr)
 		// Start and cleanup the manager to ensure background goroutines are properly stopped
-		require.NoError(t, tm.Start(testutils.Context(t)))
+		require.NoError(t, tm.Start(t.Context()))
 		t.Cleanup(func() {
 			require.NoError(t, tm.Close())
 		})

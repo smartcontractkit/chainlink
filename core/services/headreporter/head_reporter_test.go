@@ -27,7 +27,7 @@ func Test_HeadReporterService(t *testing.T) {
 		headReporter := NewMockHeadReporter(t)
 		service := NewHeadReporterService(db, logger.TestLogger(t), headReporter)
 		service.reportPeriod = time.Second
-		err := service.Start(testutils.Context(t))
+		err := service.Start(t.Context())
 		require.NoError(t, err)
 
 		var reportCalls atomic.Int32
@@ -38,7 +38,7 @@ func Test_HeadReporterService(t *testing.T) {
 		headReporter.On("ReportPeriodic", mock.Anything).Run(func(args mock.Arguments) {
 			reportCalls.Add(1)
 		}).Return(nil)
-		service.OnNewLongestChain(testutils.Context(t), &head)
+		service.OnNewLongestChain(t.Context(), &head)
 
 		require.Eventually(t, func() bool { return reportCalls.Load() == 2 }, 5*time.Second, 100*time.Millisecond)
 	})

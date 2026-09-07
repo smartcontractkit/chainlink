@@ -7,8 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
 const (
@@ -50,7 +48,7 @@ func (gp EstimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
 	if numRequests <= 0 {
 		return 0
 	}
-	merkleProofBytes := (math.Ceil(math.Log2(float64(numRequests))))*32 + (1+2)*32 // only ever one outer root hash
+	merkleProofBytes := math.Ceil(math.Log2(float64(numRequests)))*32 + (1+2)*32 // only ever one outer root hash
 	return uint64(merkleProofBytes * CalldataGasPerByteBase)
 }
 
@@ -61,7 +59,7 @@ func bytesForMsgTokens(numTokens int) int {
 }
 
 // CalculateMessageMaxGas computes the maximum gas overhead for a message.
-func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 {
+func (gp EstimateProvider) CalculateMessageMaxGas(msg ccipocr3.Message) uint64 {
 	maxGas, err := gp.CalculateMessageMaxGasWithError(msg)
 	if err != nil {
 		panic(err)
@@ -70,7 +68,7 @@ func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 
 }
 
 // CalculateMessageMaxGasWithError computes the maximum gas overhead for a message.
-func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message) (uint64, error) {
+func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg ccipocr3.Message) (uint64, error) {
 	numTokens := len(msg.TokenAmounts)
 	var data []byte = msg.Data
 	dataLength := len(data)

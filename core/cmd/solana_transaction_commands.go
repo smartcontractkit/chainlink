@@ -54,8 +54,7 @@ func (p *SolanaMsgPresenter) RenderTable(rt RendererTable) error {
 		strconv.FormatUint(p.Amount, 10),
 	})
 
-	render(fmt.Sprintf("Solana Message %v", p.ID), table)
-	return nil
+	return render(fmt.Sprintf("Solana Message %v", p.ID), table)
 }
 
 // SolanaSendSol transfers sol from the node's account to a specified address.

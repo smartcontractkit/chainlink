@@ -14,7 +14,7 @@ internal/        # GraphQL queries/mutations and generated code
 ### Prerequisites
 
 - [go-task](https://taskfile.dev/) (`task` CLI)
-- Go 1.26.4+
+- Go 1.26.5+
 
 ### Extending the Client
 

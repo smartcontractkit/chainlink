@@ -67,12 +67,12 @@ func (l *LogDeduper) ShouldDeliver(log types.Log) bool {
 
 func (l *LogDeduper) Prune(logBlock uint64) {
 	// Only prune every pruneInterval blocks
-	if int(logBlock)-int(l.lastPruneHeight) < pruneInterval {
+	if int(logBlock)-int(l.lastPruneHeight) < pruneInterval { //nolint:gosec // G115
 		return
 	}
 
 	for key := range l.delivered {
-		if int(key.blockNumber) < int(logBlock)-l.lookback {
+		if int(key.blockNumber) < int(logBlock)-l.lookback { //nolint:gosec // G115
 			delete(l.delivered, key)
 		}
 	}

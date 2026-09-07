@@ -493,6 +493,22 @@ func ExecuteConfigureCapabilitiesRegistry(input cre.ConfigureCapabilityRegistryI
 	return newCapabilityRegistry(capRegContract.Contract), nil
 }
 
+// BindCapabilityRegistry returns a CapabilityRegistry binding for an already-deployed
+// contract without running the configure sequence, for callers that only need to read
+// from the registry (e.g. resolving DON IDs) when reconfiguring it was skipped.
+func BindCapabilityRegistry(env *cldf.Environment, chainSelector uint64, addressHex string) (CapabilityRegistry, error) {
+	capRegContract, err := cre_contracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
+		env.DataStore.Addresses(),
+		env.BlockChains.EVMChains()[chainSelector],
+		addressHex,
+		"",
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get capabilities registry contract")
+	}
+	return newCapabilityRegistry(capRegContract.Contract), nil
+}
+
 type DonInfo struct {
 	ID          uint32
 	F           uint8

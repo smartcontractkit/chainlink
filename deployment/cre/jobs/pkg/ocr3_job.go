@@ -67,7 +67,15 @@ type OCR3JobConfig struct {
 	Auth0                      *Auth0Config
 }
 
+// ErrWorkerOCR3Deprecated is returned when the "worker-ocr3" template is
+// requested. The chainlink-ocr3-capability plugin and its job spec have been
+// removed; use another template (e.g. "worker-vault") instead.
+var ErrWorkerOCR3Deprecated = errors.New("the \"worker-ocr3\" template is deprecated and no longer supported")
+
 func (c OCR3JobConfig) Validate() error {
+	if c.TemplateName == "worker-ocr3" {
+		return ErrWorkerOCR3Deprecated
+	}
 	if c.TemplateName == "" {
 		return errors.New("TemplateName is empty")
 	}

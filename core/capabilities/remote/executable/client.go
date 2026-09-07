@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -200,7 +199,7 @@ func (c *client) expireRequests() {
 		}
 
 		if c.dispatcher.Ready() != nil {
-			c.cancelAllRequests(errors.New("dispatcher not ready"))
+			c.cancelAllRequestsLocked(errors.New("dispatcher not ready"))
 			return
 		}
 	}
@@ -208,7 +207,11 @@ func (c *client) expireRequests() {
 
 func (c *client) cancelAllRequests(err error) {
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.cancelAllRequestsLocked(err)
+	c.mutex.Unlock()
+}
+
+func (c *client) cancelAllRequestsLocked(err error) {
 	for _, req := range c.requestIDToCallerRequest {
 		req.Cancel(err)
 	}

@@ -5,13 +5,13 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
-var _ cciptypes.AddressCodec = &AddressCodec{}
+var _ ccipocr3.AddressCodec = &AddressCodec{}
 
 // AddressCodec is a struct that holds the chain specific address codecs and
-// implements a superset of the cciptypes.AddressCodec interface.
+// implements a superset of the ccipocr3.AddressCodec interface.
 type AddressCodec struct {
 	registeredAddressCodecMap map[string]ChainSpecificAddressCodec
 }
@@ -24,7 +24,7 @@ func NewAddressCodec(registeredMap map[string]ChainSpecificAddressCodec) Address
 }
 
 // AddressBytesToString converts an address from bytes to string
-func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chainSelector cciptypes.ChainSelector) (string, error) {
+func (ac AddressCodec) AddressBytesToString(addr ccipocr3.UnknownAddress, chainSelector ccipocr3.ChainSelector) (string, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
 		return "", fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
@@ -39,7 +39,7 @@ func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chain
 }
 
 // TransmitterBytesToString converts a transmitter account from bytes to string
-func (ac AddressCodec) TransmitterBytesToString(addr cciptypes.UnknownAddress, chainSelector cciptypes.ChainSelector) (string, error) {
+func (ac AddressCodec) TransmitterBytesToString(addr ccipocr3.UnknownAddress, chainSelector ccipocr3.ChainSelector) (string, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
 		return "", fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
@@ -54,7 +54,7 @@ func (ac AddressCodec) TransmitterBytesToString(addr cciptypes.UnknownAddress, c
 }
 
 // AddressStringToBytes converts an address from string to bytes
-func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
+func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector ccipocr3.ChainSelector) (ccipocr3.UnknownAddress, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
@@ -69,7 +69,7 @@ func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes
 
 // OracleIDAsAddressBytes returns valid address bytes for a given chain selector and oracle ID.
 // Used for making nil transmitters in the OCR config valid, it just means that this oracle does not support the destination chain.
-func (ac AddressCodec) OracleIDAsAddressBytes(oracleID uint8, chainSelector cciptypes.ChainSelector) ([]byte, error) {
+func (ac AddressCodec) OracleIDAsAddressBytes(oracleID uint8, chainSelector ccipocr3.ChainSelector) ([]byte, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)

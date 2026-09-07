@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/freeport"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -73,8 +73,8 @@ func TestLoopRegistry(t *testing.T) {
 
 	// note we expect this to be an ordered result
 	expectedLabels := []model.LabelSet{
-		model.LabelSet{"__metrics_path__": model.LabelValue(expectedCoreEndPoint)},
-		model.LabelSet{
+		{"__metrics_path__": model.LabelValue(expectedCoreEndPoint)},
+		{
 			"__metrics_path__":      model.LabelValue(expectedLooppEndPoint),
 			web.LabelMetaPluginName: model.LabelValue("mockLoopImpl"),
 		},

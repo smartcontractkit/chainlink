@@ -3,7 +3,9 @@ package blockhashstore
 import (
 	"context"
 	"errors"
+	"maps"
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -12,16 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	bhsmocks "github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore/mocks"
 )
@@ -97,10 +96,12 @@ var (
 			requests: []Event{
 				{Block: 150, ID: "10001"},
 				{Block: 150, ID: "10002"},
-				{Block: 150, ID: "10003"}},
+				{Block: 150, ID: "10003"},
+			},
 			fulfillments: []Event{
 				{Block: 150, ID: "10001"},
-				{Block: 150, ID: "10003"}},
+				{Block: 150, ID: "10003"},
+			},
 			wait:                    25,
 			lookback:                100,
 			latest:                  200,
@@ -112,11 +113,13 @@ var (
 			requests: []Event{
 				{Block: 150, ID: "10001"},
 				{Block: 150, ID: "10002"},
-				{Block: 150, ID: "10003"}},
+				{Block: 150, ID: "10003"},
+			},
 			fulfillments: []Event{
 				{Block: 150, ID: "10001"},
 				{Block: 150, ID: "10002"},
-				{Block: 150, ID: "10003"}},
+				{Block: 150, ID: "10003"},
+			},
 			wait:                    25,
 			lookback:                100,
 			latest:                  200,
@@ -186,7 +189,8 @@ var (
 				{Block: 153, ID: "10006"},
 
 				// Block 154
-				{Block: 154, ID: "10007"}},
+				{Block: 154, ID: "10007"},
+			},
 			fulfillments: []Event{
 				// Block 150
 				{Block: 150, ID: "10001"},
@@ -200,7 +204,8 @@ var (
 				// Block 153 - no fulfillment
 
 				// Block 154
-				{Block: 154, ID: "10007"}},
+				{Block: 154, ID: "10007"},
+			},
 			wait:                    25,
 			lookback:                100,
 			latest:                  200,
@@ -236,9 +241,10 @@ func TestStartHeartbeats(t *testing.T) {
 			expectedDuration,
 			func(ctx context.Context) (uint64, error) {
 				return tests[0].latest, nil
-			})
+			},
+		)
 
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(t.Context())
 		mockTimer := bhsmocks.NewTimer(t)
 
 		mockBHS.On("StoreEarliest", ctx).Return(nil).Once()
@@ -281,9 +287,10 @@ func TestStartHeartbeats(t *testing.T) {
 			expectedDuration,
 			func(ctx context.Context) (uint64, error) {
 				return tests[0].latest, nil
-			})
+			},
+		)
 
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(t.Context())
 		mockTimer := bhsmocks.NewTimer(t)
 
 		mockBHS.On("StoreEarliest", ctx).Return(expectedError).Once()
@@ -328,7 +335,8 @@ func TestStartHeartbeats(t *testing.T) {
 			expectedDuration,
 			func(ctx context.Context) (uint64, error) {
 				return tests[0].latest, nil
-			})
+			},
+		)
 
 		mockTimer := bhsmocks.NewTimer(t)
 		mockLogger.On("Infow", "Not starting heartbeat blockhash using storeEarliest").Once()
@@ -339,7 +347,7 @@ func TestStartHeartbeats(t *testing.T) {
 		defer mockBHS.AssertExpectations(t)
 		defer mockLogger.AssertExpectations(t)
 
-		feeder.StartHeartbeats(testutils.Context(t), mockTimer)
+		feeder.StartHeartbeats(t.Context(), mockTimer)
 	})
 }
 
@@ -380,9 +388,10 @@ func (test testCase) testFeeder(t *testing.T) {
 		600*time.Second,
 		func(ctx context.Context) (uint64, error) {
 			return test.latest, nil
-		})
+		},
+	)
 
-	err := feeder.Run(testutils.Context(t))
+	err := feeder.Run(t.Context())
 	if test.expectedErrMsg == "" {
 		require.NoError(t, err)
 	} else {
@@ -390,7 +399,7 @@ func (test testCase) testFeeder(t *testing.T) {
 	}
 
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]uint64, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
 }
 
 func TestFeederWithLogPollerVRFv2(t *testing.T) {
@@ -400,7 +409,7 @@ func TestFeederWithLogPollerVRFv2(t *testing.T) {
 }
 
 func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
-	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
+	coordinatorAddress := common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
 
 	// Instantiate log poller & coordinator.
 	lp := &lpmocks.LogPoller{}
@@ -413,7 +422,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 	}
 
 	// Assert search window.
-	latest := int64(test.latest)
+	latest := int64(test.latest) //nolint:gosec // G115
 	fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
 	toBlock := mathutil.Max(latest-int64(test.wait), 0)
 
@@ -478,17 +487,18 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 		600*time.Second,
 		func(ctx context.Context) (uint64, error) {
 			return test.latest, nil
-		})
+		},
+	)
 
 	// Run feeder and assert correct results.
-	err = feeder.Run(testutils.Context(t))
+	err = feeder.Run(t.Context())
 	if test.expectedErrMsg == "" {
 		require.NoError(t, err)
 	} else {
 		require.EqualError(t, err, test.expectedErrMsg)
 	}
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]uint64, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
 }
 
 func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
@@ -498,7 +508,7 @@ func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
 }
 
 func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
-	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
+	coordinatorAddress := common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
 
 	// Instantiate log poller & coordinator.
 	lp := &lpmocks.LogPoller{}
@@ -511,14 +521,14 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 	}
 
 	// Assert search window.
-	latest := int64(test.latest)
+	latest := int64(test.latest) //nolint:gosec // G115
 	fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
 	toBlock := mathutil.Max(latest-int64(test.wait), 0)
 
 	// Construct request logs.
 	var requestLogs []logpoller.Log
 	for _, r := range test.requests {
-		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) {
+		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) { //nolint:gosec // G115
 			continue // do not include blocks outside our search window
 		}
 		reqId, ok := big.NewInt(0).SetString(r.ID, 10)
@@ -576,17 +586,18 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 		600*time.Second,
 		func(ctx context.Context) (uint64, error) {
 			return test.latest, nil
-		})
+		},
+	)
 
 	// Run feeder and assert correct results.
-	err = feeder.Run(testutils.Context(t))
+	err = feeder.Run(t.Context())
 	if test.expectedErrMsg == "" {
 		require.NoError(t, err)
 	} else {
 		require.EqualError(t, err, test.expectedErrMsg)
 	}
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]uint64, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
@@ -608,23 +619,24 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 		600*time.Second,
 		func(ctx context.Context) (uint64, error) {
 			return 250, nil
-		})
+		},
+	)
 
 	// Should store block 100
-	require.NoError(t, feeder.Run(testutils.Context(t)))
+	require.NoError(t, feeder.Run(t.Context()))
 	require.ElementsMatch(t, []uint64{100}, bhs.Stored)
 
 	// Remove 100 from the BHS and try again, it should not be stored since it's cached in the
 	// feeder
 	bhs.Stored = nil
-	require.NoError(t, feeder.Run(testutils.Context(t)))
+	require.NoError(t, feeder.Run(t.Context()))
 	require.Empty(t, bhs.Stored)
 
 	// Run the feeder on a later block and make sure the cache is pruned
 	feeder.latestBlock = func(ctx context.Context) (uint64, error) {
 		return 500, nil
 	}
-	require.NoError(t, feeder.Run(testutils.Context(t)))
+	require.NoError(t, feeder.Run(t.Context()))
 	require.Empty(t, feeder.stored)
 }
 
@@ -707,7 +719,7 @@ func newRandomnessRequestedLogV2(
 			// third topic is sender since it's indexed
 			topic3,
 		},
-		BlockNumber: int64(requestBlock),
+		BlockNumber: int64(requestBlock), //nolint:gosec // G115
 		EventSig:    topic0,
 	}
 	return lg
@@ -763,7 +775,7 @@ func newRandomnessFulfilledLogV2(
 			// second topic is requestId since it's indexed
 			topic1,
 		},
-		BlockNumber: int64(requestBlock),
+		BlockNumber: int64(requestBlock), //nolint:gosec // 115
 		EventSig:    topic0,
 	}
 	return lg

@@ -52,6 +52,10 @@ func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 }
 
 func TestHeartbeat_MeterEvents(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	lggr := logger.TestLogger(t)
 
 	// Use a thread-safe byte collector

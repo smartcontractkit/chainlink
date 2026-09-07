@@ -107,7 +107,7 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 		_, err := GenerateOCR3ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
 		require.Error(t, err)
 	})
-	t.Run("transmitter schedule eqaul num nodes", func(t *testing.T) {
+	t.Run("transmitter schedule equal num nodes", func(t *testing.T) {
 		cfg2 := cfg
 		cfg2.TransmissionSchedule = []int{len(nodes) + 1}
 		_, err := GenerateOCR3ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)

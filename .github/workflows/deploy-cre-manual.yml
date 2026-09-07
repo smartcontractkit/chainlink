@@ -2,6 +2,10 @@ name: "Deploy CRE (Manual)"
 
 # Manually bump CRE to a chainlink image that's already been published, e.g. a
 # hotfix RC that build-publish.yml skipped deploying automatically.
+#
+# Uses a version-specific branch/PR per product (instead of the standing
+# auto/deploy-<product> branch the automatic RC pipeline reuses), so a manual
+# bump never overwrites whatever the standing deploy PR currently points to.
 
 on:
   workflow_dispatch:
@@ -9,11 +13,6 @@ on:
       version:
         description: 'Chainlink release tag already built and pushed (e.g. "v2.38.1-rc.0")'
         required: true
-      pr-close-enabled:
-        description: "Close previously opened deploy PRs before opening a new one"
-        required: false
-        default: true
-        type: boolean
 
 permissions: {}
 
@@ -59,4 +58,5 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
           oci-image-tag: ${{ needs.validate.outputs.oci-image-tag }}
-          pr-close-enabled: ${{ inputs.pr-close-enabled }}
+          pr-head-branch-override: auto/deploy-{product}-${{ needs.validate.outputs.oci-image-tag }}
+          pr-title-override: "{product} - Deploy ${{ needs.validate.outputs.oci-image-tag }}"

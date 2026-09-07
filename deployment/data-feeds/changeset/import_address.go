@@ -13,7 +13,7 @@ import (
 )
 
 // ImportAddressToDataStoreChangeset is a changeset that reads already deployed contract addresses from input file
-// and saves them to the data store. Returns a new datatore with the imported addresses.
+// and saves them to the data store. Returns a new datastore with the imported addresses.
 var ImportAddressToDataStoreChangeset = cldf.CreateChangeSet(importAddressToDatastoreLogic, importAddressToDatastorePrecondition)
 
 func importAddressToDatastoreLogic(env cldf.Environment, c types.ImportAddressesConfig) (cldf.ChangesetOutput, error) {

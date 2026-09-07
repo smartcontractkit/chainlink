@@ -117,6 +117,10 @@ func TestCapability_Execute_ZoneBRestriction_DeniesNonAllowlistedOwner(t *testin
 // request then blocks in handleRequest until the context deadline, so we assert
 // it got past the gate (no zone-b denial) and reached the handler (timeout).
 func TestCapability_Execute_ZoneBRestriction_AllowsAllowlistedOwner(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"},"owner":{"`+allowlistedOwner+`":{"PerOwner":{"VaultZoneBGetSecretsAllowed":"true"}}}}`)
 

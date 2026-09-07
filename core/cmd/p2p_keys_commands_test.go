@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -61,7 +60,7 @@ func TestP2PKeyPresenter_RenderTable(t *testing.T) {
 
 func TestShell_ListP2PKeys(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 	key, err := app.GetKeyStore().P2P().Create(ctx)
@@ -71,7 +70,7 @@ func TestShell_ListP2PKeys(t *testing.T) {
 
 	client, r := app.NewShellAndRenderer()
 
-	assert.NoError(t, client.ListP2PKeys(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListP2PKeys(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	keys := *r.Renders[0].(*cmd.P2PKeyPresenters)
 	assert.Equal(t, key.PublicKeyHex(), keys[0].PubKey)
@@ -93,7 +92,7 @@ func TestShell_CreateP2PKey(t *testing.T) {
 
 func TestShell_DeleteP2PKey(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -120,7 +119,7 @@ func TestShell_DeleteP2PKey(t *testing.T) {
 
 func TestShell_ImportExportP2PKeyBundle(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	defer deleteKeyExportFile(t)
 

@@ -59,12 +59,26 @@ runs:
         set +e
         # GitHub invokes bash with errexit (-e); disable it so a failed `env start`
         # does not abort the script before we can retry.
+
+        CRE_BIN=""
+        if [[ -x "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" ]]; then
+          CRE_BIN="$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env"
+          echo "Using pre-compiled CRE environment CLI binary: ${CRE_BIN}"
+        elif [[ -x "./bin/cre-env" ]]; then
+          CRE_BIN="./bin/cre-env"
+          echo "Using pre-compiled CRE environment CLI binary: ${CRE_BIN}"
+        fi
+
         last_exit=1
         attempt=1
         while [[ "$attempt" -le "$MAX_ATTEMPTS" ]]; do
           echo "Starting local CRE (attempt ${attempt}/${MAX_ATTEMPTS})..."
           # shellcheck disable=SC2086
-          go run . env start ${ENV_START_EXTRA_ARGS} --cleanup-on-error="${CLEANUP_ON_ERROR}"
+          if [[ -n "$CRE_BIN" ]]; then
+            "$CRE_BIN" env start ${ENV_START_EXTRA_ARGS} --cleanup-on-error="${CLEANUP_ON_ERROR}"
+          else
+            go run . env start ${ENV_START_EXTRA_ARGS} --cleanup-on-error="${CLEANUP_ON_ERROR}"
+          fi
           last_exit=$?
           if [[ "$last_exit" -eq 0 ]]; then
             exit 0
@@ -72,7 +86,11 @@ runs:
           echo "env start failed with exit code ${last_exit}"
           if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
             echo "Running env stop before retry..."
-            go run . env stop || true
+            if [[ -n "$CRE_BIN" ]]; then
+              "$CRE_BIN" env stop || true
+            else
+              go run . env stop || true
+            fi
             sleep "${RETRY_DELAY_SECONDS}"
           fi
           attempt=$((attempt + 1))

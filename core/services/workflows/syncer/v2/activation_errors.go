@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -60,8 +59,7 @@ func nonRetryable(err error) error {
 }
 
 func classifyActivationError(err error) ActivationRetryPolicy {
-	var policyErr *activationPolicyError
-	if errors.As(err, &policyErr) {
+	if policyErr, ok := errors.AsType[*activationPolicyError](err); ok {
 		return policyErr.policy
 	}
 
@@ -95,9 +93,10 @@ func isPermanentEngineInitError(err error) bool {
 			strings.Contains(msg, "invalid workflow name"),
 			strings.Contains(msg, "failed to decode workflow spec binary"),
 			strings.Contains(msg, "failed to decode owner"),
-			strings.Contains(msg, "invalid cron schedule"),
-			strings.Contains(msg, "cron schedule must specify"),
-			strings.Contains(msg, "interval exceeded"):
+			// cron failure when it can't parse the schedule
+			strings.Contains(msg, "failed to initialize job"),
+			// cron rejection when the schedule fires faster than the allowed minimum
+			strings.Contains(msg, "maximum fastest cron schedule"):
 			return true
 		}
 		err = errors.Unwrap(err)

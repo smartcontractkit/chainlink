@@ -1,9 +1,8 @@
 package platform
 
 import (
-	"slices"
-
 	"iter"
+	"slices"
 )
 
 // Observability keys

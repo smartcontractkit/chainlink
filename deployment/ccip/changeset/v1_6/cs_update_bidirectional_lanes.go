@@ -238,20 +238,18 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *cldfproposalutils.Timelock
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	ds, err := shared.PopulateDataStore(e.ExistingAddresses)
+	// Resolve existing FeeQuoter candidates from a plain ref slice drawn from both the
+	// environment DataStore (qualified refs) and the existing address book (chain-singleton
+	// refs). Using a slice rather than a keyed datastore avoids collisions among multi-instance
+	// refs and works even when the environment DataStore is nil/empty.
+	fqCandidates, err := shared.CollectAddressRefs(e)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate datastore from existing addresses: %w", err)
-	}
-	// Merge the environment's DataStore as feequoter v2 is only available in DS
-	if e.DataStore != nil {
-		if err := ds.Merge(e.DataStore); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge environment datastore: %w", err)
-		}
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to collect address refs: %w", err)
 	}
 
 	feeQuoterDestsInput := configs.UpdateFeeQuoterDestsConfig.ToSequenceInput(state)
 	feeQuoterPricesInput := configs.UpdateFeeQuoterPricesConfig.ToSequenceInput(state)
-	feeQuoterVersionsByChain, v2FQAddresses, err := resolveFeeQuoterTargets(ds, &feeQuoterDestsInput, &feeQuoterPricesInput)
+	feeQuoterVersionsByChain, v2FQAddresses, err := resolveFeeQuoterTargets(fqCandidates, &feeQuoterDestsInput, &feeQuoterPricesInput)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -335,9 +333,15 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *cldfproposalutils.Timelock
 
 	var v2BatchOps []mcmstypes.BatchOperation
 	for _, chainSel := range v2FQChainSels {
+		existingFQRefs := make([]datastore.AddressRef, 0, len(fqCandidates))
+		for _, ref := range fqCandidates {
+			if ref.ChainSelector == chainSel {
+				existingFQRefs = append(existingFQRefs, ref)
+			}
+		}
 		fqUpdate := fqv2seq.FeeQuoterUpdate{
 			ChainSelector:     chainSel,
-			ExistingAddresses: ds.Addresses().Filter(datastore.AddressRefByChainSelector(chainSel)),
+			ExistingAddresses: existingFQRefs,
 		}
 		if dests, ok := feeQuoterDestsInput.UpdatesByChain[chainSel]; ok {
 			destCfgs, err := ConvertV16FeeQuoterDestUpdatesToV2(dests.CallInput)
@@ -509,7 +513,7 @@ func ConvertV16FeeQuoterPriceUpdatesToV2(in fee_quoter.InternalPriceUpdates) fqv
 }
 
 func resolveFeeQuoterTargets(
-	ds *datastore.MemoryDataStore,
+	addresses []datastore.AddressRef,
 	destsInput *ccipseqs.FeeQuoterApplyDestChainConfigUpdatesSequenceInput,
 	pricesInput *ccipseqs.FeeQuoterUpdatePricesSequenceInput,
 ) (map[uint64]semver.Version, map[uint64]common.Address, error) {
@@ -520,8 +524,7 @@ func resolveFeeQuoterTargets(
 		if _, ok := versionsByChain[chainSel]; ok {
 			return nil
 		}
-		chainAddresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(chainSel))
-		addr, version, err := resolveUpdateLanesFeeQuoterAddressAndVersion(chainAddresses, chainSel)
+		addr, version, err := resolveUpdateLanesFeeQuoterAddressAndVersion(addresses, chainSel)
 		if err != nil {
 			return fmt.Errorf("failed to resolve FeeQuoter target on chain %d: %w", chainSel, err)
 		}

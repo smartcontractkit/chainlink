@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"testing"
 	"time"
@@ -13,14 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -66,7 +62,7 @@ func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON,
 
 func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	handler, httpClient, don, nodes := setupHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	nodeAddr := nodes[0].Address
 	payload := Request{
 		Method:    "GET",
@@ -79,9 +75,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	require.NoError(t, err)
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: "123",
+			MessageID: "123",
 			Method:    MethodWebAPITarget,
-			DonId:     "testDonId",
+			DonID:     "testDonId",
 			Payload:   json.RawMessage(payloadBytes),
 		},
 	}
@@ -107,10 +103,10 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 200 &&
+				m.Body.DonID == "testDonId" &&
+				payload.StatusCode == http.StatusOK &&
 				len(payload.Headers) == 0 &&
 				string(payload.Body) == "response body" &&
 				!payload.ExecutionError
@@ -143,10 +139,10 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 404 &&
+				m.Body.DonID == "testDonId" &&
+				payload.StatusCode == http.StatusNotFound &&
 				string(payload.Body) == "access denied" &&
 				len(payload.Headers) == 0 &&
 				!payload.ExecutionError
@@ -176,9 +172,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
+				m.Body.DonID == "testDonId" &&
 				payload.ExecutionError &&
 				payload.ErrorMessage == "error while marshalling"
 		})).Return(nil).Once()
@@ -194,7 +190,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	})
 }
 
-func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, methodName string, timestamp string, payload string) *api.Message {
+func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, methodName, timestamp, payload string) *api.Message {
 	messageID := "12345"
 	if methodName == "" {
 		methodName = MethodWebAPITrigger
@@ -224,9 +220,9 @@ func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, method
 	}
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: messageID,
+			MessageID: messageID,
 			Method:    methodName,
-			DonId:     donID,
+			DonID:     donID,
 			Payload:   json.RawMessage(payloadJSON),
 		},
 	}
@@ -239,9 +235,9 @@ func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, method
 
 func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	handler, _, don, nodes := setupHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	msg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "", "")
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 
 	t.Run("happy case", func(t *testing.T) {
 		// sends to 2 dons
@@ -278,7 +274,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageId,
+				invalidMsg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
 				"invalid method foo",
 				nil,
@@ -296,7 +292,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageId,
+				invalidMsg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.HandlerError),
 				"stale message",
 				nil,
@@ -314,7 +310,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageId,
+				invalidMsg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
 				"error decoding payload field params in TriggerRequestPayload: required",
 				nil,
@@ -332,7 +328,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageId,
+				invalidMsg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
 				"error decoding payload field params in TriggerRequestPayload: required",
 				nil,
@@ -366,12 +362,12 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		handler.mu.Unlock()
 	})
 
-	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
+	// TODO: Validate Senders and rate limit check, pending question in trigger about where senders and rate limits are validated
 }
 
 func TestHandleComputeActionMessage(t *testing.T) {
 	handler, httpClient, don, nodes := setupHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	nodeAddr := nodes[0].Address
 	payload := Request{
 		Method:    "GET",
@@ -384,9 +380,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 	require.NoError(t, err)
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: "123",
+			MessageID: "123",
 			Method:    MethodComputeAction,
-			DonId:     "testDonId",
+			DonID:     "testDonId",
 			Payload:   json.RawMessage(payloadBytes),
 		},
 	}
@@ -411,10 +407,10 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodComputeAction == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 200 &&
+				m.Body.DonID == "testDonId" &&
+				payload.StatusCode == http.StatusOK &&
 				len(payload.Headers) == 0 &&
 				string(payload.Body) == "response body" &&
 				!payload.ExecutionError
@@ -448,10 +444,10 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodComputeAction == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 404 &&
+				m.Body.DonID == "testDonId" &&
+				payload.StatusCode == http.StatusNotFound &&
 				string(payload.Body) == "access denied" &&
 				len(payload.Headers) == 0 &&
 				!payload.ExecutionError
@@ -481,9 +477,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodComputeAction == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
+				m.Body.DonID == "testDonId" &&
 				payload.ExecutionError &&
 				payload.ErrorMessage == "error while marshalling"
 		})).Return(nil).Once()
@@ -580,8 +576,12 @@ func TestPruneCallbacks(t *testing.T) {
 }
 
 func TestHandlerStartClose(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	handler, _, _, _ := setupHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	handler.config.CallbackPruneIntervalSec = 1
 	handler.config.CallbackMaxAgeSec = 1

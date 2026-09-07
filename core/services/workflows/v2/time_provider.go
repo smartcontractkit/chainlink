@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
@@ -25,6 +26,7 @@ type DonTimeProvider struct {
 	requestTimeout      time.Duration
 	lggr                logger.Logger
 	metrics             *monitoring.WorkflowsMetricLabeler
+	clock               clockwork.Clock
 }
 
 func NewDonTimeProvider(
@@ -33,7 +35,11 @@ func NewDonTimeProvider(
 	requestTimeout time.Duration,
 	lggr logger.Logger,
 	metrics *monitoring.WorkflowsMetricLabeler,
+	clock clockwork.Clock,
 ) TimeProvider {
+	if clock == nil {
+		clock = clockwork.NewRealClock()
+	}
 	return &DonTimeProvider{
 		workflowExecutionID: workflowExecutionID,
 		timeSeqNum:          0,
@@ -41,6 +47,7 @@ func NewDonTimeProvider(
 		requestTimeout:      requestTimeout,
 		lggr:                logger.Named(lggr, "TimeProvider"),
 		metrics:             metrics,
+		clock:               clock,
 	}
 }
 
@@ -57,13 +64,13 @@ func (tp *DonTimeProvider) GetDONTime() (time.Time, error) {
 	tp.recordDonTimeCall()
 
 	ch := tp.donTimeStore.RequestDonTime(tp.workflowExecutionID, tp.timeSeqNum)
-	timer := time.NewTimer(tp.requestTimeout)
+	timer := tp.clock.NewTimer(tp.requestTimeout)
 	defer timer.Stop()
 
 	select {
 	case donTimeResp := <-ch:
 		return tp.donTimeFromResponse(donTimeResp)
-	case <-timer.C:
+	case <-timer.Chan():
 		tp.donTimeStore.RemoveRequest(tp.workflowExecutionID)
 		tp.recordDonTimeTimeout()
 		return tp.donTimeFromResponse(dontime.Response{
@@ -71,7 +78,8 @@ func (tp *DonTimeProvider) GetDONTime() (time.Time, error) {
 			SeqNum:              tp.timeSeqNum,
 			Err: fmt.Errorf(
 				"timeout exceeded: could not process request before expiry, workflowExecutionID %s",
-				tp.workflowExecutionID),
+				tp.workflowExecutionID,
+			),
 		})
 	}
 }

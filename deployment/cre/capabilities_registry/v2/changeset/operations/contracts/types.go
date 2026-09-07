@@ -12,4 +12,5 @@ const (
 	UpdateNodeDescription                    = "update node"
 	UpdateNodesDescription                   = "update nodes"
 	ConfigureForwarderDescription            = "configure forwarder"
+	ClearForwarderConfigDescription          = "clear forwarder config"
 )

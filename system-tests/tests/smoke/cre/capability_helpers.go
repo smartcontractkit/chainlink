@@ -16,6 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
 )
 
 // chainlink-common/pkg/capabilities/base_trigger.go logs this when AckEvent is called.
@@ -109,4 +113,53 @@ func requireTriggerEventACKLog(t *testing.T, lggr zerolog.Logger, singleAckFound
 	}, 4*time.Minute, 500*time.Millisecond,
 		"expected BaseTrigger Event ACK log line in container logs (BaseTriggerCapability.AckEvent logs msg Event ACK)")
 	lggr.Info().Msg("found BaseTrigger Event ACK log")
+}
+
+func startEVMLogTriggerEventEmitter(
+	ctx context.Context,
+	t *testing.T,
+	logger zerolog.Logger,
+	chainID string,
+	bcOutput blockchains.Blockchain,
+	msgEmitter *evmreadcontracts.MessageEmitter,
+	message string,
+) {
+	t.Helper()
+
+	ticker := time.NewTicker(10 * time.Second)
+	go func() {
+		defer ticker.Stop()
+
+		var emittedEventCount int64
+		for {
+			logger.Info().Int64("eventCount", emittedEventCount).Str("chainID", chainID).Msg("Emitting EVM log trigger event")
+			blockNumber := emitEvent(t, logger, chainID, bcOutput, msgEmitter, message)
+			logger.Info().Str("chainID", chainID).Uint64("blockNumber", blockNumber).Msg("EVM log trigger event emitted")
+			emittedEventCount++
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+}
+
+func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput blockchains.Blockchain, msgEmitter *evmreadcontracts.MessageEmitter, message string) uint64 {
+	lggr.Info().Msgf("Emitting event to be picked up by workflow for chain '%s'", chainID)
+	sethClient := bcOutput.(*evm.Blockchain).SethClient
+	emittingTx, err := msgEmitter.EmitMessage(sethClient.NewTXOpts(), message)
+	if err != nil {
+		lggr.Info().Msgf("Failed to emit transaction for chain '%s': %v", chainID, err)
+		return 0
+	}
+
+	emittingReceipt, err := sethClient.WaitMined(t.Context(), lggr, sethClient.Client, emittingTx)
+	if err != nil {
+		lggr.Info().Msgf("Failed to emit receipt for chain '%s': %v", chainID, err)
+		return 0
+	}
+	lggr.Info().Msgf("Transaction for chain '%s' mined at '%d' with emitted message %q", chainID, emittingReceipt.BlockNumber.Uint64(), message)
+	return emittingReceipt.BlockNumber.Uint64()
 }

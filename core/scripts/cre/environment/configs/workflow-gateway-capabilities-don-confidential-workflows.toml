@@ -1,0 +1,154 @@
+# Topology for the confidential workflows engine E2E test.
+#
+# Differences from workflow-gateway-capabilities-don.toml:
+#   - the workflow DON also hosts "confidential-workflows" (the capability that
+#     routes execution into the enclaves) and "confidential-relay" (the gateway
+#     handler the enclaves call back through)
+#   - PerWorkflow.ConfidentialWorkflows is enabled so the engine will honour a
+#     workflow registered with {"confidential":true} attributes
+#   - the workflow DON exposes remote capabilities and enables the DKG recipient
+#     so the pre-enclave secret fetch can reach the vault DON
+#
+# The confidential-workflows capability binary is not part of this repository; it
+# is built from a chainlink-confidential-compute checkout and mounted at
+# ./binaries/confidential-workflows (see .github/workflows/cre-system-tests.yaml).
+
+# Fake enclaves emit a sentinel attestation document rather than real PCRs, so
+# attestation validation is relaxed. INSECURE; for tests only.
+[capability_configs.confidential-relay]
+  [capability_configs.confidential-relay.values]
+    trustEnclaves = true
+    requireBFTQuorum = true
+
+# The "enclaves" value is a JSON array of enclaves the capability routes to.
+# Whoever starts the enclaves supplies it, since their addresses are only known
+# once they are running; absent it, the capability registers an empty list.
+[capability_configs.confidential-workflows]
+  binary_name = "confidential-workflows"
+  [capability_configs.confidential-workflows.values]
+    version = "1.0.0-alpha"
+
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  container_name = "anvil-2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+  image = "job-distributor:0.28.0"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+[infra]
+  # either "docker" or "kubernetes"
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_family = "test-don-family"
+  don_types = ["workflow"]
+  override_mode = "all"
+  http_port_range_start = 10100
+
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"VaultOrgIdAsSecretOwnerEnabled":false}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true","PerWorkflow":{"ConfidentialWorkflows":{"Enabled":"true"}}}' }
+  capabilities = ["consensus", "confidential-workflows", "confidential-relay", "cron", "http-action", "http-trigger", "don-time", "evm-1337"]
+  exposes_remote_capabilities = true
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      # The test copies the workflow binary and config into the containers, so the
+      # syncer reads them from disk rather than fetching them remotely.
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+[[nodesets]]
+  nodes = 4
+  name = "capabilities"
+  don_family = "test-don-family"
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "all"
+  http_port_range_start = 10200
+
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"VaultOrgIdAsSecretOwnerEnabled":false}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true"}' }
+  capabilities = ["vault", "evm-2337"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+      """
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_family = "test-don-family"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  supported_evm_chains = [1337, 2337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      # 5002 is the web API capabilities port for incoming requests
+      # 15002 is the vault port for incoming requests
+      custom_ports = ["5002:5002","15002:15002"]
+      user_config_overrides = ""

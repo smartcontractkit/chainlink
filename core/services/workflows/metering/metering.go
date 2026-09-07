@@ -7,6 +7,7 @@ import (
 	"log"
 	"maps"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -85,7 +86,7 @@ type ProtoDetail struct {
 type ReportStep struct {
 	// The ID of the capability being used in this step
 	CapabilityID string
-	// CapDONN is the total number of nodes in a capability DON.
+	// CapdonN is the total number of nodes in a capability DON.
 	CapdonN uint32
 	// The maximum amount of universal credits that should be used in this step
 	Deduction decimal.Decimal
@@ -95,9 +96,10 @@ type ReportStep struct {
 }
 
 type ReportStepDetail struct {
-	Peer2PeerID   string
-	SpendValue    string
-	CRESpendValue decimal.Decimal
+	Peer2PeerID          string
+	SpendValue           string
+	SpendValueInGasUnits string
+	CRESpendValue        decimal.Decimal
 }
 
 type AggregatedStepDetail struct {
@@ -425,9 +427,10 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 	// Group by resource dimension
 	for _, nodeDetail := range metadata.Metering {
 		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
-			Peer2PeerID:   nodeDetail.Peer2PeerID,
-			SpendValue:    nodeDetail.SpendValue,
-			CRESpendValue: decimal.Zero,
+			Peer2PeerID:          nodeDetail.Peer2PeerID,
+			SpendValue:           nodeDetail.SpendValue,
+			SpendValueInGasUnits: nodeDetail.SpendValueInGasUnits,
+			CRESpendValue:        decimal.Zero,
 		})
 	}
 
@@ -440,18 +443,10 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 
 		deciVals := []decimal.Decimal{}
 		for idx, detail := range spendDetails {
-			value, err := decimal.NewFromString(detail.SpendValue)
+			value, err := r.parseSpendValue(unit, detail)
 			if err != nil {
-				r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
 				// throw out invalid values for local balance settlement. they will still be included in metering report.
 				continue
-			}
-
-			if isGasSpendType(unit) {
-				// TODO: this decimal shift should be temporary and converted when write capabilities
-				// are converted to provide spend as big.Int fixed point values
-				// WARNING: 18 is a magic number here and assumes all gas tokens will have the same level of precision
-				value = value.Shift(18) // shift to fixed point value
 			}
 
 			if val, convertErr := r.balance.ConvertToBalance(unit, value); convertErr == nil {
@@ -579,10 +574,11 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 
 			for _, detail := range details {
 				nodeDetails = append(nodeDetails, &protoEvents.MeteringReportNodeDetail{
-					Peer_2PeerId:  detail.Peer2PeerID,
-					SpendUnit:     unit,
-					SpendValue:    detail.SpendValue,
-					SpendValueCre: detail.CRESpendValue.StringFixed(defaultDecimalPrecision),
+					Peer_2PeerId:         detail.Peer2PeerID,
+					SpendUnit:            unit,
+					SpendValue:           detail.SpendValue,
+					SpendValueCre:        detail.CRESpendValue.StringFixed(defaultDecimalPrecision),
+					SpendValueInGasUnits: detail.SpendValueInGasUnits,
 				})
 			}
 
@@ -765,6 +761,34 @@ func (r *Report) creditToSpendingLimits(
 	return limits
 }
 
+// parseSpendValue extracts the decimal spend value from a node detail report.
+// If SpendValueInGasUnits is populated for a gas spend type, it is used directly
+// (native fixed-point integer, no shift needed). Otherwise, SpendValue is parsed
+// and Shift(18) is applied for gas spend types (legacy path).
+// Returns an error if the value could not be parsed; the caller should skip it.
+func (r *Report) parseSpendValue(unit string, detail ReportStepDetail) (decimal.Decimal, error) {
+	if isGasSpendType(unit) && detail.SpendValueInGasUnits != "" {
+		value, err := decimal.NewFromString(detail.SpendValueInGasUnits)
+		if err != nil {
+			r.lggr.Info(fmt.Sprintf("failed to get spend value in gas units from %s: %s", detail.SpendValueInGasUnits, err))
+			return decimal.Zero, err
+		}
+		return value, nil
+	}
+
+	value, err := decimal.NewFromString(detail.SpendValue)
+	if err != nil {
+		r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+		return decimal.Zero, err
+	}
+
+	if isGasSpendType(unit) {
+		value = value.Shift(18)
+	}
+
+	return value, nil
+}
+
 func isGasSpendType(spendType string) bool {
 	return strings.HasPrefix(spendType, "GAS.")
 }
@@ -847,9 +871,10 @@ func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]dec
 }
 
 func medianSpend(spends []decimal.Decimal) decimal.Decimal {
-	sort.Slice(spends, func(i, j int) bool {
-		return spends[j].GreaterThan(spends[i])
-	})
+	if len(spends) == 0 {
+		return decimal.Zero
+	}
+	slices.SortFunc(spends, decimal.Decimal.Compare)
 
 	if len(spends)%2 > 0 {
 		return spends[len(spends)/2]

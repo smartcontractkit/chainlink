@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
@@ -37,7 +36,7 @@ func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 
 func Test_RPCHandlers_ProposeJob(t *testing.T) {
 	var (
-		ctx                  = testutils.Context(t)
+		ctx                  = t.Context()
 		jobID                = uuid.New()
 		nameAndExternalJobID = uuid.New()
 		spec                 = fmt.Sprintf(FluxMonitorTestSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
@@ -64,7 +63,7 @@ func Test_RPCHandlers_ProposeJob(t *testing.T) {
 
 func Test_RPCHandlers_DeleteJob(t *testing.T) {
 	var (
-		ctx   = testutils.Context(t)
+		ctx   = t.Context()
 		jobID = uuid.New()
 	)
 	h := setupTestHandlers(t)
@@ -84,7 +83,7 @@ func Test_RPCHandlers_DeleteJob(t *testing.T) {
 
 func Test_RPCHandlers_RevokeJob(t *testing.T) {
 	var (
-		ctx   = testutils.Context(t)
+		ctx   = t.Context()
 		jobID = uuid.New()
 	)
 	h := setupTestHandlers(t)
@@ -104,7 +103,7 @@ func Test_RPCHandlers_RevokeJob(t *testing.T) {
 
 func Test_RPCHandlers_GetJobRuns(t *testing.T) {
 	var (
-		ctx   = testutils.Context(t)
+		ctx   = t.Context()
 		jobID = uuid.New()
 		limit = uint32(10)
 	)
@@ -158,7 +157,7 @@ func Test_RPCHandlers_GetJobRuns(t *testing.T) {
 }
 
 func Test_RPCHandlers_GetJobRuns_InvalidUUID(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	h := setupTestHandlers(t)
 
 	_, err := h.GetJobRuns(ctx, &pb.GetJobRunsRequest{
@@ -172,7 +171,7 @@ func Test_RPCHandlers_GetJobRuns_InvalidUUID(t *testing.T) {
 
 func Test_RPCHandlers_GetJobRuns_DefaultLimit(t *testing.T) {
 	var (
-		ctx   = testutils.Context(t)
+		ctx   = t.Context()
 		jobID = uuid.New()
 	)
 	h := setupTestHandlers(t)
@@ -194,7 +193,7 @@ func Test_RPCHandlers_GetJobRuns_DefaultLimit(t *testing.T) {
 
 func Test_RPCHandlers_GetJobRuns_ExceedsMaxLimit(t *testing.T) {
 	var (
-		ctx   = testutils.Context(t)
+		ctx   = t.Context()
 		jobID = uuid.New()
 	)
 	h := setupTestHandlers(t)

@@ -61,7 +61,7 @@ func SanitizeLogString(s string) string {
 		s = s[:maxLoggedStringLen]
 		tooLongSuffix = " [TRUNCATED]"
 	}
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if !unicode.IsPrint(rune(s[i])) {
 			return "[UNPRINTABLE] " + hex.EncodeToString([]byte(s)) + tooLongSuffix
 		}

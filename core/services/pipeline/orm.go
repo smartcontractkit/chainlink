@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -492,7 +491,7 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 		}
 		rowsDeleted += rowsAffected
 
-		return uint(rowsAffected), err
+		return uint(rowsAffected), err //nolint:gosec // G115
 	})
 	if err != nil {
 		return errors.Wrap(err, "DeleteRunsOlderThan failed")

@@ -11,11 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -24,10 +24,10 @@ import (
 
 var (
 	// bytes32 internal constant LEAF_DOMAIN_SEPARATOR = 0x0000000000000000000000000000000000000000000000000000000000000000;
-	LEAF_DOMAIN_SEPARATOR = [32]byte{}
+	LeafDomainSeparator = [32]byte{}
 
 	// bytes32 internal constant ANY_2_EVM_MESSAGE_HASH = keccak256("Any2EVMMessageHashV1");
-	ANY_2_EVM_MESSAGE_HASH = utils.Keccak256Fixed([]byte("Any2EVMMessageHashV1"))
+	Any2EVMMessageHash = utils.Keccak256Fixed([]byte("Any2EVMMessageHashV1"))
 
 	messageHasherABI = types.MustGetABI(message_hasher.MessageHasherABI)
 
@@ -84,7 +84,7 @@ func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCod
       )
     );
 */
-func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
+func (h *MessageHasherV1) Hash(ctx context.Context, msg ccipocr3.Message) (ccipocr3.Bytes32, error) {
 	sourceChainFamily, err := chainsel.GetSelectorFamily(uint64(msg.Header.SourceChainSelector))
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("get source chain family: %w", err)
@@ -94,7 +94,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 	lggr = logger.With(
 		lggr,
 		"msgID", msg.Header.MessageID.String(),
-		"ANY_2_EVM_MESSAGE_HASH", hexutil.Encode(ANY_2_EVM_MESSAGE_HASH[:]),
+		"ANY_2_EVM_MESSAGE_HASH", hexutil.Encode(Any2EVMMessageHash[:]),
 		"onrampAddress", msg.Header.OnRamp,
 		"sourceChainFamily", sourceChainFamily,
 	)
@@ -102,22 +102,23 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 
 	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
-		destExecDataDecodedMap, err := h.extraDataCodec.DecodeTokenAmountDestExecData(rta.DestExecData, msg.Header.SourceChainSelector)
+		var destExecDataDecodedMap map[string]any
+		destExecDataDecodedMap, err = h.extraDataCodec.DecodeTokenAmountDestExecData(rta.DestExecData, msg.Header.SourceChainSelector)
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("failed to decode dest exec data: %w", err)
 		}
 
-		destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("failed extract dest gas amount from decoded extradata map: %w", err)
+		destGasAmount, gasAmountErr := extractDestGasAmountFromMap(destExecDataDecodedMap)
+		if gasAmountErr != nil {
+			return [32]byte{}, fmt.Errorf("failed extract dest gas amount from decoded extradata map: %w", gasAmountErr)
 		}
 
 		lggr.Debugw("decoded dest gas amount",
 			"destGasAmount", destGasAmount)
 
-		destTokenAddress, err := abiDecodeAddress(rta.DestTokenAddress)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("decode dest token address: %w", err)
+		destTokenAddress, tokenAddrErr := abiDecodeAddress(rta.DestTokenAddress)
+		if tokenAddrErr != nil {
+			return [32]byte{}, fmt.Errorf("decode dest token address: %w", tokenAddrErr)
 		}
 
 		lggr.Debugw("abi decoded dest token address",
@@ -158,7 +159,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 
 	metaDataHashInput, err := h.abiEncode(
 		"encodeMetadataHashPreimage",
-		ANY_2_EVM_MESSAGE_HASH,
+		Any2EVMMessageHash,
 		uint64(msg.Header.SourceChainSelector),
 		uint64(msg.Header.DestChainSelector),
 		// TODO: this is evm-specific padding, fix.
@@ -206,7 +207,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 
 	hashPreimage, err := h.abiEncode(
 		"encodeFinalHashPreimage",
-		LEAF_DOMAIN_SEPARATOR,
+		LeafDomainSeparator,
 		utils.Keccak256Fixed(metaDataHashInput), // metaDataHash
 		utils.Keccak256Fixed(fixedSizeFieldsEncoded),
 		utils.Keccak256Fixed(common.LeftPadBytes(msg.Sender, 32)), // todo: this is not chain-agnostic
@@ -337,4 +338,4 @@ func SerializeClientSUIExtraArgsV1(data message_hasher.ClientSuiExtraArgsV1) ([]
 }
 
 // Interface compliance check
-var _ cciptypes.MessageHasher = (*MessageHasherV1)(nil)
+var _ ccipocr3.MessageHasher = (*MessageHasherV1)(nil)

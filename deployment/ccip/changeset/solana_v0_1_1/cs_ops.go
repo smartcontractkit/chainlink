@@ -9,6 +9,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
@@ -440,18 +441,19 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	ab := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	var receiverAddress solana.PublicKey
 	if !cfg.IsUpgrade {
 		//nolint:gocritic // this is a false positive, we need to check if the address is zero
 		if chainState.Receiver.IsZero() {
-			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.Receiver, deployment.Version1_0_0, false, "")
+			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.Receiver, deployment.Version1_0_0, false, "")
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
 		} else if cfg.ReceiverVersion != nil {
 			// this block is for re-deploying with a new version
-			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.Receiver, *cfg.ReceiverVersion, false, "")
+			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.Receiver, *cfg.ReceiverVersion, false, "")
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
@@ -479,7 +481,7 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 	} else if cfg.IsUpgrade {
 		e.Logger.Infow("Deploying new receiver", "addr", chainState.Receiver.String())
 		// only support deployer key as upgrade authority. never transfer to timelock
-		_, err := generateUpgradeTxns(e, chain, ab, DeployChainContractsConfig{
+		_, err := generateUpgradeTxns(e, chain, ab, ds, DeployChainContractsConfig{
 			UpgradeConfig: UpgradeConfig{
 				UpgradeAuthority: chain.DeployerKey.PublicKey(),
 			},
@@ -487,11 +489,6 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-	}
-
-	ds, err := shared.PopulateDataStore(ab)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{

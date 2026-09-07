@@ -7,9 +7,8 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 	types "github.com/smartcontractkit/chainlink-common/pkg/types/sui"
 )
 

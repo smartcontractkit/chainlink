@@ -59,6 +59,11 @@ func (r *BridgeResolver) MinimumContractPayment() string {
 	return r.bridge.MinimumContractPayment.String()
 }
 
+// UseConnectionManager resolves the usage of connection manager for the bridge.
+func (r *BridgeResolver) UseConnectionManager() bool {
+	return r.bridge.UseConnectionManager
+}
+
 // CreatedAt resolves the bridge's created at field.
 func (r *BridgeResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.bridge.CreatedAt}

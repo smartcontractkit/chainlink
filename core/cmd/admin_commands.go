@@ -19,7 +19,6 @@ import (
 	"github.com/urfave/cli"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -171,7 +170,7 @@ type AdminUsersPresenters []AdminUsersPresenter
 
 // RenderTable implements TableRenderer
 func (ps AdminUsersPresenters) RenderTable(rt RendererTable) error {
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
@@ -240,7 +239,7 @@ func (s *Shell) CreateUser(c *cli.Context) (err error) {
 		Password: pwd,
 	}
 
-	requestData, err := json.Marshal(request)
+	requestData, err := json.Marshal(request) //nolint:gosec // Password is the intended API user credential payload
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -397,16 +396,15 @@ func (s *Shell) Profile(c *cli.Context) error {
 	}
 	return nil
 }
-func (s *Shell) discoverPlugins(ctx context.Context) (
-	got []struct {
-		Targets []string          `yaml:"targets"`
-		Labels  map[string]string `yaml:"labels"`
-	},
-	err error,
+
+func (s *Shell) discoverPlugins(ctx context.Context) ([]struct {
+	Targets []string          `yaml:"targets"`
+	Labels  map[string]string `yaml:"labels"`
+}, error,
 ) {
 	resp, err := s.HTTP.Get(ctx, "/discovery")
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer func() {
 		if resp.Body != nil {
@@ -415,17 +413,21 @@ func (s *Shell) discoverPlugins(ctx context.Context) (
 	}()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return
+		return nil, err
 	}
 
+	var got []struct {
+		Targets []string          `yaml:"targets"`
+		Labels  map[string]string `yaml:"labels"`
+	}
 	if err = json.Unmarshal(data, &got); err != nil {
 		s.Logger.Errorf("failed to unmarshal discovery response: %s", string(data))
-		return
+		return nil, err
 	}
-	return
+	return got, nil
 }
 
-func (s *Shell) profile(ctx context.Context, genDir string, name string, vitals []string, seconds int) error {
+func (s *Shell) profile(ctx context.Context, genDir, name string, vitals []string, seconds int) error {
 	lggr := s.Logger
 	path := "/v2"
 	if name != "" {

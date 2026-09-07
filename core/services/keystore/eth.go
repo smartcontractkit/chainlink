@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -69,7 +68,7 @@ type Eth interface {
 	XXXTestingOnlyAdd(ctx context.Context, key ethkey.KeyV2)
 }
 
-var _ loop.Keystore = &EthSigner{}
+var _ core.Keystore = &EthSigner{}
 
 type EthSigner struct {
 	Eth

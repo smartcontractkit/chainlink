@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-
 	log_mocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -59,7 +58,7 @@ type vrfUniverse struct {
 }
 
 func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniverse {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lb := log_mocks.NewBroadcaster(t)
 	servicetest.SetupNoOpMock(lb)
 	lb.On("AddDependents", 1).Maybe()
@@ -90,7 +89,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), lp, evmKs, estimator, nil, nil, false)
 	require.NoError(t, err)
 	orm := heads.NewORM(*testutils.FixtureChainID, db, 0)
-	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
+	require.NoError(t, orm.IdempotentInsertHead(t.Context(), cltest.Head(51)))
 	jrm := job.NewORM(db, prm, btORM, ks, lggr)
 	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
@@ -106,7 +105,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	})
 	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(ctx, testutils.Password))
-	k, err2 := ks.Eth().Create(testutils.Context(t), testutils.FixtureChainID)
+	k, err2 := ks.Eth().Create(t.Context(), testutils.FixtureChainID)
 	require.NoError(t, err2)
 	submitter := k.Address
 	vrfkey, err3 := ks.VRF().Create(ctx)
@@ -199,7 +198,7 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 
 func Test_CheckFromAddressesExist(t *testing.T) {
 	t.Run("from addresses exist", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		db := pgtest.NewSqlxDB(t)
 		lggr := logger.TestLogger(t)
 		ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
@@ -207,7 +206,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 
 		var fromAddresses []string
 		for range 3 {
-			k, err := ks.Eth().Create(testutils.Context(t), big.NewInt(1337))
+			k, err := ks.Eth().Create(t.Context(), big.NewInt(1337))
 			assert.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())
 		}
@@ -223,11 +222,11 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 			Toml())
 		assert.NoError(t, err)
 
-		assert.NoError(t, vrf.CheckFromAddressesExist(testutils.Context(t), jb, ks.Eth()))
+		assert.NoError(t, vrf.CheckFromAddressesExist(t.Context(), jb, ks.Eth()))
 	})
 
 	t.Run("one of from addresses doesn't exist", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		db := pgtest.NewSqlxDB(t)
 		lggr := logger.TestLogger(t)
 		ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
@@ -235,7 +234,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 
 		var fromAddresses []string
 		for range 3 {
-			k, err := ks.Eth().Create(testutils.Context(t), big.NewInt(1337))
+			k, err := ks.Eth().Create(t.Context(), big.NewInt(1337))
 			assert.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())
 		}
@@ -252,7 +251,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 			Toml())
 		assert.NoError(t, err)
 
-		assert.Error(t, vrf.CheckFromAddressesExist(testutils.Context(t), jb, ks.Eth()))
+		assert.Error(t, vrf.CheckFromAddressesExist(t.Context(), jb, ks.Eth()))
 	})
 }
 
@@ -342,10 +341,10 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	toml := "vrfOwnerAddress=\"0xF62fEFb54a0af9D32CDF0Db21C52710844c7eddb\"\n" + vs.Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(toml)
 	require.NoError(t, err)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	err = vuni.jrm.CreateJob(ctx, &jb)
 	require.NoError(t, err)
-	_, err = vd.ServicesForSpec(testutils.Context(t), jb)
+	_, err = vd.ServicesForSpec(t.Context(), jb)
 	require.Error(t, err)
 	require.Equal(t, "VRF Owner is not supported for VRF V2 Plus", err.Error())
 }

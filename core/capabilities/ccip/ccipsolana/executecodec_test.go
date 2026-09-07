@@ -9,20 +9,16 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
-	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 )
 
 var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) ccipocr3.ExecutePluginReport {
@@ -168,7 +164,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 		},
 	}
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
 	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
@@ -268,7 +264,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 
 		edc := ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap)
 		executeCodec := NewExecutePluginCodecV1(edc)
-		decode, err := executeCodec.Decode(testutils.Context(t), buf.Bytes())
+		decode, err := executeCodec.Decode(t.Context(), buf.Bytes())
 		require.NoError(t, err)
 
 		report := decode.ChainReports[0]
@@ -285,7 +281,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		ocrReport := randomExecuteReport(t, 124615329519749607)
 		edc := ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap)
 		cd := NewExecutePluginCodecV1(edc)
-		encodedReport, err := cd.Encode(testutils.Context(t), ocrReport)
+		encodedReport, err := cd.Encode(t.Context(), ocrReport)
 		require.NoError(t, err)
 
 		decoder := agbinary.NewBorshDecoder(encodedReport)

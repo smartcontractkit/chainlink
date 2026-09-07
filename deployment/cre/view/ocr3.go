@@ -313,6 +313,7 @@ func decodeReportingPluginConfigForType(data []byte, pluginType PluginType) (rep
 			MaxOutcomeLengthBytes:     eCfg.MaxOutcomeLengthBytes,
 			MaxReportCount:            eCfg.MaxReportCount,
 			MaxBatchSize:              eCfg.MaxBatchSize,
+			MinResponsesToAggregate:   eCfg.MinResponsesToAggregate,
 		}}, nil
 
 	default:

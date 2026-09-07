@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/patrickmn/go-cache"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
@@ -21,10 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
-	confidentialworkflow "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation"
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
@@ -42,6 +45,16 @@ const (
 	// workflows enclave pool. The relay handler uses it to look up trusted
 	// enclave measurements from the capabilities registry.
 	confidentialWorkflowsCapID = "confidential-workflows@1.0.0-alpha"
+
+	// defaultGetExecutionWait bounds how long a relay callback waits for a
+	// not-yet-registered execution handler to appear before giving up. The
+	// enclave runs one DON-shared execution and only needs a relay quorum, so its
+	// callback can reach a node before that node has started its own copy of the
+	// execution and registered a handler (the start-edge race). Waiting briefly
+	// lets a straggling node register and still sign, instead of dropping below
+	// quorum. Kept well under the gateway relay request timeout (RequestTimeoutSec,
+	// default 30s) so the node still answers in time to be counted.
+	defaultGetExecutionWait = 5 * time.Second
 )
 
 // enclaveEntry mirrors the enclave config shape stored in the capabilities
@@ -132,6 +145,24 @@ type Handler struct {
 	// quorum of F+1.
 	requireBFTQuorum bool
 	limitsFactory    limits.Factory
+	// getExecutionWait is how long a relay callback waits for a not-yet-registered
+	// execution handler before failing (see defaultGetExecutionWait).
+	getExecutionWait time.Duration
+
+	// serveTime bounds how long one gateway request may be served for, from
+	// ConfidentialCompute.ConfidentialRelayHandlerTimeout. The connector's context
+	// carries no deadline of its own, so this is what keeps a stalled vault call
+	// from outliving the request it belongs to.
+	serveTime limits.TimeLimiter
+
+	// responseMemo caches completed signed results so the enclave's retry loop
+	// (re-fan-out after a gateway rotation or timeout) returns the cached result
+	// without re-executing the capability or vault fetch. Only completed results
+	// are cached; in-flight calls are not deduplicated, so a burst of concurrent
+	// same-identity requests each execute (preserving parallel dispatch). The
+	// cap- and sec-prefixed keys share one cache instance; go-cache runs its own
+	// background cleanup goroutine, so there is no separate sweep to stop.
+	responseMemo *cache.Cache
 }
 
 func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool) (*Handler, error) {
@@ -141,6 +172,20 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *Execut
 	m, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
+	}
+	serveTime, err := lf.MakeTimeLimiter(cresettings.Default.ConfidentialCompute.ConfidentialRelayHandlerTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create serve time limiter: %w", err)
+	}
+
+	memoCfg := cresettings.Default.ConfidentialCompute.RelayResponseCache
+	memoTTL, err := memoCfg.TTL.GetOrDefault(context.Background(), lf.Settings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read relay response cache TTL: %w", err)
+	}
+	memoCleanup, err := memoCfg.CleanupInterval.GetOrDefault(context.Background(), lf.Settings)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read relay response cache cleanup interval: %w", err)
 	}
 
 	h := &Handler{
@@ -153,6 +198,9 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *Execut
 		validator:         validator,
 		requireBFTQuorum:  requireBFTQuorum,
 		limitsFactory:     lf,
+		serveTime:         serveTime,
+		getExecutionWait:  defaultGetExecutionWait,
+		responseMemo:      cache.New(memoTTL, memoCleanup),
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -170,10 +218,11 @@ func (h *Handler) start(ctx context.Context) error {
 }
 
 func (h *Handler) close() error {
-	if err := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); err != nil {
-		return fmt.Errorf("failed to remove enclave relay handler from connector: %w", err)
+	err := h.serveTime.Close()
+	if rmErr := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); rmErr != nil {
+		err = errors.Join(err, fmt.Errorf("failed to remove enclave relay handler from connector: %w", rmErr))
 	}
-	return nil
+	return err
 }
 
 func (h *Handler) ID(_ context.Context) (string, error) {
@@ -186,6 +235,23 @@ func (h *Handler) Methods() []string {
 
 func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
 	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "requestID", req.ID)
+
+	// GoCtx ties the goroutine to the handler's service lifecycle, so Close waits
+	// for in-flight requests instead of abandoning them mid-vault-call.
+	h.eng.GoCtx(ctx, func(ctx context.Context) {
+		ctx, done, err := h.serveTime.WithTimeout(ctx)
+		if err != nil {
+			h.lggr.Errorw("failed to apply serve timeout, dropping request", "gatewayID", gatewayID, "requestID", req.ID, "err", err)
+			return
+		}
+		defer done()
+		h.serveGatewayMessage(ctx, gatewayID, req)
+	})
+
+	return nil
+}
+
+func (h *Handler) serveGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) {
 	startTime := time.Now()
 	outcome := "success"
 	var errorCode int64
@@ -219,7 +285,7 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 	if err := h.gatewayConnector.SendToGateway(ctx, gatewayID, response); err != nil {
 		outcome = "send_error"
 		h.lggr.Errorw("failed to send message to gateway", "gatewayID", gatewayID, "err", err)
-		return err
+		return
 	}
 
 	h.lggr.Infow("sent message to gateway", "gatewayID", gatewayID, "requestID", req.ID)
@@ -228,7 +294,6 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 			attribute.String("gateway_id", gatewayID),
 		))
 	}
-	return nil
 }
 
 func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
@@ -238,11 +303,6 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	var params confidentialrelaytypes.SecretsRequestParams
 	if err := json.Unmarshal(*req.Params, &params); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
-	}
-
-	handler, ok := h.executionHandlers.GetExecution(params.WorkflowID, params.ExecutionID)
-	if !ok {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
 	}
 
 	att := params.Attestation
@@ -274,13 +334,41 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
-	secretsRequest := &sdkpb.GetSecretsRequest{Requests: make([]*sdkpb.SecretRequest, 0, len(params.Secrets))}
+	// A retry (same logical identity, new gateway request id) re-fans-out the
+	// same request; return the already-computed signed result from the memo
+	// instead of re-fetching from the vault. The signed result is params-bound,
+	// not id-bound, so jsonResponse re-wraps it with this request's id.
+	key := secretsKey(params)
+	if cached, ok := h.responseMemo.Get(key); ok {
+		if signed, ok := cached.(*confidentialrelaytypes.SignedSecretsResponseResult); ok {
+			return h.jsonResponse(req, signed)
+		}
+	}
+
+	secretsRequest := &sdkpb.GetSecretsRequest{
+		Requests:   make([]*sdkpb.SecretRequest, 0, len(params.Secrets)),
+		CallbackId: params.CallbackID,
+	}
 
 	for _, s := range params.Secrets {
 		secretsRequest.Requests = append(secretsRequest.Requests, &sdkpb.SecretRequest{
 			Id:        s.Key,
 			Namespace: s.Namespace,
 		})
+	}
+
+	// Resolve the execution handler only after attestation and Workflow-DON
+	// authorization have passed, so an unverified callback cannot make the node
+	// park a waiter. The enclave's callback can arrive before this node has started
+	// its own copy of the execution (start-edge race); wait briefly for the handler
+	// to register rather than failing and dropping below relay quorum. Bounded so a
+	// callback for an execution this node never runs still fails in time to respond
+	// within the gateway's relay request window.
+	waitCtx, cancel := context.WithTimeout(ctx, h.getExecutionWait)
+	defer cancel()
+	handler, ok := h.executionHandlers.GetExecutionWithWait(waitCtx, params.WorkflowID, params.ExecutionID)
+	if !ok {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
 	}
 
 	vaultResp, err := handler.GetRawSecrets(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
@@ -290,7 +378,11 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 
 	result, err := translateVaultResponse(vaultResp, params.EnclavePublicKey)
 	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+		code := jsonrpc.ErrInternal
+		if IsUserError(err) {
+			code = jsonrpc.ErrInvalidParams
+		}
+		return h.errorResponse(ctx, gatewayID, req, code, err)
 	}
 
 	signedResult, err := h.signSecretsResponse(params, result)
@@ -298,6 +390,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign secrets response: %w", err))
 	}
 
+	h.responseMemo.SetDefault(key, signedResult)
 	return h.jsonResponse(req, signedResult)
 }
 
@@ -329,7 +422,7 @@ func translateVaultResponse(vaultResp []*vault.SecretResponse, enclaveKey string
 
 	for _, sr := range vaultResp {
 		if sr.GetError() != "" {
-			return nil, fmt.Errorf("vault error for secret %s/%s: %s", sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
+			return nil, newVaultSecretError(sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
 		}
 
 		data := sr.GetData()
@@ -387,10 +480,17 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
-	handler, ok := h.executionHandlers.GetExecution(params.WorkflowID, params.ExecutionID)
-	if !ok {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
-	}
+	// The enclave's capability calls arrive as fresh gateway messages rather than
+	// through the workflow engine, so ctx carries none of the CRE tenants the engine
+	// seeds.
+	//
+	// Seeded as soon as the params are parsed so every ctx use below carries the
+	// tenant.
+	ctx = contexts.WithCRE(ctx, contexts.CRE{
+		Org:      params.OrgID,
+		Owner:    params.Owner,
+		Workflow: params.WorkflowID,
+	})
 
 	att := params.Attestation
 	params.Attestation = ""
@@ -410,6 +510,17 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
+	// A retry (same logical identity, new gateway request id) re-fans-out the
+	// same request; return the already-computed signed result from the memo
+	// instead of re-executing the capability. The signed result is params-bound,
+	// not id-bound, so jsonResponse re-wraps it with this request's id.
+	key := capExecKey(params)
+	if cached, ok := h.responseMemo.Get(key); ok {
+		if signed, ok := cached.(*confidentialrelaytypes.SignedCapabilityResponseResult); ok {
+			return h.jsonResponse(req, signed)
+		}
+	}
+
 	payloadBytes, err := base64.StdEncoding.DecodeString(params.Payload)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("failed to decode payload: %w", err))
@@ -418,6 +529,18 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	sdkReq := &sdkpb.CapabilityRequest{}
 	if err = proto.Unmarshal(payloadBytes, sdkReq); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("failed to unmarshal capability request: %w", err))
+	}
+
+	// Resolve the execution handler only after attestation and enclave-config
+	// verification, so an unverified callback cannot make the node park a waiter.
+	// The enclave's callback can beat this node's own execution start (start-edge
+	// race); a bounded wait lets a straggler register and sign instead of dropping
+	// below relay quorum (see handleSecretsGet).
+	waitCtx, cancel := context.WithTimeout(ctx, h.getExecutionWait)
+	defer cancel()
+	handler, ok := h.executionHandlers.GetExecutionWithWait(waitCtx, params.WorkflowID, params.ExecutionID)
+	if !ok {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
 	}
 
 	capResp, execErr := handler.CallCapability(ctx, sdkReq)
@@ -442,6 +565,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign capability response: %w", err))
 	}
 
+	h.responseMemo.SetDefault(key, signedResult)
 	return h.jsonResponse(req, signedResult)
 }
 

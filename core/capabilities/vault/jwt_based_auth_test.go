@@ -21,7 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -156,7 +155,7 @@ func newTestValidator(t *testing.T, issuer, audience string) *jwtBasedAuth {
 		Audience:            audience,
 		TenantID:            1,
 		JWKSRefreshInterval: time.Millisecond,
-	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t), WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t))
 	require.NoError(t, err)
 	return v
 }
@@ -471,7 +470,7 @@ func TestJWTBasedAuth_EmptyToken(t *testing.T) {
 		IssuerURL: "https://example.auth0.com/",
 		Audience:  "https://api.test.chain.link",
 		TenantID:  1,
-	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t), WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	_, err = v.validateToken(context.Background(), "")
@@ -480,6 +479,10 @@ func TestJWTBasedAuth_EmptyToken(t *testing.T) {
 }
 
 func TestJWTBasedAuth_JWKSKeyRotation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	keyA := generateTestRSAKey(t, "key-A")
 	keyB := generateTestRSAKey(t, "key-B")
 
@@ -602,7 +605,7 @@ func TestJWTBasedAuth_StartRefreshesJWKSPeriodically(t *testing.T) {
 		Audience:            "https://api.test.chain.link",
 		TenantID:            1,
 		JWKSRefreshInterval: 10 * time.Millisecond,
-	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t), WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	require.NoError(t, v.Start(t.Context()))
@@ -618,7 +621,7 @@ func TestNewJWTBasedAuth_InvalidConfig(t *testing.T) {
 		IssuerURL: "",
 		Audience:  "https://api.test.chain.link",
 		TenantID:  1,
-	}, limits.Factory{Settings: cresettings.DefaultGetter}, lggr, WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	}, limits.Factory{Settings: cresettings.DefaultGetter}, lggr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "issuer URL is required")
 
@@ -626,7 +629,7 @@ func TestNewJWTBasedAuth_InvalidConfig(t *testing.T) {
 		IssuerURL: "https://example.auth0.com/",
 		Audience:  "",
 		TenantID:  1,
-	}, limits.Factory{Settings: cresettings.DefaultGetter}, lggr, WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	}, limits.Factory{Settings: cresettings.DefaultGetter}, lggr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "audience is required")
 
@@ -635,37 +638,15 @@ func TestNewJWTBasedAuth_InvalidConfig(t *testing.T) {
 		Audience:            "https://api.test.chain.link",
 		TenantID:            0,
 		JWKSRefreshInterval: time.Millisecond,
-	}, limits.Factory{Settings: cresettings.DefaultGetter}, lggr, WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	}, limits.Factory{Settings: cresettings.DefaultGetter}, lggr)
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	defer func() { _ = v.Close() }()
 	require.Equal(t, uint64(1), v.expectedTenantID)
 }
 
-func TestNewJWTBasedAuth_UsesVaultJWTAuthEnabledLimiter_Disabled(t *testing.T) {
-	setDefaultGetter(t, `{}`)
-
-	v, err := NewJWTBasedAuth(JWTBasedAuthConfig{
-		IssuerURL: "https://example.auth0.com/",
-		Audience:  "https://api.test.chain.link",
-		TenantID:  1,
-	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t))
-	require.NoError(t, err)
-
-	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-1",
-		Method: vaulttypes.MethodSecretsList,
-		Auth:   "token",
-	}
-
-	_, err = v.AuthorizeRequest(t.Context(), req)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "JWTBasedAuth is disabled")
-}
-
-func TestNewJWTBasedAuth_UsesVaultJWTAuthEnabledLimiter_Enabled(t *testing.T) {
-	setDefaultGetter(t, `{"global":{"VaultJWTAuthEnabled":true}}`)
-
+func TestNewJWTBasedAuth_AcceptsRequestWhenTokenMissing(t *testing.T) {
+	t.Parallel()
 	v, err := NewJWTBasedAuth(JWTBasedAuthConfig{
 		IssuerURL: "https://example.auth0.com/",
 		Audience:  "https://api.test.chain.link",
@@ -1067,7 +1048,7 @@ func TestJWTBasedAuth_AuthorizeRequest_RejectsTenantAgainstJobSpecMismatch(t *te
 		Audience:            audience,
 		TenantID:            2,
 		JWKSRefreshInterval: time.Millisecond,
-	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t), WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
@@ -1123,17 +1104,4 @@ func TestJWTBasedAuth_InvalidTenantNumericClaim(t *testing.T) {
 	_, err := v.validateToken(context.Background(), tokenString)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrInvalidToken)
-}
-
-func setDefaultGetter(t *testing.T, payload string) {
-	t.Helper()
-
-	prev := cresettings.DefaultGetter
-	t.Cleanup(func() {
-		cresettings.DefaultGetter = prev
-	})
-
-	getter, err := settings.NewJSONGetter([]byte(payload))
-	require.NoError(t, err)
-	cresettings.DefaultGetter = getter
 }

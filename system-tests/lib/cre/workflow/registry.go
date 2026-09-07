@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-// must match nubmer of events we track in core/services/workflows/syncer/handler.go
+// must match number of events we track in core/services/workflows/syncer/handler.go
 const NumberOfTrackedWorkflowRegistryEvents = 6
 
 // On-chain WorkflowRegistry caps for system-test environments. Sized for cache soak

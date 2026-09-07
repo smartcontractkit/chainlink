@@ -13,7 +13,6 @@ import (
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -39,7 +38,12 @@ func New(
 		capabilityID:    capabilityID,
 		lggr:            lggr,
 		homeChainReader: homeChainReader,
-		regState: registrysyncer.LocalRegistry{
+		regState: &registrysyncer.LocalRegistry{
+			IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
+			IDsToNodes:        make(map[p2ptypes.PeerID]registrysyncer.NodeInfo),
+			IDsToCapabilities: make(map[string]registrysyncer.Capability),
+		},
+		latestState: &registrysyncer.LocalRegistry{
 			IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
 			IDsToNodes:        make(map[p2ptypes.PeerID]registrysyncer.NodeInfo),
 			IDsToCapabilities: make(map[string]registrysyncer.Capability),
@@ -64,9 +68,9 @@ type launcher struct {
 	homeChainReader ccipreader.HomeChain
 	stopChan        services.StopChan
 	// latestState is the latest capability registry state received from the syncer.
-	latestState registrysyncer.LocalRegistry
+	latestState *registrysyncer.LocalRegistry
 	// regState is the latest capability registry state that we have successfully processed.
-	regState      registrysyncer.LocalRegistry
+	regState      *registrysyncer.LocalRegistry
 	oracleCreator cctypes.OracleCreator
 	lock          sync.RWMutex
 	wg            sync.WaitGroup
@@ -83,11 +87,11 @@ func (l *launcher) OnNewRegistry(ctx context.Context, state *registrysyncer.Loca
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	l.lggr.Debugw("Received new state from syncer", "dons", state.IDsToDONs)
-	l.latestState = *state
+	l.latestState = state
 	return nil
 }
 
-func (l *launcher) getLatestState() registrysyncer.LocalRegistry {
+func (l *launcher) getLatestState() *registrysyncer.LocalRegistry {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	return l.latestState
@@ -96,7 +100,7 @@ func (l *launcher) getLatestState() registrysyncer.LocalRegistry {
 func (l *launcher) runningDONIDs() []registrysyncer.DonID {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
-	var runningDONs []registrysyncer.DonID
+	runningDONs := make([]registrysyncer.DonID, 0, len(l.instances))
 	for id := range l.instances {
 		runningDONs = append(runningDONs, id)
 	}
@@ -374,7 +378,8 @@ func createDON(
 func getConfigsForDon(
 	ctx context.Context,
 	homeChainReader ccipreader.HomeChain,
-	don registrysyncer.DON) ([]ccipreader.OCR3ConfigWithMeta, error) {
+	don registrysyncer.DON,
+) ([]ccipreader.OCR3ConfigWithMeta, error) {
 	// this should be a retryable error.
 	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(ctx, don.ID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {

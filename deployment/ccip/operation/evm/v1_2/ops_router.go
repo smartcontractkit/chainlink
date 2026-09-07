@@ -33,9 +33,8 @@ var (
 		shared.Router,
 		router.RouterMetaData,
 		&opsutils.ContractOpts{
-			Version:          &deployment.Version1_2_0,
-			EVMBytecode:      common.FromHex(router.RouterBin),
-			ZkSyncVMBytecode: router.RouterZkBytecode,
+			Version:     &deployment.Version1_2_0,
+			EVMBytecode: common.FromHex(router.RouterBin),
 		},
 		func(input DeployRouterInput) []any {
 			return []any{input.WethAddress, input.RMNProxy}
@@ -49,9 +48,8 @@ var (
 		shared.TestRouter,
 		router.RouterMetaData,
 		&opsutils.ContractOpts{
-			Version:          &deployment.Version1_2_0,
-			EVMBytecode:      common.FromHex(router.RouterBin),
-			ZkSyncVMBytecode: router.RouterZkBytecode,
+			Version:     &deployment.Version1_2_0,
+			EVMBytecode: common.FromHex(router.RouterBin),
 		},
 		func(input DeployRouterInput) []any {
 			return []any{input.WethAddress, input.RMNProxy}

@@ -42,7 +42,8 @@ type MarshaledOnChainResponse [OnChainResponseLength]byte
 // MarshalForVRFCoordinator constructs the flat bytes which are sent to the
 // VRFCoordinator.
 func (p *ProofResponse) MarshalForVRFCoordinator() (
-	response MarshaledOnChainResponse, err error) {
+	response MarshaledOnChainResponse, err error,
+) {
 	solidityProof, err := SolidityPrecalculations(&p.P)
 	if err != nil {
 		return MarshaledOnChainResponse{}, errors.Wrap(err,
@@ -58,7 +59,8 @@ func (p *ProofResponse) MarshalForVRFCoordinator() (
 	rl := copy(response[:], append(mProof[:], wireBlockNum...))
 	if rl != OnChainResponseLength {
 		return MarshaledOnChainResponse{}, errors.Errorf(
-			"wrong length for response to VRFCoordinator")
+			"wrong length for response to VRFCoordinator",
+		)
 	}
 	return response, nil
 }
@@ -88,7 +90,8 @@ func (p ProofResponse) CryptoProof(s PreSeedData) (vrfkey.Proof, error) {
 	}
 	if !valid {
 		return vrfkey.Proof{}, errors.Errorf(
-			"proof implied by on-chain response is invalid")
+			"proof implied by on-chain response is invalid",
+		)
 	}
 	return proof, nil
 }
@@ -116,22 +119,22 @@ func GenerateProofResponseFromProofV2(p vrfkey.Proof, s PreSeedDataV2) (vrf_coor
 	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
 	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
 	return vrf_coordinator_v2.VRFProof{
-			Pk:            [2]*big.Int{x, y},
-			Gamma:         [2]*big.Int{gx, gy},
-			C:             solidityProof.P.C,
-			S:             solidityProof.P.S,
-			Seed:          common.BytesToHash(s.PreSeed[:]).Big(),
-			UWitness:      solidityProof.UWitness,
-			CGammaWitness: [2]*big.Int{cgx, cgy},
-			SHashWitness:  [2]*big.Int{shx, shy},
-			ZInv:          solidityProof.ZInv,
-		}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{
-			BlockNum:         s.BlockNum,
-			SubId:            s.SubId,
-			CallbackGasLimit: s.CallbackGasLimit,
-			NumWords:         s.NumWords,
-			Sender:           s.Sender,
-		}, nil
+		Pk:            [2]*big.Int{x, y},
+		Gamma:         [2]*big.Int{gx, gy},
+		C:             solidityProof.P.C,
+		S:             solidityProof.P.S,
+		Seed:          common.BytesToHash(s.PreSeed[:]).Big(),
+		UWitness:      solidityProof.UWitness,
+		CGammaWitness: [2]*big.Int{cgx, cgy},
+		SHashWitness:  [2]*big.Int{shx, shy},
+		ZInv:          solidityProof.ZInv,
+	}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{
+		BlockNum:         s.BlockNum,
+		SubId:            s.SubId,
+		CallbackGasLimit: s.CallbackGasLimit,
+		NumWords:         s.NumWords,
+		Sender:           s.Sender,
+	}, nil
 }
 
 func GenerateProofResponseFromProofV2Plus(
@@ -139,7 +142,8 @@ func GenerateProofResponseFromProofV2Plus(
 	s PreSeedDataV2Plus) (
 	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof,
 	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment,
-	error) {
+	error,
+) {
 	var proof vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof
 	var rc vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment
 	solidityProof, err := SolidityPrecalculations(&p)
@@ -153,27 +157,28 @@ func GenerateProofResponseFromProofV2Plus(
 	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
 	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
 	return vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof{
-			Pk:            [2]*big.Int{x, y},
-			Gamma:         [2]*big.Int{gx, gy},
-			C:             solidityProof.P.C,
-			S:             solidityProof.P.S,
-			Seed:          common.BytesToHash(s.PreSeed[:]).Big(),
-			UWitness:      solidityProof.UWitness,
-			CGammaWitness: [2]*big.Int{cgx, cgy},
-			SHashWitness:  [2]*big.Int{shx, shy},
-			ZInv:          solidityProof.ZInv,
-		}, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{
-			BlockNum:         s.BlockNum,
-			SubId:            s.SubId,
-			CallbackGasLimit: s.CallbackGasLimit,
-			NumWords:         s.NumWords,
-			Sender:           s.Sender,
-			ExtraArgs:        s.ExtraArgs,
-		}, nil
+		Pk:            [2]*big.Int{x, y},
+		Gamma:         [2]*big.Int{gx, gy},
+		C:             solidityProof.P.C,
+		S:             solidityProof.P.S,
+		Seed:          common.BytesToHash(s.PreSeed[:]).Big(),
+		UWitness:      solidityProof.UWitness,
+		CGammaWitness: [2]*big.Int{cgx, cgy},
+		SHashWitness:  [2]*big.Int{shx, shy},
+		ZInv:          solidityProof.ZInv,
+	}, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{
+		BlockNum:         s.BlockNum,
+		SubId:            s.SubId,
+		CallbackGasLimit: s.CallbackGasLimit,
+		NumWords:         s.NumWords,
+		Sender:           s.Sender,
+		ExtraArgs:        s.ExtraArgs,
+	}, nil
 }
 
 func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
-	MarshaledOnChainResponse, error) {
+	MarshaledOnChainResponse, error,
+) {
 	seed := FinalSeed(s)
 	proof, err := keystore.GenerateProof(id, seed)
 	if err != nil {
@@ -183,7 +188,8 @@ func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
 }
 
 func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) (
-	vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error) {
+	vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error,
+) {
 	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
 	seed := utils.MustHash(string(seedHashMsg)).Big()
 	proof, err := keystore.GenerateProof(id, seed)
@@ -194,7 +200,8 @@ func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) 
 }
 
 func GenerateProofResponseV2Plus(keystore keystore.VRF, id string, s PreSeedDataV2Plus) (
-	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment, error) {
+	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment, error,
+) {
 	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
 	seed := utils.MustHash(string(seedHashMsg)).Big()
 	proof, err := keystore.GenerateProof(id, seed)

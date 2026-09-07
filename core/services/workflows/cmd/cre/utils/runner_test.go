@@ -16,6 +16,10 @@ import (
 )
 
 func TestRunner(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	t.Run("happy path with an empty workflow", func(t *testing.T) {

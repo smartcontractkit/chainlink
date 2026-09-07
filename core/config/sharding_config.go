@@ -13,4 +13,5 @@ type Sharding interface {
 	ShardIndex() uint16
 	ShardOrchestratorPort() uint16
 	ShardOrchestratorAddress() *url.URL
+	ShardAssignmentMode() string
 }

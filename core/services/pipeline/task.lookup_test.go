@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -24,7 +23,7 @@ func Test_LookupTask(t *testing.T) {
 		task.Key = "foo"
 		inputs = []pipeline.Result{{Value: m, Error: nil}}
 
-		res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), vars, inputs)
+		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
 		assert.Equal(t, 42, res.Value)
 		assert.NoError(t, res.Error)
@@ -33,7 +32,7 @@ func Test_LookupTask(t *testing.T) {
 		task.Key = "qux"
 		inputs = []pipeline.Result{{Value: m, Error: nil}}
 
-		res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), vars, inputs)
+		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
 		assert.NoError(t, res.Error)
 		assert.Nil(t, res.Value)
@@ -42,7 +41,7 @@ func Test_LookupTask(t *testing.T) {
 		task.Key = "qux"
 		inputs = []pipeline.Result{{Value: "something", Error: nil}}
 
-		res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), vars, inputs)
+		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
 		assert.EqualError(t, res.Error, "unexpected input type: string")
 		assert.Nil(t, res.Value)
@@ -51,7 +50,7 @@ func Test_LookupTask(t *testing.T) {
 		task.Key = "qux"
 		inputs = []pipeline.Result{{Value: nil, Error: errors.New("something blew up")}}
 
-		res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), vars, inputs)
+		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
 		assert.EqualError(t, res.Error, "task inputs: too many errors")
 		assert.Nil(t, res.Value)
@@ -60,7 +59,7 @@ func Test_LookupTask(t *testing.T) {
 		task.Key = "qux"
 		inputs = []pipeline.Result{{Value: m, Error: nil}, {Value: nil, Error: errors.New("something blew up")}}
 
-		res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), vars, inputs)
+		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
 		assert.EqualError(t, res.Error, "task inputs: min: 1 max: 1 (got 2): wrong number of task inputs")
 		assert.Nil(t, res.Value)

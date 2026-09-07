@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"regexp"
 	"testing"
@@ -574,15 +575,23 @@ func deriveCCIPSendAccounts(
 			for _, line := range res.Value.Logs {
 				e.Logger.Error(line)
 			}
-			return nil, nil, nil, fmt.Errorf("failed to exract accounts from simulated transaction log: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to extract accounts from simulated transaction log: %w", err)
 		}
 		e.Logger.Infof("Derive stage: %s. Len: %d\n", derivation.CurrentStage, len(derivation.AccountsToSave))
 
 		isStartOfToken := re.MatchString(derivation.CurrentStage)
 		if isStartOfToken {
-			tokenIndices = append(tokenIndices, tokenIndex-byte(cap(solRouter.NewCcipSendInstructionBuilder().AccountMetaSlice)))
+			accountMetaCap := cap(solRouter.NewCcipSendInstructionBuilder().AccountMetaSlice)
+			if accountMetaCap > math.MaxUint8 {
+				return nil, nil, nil, fmt.Errorf("cap overflows byte: %d", accountMetaCap)
+			}
+			tokenIndices = append(tokenIndices, tokenIndex-byte(accountMetaCap))
 		}
-		tokenIndex += byte(len(derivation.AccountsToSave))
+		accountMetaLen := len(derivation.AccountsToSave)
+		if accountMetaLen > math.MaxUint8 {
+			return nil, nil, nil, fmt.Errorf("len overflows byte: %d", accountMetaLen)
+		}
+		tokenIndex += byte(accountMetaLen)
 
 		for _, meta := range derivation.AccountsToSave {
 			derivedAccounts = append(derivedAccounts, &solana.AccountMeta{

@@ -3,6 +3,7 @@ package blockhashstore
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -89,6 +90,12 @@ func (v *V2Coordinator) Requests(
 	fromBlock uint64,
 	toBlock uint64,
 ) ([]Event, error) {
+	if fromBlock > math.MaxInt64 {
+		return nil, errors.Errorf("fromBlock %d overflows int64", fromBlock)
+	}
+	if toBlock > math.MaxInt64 {
+		return nil, errors.Errorf("toBlock %d overflows int64", toBlock)
+	}
 	logs, err := v.lp.LogsWithSigs(
 		ctx,
 		int64(fromBlock),
@@ -119,6 +126,9 @@ func (v *V2Coordinator) Requests(
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
+	if fromBlock > math.MaxInt64 {
+		return nil, errors.Errorf("fromBlock %d overflows int64", fromBlock)
+	}
 	toBlock, err := v.lp.LatestBlock(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest block")
@@ -180,6 +190,12 @@ func (v *V2PlusCoordinator) Requests(
 	fromBlock uint64,
 	toBlock uint64,
 ) ([]Event, error) {
+	if fromBlock > math.MaxInt64 {
+		return nil, errors.Errorf("fromBlock %d overflows int64", fromBlock)
+	}
+	if toBlock > math.MaxInt64 {
+		return nil, errors.Errorf("toBlock %d overflows int64", toBlock)
+	}
 	logs, err := v.lp.LogsWithSigs(
 		ctx,
 		int64(fromBlock),
@@ -210,6 +226,9 @@ func (v *V2PlusCoordinator) Requests(
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V2PlusCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
+	if fromBlock > math.MaxInt64 {
+		return nil, errors.Errorf("fromBlock %d overflows int64", fromBlock)
+	}
 	toBlock, err := v.lp.LatestBlock(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest block")

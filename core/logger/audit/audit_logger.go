@@ -20,8 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-const bufferCapacity = 2048
-const webRequestTimeout = 10
+const (
+	bufferCapacity    = 2048
+	webRequestTimeout = 10
+)
 
 type Data = map[string]any
 
@@ -113,7 +115,7 @@ func (l *AuditLoggerService) SetLoggingClient(newClient HTTPAuditLoggerInterface
 
 // Entrypoint for new audit logs. This buffers all logs that come in they will
 // sent out by the goroutine that was started when the AuditLoggerService was
-// created. If this service was not enabled, this immeidately returns.
+// created. If this service was not enabled, this immediately returns.
 //
 // This function never blocks.
 func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
@@ -226,7 +228,7 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 	defer cancel()
 
 	// Send to remote service
-	req, err := http.NewRequestWithContext(ctx, "POST", (*url.URL)(&l.forwardToUrl).String(), bytes.NewReader(serializedLog))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, (*url.URL)(&l.forwardToUrl).String(), bytes.NewReader(serializedLog))
 	if err != nil {
 		l.logger.Error("failed to create request to remote logging service!")
 	}
@@ -238,7 +240,7 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 		l.logger.Errorw("failed to send audit log to HTTP log service", "err", err, "logItem", logItem)
 		return
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		if resp.Body == nil {
 			l.logger.Errorw("no body to read. Possibly an error occurred sending", "logItem", logItem)
 			return

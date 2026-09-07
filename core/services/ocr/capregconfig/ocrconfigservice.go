@@ -18,7 +18,6 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
@@ -69,6 +68,18 @@ func NewOCRConfigService(lggr logger.Logger, peerIDProviderFn PeerIDProvider, ch
 		configs:          make(map[configKey]*cachedConfig),
 		metrics:          metrics,
 	}
+}
+
+// GetContractConfig returns the cached registry-based OCR contract config for the
+// given capability/key, if one has been received from the registry.
+func (s *ocrConfigService) GetContractConfig(capabilityID string, ocrConfigKey string) (ocrtypes.ContractConfig, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	cached, ok := s.configs[configKey{CapabilityID: capabilityID, OCRConfigKey: ocrConfigKey}]
+	if !ok || cached == nil {
+		return ocrtypes.ContractConfig{}, false
+	}
+	return cached.ContractConfig, true
 }
 
 func (s *ocrConfigService) Start(ctx context.Context) error {

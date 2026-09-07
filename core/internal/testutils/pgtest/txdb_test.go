@@ -9,8 +9,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestTxDBDriver(t *testing.T) {
@@ -49,7 +47,7 @@ func TestTxDBDriver(t *testing.T) {
 	})
 
 	t.Run("Cancel of tx's context does not trigger rollback of driver's tx", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(t.Context())
 		_, err := db.BeginTx(ctx, nil)
 		assert.NoError(t, err)
 		cancel()

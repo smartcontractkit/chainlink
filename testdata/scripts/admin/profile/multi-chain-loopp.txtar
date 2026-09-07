@@ -89,11 +89,12 @@ NetworkNameFull = 'foobar'
 [[Sui.Nodes]]
 Name = 'node'
 URL = 'https://sui.rpc'
-# Empty gRPC fields keep the plugin on its JSON-RPC path and avoid a nil-pointer deref
-# in the Sui LOOPP's NewRelayer (relayer.go: *nodeConfig.GrpcTarget/GrpcToken). Remove
-# once the chainlink-sui ref is bumped to a version that nil-guards these optional fields.
-GrpcTarget = ''
-GrpcToken = ''
+# The Sui LOOPP requires a gRPC endpoint on every node; empty values fail config
+# validation. Target is host:port derived from the node URL; token matches the
+# test default used by nodetestutils.createSuiChainConfig. The client dials lazily,
+# so a dummy target boots the plugin for health checks without connecting.
+GrpcTarget = 'sui.rpc:443'
+GrpcToken = 'test'
 
 [[Ton]]
 ChainID = '-217'

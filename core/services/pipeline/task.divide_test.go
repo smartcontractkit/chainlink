@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	bridgesMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -102,7 +101,7 @@ func TestDivideTask_Happy(t *testing.T) {
 					Divisor:   test.divisor,
 					Precision: test.precision,
 				}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("without vars through input param", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
@@ -112,7 +111,7 @@ func TestDivideTask_Happy(t *testing.T) {
 					Divisor:   test.divisor,
 					Precision: test.precision,
 				}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(map[string]any{
@@ -126,7 +125,7 @@ func TestDivideTask_Happy(t *testing.T) {
 					Divisor:   "$(chain.link)",
 					Precision: "$(sergey.steve)",
 				}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 		})
 	}
@@ -162,7 +161,7 @@ func TestDivideTask_Unhappy(t *testing.T) {
 				Input:    test.input,
 				Divisor:  test.divisor,
 			}
-			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(t.Context(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			require.ErrorIs(t, result.Error, test.wantErrorCause)
@@ -193,10 +192,10 @@ func TestDivideTask_Overflow(t *testing.T) {
 		"b": d2,
 	})
 
-	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: "123"}})
+	result, runInfo := task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: "123"}})
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
-	require.Equal(t, pipeline.ErrDivisionOverlow, errors.Cause(result.Error))
+	require.Equal(t, pipeline.ErrDivisionOverflow, errors.Cause(result.Error))
 }
 
 func TestDivide_Example(t *testing.T) {
@@ -221,7 +220,7 @@ ds1 -> div_by_ds2 -> multiply;
 	spec := pipeline.Spec{DotDagSource: dag}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
+	_, trrs, err := r.ExecuteRun(t.Context(), spec, vars)
 
 	require.NoError(t, err)
 	require.Len(t, trrs, 4)

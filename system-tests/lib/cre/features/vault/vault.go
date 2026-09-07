@@ -341,7 +341,7 @@ func createJobs(
 			"contractQualifier":    ContractQualifier + "_plugin",
 			"dkgContractQualifier": ContractQualifier + "_dkg",
 			"templateName":         "worker-vault",
-			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
+			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstrapperPeerID + "@" + ocrPeeringCfg.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
 		},
 	}
 	if auth0Config.Auth0 != nil {

@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )

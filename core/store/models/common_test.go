@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -78,6 +77,7 @@ func TestJSON_Merge(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			j1 := cltest.JSONFromString(t, test.original)
 			j2 := cltest.JSONFromString(t, test.input)
 
@@ -94,6 +94,7 @@ func TestJSON_Merge(t *testing.T) {
 }
 
 func TestJSON_MergeNull(t *testing.T) {
+	t.Parallel()
 	merged, err := models.Merge(models.JSON{}, models.JSON{})
 	require.NoError(t, err)
 	assert.Equal(t, `{}`, merged.String())
@@ -113,6 +114,7 @@ func TestJSON_UnmarshalJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var j models.JSON
 			err := json.Unmarshal([]byte(test.json), &j)
 			assert.Equal(t, test.wantErrored, (err != nil))
@@ -136,6 +138,7 @@ func TestJSON_ParseJSON(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			json, err := models.ParseJSON([]byte(test.in))
 			assert.Equal(t, test.want, json)
 			assert.Equal(t, test.wantErrored, (err != nil))
@@ -164,10 +167,10 @@ func TestWebURL_MarshalJSON(t *testing.T) {
 
 	str := "http://www.duckduckgo.com"
 	parsed, err := url.ParseRequestURI(str)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	wurl := models.WebURL(*parsed)
 	b, err := json.Marshal(wurl)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, `"`+str+`"`, string(b))
 }
 
@@ -200,6 +203,7 @@ func TestCron_UnmarshalJSON_Success(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var actual models.Cron
 			err := json.Unmarshal([]byte(test.input), &actual)
 			assert.NoError(t, err)
@@ -219,6 +223,7 @@ func TestCron_UnmarshalJSON_Invalid(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var actual models.Cron
 			err := json.Unmarshal([]byte(test.input), &actual)
 			assert.EqualError(t, err, test.wantError)

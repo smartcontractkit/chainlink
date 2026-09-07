@@ -142,8 +142,10 @@ func accept(ctx context.Context, node *cre.Node, proposalID, jobSpec string) err
 		err = approveJobProposalSpec(ctx, node, proposalID)
 	}
 	if err != nil {
-		// Workflow specs get auto approved
-		if strings.Contains(err.Error(), "cannot approve an approved spec") && strings.Contains(jobSpec, `type = "workflow"`) {
+		// Workflow and CRE settings specs get auto-approved by the node on proposal, so a
+		// subsequent explicit approve races into an already-approved spec — tolerate that.
+		if strings.Contains(err.Error(), "cannot approve an approved spec") &&
+			(strings.Contains(jobSpec, `type = "workflow"`) || strings.Contains(jobSpec, `type = "cresettings"`)) {
 			return nil
 		}
 		fmt.Println("Failed jobspec proposal for node ", node.Name)

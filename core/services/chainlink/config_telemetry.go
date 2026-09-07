@@ -18,8 +18,9 @@ const defaultHeartbeatInterval = 1 * time.Second
 
 // Defaults for the durable emitter tuning knobs (mirrored in docs/core.toml).
 const (
-	defaultDurableEmitterRetransmitBatchSize = 500
-	defaultDurableEmitterEventTTL            = 1 * time.Hour
+	defaultDurableEmitterRetransmitBatchSize      = 500
+	defaultDurableEmitterEventTTL                 = 1 * time.Hour
+	defaultDurableEmitterInsertBatchFlushInterval = 50 * time.Millisecond
 )
 
 // defaultDurableEmitterMaxQueuePayloadBytes is the denominator used for the
@@ -195,6 +196,13 @@ func (b *telemetryConfig) DurableEmitterMaxQueuePayloadBytes() int64 {
 	return *b.s.DurableEmitterMaxQueuePayloadBytes
 }
 
+func (b *telemetryConfig) DurableEmitterInsertBatchFlushInterval() time.Duration {
+	if b.s.DurableEmitterInsertBatchFlushInterval == nil || b.s.DurableEmitterInsertBatchFlushInterval.Duration() <= 0 {
+		return defaultDurableEmitterInsertBatchFlushInterval
+	}
+	return b.s.DurableEmitterInsertBatchFlushInterval.Duration()
+}
+
 func (b *telemetryConfig) HeartbeatInterval() time.Duration {
 	if b.s.HeartbeatInterval == nil || b.s.HeartbeatInterval.Duration() <= 0 {
 		return defaultHeartbeatInterval
@@ -263,7 +271,14 @@ func (b *telemetryConfig) LogMaxQueueSize() int {
 	return *b.s.LogMaxQueueSize
 }
 
+func (b *telemetryConfig) MetricViewsDenyAttributes() []string {
+	return b.s.MetricViewsDenyAttributes
+}
+
 func (b *telemetryConfig) MetricCardinalityLimit() int {
+	if b.s.MetricCardinalityLimit == nil {
+		return 100000
+	}
 	return *b.s.MetricCardinalityLimit
 }
 

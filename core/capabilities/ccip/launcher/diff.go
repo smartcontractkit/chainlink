@@ -21,7 +21,7 @@ type diffResult struct {
 func diff(
 	capabilityID string,
 	oldState,
-	newState registrysyncer.LocalRegistry,
+	newState *registrysyncer.LocalRegistry,
 ) (diffResult, error) {
 	ccipCapability, err := checkCapabilityPresence(capabilityID, newState)
 	if err != nil {
@@ -63,12 +63,10 @@ func compareDONs(
 		if currDONState, ok := currCCIPDONs[id]; !ok {
 			// Not in current state, so mark as added.
 			added[id] = don
-		} else {
+		} else if don.ConfigVersion > currDONState.ConfigVersion {
 			// If its in the current state and the config count for the DON has changed, mark as updated.
 			// Since the registry returns the full state we need to compare the config count.
-			if don.ConfigVersion > currDONState.ConfigVersion {
-				updated[id] = don
-			}
+			updated[id] = don
 		}
 	}
 
@@ -89,7 +87,7 @@ func compareDONs(
 // filterCCIPDONs filters the CCIP DONs from the given state.
 func filterCCIPDONs(
 	ccipCapability registrysyncer.Capability,
-	state registrysyncer.LocalRegistry,
+	state *registrysyncer.LocalRegistry,
 ) (map[registrysyncer.DonID]registrysyncer.DON, error) {
 	ccipDONs := make(map[registrysyncer.DonID]registrysyncer.DON)
 	for _, don := range state.IDsToDONs {
@@ -106,7 +104,7 @@ func filterCCIPDONs(
 // is present in the given capability registry state.
 func checkCapabilityPresence(
 	capabilityID string,
-	state registrysyncer.LocalRegistry,
+	state *registrysyncer.LocalRegistry,
 ) (registrysyncer.Capability, error) {
 	// Sanity check to make sure the capability registry has the capability we are looking for.
 	ccipCapability, ok := state.IDsToCapabilities[capabilityID]

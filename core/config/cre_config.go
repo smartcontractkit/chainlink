@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 type CRE interface {
 	WsURL() string
 	RestURL() string
@@ -36,4 +38,6 @@ type CREConfidentialRelay interface {
 type CRELinking interface {
 	URL() string
 	TLSEnabled() bool
+	// RequestTimeout bounds each organization lookup against the linking service.
+	RequestTimeout() time.Duration
 }

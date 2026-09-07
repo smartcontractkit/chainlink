@@ -15,6 +15,10 @@ cre_v*
 configs/*-cache.toml
 cache/
 
+# rendered mixed-env topologies (generated from configs/mixed-env-*.toml.tmpl)
+configs/mixed-env-don.toml
+configs/mixed-env-confidential-workflows.toml
+
 logs/
 
 # CRE CLI settings

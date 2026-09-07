@@ -23,19 +23,19 @@ func ToDecimal(input any) (decimal.Decimal, error) {
 	case int16:
 		return decimal.New(int64(v), 0), nil
 	case int32:
-		return decimal.New(int64(v), 0), nil
+		return decimal.NewFromInt32(v), nil
 	case int64:
 		return decimal.New(v, 0), nil
 	case uint:
-		return decimal.New(int64(v), 0), nil
+		return decimal.NewFromUint64(uint64(v)), nil
 	case uint8:
-		return decimal.New(int64(v), 0), nil
+		return decimal.NewFromUint64(uint64(v)), nil
 	case uint16:
-		return decimal.New(int64(v), 0), nil
+		return decimal.NewFromUint64(uint64(v)), nil
 	case uint32:
-		return decimal.New(int64(v), 0), nil
+		return decimal.NewFromUint64(uint64(v)), nil
 	case uint64:
-		return decimal.New(int64(v), 0), nil
+		return decimal.NewFromUint64(v), nil
 	case float64:
 		if !validFloat(v) {
 			return decimal.Decimal{}, errors.Errorf("invalid float %v, cannot convert to decimal", v)

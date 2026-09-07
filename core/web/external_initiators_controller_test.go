@@ -95,35 +95,35 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	require.Equal(t, 2, metaCount)
 
 	var links jsonapi.Links
-	var eis []presenters.ExternalInitiatorResource
-	err = web.ParsePaginatedResponse(body, &eis, &links)
+	var externalInitiators []presenters.ExternalInitiatorResource
+	err = web.ParsePaginatedResponse(body, &externalInitiators, &links)
 	require.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
-	assert.Len(t, eis, 1)
-	assert.Equal(t, strconv.FormatInt(eiBar.ID, 10), eis[0].ID)
-	assert.Equal(t, eiBar.Name, eis[0].Name)
-	assert.Nil(t, eis[0].URL)
-	assert.Equal(t, eiBar.AccessKey, eis[0].AccessKey)
-	assert.Equal(t, eiBar.OutgoingToken, eis[0].OutgoingToken)
+	assert.Len(t, externalInitiators, 1)
+	assert.Equal(t, strconv.FormatInt(eiBar.ID, 10), externalInitiators[0].ID)
+	assert.Equal(t, eiBar.Name, externalInitiators[0].Name)
+	assert.Nil(t, externalInitiators[0].URL)
+	assert.Equal(t, eiBar.AccessKey, externalInitiators[0].AccessKey)
+	assert.Equal(t, eiBar.OutgoingToken, externalInitiators[0].OutgoingToken)
 
 	resp, cleanup = client.Get(links["next"].Href)
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	eis = []presenters.ExternalInitiatorResource{}
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &eis, &links)
+	externalInitiators = []presenters.ExternalInitiatorResource{}
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &externalInitiators, &links)
 	require.NoError(t, err)
 	assert.Empty(t, links["next"])
 	assert.NotEmpty(t, links["prev"])
 
-	assert.Len(t, eis, 1)
-	assert.Equal(t, strconv.FormatInt(eiFoo.ID, 10), eis[0].ID)
-	assert.Equal(t, eiFoo.Name, eis[0].Name)
-	assert.Equal(t, eiFoo.URL.String(), eis[0].URL.String())
-	assert.Equal(t, eiFoo.AccessKey, eis[0].AccessKey)
-	assert.Equal(t, eiFoo.OutgoingToken, eis[0].OutgoingToken)
+	assert.Len(t, externalInitiators, 1)
+	assert.Equal(t, strconv.FormatInt(eiFoo.ID, 10), externalInitiators[0].ID)
+	assert.Equal(t, eiFoo.Name, externalInitiators[0].Name)
+	assert.Equal(t, eiFoo.URL.String(), externalInitiators[0].URL.String())
+	assert.Equal(t, eiFoo.AccessKey, externalInitiators[0].AccessKey)
+	assert.Equal(t, eiFoo.OutgoingToken, externalInitiators[0].OutgoingToken)
 }
 
 func TestExternalInitiatorsController_Create_success(t *testing.T) {

@@ -6,11 +6,10 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/mock"
 
-	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
 	"github.com/smartcontractkit/libocr/ragep2p/types"
+
+	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 var _ ccipreaderpkg.HomeChain = (*HomeChainReader)(nil)
@@ -19,27 +18,27 @@ type HomeChainReader struct {
 	mock.Mock
 }
 
-func (_m *HomeChainReader) GetChainConfig(chainSelector cciptypes.ChainSelector) (ccipreaderpkg.ChainConfig, error) {
+func (_m *HomeChainReader) GetChainConfig(chainSelector ccipocr3.ChainSelector) (ccipreaderpkg.ChainConfig, error) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (_m *HomeChainReader) GetAllChainConfigs() (map[cciptypes.ChainSelector]ccipreaderpkg.ChainConfig, error) {
+func (_m *HomeChainReader) GetAllChainConfigs() (map[ccipocr3.ChainSelector]ccipreaderpkg.ChainConfig, error) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (_m *HomeChainReader) GetSupportedChainsForPeer(id types.PeerID) (mapset.Set[cciptypes.ChainSelector], error) {
+func (_m *HomeChainReader) GetSupportedChainsForPeer(id types.PeerID) (mapset.Set[ccipocr3.ChainSelector], error) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (_m *HomeChainReader) GetKnownCCIPChains() (mapset.Set[cciptypes.ChainSelector], error) {
+func (_m *HomeChainReader) GetKnownCCIPChains() (mapset.Set[ccipocr3.ChainSelector], error) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (_m *HomeChainReader) GetFChain() (map[cciptypes.ChainSelector]int, error) {
+func (_m *HomeChainReader) GetFChain() (map[ccipocr3.ChainSelector]int, error) {
 	// TODO implement me
 	panic("implement me")
 }
@@ -79,10 +78,8 @@ func (_m *HomeChainReader) GetOCRConfigs(ctx context.Context, donID uint32, plug
 	}
 	if rf, ok := ret.Get(0).(func(ctx context.Context, donID uint32, pluginType uint8) ccipreaderpkg.ActiveAndCandidate); ok {
 		r0 = rf(ctx, donID, pluginType)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ccipreaderpkg.ActiveAndCandidate)
-		}
+	} else if ret.Get(0) != nil {
+		r0 = ret.Get(0).(ccipreaderpkg.ActiveAndCandidate)
 	}
 
 	if rf, ok := ret.Get(1).(func(ctx context.Context, donID uint32, pluginType uint8) error); ok {
@@ -119,7 +116,8 @@ func (_m *HomeChainReader) Ready() error {
 func NewHomeChainReader(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *HomeChainReader {
+},
+) *HomeChainReader {
 	mock := &HomeChainReader{}
 	mock.Test(t)
 

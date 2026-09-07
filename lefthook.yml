@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/evilmartians/lefthook/refs/heads/master/schema.json
+output:
+  - summary
+  - success
+  - failure
+  - skips
+
+pre-commit:
+  # Compile the githooks CLI as the very first step so all subsequent hooks run
+  # against a freshly built binary. Output binary is in tools/githooks/.bin/.
+  setup:
+    - run: test -f tools/githooks/.bin/githooks && [ -z "$(find tools/githooks \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) -newer tools/githooks/.bin/githooks 2>/dev/null)" ] || go build -C tools/githooks -o .bin/githooks .
+
+  # One outer group: first a parallel bundle, then golangci-lint runs
+  # strictly after every other job is done. This keeps the read-only scanners
+  # fast while preserving the write ordering we need: the Go mutators write
+  # .go files and go.mod/go.sum, so lint --fix must never run while mockery
+  # regenerates mocks or go mod tidy rewrites module files.
+  jobs:
+    - name: fix-then-lint
+      group:
+        jobs:
+          - name: scanners
+            group:
+              # Scanners only read the staged snapshot; go-mod-tidy and
+              # go-generate share the Go toolchain and module files, so they
+              # stay sequential with tidy first.
+              parallel: true
+              jobs:
+                # Prevent committing secret keys or sensitive information
+                - name: betterleaks
+                  tags: [security]
+                  run: betterleaks git . --pre-commit --staged
+                  fail_text: "betterleaks failed or missing. Install: https://github.com/betterleaks/betterleaks#installation"
+
+                # Check for common typos in the codebase
+                - name: typos
+                  tags: [lint]
+                  run: typos --force-exclude --format brief {staged_files}
+                  fail_text: "typos failed or missing. Install: https://github.com/crate-ci/typos#install"
+
+                - name: fix-and-generate
+                  group:
+                    jobs:
+                      # Fix erroneous trailing whitespace in eligible code and text files
+                      - name: whitespace-fixer
+                        tags: [format]
+                        run: tools/githooks/.bin/githooks whitespace-fixer {staged_files}
+                        stage_fixed: true
+
+                      # Ensure eligible code and text files end with a single newline
+                      - name: end-of-file-fixer
+                        tags: [format]
+                        run: tools/githooks/.bin/githooks end-of-file-fixer {staged_files}
+                        stage_fixed: true
+
+                      # Tidy go.mod/go.sum in parallel for changed modules
+                      # No {staged_files}: same merge-base diff base as lint/generate.
+                      - name: go-mod-tidy
+                        tags: [gomod]
+                        glob:
+                          - "*.go"
+                          - "go.mod"
+                          - "go.sum"
+                        run: tools/githooks/.bin/githooks tidy
+                        stage_fixed: true
+
+                      # Regenerate code for changed packages (proto, config docs, go.md, mocks)
+                      # No {staged_files}: like lint, the command diffs against the merge-base
+                      # with the default branch so earlier branch commits still trigger their
+                      # generators.
+                      - name: go-generate
+                        tags: [generate]
+                        glob:
+                          - "*.go"
+                          - "*.proto"
+                          - "go.mod"
+                          - "go.sum"
+                          - ".mockery.yaml"
+                        run: tools/githooks/.bin/githooks generate
+                        stage_fixed: true
+
+          # Lint changed modules + packages — last, after generated and
+          # tidied code is stable. No {staged_files}: the lint command diffs
+          # against the merge-base with the default branch (same base CI's
+          # only-new-issues uses), so issues introduced by earlier commits of
+          # the branch are still caught and fixed.
+          - name: golangci-lint
+            tags: [lint]
+            glob:
+              - "*.go"
+              - "go.mod"
+              - "go.sum"
+            run: tools/githooks/.bin/githooks lint
+            stage_fixed: true
+
+pre-push:
+  setup:
+    - run: test -f tools/githooks/.bin/githooks && [ -z "$(find tools/githooks \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) -newer tools/githooks/.bin/githooks 2>/dev/null)" ] || go build -C tools/githooks -o .bin/githooks .
+
+  parallel: true
+  commands:
+    short-tests:
+      tags: test
+      glob:
+        - "*.go"
+        - "go.mod"
+        - "go.sum"
+      run: tools/githooks/.bin/githooks test {push_files}

@@ -49,13 +49,15 @@ func Test_classifyActivationError(t *testing.T) {
 			want: ActivationNonRetryable,
 		},
 		{
-			name: "invalid cron schedule is non-retryable",
-			err:  fmt.Errorf("engine initialization failed: %w", errors.New("invalid cron schedule 'bad'")),
+			name: "failure parsing cron schedule",
+			err: fmt.Errorf("failed to register trigger %s: %w", "trigger_0",
+				errors.New("[3]InvalidArgument: failed to initialize job: gocron: CronJob: crontab parse failure\nprovided bad location moon: unknown time zone moon")),
 			want: ActivationNonRetryable,
 		},
 		{
-			name: "interval exceeded is non-retryable",
-			err:  fmt.Errorf("engine initialization failed: %w", errors.New("cron trigger interval exceeded")),
+			name: "cron schedule faster than the allowed minimum",
+			err: fmt.Errorf("failed to register trigger %s: %w", "trigger_0",
+				errors.New("[3]InvalidArgument: maximum fastest cron schedule is 30s")),
 			want: ActivationNonRetryable,
 		},
 		{

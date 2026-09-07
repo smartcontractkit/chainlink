@@ -21,9 +21,8 @@ var (
 		shared.NonceManager,
 		nonce_manager.NonceManagerMetaData,
 		&opsutils.ContractOpts{
-			Version:          &deployment.Version1_6_0,
-			EVMBytecode:      common.FromHex(nonce_manager.NonceManagerBin),
-			ZkSyncVMBytecode: nonce_manager.ZkBytecode,
+			Version:     &deployment.Version1_6_0,
+			EVMBytecode: common.FromHex(nonce_manager.NonceManagerBin),
 		},
 		func(input []common.Address) []any {
 			return []any{input}

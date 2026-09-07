@@ -33,14 +33,14 @@ type FundsToSend struct {
 }
 
 type FundsToSendSol struct {
-	Recipent   solana.PublicKey
+	Recipient  solana.PublicKey
 	PrivateKey solana.PrivateKey
 	Amount     uint64
 }
 
 func SendFundsSol(ctx context.Context, logger zerolog.Logger, client *rpc.Client, payload FundsToSendSol) error {
 	funder := payload.PrivateKey
-	recipient := payload.Recipent
+	recipient := payload.Recipient
 	if recipient.IsZero() {
 		return errors.New("recipient is zero")
 	}

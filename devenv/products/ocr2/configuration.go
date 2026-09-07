@@ -465,7 +465,7 @@ func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Clie
 			}
 		}
 		// // in case of forwarders replace transmitters with forwarders
-		transmitters = make([]common.Address, 0)
+		transmitters = make([]common.Address, 0, len(fwds))
 		transmitters = append(transmitters, fwds...)
 	}
 

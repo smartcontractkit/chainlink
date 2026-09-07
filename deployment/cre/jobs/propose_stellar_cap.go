@@ -40,12 +40,14 @@ type ProposeStellarCapJobSpecInput struct {
 	Domain      string `json:"domain" yaml:"domain"`
 	DONName     string `json:"donName" yaml:"donName"`
 
-	ChainSelector        uint64        `json:"chainSelector" yaml:"chainSelector"`
-	BootstrapperOCR3Urls []string      `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
-	OCRContractQualifier string        `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
-	OCRChainSelector     uint64        `json:"ocrChainSelector" yaml:"ocrChainSelector"`
-	ForwardersQualifier  string        `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
-	DeltaStage           time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
+	ChainSelector        uint64   `json:"chainSelector" yaml:"chainSelector"`
+	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
+	OCRContractQualifier string   `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
+	OCRChainSelector     uint64   `json:"ocrChainSelector" yaml:"ocrChainSelector"`
+	ForwardersQualifier  string   `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
+	// ForwarderLookbackLedgers defines how many ledgers back to search for the ReportProcessed event (default 100).
+	ForwarderLookbackLedgers int64         `json:"forwarderLookbackLedgers" yaml:"forwarderLookbackLedgers,omitempty"`
+	DeltaStage               time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
 
 	StellarCapabilityInputs []StellarCapabilityInput `json:"stellarCapabilityInputs" yaml:"stellarCapabilityInputs"`
 }
@@ -166,6 +168,13 @@ func (u ProposeStellarCapJobSpec) Apply(e cldf.Environment, input ProposeStellar
 		cfg.DeltaStage = input.DeltaStage
 		if capInput.OverrideDefaultCfg.DeltaStage != 0 {
 			cfg.DeltaStage = capInput.OverrideDefaultCfg.DeltaStage
+		}
+		// Fall back to the DON-wide value; a non-zero per-node override wins.
+		// If neither is set the field is omitted and the worker applies its own
+		// default (actions.DefaultForwarderLookbackLedgers), matching how EVM
+		// leaves ForwarderLookbackBlocks to the worker.
+		if cfg.ForwarderLookbackLedgers == 0 {
+			cfg.ForwarderLookbackLedgers = input.ForwarderLookbackLedgers
 		}
 
 		enc, err := json.Marshal(cfg)

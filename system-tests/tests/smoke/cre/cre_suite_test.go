@@ -7,11 +7,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
-
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 //////////// SMOKE TESTS /////////////
@@ -87,16 +88,11 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			if parallelEnabled {
 				t.Parallel()
 			}
-			allowlistSubtestName := "allowlist_auth_when_jwt_auth_disabled"
-			jwtSubtestName := "jwt_auth_rejected_when_jwt_auth_disabled"
+			allowlistSubtestName := "allowlist_auth"
 			vaultConfig := getVaultDefaultTestConfig(t)
-			if isVaultJWTAuthEnabledTopology(topology) {
-				vaultConfig = getVaultJWTAuthEnabledTestConfig(t)
-				allowlistSubtestName = "allowlist_auth_when_jwt_auth_enabled"
-				jwtSubtestName = "jwt_auth_when_jwt_auth_enabled"
-			} else if isVaultOptimizationsEnabledTopology(topology) {
-				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
-				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
+			if isVaultStallPurgeTopology(topology) {
+				vaultConfig = getVaultStallPurgeTestConfig(t)
+				allowlistSubtestName = "pending_queue_stall_purge"
 			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
 				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
@@ -108,29 +104,27 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 					t.Parallel()
 				}
 				allowlistEnv := fixture.TestEnv
-				if parallelEnabled && isVaultJWTAuthEnabledTopology(topology) {
+				if parallelEnabled {
 					allowlistEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+				}
+				if isVaultStallPurgeTopology(topology) {
+					ExecuteVaultPendingQueueStallPurgeSmokeTest(t, fixture, allowlistEnv)
+					return
 				}
 				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
 			})
-			if isVaultJWTAuthEnabledTopology(topology) {
-				t.Run(jwtSubtestName, func(t *testing.T) {
-					if parallelEnabled {
-						t.Parallel()
-					}
-					jwtEnv := fixture.TestEnv
-					if parallelEnabled {
-						jwtEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
-					}
-					ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
-				})
+			if isVaultStallPurgeTopology(topology) {
 				return
 			}
-			t.Run(jwtSubtestName, func(t *testing.T) {
+			t.Run("jwt_auth", func(t *testing.T) {
 				if parallelEnabled {
 					t.Parallel()
 				}
-				ExecuteVaultJWTDisabledTest(t, fixture)
+				jwtEnv := fixture.TestEnv
+				if parallelEnabled {
+					jwtEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+				}
+				ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
 			})
 		})
 	case suite_config.SuiteScenarioCronChipIngressStack:
@@ -234,6 +228,7 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 
 const solanaConfigPath = "/configs/workflow-don-solana.toml"
 
+//nolint:paralleltest // isolate local cre env run
 func Test_CRE_V2_Solana_Write(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana Write", func(t *testing.T) {
@@ -251,8 +246,19 @@ func Test_CRE_V2_Solana_LogTrigger(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // single test
 func Test_CRE_V2_Solana_Read_Accounts(t *testing.T) {
 	runSolanaReadBucket(t, solana_config.ReadBucketAccountCalls)
+}
+
+//nolint:paralleltest // single test
+func Test_CRE_V2_Solana_Read_Block(t *testing.T) {
+	runSolanaReadBucket(t, solana_config.ReadBucketBlockCalls)
+}
+
+//nolint:paralleltest // single test
+func Test_CRE_V2_Solana_Read_Tx(t *testing.T) {
+	runSolanaReadBucket(t, solana_config.ReadBucketTxCalls)
 }
 
 func runSolanaReadBucket(t *testing.T, bucket solana_config.ReadBucket) {
@@ -295,6 +301,12 @@ func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
 		executeStellarWriteTest(t, env, chain, userLogsCh, baseMessageCh)
 	})
+
+	t.Run("StellarDataFeedsWrite", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarDataFeedsWriteTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
 }
 
 func Test_CRE_V2_Module_Cache(t *testing.T) {
@@ -320,11 +332,47 @@ func Test_CRE_V2_DurableEmitter(t *testing.T) {
 	ExecuteDurableEmitterTest(t, testEnv)
 }
 
+//nolint:paralleltest // subtests share the same sharding config
 func Test_CRE_V2_Sharding(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
 	)
+	t.Run("ExecuteShardingTestWithCronTrigger", func(t *testing.T) {
+		ExecuteShardingTestWithCronTrigger(t, testEnv)
+	})
+	t.Run("ExecuteShardingTestWithEVMLogTrigger", func(t *testing.T) {
+		// Reinitialize OperationsBundle so that it can reexecute shard config updates instead of caching them.
+		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle = operations.NewBundle(t.Context, logger.TestLogger(t), operations.NewMemoryReporter())
+		ExecuteShardingTestWithEVMLogTrigger(t, testEnv)
+	})
+}
 
-	ExecuteShardingTest(t, testEnv)
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_ShardingWithHttpTrigger(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
+	)
+	t.Run("ExecuteShardingTestWithHTTPTrigger", func(t *testing.T) {
+		ExecuteShardingTestWithHTTPTrigger(t, testEnv)
+	})
+}
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
+	)
+	ExecuteManualShardAssignmentTest(t, testEnv)
+}
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-ringocr-overrides.toml"),
+	)
+	ExecuteRingOCROverridesTest(t, testEnv)
 }

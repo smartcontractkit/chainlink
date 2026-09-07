@@ -110,7 +110,7 @@ func fingerprintFiles(t *testing.T, repoRoot string, pkg listPackage) string {
 	require.NoError(t, hashPackageFiles(repoRoot, pkg, &digests))
 	sort.Slice(digests, func(i, j int) bool { return digests[i].path < digests[j].path })
 	h := sha256.New()
-	require.NoError(t, writeFingerprint(h, "go1.26.4", sha256.Sum256([]byte("gosum")), digests))
+	require.NoError(t, writeFingerprint(h, "go1.26.5", sha256.Sum256([]byte("gosum")), digests))
 	return hex.EncodeToString(h.Sum(nil))
 }
 

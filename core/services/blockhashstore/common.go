@@ -71,18 +71,18 @@ func GetUnfulfilledBlocksAndRequests(
 		requestIDToBlock[req.ID] = req.Block
 	}
 
-	fuls, err := coordinator.Fulfillments(ctx, fromBlock)
+	fulfillments, err := coordinator.Fulfillments(ctx, fromBlock)
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF fulfillments",
 			"err", err)
 		return nil, errors.Wrap(err, "fetching VRF fulfillments")
 	}
-	for _, ful := range fuls {
-		requestBlock, ok := requestIDToBlock[ful.ID]
+	for _, fulfillment := range fulfillments {
+		requestBlock, ok := requestIDToBlock[fulfillment.ID]
 		if !ok {
 			continue
 		}
-		delete(blockToRequests[requestBlock], ful.ID)
+		delete(blockToRequests[requestBlock], fulfillment.ID)
 	}
 
 	return blockToRequests, nil

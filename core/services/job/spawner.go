@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"sync"
 
 	pkgerrors "github.com/pkg/errors"
@@ -12,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -196,8 +196,7 @@ func (js *spawner) stopService(jobID int32) {
 	delete(js.activeJobs, jobID)
 	js.activeJobsMu.Unlock()
 
-	for i := len(aj.services) - 1; i >= 0; i-- {
-		service := aj.services[i]
+	for i, service := range slices.Backward(aj.services) {
 		sLggr := lggr.With("subservice", i, "serviceType", reflect.TypeOf(service))
 		if c, ok := service.(services.HealthReporter); ok {
 			if err := js.checker.Unregister(c.Name()); err != nil {

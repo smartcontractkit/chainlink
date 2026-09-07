@@ -10,16 +10,19 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	triggercap "github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -60,21 +63,21 @@ type Delegate struct {
 	getPeerID               func() (p2ptypes.PeerID, error)
 	ocrPeerWrapper          *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
-	computeFetcherFactoryFn compute.FetcherFactory
 	selectorOpts            []func(*gateway.RoundRobinSelector)
 	orgResolver             orgresolver.OrgResolver
 	creSettings             core.SettingsBroadcaster
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
-	initErr                 error
+	defaultBootstrappers    []ocrcommontypes.BootstrapperLocator
+	capRegistryAddress      string
+	capRegistryChainID      string
 
 	isNewlyCreatedJob bool
 }
 
 const (
-	commandOverrideForWebAPITrigger       = "__builtin_web-api-trigger"
-	commandOverrideForWebAPITarget        = "__builtin_web-api-target"
-	commandOverrideForCustomComputeAction = "__builtin_custom-compute-action"
+	commandOverrideForWebAPITrigger = "__builtin_web-api-trigger"
+	commandOverrideForWebAPITarget  = "__builtin_web-api-target"
 )
 
 type NewOracleFactoryFn func(generic.OracleFactoryParams) (core.OracleFactory, error)
@@ -93,18 +96,15 @@ func NewDelegate(
 	getPeerID func() (p2ptypes.PeerID, error),
 	ocrPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
-	fetcherFactoryFn compute.FetcherFactory,
 	orgResolver orgresolver.OrgResolver,
 	creSettings core.SettingsBroadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
 	localCfg coreconfig.LocalCapabilities,
+	defaultBootstrappers []ocrcommontypes.BootstrapperLocator,
+	capRegistryAddress string,
+	capRegistryChainID string,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
-	initErr := registerOptionalMockStreamsTrigger(logger, localCfg, registry)
-	if initErr != nil {
-		logger.Errorw("Failed to register optional mock streams trigger", "err", initErr)
-	}
-
 	return &Delegate{
 		logger:                  logger,
 		ds:                      ds,
@@ -120,12 +120,13 @@ func NewDelegate(
 		getPeerID:               getPeerID,
 		ocrPeerWrapper:          ocrPeerWrapper,
 		newOracleFactoryFn:      newOracleFactoryFn,
-		computeFetcherFactoryFn: fetcherFactoryFn,
 		orgResolver:             orgResolver,
 		creSettings:             creSettings,
 		ocrConfigService:        ocrConfigService,
 		localCfg:                localCfg,
-		initErr:                 initErr,
+		defaultBootstrappers:    defaultBootstrappers,
+		capRegistryAddress:      capRegistryAddress,
+		capRegistryChainID:      capRegistryChainID,
 		selectorOpts:            opts,
 	}
 }
@@ -140,10 +141,6 @@ func (d *Delegate) BeforeJobCreated(job job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	if d.initErr != nil {
-		return nil, d.initErr
-	}
-
 	command := spec.StandardCapabilitiesSpec.Command
 	configJSON := spec.StandardCapabilitiesSpec.Config
 
@@ -165,7 +162,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	// resolves to 0 and the plugin falls back to the consumer workflow's DON ID
 	// for event labeling. Carrying the DON ID in the job spec would close that
 	// gap; tracked as a follow-up. See CRE-4409.
-	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, spec.StandardCapabilitiesSpec.OracleFactory, 0)
+	// The job-spec launch path has no registry OCR3 config to thread; NewServices falls
+	// back to the cached OCRConfigService when available.
+	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, &spec.StandardCapabilitiesSpec.OracleFactory, 0, nil)
 }
 
 // NewServices builds the per-job services for a Standard Capabilities LOOP.
@@ -183,14 +182,18 @@ func (d *Delegate) NewServices(
 	jobID int32,
 	jobName string,
 	externalJobID uuid.UUID,
-	oracleFactoryConfig job.OracleFactoryConfig,
+	oracleFactoryConfig *job.OracleFactoryConfig,
 	capabilityDonID uint32,
+	registryOCRConfig *ocrtypes.ContractConfig,
 ) ([]job.ServiceCtx, error) {
-	if d.initErr != nil {
-		return nil, d.initErr
-	}
-
 	log := d.logger.Named("StandardCapabilities").Named(strconv.Itoa(int(jobID))).Named(jobName)
+
+	// Warn when neither the job spec nor the TOML config provide bootstrap peers.
+	// The oracle factory will fail at startup if it can't find peers, so the error
+	// surfaces anyway — but logging here gives an earlier, clearer signal.
+	if oracleFactoryConfig != nil && oracleFactoryConfig.Enabled && len(oracleFactoryConfig.BootstrapPeers) == 0 && len(d.defaultBootstrappers) == 0 {
+		log.Warnw("no bootstrap peers found in job spec or Capabilities.Peering.V2.DefaultBootstrappers; the oracle factory may fail to start")
+	}
 
 	kvStore := job.NewKVStore(jobID, d.ds)
 
@@ -228,28 +231,55 @@ func (d *Delegate) NewServices(
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
+	capabilityID := conversions.GetCapabilityIDFromCommand(command, configJSON)
+	if d.ocrConfigService != nil && capabilityID == "" {
+		log.Warnw("No capability ID mapping for command, using legacy config only",
+			"command", command)
+	}
+
+	// Resolve the on-chain OCR config for this capability so we can align this node's
+	// signing key and transmitter with what the registry expects. The registry-driven
+	// launch path (LocalCapabilityManager) threads it in directly; the job-spec launch
+	// path falls back to the cached OCRConfigService. Nil means no config is available
+	// yet, in which case local defaults are used.
+	ocrContractConfig := registryOCRConfig
+	if ocrContractConfig == nil && d.ocrConfigService != nil && capabilityID != "" {
+		if cc, ok := d.ocrConfigService.GetContractConfig(capabilityID, capabilitiespb.OCR3ConfigDefaultKey); ok {
+			ocrContractConfig = &cc
+		}
+	}
+
 	ocrEvmKeyBundles, err := d.ks.OCR2().GetAllOfType(corekeys.EVM)
 	if err != nil {
 		return nil, err
 	}
 
 	var ocrEvmKeyBundle ocr2key.KeyBundle
-	if len(ocrEvmKeyBundles) == 0 {
-		ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, corekeys.EVM)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create OCR key bundle")
+	if ocrContractConfig != nil {
+		// Always select the exact bundle matching the on-chain OCR config from the
+		// Capabilities Registry. If none matches, OCR won't work, so we fail here
+		// rather than silently picking a non-matching bundle.
+		// TODO: extend to cover other chain families besides EVM.
+		kb, ok := generic.SelectOCRKeyBundleForConfig(ocrEvmKeyBundles, ocrContractConfig)
+		if !ok {
+			log.Warnw("none of the node's EVM OCR key bundles match the signers in the on-chain OCR config; using the first bundle, which may cause unexpected behavior",
+				"numBundles", len(ocrEvmKeyBundles))
+			ocrEvmKeyBundle = ocrEvmKeyBundles[0]
+		} else {
+			ocrEvmKeyBundle = kb
 		}
 	} else {
-		if len(ocrEvmKeyBundles) > 1 {
-			log.Infof("found %d EVM OCR key bundles, which may cause unexpected behavior if using the OracleFactory", len(ocrEvmKeyBundles))
+		// No on-chain OCR config available yet.
+		if len(ocrEvmKeyBundles) == 0 {
+			ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, corekeys.EVM)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to create OCR key bundle")
+			}
+		} else {
+			// Use the first bundle as a fallback, which may cause unexpected behavior
+			// if using the OracleFactory.
+			ocrEvmKeyBundle = ocrEvmKeyBundles[0]
 		}
-		ocrEvmKeyBundle = ocrEvmKeyBundles[0]
-	}
-
-	capabilityID := conversions.GetCapabilityIDFromCommand(command, configJSON)
-	if d.ocrConfigService != nil && capabilityID == "" {
-		log.Warnw("No capability ID mapping for command, using legacy config only",
-			"command", command)
 	}
 
 	// Best-effort resolve the authoritative capability DON ID for this plugin
@@ -263,28 +293,75 @@ func (d *Delegate) NewServices(
 		log.Debugw("Resolved capability DON ID from registry", "capabilityID", capabilityID, "donID", capabilityDonID)
 	}
 
+	// Extract the transmitter paired with this node's signer from the on-chain OCR config.
+	// The caller passes it to ResolveOracleFactoryConfig so the node uses exactly the
+	// transmitter the OCR config expects. Empty when no registry config is available.
+	var transmitter string
+	if ocrContractConfig != nil {
+		if t, ok := generic.TransmitterForSigner(*ocrContractConfig, ocrEvmKeyBundle.PublicKey()); ok {
+			transmitter = t
+		} else {
+			log.Warnw("node signer not found in on-chain OCR config; falling back to round-robin transmitter",
+				"ocrKeyBundleID", ocrEvmKeyBundle.ID())
+		}
+	}
+
+	ocrKeyBundles := map[string]ocr2key.KeyBundle{"evm": ocrEvmKeyBundle}
+
+	// Always resolve the oracle factory config to fill in any missing fields
+	// (contract address, chain ID, key bundle, transmitter, signing strategy).
+	// Job spec values take precedence; empty fields are resolved from the
+	// Capabilities Registry and node keystore.
+	var oracleFactoryCfg job.OracleFactoryConfig
+	var resolvedSigning job.OnchainSigningStrategy
+	var resolveErr error
+	if oracleFactoryConfig != nil {
+		oracleFactoryCfg = *oracleFactoryConfig
+		resolvedSigning = oracleFactoryConfig.OnchainSigning
+	}
+	log.Infow("resolving oracle factory config",
+		"capabilityID", capabilityID,
+		"hasJobSpecConfig", oracleFactoryConfig != nil,
+		"capRegistryAddress", d.capRegistryAddress,
+		"capRegistryChainID", d.capRegistryChainID,
+		"transmitter", transmitter,
+		"hasOCRContractConfig", ocrContractConfig != nil)
+	oracleFactoryCfg, resolvedSigning, resolveErr = generic.ResolveOracleFactoryConfig(ctx, generic.ResolveOracleFactoryConfigParams{
+		Config:             oracleFactoryCfg,
+		OnchainSigning:     resolvedSigning,
+		CapRegistryAddress: d.capRegistryAddress,
+		CapRegistryChainID: d.capRegistryChainID,
+		OCRKeyBundles:      ocrKeyBundles,
+		Transmitter:        transmitter,
+		EthKeystore:        d.ks.Eth(),
+		Logger:             log,
+	})
+	if resolveErr != nil {
+		return nil, fmt.Errorf("failed to resolve oracle factory config: %w", resolveErr)
+	}
+
 	var oracleFactory core.OracleFactory
 	// NOTE: special case for custom Oracle Factory for use in tests
 	if d.newOracleFactoryFn != nil {
 		oracleFactory, err = d.newOracleFactoryFn(generic.OracleFactoryParams{
-			Logger:           log,
-			JobORM:           d.jobORM,
-			JobID:            jobID,
-			JobName:          jobName,
-			KB:               ocrEvmKeyBundle,
-			Config:           oracleFactoryConfig,
-			PeerWrapper:      d.ocrPeerWrapper,
-			RelayerSet:       relayerSet,
-			OCRConfigService: d.ocrConfigService,
-			CapabilityID:     capabilityID,
+			Logger:                 log,
+			JobORM:                 d.jobORM,
+			JobID:                  jobID,
+			JobName:                jobName,
+			KB:                     ocrEvmKeyBundle,
+			Config:                 oracleFactoryCfg,
+			OnchainSigningStrategy: resolvedSigning,
+			PeerWrapper:            d.ocrPeerWrapper,
+			RelayerSet:             relayerSet,
+			OCRConfigService:       d.ocrConfigService,
+			CapabilityID:           capabilityID,
+			DefaultBootstrappers:   d.defaultBootstrappers,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory from function: %w", err)
 		}
 	} else {
-		log.Debug("oracleFactoryConfig: ", oracleFactoryConfig)
-
-		if oracleFactoryConfig.Enabled && d.ocrPeerWrapper == nil {
+		if oracleFactoryCfg.Enabled && d.ocrPeerWrapper == nil {
 			return nil, errors.New("P2P stack required for Oracle Factory")
 		}
 
@@ -294,30 +371,31 @@ func (d *Delegate) NewServices(
 			JobID:                  jobID,
 			JobName:                jobName,
 			KB:                     ocrEvmKeyBundle,
-			Config:                 oracleFactoryConfig,
-			OnchainSigningStrategy: oracleFactoryConfig.OnchainSigning,
+			Config:                 oracleFactoryCfg,
+			OnchainSigningStrategy: resolvedSigning,
 			PeerWrapper:            d.ocrPeerWrapper,
 			RelayerSet:             relayerSet,
 			OcrKeystore:            d.ks.OCR2(),
 			EthKeystore:            d.ks.Eth(),
 			OCRConfigService:       d.ocrConfigService,
 			CapabilityID:           capabilityID,
+			DefaultBootstrappers:   d.defaultBootstrappers,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
 		}
 	}
-	var connector connector.GatewayConnector
+	var cntor connector.GatewayConnector
 	if d.gatewayConnectorWrapper != nil {
-		connector = d.gatewayConnectorWrapper.GetGatewayConnector()
+		cntor = d.gatewayConnectorWrapper.GetGatewayConnector()
 	}
 
 	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
 	if command == commandOverrideForWebAPITrigger {
-		if d.gatewayConnectorWrapper == nil || connector == nil {
+		if d.gatewayConnectorWrapper == nil || cntor == nil {
 			return nil, errors.New("gateway connector is required for web API Trigger capability")
 		}
-		triggerSrvc, err := trigger.NewTrigger(configJSON, d.registry, connector, log)
+		triggerSrvc, err := trigger.NewTrigger(configJSON, d.registry, cntor, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
 		}
@@ -325,7 +403,7 @@ func (d *Delegate) NewServices(
 	}
 
 	if command == commandOverrideForWebAPITarget {
-		if d.gatewayConnectorWrapper == nil || connector == nil {
+		if d.gatewayConnectorWrapper == nil || cntor == nil {
 			return nil, errors.New("gateway connector is required for web API Target capability")
 		}
 		if len(configJSON) == 0 {
@@ -337,7 +415,7 @@ func (d *Delegate) NewServices(
 			return nil, err
 		}
 		lggr := d.logger.Named("WebAPITarget")
-		handler, err := webapi.NewOutgoingConnectorHandler(connector, targetCfg, capabilities.MethodWebAPITarget, lggr, d.selectorOpts...)
+		handler, err := webapi.NewOutgoingConnectorHandler(cntor, targetCfg, capabilities.MethodWebAPITarget, lggr, d.selectorOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -348,61 +426,13 @@ func (d *Delegate) NewServices(
 		return []job.ServiceCtx{capability, handler}, nil
 	}
 
-	if command == commandOverrideForCustomComputeAction {
-		var fetcherFactoryFn compute.FetcherFactory
-		var services []job.ServiceCtx
-		var cfg compute.Config
-
-		tomlErr := toml.Unmarshal([]byte(configJSON), &cfg)
-		if tomlErr != nil {
-			return nil, tomlErr
-		}
-
-		if d.computeFetcherFactoryFn != nil {
-			fetcherFactoryFn = d.computeFetcherFactoryFn
-		} else {
-			if d.gatewayConnectorWrapper == nil || connector == nil {
-				return nil, errors.New("gateway connector is required for custom compute capability")
-			}
-
-			lggr := d.logger.Named("ComputeAction")
-
-			handler, err := webapi.NewOutgoingConnectorHandler(connector, cfg.ServiceConfig, capabilities.MethodComputeAction, lggr, d.selectorOpts...)
-			if err != nil {
-				return nil, err
-			}
-			services = append(services, handler)
-
-			idGeneratorFn := func() string {
-				return uuid.New().String()
-			}
-
-			fetcherFactoryFn, err = compute.NewOutgoingConnectorFetcherFactory(handler, idGeneratorFn)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create fetcher factory: %w", err)
-			}
-		}
-
-		if len(configJSON) == 0 {
-			return nil, errors.New("config is empty")
-		}
-
-		computeSrvc, err := compute.NewAction(cfg, log, d.registry, fetcherFactoryFn)
-		if err != nil {
-			return nil, err
-		}
-		services = append(services, computeSrvc)
-
-		return services, nil
-	}
-
 	dependencies := core.StandardCapabilitiesDependencies{
 		Config:             configJSON,
 		Store:              kvStore,
 		CapabilityRegistry: d.registry,
 		RelayerSet:         relayerSet,
 		OracleFactory:      oracleFactory,
-		GatewayConnector:   connector,
+		GatewayConnector:   cntor,
 		P2PKeystore:        ks,
 		OrgResolver:        d.orgResolver,
 		CRESettings:        d.creSettings,
@@ -497,21 +527,18 @@ func ValidatedStandardCapabilitiesSpec(tomlString string) (job.Job, error) {
 	if len(jb.StandardCapabilitiesSpec.Command) == 0 {
 		return jb, errors.Errorf("standard capabilities command must be set")
 	}
-
 	// Skip validation if Oracle Factory is not enabled
 	if !jb.StandardCapabilitiesSpec.OracleFactory.Enabled {
 		return jb, nil
 	}
 
-	// If Oracle Factory is enabled, it must have at least one bootstrap peer
-	if len(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers) == 0 {
-		return jb, errors.New("no bootstrap peers found")
-	}
-
-	// Validate bootstrap peers
-	_, err = ocrcommon.ParseBootstrapPeers(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers)
-	if err != nil {
-		return jb, errors.Wrap(err, "failed to parse bootstrap peers")
+	// Bootstrap peers may be omitted from the job spec; they are resolved at runtime
+	// from Capabilities.Peering.V2.DefaultBootstrappers when not set here.
+	if len(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers) > 0 {
+		_, err = ocrcommon.ParseBootstrapPeers(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers)
+		if err != nil {
+			return jb, errors.Wrap(err, "failed to parse bootstrap peers")
+		}
 	}
 
 	return jb, nil

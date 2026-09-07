@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -82,6 +83,7 @@ func deployTokenPoolFactoryPrecondition(e cldf.Environment, config DeployTokenPo
 
 func deployTokenPoolFactoryLogic(e cldf.Environment, config DeployTokenPoolFactoryConfig) (cldf.ChangesetOutput, error) {
 	addressBook := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
@@ -111,16 +113,11 @@ func deployTokenPoolFactoryLogic(e cldf.Environment, config DeployTokenPoolFacto
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy token pool factory: %w", err)
 		}
 
-		err = addressBook.Save(chainSel, tpfReport.Output.Address.Hex(), cldf.MustTypeAndVersionFromString(tpfReport.Output.TypeAndVersion))
+		err = shared.RecordAddress(addressBook, ds, chainSel, tpfReport.Output.Address.Hex(), cldf.MustTypeAndVersionFromString(tpfReport.Output.TypeAndVersion), "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address %s for chain %d: %w", tpfReport.Output.Address.Hex(), chainSel, err)
 		}
 		e.Logger.Infof("Successfully deployed token pool factory %s on %s", tpfReport.Output.Address.Hex(), chain.String())
-	}
-
-	ds, err := shared.PopulateDataStore(addressBook)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{

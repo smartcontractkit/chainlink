@@ -9,7 +9,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -54,10 +53,10 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	t.Run("reads and writes config", func(t *testing.T) {
 		db := ocrbootstrap.NewDB(sqlDB, spec.ID, lggr)
 
-		err := db.WriteConfig(testutils.Context(t), config)
+		err := db.WriteConfig(t.Context(), config)
 		require.NoError(t, err)
 
-		readConfig, err := db.ReadConfig(testutils.Context(t))
+		readConfig, err := db.ReadConfig(t.Context())
 		require.NoError(t, err)
 
 		require.Equal(t, &config, readConfig)
@@ -72,10 +71,10 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 			Transmitters: []ocrtypes.Account{"test"},
 		}
 
-		err := db.WriteConfig(testutils.Context(t), newConfig)
+		err := db.WriteConfig(t.Context(), newConfig)
 		require.NoError(t, err)
 
-		readConfig, err := db.ReadConfig(testutils.Context(t))
+		readConfig, err := db.ReadConfig(t.Context())
 		require.NoError(t, err)
 
 		require.Equal(t, &newConfig, readConfig)
@@ -84,12 +83,12 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
 		db := ocrbootstrap.NewDB(sqlDB, spec.ID, lggr)
 
-		err := db.WriteConfig(testutils.Context(t), config)
+		err := db.WriteConfig(t.Context(), config)
 		require.NoError(t, err)
 
 		db = ocrbootstrap.NewDB(sqlDB, -1, lggr)
 
-		readConfig, err := db.ReadConfig(testutils.Context(t))
+		readConfig, err := db.ReadConfig(t.Context())
 		require.NoError(t, err)
 
 		require.Nil(t, readConfig)

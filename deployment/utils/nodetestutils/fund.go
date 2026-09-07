@@ -1,10 +1,13 @@
 package nodetestutils
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/avast/retry-go/v4"
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/block-vision/sui-go-sdk/transaction"
 	"github.com/gagliardetto/solana-go"
@@ -33,6 +36,12 @@ func fundNodesAptos(t *testing.T, aptosChain cldf_aptos.Chain, nodes []*Node) {
 	}
 }
 
+// solanaAirdropAttempts is the number of times we retry a node SOL airdrop before giving up. The
+// Solana test-validator container can briefly refuse its RPC port (e.g. under runner memory pressure
+// the validator process may die and get restarted), so a single attempt flakes the whole test suite.
+// A handful of attempts with a fixed delay gives the container a grace window to come back.
+const solanaAirdropAttempts = uint(6)
+
 // fundNodesSol funds the given nodes with the given amount of SOL.
 func fundNodesSol(t *testing.T, solChain cldf_solana.Chain, nodes []*Node) {
 	for _, node := range nodes {
@@ -40,10 +49,40 @@ func fundNodesSol(t *testing.T, solChain cldf_solana.Chain, nodes []*Node) {
 		require.NoError(t, err)
 		require.Len(t, solkeys, 1)
 		transmitter := solkeys[0]
-		_, err = solChain.Client.RequestAirdrop(t.Context(), transmitter.PublicKey(), 1000*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)
-		require.NoError(t, err)
+		err = retry.Do(func() error {
+			_, e := solChain.Client.RequestAirdrop(
+				t.Context(), transmitter.PublicKey(), 1000*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed,
+			)
+			return e
+		},
+			retry.Context(t.Context()),
+			retry.Attempts(solanaAirdropAttempts),
+			retry.Delay(2*time.Second),
+			retry.DelayType(retry.FixedDelay),
+			retry.LastErrorOnly(true),
+		)
+		require.NoError(t, err, enrichSolanaAirdropErr(t.Context(), solChain, err))
 		// we don't wait for confirmation so we don't block the tests, it'll take a while before nodes start transmitting
 	}
+}
+
+// enrichSolanaAirdropErr turns a bare airdrop failure into a self-diagnosing error by probing the
+// validator's /health endpoint. If the RPC is itself unreachable, the validator container likely died
+// (OOM / runner resource pressure) rather than the airdrop RPC being transiently flaky.
+func enrichSolanaAirdropErr(ctx context.Context, solChain cldf_solana.Chain, airdropErr error) string {
+	if airdropErr == nil {
+		return ""
+	}
+	if _, herr := solChain.Client.GetHealth(ctx); herr != nil {
+		return fmt.Sprintf(
+			"Solana validator RPC unreachable at %s after %d airdrop attempts: %v — validator container likely died (check runner OOM/resource pressure)",
+			solChain.URL, solanaAirdropAttempts, airdropErr,
+		)
+	}
+	return fmt.Sprintf(
+		"Solana airdrop failed after %d attempts at %s although RPC /health is ok: %v",
+		solanaAirdropAttempts, solChain.URL, airdropErr,
+	)
 }
 
 // suiGasCoinPoolSize is how many gas coins each Sui transmitter is funded with. A Sui transmitter

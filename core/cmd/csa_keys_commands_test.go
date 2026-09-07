@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -54,7 +53,7 @@ func TestCSAKeyPresenter_RenderTable(t *testing.T) {
 
 func TestShell_ListCSAKeys(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 	key, err := keystore.GetDefault(ctx, app.GetKeyStore().CSA())
@@ -64,7 +63,7 @@ func TestShell_ListCSAKeys(t *testing.T) {
 
 	client, r := app.NewShellAndRenderer()
 
-	assert.NoError(t, client.ListCSAKeys(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListCSAKeys(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	keys := *r.Renders[0].(*cmd.CSAKeyPresenters)
 	assert.Equal(t, "csa_"+key.PublicKeyString(), keys[0].PubKey)
@@ -87,7 +86,7 @@ func TestShell_ImportExportCsaKey(t *testing.T) {
 	t.Parallel()
 
 	defer deleteKeyExportFile(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 

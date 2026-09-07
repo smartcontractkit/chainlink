@@ -113,7 +113,7 @@ func waitForRequestCountEqualToFulfillmentCount(
 	consumer *contracts.EthereumVRFv2LoadTestConsumer,
 	timeout time.Duration,
 	wg *sync.WaitGroup,
-) (reqCount *big.Int, fulCount *big.Int, err error) {
+) (reqCount *big.Int, fulfilmentCount *big.Int, err error) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	deadline := time.Now().Add(timeout)
@@ -121,22 +121,22 @@ func waitForRequestCountEqualToFulfillmentCount(
 		select {
 		case <-ctx.Done():
 			wg.Done()
-			return reqCount, fulCount, ctx.Err()
+			return reqCount, fulfilmentCount, ctx.Err()
 		case <-ticker.C:
 			m, mErr := consumer.GetLoadTestMetrics(ctx)
 			if mErr != nil {
 				wg.Done()
 				return nil, nil, mErr
 			}
-			reqCount, fulCount = m.RequestCount, m.FulfilmentCount
+			reqCount, fulfilmentCount = m.RequestCount, m.FulfilmentCount
 			if m.RequestCount.Cmp(m.FulfilmentCount) == 0 && m.RequestCount.Sign() > 0 {
 				wg.Done()
 				return m.RequestCount, m.FulfilmentCount, nil
 			}
 			if time.Now().After(deadline) {
 				wg.Done()
-				return reqCount, fulCount, fmt.Errorf("timeout waiting request==fulfillment counts (req=%s ful=%s)",
-					reqCount.String(), fulCount.String())
+				return reqCount, fulfilmentCount, fmt.Errorf("timeout waiting request==fulfillment counts (req=%s ful=%s)",
+					reqCount.String(), fulfilmentCount.String())
 			}
 		}
 	}

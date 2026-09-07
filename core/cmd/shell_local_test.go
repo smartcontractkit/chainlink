@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
@@ -40,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -75,7 +73,7 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 	f := chainlink.RelayerFactory{
 		Logger: lggr,
 		LoopRegistry: plugins.NewLoopRegistry(lggr, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(),
-			cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(), nil, "", cfg.LOOPP()),
+			cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(), cfg.Metering(), nil, "", cfg.LOOPP()),
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
 
@@ -128,10 +126,10 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			keyStore := cltest.NewKeyStore(t, db)
-			_, err := keyStore.Eth().Create(testutils.Context(t), &cltest.FixtureChainID)
+			_, err := keyStore.Eth().Create(t.Context(), &cltest.FixtureChainID)
 			require.NoError(t, err)
 
-			ethClient := evmtest.NewEthClientMock(t)
+			ethClient := clienttest.NewClient(t)
 			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
@@ -166,9 +164,9 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 			if test.wantError {
 				err = client.RunNode(c)
-				assert.ErrorContains(t, err, "error creating api initializer: open doesntexist.txt: no such file or directory")
+				require.ErrorContains(t, err, "error creating api initializer: open doesntexist.txt: no such file or directory")
 			} else {
-				assert.NoError(t, client.RunNode(c))
+				require.NoError(t, client.RunNode(c))
 			}
 
 			assert.Equal(t, test.wantPrompt, apiPrompt.Count > 0)
@@ -197,7 +195,7 @@ func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := logger.Config{
 				Dir:           t.TempDir(),
-				FileMaxSizeMB: int(tt.logFileSize(t) / utils.MB),
+				FileMaxSizeMB: int(tt.logFileSize(t) / utils.MB), //nolint:gosec // test sizes won't exceed max int
 			}
 			require.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0o700)))
 
@@ -318,7 +316,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 			txStore := txmgrtest.NewTestTxStore(t, sqlxDB)
-			txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress)
+			txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress) //nolint:gosec // nonce is a small test value (9 or 11)
 
 			lggr := logger.TestLogger(t)
 
@@ -401,7 +399,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 			if !test.enableAddress {
-				err := keyStore.Eth().Disable(testutils.Context(t), fromAddress, testutils.FixtureChainID)
+				err := keyStore.Eth().Disable(t.Context(), fromAddress, testutils.FixtureChainID)
 				require.NoError(t, err, "failed to disable test key")
 			}
 
@@ -499,7 +497,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 		require.NoError(t, set.Set("evm-chain-id", "12"))
 		c := cli.NewContext(nil, set, nil)
 		err := shell.RemoveBlocks(c)
-		require.ErrorContains(t, err, "Must pass a positive value in '--start' parameter")
+		require.ErrorContains(t, err, "must pass a positive value in '--start' parameter")
 	})
 	t.Run("Returns error, if removal fails", func(t *testing.T) {
 		set := flag.NewFlagSet("test", 0)
@@ -551,8 +549,8 @@ func TestShell_BeforeNode(t *testing.T) {
 				correctPwd, err := utils.PasswordFromFile("../internal/fixtures/correct_password.txt")
 				require.NoError(t, err)
 				ks := keystore.New(db, commonkeystore.FastScryptParams, logger.TestLogger(t).Infof)
-				require.NoError(t, ks.Unlock(testutils.Context(t), correctPwd))
-				_, err = ks.CSA().Create(testutils.Context(t))
+				require.NoError(t, ks.Unlock(t.Context(), correctPwd))
+				_, err = ks.CSA().Create(t.Context())
 				require.NoError(t, err)
 			}
 

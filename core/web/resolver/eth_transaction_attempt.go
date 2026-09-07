@@ -4,16 +4,15 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
 type EthTransactionAttemptResolver struct {
-	attmpt txmgr.TxAttempt
+	attempt txmgr.TxAttempt
 }
 
-func NewEthTransactionAttempt(attmpt txmgr.TxAttempt) *EthTransactionAttemptResolver {
-	return &EthTransactionAttemptResolver{attmpt: attmpt}
+func NewEthTransactionAttempt(attempt txmgr.TxAttempt) *EthTransactionAttemptResolver {
+	return &EthTransactionAttemptResolver{attempt: attempt}
 }
 
 func NewEthTransactionsAttempts(results []txmgr.TxAttempt) []*EthTransactionAttemptResolver {
@@ -27,23 +26,23 @@ func NewEthTransactionsAttempts(results []txmgr.TxAttempt) []*EthTransactionAtte
 }
 
 func (r *EthTransactionAttemptResolver) GasPrice() string {
-	return r.attmpt.TxFee.GasPrice.ToInt().String()
+	return r.attempt.TxFee.GasPrice.ToInt().String()
 }
 
 func (r *EthTransactionAttemptResolver) Hash() string {
-	return r.attmpt.Hash.String()
+	return r.attempt.Hash.String()
 }
 
 func (r *EthTransactionAttemptResolver) Hex() string {
-	return hexutil.Encode(r.attmpt.SignedRawTx)
+	return hexutil.Encode(r.attempt.SignedRawTx)
 }
 
 func (r *EthTransactionAttemptResolver) SentAt() *string {
-	if r.attmpt.BroadcastBeforeBlockNum == nil {
+	if r.attempt.BroadcastBeforeBlockNum == nil {
 		return nil
 	}
 
-	value := stringutils.FromInt64(*r.attmpt.BroadcastBeforeBlockNum)
+	value := stringutils.FromInt64(*r.attempt.BroadcastBeforeBlockNum)
 
 	return &value
 }

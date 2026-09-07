@@ -16,14 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestMessageHasher_EVM2SVM(t *testing.T) {
@@ -33,10 +31,10 @@ func TestMessageHasher_EVM2SVM(t *testing.T) {
 		chainsel.FamilySolana: ExtraDataDecoder{},
 		chainsel.FamilySui:    ccipaptos.ExtraDataDecoder{},
 	}
-	var extraDataCodec = ccipocr3.ExtraDataCodecMap(registeredExtraDataCodecMap)
+	extraDataCodec := ccipocr3.ExtraDataCodecMap(registeredExtraDataCodecMap)
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)
 	msgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
-	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
+	actualHash, err := msgHasher.Hash(t.Context(), any2AnyMsg)
 	require.NoError(t, err)
 	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, any2AnyMsg.Header.OnRamp, msgAccounts)
 	require.NoError(t, err)
@@ -69,7 +67,7 @@ func TestMessageHasher_InvalidReceiver(t *testing.T) {
 
 	edc := ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap)
 	msgHasher := NewMessageHasherV1(logger.Test(t), edc)
-	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
+	_, err := msgHasher.Hash(t.Context(), any2AnyMsg)
 	require.Error(t, err)
 }
 
@@ -98,7 +96,7 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 	}
 	edc := ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap)
 	msgHasher := NewMessageHasherV1(logger.Test(t), edc)
-	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
+	_, err := msgHasher.Hash(t.Context(), any2AnyMsg)
 	require.Error(t, err)
 }
 
@@ -213,7 +211,7 @@ func TestParseExtraDataMap_InvalidTypes(t *testing.T) {
 	})
 }
 
-func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any2SVMRampMessage, []solana.PublicKey) {
+func createEVM2SolanaMessages(t *testing.T) (ccipocr3.Message, ccip_offramp.Any2SVMRampMessage, []solana.PublicKey) {
 	messageID := utils.RandomBytes32()
 	sourceChain := uint64(5009297550715157269) // evm mainnet
 	seqNum := rand.Uint64()
@@ -232,14 +230,14 @@ func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 		IsWritableBitmap: uint64(4),
 	}
 	abiEncodedExtraArgs := []byte{31, 59, 58, 186, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}
-	tokenAmount := cciptypes.NewBigInt(big.NewInt(rand.Int63()))
+	tokenAmount := ccipocr3.NewBigInt(big.NewInt(rand.Int63()))
 	destGasAmount, err := abiEncodeUint32(10)
 	require.NoError(t, err)
 
-	ccipTokenAmounts := make([]cciptypes.RampTokenAmount, 5)
+	ccipTokenAmounts := make([]ccipocr3.RampTokenAmount, 5)
 	for z := range 5 {
-		ccipTokenAmounts[z] = cciptypes.RampTokenAmount{
-			SourcePoolAddress: cciptypes.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
+		ccipTokenAmounts[z] = ccipocr3.RampTokenAmount{
+			SourcePoolAddress: ccipocr3.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
 			DestTokenAddress:  receiver.Bytes(),
 			Amount:            tokenAmount,
 			DestExecData:      destGasAmount,
@@ -249,7 +247,7 @@ func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 	solTokenAmounts := make([]ccip_offramp.Any2SVMTokenTransfer, 5)
 	for z := range 5 {
 		solTokenAmounts[z] = ccip_offramp.Any2SVMTokenTransfer{
-			SourcePoolAddress: cciptypes.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
+			SourcePoolAddress: ccipocr3.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
 			DestTokenAddress:  receiver,
 			Amount:            ccip_offramp.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Int, 32))},
 			DestGasAmount:     uint32(10),
@@ -270,12 +268,12 @@ func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 		TokenAmounts:  solTokenAmounts,
 		ExtraArgs:     extraArgs,
 	}
-	any2AnyMsg := cciptypes.Message{
-		Header: cciptypes.RampMessageHeader{
+	any2AnyMsg := ccipocr3.Message{
+		Header: ccipocr3.RampMessageHeader{
 			MessageID:           messageID,
-			SourceChainSelector: cciptypes.ChainSelector(sourceChain),
-			DestChainSelector:   cciptypes.ChainSelector(destChain),
-			SequenceNumber:      cciptypes.SeqNum(seqNum),
+			SourceChainSelector: ccipocr3.ChainSelector(sourceChain),
+			DestChainSelector:   ccipocr3.ChainSelector(destChain),
+			SequenceNumber:      ccipocr3.SeqNum(seqNum),
 			Nonce:               nonce,
 			OnRamp:              abiEncodedAddress(t),
 		},
@@ -284,7 +282,7 @@ func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 		Data:           messageData,
 		TokenAmounts:   ccipTokenAmounts,
 		FeeToken:       []byte{},
-		FeeTokenAmount: cciptypes.NewBigIntFromInt64(0),
+		FeeTokenAmount: ccipocr3.NewBigIntFromInt64(0),
 		ExtraArgs:      abiEncodedExtraArgs,
 	}
 
@@ -315,7 +313,7 @@ func TestToLittleEndian(t *testing.T) {
 		return b
 	}
 
-	var tests = []struct {
+	tests := []struct {
 		input    *big.Int
 		expected []byte
 	}{

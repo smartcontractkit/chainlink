@@ -18,8 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	dontimeCfg "github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime/pb"
-	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
-
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
@@ -110,8 +109,6 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		if spec.Pipeline.Source == "" {
 			return errors.New("no pipeline specified")
 		}
-	case types.OCR2Keeper:
-		return validateOCR2KeeperSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.Functions:
 		// TODO validator for DR-OCR spec: https://smartcontract-it.atlassian.net/browse/FUN-112
 		return nil
@@ -298,10 +295,6 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	defer plugin.Close()
 
 	return plugin.ValidateConfig(ctx, spec.PluginConfig)
-}
-
-func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
-	return nil
 }
 
 func validateDonTimePluginSpec(jsonConfig job.JSONConfig) error {

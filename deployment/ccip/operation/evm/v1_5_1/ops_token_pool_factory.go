@@ -28,9 +28,8 @@ var (
 		shared.TokenPoolFactory,
 		token_pool_factory.TokenPoolFactoryMetaData,
 		&opsutil.ContractOpts{
-			Version:          &deployment.Version1_5_1,
-			EVMBytecode:      common.FromHex(token_pool_factory.TokenPoolFactoryBin),
-			ZkSyncVMBytecode: token_pool_factory.ZkBytecode,
+			Version:     &deployment.Version1_5_1,
+			EVMBytecode: common.FromHex(token_pool_factory.TokenPoolFactoryBin),
 		},
 		func(input DeployTokenPoolFactoryInput) []any {
 			return []any{

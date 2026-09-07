@@ -6,6 +6,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -59,6 +60,7 @@ type TriggerMetrics struct {
 	requestHandlerLatency            metric.Int64Histogram
 	capabilityRequestCount           metric.Int64Counter
 	capabilityRequestFailures        metric.Int64Counter
+	gatewayToNodeLatency             metric.Int64Histogram
 	metadataProcessingFailures       metric.Int64Counter
 	metadataRequestCount             metric.Int64Counter
 	metadataObservationsCleanUpCount metric.Int64Counter
@@ -77,8 +79,9 @@ type Metrics struct {
 	nodeAddressToNodeName map[string]string
 }
 
-// NewMetrics creates a new instance of Metrics with all metrics initialized
-func NewMetrics(donConfig *config.DONConfig) (*Metrics, error) {
+// NewMetrics creates a new instance of Metrics with all metrics initialized.
+// members is the union of node configs across all DON shards.
+func NewMetrics(members []config.NodeConfig) (*Metrics, error) {
 	meter := beholder.GetMeter()
 
 	common, err := newCommonMetrics(meter)
@@ -97,10 +100,8 @@ func NewMetrics(donConfig *config.DONConfig) (*Metrics, error) {
 	}
 
 	nodeAddressToNodeName := make(map[string]string)
-	if donConfig != nil {
-		for _, member := range donConfig.Members {
-			nodeAddressToNodeName[member.Address] = member.Name
-		}
+	for _, member := range members {
+		nodeAddressToNodeName[member.Address] = member.Name
 	}
 
 	return &Metrics{
@@ -332,6 +333,14 @@ func newTriggerMetrics(meter metric.Meter) (*TriggerMetrics, error) {
 		return nil, fmt.Errorf("failed to create HTTP trigger gateway capability request failures metric: %w", err)
 	}
 
+	m.gatewayToNodeLatency, err = meter.Int64Histogram(
+		"http_trigger_gateway_to_node_latency_ms",
+		metric.WithDescription("Latency in milliseconds of sending HTTP trigger requests from gateway node to capability nodes (don.SendToNode), broken down by target node"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP trigger gateway capability request latency metric: %w", err)
+	}
+
 	m.metadataProcessingFailures, err = meter.Int64Counter(
 		"http_trigger_gateway_metadata_processing_failures",
 		metric.WithDescription("Number of HTTP trigger gateway metadata processing failures"),
@@ -490,7 +499,7 @@ func (m *Metrics) IncrementTriggerRequestCount(ctx context.Context, lggr logger.
 
 func (m *Metrics) IncrementRequestErrors(ctx context.Context, errorCode int64, lggr logger.Logger) {
 	errCode := api.FromJSONRPCErrorCode(errorCode)
-	httpErrorCode := api.ToHttpErrorCode(errCode)
+	httpErrorCode := api.ToHTTPErrorCode(errCode)
 	m.trigger.requestErrors.Add(ctx, 1, metric.WithAttributes(
 		attribute.Int64(AttrErrorCode, errorCode),
 		attribute.String(AttrErrorString, errCode.String()),
@@ -518,7 +527,7 @@ func (m *Metrics) RecordRequestHandlerLatency(ctx context.Context, latencyMs int
 	m.trigger.requestHandlerLatency.Record(ctx, latencyMs)
 }
 
-func (m *Metrics) IncrementTriggerCapabilityRequestCount(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) IncrementTriggerCapabilityRequestCount(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.capabilityRequestCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -526,7 +535,7 @@ func (m *Metrics) IncrementTriggerCapabilityRequestCount(ctx context.Context, no
 	))
 }
 
-func (m *Metrics) IncrementTriggerCapabilityRequestFailures(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) IncrementTriggerCapabilityRequestFailures(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.capabilityRequestFailures.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -534,7 +543,15 @@ func (m *Metrics) IncrementTriggerCapabilityRequestFailures(ctx context.Context,
 	))
 }
 
-func (m *Metrics) IncrementMetadataProcessingFailures(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) RecordGatewayToNodeLatency(ctx context.Context, latencyMs int64, nodeAddress, methodName string, lggr logger.Logger) {
+	m.trigger.gatewayToNodeLatency.Record(ctx, latencyMs, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
+		attribute.String(AttrMethodName, methodName),
+	))
+}
+
+func (m *Metrics) IncrementMetadataProcessingFailures(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.metadataProcessingFailures.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -542,7 +559,7 @@ func (m *Metrics) IncrementMetadataProcessingFailures(ctx context.Context, nodeA
 	))
 }
 
-func (m *Metrics) IncrementMetadataRequestCount(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) IncrementMetadataRequestCount(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.metadataRequestCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -572,4 +589,18 @@ func (m *Metrics) RecordMetadataSyncStartupLatency(ctx context.Context, latencyM
 
 func (m *Metrics) RecordLoadedMetadataSize(ctx context.Context, size int64, lggr logger.Logger) {
 	m.trigger.loadedMetadataSize.Record(ctx, size)
+}
+
+// MetricViews returns histogram bucket definitions for this package's metrics.
+// Due to the OTEL specification, all histogram buckets must be defined when the beholder client is created.
+func MetricViews() []sdkmetric.View {
+	return []sdkmetric.View{
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "http_trigger_gateway_capability_request_latency_ms"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				// 10ms up to 90s (max trigger request duration is on this order), with finer granularity at the lower end
+				Boundaries: []float64{10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 90000},
+			}},
+		),
+	}
 }

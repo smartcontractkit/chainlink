@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"slices"
 	"sort"
@@ -72,7 +73,11 @@ func (n Nodes) NonBootstraps() Nodes {
 }
 
 func (n Nodes) DefaultF() uint8 {
-	return uint8(len(n) / 3)
+	f := len(n) / 3
+	if f > math.MaxUint8 {
+		panic(fmt.Errorf("too many nodes for uint8 f: %d", len(n)))
+	}
+	return uint8(f)
 }
 
 func (n Nodes) IDs() []string {

@@ -23,7 +23,7 @@ func BenchmarkModuleLRU_Register(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		wfID := fmt.Sprintf("wf-%d", i)
 		lru.Register(wfID, em)
 	}
@@ -40,7 +40,7 @@ func BenchmarkModuleLRU_Contains(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		lru.Contains(fmt.Sprintf("wf-%d", i%n))
 	}
 }
@@ -73,7 +73,7 @@ func BenchmarkModuleLRU_reap_cap(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				reap <- clock.Now()
 				<-done
 			}

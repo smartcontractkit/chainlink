@@ -57,7 +57,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	contractsOwner := &bind.TransactOpts{
 		From: ownerAddress,
 		Signer: func(addr common.Address, tx *ethtypes.Transaction) (*ethtypes.Transaction, error) {
-			return chainStore.SignTx(testutils.Context(t), addr, tx)
+			return chainStore.SignTx(t.Context(), addr, tx)
 		},
 	}
 
@@ -69,7 +69,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	chainID := big.NewInt(startID.Add(1))
 	backend := simulated.NewBackend(genesisData)
 
-	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
+	h, err := backend.Client().HeaderByNumber(t.Context(), nil)
 	require.NoError(t, err)
 	//nolint:gosec // G115
 	blockTime := time.UnixMilli(int64(h.Time))
@@ -88,7 +88,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 
 		ContractsOwner: contractsOwner,
 		ContractsOwnerSign: func(bytes []byte) ([]byte, error) {
-			return memKS.Sign(testutils.Context(t), ownerAddress.String(), bytes)
+			return memKS.Sign(t.Context(), ownerAddress.String(), bytes)
 		},
 	}
 	th.HeadTracker, th.LogPoller = th.SetupCoreServices(t)
@@ -114,8 +114,8 @@ func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, 
 			KeepFinalizedBlocksDepth: 1000,
 		},
 	)
-	require.NoError(t, ht.Start(testutils.Context(t)))
-	require.NoError(t, lp.Start(testutils.Context(t)))
+	require.NoError(t, ht.Start(t.Context()))
+	require.NoError(t, lp.Start(t.Context()))
 	t.Cleanup(func() { ht.Close() })
 	t.Cleanup(func() { lp.Close() })
 	// Sleep 200ms to allow LP to load filters

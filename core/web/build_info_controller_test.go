@@ -39,7 +39,7 @@ func TestBuildInfoController_Show_NoCredentials(t *testing.T) {
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	url := app.Server.URL + "/v2/build_info"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)

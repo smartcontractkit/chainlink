@@ -7,20 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/jonboulle/clockwork"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -29,18 +27,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-var promKeepalivesSent = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "gateway_keepalives_sent",
-	Help: "Metric to track the number of successful keepalive ping messages per DON",
-}, []string{"don_id"})
-
 // ConnectionManager holds all connections between Gateway and Nodes.
 type ConnectionManager interface {
 	job.ServiceCtx
 	network.ConnectionAcceptor
 
-	DONConnectionManager(donId string) *donConnectionManager
+	DONConnectionManager(donID string) *donConnectionManager
 	GetPort() int
+	ReadyForTraffic(ctx context.Context) error
 }
 
 type connectionManager struct {
@@ -94,27 +88,6 @@ type connAttempt struct {
 
 func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock, gMetrics *monitoring.GatewayMetrics, lggr logger.Logger, lf limits.Factory) (ConnectionManager, error) {
 	dons := make(map[string]*donConnectionManager)
-	for _, donConfig := range gwConfig.Dons {
-		if donConfig.DonId == "" {
-			return nil, errors.New("empty DON ID")
-		}
-		_, ok := dons[donConfig.DonId]
-		if ok {
-			return nil, fmt.Errorf("duplicate DON ID %s", donConfig.DonId)
-		}
-		nodes, err := buildNodeStates(donConfig.Members, donConfig.DonId, lggr)
-		if err != nil {
-			return nil, err
-		}
-		dons[donConfig.DonId] = &donConnectionManager{
-			donConfig:  &donConfig,
-			nodes:      nodes,
-			handlers:   make(map[string]handlers.Handler),
-			shutdownCh: make(chan struct{}),
-			gMetrics:   gMetrics,
-			lggr:       logger.Named(lggr, "DONConnectionManager."+donConfig.DonId),
-		}
-	}
 	for _, shardedDON := range gwConfig.ShardedDONs {
 		for shardIdx, shard := range shardedDON.Shards {
 			donID := config.ShardDONID(shardedDON.DonName, shardIdx)
@@ -127,7 +100,7 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 			}
 			dons[donID] = &donConnectionManager{
 				donConfig: &config.DONConfig{
-					DonId:   donID,
+					DonID:   donID,
 					F:       shardedDON.F,
 					Members: shard.Nodes,
 				},
@@ -163,9 +136,6 @@ func buildNodeStates(members []config.NodeConfig, donID string, lggr logger.Logg
 			return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeAddress, donID)
 		}
 		connWrapper := network.NewWSConnectionWrapper(lggr)
-		if connWrapper == nil {
-			return nil, fmt.Errorf("error creating WSConnectionWrapper for node %s", nodeAddress)
-		}
 		nodes[nodeAddress] = &nodeState{
 			name: nodeConfig.Name,
 			conn: connWrapper,
@@ -174,8 +144,8 @@ func buildNodeStates(members []config.NodeConfig, donID string, lggr logger.Logg
 	return nodes, nil
 }
 
-func (m *connectionManager) DONConnectionManager(donId string) *donConnectionManager {
-	return m.dons[donId]
+func (m *connectionManager) DONConnectionManager(donID string) *donConnectionManager {
+	return m.dons[donID]
 }
 
 func (m *connectionManager) Start(ctx context.Context) error {
@@ -189,8 +159,10 @@ func (m *connectionManager) Start(ctx context.Context) error {
 				}
 				go donConnMgr.readLoop(nodeAddress, nodeState)
 			}
-			donConnMgr.closeWait.Add(1)
-			go donConnMgr.keepaliveLoop(m.config.HeartbeatIntervalSec)
+			donConnMgr.closeWait.Add(len(donConnMgr.nodes))
+			for nodeAddress, nodeState := range donConnMgr.nodes {
+				go donConnMgr.nodeKeepalive(nodeAddress, nodeState, m.config.HeartbeatIntervalSec)
+			}
 		}
 		return m.wsServer.Start(ctx)
 	})
@@ -209,38 +181,38 @@ func (m *connectionManager) Close() error {
 		for _, donConnMgr := range m.dons {
 			donConnMgr.closeWait.Wait()
 		}
-		return
+		return err
 	})
 }
 
-func (m *connectionManager) StartHandshake(authHeader []byte) (attemptId string, challenge []byte, err error) {
+func (m *connectionManager) StartHandshake(authHeader []byte) (attemptID string, challenge []byte, err error) {
 	m.lggr.Debug("StartHandshake")
 	authHeaderElems, signer, err := network.UnpackSignedAuthHeader(authHeader)
 	if err != nil {
 		return "", nil, errors.Join(network.ErrAuthHeaderParse, err)
 	}
 	nodeAddress := "0x" + hex.EncodeToString(signer)
-	donConnMgr, ok := m.dons[authHeaderElems.DonId]
+	donConnMgr, ok := m.dons[authHeaderElems.DonID]
 	if !ok {
-		return "", nil, network.ErrAuthInvalidDonId
+		return "", nil, network.ErrAuthInvalidDonID
 	}
 	nodeState, ok := donConnMgr.nodes[nodeAddress]
 	if !ok {
 		return "", nil, network.ErrAuthInvalidNode
 	}
-	if authHeaderElems.GatewayId != m.config.AuthGatewayId {
+	if authHeaderElems.GatewayID != m.config.AuthGatewayID {
 		return "", nil, network.ErrAuthInvalidGateway
 	}
-	nowTs := uint32(m.clock.Now().Unix())
+	nowTs := uint32(m.clock.Now().Unix()) //nolint:gosec // G115: uint32 timestamp is intentional per the auth handshake protocol
 	ts := authHeaderElems.Timestamp
 	if ts < nowTs-m.config.AuthTimestampToleranceSec || nowTs+m.config.AuthTimestampToleranceSec < ts {
 		return "", nil, network.ErrAuthInvalidTimestamp
 	}
-	attemptId, challenge, err = m.newAttempt(nodeState, nodeAddress, ts)
+	attemptID, challenge, err = m.newAttempt(nodeState, nodeAddress, ts)
 	if err != nil {
 		return "", nil, err
 	}
-	return attemptId, challenge, nil
+	return attemptID, challenge, nil
 }
 
 func (m *connectionManager) newAttempt(nodeSt *nodeState, nodeAddress string, timestamp uint32) (string, []byte, error) {
@@ -249,20 +221,20 @@ func (m *connectionManager) newAttempt(nodeSt *nodeState, nodeAddress string, ti
 	if err != nil {
 		return "", nil, err
 	}
-	challenge := network.ChallengeElems{Timestamp: timestamp, GatewayId: m.config.AuthGatewayId, ChallengeBytes: challengeBytes}
+	challenge := network.ChallengeElems{Timestamp: timestamp, GatewayID: m.config.AuthGatewayID, ChallengeBytes: challengeBytes}
 	m.connAttemptsMu.Lock()
 	defer m.connAttemptsMu.Unlock()
 	m.connAttemptCounter++
-	newId := fmt.Sprintf("%s_%d", nodeAddress, m.connAttemptCounter)
-	m.connAttempts[newId] = &connAttempt{nodeState: nodeSt, nodeAddress: nodeAddress, challenge: challenge, timestamp: timestamp}
-	return newId, network.PackChallenge(&challenge), nil
+	newID := fmt.Sprintf("%s_%d", nodeAddress, m.connAttemptCounter)
+	m.connAttempts[newID] = &connAttempt{nodeState: nodeSt, nodeAddress: nodeAddress, challenge: challenge, timestamp: timestamp}
+	return newID, network.PackChallenge(&challenge), nil
 }
 
-func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte, conn *websocket.Conn) error {
-	m.lggr.Debugw("FinalizeHandshake", "attemptId", attemptId)
+func (m *connectionManager) FinalizeHandshake(attemptID string, response []byte, conn *websocket.Conn) error {
+	m.lggr.Debugw("FinalizeHandshake", "attemptId", attemptID)
 	m.connAttemptsMu.Lock()
-	attempt, ok := m.connAttempts[attemptId]
-	delete(m.connAttempts, attemptId)
+	attempt, ok := m.connAttempts[attemptID]
+	delete(m.connAttempts, attemptID)
 	m.connAttemptsMu.Unlock()
 	if !ok {
 		return network.ErrChallengeAttemptNotFound
@@ -310,15 +282,64 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 	return nil
 }
 
-func (m *connectionManager) AbortHandshake(attemptId string) {
-	m.lggr.Debugw("AbortHandshake", "attemptId", attemptId)
+func (m *connectionManager) AbortHandshake(attemptID string) {
+	m.lggr.Debugw("AbortHandshake", "attemptId", attemptID)
 	m.connAttemptsMu.Lock()
 	defer m.connAttemptsMu.Unlock()
-	delete(m.connAttempts, attemptId)
+	delete(m.connAttempts, attemptID)
 }
 
 func (m *connectionManager) GetPort() int {
 	return m.wsServer.GetPort()
+}
+
+// ReadyForTraffic returns nil when every configured DON shard has at least
+// 2F+1 active authenticated connections. Since each shard contains at least
+// 3F+1 nodes, readiness tolerates F disconnected nodes per shard.
+func (m *connectionManager) ReadyForTraffic(ctx context.Context) error {
+	if len(m.dons) == 0 {
+		m.gMetrics.RecordUserReady(ctx, false)
+		return errors.New("no DON shards configured")
+	}
+
+	donIDs := make([]string, 0, len(m.dons))
+	for donID := range m.dons {
+		donIDs = append(donIDs, donID)
+	}
+	sort.Strings(donIDs)
+
+	var readinessErrs []error
+	for _, donID := range donIDs {
+		don := m.dons[donID]
+		connected := 0
+		disconnectedNodeAddresses := make([]string, 0, len(don.nodes))
+		for nodeAddress, node := range don.nodes {
+			if node.conn.IsConnected() {
+				connected++
+			} else {
+				disconnectedNodeAddresses = append(disconnectedNodeAddresses, nodeAddress)
+			}
+		}
+		sort.Strings(disconnectedNodeAddresses)
+
+		required := 2*don.donConfig.F + 1
+		configured := len(don.nodes)
+		m.gMetrics.RecordDONConnectionState(ctx, donID, connected, required, configured)
+		if connected < required {
+			m.lggr.Debugw("DON shard is not ready for traffic",
+				"donID", donID,
+				"connected", connected,
+				"required", required,
+				"configured", configured,
+				"disconnectedNodeAddresses", disconnectedNodeAddresses,
+			)
+			readinessErrs = append(readinessErrs, fmt.Errorf("DON %s has %d connected nodes; requires %d", donID, connected, required))
+		}
+	}
+
+	ready := len(readinessErrs) == 0
+	m.gMetrics.RecordUserReady(ctx, ready)
+	return errors.Join(readinessErrs...)
 }
 
 func (m *donConnectionManager) SetHandler(serviceName string, handler handlers.Handler) {
@@ -359,12 +380,12 @@ func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress strin
 }
 
 func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState) {
+	defer m.closeWait.Done()
 	ctx, cancel := m.shutdownCh.NewCtx()
 	defer cancel()
 	for {
 		select {
 		case <-m.shutdownCh:
-			m.closeWait.Done()
 			return
 		case item := <-nodeState.conn.ReadChannel():
 			var resp jsonrpc.Response[json.RawMessage]
@@ -389,36 +410,34 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 	}
 }
 
-func (m *donConnectionManager) keepaliveLoop(intervalSec uint32) {
+func (m *donConnectionManager) nodeKeepalive(addr string, ns *nodeState, intervalSec uint32) {
 	defer m.closeWait.Done()
 	ctx, cancel := m.shutdownCh.NewCtx()
 	defer cancel()
 
 	if intervalSec == 0 {
-		m.lggr.Errorw("keepalive interval is 0, keepalive disabled", "donID", m.donConfig.DonId)
+		m.lggr.Errorw("keepalive interval is 0, keepalive disabled", "donID", m.donConfig.DonID)
 		return
 	}
-	m.lggr.Infow("starting keepalive loop", "donID", m.donConfig.DonId)
+	m.lggr.Infow("starting keepalive loop", "donID", m.donConfig.DonID, "nodeName", ns.name)
 
-	keepaliveTicker := time.NewTicker(time.Duration(intervalSec) * time.Second)
-	defer keepaliveTicker.Stop()
+	ticker := time.NewTicker(time.Duration(intervalSec) * time.Second)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-m.shutdownCh:
 			return
-		case <-keepaliveTicker.C:
-			errorCount := 0
-			for nodeAddress, nodeState := range m.nodes {
-				err := nodeState.conn.Write(ctx, websocket.PingMessage, []byte{})
-				m.gMetrics.RecordKeepalivePingsSent(ctx, nodeAddress, nodeState.name, err == nil)
-				if err != nil {
-					m.lggr.Debugw("unable to send keepalive ping to node", "nodeAddress", nodeAddress, "name", nodeState.name, "donID", m.donConfig.DonId, "err", err)
-					errorCount++
-				}
+		case <-ticker.C:
+			// Per-node write with a timeout context
+			pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
+			err := ns.conn.Write(pingCtx, websocket.PingMessage, []byte{})
+			pingCancel()
+			m.gMetrics.RecordKeepalivePingsSent(ctx, addr, ns.name, err == nil)
+			if err != nil {
+				m.lggr.Debugw("unable to send keepalive ping to node",
+					"nodeAddress", addr, "name", ns.name, "err", err)
 			}
-			promKeepalivesSent.WithLabelValues(m.donConfig.DonId).Set(float64(len(m.nodes) - errorCount))
-			m.lggr.Infow("sent keepalive pings to nodes", "donID", m.donConfig.DonId, "errCount", errorCount)
 		}
 	}
 }

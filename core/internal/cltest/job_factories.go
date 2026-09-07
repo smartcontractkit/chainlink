@@ -43,7 +43,7 @@ func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress types.EIP55A
 }
 
 func MustInsertWebhookSpec(t *testing.T, ds sqlutil.DataSource, externalJobID ...uuid.UUID) (job.Job, job.WebhookSpec) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	jobORM, pipelineORM := getORMs(t, ds)
 	webhookSpec := job.WebhookSpec{}
 	require.NoError(t, jobORM.InsertWebhookSpec(ctx, &webhookSpec))

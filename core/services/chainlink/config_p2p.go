@@ -1,12 +1,12 @@
 package chainlink
 
 import (
+	"github.com/smartcontractkit/libocr/commontypes"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-
-	"github.com/smartcontractkit/libocr/commontypes"
 )
 
 type p2p struct {

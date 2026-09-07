@@ -3,7 +3,6 @@ package cmd
 import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/stellarkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -25,7 +24,7 @@ func (p StellarKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *StellarKeyPresenter) ToRow() []string {
+func (p StellarKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.PubKey,

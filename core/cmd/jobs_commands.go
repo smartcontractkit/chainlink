@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
@@ -190,15 +192,16 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 }
 
 // RenderTable implements TableRenderer
-func (p *JobPresenter) RenderTable(rt RendererTable) error {
+func (p JobPresenter) RenderTable(rt RendererTable) error {
 	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
-	table.SetAutoMergeCells(true)
+	table.Configure(func(cfg *tablewriter.Config) {
+		cfg.Behavior.Compact.Merge = tw.MergeHorizontal
+	})
 	for _, r := range p.ToRows() {
 		table.Append(r)
 	}
 
-	render("Jobs", table)
-	return nil
+	return render("Jobs", table)
 }
 
 type JobPresenters []JobPresenter
@@ -206,15 +209,16 @@ type JobPresenters []JobPresenter
 // RenderTable implements TableRenderer
 func (ps JobPresenters) RenderTable(rt RendererTable) error {
 	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
-	table.SetAutoMergeCells(true)
+	table.Configure(func(cfg *tablewriter.Config) {
+		cfg.Behavior.Compact.Merge = tw.MergeHorizontal
+	})
 	for _, p := range ps {
 		for _, r := range p.ToRows() {
 			table.Append(r)
 		}
 	}
 
-	render("Jobs (V2)", table)
-	return nil
+	return render("Jobs (V2)", table)
 }
 
 // ListJobs lists all jobs
@@ -293,6 +297,7 @@ func (s *Shell) DeleteJob(c *cli.Context) error {
 	if err != nil {
 		return s.errorOut(err)
 	}
+	defer resp.Body.Close()
 	_, err = s.parseResponse(resp)
 	if err != nil {
 		return s.errorOut(err)
