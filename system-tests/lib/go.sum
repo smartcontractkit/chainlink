@@ -1599,8 +1599,8 @@ github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-202605122
 github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305/go.mod h1:qSTSwX3cBP3FKQwQacdjArqv0g6QnukjV4XuzO6UyoY=
 github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260710151514-27b5a126dabe h1:MDnY5wQbWTpFdDnMRicEnoMfSP5nM/KncARr4skP1ug=
 github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260710151514-27b5a126dabe/go.mod h1:z7lx7wI3XZ4u9kmUtAVdwn1BCC9T8aieWSDcuDgPTdQ=
-github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260709145319-7782fb89eb16 h1:/vkKPJoweLkRd56V4YHGRAtTG4+/JAlgklGEfvH6l4c=
-github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260709145319-7782fb89eb16/go.mod h1:dkR2uYg9XYJuT1JASkPzWE51jjFkVb86P7a/yXe5/GM=
+github.com/smartcontractkit/chainlink-protos/node-platform v0.2.1-0.20260904145454-76d3813c33be h1:bypEEtGdqOqPy2ABgvuCdq7LGH3bR57zh8X61qRda04=
+github.com/smartcontractkit/chainlink-protos/node-platform v0.2.1-0.20260904145454-76d3813c33be/go.mod h1:dkR2uYg9XYJuT1JASkPzWE51jjFkVb86P7a/yXe5/GM=
 github.com/smartcontractkit/chainlink-protos/op-catalog v0.1.0 h1:hGEJFD2X3oNIPXQbtIPxCJyg5CcKglRCYBmESS+gmeQ=
 github.com/smartcontractkit/chainlink-protos/op-catalog v0.1.0/go.mod h1:PjZD54vr6rIKEKQj6HNA4hllvYI/QpT+Zefj3tqkFAs=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0 h1:NXKTdIESAiCkVnPS6dyZP+NXVek3GzXa6P4uFAs0o8Y=
