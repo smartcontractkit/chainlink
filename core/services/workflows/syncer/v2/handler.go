@@ -130,7 +130,7 @@ type eventHandler struct {
 	shardRoutingSteady      *shardownership.SteadySignal
 	shardResolver           shardownership.ShardResolver
 	shardDispatcher         remotetypes.Dispatcher
-	shardDonLookup          func(uint32) *commoncap.DON
+	shardDonLookup          func(ctx context.Context, shardID uint32) *commoncap.DON
 
 	shardStatusSender   *sharding.ExecutionStatusUpdateSender
 	shardStatusReceiver *sharding.ExecutionStatusUpdateReceiver
@@ -215,7 +215,7 @@ func WithShardDispatcher(dispatcher remotetypes.Dispatcher) func(*eventHandler) 
 	}
 }
 
-func WithShardDonLookup(lookup func(uint32) *commoncap.DON) func(*eventHandler) {
+func WithShardDonLookup(lookup func(ctx context.Context, shardID uint32) *commoncap.DON) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardDonLookup = lookup
 	}
@@ -921,7 +921,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 			RequirementsHandler: generichost.RequirementsHandler{Tee: confidential.Tee},
 		}},
 	)
-	cfg := h.newV2EngineConfig(selectingModule, workflowID, owner, tag, sdkName, name, config)
+	cfg := h.newV2EngineConfig(ctx, selectingModule, workflowID, owner, tag, sdkName, name, config)
 
 	h.wireInitDoneHook(cfg, initDone)
 
@@ -1245,6 +1245,7 @@ func (h *eventHandler) overrideFetcherForOwner(owner string) v2.SecretsFetcher {
 // newV2EngineConfig builds the common EngineConfig shared by both the normal
 // WASM engine and the confidential engine paths. Caller supplies the module.
 func (h *eventHandler) newV2EngineConfig(
+	ctx context.Context,
 	module host.ModuleV2,
 	workflowID, owner, tag, sdkName string,
 	name types.WorkflowName,
@@ -1294,14 +1295,14 @@ func (h *eventHandler) newV2EngineConfig(
 	}
 
 	if h.shardingFailoverEnabled && h.shardDispatcher != nil {
-		h.wireShardFailoverHooks(cfg)
+		h.wireShardFailoverHooks(ctx, cfg)
 	}
 
 	return cfg
 }
 
-func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (h *eventHandler) wireShardFailoverHooks(ctx context.Context, cfg *v2.EngineConfig) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	sub, unsub, err := h.workflowDonSubscriber.Subscribe(ctx)
@@ -1319,10 +1320,10 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 		return
 	}
 
-	isPrimary := h.isPrimaryShardForDon(don)
+	isPrimary := h.isPrimaryShardForDon(ctx, don)
 
 	if isPrimary {
-		secondaryDon := h.resolveSecondaryDon()
+		secondaryDon := h.resolveSecondaryDon(ctx)
 		if secondaryDon == nil {
 			h.lggr.Warnw("shard failover: no secondary DON found, primary will not send ExecutionStatusUpdate", "primaryDonID", h.myDonID)
 			return
@@ -1349,7 +1350,7 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 
 		h.lggr.Infow("shard failover: wired ExecutionStatusUpdateSender on primary", "primaryDonID", h.myDonID, "secondaryDonID", secondaryDon.ID)
 	} else {
-		primaryDon := h.resolvePrimaryDon()
+		primaryDon := h.resolvePrimaryDon(ctx)
 		if primaryDon == nil {
 			h.lggr.Warnw("shard failover: no primary DON found, secondary will not register receiver", "myDonID", h.myDonID)
 			return
@@ -1372,7 +1373,7 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 	}
 }
 
-func (h *eventHandler) isPrimaryShardForDon(_ commoncap.DON) bool {
+func (h *eventHandler) isPrimaryShardForDon(ctx context.Context, _ commoncap.DON) bool {
 	if h.shardResolver == nil {
 		return h.myDonID == 0
 	}
@@ -1380,7 +1381,7 @@ func (h *eventHandler) isPrimaryShardForDon(_ commoncap.DON) bool {
 	if !ok {
 		return h.myDonID == 0
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	shards, found, err := allResolver.ResolveAllShards(ctx, "", "")
 	if err != nil || !found || len(shards) == 0 {
@@ -1389,7 +1390,7 @@ func (h *eventHandler) isPrimaryShardForDon(_ commoncap.DON) bool {
 	return shards[0] == h.myDonID
 }
 
-func (h *eventHandler) resolveSecondaryDon() *commoncap.DON {
+func (h *eventHandler) resolveSecondaryDon(ctx context.Context) *commoncap.DON {
 	if h.shardDonLookup == nil {
 		return nil
 	}
@@ -1397,16 +1398,16 @@ func (h *eventHandler) resolveSecondaryDon() *commoncap.DON {
 	if !ok {
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	shards, found, err := allResolver.ResolveAllShards(ctx, "", "")
 	if err != nil || !found || len(shards) < 2 {
 		return nil
 	}
-	return h.shardDonLookup(shards[1])
+	return h.shardDonLookup(ctx, shards[1])
 }
 
-func (h *eventHandler) resolvePrimaryDon() *commoncap.DON {
+func (h *eventHandler) resolvePrimaryDon(ctx context.Context) *commoncap.DON {
 	if h.shardDonLookup == nil {
 		return nil
 	}
@@ -1414,13 +1415,13 @@ func (h *eventHandler) resolvePrimaryDon() *commoncap.DON {
 	if !ok {
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	shards, found, err := allResolver.ResolveAllShards(ctx, "", "")
 	if err != nil || !found || len(shards) == 0 {
 		return nil
 	}
-	return h.shardDonLookup(shards[0])
+	return h.shardDonLookup(ctx, shards[0])
 }
 
 func mapExecutionStatus(status string, errClass events.ErrorClassification) ringpb.ExecutionStatus {
