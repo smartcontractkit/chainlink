@@ -15,7 +15,7 @@ import (
 )
 
 type ShardResolver interface {
-	ResolveShard(ctx context.Context, workflowID string, ownerHex string) (shardID uint32, found bool, err error)
+	ResolveShard(ctx context.Context, workflowID string, ownerHex string) (donID uint32, found bool, err error)
 	ResolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error)
 }
 
@@ -108,12 +108,12 @@ func (m *manualShardResolver) ResolveShards(ctx context.Context, workflowIDs []s
 		if i >= len(ownerHexes) {
 			break
 		}
-		shardID, found, err := resolveManual(ctx, cfg, ownerHexes[i], m.orgResolver)
+		donID, found, err := resolveManual(ctx, cfg, ownerHexes[i], m.orgResolver)
 		if err != nil {
 			return nil, err
 		}
 		if found {
-			result[wfID] = shardID
+			result[wfID] = donID
 		}
 	}
 	return result, nil
@@ -214,12 +214,12 @@ func (o *overrideShardResolver) ResolveShard(ctx context.Context, workflowID str
 		return 0, false, err
 	}
 	if cfg != nil {
-		shardID, found, err := resolveManual(ctx, cfg, ownerHex, o.orgResolver)
+		donID, found, err := resolveManual(ctx, cfg, ownerHex, o.orgResolver)
 		if err != nil {
 			return 0, false, err
 		}
 		if found {
-			return shardID, true, nil
+			return donID, true, nil
 		}
 	}
 	return o.ringOCR.ResolveShard(ctx, workflowID, ownerHex)
@@ -239,11 +239,11 @@ func (o *overrideShardResolver) ResolveAllShards(ctx context.Context, workflowID
 			return shards, true, nil
 		}
 	}
-	shardID, found, err := o.ringOCR.ResolveShard(ctx, workflowID, ownerHex)
+	donID, found, err := o.ringOCR.ResolveShard(ctx, workflowID, ownerHex)
 	if err != nil || !found {
 		return nil, false, err
 	}
-	return []uint32{shardID}, true, nil
+	return []uint32{donID}, true, nil
 }
 
 func (o *overrideShardResolver) ResolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {
@@ -262,12 +262,12 @@ func (o *overrideShardResolver) ResolveShards(ctx context.Context, workflowIDs [
 		if i >= len(ownerHexes) {
 			break
 		}
-		shardID, found, err := resolveManual(ctx, cfg, ownerHexes[i], o.orgResolver)
+		donID, found, err := resolveManual(ctx, cfg, ownerHexes[i], o.orgResolver)
 		if err != nil {
 			return nil, err
 		}
 		if found {
-			result[wfID] = shardID
+			result[wfID] = donID
 		} else {
 			ringWorkflowIDs = append(ringWorkflowIDs, wfID)
 		}

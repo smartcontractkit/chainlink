@@ -112,7 +112,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		ctx := t.Context()
 
 		resp, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
-			SourceShardId: 2,
+			SourceDonId: 2,
 			RegisteredWorkflows: map[string]uint32{
 				"workflow1": 1,
 				"workflow2": 1,
@@ -132,7 +132,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		ctx := t.Context()
 
 		resp, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
-			SourceShardId:        3,
+			SourceDonId:        3,
 			RegisteredWorkflows:  map[string]uint32{},
 			TotalActiveWorkflows: 0,
 		})
@@ -149,7 +149,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		ctx := t.Context()
 
 		resp1, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
-			SourceShardId: 1,
+			SourceDonId: 1,
 			RegisteredWorkflows: map[string]uint32{
 				"workflow1": 1,
 			},
@@ -159,7 +159,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 		assert.True(t, resp1.Success)
 
 		resp2, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
-			SourceShardId: 2,
+			SourceDonId: 2,
 			RegisteredWorkflows: map[string]uint32{
 				"workflow2": 1,
 			},
@@ -181,7 +181,7 @@ func TestShardOrchestrator_Integration(t *testing.T) {
 		ringStore.SetShardForWorkflow("workflow-b", 2)
 
 		reportResp, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
-			SourceShardId: 1,
+			SourceDonId: 1,
 			RegisteredWorkflows: map[string]uint32{
 				"workflow-a": 1,
 			},

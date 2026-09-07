@@ -144,10 +144,10 @@ func (p *Plugin) collectShardInfo(aos []types.AttributedObservation) (shardHealt
 		observation := &ringpb.Observation{}
 		_ = proto.Unmarshal(ao.Observation, observation) // validated in ValidateObservation
 
-		for shardID, status := range observation.ShardStatus {
-			if status != nil && status.IsHealthy {
-				shardHealth[shardID]++
-			}
+	for donID, status := range observation.ShardStatus {
+		if status != nil && status.IsHealthy {
+			shardHealth[donID]++
+		}
 		}
 
 		workflows = append(workflows, observation.WorkflowIds...)
@@ -160,10 +160,10 @@ func (p *Plugin) collectShardInfo(aos []types.AttributedObservation) (shardHealt
 
 func (p *Plugin) getHealthyShards(shardHealth map[uint32]int) []uint32 {
 	var healthyShards []uint32
-	for shardID, votes := range shardHealth {
+	for donID, votes := range shardHealth {
 		if votes > p.config.F {
-			healthyShards = append(healthyShards, shardID)
-			p.store.SetShardHealth(shardID, true)
+			healthyShards = append(healthyShards, donID)
+			p.store.SetShardHealth(donID, true)
 		}
 	}
 	slices.Sort(healthyShards)
@@ -218,7 +218,7 @@ func (p *Plugin) Outcome(_ context.Context, outctx ocr3types.OutcomeContext, _ t
 			p.lggr.Warnw("RingOCR failed to locate shard for workflow", "workflowID", wfID, "error", err)
 			shard = 0 // fallback to shard 0 when no healthy shards
 		}
-		routes[wfID] = &ringpb.WorkflowRoute{Shard: shard}
+		routes[wfID] = &ringpb.WorkflowRoute{DonId: shard}
 	}
 
 	outcome := &ringpb.Outcome{
