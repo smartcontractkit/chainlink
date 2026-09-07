@@ -584,7 +584,7 @@ func verifyStoreConnection(t *testing.T, client ringpb.ShardOrchestratorServiceC
 
 	testWorkflowID := "test-store-connection-workflow"
 	_, err := client.ReportWorkflowTriggerRegistration(ctx, &ringpb.ReportWorkflowTriggerRegistrationRequest{
-		SourceShardId:        0,
+		SourceDonId:          0,
 		RegisteredWorkflows:  map[string]uint32{testWorkflowID: 0},
 		TotalActiveWorkflows: 1,
 	})
