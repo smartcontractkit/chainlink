@@ -68,10 +68,9 @@ func TestBuildCLJobInfo_EncodesFullSpecAsTOML(t *testing.T) {
 	require.NotNil(t, info.StreamId)
 	require.Equal(t, uint32(42), *info.StreamId)
 	require.Equal(t, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, info.Trigger)
-	require.NotNil(t, info.Timestamp)
-	require.Equal(t, time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC), info.Timestamp.AsTime())
-	require.NotNil(t, info.CreatedAt)
-	require.Equal(t, time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC), info.CreatedAt.AsTime())
+	require.Equal(t, time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC).UnixMilli(), info.TimestampMs)
+	require.NotNil(t, info.CreatedAtMs)
+	require.Equal(t, time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC).UnixMilli(), *info.CreatedAtMs)
 
 	// spec_toml must be valid TOML and contain type-specific spec data.
 	require.NotEmpty(t, info.SpecToml)
@@ -118,10 +117,10 @@ func TestBuildCLJobInfo_CarriesJobDistributorProvenance(t *testing.T) {
 	require.Equal(t, "6d7d9d1a-0d0f-4b3f-9a2f-2e4a1c0b8d55", *info.RemoteUuid)
 	require.NotNil(t, info.SpecVersion)
 	require.Equal(t, int32(2), *info.SpecVersion)
-	require.NotNil(t, info.ProposedAt)
-	require.Equal(t, proposedAt, info.ProposedAt.AsTime())
-	require.NotNil(t, info.ApprovedAt)
-	require.Equal(t, approvedAt, info.ApprovedAt.AsTime())
+	require.NotNil(t, info.ProposedAtMs)
+	require.Equal(t, proposedAt.UnixMilli(), *info.ProposedAtMs)
+	require.NotNil(t, info.ApprovedAtMs)
+	require.Equal(t, approvedAt.UnixMilli(), *info.ApprovedAtMs)
 }
 
 // TestBuildCLJobInfo_UnmanagedJobHasNoProvenance: an unset feeds_manager_id is
@@ -133,8 +132,8 @@ func TestBuildCLJobInfo_UnmanagedJobHasNoProvenance(t *testing.T) {
 	require.Nil(t, info.FeedsManagerId)
 	require.Nil(t, info.RemoteUuid)
 	require.Nil(t, info.SpecVersion)
-	require.Nil(t, info.ProposedAt)
-	require.Nil(t, info.ApprovedAt)
+	require.Nil(t, info.ProposedAtMs)
+	require.Nil(t, info.ApprovedAtMs)
 }
 
 func TestEmitCLJobInfo_PublishesToBeholder(t *testing.T) {
@@ -158,12 +157,14 @@ func TestEmitCLJobInfo_PublishesToBeholder(t *testing.T) {
 	require.NotEmpty(t, payload.SpecToml)
 }
 
-// TestBuildCLJobInfo_TimestampsRoundTripExactly guards the reason these fields
-// are google.protobuf.Timestamp rather than RFC3339Nano strings: Go trims
+// TestBuildCLJobInfo_TimestampsAreOrderedUnixMillis guards the reason these
+// fields are int64 epoch millis rather than RFC3339Nano strings: Go trims
 // trailing zeros from the fractional seconds, so string-encoded times are
 // variable-width and do not sort lexicographically in chronological order — a
 // whole-second time sorts after every sub-second one in the same second.
-func TestBuildCLJobInfo_TimestampsRoundTripExactly(t *testing.T) {
+// Millis truncate sub-millisecond precision, which is acceptable here and is
+// asserted explicitly below.
+func TestBuildCLJobInfo_TimestampsAreOrderedUnixMillis(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		at   time.Time
@@ -171,7 +172,7 @@ func TestBuildCLJobInfo_TimestampsRoundTripExactly(t *testing.T) {
 		{"whole second", time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC)},
 		{"tenth of a second", time.Date(2026, 7, 24, 10, 0, 0, 100000000, time.UTC)},
 		{"sub-millisecond", time.Date(2026, 7, 24, 10, 0, 0, 123400000, time.UTC)},
-		{"nanosecond", time.Date(2026, 7, 24, 10, 0, 0, 123456789, time.UTC)},
+		{"millisecond", time.Date(2026, 7, 24, 10, 0, 0, 123000000, time.UTC)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			jb := clJobInfoSampleJob()
@@ -179,8 +180,8 @@ func TestBuildCLJobInfo_TimestampsRoundTripExactly(t *testing.T) {
 
 			info, err := jobspec.BuildCLJobInfo(jb, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_HEARTBEAT, jobspec.NodeIdentity{}, nil, time.Now())
 			require.NoError(t, err)
-			require.NotNil(t, info.CreatedAt)
-			require.Equal(t, tc.at, info.CreatedAt.AsTime())
+			require.NotNil(t, info.CreatedAtMs)
+			require.Equal(t, tc.at.UnixMilli(), *info.CreatedAtMs)
 		})
 	}
 }
@@ -192,5 +193,42 @@ func TestBuildCLJobInfo_ZeroTimeIsUnset(t *testing.T) {
 
 	info, err := jobspec.BuildCLJobInfo(jb, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_HEARTBEAT, jobspec.NodeIdentity{}, nil, time.Now())
 	require.NoError(t, err)
-	require.Nil(t, info.CreatedAt)
+	require.Nil(t, info.CreatedAtMs)
+}
+
+// TestBuildCLJobInfo_SubMillisecondIsTruncated documents the one thing epoch
+// millis give up versus nanosecond encodings, so nobody is surprised by it.
+func TestBuildCLJobInfo_SubMillisecondIsTruncated(t *testing.T) {
+	jb := clJobInfoSampleJob()
+	jb.CreatedAt = time.Date(2026, 7, 24, 10, 0, 0, 123456789, time.UTC)
+
+	info, err := jobspec.BuildCLJobInfo(jb, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_HEARTBEAT, jobspec.NodeIdentity{}, nil, time.Now())
+	require.NoError(t, err)
+	require.NotNil(t, info.CreatedAtMs)
+	require.Equal(t, time.Date(2026, 7, 24, 10, 0, 0, 123000000, time.UTC).UnixMilli(), *info.CreatedAtMs)
+}
+
+// TestBuildCLJobInfo_TimestampsSortChronologically is the property the old
+// RFC3339Nano encoding violated: a whole-second value sorted after every
+// sub-second value in the same second.
+func TestBuildCLJobInfo_TimestampsSortChronologically(t *testing.T) {
+	times := []time.Time{
+		time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC),
+		time.Date(2026, 7, 24, 10, 0, 0, 100000000, time.UTC),
+		time.Date(2026, 7, 24, 10, 0, 0, 123000000, time.UTC),
+		time.Date(2026, 7, 24, 10, 0, 0, 900000000, time.UTC),
+	}
+	var prev int64
+	for i, at := range times {
+		jb := clJobInfoSampleJob()
+		jb.CreatedAt = at
+
+		info, err := jobspec.BuildCLJobInfo(jb, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_HEARTBEAT, jobspec.NodeIdentity{}, nil, time.Now())
+		require.NoError(t, err)
+		require.NotNil(t, info.CreatedAtMs)
+		if i > 0 {
+			require.Greater(t, *info.CreatedAtMs, prev, "encoded times must increase with chronological order")
+		}
+		prev = *info.CreatedAtMs
+	}
 }

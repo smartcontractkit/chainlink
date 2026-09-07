@@ -7,7 +7,6 @@ import (
 
 	"github.com/pelletier/go-toml"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
@@ -70,9 +69,9 @@ func BuildCLJobInfo(jb job.Job, trigger commonv1.CLJobInfoTrigger, id NodeIdenti
 		JobType:           string(jb.Type),
 		SchemaVersion:     jb.SchemaVersion,
 		ForwardingAllowed: jb.ForwardingAllowed,
-		CreatedAt:         timestampOrNil(jb.CreatedAt),
+		CreatedAtMs:       unixMillisOrNil(jb.CreatedAt),
 		Trigger:           trigger,
-		Timestamp:         timestamppb.New(now),
+		TimestampMs:       now.UnixMilli(),
 	}
 	if jb.GasLimit.Valid {
 		info.GasLimit = new(jb.GasLimit.Uint32)
@@ -84,8 +83,8 @@ func BuildCLJobInfo(jb job.Job, trigger commonv1.CLJobInfoTrigger, id NodeIdenti
 		info.FeedsManagerId = &prop.FeedsManagerID
 		info.RemoteUuid = &prop.RemoteUUID
 		info.SpecVersion = &prop.SpecVersion
-		info.ProposedAt = timestampOrNil(prop.ProposedAt)
-		info.ApprovedAt = timestampOrNil(prop.ApprovedAt)
+		info.ProposedAtMs = unixMillisOrNil(prop.ProposedAt)
+		info.ApprovedAtMs = unixMillisOrNil(prop.ApprovedAt)
 	}
 
 	specTOML, err := jobTOML(jb)
@@ -127,15 +126,15 @@ func jobTOML(jb job.Job) (string, error) {
 	return string(out), nil
 }
 
-// timestampOrNil converts t to a protobuf Timestamp, leaving an unset time as
-// nil rather than mapping it onto the epoch. google.protobuf.Timestamp is used
-// throughout the Job Distributor protos and, unlike an RFC3339Nano string,
-// orders correctly for consumers: Go trims trailing zeros from the fractional
-// seconds, so those strings are variable-width and do not sort lexicographically
-// in chronological order.
-func timestampOrNil(t time.Time) *timestamppb.Timestamp {
+// unixMillisOrNil converts t to Unix epoch milliseconds, leaving an unset time
+// as nil rather than mapping it onto the epoch. Milliseconds rather than an
+// RFC3339Nano string because Go trims trailing zeros from the fractional
+// seconds, so those strings are variable-width and do not sort
+// lexicographically in chronological order — a whole-second value sorts after
+// every sub-second value in the same second.
+func unixMillisOrNil(t time.Time) *int64 {
 	if t.IsZero() {
 		return nil
 	}
-	return timestamppb.New(t)
+	return new(t.UnixMilli())
 }
