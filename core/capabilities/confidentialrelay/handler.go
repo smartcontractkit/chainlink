@@ -338,10 +338,20 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
+	// Every line below carries the gateway request id together with the
+	// workflow/execution identity, so a log can be correlated with the
+	// enclave's and the gateway's own lines for the same execution. The
+	// gateway request id changes per retry; the execution identity does not.
+	l := logger.With(h.lggr,
+		"requestID", req.ID,
+		"workflowID", params.WorkflowID,
+		"executionID", params.ExecutionID,
+	)
+
 	att := params.Attestation
 	params.Attestation = ""
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
-		h.lggr.Warnw("rejecting secrets request: attestation validation failed", "requestID", req.ID, "workflow", params.WorkflowID, "err", err)
+		l.Warnw("rejecting secrets request: attestation validation failed", "err", err)
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 	// Fetch the local node once: it provides the WorkflowDON snapshot for both the
@@ -357,7 +367,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	// genuinely-attested request over a forged enclave config unless we
 	// compare the config value against the DON reference.
 	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
-		h.lggr.Warnw("rejecting secrets request: enclave config does not match DON", "requestID", req.ID, "workflow", params.WorkflowID, "err", err)
+		l.Warnw("rejecting secrets request: enclave config does not match DON", "err", err)
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
@@ -366,7 +376,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	// names the authorized owner. A TEE breach passes attestation but cannot forge a Workflow
 	// DON quorum over a different owner (PRIV-433).
 	if err = h.verifyWorkflowAuthorization(localNode.WorkflowDON, params); err != nil {
-		h.lggr.Warnw("rejecting secrets request: workflow DON authorization failed", "requestID", req.ID, "workflow", params.WorkflowID, "err", err)
+		l.Warnw("rejecting secrets request: workflow DON authorization failed", "err", err)
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
@@ -374,12 +384,14 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	// same request; return the already-computed signed result from the memo
 	// instead of re-fetching from the vault. The signed result is params-bound,
 	// not id-bound, so jsonResponse re-wraps it with this request's id.
-	h.pendingRequestsMu.Lock()
 	key := secretsKey(params)
+	l = logger.With(l, "key", key)
+
+	h.pendingRequestsMu.Lock()
 	if cached, ok := h.responseMemo.Get(key); ok {
 		if signed, ok := cached.(*confidentialrelaytypes.SignedSecretsResponseResult); ok {
 			h.pendingRequestsMu.Unlock()
-			h.lggr.Debugw("serving secrets request from memo", "requestID", req.ID, "key", key)
+			l.Debugw("serving secrets request from memo")
 			return h.jsonResponse(req, signed)
 		}
 	}
@@ -397,15 +409,15 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		signed, ok, ownerErr := waitForPendingRequest(ctx, pending)
 		switch {
 		case !ok:
-			h.lggr.Warnw("timed out waiting for in-flight secrets request", "requestID", req.ID, "key", key, "err", ctx.Err())
+			l.Warnw("timed out waiting for in-flight secrets request", "err", ctx.Err())
 			return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, errors.New("timed out waiting for in-flight secrets request"))
 		case ownerErr != nil:
 			ownerCode := relayErrorCode(ownerErr, jsonrpc.ErrInternal)
-			h.lggr.Debugw("in-flight secrets request failed; relaying its error", "requestID", req.ID, "key", key, "errorCode", ownerCode)
+			l.Debugw("in-flight secrets request failed; relaying its error", "errorCode", ownerCode)
 			return h.errorResponse(ctx, gatewayID, req, ownerCode, ownerErr)
 		}
 		if signed, ok := signed.(*confidentialrelaytypes.SignedSecretsResponseResult); ok {
-			h.lggr.Debugw("served retried secrets request from in-flight owner", "requestID", req.ID, "key", key)
+			l.Debugw("served retried secrets request from in-flight owner")
 			return h.jsonResponse(req, signed)
 		}
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, errors.New("in-flight secrets request completed without a result"))
@@ -415,7 +427,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	// either way. A failure has to reach them with its real cause, and has to
 	// clear the entry so later retries re-execute rather than waiting on a
 	// request nobody completes (see failPendingRequest).
-	signedResult, err := h.fetchSecrets(ctx, req, params, key)
+	signedResult, err := h.fetchSecrets(ctx, l, params)
 	if err != nil {
 		h.pendingRequestsMu.Lock()
 		h.failPendingRequest(key, err)
@@ -427,7 +439,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	h.responseMemo.SetDefault(key, signedResult)
 	h.completePendingRequest(key, signedResult)
 	h.pendingRequestsMu.Unlock()
-	h.lggr.Infow("fetched and signed secrets response", "requestID", req.ID, "key", key)
+	l.Infow("fetched and signed secrets response")
 	return h.jsonResponse(req, signedResult)
 }
 
@@ -437,9 +449,8 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 // both answer this request and publish the same failure to any waiters.
 func (h *Handler) fetchSecrets(
 	ctx context.Context,
-	req *jsonrpc.Request[json.RawMessage],
+	l logger.Logger,
 	params confidentialrelaytypes.SecretsRequestParams,
-	key string,
 ) (*confidentialrelaytypes.SignedSecretsResponseResult, error) {
 	secretsRequest := &sdkpb.GetSecretsRequest{
 		Requests:   make([]*sdkpb.SecretRequest, 0, len(params.Secrets)),
@@ -469,7 +480,7 @@ func (h *Handler) fetchSecrets(
 
 	vaultResp, err := handler.GetRawSecrets(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
 	if err != nil {
-		h.lggr.Errorw("vault secrets fetch failed", "requestID", req.ID, "key", key, "err", err)
+		l.Errorw("vault secrets fetch failed", "err", err)
 		return nil, &relayError{code: jsonrpc.ErrInternal, err: err}
 	}
 
@@ -479,17 +490,17 @@ func (h *Handler) fetchSecrets(
 		if IsUserError(err) {
 			code = jsonrpc.ErrInvalidParams
 		}
-		h.lggr.Errorw("translating vault response failed", "requestID", req.ID, "key", key, "userError", IsUserError(err), "err", err)
+		l.Errorw("translating vault response failed", "userError", IsUserError(err), "err", err)
 		return nil, &relayError{code: code, err: err}
 	}
 
 	signedResult, err := h.signSecretsResponse(params, result)
 	if err != nil {
-		h.lggr.Errorw("signing secrets response failed", "requestID", req.ID, "key", key, "err", err)
+		l.Errorw("signing secrets response failed", "err", err)
 		return nil, &relayError{code: jsonrpc.ErrInternal, err: fmt.Errorf("failed to sign secrets response: %w", err)}
 	}
 
-	h.lggr.Debugw("fetched secrets from vault", "requestID", req.ID, "key", key, "secrets", len(result.Secrets))
+	l.Debugw("fetched secrets from vault", "secrets", len(result.Secrets))
 	return signedResult, nil
 }
 
@@ -571,10 +582,19 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		Workflow: params.WorkflowID,
 	})
 
+	// See handleSecretsGet: the gateway request id plus the workflow/execution
+	// identity on every line, so logs correlate across the gateway, this node
+	// and the enclave for one execution.
+	l := logger.With(h.lggr,
+		"requestID", req.ID,
+		"workflowID", params.WorkflowID,
+		"executionID", params.ExecutionID,
+	)
+
 	att := params.Attestation
 	params.Attestation = ""
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
-		h.lggr.Warnw("rejecting capability request: attestation validation failed", "requestID", req.ID, "workflow", params.WorkflowID, "err", err)
+		l.Warnw("rejecting capability request: attestation validation failed", "err", err)
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
@@ -587,7 +607,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
 	}
 	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
-		h.lggr.Warnw("rejecting capability request: enclave config does not match DON", "requestID", req.ID, "workflow", params.WorkflowID, "err", err)
+		l.Warnw("rejecting capability request: enclave config does not match DON", "err", err)
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
@@ -595,12 +615,14 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	// same request; return the already-computed signed result from the memo
 	// instead of re-executing the capability. The signed result is params-bound,
 	// not id-bound, so jsonResponse re-wraps it with this request's id.
-	h.pendingRequestsMu.Lock()
 	key := capExecKey(params)
+	l = logger.With(l, "key", key)
+
+	h.pendingRequestsMu.Lock()
 	if cached, ok := h.responseMemo.Get(key); ok {
 		if signed, ok := cached.(*confidentialrelaytypes.SignedCapabilityResponseResult); ok {
 			h.pendingRequestsMu.Unlock()
-			h.lggr.Debugw("serving capability request from memo", "requestID", req.ID, "key", key)
+			l.Debugw("serving capability request from memo")
 			return h.jsonResponse(req, signed)
 		}
 	}
@@ -618,15 +640,15 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		signed, ok, pendingReqErr := waitForPendingRequest(ctx, pending)
 		switch {
 		case !ok:
-			h.lggr.Warnw("timed out waiting for in-flight capability request", "requestID", req.ID, "key", key, "err", ctx.Err())
+			l.Warnw("timed out waiting for in-flight capability request", "err", ctx.Err())
 			return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, errors.New("timed out waiting for in-flight capability request"))
 		case pendingReqErr != nil:
 			errorCode := relayErrorCode(pendingReqErr, jsonrpc.ErrInternal)
-			h.lggr.Debugw("in-flight capability request failed; relaying its error", "requestID", req.ID, "key", key, "errorCode", errorCode)
+			l.Debugw("in-flight capability request failed; relaying its error", "errorCode", errorCode)
 			return h.errorResponse(ctx, gatewayID, req, errorCode, pendingReqErr)
 		}
 		if signed, ok := signed.(*confidentialrelaytypes.SignedCapabilityResponseResult); ok {
-			h.lggr.Debugw("served retried capability request from in-flight owner", "requestID", req.ID, "key", key)
+			l.Debugw("served retried capability request from in-flight owner")
 			return h.jsonResponse(req, signed)
 		}
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, errors.New("in-flight capability request completed without a result"))
@@ -634,7 +656,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 
 	// We own the pending entry: execute, then publish the outcome to any
 	// waiters either way; see handleSecretsGet.
-	signedResult, err := h.executeCapability(ctx, req, params, key)
+	signedResult, err := h.executeCapability(ctx, l, params)
 	if err != nil {
 		h.pendingRequestsMu.Lock()
 		h.failPendingRequest(key, err)
@@ -646,7 +668,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	h.responseMemo.SetDefault(key, signedResult)
 	h.completePendingRequest(key, signedResult)
 	h.pendingRequestsMu.Unlock()
-	h.lggr.Infow("executed and signed capability response", "requestID", req.ID, "key", key, "capability", params.CapabilityID)
+	l.Infow("executed and signed capability response", "capability", params.CapabilityID)
 	return h.jsonResponse(req, signedResult)
 }
 
@@ -658,9 +680,8 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 // produces a signed error result the enclave's quorum logic handles.
 func (h *Handler) executeCapability(
 	ctx context.Context,
-	req *jsonrpc.Request[json.RawMessage],
+	l logger.Logger,
 	params confidentialrelaytypes.CapabilityRequestParams,
-	key string,
 ) (*confidentialrelaytypes.SignedCapabilityResponseResult, error) {
 	payloadBytes, err := base64.StdEncoding.DecodeString(params.Payload)
 	if err != nil {
@@ -691,7 +712,7 @@ func (h *Handler) executeCapability(
 		// Not an error from this node's perspective: the execution result is a
 		// signed error response the enclave's quorum logic handles; log it so
 		// the capability-side failure is attributable to this node.
-		h.lggr.Infow("capability execution returned an error result", "requestID", req.ID, "key", key, "capability", sdkReq.Id, "err", execErr)
+		l.Infow("capability execution returned an error result", "capability", sdkReq.Id, "err", execErr)
 		result.Error = execErr.Error()
 	} else {
 		// Deterministic marshal so every relay node emits byte-identical
@@ -707,7 +728,7 @@ func (h *Handler) executeCapability(
 
 	signedResult, err := h.signCapabilityResponse(params, result)
 	if err != nil {
-		h.lggr.Errorw("signing capability response failed", "requestID", req.ID, "key", key, "err", err)
+		l.Errorw("signing capability response failed", "err", err)
 		return nil, &relayError{code: jsonrpc.ErrInternal, err: fmt.Errorf("failed to sign capability response: %w", err)}
 	}
 
@@ -1005,7 +1026,7 @@ func (h *Handler) errorResponse(
 	errorCode int64,
 	err error,
 ) *jsonrpc.Response[json.RawMessage] {
-	h.lggr.Errorw("request error", "errorCode", errorCode, "err", err)
+	h.lggr.Errorw("request error", "requestID", req.ID, "method", req.Method, "errorCode", errorCode, "err", err)
 	h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("gateway_id", gatewayID),
 		attribute.Int64("error_code", errorCode),
