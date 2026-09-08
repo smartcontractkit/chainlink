@@ -7,6 +7,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -15,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 )
 
 // configureHybridTokenPoolChains sets up supported chains for hybrid token pools
@@ -495,4 +494,156 @@ func TestHybridTokenPoolUpdateGroupsChangeset_NoOpUpdate(t *testing.T) {
 	_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.HybridTokenPoolUpdateGroupsChangeset, firstConfig))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "is already in group 0")
+}
+
+// setupHybridPoolsForDecimalTests brings up two chains with hybrid pools and the lane
+// between them.
+func setupHybridPoolsForDecimalTests(t *testing.T) (env cldf.Environment, selectorA, selectorB uint64) {
+	t.Helper()
+
+	env, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), false)
+
+	externalMinterA, _ := testhelpers.DeployTokenGovernor(t, env, selectorA, tokens[selectorA].Address)
+	externalMinterB, _ := testhelpers.DeployTokenGovernor(t, env, selectorB, tokens[selectorB].Address)
+
+	env = testhelpers.DeployTestTokenPools(t, env, map[uint64]v1_5_1.DeployTokenPoolInput{
+		selectorA: {
+			Type:               shared.HybridWithExternalMinterFastTransferTokenPool,
+			TokenAddress:       tokens[selectorA].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			ExternalMinter:     externalMinterA,
+		},
+		selectorB: {
+			Type:               shared.HybridWithExternalMinterFastTransferTokenPool,
+			TokenAddress:       tokens[selectorB].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			ExternalMinter:     externalMinterB,
+		},
+	}, false)
+
+	configureHybridTokenPoolChains(t, env, selectorA, selectorB, false)
+
+	return env, selectorA, selectorB
+}
+
+func hybridGroupConfig(selectorA, selectorB uint64, update v1_5_1.GroupUpdateConfig) v1_5_1.HybridTokenPoolUpdateGroupsConfig {
+	update.RemoteChainSelector = selectorB
+	return v1_5_1.HybridTokenPoolUpdateGroupsConfig{
+		TokenSymbol:     testhelpers.TestTokenSymbol,
+		ContractType:    shared.HybridWithExternalMinterFastTransferTokenPool,
+		ContractVersion: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
+		Updates: map[uint64][]v1_5_1.GroupUpdateConfig{
+			selectorA: {update},
+		},
+	}
+}
+
+// Both test chains use 18-decimal tokens, so a claim of 6 remote decimals is caught by the
+// remote-token cross-check.
+func TestHybridTokenPoolUpdateGroupsChangeset_RemoteSupplyErrors(t *testing.T) {
+	t.Parallel()
+	e, selectorA, selectorB := setupHybridPoolsForDecimalTests(t)
+
+	testCases := []struct {
+		name       string
+		update     v1_5_1.GroupUpdateConfig
+		wantErrMsg string
+	}{
+		{
+			name: "Failure - missing remote supply",
+			update: v1_5_1.GroupUpdateConfig{
+				Group:             v1_5_1.BurnAndMint,
+				RemoteChainSupply: big.NewInt(1000),
+			},
+			wantErrMsg: "RemoteChainSupply is non-zero but no RemoteSupply was given",
+		},
+		{
+			name: "Failure - declared decimals do not match remote token",
+			update: v1_5_1.GroupUpdateConfig{
+				Group:             v1_5_1.BurnAndMint,
+				RemoteChainSupply: big.NewInt(1000),
+				RemoteSupply: &shared.RemoteSupply{
+					Decimals: 6,
+					Amount:   big.NewInt(1000),
+				},
+			},
+			wantErrMsg: "supplied 6 decimals but the remote token reports 18",
+		},
+		{
+			name: "Failure - supply does not match remote supply",
+			update: v1_5_1.GroupUpdateConfig{
+				Group:             v1_5_1.BurnAndMint,
+				RemoteChainSupply: big.NewInt(1000),
+				RemoteSupply: &shared.RemoteSupply{
+					Decimals: testhelpers.LocalTokenDecimals,
+					Amount:   big.NewInt(2000),
+				},
+			},
+			wantErrMsg: "requires 2000, but the update supplies 1000",
+		},
+		{
+			name: "Failure - nil remote supply amount",
+			update: v1_5_1.GroupUpdateConfig{
+				Group:             v1_5_1.BurnAndMint,
+				RemoteChainSupply: big.NewInt(1000),
+				RemoteSupply: &shared.RemoteSupply{
+					Decimals: testhelpers.LocalTokenDecimals,
+					Amount:   nil,
+				},
+			},
+			wantErrMsg: "must not be nil",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			config := hybridGroupConfig(selectorA, selectorB, tc.update)
+			_, err := commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.HybridTokenPoolUpdateGroupsChangeset, config))
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErrMsg)
+		})
+	}
+}
+
+// Validate is exercised directly rather than through Apply: executing a migration needs a
+// token exposing mint(uint256) for TokenGovernor, which BurnMintERC677 does not have.
+func TestHybridTokenPoolUpdateGroupsChangeset_RemoteSupplyAccepted(t *testing.T) {
+	t.Parallel()
+	e, selectorA, selectorB := setupHybridPoolsForDecimalTests(t)
+
+	const remoteRawSupply = 1_000_000
+
+	config := hybridGroupConfig(selectorA, selectorB, v1_5_1.GroupUpdateConfig{
+		Group:             v1_5_1.BurnAndMint,
+		RemoteChainSupply: big.NewInt(remoteRawSupply),
+		RemoteSupply: &shared.RemoteSupply{
+			Decimals: testhelpers.LocalTokenDecimals,
+			Amount:   big.NewInt(remoteRawSupply),
+		},
+	})
+
+	require.NoError(t, config.Validate(e))
+}
+
+func TestHybridTokenPoolUpdateGroupsChangeset_ZeroSupplyNeedsNoRemoteSupply(t *testing.T) {
+	t.Parallel()
+	e, selectorA, selectorB := setupHybridPoolsForDecimalTests(t)
+
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+	pool := state.Chains[selectorA].HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol][shared.HybridWithExternalMinterFastTransferTokenPoolVersion]
+
+	config := hybridGroupConfig(selectorA, selectorB, v1_5_1.GroupUpdateConfig{
+		Group:             v1_5_1.BurnAndMint,
+		RemoteChainSupply: big.NewInt(0),
+	})
+
+	_, err = commonchangeset.Apply(t, e, commonchangeset.Configure(v1_5_1.HybridTokenPoolUpdateGroupsChangeset, config))
+	require.NoError(t, err)
+
+	currentGroup, err := pool.GetGroup(nil, selectorB)
+	require.NoError(t, err)
+	require.Equal(t, v1_5_1.BurnAndMint, v1_5_1.Group(currentGroup))
 }

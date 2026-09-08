@@ -697,7 +697,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 	}
 
 	donConfig := &config.DONConfig{
-		DonId: "test-don",
+		DonID: "test-don",
 		F:     1, // 1 faulty node, so (N+F)//2+1=(3+1)//2+1=3 for threshold
 		Members: []config.NodeConfig{
 			{Address: "node1"},
@@ -765,7 +765,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_SendsToNodesInParallel(t *t
 	})
 
 	donConfig := &config.DONConfig{
-		DonId: "test-don",
+		DonID: "test-don",
 		F:     1,
 		Members: []config.NodeConfig{
 			{Address: "node1"},
@@ -831,7 +831,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_SlowNodeDoesNotBlockOthers(
 	})
 
 	donConfig := &config.DONConfig{
-		DonId: "test-don",
+		DonID: "test-don",
 		F:     1,
 		Members: []config.NodeConfig{
 			{Address: "node1"},
@@ -876,7 +876,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_SlowNodeDoesNotBlockOthers(
 				return ctx.Err()
 			}
 			return nil
-		}).Twice()
+		},
+	).Twice()
 
 	err := handler.Start(t.Context())
 	require.NoError(t, err)
@@ -1832,7 +1833,7 @@ func createTestMetadataHandler(t *testing.T) *WorkflowMetadataHandler {
 	cfg := WithDefaults(ServiceConfig{})
 	testMetrics := createTestMetrics(t, donConfig)
 	shardedDONs := []config.ShardedDONConfig{
-		{DonName: donConfig.DonId, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
+		{DonName: donConfig.DonID, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
 	}
 	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{{mockDon}})
 	require.NoError(t, err)
@@ -1845,7 +1846,7 @@ func createTestUserRateLimiter() limits.RateLimiter {
 
 func newTestTriggerHandler(t *testing.T, lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, mockDon *handlermocks.DON, metadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, testMetrics *metrics.Metrics) *httpTriggerHandler {
 	shardedDONs := []config.ShardedDONConfig{
-		{DonName: donConfig.DonId, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
+		{DonName: donConfig.DonID, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
 	}
 	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{{mockDon}})
 	require.NoError(t, err)
@@ -1854,7 +1855,7 @@ func newTestTriggerHandler(t *testing.T, lggr logger.Logger, cfg ServiceConfig, 
 	// metadata handler may have been built with its own shard set (and donIDs) by
 	// createTestMetadataHandler, so rebuild its per-shard aggregators keyed by the
 	// shared shards' donIDs. (donIDs differ when createTestMetadataHandler's
-	// donConfig has an empty DonId.)
+	// donConfig has an empty DonID.)
 	metadataHandler.shards = shards
 	metadataHandler.nodeAddrToShard = nodeAddrToShard
 	metadataHandler.aggs = make(map[string]*aggregation.WorkflowMetadataAggregator, len(shards))
@@ -1875,7 +1876,7 @@ func createTestTriggerHandler(t *testing.T) (*httpTriggerHandler, *handlermocks.
 
 func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpTriggerHandler, *handlermocks.DON) {
 	donConfig := &config.DONConfig{
-		DonId: "test-don",
+		DonID: "test-don",
 		F:     1, // This means we need (N+F)//2+1 = (3+1)//2+1 = 3 responses for consensus
 		Members: []config.NodeConfig{
 			{Address: "node1"},
@@ -1893,7 +1894,7 @@ func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpT
 	// handler's .shards, and sendWithRetries reads them back and sends via
 	// shard.connMgr — both must hit mockDon, which the test sets expectations on.
 	shardedDONs := []config.ShardedDONConfig{
-		{DonName: donConfig.DonId, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
+		{DonName: donConfig.DonID, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
 	}
 	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{{mockDon}})
 	require.NoError(t, err)
@@ -1911,7 +1912,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 	}
 
 	donConfig := &config.DONConfig{
-		DonId: "test-don",
+		DonID: "test-don",
 		F:     1,
 		Members: []config.NodeConfig{
 			{Address: "node1"},
@@ -2023,7 +2024,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 	// 4 nodes, 1 faulty node, so (N+F)//2+1=(4+1)//2+1=3 for threshold
 	// Quorum is reached when 3 nodes respond.
 	donConfig := &config.DONConfig{
-		DonId: "test-don",
+		DonID: "test-don",
 		F:     1,
 		Members: []config.NodeConfig{
 			{Address: "node1"},
@@ -2120,10 +2121,13 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 			t.Fatal("Context cancelled waiting for HandleUserTriggerRequest to complete")
 		}
 
+		// After the response is sent, the callback is kept and marked processed
+		// (rather than removed) so that late responses are recognized.
 		handler.callbacksMu.Lock()
-		_, exists := handler.callbacks[req.ID]
+		saved, exists := handler.callbacks[req.ID]
 		handler.callbacksMu.Unlock()
-		require.False(t, exists, "callback should be removed after response is sent")
+		require.True(t, exists, "callback should be kept after response is sent so late responses are recognized")
+		require.True(t, saved.processed, "callback should be marked as processed after response is sent")
 
 		err = handler.Close()
 		require.NoError(t, err)
@@ -2173,7 +2177,8 @@ func createMultiShardTriggerHandler(t *testing.T, donName string, shardNodeSets 
 // TestHttpTriggerHandler_MultiShardQuorumRace verifies the core sharding
 // behavior: when a workflow is assigned to multiple shards, the FIRST shard to
 // reach quorum produces the user response. Late responses from the other shard
-// are rejected with "callback not found" after cleanup.
+// are recognized as already-processed (not errors) since the callback is kept
+// until the periodic reaper removes it.
 func TestHttpTriggerHandler_MultiShardQuorumRace(t *testing.T) {
 	t.Parallel()
 
@@ -2230,16 +2235,17 @@ func TestHttpTriggerHandler_MultiShardQuorumRace(t *testing.T) {
 	require.Equal(t, api.NoError, payload.ErrorCode)
 	require.NotEmpty(t, payload.RawResponse)
 
-	// Late response from shard 0 must be rejected: callback was already cleaned up.
+	// Late response from shard 0 is not an error: the request was already
+	// processed (shard 1 reached quorum first), so it is ignored with a debug log.
 	err = handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "n1")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "callback not found")
+	require.NoError(t, err)
 
-	// Callback should no longer exist.
+	// Callback is kept and marked processed until the periodic reaper removes it.
 	handler.callbacksMu.Lock()
-	_, exists := handler.callbacks[req.ID]
+	saved, exists := handler.callbacks[req.ID]
 	handler.callbacksMu.Unlock()
-	require.False(t, exists)
+	require.True(t, exists, "callback should be kept after processing so late responses are recognized")
+	require.True(t, saved.processed, "callback should be marked as processed")
 }
 
 // TestHttpTriggerHandler_NodeResponseFromUnassignedShard verifies that a node
@@ -2408,7 +2414,8 @@ func TestHttpTriggerHandler_MultiShardSendFailureResilience(t *testing.T) {
 					close(shard1Sent)
 				}
 				return nil
-			}).Once()
+			},
+		).Once()
 	}
 
 	require.NoError(t, handler.Start(t.Context()))

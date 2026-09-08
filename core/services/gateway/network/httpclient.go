@@ -10,6 +10,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptrace"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -61,8 +62,8 @@ type HTTPClientConfig struct {
 // A field in override is only applied when it holds a non-zero value, so the
 // static base config supplies defaults that the dynamic config can selectively
 // override.
-func (c HTTPClientConfig) merge(override HTTPClientConfig) HTTPClientConfig {
-	merged := c
+func (c *HTTPClientConfig) merge(override HTTPClientConfig) HTTPClientConfig {
+	merged := *c
 	if override.MaxResponseBytes != 0 {
 		merged.MaxResponseBytes = override.MaxResponseBytes
 	}
@@ -358,6 +359,20 @@ type redirectsDisabledError struct{}
 
 func (e *redirectsDisabledError) Error() string { return "redirects are not allowed" }
 
+func truncateLogError(err error) error {
+	var urlErr *url.Error
+	if !errors.As(err, &urlErr) {
+		return err
+	}
+	u, parseErr := url.Parse(urlErr.URL)
+	if parseErr != nil {
+		return urlErr.Err
+	}
+	// trim to scheme + host only
+	sanitized := &url.Error{Op: urlErr.Op, URL: u.Scheme + "://" + u.Host, Err: urlErr.Err}
+	return sanitized
+}
+
 // isBlockedRequest checks if an error is caused by blocked/invalid input (e.g., blocked IP, invalid scheme, blocked headers)
 // It checks for safeurl typed errors.
 func isBlockedRequest(err error) bool {
@@ -461,13 +476,14 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 
 	resp, err := c.client.Do(r)
 	if err != nil {
+		truncatedErr := truncateLogError(err)
 		c.metrics.recordTotal(ctx, req.Method, 0, false, traceState.connReused.Load(), time.Since(requestStart))
 		if isBlockedRequest(err) {
-			c.lggr.Warnw("HTTP request blocked", "err", err)
-			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, err)
+			c.lggr.Warnw("HTTP request blocked", "err", truncatedErr)
+			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, truncatedErr)
 		}
-		c.lggr.Errorw("failed to send HTTP request", "err", err)
-		return nil, errors.Join(err, ErrHTTPSend)
+		c.lggr.Errorw("failed to send HTTP request", "err", truncatedErr)
+		return nil, errors.Join(truncatedErr, ErrHTTPSend)
 	}
 	defer resp.Body.Close()
 

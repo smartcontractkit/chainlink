@@ -70,6 +70,18 @@ func NewOCRConfigService(lggr logger.Logger, peerIDProviderFn PeerIDProvider, ch
 	}
 }
 
+// GetContractConfig returns the cached registry-based OCR contract config for the
+// given capability/key, if one has been received from the registry.
+func (s *ocrConfigService) GetContractConfig(capabilityID string, ocrConfigKey string) (ocrtypes.ContractConfig, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	cached, ok := s.configs[configKey{CapabilityID: capabilityID, OCRConfigKey: ocrConfigKey}]
+	if !ok || cached == nil {
+		return ocrtypes.ContractConfig{}, false
+	}
+	return cached.ContractConfig, true
+}
+
 func (s *ocrConfigService) Start(ctx context.Context) error {
 	return s.StartOnce("OCRConfigService", func() error {
 		if s.peerIDProviderFn == nil {

@@ -6,6 +6,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"
@@ -30,6 +32,8 @@ type AddForwardersRequest struct {
 	Chains    map[uint64]struct{}
 	Qualifier string
 	Version   string
+
+	MCMS *cldf.MCMSTimelockProposalInput
 }
 
 func (cs AddForwarders) VerifyPreconditions(env cldf.Environment, req *AddForwardersRequest) error {
@@ -48,6 +52,11 @@ func (cs AddForwarders) VerifyPreconditions(env cldf.Environment, req *AddForwar
 	version, err := semver.NewVersion(req.Version)
 	if err != nil {
 		return fmt.Errorf("invalid forwarder version %q: %w", req.Version, err)
+	}
+	if req.MCMS != nil {
+		if err := req.MCMS.Validate(); err != nil {
+			return fmt.Errorf("invalid MCMS timelock proposal input: %w", err)
+		}
 	}
 
 	chains := req.Chains
@@ -81,6 +90,8 @@ func (cs AddForwarders) Apply(env cldf.Environment, req *AddForwardersRequest) (
 		}
 	}
 
+	var batchOps []mcmstypes.BatchOperation
+
 	for sel := range chains {
 		ch, ok := env.BlockChains.StellarChains()[sel]
 		if !ok {
@@ -91,6 +102,24 @@ func (cs AddForwarders) Apply(env cldf.Environment, req *AddForwardersRequest) (
 		addrRef, err := env.DataStore.Addresses().Get(refKey)
 		if err != nil {
 			return out, fmt.Errorf("failed to get stellar forwarder for ref key %s: %w", refKey, err)
+		}
+
+		// The governed path only reads (owner check) and encodes; it must not
+		// require the deployer signing key.
+		if req.MCMS != nil {
+			if err := requireTimelockOwnership(env.GetContext(), env, ch, addrRef.Address, *req.MCMS); err != nil {
+				return out, err
+			}
+
+			batchOp, err := addForwardersBatchOp(sel, addrRef.Address, req.Transmitters)
+			if err != nil {
+				return out, fmt.Errorf("failed to build add_forwarder batch operation for stellar forwarder %s on chain selector %d: %w", addrRef.Address, sel, err)
+			}
+			batchOps = append(batchOps, batchOp)
+
+			env.Logger.Infow("Built governed Stellar forwarder add_forwarder operations", "chainSelector", sel, "forwarder", addrRef.Address, "transmitters", len(req.Transmitters))
+
+			continue
 		}
 
 		deployer, err := stellardeployment.NewDeployerFromChain(ch)
@@ -104,6 +133,12 @@ func (cs AddForwarders) Apply(env cldf.Environment, req *AddForwardersRequest) (
 			}
 			env.Logger.Infow("Authorized Stellar forwarder transmitter", "chainSelector", sel, "forwarder", addrRef.Address, "transmitter", transmitter)
 		}
+	}
+
+	if req.MCMS != nil {
+		return cldf.NewOutputBuilder(env, nil).
+			WithTimelockProposal(*req.MCMS, batchOps).
+			Build()
 	}
 
 	return out, nil

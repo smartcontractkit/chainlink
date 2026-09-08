@@ -182,7 +182,7 @@ func TestNewFetcherService(t *testing.T) {
 		rawPayload := json.RawMessage(payload)
 		gatewayResp := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
-			ID:      gatewayMessage.Body.MessageId,
+			ID:      gatewayMessage.Body.MessageID,
 			Method:  gatewayMessage.Body.Method,
 			Params:  &rawPayload,
 		}
@@ -216,8 +216,8 @@ func TestNewFetcherService(t *testing.T) {
 		require.NoError(t, err)
 		gatewayMsg := &api.Message{
 			Body: api.MessageBody{
-				MessageId: msgID,
-				DonId:     donID,
+				MessageID: msgID,
+				DonID:     donID,
 				Method:    ghcapabilities.MethodWebAPITarget,
 				Payload:   responsePayload,
 			},
@@ -418,7 +418,7 @@ func TestNewFetcherFunc(t *testing.T) {
 		testFilePath := filepath.Join(tempDir, "test.txt")
 
 		// Write test content to file
-		err := os.WriteFile(testFilePath, testContent, 0600)
+		err := os.WriteFile(testFilePath, testContent, 0o600)
 		require.NoError(t, err)
 
 		baseURL := "file://" + tempDir
@@ -465,7 +465,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	t.Run("file fetcher resolves HTTP URL to basename", func(t *testing.T) {
 		t.Parallel()
 		tempDir := t.TempDir()
-		err := os.WriteFile(filepath.Join(tempDir, "binary.wasm"), testContent, 0600)
+		err := os.WriteFile(filepath.Join(tempDir, "binary.wasm"), testContent, 0o600)
 		require.NoError(t, err)
 
 		fetcher, err := NewFetcherFunc("file://"+tempDir, lggr)
@@ -580,7 +580,7 @@ func TestNewFetcherFunc(t *testing.T) {
 }
 
 // gatewayResponse creates an unsigned gateway response with a response body.
-func gatewayResponse(t *testing.T, msgID string, donID string, statusCode int) *api.Message {
+func gatewayResponse(t *testing.T, msgID, donID string, statusCode int) *api.Message {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
@@ -591,8 +591,8 @@ func gatewayResponse(t *testing.T, msgID string, donID string, statusCode int) *
 	require.NoError(t, err)
 	return &api.Message{
 		Body: api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},
@@ -601,15 +601,15 @@ func gatewayResponse(t *testing.T, msgID string, donID string, statusCode int) *
 
 // inconsistentPayload creates an unsigned gateway response with an inconsistent payload.  The
 // ExecutionError is true, but there is no ErrorMessage, so it is invalid.
-func inconsistentPayload(t *testing.T, msgID string, donID string) *api.Message {
+func inconsistentPayload(t *testing.T, msgID, donID string) *api.Message {
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
 		ExecutionError: true,
 	})
 	require.NoError(t, err)
 	return &api.Message{
 		Body: api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},

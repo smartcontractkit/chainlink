@@ -343,6 +343,7 @@ func registerNTimesWorkflowsParallel(
 				wfRegCfg := &WorkflowRegistrationConfig{
 					WorkflowName:            name,
 					WorkflowLocation:        workflowFileLocation,
+					WorkflowTag:             creworkflow.DefaultWorkflowTag,
 					ConfigFilePath:          configPaths[i],
 					CompressedWasmPath:      wasmPaths[i],
 					WorkflowRegistryAddr:    registryAddr,

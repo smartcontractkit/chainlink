@@ -129,8 +129,9 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 // been cached already.  Before a workflow can be started this method must be called to ensure all artifacts used by the
 // workflow are available from the store.
 func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error) {
-	// Check if the workflow spec is already stored in the database
-	if spec, err := h.orm.GetWorkflowSpec(ctx, workflowID); err == nil {
+	// Check if the workflow spec is already stored in the database.
+	// A row whose binary payload is empty is a pause tombstone - don't use it.
+	if spec, err := h.orm.GetWorkflowSpec(ctx, workflowID); err == nil && spec.Workflow != "" {
 		// there is no update in the BinaryURL or ConfigURL, lets decode the stored artifacts
 		decodedBinary, err := hex.DecodeString(spec.Workflow)
 		if err != nil {

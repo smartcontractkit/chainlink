@@ -158,6 +158,7 @@ jobs:
             **
             !core/scripts/cre/environment/examples/workflows/**
 
+
   golangci:
     name: GolangCI Lint
     needs: [filter, run-frequency]
@@ -544,6 +545,7 @@ jobs:
             ./output.txt
             ./coverage.txt
           retention-days: 7
+
 
   clean:
     name: Clean Go Tidy & Generate

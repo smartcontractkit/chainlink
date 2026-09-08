@@ -57,6 +57,8 @@ type DeployedLocalDevEnvironment struct {
 	GenericTCConfig *testhelpers.TestConfigs
 	devEnvTestCfg   tc.TestConfig
 	devEnvCfg       *devenv.EnvironmentConfig
+	// ImageSelector, when non-nil, determines which chainlink docker image each node runs.
+	ImageSelector NodeImageSelector
 }
 
 func (l *DeployedLocalDevEnvironment) GetCLClusterTestEnv() *test_env.CLClusterTestEnv {
@@ -115,10 +117,21 @@ func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, crConfig deployme
 	require.NotNil(t, l.testEnv, "docker env is empty, start chains first")
 	require.NotEmpty(t, l.devEnvTestCfg, "integration test config is empty, start chains first")
 	require.NotNil(t, l.devEnvCfg, "dev environment config is empty, start chains first")
-	err := StartChainlinkNodes(t, l.devEnvCfg,
-		crConfig,
-		l.testEnv, l.devEnvTestCfg)
-	require.NoError(t, err)
+	if l.ImageSelector != nil {
+		err := StartChainlinkNodesWithImageSelector(t, l.devEnvCfg,
+			crConfig,
+			l.testEnv, l.devEnvTestCfg, l.ImageSelector)
+		require.NoError(t, err)
+	} else {
+		err := StartChainlinkNodes(t, l.devEnvCfg,
+			crConfig,
+			l.testEnv, l.devEnvTestCfg)
+		require.NoError(t, err)
+	}
+	l.setupDON(t)
+}
+
+func (l *DeployedLocalDevEnvironment) setupDON(t *testing.T) {
 	ctx := testcontext.Get(t)
 	lggr := logger.TestLogger(t)
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, *l.devEnvCfg)
@@ -247,6 +260,67 @@ func NewIntegrationEnvironment(t *testing.T, opts ...testhelpers.TestOps) (testh
 		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), testhelpers.Memory, testhelpers.Docker)
 	}
 	return testhelpers.DeployedEnv{}, devenv.RMNCluster{}, nil
+}
+
+// NewIntegrationEnvironmentWithImageSelector is like NewIntegrationEnvironment but
+// accepts a NodeImageSelector to control which docker image each node runs.
+// Only supports Docker mode (CCIP_V16_TEST_ENV=docker).
+func NewIntegrationEnvironmentWithImageSelector(t *testing.T, imageSelector NodeImageSelector, opts ...testhelpers.TestOps) (testhelpers.DeployedEnv, devenv.RMNCluster, testhelpers.TestEnvironment) {
+	testCfg := testhelpers.DefaultTestConfigs()
+	for _, opt := range opts {
+		opt(testCfg)
+	}
+
+	// check for EnvType env var
+	testCfg.MustSetEnvTypeOrDefault(t)
+	require.NoError(t, testCfg.Validate(), "invalid test config")
+	require.Equal(t, testhelpers.Docker, testCfg.Type, "NewIntegrationEnvironmentWithImageSelector only supports docker mode, set CCIP_V16_TEST_ENV=docker")
+
+	dockerEnv := &DeployedLocalDevEnvironment{
+		GenericTCConfig: testCfg,
+		ImageSelector:   imageSelector,
+	}
+	if testCfg.PrerequisiteDeploymentOnly {
+		deployedEnv := testhelpers.NewEnvironmentWithPrerequisitesContracts(t, dockerEnv)
+		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+		dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+		return deployedEnv, devenv.RMNCluster{}, dockerEnv
+	}
+	if testCfg.RMNEnabled {
+		deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
+		l := logging.GetTestLogger(t)
+		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+		config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks), testCfg.RMNConfDepth)
+		require.NotNil(t, dockerEnv.devEnvTestCfg.CCIP)
+		rmnCluster, err := devenv.NewRMNCluster(
+			t, l,
+			[]string{dockerEnv.testEnv.DockerNetwork.ID},
+			config,
+			dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetProxyImage(),
+			dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetProxyVersion(),
+			dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyImage(),
+			dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
+		)
+		require.NoError(t, err)
+		dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+		return deployedEnv, *rmnCluster, dockerEnv
+	}
+	if testCfg.CreateJobAndContracts {
+		deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
+		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+		dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+		return deployedEnv, devenv.RMNCluster{}, dockerEnv
+	}
+	if testCfg.CreateJob {
+		deployedEnv := testhelpers.NewEnvironmentWithJobs(t, dockerEnv)
+		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+		dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+		return deployedEnv, devenv.RMNCluster{}, dockerEnv
+	}
+	deployedEnv := testhelpers.NewEnvironment(t, dockerEnv)
+	require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
+	dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+	return deployedEnv, devenv.RMNCluster{}, dockerEnv
 }
 
 func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {
@@ -479,6 +553,10 @@ func CreateDockerEnv(t *testing.T, v1_6TestConfig *testhelpers.TestConfigs) (
 	}, env, cfg
 }
 
+// NodeImageSelector returns the docker image and version for the node at the given index.
+// Index 0..NoOfBootstraps-1 are bootstrap nodes, the rest are plugin nodes.
+type NodeImageSelector func(nodeIndex int) (image string, version string)
+
 // StartChainlinkNodes starts docker containers for chainlink nodes on the existing test environment based on provided test config
 // Once the nodes starts, it updates the devenv EnvironmentConfig with the node info
 // which includes chainlink API URL, email, password and internal IP
@@ -488,6 +566,23 @@ func StartChainlinkNodes(
 	registryConfig deployment.CapabilityRegistryConfig,
 	env *test_env.CLClusterTestEnv,
 	cfg tc.TestConfig,
+) error {
+	defaultImage := func(int) (string, string) {
+		return pointer.GetString(cfg.GetChainlinkImageConfig().Image),
+			pointer.GetString(cfg.GetChainlinkImageConfig().Version)
+	}
+	return StartChainlinkNodesWithImageSelector(t, envConfig, registryConfig, env, cfg, defaultImage)
+}
+
+// StartChainlinkNodesWithImageSelector is like StartChainlinkNodes but uses the
+// imageSelector to determine which docker image each node runs.
+func StartChainlinkNodesWithImageSelector(
+	t *testing.T,
+	envConfig *devenv.EnvironmentConfig,
+	registryConfig deployment.CapabilityRegistryConfig,
+	env *test_env.CLClusterTestEnv,
+	cfg tc.TestConfig,
+	imageSelector NodeImageSelector,
 ) error {
 	var evmNetworks []blockchain.EVMNetwork
 	for i := range env.EVMNetworks {
@@ -529,10 +624,11 @@ func StartChainlinkNodes(
 		if err != nil {
 			return err
 		}
+		image, version := imageSelector(i - 1)
 		ccipNode, err := test_env.NewClNode(
 			[]string{env.DockerNetwork.Name},
-			pointer.GetString(cfg.GetChainlinkImageConfig().Image),
-			pointer.GetString(cfg.GetChainlinkImageConfig().Version),
+			image,
+			version,
 			toml,
 			test_env.WithPgDBOptions(
 				ctftestenv.WithPostgresImageVersion(pointer.GetString(cfg.GetChainlinkImageConfig().PostgresVersion)),

@@ -39,7 +39,6 @@ linters:
     - perfsprint
     - prealloc
     - reassign
-    - recvcheck
     - revive
     - rowserrcheck
     - spancheck

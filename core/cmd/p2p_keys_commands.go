@@ -109,7 +109,7 @@ type P2PKeyPresenters []P2PKeyPresenter
 // RenderTable implements TableRenderer
 func (ps P2PKeyPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Peer ID", "Public key"}
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

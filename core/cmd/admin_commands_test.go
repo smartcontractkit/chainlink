@@ -147,7 +147,7 @@ func TestShell_ListUsers(t *testing.T) {
 
 	testRenderer := &testRenderer{}
 	client.Renderer = testRenderer
-	assert.NoError(t, client.ListUsers(c), user.Email)
+	require.NoError(t, client.ListUsers(c), user.Email)
 
 	userPresenterFound := false
 	for _, presenter := range testRenderer.presenters {
@@ -155,7 +155,7 @@ func TestShell_ListUsers(t *testing.T) {
 			userPresenterFound = true
 			assert.Equal(t, presenter.Role, user.Role)
 			userHasActiveAPIToken, err := strconv.ParseBool(presenter.HasActiveAPIToken)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, userHasActiveAPIToken, user.TokenKey.String != "")
 			assert.True(t, presenter.CreatedAt.Equal(user.CreatedAt))
 			assert.True(t, presenter.CreatedAt.Equal(user.UpdatedAt))

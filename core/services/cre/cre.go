@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
@@ -46,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
+	ocr "github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2pmain "github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -124,6 +126,9 @@ type Services struct {
 
 	// callback to wire Delegates into CRE services (e.g. Launcher) when ready
 	SetDelegatesDeps func(*standardcapabilities.Delegate) (commonsrv.Service, error)
+
+	// callback to wire OCR2 Delegates into CRE services (e.g. Launcher) when ready
+	SetOCR2DelegatesDeps func(*ocr.Delegate) (commonsrv.Service, error)
 }
 
 func (s *Services) close() error {
@@ -235,13 +240,12 @@ func (s *Services) newSubservices(
 
 	if cfg.CRE().Linking().URL() != "" {
 		lggr.Debugw("Creating OrgResolver")
-		inner, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
+		resolver, ierr := newOrgResolver(cfg, capCfg, opts, ds, lggr)
 		if ierr != nil {
 			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
-		fallbackResolver := orgresolver.NewOrgResolverWithFallback(inner, lggr)
-		s.OrgResolver = fallbackResolver
-		srvs = append(srvs, fallbackResolver)
+		s.OrgResolver = resolver
+		srvs = append(srvs, resolver)
 	} else {
 		lggr.Warn("Skipping orgResolver, no linking service configured")
 	}
@@ -472,15 +476,36 @@ func (s *Services) newRegistrySyncer(
 	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	localCfg := cfg.Capabilities().Local()
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
+		// Both delegates are wired into a single LocalCapabilityManager.
+		// The newServicesFn routes to the correct delegate based on the capability ID:
+		// - "dontime@1.0.0" → OCR2 delegate (DonTimePlugin)
+		// - everything else → standard capabilities delegate
 		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) (commonsrv.Service, error) {
-			newServicesFn := func(ctx context.Context, capID string, donID uint32, command string, configJSON string) ([]job.ServiceCtx, error) {
-				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), job.OracleFactoryConfig{}, donID)
+			// ocr2Delegate will be set by SetOCR2DelegatesDeps later.
+			var ocr2Delegate *ocr.Delegate
+
+			newServicesFn := func(ctx context.Context, capID string, donID uint32, command string, configJSON string, ocr3Config *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
+				if strings.HasPrefix(capID, "dontime") {
+					if ocr2Delegate == nil {
+						return nil, fmt.Errorf("OCR2 delegate not yet initialized for capability %q", capID)
+					}
+					return ocr2Delegate.NewServices(ctx, capID, donID, commontypes.DonTimePlugin, configJSON, ocr3Config)
+				}
+				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), nil, donID, ocr3Config)
 			}
+
 			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
 			if lcmErr != nil {
 				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}
 			wfLauncher.SetLocalCapabilityManager(localCapMgr)
+
+			// Store the OCR2 delegate setter so SetOCR2DelegatesDeps can wire it later.
+			s.SetOCR2DelegatesDeps = func(d *ocr.Delegate) (commonsrv.Service, error) {
+				ocr2Delegate = d
+				return nil, nil // already wired into the LocalCapabilityManager above
+			}
+
 			return localCapMgr, nil
 		}
 	}
@@ -605,6 +630,7 @@ func newOrgResolver(
 	cfg Config,
 	capCfg config.Capabilities,
 	opts Opts,
+	ds sqlutil.DataSource,
 	lggr logger.Logger,
 ) (orgresolver.OrgResolver, error) {
 	var wrChainDetails chainselectors.ChainDetails
@@ -635,7 +661,22 @@ func newOrgResolver(
 		return nil, fmt.Errorf("failed to create org resolver: %w", err)
 	}
 
-	return resolver, nil
+	var cache orgresolver.Cache
+	if cfg.CRE().Linking().DurableCacheEnabled() {
+		cache = NewOrgResolverStore(ds)
+	} else {
+		cache = orgresolver.NewInMemoryCache()
+	}
+
+	cachingResolver, err := orgresolver.NewCachingResolver(resolver, orgresolver.CachingResolverConfig{
+		Cache: cache,
+		Meter: opts.Meter,
+	}, lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create caching org resolver: %w", err)
+	}
+
+	return cachingResolver, nil
 }
 
 func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.BillingClient, error) {
@@ -681,14 +722,14 @@ func newSyncerMeterIdentity(cfg Config) resourcemanager.ResourceIdentity {
 }
 
 func newShardOrchestratorClient(cfg Config, lggr logger.Logger) (*shardorchestrator.Client, error) {
-	shardID := cfg.Sharding().ShardIndex()
-	if shardID == 0 {
+	shardIndex := cfg.Sharding().ShardIndex()
+	if shardIndex == 0 {
 		return nil, nil
 	}
 
 	address := cfg.Sharding().ShardOrchestratorAddress()
 	if address == nil {
-		return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardID)
+		return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardIndex)
 	}
 
 	client, err := shardorchestrator.NewClient(address.String(), lggr)
@@ -696,7 +737,7 @@ func newShardOrchestratorClient(cfg Config, lggr logger.Logger) (*shardorchestra
 		return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
 	}
 
-	lggr.Infow("ShardOrchestrator gRPC client created", "shardID", shardID, "serverAddress", address)
+	lggr.Infow("ShardOrchestrator gRPC client created", "shardIndex", shardIndex, "serverAddress", address)
 	return client, nil
 }
 
@@ -844,7 +885,6 @@ func newWorkflowRegistrySyncerV2(
 	}
 
 	shardingEnabled := cfg.Sharding().ShardingEnabled()
-	shardIndex := uint32(cfg.Sharding().ShardIndex())
 
 	var shardRoutingSteady *shardownership.SteadySignal
 	if shardingEnabled {
@@ -879,7 +919,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
-		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
+		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 		syncerV2.WithShardResolver(shardResolver),
 	}
@@ -1007,7 +1047,6 @@ func newWorkflowRegistrySyncerV2(
 	if cfg.Sharding().ShardingEnabled() {
 		registryOpts = append(registryOpts,
 			syncerV2.WithShardEnabled(true),
-			syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
 		)
 		if shardRoutingSteady != nil {
 			registryOpts = append(registryOpts, syncerV2.WithRegistryShardRoutingObserver(shardRoutingSteady))

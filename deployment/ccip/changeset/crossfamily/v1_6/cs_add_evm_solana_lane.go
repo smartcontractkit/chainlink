@@ -3,6 +3,7 @@ package v1_6
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -179,6 +181,7 @@ var (
 					return OpsOutput{
 						Proposals:   output.MCMSTimelockProposals,
 						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
+						DataStore:   output.DataStore,
 					}, nil
 				},
 			), deps, deps.changesetInput.solanaRouterInput)
@@ -203,6 +206,7 @@ var (
 					return OpsOutput{
 						Proposals:   output.MCMSTimelockProposals,
 						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
+						DataStore:   output.DataStore,
 					}, nil
 				},
 			), deps, deps.changesetInput.solanaOffRampInput)
@@ -227,6 +231,7 @@ var (
 					return OpsOutput{
 						Proposals:   output.MCMSTimelockProposals,
 						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
+						DataStore:   output.DataStore,
 					}, nil
 				},
 			), deps, deps.changesetInput.solanaFeeQuoterInput)
@@ -250,6 +255,7 @@ var (
 			return OpsOutput{
 				Proposals:   postOpsReport.Output,
 				AddressBook: finalOutput.AddressBook,
+				DataStore:   finalOutput.DataStore,
 			}, err
 		},
 	)
@@ -271,6 +277,11 @@ type postOpsInput struct {
 type OpsOutput struct {
 	Proposals   []mcmslib.TimelockProposal
 	AddressBook cldf.AddressBook
+	// DataStore carries the lane refs the Solana sub-changesets record at the write site
+	// (RemoteDest/RemoteSource, qualified by the remote EVM chain selector). It is merged
+	// alongside the address book so the qualified refs reach the final changeset output
+	// instead of being re-derived from the address book — which could not carry qualifiers.
+	DataStore datastore.MutableDataStore
 }
 
 func (o *OpsOutput) Merge(other OpsOutput, env cldf.Environment) error {
@@ -279,12 +290,46 @@ func (o *OpsOutput) Merge(other OpsOutput, env cldf.Environment) error {
 	}
 	if o.AddressBook == nil {
 		o.AddressBook = other.AddressBook
+		if other.AddressBook != nil {
+			if err := env.ExistingAddresses.Merge(other.AddressBook); err != nil {
+				return fmt.Errorf("failed to merge existing addresses to environment: %w", err)
+			}
+		}
 	} else if other.AddressBook != nil {
 		if err := o.AddressBook.Merge(other.AddressBook); err != nil {
 			return fmt.Errorf("failed to merge address book: %w", err)
 		}
 		if err := env.ExistingAddresses.Merge(other.AddressBook); err != nil {
 			return fmt.Errorf("failed to merge existing addresses to environment: %w", err)
+		}
+	}
+	if other.DataStore != nil {
+		if o.DataStore == nil {
+			o.DataStore = datastore.NewMemoryDataStore()
+		}
+		if err := o.DataStore.Merge(other.DataStore.Seal()); err != nil {
+			return fmt.Errorf("failed to merge data store: %w", err)
+		}
+		// Publish to the environment as with the address book above, so an op later in the
+		// sequence resolves the refs an earlier one recorded. A sealed environment store is
+		// skipped: the refs still ride to the final output in o.DataStore.
+		if env.DataStore != nil {
+			mutable, ok := env.DataStore.Addresses().(datastore.MutableAddressRefStore)
+			if !ok {
+				if env.Logger != nil {
+					env.Logger.Warnw("Environment data store is not writable; lane refs will not be visible through env.DataStore until the changeset output is applied")
+				}
+			} else {
+				refs, err := other.DataStore.Addresses().Fetch()
+				if err != nil {
+					return fmt.Errorf("failed to read merged data store: %w", err)
+				}
+				for _, ref := range refs {
+					if err := mutable.Upsert(ref); err != nil {
+						return fmt.Errorf("failed to publish address ref to environment: %w", err)
+					}
+				}
+			}
 		}
 	}
 	if o.Proposals == nil {
@@ -312,6 +357,30 @@ type AddMultiEVMSolanaLaneConfig struct {
 	Configs             []AddRemoteChainE2EConfig
 	SolanaChainSelector uint64
 	MCMSConfig          *cldfproposalutils.TimelockConfig
+}
+
+// PlannedRefs returns the datastore refs this lane configuration writes: one RemoteDest and
+// one RemoteSource per remote EVM chain, keyed on the Solana chain and qualified by the remote
+// chain selector the same keys the write sites record in solana_v0_1_0. Declaring them up
+// front means a duplicated lane config fails validation, before any instruction is sent.
+func (multiCfg *AddMultiEVMSolanaLaneConfig) PlannedRefs() []datastore.AddressRef {
+	refs := make([]datastore.AddressRef, 0, 2*len(multiCfg.Configs))
+	version := semver.MustParse("1.0.0")
+	for _, cfg := range multiCfg.Configs {
+		qualifier := strconv.FormatUint(cfg.EVMChainSelector, 10)
+		for _, laneType := range []datastore.ContractType{
+			datastore.ContractType(shared.RemoteDest),
+			datastore.ContractType(shared.RemoteSource),
+		} {
+			refs = append(refs, datastore.AddressRef{
+				ChainSelector: multiCfg.SolanaChainSelector,
+				Type:          laneType,
+				Version:       version,
+				Qualifier:     qualifier,
+			})
+		}
+	}
+	return refs
 }
 
 func (multiCfg *AddMultiEVMSolanaLaneConfig) populateAndValidateIndividualCSConfig(env cldf.Environment, evmState stateview.CCIPOnChainState) (csInputs, error) {
@@ -492,6 +561,12 @@ func addEVMSolanaPreconditions(env cldf.Environment, input AddMultiEVMSolanaLane
 	if _, exists := solanaState.SolChains[input.SolanaChainSelector]; !exists {
 		return fmt.Errorf("failed to find Solana chain in state %d", input.SolanaChainSelector)
 	}
+	if _, err := shared.ReserveRefs(input.PlannedRefs()); err != nil {
+		return err
+	}
+	if err := shared.ValidateAddressRefs(env, input.PlannedRefs()); err != nil {
+		return fmt.Errorf("lane datastore refs conflict: %w", err)
+	}
 	return nil
 }
 
@@ -530,14 +605,12 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute addEVMAndSolanaLane sequence: %w", err)
 	}
 
-	ds, err := shared.PopulateDataStore(report.Output.AddressBook)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-	}
-
+	// The lane refs were recorded at the write site (RemoteDest/RemoteSource, qualified by the
+	// remote EVM chain selector) and carried through the sequence's OpsOutput. Nothing is
+	// re-derived from the address book, which could not carry the qualifiers.
 	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: report.Output.Proposals,
 		AddressBook:           report.Output.AddressBook,
-		DataStore:             ds,
+		DataStore:             report.Output.DataStore,
 	}, nil
 }

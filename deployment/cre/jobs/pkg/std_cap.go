@@ -26,12 +26,15 @@ type StandardCapabilityJob struct {
 	OracleFactory *OracleFactory `yaml:"oracleFactory"`
 
 	// Additional fields used to drive oracle factory creation/config
-	GenerateOracleFactory bool          // if true, an oracle factory will be generated using the fields below
-	OCRSigningStrategy    string        `yaml:"ocrSigningStrategy"` // used to set the signing strategy in the oracle factory
-	ContractQualifier     string        `yaml:"contractQualifier"`  // qualifier for the OCR3 contract or CapabilitiesRegistry (when capRegVersion is set)
-	OCRChainSelector      ChainSelector `yaml:"ocrChainSelector"`   // contract chain selector, doesn't have to live on the same chain as the evm selector
-	UseCapRegOCRConfig    bool          `yaml:"useCapRegOCRConfig"` // if true, use CapabilitiesRegistry instead of legacy OCR3 contract for oracle factory config
-	CapRegVersion         string        `yaml:"capRegVersion"`      // CapabilitiesRegistry contract version (e.g. "2.0.0"); required when useCapRegOCRConfig is true
+	GenerateOracleFactory bool // if true, an oracle factory will be generated using the fields below
+	// MinimalOracleFactory emits only [oracle_factory] enabled = true; contract, chain,
+	// bootstrap peers, and signing fields are resolved from node TOML at runtime.
+	MinimalOracleFactory bool          `yaml:"minimalOracleFactory"`
+	OCRSigningStrategy   string        `yaml:"ocrSigningStrategy"` // used to set the signing strategy in the oracle factory
+	ContractQualifier    string        `yaml:"contractQualifier"`  // qualifier for the OCR3 contract or CapabilitiesRegistry (when capRegVersion is set)
+	OCRChainSelector     ChainSelector `yaml:"ocrChainSelector"`   // contract chain selector, doesn't have to live on the same chain as the evm selector
+	UseCapRegOCRConfig   bool          `yaml:"useCapRegOCRConfig"` // if true, use CapabilitiesRegistry instead of legacy OCR3 contract for oracle factory config
+	CapRegVersion        string        `yaml:"capRegVersion"`      // CapabilitiesRegistry contract version (e.g. "2.0.0"); required when useCapRegOCRConfig is true
 
 	ChainSelectorEVM     ChainSelector `yaml:"chainSelectorEVM"`     // used to fetch OCR EVM configs from nodes
 	ChainSelectorAptos   ChainSelector `yaml:"chainSelectorAptos"`   // used to fetch OCR Aptos configs from nodes - optional
@@ -69,6 +72,10 @@ func (s *StandardCapabilityJob) Resolve() (string, error) {
 func (s *StandardCapabilityJob) Validate() error {
 	if s.JobName == "" {
 		return errors.New(ErrorEmptyJobName)
+	}
+
+	if s.MinimalOracleFactory {
+		return nil
 	}
 
 	if !s.GenerateOracleFactory {

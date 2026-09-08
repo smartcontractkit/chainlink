@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/token_governor"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
@@ -59,6 +60,29 @@ type TokenGovernor struct {
 type TokenGovernorChangesetConfig struct {
 	Tokens map[uint64]map[shared.TokenSymbol]TokenGovernor
 	MCMS   *cldfproposalutils.TimelockConfig
+	// ForceDatastoreOverwrite permits this changeset to overwrite governor refs that already exist
+	// in the environment datastore. Without it, a redeploy over an existing
+	// (chain, TokenGovernor, 1.6.0, symbol) entry is rejected during validation rather than
+	// silently replacing it.
+	ForceDatastoreOverwrite bool
+}
+
+// PlannedRefs returns the datastore refs this changeset will write, derived from config alone so
+// they can be checked before anything is deployed. Each governor is qualified by its token symbol.
+func (c TokenGovernorChangesetConfig) PlannedRefs() []datastore.AddressRef {
+	version := deployment.Version1_6_0
+	var refs []datastore.AddressRef
+	for chainSelector, tokens := range c.Tokens {
+		for token := range tokens {
+			refs = append(refs, datastore.AddressRef{
+				ChainSelector: chainSelector,
+				Type:          datastore.ContractType(shared.TokenGovernor),
+				Version:       &version,
+				Qualifier:     string(token),
+			})
+		}
+	}
+	return refs
 }
 
 type TokenGovernorGrantRole struct {
@@ -101,6 +125,21 @@ func (r TokenGovernorRole) String() string {
 
 // Validate validates the TokenGovernorChangesetConfig.
 func (c TokenGovernorChangesetConfig) Validate(env cldf.Environment) error {
+	// Reserve the keys to prove the refs can all be recorded, then check them against the
+	// environment. Both run before anything is deployed.
+	if _, err := shared.ReserveRefs(c.PlannedRefs()); err != nil {
+		return fmt.Errorf("token governor datastore refs conflict: %w", err)
+	}
+	// Taking over a key the environment already holds is a redeploy: rejected unless the caller
+	// asked for it, in which case it is logged rather than passing unremarked.
+	validateRefs := shared.ValidateAddressRefsStrict
+	if c.ForceDatastoreOverwrite {
+		validateRefs = shared.ValidateAddressRefs
+	}
+	if err := validateRefs(env, c.PlannedRefs()); err != nil {
+		return fmt.Errorf("token governor datastore refs conflict: %w", err)
+	}
+
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -275,6 +314,10 @@ func DeployTokenGovernor(env cldf.Environment, c TokenGovernorChangesetConfig) (
 
 	state, _ := stateview.LoadOnchainState(env)
 	newAddresses := cldf.NewMemoryAddressBook()
+	ds, err := shared.ReserveRefs(c.PlannedRefs())
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("token governor datastore refs conflict: %w", err)
+	}
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := env.BlockChains.EVMChains()[chainSelector]
@@ -293,7 +336,7 @@ func DeployTokenGovernor(env cldf.Environment, c TokenGovernorChangesetConfig) (
 				return cldf.ChangesetOutput{}, fmt.Errorf("token governor already exists for %s", governor.Token)
 			}
 
-			_, err := cldf.DeployContract(env.Logger, chain, newAddresses,
+			_, err := shared.DeployContractAndRecord(env.Logger, chain, newAddresses, ds, cldf.NewTypeAndVersion(shared.TokenGovernor, deployment.Version1_6_0), string(token),
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_governor.TokenGovernor] {
 					tgAddress, tx, tokenGovernor, err := token_governor.DeployTokenGovernor(chain.DeployerKey, chain.Client, governor.Token, governor.InitialDelay, governor.InitialDefaultAdmin)
 					return cldf.ContractDeploy[*token_governor.TokenGovernor]{
@@ -309,11 +352,6 @@ func DeployTokenGovernor(env cldf.Environment, c TokenGovernorChangesetConfig) (
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy token governor on %s: %w", chain, err)
 			}
 		}
-	}
-
-	ds, err := shared.PopulateDataStore(newAddresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{

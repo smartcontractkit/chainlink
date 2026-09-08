@@ -93,7 +93,7 @@ type CSAKeyPresenters []CSAKeyPresenter
 // RenderTable implements TableRenderer
 func (ps CSAKeyPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"Public key"}
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
@@ -157,15 +157,15 @@ func (s *Shell) ImportCSAKey(c *cli.Context) (err error) {
 		return s.errorOut(err)
 	}
 
-	exportUrl := url.URL{
+	exportURL := url.URL{
 		Path: "/v2/keys/csa/import",
 	}
 
-	query := exportUrl.Query()
+	query := exportURL.Query()
 	query.Set("oldpassword", normalizePassword(string(oldPassword)))
 
-	exportUrl.RawQuery = query.Encode()
-	resp, err := s.HTTP.Post(s.ctx(), exportUrl.String(), bytes.NewReader(keyJSON))
+	exportURL.RawQuery = query.Encode()
+	resp, err := s.HTTP.Post(s.ctx(), exportURL.String(), bytes.NewReader(keyJSON))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -200,15 +200,15 @@ func (s *Shell) ExportCSAKey(c *cli.Context) (err error) {
 	}
 
 	ID := c.Args().Get(0)
-	exportUrl := url.URL{
+	exportURL := url.URL{
 		Path: "/v2/keys/csa/export/" + ID,
 	}
 
-	query := exportUrl.Query()
+	query := exportURL.Query()
 	query.Set("newpassword", normalizePassword(string(newPassword)))
 
-	exportUrl.RawQuery = query.Encode()
-	resp, err := s.HTTP.Post(s.ctx(), exportUrl.String(), nil)
+	exportURL.RawQuery = query.Encode()
+	resp, err := s.HTTP.Post(s.ctx(), exportURL.String(), nil)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}

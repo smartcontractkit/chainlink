@@ -6,17 +6,16 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
-	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
-	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 )
 
@@ -48,7 +47,8 @@ type DKGDon struct {
 	DealerPublicKeys []string `json:"dealerPublicKeys" yaml:"dealerPublicKeys"`
 	// RecipientPublicKeys are the DKG public keys of the recipients (the resulting participant
 	// set that will hold shares of the master secret). NodeIDs correspond positionally to
-	// RecipientPublicKeys.
+	// RecipientPublicKeys for a fresh DKG. For a reshare, NodeIDs is the outgoing committee (==
+	// DealerPublicKeys) and the recipient set may be smaller/different.
 	RecipientPublicKeys []string `json:"recipientPublicKeys" yaml:"recipientPublicKeys"`
 	// PreviousInstanceID, when set, makes this a resharing DKG instead of a fresh dealing.
 	// It must be the currently-live DKG instance ID (e.g.
@@ -79,14 +79,17 @@ func (l ConfigureVaultDKG) VerifyPreconditions(_ cldf.Environment, input Configu
 	if len(input.DON.DealerPublicKeys) == 0 {
 		return errors.New("at least one dealer public key is required (set dealerPublicKeys explicitly: equal to recipientPublicKeys for a fresh DKG, or equal to the previous instance's recipientPublicKeys for a reshare)")
 	}
-	if len(input.DON.NodeIDs) != len(input.DON.RecipientPublicKeys) {
-		return errors.New("the number of don node IDs must match the number of recipient public keys")
-	}
-	// For a fresh DKG every participant both deals and receives, so the sets must be identical.
-	// For a reshare they legitimately differ (dealers = previous recipients), so only enforce
-	// equality when this is not a reshare.
-	if input.DON.PreviousInstanceID == nil && !equalStringSlices(input.DON.DealerPublicKeys, input.DON.RecipientPublicKeys) {
-		return errors.New("for a fresh DKG (no previousInstanceID) dealerPublicKeys must equal recipientPublicKeys")
+	// The DKG instance is run by NodeIDs, so N == len(NodeIDs).
+	if input.DON.PreviousInstanceID == nil {
+		// Fresh DKG: everyone deals and receives, so all three sets are identical.
+		if len(input.DON.NodeIDs) != len(input.DON.RecipientPublicKeys) || !equalStringSlices(input.DON.DealerPublicKeys, input.DON.RecipientPublicKeys) {
+			return errors.New("for a fresh DKG, nodeIDs, dealerPublicKeys and recipientPublicKeys must all be equal in length, and dealerPublicKeys must equal recipientPublicKeys")
+		}
+	} else {
+		// Reshare: only the outgoing committee holds shares, so it runs the instance: N == dealers.
+		if len(input.DON.NodeIDs) != len(input.DON.DealerPublicKeys) {
+			return errors.New("for a reshare, the number of nodeIDs must equal the number of dealerPublicKeys (the outgoing committee runs the reshare)")
+		}
 	}
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")

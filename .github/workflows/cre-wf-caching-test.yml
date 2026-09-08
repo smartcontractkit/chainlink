@@ -114,9 +114,8 @@ jobs:
           cleanup-on-error: "false"
           working-directory: core/scripts/cre/environment
 
-      - name: Install gotestsum
-        shell: bash
-        run: go install gotest.tools/gotestsum@v1.12.3
+      - name: Setup gotestsum
+        uses: ./.github/actions/setup-gotestsum
 
       - name: Run CRE Workflow Caching Test
         id: run-caching

@@ -47,6 +47,10 @@ func initRepoWithOrigin(t *testing.T) string {
 
 //nolint:paralleltest // t.Chdir is process-global; subtests cannot run in parallel
 func TestGenerateCmdDiffBase(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
 	//nolint:paralleltest // t.Chdir is process-global
 	t.Run("discovers files from earlier branch commits, not just staged", func(t *testing.T) {
 		dir := initRepoWithOrigin(t)

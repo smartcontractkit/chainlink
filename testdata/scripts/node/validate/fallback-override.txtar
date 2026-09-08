@@ -314,7 +314,6 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = true
 AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
@@ -566,6 +565,7 @@ URL = ''
 URL = ''
 TLSEnabled = true
 RequestTimeout = '2s'
+DurableCacheEnabled = true
 
 [CRE.ConfidentialRelay]
 Enabled = false

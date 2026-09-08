@@ -162,11 +162,7 @@ func executeStellarWriteTest(
 	require.NoError(t, err, "failed to deploy Stellar CRE test receiver")
 	lggr.Info().Str("receiver", receiverID).Msg("Deployed Stellar CRE test receiver")
 
-	writeDon := stellarWriteDon(t, tenv)
-	workers, err := writeDon.Workers()
-	require.NoError(t, err, "failed to list Stellar DON workers")
-	require.NotEmpty(t, workers, "Stellar DON has no worker nodes")
-	requiredSignatures := (len(workers)-1)/3 + 1
+	requiredSignatures := stellarRequiredSignatures(t, tenv)
 
 	// Use a deterministic payload: hex "6400000000000000" is bytes [0x64, 0x00, ...]
 	// which the receiver's last_value_u64() reads as little-endian u64 = 100.
@@ -256,4 +252,14 @@ func stellarWriteDon(t *testing.T, tenv *configuration.TestEnvironment) *crelib.
 	dons := tenv.Dons.DonsWithFlag(crelib.StellarCapability)
 	require.NotEmpty(t, dons, "could not find a DON hosting the Stellar capability")
 	return dons[0]
+}
+
+// stellarRequiredSignatures returns the f+1 signature count the Soroban
+// forwarder expects, derived from the write DON's worker count.
+func stellarRequiredSignatures(t *testing.T, tenv *configuration.TestEnvironment) int {
+	t.Helper()
+	workers, err := stellarWriteDon(t, tenv).Workers()
+	require.NoError(t, err, "failed to list Stellar DON workers")
+	require.NotEmpty(t, workers, "Stellar DON has no worker nodes")
+	return (len(workers)-1)/3 + 1
 }

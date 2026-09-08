@@ -14,9 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/freeport"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -25,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 )
 
@@ -50,29 +46,6 @@ observationSource = """
 """
 `
 
-	ocr2Keeper21JobSpecTemplate = `
-type = "offchainreporting2"
-pluginType = "ocr2automation"
-relay = "evm"
-name = "ocr2keeper"
-schemaVersion = 1
-contractID = "%s"
-contractConfigTrackerPollInterval = "15s"
-ocrKeyBundleID = "%s"
-transmitterID = "%s"
-p2pv2Bootstrappers = [
-"%s"
-]
-
-[relayConfig]
-chainID = %d
-
-[pluginConfig]
-maxServiceWorkers = 100
-cacheEvictionInterval = "1s"
-mercuryCredentialName = "%s"
-contractVersion = "v2.1"
-`
 	voterTurnoutDataSourceTemplate = `
 // data source 1
 ds1          [type=bridge name="%s"];
@@ -272,24 +245,6 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	jb.OCROracleSpec = &ocrspec
 
 	return &jb
-}
-
-func makeOCR2Keeper21JobSpec(t testing.TB, ks keystore.Master, transmitter common.Address, chainID *big.Int) *job.Job {
-	t.Helper()
-	ctx := t.Context()
-
-	bootstrapNodePort := freeport.GetOne(t)
-	bootstrapPeerID := "peerId"
-
-	kb, _ := ks.OCR2().Create(ctx, corekeys.EVM)
-	_, registry := cltest.MustInsertRandomKey(t, ks.Eth())
-
-	ocr2Keeper21Job := fmt.Sprintf(ocr2Keeper21JobSpecTemplate, registry.String(), kb.ID(), transmitter,
-		fmt.Sprintf("%s127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), chainID, "mercury cred")
-
-	jobSpec := makeOCR2JobSpecFromToml(t, ocr2Keeper21Job)
-
-	return jobSpec
 }
 
 func makeOCR2JobSpecFromToml(t testing.TB, jobSpecToml string) *job.Job {

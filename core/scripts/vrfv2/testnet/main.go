@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keepers_vrf_consumer"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_external_sub_owner_example"
@@ -153,24 +152,6 @@ func main() {
 		for _, blockNumber := range bhsMissedBlocks {
 			fmt.Println("\t* ", blockNumber.String())
 		}
-	case "keepers-vrf-consumer-deploy":
-		cmd := flag.NewFlagSet("keepers-vrf-consumer-deploy", flag.ExitOnError)
-		coordinatorAddress := cmd.String("coordinator-address", "", "vrf coordinator v2 address")
-		subID := cmd.Uint64("sub-id", 0, "subscription id")
-		keyHash := cmd.String("key-hash", "", "vrf v2 key hash")
-		requestConfs := cmd.Uint("request-confs", 3, "request confirmations")
-		upkeepIntervalSeconds := cmd.Int64("upkeep-interval-seconds", 600, "upkeep interval in seconds")
-		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id", "key-hash")
-		_, tx, _, err := keepers_vrf_consumer.DeployKeepersVRFConsumer(
-			e.Owner, e.Ec,
-			common.HexToAddress(*coordinatorAddress), // vrf coordinator address
-			*subID,                                   // subscription id
-			common.HexToHash(*keyHash),               // key hash
-			uint16(*requestConfs),                    // request confirmations
-			big.NewInt(*upkeepIntervalSeconds),       // upkeep interval seconds
-		)
-		helpers.PanicErr(err)
-		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "batch-coordinatorv2-deploy":
 		cmd := flag.NewFlagSet("batch-coordinatorv2-deploy", flag.ExitOnError)
 		coordinatorAddr := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")

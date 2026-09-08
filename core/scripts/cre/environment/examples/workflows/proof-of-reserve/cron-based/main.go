@@ -253,13 +253,6 @@ func getHTTPPrice(config types.WorkflowConfig, runtime cre.NodeRuntime) (priceOu
 
 	runtime.Logger().With().Info(fmt.Sprintf("Response is account name: %s, totalTrust: %.10f, ripcord: %v, updatedAt: %s", resp.AccountName, resp.TotalTrust, resp.Ripcord, resp.UpdatedAt.String()))
 
-	if resp.Ripcord {
-		runtime.Logger().With(
-			"feedID", config.FeedID,
-		).Info(fmt.Sprintf("ripcord flag set for feed ID %s", config.FeedID))
-		return priceOutput{}, sdk.BreakErr
-	}
-
 	return priceOutput{
 		FeedID:    feedID, // TrueUSD
 		Timestamp: uint32(resp.UpdatedAt.Unix()),

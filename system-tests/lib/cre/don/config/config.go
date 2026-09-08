@@ -366,7 +366,8 @@ func addBootstrapNodeConfig(
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{
@@ -468,7 +469,8 @@ func addWorkerNodeConfig(
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{
@@ -616,10 +618,16 @@ func addGatewayNodeConfig(
 		existingConfig.P2P.V2.ListenAddresses = new([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)})
 	}
 
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstrapperPeerID, []string{ocrPeeringData.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
+	if ocrBErr != nil {
+		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
+	}
+
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{
@@ -807,6 +815,10 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	return solChain, nil
 }
 
+// stellarMaxResourceFeeStroops is the per-transaction Soroban resource fee cap applied to the
+// Stellar TXM in Local CRE nodes: 10_000_000 stroops = 1 XLM.
+const stellarMaxResourceFeeStroops = int64(10_000_000)
+
 type stellarChain struct {
 	Name    string
 	ChainID string
@@ -963,6 +975,13 @@ func appendStellarChain(existingConfig *corechainlink.RawConfigs, stChain *stell
 	*existingConfig = append(*existingConfig, corechainlink.RawConfig{
 		"Enabled": true,
 		"ChainID": stChain.ChainID,
+		"TxManager": map[string]any{
+			// Cap on the Soroban resource fee per transaction, in stroops. The chainlink-stellar
+			// TXM rejects a tx at assembly time when the simulated resource fee exceeds this cap.
+			// A forwarder -> data feeds cache write simulates at ~1.7M stroops on localnet, above
+			// the plugin default of 1_000_000, so set it explicitly to a value with headroom.
+			"MaxResourceFee": stellarMaxResourceFeeStroops,
+		},
 		"Nodes": []map[string]any{
 			{
 				"Name": stChain.Name,

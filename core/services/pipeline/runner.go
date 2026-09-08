@@ -80,8 +80,6 @@ type runner struct {
 
 var (
 	// PromPipelineTaskExecutionTime reports how long each pipeline task took to execute
-	// TODO: Make private again after
-	// https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
 	PromPipelineTaskExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pipeline_task_execution_time",
 		Help: "How long each pipeline task took to execute",

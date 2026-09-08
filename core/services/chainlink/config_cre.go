@@ -80,9 +80,10 @@ func (c *creConfig) EnableDKGRecipient() bool {
 }
 
 type linkingConfig struct {
-	url            string
-	tlsEnabled     bool
-	requestTimeout time.Duration
+	url                 string
+	tlsEnabled          bool
+	requestTimeout      time.Duration
+	durableCacheEnabled bool
 }
 
 func (l *linkingConfig) URL() string {
@@ -97,9 +98,13 @@ func (l *linkingConfig) RequestTimeout() time.Duration {
 	return l.requestTimeout
 }
 
+func (l *linkingConfig) DurableCacheEnabled() bool {
+	return l.durableCacheEnabled
+}
+
 func (c *creConfig) Linking() config.CRELinking {
 	if c.c.Linking == nil {
-		return &linkingConfig{url: "", tlsEnabled: true, requestTimeout: defaultLinkingRequestTimeout}
+		return &linkingConfig{url: "", tlsEnabled: true, requestTimeout: defaultLinkingRequestTimeout, durableCacheEnabled: true}
 	}
 
 	url := ""
@@ -117,7 +122,12 @@ func (c *creConfig) Linking() config.CRELinking {
 		requestTimeout = c.c.Linking.RequestTimeout.Duration()
 	}
 
-	return &linkingConfig{url: url, tlsEnabled: tlsEnabled, requestTimeout: requestTimeout}
+	durableCacheEnabled := true // default
+	if c.c.Linking.DurableCacheEnabled != nil {
+		durableCacheEnabled = *c.c.Linking.DurableCacheEnabled
+	}
+
+	return &linkingConfig{url: url, tlsEnabled: tlsEnabled, requestTimeout: requestTimeout, durableCacheEnabled: durableCacheEnabled}
 }
 
 type confidentialRelayConfig struct {

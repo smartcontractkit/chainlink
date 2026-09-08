@@ -73,7 +73,7 @@ func TestShell_AptosKeys(t *testing.T) {
 		key, err := app.GetKeyStore().Aptos().Create(ctx)
 		require.NoError(t, err)
 		requireAptosKeyCount(t, app, 1)
-		assert.NoError(t, cmd.NewAptosKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
+		require.NoError(t, cmd.NewAptosKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
 		require.Len(t, r.Renders, 1)
 		keys := *r.Renders[0].(*cmd.AptosKeyPresenters)
 		assert.Equal(t, key.PublicKeyStr(), keys[0].PubKey)

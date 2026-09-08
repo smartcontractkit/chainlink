@@ -58,10 +58,10 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 			tca := cmd.NewSessionCookieAuthenticator(cmd.ClientOpts{}, store, logger.TestLogger(t))
 			cookie, err := tca.Authenticate(ctx, sr)
 
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Nil(t, cookie)
 			cookie, err = store.Retrieve()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Nil(t, cookie)
 		})
 	}
@@ -93,18 +93,18 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 			cookie, err := tca.Authenticate(ctx, sr)
 
 			if test.wantError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Nil(t, cookie)
 
 				cookie, err = store.Retrieve()
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Nil(t, cookie)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.NotNil(t, cookie)
 
 				retrievedCookie, err := store.Retrieve()
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, cookie, retrievedCookie)
 			}
 		})
@@ -125,7 +125,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 	t.Run("missing cookie file", func(t *testing.T) {
 		store := cmd.DiskCookieStore{Config: cfg}
 		cookie, err := store.Retrieve()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Nil(t, cookie)
 	})
 
@@ -133,7 +133,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 		cfg.rootdir = "../internal/fixtures/badcookie"
 		store := cmd.DiskCookieStore{Config: cfg}
 		cookie, err := store.Retrieve()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, cookie)
 	})
 
@@ -141,7 +141,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 		cfg.rootdir = "../internal/fixtures"
 		store := cmd.DiskCookieStore{Config: cfg}
 		cookie, err := store.Retrieve()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, cookie)
 	})
 }
@@ -179,11 +179,11 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			if test.isError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, len(test.enteredStrings), mock.Count)
 
 				persistedUser, err := orm.FindUser(ctx, email)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				assert.Equal(t, user.Email, persistedUser.Email)
 				assert.Equal(t, user.HashedPassword, persistedUser.HashedPassword)
@@ -212,7 +212,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 
 	// If there is an existing user, and we are in the Terminal prompt, no input prompts required
 	user, err := tai.Initialize(ctx, orm, lggr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 0, mock.Count)
 
 	assert.Equal(t, initialUser.Email, user.Email)
@@ -246,10 +246,10 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			if test.wantError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, cltest.APIEmailAdmin, user.Email)
 				persistedUser, err := orm.FindUser(ctx, user.Email)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, persistedUser.Email, user.Email)
 			}
 		})
@@ -278,7 +278,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 			if test.wantError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, cltest.APIEmailAdmin, user.Email)
 			}
 		})

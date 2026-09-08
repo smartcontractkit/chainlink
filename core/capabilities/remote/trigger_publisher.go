@@ -379,6 +379,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.lggr.Errorw("failed to unmarshal request", "err", unmarshalErr)
 			return
 		}
+		p.messageCache.MarkDelivered(key)
 		p.mu.Unlock()
 
 		capAttrs := metric.WithAttributes(
@@ -490,6 +491,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.lggr.Debugw("unregister trigger", "workflowID", key.workflowID, "triggerID", key.triggerID,
 			"callerDonId", msg.CallerDonId, "minRequired", minRequired, "sender", sender)
 		delete(p.registrations, key)
+		p.unregisterCache.MarkDelivered(key)
 		p.unregisterCache.Delete(key)
 		p.messageCache.Delete(key)
 		p.mu.Unlock()

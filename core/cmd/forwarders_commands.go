@@ -69,7 +69,7 @@ func (p *EVMForwarderPresenter) ToRow() []string {
 
 // RenderTable implements TableRenderer
 func (p *EVMForwarderPresenter) RenderTable(rt RendererTable) error {
-	var rows [][]string
+	rows := make([][]string, 0, 1)
 	rows = append(rows, p.ToRow())
 	renderList(evmFwdsHeaders, rows, rt.Writer)
 
@@ -81,7 +81,7 @@ type EVMForwarderPresenters []EVMForwarderPresenter
 
 // RenderTable implements TableRenderer
 func (ps EVMForwarderPresenters) RenderTable(rt RendererTable) error {
-	var rows [][]string
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
@@ -106,6 +106,7 @@ func (s *Shell) DeleteForwarder(c *cli.Context) (err error) {
 	if err != nil {
 		return s.errorOut(err)
 	}
+	defer resp.Body.Close()
 	_, err = s.parseResponse(resp)
 	if err != nil {
 		return s.errorOut(err)

@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
@@ -26,8 +27,10 @@ const ServiceName = "JobSpecReporter"
 
 var _ job.Listener = (*Service)(nil)
 
-// Service polls active jobs and pushes their specs to Beholder, and also emits
-// on job create/delete via the job.Listener interface.
+// Service polls active jobs and pushes their specs to Beholder, and emits on
+// job create/delete via job.Listener. Two payloads per trigger: CLJobInfo for
+// every job type (see cl_job_info.go), and the OCR2-only JobSpecEvent it
+// supersedes, kept until its consumers migrate.
 type Service struct {
 	services.Service
 	eng *services.Engine
@@ -67,13 +70,12 @@ func NewJobSpecReporter(
 	return s
 }
 
+// start always runs so CLJobInfo needs no per-node opt-in; the legacy track
+// stays behind JobSpecReporter.Enabled (see ShouldEmit). Still a no-op where
+// Beholder is disabled, which is the default.
 func (s *Service) start(ctx context.Context) error {
-	if !s.config.Enabled() {
-		s.eng.Info("Job Spec Reporter Service is disabled")
-		return nil
-	}
-
-	s.eng.Info("Starting Job Spec Reporter Service")
+	s.eng.Infow("Starting Job Spec Reporter Service",
+		"clJobInfo", true, "legacyJobSpecEvent", s.config.Enabled())
 	s.spawner.RegisterListener(s)
 	ticker := services.NewTicker(s.config.PollingInterval())
 	s.eng.GoTick(ticker, s.pollAllJobs)
@@ -87,39 +89,90 @@ func (s *Service) HealthReport() map[string]error {
 
 // AfterJobStarted emits a create event when a job starts.
 func (s *Service) AfterJobStarted(ctx context.Context, jb job.Job) {
-	if !s.ShouldEmit(&jb) {
-		return
-	}
-	if err := s.EmitForJob(ctx, jb, events.EmissionTrigger_EMISSION_TRIGGER_CREATE); err != nil {
-		s.eng.Warnw("Failed to emit job spec telemetry on create", "jobID", jb.ID, "error", err)
-	}
+	s.emit(ctx, jb, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, events.EmissionTrigger_EMISSION_TRIGGER_CREATE)
 }
 
 // AfterJobStopped emits a delete event when a job is removed.
 func (s *Service) AfterJobStopped(ctx context.Context, jb job.Job) {
+	s.emit(ctx, jb, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_DELETE, events.EmissionTrigger_EMISSION_TRIGGER_DELETE)
+}
+
+// pollAllJobs emits heartbeat telemetry for every active job.
+func (s *Service) pollAllJobs(ctx context.Context) {
+	for _, jb := range s.spawner.ActiveJobs() {
+		s.emit(ctx, jb, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_HEARTBEAT, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
+	}
+}
+
+// emit reports jb on both tracks; a failure on one never suppresses the other.
+func (s *Service) emit(ctx context.Context, jb job.Job, clTrigger commonv1.CLJobInfoTrigger, trigger events.EmissionTrigger) {
+	if err := s.EmitCLJobInfoForJob(ctx, jb, clTrigger); err != nil {
+		s.eng.Warnw("Failed to emit CLJobInfo", "jobID", jb.ID, "trigger", clTrigger, "error", err)
+	}
+
 	if !s.ShouldEmit(&jb) {
 		return
 	}
-	if err := s.EmitForJob(ctx, jb, events.EmissionTrigger_EMISSION_TRIGGER_DELETE); err != nil {
-		s.eng.Warnw("Failed to emit job spec telemetry on delete", "jobID", jb.ID, "error", err)
+	if err := s.EmitForJob(ctx, jb, trigger); err != nil {
+		s.eng.Warnw("Failed to emit job spec telemetry", "jobID", jb.ID, "trigger", trigger, "error", err)
 	}
 }
 
-// pollAllJobs emits heartbeat telemetry for every active job that passes the emit gate.
-func (s *Service) pollAllJobs(ctx context.Context) {
-	for _, jb := range s.spawner.ActiveJobs() {
-		if !s.ShouldEmit(&jb) {
-			continue
-		}
-		if err := s.EmitForJob(ctx, jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT); err != nil {
-			s.eng.Warnw("Failed to emit job spec telemetry", "jobID", jb.ID, "error", err)
-		}
+// EmitCLJobInfoForJob emits the generic CLJobInfo for any job type. A job whose
+// spec won't TOML-encode is still reported without spec_toml, and the encoding
+// error returned for logging.
+func (s *Service) EmitCLJobInfoForJob(ctx context.Context, jb job.Job, trigger commonv1.CLJobInfoTrigger) error {
+	prop, err := s.jobProposal(ctx, jb)
+	if err != nil {
+		// Provenance is an enrichment, not a precondition.
+		s.eng.Warnw("Failed to resolve job proposal provenance for CLJobInfo",
+			"jobID", jb.ID, "externalJobID", jb.ExternalJobID, "error", err)
 	}
+
+	identity := NodeIdentity{CSAPublicKey: s.csaPublicKey, NodeVersion: s.nodeVersion, Hostname: s.hostname}
+	info, buildErr := BuildCLJobInfo(jb, trigger, identity, prop, time.Now())
+
+	if emitErr := EmitCLJobInfo(ctx, s.emitter, info); emitErr != nil {
+		return emitErr
+	}
+	return buildErr
 }
 
-// ShouldEmit reports whether the job passes the config-driven emit gate.
+// jobProposal resolves JD provenance for jb, or nil if it wasn't proposed.
+func (s *Service) jobProposal(ctx context.Context, jb job.Job) (*JobProposal, error) {
+	if s.feedsORM == nil || jb.ExternalJobID == uuid.Nil {
+		return nil, nil
+	}
+
+	prop, err := s.feedsORM.GetJobProposalByExternalJobID(ctx, jb.ExternalJobID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("fetching job proposal: %w", err)
+	}
+
+	spec, err := s.feedsORM.GetApprovedSpec(ctx, prop.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Proposal exists but has no approved spec, e.g. mid-cancellation.
+			return &JobProposal{FeedsManagerID: prop.FeedsManagerID, RemoteUUID: prop.RemoteUUID.String()}, nil
+		}
+		return nil, fmt.Errorf("fetching approved spec: %w", err)
+	}
+
+	return &JobProposal{
+		FeedsManagerID: prop.FeedsManagerID,
+		RemoteUUID:     prop.RemoteUUID.String(),
+		SpecVersion:    spec.Version,
+		ProposedAt:     spec.CreatedAt,
+		ApprovedAt:     spec.StatusUpdatedAt,
+	}, nil
+}
+
+// ShouldEmit gates the legacy OCR2 track only; CLJobInfo ignores it.
 func (s *Service) ShouldEmit(j *job.Job) bool {
-	if j == nil {
+	if j == nil || !s.config.Enabled() {
 		return false
 	}
 	if j.Type != job.OffchainReporting2 || j.OCR2OracleSpec == nil {

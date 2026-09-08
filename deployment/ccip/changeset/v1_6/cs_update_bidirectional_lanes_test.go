@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -456,9 +455,9 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
 
 	// AddressBook does NOT contain FeeQuoter v2
-	// Add FeeQuoter v2 only to the DataStore
-	ds, err := shared.PopulateDataStore(e.ExistingAddresses)
-	require.NoError(t, err, "must populate datastore from existing addresses")
+	// Add FeeQuoter v2 only to the DataStore. The existing chain singletons (incl. the v1
+	// FeeQuoter) are read from e.ExistingAddresses by CollectAddressRefs at runtime.
+	ds := datastore.NewMemoryDataStore()
 
 	err = ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: v2FQChainSel,
@@ -594,8 +593,10 @@ func TestUpdateBidirectionalLanesIdempotentWithV2FeeQuoter(t *testing.T) {
 	_, err = evmChain.Confirm(tx)
 	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
 
-	ds, err := shared.PopulateDataStore(e.ExistingAddresses)
-	require.NoError(t, err, "must populate datastore from existing addresses")
+	// AddressBook does NOT contain FeeQuoter v2; add it to the DataStore only. The existing
+	// chain singletons (incl. the v1 FeeQuoter) are read from e.ExistingAddresses by
+	// CollectAddressRefs at runtime.
+	ds := datastore.NewMemoryDataStore()
 
 	err = ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: v2FQChainSel,
@@ -837,9 +838,9 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
 
 	// AddressBook does NOT contain FeeQuoter v2
-	// Add FeeQuoter v2 only to the DataStore
-	ds, err := shared.PopulateDataStore(e.ExistingAddresses)
-	require.NoError(t, err, "must populate datastore from existing addresses")
+	// Add FeeQuoter v2 only to the DataStore. The existing chain singletons (incl. the v1
+	// FeeQuoter) are read from e.ExistingAddresses by CollectAddressRefs at runtime.
+	ds := datastore.NewMemoryDataStore()
 
 	err = ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: v2FQChainSel,

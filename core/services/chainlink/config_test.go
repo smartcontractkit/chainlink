@@ -366,7 +366,6 @@ func TestConfig_Marshal(t *testing.T) {
 		DatabaseTimeout:                    commoncfg.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        new(corekeys.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 new(false),
-		CaptureAutomationCustomTelemetry:   new(true),
 		AllowNoBootstrappers:               new(true),
 		DefaultTransactionQueueDepth:       new(uint32(1)),
 		SimulateTransactions:               new(false),
@@ -616,9 +615,10 @@ func TestConfig_Marshal(t *testing.T) {
 			URL: new("https://workflow.fetcher.url"),
 		},
 		Linking: &toml.LinkingConfig{
-			URL:            new(""),
-			TLSEnabled:     new(true),
-			RequestTimeout: commoncfg.MustNewDuration(2 * time.Second),
+			URL:                 new(""),
+			TLSEnabled:          new(true),
+			RequestTimeout:      commoncfg.MustNewDuration(2 * time.Second),
+			DurableCacheEnabled: new(true),
 		},
 		ConfidentialRelay: &toml.ConfidentialRelayConfig{
 			Enabled:          new(bool),
@@ -1067,7 +1067,6 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = true
 AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false

@@ -1,0 +1,11 @@
+#nops
+#added
+#changed
+#removed
+#updated
+#deprecation_notice
+#breaking_change
+#db_update
+#wip
+#bugfix
+#internal

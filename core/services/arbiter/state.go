@@ -75,12 +75,12 @@ func (s *State) GetRoutableShards() RoutableShardsInfo {
 	for i, key := range keys {
 		replica := s.currentReplicas[key]
 		isHealthy := replica.Status == StatusReady
-		shardID := uint32(i)
-		// If key is numeric, use it as shard ID so Ring's shard 0/1 matches topology's ShardIndex 0/1.
+		donID := uint32(i)
+		// If key is numeric, use it as DON ID so Ring's shard 0/1 matches topology's ShardIndex 0/1.
 		if id, err := strconv.ParseUint(key, 10, 32); err == nil {
-			shardID = uint32(id)
+			donID = uint32(id)
 		}
-		shardInfo[shardID] = ShardHealth{
+		shardInfo[donID] = ShardHealth{
 			IsHealthy: isHealthy,
 		}
 		if isHealthy {
