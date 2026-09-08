@@ -376,7 +376,7 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 		h.metrics.RecordCustomerEndpointRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 		return gateway_common.OutboundHTTPResponse{
 			StatusCode:              resp.StatusCode,
-			Headers:                 resp.Headers,
+			Headers:                 resp.Headers, //nolint:staticcheck // Headers is deprecated in OutboundHTTPResponse, but populated for backwards compatibility
 			MultiHeaders:            resp.MultiHeaders,
 			Body:                    resp.Body,
 			ExternalEndpointLatency: externalEndpointLatency,

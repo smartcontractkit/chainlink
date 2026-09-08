@@ -137,7 +137,7 @@ type handler struct {
 	donConfig        *config.DONConfig
 	don              gwhandlers.DON
 	lggr             logger.Logger
-	codec            api.JsonRPCCodec
+	codec            api.JSONRPCCodec
 	mu               sync.RWMutex
 	stopCh           services.StopChan
 	authorizer       vaultcap.Authorizer
@@ -247,7 +247,7 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		methodConfig:        cfg,
 		donConfig:           donConfig,
 		don:                 don,
-		lggr:                logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
+		lggr:                logger.Named(lggr, "VaultHandler:"+donConfig.DonID),
 		requestTimeout:      time.Duration(cfg.RequestTimeoutSec) * time.Second,
 		nodeRateLimiter:     nodeRateLimiter,
 		writeMethodsEnabled: writeMethodsEnabled,
@@ -260,8 +260,8 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		aggregator: &baseAggregator{
 			capabilitiesRegistry: capabilitiesRegistry,
 			metrics:              metrics,
-			donID:                donConfig.DonId,
-			vaultHandlerDonID:    donConfig.DonId,
+			donID:                donConfig.DonID,
+			vaultHandlerDonID:    donConfig.DonID,
 		},
 		clock:            clock,
 		requestProcessor: requestProcessor,
@@ -347,8 +347,8 @@ func (h *handler) fetchVaultPublicKey(ctx context.Context) {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
 		return
 	}
-	httpStatus := api.ToHttpErrorCode(response.ErrorCode)
-	jsonCodec := api.JsonRPCCodec{}
+	httpStatus := api.ToHTTPErrorCode(response.ErrorCode)
+	jsonCodec := api.JSONRPCCodec{}
 	jsonResp, _ := jsonCodec.DecodeRawRequest(response.RawResponse, "")
 	if httpStatus != http.StatusOK {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "httpStatusCode", httpStatus, "rawResponse", jsonResp)
@@ -494,6 +494,18 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
+	if resp.Result != nil && resp.Error != nil {
+		l.Errorw("node response contains both a result and an error, dropping", "nodeAddr", nodeAddr)
+		h.recordInvalidNodeResponseEnvelope(ctx, "node_response_result_and_error")
+		return nil //nolint:nilerr // tampered envelope is intentionally dropped; handling succeeded so there is no error to report
+	}
+
+	if resp.Method != ar.req.Method {
+		l.Errorw("node response method does not match request method, dropping", "nodeAddr", nodeAddr, "responseMethod", resp.Method, "requestMethod", ar.req.Method)
+		h.recordInvalidNodeResponseEnvelope(ctx, "node_response_method_mismatch")
+		return nil
+	}
+
 	ok := ar.addResponseForNode(nodeAddr, resp)
 	if !ok {
 		l.Errorw("duplicate response from node, ignoring", "nodeAddr", nodeAddr)
@@ -519,6 +531,13 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	return h.sendSuccessResponse(ctx, l, ar, resp)
+}
+
+func (h *handler) recordInvalidNodeResponseEnvelope(ctx context.Context, reason string) {
+	h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("don_id", h.donConfig.DonID),
+		attribute.String("error", reason),
+	))
 }
 
 func (h *handler) unmarshal(r io.Reader, to any) error {
@@ -651,7 +670,7 @@ func (h *handler) sendImmediateUserResponse(
 	switch errorCode {
 	case api.InvalidParamsError, api.UnsupportedMethodError, api.UserMessageParseError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donConfig.DonID),
 		))
 	default:
 	}
@@ -698,7 +717,7 @@ func (h *handler) handlePublicKeyGetSynchronously(ctx context.Context, req jsonr
 	rawResponse, err := jsonrpc.EncodeResponse(&resp)
 	if err != nil {
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donConfig.DonID),
 			attribute.String("error", api.NodeReponseEncodingError.String()),
 		))
 		h.lggr.Errorw("failed to encode response", "error", err)
@@ -709,7 +728,7 @@ func (h *handler) handlePublicKeyGetSynchronously(ctx context.Context, req jsonr
 		ErrorCode:   api.NoError,
 	}
 	h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
-		attribute.String("don_id", h.donConfig.DonId),
+		attribute.String("don_id", h.donConfig.DonID),
 	))
 	return callback.SendResponse(successResp)
 }
@@ -745,11 +764,7 @@ func (h *handler) errorResponse(
 		// Intentionally hide the error from the user
 		err = errors.New(errorCode.String())
 	case api.InvalidParamsError:
-		paramsStr := ""
-		if req.Params != nil {
-			paramsStr = string(*req.Params)
-		}
-		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", paramsStr)
+		h.lggr.Errorw("invalid params", "requestID", req.ID, "error", err.Error())
 		err = errors.New("invalid params error: " + err.Error())
 	case api.UnsupportedMethodError:
 		h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())
@@ -795,7 +810,7 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 	case api.ConflictError:
 	case api.LimitExceededError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donConfig.DonID),
 			attribute.String("error", resp.ErrorCode.String()),
 		))
 	case api.InvalidParamsError:
@@ -803,11 +818,11 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 	case api.UserMessageParseError:
 	case api.UnsupportedDONIdError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donConfig.DonID),
 		))
 	case api.NoError:
 		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donConfig.DonID),
 		))
 	}
 

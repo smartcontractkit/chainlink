@@ -508,6 +508,60 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "failure - unauthorized request keeps gateway envelope ID",
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
+				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
+					return req.Method == vaulttypes.MethodSecretsCreate && req.ID == "1"
+				})).Return(nil, errors.New("not allowlisted"))
+				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+					return resp.ID == "0xDef"+vaulttypes.RequestIDSeparator+"1" &&
+						resp.Error != nil &&
+						resp.Error.Code == api.ToJSONRPCErrorCode(api.HandlerError) &&
+						resp.Error.Message == "request not authorized: not allowlisted"
+				})).Return(nil)
+			},
+			request: &jsonrpc.Request[json.RawMessage]{
+				Method: vaulttypes.MethodSecretsCreate,
+				ID:     "0xDef" + vaulttypes.RequestIDSeparator + "1",
+				Params: func() *json.RawMessage {
+					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
+						EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+							{
+								Id: &vaultcommon.SecretIdentifier{
+									Key:   "test_secret",
+									Owner: "0xAbC",
+								},
+								EncryptedValue: "ab",
+							},
+						},
+					})
+					raw := json.RawMessage(params)
+					return &raw
+				}(),
+			},
+			expectedError: false,
+		},
+		{
+			name: "failure - invalid params keeps gateway envelope ID",
+			setupMocks: func(_ *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, _ *vaultcapmocks.Authorizer) {
+				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+					return resp.ID == "0xDef"+vaulttypes.RequestIDSeparator+"1" &&
+						resp.Error != nil &&
+						resp.Error.Code == api.ToJSONRPCErrorCode(api.InvalidParamsError) &&
+						strings.Contains(resp.Error.Message, "request batch must contain at least 1 item")
+				})).Return(nil)
+			},
+			request: &jsonrpc.Request[json.RawMessage]{
+				Method: vaulttypes.MethodSecretsDelete,
+				ID:     "0xDef" + vaulttypes.RequestIDSeparator + "1",
+				Params: func() *json.RawMessage {
+					raw := json.RawMessage(`{"request_id":"req-1","ids":[]}`)
+					return &raw
+				}(),
+			},
+			expectedError: false,
+		},
+		{
 			name: "failure - invalid params skips authorization",
 			setupMocks: func(_ *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, _ *vaultcapmocks.Authorizer) {
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
@@ -598,7 +652,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 			secretsService := vaulttypesmocks.NewSecretsService(t)
 			gwConnector := connector_mocks.NewGatewayConnector(t)
 			allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
-			if tt.name == "failure - invalid params skips authorization" {
+			if tt.name == "failure - invalid params skips authorization" || tt.name == "failure - invalid params keeps gateway envelope ID" {
 				t.Cleanup(func() {
 					allowListBasedAuth.AssertNotCalled(t, "AuthorizeRequest", mock.Anything, mock.Anything)
 				})

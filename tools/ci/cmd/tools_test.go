@@ -81,3 +81,28 @@ func TestToolsMatrixCmd_FilterChangedFiles(t *testing.T) {
 	require.Len(t, targets, 1)
 	assert.Equal(t, "tools/ci", targets[0].Name)
 }
+
+func TestToolsMatrixCmd_FilterChangedFiles_NoMatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputPath := filepath.Join(tmpDir, "github_output")
+	require.NoError(t, os.WriteFile(outputPath, []byte{}, 0o600))
+
+	t.Setenv("GITHUB_OUTPUT", outputPath)
+
+	rootCmd := cmd.NewRootCmd()
+	var out bytes.Buffer
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+	rootCmd.SetArgs([]string{"tools", "matrix", "--changed-files", "core/capabilities/launcher.go", "--json"})
+
+	err := rootCmd.ExecuteContext(context.Background())
+	require.NoError(t, err)
+
+	assert.Equal(t, "[]\n", out.String())
+
+	content, err := os.ReadFile(outputPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "matrix")
+	assert.Contains(t, string(content), "[]")
+	assert.NotContains(t, string(content), "null")
+}

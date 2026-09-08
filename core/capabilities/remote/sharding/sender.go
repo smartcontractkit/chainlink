@@ -136,8 +136,8 @@ func (s *ShardHeartbeatSender) heartbeatLoop() {
 
 func (s *ShardHeartbeatSender) sendHeartbeat(ctx context.Context) {
 	hb := &ringpb.ShardHeartbeat{
-		PrimaryShardId: s.primaryID,
-		Timestamp:      time.Now().Unix(),
+		PrimaryDonId: s.primaryID,
+		Timestamp:    time.Now().Unix(),
 	}
 	payload, err := proto.Marshal(hb)
 	if err != nil {

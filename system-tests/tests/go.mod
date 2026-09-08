@@ -64,7 +64,7 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/smartcontractkit/chain-selectors v1.0.108
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260831181702-e32c7284ce1c
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260904233717-0a9e358dbb9f
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-confidential-compute v1.3.0
 	github.com/smartcontractkit/chainlink-confidential-compute/tests/testhelpers v0.0.0-20260812145307-d77342c53d7d
@@ -72,7 +72,7 @@ require (
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260713161920-de075095648b
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260804200254-c1accce563a8
-	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260903132649-68da69752479
+	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260904122233-4d79005babd9
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260821155228-fa1d775e2138
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.7
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4
@@ -270,7 +270,7 @@ require (
 	github.com/smartcontractkit/chainlink-canton/contracts/v2 v2.0.0 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260821001950-7520b255725e // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260821001950-7520b255725e // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.7.1-0.20260902155726-3ae29777797a // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.9.1 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v1.1.1 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
@@ -787,8 +787,8 @@ require (
 	gonum.org/v1/gonum v0.17.0 // indirect
 	google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260831171406-18b4a7587f8a // indirect
-	google.golang.org/grpc v1.83.2
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
+	google.golang.org/grpc v1.83.1
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/guregu/null.v4 v4.0.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

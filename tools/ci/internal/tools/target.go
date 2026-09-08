@@ -115,7 +115,7 @@ func ComputeMatrix(targets []Target, opts MatrixOptions) []Target {
 		}
 	}
 
-	var matched []Target
+	matched := make([]Target, 0)
 	for _, target := range targets {
 		if targetIsChanged(target, targets, opts.ChangedFiles) {
 			matched = append(matched, target)

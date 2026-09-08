@@ -15,7 +15,7 @@ const (
 	DenyOrchestratorError
 )
 
-func CheckCommittedOwner(ctx context.Context, client shardorchestrator.ClientInterface, workflowID string, myShardID uint32) (v Verdict, resp *ringpb.GetWorkflowShardMappingResponse, err error) {
+func CheckCommittedOwner(ctx context.Context, client shardorchestrator.ClientInterface, workflowID string, myDonID uint32) (v Verdict, resp *ringpb.GetWorkflowShardMappingResponse, err error) {
 	resp, err = client.GetWorkflowShardMapping(ctx, []string{workflowID})
 	if err != nil {
 		return DenyOrchestratorError, nil, err
@@ -24,7 +24,7 @@ func CheckCommittedOwner(ctx context.Context, client shardorchestrator.ClientInt
 	if !ok {
 		return DenyNotOwner, resp, nil
 	}
-	if shard != myShardID {
+	if shard != myDonID {
 		return DenyNotOwner, resp, nil
 	}
 	return Allow, resp, nil

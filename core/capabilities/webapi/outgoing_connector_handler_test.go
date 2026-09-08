@@ -168,8 +168,8 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
@@ -210,8 +210,8 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
@@ -255,8 +255,8 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
@@ -279,7 +279,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 	t.Run("rate limits outgoing traffic", func(t *testing.T) {
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
-		var config = ServiceConfig{
+		config := ServiceConfig{
 			OutgoingRateLimiter: ratelimit.RateLimiterConfig{
 				GlobalRPS:      2.0,
 				GlobalBurst:    2,
@@ -315,8 +315,8 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
@@ -353,7 +353,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 }
 
 func newFunctionWithDefaultConfig(t *testing.T, mockFn func(*gcmocks.GatewayConnector)) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
-	var defaultConfig = ServiceConfig{
+	defaultConfig := ServiceConfig{
 		OutgoingRateLimiter: ratelimit.RateLimiterConfig{
 			GlobalRPS:      100.0,
 			GlobalBurst:    100,
@@ -381,7 +381,7 @@ func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceCo
 	return connector, connectorHandler
 }
 
-func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Request[json.RawMessage] {
+func gatewayResponse(t *testing.T, msgID, privateKey string) *jsonrpc.Request[json.RawMessage] {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
@@ -393,8 +393,8 @@ func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Req
 	require.NoError(t, err)
 	m := &api.Message{
 		Body: api.MessageBody{
-			DonId:     "donID",
-			MessageId: msgID,
+			DonID:     "donID",
+			MessageID: msgID,
 			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},
@@ -428,6 +428,7 @@ func TestServiceConfigDefaults(t *testing.T) {
 		require.InDelta(t, DefaultWorkflowRPS, oRLConf.PerSenderRPS, 0.001)
 	})
 }
+
 func TestOutgoingConnectorHandler_HandleGatewayMessage_InvalidMessage(t *testing.T) {
 	_, handler := newFunctionWithDefaultConfig(
 		t,

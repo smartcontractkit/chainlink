@@ -815,6 +815,10 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	return solChain, nil
 }
 
+// stellarMaxResourceFeeStroops is the per-transaction Soroban resource fee cap applied to the
+// Stellar TXM in Local CRE nodes: 10_000_000 stroops = 1 XLM.
+const stellarMaxResourceFeeStroops = int64(10_000_000)
+
 type stellarChain struct {
 	Name    string
 	ChainID string
@@ -971,6 +975,13 @@ func appendStellarChain(existingConfig *corechainlink.RawConfigs, stChain *stell
 	*existingConfig = append(*existingConfig, corechainlink.RawConfig{
 		"Enabled": true,
 		"ChainID": stChain.ChainID,
+		"TxManager": map[string]any{
+			// Cap on the Soroban resource fee per transaction, in stroops. The chainlink-stellar
+			// TXM rejects a tx at assembly time when the simulated resource fee exceeds this cap.
+			// A forwarder -> data feeds cache write simulates at ~1.7M stroops on localnet, above
+			// the plugin default of 1_000_000, so set it explicitly to a value with headroom.
+			"MaxResourceFee": stellarMaxResourceFeeStroops,
+		},
 		"Nodes": []map[string]any{
 			{
 				"Name": stChain.Name,

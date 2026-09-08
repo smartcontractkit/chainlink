@@ -2696,7 +2696,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		t.Parallel()
 		ack := &recordingAcknowledger{}
 		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
-			// No Module.Execute expectation: the execution must never reach WASM.
+			// No Module.execute expectation: the execution must never reach WASM.
 		}, func(cfg *v2.EngineConfig) {
 			cfg.TriggerAcknowledger = ack
 			cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ v2.RoutedTriggerEvent) error {

@@ -85,40 +85,6 @@ func MustABIEncode(abiString string, args ...any) []byte {
 	return encoded
 }
 
-func PopulateDataStore(addressBook deployment.AddressBook) (*datastore.MemoryDataStore, error) {
-	addrs, err := addressBook.Addresses()
-	if err != nil {
-		return nil, err
-	}
-
-	ds := datastore.NewMemoryDataStore()
-	for chainselector, chainAddresses := range addrs {
-		for addr, typever := range chainAddresses {
-			ref := datastore.AddressRef{
-				ChainSelector: chainselector,
-				Address:       addr,
-				Type:          datastore.ContractType(typever.Type),
-				Version:       &typever.Version,
-				// Since the address book does not have a qualifier, we use the address and type as a
-				// unique identifier for the addressRef. Otherwise, we would have some clashes in the
-				// between address refs.
-				Qualifier: fmt.Sprintf("%s-%s", addr, typever.Type),
-			}
-
-			// If the address book has labels, we need to add them to the addressRef
-			if !typever.Labels.IsEmpty() {
-				ref.Labels = datastore.NewLabelSet(typever.Labels.List()...)
-			}
-
-			if err = ds.Addresses().Add(ref); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return ds, nil
-}
-
 // ResolveFeeQuoterAddressAndVersion returns the FeeQuoter with the highest semver for a chain.
 func ResolveFeeQuoterAddressAndVersion(
 	addresses []datastore.AddressRef,

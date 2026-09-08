@@ -1,6 +1,7 @@
 package tools_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -171,4 +172,10 @@ func TestComputeMatrix_UnrelatedChanges(t *testing.T) {
 		ChangedFiles: []string{"core/services/chainlink.go", "deployment/environment.go"},
 	})
 	assert.Empty(t, matrix)
+	assert.NotNil(t, matrix)
+	assert.Equal(t, []tools.Target{}, matrix)
+
+	jsonData, err := json.Marshal(matrix)
+	require.NoError(t, err)
+	assert.JSONEq(t, "[]", string(jsonData))
 }

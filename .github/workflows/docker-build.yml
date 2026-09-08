@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   init:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     outputs:
       # To get an image from a feature branch, do one of the following:
       # 1. Use a workflow dispatch
@@ -48,24 +48,18 @@ jobs:
         id: runner-labels
         shell: bash
         env:
-          SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id
-            }}/cpu=16/ram=64/family=m7g/spot=false/image=ubuntu24-full-arm64/extras=s3-cache+tmpfs
-          SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id
-            }}/cpu=16/ram=64/family=m6i+m7i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-          GH_RUNNER_LABEL_ARM64: ubuntu-24.04-arm
-          GH_RUNNER_LABEL_AMD64: ubuntu-24.04
+          # All events use runs-on (s3-cache backend) so every build shares caches.
+          # spot=co: runs-on auto-retries interrupted jobs on-demand once.
+          RUNNER_LABEL_ARM64: runs-on=${{ github.run_id
+            }}/cpu=16/ram=64/family=m8g+m9g/spot=co/image=ubuntu24-full-arm64/volume=100gb:gp3:500mbs:4000iops/extras=s3-cache
+          RUNNER_LABEL_AMD64: runs-on=${{ github.run_id
+            }}/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/volume=100gb:gp3:500mbs:4000iops/extras=s3-cache
         run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            echo "runner-arm64=${SH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
-            echo "runner-amd64=${SH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
-          else
-            # Use GitHub runner labels for non-PR events
-            echo "runner-arm64=${GH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
-            echo "runner-amd64=${GH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
-          fi
+          echo "runner-arm64=${RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
+          echo "runner-amd64=${RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.git-ref || github.sha }}
 
@@ -82,12 +76,12 @@ jobs:
           echo "version-tag=${version_tag}" | tee -a "$GITHUB_OUTPUT"
 
   docker-core:
-    needs: [ init ]
+    needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b7c347810a36a2d42dc039e3efd5fb86c7f7fa97 # v1.8.0 , intentionally pinned to commit for security
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -100,7 +94,10 @@ jobs:
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
       docker-manifest-sign: true
-      docker-cache-behaviour: "enable"
+      docker-cache-behaviour: "write-on-trunk"
+      # go-build-cache only; see integration-tests.yml build-chainlink for rationale.
+      # Object form with explicit id is required so the cache id matches the Dockerfile mount.
+      docker-cache-map: '{"cache-mount/go-build-cache": {"id": "go-build-cache", "target": "/var/cache-target"}}'
       git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -116,12 +113,12 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-core-plugins:
-    needs: [ init ]
+    needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b7c347810a36a2d42dc039e3efd5fb86c7f7fa97 # v1.8.0 , intentionally pinned to commit for security
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -136,7 +133,10 @@ jobs:
         CL_INSTALL_PRIVATE_PLUGINS=true
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
-      docker-cache-behaviour: "enable"
+      docker-cache-behaviour: "write-on-trunk"
+      # go-build-cache only; see integration-tests.yml build-chainlink for rationale.
+      # Object form with explicit id is required so the cache id matches the Dockerfile mount.
+      docker-cache-map: '{"cache-mount/go-build-cache": {"id": "go-build-cache", "target": "/var/cache-target"}}'
       git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -152,12 +152,12 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-core-plugins-testing:
-    needs: [ init ]
+    needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b7c347810a36a2d42dc039e3efd5fb86c7f7fa97 # v1.8.0 , intentionally pinned to commit for security
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -173,7 +173,10 @@ jobs:
         CL_INSTALL_TESTING_PLUGINS=true
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins-testing"
-      docker-cache-behaviour: "enable"
+      docker-cache-behaviour: "write-on-trunk"
+      # go-build-cache only; see integration-tests.yml build-chainlink for rationale.
+      # Object form with explicit id is required so the cache id matches the Dockerfile mount.
+      docker-cache-map: '{"cache-mount/go-build-cache": {"id": "go-build-cache", "target": "/var/cache-target"}}'
       git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -189,12 +192,12 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip:
-    needs: [ init ]
+    needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b7c347810a36a2d42dc039e3efd5fb86c7f7fa97 # v1.8.0 , intentionally pinned to commit for security
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -210,7 +213,10 @@ jobs:
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
       docker-manifest-sign: true
-      docker-cache-behaviour: "enable"
+      docker-cache-behaviour: "write-on-trunk"
+      # go-build-cache only; see integration-tests.yml build-chainlink for rationale.
+      # Object form with explicit id is required so the cache id matches the Dockerfile mount.
+      docker-cache-map: '{"cache-mount/go-build-cache": {"id": "go-build-cache", "target": "/var/cache-target"}}'
       git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -226,12 +232,12 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip-plugins:
-    needs: [ init ]
+    needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b7c347810a36a2d42dc039e3efd5fb86c7f7fa97 # v1.8.0 , intentionally pinned to commit for security
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -247,7 +253,10 @@ jobs:
         CL_CHAIN_DEFAULTS=/ccip-config
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
-      docker-cache-behaviour: "enable"
+      docker-cache-behaviour: "write-on-trunk"
+      # go-build-cache only; see integration-tests.yml build-chainlink for rationale.
+      # Object form with explicit id is required so the cache id matches the Dockerfile mount.
+      docker-cache-map: '{"cache-mount/go-build-cache": {"id": "go-build-cache", "target": "/var/cache-target"}}'
       git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -265,7 +274,7 @@ jobs:
   call-post-docker-build:
     if: ${{ github.event_name == 'schedule' || github.event_name ==
       'workflow_dispatch' }}
-    needs: [ init, docker-core ]
+    needs: [init, docker-core]
     uses: ./.github/workflows/post-docker-build.yml
     permissions:
       actions: read
@@ -280,13 +289,13 @@ jobs:
     if: false
     # temporarily disabled
     # if: ${{ github.event_name == 'schedule' }}
-    needs: [ docker-core ]
+    needs: [docker-core]
     permissions:
       contents: read
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Deploy
         uses: ./.github/actions/deploy-image
         with:
@@ -295,7 +304,8 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
           oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-          oci-repository-url: ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/chainlink',
+          oci-repository-url:
+            ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/chainlink',
             secrets.AWS_ACCOUNT_ID_SDLC, secrets.AWS_REGION) }}
           pr-close-enabled: false
           products: |
@@ -303,13 +313,13 @@ jobs:
 
   deploy-nightly-ccip:
     if: ${{ github.event_name == 'schedule' }}
-    needs: [ docker-ccip ]
+    needs: [docker-ccip]
     permissions:
       contents: read
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Deploy
         uses: ./.github/actions/deploy-image
         with:

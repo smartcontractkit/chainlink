@@ -34,7 +34,7 @@ func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (
 		donConfig:      donConfig,
 		don:            don,
 		savedCallbacks: make(map[string]*savedCallback),
-		lggr:           logger.Named(lggr, "DummyHandler."+donConfig.DonId),
+		lggr:           logger.Named(lggr, "DummyHandler."+donConfig.DonID),
 	}, nil
 }
 
@@ -49,19 +49,19 @@ func (d *dummyHandler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest
 			return err
 		}
 	}
-	msg.Body.MessageId = jsonRequest.ID
+	msg.Body.MessageID = jsonRequest.ID
 	if msg.Body.Method == "" {
 		msg.Body.Method = jsonRequest.Method
 	}
-	if msg.Body.DonId == "" {
-		msg.Body.DonId = d.donConfig.DonId
+	if msg.Body.DonID == "" {
+		msg.Body.DonID = d.donConfig.DonID
 	}
 	return d.HandleLegacyUserMessage(ctx, &msg, callback)
 }
 
 func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback Callback) error {
 	d.mu.Lock()
-	d.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callback}
+	d.savedCallbacks[msg.Body.MessageID] = &savedCallback{msg.Body.MessageID, callback}
 	don := d.don
 	d.mu.Unlock()
 	params, err := json.Marshal(msg)
@@ -71,7 +71,7 @@ func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Mes
 	rawParams := json.RawMessage(params)
 	req := &jsonrpc.Request[json.RawMessage]{
 		Version: "2.0",
-		ID:      msg.Body.MessageId,
+		ID:      msg.Body.MessageID,
 		Method:  msg.Body.Method,
 		Params:  &rawParams,
 	}
@@ -87,7 +87,7 @@ func (d *dummyHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Resp
 	if err != nil {
 		return err
 	}
-	msg.Body.MessageId = resp.ID
+	msg.Body.MessageID = resp.ID
 	err = msg.Validate()
 	if err != nil {
 		return err
@@ -96,13 +96,13 @@ func (d *dummyHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Resp
 		return fmt.Errorf("node address %s does not match message sender %s", nodeAddr, msg.Body.Sender)
 	}
 	d.mu.Lock()
-	savedCb, found := d.savedCallbacks[msg.Body.MessageId]
-	delete(d.savedCallbacks, msg.Body.MessageId)
+	savedCb, found := d.savedCallbacks[msg.Body.MessageID]
+	delete(d.savedCallbacks, msg.Body.MessageID)
 	d.mu.Unlock()
 
 	if found {
 		// Send first response from a node back to the user, ignore any other ones.
-		codec := api.JsonRPCCodec{}
+		codec := api.JSONRPCCodec{}
 		return savedCb.SendResponse(UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(&msg), ErrorCode: api.NoError})
 	}
 	return nil

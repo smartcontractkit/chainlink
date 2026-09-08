@@ -58,9 +58,9 @@ func (c *HTTPServerConfig) ensureLimiters(lf limits.Factory) (err error) {
 	if c.MaxRequestBytesLimiter == nil {
 		limit := cresettings.Default.GatewayIncomingPayloadSizeLimit
 		limit.DefaultValue = config.Size(c.MaxRequestBytes)
-		c.MaxRequestBytesLimiter, err = limits.MakeBoundLimiter(lf, limit)
+		c.MaxRequestBytesLimiter, err = limits.MakeUpperBoundLimiter(lf, limit)
 	}
-	return
+	return err
 }
 
 type httpServer struct {
@@ -137,7 +137,7 @@ func (s *httpServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 // split URL into: scheme, hostname, port
 func (s *httpServer) splitURL(rawURL string) (string, string, string, error) {
 	// lowercase the URL to avoid case sensitivity issues
-	parsedURL, err := url.Parse(strings.ToLower((rawURL)))
+	parsedURL, err := url.Parse(strings.ToLower(rawURL))
 	if err != nil {
 		return "", "", "", fmt.Errorf("error parsing URL: %w", err)
 	}
@@ -238,7 +238,7 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
 	w.WriteHeader(httpStatusCode)
-	_, err = w.Write(rawResponse)
+	_, err = w.Write(rawResponse) //nolint:gosec // G705: response body is written with an explicit Content-Type, not rendered as HTML
 	if err != nil {
 		s.lggr.Error("error when writing response", err)
 	}
@@ -255,7 +255,7 @@ func (s *httpServer) GetPort() int {
 func (s *httpServer) Start(ctx context.Context) error {
 	return s.StartOnce("GatewayHTTPServer", func() error {
 		s.lggr.Info("starting gateway HTTP server")
-		return s.runServer()
+		return s.runServer(ctx)
 	})
 }
 
@@ -265,30 +265,32 @@ func (s *httpServer) Close() error {
 		s.cancelBaseContext()
 		err = s.server.Shutdown(context.Background())
 		<-s.doneCh
-		return
+		return err
 	})
 }
 
-func (s *httpServer) runServer() (err error) {
-	s.listener, err = net.Listen("tcp", s.server.Addr)
+func (s *httpServer) runServer(ctx context.Context) error {
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "tcp", s.server.Addr)
 	if err != nil {
-		return
+		return err
 	}
+	s.listener = listener
 	tlsEnabled := s.config.TLSEnabled
 
 	go func() {
 		if tlsEnabled {
-			err := s.server.ServeTLS(s.listener, s.config.TLSCertPath, s.config.TLSKeyPath)
-			if err != http.ErrServerClosed {
-				s.lggr.Error("gateway server closed with error:", err)
+			serveErr := s.server.ServeTLS(s.listener, s.config.TLSCertPath, s.config.TLSKeyPath)
+			if serveErr != http.ErrServerClosed {
+				s.lggr.Error("gateway server closed with error:", serveErr)
 			}
 		} else {
-			err := s.server.Serve(s.listener)
-			if err != http.ErrServerClosed {
-				s.lggr.Error("gateway server closed with error:", err)
+			serveErr := s.server.Serve(s.listener)
+			if serveErr != http.ErrServerClosed {
+				s.lggr.Error("gateway server closed with error:", serveErr)
 			}
 		}
 		s.doneCh <- struct{}{}
 	}()
-	return
+	return nil
 }

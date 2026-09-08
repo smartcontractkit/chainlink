@@ -123,7 +123,7 @@ type eventHandler struct {
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardingEnabled         bool
-	myShardID               uint32
+	myDonID                 uint32
 	shardRoutingSteady      *shardownership.SteadySignal
 	shardResolver           shardownership.ShardResolver
 	dispatcher              remotetypes.Dispatcher
@@ -178,11 +178,10 @@ func WithSpecMeter(sm *SpecMeter) func(*eventHandler) {
 	}
 }
 
-func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool, shardID uint32) func(*eventHandler) {
+func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardOrchestratorClient = client
 		e.shardingEnabled = shardingEnabled
-		e.myShardID = shardID
 	}
 }
 
@@ -393,9 +392,10 @@ func (h *eventHandler) start(context.Context) error {
 }
 
 // SetWorkflowDon supplies the launcher-resolved workflow DON identity for
-// metering. Called by the registry after WaitForDon, before any event is
-// dispatched; the value is static for the life of the node.
+// metering and shard ownership. Called by the registry after WaitForDon,
+// before any event is dispatched; the value is static for the life of the node.
 func (h *eventHandler) SetWorkflowDon(don commoncap.DON) {
+	h.myDonID = don.ID
 	h.specMeter.SetWorkflowDon(don)
 }
 
@@ -639,7 +639,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 			return innerErr
 		}
 
-		h.specMeter.EmitSpecDelta(ctx, 1, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner),
+		h.specMeter.EmitSpecDelta(ctx, 1, newSpec.StorageBytes, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner),
 			resourcemanager.EventID("workflow-spec-register", payload.WorkflowID.Hex(), strconv.FormatUint(payload.CreatedAt, 10)))
 
 		spec = newSpec
@@ -654,7 +654,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		}
 		// A different spec's artifacts were persisted under this key: the newly
 		// stored spec is a fresh durable resource, so emit a +1 delta.
-		h.specMeter.EmitSpecDelta(ctx, 1, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner),
+		h.specMeter.EmitSpecDelta(ctx, 1, newSpec.StorageBytes, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner),
 			resourcemanager.EventID("workflow-spec-register", payload.WorkflowID.Hex(), strconv.FormatUint(payload.CreatedAt, 10)))
 
 		spec = newSpec
@@ -812,6 +812,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		Attributes:    payload.Attributes,
 		RegisteredAt:  int64(payload.CreatedAt), //nolint:gosec // G115: CreatedAt is a timestamp that cannot overflow int64
 		Source:        payload.Source,
+		StorageBytes:  int64(len(decodedBinary)) + int64(len(config)),
 	}
 
 	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, entry); err != nil {
@@ -911,7 +912,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 	if h.shardingEnabled && h.dispatcher != nil {
 		manager = NewShardFailoverManager(ShardFailoverManagerConfig{
 			ShardingEnabled:         h.shardingEnabled,
-			MyShardID:               h.myShardID,
+			MyShardID:               h.myDonID,
 			WorkflowID:              workflowID,
 			WorkflowOwner:           owner,
 			ShardResolver:           h.shardResolver,
@@ -1000,12 +1001,13 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 }
 
 // releaseSpecStorage deletes the persisted spec row and, iff a row was
-// actually removed, emits the -1 generation delta. RowsAffected is the
-// exactly-once gate: redeliveries observe no row and emit nothing; a transient
-// DELETE error returns before emission so the retry emits when the delete
-// lands. The event_id is derived AFTER the delete from the row's persisted
-// registered_at, so all nodes emit the identical id. Module-cache cleanup
-// always runs. owner may be empty; org resolution is fail-open.
+// actually removed, emits the -1 generation delta on both billing units
+// (workflow count and storage bytes). RowsAffected is the exactly-once gate: redeliveries
+// observe no row and emit nothing; a transient DELETE error returns before
+// emission so the retry emits when the delete lands. The event_id is derived
+// AFTER the delete from the row's persisted registered_at, so all nodes emit
+// the identical id. Module-cache cleanup always runs. owner may be empty; org
+// resolution is fail-open.
 func (h *eventHandler) releaseSpecStorage(ctx context.Context, workflowID, owner string) error {
 	deletedSpec, err := h.workflowArtifactsStore.DeleteWorkflowArtifacts(ctx, workflowID)
 	if err != nil {
@@ -1016,7 +1018,7 @@ func (h *eventHandler) releaseSpecStorage(ctx context.Context, workflowID, owner
 		if deletedSpec.RegisteredAt > 0 {
 			parts = append(parts, strconv.FormatInt(deletedSpec.RegisteredAt, 10))
 		}
-		h.specMeter.EmitSpecDelta(ctx, -1, workflowID, owner, resourcemanager.EventID("workflow-spec-delete", parts...))
+		h.specMeter.EmitSpecDelta(ctx, -1, deletedSpec.StorageBytes, workflowID, owner, resourcemanager.EventID("workflow-spec-delete", parts...))
 	}
 	h.cleanupModuleCache(workflowID)
 	return nil
@@ -1027,11 +1029,14 @@ func (h *eventHandler) releaseSpecStorage(ctx context.Context, workflowID, owner
 // Pause is level-neutral for metering: the spec row survives as a tombstone
 // (status=paused, artifact payload cleared to free storage) so the
 // registration generation stays metered until deletion — mirroring the
-// on-chain registry, which retains the paused registration. Emitting per-cycle
-// pause/activate deltas is impossible without drift: no DON-consistent
-// per-occurrence discriminator exists, so a -1 here would force the
-// re-activation +1 to reuse the register event_id and be dropped by consumer
-// dedup. Deltas therefore fire only at generation boundaries (register/delete).
+// on-chain registry, which retains the paused registration. This holds for
+// both billing units: the persisted storage_bytes is NOT cleared, so storage
+// is billed for the registration lifetime regardless of the freed payload.
+// Emitting per-cycle pause/activate deltas is impossible without drift: no
+// DON-consistent per-occurrence discriminator exists, so a -1 here would
+// force the re-activation +1 to reuse the register event_id and be dropped by
+// consumer dedup. Deltas therefore fire only at generation boundaries
+// (register/delete).
 func (h *eventHandler) workflowPausedEvent(
 	ctx context.Context,
 	payload WorkflowPausedEvent,
@@ -1299,7 +1304,7 @@ func (h *eventHandler) newV2EngineConfig(
 
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
-		MyShardID:               h.myShardID,
+		MyDonID:                 h.myDonID,
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,
 	}

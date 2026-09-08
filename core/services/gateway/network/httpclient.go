@@ -62,8 +62,8 @@ type HTTPClientConfig struct {
 // A field in override is only applied when it holds a non-zero value, so the
 // static base config supplies defaults that the dynamic config can selectively
 // override.
-func (c HTTPClientConfig) merge(override HTTPClientConfig) HTTPClientConfig {
-	merged := c
+func (c *HTTPClientConfig) merge(override HTTPClientConfig) HTTPClientConfig {
+	merged := *c
 	if override.MaxResponseBytes != 0 {
 		merged.MaxResponseBytes = override.MaxResponseBytes
 	}
@@ -476,13 +476,14 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 
 	resp, err := c.client.Do(r)
 	if err != nil {
+		truncatedErr := truncateLogError(err)
 		c.metrics.recordTotal(ctx, req.Method, 0, false, traceState.connReused.Load(), time.Since(requestStart))
 		if isBlockedRequest(err) {
-			c.lggr.Warnw("HTTP request blocked", "err", truncateLogError(err))
-			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, err)
+			c.lggr.Warnw("HTTP request blocked", "err", truncatedErr)
+			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, truncatedErr)
 		}
-		c.lggr.Errorw("failed to send HTTP request", "err", truncateLogError(err))
-		return nil, errors.Join(err, ErrHTTPSend)
+		c.lggr.Errorw("failed to send HTTP request", "err", truncatedErr)
+		return nil, errors.Join(truncatedErr, ErrHTTPSend)
 	}
 	defer resp.Body.Close()
 

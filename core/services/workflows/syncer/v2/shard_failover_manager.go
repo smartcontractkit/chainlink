@@ -174,7 +174,7 @@ func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executi
 		TriggerEventId: triggerEventID,
 		TriggerIndex:   uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
 		Status:         execStatus,
-		PrimaryShardId: m.cfg.MyShardID,
+		PrimaryDonId:   m.cfg.MyShardID,
 	})
 }
 
