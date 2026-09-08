@@ -183,11 +183,6 @@ func (w *launcher) allDONs(localRegistry *registrysyncer.LocalRegistry) []regist
 func (w *launcher) Start(ctx context.Context) error {
 	return w.StartOnce("CapabilitiesLauncher", func() error {
 		w.myPeerID = w.don2donSharedPeer.ID()
-		w.lggr.Infow("Capabilities launcher starting",
-			"myPeerID", w.myPeerID,
-			"shardingEnabled", w.shardingEnabled,
-			"shardIndex", w.shardIndex,
-		)
 		return nil
 	})
 }
