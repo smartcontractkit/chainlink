@@ -77,8 +77,39 @@ func newMetrics() (*metrics, error) {
 	}, nil
 }
 
+// requestLabels are the identifiers the gateway pulls out of a relay request's
+// params purely for logging, so a gateway line can be correlated with the
+// relay-DON's and the enclave's lines for the same workflow execution. The
+// gateway stays a dumb relay: it does not otherwise interpret params.
+type requestLabels struct {
+	WorkflowID  string `json:"workflow_id"`
+	ExecutionID string `json:"execution_id"`
+}
+
+// extractRequestLabels best-effort decodes the logging identifiers from a
+// request's params. Both relay methods' params carry these fields. A decode
+// failure leaves them empty and is only logged: these labels are for
+// correlation, and the params themselves are validated by the relay nodes,
+// not here, so a request whose params do not decode is still fanned out and
+// rejected there. ProcessRequest has already parsed the envelope as valid
+// JSON by this point, so a failure here means params is not an object or
+// carries non-string identifiers — malformed input rather than a gateway bug,
+// hence debug level to avoid handing a caller a log-spam lever.
+func (h *handler) extractRequestLabels(req jsonrpc.Request[json.RawMessage]) requestLabels {
+	var labels requestLabels
+	if req.Params == nil {
+		return labels
+	}
+	if err := json.Unmarshal(*req.Params, &labels); err != nil {
+		h.lggr.Debugw("could not decode relay request params for logging labels",
+			"method", req.Method, "requestID", req.ID, "err", err)
+	}
+	return labels
+}
+
 type activeRequest struct {
 	req       jsonrpc.Request[json.RawMessage]
+	labels    requestLabels
 	responses map[string]*jsonrpc.Response[json.RawMessage]
 	mu        sync.Mutex
 	completed atomic.Bool
@@ -316,7 +347,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
-		l := logger.With(h.lggr, "method", er.req.Method, "requestID", er.req.ID)
+		l := h.requestLogger(er.req, er.labels)
 		l.Debugw("request expired, evaluating collected relay responses",
 			"collected", len(responses),
 			"nodes", len(h.donConfig.Members),
@@ -346,6 +377,20 @@ func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ g
 	return errors.New("confidential relay handler does not support legacy messages")
 }
 
+// requestLogger returns the logger for one relay request: the gateway request
+// id plus the workflow/execution identity it carries, so a line can be
+// correlated with the relay DON's and the enclave's logs for the same
+// execution. The request id changes per enclave retry; the execution identity
+// does not.
+func (h *handler) requestLogger(req jsonrpc.Request[json.RawMessage], labels requestLabels) logger.Logger {
+	return logger.With(h.lggr,
+		"method", req.Method,
+		"requestID", req.ID,
+		"workflowID", labels.WorkflowID,
+		"executionID", labels.ExecutionID,
+	)
+}
+
 func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) error {
 	if req.ID == "" {
 		return errors.New("request ID cannot be empty")
@@ -354,10 +399,11 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request ID is too long: " + strconv.Itoa(len(req.ID)) + ". max is 200 characters")
 	}
 
-	l := logger.With(h.lggr, "method", req.Method, "requestID", req.ID)
-	l.Debugw("handling confidential relay request")
+	labels := h.extractRequestLabels(req)
+	l := h.requestLogger(req, labels)
+	l.Debugw("handling confidential relay request", "nodes", len(h.donConfig.Members), "f", h.donConfig.F)
 
-	ar, err := h.newActiveRequest(req, callback)
+	ar, err := h.newActiveRequest(req, labels, callback)
 	if err != nil {
 		return err
 	}
@@ -365,16 +411,17 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	return h.fanOutToNodes(ctx, l, ar)
 }
 
-func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) (*activeRequest, error) {
+func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], labels requestLabels, callback gwhandlers.Callback) (*activeRequest, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.activeRequests[req.ID] != nil {
-		h.lggr.Errorw("request id already exists", "requestID", req.ID)
+		h.lggr.Errorw("request id already exists", "requestID", req.ID, "executionID", labels.ExecutionID)
 		return nil, errors.New("request ID already exists: " + req.ID)
 	}
 	ar := &activeRequest{
 		Callback:  callback,
 		req:       req,
+		labels:    labels,
 		createdAt: h.clock.Now(),
 		responses: map[string]*jsonrpc.Response[json.RawMessage]{},
 	}
@@ -410,6 +457,9 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		l.Debugw("no pending request found for ID")
 		return nil
 	}
+	// A node response carries no params, so the execution identity comes from
+	// the request it answers.
+	l = logger.With(l, "workflowID", ar.labels.WorkflowID, "executionID", ar.labels.ExecutionID)
 
 	added := ar.addResponseForNode(nodeAddr, resp)
 	if !added {
@@ -551,7 +601,7 @@ func (h *handler) forwardGracedRequests(ctx context.Context) {
 }
 
 func (h *handler) forwardAfterGrace(ctx context.Context, ar *activeRequest) {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
+	l := h.requestLogger(ar.req, ar.labels)
 	summary, err := h.bundler.Bundle(ar.req, ar.copiedResponses(), l)
 	if err != nil {
 		l.Errorw("failed to build relay response bundle after quorum grace", "error", err)
@@ -644,10 +694,18 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	numNodeErrors := nodeErrors.Load()
 	remainingPossibleResponses := len(h.donConfig.Members) - int(numNodeErrors)
 	if remainingPossibleResponses < h.donConfig.F+1 && numNodeErrors > 0 {
+		// The individual send failures are logged above; this is the aggregate
+		// decision that ends the request, so it gets its own line.
+		l.Errorw("too few relay nodes reachable to reach quorum; failing request",
+			"nodeErrors", numNodeErrors,
+			"reachable", remainingPossibleResponses,
+			"minQuorum", h.donConfig.F+1,
+			"nodes", len(h.donConfig.Members),
+		)
 		return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
 
-	l.Debugw("successfully forwarded request to relay nodes")
+	l.Debugw("successfully forwarded request to relay nodes", "nodeErrors", numNodeErrors)
 	return nil
 }
 
@@ -669,12 +727,12 @@ func (h *handler) sendResponseAndClearRequest(ctx context.Context, ar *activeReq
 	h.mu.Unlock()
 
 	if sendErr != nil {
-		h.lggr.Errorw("error sending response to user", "requestID", ar.req.ID, "error", sendErr)
+		h.lggr.Errorw("error sending response to user", "requestID", ar.req.ID, "executionID", ar.labels.ExecutionID, "error", sendErr)
 		return sendErr
 	}
 
 	h.recordMetrics(ctx, payload.ErrorCode)
-	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "errorCode", payload.ErrorCode)
+	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "executionID", ar.labels.ExecutionID, "errorCode", payload.ErrorCode)
 	return nil
 }
 
