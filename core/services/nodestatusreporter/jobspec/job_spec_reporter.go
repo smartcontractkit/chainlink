@@ -27,19 +27,10 @@ const ServiceName = "JobSpecReporter"
 
 var _ job.Listener = (*Service)(nil)
 
-// Service polls active jobs and pushes their specs to Beholder, and also emits
-// on job create/delete via the job.Listener interface.
-//
-// It emits two payloads on every trigger:
-//
-//   - CLJobInfo, for every job the node runs regardless of type, carrying the
-//     complete definition as TOML (see cl_job_info.go).
-//   - JobSpecEvent, the original OCR2-only projection, for jobs passing the
-//     EnabledOCR2PluginTypes gate.
-//
-// The second is superseded by the first and is retained only until its
-// consumers migrate; once they have, ShouldEmit, EmitForJob and the events
-// package can be deleted from here without touching the service wiring.
+// Service polls active jobs and pushes their specs to Beholder, and emits on
+// job create/delete via job.Listener. Two payloads per trigger: CLJobInfo for
+// every job type (see cl_job_info.go), and the OCR2-only JobSpecEvent it
+// supersedes, kept until its consumers migrate.
 type Service struct {
 	services.Service
 	eng *services.Engine
@@ -79,13 +70,12 @@ func NewJobSpecReporter(
 	return s
 }
 
+// start always runs so CLJobInfo needs no per-node opt-in; the legacy track
+// stays behind JobSpecReporter.Enabled (see ShouldEmit). Still a no-op where
+// Beholder is disabled, which is the default.
 func (s *Service) start(ctx context.Context) error {
-	if !s.config.Enabled() {
-		s.eng.Info("Job Spec Reporter Service is disabled")
-		return nil
-	}
-
-	s.eng.Info("Starting Job Spec Reporter Service")
+	s.eng.Infow("Starting Job Spec Reporter Service",
+		"clJobInfo", true, "legacyJobSpecEvent", s.config.Enabled())
 	s.spawner.RegisterListener(s)
 	ticker := services.NewTicker(s.config.PollingInterval())
 	s.eng.GoTick(ticker, s.pollAllJobs)
@@ -114,9 +104,7 @@ func (s *Service) pollAllJobs(ctx context.Context) {
 	}
 }
 
-// emit reports jb on both tracks: CLJobInfo unconditionally, and the legacy
-// OCR2 JobSpecEvent only for jobs passing the plugin-type gate. A failure on
-// one track never suppresses the other.
+// emit reports jb on both tracks; a failure on one never suppresses the other.
 func (s *Service) emit(ctx context.Context, jb job.Job, clTrigger commonv1.CLJobInfoTrigger, trigger events.EmissionTrigger) {
 	if err := s.EmitCLJobInfoForJob(ctx, jb, clTrigger); err != nil {
 		s.eng.Warnw("Failed to emit CLJobInfo", "jobID", jb.ID, "trigger", clTrigger, "error", err)
@@ -130,16 +118,13 @@ func (s *Service) emit(ctx context.Context, jb job.Job, clTrigger commonv1.CLJob
 	}
 }
 
-// EmitCLJobInfoForJob builds and emits the generic CLJobInfo for any job type.
-//
-// A job whose spec cannot be TOML-encoded is still reported: the identity
-// envelope is emitted without spec_toml so the job is accounted for, and the
-// encoding failure is returned for logging rather than dropping the event.
+// EmitCLJobInfoForJob emits the generic CLJobInfo for any job type. A job whose
+// spec won't TOML-encode is still reported without spec_toml, and the encoding
+// error returned for logging.
 func (s *Service) EmitCLJobInfoForJob(ctx context.Context, jb job.Job, trigger commonv1.CLJobInfoTrigger) error {
 	prop, err := s.jobProposal(ctx, jb)
 	if err != nil {
-		// Provenance is an enrichment, not a precondition: a job with no
-		// proposal is a valid, unmanaged job.
+		// Provenance is an enrichment, not a precondition.
 		s.eng.Warnw("Failed to resolve job proposal provenance for CLJobInfo",
 			"jobID", jb.ID, "externalJobID", jb.ExternalJobID, "error", err)
 	}
@@ -153,8 +138,7 @@ func (s *Service) EmitCLJobInfoForJob(ctx context.Context, jb job.Job, trigger c
 	return buildErr
 }
 
-// jobProposal resolves the Job Distributor provenance for jb, or nil if the job
-// did not arrive as an approved job proposal.
+// jobProposal resolves JD provenance for jb, or nil if it wasn't proposed.
 func (s *Service) jobProposal(ctx context.Context, jb job.Job) (*JobProposal, error) {
 	if s.feedsORM == nil || jb.ExternalJobID == uuid.Nil {
 		return nil, nil
@@ -171,8 +155,7 @@ func (s *Service) jobProposal(ctx context.Context, jb job.Job) (*JobProposal, er
 	spec, err := s.feedsORM.GetApprovedSpec(ctx, prop.ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// The proposal exists but has no approved spec, e.g. we are
-			// reporting a job that is mid-cancellation.
+			// Proposal exists but has no approved spec, e.g. mid-cancellation.
 			return &JobProposal{FeedsManagerID: prop.FeedsManagerID, RemoteUUID: prop.RemoteUUID.String()}, nil
 		}
 		return nil, fmt.Errorf("fetching approved spec: %w", err)
@@ -187,9 +170,9 @@ func (s *Service) jobProposal(ctx context.Context, jb job.Job) (*JobProposal, er
 	}, nil
 }
 
-// ShouldEmit reports whether the job passes the config-driven emit gate.
+// ShouldEmit gates the legacy OCR2 track only; CLJobInfo ignores it.
 func (s *Service) ShouldEmit(j *job.Job) bool {
-	if j == nil {
+	if j == nil || !s.config.Enabled() {
 		return false
 	}
 	if j.Type != job.OffchainReporting2 || j.OCR2OracleSpec == nil {

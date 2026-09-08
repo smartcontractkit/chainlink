@@ -48,8 +48,7 @@ func clJobInfoSampleJob() job.Job {
 	}
 }
 
-// TestBuildCLJobInfo_EncodesFullSpecAsTOML is the load-bearing check: an
-// arbitrary job must round-trip to TOML with no per-type code.
+// Load-bearing: an arbitrary job must round-trip to TOML with no per-type code.
 func TestBuildCLJobInfo_EncodesFullSpecAsTOML(t *testing.T) {
 	jb := clJobInfoSampleJob()
 	id := jobspec.NodeIdentity{CSAPublicKey: "csa", NodeVersion: "1.2.3", Hostname: "host-1"}
@@ -72,7 +71,7 @@ func TestBuildCLJobInfo_EncodesFullSpecAsTOML(t *testing.T) {
 	require.NotNil(t, info.CreatedAtMs)
 	require.Equal(t, time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC).UnixMilli(), *info.CreatedAtMs)
 
-	// spec_toml must be valid TOML and contain type-specific spec data.
+	// Must be valid TOML and contain type-specific spec data.
 	require.NotEmpty(t, info.SpecToml)
 	var decoded map[string]any
 	require.NoError(t, toml.Unmarshal([]byte(info.SpecToml), &decoded))
@@ -95,8 +94,7 @@ func TestBuildCLJobInfo_HandlesMultipleJobTypesGenerically(t *testing.T) {
 	}
 }
 
-// TestBuildCLJobInfo_CarriesJobDistributorProvenance covers the JD join key:
-// remote_uuid is what links this event back to api.job.v1.Job.uuid.
+// remote_uuid is the join key back to api.job.v1.Job.uuid.
 func TestBuildCLJobInfo_CarriesJobDistributorProvenance(t *testing.T) {
 	proposedAt := time.Date(2026, 7, 20, 9, 0, 0, 0, time.UTC)
 	approvedAt := time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC)
@@ -123,8 +121,7 @@ func TestBuildCLJobInfo_CarriesJobDistributorProvenance(t *testing.T) {
 	require.Equal(t, approvedAt.UnixMilli(), *info.ApprovedAtMs)
 }
 
-// TestBuildCLJobInfo_UnmanagedJobHasNoProvenance: an unset feeds_manager_id is
-// how a consumer tells a directly-created job from a JD-managed one.
+// An unset feeds_manager_id marks a directly-created job.
 func TestBuildCLJobInfo_UnmanagedJobHasNoProvenance(t *testing.T) {
 	info, err := jobspec.BuildCLJobInfo(clJobInfoSampleJob(), commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, jobspec.NodeIdentity{}, nil, time.Now())
 	require.NoError(t, err)
@@ -157,13 +154,8 @@ func TestEmitCLJobInfo_PublishesToBeholder(t *testing.T) {
 	require.NotEmpty(t, payload.SpecToml)
 }
 
-// TestBuildCLJobInfo_TimestampsAreOrderedUnixMillis guards the reason these
-// fields are int64 epoch millis rather than RFC3339Nano strings: Go trims
-// trailing zeros from the fractional seconds, so string-encoded times are
-// variable-width and do not sort lexicographically in chronological order — a
-// whole-second time sorts after every sub-second one in the same second.
-// Millis truncate sub-millisecond precision, which is acceptable here and is
-// asserted explicitly below.
+// Why these are millis and not RFC3339Nano: Go trims trailing zeros, so those
+// strings are variable-width and don't sort chronologically.
 func TestBuildCLJobInfo_TimestampsAreOrderedUnixMillis(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -196,8 +188,7 @@ func TestBuildCLJobInfo_ZeroTimeIsUnset(t *testing.T) {
 	require.Nil(t, info.CreatedAtMs)
 }
 
-// TestBuildCLJobInfo_SubMillisecondIsTruncated documents the one thing epoch
-// millis give up versus nanosecond encodings, so nobody is surprised by it.
+// The one thing millis give up versus a nanosecond encoding.
 func TestBuildCLJobInfo_SubMillisecondIsTruncated(t *testing.T) {
 	jb := clJobInfoSampleJob()
 	jb.CreatedAt = time.Date(2026, 7, 24, 10, 0, 0, 123456789, time.UTC)
@@ -208,9 +199,7 @@ func TestBuildCLJobInfo_SubMillisecondIsTruncated(t *testing.T) {
 	require.Equal(t, time.Date(2026, 7, 24, 10, 0, 0, 123000000, time.UTC).UnixMilli(), *info.CreatedAtMs)
 }
 
-// TestBuildCLJobInfo_TimestampsSortChronologically is the property the old
-// RFC3339Nano encoding violated: a whole-second value sorted after every
-// sub-second value in the same second.
+// The property the old RFC3339Nano encoding violated.
 func TestBuildCLJobInfo_TimestampsSortChronologically(t *testing.T) {
 	times := []time.Time{
 		time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC),

@@ -14,16 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-// CLJobInfo is the generic, job-type-agnostic half of this reporter. Where
-// JobSpecEvent models one job type (OCR2) field by field, CLJobInfo carries the
-// job's common identity plus the complete definition as a raw TOML string, so
-// every job the node runs is reported through a single schema with no
-// per-type code here and none needed for future job types.
-//
-// It is emitted on the same triggers and from the same service as JobSpecEvent
-// rather than from a parallel one, so there is exactly one place in the node
-// that reports what jobs it runs. Once consumers have migrated, the OCR2-only
-// half can be deleted from here without touching the wiring.
+// CLJobInfo is the job-type-agnostic half of this reporter: common identity
+// plus the whole definition as TOML, so every job type is covered with no
+// per-type code. JobSpecEvent (OCR2-only) is emitted from the same service.
 const (
 	// Domain, Entity and DataSchema identify CLJobInfo telemetry on Beholder.
 	Domain     = "node-platform"
@@ -38,10 +31,8 @@ type NodeIdentity struct {
 	Hostname     string
 }
 
-// JobProposal is the Job Distributor provenance for a job that arrived as an
-// approved job proposal. Jobs created directly (CLI, UI, TOML on disk) have no
-// proposal, and the zero value leaves the corresponding CLJobInfo fields unset
-// — which is how a consumer tells a managed job from an unmanaged one.
+// JobProposal is the JD provenance for a job that arrived as an approved job
+// proposal. Nil for jobs created directly (CLI, UI, TOML on disk).
 type JobProposal struct {
 	FeedsManagerID int64
 	RemoteUUID     string
@@ -50,13 +41,10 @@ type JobProposal struct {
 	ApprovedAt     time.Time
 }
 
-// BuildCLJobInfo converts any job.Job into its generic CLJobInfo representation.
+// BuildCLJobInfo converts any job.Job into a CLJobInfo. prop may be nil.
 //
-// prop is optional: pass nil for a job with no Job Distributor proposal.
-//
-// If the job cannot be TOML-encoded, BuildCLJobInfo still returns a fully
-// populated identity payload (with an empty SpecToml) alongside the encoding
-// error, so callers can choose to emit the envelope and log the failure rather
+// On TOML encoding failure it still returns a populated identity payload with
+// an empty SpecToml alongside the error, so callers can emit and log rather
 // than drop the event.
 func BuildCLJobInfo(jb job.Job, trigger commonv1.CLJobInfoTrigger, id NodeIdentity, prop *JobProposal, now time.Time) (*commonv1.CLJobInfo, error) {
 	info := &commonv1.CLJobInfo{
@@ -114,10 +102,8 @@ func EmitCLJobInfo(ctx context.Context, emitter beholder.Emitter, info *commonv1
 	return nil
 }
 
-// jobTOML serializes the entire job definition to TOML. Marshaling the whole
-// job.Job captures both the common top-level fields and the single active
-// type-specific spec, so all fields for any job type are included without
-// enumerating them.
+// jobTOML serializes the whole job.Job, which captures both the common fields
+// and the single active type-specific spec.
 func jobTOML(jb job.Job) (string, error) {
 	out, err := toml.Marshal(jb)
 	if err != nil {
@@ -126,12 +112,9 @@ func jobTOML(jb job.Job) (string, error) {
 	return string(out), nil
 }
 
-// unixMillisOrNil converts t to Unix epoch milliseconds, leaving an unset time
-// as nil rather than mapping it onto the epoch. Milliseconds rather than an
-// RFC3339Nano string because Go trims trailing zeros from the fractional
-// seconds, so those strings are variable-width and do not sort
-// lexicographically in chronological order — a whole-second value sorts after
-// every sub-second value in the same second.
+// unixMillisOrNil maps an unset time to nil rather than the epoch. Millis not
+// RFC3339Nano: Go trims trailing zeros, so those strings are variable-width and
+// don't sort chronologically.
 func unixMillisOrNil(t time.Time) *int64 {
 	if t.IsZero() {
 		return nil
