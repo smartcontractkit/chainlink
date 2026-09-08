@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -103,7 +104,7 @@ func (m *ShardFailoverManager) SetEngine(engine *v2.Engine) {
 
 func (m *ShardFailoverManager) start(ctx context.Context) error {
 	if m.engine == nil {
-		return fmt.Errorf("engine not set, call SetEngine before Start")
+		return errors.New("engine not set, call SetEngine before Start")
 	}
 
 	if m.cfg.Dispatcher != nil {
@@ -182,6 +183,7 @@ func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executi
 // cached trigger event through the engine.
 func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.ExecutionStatusUpdate) {
 	switch msg.Status {
+	case ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED:
 	case ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS,
 		ringpb.ExecutionStatus_EXECUTION_STATUS_USER_ERROR:
 		m.removeCachedEvent(msg.TriggerEventId)
@@ -321,7 +323,6 @@ func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 		m.sender = sender
 		m.cfg.Logger.Infow("shard failover: wired ExecutionStatusUpdateSender on primary",
 			"primaryShardID", m.cfg.MyShardID, "secondaryShardID", secondaryDon.ID)
-
 	} else {
 		primaryDon := m.resolveDon(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner, 0)
 		if primaryDon == nil {
