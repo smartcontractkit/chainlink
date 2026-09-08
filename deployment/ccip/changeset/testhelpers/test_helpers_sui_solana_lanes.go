@@ -20,6 +20,7 @@ import (
 	cs_ccip "github.com/smartcontractkit/chainlink-ccip/deployment/utils/changesets"
 	ccipmcms "github.com/smartcontractkit/chainlink-ccip/deployment/utils/mcms"
 
+	_ "github.com/smartcontractkit/chainlink-sui/deployment/adapters"     // register Sui MCMS/curse/token/fee adapters (init)
 	suilanes "github.com/smartcontractkit/chainlink-sui/deployment/lanes" // registers SuiAdapter and provides WithConnectChainsEnvironment
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"

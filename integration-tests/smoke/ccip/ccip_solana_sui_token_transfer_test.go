@@ -139,7 +139,7 @@ func prepareSolana2SuiTokenTransferTest(t *testing.T) solana2SuiTokenFixtures {
 // suiLinkBalance returns the total Sui LINK coin balance held by account, keyed on the full coin
 // type 0x2::coin::Coin<<linkPkgID>::link::LINK> (mirrors WaitForTokenBalanceSui's query). Used for
 // a before/after delta assertion since the exact minted amount depends on source/dest decimals.
-func suiLinkBalance(t *testing.T, ctx context.Context, chain cldf_sui.Chain, account, linkPkgID string) *big.Int {
+func suiLinkBalance(ctx context.Context, t *testing.T, chain cldf_sui.Chain, account, linkPkgID string) *big.Int {
 	t.Helper()
 	coins, err := chain.Client.QueryCoinsByAddress(ctx, account, "0x2::coin::Coin<"+linkPkgID+"::link::LINK>")
 	require.NoError(t, err)
@@ -173,7 +173,7 @@ func Test_CCIPTokenTransfer_Solana2Sui_BurnMintTokenPool(t *testing.T) {
 	waitForSuiRPCSync(t, suiChain)
 	testhelpers.WaitForEventFilterRegistrationOnLane(t, fx.state, e.Offchain, fx.sourceChain, fx.destChain)
 
-	balanceBefore := suiLinkBalance(t, ctx, suiChain, fx.suiAddrStr, fx.suiLinkPkgID)
+	balanceBefore := suiLinkBalance(ctx, t, suiChain, fx.suiAddrStr, fx.suiLinkPkgID)
 
 	tcs := []testhelpers.TestTransferRequest{
 		{
@@ -208,7 +208,7 @@ func Test_CCIPTokenTransfer_Solana2Sui_BurnMintTokenPool(t *testing.T) {
 	// Assert the Sui wallet received the minted LINK (balance strictly increased). Tolerant of
 	// decimals/amount exactness per the user's "ignore fee nits" constraint.
 	require.Eventually(t, func() bool {
-		return suiLinkBalance(t, ctx, suiChain, fx.suiAddrStr, fx.suiLinkPkgID).Cmp(balanceBefore) > 0
+		return suiLinkBalance(ctx, t, suiChain, fx.suiAddrStr, fx.suiLinkPkgID).Cmp(balanceBefore) > 0
 	}, 10*time.Minute, 2*time.Second, "Sui wallet LINK balance did not increase after Solana->Sui token transfer")
 }
 
