@@ -24,7 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
-	_ "github.com/smartcontractkit/chainlink-sui/deployment/adapters"      // register Sui MCMS/curse/token/fee adapters (init)
+	_ "github.com/smartcontractkit/chainlink-sui/deployment/adapters" // register Sui MCMS/curse/token/fee adapters (init)
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	suilanes "github.com/smartcontractkit/chainlink-sui/deployment/lanes" // registers SuiAdapter and provides WithConnectChainsEnvironment
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
@@ -138,7 +138,11 @@ func completeSuiCCIPMCMSOwnership(t *testing.T, e *DeployedEnv, suiSel uint64) e
 	proposerCfg := cldftesthelpers.SingleGroupMCMS(t)
 	bypasserCfg := cldftesthelpers.SingleGroupMCMS(t)
 	cancellerCfg := cldftesthelpers.SingleGroupMCMS(t)
-	if _, err := sui_cs.ConfigureMCMS{}.Apply(e.Env, sui_cs.ConfigureMCMSConfig{
+	// Applied directly (not via ApplyChangesets) with a nil TimelockConfig so SetConfig runs EOA
+	// via the deployer signer and the zero-value placeholder timelock proposal ConfigureMCMS
+	// unconditionally returns is discarded. (A composite literal in an if-init would need
+	// parenthesizing, so assign to a variable first, matching the AcceptOwnershipEOA{} convention.)
+	mcmsOut, err := sui_cs.ConfigureMCMS{}.Apply(e.Env, sui_cs.ConfigureMCMSConfig{
 		ConfigureMCMSSeqInput: mcmsops.ConfigureMCMSSeqInput{
 			ChainSelector: suiSel,
 			Proposer:      &proposerCfg,
@@ -146,12 +150,13 @@ func completeSuiCCIPMCMSOwnership(t *testing.T, e *DeployedEnv, suiSel uint64) e
 			Canceller:     &cancellerCfg,
 		},
 		// TimelockConfig nil -> SetConfig executes directly via the deployer signer.
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("configure MCMS (quorum) for Sui chain %d: %w", suiSel, err)
 	}
+	_ = mcmsOut
 
 	// 2. Accept CCIP ownership via an MCMS bypasser proposal (auto-executed by ApplyChangesets).
-	var err error
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.AcceptOwnershipCCIP{}, sui_cs.AcceptOwnershipCCIPConfig{
 			SuiChainSelector: suiSel,
