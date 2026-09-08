@@ -45,15 +45,26 @@ func ExecuteManualShardAssignmentTest(t *testing.T, testEnv *ttypes.TestEnvironm
 	require.NoError(t, err, "failed to start linking service")
 	linkingService.SetOwnerOrg(defaultOwner, "org_test_manual")
 
+	shardLeaderDON := getShardZeroDon(t, testEnv)
+	shardZeroDonID := uint32(shardLeaderDON.ID) //nolint:gosec // G115: overflow is unrealistic
+
+	var shardOneDON *cre.Don
+	for _, don := range shardDONs {
+		if don.ID != shardLeaderDON.ID {
+			shardOneDON = don
+			break
+		}
+	}
+	require.NotNil(t, shardOneDON, "Expected to find a second shard DON")
+	shardOneDonID := uint32(shardOneDON.ID) //nolint:gosec // G115: overflow is unrealistic
+
 	shardAssignmentTOML := fmt.Sprintf(`
-static_default_assignment = [1]
+static_default_assignment = [%d]
 hashed_default_assignment = false
 
 [per_org_assignment]
-  org_test_manual = [0]
-`)
-
-	shardLeaderDON := getShardZeroDon(t, testEnv)
+  org_test_manual = [%d]
+`, shardOneDonID, shardZeroDonID)
 
 	proposeAndApproveShardAssignmentJob(t, testEnv, shardLeaderDON, shardAssignmentTOML, testLogger)
 
@@ -68,7 +79,7 @@ hashed_default_assignment = false
 
 	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {
-		workflowToShardIndex[wfID] = 0
+		workflowToShardIndex[wfID] = shardZeroDonID
 	}
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
@@ -109,6 +120,16 @@ func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 	}
 	require.NotNil(t, shardZero, "Expected to find shard zero DON")
 
+	var shardOne *cre.Don
+	for _, don := range shardDONs {
+		if don.ID != shardZero.ID {
+			shardOne = don
+			break
+		}
+	}
+	require.NotNil(t, shardOne, "Expected to find a second shard DON")
+	shardOneDonID := uint32(shardOne.ID) //nolint:gosec // G115: overflow is unrealistic
+
 	topology, tErr := cre.NewTopology(testEnv.Config.NodeSets, *testEnv.Config.Infra, testEnv.Config.CapabilityConfigs)
 	require.NoError(t, tErr, "Failed to recreate topology")
 
@@ -141,13 +162,13 @@ func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 	require.NoError(t, err, "failed to start linking service")
 	linkingService.SetOwnerOrg(defaultOwner, "org_test_override")
 
-	shardAssignmentTOML := `
-static_default_assignment = [0]
+	shardAssignmentTOML := fmt.Sprintf(`
+static_default_assignment = [%d]
 hashed_default_assignment = true
 
 [per_org_assignment]
-  org_test_override = [1]
-`
+  org_test_override = [%d]
+`, uint32(shardZero.ID), shardOneDonID)
 
 	for _, don := range shardDONs {
 		proposeAndApproveShardAssignmentJob(t, testEnv, don, shardAssignmentTOML, testLogger)
@@ -197,7 +218,7 @@ hashed_default_assignment = true
 	testLogger.Info().Interface("mappings", resp.Mappings).Msg("Ring OCR workflow mappings")
 	require.Len(t, resp.Mappings, len(workflowIDs), "All deployed workflows should be mapped")
 
-	const overrideShard uint32 = 1
+	overrideShard := shardOneDonID
 
 	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {

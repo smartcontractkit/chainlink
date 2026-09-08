@@ -3,7 +3,6 @@ package cre
 import (
 	"context"
 	"fmt"
-	"math"
 	"net/url"
 	"strconv"
 	"strings"
@@ -276,12 +275,14 @@ func initializeAllArbiterStates(t *testing.T, testEnv *ttypes.TestEnvironment, s
 	t.Helper()
 	logger := framework.L
 
+	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
 	shardStatus := make(map[uint32]*ringpb.ShardStatus)
 	for i := range numShards {
-		if i < 0 || i > math.MaxUint32 {
-			t.Fatalf("shard index %d out of uint32 range", i)
+		if i >= len(shardDONs) {
+			break
 		}
-		shardStatus[uint32(i)] = &ringpb.ShardStatus{IsHealthy: true}
+		donID := uint32(shardDONs[i].ID) //nolint:gosec // G115: overflow is unrealistic
+		shardStatus[donID] = &ringpb.ShardStatus{IsHealthy: true}
 	}
 
 	arbiterPortStart := 19876
@@ -358,6 +359,7 @@ func validateShardingScaleScenario(
 	require.Equal(t, uint64(1), contractCount, "ShardConfig contract should report 1 shard")
 
 	shardZero := getShardZeroDon(t, testEnv)
+	shardZeroDonID := uint32(shardZero.ID) //nolint:gosec // G115: overflow is unrealistic
 	initializeAllArbiterStates(t, testEnv, shardZero, 1)
 
 	logger.Info().Msg("Step 3: Verify Arbiter WantShards equals contract shard count")
@@ -369,7 +371,7 @@ func validateShardingScaleScenario(
 	require.Equal(t, uint32(contractCount), arbiterResp.WantShards, "Arbiter WantShards must equal contract getDesiredShardCount()") //nolint:gosec // G115: test only uses 1 or 2 shards
 
 	logger.Info().Msg("Step 4: Wait for all workflows to be remapped to shard 0")
-	waitForAllWorkflowsOnShard(t, shardOrchClient, workflowIDs, 0)
+	waitForAllWorkflowsOnShard(t, shardOrchClient, workflowIDs, shardZeroDonID)
 	resp, err = shardOrchClient.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
 		WorkflowIds: workflowIDs,
 	})
@@ -402,12 +404,18 @@ func validateShardingScaleScenario(
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
+	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
+	shardOneDonID := uint32(0)
+	if len(shardDONs) >= 2 {
+		shardOneDonID = uint32(shardDONs[1].ID) //nolint:gosec // G115: overflow is unrealistic
+	}
+
 	shardCounts := map[uint32]int{}
 	for _, shardID := range resp.Mappings {
 		shardCounts[shardID]++
 	}
-	assert.Positive(t, shardCounts[0], "Some workflows should be on shard 0")
-	assert.Positive(t, shardCounts[1], "Some workflows should be on shard 1")
+	assert.Positive(t, shardCounts[shardZeroDonID], "Some workflows should be on shard 0 (donID %d)", shardZeroDonID)
+	assert.Positive(t, shardCounts[shardOneDonID], "Some workflows should be on shard 1 (donID %d)", shardOneDonID)
 	logger.Info().
 		Interface("mappings", resp.Mappings).
 		Interface("distribution", shardCounts).
@@ -687,10 +695,10 @@ func buildNodeP2PIDToShardIndex(t *testing.T, testEnv *ttypes.TestEnvironment) m
 	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
 	nodeP2PIDToShardIndex := make(map[string]uint32)
 	for _, don := range shardDONs {
-		shardIndex := uint32(don.ShardIndex) //nolint:gosec // G115: overflow is unrealistic
+		donID := uint32(don.ID) //nolint:gosec // G115: overflow is unrealistic
 		for _, node := range don.Nodes {
 			p2pID := strings.TrimPrefix(node.Keys.PeerID(), "p2p_")
-			nodeP2PIDToShardIndex[p2pID] = shardIndex
+			nodeP2PIDToShardIndex[p2pID] = donID
 		}
 	}
 	return nodeP2PIDToShardIndex
