@@ -1090,11 +1090,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(sui_cs.ConfigureMCMS{}, sui_cs.ConfigureMCMSConfig{
 				ConfigureMCMSSeqInput: mcmsops.ConfigureMCMSSeqInput{
-					ChainSelector:    suiChains[0],
-					Proposer:         &proposerCfg,
-					Bypasser:         &bypasserCfg,
-					Canceller:        &cancellerCfg,
-					IsInitialConfig:  true,
+					ChainSelector: suiChains[0],
+					Proposer:      &proposerCfg,
+					Bypasser:      &bypasserCfg,
+					Canceller:     &cancellerCfg,
 				},
 			}),
 		})
