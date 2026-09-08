@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
 
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
+	mcmsops "github.com/smartcontractkit/chainlink-sui/deployment/ops/mcms"
 
 	evmdeploy "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/deploy"
 	deployops "github.com/smartcontractkit/chainlink-ccip/deployment/deploy"
@@ -1068,6 +1069,33 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				DestChainSelector:             evmChains[0],
 				DestChainOnRampAddressBytes:   state.MustGetEVMChainState(e.HomeChainSel).OnRamp.Address().Bytes(),
 				LinkTokenCoinMetadataObjectId: state.SuiChains[suiChains[0]].LinkTokenCoinMetadataId,
+			}),
+		})
+		require.NoError(t, err)
+
+		// Configure the Sui MCMS with a single-group (quorum=1) config for each timelock
+		// role. DeploySuiChain only deploys the MCMS objects; without this SetConfig the
+		// on-chain quorum is 0, which fails validation ("Quorum must be greater than 0")
+		// when a changeset builds an MCMS timelock proposal covering the Sui leg (e.g.
+		// lanes.ConnectChains, used by the Sui<->Solana mixed lane). The Solana and Aptos
+		// envs configure MCMS at deploy time via MCMSWithTimelockConfig; Sui's deploy
+		// changeset has no such hook, so configure it here. Executed directly (TimelockConfig
+		// nil) since this is the initial bootstrap config with no prior root. ConfigureMCMS
+		// reloads Sui onchain state itself and fills in the MCMS object IDs, so none are
+		// passed here. This is harmless for legacy EVM<->Sui tests, which execute the Sui
+		// side via EOA and never build an Sui MCMS proposal.
+		proposerCfg := cldftesthelpers.SingleGroupMCMS(t)
+		bypasserCfg := cldftesthelpers.SingleGroupMCMS(t)
+		cancellerCfg := cldftesthelpers.SingleGroupMCMS(t)
+		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{
+			commonchangeset.Configure(sui_cs.ConfigureMCMS{}, sui_cs.ConfigureMCMSConfig{
+				ConfigureMCMSSeqInput: mcmsops.ConfigureMCMSSeqInput{
+					ChainSelector:    suiChains[0],
+					Proposer:         &proposerCfg,
+					Bypasser:         &bypasserCfg,
+					Canceller:        &cancellerCfg,
+					IsInitialConfig:  true,
+				},
 			}),
 		})
 		require.NoError(t, err)
