@@ -15,7 +15,6 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -50,6 +49,7 @@ func clJobInfoSampleJob() job.Job {
 
 // Load-bearing: an arbitrary job must round-trip to TOML with no per-type code.
 func TestBuildCLJobInfo_EncodesFullSpecAsTOML(t *testing.T) {
+	t.Parallel()
 	jb := clJobInfoSampleJob()
 	id := jobspec.NodeIdentity{CSAPublicKey: "csa", NodeVersion: "1.2.3", Hostname: "host-1"}
 
@@ -80,6 +80,7 @@ func TestBuildCLJobInfo_EncodesFullSpecAsTOML(t *testing.T) {
 }
 
 func TestBuildCLJobInfo_HandlesMultipleJobTypesGenerically(t *testing.T) {
+	t.Parallel()
 	jobs := []job.Job{
 		{Type: job.VRF, VRFSpec: &job.VRFSpec{
 			EVMChainID:    sqlutil.NewI(4),
@@ -96,6 +97,7 @@ func TestBuildCLJobInfo_HandlesMultipleJobTypesGenerically(t *testing.T) {
 
 // remote_uuid is the join key back to api.job.v1.Job.uuid.
 func TestBuildCLJobInfo_CarriesJobDistributorProvenance(t *testing.T) {
+	t.Parallel()
 	proposedAt := time.Date(2026, 7, 20, 9, 0, 0, 0, time.UTC)
 	approvedAt := time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC)
 	prop := &jobspec.JobProposal{
@@ -123,6 +125,7 @@ func TestBuildCLJobInfo_CarriesJobDistributorProvenance(t *testing.T) {
 
 // An unset feeds_manager_id marks a directly-created job.
 func TestBuildCLJobInfo_UnmanagedJobHasNoProvenance(t *testing.T) {
+	t.Parallel()
 	info, err := jobspec.BuildCLJobInfo(clJobInfoSampleJob(), commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, jobspec.NodeIdentity{}, nil, time.Now())
 	require.NoError(t, err)
 
@@ -133,6 +136,7 @@ func TestBuildCLJobInfo_UnmanagedJobHasNoProvenance(t *testing.T) {
 	require.Nil(t, info.ApprovedAtMs)
 }
 
+//nolint:paralleltest // installs a process-global beholder emitter
 func TestEmitCLJobInfo_PublishesToBeholder(t *testing.T) {
 	obs := beholdertest.NewObserver(t)
 
@@ -157,6 +161,7 @@ func TestEmitCLJobInfo_PublishesToBeholder(t *testing.T) {
 // Why these are millis and not RFC3339Nano: Go trims trailing zeros, so those
 // strings are variable-width and don't sort chronologically.
 func TestBuildCLJobInfo_TimestampsAreOrderedUnixMillis(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		at   time.Time
@@ -167,6 +172,7 @@ func TestBuildCLJobInfo_TimestampsAreOrderedUnixMillis(t *testing.T) {
 		{"millisecond", time.Date(2026, 7, 24, 10, 0, 0, 123000000, time.UTC)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			jb := clJobInfoSampleJob()
 			jb.CreatedAt = tc.at
 
@@ -180,6 +186,7 @@ func TestBuildCLJobInfo_TimestampsAreOrderedUnixMillis(t *testing.T) {
 
 // TestBuildCLJobInfo_ZeroTimeIsUnset: an absent time must be nil, not the epoch.
 func TestBuildCLJobInfo_ZeroTimeIsUnset(t *testing.T) {
+	t.Parallel()
 	jb := clJobInfoSampleJob()
 	jb.CreatedAt = time.Time{}
 
@@ -190,6 +197,7 @@ func TestBuildCLJobInfo_ZeroTimeIsUnset(t *testing.T) {
 
 // The one thing millis give up versus a nanosecond encoding.
 func TestBuildCLJobInfo_SubMillisecondIsTruncated(t *testing.T) {
+	t.Parallel()
 	jb := clJobInfoSampleJob()
 	jb.CreatedAt = time.Date(2026, 7, 24, 10, 0, 0, 123456789, time.UTC)
 
@@ -201,6 +209,7 @@ func TestBuildCLJobInfo_SubMillisecondIsTruncated(t *testing.T) {
 
 // The property the old RFC3339Nano encoding violated.
 func TestBuildCLJobInfo_TimestampsSortChronologically(t *testing.T) {
+	t.Parallel()
 	times := []time.Time{
 		time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC),
 		time.Date(2026, 7, 24, 10, 0, 0, 100000000, time.UTC),

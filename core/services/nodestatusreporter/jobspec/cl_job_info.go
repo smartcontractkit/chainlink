@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 

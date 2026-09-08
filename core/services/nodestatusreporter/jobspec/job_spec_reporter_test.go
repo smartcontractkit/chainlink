@@ -393,6 +393,8 @@ func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 
 // Pins the split: CLJobInfo needs no per-node opt-in, the legacy OCR2 track
 // stays behind JobSpecReporter.Enabled.
+//
+//nolint:paralleltest // installs a process-global beholder emitter
 func TestAfterJobStarted_CLJobInfoIgnoresEnabledGate(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
