@@ -76,7 +76,6 @@ type EngineConfig struct {
 
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardingEnabled         bool
-	ShardingFailoverEnabled bool
 	MyShardID               uint32
 	ShardRoutingSteady      *shardownership.SteadySignal
 	ShardResolver           shardownership.ShardResolver
@@ -124,6 +123,7 @@ type EngineLimiters struct {
 	ExecutionTimestampsEnabled                  limits.GateLimiter
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
+	ShardingFailoverEnabled                     limits.GateLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
 }
 
@@ -277,6 +277,13 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 		return
 	}
 	l.CentralizedWorkflowOwnerVerificationEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.CentralizedWorkflowOwnerVerificationEnabled)
+	if err != nil {
+		return
+	}
+	shardingFailoverSetting := settings.Bool(false)
+	shardingFailoverSetting.Key = "ShardingFailoverEnabled"
+	shardingFailoverSetting.Scope = settings.ScopeGlobal
+	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, shardingFailoverSetting)
 	if err != nil {
 		return
 	}

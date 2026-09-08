@@ -125,9 +125,9 @@ type workflowRegistry struct {
 	shardResolver           shardownership.ShardResolver
 
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
-	myShardID       uint32
-	shardingEnabled bool
-	shardingFailoverEnabled bool
+	myShardID            uint32
+	shardingEnabled      bool
+	shardingFailoverGate limits.GateLimiter
 
 	centralizedOwnerVerificationEnabled limits.GateLimiter
 	settingsGetter                      settings.Getter
@@ -297,9 +297,9 @@ func WithShardEnabled(shardingEnabled bool) Option {
 	}
 }
 
-func WithShardFailoverEnabled(failoverEnabled bool) Option {
+func WithShardFailoverEnabled(gate limits.GateLimiter) Option {
 	return func(wr *workflowRegistry) {
-		wr.shardingFailoverEnabled = failoverEnabled
+		wr.shardingFailoverGate = gate
 	}
 }
 
@@ -840,9 +840,10 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 		}
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
+	failoverEnabled := w.shardingFailoverGate != nil && w.shardingFailoverGate.AllowErr(ctx) == nil
 	for _, wf := range workflows {
 		id := wf.WorkflowID.Hex()
-		if w.shardingFailoverEnabled {
+		if failoverEnabled {
 			if allResolver, ok := w.shardResolver.(shardownership.AllShardsResolver); ok {
 				shards, found, err := allResolver.ResolveAllShards(ctx, id, hex.EncodeToString(wf.Owner))
 				if err != nil || !found {

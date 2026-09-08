@@ -37,7 +37,7 @@
   override_mode = "each"
   http_port_range_start = 11100
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true","PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337", "evm-2337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
@@ -52,7 +52,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["61051:50051", "21876:9876"]
-      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\nShardingFailoverEnabled = true\n"
+      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -61,7 +61,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["21877:9876"]
-      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\nShardingFailoverEnabled = true\n"
+      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -70,7 +70,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["21878:9876"]
-      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\nShardingFailoverEnabled = true\n"
+      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -79,7 +79,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["21879:9876"]
-      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\nShardingFailoverEnabled = true\n"
+      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
 
 [[nodesets]]
   nodes = 4
@@ -90,7 +90,7 @@
   override_mode = "all"
   http_port_range_start = 11400
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true","PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337", "evm-2337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
@@ -104,7 +104,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\nShardingFailoverEnabled = true\n"
+      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
 
 [[nodesets]]
   nodes = 1

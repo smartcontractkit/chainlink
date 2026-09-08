@@ -123,7 +123,6 @@ type eventHandler struct {
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardingEnabled         bool
-	shardingFailoverEnabled bool
 	myShardID               uint32
 	shardRoutingSteady      *shardownership.SteadySignal
 	shardResolver           shardownership.ShardResolver
@@ -184,12 +183,6 @@ func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingE
 		e.shardOrchestratorClient = client
 		e.shardingEnabled = shardingEnabled
 		e.myShardID = shardID
-	}
-}
-
-func WithHandlerShardFailoverEnabled(failoverEnabled bool) func(*eventHandler) {
-	return func(e *eventHandler) {
-		e.shardingFailoverEnabled = failoverEnabled
 	}
 }
 
@@ -915,16 +908,16 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 	h.wireInitDoneHook(cfg, initDone)
 
 	var manager *ShardFailoverManager
-	if h.shardingFailoverEnabled && h.dispatcher != nil {
+	if h.shardingEnabled && h.dispatcher != nil {
 		manager = NewShardFailoverManager(ShardFailoverManagerConfig{
 			ShardingEnabled:         h.shardingEnabled,
-			ShardingFailoverEnabled: h.shardingFailoverEnabled,
 			MyShardID:               h.myShardID,
 			WorkflowID:              workflowID,
 			WorkflowOwner:           owner,
 			ShardResolver:           h.shardResolver,
 			ShardOrchestratorClient: h.shardOrchestratorClient,
 			ShardRoutingSteady:      h.shardRoutingSteady,
+			FailoverGate:            h.engineLimiters.ShardingFailoverEnabled,
 			Dispatcher:              h.dispatcher,
 			ShardDonLookup:          h.shardDonLookup,
 			DonSubscriber:           h.workflowDonSubscriber,
@@ -1306,7 +1299,6 @@ func (h *eventHandler) newV2EngineConfig(
 
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
-		ShardingFailoverEnabled: h.shardingFailoverEnabled,
 		MyShardID:               h.myShardID,
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,

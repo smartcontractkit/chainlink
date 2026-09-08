@@ -9,6 +9,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
@@ -55,16 +56,16 @@ type cachedEvent struct {
 }
 
 type ShardFailoverManagerConfig struct {
-	ShardingEnabled         bool
-	ShardingFailoverEnabled bool
-	MyShardID               uint32
-	WorkflowID              string
-	WorkflowOwner           string
+	ShardingEnabled bool
+	MyShardID       uint32
+	WorkflowID      string
+	WorkflowOwner   string
 
 	ShardResolver           shardownership.ShardResolver
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardRoutingSteady      *shardownership.SteadySignal
 
+	FailoverGate   limits.GateLimiter
 	Dispatcher     remotetypes.Dispatcher
 	ShardDonLookup func(ctx context.Context, shardID uint32) *commoncap.DON
 	DonSubscriber  capabilities.DonSubscriber
@@ -105,7 +106,7 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 		return fmt.Errorf("engine not set, call SetEngine before Start")
 	}
 
-	if m.cfg.ShardingFailoverEnabled && m.cfg.Dispatcher != nil {
+	if m.cfg.Dispatcher != nil {
 		if err := m.wireFailover(ctx); err != nil {
 			return fmt.Errorf("failed to wire failover: %w", err)
 		}
@@ -146,7 +147,7 @@ func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event v2.Rout
 	case shardownership.Allow:
 		return nil
 	case shardownership.DenyNotOwner:
-		if m.cfg.ShardingFailoverEnabled {
+		if m.cfg.FailoverGate != nil && m.cfg.FailoverGate.AllowErr(ctx) == nil {
 			m.cacheEvent(event)
 			return v2.ErrAdmissionCache
 		}

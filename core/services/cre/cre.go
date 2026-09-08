@@ -886,7 +886,6 @@ func newWorkflowRegistrySyncerV2(
 	}
 
 	shardingEnabled := cfg.Sharding().ShardingEnabled()
-	shardingFailoverEnabled := cfg.Sharding().ShardingFailoverEnabled()
 	shardIndex := uint32(cfg.Sharding().ShardIndex())
 
 	var shardRoutingSteady *shardownership.SteadySignal
@@ -923,11 +922,10 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
 		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
-		syncerV2.WithHandlerShardFailoverEnabled(shardingFailoverEnabled),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 		syncerV2.WithShardResolver(shardResolver),
 	}
-	if shardingFailoverEnabled && dispatcher != nil {
+	if shardingEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,
 			syncerV2.WithDispatcher(dispatcher),
 			syncerV2.WithShardDonLookup(newShardDonLookup(opts.CapabilitiesRegistry)),
@@ -1058,7 +1056,7 @@ func newWorkflowRegistrySyncerV2(
 		registryOpts = append(registryOpts,
 			syncerV2.WithShardEnabled(true),
 			syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
-			syncerV2.WithShardFailoverEnabled(shardingFailoverEnabled),
+			syncerV2.WithShardFailoverEnabled(engineLimiters.ShardingFailoverEnabled),
 		)
 		if shardRoutingSteady != nil {
 			registryOpts = append(registryOpts, syncerV2.WithRegistryShardRoutingObserver(shardRoutingSteady))
