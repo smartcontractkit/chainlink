@@ -745,6 +745,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		safeDefaultBootstrappers(cfg),
 		safeExternalRegistryAddress(cfg),
 		safeExternalRegistryChainID(cfg),
+		cfg.Capabilities(),
 	)
 	delegates[job.StandardCapabilities] = stdcapDelegate
 	if creServices.SetDelegatesDeps != nil {

@@ -723,6 +723,63 @@ RegistryBasedLaunchAllowlist = [] # Default
 # proxyMode = 'gateway' # Example
 # allowedPorts = '443,8443' # Example
 
+[Capabilities.HTTPTrigger]
+# MetadataBatchSize is the number of metadata items to send in a single batch to the gateway.
+# Node TOML is the authoritative source for these values; they are injected into the
+# http-trigger capability's service config at runtime, overriding any job-spec values.
+MetadataBatchSize = 50 # Default
+# SendChannelBufferSize is the size of the channel used to trigger workflows.
+SendChannelBufferSize = 1000 # Default
+# MaxAuthorizedKeysPerWorkflow is the maximum number of authorized keys per workflow.
+# This impacts the size of the auth metadata sent to the gateway.
+MaxAuthorizedKeysPerWorkflow = 100 # Default
+# RequestCacheTTL is the time-to-live for cached request responses in seconds.
+# Used for idempotency - cached responses are returned for duplicate requests within this window.
+RequestCacheTTL = 86400 # Default
+
+[Capabilities.HTTPTrigger.GatewayConnection]
+# MaxPushMetadataDurationMs is the maximum duration in milliseconds for broadcasting metadata to the gateway.
+MaxPushMetadataDurationMs = 30000 # Default
+# MaxPullMetadataDurationMs is the maximum duration in milliseconds for responding to pull metadata from the gateway.
+MaxPullMetadataDurationMs = 30000 # Default
+
+[Capabilities.HTTPTrigger.GatewayConnection.RetryConfig]
+# InitialIntervalMs is the initial retry interval in milliseconds.
+InitialIntervalMs = 100 # Default
+# MaxIntervalTimeMs is the maximum retry interval in milliseconds.
+MaxIntervalTimeMs = 30000 # Default
+# Multiplier is the backoff multiplier applied between retries.
+Multiplier = 2.0 # Default
+
+[Capabilities.HTTPAction]
+# ProxyMode is the outbound proxy mode: 'gateway' or 'direct'.
+ProxyMode = 'gateway' # Default
+
+[Capabilities.HTTPAction.GatewayConnection]
+# InitialIntervalMs is the initial interval in milliseconds for the exponential backoff retry strategy.
+InitialIntervalMs = 100 # Default
+# MaxElapsedTimeMs is the maximum elapsed time in milliseconds for the exponential backoff retry strategy.
+MaxElapsedTimeMs = 30000 # Default
+# Multiplier is the multiplier for the exponential backoff retry strategy.
+Multiplier = 2.0 # Default
+
+[Capabilities.HTTPAction.HTTPClient]
+# HTTP client settings for "direct" mode (when no Gateway is used). These network
+# restrictions are potentially sensitive and are never emitted into job specs;
+# they are only read from node TOML.
+# BlockedIPs is a list of IP addresses that are not allowed to be accessed.
+BlockedIPs = [] # Default
+# BlockedIPsCIDR is a list of CIDR blocks that are not allowed to be accessed.
+BlockedIPsCIDR = [] # Default
+# AllowedPorts is a list of ports that are allowed for outgoing HTTP requests.
+AllowedPorts = [443] # Default
+# AllowedSchemes is a list of URL schemes (e.g., 'http', 'https') that are allowed.
+AllowedSchemes = ['https'] # Default
+# AllowedIPs is a list of IP addresses that are explicitly allowed to be accessed.
+AllowedIPs = [] # Default
+# AllowedIPsCIDR is a list of CIDR blocks that are explicitly allowed to be accessed.
+AllowedIPsCIDR = [] # Default
+
 # The Chainlink node is equipped with an internal "nurse" service that can perform automatic `pprof` profiling when the certain resource thresholds are exceeded, such as memory and goroutine count. These profiles are saved to disk to facilitate fine-grained debugging of performance-related issues. In general, if you notice that your node has begun to accumulate profiles, forward them to the Chainlink team.
 #
 # To learn more about these profiles, read the [Profiling Go programs with pprof](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/) guide.

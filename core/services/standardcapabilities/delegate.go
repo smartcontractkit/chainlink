@@ -71,6 +71,9 @@ type Delegate struct {
 	defaultBootstrappers    []ocrcommontypes.BootstrapperLocator
 	capRegistryAddress      string
 	capRegistryChainID      string
+	// capabilitiesCfg provides node TOML values injected into capability
+	// configs at runtime (e.g. [Capabilities.HTTPTrigger]).
+	capabilitiesCfg coreconfig.Capabilities
 
 	isNewlyCreatedJob bool
 }
@@ -103,6 +106,7 @@ func NewDelegate(
 	defaultBootstrappers []ocrcommontypes.BootstrapperLocator,
 	capRegistryAddress string,
 	capRegistryChainID string,
+	capabilitiesCfg coreconfig.Capabilities,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	return &Delegate{
@@ -127,6 +131,7 @@ func NewDelegate(
 		defaultBootstrappers:    defaultBootstrappers,
 		capRegistryAddress:      capRegistryAddress,
 		capRegistryChainID:      capRegistryChainID,
+		capabilitiesCfg:         capabilitiesCfg,
 		selectorOpts:            opts,
 	}
 }
@@ -235,6 +240,20 @@ func (d *Delegate) NewServices(
 	if d.ocrConfigService != nil && capabilityID == "" {
 		log.Warnw("No capability ID mapping for command, using legacy config only",
 			"command", command)
+	}
+
+	// Inject node TOML configuration for the HTTP capabilities into the config
+	// JSON. Node TOML is the authoritative source: TOML values override job-spec
+	// values; unset values fall back to the job spec or the capability binary's
+	// built-in defaults. This keeps job specs minimal while remaining backward
+	// compatible with specs that still carry these fields.
+	if d.capabilitiesCfg != nil {
+		switch command {
+		case "http_trigger":
+			configJSON = injectHTTPTriggerConfig(log, d.capabilitiesCfg.HTTPTrigger(), configJSON)
+		case "http_action":
+			configJSON = injectHTTPActionConfig(log, d.capabilitiesCfg.HTTPAction(), configJSON)
+		}
 	}
 
 	// Resolve the on-chain OCR config for this capability so we can align this node's

@@ -89,6 +89,99 @@ type Capabilities interface {
 	WorkflowRegistry() CapabilitiesWorkflowRegistry
 	GatewayConnector() GatewayConnector
 	Local() LocalCapabilities
+	HTTPTrigger() HTTPTriggerCapability
+	HTTPAction() HTTPActionCapability
+}
+
+// HTTPTriggerCapability provides node TOML configuration for the http-trigger
+// capability (http-trigger@1.0.0-alpha). Values set here are injected into the
+// capability's service config at runtime; node TOML is the authoritative source.
+type HTTPTriggerCapability interface {
+	// MetadataBatchSize is the number of metadata items sent in a single batch to the gateway.
+	// Returns 0 when unset (the capability applies its default of 50).
+	MetadataBatchSize() uint16
+	// SendChannelBufferSize is the size of the channel used to trigger workflows.
+	// Returns 0 when unset (the capability applies its default of 1000).
+	SendChannelBufferSize() uint16
+	// MaxAuthorizedKeysPerWorkflow limits keys registered per workflow.
+	// Returns 0 when unset (the capability applies its default of 100).
+	MaxAuthorizedKeysPerWorkflow() uint16
+	// RequestCacheTTL is the time-to-live for cached request responses in seconds.
+	// Returns 0 when unset (the capability applies its default of 86400).
+	RequestCacheTTL() uint32
+	// GatewayConnection holds capability-specific gateway connection tuning.
+	GatewayConnection() HTTPTriggerGatewayConnection
+}
+
+// HTTPTriggerGatewayConnection holds gateway connection tuning for the http-trigger capability.
+type HTTPTriggerGatewayConnection interface {
+	// RetryConfig configures the exponential backoff retry strategy.
+	RetryConfig() HTTPTriggerRetryConfig
+	// MaxPushMetadataDurationMs is the max duration in ms for broadcasting metadata to the gateway.
+	// Returns 0 when unset (the capability applies its default of 30000).
+	MaxPushMetadataDurationMs() uint32
+	// MaxPullMetadataDurationMs is the max duration in ms for responding to pull metadata from the gateway.
+	// Returns 0 when unset (the capability applies its default of 30000).
+	MaxPullMetadataDurationMs() uint32
+}
+
+// HTTPTriggerRetryConfig configures the exponential backoff retry strategy.
+type HTTPTriggerRetryConfig interface {
+	// InitialIntervalMs is the initial retry interval in milliseconds.
+	// Returns 0 when unset (the capability applies its default of 100).
+	InitialIntervalMs() int
+	// MaxIntervalTimeMs is the maximum retry interval in milliseconds.
+	// Returns 0 when unset (the capability applies its default of 30000).
+	MaxIntervalTimeMs() int
+	// Multiplier is the backoff multiplier applied between retries.
+	// Returns 0 when unset (the capability applies its default of 2.0).
+	Multiplier() float64
+}
+
+// HTTPActionCapability provides node TOML configuration for the http-action
+// capability (http-actions@1.0.0-alpha). Values set here are injected into the
+// capability's service config at runtime; node TOML is the authoritative source.
+type HTTPActionCapability interface {
+	// ProxyMode is the outbound proxy mode: "gateway" or "direct".
+	// Returns "" when unset (the capability applies its default of "gateway").
+	ProxyMode() string
+	// GatewayConnection holds capability-specific gateway connection tuning.
+	GatewayConnection() HTTPActionGatewayConnection
+	// HTTPClient configures the HTTP client used in "direct" mode (no Gateway).
+	// These network restrictions are potentially sensitive and are never emitted
+	// into job specs; they are only read from node TOML.
+	HTTPClient() HTTPActionHTTPClient
+}
+
+// HTTPActionGatewayConnection holds gateway connection tuning for the http-action capability.
+type HTTPActionGatewayConnection interface {
+	// InitialIntervalMs is the initial interval in milliseconds for the exponential backoff retry strategy.
+	// Returns 0 when unset (the capability applies its default of 100).
+	InitialIntervalMs() uint32
+	// MaxElapsedTimeMs is the maximum elapsed time in milliseconds for the exponential backoff retry strategy.
+	// Returns 0 when unset (the capability applies its default of 30000).
+	MaxElapsedTimeMs() uint32
+	// Multiplier is the multiplier for the exponential backoff retry strategy.
+	// Returns 0 when unset (the capability applies its default of 2.0).
+	Multiplier() float64
+}
+
+// HTTPActionHTTPClient configures the HTTP client used in "direct" mode.
+type HTTPActionHTTPClient interface {
+	// BlockedIPs is a list of IP addresses that are not allowed to be accessed.
+	BlockedIPs() []string
+	// BlockedIPsCIDR is a list of CIDR blocks that are not allowed to be accessed.
+	BlockedIPsCIDR() []string
+	// AllowedPorts is a list of ports that are allowed for outgoing HTTP requests.
+	// Returns nil when unset (the capability applies its default of [443]).
+	AllowedPorts() []int
+	// AllowedSchemes is a list of URL schemes (e.g., "http", "https") that are allowed.
+	// Returns nil when unset (the capability applies its default of ["https"]).
+	AllowedSchemes() []string
+	// AllowedIPs is a list of IP addresses that are explicitly allowed to be accessed.
+	AllowedIPs() []string
+	// AllowedIPsCIDR is a list of CIDR blocks that are explicitly allowed to be accessed.
+	AllowedIPsCIDR() []string
 }
 
 // LocalCapabilities provides configuration for registry-based capability launching.

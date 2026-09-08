@@ -41,8 +41,9 @@
   binary_name = "solana"
 
 [capability_configs.http-action.values]
-  # HTTP Action capability configuration
-  ProxyMode = "gateway"
+  # HTTP Action capability configuration.
+  # ProxyMode and gateway/httpClient settings are resolved at runtime from node TOML
+  # ([Capabilities.HTTPAction]); only the per-workflow rate limiters remain here.
   IncomingGlobalBurst = 10
   IncomingGlobalRPS = 50
   IncomingPerSenderBurst = 10
