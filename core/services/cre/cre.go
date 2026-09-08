@@ -599,8 +599,8 @@ func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *capabiliti
 	return &capabilities.TestMetadataRegistry{}
 }
 
-func newShardDonLookup(capRegistry *capabilities.Registry) func(ctx context.Context, shardID uint32) *commoncap.DON {
-	return func(ctx context.Context, shardID uint32) *commoncap.DON {
+func newShardDonLookup(capRegistry *capabilities.Registry) func(ctx context.Context, donID uint32) *commoncap.DON {
+	return func(ctx context.Context, donID uint32) *commoncap.DON {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		don, err := capRegistry.DONByID(ctx, donID)

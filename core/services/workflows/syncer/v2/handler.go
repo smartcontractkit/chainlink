@@ -130,7 +130,7 @@ type eventHandler struct {
 	shardRoutingSteady      *shardownership.SteadySignal
 	shardResolver           shardownership.ShardResolver
 	shardDispatcher         remotetypes.Dispatcher
-	shardDonLookup          func(ctx context.Context, shardID uint32) *commoncap.DON
+	shardDonLookup          func(ctx context.Context, donID uint32) *commoncap.DON
 
 	shardStatusSender   *sharding.ExecutionStatusUpdateSender
 	shardStatusReceiver *sharding.ExecutionStatusUpdateReceiver
@@ -215,7 +215,7 @@ func WithShardDispatcher(dispatcher remotetypes.Dispatcher) func(*eventHandler) 
 	}
 }
 
-func WithShardDonLookup(lookup func(ctx context.Context, shardID uint32) *commoncap.DON) func(*eventHandler) {
+func WithShardDonLookup(lookup func(ctx context.Context, donID uint32) *commoncap.DON) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardDonLookup = lookup
 	}
