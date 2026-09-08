@@ -25,10 +25,12 @@ func validateTokenSymbol(tokenSymbol, mint string) error {
 	return nil
 }
 
-// recordOnboardedTokenMint adds the mint to this changeset's address-book and datastore outputs.
-// The symbol is the datastore key; the labels retain the metadata needed to describe the pool.
-// If the mint is already in the environment, its existing address-book metadata is reused so
-// the returned address-book row is an idempotent merge rather than a conflicting rewrite.
+// recordOnboardedTokenMint adds the mint to the datastore output and, when it is new to the
+// environment, to the legacy AddressBook output. The symbol is the datastore key; the labels
+// retain the metadata needed to describe the pool. A known mint is omitted from the returned
+// AddressBook because ApplyChangesets merges that output with the environment's existing
+// AddressBook, whose duplicate-address check rejects re-emitting an existing row. The datastore
+// write is still returned so reruns and older onboardings can backfill the token ref.
 func recordOnboardedTokenMint(
 	chainSelector uint64,
 	ab cldf.AddressBook,
@@ -45,14 +47,13 @@ func recordOnboardedTokenMint(
 	tv.AddLabel(cfg.Metadata)
 	tv.AddLabel(cfg.PoolType.String())
 	tv.AddLabel(poolProgramID)
+	addressBook := ab
 	for knownAddr := range envAddresses {
 		if shared.AddressesEqual(chainSelector, knownAddr, cfg.TokenMint.String()) {
-			// Reuse address book metadata for the emitted row.
-			// The datastore still gets the current symbol as its key.
-			tv = envAddresses[knownAddr]
+			addressBook = nil
 			break
 		}
 	}
 
-	return shared.RecordAddress(ab, ds, chainSelector, cfg.TokenMint.String(), tv, cfg.TokenSymbol)
+	return shared.RecordAddress(addressBook, ds, chainSelector, cfg.TokenMint.String(), tv, cfg.TokenSymbol)
 }

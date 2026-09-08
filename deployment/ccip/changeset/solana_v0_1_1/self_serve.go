@@ -179,7 +179,7 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	out.AddressBook = newAddresses
+	out.AddressBook = newAddresses //nolint:staticcheck // AddressBook remains required for backward compatibility during the migration.
 	out.DataStore = ds
 	return out, nil
 }

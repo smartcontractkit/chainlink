@@ -43,7 +43,7 @@ func TestRecordTokenMultisig(t *testing.T) {
 
 	require.NoError(t, recordTokenMultisig(ab, ds, chainSelector, multisig, "customer", mint, "TEST_TOKEN"))
 
-	addresses, err := ab.Addresses() //nolint:staticcheck
+	addresses, err := ab.Addresses()
 	require.NoError(t, err)
 	legacyTV := addresses[chainSelector][multisig]
 	require.Equal(t, cldf.ContractType("TokenMultisig"), legacyTV.Type)
@@ -98,18 +98,22 @@ func TestRecordOnboardedTokenMint(t *testing.T) {
 		require.Equal(t, lnr.TokenMint.String(), refs["LnR"].Address)
 		require.Equal(t, bnm.TokenMint.String(), refs["BnM"].Address)
 
-		addresses, err := ab.Addresses() //nolint:staticcheck
+		addresses, err := ab.Addresses()
 		require.NoError(t, err)
 		require.Len(t, addresses[solanaTestnet], 2)
 	})
 
-	t.Run("a known mint reuses its address-book metadata", func(t *testing.T) {
+	t.Run("a known mint is not re-emitted to the address book", func(t *testing.T) {
 		t.Parallel()
 		ab := cldf.NewMemoryAddressBook()
 		ds := datastore.NewMemoryDataStore()
 		cfg := newConfig(randomMint(t), "LnR")
+		envAB := cldf.NewMemoryAddressBook()
+		envTV := cldf.NewTypeAndVersion(shared.SPLTokens, deployment.Version1_0_0)
+		envTV.AddLabel("LnR")
+		require.NoError(t, envAB.Save(solanaTestnet, cfg.TokenMint.String(), envTV))
 		envAddresses := map[string]cldf.TypeAndVersion{
-			cfg.TokenMint.String(): cldf.NewTypeAndVersion(shared.SPLTokens, deployment.Version1_0_0),
+			cfg.TokenMint.String(): envTV,
 		}
 
 		require.NoError(t, recordOnboardedTokenMint(solanaTestnet, ab, ds, envAddresses, cfg, "PoolProgram"))
@@ -118,10 +122,15 @@ func TestRecordOnboardedTokenMint(t *testing.T) {
 		require.Len(t, refs, 1, "the datastore ref is still backfilled")
 		require.Equal(t, "LnR", refs["LnR"].Qualifier)
 
-		addresses, err := ab.Addresses() //nolint:staticcheck
+		addresses, err := ab.Addresses()
 		require.NoError(t, err)
-		require.Len(t, addresses[solanaTestnet], 1)
-		require.Equal(t, envAddresses[cfg.TokenMint.String()], addresses[solanaTestnet][cfg.TokenMint.String()])
+		require.Empty(t, addresses)
+
+		// This is the merge performed by ApplyChangesets. It succeeds because the known
+		// mint was not emitted into the output AddressBook a second time.
+		require.NoError(t, ab.Merge(envAB))
+		require.Equal(t, datastore.ContractType(shared.SPLTokens), refs["LnR"].Type)
+		require.Equal(t, deployment.Version1_0_0, *refs["LnR"].Version)
 	})
 
 	t.Run("re-recording is idempotent", func(t *testing.T) {
