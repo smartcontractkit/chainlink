@@ -1138,10 +1138,14 @@ func blockingCapExecHandler(t *testing.T, capacity int) (*Handler, *mockGatewayC
 func blockingCapExecRequest(t *testing.T, id string) *jsonrpc.Request[json.RawMessage] {
 	t.Helper()
 	req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-		WorkflowID:    "wf-1",
-		Owner:         testOwner,
-		ExecutionID:   capExecExecutionID,
-		ReferenceID:   "1",
+		WorkflowID:  "wf-1",
+		Owner:       testOwner,
+		ExecutionID: capExecExecutionID,
+		// ReferenceID varies with the request id so the burst is 8 distinct
+		// logical identities: the pending-claim dedup intentionally collapses
+		// same-identity requests, and this test guards dispatch concurrency, not
+		// dedup behavior.
+		ReferenceID:   id,
 		CapabilityID:  "my-cap@1.0.0",
 		Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
 		EnclaveConfig: testEnclaveConfigPtr(),
@@ -1251,4 +1255,179 @@ type countingExecutionHelper struct {
 func (c *countingExecutionHelper) CallCapability(_ context.Context, _ *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
 	c.calls.Add(1)
 	return c.capResp, nil
+}
+
+// TestHandler_RetryWhileInFlightWaits verifies that a retry arriving while
+// the original execution is still in flight waits for the claimant to complete
+// and then responds with its signed result, rather than re-executing.
+// Re-executing would hit the remote request server's duplicate-requester check
+// and return a well-formed error the enclave's retry loop treats as terminal.
+func TestHandler_RetryWhileInFlightWaits(t *testing.T) {
+	t.Parallel()
+	reg := withEnclaveConfig(&mockCapRegistry{})
+	gwConn := &mockGatewayConnector{}
+	h := newTestHandler(t, reg, gwConn)
+	helper := newBlockingExecutionHelper(2)
+	h.executionHandlers.AddExecution("wf-1", capExecExecutionID, helper)
+
+	mkReq := func(id string) *jsonrpc.Request[json.RawMessage] {
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   capExecExecutionID,
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+		req.ID = id
+		return req
+	}
+
+	// First request: enters CallCapability and blocks on release, so its
+	// pending claim is held while we dispatch the duplicate.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-1")))
+	select {
+	case <-helper.entered:
+	case <-time.After(testWaitTimeout):
+		t.Fatal("first request never entered CallCapability")
+	}
+	require.Zero(t, gwConn.respCount(), "leader is in flight, no response yet")
+
+	// Duplicate with the same logical identity while the first is in flight:
+	// waits on the claim (no second execution, no response until the leader
+	// completes). The gate receive above drained the leader's entry, so "no new
+	// entry" is len == 0.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-2")))
+	require.Eventually(t, func() bool { return len(helper.entered) == 0 },
+		testWaitTimeout, time.Millisecond, "duplicate must not enter CallCapability")
+	require.Zero(t, gwConn.respCount(), "duplicate waits, no send before the leader completes")
+
+	// Release the original: both requests respond — the leader's own, and the
+	// waiter's re-wrapped copy of the same signed result.
+	close(helper.release)
+	require.Eventually(t, func() bool { return gwConn.respCount() == 2 },
+		testWaitTimeout, time.Millisecond, "leader and waiter both respond")
+
+	gwConn.mu.Lock()
+	resps := append([]*jsonrpc.Response[json.RawMessage](nil), gwConn.resps...)
+	gwConn.resps = nil
+	gwConn.mu.Unlock()
+	payloads := make([]string, 0, len(resps))
+	for _, r := range resps {
+		require.Nil(t, r.Error)
+		var signed confidentialrelaytypes.SignedCapabilityResponseResult
+		require.NoError(t, json.Unmarshal(*r.Result, &signed))
+		payloads = append(payloads, signed.Result.Payload)
+	}
+	require.Len(t, payloads, 2)
+	require.Equal(t, payloads[0], payloads[1], "waiter responds with the claimant's signed result")
+
+	// A retry after completion is served from the memo, not re-executed.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-3")))
+	resp := gwConn.waitResp(t)
+	require.Nil(t, resp.Error)
+	require.Empty(t, helper.entered, "post-completion retry is served from the memo, no re-execution")
+}
+
+// TestHandler_WaiterRelaysOwnerError verifies a waiter reports the owner's
+// actual failure rather than a vague "no result" of its own: the two share one
+// execution, so they share its outcome. The owner here fails with a user-facing
+// code so the assertion sees a real message (errorResponse masks internal
+// errors on the wire by design).
+func TestHandler_WaiterRelaysOwnerError(t *testing.T) {
+	t.Parallel()
+	reg := withEnclaveConfig(&mockCapRegistry{})
+	gwConn := &mockGatewayConnector{}
+	h := newTestHandler(t, reg, gwConn)
+	helper := newBlockingExecutionHelper(2)
+	h.executionHandlers.AddExecution("wf-1", capExecExecutionID, helper)
+
+	// An undecodable payload makes the owner fail with ErrInvalidParams after
+	// it has taken the pending entry, so the waiter has something real to relay.
+	mkReq := func(id string) *jsonrpc.Request[json.RawMessage] {
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   capExecExecutionID,
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       "!!!not-base64!!!",
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+		req.ID = id
+		return req
+	}
+
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-1")))
+	resp1 := gwConn.waitResp(t)
+	require.NotNil(t, resp1.Error)
+	require.Equal(t, jsonrpc.ErrInvalidParams, resp1.Error.Code)
+
+	// A second request now hits the memo-miss path and executes itself (the
+	// failed owner released the entry), and must also surface a real error.
+	gwConn.mu.Lock()
+	gwConn.resps = nil
+	gwConn.mu.Unlock()
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-2")))
+	resp2 := gwConn.waitResp(t)
+	require.NotNil(t, resp2.Error)
+	require.Equal(t, resp1.Error.Code, resp2.Error.Code, "retry sees the same real error code, not a vague one")
+	require.Equal(t, resp1.Error.Message, resp2.Error.Message)
+}
+
+// TestHandler_RetryAfterExecutionLookupTimeout is the regression guard for a
+// pending entry outliving a failed owner. The first request registers the
+// pending entry and then fails its execution-handler lookup (the start-edge
+// race: this node has not begun its copy of the execution yet). If that entry
+// were left behind, every retry for the identity would wait on a request
+// nobody completes — for the whole cache TTL, far longer than the enclave's
+// retry window — so the call would fail permanently instead of recovering.
+// The retry must execute against the now-registered handler.
+func TestHandler_RetryAfterExecutionLookupTimeout(t *testing.T) {
+	t.Parallel()
+	reg := withEnclaveConfig(&mockCapRegistry{})
+	gwConn := &mockGatewayConnector{}
+	h := newTestHandler(t, reg, gwConn)
+
+	mkReq := func(id string) *jsonrpc.Request[json.RawMessage] {
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   capExecExecutionID,
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+		req.ID = id
+		return req
+	}
+
+	// No execution registered yet: the owner's lookup times out and it must
+	// leave no pending entry behind.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-1")))
+	resp1 := gwConn.waitResp(t)
+	require.NotNil(t, resp1.Error, "owner fails when no execution handler registers")
+
+	// The execution registers a moment later, as in the real start-edge race.
+	helper := &countingExecutionHelper{
+		capResp: &sdkpb.CapabilityResponse{
+			Response: &sdkpb.CapabilityResponse_Payload{Payload: &anypb.Any{Value: []byte("result-proto-bytes")}},
+		},
+	}
+	h.executionHandlers.AddExecution("wf-1", capExecExecutionID, helper)
+
+	// The retry must execute and succeed, not wait on the failed owner's entry.
+	gwConn.mu.Lock()
+	gwConn.resps = nil
+	gwConn.mu.Unlock()
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-2")))
+	resp2 := gwConn.waitResp(t)
+	require.Nil(t, resp2.Error, "retry recovers once the execution handler is registered")
+	require.NotNil(t, resp2.Result)
+	require.Equal(t, int32(1), helper.calls.Load(), "retry executed the capability")
 }
