@@ -128,7 +128,8 @@ func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 		}
 	}
 	require.NotNil(t, shardOne, "Expected to find a second shard DON")
-	shardOneDonID := uint32(shardOne.ID) //nolint:gosec // G115: overflow is unrealistic
+	shardZeroDonID := uint32(shardZero.ID) //nolint:gosec // G115: overflow is unrealistic
+	shardOneDonID := uint32(shardOne.ID)   //nolint:gosec // G115: overflow is unrealistic
 
 	topology, tErr := cre.NewTopology(testEnv.Config.NodeSets, *testEnv.Config.Infra, testEnv.Config.CapabilityConfigs)
 	require.NoError(t, tErr, "Failed to recreate topology")
@@ -168,7 +169,7 @@ hashed_default_assignment = true
 
 [per_org_assignment]
   org_test_override = [%d]
-`, uint32(shardZero.ID), shardOneDonID)
+`, shardZeroDonID, shardOneDonID)
 
 	for _, don := range shardDONs {
 		proposeAndApproveShardAssignmentJob(t, testEnv, don, shardAssignmentTOML, testLogger)
