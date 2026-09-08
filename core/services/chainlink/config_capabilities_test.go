@@ -108,6 +108,8 @@ func TestCapabilitiesLocalConfigEmpty(t *testing.T) {
 }
 
 func TestHTTPCapabilitiesConfig(t *testing.T) {
+	t.Parallel()
+
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}
@@ -147,6 +149,8 @@ func TestHTTPCapabilitiesConfig(t *testing.T) {
 }
 
 func TestHTTPCapabilitiesConfig_DefaultsWhenOmitted(t *testing.T) {
+	t.Parallel()
+
 	// Empty config: the TOML layer applies the documented defaults, matching
 	// the capability binaries' built-in defaults exactly. These are the same
 	// values the capabilities previously fell back to when job specs omitted
@@ -183,6 +187,8 @@ func TestHTTPCapabilitiesConfig_DefaultsWhenOmitted(t *testing.T) {
 }
 
 func TestHTTPActionConfig_InvalidProxyMode(t *testing.T) {
+	t.Parallel()
+
 	tomlStr := `
 [Capabilities.HTTPAction]
 ProxyMode = 'invalid-mode'
