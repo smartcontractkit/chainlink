@@ -808,6 +808,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				DefaultBootstrappers:           safeDefaultBootstrappers(cfg),
 				CapRegistryAddress:             safeExternalRegistryAddress(cfg),
 				CapRegistryChainID:             safeExternalRegistryChainID(cfg),
+				LocalCfg:                       cfg.Capabilities().Local(),
 			},
 			ocr2DelegateConfig,
 		)

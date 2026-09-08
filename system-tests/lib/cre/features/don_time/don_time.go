@@ -3,6 +3,7 @@ package dontime
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 
 	"dario.cat/mergo"
@@ -68,6 +69,15 @@ func (o *DONTime) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
+	// When dontime is in the DON's RegistryBasedLaunchAllowlist, the node's
+	// LocalCapabilityManager launches it from the on-chain registry and no
+	// job spec is needed (proposing one would be rejected by the delegate).
+	// Allowlist entries are regex patterns matched against the capability ID.
+	if isAllowlistedForRegistryLaunch(don.RegistryBasedLaunchAllowlist, donTimeLabelledName+"@1.0.0") {
+		testLogger.Info().Msg("dontime is allowlisted for registry-based launch; skipping job spec proposal")
+		return nil
+	}
+
 	jobErr := createJobs(
 		ctx,
 		creEnv,
@@ -153,4 +163,21 @@ func createJobs(
 	}
 
 	return nil
+}
+
+// isAllowlistedForRegistryLaunch reports whether the capability ID matches any
+// of the DON's RegistryBasedLaunchAllowlist regex patterns, mirroring how the
+// node's LocalCapabilityManager decides to launch a capability from the
+// on-chain registry instead of a job spec.
+func isAllowlistedForRegistryLaunch(patterns []string, capabilityID string) bool {
+	for _, pattern := range patterns {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			continue // invalid pattern; the node would skip it too
+		}
+		if re.MatchString(capabilityID) {
+			return true
+		}
+	}
+	return false
 }

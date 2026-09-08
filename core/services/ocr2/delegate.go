@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -82,10 +84,13 @@ import (
 )
 
 const (
-	vaultCapabilityID            = "vault@1.0.0"
-	vaultOCRConfigKey            = "vault"
-	dkgOCRConfigKey              = "dkg"
-	dontimeCapabilityID          = "dontime@1.0.0"
+	vaultCapabilityID   = "vault@1.0.0"
+	vaultOCRConfigKey   = "vault"
+	dkgOCRConfigKey     = "dkg"
+	dontimeCapabilityID = "dontime@1.0.0"
+	// dontimeCapabilityPrefix matches any dontime version (e.g. "dontime@2.0.0"),
+	// so the registry-driven launch guard keeps working if the version changes.
+	dontimeCapabilityPrefix      = "dontime"
 	gaugeVaultDiskUsageBytes     = "platform_vault_disk_usage_bytes"
 	vaultDiskMonitorTickInterval = time.Minute
 )
@@ -151,6 +156,10 @@ type Delegate struct {
 	defaultBootstrappers []commontypes.BootstrapperLocator
 	capRegistryAddress   string
 	capRegistryChainID   string
+	// localCfg gates registry-driven launch: capabilities in its
+	// RegistryBasedLaunchAllowlist are started by LocalCapabilityManager,
+	// and ServicesForSpec rejects job specs for them to avoid double launch.
+	localCfg coreconfig.LocalCapabilities
 }
 
 type DelegateConfig interface {
@@ -286,6 +295,7 @@ type DelegateOpts struct {
 	DefaultBootstrappers []commontypes.BootstrapperLocator
 	CapRegistryAddress   string
 	CapRegistryChainID   string
+	LocalCfg             coreconfig.LocalCapabilities
 }
 
 func NewDelegate(
@@ -324,6 +334,7 @@ func NewDelegate(
 		defaultBootstrappers:           opts.DefaultBootstrappers,
 		capRegistryAddress:             opts.CapRegistryAddress,
 		capRegistryChainID:             opts.CapRegistryChainID,
+		localCfg:                       opts.LocalCfg,
 	}
 }
 
@@ -406,6 +417,26 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.OCR2OracleSpec to be present, got %v", jb)
+	}
+
+	// Reject job specs for capabilities that are launched from the on-chain
+	// registry, so a capability is never started by both paths at once.
+	// Match on the "dontime" prefix rather than a pinned version so future
+	// dontime versions are covered too.
+	if d.localCfg != nil && spec.PluginType == types.DonTimePlugin {
+		for _, pattern := range d.localCfg.RegistryBasedLaunchAllowlist() {
+			re, reErr := regexp.Compile(pattern)
+			if reErr != nil {
+				continue // invalid pattern; config load already flags it
+			}
+			if re.MatchString(dontimeCapabilityID) || strings.Contains(pattern, dontimeCapabilityPrefix) {
+				return nil, fmt.Errorf(
+					"capability %q is in the RegistryBasedLaunchAllowlist and will be started from the on-chain registry; "+
+						"remove the job spec and let the LocalCapabilityManager handle it via [Capabilities.Local] TOML config",
+					dontimeCapabilityID,
+				)
+			}
+		}
 	}
 
 	transmitterID := spec.TransmitterID.String
