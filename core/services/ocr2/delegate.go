@@ -543,7 +543,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper, d.WorkflowRegistrySyncer, d.limitsFactory)
 
 	case types.DonTimePlugin:
-		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+		// The job-spec path carries no registry capability ID, so fall back to
+		// the pinned constant; the registry-driven path (NewServices) passes the
+		// actual ID from the registry.
+		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, dontimeCapabilityID)
 
 	case types.RingPlugin:
 		return d.newServicesRing(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
@@ -675,7 +678,7 @@ func (d *Delegate) NewServices(
 
 	switch pluginType {
 	case types.DonTimePlugin:
-		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, capabilityID)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported for registry-driven launch", pluginType)
 	}
@@ -1013,6 +1016,7 @@ func (d *Delegate) newDonTimePlugin(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
+	capabilityID string,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
@@ -1086,20 +1090,22 @@ func (d *Delegate) newDonTimePlugin(
 		onchainKeyringAdapter = ocrcommon.NewOCR3OnchainKeyringAdapter(kb)
 	}
 
-	// Get config tracker and digester, optionally wrapping with OCRConfigService
+	// Get config tracker and digester, optionally wrapping with OCRConfigService.
+	// capabilityID is the registry capability ID (e.g. "dontime@1.0.0"); it keys
+	// the OCRConfigService cache, so it must match the ID the registry carries.
 	configTracker := provider.ContractConfigTracker()
 	configDigester := provider.OffchainConfigDigester()
 	if d.ocrConfigService != nil {
-		configTracker, err = d.ocrConfigService.GetConfigTracker(dontimeCapabilityID, capabilitiespb.OCR3ConfigDefaultKey, configTracker)
+		configTracker, err = d.ocrConfigService.GetConfigTracker(capabilityID, capabilitiespb.OCR3ConfigDefaultKey, configTracker)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get config tracker from OCRConfigService: %w", err)
 		}
-		configDigester, err = d.ocrConfigService.GetConfigDigester(dontimeCapabilityID, capabilitiespb.OCR3ConfigDefaultKey, configDigester)
+		configDigester, err = d.ocrConfigService.GetConfigDigester(capabilityID, capabilitiespb.OCR3ConfigDefaultKey, configDigester)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
 		}
 		lc = generic.AdjustLocalConfigForRegistryBasedConfig(lc)
-		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", dontimeCapabilityID)
+		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", capabilityID)
 	}
 
 	oracleArgs := libocr2.OCR3OracleArgs2[[]byte]{
