@@ -306,6 +306,9 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 	if config.ServerMaxParallelRequests == 0 {
 		config.ServerMaxParallelRequests = 10
 	}
+	if messageHasher == nil {
+		messageHasher = executable.NewSimpleHasher(executable.OptInHasherConfig{})
+	}
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := range numCapabilityPeers {
@@ -461,6 +464,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	underlying := &TestCapability{}
 	requestTimeout := 10 * time.Second
 	maxParallelRequests := uint32(5)
+	messageHasher := executable.NewSimpleHasher(executable.OptInHasherConfig{})
 
 	t.Run("valid config should succeed", func(t *testing.T) {
 		t.Parallel()
@@ -471,7 +475,7 @@ func Test_Server_SetConfig(t *testing.T) {
 			ServerMaxParallelRequests: maxParallelRequests,
 		}
 
-		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, messageHasher)
 		require.NoError(t, err)
 	})
 
@@ -484,7 +488,7 @@ func Test_Server_SetConfig(t *testing.T) {
 			CapabilityType: commoncap.CapabilityTypeTarget,
 		}
 
-		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, underlying, invalidCapInfo, localDonInfo, workflowDONs, nil)
+		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, underlying, invalidCapInfo, localDonInfo, workflowDONs, messageHasher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "capability info provided does not match")
 	})
@@ -494,7 +498,7 @@ func Test_Server_SetConfig(t *testing.T) {
 
 		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
 		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, nil, capInfo,
-			localDonInfo, workflowDONs, nil)
+			localDonInfo, workflowDONs, messageHasher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "underlying capability cannot be nil")
 	})
@@ -512,12 +516,12 @@ func Test_Server_SetConfig(t *testing.T) {
 			RequestTimeout:            10 * time.Second,
 			ServerMaxParallelRequests: 5,
 		}
-		err := server.SetConfig(config, underlying, capInfo, emptyLocalDon, workflowDONs, nil)
+		err := server.SetConfig(config, underlying, capInfo, emptyLocalDon, workflowDONs, messageHasher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "empty localDonInfo provided")
 	})
 
-	t.Run("nil message hasher should use default", func(t *testing.T) {
+	t.Run("nil message hasher should fail", func(t *testing.T) {
 		t.Parallel()
 
 		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
@@ -526,7 +530,8 @@ func Test_Server_SetConfig(t *testing.T) {
 			ServerMaxParallelRequests: 5,
 		}
 		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
-		require.NoError(t, err)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "message hasher must be provided")
 	})
 
 	t.Run("zero timeout should fail", func(t *testing.T) {
@@ -537,7 +542,7 @@ func Test_Server_SetConfig(t *testing.T) {
 			RequestTimeout:            0,
 			ServerMaxParallelRequests: 5,
 		}
-		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, messageHasher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "RequestTimeout must be positive")
 	})
@@ -550,7 +555,7 @@ func Test_Server_SetConfig(t *testing.T) {
 			RequestTimeout:            10 * time.Second,
 			ServerMaxParallelRequests: 0,
 		}
-		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, messageHasher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "ServerMaxParallelRequests must be positive")
 	})
@@ -564,7 +569,7 @@ func Test_Server_SetConfig(t *testing.T) {
 			RequestTimeout:            10 * time.Second,
 			ServerMaxParallelRequests: 5,
 		}
-		err := server.SetConfig(config, underlying, capInfo, localDonInfo, emptyWorkflowDONs, nil)
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, emptyWorkflowDONs, messageHasher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "empty workflowDONs provided")
 	})
@@ -606,7 +611,8 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 		RequestTimeout:            5 * time.Second,
 		ServerMaxParallelRequests: 3,
 	}
-	err := server.SetConfig(config1, underlying, capInfo, localDonInfo, workflowDONs, nil)
+	messageHasher := executable.NewSimpleHasher(executable.OptInHasherConfig{})
+	err := server.SetConfig(config1, underlying, capInfo, localDonInfo, workflowDONs, messageHasher)
 	require.NoError(t, err)
 
 	// Verify server can start with valid config
@@ -617,7 +623,7 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 		RequestTimeout:            10 * time.Second,
 		ServerMaxParallelRequests: 5,
 	}
-	err = server.SetConfig(config2, underlying, capInfo, localDonInfo, workflowDONs, nil)
+	err = server.SetConfig(config2, underlying, capInfo, localDonInfo, workflowDONs, messageHasher)
 	require.NoError(t, err)
 }
 
@@ -676,7 +682,7 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 			ServerMaxParallelRequests: 5,
 		}
 		err := server.SetConfig(cfg, underlying, capInfo,
-			localDonInfo, workflowDONs, nil)
+			localDonInfo, workflowDONs, executable.NewSimpleHasher(executable.OptInHasherConfig{}))
 		require.NoError(t, err)
 
 		servicetest.Run(t, server)
@@ -725,7 +731,8 @@ func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 			RequestTimeout:            10 * time.Second,
 			ServerMaxParallelRequests: 5,
 		}
-		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
+		messageHasher := executable.NewSimpleHasher(executable.OptInHasherConfig{})
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, messageHasher)
 		require.NoError(t, err)
 
 		// Set up workflow node before starting servers
@@ -755,7 +762,7 @@ func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 				F:       0,
 			},
 		}
-		err = server.SetConfig(config, underlying, capInfo, localDonInfo, newWorkflowDONs, nil)
+		err = server.SetConfig(config, underlying, capInfo, localDonInfo, newWorkflowDONs, messageHasher)
 		require.NoError(t, err)
 
 		// Original request should still complete
@@ -803,7 +810,8 @@ func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
 		ServerMaxParallelRequests: 5,
 	}
 
-	err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
+	messageHasher := executable.NewSimpleHasher(executable.OptInHasherConfig{})
+	err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, messageHasher)
 	require.NoError(t, err)
 	err = server.Start(ctx)
 	require.NoError(t, err)
@@ -819,7 +827,7 @@ func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
 				RequestTimeout:            time.Duration(5+i) * time.Millisecond,
 				ServerMaxParallelRequests: 5,
 			}
-			_ = server.SetConfig(newConfig, underlying, capInfo, localDonInfo, workflowDONs, nil)
+			_ = server.SetConfig(newConfig, underlying, capInfo, localDonInfo, workflowDONs, messageHasher)
 			time.Sleep(1 * time.Millisecond)
 		}
 	}()
@@ -891,7 +899,8 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 		RequestTimeout:            10 * time.Second,
 		ServerMaxParallelRequests: 10,
 	}
-	err := server.SetConfig(initialConfig, underlying, capInfo, capDonInfo, workflowDONs, nil)
+	messageHasher := executable.NewSimpleHasher(executable.OptInHasherConfig{})
+	err := server.SetConfig(initialConfig, underlying, capInfo, capDonInfo, workflowDONs, messageHasher)
 	require.NoError(t, err)
 
 	servicetest.Run(t, server)
@@ -926,7 +935,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 				RequestTimeout:            time.Duration(10+i) * time.Second,
 				ServerMaxParallelRequests: uint32(5),
 			}
-			assert.NoError(t, server.SetConfig(newConfig, underlying, capInfo, capDonInfo, workflowDONs, nil))
+			assert.NoError(t, server.SetConfig(newConfig, underlying, capInfo, capDonInfo, workflowDONs, messageHasher))
 		}
 	})
 
@@ -1017,7 +1026,7 @@ func Test_Server_DuplicateRequestRemainsDedupedPastRequestTimeout(t *testing.T) 
 		},
 	}
 
-	require.NoError(t, server.SetConfig(cfg, TestCapability{}, capInfo, localDON, workflowDONs, nil))
+	require.NoError(t, server.SetConfig(cfg, TestCapability{}, capInfo, localDON, workflowDONs, executable.NewSimpleHasher(executable.OptInHasherConfig{})))
 	require.NoError(t, server.Start(ctx))
 	defer func() {
 		require.NoError(t, server.Close())
