@@ -88,6 +88,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map sui", func(t *testing.T) {
+		t.Parallel()
 		tokenReceiver := [32]byte{0x0A, 0x0B}
 		receiverObjectIDs := [][32]byte{{0x01}, {0x02}}
 		extraArgs := fee_quoter.SuiExtraArgsV1{
