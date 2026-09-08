@@ -763,10 +763,10 @@ MaxElapsedTimeMs = 30000 # Default
 # Multiplier is the multiplier for the exponential backoff retry strategy.
 Multiplier = 2.0 # Default
 
-[Capabilities.HTTPAction.HTTPClient]
 # HTTP client settings for "direct" mode (when no Gateway is used). These network
 # restrictions are potentially sensitive and are never emitted into job specs;
 # they are only read from node TOML.
+[Capabilities.HTTPAction.HTTPClient]
 # BlockedIPs is a list of IP addresses that are not allowed to be accessed.
 BlockedIPs = [] # Default
 # BlockedIPsCIDR is a list of CIDR blocks that are not allowed to be accessed.
