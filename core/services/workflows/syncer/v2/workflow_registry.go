@@ -124,8 +124,9 @@ type workflowRegistry struct {
 	shardRoutingSteady      shardRoutingSteadyObserver
 	shardResolver           shardownership.ShardResolver
 
-	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
-	myShardID       uint32
+	// myDonID is the DON ID of the shard this syncer belongs to.
+	// Set from don.ID after WaitForDon resolves. Used to filter workflows.
+	myDonID         uint32
 	shardingEnabled bool
 
 	centralizedOwnerVerificationEnabled limits.GateLimiter
@@ -296,13 +297,6 @@ func WithShardEnabled(shardingEnabled bool) Option {
 	}
 }
 
-// WithShardID enables shard filtering and sets the shard ID for this syncer.
-func WithShardID(shardID uint32) Option {
-	return func(wr *workflowRegistry) {
-		wr.myShardID = shardID
-	}
-}
-
 func WithRegistryShardRoutingObserver(signal shardRoutingSteadyObserver) Option {
 	return func(wr *workflowRegistry) {
 		wr.shardRoutingSteady = signal
@@ -439,6 +433,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
 				return
 			}
+			w.myDonID = don.ID
 			w.handler.SetWorkflowDon(don)
 			w.syncUsingReconciliationStrategy(ctx)
 		})
@@ -835,7 +830,7 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
 	for _, wf := range workflows {
 		id := wf.WorkflowID.Hex()
-		if shardID, ok := mappings[id]; ok && shardID == w.myShardID {
+		if shardID, ok := mappings[id]; ok && shardID == w.myDonID {
 			filtered = append(filtered, wf)
 		}
 	}
@@ -928,7 +923,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					w.lggr.Debugw("filtered workflows by shard",
 						"total", len(workflows),
 						"filtered", len(filteredWorkflowsMetadata),
-						"shardID", w.myShardID,
+						"donID", w.myDonID,
 						"source", sourceName,
 					)
 				}
