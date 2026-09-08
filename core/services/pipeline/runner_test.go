@@ -1071,8 +1071,7 @@ succeed;
 		_, trrs, err := r.ExecuteRun(t.Context(), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, 1)
-		op := trrs[0].Result.Value.(pipeline.ObjectParam)
-		assert.Equal(t, "1", op.DecimalValue.Decimal().String())
+		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
 
 		// does not automatically cache
 		require.Nil(t, spec.Pipeline)
@@ -1087,7 +1086,6 @@ succeed;
 		_, trrs, err = r.ExecuteRun(t.Context(), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, 1)
-		op = trrs[0].Result.Value.(pipeline.ObjectParam)
-		assert.Equal(t, "1", op.DecimalValue.Decimal().String())
+		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
 	})
 }
