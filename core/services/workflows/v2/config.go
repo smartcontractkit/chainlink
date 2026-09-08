@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -425,6 +426,16 @@ type LifecycleHooks struct {
 	OnRateLimited           func(executionID string)
 	OnNodeSynced            func(node commoncap.Node, err error)
 
+	// OnTriggerAdmission is called before a trigger event is enqueued for
+	// execution. It allows an external management layer (e.g. the
+	// ShardFailoverManager) to decide whether the engine should process the
+	// event.  Return values:
+	//   - nil: the event is allowed; the engine enqueues and executes it.
+	//   - ErrAdmissionCache: the event was cached by the admission layer;
+	//     the engine drops it without ACKing.
+	//   - any other error: the event is denied; the engine ACKs and drops it.
+	OnTriggerAdmission func(ctx context.Context, event RoutedTriggerEvent) error
+
 	// Used by the standalone engine
 	OnRequirementsSet func(executionId string, requirements *sdkpb.Requirements)
 }
@@ -516,6 +527,9 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	if h.OnExecutionStatusUpdate == nil {
 		h.OnExecutionStatusUpdate = func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
 		}
+	}
+	if h.OnTriggerAdmission == nil {
+		h.OnTriggerAdmission = func(_ context.Context, _ RoutedTriggerEvent) error { return nil }
 	}
 	if h.OnRateLimited == nil {
 		h.OnRateLimited = func(executionID string) {}

@@ -820,7 +820,7 @@ func newWorkflowRegistrySyncerV2(
 	orgResolver orgresolver.OrgResolver,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	meterIdentity resourcemanager.ResourceIdentity,
-	shardDispatcher remotetypes.Dispatcher,
+	dispatcher remotetypes.Dispatcher,
 ) (syncerV2.WorkflowRegistrySyncer, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 	wfReg := capCfg.WorkflowRegistry()
@@ -927,9 +927,9 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 		syncerV2.WithShardResolver(shardResolver),
 	}
-	if shardingFailoverEnabled && shardDispatcher != nil {
+	if shardingFailoverEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,
-			syncerV2.WithShardDispatcher(shardDispatcher),
+			syncerV2.WithDispatcher(dispatcher),
 			syncerV2.WithShardDonLookup(newShardDonLookup(opts.CapabilitiesRegistry)),
 		)
 	}
@@ -1103,7 +1103,7 @@ func newWorkflowRegistrySyncer(
 	orgResolver orgresolver.OrgResolver,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	meterIdentity resourcemanager.ResourceIdentity,
-	shardDispatcher remotetypes.Dispatcher,
+	dispatcher remotetypes.Dispatcher,
 ) (syncerV2.WorkflowRegistrySyncer, metering.BillingClient, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 
@@ -1138,7 +1138,7 @@ func newWorkflowRegistrySyncer(
 		orgResolver,
 		gatewayConnectorWrapper,
 		meterIdentity,
-		shardDispatcher,
+		dispatcher,
 	)
 	return syncer, billingClient, srvcs, err
 }
