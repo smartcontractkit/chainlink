@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsmocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
@@ -388,4 +389,30 @@ func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 	assert.Equal(t, proposedAt.Format(time.RFC3339Nano), ev.ProposedAt)
 	assert.Equal(t, approvedAt.Format(time.RFC3339Nano), ev.ApprovedAt)
 	assert.InDelta(t, approvedAt.Sub(proposedAt).Seconds(), ev.AcceptLatencySeconds, 1.0)
+}
+
+// Pins the split: CLJobInfo needs no per-node opt-in, the legacy OCR2 track
+// stays behind JobSpecReporter.Enabled.
+//
+//nolint:paralleltest // installs a process-global beholder emitter
+func TestAfterJobStarted_CLJobInfoIgnoresEnabledGate(t *testing.T) {
+	observer := beholdertest.NewObserver(t)
+
+	cfg := defaultConfig()
+	cfg.enabled = false // legacy track off
+
+	jb := makeMedianJob()
+	reporter := newTestReporter(t, cfg, newFeedsORMWithoutProposal(t, jb))
+	reporter.AfterJobStarted(t.Context(), jb)
+
+	clMsgs := observer.Messages(t, beholder.AttrKeyEntity, jobspec.Entity)
+	require.Len(t, clMsgs, 1, "CLJobInfo must be emitted even with JobSpecReporter disabled")
+
+	var payload commonv1.CLJobInfo
+	require.NoError(t, proto.Unmarshal(clMsgs[0].Body, &payload))
+	require.Equal(t, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, payload.Trigger)
+	require.NotEmpty(t, payload.SpecToml)
+
+	legacy := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
+	require.Empty(t, legacy, "legacy JobSpecEvent must stay gated by Enabled")
 }
