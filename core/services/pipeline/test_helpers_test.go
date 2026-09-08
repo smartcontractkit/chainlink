@@ -25,16 +25,24 @@ func fakeExternalAdapter(t *testing.T, expectedRequest, response any) http.Handl
 		defer r.Body.Close()
 
 		body, err := io.ReadAll(r.Body)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 
 		expectedBody := &bytes.Buffer{}
 		err = json.NewEncoder(expectedBody).Encode(expectedRequest)
-		assert.NoError(t, err)
-		assert.Equal(t, string(bytes.TrimSpace(expectedBody.Bytes())), string(body))
+		if !assert.NoError(t, err) {
+			return
+		}
+		if !assert.Equal(t, string(bytes.TrimSpace(expectedBody.Bytes())), string(body)) {
+			return
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(response)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 	})
 }
 
