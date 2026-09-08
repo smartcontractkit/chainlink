@@ -1087,17 +1087,25 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		proposerCfg := cldftesthelpers.SingleGroupMCMS(t)
 		bypasserCfg := cldftesthelpers.SingleGroupMCMS(t)
 		cancellerCfg := cldftesthelpers.SingleGroupMCMS(t)
-		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{
-			commonchangeset.Configure(sui_cs.ConfigureMCMS{}, sui_cs.ConfigureMCMSConfig{
-				ConfigureMCMSSeqInput: mcmsops.ConfigureMCMSSeqInput{
-					ChainSelector: suiChains[0],
-					Proposer:      &proposerCfg,
-					Bypasser:      &bypasserCfg,
-					Canceller:     &cancellerCfg,
-				},
-			}),
+		// Call ConfigureMCMS.Apply directly rather than via commonchangeset.ApplyChangesets.
+		// With TimelockConfig nil, ConfigureMCMS executes the SetConfig directly (EOA, deployer
+		// signer retained) but still returns a zero-value TimelockProposal in its ChangesetOutput
+		// (cs_mcms_configure.go appends it unconditionally). ApplyChangesets would see that
+		// non-nil MCMSTimelockProposals slice and try to auto-execute the placeholder proposal,
+		// failing validation ("Version/ValidUntil/Operations required"). Calling Apply directly
+		// runs the on-chain SetConfig and lets us discard the placeholder. The returned
+		// AddressBook/DataStore are empty (MCMS objects were already stored by DeploySuiChain),
+		// so no env merge is needed; the quorum config is read live by the MCMS inspector.
+		mcmsOut, err := sui_cs.ConfigureMCMS{}.Apply(e.Env, sui_cs.ConfigureMCMSConfig{
+			ConfigureMCMSSeqInput: mcmsops.ConfigureMCMSSeqInput{
+				ChainSelector: suiChains[0],
+				Proposer:      &proposerCfg,
+				Bypasser:      &bypasserCfg,
+				Canceller:     &cancellerCfg,
+			},
 		})
 		require.NoError(t, err)
+		_ = mcmsOut // SetConfig ran EOA; discard the zero-value placeholder proposal.
 	}
 
 	if len(aptosChains) != 0 {
