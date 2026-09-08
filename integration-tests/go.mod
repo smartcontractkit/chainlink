@@ -577,14 +577,6 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 // requires https://github.com/gagliardetto/binary/pull/12 to parse optional values in ParseEventSol
 replace github.com/gagliardetto/binary => github.com/archseer/binary v0.0.0-20250226104222-b87d7f4fd58a
 
-// DEV-ONLY (chainlink-ccip PR #2239, branch solana-contracts/v1.6.4-candidate): the ccipsolana
-// SuiExtraArgsV1 codec arm references fee_quoter.SuiExtraArgsV1, which is only generated on the
-// candidate branch. Point the Solana submodules at a local checkout of that branch until the PR
-// merges and a tagged release is pulled in via the nix pin. REVERT these two lines before committing.
-replace github.com/smartcontractkit/chainlink-ccip/chains/solana => /tmp/chainlink-ccip-v164-candidate/chains/solana
-
-replace github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings => /tmp/chainlink-ccip-v164-candidate/chains/solana/gobindings
-
 // Exclude Juno's placeholder dependency. It is only intended to be resolved via
 // Juno's local replace directive and is not used directly by chainlink
 exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
