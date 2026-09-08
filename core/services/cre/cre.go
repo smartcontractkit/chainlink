@@ -460,6 +460,17 @@ func (s *Services) newRegistrySyncer(
 		return nil, nil, fmt.Errorf("unsupported external registry version: %s", externalRegistryVersion.String())
 	}
 
+	var (
+		shardingEnabled bool
+		shardIndex      uint16
+	)
+	if sharding := cfg.Sharding(); sharding != nil {
+		shardingEnabled = sharding.ShardingEnabled()
+		if shardingEnabled {
+			shardIndex = sharding.ShardIndex()
+		}
+	}
+
 	wfLauncher, err := capabilities.NewLauncher(
 		lggr,
 		dispatcherWrapper.don2DonSharedPeer,
@@ -468,6 +479,8 @@ func (s *Services) newRegistrySyncer(
 		opts.CapabilitiesRegistry,
 		donNotifier,
 		opts.LimitsFactory,
+		shardingEnabled,
+		shardIndex,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
