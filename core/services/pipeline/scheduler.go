@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func (s *scheduler) newMemoryTaskRun(task Task, vars Vars) *memoryTaskRun {
@@ -55,7 +55,7 @@ type scheduler struct {
 	waiting      uint
 	results      map[int]TaskRunResult
 	vars         Vars
-	logger       common.SugaredLogger
+	logger       logger.SugaredLogger
 
 	pending bool
 	exiting bool
@@ -64,8 +64,8 @@ type scheduler struct {
 	resultCh chan TaskRunResult
 }
 
-func newScheduler(p *Pipeline, run *Run, vars Vars, lggr common.Logger) *scheduler {
-	sugaredLggr := common.Sugared(lggr).Named("Scheduler")
+func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *scheduler {
+	sugaredLggr := logger.Sugared(lggr).Named("Scheduler")
 	dependencies := make(map[int]uint, len(p.Tasks))
 
 	for id, task := range p.Tasks {

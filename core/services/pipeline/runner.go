@@ -17,7 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -66,7 +66,7 @@ type runner struct {
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
 	runReaperWorker        *commonutils.SleeperTask
-	lggr                   common.SugaredLogger
+	lggr                   logger.SugaredLogger
 	httpClient             *http.Client
 	unrestrictedHTTPClient *http.Client
 	bridgeConnManager      bridgeconn.BridgeConnManager
@@ -114,10 +114,10 @@ func NewRunner(
 	legacyChains legacyevm.LegacyChainContainer,
 	ethks ETHKeyStore,
 	vrfks VRFKeyStore,
-	lggr common.Logger,
+	lggr logger.Logger,
 	httpClient, unrestrictedHTTPClient *http.Client,
 ) *runner {
-	sugaredLggr := common.Sugared(lggr).Named("PipelineRunner")
+	sugaredLggr := logger.Sugared(lggr).Named("PipelineRunner")
 
 	r := &runner{
 		orm:                    orm,
@@ -536,7 +536,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	return taskRunResults
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l common.SugaredLogger) TaskRunResult {
+func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.SugaredLogger) TaskRunResult {
 	start := time.Now()
 	l = l.With("taskName", taskRun.task.DotID(),
 		"taskType", taskRun.task.Type(),
