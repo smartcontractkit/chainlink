@@ -550,18 +550,18 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 	for i, encryptedDecryptionShareBytes := range encryptedDecryptionShares {
 		decryptionShareBytes, err := s.workflowEncryptionKey.Decrypt(encryptedDecryptionShareBytes)
 		if err != nil {
-			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i)
+			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i, "err", err)
 			continue
 		}
 		decryptionShare := &tdh2easy.DecryptionShare{}
 		err = decryptionShare.Unmarshal(decryptionShareBytes)
 		if err != nil {
-			lggr.Debugw("failed to unmarshal decryption share", "index", i)
+			lggr.Debugw("failed to unmarshal decryption share", "index", i, "err", err)
 			continue
 		}
 		err = tdh2easy.VerifyShare(cipherText, cfg.VaultPublicKey, decryptionShare)
 		if err != nil {
-			lggr.Debugw("failed to verify decryption share", "index", i)
+			lggr.Debugw("failed to verify decryption share", "index", i, "err", err)
 			continue
 		}
 		decryptionShares = append(decryptionShares, decryptionShare)
@@ -569,7 +569,7 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 	lggr.Debugw("decryption shares collected", "count", len(decryptionShares), "expected", len(encryptedDecryptionShares), "threshold", cfg.Threshold)
 
 	if len(decryptionShares) < cfg.Threshold {
-		return "", fmt.Errorf("not enough decryption shares to decrypt the secret: have %d, need at least %d", len(encryptedDecryptionShares), cfg.Threshold)
+		return "", fmt.Errorf("not enough decryption shares to decrypt the secret: have %d, need at least %d", len(decryptionShares), cfg.Threshold)
 	}
 
 	// Note that the last parameter 'n' to tdh2easy.Aggregate() isn't verified by the library at all.
