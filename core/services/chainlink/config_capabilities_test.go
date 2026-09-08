@@ -129,7 +129,7 @@ func TestHTTPCapabilitiesConfig(t *testing.T) {
 	htRetry := htGw.RetryConfig()
 	assert.Equal(t, 200, htRetry.InitialIntervalMs())
 	assert.Equal(t, 60000, htRetry.MaxIntervalTimeMs())
-	assert.Equal(t, 3.0, htRetry.Multiplier())
+	assert.InDelta(t, 3.0, htRetry.Multiplier(), 0)
 
 	ha := cfg.Capabilities().HTTPAction()
 	assert.Equal(t, "direct", ha.ProxyMode())
@@ -137,7 +137,7 @@ func TestHTTPCapabilitiesConfig(t *testing.T) {
 	haGw := ha.GatewayConnection()
 	assert.Equal(t, uint32(200), haGw.InitialIntervalMs())
 	assert.Equal(t, uint32(60000), haGw.MaxElapsedTimeMs())
-	assert.Equal(t, 3.0, haGw.Multiplier())
+	assert.InDelta(t, 3.0, haGw.Multiplier(), 0)
 
 	haHc := ha.HTTPClient()
 	assert.Equal(t, []string{"10.0.0.1"}, haHc.BlockedIPs())
@@ -171,13 +171,13 @@ func TestHTTPCapabilitiesConfig_DefaultsWhenOmitted(t *testing.T) {
 	assert.Equal(t, uint32(30000), ht.GatewayConnection().MaxPullMetadataDurationMs())
 	assert.Equal(t, 100, ht.GatewayConnection().RetryConfig().InitialIntervalMs())
 	assert.Equal(t, 30000, ht.GatewayConnection().RetryConfig().MaxIntervalTimeMs())
-	assert.Equal(t, 2.0, ht.GatewayConnection().RetryConfig().Multiplier())
+	assert.InDelta(t, 2.0, ht.GatewayConnection().RetryConfig().Multiplier(), 0)
 
 	ha := cfg.Capabilities().HTTPAction()
 	assert.Equal(t, "gateway", ha.ProxyMode())
 	assert.Equal(t, uint32(100), ha.GatewayConnection().InitialIntervalMs())
 	assert.Equal(t, uint32(30000), ha.GatewayConnection().MaxElapsedTimeMs())
-	assert.Equal(t, 2.0, ha.GatewayConnection().Multiplier())
+	assert.InDelta(t, 2.0, ha.GatewayConnection().Multiplier(), 0)
 	assert.Empty(t, ha.HTTPClient().BlockedIPs())
 	assert.Empty(t, ha.HTTPClient().BlockedIPsCIDR())
 	assert.Equal(t, []int{443}, ha.HTTPClient().AllowedPorts())

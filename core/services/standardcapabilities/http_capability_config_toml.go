@@ -1,6 +1,8 @@
 package standardcapabilities
 
 import (
+	"maps"
+
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -26,7 +28,7 @@ const (
 // These mirror the ServiceConfig struct in the http_action capability binary.
 const (
 	keyProxyMode      = "proxyMode"
-	keyHttpClient     = "httpClient"
+	keyHTTPClient     = "httpClient"
 	keyBlockedIPs     = "blockedIPs"
 	keyBlockedIPsCIDR = "blockedIPsCIDR"
 	keyAllowedPorts   = "allowedPorts"
@@ -60,9 +62,7 @@ func injectHTTPTriggerConfig(lggr logger.Logger, cfg coreconfig.HTTPTriggerCapab
 		// Merge into any existing job-spec gatewayConnection rather than
 		// replacing it, so job-spec values survive when TOML is unset.
 		existingGw := nested(m, keyGatewayConnection)
-		for k, v := range gwMap {
-			existingGw[k] = v
-		}
+		maps.Copy(existingGw, gwMap)
 		if len(existingGw) == 0 {
 			delete(m, keyGatewayConnection)
 		}
@@ -88,9 +88,7 @@ func injectHTTPActionConfig(lggr logger.Logger, cfg coreconfig.HTTPActionCapabil
 		// Merge into any existing job-spec gatewayConnection rather than
 		// replacing it, so job-spec values survive when TOML is unset.
 		existingGw := nested(m, keyGatewayConnection)
-		for k, v := range gwMap {
-			existingGw[k] = v
-		}
+		maps.Copy(existingGw, gwMap)
 		if len(existingGw) == 0 {
 			delete(m, keyGatewayConnection)
 		}
@@ -106,12 +104,10 @@ func injectHTTPActionConfig(lggr logger.Logger, cfg coreconfig.HTTPActionCapabil
 
 		// Merge into any existing job-spec httpClient rather than replacing
 		// it, so direct-mode settings survive when TOML is unset.
-		existingHc := nested(m, keyHttpClient)
-		for k, v := range hcMap {
-			existingHc[k] = v
-		}
+		existingHc := nested(m, keyHTTPClient)
+		maps.Copy(existingHc, hcMap)
 		if len(existingHc) == 0 {
-			delete(m, keyHttpClient)
+			delete(m, keyHTTPClient)
 		}
 	})
 }

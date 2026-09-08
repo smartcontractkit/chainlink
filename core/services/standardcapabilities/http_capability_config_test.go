@@ -120,19 +120,19 @@ func TestInjectHTTPTriggerConfig_TOMLOverridesJobSpec(t *testing.T) {
 	var m map[string]any
 	require.NoError(t, json.Unmarshal([]byte(got), &m))
 
-	assert.Equal(t, float64(25), m["metadataBatchSize"])
-	assert.Equal(t, float64(500), m["sendChannelBufferSize"])
-	assert.Equal(t, float64(10), m["maxAuthorizedKeysPerWorkflow"])
-	assert.Equal(t, float64(3600), m["requestCacheTTL"])
+	assert.InDelta(t, float64(25), m["metadataBatchSize"], 0)
+	assert.InDelta(t, float64(500), m["sendChannelBufferSize"], 0)
+	assert.InDelta(t, float64(10), m["maxAuthorizedKeysPerWorkflow"], 0)
+	assert.InDelta(t, float64(3600), m["requestCacheTTL"], 0)
 
 	gw := m["gatewayConnection"].(map[string]any)
-	assert.Equal(t, float64(45000), gw["maxPushMetadataDurationMs"])
-	assert.Equal(t, float64(46000), gw["maxPullMetadataDurationMs"])
+	assert.InDelta(t, float64(45000), gw["maxPushMetadataDurationMs"], 0)
+	assert.InDelta(t, float64(46000), gw["maxPullMetadataDurationMs"], 0)
 
 	retry := gw["retryConfig"].(map[string]any)
-	assert.Equal(t, float64(200), retry["initialIntervalMs"])
-	assert.Equal(t, float64(60000), retry["maxIntervalTimeMs"])
-	assert.Equal(t, float64(3.0), retry["multiplier"])
+	assert.InDelta(t, float64(200), retry["initialIntervalMs"], 0)
+	assert.InDelta(t, float64(60000), retry["maxIntervalTimeMs"], 0)
+	assert.InDelta(t, float64(3.0), retry["multiplier"], 0)
 }
 
 func TestInjectHTTPTriggerConfig_UnsetTOMLFallsBackToJobSpec(t *testing.T) {
@@ -147,14 +147,14 @@ func TestInjectHTTPTriggerConfig_UnsetTOMLFallsBackToJobSpec(t *testing.T) {
 	var m map[string]any
 	require.NoError(t, json.Unmarshal([]byte(got), &m))
 
-	assert.Equal(t, float64(999), m["metadataBatchSize"])
-	assert.Equal(t, float64(888), m["sendChannelBufferSize"])
-	assert.Equal(t, float64(777), m["requestCacheTTL"])
+	assert.InDelta(t, float64(999), m["metadataBatchSize"], 0)
+	assert.InDelta(t, float64(888), m["sendChannelBufferSize"], 0)
+	assert.InDelta(t, float64(777), m["requestCacheTTL"], 0)
 
 	gw := m["gatewayConnection"].(map[string]any)
-	assert.Equal(t, float64(555), gw["maxPushMetadataDurationMs"])
+	assert.InDelta(t, float64(555), gw["maxPushMetadataDurationMs"], 0)
 	retry := gw["retryConfig"].(map[string]any)
-	assert.Equal(t, float64(111), retry["initialIntervalMs"])
+	assert.InDelta(t, float64(111), retry["initialIntervalMs"], 0)
 }
 
 func TestInjectHTTPTriggerConfig_EmptyConfigProducesEmptyJSON(t *testing.T) {
@@ -175,7 +175,7 @@ func TestInjectHTTPTriggerConfig_MalformedJobSpecConfigStillInjects(t *testing.T
 
 	var m map[string]any
 	require.NoError(t, json.Unmarshal([]byte(got), &m))
-	assert.Equal(t, float64(25), m["metadataBatchSize"])
+	assert.InDelta(t, float64(25), m["metadataBatchSize"], 0)
 }
 
 func TestInjectHTTPActionConfig_TOMLOverridesJobSpec(t *testing.T) {
@@ -209,9 +209,9 @@ func TestInjectHTTPActionConfig_TOMLOverridesJobSpec(t *testing.T) {
 	assert.Equal(t, "direct", m["proxyMode"])
 
 	gw := m["gatewayConnection"].(map[string]any)
-	assert.Equal(t, float64(200), gw["initialIntervalMs"])
-	assert.Equal(t, float64(60000), gw["maxElapsedTimeMs"])
-	assert.Equal(t, float64(3.0), gw["multiplier"])
+	assert.InDelta(t, float64(200), gw["initialIntervalMs"], 0)
+	assert.InDelta(t, float64(60000), gw["maxElapsedTimeMs"], 0)
+	assert.InDelta(t, float64(3.0), gw["multiplier"], 0)
 
 	hc := m["httpClient"].(map[string]any)
 	assert.Equal(t, []any{"10.0.0.1"}, hc["blockedIPs"])
@@ -236,7 +236,7 @@ func TestInjectHTTPActionConfig_UnsetTOMLFallsBackToJobSpec(t *testing.T) {
 
 	assert.Equal(t, "direct", m["proxyMode"])
 	gw := m["gatewayConnection"].(map[string]any)
-	assert.Equal(t, float64(111), gw["initialIntervalMs"])
+	assert.InDelta(t, float64(111), gw["initialIntervalMs"], 0)
 	hc := m["httpClient"].(map[string]any)
 	assert.Equal(t, []any{float64(443), float64(8443)}, hc["allowedPorts"])
 }
