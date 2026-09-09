@@ -86,8 +86,7 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	trigger := capmocks.NewTriggerCapability(t)
 	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
@@ -227,8 +226,7 @@ func TestEngine_StaleTriggerEventIsSkipped(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	trigger := capmocks.NewTriggerCapability(t)
 	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
@@ -442,8 +440,7 @@ func TestEngine_TriggerEventDeadlineUsesDispatchTimeSetting(t *testing.T) {
 		},
 	}
 
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
+	engine := newDispatchedEngine(t, cfg)
 
 	trigger := capmocks.NewTriggerCapability(t)
 	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()

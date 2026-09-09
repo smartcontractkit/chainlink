@@ -100,8 +100,23 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 		BillingClient:                 metmocks.NewBillingClient(t),
 		WorkflowRegistryAddress:       "0x123",
 		WorkflowRegistryChainSelector: "11155111", // Sepolia chain ID
+
+		// The engine requires an injected acknowledger (the syncer wires the
+		// trigger dispatcher in production). Tests that assert ACK behavior
+		// override this with their own acknowledger; the default is a no-op so
+		// tests that don't exercise ACK construct engines without extra setup.
+		TriggerAcknowledger: noopAcknowledger{},
 	}
 }
+
+// noopAcknowledger is the default acknowledger for engine tests: it accepts
+// every Ack call and records nothing. Tests asserting ACK behavior override
+// cfg.TriggerAcknowledger.
+type noopAcknowledger struct{}
+
+var _ v2.Acknowledger = noopAcknowledger{}
+
+func (noopAcknowledger) Ack(_ context.Context, _, _, _ string) error { return nil }
 
 type noopBeholderEmitter struct{}
 
