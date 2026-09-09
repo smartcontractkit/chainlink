@@ -145,7 +145,7 @@ func newMatrixSystemCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&suite, "suite", "cre-smoke", "System test suite name ('cre-smoke', 'cre-regression')")
+	cmd.Flags().StringVar(&suite, "suite", "", "System test suite name ('cre-smoke', 'cre-regression')")
 	cmd.Flags().StringVar(&dir, "dir", "", "Directory containing Go system test files")
 	cmd.Flags().StringVar(&runID, "run-id", "", "GitHub run ID (env: GITHUB_RUN_ID)")
 	cmd.Flags().StringVar(&runAttempt, "run-attempt", "", "GitHub run attempt (env: GITHUB_RUN_ATTEMPT)")
@@ -192,7 +192,7 @@ func newMatrixInMemoryCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&file, "file", ".github/in-memory-tests.json", "Path to in-memory tests configuration JSON")
+	cmd.Flags().StringVar(&file, "file", "", "Path to in-memory tests configuration JSON")
 	cmd.Flags().StringVar(&runID, "run-id", "", "GitHub run ID (env: GITHUB_RUN_ID)")
 	cmd.Flags().StringVar(&runAttempt, "run-attempt", "", "GitHub run attempt (env: GITHUB_RUN_ATTEMPT)")
 	cmd.Flags().StringVar(&spotFlag, "spot-flag", "", "RunsOn spot flag (e.g. 'spot=co', 'spot=false')")
@@ -203,10 +203,11 @@ func newMatrixInMemoryCmd() *cobra.Command {
 
 func newMatrixCCIPCmd() *cobra.Command {
 	var (
-		runID      string
-		runAttempt string
-		spotFlag   string
-		jsonOutput bool
+		runID            string
+		runAttempt       string
+		spotFlag         string
+		mixedVersionOnly bool
+		jsonOutput       bool
 	)
 
 	cmd := &cobra.Command{
@@ -217,9 +218,10 @@ func newMatrixCCIPCmd() *cobra.Command {
 			resolveMatrixCommon(cmd, act, &runID, &runAttempt, &spotFlag)
 
 			res, err := matrix.BuildCCIPSystemMatrix(cmd.Context(), matrix.CCIPSystemOptions{
-				RunID:      runID,
-				RunAttempt: runAttempt,
-				SpotFlag:   spotFlag,
+				RunID:            runID,
+				RunAttempt:       runAttempt,
+				SpotFlag:         spotFlag,
+				MixedVersionOnly: mixedVersionOnly,
 			})
 			if err != nil {
 				return err
@@ -232,6 +234,7 @@ func newMatrixCCIPCmd() *cobra.Command {
 	cmd.Flags().StringVar(&runID, "run-id", "", "GitHub run ID (env: GITHUB_RUN_ID)")
 	cmd.Flags().StringVar(&runAttempt, "run-attempt", "", "GitHub run attempt (env: GITHUB_RUN_ATTEMPT)")
 	cmd.Flags().StringVar(&spotFlag, "spot-flag", "", "RunsOn spot flag (e.g. 'spot=co', 'spot=false')")
+	cmd.Flags().BoolVar(&mixedVersionOnly, "mixed-version-only", false, "Restrict matrix to mixed-version tests (release rollout)")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output formatted JSON to stdout")
 
 	return cmd

@@ -49,6 +49,10 @@ import "testing"
 
 func Test_CRE_V2_Basic(t *testing.T) {}
 func Test_CRE_V2_Sharding(t *testing.T) {}
+func Test_CRE_V2_Suite_Bucket_B(t *testing.T) {}
+func Test_CRE_V2_Solana_Write(t *testing.T) {}
+func Test_CRE_V2_Solana_Read_Tx(t *testing.T) {}
+func Test_CRE_V2_Stellar_Suite(t *testing.T) {}
 `
 	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
 
@@ -59,7 +63,7 @@ func Test_CRE_V2_Sharding(t *testing.T) {}
 		SpotFlag:   "spot=co",
 	})
 	require.NoError(t, err)
-	require.Len(t, res, 2)
+	require.Len(t, res, 7)
 
 	// Test_CRE_V2_Basic has default topology
 	basic := res[0]
@@ -76,6 +80,39 @@ func Test_CRE_V2_Sharding(t *testing.T) {}
 	assert.Equal(t, "workflow-gateway-sharded", sharding.Topology)
 	assert.Equal(t, "configs/workflow-gateway-sharded-don.toml", sharding.Configs)
 	assert.Equal(t, "runs-on=123456-1-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", sharding.RunsOn)
+
+	// Solana tests use the workflow topology with solana configs
+	solanaReadTx := res[2]
+	assert.Equal(t, "Test_CRE_V2_Solana_Read_Tx", solanaReadTx.TestName)
+	assert.Equal(t, 2, solanaReadTx.TestID)
+	assert.Equal(t, "workflow", solanaReadTx.Topology)
+	assert.Equal(t, "configs/workflow-don-solana.toml", solanaReadTx.Configs)
+
+	solanaWrite := res[3]
+	assert.Equal(t, "Test_CRE_V2_Solana_Write", solanaWrite.TestName)
+	assert.Equal(t, 3, solanaWrite.TestID)
+	assert.Equal(t, "workflow", solanaWrite.Topology)
+	assert.Equal(t, "configs/workflow-don-solana.toml", solanaWrite.Configs)
+
+	// Test_CRE_V2_Stellar_Suite has per-test override
+	stellar := res[4]
+	assert.Equal(t, "Test_CRE_V2_Stellar_Suite", stellar.TestName)
+	assert.Equal(t, 4, stellar.TestID)
+	assert.Equal(t, "workflow-gateway-stellar", stellar.Topology)
+	assert.Equal(t, "configs/workflow-gateway-don-stellar.toml", stellar.Configs)
+
+	// Test_CRE_V2_Suite_Bucket_B has two topology entries
+	bucketB := res[5]
+	assert.Equal(t, "Test_CRE_V2_Suite_Bucket_B", bucketB.TestName)
+	assert.Equal(t, 5, bucketB.TestID)
+	assert.Equal(t, "workflow-gateway-capabilities", bucketB.Topology)
+	assert.Equal(t, "configs/workflow-gateway-capabilities-don.toml", bucketB.Configs)
+
+	bucketBVault := res[6]
+	assert.Equal(t, "Test_CRE_V2_Suite_Bucket_B", bucketBVault.TestName)
+	assert.Equal(t, 6, bucketBVault.TestID)
+	assert.Equal(t, "workflow-gateway-capabilities-vault-stall-purge", bucketBVault.Topology)
+	assert.Equal(t, "configs/workflow-gateway-capabilities-don-vault-stall-purge.toml", bucketBVault.Configs)
 }
 
 func TestBuildCRERegressionMatrix(t *testing.T) {
