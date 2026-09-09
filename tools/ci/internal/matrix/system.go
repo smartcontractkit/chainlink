@@ -46,6 +46,31 @@ type CRERegressionEntry struct {
 }
 
 var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
+	"Test_CRE_V2_Suite_Bucket_B": {
+		{Topology: "workflow-gateway-capabilities", Configs: "configs/workflow-gateway-capabilities-don.toml"},
+		{Topology: "workflow-gateway-capabilities-vault-stall-purge", Configs: "configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"},
+	},
+	"Test_CRE_V2_Aptos_Suite": {
+		{Topology: "workflow-gateway-aptos", Configs: "configs/workflow-gateway-don-aptos.toml"},
+	},
+	"Test_CRE_V2_Stellar_Suite": {
+		{Topology: "workflow-gateway-stellar", Configs: "configs/workflow-gateway-don-stellar.toml"},
+	},
+	"Test_CRE_V2_Solana_Write": {
+		{Topology: "workflow", Configs: "configs/workflow-don-solana.toml"},
+	},
+	"Test_CRE_V2_Solana_LogTrigger": {
+		{Topology: "workflow", Configs: "configs/workflow-don-solana.toml"},
+	},
+	"Test_CRE_V2_Solana_Read_Accounts": {
+		{Topology: "workflow", Configs: "configs/workflow-don-solana.toml"},
+	},
+	"Test_CRE_V2_Solana_Read_Block": {
+		{Topology: "workflow", Configs: "configs/workflow-don-solana.toml"},
+	},
+	"Test_CRE_V2_Solana_Read_Tx": {
+		{Topology: "workflow", Configs: "configs/workflow-don-solana.toml"},
+	},
 	"Test_CRE_V2_Sharding": {
 		{Topology: "workflow-gateway-sharded", Configs: "configs/workflow-gateway-sharded-don.toml"},
 	},

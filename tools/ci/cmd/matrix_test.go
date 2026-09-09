@@ -110,8 +110,41 @@ func TestMatrixCCIP_CLI(t *testing.T) {
 	var res []matrix.CCIPSystemEntry
 	err = json.Unmarshal(out.Bytes(), &res)
 	require.NoError(t, err)
-	require.Len(t, res, 3)
+	require.Len(t, res, 5)
 	assert.Equal(t, "Test_CCIPGasPriceUpdatesWriteFrequency", res[0].TestName)
+	assert.Equal(t, "TestRMN_GlobalCurseTwoMessagesOnTwoLanes", res[1].TestName)
+	assert.Equal(t, "TestDeleteCCIPJobs-TestRevokeJobs", res[2].TestName)
+	assert.Equal(t, "Test_CCIPMixedVersionDON", res[3].TestName)
+	assert.True(t, res[3].MixedVersion)
+	assert.Equal(t, "Test_CCIPRollingUpgrade", res[4].TestName)
+	assert.True(t, res[4].MixedVersion)
+}
+
+func TestMatrixCCIP_CLI_MixedVersionOnly(t *testing.T) {
+	t.Parallel()
+
+	rootCmd := cmd.NewRootCmd()
+	var out bytes.Buffer
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+	rootCmd.SetArgs([]string{
+		"matrix", "ccip",
+		"--mixed-version-only",
+		"--run-id", "789",
+		"--run-attempt", "2",
+		"--spot-flag", "spot=co",
+		"--json",
+	})
+
+	err := rootCmd.ExecuteContext(context.Background())
+	require.NoError(t, err)
+
+	var res []matrix.CCIPSystemEntry
+	err = json.Unmarshal(out.Bytes(), &res)
+	require.NoError(t, err)
+	require.Len(t, res, 2)
+	assert.Equal(t, "Test_CCIPMixedVersionDON", res[0].TestName)
+	assert.Equal(t, "Test_CCIPRollingUpgrade", res[1].TestName)
 }
 
 func TestMatrixMixedEnv_CLI(t *testing.T) {

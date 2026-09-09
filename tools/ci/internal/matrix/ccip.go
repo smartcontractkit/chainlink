@@ -7,9 +7,10 @@ import (
 
 // CCIPSystemOptions contains parameters for generating CCIP system test matrix.
 type CCIPSystemOptions struct {
-	RunID      string
-	RunAttempt string
-	SpotFlag   string
+	RunID            string
+	RunAttempt       string
+	SpotFlag         string
+	MixedVersionOnly bool
 }
 
 // CCIPSystemEntry is a single test entry in the CCIP system matrix.
@@ -20,6 +21,7 @@ type CCIPSystemEntry struct {
 	SelectedNetwork     string `json:"selected_network,omitempty"`
 	RMNRageProxyVersion string `json:"rmn_rageproxy_version,omitempty"`
 	RMNAFN2ProxyVersion string `json:"rmn_afn2proxy_version,omitempty"`
+	MixedVersion        bool   `json:"mixed_version,omitempty"`
 	TestID              int    `json:"test_id"`
 	RunsOn              string `json:"runs_on"`
 }
@@ -42,6 +44,7 @@ func BuildCCIPSystemMatrix(ctx context.Context, opts CCIPSystemOptions) ([]CCIPS
 		SelectedNetwork     string
 		RMNRageProxyVersion string
 		RMNAFN2ProxyVersion string
+		MixedVersion        bool
 	}{
 		{
 			TestName:        "Test_CCIPGasPriceUpdatesWriteFrequency",
@@ -61,6 +64,18 @@ func BuildCCIPSystemMatrix(ctx context.Context, opts CCIPSystemOptions) ([]CCIPS
 			JobTimeout:      20,
 			SelectedNetwork: "SIMULATED_1,SIMULATED_2",
 		},
+		{
+			TestName:        "Test_CCIPMixedVersionDON",
+			Timeout:         "20m",
+			SelectedNetwork: "SIMULATED_1,SIMULATED_2",
+			MixedVersion:    true,
+		},
+		{
+			TestName:        "Test_CCIPRollingUpgrade",
+			Timeout:         "30m",
+			SelectedNetwork: "SIMULATED_1,SIMULATED_2",
+			MixedVersion:    true,
+		},
 	}
 
 	entries := make([]CCIPSystemEntry, len(definitions))
@@ -75,9 +90,20 @@ func BuildCCIPSystemMatrix(ctx context.Context, opts CCIPSystemOptions) ([]CCIPS
 			SelectedNetwork:     def.SelectedNetwork,
 			RMNRageProxyVersion: def.RMNRageProxyVersion,
 			RMNAFN2ProxyVersion: def.RMNAFN2ProxyVersion,
+			MixedVersion:        def.MixedVersion,
 			TestID:              i,
 			RunsOn:              runsOn,
 		}
+	}
+
+	if opts.MixedVersionOnly {
+		filtered := make([]CCIPSystemEntry, 0, len(entries))
+		for _, e := range entries {
+			if e.MixedVersion {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
 	}
 
 	return entries, nil
