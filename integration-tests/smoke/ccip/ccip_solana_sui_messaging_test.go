@@ -72,8 +72,19 @@ func prepareSolana2SuiMessagingTest(t *testing.T) solana2SuiMessagingFixtures {
 
 	t.Log("Source chain (Solana): ", sourceChain, "Dest chain (Sui): ", destChain)
 
+	// [PROBE C1] post-deploy, pre-AddLane baseline. FeeQuoter program id here is resolved
+	// BEFORE reregisterSolanaCCIPRefsAtLanesVersion adds the 1.6.0 ref inside AddLane.
+	testhelpers.DebugLogSolanaFeeTokenPrices(t, &e, sourceChain, state, "C1 post-deploy pre-AddLane")
+
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
+
+	// [PROBE C2] post-AddLane: reregister + lanes ConnectChains + seedSolanaSourcePricesEOA
+	// have all run inside AddLane. Reload state so the FeeQuoter program id reflects the
+	// post-1.6.0-ref address-book resolution the seeder used.
+	stateC2, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	testhelpers.DebugLogSolanaFeeTokenPrices(t, &e, sourceChain, stateC2, "C2 post-AddLane/reseed")
 
 	var setup mt.TestSetup
 
@@ -153,6 +164,13 @@ func Test_CCIP_Messaging_Solana2Sui_Success(t *testing.T) {
 
 	t.Run("Message to Sui", func(t *testing.T) {
 		testhelpers.WaitForEventFilterRegistrationOnLane(t, fx.state, fx.e.Env.Offchain, fx.sourceChain, fx.destChain)
+
+		// [PROBE C3] pre-send. fx.state is the exact state SendRequestSol reads its
+		// FeeQuoter/LinkToken/WSOL from; also reload fresh to compare resolutions.
+		testhelpers.DebugLogSolanaFeeTokenPrices(t, &fx.e, fx.sourceChain, fx.state, "C3 pre-send sender-state")
+		if stateC3, err := stateview.LoadOnchainState(fx.e.Env); err == nil {
+			testhelpers.DebugLogSolanaFeeTokenPrices(t, &fx.e, fx.sourceChain, stateC3, "C3 pre-send fresh-load")
+		}
 
 		message := []byte("Hello Sui, from Solana!")
 		mt.Run(t,
