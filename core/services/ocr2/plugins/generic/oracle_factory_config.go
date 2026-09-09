@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
