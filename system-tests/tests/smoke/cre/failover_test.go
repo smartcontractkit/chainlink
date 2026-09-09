@@ -25,6 +25,17 @@ func ExecuteFailoverManualSwapTest(t *testing.T, testEnv *ttypes.TestEnvironment
 	require.GreaterOrEqual(t, len(shardDONs), 2, "Expected at least 2 shard DONs for failover test")
 
 	shardLeaderDON := getShardZeroDon(t, testEnv)
+	primaryDonID := uint32(shardLeaderDON.ID) //nolint:gosec // G115: overflow is unrealistic
+
+	var secondaryDON *cre.Don
+	for _, don := range shardDONs {
+		if don.ID != shardLeaderDON.ID {
+			secondaryDON = don
+			break
+		}
+	}
+	require.NotNil(t, secondaryDON, "Expected to find a second shard DON")
+	secondaryDonID := uint32(secondaryDON.ID) //nolint:gosec // G115: overflow is unrealistic
 
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 	workflowConfig := crontypes.WorkflowConfig{
@@ -38,13 +49,13 @@ func ExecuteFailoverManualSwapTest(t *testing.T, testEnv *ttypes.TestEnvironment
 	require.NoError(t, err, "failed to start linking service")
 	linkingService.SetOwnerOrg(defaultOwner, "org_test_failover")
 
-	primaryAssignmentTOML := `
-static_default_assignment = [0,1]
+	primaryAssignmentTOML := fmt.Sprintf(`
+static_default_assignment = [%d,%d]
 hashed_default_assignment = false
 
 [per_org_assignment]
-  org_test_failover = [0,1]
-`
+  org_test_failover = [%d,%d]
+`, primaryDonID, secondaryDonID, primaryDonID, secondaryDonID)
 
 	proposeAndApproveShardAssignmentJob(t, testEnv, shardLeaderDON, primaryAssignmentTOML, testLogger)
 
@@ -59,7 +70,7 @@ hashed_default_assignment = false
 
 	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {
-		workflowToShardIndex[wfID] = 0
+		workflowToShardIndex[wfID] = primaryDonID
 	}
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
@@ -98,9 +109,17 @@ hashed_default_assignment = false
 		workflowName := fmt.Sprintf("failover_swap%d", i)
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 		workflowIDs[i] = workflowID
-		workflowToShardIndex[workflowID] = 1
+		workflowToShardIndex[workflowID] = secondaryDonID
 	}
 	testLogger.Info().Strs("workflowIDs", workflowIDs).Msg("Deployed fresh workflows for swap phase")
+
+	secondaryAssignmentTOML := fmt.Sprintf(`
+static_default_assignment = [%d,%d]
+hashed_default_assignment = false
+
+[per_org_assignment]
+  org_test_failover = [%d,%d]
+`, secondaryDonID, primaryDonID, secondaryDonID, primaryDonID)
 
 	for _, don := range shardDONs {
 		proposeAndApproveShardAssignmentJob(t, testEnv, don, secondaryAssignmentTOML, testLogger)
@@ -111,7 +130,7 @@ hashed_default_assignment = false
 	swappedWorkflowIDs := workflowIDs
 	swappedWorkflowToShardIndex := make(map[string]uint32, len(swappedWorkflowIDs))
 	for _, wfID := range swappedWorkflowIDs {
-		swappedWorkflowToShardIndex[wfID] = 1
+		swappedWorkflowToShardIndex[wfID] = secondaryDonID
 	}
 
 	swapTimeout := 5 * time.Minute
@@ -132,18 +151,5 @@ hashed_default_assignment = false
 
 	swappedExecuted := waitForAllWorkflowsExecuted(swapExecCtx, t, testLogger, swapUserLogsCh, swappedWorkflowIDs, swappedWorkflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, swapTimeout)
 	require.Len(t, swappedExecuted, len(swappedWorkflowIDs), "Not all workflows executed on new primary shard after swap")
-	testLogger.Info().Int("executedCount", len(swappedExecuted)).Msg("All workflows executed on new primary shard (shard 1) after manual failover swap")
+	testLogger.Info().Int("executedCount", len(swappedExecuted)).Msg("All workflows executed on new primary shard after manual failover swap")
 }
-
-// secondaryAssignmentTOML swaps the shard roles: shard 1 becomes primary, shard 0
-// becomes secondary. Both static_default_assignment and per_org_assignment must be
-// modified because per_org_assignment overrides the default for the test org.
-// hashed_default_assignment remains false so the static assignment is used directly
-// instead of hash-based routing.
-const secondaryAssignmentTOML = `
-static_default_assignment = [1,0]
-hashed_default_assignment = false
-
-[per_org_assignment]
-  org_test_failover = [1,0]
-`
