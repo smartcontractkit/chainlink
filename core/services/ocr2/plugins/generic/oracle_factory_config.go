@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
@@ -130,7 +131,11 @@ func TransmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPub
 	for i, s := range cc.Signers {
 		if bytes.Equal(s, signer) || (err == nil && bytes.Equal(s, multichainSigner)) {
 			if i < len(cc.Transmitters) {
-				return string(cc.Transmitters[i]), true
+				transmitter := string(cc.Transmitters[i])
+				if gethCommon.IsHexAddress(transmitter) {
+					transmitter = gethCommon.HexToAddress(transmitter).Hex()
+				}
+				return transmitter, true
 			}
 			return "", false
 		}

@@ -156,6 +156,13 @@ func TestTransmitterForSigner(t *testing.T) {
 	}, []byte("b"))
 	require.True(t, ok)
 	assert.Equal(t, "0xMultiChain", got)
+
+	got, ok = TransmitterForSigner(ocrtypes.ContractConfig{
+		Signers:      []ocrtypes.OnchainPublicKey{[]byte("a")},
+		Transmitters: []ocrtypes.Account{"736ea02dd58a4eff74565801cb9cf1d13ceb9134"},
+	}, []byte("a"))
+	require.True(t, ok)
+	assert.Equal(t, "0x736ea02Dd58A4EFF74565801cB9Cf1D13CEB9134", got)
 }
 
 func TestSelectOCRKeyBundleForConfig(t *testing.T) {
