@@ -39,25 +39,6 @@ func (c CapabilityConfiguration) Unmarshal() (capabilities.CapabilityConfigurati
 		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
 	}
 
-	var remoteTriggerConfig *capabilities.RemoteTriggerConfig
-	var remoteTargetConfig *capabilities.RemoteTargetConfig
-
-	switch cconf.GetRemoteConfig().(type) {
-	case *capabilitiespb.CapabilityConfig_RemoteTriggerConfig:
-		prtc := cconf.GetRemoteTriggerConfig()
-		remoteTriggerConfig = &capabilities.RemoteTriggerConfig{
-			RegistrationRefresh:     prtc.RegistrationRefresh.AsDuration(),
-			RegistrationExpiry:      prtc.RegistrationExpiry.AsDuration(),
-			MinResponsesToAggregate: prtc.MinResponsesToAggregate,
-			MessageExpiry:           prtc.MessageExpiry.AsDuration(),
-		}
-	case *capabilitiespb.CapabilityConfig_RemoteTargetConfig:
-		prtc := cconf.GetRemoteTargetConfig()
-		remoteTargetConfig = &capabilities.RemoteTargetConfig{
-			RequestHashExcludedAttributes: prtc.RequestHashExcludedAttributes,
-		}
-	}
-
 	dc, err := values.FromMapValueProto(cconf.DefaultConfig)
 	if err != nil {
 		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
@@ -163,8 +144,6 @@ func (c CapabilityConfiguration) Unmarshal() (capabilities.CapabilityConfigurati
 		DefaultConfig:          dc,
 		RestrictedKeys:         cconf.RestrictedKeys,
 		RestrictedConfig:       rc,
-		RemoteTriggerConfig:    remoteTriggerConfig,
-		RemoteTargetConfig:     remoteTargetConfig,
 		CapabilityMethodConfig: methodConfigs,
 		LocalOnly:              cconf.LocalOnly,
 		Ocr3Configs:            ocr3Configs,
