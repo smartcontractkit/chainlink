@@ -414,19 +414,8 @@ func newRegistrySyncerV2(
 		return nil, fmt.Errorf("could not configure syncer: %w", err)
 	}
 
-	return wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigService, wfLauncher), nil
-}
-
-func wireRegistrySyncerV2(
-	registrySyncer registrysyncerV2.Syncer,
-	ocrConfigService commonsrv.Service,
-	ocrConfigListener registrysyncerV2.Listener,
-	wfLauncher registrysyncerV2.Listener,
-) []commonsrv.Service {
-	// The OCR config service must be started and receive each registry snapshot
-	// before capabilities using its dynamic config trackers are launched.
-	registrySyncer.AddListener(ocrConfigListener, wfLauncher)
-	return []commonsrv.Service{ocrConfigService, registrySyncer}
+	registrySyncer.AddListener(wfLauncher, ocrConfigService)
+	return []commonsrv.Service{registrySyncer, ocrConfigService}, nil
 }
 
 // newRegistrySyncer creates a registry syncer based on the external registry version
