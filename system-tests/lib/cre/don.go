@@ -121,19 +121,25 @@ type Don struct {
 
 	Flags []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
 
+	// RegistryBasedLaunchAllowlist is propagated from DonMetadata so feature
+	// PostEnvStartup hooks can skip job spec proposal for capabilities that
+	// the node launches from the on-chain registry instead.
+	RegistryBasedLaunchAllowlist []string `toml:"registry_based_launch_allowlist,omitempty" json:"registry_based_launch_allowlist,omitempty"`
+
 	capabilityConfigs    map[CapabilityFlag]CapabilityConfig
 	chainCapabilityIndex map[CapabilityFlag][]uint64
 }
 
 func (d *Don) Metadata() *DonMetadata {
 	dm := &DonMetadata{
-		Name:              d.Name,
-		ID:                d.ID,
-		Flags:             d.Flags,
-		ShardIndex:        d.ShardIndex,
-		DonFamily:         d.DonFamily,
-		NodesMetadata:     make([]*NodeMetadata, len(d.Nodes)),
-		CapabilityConfigs: d.capabilityConfigs,
+		Name:                         d.Name,
+		ID:                           d.ID,
+		Flags:                        d.Flags,
+		ShardIndex:                   d.ShardIndex,
+		DonFamily:                    d.DonFamily,
+		NodesMetadata:                make([]*NodeMetadata, len(d.Nodes)),
+		CapabilityConfigs:            d.capabilityConfigs,
+		RegistryBasedLaunchAllowlist: d.RegistryBasedLaunchAllowlist,
 		// caution: missing NodeSet field, since we don't have it here
 	}
 
@@ -236,14 +242,15 @@ func (d *Don) GetName() string {
 
 func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*Don, error) {
 	don := &Don{
-		Nodes:                make([]*Node, len(donMetadata.NodesMetadata)),
-		Name:                 donMetadata.Name,
-		ID:                   donMetadata.ID,
-		Flags:                donMetadata.Flags,
-		ShardIndex:           donMetadata.ShardIndex,
-		DonFamily:            donMetadata.DonFamily,
-		capabilityConfigs:    donMetadata.ns.CapabilityConfigs,
-		chainCapabilityIndex: donMetadata.ns.chainCapabilityIndex,
+		Nodes:                        make([]*Node, len(donMetadata.NodesMetadata)),
+		Name:                         donMetadata.Name,
+		ID:                           donMetadata.ID,
+		Flags:                        donMetadata.Flags,
+		ShardIndex:                   donMetadata.ShardIndex,
+		DonFamily:                    donMetadata.DonFamily,
+		RegistryBasedLaunchAllowlist: donMetadata.RegistryBasedLaunchAllowlist,
+		capabilityConfigs:            donMetadata.ns.CapabilityConfigs,
+		chainCapabilityIndex:         donMetadata.ns.chainCapabilityIndex,
 	}
 
 	errgroup := errgroup.Group{}
