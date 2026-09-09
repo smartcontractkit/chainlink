@@ -179,6 +179,8 @@ noops = "noops"
 
 # ned = name for secondary noop
 ned = "ned"
+# short for strategy
+strat = "strat"
 
 # PostgreSQL index types & valid English spelling variants
 brin = "brin"

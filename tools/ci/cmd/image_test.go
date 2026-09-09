@@ -16,7 +16,7 @@ import (
 )
 
 func TestImageResolve_CLI_Public(t *testing.T) {
-	t.Parallel()
+	t.Setenv("GITHUB_OUTPUT", "")
 	rootCmd := cmd.NewRootCmd()
 	var out bytes.Buffer
 	rootCmd.SetOut(&out)
