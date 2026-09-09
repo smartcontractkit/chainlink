@@ -8,10 +8,12 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 type ResolveOracleFactoryConfigParams struct {
@@ -106,8 +108,11 @@ func SelectOCRKeyBundleForConfig(bundles []ocr2key.KeyBundle, cc *ocrtypes.Contr
 	}
 	for _, kb := range bundles {
 		pub := kb.PublicKey()
+		multichainPub, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
+			string(corekeys.EVM): pub,
+		})
 		for _, s := range cc.Signers {
-			if bytes.Equal(s, pub) {
+			if bytes.Equal(s, pub) || (err == nil && bytes.Equal(s, multichainPub)) {
 				return kb, true
 			}
 		}
@@ -119,8 +124,11 @@ func SelectOCRKeyBundleForConfig(bundles []ocr2key.KeyBundle, cc *ocrtypes.Contr
 // the on-chain OCR config. Signers[i] and Transmitters[i] describe the same oracle, so
 // locating this node's signer yields the transmitter the OCR config expects for it.
 func TransmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPublicKey) (string, bool) {
+	multichainSigner, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
+		string(corekeys.EVM): signer,
+	})
 	for i, s := range cc.Signers {
-		if bytes.Equal(s, signer) {
+		if bytes.Equal(s, signer) || (err == nil && bytes.Equal(s, multichainSigner)) {
 			if i < len(cc.Transmitters) {
 				return string(cc.Transmitters[i]), true
 			}
