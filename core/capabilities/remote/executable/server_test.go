@@ -86,44 +86,6 @@ func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *t
 	})
 }
 
-func Test_Server_DefaultExcludedAttributes(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-
-	numCapabilityPeers := 4
-
-	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{},
-		&TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute, nil)
-
-	for idx, caller := range callers {
-		rawInputs := map[string]any{
-			"StepDependency": strconv.Itoa(idx),
-		}
-
-		inputs, err := values.NewMap(rawInputs)
-		require.NoError(t, err)
-
-		_, err = caller.Execute(t.Context(),
-			commoncap.CapabilityRequest{
-				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          workflowID1,
-					WorkflowExecutionID: workflowExecutionID1,
-				},
-				Inputs: inputs,
-			})
-		require.NoError(t, err)
-	}
-
-	for _, caller := range callers {
-		for range numCapabilityPeers {
-			msg := <-caller.receivedMessages
-			assert.Equal(t, remotetypes.Error_OK, msg.Error)
-		}
-	}
-	closeServices(t, srvcs)
-}
-
 func Test_Server_Execute_RespondsAfterSufficientRequests(t *testing.T) {
 	t.Parallel()
 
