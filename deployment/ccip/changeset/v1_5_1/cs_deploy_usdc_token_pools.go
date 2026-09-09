@@ -101,12 +101,12 @@ type DeployUSDCTokenPoolContractsConfig struct {
 func (c DeployUSDCTokenPoolContractsConfig) PlannedRefs() []datastore.AddressRef {
 	version := deployment.Version1_5_1
 	refs := make([]datastore.AddressRef, 0, len(c.USDCPools))
-	for chainSelector := range c.USDCPools {
+	for chainSelector, poolConfig := range c.USDCPools {
 		refs = append(refs, datastore.AddressRef{
 			ChainSelector: chainSelector,
 			Type:          datastore.ContractType(shared.USDCTokenPool),
 			Version:       &version,
-			Qualifier:     string(shared.USDCSymbol),
+			Qualifier:     poolConfig.TokenAddress.String(),
 		})
 	}
 	return refs
@@ -201,7 +201,7 @@ func DeployUSDCTokenPoolContractsChangeset(env cldf.Environment, c DeployUSDCTok
 		}
 		// The ref is written at the moment the deployment confirms, onto the key this chain
 		// reserved above. Nothing is left to record afterwards.
-		_, err := shared.DeployContractAndRecord(env.Logger, chain, newAddresses, ds, cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1), string(shared.USDCSymbol),
+		_, err := shared.DeployContractAndRecord(env.Logger, chain, newAddresses, ds, cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_5_1), poolConfig.TokenAddress.String(),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 				poolAddress, tx, usdcTokenPool, err := usdc_token_pool.DeployUSDCTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenMessenger, poolConfig.TokenAddress,

@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -461,14 +459,6 @@ func TestUpdateNodes(t *testing.T) {
 			}
 			phonyCapCfg := &capabilitiespb.CapabilityConfig{
 				DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-				RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-						RegistrationRefresh: durationpb.New(20 * time.Second),
-						RegistrationExpiry:  durationpb.New(60 * time.Second),
-						// F + 1; assuming n = 3f+1
-						MinResponsesToAggregate: uint32(10),
-					},
-				},
 			}
 			initMap := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
 			for p2pID := range tt.args.req.P2pToUpdates {

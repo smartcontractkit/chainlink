@@ -59,7 +59,7 @@ func (c TransparentUpgradeableProxyChangesetConfig) PlannedRefs() []datastore.Ad
 				ChainSelector: chainSelector,
 				Type:          datastore.ContractType(shared.TransparentUpgradeableProxy),
 				Version:       &version,
-				Qualifier:     config.Symbol,
+				Qualifier:     config.BurnMintERC20Transparent.String(),
 			})
 		}
 	}
@@ -195,7 +195,7 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 		chain := e.BlockChains.EVMChains()[chainSelector]
 
 		for token, config := range tokens {
-			_, err := shared.DeployContractAndRecord(e.Logger, chain, addressBook, ds, cldf.NewTypeAndVersion(shared.TransparentUpgradeableProxy, deployment.Version1_6_1), config.Symbol,
+			_, err := shared.DeployContractAndRecord(e.Logger, chain, addressBook, ds, cldf.NewTypeAndVersion(shared.TransparentUpgradeableProxy, deployment.Version1_6_1), config.BurnMintERC20Transparent.String(),
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*transparent_upgradeable_proxy.TransparentUpgradeableProxy] {
 					var errs []error
 

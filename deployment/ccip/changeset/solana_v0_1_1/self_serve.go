@@ -16,9 +16,9 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
@@ -33,6 +33,8 @@ type OnboardTokenPoolConfig struct {
 	ProposedOwner    solana.PublicKey
 	PoolType         cldf.ContractType
 	Metadata         string
+	// TokenSymbol is the human-readable datastore key for this token mint.
+	TokenSymbol string
 }
 
 type OnboardTokenPoolsForSelfServeConfig struct {
@@ -54,6 +56,9 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 	for i, registerTokenConfig := range cfg.RegisterTokenConfigs {
 		if registerTokenConfig.Metadata == "" {
 			return fmt.Errorf("RegisterTokenConfigs[%d].Metadata is required for token mint %s", i, registerTokenConfig.TokenMint.String())
+		}
+		if err := validateTokenSymbol(registerTokenConfig.TokenSymbol, registerTokenConfig.TokenMint.String()); err != nil {
+			return fmt.Errorf("RegisterTokenConfigs[%d]: %w", i, err)
 		}
 		if registerTokenConfig.PoolType != shared.BurnMintTokenPool && registerTokenConfig.PoolType != shared.LockReleaseTokenPool {
 			return fmt.Errorf("PoolType not supported: %v", registerTokenConfig.PoolType)
@@ -89,6 +94,16 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 	}
 	var mcmsTxs []mcmsTypes.Transaction
 	var instructions [][]solana.Instruction
+	// Use one output book and datastore for the whole batch so every token is returned.
+	newAddresses := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
+	var envAddresses map[string]cldf.TypeAndVersion
+	if e.ExistingAddresses != nil {
+		envAddresses, err = e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
+		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to read existing addresses for chain %d: %w", cfg.ChainSelector, err)
+		}
+	}
 	for _, registerTokenConfig := range cfg.RegisterTokenConfigs {
 		currentTokenPoolSolanaState, err := loadTokenPoolSolanaState(registerTokenConfig, solChainState)
 		var tokenInstructions []solana.Instruction
@@ -151,21 +166,22 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 			// the ccip admin will always be deployer key if done without mcms
 			instructions = append(instructions, tokenInstructions)
 		}
-		if proposeTokenAdminRegistryAdminIx != nil {
-			// Store in Address Book only first time running this
-			// TODO: Return this
-			newAddresses := cldf.NewMemoryAddressBook()
-			tv := cldf.NewTypeAndVersion(registerTokenConfig.TokenProgramName, deployment.Version1_0_0)
-			tv.AddLabel(registerTokenConfig.Metadata)                            // Customer Identifier
-			tv.AddLabel(registerTokenConfig.PoolType.String())                   // Pool Type
-			tv.AddLabel(currentTokenPoolSolanaState.tokenPoolProgramID.String()) // Token Pool Program ID
-			err = newAddresses.Save(cfg.ChainSelector, registerTokenConfig.TokenMint.String(), tv)
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
+		// Always include the token mint in the output registries. The on-chain instruction is only
+		// needed the first time a token is registered, but the datastore ref may still be missing
+		// on reruns or for tokens onboarded before datastore recording was added.
+		if err := recordOnboardedTokenMint(cfg.ChainSelector, newAddresses, ds, envAddresses, registerTokenConfig,
+			currentTokenPoolSolanaState.tokenPoolProgramID.String()); err != nil {
+			e.Logger.Errorw("Failed to record onboarded token mint", "chain", cfg.ChainSelector, "mint", registerTokenConfig.TokenMint.String(), "err", err)
+			return cldf.ChangesetOutput{}, err
 		}
 	}
-	return ExecuteInstructionsAndBuildProposals(e, ExecuteConfig{ChainSelector: cfg.ChainSelector, MCMS: cfg.MCMS, Chain: solChainState.chain}, instructions, mcmsTxs)
+	out, err := ExecuteInstructionsAndBuildProposals(e, ExecuteConfig{ChainSelector: cfg.ChainSelector, MCMS: cfg.MCMS, Chain: solChainState.chain}, instructions, mcmsTxs)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	out.AddressBook = newAddresses //nolint:staticcheck // AddressBook remains required for backward compatibility during the migration.
+	out.DataStore = ds
+	return out, nil
 }
 
 func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, registerTokenConfig OnboardTokenPoolConfig, routerState routerSolanaState, solChainState globalState) (solana.Instruction, error) {

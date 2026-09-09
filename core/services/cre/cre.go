@@ -414,8 +414,19 @@ func newRegistrySyncerV2(
 		return nil, fmt.Errorf("could not configure syncer: %w", err)
 	}
 
-	registrySyncer.AddListener(wfLauncher, ocrConfigService)
-	return []commonsrv.Service{registrySyncer, ocrConfigService}, nil
+	return wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigService, wfLauncher), nil
+}
+
+func wireRegistrySyncerV2(
+	registrySyncer registrysyncerV2.Syncer,
+	ocrConfigService commonsrv.Service,
+	ocrConfigListener registrysyncerV2.Listener,
+	wfLauncher registrysyncerV2.Listener,
+) []commonsrv.Service {
+	// The OCR config service must be started and receive each registry snapshot
+	// before capabilities using its dynamic config trackers are launched.
+	registrySyncer.AddListener(ocrConfigListener, wfLauncher)
+	return []commonsrv.Service{ocrConfigService, registrySyncer}
 }
 
 // newRegistrySyncer creates a registry syncer based on the external registry version
@@ -459,6 +470,17 @@ func (s *Services) newRegistrySyncer(
 		return nil, nil, fmt.Errorf("unsupported external registry version: %s", externalRegistryVersion.String())
 	}
 
+	var (
+		shardingEnabled bool
+		shardIndex      uint16
+	)
+	if sharding := cfg.Sharding(); sharding != nil {
+		shardingEnabled = sharding.ShardingEnabled()
+		if shardingEnabled {
+			shardIndex = sharding.ShardIndex()
+		}
+	}
+
 	wfLauncher, err := capabilities.NewLauncher(
 		lggr,
 		dispatcherWrapper.don2DonSharedPeer,
@@ -467,6 +489,8 @@ func (s *Services) newRegistrySyncer(
 		opts.CapabilitiesRegistry,
 		donNotifier,
 		opts.LimitsFactory,
+		shardingEnabled,
+		shardIndex,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)

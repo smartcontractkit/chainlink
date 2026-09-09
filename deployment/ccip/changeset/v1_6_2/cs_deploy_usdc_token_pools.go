@@ -129,7 +129,7 @@ func (c DeployUSDCTokenPoolContractsConfig) PlannedRefs() []datastore.AddressRef
 			ChainSelector: chainSelector,
 			Type:          datastore.ContractType(poolConfig.PoolType),
 			Version:       &version,
-			Qualifier:     string(shared.USDCSymbol),
+			Qualifier:     poolConfig.TokenAddress.String(),
 		})
 	}
 	return refs
@@ -219,7 +219,7 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 }
 
 func deployUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Chain, newAddresses *cldf.AddressBookMap, ds datastore.MutableDataStore, poolConfig DeployUSDCTokenPoolInput, chainState evm.CCIPChainState, routerAddr common.Address) error {
-	_, err := shared.DeployContractAndRecord(lggr, chain, newAddresses, ds, cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_6_2), string(shared.USDCSymbol),
+	_, err := shared.DeployContractAndRecord(lggr, chain, newAddresses, ds, cldf.NewTypeAndVersion(shared.USDCTokenPool, deployment.Version1_6_2), poolConfig.TokenAddress.String(),
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 			previousPoolAddress := poolConfig.PreviousPoolAddress
 
@@ -257,7 +257,7 @@ func deployUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Chain, newAddresses 
 }
 
 func deployHybridLockReleaseUSDCTokenPool(lggr logger.Logger, chain cldf_evm.Chain, newAddresses *cldf.AddressBookMap, ds datastore.MutableDataStore, poolConfig DeployUSDCTokenPoolInput, chainState evm.CCIPChainState, routerAddr common.Address) error {
-	_, err := shared.DeployContractAndRecord(lggr, chain, newAddresses, ds, cldf.NewTypeAndVersion(shared.HybridLockReleaseUSDCTokenPool, deployment.Version1_6_2), string(shared.USDCSymbol),
+	_, err := shared.DeployContractAndRecord(lggr, chain, newAddresses, ds, cldf.NewTypeAndVersion(shared.HybridLockReleaseUSDCTokenPool, deployment.Version1_6_2), poolConfig.TokenAddress.String(),
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*hybrid_lock_release_usdc_token_pool.HybridLockReleaseUSDCTokenPool] {
 			previousPoolAddress := poolConfig.PreviousPoolAddress
 

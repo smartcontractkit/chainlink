@@ -61,7 +61,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 		ctx := t.Context()
 		brLoc := strings.Replace(binaryLocation, ".wasm", ".br", 1)
 		compressedBytes := b.Bytes()
-		require.NoError(t, os.WriteFile(brLoc, compressedBytes, 0600))
+		require.NoError(t, os.WriteFile(brLoc, compressedBytes, 0o600))
 
 		factory := job.WasmFileSpecFactory{}
 		actual, rawSpec, actualSha, err2 := factory.Spec(t.Context(), brLoc, configLocation)
@@ -92,7 +92,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 func createTestBinary(t *testing.T) string {
 	const testBinaryLocation = "testdata/wasm/testmodule.wasm"
 
-	cmd := exec.Command("go", "build", "-o", testBinaryLocation, "github.com/smartcontractkit/chainlink/v2/core/services/job/testdata/wasm")
+	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", testBinaryLocation, "github.com/smartcontractkit/chainlink/v2/core/services/job/testdata/wasm")
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
 	output, err := cmd.CombinedOutput()
