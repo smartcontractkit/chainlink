@@ -204,10 +204,11 @@ func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registrysy
 func (m *localCapabilityManager) startCapability(ctx context.Context, info *capabilityInfo) (*runningCapability, error) {
 	start := time.Now()
 
+	// command is only meaningful for standard capabilities that launch a plugin
+	// binary (e.g. consensus, cron). OCR2-based capabilities (e.g. dontime) run
+	// in-process and do not need a binary, so an empty command is allowed there;
+	// the newServicesFn routes on capability ID and ignores it.
 	command := m.resolveCapabilityBinary(info.capID)
-	if command == "" {
-		return nil, fmt.Errorf("could not resolve capability binary for %s", info.capID)
-	}
 	configJSON, err := m.buildConfigJSON(info)
 	if err != nil {
 		return nil, fmt.Errorf("build config for %s: %w", info.capID, err)
