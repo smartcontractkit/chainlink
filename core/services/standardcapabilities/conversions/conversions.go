@@ -95,11 +95,6 @@ func GetCommandFromCapabilityID(capabilityID string) string {
 		return "stellar"
 	case strings.HasPrefix(capabilityID, "consensus"):
 		return "consensus"
-	case strings.HasPrefix(capabilityID, "dontime"):
-		// dontime is an OCR2 plugin (pluginType = "dontime"), not a standard
-		// capability binary; it runs in-process via the OCR2 delegate. The
-		// mapping exists for completeness of the conversion table.
-		return "dontime"
 	case strings.HasPrefix(capabilityID, "cron-trigger"):
 		return "cron"
 	case strings.HasPrefix(capabilityID, "http-trigger"):
