@@ -33,7 +33,6 @@ import (
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	soltesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -341,11 +340,6 @@ func Test_CCIP_Messaging_Sui2Solana_Success(t *testing.T) {
 				FeeToken:               fx.suiLinkFeeToken,
 				ExtraArgs:              extraArgs,
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				// Sui is MCMS-governed on this lanes path (completeSuiCCIPMCMSOwnership consumed
-				// the CCIPOwnerCapObjectId that the legacy EOA price update inside SendRequestSui
-				// uses), and the lane setup already seeded the Sui fee-quoter prices via an MCMS
-				// proposal (seedSuiSolanaLanePrices). Skip the redundant EOA price update here.
-				ExtraSendOpts: []ccipclient.SendReqOpts{ccipclient.WithSkipSuiFeeQuoterPriceUpdate()},
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
 						var after soltesthelpers.ReceiverCounter
