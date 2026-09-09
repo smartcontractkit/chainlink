@@ -2,28 +2,17 @@ package dontime
 
 import (
 	"context"
-	"fmt"
-	"regexp"
-	"strconv"
 
-	"dario.cat/mergo"
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
-	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
-	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 )
 
 const flag = cre.DONTimeCapability
@@ -63,121 +52,11 @@ func (o *DONTime) PreEnvStartup(
 }
 
 func (o *DONTime) PostEnvStartup(
-	ctx context.Context,
-	testLogger zerolog.Logger,
-	don *cre.Don,
-	dons *cre.Dons,
-	creEnv *cre.Environment,
+	_ context.Context,
+	_ zerolog.Logger,
+	_ *cre.Don,
+	_ *cre.Dons,
+	_ *cre.Environment,
 ) error {
-	// When dontime is in the DON's RegistryBasedLaunchAllowlist, the node's
-	// LocalCapabilityManager launches it from the on-chain registry and no
-	// job spec is needed (proposing one would be rejected by the delegate).
-	// Allowlist entries are regex patterns matched against the capability ID.
-	if isAllowlistedForRegistryLaunch(don.RegistryBasedLaunchAllowlist, donTimeLabelledName+"@1.0.0") {
-		testLogger.Info().Msg("dontime is allowlisted for registry-based launch; skipping job spec proposal")
-		return nil
-	}
-
-	jobErr := createJobs(
-		ctx,
-		creEnv,
-		don,
-		dons,
-	)
-	if jobErr != nil {
-		return fmt.Errorf("failed to create DON Time jobs: %w", jobErr)
-	}
-
 	return nil
-}
-
-func createJobs(
-	ctx context.Context,
-	creEnv *cre.Environment,
-	don *cre.Don,
-	dons *cre.Dons,
-) error {
-	specs := make(map[string][]string)
-
-	bootstrap, isBootstrap := dons.Bootstrap()
-	if !isBootstrap {
-		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
-	}
-
-	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
-	if err != nil {
-		return errors.Wrap(err, "failed to get peering configs")
-	}
-
-	capRegVersion, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
-	if !ok {
-		return errors.New("CapabilitiesRegistry version not found in contract versions")
-	}
-
-	workerInput := cre_jobs.ProposeJobSpecInput{
-		Domain:      offchain.ProductLabel,
-		Environment: creEnv.CldfEnvironment.Name,
-		DONName:     don.Name,
-		JobName:     "don-time-worker",
-		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: don.Name},
-		},
-		Template: job_types.OCR3,
-		Inputs: job_types.JobSpecInput{
-			"chainSelectorEVM":     creEnv.RegistryChainSelector,
-			"contractQualifier":    "",
-			"capRegVersion":        capRegVersion.String(),
-			"templateName":         "don-time",
-			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstrapperPeerID + "@" + ocrPeeringCfg.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
-		},
-	}
-	if creEnv.FreshExternalJobIDs {
-		workerInput.Inputs["externalJobID"] = uuid.NewString()
-	}
-
-	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
-	if workerVerErr != nil {
-		return fmt.Errorf("precondition verification failed for Don Time worker job: %w", workerVerErr)
-	}
-
-	workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
-	if workerErr != nil {
-		return fmt.Errorf("failed to propose Don Time worker job spec: %w", workerErr)
-	}
-
-	for _, r := range workerReport.Reports {
-		out, ok := r.Output.(cre_jobs_ops.ProposeOCR3JobOutput)
-		if !ok {
-			return fmt.Errorf("unable to cast to ProposeOCR3JobOutput, actual type: %T", r.Output)
-		}
-		mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
-		if mErr != nil {
-			return fmt.Errorf("failed to merge worker job specs: %w", mErr)
-		}
-	}
-
-	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
-	if approveErr != nil {
-		return fmt.Errorf("failed to approve Don Time jobs: %w", approveErr)
-	}
-
-	return nil
-}
-
-// isAllowlistedForRegistryLaunch reports whether the capability ID matches any
-// of the DON's RegistryBasedLaunchAllowlist regex patterns, mirroring how the
-// node's LocalCapabilityManager decides to launch a capability from the
-// on-chain registry instead of a job spec.
-func isAllowlistedForRegistryLaunch(patterns []string, capabilityID string) bool {
-	for _, pattern := range patterns {
-		re, err := regexp.Compile(pattern)
-		if err != nil {
-			continue // invalid pattern; the node would skip it too
-		}
-		if re.MatchString(capabilityID) {
-			return true
-		}
-	}
-	return false
 }
