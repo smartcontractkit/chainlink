@@ -48,6 +48,7 @@ func TestRegistryOCR2SpecRelayID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, commontypes.RelayID{Network: relay.NetworkEVM, ChainID: "1337"}, relayID)
 	assert.Equal(t, transmitterID, spec.RelayConfig["effectiveTransmitterID"])
+	assert.Equal(t, []string{transmitterID}, spec.RelayConfig["sendingKeys"])
 }
 
 func TestNewServices_NilPeerWrapper(t *testing.T) {

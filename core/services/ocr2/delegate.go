@@ -651,6 +651,7 @@ func (d *Delegate) NewServices(
 		},
 		PluginConfig: job.JSONConfig{},
 	}
+	spec.RelayConfig.ApplyDefaultsOCR2(d.cfg.OCR2())
 
 	// Build local config from delegate defaults.
 	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), *spec)
@@ -700,6 +701,7 @@ func registryOCR2RelayConfig(chainID string, pluginType types.OCR2PluginType, tr
 		"chainID":                chainID,
 		"providerType":           string(pluginType),
 		"effectiveTransmitterID": transmitterID,
+		"sendingKeys":            []string{transmitterID},
 	}
 }
 
