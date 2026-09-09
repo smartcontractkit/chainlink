@@ -626,7 +626,7 @@ func SendRequestSol(
 	if feeToken.IsZero() {
 		// If the fee token is native SOL (i.e. message.FeeToken is the zero address), then we will
 		// leave message.FeeToken as it is, but specify the WSOL mint account in the accounts list
-		feeToken = solana.SolMint
+		feeToken = solana.WrappedSol
 	} else {
 		feeTokenInfo, err := client.GetAccountInfo(ctx, feeToken)
 		if err != nil {

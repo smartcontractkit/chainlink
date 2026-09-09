@@ -387,7 +387,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		}
 
 		// make pool mint_authority for token
-		if tokenPoolCfg.PoolType == shared.BurnMintTokenPool && tokenPubKey != solana.SolMint {
+		if tokenPoolCfg.PoolType == shared.BurnMintTokenPool && tokenPubKey != solana.WrappedSol {
 			if mintAuthority == chain.DeployerKey.PublicKey().String() {
 				authI, err := solTokenUtil.SetTokenMintAuthority(
 					tokenprogramID,
