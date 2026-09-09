@@ -142,24 +142,26 @@ func addSuiSolanaMixedLane(
 	}
 
 	// Solana source — the Solana lanes adapter (ConfigureLaneLegAsSource) writes only the
-	// FeeQuoter dest-chain config; it seeds NO gas prices, unlike the Sui/Aptos adapters. The
-	// DON would normally push the Sui dest gas price via price-only OCR commits, but the test
-	// OCR config has no Sui gas-price feed, so GetFee aborts StaleGasPrice (code 8024). Seed it
-	// via the Solana UpdatePrices escape hatch AFTER ConnectChains (UpdatePrices.Validate
-	// requires the dest config to exist). This smoke-test env deploys Solana CCIP with
-	// preload=true, so mcmsCfg=nil at deploy and the FeeQuoter is DEPLOYER-owned (EOA), not
-	// timelock-owned — there is no RBACTimelock PDA entry in the address book, so an MCMS
-	// proposal fails ValidateSolana ("RBACTimelock not present on the chain"). Both Solana
-	// billing changesets pick MCMS-vs-EOA from the FeeQuoter's ACTUAL on-chain ownership
-	// (IsSolanaProgramOwnedByTimelock), not from cfg.MCMS; with MCMS=nil they Validate as EOA
-	// (ValidateOwnershipSolana checks deployer ownership) and Apply via chain.Confirm with the
-	// deployer signer. Mirrors the proven pattern in solana_v0_1_1/cs_chain_contracts_test.go
-	// (add the timelock signer as a price updater, then push the gas price), but run EOA. The Sui
-	// source leg needs no post-ConnectChains seeding: its dest gas was seeded by the Sui adapter
-	// and its LINK token price was seeded EOA above.
+	// FeeQuoter dest-chain config; it seeds NO prices, unlike the Sui/Aptos adapters. get_fee on
+	// the Solana source needs three non-zero prices: the Sui dest gas price (GetFee -> dest gas),
+	// the fee-token (wSOL) usd_per_token (fee_for_msg), and LINK usd_per_token (fee_juels converts
+	// the fee to LINK). The DON would normally push these via price-only OCR commits, but the test
+	// OCR config has no Sui gas-price feed, so without the gas seed GetFee aborts StaleGasPrice
+	// (code 8024); with a zero fee-token/LINK price it aborts InvalidTokenPrice (code 8023). Seed
+	// all three via the Solana UpdatePrices escape hatch AFTER ConnectChains (UpdatePrices.Validate
+	// requires the dest config to exist for the gas update). This smoke-test env deploys Solana CCIP
+	// with preload=true, so mcmsCfg=nil at deploy and the FeeQuoter is DEPLOYER-owned (EOA), not
+	// timelock-owned — there is no RBACTimelock PDA entry in the address book, so an MCMS proposal
+	// fails ValidateSolana ("RBACTimelock not present on the chain"). Both Solana billing changesets
+	// pick MCMS-vs-EOA from the FeeQuoter's ACTUAL on-chain ownership (IsSolanaProgramOwnedByTimelock),
+	// not from cfg.MCMS; with MCMS=nil they Validate as EOA (ValidateOwnershipSolana checks deployer
+	// ownership) and Apply via chain.Confirm with the deployer signer. Mirrors the proven pattern in
+	// solana_v0_1_1/cs_chain_contracts_test.go (add the timelock signer as a price updater, then push
+	// the prices), but run EOA. The Sui source leg needs no post-ConnectChains seeding: its dest gas
+	// was seeded by the Sui adapter and its LINK token price was seeded EOA above.
 	if fromFamily == chainsel.FamilySolana {
-		if err := seedSolanaSourceSuiDestGasPriceEOA(t, e, solSel, suiSel, gasPrices); err != nil {
-			return fmt.Errorf("seed Solana source Sui dest gas price (EOA): %w", err)
+		if err := seedSolanaSourcePricesEOA(t, e, solSel, suiSel, state, gasPrices); err != nil {
+			return fmt.Errorf("seed Solana source prices (EOA): %w", err)
 		}
 	}
 
@@ -196,29 +198,48 @@ func seedSuiSourceTokenPriceEOA(t *testing.T, e *DeployedEnv, suiSel uint64, sta
 	return nil
 }
 
-// seedSolanaSourceSuiDestGasPriceEOA seeds the Sui dest gas price on the Solana source
-// fee-quoter via the Solana UpdatePrices escape hatch. The Solana lanes adapter writes only the
-// dest-chain config, not gas prices. This smoke-test env deploys Solana CCIP with preload=true, so
-// the FeeQuoter is DEPLOYER-owned (EOA) and there is no RBACTimelock PDA entry in the address book
-// — an MCMS proposal would fail ValidateSolana ("RBACTimelock not present on the chain"). Both
-// Solana billing changesets dispatch MCMS-vs-EOA from the FeeQuoter's ACTUAL on-chain ownership
-// (IsSolanaProgramOwnedByTimelock), not from cfg.MCMS; passing MCMS=nil makes Validate check EOA
-// ownership (which holds) and Apply use chain.Confirm with the deployer signer. Must run AFTER
-// ConnectChains (UpdatePrices.Validate requires the dest config to exist).
+// solFeeTokenUsdPerToken is the wSOL/LINK usd_per_token this env writes via the deploy BILLING
+// block (test_environment.go DeployChainContractsToSolChainCSV0_1_1). Reseeding it EOA here keeps
+// the payable fee identical to the deploy/legacy Solana->EVM path and guards against the preloaded
+// fee-quoter snapshot not persisting usd_per_token through AddBillingToken, which would leave
+// get_fee's fee-token (and fee_juels' LINK) lookup at zero -> InvalidTokenPrice (8023). The value
+// (~1.58e28, ~$15.8/SOL) exceeds uint64, so it is carried as the raw [28]byte big-endian literal
+// rather than via solCommonUtil.To28BytesBE.
+var solFeeTokenUsdPerToken = [28]byte{
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	51, 51, 74, 153, 67, 41, 73, 55, 39, 96, 0, 0,
+}
+
+// seedSolanaSourcePricesEOA seeds the Solana source fee-quoter prices the lanes adapter does not:
+// the Sui dest gas price and the source fee-token (wSOL + LINK) usd_per_token. The Solana lanes
+// adapter writes only the dest-chain config, not prices. This smoke-test env deploys Solana CCIP
+// with preload=true, so the FeeQuoter is DEPLOYER-owned (EOA) and there is no RBACTimelock PDA entry
+// in the address book — an MCMS proposal would fail ValidateSolana ("RBACTimelock not present on
+// the chain"). Both Solana billing changesets dispatch MCMS-vs-EOA from the FeeQuoter's ACTUAL
+// on-chain ownership (IsSolanaProgramOwnedByTimelock), not from cfg.MCMS; passing MCMS=nil makes
+// Validate check EOA ownership (which holds) and Apply use chain.Confirm with the deployer signer.
+// Must run AFTER ConnectChains (UpdatePrices.Validate requires the Sui dest config to exist for the
+// gas update). The wSOL/LINK TokenPriceUpdates only require the BillingTokenConfig accounts to
+// exist, which the deploy creates, so they validate and apply unconditionally.
 //
 // PriceUpdater MUST equal the FeeQuoter's authority (owner). UpdatePrices carries no price-updater
 // pubkey in its instruction args, so the on-chain program seeds allowed_price_updater from the
 // authority signer; a mismatch aborts ConstraintSeeds 0x7d6. In the preload EOA env the authority
 // is the deployer key — NOT FetchTimelockSigner, which is the authority only after
 // TransferOwnership moves the FeeQuoter to the MCMS timelock a path the preload env never runs.
-// Mirrors cs_chain_contracts_test.go:345 EOA branch: testPriceUpdater = DeployerKey.PublicKey().
-func seedSolanaSourceSuiDestGasPriceEOA(t *testing.T, e *DeployedEnv, solSel, suiSel uint64, gasPrices map[uint64]*big.Int) error {
+// Mirrors cs_chain_contracts_test.go:345 EOA branch: testPriceUpdater = DeployerKey.PublicKey(),
+// and the Sui-side seedSuiSourceTokenPriceEOA (token-price EOA seeding before ownership transfer).
+func seedSolanaSourcePricesEOA(t *testing.T, e *DeployedEnv, solSel, suiSel uint64, state stateview.CCIPOnChainState, gasPrices map[uint64]*big.Int) error {
 	t.Helper()
-	priceUpdater := e.Env.BlockChains.SolanaChains()[solSel].DeployerKey.PublicKey()
+	solState, ok := state.SolChains[solSel]
+	if !ok {
+		return fmt.Errorf("no Solana chain state for selector %d", solSel)
+	}
 	suiDestGasUsd := gasPrices[suiSel]
 	if suiDestGasUsd == nil {
 		return fmt.Errorf("no gas price provided for Sui dest chain %d", suiSel)
 	}
+	priceUpdater := e.Env.BlockChains.SolanaChains()[solSel].DeployerKey.PublicKey()
 	var err error
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
@@ -234,6 +255,10 @@ func seedSolanaSourceSuiDestGasPriceEOA(t *testing.T, e *DeployedEnv, solSel, su
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.UpdatePrices),
 			ccipChangeSetSolanaV0_1_1.UpdatePricesConfig{
 				ChainSelector: solSel,
+				TokenPriceUpdates: []solFeeQuoter.TokenPriceUpdate{
+					{SourceToken: solState.WSOL, UsdPerToken: solFeeTokenUsdPerToken},
+					{SourceToken: solState.LinkToken, UsdPerToken: solFeeTokenUsdPerToken},
+				},
 				GasPriceUpdates: []solFeeQuoter.GasPriceUpdate{
 					{DestChainSelector: suiSel, UsdPerUnitGas: solCommonUtil.To28BytesBE(suiDestGasUsd.Uint64())},
 				},
@@ -243,7 +268,7 @@ func seedSolanaSourceSuiDestGasPriceEOA(t *testing.T, e *DeployedEnv, solSel, su
 		),
 	})
 	if err != nil {
-		return fmt.Errorf("seed Solana source Sui dest gas price EOA: %w", err)
+		return fmt.Errorf("seed Solana source prices EOA: %w", err)
 	}
 	return nil
 }
