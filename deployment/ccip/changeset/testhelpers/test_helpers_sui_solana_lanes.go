@@ -204,25 +204,28 @@ func seedSuiSourceTokenPriceEOA(t *testing.T, e *DeployedEnv, suiSel uint64, sta
 // Solana billing changesets dispatch MCMS-vs-EOA from the FeeQuoter's ACTUAL on-chain ownership
 // (IsSolanaProgramOwnedByTimelock), not from cfg.MCMS; passing MCMS=nil makes Validate check EOA
 // ownership (which holds) and Apply use chain.Confirm with the deployer signer. Must run AFTER
-// ConnectChains (UpdatePrices.Validate requires the dest config to exist). Mirrors the proven
-// pattern in solana_v0_1_1/cs_chain_contracts_test.go: authorize the Solana timelock signer PDA as
-// a price updater, then push the Sui dest gas price (gasPrices[suiSel]).
+// ConnectChains (UpdatePrices.Validate requires the dest config to exist).
+//
+// PriceUpdater MUST equal the FeeQuoter's authority (owner). UpdatePrices carries no price-updater
+// pubkey in its instruction args, so the on-chain program seeds allowed_price_updater from the
+// authority signer; a mismatch aborts ConstraintSeeds 0x7d6. In the preload EOA env the authority
+// is the deployer key — NOT FetchTimelockSigner, which is the authority only after
+// TransferOwnership moves the FeeQuoter to the MCMS timelock a path the preload env never runs.
+// Mirrors cs_chain_contracts_test.go:345 EOA branch: testPriceUpdater = DeployerKey.PublicKey().
 func seedSolanaSourceSuiDestGasPriceEOA(t *testing.T, e *DeployedEnv, solSel, suiSel uint64, gasPrices map[uint64]*big.Int) error {
 	t.Helper()
-	timelockSignerPDA, err := ccipChangeSetSolanaV0_1_1.FetchTimelockSigner(e.Env, solSel)
-	if err != nil {
-		return fmt.Errorf("fetch Solana timelock signer for chain %d: %w", solSel, err)
-	}
+	priceUpdater := e.Env.BlockChains.SolanaChains()[solSel].DeployerKey.PublicKey()
 	suiDestGasUsd := gasPrices[suiSel]
 	if suiDestGasUsd == nil {
 		return fmt.Errorf("no gas price provided for Sui dest chain %d", suiSel)
 	}
+	var err error
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.ModifyPriceUpdater),
 			ccipChangeSetSolanaV0_1_1.ModifyPriceUpdaterConfig{
 				ChainSelector:      solSel,
-				PriceUpdater:       timelockSignerPDA,
+				PriceUpdater:       priceUpdater,
 				PriceUpdaterAction: ccipChangeSetSolanaV0_1_1.AddUpdater,
 				MCMS:               nil,
 			},
@@ -234,7 +237,7 @@ func seedSolanaSourceSuiDestGasPriceEOA(t *testing.T, e *DeployedEnv, solSel, su
 				GasPriceUpdates: []solFeeQuoter.GasPriceUpdate{
 					{DestChainSelector: suiSel, UsdPerUnitGas: solCommonUtil.To28BytesBE(suiDestGasUsd.Uint64())},
 				},
-				PriceUpdater: timelockSignerPDA,
+				PriceUpdater: priceUpdater,
 				MCMS:         nil,
 			},
 		),
