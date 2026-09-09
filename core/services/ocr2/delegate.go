@@ -642,7 +642,7 @@ func (d *Delegate) NewServices(
 		TransmitterID:      null.StringFrom(transmitterID),
 		Relay:              relay.NetworkEVM,
 		ChainID:            d.capRegistryChainID,
-		RelayConfig:        job.JSONConfig{"chainID": d.capRegistryChainID, "providerType": string(pluginType)},
+		RelayConfig:        registryOCR2RelayConfig(d.capRegistryChainID, pluginType, transmitterID),
 		P2PV2Bootstrappers: bootstrapPeersToStrings(bootstrapPeers),
 		OCRKeyBundleID:     null.StringFrom(kbID),
 		OnchainSigningStrategy: job.JSONConfig{
@@ -692,6 +692,14 @@ func (d *Delegate) NewServices(
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, capabilityID)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported for registry-driven launch", pluginType)
+	}
+}
+
+func registryOCR2RelayConfig(chainID string, pluginType types.OCR2PluginType, transmitterID string) job.JSONConfig {
+	return job.JSONConfig{
+		"chainID":                chainID,
+		"providerType":           string(pluginType),
+		"effectiveTransmitterID": transmitterID,
 	}
 }
 

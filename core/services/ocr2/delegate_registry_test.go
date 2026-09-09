@@ -37,15 +37,17 @@ func TestRegistryOCRKeyBundle(t *testing.T) {
 func TestRegistryOCR2SpecRelayID(t *testing.T) {
 	t.Parallel()
 
+	transmitterID := "0x1234"
 	spec := job.OCR2OracleSpec{
 		Relay:       relay.NetworkEVM,
 		ChainID:     "1337",
-		RelayConfig: job.JSONConfig{"chainID": "1337", "providerType": string(commontypes.DonTimePlugin)},
+		RelayConfig: registryOCR2RelayConfig("1337", commontypes.DonTimePlugin, transmitterID),
 	}
 
 	relayID, err := spec.RelayID()
 	require.NoError(t, err)
 	assert.Equal(t, commontypes.RelayID{Network: relay.NetworkEVM, ChainID: "1337"}, relayID)
+	assert.Equal(t, transmitterID, spec.RelayConfig["effectiveTransmitterID"])
 }
 
 func TestNewServices_NilPeerWrapper(t *testing.T) {
