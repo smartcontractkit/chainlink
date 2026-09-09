@@ -621,16 +621,27 @@ func (d *Delegate) NewServices(
 		transmitterID = t
 	}
 
-	// Build local config from delegate defaults.
-	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), job.OCR2OracleSpec{
-		PluginType:    pluginType,
-		TransmitterID: null.StringFrom(transmitterID),
-		Relay:         fmt.Sprintf("%s/%s", relay.NetworkEVM, d.capRegistryChainID),
+	// Build a synthetic job spec so the existing plugin service creation can be reused.
+	// Keep its relay fields equivalent to the legacy job template: RelayID expects the
+	// network and chain ID separately, and the provider still consumes RelayConfig.
+	spec := &job.OCR2OracleSpec{
+		PluginType:         pluginType,
+		ContractID:         d.capRegistryAddress,
+		TransmitterID:      null.StringFrom(transmitterID),
+		Relay:              relay.NetworkEVM,
+		ChainID:            d.capRegistryChainID,
+		RelayConfig:        job.JSONConfig{"chainID": d.capRegistryChainID, "providerType": string(pluginType)},
+		P2PV2Bootstrappers: bootstrapPeersToStrings(bootstrapPeers),
+		OCRKeyBundleID:     null.StringFrom(kbID),
 		OnchainSigningStrategy: job.JSONConfig{
 			"strategyName": "multi-chain",
 			"config":       map[string]any{"evm": kbID},
 		},
-	})
+		PluginConfig: job.JSONConfig{},
+	}
+
+	// Build local config from delegate defaults.
+	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), *spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build local config: %w", err)
 	}
@@ -640,23 +651,11 @@ func (d *Delegate) NewServices(
 
 	ocrDB := NewDB(d.ds, jobID, 0, lggr)
 
-	// Build a synthetic job spec so the existing newDonTimePlugin can be reused.
-	// This avoids duplicating the service-creation logic; the job spec fields
-	// that newDonTimePlugin reads are populated from the resolved config.
 	jb := job.Job{
-		ID:            jobID,
-		ExternalJobID: externalJobID,
-		Type:          job.OffchainReporting2,
-		OCR2OracleSpec: &job.OCR2OracleSpec{
-			PluginType:             pluginType,
-			ContractID:             d.capRegistryAddress,
-			TransmitterID:          null.StringFrom(transmitterID),
-			Relay:                  fmt.Sprintf("%s/%s", relay.NetworkEVM, d.capRegistryChainID),
-			P2PV2Bootstrappers:     bootstrapPeersToStrings(bootstrapPeers),
-			OCRKeyBundleID:         null.StringFrom(kbID),
-			OnchainSigningStrategy: job.JSONConfig{"strategyName": "multi-chain", "config": map[string]any{"evm": kbID}},
-			PluginConfig:           job.JSONConfig{},
-		},
+		ID:             jobID,
+		ExternalJobID:  externalJobID,
+		Type:           job.OffchainReporting2,
+		OCR2OracleSpec: spec,
 	}
 	if configJSON != "" {
 		jb.OCR2OracleSpec.PluginConfig = job.JSONConfig{}

@@ -9,7 +9,23 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
+
+func TestRegistryOCR2SpecRelayID(t *testing.T) {
+	t.Parallel()
+
+	spec := job.OCR2OracleSpec{
+		Relay:       relay.NetworkEVM,
+		ChainID:     "1337",
+		RelayConfig: job.JSONConfig{"chainID": "1337", "providerType": string(commontypes.DonTimePlugin)},
+	}
+
+	relayID, err := spec.RelayID()
+	require.NoError(t, err)
+	assert.Equal(t, commontypes.RelayID{Network: relay.NetworkEVM, ChainID: "1337"}, relayID)
+}
 
 func TestNewServices_NilPeerWrapper(t *testing.T) {
 	t.Parallel()
