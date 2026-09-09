@@ -58,6 +58,35 @@ func TestResolveSpot(t *testing.T) {
 			checkMQ:          true,
 		},
 		{
+			name: "merge_group event on release branch forces on-demand and sets release",
+			input: runner.SpotInput{
+				EventName: "merge_group",
+				Ref:       "refs/heads/gh-readonly-queue/release/2.57.1/pr-123-abcdef",
+				RefName:   "gh-readonly-queue/release/2.57.1/pr-123-abcdef",
+				BaseRef:   "release/2.57.1",
+			},
+			expectedSpot:     "false",
+			expectedFlag:     "spot=false",
+			expectedEnab:     false,
+			expectedStrategy: runner.SpotDisabled,
+			checkRelease:     true,
+			checkMQ:          true,
+		},
+		{
+			name: "merge queue branch ref on release branch without base-ref sets release",
+			input: runner.SpotInput{
+				EventName: "push",
+				Ref:       "refs/heads/gh-readonly-queue/release/2.57.1/pr-456",
+				RefName:   "gh-readonly-queue/release/2.57.1/pr-456",
+			},
+			expectedSpot:     "false",
+			expectedFlag:     "spot=false",
+			expectedEnab:     false,
+			expectedStrategy: runner.SpotDisabled,
+			checkRelease:     true,
+			checkMQ:          true,
+		},
+		{
 			name: "merge queue branch ref forces on-demand",
 			input: runner.SpotInput{
 				EventName: "push",

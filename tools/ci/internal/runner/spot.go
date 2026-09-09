@@ -56,6 +56,7 @@ func isMergeQueue(eventName, ref, refName string) bool {
 
 func isReleaseBranch(name string) bool {
 	clean := strings.ToLower(strings.TrimPrefix(name, "refs/heads/"))
+	clean = strings.TrimPrefix(clean, "gh-readonly-queue/")
 	if clean == "" {
 		return false
 	}
@@ -150,6 +151,7 @@ func ResolveSpot(input SpotInput) (SpotResult, error) {
 			Enabled:      false,
 			Strategy:     SpotDisabled,
 			Reason:       "merge queue runs require on-demand to prevent queue eviction",
+			IsRelease:    isReleaseOrTag(input.EventName, input.Ref, input.RefType, input.RefName, input.BaseRef),
 			IsMergeQueue: true,
 		}, nil
 	}
