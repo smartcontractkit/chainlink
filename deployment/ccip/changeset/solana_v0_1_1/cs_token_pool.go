@@ -855,6 +855,8 @@ type CreateTokenMultisigConfig struct {
 	PoolType                *cldf.ContractType
 	Metadata                string
 	CustomerMintAuthorities []solana.PublicKey
+	// TokenSymbol is the datastore key for the token whose multisig is created.
+	TokenSymbol string
 }
 
 func (cfg CreateTokenMultisigConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -908,6 +910,11 @@ func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cld
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
+	// Validate the datastore key before creating the multisig. The key is supplied by the
+	// caller; it must not be manufactured from the address that the transaction returns.
+	if err := validateTokenSymbol(cfg.TokenSymbol, cfg.TokenMint.String()); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
 	e.Logger.Infow("Using tokenPoolSignerPDA as signer", "tokenPoolSignerPDA", tokenPoolSignerPDA, "tokenPoolProgramID", tokenPoolProgramID, "TokenMint", cfg.TokenMint)
 	newMultisig, err := createMultisig(e, cfg.ChainSelector, tokenPoolSignerPDA, cfg.CustomerMintAuthorities, tokenProgramID)
 	if err != nil {
@@ -915,13 +922,7 @@ func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cld
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
 	ds := datastore.NewMemoryDataStore()
-	tv := cldf.NewTypeAndVersion("TokenMultisig", deployment.Version1_0_0)
-	tv.AddLabel(cfg.Metadata)
-	tv.AddLabel(cfg.TokenMint.String())
-	// A multisig belongs to one (mint, pool-set), so both identify it. TokenMultisig is not yet
-	// in the qualifier convention's classification; this needs a section 3 decision before it is
-	// written to a real environment.
-	err = shared.RecordAddress(newAddresses, ds, cfg.ChainSelector, newMultisig.String(), tv, shared.QualifierFromParts(cfg.TokenMint.String(), cfg.Metadata))
+	err = recordTokenMultisig(newAddresses, ds, cfg.ChainSelector, newMultisig.String(), cfg.Metadata, cfg.TokenMint, cfg.TokenSymbol)
 	if err != nil {
 		e.Logger.Errorw("Failed to save new token multisig", "chain", solChainState, "err", err)
 		return cldf.ChangesetOutput{}, err
@@ -931,6 +932,28 @@ func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cld
 		AddressBook: newAddresses,
 		DataStore:   ds,
 	}, nil
+}
+
+// recordTokenMultisig writes the old address-book identity and the canonical datastore identity.
+func recordTokenMultisig(
+	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
+	chainSelector uint64,
+	address string,
+	metadata string,
+	mint solana.PublicKey,
+	qualifier string,
+) error {
+	legacyTV := cldf.NewTypeAndVersion("TokenMultisig", deployment.Version1_0_0)
+	legacyTV.AddLabel(metadata)
+	legacyTV.AddLabel(mint.String())
+	if err := ab.Save(chainSelector, address, legacyTV); err != nil {
+		return fmt.Errorf("failed to save new token multisig to address book: %w", err)
+	}
+
+	datastoreTV := cldf.NewTypeAndVersion("TOKEN_MULTISIG", deployment.Version1_6_0)
+	datastoreTV.AddLabel(mint.String())
+	return shared.RecordAddress(nil, ds, chainSelector, address, datastoreTV, qualifier)
 }
 
 func createMultisig(e cldf.Environment, chainSelector uint64, tokenPoolSignerPDA solana.PublicKey, customerMintAuthorities []solana.PublicKey, tokenProgramID solana.PublicKey) (solana.PublicKey, error) {

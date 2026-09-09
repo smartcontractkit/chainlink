@@ -477,12 +477,10 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		}
 	}
 
-	// The final datastore is the accumulated child datastores, each built by a child changeset
-	// from its own deployments with the correct qualifiers (tokens, MCMS, chain singletons).
-	// Imported existing contracts (SaveExistingContractsChangeset) are not keyed into the
-	// datastore — they have no caller-known qualifier — and remain resolvable through the address
-	// book. It is not reconstructed from the merged address book, which cannot carry qualifier
-	// information.
+	// The final datastore is the accumulated child datastores, including imported contracts
+	// recorded by SaveExistingContractsChangeset under caller-supplied qualifiers. It is merged
+	// from child outputs rather than reconstructed from the address book, which has no qualifier
+	// field.
 	ds := finalDS
 
 	if proposal == nil {
