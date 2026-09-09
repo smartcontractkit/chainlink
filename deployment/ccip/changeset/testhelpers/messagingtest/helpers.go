@@ -86,6 +86,11 @@ type TestCase struct {
 	ExtraAssertions        []func(t *testing.T)
 	NumberOfMessages       int // number of messages to send, use same data and extraArgs
 	UseMulticall3          bool
+	// ExtraSendOpts are appended to the SendRequest options for each message. Used by
+	// lanes-based Sui source tests to set WithSkipSuiFeeQuoterPriceUpdate, since their
+	// MCMS-owned CCIP path pre-seeds fee-quoter prices and must not run the legacy EOA
+	// update inside SendRequestSui.
+	ExtraSendOpts []ccipclient.SendReqOpts
 }
 
 type ValidationType int
@@ -241,7 +246,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 				tc.SourceChain,
 				tc.DestChain,
 				tc.TestRouter,
-				msg)
+				msg,
+				tc.ExtraSendOpts...)
 
 			if i == 0 {
 				expectedSeqNumRange = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}

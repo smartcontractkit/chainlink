@@ -13,11 +13,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	_ "github.com/smartcontractkit/chainlink-ccip/chains/solana/deployment/v1_6_0/sequences" // register Solana deploy/lane/mcms adapters
+	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-ccip/deployment/lanes"
 	cs_ccip "github.com/smartcontractkit/chainlink-ccip/deployment/utils/changesets"
 	ccipmcms "github.com/smartcontractkit/chainlink-ccip/deployment/utils/mcms"
@@ -36,6 +39,7 @@ import (
 	ownershipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ownership"
 	sui_utils "github.com/smartcontractkit/chainlink-sui/deployment/utils"
 
+	ccipChangeSetSolanaV0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -61,6 +65,40 @@ func addSuiSolanaMixedLane(
 	tokenPrices map[string]*big.Int,
 	fqCfg fee_quoter.FeeQuoterDestChainConfig,
 ) error {
+	// Resolve Sui/Solana selectors up front: the per-family price seeding below keys off them
+	// and (for the Sui source) must run before the lane changesets are built.
+	suiSel := to
+	if fromFamily == chainsel.FamilySui {
+		suiSel = from
+	}
+	solSel := to
+	if fromFamily == chainsel.FamilySolana {
+		solSel = from
+	}
+
+	// Sui source — seed the LINK source-token USD price EOA, BEFORE the ownership transfer to
+	// MCMS consumes the deployer's CCIPOwnerCapObjectId. The Sui lanes adapter seeds the dest
+	// GAS price during ConnectChains (connect_chains_source.go:145), but nobody seeds the LINK
+	// usd_per_token, so get_fee for a Sui->Solana message (fee paid in LINK) would abort. EOA
+	// mode (TimelockConfig nil) runs the same FeeQuoterUpdatePricesWithOwnerCapOp legacy
+	// EVM<->Sui tests use; its VerifyPreconditions needs no dest config, so it works pre-lane.
+	// The seeded price persists through the ownership transfer and ConnectChains (neither
+	// touches the fee-quoter price tables). Token price only — gas is ConnectChains's job.
+	//
+	// ConnectChains seeds the Solana dest gas from gasPrices[solSel]. The FamilySui default
+	// (1e17) is an untested placeholder that legacy tests silently overwrite via SendRequestSui's
+	// EOA update (skipped here under MCMS ownership). Pin it to the known-good value
+	// SendRequestSui uses (bigIntGasUsdPerUnitGas, test_sui_helpers.go:162) so the lane-seeded
+	// gas yields the same payable fee as the legacy path.
+	if fromFamily == chainsel.FamilySui {
+		solDestGasUsd, ok := new(big.Int).SetString("41946474500", 10)
+		require.True(t, ok, "parse Solana dest gas USD price")
+		gasPrices[solSel] = solDestGasUsd
+		if err := seedSuiSourceTokenPriceEOA(t, e, suiSel, state); err != nil {
+			return fmt.Errorf("seed Sui source LINK token price (EOA): %w", err)
+		}
+	}
+
 	changesets := addSuiSolanaLaneChangesets(t, from, to, isTestRouter, gasPrices, tokenPrices, fqCfg)
 
 	// DeploySuiChain deploys MCMS with nil role configs (quorum=0) and only INITIATES the
@@ -76,10 +114,6 @@ func addSuiSolanaMixedLane(
 	// by ApplyChangesets) -> ExecuteOwnershipTransferToMcms (EOA finalize + register_entrypoint).
 	// This is scoped to Sui<->Solana lanes only; legacy EVM<->Sui tests never call this helper, so
 	// their deployer-owned/quorum=0 EOA-executed Sui path is untouched.
-	suiSel := to
-	if fromFamily == chainsel.FamilySui {
-		suiSel = from
-	}
 	if err := completeSuiCCIPMCMSOwnership(t, e, suiSel); err != nil {
 		return fmt.Errorf("complete Sui CCIP MCMS ownership: %w", err)
 	}
@@ -93,10 +127,6 @@ func addSuiSolanaMixedLane(
 	// overwrite); stateview resolves newest-by-type and is unaffected. This mirrors the Aptos
 	// mixed lane, whose legacy env deploy already saves its CCIP ref at the 1.6.0 version its
 	// lanes adapter queries.
-	solSel := to
-	if fromFamily == chainsel.FamilySolana {
-		solSel = from
-	}
 	var err error
 	e.Env, err = reregisterSolanaCCIPRefsAtLanesVersion(e.Env, solSel)
 	if err != nil {
@@ -105,10 +135,109 @@ func addSuiSolanaMixedLane(
 
 	// SuiAdapter address getters read chain metadata from the env scope set below; run the
 	// ConnectChains changeset application inside it.
-	return suilanes.WithConnectChainsEnvironment(e.Env, func() error {
+	if err := suilanes.WithConnectChainsEnvironment(e.Env, func() error {
 		e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 		return err
+	}); err != nil {
+		return fmt.Errorf("connect Sui<->Solana lane: %w", err)
+	}
+
+	// Solana source — the Solana lanes adapter (ConfigureLaneLegAsSource) writes only the
+	// FeeQuoter dest-chain config; it seeds NO gas prices, unlike the Sui/Aptos adapters. The
+	// DON would normally push the Sui dest gas price via price-only OCR commits, but the test
+	// OCR config has no Sui gas-price feed, so GetFee aborts StaleGasPrice (code 8024). Seed it
+	// via the Solana UpdatePrices escape hatch AFTER ConnectChains (UpdatePrices.Validate
+	// requires the dest config to exist). Solana CCIP is MCMS/timelock-owned at deploy, so there
+	// is no EOA window — this must be an MCMS proposal, mirroring the proven pattern in
+	// solana_v0_1_1/cs_chain_contracts_test.go (add the timelock signer as a price updater, then
+	// push the gas price). The Sui source leg needs no post-ConnectChains seeding: its dest gas
+	// was seeded by the Sui adapter and its LINK token price was seeded EOA above.
+	if fromFamily == chainsel.FamilySolana {
+		if err := seedSolanaSourceSuiDestGasPriceMCMS(t, e, solSel, suiSel, gasPrices); err != nil {
+			return fmt.Errorf("seed Solana source Sui dest gas price (MCMS): %w", err)
+		}
+	}
+
+	return nil
+}
+
+// seedSuiSourceTokenPriceEOA seeds the Sui fee-quoter's LINK source-token USD price EOA, using
+// the deployer's CCIPOwnerCapObjectId. It MUST run BEFORE completeSuiCCIPMCMSOwnership, which
+// moves the OwnerCap into the MCMS registry (after which the EOA op aborts). The Sui lanes
+// adapter seeds the dest gas price during ConnectChains but never the source-token price, so
+// without this get_fee for a Sui-source message paid in LINK aborts. Token price only.
+//
+// This is the EOA mode of sui_cs.SeedDestChainPrices (TimelockConfig nil -> deployer signer); it
+// calls the same FeeQuoterUpdatePricesWithOwnerCapOp legacy EVM<->Sui tests use. Apply is called
+// DIRECTLY, not via ApplyChangesets: like ConfigureMCMS, SeedDestChainPrices returns a zero-value
+// placeholder TimelockProposal even in EOA mode (cs_seed_dest_chain_prices.go:161), which
+// ApplyChangesets would try to auto-execute and fail validation. The value matches
+// SendSuiCCIPRequest's bigIntSourceUsdPerToken (test_sui_helpers.go:157) exactly.
+func seedSuiSourceTokenPriceEOA(t *testing.T, e *DeployedEnv, suiSel uint64, state stateview.CCIPOnChainState) error {
+	t.Helper()
+	linkUsd, ok := new(big.Int).SetString("15377040000000000000000000000", 10)
+	require.True(t, ok, "parse Sui source LINK USD price")
+	suiState, ok := state.SuiChains[suiSel]
+	require.True(t, ok, "no Sui chain state for selector %d", suiSel)
+	out, err := sui_cs.SeedDestChainPrices{}.Apply(e.Env, sui_cs.SeedDestChainPricesConfig{
+		SuiChainSelector:  suiSel,
+		SourceTokens:      []string{suiState.LinkTokenCoinMetadataId},
+		SourceUsdPerToken: []*big.Int{linkUsd},
 	})
+	if err != nil {
+		return fmt.Errorf("seed Sui source LINK token price via EOA: %w", err)
+	}
+	_ = out
+	return nil
+}
+
+// seedSolanaSourceSuiDestGasPriceMCMS seeds the Sui dest gas price on the Solana source
+// fee-quoter via an MCMS timelock proposal (auto-executed by ApplyChangesets via Bypass +
+// MinDelay=0). The Solana lanes adapter writes only the dest-chain config, not gas prices, and
+// Solana CCIP is MCMS/timelock-owned at deploy (no EOA window), so this must run as an MCMS
+// proposal AFTER ConnectChains (UpdatePrices.Validate requires the dest config to exist). It
+// mirrors the proven pattern in solana_v0_1_1/cs_chain_contracts_test.go: authorize the Solana
+// timelock signer PDA as a price updater, then push the Sui dest gas price (gasPrices[suiSel]).
+func seedSolanaSourceSuiDestGasPriceMCMS(t *testing.T, e *DeployedEnv, solSel, suiSel uint64, gasPrices map[uint64]*big.Int) error {
+	t.Helper()
+	timelockSignerPDA, err := ccipChangeSetSolanaV0_1_1.FetchTimelockSigner(e.Env, solSel)
+	if err != nil {
+		return fmt.Errorf("fetch Solana timelock signer for chain %d: %w", solSel, err)
+	}
+	mcmsCfg := &cldfproposalutils.TimelockConfig{
+		MCMSAction: mcmstypes.TimelockActionBypass,
+		MinDelay:   0,
+	}
+	suiDestGasUsd := gasPrices[suiSel]
+	if suiDestGasUsd == nil {
+		return fmt.Errorf("no gas price provided for Sui dest chain %d", suiSel)
+	}
+	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.ModifyPriceUpdater),
+			ccipChangeSetSolanaV0_1_1.ModifyPriceUpdaterConfig{
+				ChainSelector:      solSel,
+				PriceUpdater:       timelockSignerPDA,
+				PriceUpdaterAction: ccipChangeSetSolanaV0_1_1.AddUpdater,
+				MCMS:               mcmsCfg,
+			},
+		),
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.UpdatePrices),
+			ccipChangeSetSolanaV0_1_1.UpdatePricesConfig{
+				ChainSelector: solSel,
+				GasPriceUpdates: []solFeeQuoter.GasPriceUpdate{
+					{DestChainSelector: suiSel, UsdPerUnitGas: solCommonUtil.To28BytesBE(suiDestGasUsd.Uint64())},
+				},
+				PriceUpdater: timelockSignerPDA,
+				MCMS:         mcmsCfg,
+			},
+		),
+	})
+	if err != nil {
+		return fmt.Errorf("seed Solana source Sui dest gas price via MCMS: %w", err)
+	}
+	return nil
 }
 
 // completeSuiCCIPMCMSOwnership finishes the MCMS governance of the Sui CCIP contracts that

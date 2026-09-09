@@ -167,28 +167,34 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// getValidatedFee
 	msg := cfg.Message.(SuiSendRequest)
 
-	// Update Prices on FeeQuoter with minted LinkToken
-	feePriceReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
-		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
-			CCIPPackageId:         ccipPackageID,
-			CCIPObjectRef:         ccipObjectRefID,
-			OwnerCapObjectId:      ccipOwnerCapID,
-			SourceTokens:          []string{linkTokenObjectMetadataID},
-			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
-			GasDestChainSelectors: []uint64{cfg.DestChain},
-			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
-		})
-	if err != nil {
-		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
-	}
+	// Update Prices on FeeQuoter with minted LinkToken. This EOA update uses the deployer's
+	// CCIPOwnerCapObjectId, which is consumed (moved into the MCMS registry) once Sui CCIP is
+	// transferred to MCMS — as the lanes-based Sui<->Solana setup does, seeding prices via an
+	// MCMS proposal instead. On that path the caller sets SkipSuiFeeQuoterPriceUpdate and this
+	// block is skipped; legacy deployer-owned Sui tests leave it unset and run the EOA update.
+	if !cfg.SkipSuiFeeQuoterPriceUpdate {
+		feePriceReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+			ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+				CCIPPackageId:         ccipPackageID,
+				CCIPObjectRef:         ccipObjectRefID,
+				OwnerCapObjectId:      ccipOwnerCapID,
+				SourceTokens:          []string{linkTokenObjectMetadataID},
+				SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
+				GasDestChainSelectors: []uint64{cfg.DestChain},
+				GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
+			})
+		if err != nil {
+			return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
+		}
 
-	// This tx mutates the signer's gas coin. The following PTB (ccip_send) selects that
-	// coin via owned-object refs; without waiting for fullnode indexing, the next submit
-	// can race (stale object version) even when each individual binding call used
-	// WaitForExecution (see bind.WaitForTransactionIndexed / WaitForSuiFullnodeTransaction).
-	if d := feePriceReport.Output.Digest; d != "" {
-		if waitErr := WaitForSuiFullnodeTransaction(ctx, suiChain.Client, d); waitErr != nil {
-			return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("fee quoter price update tx not visible on fullnode: %w", waitErr)
+		// This tx mutates the signer's gas coin. The following PTB (ccip_send) selects that
+		// coin via owned-object refs; without waiting for fullnode indexing, the next submit
+		// can race (stale object version) even when each individual binding call used
+		// WaitForExecution (see bind.WaitForTransactionIndexed / WaitForSuiFullnodeTransaction).
+		if d := feePriceReport.Output.Digest; d != "" {
+			if waitErr := WaitForSuiFullnodeTransaction(ctx, suiChain.Client, d); waitErr != nil {
+				return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("fee quoter price update tx not visible on fullnode: %w", waitErr)
+			}
 		}
 	}
 
