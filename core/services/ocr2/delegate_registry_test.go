@@ -7,11 +7,32 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
+
+func TestRegistryOCRKeyBundle(t *testing.T) {
+	t.Parallel()
+
+	key, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+	keyStore := keystoremocks.NewOCR2(t)
+	keyStore.EXPECT().GetAllOfType(corekeys.EVM).Return([]ocr2key.KeyBundle{key}, nil)
+
+	got, err := registryOCRKeyBundle(keyStore, &ocrtypes.ContractConfig{
+		Signers: []ocrtypes.OnchainPublicKey{key.PublicKey()},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, key.ID(), got.ID())
+}
 
 func TestRegistryOCR2SpecRelayID(t *testing.T) {
 	t.Parallel()

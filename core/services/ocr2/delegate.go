@@ -589,15 +589,27 @@ func (d *Delegate) NewServices(
 	lggr := logger.Sugared(d.lggr.Named(string(job.OffchainReporting2)).Named(externalJobID.String()).With(lggrCtx.Args()...))
 	ctx = lggrCtx.ContextWithValues(ctx)
 
-	// Resolve OCR key bundle from keystore.
-	kbID, err := d.cfg.OCR2().KeyBundleID()
+	// Resolve the OCR key from the registry signer set. Nodes launched without a
+	// job spec do not necessarily configure OCR2.KeyBundleID.
+	kb, err := registryOCRKeyBundle(d.ks, registryOCRConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get default OCR2 key bundle ID: %w", err)
+		return nil, err
 	}
-	kb, err := d.ks.Get(kbID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get OCR2 key bundle: %w", err)
+	if kb == nil {
+		kbID, keyIDErr := d.cfg.OCR2().KeyBundleID()
+		if keyIDErr != nil {
+			return nil, fmt.Errorf("failed to get default OCR2 key bundle ID: %w", keyIDErr)
+		}
+		if kbID == "" {
+			return nil, errors.New("no EVM OCR2 key matches the registry config and OCR2.KeyBundleID is not configured")
+		}
+		configuredKB, getErr := d.ks.Get(kbID)
+		if getErr != nil {
+			return nil, fmt.Errorf("failed to get OCR2 key bundle: %w", getErr)
+		}
+		kb = configuredKB
 	}
+	kbID := kb.ID()
 
 	// Resolve bootstrap peers from TOML config defaults.
 	bootstrapPeers := d.defaultBootstrappers
@@ -681,6 +693,19 @@ func (d *Delegate) NewServices(
 	default:
 		return nil, errors.Errorf("plugin type %s not supported for registry-driven launch", pluginType)
 	}
+}
+
+func registryOCRKeyBundle(ks keystore.OCR2, registryOCRConfig *ocrtypes.ContractConfig) (ocr2key.KeyBundle, error) {
+	if registryOCRConfig == nil {
+		return nil, nil
+	}
+
+	bundles, err := ks.GetAllOfType(corekeys.EVM)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get EVM OCR2 key bundles: %w", err)
+	}
+	kb, _ := generic.SelectOCRKeyBundleForConfig(bundles, registryOCRConfig)
+	return kb, nil
 }
 
 // bootstrapPeersToStrings converts BootstrapperLocator slice to string slice
