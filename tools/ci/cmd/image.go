@@ -37,34 +37,19 @@ func newImageResolveCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			act := ghaction.NewAction(cmd.OutOrStdout())
 			if ecrType == "" {
-				ecrType = act.GetInput("ecr_type")
-			}
-			if ecrType == "" {
-				ecrType = act.Getenv("ECR_TYPE")
+				ecrType = act.GetInputOrEnv("ecr_type", "ECR_TYPE")
 			}
 			if repositoryPath == "" {
-				repositoryPath = act.GetInput("repo_path")
-			}
-			if repositoryPath == "" {
-				repositoryPath = act.Getenv("CHAINLINK_IMAGE_REPO_PATH")
+				repositoryPath = act.GetInputOrEnv("repo_path", "CHAINLINK_IMAGE_REPO_PATH")
 			}
 			if imageTag == "" {
-				imageTag = act.GetInput("tag")
-			}
-			if imageTag == "" {
-				imageTag = act.Getenv("CHAINLINK_IMAGE_TAG")
+				imageTag = act.GetInputOrEnv("tag", "CHAINLINK_IMAGE_TAG")
 			}
 			if awsAccount == "" {
-				awsAccount = act.GetInput("aws_account")
-			}
-			if awsAccount == "" {
-				awsAccount = act.Getenv("AWS_ACCOUNT_NUMBER")
+				awsAccount = act.GetInputOrEnv("aws_account", "AWS_ACCOUNT_NUMBER")
 			}
 			if awsRegion == "" {
-				awsRegion = act.GetInput("aws_region")
-			}
-			if awsRegion == "" {
-				awsRegion = act.Getenv("AWS_REGION")
+				awsRegion = act.GetInputOrEnv("aws_region", "AWS_REGION")
 			}
 
 			resolved, err := image.Resolve(image.ResolveOptions{

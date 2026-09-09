@@ -54,41 +54,19 @@ func TestGHAction_AddStepSummary_FallbackStdout(t *testing.T) {
 	assert.Equal(t, "### Summary Table\n", stdout.String())
 }
 
-func TestGHAction_AddStepSummaryTemplate(t *testing.T) {
-	t.Setenv("GITHUB_STEP_SUMMARY", "")
+func TestGHAction_GetInputOrEnv(t *testing.T) {
+	t.Setenv("INPUT_MY-INPUT", "")
+	t.Setenv("MY_ENV_VAR", "")
 	var stdout bytes.Buffer
-	act := ghaction.NewWithOptions(&stdout, "", "", "")
+	act := ghaction.NewAction(&stdout)
 
-	data := struct {
-		Name string
-	}{Name: "Runner"}
-	err := act.AddStepSummaryTemplate("### Hello {{.Name}}", data)
-	require.NoError(t, err)
-	assert.Equal(t, "### Hello Runner\n", stdout.String())
-}
+	assert.Empty(t, act.GetInputOrEnv("my-input", "MY_ENV_VAR"))
 
-func TestGHAction_AddStepSummaryTemplate_NoHTMLEscaping(t *testing.T) {
-	t.Setenv("GITHUB_STEP_SUMMARY", "")
-	var stdout bytes.Buffer
-	act := ghaction.NewWithOptions(&stdout, "", "", "")
+	t.Setenv("MY_ENV_VAR", "from-env")
+	assert.Equal(t, "from-env", act.GetInputOrEnv("my-input", "MY_ENV_VAR"))
 
-	data := struct {
-		Name string
-	}{Name: "Runner & <team>"}
-	err := act.AddStepSummaryTemplate("### Hello {{.Name}}", data)
-	require.NoError(t, err)
-	assert.Equal(t, "### Hello Runner & <team>\n", stdout.String())
-}
-
-func TestGHAction_IsGitHubActions(t *testing.T) {
-	var stdout bytes.Buffer
-	act1 := ghaction.New(&stdout, "/path/to/output", "")
-	assert.True(t, act1.IsGitHubActions())
-
-	t.Setenv("GITHUB_ACTIONS", "")
-	t.Setenv("GITHUB_OUTPUT", "")
-	act2 := ghaction.NewWithOptions(&stdout, "", "", "")
-	assert.False(t, act2.IsGitHubActions())
+	t.Setenv("INPUT_MY-INPUT", "from-input")
+	assert.Equal(t, "from-input", act.GetInputOrEnv("my-input", "MY_ENV_VAR"))
 }
 
 func TestGHAction_WithGroup(t *testing.T) {

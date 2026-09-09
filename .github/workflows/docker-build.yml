@@ -47,7 +47,7 @@ jobs:
 
       - name: Resolve Spot Setting
         id: spot
-        uses: ./.github/actions/setup-runner-spot
+        uses: $/.github/actions/setup-runner-spot
 
       - name: Get PR Labels
         id: pr-labels

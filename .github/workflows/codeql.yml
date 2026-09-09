@@ -98,14 +98,9 @@ jobs:
       spot_flag: ${{ steps.spot.outputs.spot_flag }}
       spot_param: ${{ steps.spot.outputs.spot_param }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
       - name: Resolve Spot Setting
         id: spot
-        uses: ./.github/actions/setup-runner-spot
+        uses: $/.github/actions/setup-runner-spot
 
       - name: Get PR Labels
         id: pr-labels

@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"sort"
-	"text/template"
 
 	"github.com/sethvargo/go-githubactions"
 )
@@ -105,6 +104,15 @@ func (a *Action) SetEnv(key, value string) error {
 	return nil
 }
 
+// GetInputOrEnv returns the value of the given action input, falling back to
+// the given environment variable when the input is unset or empty.
+func (a *Action) GetInputOrEnv(inputKey, envKey string) string {
+	if v := a.GetInput(inputKey); v != "" {
+		return v
+	}
+	return a.Getenv(envKey)
+}
+
 // AddStepSummary writes markdown content to GITHUB_STEP_SUMMARY file, or falls back to out when unset.
 func (a *Action) AddStepSummary(markdown string) error {
 	if a.summaryPath == "" {
@@ -113,27 +121,6 @@ func (a *Action) AddStepSummary(markdown string) error {
 	}
 	a.Action.AddStepSummary(markdown)
 	return nil
-}
-
-// AddStepSummaryTemplate parses and executes a template string, writing the result to GITHUB_STEP_SUMMARY or out.
-func (a *Action) AddStepSummaryTemplate(tmpl string, data any) error {
-	if a.summaryPath == "" {
-		t, err := template.New("summary").Parse(tmpl)
-		if err != nil {
-			return fmt.Errorf("failed to parse summary template: %w", err)
-		}
-		if err := t.Execute(a.out, data); err != nil {
-			return fmt.Errorf("failed to execute summary template: %w", err)
-		}
-		fmt.Fprintln(a.out)
-		return nil
-	}
-	return a.Action.AddStepSummaryTemplate(tmpl, data)
-}
-
-// IsGitHubActions returns true if executing in a GitHub Actions runner environment.
-func (a *Action) IsGitHubActions() bool {
-	return a.Getenv("GITHUB_ACTIONS") == "true" || a.outputPath != ""
 }
 
 // Context returns the typed GitHubContext populated from GitHub Actions environment variables and event payload.

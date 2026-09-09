@@ -118,14 +118,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
       - name: Resolve Spot Setting
         id: spot
-        uses: ./.github/actions/setup-runner-spot
+        uses: $/.github/actions/setup-runner-spot
 
       # TODO(DX-5101): replace this inline jq matrix step with `ci matrix ccip`
       - name: Define test matrix
@@ -243,7 +238,7 @@ jobs:
 
       - name: Setup gotestsum
         uses: ./.github/actions/setup-gotestsum
-      
+
       - name: Resolve baseline image for mixed-version tests
         id: baseline
         shell: bash

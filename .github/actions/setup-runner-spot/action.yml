@@ -43,8 +43,24 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Check for repository source
+      id: source
+      shell: bash
+      run: |
+        if [ -f tools/ci/go.mod ]; then
+          echo "available=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "available=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Checkout repository
+      if: ${{ steps.source.outputs.available != 'true' }}
+      uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+
     - name: Setup CI CLI
-      uses: ./.github/actions/setup-ci-cli
+      uses: $/.github/actions/setup-ci-cli
 
     - name: Resolve Spot Setting
       id: resolve-spot

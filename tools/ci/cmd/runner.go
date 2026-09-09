@@ -42,7 +42,10 @@ func newRunnerSpotCmd() *cobra.Command {
 		Long:  "Evaluates GitHub event type, branch/tag refs, merge queue status, and strategies to output the optimal spot configuration.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			act := ghaction.NewAction(cmd.OutOrStdout())
-			ctx, _ := act.Context()
+			ctx, ctxErr := act.Context()
+			if ctxErr != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: unable to parse GitHub Actions context: %v; falling back to environment variables\n", ctxErr)
+			}
 
 			if eventName == "" && ctx != nil {
 				eventName = ctx.EventName
@@ -81,25 +84,15 @@ func newRunnerSpotCmd() *cobra.Command {
 				headRef = act.Getenv("GITHUB_HEAD_REF")
 			}
 			if !forceOnDemand {
-				envForce := act.GetInput("force_on_demand")
-				if envForce == "" {
-					envForce = act.Getenv("RUNNER_FORCE_ON_DEMAND")
-				}
-				if envForce == "true" || envForce == "1" {
+				if v := act.GetInputOrEnv("force-on-demand", "RUNNER_FORCE_ON_DEMAND"); v == "true" || v == "1" {
 					forceOnDemand = true
 				}
 			}
 			if strategy == "" {
-				strategy = act.GetInput("strategy")
-			}
-			if strategy == "" {
-				strategy = act.Getenv("RUNNER_SPOT_STRATEGY")
+				strategy = act.GetInputOrEnv("strategy", "RUNNER_SPOT_STRATEGY")
 			}
 			if defaultStrategy == "" {
-				defaultStrategy = act.GetInput("default_strategy")
-			}
-			if defaultStrategy == "" {
-				defaultStrategy = act.Getenv("RUNNER_DEFAULT_SPOT_STRATEGY")
+				defaultStrategy = act.GetInputOrEnv("default-strategy", "RUNNER_DEFAULT_SPOT_STRATEGY")
 			}
 
 			res, err := runner.ResolveSpot(runner.SpotInput{

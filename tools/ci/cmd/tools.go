@@ -77,10 +77,7 @@ func runToolsMatrix(ctx context.Context, cmd *cobra.Command, opts *toolsMatrixOp
 		eventName = ghCtx.EventName
 	}
 	if eventName == "" {
-		eventName = act.GetInput("event_name")
-	}
-	if eventName == "" {
-		eventName = act.Getenv("GITHUB_EVENT_NAME")
+		eventName = act.GetInputOrEnv("event_name", "GITHUB_EVENT_NAME")
 	}
 
 	baseRef := opts.baseRef
@@ -88,10 +85,7 @@ func runToolsMatrix(ctx context.Context, cmd *cobra.Command, opts *toolsMatrixOp
 		baseRef = ghCtx.BaseRef
 	}
 	if baseRef == "" {
-		baseRef = act.GetInput("base_ref")
-	}
-	if baseRef == "" {
-		baseRef = act.Getenv("GITHUB_BASE_REF")
+		baseRef = act.GetInputOrEnv("base_ref", "GITHUB_BASE_REF")
 	}
 
 	if opts.changedFiles == "" {
