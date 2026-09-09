@@ -655,8 +655,23 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/.gotmp"
           export GOTMPDIR="$GITHUB_WORKSPACE/.gotmp"
 
+          # Restored mod cache contains shallow VCS clones that can be in an
+          # inconsistent state after tar restore, breaking fetches of new
+          # pseudo-versions ("shallow file has changed since we read it").
+          # Drop them; only private repos re-clone, public zips stay cached.
+          rm -rf "$(go env GOMODCACHE)/cache/vcs"
+
           mkdir -p "$GITHUB_WORKSPACE/system-tests/tests/bin"
           mkdir -p "$GITHUB_WORKSPACE/integration-tests/bin"
+
+          # Pre-download dependencies sequentially to prevent parallel git fetch races
+          go mod download
+          if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
+            (cd "$GITHUB_WORKSPACE/system-tests/tests" && go mod download)
+          fi
+          if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
+            (cd "$GITHUB_WORKSPACE/integration-tests" && go mod download)
+          fi
 
           cre_pid=""
           ccip_pid=""
@@ -666,7 +681,6 @@ jobs:
               set -euo pipefail
               echo "Compiling CRE tests and CLI in parallel..."
               cd "$GITHUB_WORKSPACE/system-tests/tests"
-              go mod download
               go test -c -ldflags="-s -w" -o ./bin/cre-smoke.test ./smoke/cre &
               p1=$!
               go test -c -ldflags="-s -w" -o ./bin/cre-regression.test ./regression/cre &
@@ -691,7 +705,6 @@ jobs:
               set -euo pipefail
               echo "Compiling CCIP tests in parallel..."
               cd "$GITHUB_WORKSPACE/integration-tests"
-              go mod download
               go test -c -tags embed -ldflags="-s -w" -o ./bin/ccip-smoke.test ./smoke/ccip
             ) &
             ccip_pid=$!
