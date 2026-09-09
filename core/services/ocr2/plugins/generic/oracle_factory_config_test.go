@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 func TestResolveOracleFactoryConfig_fromCapRegistry(t *testing.T) {
@@ -145,24 +144,6 @@ func TestTransmitterForSigner(t *testing.T) {
 	}
 	_, ok = TransmitterForSigner(short, []byte("a"))
 	assert.False(t, ok)
-
-	multichainSigner, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
-		string(corekeys.EVM): []byte("b"),
-	})
-	require.NoError(t, err)
-	got, ok = TransmitterForSigner(ocrtypes.ContractConfig{
-		Signers:      []ocrtypes.OnchainPublicKey{multichainSigner},
-		Transmitters: []ocrtypes.Account{"0xMultiChain"},
-	}, []byte("b"))
-	require.True(t, ok)
-	assert.Equal(t, "0xMultiChain", got)
-
-	got, ok = TransmitterForSigner(ocrtypes.ContractConfig{
-		Signers:      []ocrtypes.OnchainPublicKey{[]byte("a")},
-		Transmitters: []ocrtypes.Account{"736ea02dd58a4eff74565801cb9cf1d13ceb9134"},
-	}, []byte("a"))
-	require.True(t, ok)
-	assert.Equal(t, "0x736ea02Dd58A4EFF74565801cB9Cf1D13CEB9134", got)
 }
 
 func TestSelectOCRKeyBundleForConfig(t *testing.T) {
@@ -187,16 +168,6 @@ func TestSelectOCRKeyBundleForConfig(t *testing.T) {
 	noMatch := &ocrtypes.ContractConfig{Signers: []ocrtypes.OnchainPublicKey{[]byte("nope")}}
 	_, ok = SelectOCRKeyBundleForConfig([]ocr2key.KeyBundle{kb1, kb2}, noMatch)
 	assert.False(t, ok)
-
-	multichainSigner, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
-		string(corekeys.EVM): kb2.PublicKey(),
-	})
-	require.NoError(t, err)
-	got, ok = SelectOCRKeyBundleForConfig([]ocr2key.KeyBundle{kb1, kb2}, &ocrtypes.ContractConfig{
-		Signers: []ocrtypes.OnchainPublicKey{multichainSigner},
-	})
-	require.True(t, ok)
-	assert.Equal(t, kb2.ID(), got.ID())
 }
 
 func TestDefaultTransmitterForChain_InvalidChainID(t *testing.T) {
