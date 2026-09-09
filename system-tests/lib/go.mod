@@ -498,7 +498,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260819134418-d146894e564d // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260821001950-7520b255725e // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260821001950-7520b255725e // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.7.1-0.20260902155726-3ae29777797a // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.9.1 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260724142814-45996a1bcb72 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v1.1.1 // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501 // indirect
@@ -515,9 +515,9 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36 // indirect
 	github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260729184203-90b4cdd48536 // indirect
-	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260709145319-7782fb89eb16 // indirect
+	github.com/smartcontractkit/chainlink-protos/node-platform v0.2.1-0.20260908085225-914a0fc9200e // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260821021345-a75f67fe965c // indirect
+	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260904122233-4d79005babd9 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.3.0 // indirect

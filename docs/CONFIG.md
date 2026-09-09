@@ -2941,6 +2941,7 @@ URL is override URL for the workflow fetcher service.
 URL = "" # Default
 TLSEnabled = true # Default
 RequestTimeout = '2s' # Default
+DurableCacheEnabled = true # Default
 ```
 
 
@@ -2961,6 +2962,12 @@ TLSEnabled enables TLS to be used to secure communication with the linking servi
 RequestTimeout = '2s' # Default
 ```
 RequestTimeout bounds each organization lookup against the linking service.
+
+### DurableCacheEnabled
+```toml
+DurableCacheEnabled = true # Default
+```
+DurableCacheEnabled turns on durable Postgres-backed caching of owner->orgID mappings.
 
 ## Billing
 ```toml

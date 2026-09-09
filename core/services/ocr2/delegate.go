@@ -589,15 +589,27 @@ func (d *Delegate) NewServices(
 	lggr := logger.Sugared(d.lggr.Named(string(job.OffchainReporting2)).Named(externalJobID.String()).With(lggrCtx.Args()...))
 	ctx = lggrCtx.ContextWithValues(ctx)
 
-	// Resolve OCR key bundle from keystore.
-	kbID, err := d.cfg.OCR2().KeyBundleID()
+	// Resolve the OCR key from the registry signer set. Nodes launched without a
+	// job spec do not necessarily configure OCR2.KeyBundleID.
+	kb, err := registryOCRKeyBundle(d.ks, registryOCRConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get default OCR2 key bundle ID: %w", err)
+		return nil, err
 	}
-	kb, err := d.ks.Get(kbID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get OCR2 key bundle: %w", err)
+	if kb == nil {
+		kbID, keyIDErr := d.cfg.OCR2().KeyBundleID()
+		if keyIDErr != nil {
+			return nil, fmt.Errorf("failed to get default OCR2 key bundle ID: %w", keyIDErr)
+		}
+		if kbID == "" {
+			return nil, errors.New("no EVM OCR2 key matches the registry config and OCR2.KeyBundleID is not configured")
+		}
+		configuredKB, getErr := d.ks.Get(kbID)
+		if getErr != nil {
+			return nil, fmt.Errorf("failed to get OCR2 key bundle: %w", getErr)
+		}
+		kb = configuredKB
 	}
+	kbID := kb.ID()
 
 	// Resolve bootstrap peers from TOML config defaults.
 	bootstrapPeers := d.defaultBootstrappers
@@ -621,16 +633,28 @@ func (d *Delegate) NewServices(
 		transmitterID = t
 	}
 
-	// Build local config from delegate defaults.
-	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), job.OCR2OracleSpec{
-		PluginType:    pluginType,
-		TransmitterID: null.StringFrom(transmitterID),
-		Relay:         fmt.Sprintf("%s/%s", relay.NetworkEVM, d.capRegistryChainID),
+	// Build a synthetic job spec so the existing plugin service creation can be reused.
+	// Keep its relay fields equivalent to the legacy job template: RelayID expects the
+	// network and chain ID separately, and the provider still consumes RelayConfig.
+	spec := &job.OCR2OracleSpec{
+		PluginType:         pluginType,
+		ContractID:         d.capRegistryAddress,
+		TransmitterID:      null.StringFrom(transmitterID),
+		Relay:              relay.NetworkEVM,
+		ChainID:            d.capRegistryChainID,
+		RelayConfig:        registryOCR2RelayConfig(d.capRegistryChainID, pluginType, transmitterID),
+		P2PV2Bootstrappers: bootstrapPeersToStrings(bootstrapPeers),
+		OCRKeyBundleID:     null.StringFrom(kbID),
 		OnchainSigningStrategy: job.JSONConfig{
 			"strategyName": "multi-chain",
 			"config":       map[string]any{"evm": kbID},
 		},
-	})
+		PluginConfig: job.JSONConfig{},
+	}
+	spec.RelayConfig.ApplyDefaultsOCR2(d.cfg.OCR2())
+
+	// Build local config from delegate defaults.
+	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), *spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build local config: %w", err)
 	}
@@ -640,23 +664,11 @@ func (d *Delegate) NewServices(
 
 	ocrDB := NewDB(d.ds, jobID, 0, lggr)
 
-	// Build a synthetic job spec so the existing newDonTimePlugin can be reused.
-	// This avoids duplicating the service-creation logic; the job spec fields
-	// that newDonTimePlugin reads are populated from the resolved config.
 	jb := job.Job{
-		ID:            jobID,
-		ExternalJobID: externalJobID,
-		Type:          job.OffchainReporting2,
-		OCR2OracleSpec: &job.OCR2OracleSpec{
-			PluginType:             pluginType,
-			ContractID:             d.capRegistryAddress,
-			TransmitterID:          null.StringFrom(transmitterID),
-			Relay:                  fmt.Sprintf("%s/%s", relay.NetworkEVM, d.capRegistryChainID),
-			P2PV2Bootstrappers:     bootstrapPeersToStrings(bootstrapPeers),
-			OCRKeyBundleID:         null.StringFrom(kbID),
-			OnchainSigningStrategy: job.JSONConfig{"strategyName": "multi-chain", "config": map[string]any{"evm": kbID}},
-			PluginConfig:           job.JSONConfig{},
-		},
+		ID:             jobID,
+		ExternalJobID:  externalJobID,
+		Type:           job.OffchainReporting2,
+		OCR2OracleSpec: spec,
 	}
 	if configJSON != "" {
 		jb.OCR2OracleSpec.PluginConfig = job.JSONConfig{}
@@ -682,6 +694,28 @@ func (d *Delegate) NewServices(
 	default:
 		return nil, errors.Errorf("plugin type %s not supported for registry-driven launch", pluginType)
 	}
+}
+
+func registryOCR2RelayConfig(chainID string, pluginType types.OCR2PluginType, transmitterID string) job.JSONConfig {
+	return job.JSONConfig{
+		"chainID":                chainID,
+		"providerType":           string(pluginType),
+		"effectiveTransmitterID": transmitterID,
+		"sendingKeys":            []string{transmitterID},
+	}
+}
+
+func registryOCRKeyBundle(ks keystore.OCR2, registryOCRConfig *ocrtypes.ContractConfig) (ocr2key.KeyBundle, error) {
+	if registryOCRConfig == nil {
+		return nil, nil
+	}
+
+	bundles, err := ks.GetAllOfType(corekeys.EVM)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get EVM OCR2 key bundles: %w", err)
+	}
+	kb, _ := generic.SelectOCRKeyBundleForConfig(bundles, registryOCRConfig)
+	return kb, nil
 }
 
 // bootstrapPeersToStrings converts BootstrapperLocator slice to string slice

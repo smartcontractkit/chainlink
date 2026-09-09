@@ -646,9 +646,10 @@ func TestConfig_Marshal(t *testing.T) {
 			URL: new("https://workflow.fetcher.url"),
 		},
 		Linking: &toml.LinkingConfig{
-			URL:            new(""),
-			TLSEnabled:     new(true),
-			RequestTimeout: commoncfg.MustNewDuration(2 * time.Second),
+			URL:                 new(""),
+			TLSEnabled:          new(true),
+			RequestTimeout:      commoncfg.MustNewDuration(2 * time.Second),
+			DurableCacheEnabled: new(true),
 		},
 		ConfidentialRelay: &toml.ConfidentialRelayConfig{
 			Enabled:          new(bool),

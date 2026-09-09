@@ -1,5 +1,26 @@
 # Changelog Chainlink Core
 
+## 2.64.0
+
+### Minor Changes
+
+- [#23620](https://github.com/smartcontractkit/chainlink/pull/23620) [`c7a3dc3`](https://github.com/smartcontractkit/chainlink/commit/c7a3dc34ed5eefd19f4e0d01289f1b387d04038e) - #added Adding new experimental tasks in pipeline package. Anchor, Normalize, Sample, Staleness, WeightedMean.
+
+- [#23613](https://github.com/smartcontractkit/chainlink/pull/23613) [`401091a`](https://github.com/smartcontractkit/chainlink/commit/401091a044de1523e91dda081a0fbe77317c7090) - Minor bump to start next version
+
+- [#23485](https://github.com/smartcontractkit/chainlink/pull/23485) [`940eb99`](https://github.com/smartcontractkit/chainlink/commit/940eb99f13731ea8f6592804927b71dbc1b63f6b) - #added Durable caching of OrgResolver owner->orgID mappings (backed by Postgres, `CRE.Linking.DurableCacheEnabled`, enabled by default).
+
+- [#23605](https://github.com/smartcontractkit/chainlink/pull/23605) [`29db7e9`](https://github.com/smartcontractkit/chainlink/commit/29db7e9612f0aac3e2c783be976a045854bdbe2a) - Remove Chainlink Automation from the node.
+
+  The `ocr2automation` OCR2 plugin type is no longer supported: job specs with
+  `pluginType = "ocr2automation"` will now fail validation. The
+  `OCR2.CaptureAutomationCustomTelemetry` config field has been removed, and the
+  `automation-custom`, `ocr2-automation` and `ocr3-automation` telemetry types no
+  longer exist. The `evm_upkeep_states` table is dropped by migration 0305. The
+  `chaincli` tool and the devenv automation and log poller E2E suites are removed.
+
+  #removed #breaking_change
+
 ## 2.63.0
 
 ### Minor Changes

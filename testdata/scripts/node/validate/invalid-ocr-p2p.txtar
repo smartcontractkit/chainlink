@@ -475,6 +475,7 @@ URL = ''
 URL = ''
 TLSEnabled = true
 RequestTimeout = '2s'
+DurableCacheEnabled = true
 
 [CRE.ConfidentialRelay]
 Enabled = false

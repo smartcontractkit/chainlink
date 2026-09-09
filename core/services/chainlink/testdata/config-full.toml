@@ -477,6 +477,7 @@ URL = 'https://workflow.fetcher.url'
 URL = ''
 TLSEnabled = true
 RequestTimeout = '2s'
+DurableCacheEnabled = true
 
 [CRE.ConfidentialRelay]
 Enabled = false

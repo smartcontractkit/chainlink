@@ -240,13 +240,12 @@ func (s *Services) newSubservices(
 
 	if cfg.CRE().Linking().URL() != "" {
 		lggr.Debugw("Creating OrgResolver")
-		inner, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
+		resolver, ierr := newOrgResolver(cfg, capCfg, opts, ds, lggr)
 		if ierr != nil {
 			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
-		fallbackResolver := orgresolver.NewOrgResolverWithFallback(inner, lggr)
-		s.OrgResolver = fallbackResolver
-		srvs = append(srvs, fallbackResolver)
+		s.OrgResolver = resolver
+		srvs = append(srvs, resolver)
 	} else {
 		lggr.Warn("Skipping orgResolver, no linking service configured")
 	}
@@ -415,8 +414,19 @@ func newRegistrySyncerV2(
 		return nil, fmt.Errorf("could not configure syncer: %w", err)
 	}
 
-	registrySyncer.AddListener(wfLauncher, ocrConfigService)
-	return []commonsrv.Service{registrySyncer, ocrConfigService}, nil
+	return wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigService, wfLauncher), nil
+}
+
+func wireRegistrySyncerV2(
+	registrySyncer registrysyncerV2.Syncer,
+	ocrConfigService commonsrv.Service,
+	ocrConfigListener registrysyncerV2.Listener,
+	wfLauncher registrysyncerV2.Listener,
+) []commonsrv.Service {
+	// The OCR config service must be started and receive each registry snapshot
+	// before capabilities using its dynamic config trackers are launched.
+	registrySyncer.AddListener(ocrConfigListener, wfLauncher)
+	return []commonsrv.Service{ocrConfigService, registrySyncer}
 }
 
 // newRegistrySyncer creates a registry syncer based on the external registry version
@@ -460,6 +470,17 @@ func (s *Services) newRegistrySyncer(
 		return nil, nil, fmt.Errorf("unsupported external registry version: %s", externalRegistryVersion.String())
 	}
 
+	var (
+		shardingEnabled bool
+		shardIndex      uint16
+	)
+	if sharding := cfg.Sharding(); sharding != nil {
+		shardingEnabled = sharding.ShardingEnabled()
+		if shardingEnabled {
+			shardIndex = sharding.ShardIndex()
+		}
+	}
+
 	wfLauncher, err := capabilities.NewLauncher(
 		lggr,
 		dispatcherWrapper.don2DonSharedPeer,
@@ -468,6 +489,8 @@ func (s *Services) newRegistrySyncer(
 		opts.CapabilitiesRegistry,
 		donNotifier,
 		opts.LimitsFactory,
+		shardingEnabled,
+		shardIndex,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
@@ -631,6 +654,7 @@ func newOrgResolver(
 	cfg Config,
 	capCfg config.Capabilities,
 	opts Opts,
+	ds sqlutil.DataSource,
 	lggr logger.Logger,
 ) (orgresolver.OrgResolver, error) {
 	var wrChainDetails chainselectors.ChainDetails
@@ -661,7 +685,22 @@ func newOrgResolver(
 		return nil, fmt.Errorf("failed to create org resolver: %w", err)
 	}
 
-	return resolver, nil
+	var cache orgresolver.Cache
+	if cfg.CRE().Linking().DurableCacheEnabled() {
+		cache = NewOrgResolverStore(ds)
+	} else {
+		cache = orgresolver.NewInMemoryCache()
+	}
+
+	cachingResolver, err := orgresolver.NewCachingResolver(resolver, orgresolver.CachingResolverConfig{
+		Cache: cache,
+		Meter: opts.Meter,
+	}, lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create caching org resolver: %w", err)
+	}
+
+	return cachingResolver, nil
 }
 
 func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.BillingClient, error) {
@@ -707,14 +746,14 @@ func newSyncerMeterIdentity(cfg Config) resourcemanager.ResourceIdentity {
 }
 
 func newShardOrchestratorClient(cfg Config, lggr logger.Logger) (*shardorchestrator.Client, error) {
-	shardID := cfg.Sharding().ShardIndex()
-	if shardID == 0 {
+	shardIndex := cfg.Sharding().ShardIndex()
+	if shardIndex == 0 {
 		return nil, nil
 	}
 
 	address := cfg.Sharding().ShardOrchestratorAddress()
 	if address == nil {
-		return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardID)
+		return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress configuration", shardIndex)
 	}
 
 	client, err := shardorchestrator.NewClient(address.String(), lggr)
@@ -722,7 +761,7 @@ func newShardOrchestratorClient(cfg Config, lggr logger.Logger) (*shardorchestra
 		return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
 	}
 
-	lggr.Infow("ShardOrchestrator gRPC client created", "shardID", shardID, "serverAddress", address)
+	lggr.Infow("ShardOrchestrator gRPC client created", "shardIndex", shardIndex, "serverAddress", address)
 	return client, nil
 }
 
@@ -870,7 +909,6 @@ func newWorkflowRegistrySyncerV2(
 	}
 
 	shardingEnabled := cfg.Sharding().ShardingEnabled()
-	shardIndex := uint32(cfg.Sharding().ShardIndex())
 
 	var shardRoutingSteady *shardownership.SteadySignal
 	if shardingEnabled {
@@ -905,7 +943,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
-		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
+		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 		syncerV2.WithShardResolver(shardResolver),
 	}
@@ -1033,7 +1071,6 @@ func newWorkflowRegistrySyncerV2(
 	if cfg.Sharding().ShardingEnabled() {
 		registryOpts = append(registryOpts,
 			syncerV2.WithShardEnabled(true),
-			syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
 		)
 		if shardRoutingSteady != nil {
 			registryOpts = append(registryOpts, syncerV2.WithRegistryShardRoutingObserver(shardRoutingSteady))
