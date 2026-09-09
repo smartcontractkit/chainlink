@@ -2,10 +2,8 @@ name: Run Nightly In-Memory Integration Tests
 
 on:
   schedule:
-    # Run every night at midnight UTC (0:00 AM)
     - cron: "0 0 * * *"
   workflow_dispatch:
-    # Useful when running the workflow manually
     inputs:
       chainlink_version:
         description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
@@ -19,6 +17,13 @@ permissions:
   # integration-in-memory-tests.yml's compile-tests job needs id-token: write to mint an
   # OIDC token for GATI.
   id-token: write
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+  checks: read
+  pull-requests: read
 
 jobs:
   in-memory-tests:
