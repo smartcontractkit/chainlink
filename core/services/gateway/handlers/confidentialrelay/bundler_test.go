@@ -278,7 +278,7 @@ func TestBundleSummary_UserError(t *testing.T) {
 		s.addError("n2", &jsonrpc.WireError{Code: jsonrpc.ErrInternal, Message: "boom"})
 		got := s.UserError()
 		require.NotNil(t, got)
-		require.Equal(t, int64(jsonrpc.ErrInvalidParams), got.Code)
+		require.Equal(t, jsonrpc.ErrInvalidParams, got.Code)
 		require.Equal(t, "key does not exist", got.Message)
 	})
 

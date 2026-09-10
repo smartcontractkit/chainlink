@@ -440,7 +440,7 @@ func TestConfidentialRelayHandler_QuorumUnreachablePropagatesUserError(t *testin
 			return
 		}
 		if assert.NotNil(t, jsonResp.Error) {
-			assert.Equal(t, int64(jsonrpc.ErrInvalidParams), jsonResp.Error.Code)
+			assert.Equal(t, jsonrpc.ErrInvalidParams, jsonResp.Error.Code)
 			assert.Contains(t, jsonResp.Error.Message, "key does not exist")
 			assert.NotContains(t, jsonResp.Error.Message, "relay quorum unreachable")
 		}
