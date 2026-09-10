@@ -473,6 +473,12 @@ func confidentialExecutionDiagnostics(t *testing.T, containers []string) string 
 		[]byte("Workflow execution failed"),
 		[]byte("failed to get regions from"),
 		[]byte("no compatible capability found"),
+		// DEBUG-ONLY: widen the net so the enclave/secret/outbound legs show up.
+		[]byte(`"level":"error"`),
+		[]byte(`"level":"warn"`),
+		[]byte("GetSecret"),
+		[]byte("outbound"),
+		[]byte("enclave"),
 	}
 
 	seen := map[string]bool{}
@@ -484,15 +490,23 @@ func confidentialExecutionDiagnostics(t *testing.T, containers []string) string 
 				if !bytes.Contains(line, needle) {
 					continue
 				}
-				// Key on the message alone; every node logs the same failure.
-				key := string(needle)
+				// DEBUG-ONLY: key on the whole line so every distinct error is
+				// reported, not just the first per needle, and log it untruncated.
+				key := name + "|" + string(line)
 				if !seen[key] {
 					seen[key] = true
-					found = append(found, fmt.Sprintf("  [%s] %s", name, truncateForLog(line, 400)))
+					found = append(found, fmt.Sprintf("  [%s] %s", name, line))
 				}
 				break
 			}
 		}
+	}
+
+	// DEBUG-ONLY: dump each container's raw tail as well, so a cause that none of
+	// the needles match is still visible in the CI log.
+	for _, name := range containers {
+		out, _ := exec.CommandContext(t.Context(), "docker", "logs", "--tail", "300", name).CombinedOutput()
+		found = append(found, fmt.Sprintf("\n===== raw docker logs tail: %s =====\n%s", name, out))
 	}
 
 	if len(found) == 0 {
@@ -503,6 +517,8 @@ func confidentialExecutionDiagnostics(t *testing.T, containers []string) string 
 }
 
 // truncateForLog shortens a log line so a failure message stays readable.
+//
+//nolint:unused // DEBUG-ONLY: diagnostics print untruncated for now.
 func truncateForLog(line []byte, maxLen int) string {
 	if len(line) <= maxLen {
 		return string(line)
