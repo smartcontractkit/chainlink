@@ -103,7 +103,7 @@ plugins:
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "2d0679d1fddcce0b27cd604c71ed0d64c0daac3a"
+      gitRef: "3b4deb891fa764890c0468852996404dd3ef9305"
       installPath: "."
 
   capability-aptos:
