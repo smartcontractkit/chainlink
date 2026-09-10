@@ -126,10 +126,6 @@ jobs:
           # The confidential relay test runs against its own topology (the
           # standard mixed-env topology lacks the confidential-workflows /
           # confidential-relay capabilities and ConfidentialWorkflows.Enabled).
-          # Test_CRE_V2_ConfidentialWorkflows_Relay is disabled here: the
-          # confidential-workflows capability binary ships in the node image, so the
-          # develop/baseline nodes cannot load it. Only the 2 PR-image nodes sign,
-          # which never satisfies the enclave's 2f+1 = 3 signature quorum.
           TESTS='[
             "Test_CRE_V2_Suite_Bucket_A",
             "Test_CRE_V2_Suite_Bucket_B",
