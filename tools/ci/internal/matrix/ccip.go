@@ -28,13 +28,9 @@ type CCIPSystemEntry struct {
 
 // BuildCCIPSystemMatrix generates the matrix for CCIP system tests.
 func BuildCCIPSystemMatrix(ctx context.Context, opts CCIPSystemOptions) ([]CCIPSystemEntry, error) {
-	spotFlag := opts.SpotFlag
-	if spotFlag == "" {
-		spotFlag = "spot=co"
-	}
-	runAttempt := opts.RunAttempt
-	if runAttempt == "" {
-		runAttempt = "1"
+	params, err := resolveRunsOnParams(opts.RunID, opts.RunAttempt, opts.SpotFlag)
+	if err != nil {
+		return nil, err
 	}
 
 	definitions := []struct {
@@ -81,7 +77,7 @@ func BuildCCIPSystemMatrix(ctx context.Context, opts CCIPSystemOptions) ([]CCIPS
 	entries := make([]CCIPSystemEntry, len(definitions))
 	for i, def := range definitions {
 		runsOn := fmt.Sprintf("runs-on=%s-%d-%s/cpu=8/ram=64/family=r6i+r7i+r8i/%s/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
-			opts.RunID, i, runAttempt, spotFlag)
+			params.RunID, i, params.RunAttempt, params.SpotFlag)
 
 		entries[i] = CCIPSystemEntry{
 			TestName:            def.TestName,

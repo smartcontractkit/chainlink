@@ -34,13 +34,9 @@ var defaultCREMixedEnvConfigs = map[string]string{
 
 // BuildCREMixedEnvMatrix generates the matrix for CRE mixed-env tests.
 func BuildCREMixedEnvMatrix(ctx context.Context, opts CREMixedEnvOptions) ([]CREMixedEnvEntry, error) {
-	spotFlag := opts.SpotFlag
-	if spotFlag == "" {
-		spotFlag = "spot=co"
-	}
-	runAttempt := opts.RunAttempt
-	if runAttempt == "" {
-		runAttempt = "1"
+	params, err := resolveRunsOnParams(opts.RunID, opts.RunAttempt, opts.SpotFlag)
+	if err != nil {
+		return nil, err
 	}
 
 	entries := make([]CREMixedEnvEntry, len(defaultCREMixedEnvTests))
@@ -51,7 +47,7 @@ func BuildCREMixedEnvMatrix(ctx context.Context, opts CREMixedEnvOptions) ([]CRE
 		}
 
 		runsOn := fmt.Sprintf("runs-on=%s-%d-%s/cpu=16/ram=64/family=m7i+m8i/%s/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
-			opts.RunID, i, runAttempt, spotFlag)
+			params.RunID, i, params.RunAttempt, params.SpotFlag)
 
 		entries[i] = CREMixedEnvEntry{
 			TestName: name,

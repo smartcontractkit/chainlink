@@ -50,6 +50,25 @@ func TestBuildInMemoryMatrix(t *testing.T) {
 	assert.True(t, second.Plugins)
 }
 
+func TestBuildInMemoryMatrix_MissingRunID(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "in-memory-tests.json")
+	content := `[
+  {"name":"ccip_fees_test.go","test":"^(Test_CCIPFees)$","timeout":"20m","parallel":4,"plugins":false,"runs_on":"cpu=8/ram=32","free_disk":false,"aptos":"","sui":""}
+]`
+	require.NoError(t, os.WriteFile(configFile, []byte(content), 0o600))
+
+	_, err := matrix.BuildInMemoryMatrix(context.Background(), matrix.InMemoryOptions{
+		ConfigFile: configFile,
+		RunAttempt: "1",
+		SpotFlag:   "spot=co",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "run ID is required")
+}
+
 func TestSanitizeTestID(t *testing.T) {
 	t.Parallel()
 

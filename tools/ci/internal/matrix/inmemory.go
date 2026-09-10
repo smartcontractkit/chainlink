@@ -55,23 +55,19 @@ type InMemoryEntry struct {
 
 // BuildInMemoryMatrix parses in-memory test configuration and builds matrix.
 func BuildInMemoryMatrix(ctx context.Context, opts InMemoryOptions) ([]InMemoryEntry, error) {
+	params, err := resolveRunsOnParams(opts.RunID, opts.RunAttempt, opts.SpotFlag)
+	if err != nil {
+		return nil, err
+	}
+
 	data, err := os.ReadFile(opts.ConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read in-memory test config file %s: %w", opts.ConfigFile, err)
 	}
 
 	var rawEntries []RawInMemoryEntry
-	if err := json.Unmarshal(data, &rawEntries); err != nil {
+	if err = json.Unmarshal(data, &rawEntries); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON from %s: %w", opts.ConfigFile, err)
-	}
-
-	spotFlag := opts.SpotFlag
-	if spotFlag == "" {
-		spotFlag = "spot=co"
-	}
-	runAttempt := opts.RunAttempt
-	if runAttempt == "" {
-		runAttempt = "1"
 	}
 
 	entries := make([]InMemoryEntry, len(rawEntries))
@@ -88,7 +84,7 @@ func BuildInMemoryMatrix(ctx context.Context, opts InMemoryOptions) ([]InMemoryE
 			runsOn = "ubuntu-latest"
 		} else {
 			runsOn = fmt.Sprintf("runs-on=%s-%d-%s/%s/family=m7i+m8i/%s/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
-				opts.RunID, i, runAttempt, raw.RunsOn, spotFlag)
+				params.RunID, i, params.RunAttempt, raw.RunsOn, params.SpotFlag)
 		}
 
 		entries[i] = InMemoryEntry{

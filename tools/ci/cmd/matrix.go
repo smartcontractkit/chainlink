@@ -25,8 +25,11 @@ func newMatrixCmd() *cobra.Command {
 	return cmd
 }
 
-func resolveMatrixCommon(cmd *cobra.Command, act *ghaction.Action, runID, runAttempt, spotFlag *string) {
-	ctx, _ := act.Context()
+func resolveMatrixCommon(act *ghaction.Action, runID, runAttempt, spotFlag *string) {
+	ctx, err := act.Context()
+	if err != nil {
+		ctx = nil
+	}
 
 	if *runID == "" {
 		*runID = act.GetInput("run_id")
@@ -94,7 +97,7 @@ func newMatrixSystemCmd() *cobra.Command {
 		Short: "Generate test matrix for Go system tests (CRE smoke or regression)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			act := ghaction.NewAction(cmd.OutOrStdout())
-			resolveMatrixCommon(cmd, act, &runID, &runAttempt, &spotFlag)
+			resolveMatrixCommon(act, &runID, &runAttempt, &spotFlag)
 
 			if suite == "" {
 				suite = act.GetInput("suite")
@@ -169,7 +172,7 @@ func newMatrixInMemoryCmd() *cobra.Command {
 		Short: "Generate test matrix for in-memory integration tests",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			act := ghaction.NewAction(cmd.OutOrStdout())
-			resolveMatrixCommon(cmd, act, &runID, &runAttempt, &spotFlag)
+			resolveMatrixCommon(act, &runID, &runAttempt, &spotFlag)
 
 			if file == "" {
 				file = act.GetInput("file")
@@ -215,7 +218,7 @@ func newMatrixCCIPCmd() *cobra.Command {
 		Short: "Generate test matrix for CCIP system tests",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			act := ghaction.NewAction(cmd.OutOrStdout())
-			resolveMatrixCommon(cmd, act, &runID, &runAttempt, &spotFlag)
+			resolveMatrixCommon(act, &runID, &runAttempt, &spotFlag)
 
 			res, err := matrix.BuildCCIPSystemMatrix(cmd.Context(), matrix.CCIPSystemOptions{
 				RunID:            runID,
@@ -253,7 +256,7 @@ func newMatrixMixedEnvCmd() *cobra.Command {
 		Short: "Generate test matrix for CRE mixed-environment system tests",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			act := ghaction.NewAction(cmd.OutOrStdout())
-			resolveMatrixCommon(cmd, act, &runID, &runAttempt, &spotFlag)
+			resolveMatrixCommon(act, &runID, &runAttempt, &spotFlag)
 
 			res, err := matrix.BuildCREMixedEnvMatrix(cmd.Context(), matrix.CREMixedEnvOptions{
 				RunID:      runID,

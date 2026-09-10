@@ -33,3 +33,14 @@ func TestBuildCREMixedEnvMatrix(t *testing.T) {
 	assert.Equal(t, "configs/mixed-env-don.toml", res[4].Configs)
 	assert.Equal(t, "runs-on=445566-4-1/cpu=16/ram=64/family=m7i+m8i/spot=pco/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", res[4].RunsOn)
 }
+
+func TestBuildCREMixedEnvMatrix_MissingRunID(t *testing.T) {
+	t.Parallel()
+
+	_, err := matrix.BuildCREMixedEnvMatrix(context.Background(), matrix.CREMixedEnvOptions{
+		RunAttempt: "1",
+		SpotFlag:   "spot=co",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "run ID is required")
+}
