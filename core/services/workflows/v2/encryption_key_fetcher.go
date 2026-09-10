@@ -6,14 +6,14 @@ import (
 	"errors"
 	"sort"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 )
 
 type encryptionKeyFetcher struct {
 	lggr        logger.Logger
-	capRegistry core.CapabilitiesRegistry
+	capRegistry registry.CapabilitiesRegistry
 }
 
 var _ host.EncryptionKeyFetcher = (*encryptionKeyFetcher)(nil)

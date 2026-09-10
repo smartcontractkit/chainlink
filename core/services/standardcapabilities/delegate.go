@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -53,7 +54,7 @@ type Delegate struct {
 	logger                  logger.Logger
 	ds                      sqlutil.DataSource
 	jobORM                  job.ORM
-	registry                core.CapabilitiesRegistry
+	registry                registry.CapabilitiesRegistry
 	cfg                     plugins.RegistrarConfig
 	monitoringEndpointGen   telemetry.MonitoringEndpointGenerator
 	pipelineRunner          pipeline.Runner
@@ -86,7 +87,7 @@ func NewDelegate(
 	logger logger.Logger,
 	ds sqlutil.DataSource,
 	jobORM job.ORM,
-	registry core.CapabilitiesRegistry,
+	registry registry.CapabilitiesRegistry,
 	cfg plugins.RegistrarConfig,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	pipelineRunner pipeline.Runner,
@@ -452,7 +453,7 @@ func (d *Delegate) NewServices(
 // infrastructure issues like getPeerID failing or the registry being unavailable —
 // results in returning 0 with a warning logged. The caller then falls back to
 // labeling events with the consumer workflow's DON ID. See CRE-4409.
-func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry core.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) uint32 {
+func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry registry.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) uint32 {
 	if registry == nil {
 		lggr.Warnw("Capabilities registry is nil; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID)
 		return 0

@@ -11,6 +11,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -47,7 +48,7 @@ type launcher struct {
 	myPeerID            p2ptypes.PeerID
 	dispatcher          remotetypes.Dispatcher
 	cachedShims         cachedShims
-	registry            *Registry
+	registry            *registry.Registry
 	workflowDonNotifier DonNotifier
 	don2donSharedPeer   p2ptypes.SharedPeer
 	p2pStreamConfig     p2ptypes.StreamConfig
@@ -155,7 +156,7 @@ func NewLauncher(
 
 func (w *launcher) publicDONs(
 	allDONIDs []registrysyncer.DonID,
-	localRegistry *registrysyncer.LocalRegistry,
+	localRegistry *registry.MetadataRegistry,
 ) []registrysyncer.DON {
 	publicDONs := make([]registrysyncer.DON, 0)
 	for _, id := range allDONIDs {
@@ -168,7 +169,7 @@ func (w *launcher) publicDONs(
 	return publicDONs
 }
 
-func (w *launcher) allDONs(localRegistry *registrysyncer.LocalRegistry) []registrysyncer.DonID {
+func (w *launcher) allDONs(localRegistry *registry.MetadataRegistry) []registrysyncer.DonID {
 	allDONIDs := make([]registrysyncer.DonID, 0)
 	for id, don := range localRegistry.IDsToDONs {
 		if len(don.Members) > 0 {
@@ -221,7 +222,7 @@ func (w *launcher) Name() string {
 	return w.lggr.Name()
 }
 
-func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *registrysyncer.LocalRegistry) []p2ptypes.DonPair {
+func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *registry.MetadataRegistry) []p2ptypes.DonPair {
 	allDONIds := w.allDONs(localRegistry)
 	donPairs := []p2ptypes.DonPair{}
 	isBootstrap := w.don2donSharedPeer.IsBootstrap()
@@ -257,24 +258,24 @@ func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *regist
 	return donPairs
 }
 
-func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) (err error) {
+func (w *launcher) OnNewRegistry(ctx context.Context, metadataRegistry *registry.MetadataRegistry) (err error) {
 	if !w.IfNotStopped(func() {
-		err = w.onNewRegistry(ctx, localRegistry)
+		err = w.onNewRegistry(ctx, metadataRegistry)
 	}) {
 		return errors.New("service has been stopped")
 	}
 	return
 }
 
-func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
+func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry.MetadataRegistry) error {
 	w.lggr.Debug("CapabilitiesLauncher triggered...")
-	w.registry.SetLocalRegistry(localRegistry)
+	w.registry.SetMetadataRegistry(metadataRegistry)
 
-	allDONIDs := w.allDONs(localRegistry)
+	allDONIDs := w.allDONs(metadataRegistry)
 	w.lggr.Debugw("All DONs in the local registry", "allDONIDs", allDONIDs)
 
 	// Let's start by identifying public DONs
-	publicDONs := w.publicDONs(allDONIDs, localRegistry)
+	publicDONs := w.publicDONs(allDONIDs, metadataRegistry)
 
 	// Next, we need to split the DONs into the following:
 	// - workflow DONs the current node is a part of.
@@ -288,7 +289,7 @@ func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyn
 	myDONFamiliesSet := map[string]bool{}
 	myDONFamilies := []string{}
 	for _, id := range allDONIDs {
-		d := localRegistry.IDsToDONs[id]
+		d := metadataRegistry.IDsToDONs[id]
 		for _, peerID := range d.Members {
 			if peerID == w.myPeerID {
 				myDONs[d.ID] = true
@@ -369,7 +370,7 @@ func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyn
 
 		w.warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs)
 		for _, rcd := range remoteCapabilityDONs {
-			w.addRemoteCapabilities(ctx, myDON, rcd, localRegistry)
+			w.addRemoteCapabilities(ctx, myDON, rcd, metadataRegistry)
 		}
 	}
 
@@ -387,7 +388,7 @@ func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyn
 
 	// Lastly, we identify peers to connect to, based on their DONs functions
 	w.lggr.Debug("Updating peer connections")
-	donPairs := w.donPairsToUpdate(w.myPeerID, localRegistry)
+	donPairs := w.donPairsToUpdate(w.myPeerID, metadataRegistry)
 	if err := w.don2donSharedPeer.UpdateConnectionsByDONs(ctx, donPairs, w.p2pStreamConfig); err != nil {
 		return fmt.Errorf("failed to update peer connections: %w", err)
 	}
@@ -436,7 +437,7 @@ func donFamiliesOverlap(donA []string, donB []string) bool {
 // addRemoteCapabilities adds remote capabilities from a remote DON to the local node,
 // allowing the local node to use these capabilities in its workflows.
 // it is best effort to ensure that valid capabilities are added even if some fail
-func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) {
+func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registry.DON, remoteDON registry.DON, localRegistry *registry.MetadataRegistry) {
 	for cid, c := range remoteDON.CapabilityConfigurations {
 		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
@@ -509,7 +510,7 @@ func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.Peer
 	}
 }
 
-func signersFor(don registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) ([][]byte, error) {
+func signersFor(don registry.DON, localRegistry *registry.MetadataRegistry) ([][]byte, error) {
 	s := [][]byte{}
 	for _, nodeID := range don.Members {
 		node, ok := localRegistry.IDsToNodes[nodeID]
@@ -526,7 +527,7 @@ func signersFor(don registrysyncer.DON, localRegistry *registrysyncer.LocalRegis
 }
 
 // Add a V2 capability with multiple methods, using CombinedClient.
-func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) error {
+func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON registry.DON, remoteDON registry.DON, metadataRegistry *registry.MetadataRegistry) error {
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capabilities.CapabilityTypeCombined,

@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -17,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -33,7 +33,7 @@ type EngineConfig struct {
 	Lggr                 logger.Logger
 	Module               host.ModuleV2
 	WorkflowConfig       []byte // workflow author provided config
-	CapRegistry          core.CapabilitiesRegistry
+	CapRegistry          registry.CapabilitiesRegistry
 	DonTimeStore         *dontime.Store
 	UseLocalTimeProvider bool // Set true when DON Time Plugin is not running
 	ExecutionsStore      store.Store

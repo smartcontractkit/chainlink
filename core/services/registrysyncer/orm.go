@@ -4,115 +4,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"math/big"
 
-	"github.com/smartcontractkit/libocr/ragep2p/types"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
-type capabilitiesRegistryNodeInfo struct {
-	NodeOperatorId      uint32         `json:"nodeOperatorId"`
-	ConfigCount         uint32         `json:"configCount"`
-	WorkflowDONId       uint32         `json:"workflowDONId"`
-	Signer              types.PeerID   `json:"signer"`
-	P2pId               types.PeerID   `json:"p2pId"`
-	EncryptionPublicKey [32]byte       `json:"encryptionPublicKey"`
-	HashedCapabilityIds []types.PeerID `json:"hashedCapabilityIds"`
-	CapabilitiesDONIds  []string       `json:"capabilitiesDONIds"`
-}
-
-func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
-	idsToNodes := make(map[types.PeerID]capabilitiesRegistryNodeInfo)
-	for k, v := range l.IDsToNodes {
-		hashedCapabilityIDs := make([]types.PeerID, len(v.HashedCapabilityIDs))
-		for i, id := range v.HashedCapabilityIDs {
-			hashedCapabilityIDs[i] = types.PeerID(id[:])
-		}
-		capabilitiesDONIds := make([]string, len(v.CapabilitiesDONIds))
-		for i, id := range v.CapabilitiesDONIds {
-			capabilitiesDONIds[i] = id.String()
-		}
-		idsToNodes[k] = capabilitiesRegistryNodeInfo{
-			NodeOperatorId:      v.NodeOperatorID,
-			ConfigCount:         v.ConfigCount,
-			WorkflowDONId:       v.WorkflowDONId,
-			Signer:              types.PeerID(v.Signer[:]),
-			P2pId:               types.PeerID(v.P2pID[:]),
-			EncryptionPublicKey: v.EncryptionPublicKey,
-			HashedCapabilityIds: hashedCapabilityIDs,
-			CapabilitiesDONIds:  capabilitiesDONIds,
-		}
-	}
-
-	b, err := json.Marshal(&struct {
-		IDsToDONs         map[DonID]DON
-		IDsToNodes        map[types.PeerID]capabilitiesRegistryNodeInfo
-		IDsToCapabilities map[string]Capability
-	}{
-		IDsToDONs:         l.IDsToDONs,
-		IDsToNodes:        idsToNodes,
-		IDsToCapabilities: l.IDsToCapabilities,
-	})
-	if err != nil {
-		return []byte{}, err
-	}
-	return b, nil
-}
-
-func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
-	temp := struct {
-		IDsToDONs         map[DonID]DON
-		IDsToNodes        map[types.PeerID]capabilitiesRegistryNodeInfo
-		IDsToCapabilities map[string]Capability
-	}{
-		IDsToDONs:         make(map[DonID]DON),
-		IDsToNodes:        make(map[types.PeerID]capabilitiesRegistryNodeInfo),
-		IDsToCapabilities: make(map[string]Capability),
-	}
-
-	if err := json.Unmarshal(data, &temp); err != nil {
-		return fmt.Errorf("failed to unmarshal state: %w", err)
-	}
-
-	l.IDsToDONs = temp.IDsToDONs
-
-	l.IDsToNodes = make(map[types.PeerID]NodeInfo)
-	for peerID, v := range temp.IDsToNodes {
-		hashedCapabilityIds := make([][32]byte, len(v.HashedCapabilityIds))
-		for i, id := range v.HashedCapabilityIds {
-			copy(hashedCapabilityIds[i][:], id[:])
-		}
-
-		capabilitiesDONIds := make([]*big.Int, len(v.CapabilitiesDONIds))
-		for i, id := range v.CapabilitiesDONIds {
-			bigInt := new(big.Int)
-			bigInt.SetString(id, 10)
-			capabilitiesDONIds[i] = bigInt
-		}
-		l.IDsToNodes[peerID] = NodeInfo{
-			NodeOperatorID:      v.NodeOperatorId,
-			ConfigCount:         v.ConfigCount,
-			WorkflowDONId:       v.WorkflowDONId,
-			Signer:              v.Signer,
-			P2pID:               v.P2pId,
-			EncryptionPublicKey: v.EncryptionPublicKey,
-			HashedCapabilityIDs: hashedCapabilityIds,
-			CapabilitiesDONIds:  capabilitiesDONIds,
-		}
-	}
-
-	l.IDsToCapabilities = temp.IDsToCapabilities
-
-	return nil
-}
-
 type ORM interface {
-	AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry) error
-	LatestLocalRegistry(ctx context.Context) (*LocalRegistry, error)
+	AddLocalRegistry(ctx context.Context, localRegistry registry.MetadataRegistry) error
+	LatestLocalRegistry(ctx context.Context) (*registry.MetadataRegistry, error)
 }
 
 type orm struct {
@@ -130,10 +31,10 @@ func NewORM(ds sqlutil.DataSource, lggr logger.Logger) orm {
 	}
 }
 
-func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry) error {
+func (orm orm) AddLocalRegistry(ctx context.Context, metadataRegistry registry.MetadataRegistry) error {
 	orm.lggr.Debugw("Adding local registry to DB...")
 	return sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
-		localRegistryJSON, err := localRegistry.MarshalJSON()
+		localRegistryJSON, err := metadataRegistry.MarshalJSON()
 		if err != nil {
 			return err
 		}
@@ -156,7 +57,7 @@ func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry
 		n, _ := r.RowsAffected()
 		if n != 0 {
 			id, _ := r.LastInsertId()
-			orm.lggr.Debugw("Inserted new local registry", "id", id, "hash", hex.EncodeToString(hash[:]), "registry", localRegistry)
+			orm.lggr.Debugw("Inserted new local registry", "id", id, "hash", hex.EncodeToString(hash[:]), "registry", metadataRegistry)
 		} else {
 			orm.lggr.Debugw("No rows affected, local registry updated. ", "hash", hex.EncodeToString(hash[:]))
 		}
@@ -170,8 +71,8 @@ WHERE data_hash NOT IN (
 	})
 }
 
-func (orm orm) LatestLocalRegistry(ctx context.Context) (*LocalRegistry, error) {
-	var localRegistry LocalRegistry
+func (orm orm) LatestLocalRegistry(ctx context.Context) (*registry.MetadataRegistry, error) {
+	var localRegistry registry.MetadataRegistry
 	var localRegistryJSON string
 	err := orm.ds.GetContext(ctx, &localRegistryJSON, `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
 	if err != nil {

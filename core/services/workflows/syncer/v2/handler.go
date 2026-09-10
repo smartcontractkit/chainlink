@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
@@ -76,7 +76,7 @@ type eventHandler struct {
 	lggr logger.Logger
 
 	workflowStore          store.Store
-	capRegistry            core.CapabilitiesRegistry
+	capRegistry            registry.CapabilitiesRegistry
 	executionHandlers      *confidentialrelay.ExecutionHandlers
 	donTimeStore           *dontime.Store
 	useLocalTimeProvider   bool
@@ -293,7 +293,7 @@ func NewEventHandler(
 	workflowStore store.Store,
 	donTimeStore *dontime.Store,
 	useLocalTimeProvider bool,
-	capRegistry core.CapabilitiesRegistry,
+	capRegistry registry.CapabilitiesRegistry,
 	executionHandlers *confidentialrelay.ExecutionHandlers,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,

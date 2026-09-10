@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -160,7 +161,7 @@ func (m *mockCapRegistry) LocalNode(_ context.Context) (capabilities.Node, error
 	return m.localNode, nil
 }
 
-func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn core.GatewayConnector) *Handler {
+func newTestHandler(t *testing.T, registry registry.CapabilitiesRegistry, gwConn core.GatewayConnector) *Handler {
 	t.Helper()
 	lggr, err := logger.New()
 	require.NoError(t, err)

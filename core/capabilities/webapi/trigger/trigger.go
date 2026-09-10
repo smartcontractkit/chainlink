@@ -13,6 +13,7 @@ import (
 	ethCommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -57,7 +58,7 @@ type triggerConnectorHandler struct {
 	lggr                logger.Logger
 	mu                  sync.Mutex
 	registeredWorkflows map[string]*webapiTrigger
-	registry            core.CapabilitiesRegistry
+	registry            registry.CapabilitiesRegistry
 }
 
 var (
@@ -65,7 +66,7 @@ var (
 	_ services.Service               = &triggerConnectorHandler{}
 )
 
-func NewTrigger(config string, registry core.CapabilitiesRegistry, connector core.GatewayConnector, lggr logger.Logger) (*triggerConnectorHandler, error) {
+func NewTrigger(config string, registry registry.CapabilitiesRegistry, connector core.GatewayConnector, lggr logger.Logger) (*triggerConnectorHandler, error) {
 	if connector == nil {
 		return nil, errors.New("missing connector")
 	}

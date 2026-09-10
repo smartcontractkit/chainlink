@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -39,11 +39,11 @@ type Capability struct {
 	capabilityInfo   capabilities.CapabilityInfo
 	connectorHandler *webapi.OutgoingConnectorHandler
 	lggr             logger.Logger
-	registry         core.CapabilitiesRegistry
+	registry         registry.CapabilitiesRegistry
 	config           webapi.ServiceConfig
 }
 
-func NewCapability(config webapi.ServiceConfig, registry core.CapabilitiesRegistry, connectorHandler *webapi.OutgoingConnectorHandler, lggr logger.Logger) (*Capability, error) {
+func NewCapability(config webapi.ServiceConfig, registry registry.CapabilitiesRegistry, connectorHandler *webapi.OutgoingConnectorHandler, lggr logger.Logger) (*Capability, error) {
 	return &Capability{
 		capabilityInfo:   capabilityInfo,
 		config:           config,
