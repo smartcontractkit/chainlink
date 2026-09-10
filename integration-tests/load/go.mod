@@ -480,7 +480,7 @@ require (
 	github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260706100550-d43558069754 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-canton/contracts/v2 v2.0.0 // indirect
-	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260821001950-7520b255725e // indirect
+	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260908164107-3de1349d970b // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.11.0 // indirect
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260724142814-45996a1bcb72 // indirect

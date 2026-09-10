@@ -1406,8 +1406,8 @@ github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-e
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb/go.mod h1:xu0Jum/nGRkjBwT/Vq7WCElWOTBBkFRwG0ZIaw9tF2I=
 github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb h1:2p+8KYL0bhHblGcOJKRH84i9QduKGcY72NYcLJzNdNc=
 github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb/go.mod h1:67YbnoglYD61Pz/jTVCgav9wFq7S35OU8UyQSvPllRw=
-github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260821001950-7520b255725e h1:V7gYJoIyCC5ILKQtG9BzC8yNqKgajkAldtIHnRWdJX4=
-github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260821001950-7520b255725e/go.mod h1:Dm/Abz0vr7F2v9TygUX947q8HIwJEJikDfSdanX1Cic=
+github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260908164107-3de1349d970b h1:Hj1vaDOtacC9WJBifN2LwF9KY5MilCXoA2M7IfWWFsQ=
+github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260908164107-3de1349d970b/go.mod h1:Dm/Abz0vr7F2v9TygUX947q8HIwJEJikDfSdanX1Cic=
 github.com/smartcontractkit/chainlink-ccv v0.11.0 h1:F4uiKQ1HajuEAsuobW1SlhBil1HzjGGu0m1rkeaR0FA=
 github.com/smartcontractkit/chainlink-ccv v0.11.0/go.mod h1:/4RZGJb7uPOTmMHTYazpr+uwnZFV8J6LPvWw6+t8Zng=
 github.com/smartcontractkit/chainlink-common v0.11.2-0.20260909170844-aaa8dc536936 h1:DPxl0U3Jx0nsFy7WYAAkx9Jq7Pxas5Vun7QTj450vVI=
