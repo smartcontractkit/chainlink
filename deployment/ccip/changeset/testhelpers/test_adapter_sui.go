@@ -179,7 +179,7 @@ func SuiEventEmitter[T any](
 
 				data, err := client.GetCheckpointData(ctx, seq)
 				if err != nil {
-					if isSuiCheckpointNotFound(err) {
+					if isSuiNotFound(err) {
 						// Tip advanced past a checkpoint not yet available; retry next tick.
 						break
 					}
@@ -240,9 +240,12 @@ func SuiEventEmitter[T any](
 	return ch, errChan
 }
 
-// isSuiCheckpointNotFound reports whether err indicates a checkpoint that is not yet
-// available on the fullnode (the tip can advance past the latest indexed checkpoint).
-func isSuiCheckpointNotFound(err error) bool {
+// isSuiNotFound reports whether err indicates a Sui resource that does not exist — either a
+// checkpoint not yet available on the fullnode (the tip can advance past the latest indexed
+// checkpoint) or an object that is no longer independently readable (e.g. an OwnerCap consumed
+// / moved into the MCMS registry). It distinguishes a definitive "not found" from a transient
+// RPC failure, which callers must surface instead of silently treating as the not-found state.
+func isSuiNotFound(err error) bool {
 	for err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
 			return true

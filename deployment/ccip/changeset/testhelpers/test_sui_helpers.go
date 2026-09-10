@@ -177,7 +177,18 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// — prices were already seeded by lane setup, and the EOA op would fail on the consumed cap.
 	deployerOwnsOwnerCap := false
 	if ccipOwnerCapID != "" {
-		if ownerCapObj, readErr := suiChain.Client.ReadObjectId(ctx, ccipOwnerCapID); readErr == nil && ownerCapObj != nil && ownerCapObj.Owner != nil {
+		ownerCapObj, readErr := suiChain.Client.ReadObjectId(ctx, ccipOwnerCapID)
+		switch {
+		case readErr != nil && !isSuiNotFound(readErr):
+			// A transient RPC failure must NOT be confused with "cap moved to MCMS": silently
+			// skipping the price update here would leave prices stale/unset in a deployer-owned
+			// test and cause a misleading later send/commit failure. Surface the error.
+			return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("read CCIPOwnerCap %s: %w", ccipOwnerCapID, readErr)
+		case readErr != nil:
+			// Object no longer independently readable -> cap was consumed/moved into the MCMS
+			// registry. Prices were already seeded by lane-setup MCMS proposals; skip the EOA
+			// update, which would fail on the consumed cap anyway.
+		case ownerCapObj != nil && ownerCapObj.Owner != nil:
 			deployerOwnsOwnerCap = ownerCapObj.Owner.GetKind() == suirpcv2.Owner_ADDRESS
 		}
 	}
