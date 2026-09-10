@@ -74,19 +74,14 @@ func NewShardFailoverCommunicator(dispatcher remotetypes.Dispatcher, localDonID 
 	}
 }
 
-// SetPeerDon provides the peer shard's DON info, used for sending messages
+// SetPeerDon updates the peer shard's DON info, used for sending messages
 // and validating/quorum-checking incoming messages. Must be called before
-// Start. If called again with a different DON, a warning is logged and the
-// first DON is retained.
+// Start. Can be called again at runtime to update the peer DON when shard
+// config changes (e.g. primary/secondary reassignment).
 func (c *ShardFailoverCommunicator) SetPeerDon(don commoncap.DON) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.peerDon.ID != 0 && c.peerDon.ID != don.ID {
-		c.lggr.Warnw("ShardFailoverCommunicator: peer DON already set, ignoring new DON",
-			"existingPeerDonID", c.peerDon.ID, "newPeerDonID", don.ID)
-		return
-	}
 	c.peerDon = don
+	c.mu.Unlock()
 }
 
 // RegisterHandler registers a handler for incoming ExecutionStatusUpdate

@@ -435,3 +435,33 @@ func TestShardFailoverCommunicator_IgnoresUnknownPeer(t *testing.T) {
 	comm.Receive(ctx, body)
 	assert.False(t, handlerCalled, "handler should not be called for unknown peer")
 }
+
+func TestShardFailoverCommunicator_SetPeerDon_UpdatesDynamically(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
+	mockDisp := dispatchermocks.NewDispatcher(t)
+	mockDisp.On("SetReceiverForMethod", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockDisp.On("RemoveReceiverForMethod", mock.Anything, mock.Anything, mock.Anything).Return()
+	mockDisp.On("Send", mock.Anything, mock.Anything).Return(nil)
+
+	localDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
+	secondaryDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
+	anotherDON := makeTestDON(3, 1, makeTestPeerID(30), makeTestPeerID(31), makeTestPeerID(32))
+
+	comm := NewShardFailoverCommunicator(mockDisp, localDON.ID, logger.Test(t))
+	require.NoError(t, comm.Start(ctx))
+	t.Cleanup(func() { _ = comm.Close() })
+
+	// Initial peer DON
+	comm.SetPeerDon(secondaryDON)
+
+	msg := makeStatusMsg("wf-1", "evt-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, localDON.ID)
+	comm.Send(ctx, msg)
+	mockDisp.AssertNumberOfCalls(t, "Send", len(secondaryDON.Members))
+
+	// Dynamically update to a different peer DON (simulates shard reassignment)
+	comm.SetPeerDon(anotherDON)
+	comm.Send(ctx, msg)
+	mockDisp.AssertNumberOfCalls(t, "Send", len(secondaryDON.Members)+len(anotherDON.Members))
+}

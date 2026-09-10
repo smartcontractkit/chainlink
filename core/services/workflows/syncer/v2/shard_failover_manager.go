@@ -24,6 +24,10 @@ import (
 // cachedExpiry is how long a cached trigger event is kept for potential failover replay.
 const cachedExpiry = 10 * time.Minute
 
+// reconcileInterval is how often the ownership reconcile loop re-checks
+// whether this node is primary or secondary for the workflow.
+const reconcileInterval = 30 * time.Second
+
 // ShardFailoverManager wraps a workflow Engine and handles shard ownership
 // decisions externally, keeping the Engine oblivious to sharding. On the
 // primary shard it allows all trigger events through. On a secondary shard
@@ -36,6 +40,12 @@ const cachedExpiry = 10 * time.Minute
 //     the EngineConfig before the engine is created.
 //   - SetEngine(engine) injects the engine after creation.
 //   - Start(ctx) wires the communicator and starts the engine.
+//
+// Dynamic re-wiring: a background reconcile loop periodically re-checks
+// shard ownership. If the primary/secondary assignment changes (e.g. due
+// to a shard orchestrator config update), the manager automatically swaps
+// the communicator's peer DON and registers/unregisters its handler — no
+// restart required.
 type ShardFailoverManager struct {
 	services.Service
 	eng *services.Engine
@@ -108,6 +118,7 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 		if err := m.wireFailover(ctx); err != nil {
 			return fmt.Errorf("failed to wire failover: %w", err)
 		}
+		m.eng.GoCtx(ctx, m.reconcileLoop)
 	}
 
 	if err := m.engine.Start(ctx); err != nil {
@@ -119,7 +130,10 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 }
 
 func (m *ShardFailoverManager) close() error {
-	if m.cfg.Communicator != nil && !m.isPrimary {
+	m.mu.RLock()
+	primary := m.isPrimary
+	m.mu.RUnlock()
+	if m.cfg.Communicator != nil && !primary {
 		m.cfg.Communicator.UnregisterHandler(m.cfg.WorkflowID)
 	}
 	if m.engine != nil {
@@ -158,7 +172,10 @@ func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event v2.Rout
 // hook. On the primary shard it sends the status to the secondary via the
 // communicator. On the secondary it is a no-op.
 func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
-	if m.cfg.Communicator == nil || !m.isPrimary {
+	m.mu.RLock()
+	primary := m.isPrimary
+	m.mu.RUnlock()
+	if m.cfg.Communicator == nil || !primary {
 		return
 	}
 	execStatus := mapExecutionStatus(status, errClass)
@@ -279,18 +296,17 @@ func (m *ShardFailoverManager) pruneLoop(ctx context.Context) {
 	}
 }
 
-// wireFailover sets up the communicator for ExecutionStatusUpdate messages.
-// On primary it configures the communicator's peer DON (the secondary) for
-// sending. On secondary it registers a handler with the communicator for
-// receiving. The communicator itself is shared across all workflows and
-// registers a single receiver with the dispatcher. Must be called before
-// engine.Start so the communicator is ready before any execution status
-// hooks fire.
+// wireFailover does the initial communicator setup for ExecutionStatusUpdate
+// messages. On primary it configures the communicator's peer DON (the
+// secondary) for sending. On secondary it registers a handler with the
+// communicator for receiving. The communicator itself is shared across all
+// workflows and registers a single receiver with the dispatcher. Must be
+// called before engine.Start so the communicator is ready before any
+// execution status hooks fire.
 //
-// This is called once during ShardFailoverManager startup. If the primary/
-// secondary assignment changes at runtime (e.g. due to a shard config
-// update), the manager would need to be restarted to re-wire. Dynamic
-// re-wiring on config changes is not currently supported.
+// After the initial wiring, a reconcile loop (see reconcileLoop) periodically
+// re-checks shard ownership and re-wires automatically if the primary/
+// secondary assignment changes.
 func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -309,21 +325,51 @@ func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 		return nil
 	}
 
-	m.isPrimary = m.isPrimaryShard(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner)
+	if err := m.applyRole(ctx); err != nil {
+		return err
+	}
 
-	if m.isPrimary {
+	if err := m.cfg.Communicator.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start communicator: %w", err)
+	}
+	return nil
+}
+
+// applyRole determines whether this node is primary or secondary for the
+// workflow and configures the communicator accordingly. Called during
+// initial wiring and by the reconcile loop when ownership may have changed.
+func (m *ShardFailoverManager) applyRole(ctx context.Context) error {
+	newIsPrimary := m.isPrimaryShard(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner)
+
+	m.mu.Lock()
+	oldIsPrimary := m.isPrimary
+	m.isPrimary = newIsPrimary
+	m.mu.Unlock()
+
+	if oldIsPrimary == newIsPrimary {
+		return nil
+	}
+
+	m.cfg.Logger.Infow("shard failover: role changed",
+		"wasPrimary", oldIsPrimary, "isPrimary", newIsPrimary,
+		"myShardID", m.cfg.MyShardID, "workflowID", m.cfg.WorkflowID)
+
+	if newIsPrimary {
 		secondaryDon := m.resolveDon(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner, 1)
 		if secondaryDon == nil {
-			m.cfg.Logger.Warnw("shard failover: no secondary DON found, primary will not send ExecutionStatusUpdate", "primaryShardID", m.cfg.MyShardID)
+			m.cfg.Logger.Warnw("shard failover: no secondary DON found, primary will not send ExecutionStatusUpdate",
+				"primaryShardID", m.cfg.MyShardID)
 			return nil
 		}
+		m.cfg.Communicator.UnregisterHandler(m.cfg.WorkflowID)
 		m.cfg.Communicator.SetPeerDon(*secondaryDon)
 		m.cfg.Logger.Infow("shard failover: wired communicator on primary",
 			"primaryShardID", m.cfg.MyShardID, "secondaryShardID", secondaryDon.ID)
 	} else {
 		primaryDon := m.resolveDon(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner, 0)
 		if primaryDon == nil {
-			m.cfg.Logger.Warnw("shard failover: no primary DON found, secondary will not register handler", "myShardID", m.cfg.MyShardID)
+			m.cfg.Logger.Warnw("shard failover: no primary DON found, secondary will not register handler",
+				"myShardID", m.cfg.MyShardID)
 			return nil
 		}
 		m.cfg.Communicator.SetPeerDon(*primaryDon)
@@ -331,11 +377,27 @@ func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 		m.cfg.Logger.Infow("shard failover: wired communicator on secondary",
 			"myShardID", m.cfg.MyShardID, "primaryDonID", primaryDon.ID)
 	}
-
-	if err := m.cfg.Communicator.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start communicator: %w", err)
-	}
 	return nil
+}
+
+// reconcileLoop periodically re-checks shard ownership and re-wires the
+// communicator if the primary/secondary assignment has changed. This
+// handles shard orchestrator config updates without requiring a restart.
+func (m *ShardFailoverManager) reconcileLoop(ctx context.Context) {
+	ticker := time.NewTicker(reconcileInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			reconcileCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			if err := m.applyRole(reconcileCtx); err != nil {
+				m.cfg.Logger.Warnw("shard failover: reconcile failed", "err", err)
+			}
+			cancel()
+		}
+	}
 }
 
 func (m *ShardFailoverManager) isPrimaryShard(ctx context.Context, workflowID, owner string) bool {
