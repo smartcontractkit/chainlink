@@ -330,8 +330,8 @@ func (e *Engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, e
 	}
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
-	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID, e.eventLabels())
+	e.srvcEng.GoCtx(subCtx, func(ctx context.Context) {
+		e.emitUserLogs(ctx, userLogChan, e.cfg.WorkflowID, e.eventLabels())
 	})
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
@@ -1031,8 +1031,8 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 	}
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
-	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(execCtx, userLogChan, executionID, loggerLabels)
+	e.srvcEng.GoCtx(execCtx, func(ctx context.Context) {
+		e.emitUserLogs(ctx, userLogChan, executionID, loggerLabels)
 	})
 
 	tid, err := safe.IntToUint64(event.TriggerIndex)
