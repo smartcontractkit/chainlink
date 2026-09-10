@@ -692,6 +692,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				creServices.WorkflowRegistrySyncer,
 				globalLogger,
 				limitsFactory,
+				creServices.OrgResolver,
 			),
 			job.Stream: streams.NewDelegate(
 				globalLogger,
@@ -808,6 +809,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				DefaultBootstrappers:           safeDefaultBootstrappers(cfg),
 				CapRegistryAddress:             safeExternalRegistryAddress(cfg),
 				CapRegistryChainID:             safeExternalRegistryChainID(cfg),
+				LocalCfg:                       cfg.Capabilities().Local(),
 			},
 			ocr2DelegateConfig,
 		)

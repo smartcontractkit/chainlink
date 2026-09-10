@@ -130,12 +130,6 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 	// Initial DON config (workflow type used for both variants)
 	cfg := map[string]any{
 		"defaultConfig": map[string]any{},
-		"remoteTriggerConfig": map[string]any{
-			"registrationRefresh":     "20s",
-			"registrationExpiry":      "60s",
-			"minResponsesToAggregate": 2,
-			"messageExpiry":           "120s",
-		},
 	}
 	donName := "upd-don-v2"
 
@@ -232,13 +226,8 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 
 	// New config to apply
 	newCfg := map[string]any{
-		"defaultConfig": map[string]any{},
-		"remoteTriggerConfig": map[string]any{
-			"registrationRefresh":     "25s", // changed value to detect update
-			"registrationExpiry":      "60s",
-			"minResponsesToAggregate": 2,
-			"messageExpiry":           "120s",
-		},
+		"defaultConfig":  map[string]any{},
+		"restrictedKeys": []any{"updated"}, // changed value to detect update
 	}
 	wantProto, err := pkg.CapabilityConfig(newCfg).MarshalProto()
 	require.NoError(t, err)
@@ -286,13 +275,8 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 
 	// New config to apply
 	newCfg := map[string]any{
-		"defaultConfig": map[string]any{},
-		"remoteTriggerConfig": map[string]any{
-			"registrationRefresh":     "25s", // changed value to detect update
-			"registrationExpiry":      "60s",
-			"minResponsesToAggregate": 2,
-			"messageExpiry":           "120s",
-		},
+		"defaultConfig":  map[string]any{},
+		"restrictedKeys": []any{"updated"}, // changed value to detect update
 	}
 
 	newName := fx.donName + "-renamed"
