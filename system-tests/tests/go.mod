@@ -64,7 +64,7 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/smartcontractkit/chain-selectors v1.0.108
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260904233717-0a9e358dbb9f
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260910151532-40d2be9ed882
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-confidential-compute v1.3.0
 	github.com/smartcontractkit/chainlink-confidential-compute/tests/testhelpers v0.0.0-20260812145307-d77342c53d7d
@@ -131,7 +131,7 @@ require (
 	github.com/beevik/ntp v1.5.0 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/buraksezer/consistent v0.10.0 // indirect
-	github.com/bytecodealliance/wasmtime-go/v48 v48.0.0 // indirect
+	github.com/bytecodealliance/wasmtime-go/v47 v47.0.0 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/c2h5oh/datasize v0.0.0-20231215233829-aa82cc1e6500 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
