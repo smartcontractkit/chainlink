@@ -403,6 +403,10 @@ jobs:
           TEST_TIMEOUT: 7m
           RUN_QUARANTINED_TESTS: "true"
           TOPOLOGY_NAME: mixed-env
+          # Topology the test must build, relative to core/scripts/cre/environment.
+          # Tests that hardcode their own topology read this first, so the rendered
+          # mixed-env variant is the one that actually gets used.
+          CRE_TOPOLOGY_CONFIG: /${{ matrix.tests.configs }}
           CONFIDENTIAL_COMPUTE_ROOT: ${{ github.workspace }}/chainlink-confidential-compute
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
           PARALLEL_COUNT: "10"
