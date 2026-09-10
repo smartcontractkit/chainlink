@@ -192,12 +192,13 @@ func ReplayLogs(t *testing.T, oc cldf_offchain.Client, replayBlocks map[uint64]u
 // checkpoints from the pre-send tip — matching the prior bind-rescan volume, not the whole chain.
 // This is a blind sleep (WaitForEventFilterRegistration is a no-op for Sui — the harness has no
 // signal for when the relayer registered its CCIP event selectors), so the value is a
-// flake-risk-vs-wall-clock trade-off rather than a derived constant. 20s leaves comfortable margin
-// over a realistic bind: the relayer is already running and the Sui RPC is synced by the time the
-// test reaches the replay, and the upgrade end-to-end test self-settles via its long pre-work with
-// no explicit sleep. Drop further only if CI stays green across slow/loaded runners — below ~10s
-// risks racing the bind under load.
-const suiSourceReplaySettle = 25 * time.Second
+// flake-risk-vs-wall-clock trade-off rather than a derived constant. Raised to 45s after a
+// replay-settle flake on loaded runners — the extra margin covers slow Sui RPC indexing and
+// chainreader-bind jitter under CI load. The relayer is already running and the Sui RPC is synced
+// by the time the test reaches the replay, and the upgrade end-to-end test self-settles via its
+// long pre-work with no explicit sleep, so this is conservative. Tune back down only once CI stays
+// green across slow/loaded runners — below ~10s risks racing the bind under load.
+const suiSourceReplaySettle = 45 * time.Second
 
 // ReplaySuiSourceFromCheckpoint settles (so the relayer has registered its CCIP event selectors) and
 // then replays a Sui source chain from the given checkpoint sequence so the relayer re-indexes onramp
@@ -290,6 +291,68 @@ func WaitForEventFilterRegistrationOnLane(t *testing.T, onchainState stateview.C
 	require.NoError(t, err)
 
 	t.Logf("%s, %s, and %s filters registered", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
+}
+
+// isLogFilterRegisteredQuorum is the quorum-tolerant counterpart of isLogFilterRegistered:
+// it returns true once at least f+1 non-bootstrap nodes have the filter registered, instead
+// of requiring every node. See JobClient.IsLogFilterRegisteredQuorum.
+func isLogFilterRegisteredQuorum(t *testing.T, oc cldf_offchain.Client, chainSel uint64, eventName string, address []byte) (bool, error) {
+	switch oc := oc.(type) {
+	case *jdtestutils.JobClient:
+		return oc.IsLogFilterRegisteredQuorum(t.Context(), chainSel, eventName, address)
+	default:
+		return false, fmt.Errorf("unsupported offchain client type %T", oc)
+	}
+}
+
+// WaitForEventFilterRegistrationQuorum waits for at least f+1 non-bootstrap nodes (not all
+// nodes) to have registered the given event filter. Use this for lanes where one node being
+// environmentally slow to bind contracts should not block the send — the DON only needs f+1
+// observations to commit/execute. Aptos and Sui are no-ops (they do not use a LogPoller).
+func WaitForEventFilterRegistrationQuorum(t *testing.T, oc cldf_offchain.Client, chainSel uint64, eventName string, address []byte) error {
+	family, err := chainsel.GetSelectorFamily(chainSel)
+	require.NoError(t, err)
+	switch family {
+	case chainsel.FamilyEVM, chainsel.FamilySolana:
+		// fall through to the wait below
+	case chainsel.FamilyAptos, chainsel.FamilySui:
+		// Aptos and Sui do not use a LogPoller.
+		return nil
+	default:
+		return fmt.Errorf("unsupported chain family; %v", family)
+	}
+
+	require.Eventually(t, func() bool {
+		registered, err := isLogFilterRegisteredQuorum(t, oc, chainSel, eventName, address)
+		require.NoError(t, err)
+		return registered
+	}, tests.WaitTimeout(t), 5*time.Second)
+
+	return nil
+}
+
+// WaitForEventFilterRegistrationQuorumOnLane is the quorum-tolerant variant of
+// WaitForEventFilterRegistrationOnLane: it only requires f+1 nodes (not all) to have
+// registered the source OnRamp CCIPMessageSent filter before sending. The dest-side waits
+// are no-ops when the destination does not use a LogPoller (e.g. Sui). Use when the DON has
+// spare capacity (f >= 1) and a single slow/unhealthy node should not block the send.
+func WaitForEventFilterRegistrationQuorumOnLane(t *testing.T, onchainState stateview.CCIPOnChainState, onchainClient cldf_offchain.Client, sourceChainSel, destChainSel uint64) {
+	onRampAddr, err := onchainState.GetOnRampAddressBytes(sourceChainSel)
+	require.NoError(t, err)
+	// Ensure CCIPMessageSent event filter is registered on a quorum of nodes.
+	// Sending message too early could result in LogPoller missing the send event.
+	err = WaitForEventFilterRegistrationQuorum(t, onchainClient, sourceChainSel, consts.EventNameCCIPMessageSent, onRampAddr)
+	require.NoError(t, err)
+	// Ensure CommitReportAccepted and ExecutionStateChanged event filters are registered for the offramp
+	// The LogPoller could pick up the message sent event but miss the commit or execute event
+	offRampAddr, err := onchainState.GetOffRampAddressBytes(destChainSel)
+	require.NoError(t, err)
+	err = WaitForEventFilterRegistrationQuorum(t, onchainClient, destChainSel, consts.EventNameCommitReportAccepted, offRampAddr)
+	require.NoError(t, err)
+	err = WaitForEventFilterRegistrationQuorum(t, onchainClient, destChainSel, consts.EventNameExecutionStateChanged, offRampAddr)
+	require.NoError(t, err)
+
+	t.Logf("%s, %s, and %s filters registered (quorum)", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
 }
 
 func DeployTestContracts(t *testing.T,
@@ -988,6 +1051,14 @@ func AddLane(
 		return addAptosMixedLane(t, e, state, from, to, fromFamily, toFamily, isTestRouter, gasPrices, tokenPrices, fqCfg)
 	}
 
+	// Sui<->Solana lanes use the family-agnostic lanes.ConnectChains (SuiAdapter + SolanaAdapter),
+	// mirroring the Aptos mixed lane. Scoped to Sui<->Solana only so Sui<->EVM, EVM<->Solana and
+	// Solana<->Solana paths are untouched.
+	if (fromFamily == chainsel.FamilySui && toFamily == chainsel.FamilySolana) ||
+		(fromFamily == chainsel.FamilySolana && toFamily == chainsel.FamilySui) {
+		return addSuiSolanaMixedLane(t, e, state, from, to, fromFamily, toFamily, isTestRouter, gasPrices, tokenPrices, fqCfg)
+	}
+
 	switch fromFamily {
 	case chainsel.FamilyEVM:
 		evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
@@ -1026,6 +1097,9 @@ func AddLaneSolanaChangesetsV0_1_0(e *DeployedEnv, solChainSelector, remoteChain
 	case chainsel.FamilyAptos:
 		// bytes4(keccak256("CCIP ChainFamilySelector APTOS"));
 		chainFamilySelector = [4]uint8{0xac, 0x77, 0xff, 0xec}
+	case chainsel.FamilySui:
+		// bytes4(keccak256("CCIP ChainFamilySelector Sui")) = 0xc4e05953
+		chainFamilySelector = [4]uint8{0xc4, 0xe0, 0x59, 0x53}
 	default:
 		panic("unsupported remote family")
 	}
