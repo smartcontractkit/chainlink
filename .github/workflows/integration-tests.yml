@@ -305,7 +305,7 @@ jobs:
               }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        uses: runs-on/action@efac073ea2507ec18797de3a81704201ade11d9d # v2.3.1
 
       - name: Check if image exists in ECR
         id: check-image-exists
@@ -611,7 +611,7 @@ jobs:
       contents: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        uses: runs-on/action@efac073ea2507ec18797de3a81704201ade11d9d # v2.3.1
 
       - name: Setup GitHub token using GATI
         id: github-token
@@ -645,15 +645,13 @@ jobs:
 
       # No cache-hit short-circuit: ctf-setup-go@v0.4.0 exposes no `cache-hit` output,
       # and this job's purpose is to (re)populate the shared build cache regardless.
-      - name: Compile E2E tests
+      - name: Prep Go module cache & workspace
         shell: bash
-        env:
-          SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
-          SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/.gotmp"
-          export GOTMPDIR="$GITHUB_WORKSPACE/.gotmp"
+          mkdir -p "$GITHUB_WORKSPACE/system-tests/tests/bin"
+          mkdir -p "$GITHUB_WORKSPACE/integration-tests/bin"
 
           # Restored mod cache contains shallow VCS clones that can be in an
           # inconsistent state after tar restore, breaking fetches of new
@@ -661,59 +659,47 @@ jobs:
           # Drop them; only private repos re-clone, public zips stay cached.
           rm -rf "$(go env GOMODCACHE)/cache/vcs"
 
-          mkdir -p "$GITHUB_WORKSPACE/system-tests/tests/bin"
-          mkdir -p "$GITHUB_WORKSPACE/integration-tests/bin"
-
           # Pre-download dependencies sequentially to prevent parallel git fetch races
           go mod download
-          if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
+          if [[ "${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}" == "true" ]]; then
             (cd "$GITHUB_WORKSPACE/system-tests/tests" && go mod download)
           fi
-          if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
+          if [[ "${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}" == "true" ]]; then
             (cd "$GITHUB_WORKSPACE/integration-tests" && go mod download)
           fi
 
-          cre_pid=""
-          ccip_pid=""
+      - parallel:
+          - name: Compile CRE smoke test
+            if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+            working-directory: system-tests/tests
+            env:
+              GOTMPDIR: ${{ github.workspace }}/.gotmp
+            run: go test -c -ldflags="-s -w" -o ./bin/cre-smoke.test ./smoke/cre
 
-          if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
-            (
-              set -euo pipefail
-              echo "Compiling CRE tests and CLI in parallel..."
-              cd "$GITHUB_WORKSPACE/system-tests/tests"
-              go test -c -ldflags="-s -w" -o ./bin/cre-smoke.test ./smoke/cre &
-              p1=$!
-              go test -c -ldflags="-s -w" -o ./bin/cre-regression.test ./regression/cre &
-              p2=$!
-              (cd "$GITHUB_WORKSPACE/core/scripts/cre/environment" && go build -ldflags="-s -w" -o "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" .) &
-              p3=$!
-              set +e
-              wait "$p1"; p1_exit=$?
-              wait "$p2"; p2_exit=$?
-              wait "$p3"; p3_exit=$?
-              set -e
-              if [[ "$p1_exit" -ne 0 || "$p2_exit" -ne 0 || "$p3_exit" -ne 0 ]]; then
-                echo "Compilation failed (cre-smoke=$p1_exit, cre-regression=$p2_exit, cre-env=$p3_exit)" >&2
-                exit 1
-              fi
-            ) &
-            cre_pid=$!
-          fi
+          - name: Compile CRE regression test
+            if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+            working-directory: system-tests/tests
+            env:
+              GOTMPDIR: ${{ github.workspace }}/.gotmp
+            run: go test -c -ldflags="-s -w" -o ./bin/cre-regression.test ./regression/cre
 
-          if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
-            (
-              set -euo pipefail
-              echo "Compiling CCIP tests in parallel..."
-              cd "$GITHUB_WORKSPACE/integration-tests"
-              go test -c -tags embed -ldflags="-s -w" -o ./bin/ccip-smoke.test ./smoke/ccip
-            ) &
-            ccip_pid=$!
-          fi
+          - name: Compile CRE environment CLI
+            if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+            working-directory: core/scripts/cre/environment
+            env:
+              GOTMPDIR: ${{ github.workspace }}/.gotmp
+            run: go build -ldflags="-s -w" -o "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" .
 
-          if [ -n "$cre_pid" ]; then wait "$cre_pid"; fi
-          if [ -n "$ccip_pid" ]; then wait "$ccip_pid"; fi
+          - name: Compile CCIP smoke test
+            if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+            working-directory: integration-tests
+            env:
+              GOTMPDIR: ${{ github.workspace }}/.gotmp
+            run: go test -c -tags embed -ldflags="-s -w" -o ./bin/ccip-smoke.test ./smoke/ccip
 
-          rm -rf "$GITHUB_WORKSPACE/.gotmp"
+      - name: Cleanup tempdir
+        if: always()
+        run: rm -rf "$GITHUB_WORKSPACE/.gotmp"
 
       - name: Cache Pre-Compiled CRE Test Binaries
         if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
