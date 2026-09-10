@@ -56,6 +56,29 @@ func TestBuildCCIPSystemMatrix(t *testing.T) {
 	assert.Equal(t, "runs-on=112233-4-1/cpu=8/ram=64/family=r6i+r7i+r8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", res[4].RunsOn)
 }
 
+func TestBuildCCIPSystemMatrix_MissingRunID(t *testing.T) {
+	t.Parallel()
+
+	_, err := matrix.BuildCCIPSystemMatrix(context.Background(), matrix.CCIPSystemOptions{
+		RunAttempt: "1",
+		SpotFlag:   "spot=co",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "run ID is required")
+}
+
+func TestBuildCCIPSystemMatrix_Defaults(t *testing.T) {
+	t.Parallel()
+
+	res, err := matrix.BuildCCIPSystemMatrix(context.Background(), matrix.CCIPSystemOptions{
+		RunID: "112233",
+	})
+	require.NoError(t, err)
+	require.Len(t, res, 5)
+
+	assert.Equal(t, "runs-on=112233-0-1/cpu=8/ram=64/family=r6i+r7i+r8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", res[0].RunsOn)
+}
+
 func TestBuildCCIPSystemMatrix_MixedVersionOnly(t *testing.T) {
 	t.Parallel()
 

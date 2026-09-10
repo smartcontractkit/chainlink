@@ -6,6 +6,10 @@ GitHub Actions in the Chainlink Go monorepo.
 - Minimize YAML and shell in workflows. Utilize the [Go CI CLI](tools/ci/) for any bash requiring more than basic commands.
 - Resolve smartcontractkit/.github from a local clone. Ask the user for the path if you cannot find it.
 
+## New Features
+
+- Can [reference local actions without checkout step](https://github.blog/changelog/2026-07-30-reference-same-repository-actions-with-self-repository-syntax/) with `uses: $/path/to/action`
+
 ## Docs & Tools
 
 - [runs-on](https://runs-on.com/docs/): Docs for our runs-on runners

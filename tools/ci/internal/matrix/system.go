@@ -3,7 +3,6 @@ package matrix
 import (
 	"context"
 	"fmt"
-	"strconv"
 )
 
 // CRES smoke & regression topology structure.
@@ -107,13 +106,9 @@ func BuildCRESmokeMatrix(ctx context.Context, opts CRESmokeOptions) ([]CRESmokeE
 		return nil, fmt.Errorf("failed discovering tests in %s: %w", opts.Dir, err)
 	}
 
-	spotFlag := opts.SpotFlag
-	if spotFlag == "" {
-		spotFlag = "spot=co"
-	}
-	runAttempt := opts.RunAttempt
-	if runAttempt == "" {
-		runAttempt = "1"
+	params, err := resolveRunsOnParams(opts.RunID, opts.RunAttempt, opts.SpotFlag)
+	if err != nil {
+		return nil, err
 	}
 
 	var entries []CRESmokeEntry
@@ -129,7 +124,7 @@ func BuildCRESmokeMatrix(ctx context.Context, opts CRESmokeOptions) ([]CRESmokeE
 
 		for _, top := range topologies {
 			runsOn := fmt.Sprintf("runs-on=%s-%d-%s/cpu=16/ram=64/family=m7i+m8i/%s/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
-				opts.RunID, testID, runAttempt, spotFlag)
+				params.RunID, testID, params.RunAttempt, params.SpotFlag)
 			entries = append(entries, CRESmokeEntry{
 				TestName: name,
 				Topology: top.Topology,
@@ -153,13 +148,9 @@ func BuildCRERegressionMatrix(ctx context.Context, opts CRERegressionOptions) ([
 		return nil, fmt.Errorf("failed discovering tests in %s: %w", opts.Dir, err)
 	}
 
-	spotFlag := opts.SpotFlag
-	if spotFlag == "" {
-		spotFlag = "spot=co"
-	}
-	runAttempt := opts.RunAttempt
-	if runAttempt == "" {
-		runAttempt = "1"
+	params, err := resolveRunsOnParams(opts.RunID, opts.RunAttempt, opts.SpotFlag)
+	if err != nil {
+		return nil, err
 	}
 
 	var entries []CRERegressionEntry
@@ -169,8 +160,8 @@ func BuildCRERegressionMatrix(ctx context.Context, opts CRERegressionOptions) ([
 			configs = "configs/workflow-gateway-capabilities-don.toml"
 		}
 
-		runsOn := fmt.Sprintf("runs-on=%s-%s-%s/cpu=16/ram=64/family=m7i+m8i/%s/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
-			opts.RunID, strconv.Itoa(i), runAttempt, spotFlag)
+		runsOn := fmt.Sprintf("runs-on=%s-%d-%s/cpu=16/ram=64/family=m7i+m8i/%s/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
+			params.RunID, i, params.RunAttempt, params.SpotFlag)
 
 		entries = append(entries, CRERegressionEntry{
 			TestName: name,

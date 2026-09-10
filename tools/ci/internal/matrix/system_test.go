@@ -115,6 +115,28 @@ func Test_CRE_V2_Stellar_Suite(t *testing.T) {}
 	assert.Equal(t, "configs/workflow-gateway-capabilities-don-vault-stall-purge.toml", bucketBVault.Configs)
 }
 
+func TestBuildCRESmokeMatrix_MissingRunID(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "smoke_test.go")
+	content := `package smoke_test
+
+import "testing"
+
+func Test_CRE_V2_Basic(t *testing.T) {}
+`
+	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
+
+	_, err := matrix.BuildCRESmokeMatrix(context.Background(), matrix.CRESmokeOptions{
+		Dir:        tmpDir,
+		RunAttempt: "1",
+		SpotFlag:   "spot=co",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "run ID is required")
+}
+
 func TestBuildCRERegressionMatrix(t *testing.T) {
 	t.Parallel()
 
@@ -147,4 +169,26 @@ func Test_CRE_V2_Stellar_Regression(t *testing.T) {}
 	assert.Equal(t, 1, res[1].TestID)
 	assert.Equal(t, "configs/workflow-gateway-don-stellar.toml", res[1].Configs)
 	assert.Equal(t, "runs-on=789012-1-2/cpu=16/ram=64/family=m7i+m8i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", res[1].RunsOn)
+}
+
+func TestBuildCRERegressionMatrix_MissingRunID(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "regression_test.go")
+	content := `package regression_test
+
+import "testing"
+
+func Test_CRE_V2_Standard_Regression(t *testing.T) {}
+`
+	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
+
+	_, err := matrix.BuildCRERegressionMatrix(context.Background(), matrix.CRERegressionOptions{
+		Dir:        tmpDir,
+		RunAttempt: "1",
+		SpotFlag:   "spot=co",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "run ID is required")
 }
