@@ -34,9 +34,9 @@ const ShardHeartbeatCapabilityID = "shard-heartbeat"
 // dispatcher conflicts when multiple workflows are deployed.
 //
 // The communicator is role-agnostic: it always registers a receiver and can
-// always send to the peer shard. The ShardFailoverManager decides what to do
-// with received messages based on whether it is primary or secondary. The d2d
-// layer does not need to know which shard is primary.
+// always send to the secondary shard. The ShardFailoverManager decides at
+// runtime whether to send (primary) or receive (secondary) by checking
+// ownership on each event — no static role assignment or re-wiring needed.
 type ShardFailoverCommunicator struct {
 	services.StateMachine
 	stopCh     services.StopChan
@@ -44,9 +44,10 @@ type ShardFailoverCommunicator struct {
 	localDonID uint32
 	lggr       logger.SugaredLogger
 
-	mu       sync.RWMutex
-	peerDon  commoncap.DON
-	handlers map[string]ExecutionStatusUpdateHandler
+	mu           sync.RWMutex
+	primaryDon   commoncap.DON
+	secondaryDon commoncap.DON
+	handlers     map[string]ExecutionStatusUpdateHandler
 
 	quorumMu        sync.Mutex
 	seenByHash      map[string]map[p2ptypes.PeerID]bool
@@ -59,7 +60,7 @@ type ShardFailoverCommunicator struct {
 // NewShardFailoverCommunicator creates a communicator that handles
 // ExecutionStatusUpdate messages for all workflows on this node.
 // The local DON ID is used for receiver registration with the dispatcher.
-// Call SetPeerDon before Start so quorum checking and sending work correctly.
+// Call SetShardDons before Start so quorum checking and sending work correctly.
 func NewShardFailoverCommunicator(dispatcher remotetypes.Dispatcher, localDonID uint32, lggr logger.Logger) *ShardFailoverCommunicator {
 	return &ShardFailoverCommunicator{
 		stopCh:          make(services.StopChan),
@@ -74,13 +75,15 @@ func NewShardFailoverCommunicator(dispatcher remotetypes.Dispatcher, localDonID 
 	}
 }
 
-// SetPeerDon updates the peer shard's DON info, used for sending messages
-// and validating/quorum-checking incoming messages. Must be called before
-// Start. Can be called again at runtime to update the peer DON when shard
-// config changes (e.g. primary/secondary reassignment).
-func (c *ShardFailoverCommunicator) SetPeerDon(don commoncap.DON) {
+// SetShardDons provides the primary and secondary shard DON info.
+// primaryDon is used for quorum validation on Receive (who to accept from).
+// secondaryDon is used for Send (where to send to).
+// Must be called before Start. Can be called again at runtime to update
+// when shard config changes.
+func (c *ShardFailoverCommunicator) SetShardDons(primaryDon, secondaryDon commoncap.DON) {
 	c.mu.Lock()
-	c.peerDon = don
+	c.primaryDon = primaryDon
+	c.secondaryDon = secondaryDon
 	c.mu.Unlock()
 }
 
@@ -127,15 +130,15 @@ func (c *ShardFailoverCommunicator) Close() error {
 	})
 }
 
-// Send sends an ExecutionStatusUpdate to all members of the peer shard DON.
+// Send sends an ExecutionStatusUpdate to all members of the secondary shard DON.
 // Called by the primary shard's ShardFailoverManager.
 func (c *ShardFailoverCommunicator) Send(ctx context.Context, msg *ringpb.ExecutionStatusUpdate) {
 	c.mu.RLock()
-	peerDon := c.peerDon
+	secondary := c.secondaryDon
 	c.mu.RUnlock()
 
-	if len(peerDon.Members) == 0 {
-		c.lggr.Warnw("ShardFailoverCommunicator: peer DON not set, cannot send",
+	if len(secondary.Members) == 0 {
+		c.lggr.Warnw("ShardFailoverCommunicator: secondary DON not set, cannot send",
 			"workflowID", msg.WorkflowId)
 		return
 	}
@@ -147,14 +150,14 @@ func (c *ShardFailoverCommunicator) Send(ctx context.Context, msg *ringpb.Execut
 	}
 
 	messageID := fmt.Sprintf("%s:%s:%d", msg.WorkflowId, msg.TriggerEventId, msg.TriggerIndex)
-	for _, peerID := range peerDon.Members {
+	for _, peerID := range secondary.Members {
 		body := &remotetypes.MessageBody{
 			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
 			Method:           remotetypes.MethodExecutionStatusUpdate,
 			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
 			Payload:          payload,
 			CallerDonId:      c.localDonID,
-			CapabilityDonId:  peerDon.ID,
+			CapabilityDonId:  secondary.ID,
 			MessageId:        []byte(messageID),
 		}
 		if err := c.dispatcher.Send(peerID, body); err != nil {
@@ -165,7 +168,7 @@ func (c *ShardFailoverCommunicator) Send(ctx context.Context, msg *ringpb.Execut
 }
 
 // Receive implements remotetypes.Receiver. It validates the sender against the
-// peer DON, collects quorum, and routes the unmarshalled message to the
+// primary DON, collects quorum, and routes the unmarshalled message to the
 // handler registered for the workflow ID in the message.
 func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetypes.MessageBody) {
 	if msg.Method != remotetypes.MethodExecutionStatusUpdate {
@@ -173,11 +176,11 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 	}
 
 	c.mu.RLock()
-	peerDon := c.peerDon
+	primary := c.primaryDon
 	c.mu.RUnlock()
 
-	if len(peerDon.Members) == 0 {
-		c.lggr.Warnw("ShardFailoverCommunicator: peer DON not set, dropping message")
+	if len(primary.Members) == 0 {
+		c.lggr.Warnw("ShardFailoverCommunicator: primary DON not set, dropping message")
 		return
 	}
 
@@ -187,8 +190,8 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 		return
 	}
 
-	if !isPeerInDON(sender, peerDon.Members) {
-		c.lggr.Warnw("ExecutionStatusUpdate from peer not in peer shard DON", "peerID", sender)
+	if !isPeerInDON(sender, primary.Members) {
+		c.lggr.Warnw("ExecutionStatusUpdate from peer not in primary shard DON", "peerID", sender)
 		return
 	}
 
@@ -213,7 +216,7 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 	}
 	peers[sender] = true
 
-	quorum := int(peerDon.F) + 1
+	quorum := int(primary.F) + 1
 	reached := len(peers) >= quorum
 	if reached {
 		c.deliveredHashes[hashKey] = time.Now()

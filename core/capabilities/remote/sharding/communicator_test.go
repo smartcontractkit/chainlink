@@ -133,7 +133,7 @@ func TestShardFailoverCommunicator_SendSetsCapabilityID(t *testing.T) {
 	})).Return(nil)
 
 	comm := NewShardFailoverCommunicator(mockDisp, primaryDON.ID, logger.Test(t))
-	comm.SetPeerDon(secondaryDON)
+	comm.SetShardDons(primaryDON, secondaryDON)
 
 	msg := makeStatusMsg("wf-1", "evt-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
 	comm.Send(ctx, msg)
@@ -160,7 +160,7 @@ func TestShardFailoverCommunicator_MultipleWorkflowsNoConflict(t *testing.T) {
 	peerDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
-	comm.SetPeerDon(peerDON)
+	comm.SetShardDons(peerDON, commoncap.DON{})
 	require.NoError(t, comm.Start(ctx))
 	t.Cleanup(func() { _ = comm.Close() })
 
@@ -236,13 +236,13 @@ func TestShardFailoverCommunicator_EndToEndSendReceive(t *testing.T) {
 
 	// Primary's communicator (for sending)
 	primaryComm := NewShardFailoverCommunicator(disp, primaryDON.ID, logger.Test(t))
-	primaryComm.SetPeerDon(secondaryDON)
+	primaryComm.SetShardDons(primaryDON, secondaryDON)
 	require.NoError(t, primaryComm.Start(ctx))
 	t.Cleanup(func() { _ = primaryComm.Close() })
 
 	// Secondary's communicator (for receiving)
 	secondaryComm := NewShardFailoverCommunicator(disp, secondaryDON.ID, logger.Test(t))
-	secondaryComm.SetPeerDon(primaryDON)
+	secondaryComm.SetShardDons(primaryDON, secondaryDON)
 	require.NoError(t, secondaryComm.Start(ctx))
 	t.Cleanup(func() { _ = secondaryComm.Close() })
 
@@ -294,7 +294,7 @@ func TestShardFailoverCommunicator_QuorumRequired(t *testing.T) {
 	peerDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
-	comm.SetPeerDon(peerDON)
+	comm.SetShardDons(peerDON, commoncap.DON{})
 	require.NoError(t, comm.Start(ctx))
 	t.Cleanup(func() { _ = comm.Close() })
 
@@ -339,7 +339,7 @@ func TestShardFailoverCommunicator_UnregisteredWorkflowDropped(t *testing.T) {
 	peerDON := makeTestDON(1, 0, makeTestPeerID(10))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
-	comm.SetPeerDon(peerDON)
+	comm.SetShardDons(peerDON, commoncap.DON{})
 	require.NoError(t, comm.Start(ctx))
 	t.Cleanup(func() { _ = comm.Close() })
 
@@ -371,7 +371,7 @@ func TestShardFailoverCommunicator_UnregisterHandler(t *testing.T) {
 	peerDON := makeTestDON(1, 0, makeTestPeerID(10))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
-	comm.SetPeerDon(peerDON)
+	comm.SetShardDons(peerDON, commoncap.DON{})
 	require.NoError(t, comm.Start(ctx))
 	t.Cleanup(func() { _ = comm.Close() })
 
@@ -406,7 +406,7 @@ func TestShardFailoverCommunicator_IgnoresUnknownPeer(t *testing.T) {
 	peerDON := makeTestDON(1, 0, makeTestPeerID(10))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
-	comm.SetPeerDon(peerDON)
+	comm.SetShardDons(peerDON, commoncap.DON{})
 	require.NoError(t, comm.Start(ctx))
 	t.Cleanup(func() { _ = comm.Close() })
 
@@ -436,7 +436,7 @@ func TestShardFailoverCommunicator_IgnoresUnknownPeer(t *testing.T) {
 	assert.False(t, handlerCalled, "handler should not be called for unknown peer")
 }
 
-func TestShardFailoverCommunicator_SetPeerDon_UpdatesDynamically(t *testing.T) {
+func TestShardFailoverCommunicator_SetShardDons_UpdatesDynamically(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
@@ -447,21 +447,21 @@ func TestShardFailoverCommunicator_SetPeerDon_UpdatesDynamically(t *testing.T) {
 
 	localDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
 	secondaryDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
-	anotherDON := makeTestDON(3, 1, makeTestPeerID(30), makeTestPeerID(31), makeTestPeerID(32))
+	anotherSecondaryDON := makeTestDON(3, 1, makeTestPeerID(30), makeTestPeerID(31), makeTestPeerID(32))
 
 	comm := NewShardFailoverCommunicator(mockDisp, localDON.ID, logger.Test(t))
 	require.NoError(t, comm.Start(ctx))
 	t.Cleanup(func() { _ = comm.Close() })
 
-	// Initial peer DON
-	comm.SetPeerDon(secondaryDON)
+	// Initial shard DONs
+	comm.SetShardDons(localDON, secondaryDON)
 
 	msg := makeStatusMsg("wf-1", "evt-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, localDON.ID)
 	comm.Send(ctx, msg)
 	mockDisp.AssertNumberOfCalls(t, "Send", len(secondaryDON.Members))
 
-	// Dynamically update to a different peer DON (simulates shard reassignment)
-	comm.SetPeerDon(anotherDON)
+	// Dynamically update to a different secondary DON (simulates shard reassignment)
+	comm.SetShardDons(localDON, anotherSecondaryDON)
 	comm.Send(ctx, msg)
-	mockDisp.AssertNumberOfCalls(t, "Send", len(secondaryDON.Members)+len(anotherDON.Members))
+	mockDisp.AssertNumberOfCalls(t, "Send", len(secondaryDON.Members)+len(anotherSecondaryDON.Members))
 }
