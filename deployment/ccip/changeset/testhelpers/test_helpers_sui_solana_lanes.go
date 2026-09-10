@@ -218,19 +218,18 @@ var solFeeTokenUsdPerToken = [28]byte{
 // the chain"). Both Solana billing changesets dispatch MCMS-vs-EOA from the FeeQuoter's ACTUAL
 // on-chain ownership (IsSolanaProgramOwnedByTimelock), not from cfg.MCMS; passing MCMS=nil makes
 // Validate check EOA ownership (which holds) and Apply use chain.Confirm with the deployer signer.
-// Must run AFTER ConnectChains (the gas UpdatePrices.Validate requires the Sui dest config to
-// exist). Token pricing uses AddBillingToken, NOT UpdatePrices: the preload env skips
-// fee-quoter initialization (the preloaded program already has a config PDA, so cs_deploy_chain
-// sets initFeeQuoter=false and never runs AddBillingToken for the deploy BillingConfig). The
-// fee-quoter therefore only has whatever billing tokens the preloaded snapshot registered. The
-// earlier UpdatePrices-only re-seed could not recover a missing token: on-chain
-// apply_token_price_update SILENT-IGNORES a token whose BillingTokenConfig PDA is
-// system_program-owned (unregistered), returning Ok without writing a price (prices.rs), so
-// wSOL/LINK usd_per_token stayed {0,0} and get_fee aborted InvalidTokenPrice (8023) at send.
-// AddBillingToken fixes this: its Validate auto-detects IsUpdate (existing fee-quoter-owned
-// config) and routes to UpdateBillingTokenConfig, else AddBillingTokenConfig CREATES the PDA with
-// the full config incl. a non-zero usd_per_token + version=1. Mirrors the deploy BILLING block
-// (test_environment.go DeployChainContractsToSolChainCSV0_1_1).
+// Must run AFTER ConnectChains (UpdatePrices.Validate requires the Sui dest config to exist for the
+// gas update). The wSOL/LINK TokenPriceUpdates only require the BillingTokenConfig accounts to
+// exist, which the deploy creates, so they validate and apply unconditionally.
+//
+// An on-chain probe (DebugLogSolanaFeeTokenPrices, test_helpers_solana_billing_debug.go) confirmed
+// at checkpoints C1 (post-deploy, pre-AddLane) and C2 (post-AddLane/reseed) that the preloaded
+// fee-quoter ALREADY registers wSOL+LINK as BillingTokenConfig (owner=FeeQuoter, version=1,
+// enabled, usd_per_token non-zero) on the same FeeQuoter program (FeeQPGk...) that ccip_send's
+// get_fee reads. So UpdatePrices (which updates already-registered, fee-quoter-owned tokens) is
+// sufficient here; an earlier AddBillingToken variant was a no-op ("Billing token already exists.
+// Configuring as update") and has been reverted. The probe is kept (C3 pre-send) to capture the
+// send-time state should the InvalidTokenPrice (8023) recur.
 //
 // PriceUpdater MUST equal the FeeQuoter's authority (owner). UpdatePrices carries no price-updater
 // pubkey in its instruction args, so the on-chain program seeds allowed_price_updater from the
@@ -250,48 +249,8 @@ func seedSolanaSourcePricesEOA(t *testing.T, e *DeployedEnv, solSel, suiSel uint
 		return fmt.Errorf("no gas price provided for Sui dest chain %d", suiSel)
 	}
 	priceUpdater := e.Env.BlockChains.SolanaChains()[solSel].DeployerKey.PublicKey()
-	now := time.Now().Unix()
-	// Register + price wSOL (fee token, fee_for_msg) and LINK (fee_juels converts the fee to LINK).
-	// AddBillingToken creates the BillingTokenConfig PDA with a non-zero usd_per_token if the
-	// preload snapshot never registered it, or updates the existing config's price otherwise.
-	tokenBillingConfigs := []solFeeQuoter.BillingTokenConfig{
-		{
-			Enabled: true,
-			Mint:    solState.LinkToken,
-			UsdPerToken: solFeeQuoter.TimestampedPackedU224{
-				Value:     solFeeTokenUsdPerToken,
-				Timestamp: now,
-			},
-			PremiumMultiplierWeiPerEth: 9e17,
-		},
-		{
-			Enabled: true,
-			Mint:    solState.WSOL,
-			UsdPerToken: solFeeQuoter.TimestampedPackedU224{
-				Value:     solFeeTokenUsdPerToken,
-				Timestamp: now,
-			},
-			PremiumMultiplierWeiPerEth: 1e18,
-		},
-	}
-
-	changesets := make([]commoncs.ConfiguredChangeSet, 0, len(tokenBillingConfigs)+2)
-	for _, bc := range tokenBillingConfigs {
-		bc := bc
-		changesets = append(changesets, commoncs.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.AddBillingTokenChangeset),
-			ccipChangeSetSolanaV0_1_1.BillingTokenConfig{
-				ChainSelector: solSel,
-				Config:        bc,
-				MCMS:          nil,
-			},
-		))
-	}
-
-	// Authorize the deployer as a price updater, then seed the Sui dest gas price. Token pricing
-	// is handled by AddBillingToken above, so UpdatePrices carries only the gas update (its Validate
-	// requires the Sui dest config written by ConnectChains, which has already run).
-	changesets = append(changesets,
+	var err error
+	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.ModifyPriceUpdater),
 			ccipChangeSetSolanaV0_1_1.ModifyPriceUpdaterConfig{
@@ -305,6 +264,10 @@ func seedSolanaSourcePricesEOA(t *testing.T, e *DeployedEnv, solSel, suiSel uint
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.UpdatePrices),
 			ccipChangeSetSolanaV0_1_1.UpdatePricesConfig{
 				ChainSelector: solSel,
+				TokenPriceUpdates: []solFeeQuoter.TokenPriceUpdate{
+					{SourceToken: solState.WSOL, UsdPerToken: solFeeTokenUsdPerToken},
+					{SourceToken: solState.LinkToken, UsdPerToken: solFeeTokenUsdPerToken},
+				},
 				GasPriceUpdates: []solFeeQuoter.GasPriceUpdate{
 					{DestChainSelector: suiSel, UsdPerUnitGas: solCommonUtil.To28BytesBE(suiDestGasUsd.Uint64())},
 				},
@@ -312,10 +275,7 @@ func seedSolanaSourcePricesEOA(t *testing.T, e *DeployedEnv, solSel, suiSel uint
 				MCMS:         nil,
 			},
 		),
-	)
-
-	var err error
-	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
+	})
 	if err != nil {
 		return fmt.Errorf("seed Solana source prices EOA: %w", err)
 	}
