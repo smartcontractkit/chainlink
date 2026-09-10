@@ -645,7 +645,6 @@ func TestConfig_Marshal(t *testing.T) {
 	mode := "manual-only"
 	full.Sharding = toml.Sharding{
 		ShardingEnabled:          new(false),
-		ShardingFailoverEnabled:  new(false),
 		ArbiterPort:              new(uint16(9876)),
 		ArbiterPollInterval:      commoncfg.MustNewDuration(12 * time.Second),
 		ArbiterRetryInterval:     commoncfg.MustNewDuration(12 * time.Second),

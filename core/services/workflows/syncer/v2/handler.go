@@ -36,6 +36,7 @@ import (
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -128,6 +129,7 @@ type eventHandler struct {
 	shardResolver           shardownership.ShardResolver
 	dispatcher              remotetypes.Dispatcher
 	shardDonLookup          func(ctx context.Context, shardID uint32) *commoncap.DON
+	shardFailoverComm       *sharding.ShardFailoverCommunicator
 
 	metrics *metrics
 }
@@ -402,6 +404,9 @@ func (h *eventHandler) SetWorkflowDon(don commoncap.DON) {
 func (h *eventHandler) close() error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Close()
+	}
+	if h.shardFailoverComm != nil {
+		_ = h.shardFailoverComm.Close()
 	}
 	es := h.engineRegistry.PopAll()
 	// No metering is emitted on close: meter records anchor on workflow-spec
@@ -910,6 +915,9 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 
 	var manager *ShardFailoverManager
 	if h.shardingEnabled && h.dispatcher != nil {
+		if h.shardFailoverComm == nil {
+			h.shardFailoverComm = sharding.NewShardFailoverCommunicator(h.dispatcher, h.myDonID, h.lggr)
+		}
 		manager = NewShardFailoverManager(ShardFailoverManagerConfig{
 			ShardingEnabled:         h.shardingEnabled,
 			MyShardID:               h.myDonID,
@@ -919,7 +927,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 			ShardOrchestratorClient: h.shardOrchestratorClient,
 			ShardRoutingSteady:      h.shardRoutingSteady,
 			FailoverGate:            h.engineLimiters.ShardingFailoverEnabled,
-			Dispatcher:              h.dispatcher,
+			Communicator:            h.shardFailoverComm,
 			ShardDonLookup:          h.shardDonLookup,
 			DonSubscriber:           h.workflowDonSubscriber,
 			Logger:                  h.lggr,

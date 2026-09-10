@@ -55,11 +55,13 @@ func (s *ExecutionStatusUpdateSender) Send(ctx context.Context, msg *ringpb.Exec
 	messageID := fmt.Sprintf("%s:%s:%d", msg.WorkflowId, msg.TriggerEventId, msg.TriggerIndex)
 	for _, peerID := range s.secondary.Members {
 		body := &remotetypes.MessageBody{
-			Method:          remotetypes.MethodExecutionStatusUpdate,
-			Payload:         payload,
-			CallerDonId:     s.primaryID,
-			CapabilityDonId: s.secondary.ID,
-			MessageId:       []byte(messageID),
+			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
+			Method:           remotetypes.MethodExecutionStatusUpdate,
+			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
+			Payload:          payload,
+			CallerDonId:      s.primaryID,
+			CapabilityDonId:  s.secondary.ID,
+			MessageId:        []byte(messageID),
 		}
 		if err := s.dispatcher.Send(peerID, body); err != nil {
 			s.lggr.Errorw("failed to send ExecutionStatusUpdate", "peerID", peerID, "err", err)
@@ -147,11 +149,13 @@ func (s *ShardHeartbeatSender) sendHeartbeat(ctx context.Context) {
 	messageID := fmt.Sprintf("heartbeat:%d", s.primaryID)
 	for _, peerID := range s.secondary.Members {
 		body := &remotetypes.MessageBody{
-			Method:          remotetypes.MethodShardHeartbeat,
-			Payload:         payload,
-			CallerDonId:     s.primaryID,
-			CapabilityDonId: s.secondary.ID,
-			MessageId:       []byte(messageID),
+			CapabilityId:     ShardHeartbeatCapabilityID,
+			Method:           remotetypes.MethodShardHeartbeat,
+			CapabilityMethod: remotetypes.MethodShardHeartbeat,
+			Payload:          payload,
+			CallerDonId:      s.primaryID,
+			CapabilityDonId:  s.secondary.ID,
+			MessageId:        []byte(messageID),
 		}
 		if err := s.dispatcher.Send(peerID, body); err != nil {
 			s.lggr.Errorw("failed to send ShardHeartbeat", "peerID", peerID, "err", err)

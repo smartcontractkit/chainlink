@@ -14,7 +14,6 @@ import (
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
-	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
@@ -36,7 +35,7 @@ const cachedExpiry = 10 * time.Minute
 //   - WireHooks(engineCfg) wires the admission and status-update hooks on
 //     the EngineConfig before the engine is created.
 //   - SetEngine(engine) injects the engine after creation.
-//   - Start(ctx) wires the sender/receiver and starts the engine.
+//   - Start(ctx) wires the communicator and starts the engine.
 type ShardFailoverManager struct {
 	services.Service
 	eng *services.Engine
@@ -44,11 +43,9 @@ type ShardFailoverManager struct {
 	engine *v2.Engine
 	cfg    ShardFailoverManagerConfig
 
-	mu    sync.RWMutex
-	cache map[string]cachedEvent
-
-	sender   *sharding.ExecutionStatusUpdateSender
-	receiver *sharding.ExecutionStatusUpdateReceiver
+	mu        sync.RWMutex
+	cache     map[string]cachedEvent
+	isPrimary bool
 }
 
 type cachedEvent struct {
@@ -67,7 +64,7 @@ type ShardFailoverManagerConfig struct {
 	ShardRoutingSteady      *shardownership.SteadySignal
 
 	FailoverGate   limits.GateLimiter
-	Dispatcher     remotetypes.Dispatcher
+	Communicator   *sharding.ShardFailoverCommunicator
 	ShardDonLookup func(ctx context.Context, shardID uint32) *commoncap.DON
 	DonSubscriber  capabilities.DonSubscriber
 
@@ -107,7 +104,7 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 		return errors.New("engine not set, call SetEngine before Start")
 	}
 
-	if m.cfg.Dispatcher != nil {
+	if m.cfg.Communicator != nil {
 		if err := m.wireFailover(ctx); err != nil {
 			return fmt.Errorf("failed to wire failover: %w", err)
 		}
@@ -122,11 +119,8 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 }
 
 func (m *ShardFailoverManager) close() error {
-	if m.sender != nil {
-		_ = m.sender.Close()
-	}
-	if m.receiver != nil {
-		_ = m.receiver.Close()
+	if m.cfg.Communicator != nil && !m.isPrimary {
+		m.cfg.Communicator.UnregisterHandler(m.cfg.WorkflowID)
 	}
 	if m.engine != nil {
 		return m.engine.Close()
@@ -162,13 +156,13 @@ func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event v2.Rout
 
 // forwardExecutionStatus is wired as the engine's OnExecutionStatusUpdate
 // hook. On the primary shard it sends the status to the secondary via the
-// sender. On the secondary (no sender) it is a no-op.
+// communicator. On the secondary it is a no-op.
 func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
-	if m.sender == nil {
+	if m.cfg.Communicator == nil || !m.isPrimary {
 		return
 	}
 	execStatus := mapExecutionStatus(status, errClass)
-	m.sender.Send(context.Background(), &ringpb.ExecutionStatusUpdate{
+	m.cfg.Communicator.Send(context.Background(), &ringpb.ExecutionStatusUpdate{
 		WorkflowId:     workflowID,
 		ExecutionId:    executionID,
 		TriggerEventId: triggerEventID,
@@ -285,9 +279,18 @@ func (m *ShardFailoverManager) pruneLoop(ctx context.Context) {
 	}
 }
 
-// wireFailover sets up the sender (on primary) or receiver (on secondary)
-// for ExecutionStatusUpdate messages. Must be called before engine.Start
-// so the sender is available before any execution status hooks fire.
+// wireFailover sets up the communicator for ExecutionStatusUpdate messages.
+// On primary it configures the communicator's peer DON (the secondary) for
+// sending. On secondary it registers a handler with the communicator for
+// receiving. The communicator itself is shared across all workflows and
+// registers a single receiver with the dispatcher. Must be called before
+// engine.Start so the communicator is ready before any execution status
+// hooks fire.
+//
+// This is called once during ShardFailoverManager startup. If the primary/
+// secondary assignment changes at runtime (e.g. due to a shard config
+// update), the manager would need to be restarted to re-wire. Dynamic
+// re-wiring on config changes is not currently supported.
 func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -299,52 +302,43 @@ func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 	}
 	defer unsub()
 
-	var don commoncap.DON
 	select {
-	case don = <-sub:
+	case <-sub:
 	case <-ctx.Done():
 		m.cfg.Logger.Warnw("shard failover: timed out waiting for DON info, skipping hook wiring")
 		return nil
 	}
 
-	isPrimary := m.isPrimaryShard(ctx, don, m.cfg.WorkflowID, m.cfg.WorkflowOwner)
+	m.isPrimary = m.isPrimaryShard(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner)
 
-	if isPrimary {
+	if m.isPrimary {
 		secondaryDon := m.resolveDon(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner, 1)
 		if secondaryDon == nil {
 			m.cfg.Logger.Warnw("shard failover: no secondary DON found, primary will not send ExecutionStatusUpdate", "primaryShardID", m.cfg.MyShardID)
 			return nil
 		}
-
-		sender := sharding.NewExecutionStatusUpdateSender(m.cfg.Dispatcher, m.cfg.MyShardID, *secondaryDon, m.cfg.Logger)
-		if err := sender.Start(ctx); err != nil {
-			return fmt.Errorf("failed to start sender: %w", err)
-		}
-		m.sender = sender
-		m.cfg.Logger.Infow("shard failover: wired ExecutionStatusUpdateSender on primary",
+		m.cfg.Communicator.SetPeerDon(*secondaryDon)
+		m.cfg.Logger.Infow("shard failover: wired communicator on primary",
 			"primaryShardID", m.cfg.MyShardID, "secondaryShardID", secondaryDon.ID)
 	} else {
 		primaryDon := m.resolveDon(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner, 0)
 		if primaryDon == nil {
-			m.cfg.Logger.Warnw("shard failover: no primary DON found, secondary will not register receiver", "myShardID", m.cfg.MyShardID)
+			m.cfg.Logger.Warnw("shard failover: no primary DON found, secondary will not register handler", "myShardID", m.cfg.MyShardID)
 			return nil
 		}
-
-		receiver := sharding.NewExecutionStatusUpdateReceiver(*primaryDon, m.HandleExecutionStatusUpdate, m.cfg.Logger)
-		if regErr := m.cfg.Dispatcher.SetReceiverForMethod("shard-execution-status-update", primaryDon.ID, remotetypes.MethodExecutionStatusUpdate, receiver); regErr != nil {
-			return fmt.Errorf("failed to register receiver: %w", regErr)
-		}
-		if err := receiver.Start(ctx); err != nil {
-			return fmt.Errorf("failed to start receiver: %w", err)
-		}
-		m.receiver = receiver
-		m.cfg.Logger.Infow("shard failover: wired ExecutionStatusUpdateReceiver on secondary",
+		m.cfg.Communicator.SetPeerDon(*primaryDon)
+		m.cfg.Communicator.RegisterHandler(m.cfg.WorkflowID, m.HandleExecutionStatusUpdate)
+		m.cfg.Logger.Infow("shard failover: wired communicator on secondary",
 			"myShardID", m.cfg.MyShardID, "primaryDonID", primaryDon.ID)
+	}
+
+	if err := m.cfg.Communicator.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start communicator: %w", err)
 	}
 	return nil
 }
 
-func (m *ShardFailoverManager) isPrimaryShard(ctx context.Context, _ commoncap.DON, workflowID, owner string) bool {
+func (m *ShardFailoverManager) isPrimaryShard(ctx context.Context, workflowID, owner string) bool {
 	if m.cfg.ShardResolver == nil {
 		return m.cfg.MyShardID == 0
 	}
