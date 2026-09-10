@@ -141,6 +141,12 @@ type Report struct {
 	// TODO: CRE-1716, CRE-1717 - This is a temporary approach until we finalize multi-env billing plans.
 	workflowRegistryChainSelector uint64
 
+	// billingOrgID is the organization id returned by the billing service in
+	// GetWorkflowExecutionRates. It is the authoritative org identity for the
+	// scoped incident diagnostics (see diagnostics.go) and is only written
+	// once, at construction. Empty when the client is nil or the call failed.
+	billingOrgID string
+
 	// maxRetries is number of attempts to retry SubmitWorkflowReceipt
 	maxRetries int
 	// retryDelay is the delay between retries on SubmitWorkflowReceipt
@@ -212,6 +218,10 @@ func NewReport(
 		if err != nil {
 			report.switchToMeteringMode(err)
 		}
+
+		// nil-safe: empty on error/nil response, in which case incident
+		// diagnostics fall back to the engine-provided org label.
+		report.billingOrgID = resp.GetOrganizationId()
 
 		report.rateCard, err = toRateCard(resp)
 		if err != nil {
@@ -1001,6 +1011,11 @@ func (s *Reports) End(ctx context.Context, workflowExecutionID string) error {
 		s.metrics.IncrementWorkflowMissingMeteringReport(ctx)
 		multiErr = errors.Join(multiErr, sendErr)
 	}
+
+	// scoped incident diagnostics: one Info event per finished execution
+	// (outside the SubmitWorkflowReceipt retry loop). No-op unless the
+	// resolved org matches the hard-coded target; never mutates report state.
+	report.logMeteringDiagnostics(emitErr, sendErr)
 
 	delete(s.reports, workflowExecutionID)
 
