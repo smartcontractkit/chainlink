@@ -8,11 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	agbinary "github.com/gagliardetto/binary"
 
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 const (
@@ -29,13 +27,16 @@ var (
 
 	// bytes4(keccak256("CCIP EVMExtraArgsV2"));
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
+
+	// bytes4(keccak256("CCIP SuiExtraArgsV1")); added by chainlink-ccip PR #2239
+	suiExtraArgsV1Tag = hexutil.MustDecode("0x21ea4ca9")
 )
 
 // ExtraDataDecoder is a helper struct for decoding extra data
 type ExtraDataDecoder struct{}
 
 // DecodeExtraArgsToMap is a helper function for converting Borsh encoded extra args bytes into map[string]any
-func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs ccipocr3.Bytes) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}
@@ -62,11 +63,20 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 		}
 		val = reflect.ValueOf(args)
 		typ = reflect.TypeFor[fee_quoter.SVMExtraArgsV1]()
+	case string(suiExtraArgsV1Tag):
+		var args fee_quoter.SuiExtraArgsV1
+		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
+		err := args.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode extra args: %w", err)
+		}
+		val = reflect.ValueOf(args)
+		typ = reflect.TypeFor[fee_quoter.SuiExtraArgsV1]()
 	default:
 		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs[:4])
 	}
 
-	for i := 0; i < val.NumField(); i++ {
+	for i := range val.NumField() {
 		field := typ.Field(i)
 		fieldValue := val.Field(i).Interface()
 		if field.Name == evmGasLimitKey {
@@ -85,7 +95,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 }
 
 // DecodeDestExecDataToMap is a helper function for converting dest exec data bytes into map[string]any
-func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData ccipocr3.Bytes) (map[string]any, error) {
 	return map[string]any{
 		svmDestExecDataKey: binary.BigEndian.Uint32(destExecData),
 	}, nil
