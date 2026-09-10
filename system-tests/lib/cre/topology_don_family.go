@@ -91,14 +91,14 @@ func (t *Topology) buildDonFamilyPairingState() (*gatewayDonFamilyPairingState, 
 			continue
 		}
 		if d.DonFamily == "" {
-			return nil, fmt.Errorf("gateway DON %q has no don_family; set nodesets.don_family on every nodeset", d.Name)
+			return nil, fmt.Errorf("gateway DON %q has no don_family; set nodesets.don_families on every nodeset", d.Name)
 		}
 		state.gatewayDONNamesByFamily[d.DonFamily] = append(state.gatewayDONNamesByFamily[d.DonFamily], d.Name)
 	}
 
 	for _, wf := range wfDONs {
 		if wf.DonFamily == "" {
-			return nil, fmt.Errorf("workflow DON %q has no don_family; set nodesets.don_family on every nodeset", wf.Name)
+			return nil, fmt.Errorf("workflow DON %q has no don_family; set nodesets.don_families on every nodeset", wf.Name)
 		}
 		if len(state.gatewayDONNamesByFamily[wf.DonFamily]) == 0 {
 			return nil, fmt.Errorf("workflow DON %q is in don_family %q but no gateway DON is defined for that family", wf.Name, wf.DonFamily)

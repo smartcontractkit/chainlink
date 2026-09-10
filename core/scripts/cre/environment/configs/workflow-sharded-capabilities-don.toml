@@ -5,17 +5,17 @@
 # family, while a common family ("zone-a") keeps every workflow shard connected to the
 # gateway and to shared (non-sharded) capability DONs.
 #
-# Family layout (see additional_don_families):
-#   workflow-shard-0 : don_family="zone-a" + additional=["zone-a_shard-0"]
-#   workflow-shard-1 : don_family="zone-a" + additional=["zone-a_shard-1"]
-#   cap-shard-0      : don_family="zone-a_shard-0"
-#   cap-shard-1      : don_family="zone-a_shard-1"
-#   shared-cap       : don_family="zone-a"                    (hosts vault; reachable by all shards)
-#   bootstrap-gateway: don_family="zone-a"
+# Family layout (see don_families):
+#   workflow-shard-0 : don_families=["zone-a", "zone-a_shard-0"]
+#   workflow-shard-1 : don_families=["zone-a", "zone-a_shard-1"]
+#   cap-shard-0      : don_families=["zone-a_shard-0"]
+#   cap-shard-1      : don_families=["zone-a_shard-1"]
+#   shared-cap       : don_families=["zone-a"]                    (hosts vault; reachable by all shards)
+#   bootstrap-gateway: don_families=["zone-a"]
 #
 # The launcher's family-overlap filter therefore routes workflow-shard-0 -> cap-shard-0 and
 # workflow-shard-1 -> cap-shard-1 for evm-2337, while both shards reach shared-cap via "zone-a".
-# Gateway pairing uses the primary don_family ("zone-a") only.
+# Gateway pairing uses the primary (first) don_families entry ("zone-a") only.
 
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
@@ -50,8 +50,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow-shard-0"
-  don_family = "zone-a"
-  additional_don_families = ["zone-a_shard-0"]
+  don_families = ["zone-a", "zone-a_shard-0"]
   don_types = ["workflow", "shard"]
   shard_index = 0
   override_mode = "each"
@@ -106,8 +105,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow-shard-1"
-  don_family = "zone-a"
-  additional_don_families = ["zone-a_shard-1"]
+  don_families = ["zone-a", "zone-a_shard-1"]
   don_types = ["workflow", "shard"]
   shard_index = 1
   override_mode = "all"
@@ -134,7 +132,7 @@
 [[nodesets]]
   nodes = 4
   name = "cap-shard-0"
-  don_family = "zone-a_shard-0"
+  don_families = ["zone-a_shard-0"]
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
   override_mode = "all"
@@ -160,7 +158,7 @@
 [[nodesets]]
   nodes = 4
   name = "cap-shard-1"
-  don_family = "zone-a_shard-1"
+  don_families = ["zone-a_shard-1"]
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
   override_mode = "all"
@@ -186,7 +184,7 @@
 [[nodesets]]
   nodes = 4
   name = "shared-cap"
-  don_family = "zone-a"
+  don_families = ["zone-a"]
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
   override_mode = "all"
@@ -212,7 +210,7 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_family = "zone-a"
+  don_families = ["zone-a"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300

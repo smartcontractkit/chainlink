@@ -76,7 +76,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow"]
   # "each" lets us assign a different image per node (2 PR + 2 develop).
   override_mode = "each"
@@ -162,7 +162,7 @@
 [[nodesets]]
   nodes = 4
   name = "capabilities"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
   override_mode = "each"
@@ -234,7 +234,7 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
