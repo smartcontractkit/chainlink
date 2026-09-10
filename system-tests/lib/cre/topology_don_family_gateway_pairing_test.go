@@ -38,11 +38,11 @@ func TestTopology_validateDonFamilyGatewayPairing_missingGateway(t *testing.T) {
 	topology := &Topology{
 		DonsMetadata: &DonsMetadata{
 			dons: []*DonMetadata{
-				{Name: "feeds-zone-a", DonFamily: "feeds-zone-a", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "feeds-zone-b", DonFamily: "feeds-zone-b", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "feeds-zone-c", DonFamily: "feeds-zone-c", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "gateway-zone-a", DonFamily: "feeds-zone-a", ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
-				{Name: "gateway-zone-b", DonFamily: "feeds-zone-b", ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+				{Name: "feeds-zone-a", DonFamilies: []string{"feeds-zone-a"}, ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "feeds-zone-b", DonFamilies: []string{"feeds-zone-b"}, ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "feeds-zone-c", DonFamilies: []string{"feeds-zone-c"}, ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "gateway-zone-a", DonFamilies: []string{"feeds-zone-a"}, ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+				{Name: "gateway-zone-b", DonFamilies: []string{"feeds-zone-b"}, ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
 			},
 		},
 	}
@@ -58,7 +58,7 @@ func TestTopology_validateDonFamilyGatewayPairing_gatewayMissingDonFamily(t *tes
 	topology := &Topology{
 		DonsMetadata: &DonsMetadata{
 			dons: []*DonMetadata{
-				{Name: "workflow", DonFamily: testDONFamily, ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "workflow", DonFamilies: []string{testDONFamily}, ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
 				{Name: "bootstrap-gateway", ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
 			},
 		},
@@ -76,7 +76,7 @@ func TestInitDonFamilyGatewayPairing_requiresDonFamilyOnWorkflow(t *testing.T) {
 		DonsMetadata: &DonsMetadata{
 			dons: []*DonMetadata{
 				{Name: "workflow", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "bootstrap-gateway", DonFamily: testDONFamily, ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+				{Name: "bootstrap-gateway", DonFamilies: []string{testDONFamily}, ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
 			},
 		},
 	}
@@ -149,9 +149,9 @@ func TestGatewayServiceConfigsForGateway_preservesCapabilitiesDONForVault(t *tes
 	topology := &Topology{
 		DonsMetadata: &DonsMetadata{
 			dons: []*DonMetadata{
-				{Name: "workflow", DonFamily: testDONFamily, Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "capabilities", DonFamily: testDONFamily, Flags: []string{CapabilitiesDON, VaultCapability}},
-				{Name: "bootstrap-gateway", DonFamily: testDONFamily, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+				{Name: "workflow", DonFamilies: []string{testDONFamily}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "capabilities", DonFamilies: []string{testDONFamily}, Flags: []string{CapabilitiesDON, VaultCapability}},
+				{Name: "bootstrap-gateway", DonFamilies: []string{testDONFamily}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
 			},
 		},
 	}
@@ -180,8 +180,8 @@ func TestInitDonFamilyGatewayPairing_skipsWithoutGateway(t *testing.T) {
 	topology := &Topology{
 		DonsMetadata: &DonsMetadata{
 			dons: []*DonMetadata{
-				{Name: "workflow", DonFamily: testDONFamily, Flags: []string{WorkflowDON}},
-				{Name: "capabilities", DonFamily: testDONFamily, Flags: []string{CapabilitiesDON}},
+				{Name: "workflow", DonFamilies: []string{testDONFamily}, Flags: []string{WorkflowDON}},
+				{Name: "capabilities", DonFamilies: []string{testDONFamily}, Flags: []string{CapabilitiesDON}},
 			},
 		},
 	}
@@ -208,10 +208,10 @@ func donFamilyGatewayPairingTestTopology(t *testing.T) *Topology {
 	topology := &Topology{
 		DonsMetadata: &DonsMetadata{
 			dons: []*DonMetadata{
-				{Name: "feeds-zone-a", ID: 1, DonFamily: "feeds-zone-a", Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "feeds-zone-b", ID: 2, DonFamily: "feeds-zone-b", Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "gateway-zone-a", DonFamily: "feeds-zone-a", NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
-				{Name: "gateway-zone-b", DonFamily: "feeds-zone-b", NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+				{Name: "feeds-zone-a", ID: 1, DonFamilies: []string{"feeds-zone-a"}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "feeds-zone-b", ID: 2, DonFamilies: []string{"feeds-zone-b"}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "gateway-zone-a", DonFamilies: []string{"feeds-zone-a"}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+				{Name: "gateway-zone-b", DonFamilies: []string{"feeds-zone-b"}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
 			},
 		},
 		GatewayConnectors: &GatewayConnectors{
@@ -238,9 +238,9 @@ func multiGatewaySameFamilyTestTopology(t *testing.T) *Topology {
 	topology := &Topology{
 		DonsMetadata: &DonsMetadata{
 			dons: []*DonMetadata{
-				{Name: "workflow", ID: 1, DonFamily: testDONFamily, Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "bootstrap-gateway-us", DonFamily: testDONFamily, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
-				{Name: "gateway-eu", DonFamily: testDONFamily, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+				{Name: "workflow", ID: 1, DonFamilies: []string{testDONFamily}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "bootstrap-gateway-us", DonFamilies: []string{testDONFamily}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+				{Name: "gateway-eu", DonFamilies: []string{testDONFamily}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
 			},
 		},
 		GatewayConnectors: &GatewayConnectors{

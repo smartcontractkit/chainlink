@@ -77,12 +77,12 @@ func shardedCapabilityTestTopology(t *testing.T) *Topology {
 	topology := &Topology{
 		DonsMetadata: &DonsMetadata{
 			dons: []*DonMetadata{
-				{Name: "workflow-shard-0", ID: 1, DonFamilies: []string{"zone-a", "zone-a_shard-0"}, DonFamily: "zone-a", Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "workflow-shard-1", ID: 2, DonFamilies: []string{"zone-a", "zone-a_shard-1"}, DonFamily: "zone-a", Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "cap-shard-0", ID: 3, DonFamilies: []string{"zone-a_shard-0"}, DonFamily: "zone-a_shard-0", Flags: []string{CapabilitiesDON}},
-				{Name: "cap-shard-1", ID: 4, DonFamilies: []string{"zone-a_shard-1"}, DonFamily: "zone-a_shard-1", Flags: []string{CapabilitiesDON}},
-				{Name: "shared-cap", ID: 5, DonFamilies: []string{"zone-a"}, DonFamily: "zone-a", Flags: []string{CapabilitiesDON}},
-				{Name: "bootstrap-gateway", DonFamilies: []string{"zone-a"}, DonFamily: "zone-a", NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+				{Name: "workflow-shard-0", ID: 1, DonFamilies: []string{"zone-a", "zone-a_shard-0"}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "workflow-shard-1", ID: 2, DonFamilies: []string{"zone-a", "zone-a_shard-1"}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "cap-shard-0", ID: 3, DonFamilies: []string{"zone-a_shard-0"}, Flags: []string{CapabilitiesDON}},
+				{Name: "cap-shard-1", ID: 4, DonFamilies: []string{"zone-a_shard-1"}, Flags: []string{CapabilitiesDON}},
+				{Name: "shared-cap", ID: 5, DonFamilies: []string{"zone-a"}, Flags: []string{CapabilitiesDON}},
+				{Name: "bootstrap-gateway", DonFamilies: []string{"zone-a"}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
 			},
 		},
 		GatewayConnectors: &GatewayConnectors{

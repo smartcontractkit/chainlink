@@ -534,10 +534,7 @@ type DonMetadata struct {
 	Name          string          `toml:"name" json:"name"`
 	// DonFamilies are all CapReg families this DON belongs to, normalized (trimmed,
 	// non-empty, de-duplicated) at construction.
-	DonFamilies []string `toml:"don_families" json:"don_families"`
-	// DonFamily is the primary family, derived as the first entry of DonFamilies.
-	// It is used for gateway pairing, cap-registration and workflow deploy.
-	DonFamily                    string                              `toml:"don_family" json:"don_family"`
+	DonFamilies                  []string                            `toml:"don_families" json:"don_families"`
 	ExposesRemoteCapabilities    bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
 	ShardIndex                   uint                                `toml:"shard_index" json:"shard_index"`
 	CapabilityConfigs            map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
@@ -599,7 +596,6 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 		NodesMetadata:                nodes,
 		Name:                         c.Name,
 		DonFamilies:                  donFamilies,
-		DonFamily:                    primaryDonFamily(donFamilies),
 		ns:                           c,
 		ExposesRemoteCapabilities:    c.ExposesRemoteCapabilities,
 		ShardIndex:                   c.ShardIndex,
@@ -644,6 +640,13 @@ func normalizedDonFamilies(in []string) []string {
 		out = append(out, f)
 	}
 	return out
+}
+
+// DonFamily returns the primary family: the first entry of DonFamilies, or ""
+// when there are none. It is the family used for gateway pairing,
+// cap-registration and workflow deploy.
+func (m *DonMetadata) DonFamily() string {
+	return primaryDonFamily(m.DonFamilies)
 }
 
 // primaryDonFamily returns the first family, or "" when there are none.
