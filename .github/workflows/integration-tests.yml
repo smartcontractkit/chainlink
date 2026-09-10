@@ -647,6 +647,8 @@ jobs:
       # and this job's purpose is to (re)populate the shared build cache regardless.
       - name: Prep Go module cache & workspace
         shell: bash
+        env:
+          GOTMPDIR: ${{ github.workspace }}/.gotmp
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/.gotmp"
