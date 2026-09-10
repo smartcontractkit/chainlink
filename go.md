@@ -346,10 +346,6 @@ flowchart LR
 	click chainlink-common/pkg/chipingress href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/monitoring
 	click chainlink-common/pkg/monitoring href "https://github.com/smartcontractkit/chainlink-common"
-	chainlink-common/pkg/values
-	click chainlink-common/pkg/values href "https://github.com/smartcontractkit/chainlink-common"
-	chainlink-common/pkg/workflows/sdk/v2/pb --> chainlink-common/pkg/values
-	click chainlink-common/pkg/workflows/sdk/v2/pb href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-confidential-compute --> tdh2/go/tdh2
 	click chainlink-confidential-compute href "https://github.com/smartcontractkit/chainlink-confidential-compute"
 	chainlink-confidential-compute/tests/testhelpers --> chainlink-confidential-compute
@@ -483,7 +479,6 @@ flowchart LR
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
 	chainlink/core/scripts/cre/environment/examples/workflows/cron --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/core/scripts/cre/environment/examples/workflows/cron href "https://github.com/smartcontractkit/chainlink"
-	chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based --> chainlink-common
 	chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based --> chainlink-evm/gethwrappers
 	chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based --> cre-sdk-go/capabilities/networking/http
@@ -611,7 +606,6 @@ flowchart LR
 	click cre-sdk-go href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/blockchain/aptos --> cre-sdk-go
 	click cre-sdk-go/capabilities/blockchain/aptos href "https://github.com/smartcontractkit/cre-sdk-go"
-	cre-sdk-go/capabilities/blockchain/evm --> chainlink-common/pkg/workflows/sdk/v2/pb
 	cre-sdk-go/capabilities/blockchain/evm --> cre-sdk-go
 	click cre-sdk-go/capabilities/blockchain/evm href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/blockchain/solana --> cre-sdk-go
@@ -725,8 +719,6 @@ flowchart LR
 		 chainlink-common/keystore
 		 chainlink-common/pkg/chipingress
 		 chainlink-common/pkg/monitoring
-		 chainlink-common/pkg/values
-		 chainlink-common/pkg/workflows/sdk/v2/pb
 	end
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
