@@ -286,6 +286,68 @@ func WaitForEventFilterRegistrationOnLane(t *testing.T, onchainState stateview.C
 	t.Logf("%s, %s, and %s filters registered", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
 }
 
+// isLogFilterRegisteredQuorum is the quorum-tolerant counterpart of isLogFilterRegistered:
+// it returns true once at least f+1 non-bootstrap nodes have the filter registered, instead
+// of requiring every node. See JobClient.IsLogFilterRegisteredQuorum.
+func isLogFilterRegisteredQuorum(t *testing.T, oc cldf_offchain.Client, chainSel uint64, eventName string, address []byte) (bool, error) {
+	switch oc := oc.(type) {
+	case *jdtestutils.JobClient:
+		return oc.IsLogFilterRegisteredQuorum(t.Context(), chainSel, eventName, address)
+	default:
+		return false, fmt.Errorf("unsupported offchain client type %T", oc)
+	}
+}
+
+// WaitForEventFilterRegistrationQuorum waits for at least f+1 non-bootstrap nodes (not all
+// nodes) to have registered the given event filter. Use this for lanes where one node being
+// environmentally slow to bind contracts should not block the send — the DON only needs f+1
+// observations to commit/execute. Aptos and Sui are no-ops (they do not use a LogPoller).
+func WaitForEventFilterRegistrationQuorum(t *testing.T, oc cldf_offchain.Client, chainSel uint64, eventName string, address []byte) error {
+	family, err := chainsel.GetSelectorFamily(chainSel)
+	require.NoError(t, err)
+	switch family {
+	case chainsel.FamilyEVM, chainsel.FamilySolana:
+		// fall through to the wait below
+	case chainsel.FamilyAptos, chainsel.FamilySui:
+		// Aptos and Sui do not use a LogPoller.
+		return nil
+	default:
+		return fmt.Errorf("unsupported chain family; %v", family)
+	}
+
+	require.Eventually(t, func() bool {
+		registered, err := isLogFilterRegisteredQuorum(t, oc, chainSel, eventName, address)
+		require.NoError(t, err)
+		return registered
+	}, tests.WaitTimeout(t), 5*time.Second)
+
+	return nil
+}
+
+// WaitForEventFilterRegistrationQuorumOnLane is the quorum-tolerant variant of
+// WaitForEventFilterRegistrationOnLane: it only requires f+1 nodes (not all) to have
+// registered the source OnRamp CCIPMessageSent filter before sending. The dest-side waits
+// are no-ops when the destination does not use a LogPoller (e.g. Sui). Use when the DON has
+// spare capacity (f >= 1) and a single slow/unhealthy node should not block the send.
+func WaitForEventFilterRegistrationQuorumOnLane(t *testing.T, onchainState stateview.CCIPOnChainState, onchainClient cldf_offchain.Client, sourceChainSel, destChainSel uint64) {
+	onRampAddr, err := onchainState.GetOnRampAddressBytes(sourceChainSel)
+	require.NoError(t, err)
+	// Ensure CCIPMessageSent event filter is registered on a quorum of nodes.
+	// Sending message too early could result in LogPoller missing the send event.
+	err = WaitForEventFilterRegistrationQuorum(t, onchainClient, sourceChainSel, consts.EventNameCCIPMessageSent, onRampAddr)
+	require.NoError(t, err)
+	// Ensure CommitReportAccepted and ExecutionStateChanged event filters are registered for the offramp
+	// The LogPoller could pick up the message sent event but miss the commit or execute event
+	offRampAddr, err := onchainState.GetOffRampAddressBytes(destChainSel)
+	require.NoError(t, err)
+	err = WaitForEventFilterRegistrationQuorum(t, onchainClient, destChainSel, consts.EventNameCommitReportAccepted, offRampAddr)
+	require.NoError(t, err)
+	err = WaitForEventFilterRegistrationQuorum(t, onchainClient, destChainSel, consts.EventNameExecutionStateChanged, offRampAddr)
+	require.NoError(t, err)
+
+	t.Logf("%s, %s, and %s filters registered (quorum)", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
+}
+
 func DeployTestContracts(t *testing.T,
 	lggr logger.Logger,
 	ab cldf.AddressBook,

@@ -163,7 +163,12 @@ func Test_CCIP_Messaging_Solana2Sui_Success(t *testing.T) {
 	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.destChain])
 
 	t.Run("Message to Sui", func(t *testing.T) {
-		testhelpers.WaitForEventFilterRegistrationOnLane(t, fx.state, fx.e.Env.Offchain, fx.sourceChain, fx.destChain)
+		// Quorum-tolerant gate: the DON (Nodes=4 => f=1) only needs f+1=2 nodes to
+		// commit/execute, so wait for f+1 nodes (not all) to have registered the
+		// CCIPMessageSent filter. This avoids one environmentally-unhealthy node
+		// (transient Solana/Sui RPC DeadlineExceeded under local load) blocking the
+		// send and preventing the 8023 diagnosis from ever being reached.
+		testhelpers.WaitForEventFilterRegistrationQuorumOnLane(t, fx.state, fx.e.Env.Offchain, fx.sourceChain, fx.destChain)
 
 		// [PROBE C3] pre-send. fx.state is the exact state SendRequestSol reads its
 		// FeeQuoter/LinkToken/WSOL from; also reload fresh to compare resolutions.
