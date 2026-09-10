@@ -1,9 +1,7 @@
 package ccip
 
 import (
-	"context"
 	"encoding/hex"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -20,7 +18,6 @@ import (
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 
 	testcontext "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
@@ -133,20 +130,6 @@ func prepareSolana2SuiTokenTransferTest(t *testing.T) solana2SuiTokenFixtures {
 		suiAddrStr:   suiAddrStr,
 		wSOL:         wSOL,
 	}
-}
-
-// suiLinkBalance returns the total Sui LINK coin balance held by account, keyed on the full coin
-// type 0x2::coin::Coin<<linkPkgID>::link::LINK> (mirrors WaitForTokenBalanceSui's query). Used for
-// a before/after delta assertion since the exact minted amount depends on source/dest decimals.
-func suiLinkBalance(ctx context.Context, t *testing.T, chain cldf_sui.Chain, account, linkPkgID string) *big.Int {
-	t.Helper()
-	coins, err := chain.Client.QueryCoinsByAddress(ctx, account, "0x2::coin::Coin<"+linkPkgID+"::link::LINK>")
-	require.NoError(t, err)
-	balance := new(big.Int)
-	for _, coin := range coins {
-		balance.Add(balance, new(big.Int).SetUint64(coin.GetBalance()))
-	}
-	return balance
 }
 
 // // Test_CCIPTokenTransfer_Solana2Sui_BurnMintTokenPool sends a single burn-mint token from Solana
