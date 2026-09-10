@@ -321,6 +321,8 @@ flowchart LR
 	chainlink-ccip/chains/solana --> chainlink-ccip/chains/solana/gobindings
 	chainlink-ccip/chains/solana --> chainlink-common
 	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
+	chainlink-ccip/chains/solana/deployment
+	click chainlink-ccip/chains/solana/deployment href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/chains/solana/gobindings
 	click chainlink-ccip/chains/solana/gobindings href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/deployment
@@ -502,6 +504,7 @@ flowchart LR
 	click chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-contract-examples/chains/evm
 	chainlink/deployment --> chainlink-aptos/deployment
+	chainlink/deployment --> chainlink-ccip/chains/solana/deployment
 	chainlink/deployment --> chainlink-ccip/deployment
 	chainlink/deployment --> chainlink-solana/contracts
 	chainlink/deployment --> chainlink-sui/deployment
@@ -706,6 +709,7 @@ flowchart LR
 		 chainlink-ccip
 		 chainlink-ccip/chains/evm
 		 chainlink-ccip/chains/solana
+		 chainlink-ccip/chains/solana/deployment
 		 chainlink-ccip/chains/solana/gobindings
 		 chainlink-ccip/deployment
 	end
