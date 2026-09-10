@@ -52,6 +52,7 @@ func selectorFor(t *testing.T, chainID uint64) protocol.ChainSelector {
 }
 
 func TestGetLegacyChains(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.TestLogger(t)
 
@@ -59,6 +60,7 @@ func TestGetLegacyChains(t *testing.T) {
 	polySel := selectorFor(t, polygonMainnetChainID)
 
 	t.Run("skips a chain whose chain info fails and keeps the others", func(t *testing.T) {
+		t.Parallel()
 		bad := evmmocks.NewChain(t)
 		bad.EXPECT().GetChainInfo(mockAnyCtx()).Return(commontypes.ChainInfo{}, errors.New("boom"))
 		bad.EXPECT().Name().Return("bad").Maybe()
@@ -75,6 +77,7 @@ func TestGetLegacyChains(t *testing.T) {
 	})
 
 	t.Run("skips a chain service that is not a legacyevm.Chain", func(t *testing.T) {
+		t.Parallel()
 		chains, missing, err := GetLegacyChains(ctx, lggr,
 			[]commontypes.ChainService{
 				&plainChainService{name: "loopp"},
@@ -88,6 +91,7 @@ func TestGetLegacyChains(t *testing.T) {
 	})
 
 	t.Run("reports a config chain that has no chain service", func(t *testing.T) {
+		t.Parallel()
 		chains, missing, err := GetLegacyChains(ctx, lggr,
 			[]commontypes.ChainService{newMockChain(t, ethereumMainnetChainID)},
 			[]protocol.ChainSelector{ethSel, polySel})
@@ -98,6 +102,7 @@ func TestGetLegacyChains(t *testing.T) {
 	})
 
 	t.Run("errors when no config chain resolves", func(t *testing.T) {
+		t.Parallel()
 		_, _, err := GetLegacyChains(ctx, lggr,
 			[]commontypes.ChainService{newMockChain(t, ethereumMainnetChainID)},
 			[]protocol.ChainSelector{polySel})
@@ -106,6 +111,7 @@ func TestGetLegacyChains(t *testing.T) {
 	})
 
 	t.Run("no config chains is not an error", func(t *testing.T) {
+		t.Parallel()
 		chains, missing, err := GetLegacyChains(ctx, lggr, nil, nil)
 
 		require.NoError(t, err)
@@ -115,6 +121,7 @@ func TestGetLegacyChains(t *testing.T) {
 }
 
 func TestMissingChains(t *testing.T) {
+	t.Parallel()
 	chains := map[protocol.ChainSelector]struct{}{1: {}}
 
 	require.Equal(t, []protocol.ChainSelector{2, 3},

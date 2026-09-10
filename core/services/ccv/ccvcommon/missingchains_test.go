@@ -1,6 +1,7 @@
 package ccvcommon
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -13,12 +14,14 @@ import (
 )
 
 func TestNewMissingChainsMonitor_noMissingChains(t *testing.T) {
+	t.Parallel()
 	m, err := NewMissingChainsMonitor(logger.TestLogger(t), "job", nil, time.Second)
 	require.NoError(t, err)
 	require.Nil(t, m)
 }
 
 func TestMissingChainsMonitor_reportsEachChainRepeatedly(t *testing.T) {
+	t.Parallel()
 	lggr, logs := logger.TestLoggerObserved(t, zapcore.DPanicLevel)
 	missing := []protocol.ChainSelector{111, 222}
 
@@ -34,10 +37,17 @@ func TestMissingChainsMonitor_reportsEachChainRepeatedly(t *testing.T) {
 	}, 5*time.Second, 10*time.Millisecond)
 
 	for _, sel := range missing {
+		var selInt64 int64
+		if sel <= math.MaxInt64 {
+			selInt64 = int64(sel)
+		} else {
+			t.Fatalf("chain selector %v is not an int64", sel)
+		}
+
 		require.NotEmpty(t, logs.FilterField(zapcore.Field{
 			Key:     "chainSelector",
 			Type:    zapcore.Uint64Type,
-			Integer: int64(sel),
+			Integer: selInt64,
 		}).All(), "expected a critical log for chain selector %d", sel)
 	}
 
