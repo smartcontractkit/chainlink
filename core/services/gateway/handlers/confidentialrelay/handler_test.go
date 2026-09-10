@@ -339,7 +339,7 @@ func TestConfidentialRelayHandler_TerminalStateBelowQuorumFailsImmediately(t *te
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      req.ID,
 			Method:  MethodCapabilityExec,
-			Error:   &jsonrpc.WireError{Code: -32602, Message: "execution handler not found"},
+			Error:   &jsonrpc.WireError{Code: jsonrpc.ErrInternal, Message: "execution handler not found"},
 		}
 		require.NoError(t, h.HandleNodeMessage(t.Context(), errResp, fmt.Sprintf("0x%04d", i)))
 	}
@@ -383,7 +383,63 @@ func TestConfidentialRelayHandler_QuorumUnreachableFailsImmediately(t *testing.T
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      req.ID,
 			Method:  MethodCapabilityExec,
-			Error:   &jsonrpc.WireError{Code: -32602, Message: "execution handler not found"},
+			Error:   &jsonrpc.WireError{Code: jsonrpc.ErrInternal, Message: "execution handler not found"},
+		}
+		require.NoError(t, h.HandleNodeMessage(t.Context(), errResp, fmt.Sprintf("0x%04d", i)))
+	}
+	wg.Wait()
+	require.Nil(t, h.getActiveRequest(req.ID))
+}
+
+// A single user-level node error is enough to explain an unreachable quorum, so
+// the gateway returns that error and its code rather than the generic quorum
+// failure. Here one ErrInvalidParams arrives between two system errors.
+func TestConfidentialRelayHandler_QuorumUnreachablePropagatesUserError(t *testing.T) {
+	t.Parallel()
+	h, cb, don, _ := setupHandlerWithF(t, 4, 1) // F+1=2
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	params := validCapParamsJSON("wf1")
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-user-error",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		resp, err := cb.Wait(t.Context())
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
+		assert.Equal(t, api.InvalidParamsError, resp.ErrorCode)
+		var jsonResp jsonrpc.Response[json.RawMessage]
+		if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
+		if assert.NotNil(t, jsonResp.Error) {
+			assert.Equal(t, jsonrpc.ErrInvalidParams, jsonResp.Error.Code)
+			assert.Contains(t, jsonResp.Error.Message, "key does not exist")
+			assert.NotContains(t, jsonResp.Error.Message, "relay quorum unreachable")
+		}
+	})
+
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+
+	nodeErrs := []struct {
+		code int64
+		msg  string
+	}{
+		{jsonrpc.ErrInternal, "node unavailable"},
+		{jsonrpc.ErrInvalidParams, "vault error for secret main/API_TOKEN: key does not exist"},
+		{jsonrpc.ErrInternal, "node unavailable"},
+	}
+	for i, ne := range nodeErrs {
+		errResp := &jsonrpc.Response[json.RawMessage]{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      req.ID,
+			Method:  MethodCapabilityExec,
+			Error:   &jsonrpc.WireError{Code: ne.code, Message: ne.msg},
 		}
 		require.NoError(t, h.HandleNodeMessage(t.Context(), errResp, fmt.Sprintf("0x%04d", i)))
 	}
