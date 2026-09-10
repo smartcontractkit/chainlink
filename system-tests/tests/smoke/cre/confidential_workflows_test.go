@@ -3,6 +3,7 @@ package cre
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -182,7 +183,9 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		//    in-enclave HTTP fetch fails, so a successful execution implies the
 		//    whole relay + enclave path worked.
 		workflowID := registerConfidentialWorkflow(t, testEnv, testLogger, artifacts)
-		waitForConfidentialWorkflowExecution(t, testEnv, testLogger, workflowID, 5*time.Minute)
+		// Kept well inside the job's 7m TEST_TIMEOUT so a failure still leaves room
+		// for confidentialExecutionDiagnostics to scrape and print the node logs.
+		waitForConfidentialWorkflowExecution(t, testEnv, testLogger, workflowID, 3*time.Minute)
 
 		testLogger.Info().Msg("Confidential workflows relay E2E passed")
 	})
@@ -443,6 +446,19 @@ func waitForConfidentialWorkflowExecution(
 		Strs("containers", containers).
 		Msg("Waiting for a successful workflow execution")
 
+	// DEBUG-ONLY: the enclave identifies submitters by signer pubkey prefix only,
+	// so log every worker's P2P ID to map a missing signer back to a node.
+	if don := testEnv.Dons.MustWorkflowDON(); don != nil {
+		if workers, wErr := don.Workers(); wErr == nil {
+			for i, node := range workers {
+				testLogger.Info().
+					Int("workerIndex", i).
+					Str("peerID", hex.EncodeToString(node.Keys.P2PKey.PeerID[:])).
+					Msg("workflow DON worker identity")
+			}
+		}
+	}
+
 	deadline := time.Now().Add(timeout)
 	for {
 		for _, name := range containers {
@@ -481,10 +497,15 @@ func confidentialExecutionDiagnostics(t *testing.T, containers []string) string 
 		[]byte("enclave"),
 	}
 
+	// Scrape under a context of our own: t.Context() is already cancelled once the
+	// test is failing, which makes every docker call return empty.
+	scrapeCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
 	seen := map[string]bool{}
 	var found []string
 	for _, name := range containers {
-		out, _ := exec.CommandContext(t.Context(), "docker", "logs", "--tail", "10000", name).CombinedOutput()
+		out, _ := exec.CommandContext(scrapeCtx, "docker", "logs", "--tail", "10000", name).CombinedOutput()
 		for line := range bytes.SplitSeq(out, []byte{'\n'}) {
 			for _, needle := range needles {
 				if !bytes.Contains(line, needle) {
@@ -505,7 +526,7 @@ func confidentialExecutionDiagnostics(t *testing.T, containers []string) string 
 	// DEBUG-ONLY: dump each container's raw tail as well, so a cause that none of
 	// the needles match is still visible in the CI log.
 	for _, name := range containers {
-		out, _ := exec.CommandContext(t.Context(), "docker", "logs", "--tail", "300", name).CombinedOutput()
+		out, _ := exec.CommandContext(scrapeCtx, "docker", "logs", "--tail", "200", name).CombinedOutput()
 		found = append(found, fmt.Sprintf("\n===== raw docker logs tail: %s =====\n%s", name, out))
 	}
 
