@@ -1050,6 +1050,14 @@ func AddLane(
 		return addAptosMixedLane(t, e, state, from, to, fromFamily, toFamily, isTestRouter, gasPrices, tokenPrices, fqCfg)
 	}
 
+	// Sui<->Solana lanes use the family-agnostic lanes.ConnectChains (SuiAdapter + SolanaAdapter),
+	// mirroring the Aptos mixed lane. Scoped to Sui<->Solana only so Sui<->EVM, EVM<->Solana and
+	// Solana<->Solana paths are untouched.
+	if (fromFamily == chainsel.FamilySui && toFamily == chainsel.FamilySolana) ||
+		(fromFamily == chainsel.FamilySolana && toFamily == chainsel.FamilySui) {
+		return addSuiSolanaMixedLane(t, e, state, from, to, fromFamily, toFamily, isTestRouter, gasPrices, tokenPrices, fqCfg)
+	}
+
 	switch fromFamily {
 	case chainsel.FamilyEVM:
 		evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
@@ -1088,6 +1096,9 @@ func AddLaneSolanaChangesetsV0_1_0(e *DeployedEnv, solChainSelector, remoteChain
 	case chainsel.FamilyAptos:
 		// bytes4(keccak256("CCIP ChainFamilySelector APTOS"));
 		chainFamilySelector = [4]uint8{0xac, 0x77, 0xff, 0xec}
+	case chainsel.FamilySui:
+		// bytes4(keccak256("CCIP ChainFamilySelector Sui")) = 0xc4e05953
+		chainFamilySelector = [4]uint8{0xc4, 0xe0, 0x59, 0x53}
 	default:
 		panic("unsupported remote family")
 	}

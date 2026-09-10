@@ -1,6 +1,7 @@
 package testhelpers
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -11,14 +12,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/block-vision/sui-go-sdk/models"
 	suitx "github.com/block-vision/sui-go-sdk/transaction"
+	agbinary "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
+	solLatestFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -1249,4 +1253,73 @@ func extractFields[T any](configs []TokenPoolRateLimiterConfig, selector func(To
 		result[i] = selector(config)
 	}
 	return result
+}
+
+// svmExtraArgsV1Tag is the 4-byte SVMExtraArgsV1 tag 0x1f3b3aba
+// (bytes4(keccak256("CCIP SVMExtraArgsV1"))). It is inlined here because the ccipsolana and
+// ccipaptos codecs keep it unexported. A Sui source emits this tag followed by the BCS-encoded
+// SVMExtraArgsV1 struct (client.move:encode_svm_extra_args_v1) when the destination is Solana.
+var svmExtraArgsV1Tag = []byte{0x1f, 0x3b, 0x3a, 0xba}
+
+// MakeSuiSourceSVMExtraArgsV1 builds SVMExtraArgsV1 extra args the way a Sui source must emit
+// them for a Solana destination: the 4-byte SVMExtraArgsV1 tag followed by the BCS-encoded
+// struct. This is the Sui-source counterpart of MakeSuiExtraArgs (which uses EVM ABI encoding
+// for an EVM destination) — the encoding is dictated by the SOURCE family's conventions, and Sui
+// (like Aptos) serializes via BCS, not Borsh/ABI.
+//
+// Field order and types match ccipaptos.decodeSvmExtraArgsV1 (the decoder the Solana dest
+// MessageHasher reaches via the source-family-dispatching codec bundle) and the golden vector in
+// ccipaptos/extradatadecoder_test.go:
+//
+//	computeUnits (uint32, little-endian)
+//	accountIsWritableBitmap (uint64, little-endian)
+//	allowOutOfOrderExecution (bool, 1 byte)
+//	tokenReceiver (vector<u8>, ULEB128 length 0x20 + 32 bytes)
+//	accounts (vector<vector<u8>>, ULEB128 count + per-account ULEB128 length 0x20 + 32 bytes)
+//
+// tokenReceiver and each account are Move vector<u8> with a runtime assert!(length==32), so they
+// MUST be length-prefixed via bcs.Serializer.WriteBytes — NOT FixedBytes, which would drop the
+// ULEB128 length byte and make the on-chain fee-quoter/OnRamp reject the message.
+func MakeSuiSourceSVMExtraArgsV1(computeUnits uint32, writableBitmap uint64, allowOOO bool, tokenReceiver [32]byte, accounts [][32]byte) []byte {
+	s := &bcs.Serializer{}
+	s.FixedBytes(svmExtraArgsV1Tag) // tag: no length prefix
+	s.U32(computeUnits)
+	s.U64(writableBitmap)
+	s.Bool(allowOOO)
+	s.WriteBytes(tokenReceiver[:]) // vector<u8>: ULEB128(32) + 32 bytes
+	bcs.SerializeSequenceWithFunction(accounts, s, func(ser *bcs.Serializer, acct [32]byte) {
+		ser.WriteBytes(acct[:]) // each account: vector<u8> of length 32
+	})
+	if err := s.Error(); err != nil {
+		panic(fmt.Errorf("encode Sui-source SVMExtraArgsV1: %w", err))
+	}
+	return s.ToBytes()
+}
+
+// suiExtraArgsV1Tag is the 4-byte SuiExtraArgsV1 tag 0x21ea4ca9 (big-endian), shared by the
+// Solana and EVM fee-quoters. It is inlined here because the ccipsolana codec keeps it
+// unexported. The Solana fee-quoter prepends these bytes to the Borsh payload in
+// SuiExtraArgsV1::serialize_with_tag.
+var suiExtraArgsV1Tag = []byte{0x21, 0xea, 0x4c, 0xa9}
+
+// MakeSolanaSuiExtraArgsV1 builds SuiExtraArgsV1 extra args for a Solana source the way the
+// Solana fee-quoter serializes them: the 4-byte tag followed by the Borsh-encoded struct. This
+// is the Solana-source counterpart of MakeSuiExtraArgs, which uses the EVM ABI encoding for an
+// EVM source. The Solana OnRamp validates these bytes through its Sui family branch
+// (fee-quoter process_extra_args -> parse_and_validate_sui_extra_args), and the relayer's
+// ccipsolana ExtraDataDecoder decodes them back into the lowercase keys the Sui commit/execute
+// path expects (gasLimit, allowOutOfOrderExecution, tokenReceiver, receiverObjectIds).
+func MakeSolanaSuiExtraArgsV1(gasLimit uint64, allowOOO bool, receiverObjectIDs [][32]byte, tokenReceiver [32]byte) []byte {
+	extraArgs := solLatestFeeQuoter.SuiExtraArgsV1{
+		GasLimit:                 agbinary.Uint128{Lo: gasLimit, Hi: 0},
+		AllowOutOfOrderExecution: allowOOO,
+		TokenReceiver:            tokenReceiver,
+		ReceiverObjectIds:        receiverObjectIDs,
+	}
+	var buf bytes.Buffer
+	encoder := agbinary.NewBorshEncoder(&buf)
+	if err := extraArgs.MarshalWithEncoder(encoder); err != nil {
+		panic(err)
+	}
+	return append(suiExtraArgsV1Tag, buf.Bytes()...)
 }
