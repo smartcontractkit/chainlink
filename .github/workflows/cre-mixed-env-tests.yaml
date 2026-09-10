@@ -131,7 +131,8 @@ jobs:
             "Test_CRE_V2_Suite_Bucket_B",
             "Test_CRE_V2_EVM_Read_HeavyCalls",
             "Test_CRE_V2_EVM_Read_StateQueries",
-            "Test_CRE_V2_EVM_Read_TxArtifacts"
+            "Test_CRE_V2_EVM_Read_TxArtifacts",
+            "Test_CRE_V2_ConfidentialWorkflows_Relay"
           ]'
           # Per-test topology override. Tests not listed here default to the
           # standard mixed-env topology (configs/mixed-env-don.toml).
