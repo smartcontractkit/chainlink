@@ -528,12 +528,16 @@ func allDigits(value string) bool {
 }
 
 type DonMetadata struct {
-	NodesMetadata                []*NodeMetadata                     `toml:"nodes_metadata" json:"nodes_metadata"`
-	Flags                        []string                            `toml:"flags" json:"flags"`
-	ID                           uint64                              `toml:"id" json:"id"`
-	Name                         string                              `toml:"name" json:"name"`
-	DonFamily                    string                              `toml:"don_family" json:"don_family"` // nodesets.don_family; gateway pairing, cap-registration, and workflow deploy family
-	AdditionalDonFamilies        []string                            `toml:"additional_don_families" json:"additional_don_families"`
+	NodesMetadata []*NodeMetadata `toml:"nodes_metadata" json:"nodes_metadata"`
+	Flags         []string        `toml:"flags" json:"flags"`
+	ID            uint64          `toml:"id" json:"id"`
+	Name          string          `toml:"name" json:"name"`
+	// DonFamilies are all CapReg families this DON belongs to, normalized (trimmed,
+	// non-empty, de-duplicated) at construction.
+	DonFamilies []string `toml:"don_families" json:"don_families"`
+	// DonFamily is the primary family, derived as the first entry of DonFamilies.
+	// It is used for gateway pairing, cap-registration and workflow deploy.
+	DonFamily                    string                              `toml:"don_family" json:"don_family"`
 	ExposesRemoteCapabilities    bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
 	ShardIndex                   uint                                `toml:"shard_index" json:"shard_index"`
 	CapabilityConfigs            map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
@@ -584,8 +588,9 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	// Propagate merged configs back to NodeSet for consistent access across codebase
 	c.CapabilityConfigs = capConfigs
 
-	if strings.TrimSpace(c.DonFamily) == "" {
-		return nil, fmt.Errorf("nodeset %q has no don_family; set don_family on every nodeset", c.Name)
+	donFamilies := normalizedDonFamilies(c.DonFamilies)
+	if len(donFamilies) == 0 {
+		return nil, fmt.Errorf("nodeset %q has no don_families; set don_families on every nodeset", c.Name)
 	}
 
 	out := &DonMetadata{
@@ -593,8 +598,8 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 		Flags:                        c.Flags(),
 		NodesMetadata:                nodes,
 		Name:                         c.Name,
-		DonFamily:                    strings.TrimSpace(c.DonFamily),
-		AdditionalDonFamilies:        trimmedNonEmpty(c.AdditionalDonFamilies),
+		DonFamilies:                  donFamilies,
+		DonFamily:                    primaryDonFamily(donFamilies),
 		ns:                           c,
 		ExposesRemoteCapabilities:    c.ExposesRemoteCapabilities,
 		ShardIndex:                   c.ShardIndex,
@@ -622,11 +627,12 @@ func trimmedNonEmpty(in []string) []string {
 	return out
 }
 
-// DonFamilies returns primary DonFamily plus AdditionalDonFamilies, de-duplicated in order.
-func (m *DonMetadata) DonFamilies() []string {
-	families := make([]string, 0, 1+len(m.AdditionalDonFamilies))
-	seen := make(map[string]struct{}, 1+len(m.AdditionalDonFamilies))
-	for _, f := range append([]string{m.DonFamily}, m.AdditionalDonFamilies...) {
+// normalizedDonFamilies trims, drops empty entries and de-duplicates, preserving
+// order. The first surviving entry becomes the primary family.
+func normalizedDonFamilies(in []string) []string {
+	out := make([]string, 0, len(in))
+	seen := make(map[string]struct{}, len(in))
+	for _, f := range in {
 		f = strings.TrimSpace(f)
 		if f == "" {
 			continue
@@ -635,9 +641,17 @@ func (m *DonMetadata) DonFamilies() []string {
 			continue
 		}
 		seen[f] = struct{}{}
-		families = append(families, f)
+		out = append(out, f)
 	}
-	return families
+	return out
+}
+
+// primaryDonFamily returns the first family, or "" when there are none.
+func primaryDonFamily(families []string) string {
+	if len(families) == 0 {
+		return ""
+	}
+	return families[0]
 }
 
 func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (CapabilityConfigs, error) {
@@ -1260,11 +1274,12 @@ type NodeSet struct {
 
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (e.g. cron, http-trigger)
 	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
-	// DonFamily groups workflow and gateway nodesets for per-family gateway pairing in local CRE.
-	// Required on every nodeset; env start fails if missing or unmatched (see topology_don_family.go).
-	DonFamily string `toml:"don_family" validate:"required"`
-	// AdditionalDonFamilies are extra CapReg families for sharded capability routing.
-	AdditionalDonFamilies []string `toml:"additional_don_families"`
+	// DonFamilies groups workflow and gateway nodesets for per-family gateway pairing
+	// in local CRE, and carries any extra CapReg families used for sharded capability
+	// routing. At least one entry is required on every nodeset; env start fails if
+	// missing or unmatched (see topology_don_family.go). The first entry is the
+	// primary family used for gateway pairing, cap-registration and workflow deploy.
+	DonFamilies []string `toml:"don_families" validate:"required,min=1"`
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
 	SupportedEVMChains []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
 	EnvVars            map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node
