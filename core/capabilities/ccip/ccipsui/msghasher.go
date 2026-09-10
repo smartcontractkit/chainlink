@@ -14,9 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
@@ -32,7 +33,7 @@ var (
 // Compatible with ccip::offramp version 1.6.0
 type MessageHasherV1 struct {
 	lggr           logger.Logger
-	extraDataCodec ccipocr3common.ExtraDataCodecBundle
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
 type any2SuiTokenTransfer struct {
@@ -43,7 +44,7 @@ type any2SuiTokenTransfer struct {
 	Amount            *big.Int
 }
 
-func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3common.ExtraDataCodecBundle) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) *MessageHasherV1 {
 	return &MessageHasherV1{
 		lggr:           lggr,
 		extraDataCodec: extraDataCodec,
@@ -55,7 +56,7 @@ func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3common.ExtraD
 // The main structure of the hash is as follows:
 // Fixed-size message fields are included in nested hash to reduce stack pressure.
 // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
-func (h *MessageHasherV1) Hash(ctx context.Context, msg ccipocr3common.Message) (ccipocr3common.Bytes32, error) {
+func (h *MessageHasherV1) Hash(ctx context.Context, msg ccipocr3.Message) (ccipocr3.Bytes32, error) {
 	lggr := logutil.WithContextValues(ctx, h.lggr)
 	lggr = logger.With(
 		lggr,
@@ -288,12 +289,12 @@ func encodeBytes(b []byte) []byte {
 	return result
 }
 
-func parseExtraDataMap(input map[string]any, sourceChainSelector ccipocr3common.ChainSelector) (*big.Int, [32]byte, error) {
+func parseExtraDataMap(input map[string]any, sourceChainSelector ccipocr3.ChainSelector) (*big.Int, [32]byte, error) {
 	// gasLimit key differs by source family:
 	//   - SuiExtraArgsV1 (EVM/Sui sources, ABI/BCS) uses "gasLimit" (lowercase).
-	//   - Solana GenericExtraArgsV2 (Borsh, tag 0x181dcf10) uses "GasLimit" — the Borsh
-	//     struct field name emitted by ccipsolana.ExtraDataDecoder. Solana sends
-	//     GenericExtraArgsV2 to non-SVM dests (the Solana fee-quoter has no SuiExtraArgsV1).
+	//   - Solana (Borsh) uses "GasLimit" — the Borsh struct field name emitted by
+	//     ccipsolana.ExtraDataDecoder — for both GenericExtraArgsV2 (tag 0x181dcf10) and
+	//     SuiExtraArgsV1 (tag 0x21ea4ca9, chainlink-ccip PR #2239).
 	// Casing tolerance here is only to locate the gas limit; it carries no behavioral risk.
 	outputGas, ok := input["gasLimit"]
 	if !ok {
@@ -312,14 +313,25 @@ func parseExtraDataMap(input map[string]any, sourceChainSelector ccipocr3common.
 	sourceFamily, err := chainsel.GetSelectorFamily(uint64(sourceChainSelector))
 	isSolanaSource := err == nil && sourceFamily == chainsel.FamilySolana
 
-	// tokenReceiver is carried by SuiExtraArgsV1 but NOT by Solana GenericExtraArgsV2.
-	// For Solana→Sui the on-chain Solana message cannot convey a separate token receiver, so
-	// the off-chain Any2SuiRampMessage is built with tokenReceiver = 0 (matching the EVM→Sui
-	// message-only convention). Default to zero ONLY for Solana sources: SuiExtraArgsV1
-	// (EVM/Sui sources) must carry tokenReceiver, so a missing key there is a malformed/partial
-	// decode and must error rather than silently produce a wrong hash. Token Solana→Sui
-	// transfers are not supported by this path (Solana has no SuiExtraArgsV1).
+	// tokenReceiver lookup is case-tolerant: the Solana Borsh decoder
+	// (ccipsolana.ExtraDataDecoder) emits map keys = Go struct field names, so a SuiExtraArgsV1
+	// decode surfaces "TokenReceiver" (capital T) and "GasLimit" (capital, already tolerated
+	// above). EVM/Sui sources decode via ABI/BCS and use lowercase "tokenReceiver".
+	//
+	// Solana→Sui has two modes:
+	//   - GenericExtraArgsV2 (the live encoding until the on-chain Solana dest config switches
+	//     to CHAIN_FAMILY_SELECTOR_SUI): message-only, no tokenReceiver key. For a Solana source
+	//     we default tokenReceiver to zero so the off-chain Any2SuiRampMessage is valid
+	//     (matching the EVM→Sui message-only convention).
+	//   - SuiExtraArgsV1 (chainlink-ccip PR #2239; enabled once the dest config switches):
+	//     carries a real "TokenReceiver" (non-zero for token transfers, zero for message-only),
+	//     found by the capital-key lookup below.
+	// A missing tokenReceiver on a non-Solana source (EVM/Sui SuiExtraArgsV1 must carry it) is a
+	// malformed/partial decode and must error rather than silently produce a wrong hash.
 	tokenReceiver, ok := input["tokenReceiver"]
+	if !ok {
+		tokenReceiver, ok = input["TokenReceiver"]
+	}
 	if !ok {
 		if !isSolanaSource {
 			return nil, [32]byte{}, errors.New("token receiver not found in extra data map")
@@ -378,4 +390,4 @@ func addressBytesToBytes32(addr []byte) ([32]byte, error) {
 }
 
 // Interface compliance check
-var _ ccipocr3common.MessageHasher = (*MessageHasherV1)(nil)
+var _ ccipocr3.MessageHasher = (*MessageHasherV1)(nil)
