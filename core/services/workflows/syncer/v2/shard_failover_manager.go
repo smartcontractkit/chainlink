@@ -321,11 +321,12 @@ func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 		return nil
 	}
 
-	if primaryDon != nil && secondaryDon != nil {
+	switch {
+	case primaryDon != nil && secondaryDon != nil:
 		m.cfg.Communicator.SetShardDons(*primaryDon, *secondaryDon)
-	} else if primaryDon != nil {
+	case primaryDon != nil:
 		m.cfg.Communicator.SetShardDons(*primaryDon, commoncap.DON{})
-	} else {
+	default:
 		m.cfg.Communicator.SetShardDons(commoncap.DON{}, *secondaryDon)
 	}
 

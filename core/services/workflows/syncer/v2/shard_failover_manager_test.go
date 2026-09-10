@@ -45,7 +45,7 @@ func (d *fakeDispatcher) SetReceiverForMethod(capabilityID string, donID uint32,
 	defer d.mu.Unlock()
 	k := d.key(capabilityID, donID, method)
 	if _, ok := d.receivers[k]; ok {
-		return &receiverExistsErr{k}
+		return &ReceiverExistsError{k}
 	}
 	d.receivers[k] = receiver
 	return nil
@@ -82,9 +82,9 @@ func (d *fakeDispatcher) Ready() error                                          
 func (d *fakeDispatcher) HealthReport() map[string]error                         { return nil }
 func (d *fakeDispatcher) Name() string                                           { return "fakeDispatcher" }
 
-type receiverExistsErr struct{ key string }
+type ReceiverExistsError struct{ key string }
 
-func (e *receiverExistsErr) Error() string { return "receiver already exists for " + e.key }
+func (e *ReceiverExistsError) Error() string { return "receiver already exists for " + e.key }
 
 // fakeShardResolver implements both ShardResolver and AllShardsResolver.
 type fakeShardResolver struct {
@@ -276,7 +276,7 @@ func TestShardFailoverManager_MultipleWorkflowsSharedDispatcher(t *testing.T) {
 				MessageId:        []byte(messageID),
 			}
 			// Route through the fake dispatcher as if the message arrived over p2p.
-			disp.Send(peer, body)
+			require.NoError(t, disp.Send(peer, body))
 		}
 	}
 

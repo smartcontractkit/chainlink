@@ -184,7 +184,7 @@ func TestShardFailoverCommunicator_MultipleWorkflowsNoConflict(t *testing.T) {
 
 	// Send from peer members to simulate quorum (F+1 = 2 messages needed)
 	for _, peer := range peerDON.Members[:2] {
-		disp.Send(peer, &remotetypes.MessageBody{
+		require.NoError(t, disp.Send(peer, &remotetypes.MessageBody{
 			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
 			Method:           remotetypes.MethodExecutionStatusUpdate,
 			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
@@ -192,7 +192,7 @@ func TestShardFailoverCommunicator_MultipleWorkflowsNoConflict(t *testing.T) {
 			CallerDonId:      peerDON.ID,
 			Payload:          payload1,
 			Sender:           peer[:],
-		})
+		}))
 	}
 
 	select {
@@ -204,7 +204,7 @@ func TestShardFailoverCommunicator_MultipleWorkflowsNoConflict(t *testing.T) {
 	}
 
 	for _, peer := range peerDON.Members[:2] {
-		disp.Send(peer, &remotetypes.MessageBody{
+		require.NoError(t, disp.Send(peer, &remotetypes.MessageBody{
 			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
 			Method:           remotetypes.MethodExecutionStatusUpdate,
 			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
@@ -212,7 +212,7 @@ func TestShardFailoverCommunicator_MultipleWorkflowsNoConflict(t *testing.T) {
 			CallerDonId:      peerDON.ID,
 			Payload:          payload2,
 			Sender:           peer[:],
-		})
+		}))
 	}
 
 	select {
