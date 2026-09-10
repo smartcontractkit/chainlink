@@ -395,7 +395,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 
 	// create ATA for user
 	tokenProgram := solana.TokenProgramID
-	wSOL := solana.SolMint
+	wSOL := solana.WrappedSol
 	ixAtaUser, deployerWSOL, uerr := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, deployer.PublicKey(), deployer.PublicKey())
 	require.NoError(t, uerr)
 
