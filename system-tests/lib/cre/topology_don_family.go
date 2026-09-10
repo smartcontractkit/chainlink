@@ -90,23 +90,23 @@ func (t *Topology) buildDonFamilyPairingState() (*gatewayDonFamilyPairingState, 
 		if _, hasGateway := d.Gateway(); !hasGateway {
 			continue
 		}
-		if d.DonFamily == "" {
+		if d.DonFamily() == "" {
 			return nil, fmt.Errorf("gateway DON %q has no don_family; set nodesets.don_families on every nodeset", d.Name)
 		}
-		state.gatewayDONNamesByFamily[d.DonFamily] = append(state.gatewayDONNamesByFamily[d.DonFamily], d.Name)
+		state.gatewayDONNamesByFamily[d.DonFamily()] = append(state.gatewayDONNamesByFamily[d.DonFamily()], d.Name)
 	}
 
 	for _, wf := range wfDONs {
-		if wf.DonFamily == "" {
+		if wf.DonFamily() == "" {
 			return nil, fmt.Errorf("workflow DON %q has no don_family; set nodesets.don_families on every nodeset", wf.Name)
 		}
-		if len(state.gatewayDONNamesByFamily[wf.DonFamily]) == 0 {
-			return nil, fmt.Errorf("workflow DON %q is in don_family %q but no gateway DON is defined for that family", wf.Name, wf.DonFamily)
+		if len(state.gatewayDONNamesByFamily[wf.DonFamily()]) == 0 {
+			return nil, fmt.Errorf("workflow DON %q is in don_family %q but no gateway DON is defined for that family", wf.Name, wf.DonFamily())
 		}
-		state.workflowDONNamesByFamily[wf.DonFamily] = append(state.workflowDONNamesByFamily[wf.DonFamily], wf.Name)
-		for _, gwName := range state.gatewayDONNamesByFamily[wf.DonFamily] {
+		state.workflowDONNamesByFamily[wf.DonFamily()] = append(state.workflowDONNamesByFamily[wf.DonFamily()], wf.Name)
+		for _, gwName := range state.gatewayDONNamesByFamily[wf.DonFamily()] {
 			state.pairs = append(state.pairs, DonFamilyGatewayPair{
-				DonFamily:       wf.DonFamily,
+				DonFamily:       wf.DonFamily(),
 				WorkflowDONName: wf.Name,
 				GatewayDONName:  gwName,
 			})
@@ -134,14 +134,14 @@ func (t *Topology) WorkflowDONFamilies() []string {
 	seen := make(map[string]struct{})
 	families := make([]string, 0, len(wfDONs))
 	for _, wf := range wfDONs {
-		if wf.DonFamily == "" {
+		if wf.DonFamily() == "" {
 			continue
 		}
-		if _, ok := seen[wf.DonFamily]; ok {
+		if _, ok := seen[wf.DonFamily()]; ok {
 			continue
 		}
-		seen[wf.DonFamily] = struct{}{}
-		families = append(families, wf.DonFamily)
+		seen[wf.DonFamily()] = struct{}{}
+		families = append(families, wf.DonFamily())
 	}
 	return families
 }
@@ -203,7 +203,7 @@ func (t *Topology) gatewayServiceConfigsForDonFamily(donFamily string, services 
 // DonFamilyForDON returns nodesets.don_family for a topology DON name, or "" if unknown.
 func (t *Topology) DonFamilyForDON(donName string) string {
 	if d := t.donByName(donName); d != nil {
-		return d.DonFamily
+		return d.DonFamily()
 	}
 	return ""
 }
