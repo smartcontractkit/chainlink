@@ -72,19 +72,8 @@ func prepareSolana2SuiMessagingTest(t *testing.T) solana2SuiMessagingFixtures {
 
 	t.Log("Source chain (Solana): ", sourceChain, "Dest chain (Sui): ", destChain)
 
-	// [PROBE C1] post-deploy, pre-AddLane baseline. FeeQuoter program id here is resolved
-	// BEFORE reregisterSolanaCCIPRefsAtLanesVersion adds the 1.6.0 ref inside AddLane.
-	testhelpers.DebugLogSolanaFeeTokenPrices(t, &e, sourceChain, state, "C1 post-deploy pre-AddLane")
-
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
-
-	// [PROBE C2] post-AddLane: reregister + lanes ConnectChains + seedSolanaSourcePricesEOA
-	// have all run inside AddLane. Reload state so the FeeQuoter program id reflects the
-	// post-1.6.0-ref address-book resolution the seeder used.
-	stateC2, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-	testhelpers.DebugLogSolanaFeeTokenPrices(t, &e, sourceChain, stateC2, "C2 post-AddLane/reseed")
 
 	var setup mt.TestSetup
 
@@ -169,13 +158,6 @@ func Test_CCIP_Messaging_Solana2Sui_Success(t *testing.T) {
 		// (transient Solana/Sui RPC DeadlineExceeded under local load) blocking the
 		// send and preventing the 8023 diagnosis from ever being reached.
 		testhelpers.WaitForEventFilterRegistrationQuorumOnLane(t, fx.state, fx.e.Env.Offchain, fx.sourceChain, fx.destChain)
-
-		// [PROBE C3] pre-send. fx.state is the exact state SendRequestSol reads its
-		// FeeQuoter/LinkToken/WSOL from; also reload fresh to compare resolutions.
-		testhelpers.DebugLogSolanaFeeTokenPrices(t, &fx.e, fx.sourceChain, fx.state, "C3 pre-send sender-state")
-		if stateC3, err := stateview.LoadOnchainState(fx.e.Env); err == nil {
-			testhelpers.DebugLogSolanaFeeTokenPrices(t, &fx.e, fx.sourceChain, stateC3, "C3 pre-send fresh-load")
-		}
 
 		message := []byte("Hello Sui, from Solana!")
 		mt.Run(t,
@@ -377,65 +359,3 @@ func Test_CCIP_Messaging_Sui2Solana_Success(t *testing.T) {
 
 	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.sourceChain])
 }
-
-// ----------------------------------------------------------------------------
-// DEFERRED: Sui->Solana burn-mint token transfer smoke test
-// ----------------------------------------------------------------------------
-//
-// Test_CCIPTokenTransfer_Sui2Solana_BurnMintTokenPool is intentionally NOT
-// implemented yet. Unlike the messaging test above (which reuses the existing
-// family-agnostic lanes.ConnectChains wiring + a BCS SVMExtraArgsV1 builder),
-// the token-transfer case has no reusable testhelper and hits a real gap:
-//
-//   1. No combined Sui<->Solana burn-mint pool helper exists.
-//        - HandleTokenAndBurnMintTokenPoolDeploymentForSUI (test_sui_helpers.go:734)
-//          is EVM-dest-hardcoded (deploys an EVM burn-mint pool, cross-regs with
-//          EVM 20-byte addresses).
-//        - DeployTransferableTokenSolanaV0_1_1 (test_helpers_solana_v0_1_1.go:115)
-//          requires an EVM leg (explicit FamilyEVM check).
-//
-//   2. The legacy Solana cross-registration changeset is a BLOCKER for a Sui
-//      remote: SetupTokenPoolForRemoteChain (cs_token_pool.go:1174) reads the
-//      remote pool/token from EVM on-chain state via EVMChains()[selector] and
-//      hard-rejects non-EVM remotes at cs_token_pool.go:480-483.
-//
-// The USABLE path (mapped, not yet wired) is the family-agnostic lanes
-// token-adapter framework:
-//   - Sui source:  SuiTokenAdapter.DeployTokenPoolForToken +
-//                  ConfigureTokenForTransfersSequence
-//     (chainlink-sui/deployment/adapters/token_adapter.go:637, :370). The Sui
-//     ApplyChainUpdates op accepts a 32-byte Solana remote: pool via
-//     StrToBytes (variable length), token via StrTo32 (left-pad to 32, rejects
-//     only >32) -- op_burn_mint_token_pool.go:100, :111. PASS HEX, not base58.
-//   - Solana dest: SolanaAdapter.DeployTokenPoolForToken +
-//                  ConfigureTokenForTransfersSequence
-//     (chainlink-ccip/chains/solana/deployment/v1_6_0/sequences/{adapter.go:806,
-//      tokens.go:31}). The cross-register op UpsertRemoteChainConfigBurnMint
-//     (burnmint.go:186) takes RemoteTokenAddress/RemotePoolAddress as raw []byte
-//     with NO family check; the on-chain RemoteAddress.Address is [32]byte, so a
-//     32-byte Sui object ID fits. ConfigureTokenForTransfersSequence also folds
-//     in RegisterTokenAdminRegistry + Accept + SetPool + rate limits.
-//   - Lane:        addSuiSolanaMixedLane (test_helpers_sui_solana_lanes.go) --
-//                  already wired by the messaging test.
-//   - Send:        TransferMultiple with a TestTransferRequest{SourceChain: sui,
-//                  DestChain: sol, SuiTokens: [...], Receiver: <sol ATA 32B>,
-//                  FeeToken: ...} dispatches to SendRequestSui
-//                  (test_helpers_solana_v0_1_0.go:1998, :538).
-//
-// Two caveats to handle when implementing (from the path mapping):
-//   - Transfer's Sui branch does NOT populate SuiSendRequest.TokenReceiverATA
-//     (test_helpers_solana_v0_1_0.go:1887-1894); verify SendRequestSui needs it
-//     for token messages to Solana.
-//   - TransferMultiple's Sui-source branch books expected balances against
-//     tt.Receiver (:2000), not tt.TokenReceiverATA; set tt.Receiver = the Solana
-//     ATA bytes (32) so WaitForTokenBalances checks the right account.
-//
-// This was deferred because the chainlink smoke suite does not yet use the lanes
-// token-adapter framework anywhere (no reference test for a non-EVM-Sui token
-// pair), and Sui+Solana in-memory containers cannot be run in this sandbox to
-// iterate. Add this test once a lanes-token reference exists or nix/CI iteration
-// is available. When added, also re-add the in-memory-tests.json entry:
-//   {"name":"Test_CCIPTokenTransfer_Sui2Solana_BurnMintTokenPool",
-//    "test":"Test_CCIPTokenTransfer_Sui2Solana_BurnMintTokenPool",
-//    "timeout":"25m","parallel":1,"plugins":true,"runs_on":"cpu=16/ram=64",
-//    "free_disk":true,"aptos":"","sui":"mainnet-v1.75.2"}

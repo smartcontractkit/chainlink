@@ -222,14 +222,12 @@ var solFeeTokenUsdPerToken = [28]byte{
 // gas update). The wSOL/LINK TokenPriceUpdates only require the BillingTokenConfig accounts to
 // exist, which the deploy creates, so they validate and apply unconditionally.
 //
-// An on-chain probe (DebugLogSolanaFeeTokenPrices, test_helpers_solana_billing_debug.go) confirmed
-// at checkpoints C1 (post-deploy, pre-AddLane) and C2 (post-AddLane/reseed) that the preloaded
-// fee-quoter ALREADY registers wSOL+LINK as BillingTokenConfig (owner=FeeQuoter, version=1,
-// enabled, usd_per_token non-zero) on the same FeeQuoter program (FeeQPGk...) that ccip_send's
-// get_fee reads. So UpdatePrices (which updates already-registered, fee-quoter-owned tokens) is
-// sufficient here; an earlier AddBillingToken variant was a no-op ("Billing token already exists.
-// Configuring as update") and has been reverted. The probe is kept (C3 pre-send) to capture the
-// send-time state should the InvalidTokenPrice (8023) recur.
+// The preloaded fee-quoter ALREADY registers wSOL+LINK as BillingTokenConfig (owner=FeeQuoter,
+// version=1, enabled, usd_per_token non-zero) on the same FeeQuoter program (FeeQPGk...) that
+// ccip_send's get_fee reads (confirmed via a temporary on-chain probe during the 8023
+// investigation, since removed). So UpdatePrices (which updates already-registered,
+// fee-quoter-owned tokens) is sufficient here; an earlier AddBillingToken variant was a no-op
+// ("Billing token already exists. Configuring as update") and has been reverted.
 //
 // PriceUpdater MUST equal the FeeQuoter's authority (owner). UpdatePrices carries no price-updater
 // pubkey in its instruction args, so the on-chain program seeds allowed_price_updater from the

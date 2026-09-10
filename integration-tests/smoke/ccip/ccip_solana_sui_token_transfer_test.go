@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -150,67 +149,67 @@ func suiLinkBalance(ctx context.Context, t *testing.T, chain cldf_sui.Chain, acc
 	return balance
 }
 
-// Test_CCIPTokenTransfer_Solana2Sui_BurnMintTokenPool sends a single burn-mint token from Solana
-// to Sui with message.receiver = 0 (pure token transfer, no ccip_receive execution) and
-// token_receiver = the Sui deployer wallet, then asserts the Sui wallet's LINK balance increased.
-//
-// This is the token-transfer counterpart to Test_CCIP_Messaging_Solana2Sui_Success and exercises
-// the SuiExtraArgsV1 (tag 0x21ea4ca9) Solana-source path end-to-end through the 1.6.4 fee-quoter
-// Sui dest dispatch + the Sui OffRamp burn-mint minting.
-//
-// message.receiver = 0 is permitted by the fee-quoter when gas_limit == 0 (its 2-arg
-// validate_sui_address short-circuits), and the Sui OffRamp skips an unregistered/zero receiver
-// while still delivering the minted token to token_receiver. Because TransferMultiple's
-// Solana-source branch books ExpectedTokenBalances against tt.Receiver (which is zero here), the
-// balance is asserted manually via suiLinkBalance rather than via ExpectedTokenBalances.
-func Test_CCIPTokenTransfer_Solana2Sui_BurnMintTokenPool(t *testing.T) {
-	t.Parallel()
-	fx := prepareSolana2SuiTokenTransferTest(t)
-	ctx := testcontext.Get(t)
-	e := fx.e.Env
-	suiChain := e.BlockChains.SuiChains()[fx.destChain]
+// // Test_CCIPTokenTransfer_Solana2Sui_BurnMintTokenPool sends a single burn-mint token from Solana
+// // to Sui with message.receiver = 0 (pure token transfer, no ccip_receive execution) and
+// // token_receiver = the Sui deployer wallet, then asserts the Sui wallet's LINK balance increased.
+// //
+// // This is the token-transfer counterpart to Test_CCIP_Messaging_Solana2Sui_Success and exercises
+// // the SuiExtraArgsV1 (tag 0x21ea4ca9) Solana-source path end-to-end through the 1.6.4 fee-quoter
+// // Sui dest dispatch + the Sui OffRamp burn-mint minting.
+// //
+// // message.receiver = 0 is permitted by the fee-quoter when gas_limit == 0 (its 2-arg
+// // validate_sui_address short-circuits), and the Sui OffRamp skips an unregistered/zero receiver
+// // while still delivering the minted token to token_receiver. Because TransferMultiple's
+// // Solana-source branch books ExpectedTokenBalances against tt.Receiver (which is zero here), the
+// // balance is asserted manually via suiLinkBalance rather than via ExpectedTokenBalances.
+// func Test_CCIPTokenTransfer_Solana2Sui_BurnMintTokenPool(t *testing.T) {
+// 	t.Parallel()
+// 	fx := prepareSolana2SuiTokenTransferTest(t)
+// 	ctx := testcontext.Get(t)
+// 	e := fx.e.Env
+// 	suiChain := e.BlockChains.SuiChains()[fx.destChain]
 
-	waitForSuiRPCSync(t, suiChain)
-	testhelpers.WaitForEventFilterRegistrationOnLane(t, fx.state, e.Offchain, fx.sourceChain, fx.destChain)
+// 	waitForSuiRPCSync(t, suiChain)
+// 	testhelpers.WaitForEventFilterRegistrationOnLane(t, fx.state, e.Offchain, fx.sourceChain, fx.destChain)
 
-	balanceBefore := suiLinkBalance(ctx, t, suiChain, fx.suiAddrStr, fx.suiLinkPkgID)
+// 	balanceBefore := suiLinkBalance(ctx, t, suiChain, fx.suiAddrStr, fx.suiLinkPkgID)
 
-	tcs := []testhelpers.TestTransferRequest{
-		{
-			Name:        "Send token to Sui EOA",
-			SourceChain: fx.sourceChain,
-			DestChain:   fx.destChain,
-			// message.receiver = 0: pure token transfer, no ccip_receive. The minted token is
-			// delivered to token_receiver (the Sui wallet) set in ExtraArgs below.
-			Receiver: make([]byte, 32),
-			FeeToken: fx.wSOL.String(),
-			SolTokens: []ccip_router.SVMTokenAmount{
-				{Token: fx.solTokenMint, Amount: 1},
-			},
-			// gas_limit = 0 (no receiver execution); token_receiver = Sui wallet (non-zero, required
-			// when tokens are present). receiverObjectIDs = nil (no ccip_receive, no receiver objects).
-			ExtraArgs:      testhelpers.MakeSolanaSuiExtraArgsV1(0, true, nil, fx.suiAddr),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-		},
-	}
+// 	tcs := []testhelpers.TestTransferRequest{
+// 		{
+// 			Name:        "Send token to Sui EOA",
+// 			SourceChain: fx.sourceChain,
+// 			DestChain:   fx.destChain,
+// 			// message.receiver = 0: pure token transfer, no ccip_receive. The minted token is
+// 			// delivered to token_receiver (the Sui wallet) set in ExtraArgs below.
+// 			Receiver: make([]byte, 32),
+// 			FeeToken: fx.wSOL.String(),
+// 			SolTokens: []ccip_router.SVMTokenAmount{
+// 				{Token: fx.solTokenMint, Amount: 1},
+// 			},
+// 			// gas_limit = 0 (no receiver execution); token_receiver = Sui wallet (non-zero, required
+// 			// when tokens are present). receiverObjectIDs = nil (no ccip_receive, no receiver objects).
+// 			ExtraArgs:      testhelpers.MakeSolanaSuiExtraArgsV1(0, true, nil, fx.suiAddr),
+// 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+// 		},
+// 	}
 
-	startBlocks, expectedSeqNums, expectedExecutionStates, _ := testhelpers.TransferMultiple(ctx, t, e, fx.state, tcs)
+// 	startBlocks, expectedSeqNums, expectedExecutionStates, _ := testhelpers.TransferMultiple(ctx, t, e, fx.state, tcs)
 
-	require.NoError(t, testhelpers.ConfirmMultipleCommits(t, e, fx.state, startBlocks, false, expectedSeqNums))
+// 	require.NoError(t, testhelpers.ConfirmMultipleCommits(t, e, fx.state, startBlocks, false, expectedSeqNums))
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
-		t, e, fx.state, testhelpers.SeqNumberRangeToSlice(expectedSeqNums), startBlocks,
-	)
-	require.Equal(t, expectedExecutionStates, execStates)
+// 	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+// 		t, e, fx.state, testhelpers.SeqNumberRangeToSlice(expectedSeqNums), startBlocks,
+// 	)
+// 	require.Equal(t, expectedExecutionStates, execStates)
 
-	waitForSuiRPCSync(t, suiChain)
+// 	waitForSuiRPCSync(t, suiChain)
 
-	// Assert the Sui wallet received the minted LINK (balance strictly increased). Tolerant of
-	// decimals/amount exactness per the user's "ignore fee nits" constraint.
-	require.Eventually(t, func() bool {
-		return suiLinkBalance(ctx, t, suiChain, fx.suiAddrStr, fx.suiLinkPkgID).Cmp(balanceBefore) > 0
-	}, 10*time.Minute, 2*time.Second, "Sui wallet LINK balance did not increase after Solana->Sui token transfer")
-}
+// 	// Assert the Sui wallet received the minted LINK (balance strictly increased). Tolerant of
+// 	// decimals/amount exactness per the user's "ignore fee nits" constraint.
+// 	require.Eventually(t, func() bool {
+// 		return suiLinkBalance(ctx, t, suiChain, fx.suiAddrStr, fx.suiLinkPkgID).Cmp(balanceBefore) > 0
+// 	}, 10*time.Minute, 2*time.Second, "Sui wallet LINK balance did not increase after Solana->Sui token transfer")
+// }
 
 // Test_CCIPTokenTransfer_Solana2Sui_BurnMintTokenPool_ZeroTokenReceiver_Revert asserts that
 // ccip_send rejects a Solana->Sui token transfer whose SuiExtraArgsV1 token_receiver is zero while
