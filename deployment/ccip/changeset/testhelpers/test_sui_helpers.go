@@ -14,6 +14,7 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/block-vision/sui-go-sdk/models"
+	suirpcv2 "github.com/block-vision/sui-go-sdk/pb/sui/rpc/v2"
 	suitx "github.com/block-vision/sui-go-sdk/transaction"
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/require"
@@ -167,28 +168,42 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// getValidatedFee
 	msg := cfg.Message.(SuiSendRequest)
 
-	// Update Prices on FeeQuoter with minted LinkToken
-	feePriceReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
-		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
-			CCIPPackageId:         ccipPackageID,
-			CCIPObjectRef:         ccipObjectRefID,
-			OwnerCapObjectId:      ccipOwnerCapID,
-			SourceTokens:          []string{linkTokenObjectMetadataID},
-			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
-			GasDestChainSelectors: []uint64{cfg.DestChain},
-			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
-		})
-	if err != nil {
-		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
+	// Update Prices on FeeQuoter with minted LinkToken. This EOA update uses the deployer's
+	// CCIPOwnerCapObjectId, which is consumed (moved into the MCMS registry) once Sui CCIP is
+	// transferred to MCMS — as the lanes-based Sui<->Solana setup does, seeding prices via MCMS
+	// proposals instead. Auto-detect which regime we are in by probing the OwnerCap object: if
+	// the deployer still address-owns it, run the EOA update (legacy deployer-owned Sui tests); if
+	// it has moved into the MCMS registry (owner kind no longer Address) or is unreadable, skip it
+	// — prices were already seeded by lane setup, and the EOA op would fail on the consumed cap.
+	deployerOwnsOwnerCap := false
+	if ccipOwnerCapID != "" {
+		if ownerCapObj, readErr := suiChain.Client.ReadObjectId(ctx, ccipOwnerCapID); readErr == nil && ownerCapObj != nil && ownerCapObj.Owner != nil {
+			deployerOwnsOwnerCap = ownerCapObj.Owner.GetKind() == suirpcv2.Owner_ADDRESS
+		}
 	}
+	if deployerOwnsOwnerCap {
+		feePriceReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+			ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+				CCIPPackageId:         ccipPackageID,
+				CCIPObjectRef:         ccipObjectRefID,
+				OwnerCapObjectId:      ccipOwnerCapID,
+				SourceTokens:          []string{linkTokenObjectMetadataID},
+				SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
+				GasDestChainSelectors: []uint64{cfg.DestChain},
+				GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
+			})
+		if err != nil {
+			return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
+		}
 
-	// This tx mutates the signer's gas coin. The following PTB (ccip_send) selects that
-	// coin via owned-object refs; without waiting for fullnode indexing, the next submit
-	// can race (stale object version) even when each individual binding call used
-	// WaitForExecution (see bind.WaitForTransactionIndexed / WaitForSuiFullnodeTransaction).
-	if d := feePriceReport.Output.Digest; d != "" {
-		if waitErr := WaitForSuiFullnodeTransaction(ctx, suiChain.Client, d); waitErr != nil {
-			return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("fee quoter price update tx not visible on fullnode: %w", waitErr)
+		// This tx mutates the signer's gas coin. The following PTB (ccip_send) selects that
+		// coin via owned-object refs; without waiting for fullnode indexing, the next submit
+		// can race (stale object version) even when each individual binding call used
+		// WaitForExecution (see bind.WaitForTransactionIndexed / WaitForSuiFullnodeTransaction).
+		if d := feePriceReport.Output.Digest; d != "" {
+			if waitErr := WaitForSuiFullnodeTransaction(ctx, suiChain.Client, d); waitErr != nil {
+				return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("fee quoter price update tx not visible on fullnode: %w", waitErr)
+			}
 		}
 	}
 
