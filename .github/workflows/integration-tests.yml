@@ -756,6 +756,7 @@ jobs:
     needs:
       [
         build-chainlink,
+        compile-tests,
         run-ccip-v1-6-e2e-tests,
         run-core-cre-e2e-tests,
         run-core-cre-e2e-regression-tests,
@@ -765,6 +766,7 @@ jobs:
       - name: Check all E2E test results
         if: always()
         env:
+          COMPILE_RESULT: ${{ needs.compile-tests.result }}
           CCIP_RESULT: ${{ needs.run-ccip-v1-6-e2e-tests.result }}
           CRE_RESULT: ${{ needs.run-core-cre-e2e-tests.result }}
           CRE_REGRESSION_RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
@@ -790,6 +792,7 @@ jobs:
           }
 
           failed=0
+          check_result "Compile tests" "${COMPILE_RESULT}" || failed=1
           check_result "CCIP v1.6 E2E tests" "${CCIP_RESULT}" || failed=1
           check_result "Core CRE E2E tests" "${CRE_RESULT}" || failed=1
           check_result "Core CRE E2E regression tests" "${CRE_REGRESSION_RESULT}" || failed=1
