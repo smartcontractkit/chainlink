@@ -335,6 +335,9 @@ func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 		"primaryDonID", primaryDonIDOrZero(primaryDon),
 		"secondaryDonID", secondaryDonIDOrZero(secondaryDon))
 
+	// Start the communicator if it hasn't been started yet. The shared
+	// communicator may already be running if another workflow's manager
+	// started it first — StartOnce is idempotent and will return nil.
 	if err := m.cfg.Communicator.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start communicator: %w", err)
 	}

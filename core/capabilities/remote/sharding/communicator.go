@@ -105,6 +105,13 @@ func (c *ShardFailoverCommunicator) UnregisterHandler(workflowID string) {
 }
 
 func (c *ShardFailoverCommunicator) Start(ctx context.Context) error {
+	// Idempotent: if already started (or starting), return nil. The
+	// communicator is shared across all workflows — the first manager
+	// starts it, subsequent managers just register handlers.
+	st := c.State()
+	if st == "Started" || st == "Starting" {
+		return nil
+	}
 	return c.StartOnce(c.Name(), func() error {
 		if err := c.dispatcher.SetReceiverForMethod(
 			ShardExecutionStatusUpdateCapabilityID, c.localDonID,
