@@ -225,7 +225,7 @@ func TestShardFailoverCommunicator_EndToEndSendReceive(t *testing.T) {
 	require.Len(t, sentBodies, len(secondaryDON.Members))
 
 	// Feed 3 messages from different primary peers (2F+1 = 3 quorum).
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		sentBodies[i].Sender = primaryDON.Members[i][:]
 		secondaryComm.Receive(ctx, sentBodies[i])
 	}
