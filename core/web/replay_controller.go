@@ -88,6 +88,6 @@ func (ReplayResponse) GetName() string {
 
 // SetID is used to conform to the UnmarshallIdentifier interface for
 // deserializing from jsonapi documents.
-func (*ReplayResponse) SetID(string) error {
+func (ReplayResponse) SetID(string) error {
 	return nil
 }

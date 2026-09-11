@@ -239,7 +239,7 @@ func (t checkTree) WriteHTMLTo(w io.Writer) error {
 }
 
 func (t checkTree) writeHTMLTo(w *linePrefixWriter) error {
-	keys := slices.AppendSeq(make([]string, 0, len(t)), maps.Keys(t))
+	keys := slices.Collect(maps.Keys(t))
 	slices.Sort(keys)
 	for _, short := range keys {
 		node := t[short]

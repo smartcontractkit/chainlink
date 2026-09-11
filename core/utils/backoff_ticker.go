@@ -9,13 +9,13 @@ import (
 
 type timerFactory func(d time.Duration) *time.Timer
 
-func newBackoffTicker(tf timerFactory, min, max time.Duration) BackoffTicker {
+func newBackoffTicker(tf timerFactory, minDuration, maxDuration time.Duration) BackoffTicker {
 	c := make(chan time.Time, 1)
 	return BackoffTicker{
 		createTimer: tf,
 		b: backoff.Backoff{
-			Min: min,
-			Max: max,
+			Min: minDuration,
+			Max: maxDuration,
 		},
 		C:      c,
 		chStop: make(chan struct{}),
@@ -34,8 +34,8 @@ type BackoffTicker struct {
 }
 
 // NewBackoffTicker returns a new BackoffTicker for the given range.
-func NewBackoffTicker(min, max time.Duration) BackoffTicker {
-	return newBackoffTicker(time.NewTimer, min, max)
+func NewBackoffTicker(minDuration, maxDuration time.Duration) BackoffTicker {
+	return newBackoffTicker(time.NewTimer, minDuration, maxDuration)
 }
 
 // Start - Starts the ticker

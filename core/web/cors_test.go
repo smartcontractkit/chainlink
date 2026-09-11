@@ -34,6 +34,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 
 			headers := map[string]string{"Origin": test.origin}
 			resp, cleanup := client.Get("/v2/chains/evm", headers)
+			defer resp.Body.Close()
 			defer cleanup()
 			cltest.AssertServerResponse(t, resp, test.statusCode)
 		})
@@ -66,6 +67,7 @@ func TestCors_OverrideOrigins(t *testing.T) {
 
 			headers := map[string]string{"Origin": test.origin}
 			resp, cleanup := client.Get("/v2/chains/evm", headers)
+			defer resp.Body.Close()
 			defer cleanup()
 			cltest.AssertServerResponse(t, resp, test.statusCode)
 		})

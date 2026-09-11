@@ -86,6 +86,6 @@ func (LPSkipToBlockResponse) GetName() string {
 
 // SetID is used to conform to the UnmarshallIdentifier interface for
 // deserializing from jsonapi documents.
-func (*LPSkipToBlockResponse) SetID(string) error {
+func (LPSkipToBlockResponse) SetID(string) error {
 	return nil
 }

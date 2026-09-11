@@ -46,6 +46,7 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)
+			defer resp.Body.Close()
 			cltest.AssertServerResponse(t, resp, http.StatusOK)
 		})
 	}
@@ -78,6 +79,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)
+			defer resp.Body.Close()
 			cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 		})
 	}
@@ -100,6 +102,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
+		_ = resp.Body.Close()
 	}
 
 	// Last request fails
@@ -107,6 +110,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
 }
 
