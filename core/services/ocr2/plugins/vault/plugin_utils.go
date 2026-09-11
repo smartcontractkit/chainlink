@@ -17,20 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// gateAllows reports whether the given CRE gate allows the gated behavior.
-// When evaluation errors for reasons other than ErrorNotAllowed, it logs an error and returns false.
-func gateAllows(ctx context.Context, lggr logger.Logger, gate limits.GateLimiter, gateName string) bool {
-	err := gate.AllowErr(ctx)
-	if err == nil {
-		return true
-	}
-	if errors.Is(err, limits.ErrorNotAllowed{}) {
-		return false
-	}
-	lggr.Errorw("unexpected error evaluating CRE gate", "gate", gateName, "error", err)
-	return false
-}
-
 // resolveVaultOCRBoundLimitInt builds a short-lived BoundLimiter for an integer-sized CRE setting, reads Limit once, and closes the limiter.
 func resolveVaultOCRBoundLimitInt[I constraints.Integer](
 	ctx context.Context,
@@ -181,6 +167,17 @@ func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (
 		MaxPerOracleUnexpiredBlobCumulativePayloadBytes: maxPerOracleUnexpiredBlobCumulativePayloadBytes,
 		MaxPerOracleUnexpiredBlobCount:                  maxPerOracleUnexpiredBlobCount,
 	}, nil
+}
+
+// forceEmptyOCRRounds reports whether the VaultForceEmptyOCRRounds gate is open,
+// treating an unevaluatable gate as closed.
+func (r *ReportingPlugin) forceEmptyOCRRounds(ctx context.Context) bool {
+	open, err := r.cfg.VaultForceEmptyOCRRounds.Open(ctx)
+	if err != nil {
+		r.lggr.Errorw("unexpected error evaluating CRE gate", "gate", "VaultForceEmptyOCRRounds", "error", err)
+		return false
+	}
+	return open
 }
 
 func (r *ReportingPlugin) roundLggr(seqNr uint64) logger.Logger {

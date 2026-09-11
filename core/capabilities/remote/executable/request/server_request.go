@@ -396,7 +396,7 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 	// calling DON so it cannot be spoofed. All F+1 aggregated requests share this
 	// payload (WorkflowDonID is part of the request hash), so a single check here
 	// covers the quorum. The gate is guaranteed non-nil by NewServerRequest.
-	enabled, gerr := workflowDONBindingGate.Limit(ctx)
+	enabled, gerr := workflowDONBindingGate.Open(ctx)
 	if gerr != nil {
 		lggr.Errorw("failed to evaluate workflow DON binding gate", "err", gerr)
 		return nil, errors.New("failed to evaluate workflow DON binding gate")
