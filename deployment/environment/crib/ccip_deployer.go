@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -605,7 +606,7 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 		rpcClient := e.BlockChains.SolanaChains()[solChainSel].Client
 		router := state.SolChains[solChainSel].Router
 		tokenProgram := solana.TokenProgramID
-		wSOL := solana.SolMint
+		wSOL := solana.WrappedSol
 		// token transfer enablement changesets
 		ixAtaUser, accountWSOLAta, err := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, sourceAccount.PublicKey(), sourceAccount.PublicKey())
 		if err != nil {
@@ -1014,7 +1015,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
 		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[selector].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 		// TODO: point this to proper SOL feed, apparently 0 signified SOL
-		tokenInfo[cciptypes.UnknownEncodedAddress(solana.SolMint.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
+		tokenInfo[ccipocr3common.UnknownEncodedAddress(solana.WrappedSol.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, tokenInfo,
 			func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 				params.OCRParameters.MaxDurationQuery = 100 * time.Millisecond
