@@ -3,8 +3,6 @@ package test_env
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -208,17 +206,6 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	return nil
 }
 
-// getChainlinkDir returns the path to the chainlink directory
-func getChainlinkDir() (string, error) {
-	_, filename, _, ok := runtime.Caller(1)
-	if !ok {
-		return "", errors.New("cannot determine the path of the calling file")
-	}
-	dir := filepath.Dir(filename)
-	chainlinkDir := filepath.Clean(filepath.Join(dir, "../../.."))
-	return chainlinkDir, nil
-}
-
 func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 	for _, node := range te.ClCluster.Nodes {
 		if node.Container == nil {
@@ -238,13 +225,13 @@ func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 	}
 }
 
-// GetRpcProvider retrieves the RPC node for the specified chain
-func (te *CLClusterTestEnv) GetRpcProvider(chainId int64) (*test_env.RpcProvider, error) {
-	if rpc, ok := te.rpcProviders[chainId]; ok {
+// GetRPCProvider retrieves the RPC node for the specified chain
+func (te *CLClusterTestEnv) GetRPCProvider(chainID int64) (*test_env.RpcProvider, error) {
+	if rpc, ok := te.rpcProviders[chainID]; ok {
 		return rpc, nil
 	}
 
-	return nil, fmt.Errorf("no RPC provider available for chain ID %d", chainId)
+	return nil, fmt.Errorf("no RPC provider available for chain ID %d", chainID)
 }
 
 // GetFirstEvmNetwork retrieves the first EVM network available in the test environment
@@ -256,13 +243,13 @@ func (te *CLClusterTestEnv) GetFirstEvmNetwork() (*blockchain.EVMNetwork, error)
 	return te.EVMNetworks[0], nil
 }
 
-// GetEVMNetworkForChainId retrieves the EVM network for the specified chain ID
-func (te *CLClusterTestEnv) GetEVMNetworkForChainId(chainId int64) (*blockchain.EVMNetwork, error) {
+// GetEVMNetworkForChainID retrieves the EVM network for the specified chain ID
+func (te *CLClusterTestEnv) GetEVMNetworkForChainID(chainID int64) (*blockchain.EVMNetwork, error) {
 	for _, network := range te.EVMNetworks {
-		if network.ChainID == chainId {
+		if network.ChainID == chainID {
 			return network, nil
 		}
 	}
 
-	return nil, fmt.Errorf("no EVM network available for chain ID %d", chainId)
+	return nil, fmt.Errorf("no EVM network available for chain ID %d", chainID)
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
@@ -24,6 +25,7 @@ import (
 	module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	module_onramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_onramp/onramp"
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
+	"github.com/smartcontractkit/chainlink-sui/codec"
 	"github.com/smartcontractkit/chainlink-sui/contracts"
 	"github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
@@ -420,15 +422,7 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
-		setup  = messagingtest.NewTestSetupWithDeployedEnv(
-			t,
-			e,
-			state,
-			sourceChain,
-			destChain,
-			sender,
-			false, // test router
-		)
+		setup  messagingtest.TestSetup
 	)
 
 	// Deploy SUI Receiver
@@ -617,7 +611,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
 		WaitForExecution: true,
 		GasBudget:        &b,
-	}, suiBind.Object{Id: state.SuiChains[sourceChain].OnRampStateObjectId}, suiBind.Object{Id: state.SuiChains[sourceChain].OnRampOwnerCapObjectId}, newOnRampPkgID)
+	}, codec.Object{Id: state.SuiChains[sourceChain].OnRampStateObjectId}, codec.Object{Id: state.SuiChains[sourceChain].OnRampOwnerCapObjectId}, newOnRampPkgID)
 	require.NoError(t, err)
 
 	newOnRamp, err := module_onramp.NewOnramp(newOnRampPkgID, e.Env.BlockChains.SuiChains()[sourceChain].Client)
@@ -725,7 +719,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
 		WaitForExecution: true,
 		GasBudget:        &b,
-	}, suiBind.Object{Id: state.SuiChains[sourceChain].OffRampStateObjectId}, suiBind.Object{Id: state.SuiChains[sourceChain].OffRampOwnerCapId}, newOffRampPkgID)
+	}, codec.Object{Id: state.SuiChains[sourceChain].OffRampStateObjectId}, codec.Object{Id: state.SuiChains[sourceChain].OffRampOwnerCapId}, newOffRampPkgID)
 	require.NoError(t, err)
 
 	newOffRamp, err := module_offramp.NewOfframp(newOffRampPkgID, e.Env.BlockChains.SuiChains()[sourceChain].Client)
@@ -830,7 +824,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
 		WaitForExecution: true,
 		GasBudget:        &b,
-	}, suiBind.Object{Id: state.SuiChains[sourceChain].CCIPObjectRef}, suiBind.Object{Id: state.SuiChains[sourceChain].CCIPOwnerCapObjectId}, newCCIPPkgID)
+	}, codec.Object{Id: state.SuiChains[sourceChain].CCIPObjectRef}, codec.Object{Id: state.SuiChains[sourceChain].CCIPOwnerCapObjectId}, newCCIPPkgID)
 	require.NoError(t, err)
 
 	newFQ, err := module_fee_quoter.NewFeeQuoter(newCCIPPkgID, e.Env.BlockChains.SuiChains()[sourceChain].Client)

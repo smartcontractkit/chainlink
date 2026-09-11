@@ -69,8 +69,9 @@ func runCCIPTopologiesTest(t *testing.T, fChainSource, fChainDest int) {
 		", dest chain selector:", destChainSel,
 	)
 	// connect a single lane, source to dest
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(
 		t, &e, state, sourceChainSel, destChainSel, false)
+	require.NoError(t, err)
 
 	var (
 		nonce  uint64
