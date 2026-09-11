@@ -26,18 +26,21 @@ func TestNewStartUpHealthReport(t *testing.T) {
 		require.NoError(t, err)
 		res, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		defer res.Body.Close()
 		require.Equal(t, http.StatusNoContent, res.StatusCode)
 
 		req, err = http.NewRequestWithContext(t.Context(), http.MethodGet, "http://localhost:1234/", nil)
 		require.NoError(t, err)
 		res, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		defer res.Body.Close()
 		require.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
 
 		req, err = http.NewRequestWithContext(t.Context(), http.MethodGet, "http://localhost:1234/unknown", nil)
 		require.NoError(t, err)
 		res, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		defer res.Body.Close()
 		require.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
 	}()
 

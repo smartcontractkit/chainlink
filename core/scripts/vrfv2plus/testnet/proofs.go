@@ -111,7 +111,7 @@ func generateProofForV2Plus(e helpers.Environment) {
 		PreSeed:          preSeed,
 		BlockHash:        blockHash,
 		BlockNum:         *blockNum,
-		SubId:            parsedSubId,
+		SubID:            parsedSubId,
 		CallbackGasLimit: uint32(*callbackGasLimit),
 		NumWords:         uint32(*numWords),
 		Sender:           sender,

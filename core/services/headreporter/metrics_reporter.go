@@ -9,10 +9,10 @@ import (
 
 	chainselector "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -49,7 +49,7 @@ type evmMetricsReporter struct {
 }
 
 func NewEVMMetricsReporter(metrics HeadMetrics, lggr logger.Logger, chainIDs ...*big.Int) HeadReporter {
-	lggr = lggr.Named("MetricsReporter")
+	lggr = logger.Named(lggr, "MetricsReporter")
 	selectors := make(map[uint64]chainSelector, len(chainIDs))
 	for _, chainID := range chainIDs {
 		selectors[chainID.Uint64()] = resolveChainSelector(lggr, chainID.String(), chainselector.FamilyEVM)
@@ -98,7 +98,7 @@ func NewRelayerMetricsReporter(metrics HeadMetrics, lggr logger.Logger, relayers
 	if relayers == nil {
 		return nil
 	}
-	lggr = lggr.Named("MetricsReporter")
+	lggr = logger.Named(lggr, "MetricsReporter")
 	selectors := make(map[types.RelayID]chainSelector, len(relayers))
 	for relayID := range relayers {
 		selectors[relayID] = resolveChainSelector(lggr, relayID.ChainID, relayID.Network)

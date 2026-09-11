@@ -12,9 +12,9 @@ import (
 	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Arbiter is the main service interface.
@@ -54,7 +54,7 @@ func New(
 	pollInterval time.Duration,
 	retryInterval time.Duration,
 ) (Arbiter, error) {
-	lggr = lggr.Named("Arbiter")
+	lggr = logger.Named(lggr, "Arbiter")
 
 	// Create state
 	state := NewState()

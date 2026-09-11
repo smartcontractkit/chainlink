@@ -18,18 +18,16 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_reverting_example"
 )
 
-var (
-	_ VRFConsumerContract = (*vrfConsumerContract)(nil)
-)
+var _ VRFConsumerContract = (*vrfConsumerContract)(nil)
 
 // VRFConsumerContract is the common interface implemented by
 // the example contracts used for the integration tests.
 type VRFConsumerContract interface {
 	CreateSubscriptionAndFund(opts *bind.TransactOpts, fundingJuels *big.Int) (*gethtypes.Transaction, error)
 	CreateSubscriptionAndFundNative(opts *bind.TransactOpts, fundingAmount *big.Int) (*gethtypes.Transaction, error)
-	SSubId(opts *bind.CallOpts) (*big.Int, error)
-	SRequestId(opts *bind.CallOpts) (*big.Int, error)
-	RequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, minReqConfs uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*gethtypes.Transaction, error)
+	SSubID(opts *bind.CallOpts) (*big.Int, error)
+	SRequestID(opts *bind.CallOpts) (*big.Int, error)
+	RequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, minReqConfs uint16, callbackGasLimit, numWords uint32, payInEth bool) (*gethtypes.Transaction, error)
 	SRandomWords(opts *bind.CallOpts, randomwordIdx *big.Int) (*big.Int, error)
 	TopUpSubscription(opts *bind.TransactOpts, amount *big.Int) (*gethtypes.Transaction, error)
 	TopUpSubscriptionNative(opts *bind.TransactOpts, amount *big.Int) (*gethtypes.Transaction, error)
@@ -147,7 +145,7 @@ func (c *vrfConsumerContract) CreateSubscriptionAndFund(opts *bind.TransactOpts,
 	return nil, errors.New("CreateSubscriptionAndFund is not supported")
 }
 
-func (c *vrfConsumerContract) SSubId(opts *bind.CallOpts) (*big.Int, error) {
+func (c *vrfConsumerContract) SSubID(opts *bind.CallOpts) (*big.Int, error) {
 	if c.consumerType == VRFConsumerV2 {
 		subID, err := c.vrfConsumerV2.SSubId(opts)
 		if err != nil {
@@ -181,7 +179,7 @@ func (c *vrfConsumerContract) SSubId(opts *bind.CallOpts) (*big.Int, error) {
 	return nil, errors.New("SSubId is not supported")
 }
 
-func (c *vrfConsumerContract) SRequestId(opts *bind.CallOpts) (*big.Int, error) {
+func (c *vrfConsumerContract) SRequestID(opts *bind.CallOpts) (*big.Int, error) {
 	if c.consumerType == VRFConsumerV2 {
 		return c.vrfConsumerV2.SRequestId(opts)
 	}
@@ -209,7 +207,7 @@ func (c *vrfConsumerContract) SRequestId(opts *bind.CallOpts) (*big.Int, error) 
 	return nil, errors.New("SRequestId is not supported")
 }
 
-func (c *vrfConsumerContract) RequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, minReqConfs uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*gethtypes.Transaction, error) {
+func (c *vrfConsumerContract) RequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, minReqConfs uint16, callbackGasLimit, numWords uint32, payInEth bool) (*gethtypes.Transaction, error) {
 	if c.consumerType == VRFV2PlusConsumer {
 		return c.vrfV2PlusConsumer.RequestRandomWords(opts, callbackGasLimit, minReqConfs, numWords, keyHash, payInEth)
 	}

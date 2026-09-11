@@ -30,7 +30,7 @@ func NewGethBlockHeaderProvider(client Client) *GethBlockHeaderProvider {
 // block header format is different from go-ethereum types.Header.
 // validation for invalid chain ID is done upstream in blockheaderfeeder.validate.go
 func (p *GethBlockHeaderProvider) RlpHeadersBatch(ctx context.Context, blockRange []*big.Int) ([][]byte, error) {
-	var reqs []rpc.BatchElem
+	reqs := make([]rpc.BatchElem, 0, len(blockRange))
 	for _, num := range blockRange {
 		parentBlockNum := big.NewInt(num.Int64() + 1)
 		req := rpc.BatchElem{

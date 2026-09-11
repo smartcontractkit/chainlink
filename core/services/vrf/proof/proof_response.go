@@ -17,9 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
-// ProofResponse is the data which is sent back to the VRFCoordinator, so that
+// Response is the data which is sent back to the VRFCoordinator, so that
 // it can verify that the seed the oracle finally used is correct.
-type ProofResponse struct {
+type Response struct {
 	// Approximately the proof which will be checked on-chain. Note that this
 	// contains the pre-seed in place of the final seed. That should be computed
 	// as in FinalSeed.
@@ -31,7 +31,7 @@ type ProofResponse struct {
 // OnChainResponseLength is the length of the MarshaledOnChainResponse. The
 // extra 32 bytes are for blocknumber (as a uint256), which goes at the end. The
 // seed is rewritten with the preSeed. (See MarshalForVRFCoordinator and
-// ProofResponse#ActualProof.)
+// Response#ActualProof.)
 const OnChainResponseLength = ProofLength +
 	32 // blocknum
 
@@ -41,7 +41,7 @@ type MarshaledOnChainResponse [OnChainResponseLength]byte
 
 // MarshalForVRFCoordinator constructs the flat bytes which are sent to the
 // VRFCoordinator.
-func (p *ProofResponse) MarshalForVRFCoordinator() (
+func (p *Response) MarshalForVRFCoordinator() (
 	response MarshaledOnChainResponse, err error,
 ) {
 	solidityProof, err := SolidityPrecalculations(&p.P)
@@ -65,22 +65,22 @@ func (p *ProofResponse) MarshalForVRFCoordinator() (
 	return response, nil
 }
 
-// UnmarshalProofResponse returns the ProofResponse represented by the bytes in m
-func UnmarshalProofResponse(m MarshaledOnChainResponse) (*ProofResponse, error) {
+// UnmarshalProofResponse returns the Response represented by the bytes in m
+func UnmarshalProofResponse(m MarshaledOnChainResponse) (*Response, error) {
 	blockNum := common.BytesToHash(m[ProofLength : ProofLength+32]).Big().Uint64()
 	proof, err := UnmarshalSolidityProof(m[:ProofLength])
 	if err != nil {
-		return nil, errors.Wrap(err, "while parsing ProofResponse")
+		return nil, errors.Wrap(err, "while parsing Response")
 	}
 	preSeed, err := BigToSeed(proof.Seed)
 	if err != nil {
 		return nil, errors.Wrap(err, "while converting seed to bytes representation")
 	}
-	return &ProofResponse{P: proof, PreSeed: preSeed, BlockNum: blockNum}, nil
+	return &Response{P: proof, PreSeed: preSeed, BlockNum: blockNum}, nil
 }
 
 // CryptoProof returns the proof implied by p, with the correct seed
-func (p ProofResponse) CryptoProof(s PreSeedData) (vrfkey.Proof, error) {
+func (p *Response) CryptoProof(s PreSeedData) (vrfkey.Proof, error) {
 	proof := p.P // Copy P, which has wrong seed value
 	proof.Seed = FinalSeed(s)
 	valid, err := proof.VerifyVRFProof()
@@ -97,7 +97,7 @@ func (p ProofResponse) CryptoProof(s PreSeedData) (vrfkey.Proof, error) {
 }
 
 func GenerateProofResponseFromProof(proof vrfkey.Proof, s PreSeedData) (MarshaledOnChainResponse, error) {
-	p := ProofResponse{P: proof, PreSeed: s.PreSeed, BlockNum: s.BlockNum}
+	p := Response{P: proof, PreSeed: s.PreSeed, BlockNum: s.BlockNum}
 	rv, err := p.MarshalForVRFCoordinator()
 	if err != nil {
 		return MarshaledOnChainResponse{}, err
@@ -130,7 +130,7 @@ func GenerateProofResponseFromProofV2(p vrfkey.Proof, s PreSeedDataV2) (vrf_coor
 		ZInv:          solidityProof.ZInv,
 	}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{
 		BlockNum:         s.BlockNum,
-		SubId:            s.SubId,
+		SubId:            s.SubID,
 		CallbackGasLimit: s.CallbackGasLimit,
 		NumWords:         s.NumWords,
 		Sender:           s.Sender,
@@ -168,7 +168,7 @@ func GenerateProofResponseFromProofV2Plus(
 		ZInv:          solidityProof.ZInv,
 	}, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{
 		BlockNum:         s.BlockNum,
-		SubId:            s.SubId,
+		SubId:            s.SubID,
 		CallbackGasLimit: s.CallbackGasLimit,
 		NumWords:         s.NumWords,
 		Sender:           s.Sender,
@@ -190,7 +190,8 @@ func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
 func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) (
 	vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error,
 ) {
-	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	seedHashMsg := append([]byte{}, s.PreSeed[:]...)
+	seedHashMsg = append(seedHashMsg, s.BlockHash.Bytes()...)
 	seed := utils.MustHash(string(seedHashMsg)).Big()
 	proof, err := keystore.GenerateProof(id, seed)
 	if err != nil {
@@ -202,7 +203,8 @@ func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) 
 func GenerateProofResponseV2Plus(keystore keystore.VRF, id string, s PreSeedDataV2Plus) (
 	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment, error,
 ) {
-	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	seedHashMsg := append([]byte{}, s.PreSeed[:]...)
+	seedHashMsg = append(seedHashMsg, s.BlockHash.Bytes()...)
 	seed := utils.MustHash(string(seedHashMsg)).Big()
 	proof, err := keystore.GenerateProof(id, seed)
 	if err != nil {

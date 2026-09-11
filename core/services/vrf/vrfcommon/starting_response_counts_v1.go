@@ -35,7 +35,7 @@ func GetStartingResponseCountsV1(ctx context.Context, chain legacyevm.Chain) (ma
 	var counts []RespCountEntry
 	counts, err = GetRespCounts(ctx, chain.TxManager(), chain.Client().ConfiguredChainID(), confirmedBlockNum)
 	if err != nil {
-		return respCounts, nil
+		return respCounts, err
 	}
 
 	for _, c := range counts {

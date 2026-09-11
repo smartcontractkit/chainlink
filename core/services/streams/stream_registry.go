@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -39,7 +39,7 @@ func NewRegistry(lggr logger.Logger, runner Runner) Registry {
 func newRegistry(lggr logger.Logger, runner Runner) *streamRegistry {
 	return &streamRegistry{
 		sync.RWMutex{},
-		lggr.Named("Registry"),
+		logger.Named(lggr, "Registry"),
 		runner,
 		make(map[StreamID]Pipeline),
 		make(map[int32]Pipeline),
@@ -50,7 +50,7 @@ func (s *streamRegistry) Get(streamID StreamID) (p Pipeline, exists bool) {
 	s.RLock()
 	defer s.RUnlock()
 	p, exists = s.pipelines[streamID]
-	return
+	return p, exists
 }
 
 func (s *streamRegistry) Register(jb job.Job, rrs ResultRunSaver) error {

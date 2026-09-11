@@ -201,7 +201,7 @@ func (b bindingContractReaderProxy) Bind(ctx context.Context, boundContracts []c
 	return b.ContractReader.Bind(ctx, updatedBindings)
 }
 
-func (b bindingsMapping) translateContractNames(boundContracts []commontypes.BoundContract) []commontypes.BoundContract {
+func (b *bindingsMapping) translateContractNames(boundContracts []commontypes.BoundContract) []commontypes.BoundContract {
 	updatedBindings := make([]commontypes.BoundContract, 0, len(boundContracts))
 	for _, boundContract := range boundContracts {
 		updatedBindings = append(updatedBindings, commontypes.BoundContract{
@@ -235,7 +235,7 @@ func (b bindingContractReaderProxy) GetLatestValue(ctx context.Context, readKey 
 	return nil
 }
 
-func (b bindingChainWriterProxy) SubmitTransaction(ctx context.Context, contract, method string, args any, transactionID string, toAddress string, meta *commontypes.TxMeta, value *big.Int) error {
+func (b bindingChainWriterProxy) SubmitTransaction(ctx context.Context, contract, method string, args any, transactionID, toAddress string, meta *commontypes.TxMeta, value *big.Int) error {
 	chainReaderTesters := b.bm.chainReaderTesters[toAddress]
 	switch contract {
 	case interfacetests.AnyContractName, interfacetests.AnySecondContractName:
@@ -264,7 +264,7 @@ func (b bindingChainWriterProxy) SubmitTransaction(ctx context.Context, contract
 	}
 }
 
-func (b *bindingChainWriterProxy) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
+func (b bindingChainWriterProxy) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
 	return b.ContractWriter.GetTransactionStatus(ctx, transactionID)
 }
 
@@ -367,8 +367,8 @@ func (b *bindingsMapping) createDelegateForSecondContractMethodReturningUint64()
 }
 
 // Transforms a readKey from ChainReader using the generic testing config to the actual config being used with go bindings which is the auto-generated from the solidity contract.
-func (b bindingsMapping) translateReadKey(key string) string {
-	var updatedKey = key
+func (b *bindingsMapping) translateReadKey(key string) string {
+	updatedKey := key
 	parts := strings.Split(key, "-")
 	contractName := parts[1]
 	methodName := parts[2]
@@ -386,7 +386,7 @@ func (b bindingsMapping) translateReadKey(key string) string {
 }
 
 // Transforms a readKey from ChainReader using the generic testing config to the actual config being used with go bindings which is the auto-generated from the solidity contract.
-func (b bindingsMapping) translateContractName(contractName string) string {
+func (b *bindingsMapping) translateContractName(contractName string) string {
 	for testContractName, bindingsName := range b.contractNameMapping {
 		if contractName == testContractName {
 			return bindingsName
@@ -399,7 +399,7 @@ func invokeSpecificMethod[T any](ctx context.Context, readKey string, input T, l
 	return methodInvocation(ctx, readKey, input, level)
 }
 
-func (b bindingsMapping) getBindingDelegate(readKey string) (*Delegate, error) {
+func (b *bindingsMapping) getBindingDelegate(readKey string) (*Delegate, error) {
 	translatedKey := removeAddressFromReadIdentifier(b.translateReadKey(readKey))
 	delegate := b.delegates[translatedKey]
 
@@ -409,7 +409,7 @@ func (b bindingsMapping) getBindingDelegate(readKey string) (*Delegate, error) {
 	return delegate, nil
 }
 
-func (b bindingsMapping) GetChainReaderTester(key string) *bindings.ChainReaderTester {
+func (b *bindingsMapping) GetChainReaderTester(key string) *bindings.ChainReaderTester {
 	address := key[0:strings.Index(key, "-")]
 	return b.chainReaderTesters[address]
 }
@@ -444,7 +444,7 @@ func (d Delegate) apply(ctx context.Context, readKey string, input any, confiden
 }
 
 // Utility function to converted original types from and to bindings expected types.
-func convertStruct(src any, dst any) error {
+func convertStruct(src, dst any) error {
 	if reflect.TypeOf(src).Kind() == reflect.Pointer && reflect.TypeOf(dst).Kind() == reflect.Pointer && reflect.TypeOf(src).Elem() == reflect.TypeFor[interfacetests.LatestParams]() && reflect.TypeOf(dst).Elem() == reflect.TypeFor[bindings.GetElementAtIndexInput]() {
 		value := src.(*interfacetests.LatestParams).I
 		dst.(*bindings.GetElementAtIndexInput).I = big.NewInt(int64(value))
@@ -519,7 +519,7 @@ func createDecoder(dst any) (*mapstructure.Decoder, error) {
 	return decoder, err
 }
 
-func stringToByteArrayHook(from reflect.Type, to reflect.Type, data any) (any, error) {
+func stringToByteArrayHook(from, to reflect.Type, data any) (any, error) {
 	if from.Kind() == reflect.String && to == reflect.TypeFor[[]byte]() {
 		return evmcodec.EVMAddressModifier{}.DecodeAddress(data.(string))
 	}

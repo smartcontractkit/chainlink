@@ -170,7 +170,7 @@ func (lsn *listenerV2) fetchRecentSingleTxns(ctx context.Context,
 			WHERE tx_hash IN (SELECT hash FROM attempts)
 				AND receipt->>'status' = '0x0'
 		)
-		SELECT r.tx_hash, 
+		SELECT r.tx_hash,
 			r.receipt,
 			t.from_address,
 			t.to_address,
@@ -235,7 +235,7 @@ func (lsn *listenerV2) fetchRecentBatchTxns(ctx context.Context,
 			FROM evm.receipts
 			WHERE tx_hash IN (SELECT hash FROM attempts)
 		)
-		SELECT r.tx_hash, 
+		SELECT r.tx_hash,
 			r.receipt,
 			t.from_address,
 			t.to_address,
@@ -286,7 +286,7 @@ func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 			WHERE tx_hash IN (SELECT hash FROM attempts)
 				AND receipt->>'status' = '0x0'
 		)
-		SELECT r.tx_hash, 
+		SELECT r.tx_hash,
 			r.receipt,
 			t.from_address,
 			t.to_address,

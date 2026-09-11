@@ -36,7 +36,7 @@ func main() {
 		helpers.PanicErr(err)
 		exportJSON, err := key.ToEncryptedJSON(*password, keystore.DefaultScryptParams)
 		helpers.PanicErr(err)
-		err = os.WriteFile(*outfile, exportJSON, 0600)
+		err = os.WriteFile(*outfile, exportJSON, 0o600)
 		helpers.PanicErr(err)
 		fmt.Println("generated vrf key", key.PublicKey.String(), "and saved encrypted in", *outfile)
 	case "gen-vrf-numbers":
@@ -79,7 +79,8 @@ func main() {
 
 		genProofs := func(
 			nonceRange []uint64,
-			outChan chan []string) {
+			outChan chan []string,
+		) {
 			numIters := 0
 			for nonce := nonceRange[0]; nonce <= nonceRange[1]; nonce++ {
 				var record []string
@@ -96,7 +97,7 @@ func main() {
 					PreSeed:          preSeed,
 					BlockHash:        blockhash,
 					BlockNum:         *blockNum,
-					SubId:            *subID,
+					SubID:            *subID,
 					CallbackGasLimit: uint32(*cbGasLimit),
 					NumWords:         uint32(*numWords),
 					Sender:           sender,
@@ -152,7 +153,8 @@ func main() {
 		for _, nonceRange := range ranges {
 			go genProofs(
 				nonceRange,
-				outC)
+				outC,
+			)
 		}
 
 		gather(outC)
@@ -235,7 +237,8 @@ func preseed(keyHash common.Hash, sender common.Address, subID, nonce uint64) [3
 		keyHash,
 		sender,
 		subID,
-		nonce)
+		nonce,
+	)
 	helpers.PanicErr(err)
 	preSeed := crypto.Keccak256(encoded)
 	var preSeedSized [32]byte
@@ -250,5 +253,5 @@ func nonceRanges(start, end, numWorkers uint64) (ranges [][]uint64) {
 
 		ranges = append(ranges, []uint64{i, j})
 	}
-	return
+	return ranges
 }

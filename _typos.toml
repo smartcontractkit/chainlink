@@ -188,4 +188,8 @@ BRIN = "BRIN"
 writeable = "writeable"
 transferrable = "transferrable"
 supercedes = "supercedes"
+# Domain terms & identifiers
+ot = "ot"
+ba = "ba"
+BA = "BA"
 unparseable = "unparseable"

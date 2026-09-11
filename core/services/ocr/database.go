@@ -14,31 +14,31 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type db struct {
 	ds           sqlutil.DataSource
 	oracleSpecID int32
-	lggr         logger.SugaredLogger
+	lggr         commonlogger.SugaredLogger
 }
 
 var (
-	_ ocrtypes.Database    = &db{}
-	_ OCRContractTrackerDB = &db{}
+	_ ocrtypes.Database = &db{}
+	_ ContractTrackerDB = &db{}
 )
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(ds sqlutil.DataSource, oracleSpecID int32, lggr logger.Logger) *db {
+func NewDB(ds sqlutil.DataSource, oracleSpecID int32, lggr commonlogger.Logger) *db {
 	return &db{
 		ds:           ds,
 		oracleSpecID: oracleSpecID,
-		lggr:         logger.Sugared(lggr),
+		lggr:         commonlogger.Sugared(lggr),
 	}
 }
 
-func (d *db) WithDataSource(ds sqlutil.DataSource) OCRContractTrackerDB {
+func (d *db) WithDataSource(ds sqlutil.DataSource) ContractTrackerDB {
 	return NewDB(ds, d.oracleSpecID, d.lggr)
 }
 
@@ -62,17 +62,17 @@ func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrty
 		return nil, errors.Wrap(err, "ReadState failed")
 	}
 
-	ps.HighestSentEpoch = uint32(highestSentEpochTmp)
+	ps.HighestSentEpoch = uint32(highestSentEpochTmp) //nolint:gosec // G115: epoch is a uint32 persisted as int64
 
 	for _, v := range tmp {
-		ps.HighestReceivedEpoch = append(ps.HighestReceivedEpoch, uint32(v))
+		ps.HighestReceivedEpoch = append(ps.HighestReceivedEpoch, uint32(v)) //nolint:gosec // G115: epoch is a uint32 persisted as int64
 	}
 
 	return ps, nil
 }
 
 func (d *db) WriteState(ctx context.Context, cd ocrtypes.ConfigDigest, state ocrtypes.PersistentState) error {
-	var highestReceivedEpoch []int64
+	highestReceivedEpoch := make([]int64, 0, len(state.HighestReceivedEpoch))
 	for _, v := range state.HighestReceivedEpoch {
 		highestReceivedEpoch = append(highestReceivedEpoch, int64(v))
 	}
@@ -137,8 +137,8 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 }
 
 func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
-	var signers [][]byte
-	var transmitters [][]byte
+	signers := make([][]byte, 0, len(c.Signers))
+	transmitters := make([][]byte, 0, len(c.Transmitters))
 	for _, s := range c.Signers {
 		signers = append(signers, s.Bytes())
 	}
@@ -157,15 +157,15 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 		encoded = EXCLUDED.encoded,
 		updated_at = NOW()
 	`
-	_, err := d.ds.ExecContext(ctx, stmt, d.oracleSpecID, c.ConfigDigest, pq.ByteaArray(signers), pq.ByteaArray(transmitters), c.Threshold, int(c.EncodedConfigVersion), c.Encoded)
+	_, err := d.ds.ExecContext(ctx, stmt, d.oracleSpecID, c.ConfigDigest, pq.ByteaArray(signers), pq.ByteaArray(transmitters), c.Threshold, int(c.EncodedConfigVersion), c.Encoded) //nolint:gosec // G115: encoded config version is a small non-negative value
 
 	return errors.Wrap(err, "WriteConfig failed")
 }
 
 func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTimestamp, p ocrtypes.PendingTransmission) error {
 	median := sqlutil.New(p.Median)
-	var rs [][]byte
-	var ss [][]byte
+	rs := make([][]byte, 0, len(p.Rs))
+	ss := make([][]byte, 0, len(p.Ss))
 	// Note: p.Rs and p.Ss are of type [][32]byte.
 	// See last example of https://github.com/golang/go/wiki/CommonMistakes#using-reference-to-loop-iterator-variable
 	for _, v := range p.Rs {

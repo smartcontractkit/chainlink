@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/smartcontractkit/cre-sdk-go/cre"
-	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"gopkg.in/yaml.v3"
 
-	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
-
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
+	"github.com/smartcontractkit/cre-sdk-go/cre"
+	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
 type runtimeConfig struct {

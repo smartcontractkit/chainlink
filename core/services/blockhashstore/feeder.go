@@ -11,8 +11,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const trustedTimeout = 1 * time.Second
@@ -119,7 +119,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 		return nil
 	}
 
-	lggr := f.lggr.With("latestBlock", latestBlock, "fromBlock", fromBlock, "toBlock", toBlock)
+	lggr := logger.With(f.lggr, "latestBlock", latestBlock, "fromBlock", fromBlock, "toBlock", toBlock)
 	blockToRequests, err := GetUnfulfilledBlocksAndRequests(ctx, lggr, f.coordinator, fromBlock, toBlock)
 	if err != nil {
 		return err
@@ -244,9 +244,7 @@ func (f *Feeder) runTrusted(
 
 		// Get all logpoller blocks for the range including the batch and the latest block,
 		// as to include the recent blockhash.
-		blocks := slices.AppendSeq(make([]uint64, 0, len(batch)+1), maps.Keys(batch))
-		blocks = append(blocks, latestBlock)
-		lpBlocks, err := f.lp.GetBlocksRange(ctx, blocks)
+		lpBlocks, err := f.lp.GetBlocksRange(ctx, append(slices.Collect(maps.Keys(batch)), latestBlock))
 		if err != nil {
 			f.lggr.Errorw("Failed to get blocks range",
 				"err", err,

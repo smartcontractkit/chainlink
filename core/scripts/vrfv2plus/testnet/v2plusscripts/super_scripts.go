@@ -308,7 +308,7 @@ func SmokeTestVRF(e helpers.Environment) {
 		PreSeed:          preSeed,
 		BlockHash:        rwrLog.Raw.BlockHash,
 		BlockNum:         rwrLog.Raw.BlockNumber,
-		SubId:            rwrLog.SubId,
+		SubID:            rwrLog.SubId,
 		CallbackGasLimit: rwrLog.CallbackGasLimit,
 		NumWords:         rwrLog.NumWords,
 		Sender:           rwrLog.Sender,
