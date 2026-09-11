@@ -12,7 +12,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -20,7 +20,7 @@ import (
 
 type ConfigOverriderImpl struct {
 	services.StateMachine
-	logger          common.Logger
+	logger          logger.Logger
 	flags           *ContractFlags
 	contractAddress types.EIP55Address
 
@@ -45,7 +45,7 @@ type DeltaCConfig interface {
 }
 
 func NewConfigOverriderImpl(
-	logger common.Logger,
+	logger logger.Logger,
 	cfg DeltaCConfig,
 	contractAddress types.EIP55Address,
 	flags *ContractFlags,

@@ -1,7 +1,7 @@
 package pg
 
 import (
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonpg "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 )
 
@@ -12,6 +12,6 @@ type (
 
 type StatsReporter = commonpg.StatsReporter
 
-func NewStatsReporter(fn StatFn, lggr common.Logger, opts ...commonpg.StatsReporterOpt) *StatsReporter {
+func NewStatsReporter(fn StatFn, lggr logger.Logger, opts ...commonpg.StatsReporterOpt) *StatsReporter {
 	return commonpg.NewStatsReporter(fn, lggr, opts...)
 }

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -22,7 +22,7 @@ type (
 	Service struct {
 		services.StateMachine
 		ds             sqlutil.DataSource
-		lggr           common.Logger
+		lggr           logger.Logger
 		newHeads       *mailbox.Mailbox[*types.Head]
 		chStop         services.StopChan
 		wgDone         sync.WaitGroup
@@ -32,10 +32,10 @@ type (
 	}
 )
 
-func NewHeadReporterService(ds sqlutil.DataSource, lggr common.Logger, reporters ...HeadReporter) *Service {
+func NewHeadReporterService(ds sqlutil.DataSource, lggr logger.Logger, reporters ...HeadReporter) *Service {
 	return &Service{
 		ds:           ds,
-		lggr:         common.Named(lggr, "HeadReporter"),
+		lggr:         logger.Named(lggr, "HeadReporter"),
 		newHeads:     mailbox.NewSingle[*types.Head](),
 		chStop:       make(chan struct{}),
 		reporters:    reporters,

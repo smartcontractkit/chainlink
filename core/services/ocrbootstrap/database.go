@@ -9,20 +9,20 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 type db struct {
 	ds           sqlutil.DataSource
 	oracleSpecID int32
-	lggr         common.Logger
+	lggr         logger.Logger
 }
 
 var _ ocrtypes.ConfigDatabase = &db{}
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(ds sqlutil.DataSource, bootstrapSpecID int32, lggr common.Logger) *db {
+func NewDB(ds sqlutil.DataSource, bootstrapSpecID int32, lggr logger.Logger) *db {
 	return &db{ds, bootstrapSpecID, lggr}
 }
 

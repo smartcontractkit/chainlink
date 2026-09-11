@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -59,7 +59,7 @@ type (
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
 		logBroadcaster   log.Broadcaster
 		jobID            int32
-		logger           common.SugaredLogger
+		logger           logger.SugaredLogger
 		ocrDB            ContractTrackerDB
 		ds               sqlutil.DataSource
 		blockTranslator  block.BlockTranslator
@@ -112,14 +112,13 @@ func NewOCRContractTracker(
 	ethClient evmclient.Client,
 	logBroadcaster log.Broadcaster,
 	jobID int32,
-	logger common.Logger,
+	lggr logger.Logger,
 	ds sqlutil.DataSource,
 	ocrDB ContractTrackerDB,
 	cfg ocrcommon.Config,
 	headBroadcaster heads.Broadcaster,
 	mailMon *mailbox.Monitor,
 ) (o *ContractTracker) {
-	logger = common.Sugared(logger).Named("ContractTracker")
 	return &ContractTracker{
 		ethClient:            ethClient,
 		contract:             contract,
@@ -127,10 +126,10 @@ func NewOCRContractTracker(
 		contractCaller:       contractCaller,
 		logBroadcaster:       logBroadcaster,
 		jobID:                jobID,
-		logger:               common.Sugared(logger),
+		logger:               logger.Sugared(lggr).Named("ContractTracker"),
 		ocrDB:                ocrDB,
 		ds:                   ds,
-		blockTranslator:      block.NewBlockTranslator(cfg.ChainType(), ethClient, logger),
+		blockTranslator:      block.NewBlockTranslator(cfg.ChainType(), ethClient, lggr),
 		cfg:                  cfg,
 		mailMon:              mailMon,
 		headBroadcaster:      headBroadcaster,
