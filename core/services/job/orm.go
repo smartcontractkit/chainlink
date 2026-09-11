@@ -75,7 +75,6 @@ type ORM interface {
 	DataSource() sqlutil.DataSource
 	WithDataSource(source sqlutil.DataSource) ORM
 
-	FindJobIDByWorkflow(ctx context.Context, spec WorkflowSpec) (int32, error)
 	// TODO rename function to indicate it is CCIP-specific, not generic?
 	FindJobIDByCapabilityNameAndVersion(ctx context.Context, spec CCIPSpec) (int32, error)
 	FindStandardCapabilityJobID(ctx context.Context, spec StandardCapabilitiesSpec) (int32, error)
@@ -174,7 +173,7 @@ var ErrJobTypeRemoved = fmt.Errorf("job type has been removed and is no longer s
 func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 	// Permanently removed job types: reject all new submissions regardless of
 	// which code path reaches here (REST API, GraphQL, feeds manager, etc.).
-	if jb.Type == DirectRequest || jb.Type == FluxMonitor || jb.Type == Webhook {
+	if jb.Type == DirectRequest || jb.Type == FluxMonitor || jb.Type == Webhook || jb.Type == Workflow {
 		return fmt.Errorf("cannot create job of type %q: %w", jb.Type, ErrJobTypeRemoved)
 	}
 
@@ -418,15 +417,6 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 			jb.GatewaySpecID = &specID
 		case Stream:
 			// 'stream' type has no associated spec, nothing to do here
-		case Workflow:
-			sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, workflow_name, binary_url, config_url, secrets_id, created_at, updated_at, spec_type, config)
-			VALUES (:workflow, :workflow_id, :workflow_owner, :workflow_name, :binary_url, :config_url, :secrets_id, NOW(), NOW(), :spec_type, :config)
-			RETURNING id;`
-			specID, err := tx.prepareQuerySpecID(ctx, sql, jb.WorkflowSpec)
-			if err != nil {
-				return fmt.Errorf("failed to create WorkflowSpec for jobSpec given %v: %w", *jb.WorkflowSpec, err)
-			}
-			jb.WorkflowSpecID = &specID
 		case StandardCapabilities:
 			sql := `INSERT INTO standardcapabilities_specs (command, config, oracle_factory, created_at, updated_at)
 			VALUES (:command, :config, :oracle_factory, NOW(), NOW())
@@ -752,7 +742,6 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 		Bootstrap:            `DELETE FROM bootstrap_specs WHERE id IN (SELECT bootstrap_spec_id FROM deleted_jobs)`,
 		BlockHeaderFeeder:    `DELETE FROM block_header_feeder_specs WHERE id IN (SELECT block_header_feeder_spec_id FROM deleted_jobs)`,
 		Gateway:              `DELETE FROM gateway_specs WHERE id IN (SELECT gateway_spec_id FROM deleted_jobs)`,
-		Workflow:             `DELETE FROM workflow_specs WHERE id in (SELECT workflow_spec_id FROM deleted_jobs)`,
 		StandardCapabilities: `DELETE FROM standardcapabilities_specs WHERE id in (SELECT standard_capabilities_spec_id FROM deleted_jobs)`,
 		CCIP:                 `DELETE FROM ccip_specs WHERE id in (SELECT ccip_spec_id FROM deleted_jobs)`,
 		CCVCommitteeVerifier: `DELETE FROM ccv_committee_verifier_specs WHERE id IN (SELECT ccv_committee_verifier_spec_id FROM deleted_jobs)`,
@@ -1137,23 +1126,6 @@ func (o *orm) FindJobIDsWithBridge(ctx context.Context, name string) (jids []int
 	}
 
 	return jids, err
-}
-
-func (o *orm) FindJobIDByWorkflow(ctx context.Context, spec WorkflowSpec) (jobID int32, err error) {
-	stmt := `
-SELECT jobs.id FROM jobs
-INNER JOIN workflow_specs ws on jobs.workflow_spec_id = ws.id AND ws.workflow_owner = $1 AND ws.workflow_name = $2
-`
-	err = o.ds.GetContext(ctx, &jobID, stmt, spec.WorkflowOwner, spec.WorkflowName)
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			err = fmt.Errorf("error searching for job by workflow (owner,name) ('%s','%s'): %w", spec.WorkflowOwner, spec.WorkflowName, err)
-		}
-		err = fmt.Errorf("FindJobIDByWorkflow failed: %w", err)
-		return jobID, err
-	}
-
-	return jobID, err
 }
 
 func (o *orm) FindJobIDByCapabilityNameAndVersion(ctx context.Context, spec CCIPSpec) (jobID int32, err error) {

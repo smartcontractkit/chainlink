@@ -63,7 +63,7 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 		BinaryURL:     "",
 		ConfigURL:     "",
 		CreatedAt:     time.Now(),
-		SpecType:      job.DefaultSpecType,
+		SpecType:      job.WASMFile,
 	})
 	require.NoError(t, err)
 
@@ -117,7 +117,7 @@ func Test_Store_DeleteWorkflowArtifactsBatch(t *testing.T) {
 			WorkflowOwner: owner,
 			WorkflowName:  "name-" + id,
 			CreatedAt:     time.Now(),
-			SpecType:      job.DefaultSpecType,
+			SpecType:      job.WASMFile,
 		})
 		require.NoError(t, err)
 	}

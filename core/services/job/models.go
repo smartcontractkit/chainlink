@@ -1,7 +1,6 @@
 package job
 
 import (
-	"context"
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
@@ -22,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -810,9 +808,7 @@ type LiquidityBalancerSpec struct {
 type WorkflowSpecType string
 
 const (
-	YamlSpec        WorkflowSpecType = "yaml"
-	WASMFile        WorkflowSpecType = "wasm_file"
-	DefaultSpecType                  = ""
+	WASMFile WorkflowSpecType = "wasm_file"
 )
 
 type WorkflowSpecStatus string
@@ -848,99 +844,6 @@ type WorkflowSpec struct {
 	// StorageBytes is the workflow + config size in bytes. Set at registration
 	// and not cleared by pausing the workflow
 	StorageBytes int64 `toml:"-" db:"storage_bytes"`
-
-	sdkWorkflow *sdk.WorkflowSpec
-	rawSpec     []byte
-	config      []byte
-}
-
-var (
-	ErrInvalidWorkflowID       = errors.New("invalid workflow id")
-	ErrInvalidWorkflowYAMLSpec = errors.New("invalid workflow yaml spec")
-)
-
-const (
-	workflowIDLen = 64 // sha256 hash
-)
-
-// Validate checks the workflow spec for correctness
-func (w *WorkflowSpec) Validate(ctx context.Context) error {
-	s, err := w.SDKSpec(ctx)
-	if err != nil {
-		return err
-	}
-
-	// For yaml-based workflow specs, use the owner & name fields defined there.
-	// For wasm workflows, use the `workflow_name` & `workflow_owner` fields directly from the job spec.
-	if s.Owner+s.Name != "" {
-		w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
-		w.WorkflowName = s.Name
-	} else {
-		w.WorkflowOwner = strings.TrimPrefix(w.WorkflowOwner, "0x")
-	}
-
-	if len(w.WorkflowID) != workflowIDLen {
-		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))
-	}
-
-	return nil
-}
-
-func (w *WorkflowSpec) SDKSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
-	if w.sdkWorkflow != nil {
-		return *w.sdkWorkflow, nil
-	}
-
-	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
-	if !ok {
-		return sdk.WorkflowSpec{}, fmt.Errorf("unknown spec type %s", w.SpecType)
-	}
-	spec, rawSpec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, w.Config)
-	if err != nil {
-		return sdk.WorkflowSpec{}, fmt.Errorf("spec factory failed: %w", err)
-	}
-	w.sdkWorkflow = &spec
-	w.rawSpec = rawSpec
-	w.WorkflowID = cid
-	return spec, nil
-}
-
-func (w *WorkflowSpec) RawSpec(ctx context.Context) ([]byte, error) {
-	if w.rawSpec != nil {
-		return w.rawSpec, nil
-	}
-
-	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
-	if !ok {
-		return nil, fmt.Errorf("unknown spec type %s", w.SpecType)
-	}
-
-	rs, err := workflowSpecFactory.RawSpec(ctx, w.Workflow, w.Config)
-	if err != nil {
-		return nil, err
-	}
-
-	w.rawSpec = rs
-	return rs, nil
-}
-
-func (w *WorkflowSpec) GetConfig(ctx context.Context) ([]byte, error) {
-	if w.config != nil {
-		return w.config, nil
-	}
-
-	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
-	if !ok {
-		return nil, fmt.Errorf("unknown spec type %s", w.SpecType)
-	}
-
-	rs, err := workflowSpecFactory.Config(ctx, w.Config)
-	if err != nil {
-		return nil, err
-	}
-
-	w.config = rs
-	return rs, nil
 }
 
 type StandardCapabilitiesConfig struct {
