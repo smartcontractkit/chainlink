@@ -225,7 +225,7 @@ func configureCapabilitiesRegistry(t *testing.T, h *Harness) {
 		runtime.ChangesetTask(changeset2.ConfigureCapabilitiesRegistry{},
 			changeset2.ConfigureCapabilitiesRegistryInput{
 				ChainSelector:               h.RegistrySelector,
-				CapabilitiesRegistryAddress: h.RegistryAddress.Hex(),
+				CapabilitiesRegistryAddress: h.RegistryAddress.Hex(), //nolint:staticcheck // CapabilitiesRegistryAddress is deprecated in favor of RegistryRef
 				Nops: []changeset2.CapabilitiesRegistryNodeOperator{
 					{
 						Name:  "Operator 1",

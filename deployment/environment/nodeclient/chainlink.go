@@ -61,9 +61,7 @@ func NewChainlinkClient(c *ChainlinkConfig, logger zerolog.Logger) (*ChainlinkCl
 
 func initRestyClient(url string, email string, password string, headers map[string]string, timeout *time.Duration) (*resty.Client, error) {
 	isDebug := os.Getenv("RESTY_DEBUG") == "true"
-	// G402 - TODO: certificates
-	//nolint
-	rc := resty.New().SetBaseURL(url).SetHeaders(headers).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}).SetDebug(isDebug)
+	rc := resty.New().SetBaseURL(url).SetHeaders(headers).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}).SetDebug(isDebug) //nolint:gosec // G402 - TODO: certificates
 	if timeout != nil {
 		rc.SetTimeout(*timeout)
 	}
@@ -74,12 +72,11 @@ func initRestyClient(url string, email string, password string, headers map[stri
 	retryCount := 20
 	for range retryCount {
 		resp, err = rc.R().SetBody(session).Post("/sessions")
-		if err != nil {
-			log.Warn().Err(err).Str("URL", url).Interface("Session Details", session).Msg("Error connecting to Chainlink node, retrying")
-			time.Sleep(5 * time.Second)
-		} else {
+		if err == nil {
 			break
 		}
+		log.Warn().Err(err).Str("URL", url).Interface("Session Details", session).Msg("Error connecting to Chainlink node, retrying")
+		time.Sleep(5 * time.Second)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to chainlink node after %d attempts: %w", retryCount, err)
@@ -483,7 +480,7 @@ func (c *ChainlinkClient) MustReadP2PKeys() (*P2PKeys, error) {
 	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	if len(p2pKeys.Data) == 0 {
-		err = fmt.Errorf("Found no P2P Keys on the Chainlink node. Node URL: %s", c.Config.URL)
+		err = fmt.Errorf("found no P2P keys on the Chainlink node. Node URL: %s", c.Config.URL)
 		c.l.Err(err).Msg("Error getting P2P keys")
 		return nil, err
 	}
@@ -526,12 +523,12 @@ func (c *ChainlinkClient) MustReadETHKeys() (*ETHKeys, error) {
 }
 
 // UpdateEthKeyMaxGasPriceGWei updates the maxGasPriceGWei for an eth key
-func (c *ChainlinkClient) UpdateEthKeyMaxGasPriceGWei(keyId string, gWei int) (*ETHKey, *http.Response, error) {
+func (c *ChainlinkClient) UpdateEthKeyMaxGasPriceGWei(keyID string, gWei int) (*ETHKey, *http.Response, error) {
 	ethKey := &ETHKey{}
-	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", keyId).Int("maxGasPriceGWei", gWei).Msg("Update maxGasPriceGWei for eth key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", keyID).Int("maxGasPriceGWei", gWei).Msg("Update maxGasPriceGWei for eth key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
-			"keyId": keyId,
+			"keyId": keyID,
 		}).
 		SetQueryParams(map[string]string{
 			"maxGasPriceGWei": strconv.Itoa(gWei),
@@ -555,7 +552,7 @@ func (c *ChainlinkClient) ReadPrimaryETHKey() (*ETHKeyData, error) {
 		return nil, err
 	}
 	if len(ethKeys.Data) == 0 {
-		return nil, fmt.Errorf("Error retrieving primary eth key on node %s: No ETH keys present", c.URL())
+		return nil, fmt.Errorf("error retrieving primary eth key on node %s: no ETH keys present", c.URL())
 	}
 	return &ethKeys.Data[0], nil
 }
@@ -567,7 +564,7 @@ func (c *ChainlinkClient) ReadETHKeyAtIndex(keyIndex int) (*ETHKeyData, error) {
 		return nil, err
 	}
 	if len(ethKeys.Data) == 0 {
-		return nil, fmt.Errorf("Error retrieving primary eth key on node %s: No ETH keys present", c.URL())
+		return nil, fmt.Errorf("error retrieving primary eth key on node %s: no ETH keys present", c.URL())
 	}
 	return &ethKeys.Data[keyIndex], nil
 }
@@ -600,14 +597,14 @@ func (c *ChainlinkClient) EthAddresses() ([]string, error) {
 }
 
 // EthAddresses returns the ETH addresses of the Chainlink node for a specific chain id
-func (c *ChainlinkClient) EthAddressesForChain(chainId string) ([]string, error) {
+func (c *ChainlinkClient) EthAddressesForChain(chainID string) ([]string, error) {
 	var ethAddresses []string
 	ethKeys, err := c.MustReadETHKeys()
 	if err != nil {
 		return nil, err
 	}
 	for _, ethKey := range ethKeys.Data {
-		if ethKey.Attributes.ChainID == chainId {
+		if ethKey.Attributes.ChainID == chainID {
 			ethAddresses = append(ethAddresses, ethKey.Attributes.Address)
 		}
 	}
@@ -615,13 +612,13 @@ func (c *ChainlinkClient) EthAddressesForChain(chainId string) ([]string, error)
 }
 
 // PrimaryEthAddressForChain returns the primary ETH address for the Chainlink node for mentioned chain
-func (c *ChainlinkClient) PrimaryEthAddressForChain(chainId string) (string, error) {
+func (c *ChainlinkClient) PrimaryEthAddressForChain(chainID string) (string, error) {
 	ethKeys, err := c.MustReadETHKeys()
 	if err != nil {
 		return "", err
 	}
 	for _, ethKey := range ethKeys.Data {
-		if ethKey.Attributes.ChainID == chainId {
+		if ethKey.Attributes.ChainID == chainID {
 			return ethKey.Attributes.Address, nil
 		}
 	}
@@ -685,14 +682,14 @@ func (c *ChainlinkClient) ExportEVMKeysForChain(chainid string) ([]*ExportedEVMK
 }
 
 // CreateTxKey creates a tx key on the Chainlink node
-func (c *ChainlinkClient) CreateTxKey(chain string, chainId string) (*TxKey, *http.Response, error) {
+func (c *ChainlinkClient) CreateTxKey(chain string, chainID string) (*TxKey, *http.Response, error) {
 	txKey := &TxKey{}
 	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating Tx Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"chain": chain,
 		}).
-		SetQueryParam("evmChainID", chainId).
+		SetQueryParam("evmChainID", chainID).
 		SetResult(txKey).
 		Post("/v2/keys/{chain}")
 	if err != nil {
@@ -820,12 +817,12 @@ func (c *ChainlinkClient) MustCreateVRFKey() (*VRFKey, error) {
 }
 
 // ExportVRFKey exports a vrf key by key id
-func (c *ChainlinkClient) ExportVRFKey(keyId string) (*VRFExportKey, *http.Response, error) {
+func (c *ChainlinkClient) ExportVRFKey(keyID string) (*VRFExportKey, *http.Response, error) {
 	vrfExportKey := &VRFExportKey{}
-	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", keyId).Msg("Exporting VRF Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", keyID).Msg("Exporting VRF Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
-			"keyId": keyId,
+			"keyId": keyID,
 		}).
 		SetResult(vrfExportKey).
 		Post("/v2/keys/vrf/export/{keyId}")
@@ -1181,7 +1178,7 @@ func VerifyStatusCodeWithResponse(res *resty.Response, expStatusCd int) error {
 	return nil
 }
 
-func CreateNodeKeysBundle(nodes []*ChainlinkClient, chainName string, chainId string) ([]NodeKeysBundle, []*CLNodesWithKeys, error) {
+func CreateNodeKeysBundle(nodes []*ChainlinkClient, chainName string, chainID string) ([]NodeKeysBundle, []*CLNodesWithKeys, error) {
 	nkb := make([]NodeKeysBundle, 0)
 	var clNodes []*CLNodesWithKeys
 	for _, n := range nodes {
@@ -1211,7 +1208,7 @@ func CreateNodeKeysBundle(nodes []*ChainlinkClient, chainName string, chainId st
 		}
 		// if no txkey is found for the chain, create a new one
 		if txKey == nil {
-			txKey, _, err = n.CreateTxKey(chainName, chainId)
+			txKey, _, err = n.CreateTxKey(chainName, chainID)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -1231,7 +1228,7 @@ func CreateNodeKeysBundle(nodes []*ChainlinkClient, chainName string, chainId st
 		if ocrKey == nil {
 			return nil, nil, fmt.Errorf("no OCR key found for chain %s", chainName)
 		}
-		ethAddress, err := n.PrimaryEthAddressForChain(chainId)
+		ethAddress, err := n.PrimaryEthAddressForChain(chainID)
 		if err != nil {
 			return nil, nil, err
 		}

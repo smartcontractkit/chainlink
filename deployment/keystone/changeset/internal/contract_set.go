@@ -12,6 +12,9 @@ import (
 // and saves the address in the address book. This mutates the address book.
 func DeployCapabilitiesRegistry(_ context.Context, chain cldf_evm.Chain, ab cldf.AddressBook) (*DeployResponse, error) {
 	capabilitiesRegistryDeployer, err := NewCapabilitiesRegistryDeployer()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CapabilitiesRegistryDeployer: %w", err)
+	}
 	capabilitiesRegistryResp, err := capabilitiesRegistryDeployer.Deploy(DeployRequest{Chain: chain})
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)

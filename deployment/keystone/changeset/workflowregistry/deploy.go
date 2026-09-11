@@ -26,7 +26,7 @@ func Deploy(env cldf.Environment, registrySelector uint64) (cldf.ChangesetOutput
 	}
 	lggr.Infof("Deployed %s chain selector %d addr %s", wrResp.Tv.String(), chain.Selector, wrResp.Address.String())
 
-	return cldf.ChangesetOutput{AddressBook: ab}, nil
+	return cldf.ChangesetOutput{AddressBook: ab}, nil //nolint:staticcheck // SA1019 AddressBook is deprecated
 }
 
 func DeployV2(env cldf.Environment, req *changeset.DeployRequestV2) (cldf.ChangesetOutput, error) {
@@ -58,5 +58,5 @@ func DeployV2(env cldf.Environment, req *changeset.DeployRequestV2) (cldf.Change
 		return cldf.ChangesetOutput{DataStore: ds},
 			fmt.Errorf("failed to save address ref in datastore: %w", err)
 	}
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil //nolint:staticcheck // SA1019 AddressBook is deprecated
 }
