@@ -710,3 +710,9 @@ replace github.com/moby/go-archive v0.2.0 => github.com/moby/go-archive v0.1.0
 // Exclude Juno's placeholder dependency. It is only intended to be resolved via
 // Juno's local replace directive and is not used directly by chainlink
 exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
+
+// chainlink-testing-framework/framework v0.16.8 ships an otel-collector self-telemetry
+// config (service.telemetry.metrics.readers[].periodic.interval: 10s) that the pinned
+// otel/opentelemetry-collector-contrib:0.123.0 rejects (expects int ms), so the collector
+// crash-loops and `obs up` produces no Beholder logs in Loki. Pin to v0.16.7 until CTF fixes it.
+replace github.com/smartcontractkit/chainlink-testing-framework/framework => github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.7
