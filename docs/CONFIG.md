@@ -2404,7 +2404,7 @@ ChipIngressDrainTimeout = '30s' # Default
 ChipIngressMaxGRPCRequestSize = 10485760 # Default
 DurableEmitterEnabled = true # Default
 DurableEmitterRetransmitBatchSize = 500 # Default
-DurableEmitterEventTTL = '1h0m0s' # Default
+DurableEmitterEventTTL = '6h0m0s' # Default
 DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
 DurableEmitterInsertBatchFlushInterval = '50ms' # Default
 HeartbeatInterval = '1s' # Default
@@ -2548,7 +2548,7 @@ DurableEmitterRetransmitBatchSize is the number of pending events the durable em
 
 ### DurableEmitterEventTTL
 ```toml
-DurableEmitterEventTTL = '1h0m0s' # Default
+DurableEmitterEventTTL = '6h0m0s' # Default
 ```
 DurableEmitterEventTTL is how long an undelivered event is retained before the durable emitter expires it (older events are dropped).
 
