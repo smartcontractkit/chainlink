@@ -47,7 +47,7 @@ func Test_LeaseLock(t *testing.T) {
 		leaseLock2 := newLeaseLock(t, db, cfg)
 		go func() {
 			defer leaseLock2.Release()
-			if !assert.NoError(t, leaseLock2.TakeAndHold(t.Context())) { //nolint:testifylint // require illegal inside goroutine
+			if !assert.NoError(t, leaseLock2.TakeAndHold(t.Context())) {
 				return
 			}
 			close(started2)
@@ -97,7 +97,7 @@ func Test_LeaseLock(t *testing.T) {
 		gotLease := make(chan struct{})
 		go func() {
 			errInternal := leaseLock.TakeAndHold(t.Context())
-			if !assert.NoError(t, errInternal) { //nolint:testifylint // require illegal inside goroutine
+			if !assert.NoError(t, errInternal) {
 				return
 			}
 			close(gotLease)

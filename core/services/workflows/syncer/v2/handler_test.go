@@ -691,7 +691,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				})
 			},
 			engineFactoryFn: mockEngineFactory,
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
 				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
 				require.NoError(t, h.workflowPausedEvent(ctx, WorkflowPausedEvent{WorkflowID: wfID}))
@@ -1696,8 +1696,8 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	s := grpc.NewServer()
 	linkingclient.RegisterLinkingServiceServer(s, mockLinking)
 	go func() {
-		if err := s.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
-			if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside goroutine
+		if serveErr := s.Serve(lis); serveErr != nil && !errors.Is(serveErr, grpc.ErrServerStopped) {
+			if !assert.NoError(t, serveErr) {
 				return
 			}
 		}

@@ -18,7 +18,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -59,7 +59,7 @@ type NodePlatformBuildInfoService struct {
 
 type NodePlatformBuildInfoConfig struct {
 	Beat         time.Duration
-	Lggr         common.Logger
+	Lggr         logger.Logger
 	CSAKeyStore  keystore.CSA
 	CSAPublicKey string
 	CommitSHA    string
@@ -173,7 +173,7 @@ type NodePlatformJobInfoService struct {
 
 type NodePlatformJobInfoConfig struct {
 	Beat               time.Duration
-	Lggr               common.Logger
+	Lggr               logger.Logger
 	CSAKeyStore        keystore.CSA
 	JobReader          NodePlatformJobReader
 	SubmitterKeyReader NodePlatformSubmitterKeyReader

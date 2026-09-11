@@ -73,9 +73,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	cid := jb.BlockHeaderFeederSpec.EVMChainID.ToInt()
 	chainService, err := d.legacyChains.Get(cid.String())
 	if err != nil {
-		return nil, fmt.Errorf(
-			"getting chain ID %s: %w", cid, err,
-		)
+		return nil, fmt.Errorf("getting chain ID %s: %w", cid, err)
 	}
 	chain, ok := chainService.(legacyevm.Chain)
 	if !ok {
@@ -110,16 +108,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 	fromAddresses := jb.BlockHeaderFeederSpec.FromAddresses
 
-	bhs, err := blockhash_store.NewBlockhashStore(
-		jb.BlockHeaderFeederSpec.BlockhashStoreAddress.Address(), chain.Client(),
-	)
+	bhs, err := blockhash_store.NewBlockhashStore(jb.BlockHeaderFeederSpec.BlockhashStoreAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "building BHS")
 	}
 
-	batchBlockhashStore, err := batch_blockhash_store.NewBatchBlockhashStore(
-		jb.BlockHeaderFeederSpec.BatchBlockhashStoreAddress.Address(), chain.Client(),
-	)
+	batchBlockhashStore, err := batch_blockhash_store.NewBatchBlockhashStore(jb.BlockHeaderFeederSpec.BatchBlockhashStoreAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "building batch BHS")
 	}
@@ -128,9 +122,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	var coordinators []blockhashstore.Coordinator
 	if jb.BlockHeaderFeederSpec.CoordinatorV2Address != nil {
 		var c *v2.VRFCoordinatorV2
-		if c, err = v2.NewVRFCoordinatorV2(
-			jb.BlockHeaderFeederSpec.CoordinatorV2Address.Address(), chain.Client(),
-		); err != nil {
+		if c, err = v2.NewVRFCoordinatorV2(jb.BlockHeaderFeederSpec.CoordinatorV2Address.Address(), chain.Client()); err != nil {
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
 		var coord *blockhashstore.V2Coordinator
@@ -142,9 +134,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 	if jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress != nil {
 		var c v2plus.IVRFCoordinatorV2PlusInternalInterface
-		if c, err = v2plus.NewIVRFCoordinatorV2PlusInternal(
-			jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress.Address(), chain.Client(),
-		); err != nil {
+		if c, err = v2plus.NewIVRFCoordinatorV2PlusInternal(jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress.Address(), chain.Client()); err != nil {
 			return nil, errors.Wrap(err, "building V2 plus coordinator")
 		}
 		var coord *blockhashstore.V2PlusCoordinator

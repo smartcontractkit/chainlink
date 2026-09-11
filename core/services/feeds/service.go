@@ -1884,4 +1884,3 @@ func (ns NullService) UpdateSpecDefinition(ctx context.Context, id int64, spec s
 func (ns NullService) Unsafe_SetConnectionsManager(_ ConnectionsManager) {}
 
 //revive:enable
-

@@ -34,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/diskmonitor"
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
@@ -1820,14 +1819,4 @@ type errorLog struct {
 
 func (l *errorLog) SaveError(ctx context.Context, msg string) error {
 	return l.recordError(ctx, l.jobID, msg)
-}
-
-type logWriter struct {
-	log commonlogger.Logger
-}
-
-func (l *logWriter) Write(p []byte) (n int, err error) {
-	l.log.Debug(string(p), nil)
-	n = len(p)
-	return n, err
 }
