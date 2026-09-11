@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -63,16 +62,14 @@ func NewStandaloneEngine(
 	workflowSettingsCfgFn func(*cresettings.Workflows),
 ) (services.Service, []*sdkpb.TriggerSubscription, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: defaultOwner, Workflow: defaultWorkflowID})
-	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                  lggr,
-		Labeler:                 labeler,
 		MaxCompressedBinarySize: defaultMaxUncompressedBinarySize,
 		IsUncompressed:          true,
 		Timeout:                 &defaultTimeout,
 	}
 
-	mainModule, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
+	mainModule, err := host.NewModule(ctx, moduleConfig, binary)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
@@ -128,10 +125,6 @@ func NewStandaloneEngine(
 		}
 
 		billingClient, _ = billing.NewWorkflowClient(lggr, billingClientAddr, clientOpts...)
-	}
-
-	if module.IsLegacyDAG() {
-		return nil, nil, errors.New("legacy DAG workflows are not supported")
 	}
 
 	secretsFetcher, err := NewFileBasedSecrets(secrets)
