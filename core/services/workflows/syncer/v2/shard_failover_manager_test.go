@@ -183,8 +183,8 @@ func TestShardFailoverManager_MultipleWorkflowsSharedDispatcher(t *testing.T) {
 	ctx := t.Context()
 
 	// Two shard DONs: primary (DON 1) and secondary (DON 2).
-	primaryDON := makeDON(1, 1, makePeerID(10), makePeerID(11), makePeerID(12))
-	secondaryDON := makeDON(2, 1, makePeerID(20), makePeerID(21), makePeerID(22))
+	primaryDON := makeDON(1, 1, makePeerID(10), makePeerID(11), makePeerID(12), makePeerID(13))
+	secondaryDON := makeDON(2, 1, makePeerID(20), makePeerID(21), makePeerID(22), makePeerID(23))
 	dons := map[uint32]commoncap.DON{1: primaryDON, 2: secondaryDON}
 
 	disp := newFakeDispatcher()
@@ -264,8 +264,8 @@ func TestShardFailoverManager_MultipleWorkflowsSharedDispatcher(t *testing.T) {
 		payload, _ := proto.Marshal(msg)
 		messageID := workflowID + ":" + triggerEventID + ":0"
 
-		// Send from each primary member to simulate quorum (F+1 = 2).
-		for _, peer := range primaryDON.Members[:2] {
+		// Send from each primary member to simulate quorum (2F+1 = 3).
+		for _, peer := range primaryDON.Members[:3] {
 			body := &remotetypes.MessageBody{
 				CapabilityId:     sharding.ShardExecutionStatusUpdateCapabilityID,
 				Method:           remotetypes.MethodExecutionStatusUpdate,

@@ -115,8 +115,8 @@ func TestShardFailoverCommunicator_SendSetsCapabilityID(t *testing.T) {
 	ctx := t.Context()
 
 	mockDisp := dispatchermocks.NewDispatcher(t)
-	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
-	secondaryDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
+	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13))
+	secondaryDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
 
 	var sentBodies []*remotetypes.MessageBody
 	mockDisp.On("Send", mock.Anything, mock.MatchedBy(func(body *remotetypes.MessageBody) bool {
@@ -143,8 +143,8 @@ func TestShardFailoverCommunicator_MultipleWorkflowsNoConflict(t *testing.T) {
 	ctx := t.Context()
 
 	disp := newInMemDispatcher()
-	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
-	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
+	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
+	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
 	require.NoError(t, comm.Start(ctx))
@@ -163,7 +163,8 @@ func TestShardFailoverCommunicator_MultipleWorkflowsNoConflict(t *testing.T) {
 	sendStatusUpdate := func(workflowID, triggerEventID, executionID string) {
 		msg := makeStatusMsg(workflowID, triggerEventID, executionID, ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
 		payload, _ := proto.Marshal(msg)
-		for _, peer := range primaryDON.Members[:2] {
+		// 2F+1 = 3 matching messages needed for quorum
+		for _, peer := range primaryDON.Members[:3] {
 			require.NoError(t, disp.Send(peer, &remotetypes.MessageBody{
 				CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
 				Method:           remotetypes.MethodExecutionStatusUpdate,
@@ -201,8 +202,8 @@ func TestShardFailoverCommunicator_EndToEndSendReceive(t *testing.T) {
 
 	disp := newInMemDispatcher()
 
-	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
-	secondaryDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
+	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13))
+	secondaryDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
 
 	primaryComm := NewShardFailoverCommunicator(disp, primaryDON.ID, logger.Test(t))
 	require.NoError(t, primaryComm.Start(ctx))
@@ -223,9 +224,10 @@ func TestShardFailoverCommunicator_EndToEndSendReceive(t *testing.T) {
 	sentBodies := disp.getSentBodies()
 	require.Len(t, sentBodies, len(secondaryDON.Members))
 
-	for i, body := range sentBodies {
-		body.Sender = primaryDON.Members[i][:]
-		secondaryComm.Receive(ctx, body)
+	// Feed 3 messages from different primary peers (2F+1 = 3 quorum).
+	for i := 0; i < 3; i++ {
+		sentBodies[i].Sender = primaryDON.Members[i][:]
+		secondaryComm.Receive(ctx, sentBodies[i])
 	}
 
 	select {
@@ -243,8 +245,8 @@ func TestShardFailoverCommunicator_QuorumRequired(t *testing.T) {
 	ctx := t.Context()
 
 	disp := newInMemDispatcher()
-	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
-	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
+	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
+	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
 	require.NoError(t, comm.Start(ctx))
@@ -272,10 +274,18 @@ func TestShardFailoverCommunicator_QuorumRequired(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	assert.False(t, handlerCalled, "handler should not be called before quorum")
 
+	// Send second message — 2 votes, still not enough (need 2F+1 = 3).
 	body.Sender = primaryDON.Members[1][:]
 	comm.Receive(ctx, body)
 
-	assert.True(t, handlerCalled, "handler should be called after quorum")
+	time.Sleep(100 * time.Millisecond)
+	assert.False(t, handlerCalled, "handler should not be called with only 2 matching")
+
+	// Third message reaches 2F+1 = 3 quorum.
+	body.Sender = primaryDON.Members[2][:]
+	comm.Receive(ctx, body)
+
+	assert.True(t, handlerCalled, "handler should be called after 2F+1 quorum")
 }
 
 func TestShardFailoverCommunicator_UnregisteredWorkflowDropped(t *testing.T) {
@@ -384,9 +394,9 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 	ctx := t.Context()
 
 	disp := newInMemDispatcher()
-	localDON := makeTestDON(3, 1, makeTestPeerID(30), makeTestPeerID(31), makeTestPeerID(32))
-	primaryDONA := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
-	primaryDONB := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
+	localDON := makeTestDON(3, 1, makeTestPeerID(30), makeTestPeerID(31), makeTestPeerID(32), makeTestPeerID(33))
+	primaryDONA := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13))
+	primaryDONB := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
 	require.NoError(t, comm.Start(ctx))
@@ -407,7 +417,7 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 	// Send from primaryDONA members for wf-A
 	msgA := makeStatusMsg("wf-A", "evt-A", "exec-A", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDONA.ID)
 	payloadA, _ := proto.Marshal(msgA)
-	for _, peer := range primaryDONA.Members[:2] {
+	for _, peer := range primaryDONA.Members[:3] {
 		require.NoError(t, disp.Send(peer, &remotetypes.MessageBody{
 			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
 			Method:           remotetypes.MethodExecutionStatusUpdate,
@@ -428,7 +438,7 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 	// Send from primaryDONB members for wf-B
 	msgB := makeStatusMsg("wf-B", "evt-B", "exec-B", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDONB.ID)
 	payloadB, _ := proto.Marshal(msgB)
-	for _, peer := range primaryDONB.Members[:2] {
+	for _, peer := range primaryDONB.Members[:3] {
 		require.NoError(t, disp.Send(peer, &remotetypes.MessageBody{
 			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
 			Method:           remotetypes.MethodExecutionStatusUpdate,
@@ -469,8 +479,8 @@ func TestShardFailoverCommunicator_AggregatesMixedStatuses(t *testing.T) {
 	ctx := t.Context()
 
 	disp := newInMemDispatcher()
-	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
-	// N=5, F=1, quorum = F+1 = 2 per status
+	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
+	// N=5, F=1, quorum = 2F+1 = 3 per status
 	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13), makeTestPeerID(14))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
@@ -503,12 +513,12 @@ func TestShardFailoverCommunicator_AggregatesMixedStatuses(t *testing.T) {
 		}
 	}
 
-	// Peer 0 reports SUCCESS — 1 vote for SUCCESS (quorum = 2, not reached).
+	// Peer 0 reports SUCCESS — 1 vote for SUCCESS (quorum = 3, not reached).
 	comm.Receive(ctx, makeBody(payloadSuccess, 0))
 	time.Sleep(50 * time.Millisecond)
 	receivedMu.Lock()
 	assert.Equal(t, ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED, receivedStatus,
-		"handler should not be called yet — no status has F+1 votes")
+		"handler should not be called yet — no status has 2F+1 votes")
 	receivedMu.Unlock()
 
 	// Peer 1 reports SYSTEM_ERROR — 1 vote for SYSTEM_ERROR (still not reached).
@@ -516,14 +526,22 @@ func TestShardFailoverCommunicator_AggregatesMixedStatuses(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	receivedMu.Lock()
 	assert.Equal(t, ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED, receivedStatus,
-		"handler should not be called — neither status has F+1 votes")
+		"handler should not be called — neither status has 2F+1 votes")
 	receivedMu.Unlock()
 
-	// Peer 2 reports SYSTEM_ERROR — 2 votes for SYSTEM_ERROR (quorum reached).
+	// Peer 2 reports SYSTEM_ERROR — 2 votes for SYSTEM_ERROR (still not enough).
 	comm.Receive(ctx, makeBody(payloadError, 2))
+	time.Sleep(50 * time.Millisecond)
+	receivedMu.Lock()
+	assert.Equal(t, ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED, receivedStatus,
+		"handler should not be called — SYSTEM_ERROR has only 2 votes, need 3")
+	receivedMu.Unlock()
+
+	// Peer 3 reports SYSTEM_ERROR — 3 votes for SYSTEM_ERROR (2F+1 quorum reached).
+	comm.Receive(ctx, makeBody(payloadError, 3))
 
 	receivedMu.Lock()
 	assert.Equal(t, ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR, receivedStatus,
-		"handler should receive SYSTEM_ERROR — it reached F+1 quorum first")
+		"handler should receive SYSTEM_ERROR — it reached 2F+1 quorum")
 	receivedMu.Unlock()
 }
