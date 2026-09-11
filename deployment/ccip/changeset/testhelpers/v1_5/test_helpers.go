@@ -288,12 +288,12 @@ func DeployLanesChangeset(env cldf.Environment, c DeployLanesConfig) (cldf.Chang
 	for _, cfg := range c.Configs {
 		if err := deployLane(env, state, newAddresses, cfg); err != nil {
 			return cldf.ChangesetOutput{
-				AddressBook: newAddresses,
+				AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			}, err
 		}
 	}
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses,
+		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
 	}, nil
 }
 

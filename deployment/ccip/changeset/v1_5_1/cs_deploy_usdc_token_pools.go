@@ -224,7 +224,7 @@ func DeployUSDCTokenPoolContractsChangeset(env cldf.Environment, c DeployUSDCTok
 	// No datastore is derived here: every ref was keyed before the first transaction and filled
 	// in as each pool was confirmed, so the store is already complete.
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses,
+		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }

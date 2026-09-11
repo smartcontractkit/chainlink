@@ -71,7 +71,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	solFeeQuoterV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata/lbtc"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
@@ -183,11 +182,12 @@ func (tc *TestConfigs) Validate() error {
 
 func (tc *TestConfigs) MustSetEnvTypeOrDefault(t *testing.T) {
 	envType := os.Getenv(ENVTESTTYPE)
-	if envType == "" || envType == string(Memory) {
+	switch envType {
+	case "", string(Memory):
 		tc.Type = Memory
-	} else if envType == string(Docker) {
+	case string(Docker):
 		tc.Type = Docker
-	} else {
+	default:
 		t.Fatalf("env var CCIP_V16_TEST_ENV must be either %s or %s, defaults to %s if unset, got: %s", Memory, Docker, Memory, envType)
 	}
 }
@@ -1094,12 +1094,12 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
-		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
+		cctpContracts := make(map[ccipocr3common.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
 		for _, usdcChain := range evmChains {
 			require.NotNil(t, state.MustGetEVMChainState(usdcChain).MockUSDCTokenMessenger)
 			require.NotNil(t, state.MustGetEVMChainState(usdcChain).MockUSDCTransmitter)
 			require.NotNil(t, state.MustGetEVMChainState(usdcChain).USDCTokenPools[deployment.Version1_5_1])
-			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
+			cctpContracts[ccipocr3common.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
 				SourcePoolAddress:            state.MustGetEVMChainState(usdcChain).USDCTokenPools[deployment.Version1_5_1].Address().String(),
 				SourceMessageTransmitterAddr: state.MustGetEVMChainState(usdcChain).MockUSDCTransmitter.Address().String(),
 			}
@@ -1119,11 +1119,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 	if tc.IsLBTC {
 		endpoint := tEnv.MockLBTCAttestationServer(t, tc.IsUSDCAttestationMissing)
-		lbtcPools := make(map[cciptypes.ChainSelector]string)
+		lbtcPools := make(map[ccipocr3common.ChainSelector]string)
 		for _, chain := range evmChains {
 			lbtcPool := state.MustGetEVMChainState(chain).BurnMintTokenPools[shared.LBTCSymbol][deployment.Version1_5_1]
 			require.NotNil(t, lbtcPool)
-			lbtcPools[cciptypes.ChainSelector(chain)] = lbtcPool.Address().String()
+			lbtcPools[ccipocr3common.ChainSelector(chain)] = lbtcPool.Address().String()
 		}
 		tokenDataProviders = append(tokenDataProviders, pluginconfig.TokenDataObserverConfig{
 			Type:    pluginconfig.LBTCHandlerType,
@@ -1143,23 +1143,23 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	require.NoError(t, err)
 
 	// generate the chainToNodeMapping if we have a topology provided.
-	var chainToNodeMapping map[cciptypes.ChainSelector][][32]byte
+	var chainToNodeMapping map[ccipocr3common.ChainSelector][][32]byte
 	if tc.Type == Memory && tc.RoleDONTopology != nil {
-		allSelectors := make([]cciptypes.ChainSelector, 0, len(evmChains)+len(solChains))
+		allSelectors := make([]ccipocr3common.ChainSelector, 0, len(evmChains)+len(solChains))
 		for _, chain := range evmChains {
 			// don't include the home chain, its supported by all nodes.
 			if chain == e.HomeChainSel {
 				continue
 			}
-			allSelectors = append(allSelectors, cciptypes.ChainSelector(chain))
+			allSelectors = append(allSelectors, ccipocr3common.ChainSelector(chain))
 		}
 		for _, chain := range solChains {
-			allSelectors = append(allSelectors, cciptypes.ChainSelector(chain))
+			allSelectors = append(allSelectors, ccipocr3common.ChainSelector(chain))
 		}
 		chainToNodeMapping, err = tc.RoleDONTopology.ChainToNodeMapping(
 			nodeInfo.NonBootstraps().PeerIDs(),
 			allSelectors,
-			cciptypes.ChainSelector(e.HomeChainSel),
+			ccipocr3common.ChainSelector(e.HomeChainSel),
 		)
 		require.NoError(t, err)
 	}
@@ -1195,9 +1195,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 		var readers [][32]byte
 		if chainToNodeMapping != nil {
-			_, ok := chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			_, ok := chainToNodeMapping[ccipocr3common.ChainSelector(chain)]
 			require.True(t, ok, "chain %d not found in chainToNodeMapping", chain)
-			readers = chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			readers = chainToNodeMapping[ccipocr3common.ChainSelector(chain)]
 			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, chainToNodeMapping)
 		} else {
 			t.Logf("setting readers for chain %d to %v due to no topology", chain, nodeInfo.NonBootstraps().PeerIDs())
@@ -1208,8 +1208,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			// #nosec G115 - Overflow is not a concern in this test scenario
 			FChain: uint8(len(readers) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
+				GasPriceDeviationPPB:      ccipocr3common.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:    ccipocr3common.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
 				OptimisticConfirmations:   globals.OptimisticConfirmations,
 				ChainFeeDeviationDisabled: false,
 			},
@@ -1218,10 +1218,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	for _, chain := range solChains {
 		// TODO: this is a workaround for tokenConfig.GetTokenInfo
-		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
-		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[chain].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
+		tokenInfo := map[ccipocr3common.UnknownEncodedAddress]ccipocr3common.TokenInfo{}
+		tokenInfo[ccipocr3common.UnknownEncodedAddress(state.SolChains[chain].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 		// TODO: point this to proper SOL feed, apparently 0 signified SOL
-		tokenInfo[cciptypes.UnknownEncodedAddress(solanago.SolMint.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
+		tokenInfo[ccipocr3common.UnknownEncodedAddress(solanago.SolMint.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
 
 		ocrOverride := tc.OCRConfigOverride
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
@@ -1229,9 +1229,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 		var readers [][32]byte
 		if chainToNodeMapping != nil {
-			_, ok := chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			_, ok := chainToNodeMapping[ccipocr3common.ChainSelector(chain)]
 			require.True(t, ok, "chain %d not found in chainToNodeMapping", chain)
-			readers = chainToNodeMapping[cciptypes.ChainSelector(chain)]
+			readers = chainToNodeMapping[ccipocr3common.ChainSelector(chain)]
 			t.Logf("setting readers for chain %d to %v due to topology %v", chain, readers, chainToNodeMapping)
 		} else {
 			readers = nodeInfo.NonBootstraps().PeerIDs()
@@ -1241,8 +1241,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			// #nosec G115 - Overflow is not a concern in this test scenario
 			FChain: uint8(len(readers) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
+				GasPriceDeviationPPB:      ccipocr3common.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:    ccipocr3common.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
 				OptimisticConfirmations:   globals.OptimisticConfirmations,
 				ChainFeeDeviationDisabled: true,
 			},
@@ -1286,9 +1286,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 
 	for _, chain := range aptosChains {
-		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
+		tokenInfo := map[ccipocr3common.UnknownEncodedAddress]ccipocr3common.TokenInfo{}
 		linkTokenAddress := state.AptosChains[chain].LinkTokenAddress
-		tokenInfo[cciptypes.UnknownEncodedAddress(linkTokenAddress.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
+		tokenInfo[ccipocr3common.UnknownEncodedAddress(linkTokenAddress.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 		ocrOverride := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			// Commit
 			params.CommitOffChainConfig.RMNEnabled = false
@@ -1309,8 +1309,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			// #nosec G115 - Overflow is not a concern in this test scenario
 			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
+				GasPriceDeviationPPB:    ccipocr3common.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  ccipocr3common.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
 				OptimisticConfirmations: globals.OptimisticConfirmations,
 			},
 		}

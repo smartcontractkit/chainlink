@@ -19,7 +19,6 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -531,8 +530,8 @@ func Test_UpdateChainConfigs(t *testing.T) {
 						RemoteChainAdds: map[uint64]v1_6.ChainConfig{
 							otherChain: {
 								EncodableChainConfig: chainconfig.ChainConfig{
-									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
-									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+									GasPriceDeviationPPB:    ccipocr3.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+									DAGasPriceDeviationPPB:  ccipocr3.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
 									OptimisticConfirmations: globals.OptimisticConfirmations,
 								},
 								FChain:  otherChainConfig.FChain,

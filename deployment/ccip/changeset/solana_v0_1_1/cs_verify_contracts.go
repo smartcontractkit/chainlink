@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
@@ -200,9 +201,9 @@ func getIxnFromEncodedTx(e cldf.Environment, output string, timelockSignerPDA so
 	// if solana-verify cli changes the output format, this will break
 	lines := strings.Split(output, "\n")
 	var base58EncodedTx string
-	for i := len(lines) - 1; i >= 0; i-- {
-		if strings.TrimSpace(lines[i]) != "" {
-			base58EncodedTx = strings.TrimSpace(lines[i])
+	for _, line := range slices.Backward(lines) {
+		if strings.TrimSpace(line) != "" {
+			base58EncodedTx = strings.TrimSpace(line)
 			break
 		}
 	}

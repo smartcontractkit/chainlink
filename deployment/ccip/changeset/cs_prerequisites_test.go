@@ -43,7 +43,7 @@ func testDeployPrerequisitesWithEnv(t *testing.T, e cldf.Environment) {
 	}
 	output, err := changeset.DeployPrerequisitesChangeset(e, cfg)
 	require.NoError(t, err)
-	err = e.ExistingAddresses.Merge(output.AddressBook)
+	err = e.ExistingAddresses.Merge(output.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
 	require.NoError(t, err)
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
