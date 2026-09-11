@@ -105,7 +105,7 @@ func (ks *stellar) Import(ctx context.Context, keyJSON []byte, password string) 
 		return stellarkey.Key{}, errors.Wrap(err, "StellarKeyStore#ImportKey failed to decrypt key")
 	}
 	if _, found := ks.keyRing.Stellar[key.ID()]; found {
-		return stellarkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
+		return stellarkey.Key{}, fmt.Errorf("%w: key with ID %s already exists", ErrKeyExists, key.ID())
 	}
 	return key, ks.safeAddKey(ctx, key)
 }
