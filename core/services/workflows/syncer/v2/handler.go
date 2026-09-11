@@ -852,12 +852,8 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 	var sdkName string
-	h.emitterMu.RLock()
-	labeler := h.emitter
-	h.emitterMu.RUnlock()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                               lggr,
-		Labeler:                              labeler,
 		MemoryLimiter:                        h.engineLimiters.WASMMemorySize,
 		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
 		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
@@ -878,16 +874,12 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 
 	h.lggr.Debugw("Creating module for workflowID", "workflowID", workflowID)
 
-	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
+	module, err := host.NewModule(ctx, moduleConfig, binary)
 	if err != nil {
 		return nil, err
 	}
 
 	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
-
-	if module.IsLegacyDAG() { // V1 aka "DAG"
-		return nil, errors.New("legacy DAG workflows are not supported")
-	}
 
 	// V2 aka "NoDAG"
 	// Wrap the local WASM module in a RequirementSelectingModule that routes
@@ -965,7 +957,7 @@ func (h *eventHandler) createEngineModule(
 		if storeErr != nil {
 			h.lggr.Warnw("Failed to cache module binary to disk, LRU eviction disabled for this workflow", "workflowID", workflowID, "err", storeErr)
 		} else {
-			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)), host.WithDeterminism())
+			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)))
 			h.moduleLRU.Register(workflowID, evictable)
 			engineModule = evictable
 		}
