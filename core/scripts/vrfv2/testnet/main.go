@@ -46,9 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var (
-	batchCoordinatorV2ABI = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
-)
+var batchCoordinatorV2ABI = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 
 func main() {
 	ctx := context.Background()
@@ -109,11 +107,13 @@ func main() {
 		reqIDs := helpers.ParseBigIntSlice(*requestIDs)
 		bhs, err := blockhash_store.NewBlockhashStore(
 			common.HexToAddress(*bhsAddress),
-			e.Ec)
+			e.Ec,
+		)
 		helpers.PanicErr(err)
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(
 			common.HexToAddress(*coordinatorAddress),
-			e.Ec)
+			e.Ec,
+		)
 		helpers.PanicErr(err)
 
 		if len(hashes) != len(reqIDs) {
@@ -215,7 +215,7 @@ func main() {
 				PreSeed:          ps,
 				BlockHash:        bhSlice[i],
 				BlockNum:         blockNumSlice[i].Uint64(),
-				SubId:            subIDSlice[i].Uint64(),
+				SubID:            subIDSlice[i].Uint64(),
 				CallbackGasLimit: uint32(cbLimitsSlice[i].Uint64()),
 				NumWords:         uint32(numWordsSlice[i].Uint64()),
 				Sender:           senderSlice[i],
@@ -303,7 +303,7 @@ func main() {
 			PreSeed:          ps,
 			BlockHash:        common.HexToHash(*blockHash),
 			BlockNum:         *blockNum,
-			SubId:            *subID,
+			SubID:            *subID,
 			CallbackGasLimit: uint32(*cbGasLimit),
 			NumWords:         uint32(*numWords),
 			Sender:           common.HexToAddress(*sender),
@@ -588,7 +588,8 @@ func main() {
 			uint32(1000000), // gas callback
 			uint16(5),       // confs
 			uint32(1),       // words
-			keyHashBytes)
+			keyHashBytes,
+		)
 		helpers.PanicErr(err)
 		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "consumer-subscribe":
@@ -686,7 +687,8 @@ func main() {
 			e.Owner,
 			e.Ec,
 			common.HexToAddress(*consumerCoordinator),
-			common.HexToAddress(*consumerLinkAddress))
+			common.HexToAddress(*consumerLinkAddress),
+		)
 		helpers.PanicErr(err)
 		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-load-test-consumer-with-metrics-deploy":
@@ -781,7 +783,8 @@ func main() {
 		keyHashBytes := common.HexToHash(*keyHash)
 		consumer, err := vrf_external_sub_owner_example.NewVRFExternalSubOwnerExample(
 			common.HexToAddress(*consumerAddress),
-			e.Ec)
+			e.Ec,
+		)
 		helpers.PanicErr(err)
 		tx, err := consumer.RequestRandomWords(e.Owner, *subID, uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords), keyHashBytes)
 		helpers.PanicErr(err)
@@ -795,7 +798,8 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
 		consumer, err := vrf_load_test_external_sub_owner.NewVRFLoadTestExternalSubOwner(
 			common.HexToAddress(*consumerAddress),
-			e.Ec)
+			e.Ec,
+		)
 		helpers.PanicErr(err)
 		rc, err := consumer.SResponseCount(nil)
 		helpers.PanicErr(err)
@@ -812,7 +816,8 @@ func main() {
 		keyHashBytes := common.HexToHash(*keyHash)
 		consumer, err := vrf_load_test_external_sub_owner.NewVRFLoadTestExternalSubOwner(
 			common.HexToAddress(*consumerAddress),
-			e.Ec)
+			e.Ec,
+		)
 		helpers.PanicErr(err)
 		var txes []*types.Transaction
 		for i := 0; i < int(*runs); i++ {
@@ -856,7 +861,8 @@ func main() {
 
 		consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
 			common.HexToAddress(*consumerAddress),
-			e.Ec)
+			e.Ec,
+		)
 		helpers.PanicErr(err)
 		var txes []*types.Transaction
 		for i := 0; i < int(*runs); i++ {
@@ -937,7 +943,8 @@ func main() {
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address")
 		consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
 			common.HexToAddress(*consumerAddress),
-			e.Ec)
+			e.Ec,
+		)
 		helpers.PanicErr(err)
 		_, err = consumer.Reset(e.Owner)
 		helpers.PanicErr(err)
@@ -956,7 +963,8 @@ func main() {
 		keyHashBytes := common.HexToHash(*keyHash)
 		consumer, err := vrf_load_test_with_metrics.NewVRFV2LoadTestWithMetrics(
 			common.HexToAddress(*consumerAddress),
-			e.Ec)
+			e.Ec,
+		)
 		helpers.PanicErr(err)
 		var txes []*types.Transaction
 		for i := 0; i < int(*runs); i++ {
@@ -984,7 +992,8 @@ func main() {
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address")
 		consumer, err := vrf_load_test_with_metrics.NewVRFV2LoadTestWithMetrics(
 			common.HexToAddress(*consumerAddress),
-			e.Ec)
+			e.Ec,
+		)
 		helpers.PanicErr(err)
 		responseCount, err := consumer.SResponseCount(nil)
 		helpers.PanicErr(err)
@@ -1007,7 +1016,8 @@ func main() {
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address")
 		consumer, err := vrf_load_test_with_metrics.NewVRFV2LoadTestWithMetrics(
 			common.HexToAddress(*consumerAddress),
-			e.Ec)
+			e.Ec,
+		)
 		helpers.PanicErr(err)
 		_, err = consumer.Reset(e.Owner)
 		helpers.PanicErr(err)
@@ -1313,7 +1323,8 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
 
 		consumer, err := vrfv2_wrapper_consumer_example.NewVRFV2WrapperConsumerExample(
-			common.HexToAddress(*consumerAddress), e.Ec)
+			common.HexToAddress(*consumerAddress), e.Ec,
+		)
 		helpers.PanicErr(err)
 
 		tx, err := consumer.MakeRequest(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
@@ -1326,7 +1337,8 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address", "request-id")
 
 		consumer, err := vrfv2_wrapper_consumer_example.NewVRFV2WrapperConsumerExample(
-			common.HexToAddress(*consumerAddress), e.Ec)
+			common.HexToAddress(*consumerAddress), e.Ec,
+		)
 		helpers.PanicErr(err)
 
 		status, err := consumer.GetRequestStatus(nil, decimal.RequireFromString(*requestID).BigInt())
@@ -1346,7 +1358,8 @@ func main() {
 		linkAddress := cmd.String("link-address", "", "address of link token")
 		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
 		consumer, err := vrfv2_wrapper_consumer_example.NewVRFV2WrapperConsumerExample(
-			common.HexToAddress(*consumerAddress), e.Ec)
+			common.HexToAddress(*consumerAddress), e.Ec,
+		)
 		helpers.PanicErr(err)
 		link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
 		helpers.PanicErr(err)
@@ -1390,7 +1403,8 @@ func main() {
 func getVRFOwnerTestConsumerMetrics(consumerAddress string, e helpers.Environment) LoadTestMetrics {
 	consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
 		common.HexToAddress(consumerAddress),
-		e.Ec)
+		e.Ec,
+	)
 	helpers.PanicErr(err)
 	responseCount, err := consumer.SResponseCount(nil)
 	helpers.PanicErr(err)
