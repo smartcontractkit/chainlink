@@ -54,13 +54,18 @@ func newEOFCmd() *cobra.Command {
 
 			if len(result.ModifiedFiles) > 0 {
 				if !quiet {
-					action := "Fixing end-of-file for"
+					u := uiForCmd(cmd)
+					tag := "FIXED"
 					if check {
-						action = "Missing/excess trailing newlines found in"
+						tag = "CHECK FAIL"
 					}
 					for _, f := range result.ModifiedFiles {
 						if verbose || check {
-							fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", action, f)
+							note := ""
+							if check {
+								note = "missing/excess trailing newlines"
+							}
+							fmt.Fprintln(cmd.OutOrStdout(), u.StatusItem(tag, f, note))
 						}
 					}
 				}

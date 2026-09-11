@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/githooks/internal/modules"
+	"github.com/smartcontractkit/chainlink/v2/tools/githooks/internal/ui"
 )
 
 // Executor abstracts command execution for testability.
@@ -41,6 +42,7 @@ type Config struct {
 	Executor Executor
 	Stdout   io.Writer
 	Stderr   io.Writer
+	UI       *ui.UI
 }
 
 // Run iterates over affected module targets and runs golangci-lint on the
@@ -63,6 +65,11 @@ func Run(ctx context.Context, cfg Config) error {
 		execRunner = &osExecutor{stdout: cfg.Stdout, stderr: cfg.Stderr}
 	}
 
+	u := cfg.UI
+	if u == nil {
+		u = ui.New(cfg.Stdout)
+	}
+
 	var errs []error
 	for _, target := range cfg.Targets {
 		modDir := cfg.RepoRoot
@@ -80,7 +87,11 @@ func Run(ctx context.Context, cfg Config) error {
 		}
 		args = append(args, target.Packages...)
 
-		fmt.Fprintf(cfg.Stdout, "==> Linting module '%s' packages: %s\n", target.Module, strings.Join(target.Packages, " "))
+		pkgStr := strings.Join(target.Packages, " ")
+		if len(target.Packages) > 4 {
+			pkgStr = fmt.Sprintf("%d packages", len(target.Packages))
+		}
+		fmt.Fprintln(cfg.Stdout, u.RunnerHeader("LINT", target.Module, pkgStr))
 		if err := execRunner.Run(ctx, modDir, "golangci-lint", args...); err != nil {
 			// Keep linting remaining modules so their fixes are still applied.
 			errs = append(errs, fmt.Errorf("golangci-lint failed in %s: %w", target.Module, err))

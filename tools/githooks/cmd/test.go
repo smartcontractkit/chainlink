@@ -48,6 +48,7 @@ func newTestCmd() *cobra.Command {
 				Short:    short,
 				Stdout:   cmd.OutOrStdout(),
 				Stderr:   cmd.ErrOrStderr(),
+				UI:       uiForCmd(cmd),
 			}
 
 			return testrunner.Run(ctx, cfg)

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/githooks/internal/modules"
+	"github.com/smartcontractkit/chainlink/v2/tools/githooks/internal/ui"
 )
 
 // Executor abstracts command execution for testability.
@@ -43,6 +44,7 @@ type Config struct {
 	Executor Executor
 	Stdout   io.Writer
 	Stderr   io.Writer
+	UI       *ui.UI
 }
 
 // needsBuild reports whether the test harness binary must be (re)built: the
@@ -138,12 +140,21 @@ func Run(ctx context.Context, cfg Config) error {
 		execRunner = &osExecutor{stdout: cfg.Stdout, stderr: cfg.Stderr}
 	}
 
+	u := cfg.UI
+	if u == nil {
+		u = ui.New(cfg.Stdout)
+	}
+
 	for _, mod := range mods {
 		if len(mod.Packages) == 0 {
 			continue
 		}
 
-		fmt.Fprintf(cfg.Stdout, "==> Running tests on %s: %s\n", mod.Module, strings.Join(mod.Packages, " "))
+		pkgStr := strings.Join(mod.Packages, " ")
+		if len(mod.Packages) > 4 {
+			pkgStr = fmt.Sprintf("%d packages", len(mod.Packages))
+		}
+		fmt.Fprintln(cfg.Stdout, u.RunnerHeader("TEST", mod.Module, pkgStr))
 
 		if mod.Module == "." {
 			if cfg.Executor == nil {

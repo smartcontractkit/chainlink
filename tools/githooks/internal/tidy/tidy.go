@@ -47,7 +47,7 @@ func Run(ctx context.Context, repoRoot string, moduleDirs []string, cfg ...Confi
 	for _, mod := range moduleDirs {
 		modDir := filepath.Join(repoRoot, mod)
 		wg.Add(1)
-		go func(dir string, m string) {
+		go func(dir, m string) {
 			defer wg.Done()
 			if err := runner(ctx, dir, "mod", "tidy"); err != nil {
 				mu.Lock()
