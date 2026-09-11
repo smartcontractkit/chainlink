@@ -703,7 +703,6 @@ func TestConfig_Marshal(t *testing.T) {
 						DR:     new(uint32(1002)),
 						VRF:    new(uint32(1003)),
 						FM:     new(uint32(1004)),
-						Keeper: new(uint32(1005)),
 						OCR2:   new(uint32(1006)),
 					},
 
@@ -818,11 +817,6 @@ func TestConfig_Marshal(t *testing.T) {
 					DeltaCOverride:                     commoncfg.MustNewDuration(time.Hour),
 					DeltaCJitterOverride:               commoncfg.MustNewDuration(time.Second),
 					ObservationGracePeriod:             &second,
-				},
-				OCR2: evmcfg.OCR2{
-					Automation: evmcfg.Automation{
-						GasLimit: new(uint32(540)),
-					},
 				},
 				Workflow: evmcfg.Workflow{
 					GasLimitDefault:   new(uint64(400000)),
@@ -1193,7 +1187,6 @@ OCR2 = 1006
 DR = 1002
 VRF = 1003
 FM = 1004
-Keeper = 1005
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
@@ -1264,10 +1257,6 @@ DatabaseTimeout = '1s'
 DeltaCOverride = '1h0m0s'
 DeltaCJitterOverride = '1s'
 ObservationGracePeriod = '1s'
-
-[EVM.OCR2]
-[EVM.OCR2.Automation]
-GasLimit = 540
 
 [EVM.Workflow]
 GasLimitDefault = 400000
