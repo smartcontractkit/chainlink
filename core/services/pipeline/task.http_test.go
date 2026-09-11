@@ -211,7 +211,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write([]byte("{}"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	server := httptest.NewServer(handler)
@@ -260,7 +260,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 		resp := &adapterResponse{}
 		resp.SetErrorMessage("could not hit data fetcher")
 		err := json.NewEncoder(w).Encode(resp)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	server := httptest.NewServer(handler)
@@ -291,7 +291,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
 		_, err := w.Write([]byte(mustReadFile(t, "../../testdata/apiresponses/coinmarketcap.error.json")))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	server := httptest.NewServer(handler)
@@ -315,7 +315,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 
 func TestHTTPTask_Headers(t *testing.T) {
 	allHeaders := func(headers http.Header) (s []string) {
-		var keys []string
+		keys := make([]string, 0, len(headers))
 		for k := range headers {
 			keys = append(keys, k)
 		}
@@ -338,7 +338,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte(`{"fooresponse": 1}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		})
 
 		server := httptest.NewServer(handler)
@@ -356,7 +356,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 		result, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
-		assert.NoError(t, result.Error)
+		require.NoError(t, result.Error)
 
 		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
 	})
@@ -371,7 +371,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 
 		result, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
-		assert.Error(t, result.Error)
+		require.Error(t, result.Error)
 		assert.Equal(t, `headers must have an even number of elements`, result.Error.Error())
 		assert.Nil(t, result.Value)
 	})
@@ -384,7 +384,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte(`{"fooresponse": 3}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		})
 
 		server := httptest.NewServer(handler)
@@ -402,7 +402,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 		result, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 3}`, result.Value)
-		assert.NoError(t, result.Error)
+		require.NoError(t, result.Error)
 
 		assert.Equal(t, []string{"Content-Length", "38", "Content-Type", "footype", "User-Agent", "Go-http-client/1.1", "X-Header-1", "foo", "X-Header-2", "bar"}, allHeaders(headers))
 	})

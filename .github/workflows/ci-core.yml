@@ -391,7 +391,7 @@ jobs:
         id: wasm-key
         shell: bash
         run: |
-          echo "key=${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}" >> "$GITHUB_OUTPUT"
+          echo "key=${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/services/workflows/**') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore WASM test binaries cache
         if: ${{ matrix.type.should-run == 'true' }}

@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type PipelineParamUnmarshaler interface {
+type PipelineParamUnmarshaler interface { //nolint:revive // stutter is required by existing mockery config
 	UnmarshalPipelineParam(val any) error
 }
 

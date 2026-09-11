@@ -36,7 +36,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.3.1-0.20260909144322-62fa34fc65b0"
+      gitRef: "v1.3.1-0.20260910161304-da23c5c00c4b"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
@@ -103,7 +103,7 @@ plugins:
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "85513dccc730e786943cfc7d34c3210fedc352ac"
+      gitRef: "4ba75af01dc81899c1cca757ee905357b88184ca"
       installPath: "."
 
   capability-aptos:
