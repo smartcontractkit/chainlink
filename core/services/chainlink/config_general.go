@@ -48,7 +48,7 @@ type generalConfig struct {
 // GeneralConfigOpts holds configuration options for creating a coreconfig.GeneralConfig via New().
 //
 // See ParseTOML to initialize Config and Secrets from TOML.
-type GeneralConfigOpts struct { //nolint:recvcheck // Setup requires pointer receiver, New uses value receiver for call chaining
+type GeneralConfigOpts struct {
 	ConfigStrings  []string
 	SecretsStrings []string
 
