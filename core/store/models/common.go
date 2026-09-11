@@ -33,6 +33,8 @@ func init() {
 
 // JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
+//
+//nolint:recvcheck // methods implement driver.Valuer/json.Marshaler (value receiver) and driver.Scanner/json.Unmarshaler (pointer receiver)
 type JSON struct {
 	gjson.Result
 }
@@ -111,6 +113,8 @@ func (j JSON) Bytes() []byte {
 }
 
 // WebURL contains the URL of the endpoint.
+//
+//nolint:recvcheck // methods implement driver.Valuer/json.Marshaler (value receiver) and driver.Scanner/json.Unmarshaler (pointer receiver)
 type WebURL url.URL
 
 // UnmarshalJSON parses the raw URL stored in JSON-encoded
@@ -210,6 +214,8 @@ type SendEtherRequest struct {
 
 // AddressCollection is an array of common.Address
 // serializable to and from a database.
+//
+//nolint:recvcheck // methods implement driver.Valuer (value receiver) and driver.Scanner (pointer receiver)
 type AddressCollection []common.Address
 
 // ToStrings returns this address collection as an array of strings.
@@ -356,7 +362,7 @@ var (
 	headerValueRegex = regexp.MustCompile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
 )
 
-func (h ServiceHeader) Validate() (err error) {
+func (h *ServiceHeader) Validate() (err error) {
 	if !headerNameRegex.MatchString(h.Header) {
 		err = stderrors.Join(err, errors.Errorf("invalid header name: %s", h.Header))
 	}

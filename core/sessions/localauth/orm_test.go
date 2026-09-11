@@ -25,7 +25,7 @@ func setupORM(t *testing.T) (*sqlx.DB, sessions.AuthenticationProvider) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), &audit.AuditLoggerService{})
+	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), &audit.LoggerService{})
 
 	return db, orm
 }
@@ -68,7 +68,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := t.Context()
 			db := pgtest.NewSqlxDB(t)
-			orm := localauth.NewORM(db, test.sessionDuration, logger.TestLogger(t), &audit.AuditLoggerService{})
+			orm := localauth.NewORM(db, test.sessionDuration, logger.TestLogger(t), &audit.LoggerService{})
 
 			user := cltest.MustRandomUser(t)
 			require.NoError(t, orm.CreateUser(ctx, &user))
@@ -129,7 +129,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	require.NoError(t, err)
 
 	sessions, err := orm.Sessions(ctx, 0, 10)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Empty(t, sessions)
 }
 
@@ -151,7 +151,7 @@ func TestORM_DeleteUserCascade(t *testing.T) {
 	require.Error(t, err)
 
 	sessions, err := orm.Sessions(ctx, 0, 10)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Empty(t, sessions)
 }
 

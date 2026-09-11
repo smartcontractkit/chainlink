@@ -68,7 +68,7 @@ func NewDirectConfidentialHTTPAction(lggr logger.Logger, secretsPath string) *Di
 		secretsFile = envFile
 	}
 
-	if data, err := os.ReadFile(secretsFile); err == nil {
+	if data, err := os.ReadFile(secretsFile); err == nil { //nolint:gosec // secrets path is trusted config, not untrusted user input
 		if marshalErr := yaml.Unmarshal(data, &fc.secretsConfig); marshalErr != nil {
 			lggr.Warnf("Failed to parse secrets file %s: %v", secretsFile, marshalErr)
 		} else {

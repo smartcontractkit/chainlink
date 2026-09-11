@@ -35,10 +35,8 @@ type Cache struct {
 	mu                   sync.RWMutex
 }
 
-var (
-	_ ORM              = (*Cache)(nil)
-	_ services.Service = (*Cache)(nil)
-)
+var _ ORM = (*Cache)(nil)
+var _ services.Service = (*Cache)(nil)
 
 func NewCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) *Cache {
 	c := &Cache{
@@ -125,7 +123,7 @@ func (c *Cache) DeleteBridgeType(ctx context.Context, bt *BridgeType) error {
 	return err
 }
 
-func (c *Cache) BridgeTypes(ctx context.Context, offset, limit int) ([]BridgeType, int, error) {
+func (c *Cache) BridgeTypes(ctx context.Context, offset int, limit int) ([]BridgeType, int, error) {
 	return c.ORM.BridgeTypes(ctx, offset, limit)
 }
 
@@ -150,21 +148,21 @@ func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *Bridg
 	return nil
 }
 
-func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
+func (c *Cache) GetCachedResponse(ctx context.Context, dotID string, specID int32, maxElapsed time.Duration) ([]byte, error) {
 	// prefer to get latest value from cache
-	cached, inCache := c.latestValue(dotId, specId)
+	cached, inCache := c.latestValue(dotID, specID)
 	if inCache && cached.FinishedAt.After(time.Now().Add(-maxElapsed)) {
 		return cached.Value, nil
 	}
 
-	response, finishedAt, err := c.GetCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
+	response, finishedAt, err := c.GetCachedResponseWithFinished(ctx, dotID, specID, maxElapsed)
 	if err != nil {
 		return nil, err
 	}
 
-	c.setValue(dotId, specId, BridgeResponse{
-		DotID:      dotId,
-		SpecID:     specId,
+	c.setValue(dotID, specID, BridgeResponse{
+		DotID:      dotID,
+		SpecID:     specID,
 		Value:      response,
 		FinishedAt: finishedAt,
 	})
@@ -172,18 +170,18 @@ func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int3
 	return response, nil
 }
 
-func (c *Cache) UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error {
+func (c *Cache) UpsertBridgeResponse(ctx context.Context, dotID string, specID int32, response []byte) error {
 	upsertTime := time.Now()
 
 	// catch the rare case of a save race
-	cached, inCache := c.latestValue(dotId, specId)
+	cached, inCache := c.latestValue(dotID, specID)
 	if inCache && cached.FinishedAt.After(upsertTime) {
 		return nil
 	}
 
-	c.setValue(dotId, specId, BridgeResponse{
-		DotID:      dotId,
-		SpecID:     specId,
+	c.setValue(dotID, specID, BridgeResponse{
+		DotID:      dotID,
+		SpecID:     specID,
 		Value:      response,
 		FinishedAt: upsertTime,
 	})
@@ -203,7 +201,7 @@ func (c *Cache) start(_ context.Context) error {
 
 func (c *Cache) doBulkUpsert(ctx context.Context) {
 	c.mu.RLock()
-	values := slices.AppendSeq(make([]BridgeResponse, 0, len(c.bridgeLastValueCache)), maps.Values(c.bridgeLastValueCache))
+	values := slices.Collect(maps.Values(c.bridgeLastValueCache))
 	c.mu.RUnlock()
 
 	if len(values) == 0 {
@@ -215,22 +213,22 @@ func (c *Cache) doBulkUpsert(ctx context.Context) {
 	}
 }
 
-func (c *Cache) latestValue(dotId string, specId int32) (BridgeResponse, bool) {
+func (c *Cache) latestValue(dotID string, specID int32) (BridgeResponse, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	cached, inCache := c.bridgeLastValueCache[responseKey(dotId, specId)]
+	cached, inCache := c.bridgeLastValueCache[responseKey(dotID, specID)]
 
 	return cached, inCache
 }
 
-func (c *Cache) setValue(dotId string, specId int32, resp BridgeResponse) {
+func (c *Cache) setValue(dotID string, specID int32, resp BridgeResponse) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.bridgeLastValueCache[responseKey(dotId, specId)] = resp
+	c.bridgeLastValueCache[responseKey(dotID, specID)] = resp
 }
 
-func responseKey(dotId string, specId int32) string {
-	return fmt.Sprintf("%s||%d", dotId, specId)
+func responseKey(dotID string, specID int32) string {
+	return fmt.Sprintf("%s||%d", dotID, specID)
 }

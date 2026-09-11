@@ -19,7 +19,7 @@ import (
 
 const ID = "web-api-target@1.0.0"
 
-var _ capabilities.TargetCapability = &Capability{}
+var _ capabilities.ExecutableCapability = &Capability{}
 
 var capabilityInfo = capabilities.MustNewCapabilityInfo(
 	ID,

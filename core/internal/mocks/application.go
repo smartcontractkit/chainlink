@@ -400,19 +400,19 @@ func (_c *Application_FindLCA_Call) RunAndReturn(run func(context.Context, *big.
 }
 
 // GetAuditLogger provides a mock function with no fields
-func (_m *Application) GetAuditLogger() audit.AuditLogger {
+func (_m *Application) GetAuditLogger() audit.Logger {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAuditLogger")
 	}
 
-	var r0 audit.AuditLogger
-	if rf, ok := ret.Get(0).(func() audit.AuditLogger); ok {
+	var r0 audit.Logger
+	if rf, ok := ret.Get(0).(func() audit.Logger); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(audit.AuditLogger)
+			r0 = ret.Get(0).(audit.Logger)
 		}
 	}
 
@@ -436,12 +436,12 @@ func (_c *Application_GetAuditLogger_Call) Run(run func()) *Application_GetAudit
 	return _c
 }
 
-func (_c *Application_GetAuditLogger_Call) Return(_a0 audit.AuditLogger) *Application_GetAuditLogger_Call {
+func (_c *Application_GetAuditLogger_Call) Return(_a0 audit.Logger) *Application_GetAuditLogger_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Application_GetAuditLogger_Call) RunAndReturn(run func() audit.AuditLogger) *Application_GetAuditLogger_Call {
+func (_c *Application_GetAuditLogger_Call) RunAndReturn(run func() audit.Logger) *Application_GetAuditLogger_Call {
 	_c.Call.Return(run)
 	return _c
 }

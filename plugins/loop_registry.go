@@ -228,7 +228,7 @@ func (m *LoopRegistry) Unregister(id string) {
 
 // Return slice sorted by plugin name. Safe for concurrent use.
 func (m *LoopRegistry) List() []*RegisteredLoop {
-	var registeredLoops []*RegisteredLoop
+	registeredLoops := make([]*RegisteredLoop, 0, len(m.registry))
 	m.mu.Lock()
 	for _, known := range m.registry {
 		registeredLoops = append(registeredLoops, known)

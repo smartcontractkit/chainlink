@@ -10,11 +10,11 @@ import (
 	"github.com/gin-gonic/gin"
 	pkgerrors "github.com/pkg/errors"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -23,19 +23,19 @@ import (
 type orm struct {
 	ds              sqlutil.DataSource
 	sessionDuration time.Duration
-	lggr            logger.Logger
-	auditLogger     audit.AuditLogger
+	lggr            common.SugaredLogger
+	auditLogger     audit.Logger
 }
 
 // orm implements sessions.AuthenticationProvider and sessions.BasicAdminUsersORM interfaces
 var _ sessions.AuthenticationProvider = (*orm)(nil)
 var _ sessions.BasicAdminUsersORM = (*orm)(nil)
 
-func NewORM(ds sqlutil.DataSource, sd time.Duration, lggr logger.Logger, auditLogger audit.AuditLogger) sessions.AuthenticationProvider {
+func NewORM(ds sqlutil.DataSource, sd time.Duration, lggr common.Logger, auditLogger audit.Logger) sessions.AuthenticationProvider {
 	return &orm{
 		ds:              ds,
 		sessionDuration: sd,
-		lggr:            lggr.Named("LocalAuthAuthenticationProviderORM"),
+		lggr:            common.Sugared(lggr).Named("LocalAuthAuthenticationProviderORM"),
 		auditLogger:     auditLogger,
 	}
 }

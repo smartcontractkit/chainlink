@@ -25,7 +25,7 @@ func setupAuthenticationProvider(t *testing.T) (*sqlx.DB, sessions.Authenticatio
 
 	cfg := oidcauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
-	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
+	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.LoggerService{})
 	if err != nil {
 		t.Fatalf("Error constructing NewTestoidcAuthenticator: %v\n", err)
 	}
@@ -343,7 +343,7 @@ func Test_IDClaimsToUserRole(t *testing.T) {
 	t.Parallel()
 	cfg := oidcauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
-	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
+	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.LoggerService{})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -416,7 +416,7 @@ func Test_ExtractIDClaimValues(t *testing.T) {
 	t.Parallel()
 	cfg := oidcauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
-	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
+	oidcAuthProvider, err := oidcauth.NewTestOIDCAuthenticator(db, &cfg, logger.TestLogger(t), &audit.LoggerService{})
 	require.NoError(t, err)
 	tests := []struct {
 		name    string
