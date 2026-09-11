@@ -75,7 +75,8 @@ func (t *ETHABIEncodeTask2) Run(_ context.Context, _ logger.Logger, vars Vars, i
 	}
 	var dataBytes []byte
 	if method.Name != "" {
-		dataBytes = append(method.ID, argsEncoded...)
+		dataBytes = append(dataBytes, method.ID...)
+		dataBytes = append(dataBytes, argsEncoded...)
 	} else {
 		dataBytes = argsEncoded
 	}
