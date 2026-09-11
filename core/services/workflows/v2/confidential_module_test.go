@@ -314,7 +314,7 @@ func collectCounterAttr(t *testing.T, reader *sdkmetric.ManualReader, name, key 
 			if !found {
 				return "", false
 			}
-			return v.Emit(), true
+			return v.String(), true
 		}
 	}
 	return "", false
