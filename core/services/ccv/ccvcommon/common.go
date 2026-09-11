@@ -8,7 +8,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 )
@@ -24,7 +24,7 @@ import (
 // no chains cannot do work.
 func GetLegacyChains(
 	ctx context.Context,
-	lggr common.Logger,
+	lggr logger.Logger,
 	chainServices []commontypes.ChainService,
 	chainsInConfig []protocol.ChainSelector,
 ) (map[protocol.ChainSelector]legacyevm.Chain, []protocol.ChainSelector, error) {

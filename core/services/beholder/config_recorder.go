@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
@@ -17,7 +17,7 @@ type ConfigRecorder struct {
 	interval time.Duration
 }
 
-func NewConfigRecorder(lggr common.Logger, interval time.Duration) *ConfigRecorder {
+func NewConfigRecorder(lggr logger.Logger, interval time.Duration) *ConfigRecorder {
 	cr := &ConfigRecorder{
 		interval: interval,
 	}

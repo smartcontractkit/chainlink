@@ -35,7 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -66,7 +66,7 @@ type ReportingPluginConfig struct {
 }
 
 func NewReportingPluginFactory(
-	lggr common.Logger,
+	lggr logger.Logger,
 	store *requests.Store[*vaulttypes.Request],
 	db dkgocrtypes.ResultPackageDatabase,
 	recipientKey *dkgrecipientkey.Key,
@@ -91,7 +91,7 @@ func NewReportingPluginFactory(
 	}
 
 	return &ReportingPluginFactory{
-		lggr:          common.Sugared(lggr).Named("VaultReportingPluginFactory"),
+		lggr:          logger.Sugared(lggr).Named("VaultReportingPluginFactory"),
 		store:         store,
 		cfg:           cfg,
 		db:            db,
@@ -102,7 +102,7 @@ func NewReportingPluginFactory(
 }
 
 type ReportingPluginFactory struct {
-	lggr          common.SugaredLogger
+	lggr          logger.SugaredLogger
 	store         *requests.Store[*vaulttypes.Request]
 	cfg           *ReportingPluginConfig
 	db            dkgocrtypes.ResultPackageDatabase
@@ -206,7 +206,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 	}, nil
 }
 
-func logLimit[N limits.Number](ctx context.Context, lggr common.Logger, limiter limits.BoundLimiter[N]) N {
+func logLimit[N limits.Number](ctx context.Context, lggr logger.Logger, limiter limits.BoundLimiter[N]) N {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: "DUMMY-OWNER-FOR-LOGGING"})
 	limit, err := limiter.Limit(ctx)
 	if err != nil {
@@ -321,7 +321,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 }
 
 type ReportingPlugin struct {
-	lggr       common.SugaredLogger
+	lggr       logger.SugaredLogger
 	store      *requests.Store[*vaulttypes.Request]
 	onchainCfg ocr3types.ReportingPluginConfig
 	cfg        *ReportingPluginConfig
@@ -391,7 +391,7 @@ func countPendingQueueStallSignalsInMap(obsByObserver map[uint8]*vaultcommon.Obs
 
 func (r *ReportingPlugin) purgeStalledPendingQueue(
 	ctx context.Context,
-	l common.Logger,
+	l logger.Logger,
 	store pendingQueueStore,
 	stallSignalCount int,
 ) (ocr3_1types.ReportsPlusPrecursor, error) {
@@ -1251,9 +1251,9 @@ func userFacingError(err error, fallback string) string {
 	return fallback
 }
 
-func logUserErrorAware(l common.Logger, msg string, err error, keysAndValues ...any) {
+func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...any) {
 	keysAndValues = append(keysAndValues, "error", err)
-	lggr := common.Sugared(l).Helper(1)
+	lggr := logger.Sugared(l).Helper(1)
 	if vaulttypes.IsUserError(err) {
 		lggr.Debugw(msg, keysAndValues...)
 		return

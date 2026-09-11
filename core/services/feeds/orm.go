@@ -10,7 +10,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
@@ -67,11 +67,11 @@ var _ ORM = &orm{}
 
 type orm struct {
 	ds   sqlutil.DataSource
-	lggr common.Logger
+	lggr logger.Logger
 }
 
-func NewORM(ds sqlutil.DataSource, lggr common.Logger) *orm {
-	namedLogger := common.Sugared(lggr).Named("FeedsORM")
+func NewORM(ds sqlutil.DataSource, lggr logger.Logger) *orm {
+	namedLogger := logger.Sugared(lggr).Named("FeedsORM")
 	return &orm{
 		ds:   ds,
 		lggr: namedLogger,

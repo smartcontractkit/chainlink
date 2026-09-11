@@ -11,7 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -42,7 +42,7 @@ type (
 
 	databaseBackup struct {
 		services.StateMachine
-		logger          common.Logger
+		logger          logger.Logger
 		databaseURL     url.URL
 		mode            config.DatabaseBackupMode
 		frequency       time.Duration
@@ -59,8 +59,8 @@ type (
 )
 
 // NewDatabaseBackup instantiates a *databaseBackup
-func NewDatabaseBackup(dbURL url.URL, rootDir string, backupConfig BackupConfig, lggr common.Logger) (DatabaseBackup, error) {
-	lggr = common.Named(lggr, "DatabaseBackup")
+func NewDatabaseBackup(dbURL url.URL, rootDir string, backupConfig BackupConfig, lggr logger.Logger) (DatabaseBackup, error) {
+	lggr = logger.Named(lggr, "DatabaseBackup")
 	dbBackupURL := backupConfig.URL()
 	if dbBackupURL != nil {
 		dbURL = *dbBackupURL
@@ -141,7 +141,7 @@ func (backup *databaseBackup) RunBackup(version string) error {
 	result, err := backup.runBackup(version)
 	duration := time.Since(startAt)
 	if err != nil {
-		common.Sugared(backup.logger).Criticalw("Backup failed", "duration", duration, "err", err)
+		logger.Sugared(backup.logger).Criticalw("Backup failed", "duration", duration, "err", err)
 		backup.SvcErrBuffer.Append(err)
 		return err
 	}

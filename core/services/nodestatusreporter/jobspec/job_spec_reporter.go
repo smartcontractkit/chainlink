@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
@@ -52,7 +52,7 @@ func NewJobSpecReporter(
 	csaPublicKey string,
 	nodeVersion string,
 	hostname string,
-	lggr common.Logger,
+	lggr logger.Logger,
 ) *Service {
 	s := &Service{
 		config:       config,

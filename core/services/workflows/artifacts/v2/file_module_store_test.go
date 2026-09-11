@@ -179,7 +179,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			wfID := "wf-" + string(wfSuffix[idx])
-			if !assert.NoError(t, s.StoreModule(wfID, []byte("data"), "v1")) { //nolint:testifylint // require illegal inside goroutine
+			if !assert.NoError(t, s.StoreModule(wfID, []byte("data"), "v1")) {
 				return
 			}
 		}(i)
@@ -190,7 +190,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			wfID := "wf-" + string(wfSuffix[idx])
 			_, _, _, err := s.GetModule(wfID)
-			if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside goroutine
+			if !assert.NoError(t, err) {
 				return
 			}
 		}(i)

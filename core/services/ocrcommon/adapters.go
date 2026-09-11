@@ -19,7 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringAdapter)(nil)
@@ -171,10 +171,10 @@ func UnmarshalMultichainPublicKey(d []byte) (map[string]ocrtypes.OnchainPublicKe
 type OCR3OnchainKeyringMultiChainAdapter struct {
 	keyBundles map[string]ocr2key.KeyBundle
 	publicKey  ocrtypes.OnchainPublicKey
-	lggr       common.Logger
+	lggr       logger.Logger
 }
 
-func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, lggr common.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
+func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
 	if len(ost) == 0 {
 		return nil, errors.New("no key bundles provided")
 	}

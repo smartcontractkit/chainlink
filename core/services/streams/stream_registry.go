@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -24,7 +24,7 @@ type Getter interface {
 
 type streamRegistry struct {
 	sync.RWMutex
-	lggr   common.Logger
+	lggr   logger.Logger
 	runner Runner
 	// keyed by stream ID
 	pipelines map[StreamID]Pipeline
@@ -32,14 +32,14 @@ type streamRegistry struct {
 	pipelinesByJobID map[int32]Pipeline
 }
 
-func NewRegistry(lggr common.Logger, runner Runner) Registry {
+func NewRegistry(lggr logger.Logger, runner Runner) Registry {
 	return newRegistry(lggr, runner)
 }
 
-func newRegistry(lggr common.Logger, runner Runner) *streamRegistry {
+func newRegistry(lggr logger.Logger, runner Runner) *streamRegistry {
 	return &streamRegistry{
 		sync.RWMutex{},
-		common.Named(lggr, "Registry"),
+		logger.Named(lggr, "Registry"),
 		runner,
 		make(map[StreamID]Pipeline),
 		make(map[int32]Pipeline),

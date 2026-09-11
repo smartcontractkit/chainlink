@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 )
 
@@ -20,14 +20,14 @@ const (
 type RPCHandlers struct {
 	svc            Service
 	feedsManagerID int64
-	lggr           common.SugaredLogger
+	lggr           logger.SugaredLogger
 }
 
-func NewRPCHandlers(svc Service, feedsManagerID int64, lggr common.Logger) *RPCHandlers {
+func NewRPCHandlers(svc Service, feedsManagerID int64, lggr logger.Logger) *RPCHandlers {
 	return &RPCHandlers{
 		svc:            svc,
 		feedsManagerID: feedsManagerID,
-		lggr:           common.Sugared(lggr).Named("RPCHandlers"),
+		lggr:           logger.Sugared(lggr).Named("RPCHandlers"),
 	}
 }
 
