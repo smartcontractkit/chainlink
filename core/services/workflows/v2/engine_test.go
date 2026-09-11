@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -54,7 +55,6 @@ import (
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
@@ -2403,9 +2403,9 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 	donID := uint32(1)
 
 	// Update the DON to have ConfigVersion = 1 (initial state for this test)
-	don := lr.IDsToDONs[registrysyncer.DonID(donID)]
+	don := lr.IDsToDONs[capreg.DonID(donID)]
 	don.ConfigVersion = 1 // Start at version 1 so we can test the update to version 2
-	lr.IDsToDONs[registrysyncer.DonID(donID)] = don
+	lr.IDsToDONs[capreg.DonID(donID)] = don
 
 	// Wrap in updatableRegistry to allow thread-safe updates during testing
 	localRegistry := &updatableRegistry{
@@ -2420,8 +2420,8 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 	donNotifier.NotifyDonSet(don1)
 
 	// Create a real capabilities registry and set our updatable local registry
-	capRegistry := coreCap.NewRegistry(lggr)
-	capRegistry.SetLocalRegistry(localRegistry)
+	capRegistry := capreg.NewRegistry(lggr)
+	capRegistry.SetMetadataRegistry(localRegistry)
 
 	// Create a real engine configuration
 	engine, cfg := createTestEngineForDonVersionTest(t, lggr, capRegistry, donNotifier, trackingEmitter)
@@ -2454,9 +2454,9 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 	}
 
 	// Update the LocalRegistry (simulating what the registry syncer does)
-	localRegistry.UpdateDON(registrysyncer.DonID(donID), registrysyncer.DON{
+	localRegistry.UpdateDON(capreg.DonID(donID), capreg.DON{
 		DON:                      don2,
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{},
+		CapabilityConfigurations: map[string]capreg.CapabilityConfiguration{},
 	})
 
 	// Notify the engine of the DON update
@@ -3172,7 +3172,7 @@ func (c *TriggerCapabilityWrapper) Info(ctx context.Context) (capabilities.Capab
 // updatableRegistry wraps LocalRegistry to allow thread-safe updates during testing
 // and implements the full CapabilitiesRegistry interface
 type updatableRegistry struct {
-	localRegistry *registrysyncer.LocalRegistry
+	localRegistry *capreg.MetadataRegistry
 	mu            sync.RWMutex
 }
 
@@ -3182,7 +3182,7 @@ func (r *updatableRegistry) LocalNode(ctx context.Context) (capabilities.Node, e
 	return r.localRegistry.LocalNode(ctx)
 }
 
-func (r *updatableRegistry) UpdateDON(donID registrysyncer.DonID, don registrysyncer.DON) {
+func (r *updatableRegistry) UpdateDON(donID capreg.DonID, don capreg.DON) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.localRegistry.IDsToDONs[donID] = don
@@ -3225,7 +3225,7 @@ func (r *updatableRegistry) DONByID(ctx context.Context, donID uint32) (capabili
 func createTestEngineForDonVersionTest(
 	t *testing.T,
 	lggr logger.Logger,
-	registry *coreCap.Registry,
+	registry *capreg.Registry,
 	donNotifier coreCap.DonNotifyWaitSubscriber,
 	emitter custmsg.MessageEmitter,
 ) (*v2.Engine, *v2.EngineConfig) {

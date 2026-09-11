@@ -12,8 +12,8 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 // testPeerID returns a consistent peer ID for use in tests.
@@ -77,20 +77,20 @@ func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
-	don := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"consensus@1.0.0": {Config: configBytes},
 		},
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registrysyncer.LocalRegistry{
+	registry := &registry.MetadataRegistry{
 		Logger: lggr,
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
 		},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)
@@ -134,20 +134,20 @@ func TestOCRConfigService_GetContractConfig(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
-	don := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"consensus@1.0.0": {Config: configBytes},
 		},
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registrysyncer.LocalRegistry{
+	registry := &registry.MetadataRegistry{
 		Logger: lggr,
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
 		},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)
@@ -211,20 +211,20 @@ func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
-	don := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"consensus@1.0.0": {Config: configBytes},
 		},
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registrysyncer.LocalRegistry{
+	registry := &registry.MetadataRegistry{
 		Logger: lggr,
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
 		},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)
@@ -293,20 +293,20 @@ func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
-	don := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"consensus@1.0.0": {Config: configBytes},
 		},
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registrysyncer.LocalRegistry{
+	registry := &registry.MetadataRegistry{
 		Logger: lggr,
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
 		},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)
@@ -349,20 +349,20 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 	configBytes1, err := proto.Marshal(capConfig1)
 	require.NoError(t, err)
 
-	don1 := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don1 := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"consensus@1.0.0": {Config: configBytes1},
 		},
 	}
 	don1.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry1 := &registrysyncer.LocalRegistry{
+	registry1 := &registry.MetadataRegistry{
 		Logger: lggr,
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don1,
 		},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry1)
@@ -392,20 +392,20 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 	configBytes2, err := proto.Marshal(capConfig2)
 	require.NoError(t, err)
 
-	don2 := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don2 := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"consensus@1.0.0": {Config: configBytes2},
 		},
 	}
 	don2.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry2 := &registrysyncer.LocalRegistry{
+	registry2 := &registry.MetadataRegistry{
 		Logger: lggr,
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don2,
 		},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry2)
@@ -447,20 +447,20 @@ func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
-	don := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"consensus@1.0.0": {Config: configBytes},
 		},
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registrysyncer.LocalRegistry{
+	registry := &registry.MetadataRegistry{
 		Logger: lggr,
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
 		},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)
@@ -501,20 +501,20 @@ func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
-	don := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"consensus@1.0.0": {Config: configBytes},
 		},
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registrysyncer.LocalRegistry{
+	registry := &registry.MetadataRegistry{
 		Logger: lggr,
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
 		},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)
@@ -563,21 +563,21 @@ func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 	require.NoError(t, err)
 
 	// Register the same OCR config under two different capability IDs.
-	don := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"consensus@1.0.0": {Config: configBytes},
 			"consensus@2.0.0": {Config: configBytes},
 		},
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registrysyncer.LocalRegistry{
+	registry := &registry.MetadataRegistry{
 		Logger: lggr,
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
 		},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	require.NoError(t, svc.OnNewRegistry(ctx, registry))
@@ -614,11 +614,11 @@ func TestOCRConfigService_LegacyFallbackAfterRegistryReceived(t *testing.T) {
 	require.Error(t, err) // No registry received yet, no fallback.
 
 	// Send an empty registry update (no config for this capability).
-	registry := &registrysyncer.LocalRegistry{
+	registry := &registry.MetadataRegistry{
 		Logger:            lggr,
-		IDsToDONs:         map[registrysyncer.DonID]registrysyncer.DON{},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToDONs:         map[registry.DonID]registry.DON{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)
@@ -686,20 +686,20 @@ func TestOCRConfigService_MultipleOCRKeys(t *testing.T) {
 	configBytes, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
-	don := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"consensus@1.0.0": {Config: configBytes},
 		},
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registrysyncer.LocalRegistry{
+	registry := &registry.MetadataRegistry{
 		Logger: lggr,
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
 		},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)
@@ -752,28 +752,28 @@ func TestOCRConfigService_DONMembershipFiltering(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create capabilities.DON with Members field
-	don1 := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don1 := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"consensus@1.0.0": {Config: configBytes},
 		},
 	}
 	don1.Members = []ragetypes.PeerID{myPeerID, otherPeerID}
 
-	don2 := registrysyncer.DON{
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+	don2 := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"other_cap@1.0.0": {Config: configBytes},
 		},
 	}
 	don2.Members = []ragetypes.PeerID{otherPeerID} // Node not a member
 
-	registry := &registrysyncer.LocalRegistry{
+	registry := &registry.MetadataRegistry{
 		Logger: lggr,
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don1,
 			2: don2,
 		},
-		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
-		IDsToCapabilities: map[string]registrysyncer.Capability{},
+		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
+		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
 	err = svc.OnNewRegistry(ctx, registry)

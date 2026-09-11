@@ -14,9 +14,9 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	capmock "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	appmocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -89,7 +89,7 @@ func TestCapabilityController_ExecuteCapability(t *testing.T) {
 	t.Parallel()
 	mockApp := appmocks.NewApplication(t)
 	mockRegistry := registrymock.NewCapabilitiesRegistry(t)
-	mockApp.EXPECT().GetCapabilitiesRegistry().Return(&capabilities.Registry{
+	mockApp.EXPECT().GetCapabilitiesRegistry().Return(&registry.Registry{
 		CapabilitiesRegistryBase: mockRegistry,
 	})
 

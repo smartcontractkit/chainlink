@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 var defaultStreamConfig = p2ptypes.StreamConfig{
@@ -97,7 +96,7 @@ func NewLauncher(
 	don2donSharedPeer p2ptypes.SharedPeer,
 	streamConfig config.StreamConfig,
 	dispatcher remotetypes.Dispatcher,
-	registry *Registry,
+	registry *registry.Registry,
 	workflowDonNotifier DonNotifier,
 	limitsFactory limits.Factory,
 	shardingEnabled bool,
@@ -155,10 +154,10 @@ func NewLauncher(
 }
 
 func (w *launcher) publicDONs(
-	allDONIDs []registrysyncer.DonID,
+	allDONIDs []registry.DonID,
 	localRegistry *registry.MetadataRegistry,
-) []registrysyncer.DON {
-	publicDONs := make([]registrysyncer.DON, 0)
+) []registry.DON {
+	publicDONs := make([]registry.DON, 0)
 	for _, id := range allDONIDs {
 		candidatePeerDON := localRegistry.IDsToDONs[id]
 		if !candidatePeerDON.IsPublic {
@@ -169,8 +168,8 @@ func (w *launcher) publicDONs(
 	return publicDONs
 }
 
-func (w *launcher) allDONs(localRegistry *registry.MetadataRegistry) []registrysyncer.DonID {
-	allDONIDs := make([]registrysyncer.DonID, 0)
+func (w *launcher) allDONs(localRegistry *registry.MetadataRegistry) []registry.DonID {
+	allDONIDs := make([]registry.DonID, 0)
 	for id, don := range localRegistry.IDsToDONs {
 		if len(don.Members) > 0 {
 			// only non-empty DONs
@@ -283,8 +282,8 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 	//
 	// We'll also construct a set to record what DONs the current node is a part of,
 	// regardless of any modifiers (public/acceptsWorkflows etc).
-	myWorkflowDONs := []registrysyncer.DON{}
-	remoteWorkflowDONs := []registrysyncer.DON{}
+	myWorkflowDONs := []registry.DON{}
+	remoteWorkflowDONs := []registry.DON{}
 	myDONs := map[uint32]bool{}
 	myDONFamiliesSet := map[string]bool{}
 	myDONFamilies := []string{}
@@ -319,8 +318,8 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 
 	// Capability DONs (with IsPublic = true) the current node is a part of.
 	// These need server-side shims to expose my own capabilities externally.
-	myCapabilityDONs := []registrysyncer.DON{}
-	remoteCapabilityDONs := []registrysyncer.DON{}
+	myCapabilityDONs := []registry.DON{}
+	remoteCapabilityDONs := []registry.DON{}
 	for _, d := range publicDONs {
 		if len(d.CapabilityConfigurations) > 0 {
 			if myDONs[d.ID] {
@@ -348,7 +347,7 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 
 	// Reconcile local capabilities: start/stop/restart capabilities based on registry state.
 	if w.localCapMgr != nil {
-		myDONs := make([]registrysyncer.DON, 0, len(myCapabilityDONs)+len(myWorkflowDONs))
+		myDONs := make([]registry.DON, 0, len(myCapabilityDONs)+len(myWorkflowDONs))
 		myDONs = append(myDONs, myCapabilityDONs...)
 		myDONs = append(myDONs, myWorkflowDONs...)
 		if err := w.localCapMgr.Reconcile(ctx, myDONs); err != nil {
@@ -396,8 +395,8 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 	return nil
 }
 
-func filterDONsByFamilies(donList []registrysyncer.DON, myDONFamilies []string) []registrysyncer.DON {
-	filteredDONs := []registrysyncer.DON{}
+func filterDONsByFamilies(donList []registry.DON, myDONFamilies []string) []registry.DON {
+	filteredDONs := []registry.DON{}
 	for _, d := range donList {
 		if donFamiliesOverlap(d.Families, myDONFamilies) {
 			filteredDONs = append(filteredDONs, d)
@@ -406,7 +405,7 @@ func filterDONsByFamilies(donList []registrysyncer.DON, myDONFamilies []string) 
 	return filteredDONs
 }
 
-func (w *launcher) warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs []registrysyncer.DON) {
+func (w *launcher) warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs []registry.DON) {
 	donIDsByCapability := map[string][]uint32{}
 	for _, d := range remoteCapabilityDONs {
 		for capID := range d.CapabilityConfigurations {
@@ -475,7 +474,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registry.DON
 
 // serveCapabilities exposes capabilities that are available on this node, as part of the given DON.
 // It is best effort, ensuring that valid capabilities are exposed even if some fail
-func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registrysyncer.DON, remoteWorkflowDONs []registrysyncer.DON) {
+func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registry.DON, remoteWorkflowDONs []registry.DON) {
 	idsToDONs := map[uint32]capabilities.DON{}
 	for _, d := range remoteWorkflowDONs {
 		idsToDONs[d.ID] = d.DON
@@ -583,7 +582,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 				DeltaStage: config.RemoteExecutableConfig.DeltaStage,
 			}
 
-			signers, err := signersFor(remoteDON, localRegistry)
+			signers, err := signersFor(remoteDON, metadataRegistry)
 			if err != nil {
 				return fmt.Errorf("failed to get signers for executable client: %w", err)
 			}
@@ -629,7 +628,7 @@ func (w *launcher) startNewShim(ctx context.Context, receiver remotetypes.Receiv
 	return nil
 }
 
-func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myPeerID p2ptypes.PeerID, myDON registrysyncer.DON, idsToDONs map[uint32]capabilities.DON) error {
+func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myPeerID p2ptypes.PeerID, myDON registry.DON, idsToDONs map[uint32]capabilities.DON) error {
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capabilities.CapabilityTypeCombined,

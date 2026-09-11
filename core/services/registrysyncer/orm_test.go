@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -26,7 +27,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	lggr := logger.Test(t)
 	orm := registrysyncer.NewORM(db, lggr)
 
-	var states []registrysyncer.LocalRegistry
+	var states []registry.MetadataRegistry
 	for range 11 {
 		state := generateState(t)
 		err := orm.AddLocalRegistry(ctx, state)
@@ -44,7 +45,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	assert.Equal(t, states[10], *state)
 }
 
-func generateState(t *testing.T) registrysyncer.LocalRegistry {
+func generateState(t *testing.T) registry.MetadataRegistry {
 	dID := uint32(1)
 	var pid types.PeerID
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
@@ -66,9 +67,9 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 	configb, err := proto.Marshal(config)
 	require.NoError(t, err)
 
-	return registrysyncer.LocalRegistry{
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			registrysyncer.DonID(dID): {
+	return registry.MetadataRegistry{
+		IDsToDONs: map[registry.DonID]registry.DON{
+			registry.DonID(dID): {
 				DON: capabilities.DON{
 					ID:               dID,
 					ConfigVersion:    uint32(0),
@@ -77,7 +78,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 					AcceptsWorkflows: true,
 					Members:          toPeerIDs(nodes),
 				},
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 					capabilityIDStr: {
 						Config: configb,
 					},
@@ -87,7 +88,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				},
 			},
 		},
-		IDsToCapabilities: map[string]registrysyncer.Capability{
+		IDsToCapabilities: map[string]registry.Capability{
 			capabilityIDStr: {
 				ID:             capabilityIDStr,
 				CapabilityType: capabilities.CapabilityTypeAction,
@@ -97,7 +98,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				CapabilityType: capabilities.CapabilityTypeConsensus,
 			},
 		},
-		IDsToNodes: map[types.PeerID]registrysyncer.NodeInfo{
+		IDsToNodes: map[types.PeerID]registry.NodeInfo{
 			nodes[0]: {
 				NodeOperatorID:      1,
 				Signer:              randomWord(),

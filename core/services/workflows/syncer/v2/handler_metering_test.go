@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
+	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	meteringpb "github.com/smartcontractkit/chainlink-protos/metering/go"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -126,8 +126,8 @@ func newMeteringTestHandler(t *testing.T, artifactsStore WorkflowArtifactsStore,
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	lf := limits.Factory{Logger: lggr}
-	registry := capabilities.NewRegistry(lggr)
-	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	registry := capreg.NewRegistry(lggr)
+	registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -526,8 +526,8 @@ func newMeteringTestHandlerWithOrg(t *testing.T, artifactsStore WorkflowArtifact
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	lf := limits.Factory{Logger: lggr}
-	registry := capabilities.NewRegistry(lggr)
-	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	registry := capreg.NewRegistry(lggr)
+	registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)

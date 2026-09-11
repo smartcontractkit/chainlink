@@ -26,11 +26,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -586,7 +586,7 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 
 	// Seed a local test metadata registry so workflow jobs can resolve local
 	// node state without an on-chain capabilities registry.
-	app.GetCapabilitiesRegistry().SetLocalRegistry(&corecaps.TestMetadataRegistry{})
+	app.GetCapabilitiesRegistry().SetMetadataRegistry(&registry.TestMetadataRegistry{})
 
 	client := app.NewHTTPClient(nil)
 	vrfKeyStore := app.GetKeyStore().VRF()

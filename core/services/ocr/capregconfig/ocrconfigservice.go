@@ -16,9 +16,9 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 type ocrConfigService struct {
@@ -117,7 +117,7 @@ func (s *ocrConfigService) HealthReport() map[string]error {
 
 // OnNewRegistry implements registrysyncer.Listener to receive registry updates with capability configurations.
 // It scans DONs to find which one(s) the current node belongs to and extracts OCR configs only for those DONs.
-func (s *ocrConfigService) OnNewRegistry(ctx context.Context, registry *registrysyncer.LocalRegistry) error {
+func (s *ocrConfigService) OnNewRegistry(ctx context.Context, registry *registry.MetadataRegistry) error {
 	if ok := s.IfStarted(func() {}); !ok {
 		s.lggr.Warnw("OnNewRegistry called before service started, skipping")
 		return nil

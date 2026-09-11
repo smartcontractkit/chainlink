@@ -10,15 +10,15 @@ import (
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func Test_diff(t *testing.T) {
 	type args struct {
 		capabilityID string
-		oldState     *registrysyncer.LocalRegistry
-		newState     *registrysyncer.LocalRegistry
+		oldState     *registry.MetadataRegistry
+		newState     *registry.MetadataRegistry
 	}
 	tests := []struct {
 		name    string
@@ -30,42 +30,42 @@ func Test_diff(t *testing.T) {
 			name: "no diff",
 			args: args{
 				capabilityID: defaultCapability.ID,
-				oldState: &registrysyncer.LocalRegistry{
-					IDsToCapabilities: map[string]registrysyncer.Capability{
+				oldState: &registry.MetadataRegistry{
+					IDsToCapabilities: map[string]registry.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+					IDsToDONs: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
-					IDsToNodes: map[types.PeerID]registrysyncer.NodeInfo{},
+					IDsToNodes: map[types.PeerID]registry.NodeInfo{},
 				},
-				newState: &registrysyncer.LocalRegistry{
-					IDsToCapabilities: map[string]registrysyncer.Capability{
+				newState: &registry.MetadataRegistry{
+					IDsToCapabilities: map[string]registry.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+					IDsToDONs: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
-					IDsToNodes: map[types.PeerID]registrysyncer.NodeInfo{},
+					IDsToNodes: map[types.PeerID]registry.NodeInfo{},
 				},
 			},
 			want: diffResult{
-				added:   map[registrysyncer.DonID]registrysyncer.DON{},
-				removed: map[registrysyncer.DonID]registrysyncer.DON{},
-				updated: map[registrysyncer.DonID]registrysyncer.DON{},
+				added:   map[registry.DonID]registry.DON{},
+				removed: map[registry.DonID]registry.DON{},
+				updated: map[registry.DonID]registry.DON{},
 			},
 		},
 		{
 			"capability not present",
 			args{
 				capabilityID: defaultCapability.ID,
-				oldState: &registrysyncer.LocalRegistry{
-					IDsToCapabilities: map[string]registrysyncer.Capability{
+				oldState: &registry.MetadataRegistry{
+					IDsToCapabilities: map[string]registry.Capability{
 						newCapability.ID: newCapability,
 					},
 				},
-				newState: &registrysyncer.LocalRegistry{
-					IDsToCapabilities: map[string]registrysyncer.Capability{
+				newState: &registry.MetadataRegistry{
+					IDsToCapabilities: map[string]registry.Capability{
 						newCapability.ID: newCapability,
 					},
 				},
@@ -77,27 +77,27 @@ func Test_diff(t *testing.T) {
 			"diff present, new don",
 			args{
 				capabilityID: defaultCapability.ID,
-				oldState: &registrysyncer.LocalRegistry{
-					IDsToCapabilities: map[string]registrysyncer.Capability{
+				oldState: &registry.MetadataRegistry{
+					IDsToCapabilities: map[string]registry.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{},
+					IDsToDONs: map[registry.DonID]registry.DON{},
 				},
-				newState: &registrysyncer.LocalRegistry{
-					IDsToCapabilities: map[string]registrysyncer.Capability{
+				newState: &registry.MetadataRegistry{
+					IDsToCapabilities: map[string]registry.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+					IDsToDONs: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
 				},
 			},
 			diffResult{
-				added: map[registrysyncer.DonID]registrysyncer.DON{
+				added: map[registry.DonID]registry.DON{
 					1: defaultRegistryDon,
 				},
-				removed: map[registrysyncer.DonID]registrysyncer.DON{},
-				updated: map[registrysyncer.DonID]registrysyncer.DON{},
+				removed: map[registry.DonID]registry.DON{},
+				updated: map[registry.DonID]registry.DON{},
 			},
 			false,
 		},
@@ -117,63 +117,63 @@ func Test_diff(t *testing.T) {
 
 func Test_compareDONs(t *testing.T) {
 	type args struct {
-		currCCIPDONs map[registrysyncer.DonID]registrysyncer.DON
-		newCCIPDONs  map[registrysyncer.DonID]registrysyncer.DON
+		currCCIPDONs map[registry.DonID]registry.DON
+		newCCIPDONs  map[registry.DonID]registry.DON
 	}
 	tests := []struct {
 		name        string
 		args        args
-		wantAdded   map[registrysyncer.DonID]registrysyncer.DON
-		wantRemoved map[registrysyncer.DonID]registrysyncer.DON
-		wantUpdated map[registrysyncer.DonID]registrysyncer.DON
+		wantAdded   map[registry.DonID]registry.DON
+		wantRemoved map[registry.DonID]registry.DON
+		wantUpdated map[registry.DonID]registry.DON
 		wantErr     bool
 	}{
 		{
 			"added dons",
 			args{
-				currCCIPDONs: map[registrysyncer.DonID]registrysyncer.DON{},
-				newCCIPDONs: map[registrysyncer.DonID]registrysyncer.DON{
+				currCCIPDONs: map[registry.DonID]registry.DON{},
+				newCCIPDONs: map[registry.DonID]registry.DON{
 					1: defaultRegistryDon,
 				},
 			},
-			map[registrysyncer.DonID]registrysyncer.DON{
+			map[registry.DonID]registry.DON{
 				1: defaultRegistryDon,
 			},
-			map[registrysyncer.DonID]registrysyncer.DON{},
-			map[registrysyncer.DonID]registrysyncer.DON{},
+			map[registry.DonID]registry.DON{},
+			map[registry.DonID]registry.DON{},
 			false,
 		},
 		{
 			"removed dons",
 			args{
-				currCCIPDONs: map[registrysyncer.DonID]registrysyncer.DON{
+				currCCIPDONs: map[registry.DonID]registry.DON{
 					1: defaultRegistryDon,
 				},
-				newCCIPDONs: map[registrysyncer.DonID]registrysyncer.DON{},
+				newCCIPDONs: map[registry.DonID]registry.DON{},
 			},
-			map[registrysyncer.DonID]registrysyncer.DON{},
-			map[registrysyncer.DonID]registrysyncer.DON{
+			map[registry.DonID]registry.DON{},
+			map[registry.DonID]registry.DON{
 				1: defaultRegistryDon,
 			},
-			map[registrysyncer.DonID]registrysyncer.DON{},
+			map[registry.DonID]registry.DON{},
 			false,
 		},
 		{
 			"updated dons",
 			args{
-				currCCIPDONs: map[registrysyncer.DonID]registrysyncer.DON{
+				currCCIPDONs: map[registry.DonID]registry.DON{
 					1: defaultRegistryDon,
 				},
-				newCCIPDONs: map[registrysyncer.DonID]registrysyncer.DON{
+				newCCIPDONs: map[registry.DonID]registry.DON{
 					1: {
 						DON:                      getDON(defaultRegistryDon.ID, defaultRegistryDon.Members, defaultRegistryDon.ConfigVersion+1),
 						CapabilityConfigurations: defaultCapCfgs,
 					},
 				},
 			},
-			map[registrysyncer.DonID]registrysyncer.DON{},
-			map[registrysyncer.DonID]registrysyncer.DON{},
-			map[registrysyncer.DonID]registrysyncer.DON{
+			map[registry.DonID]registry.DON{},
+			map[registry.DonID]registry.DON{},
+			map[registry.DonID]registry.DON{
 				1: {
 					DON:                      getDON(defaultRegistryDon.ID, defaultRegistryDon.Members, defaultRegistryDon.ConfigVersion+1),
 					CapabilityConfigurations: defaultCapCfgs,
@@ -199,26 +199,26 @@ func Test_compareDONs(t *testing.T) {
 
 func Test_filterCCIPDONs(t *testing.T) {
 	type args struct {
-		ccipCapability registrysyncer.Capability
-		state          *registrysyncer.LocalRegistry
+		ccipCapability registry.Capability
+		state          *registry.MetadataRegistry
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    map[registrysyncer.DonID]registrysyncer.DON
+		want    map[registry.DonID]registry.DON
 		wantErr bool
 	}{
 		{
 			"one ccip don",
 			args{
 				ccipCapability: defaultCapability,
-				state: &registrysyncer.LocalRegistry{
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+				state: &registry.MetadataRegistry{
+					IDsToDONs: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
 				},
 			},
-			map[registrysyncer.DonID]registrysyncer.DON{
+			map[registry.DonID]registry.DON{
 				1: defaultRegistryDon,
 			},
 			false,
@@ -227,24 +227,24 @@ func Test_filterCCIPDONs(t *testing.T) {
 			"no ccip dons - different capability",
 			args{
 				ccipCapability: newCapability,
-				state: &registrysyncer.LocalRegistry{
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+				state: &registry.MetadataRegistry{
+					IDsToDONs: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
 				},
 			},
-			map[registrysyncer.DonID]registrysyncer.DON{},
+			map[registry.DonID]registry.DON{},
 			false,
 		},
 		{
 			"don with multiple capabilities, one of them ccip",
 			args{
 				ccipCapability: defaultCapability,
-				state: &registrysyncer.LocalRegistry{
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+				state: &registry.MetadataRegistry{
+					IDsToDONs: map[registry.DonID]registry.DON{
 						1: {
 							DON: getDON(1, []ragep2ptypes.PeerID{p2pID1}, 0),
-							CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+							CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 								defaultCapability.ID: {},
 								newCapability.ID:     {},
 							},
@@ -252,10 +252,10 @@ func Test_filterCCIPDONs(t *testing.T) {
 					},
 				},
 			},
-			map[registrysyncer.DonID]registrysyncer.DON{
+			map[registry.DonID]registry.DON{
 				1: {
 					DON: getDON(1, []ragep2ptypes.PeerID{p2pID1}, 0),
-					CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+					CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 						defaultCapability.ID: {},
 						newCapability.ID:     {},
 					},
@@ -280,20 +280,20 @@ func Test_filterCCIPDONs(t *testing.T) {
 func Test_checkCapabilityPresence(t *testing.T) {
 	type args struct {
 		capabilityID string
-		state        *registrysyncer.LocalRegistry
+		state        *registry.MetadataRegistry
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    registrysyncer.Capability
+		want    registry.Capability
 		wantErr bool
 	}{
 		{
 			"in registry state",
 			args{
 				capabilityID: defaultCapability.ID,
-				state: &registrysyncer.LocalRegistry{
-					IDsToCapabilities: map[string]registrysyncer.Capability{
+				state: &registry.MetadataRegistry{
+					IDsToCapabilities: map[string]registry.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
 				},
@@ -305,13 +305,13 @@ func Test_checkCapabilityPresence(t *testing.T) {
 			"not in registry state",
 			args{
 				capabilityID: defaultCapability.ID,
-				state: &registrysyncer.LocalRegistry{
-					IDsToCapabilities: map[string]registrysyncer.Capability{
+				state: &registry.MetadataRegistry{
+					IDsToCapabilities: map[string]registry.Capability{
 						newCapability.ID: newCapability,
 					},
 				},
 			},
-			registrysyncer.Capability{},
+			registry.Capability{},
 			true,
 		},
 	}
@@ -334,7 +334,7 @@ func Test_isMemberOfDON(t *testing.T) {
 	for i := range [4]struct{}{} {
 		p2pIDs = append(p2pIDs, ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(i+1))).PeerID()))
 	}
-	don := registrysyncer.DON{
+	don := registry.DON{
 		DON: getDON(1, p2pIDs, 0),
 	}
 	require.True(t, isMemberOfDON(don, ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID())))

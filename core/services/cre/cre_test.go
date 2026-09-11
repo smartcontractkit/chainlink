@@ -7,9 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	registrysyncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 	registrysyncerV2Mocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -19,7 +19,7 @@ type registryListenerStub struct {
 	name string
 }
 
-func (*registryListenerStub) OnNewRegistry(context.Context, *registrysyncer.LocalRegistry) error {
+func (*registryListenerStub) OnNewRegistry(context.Context, *registry.MetadataRegistry) error {
 	return nil
 }
 

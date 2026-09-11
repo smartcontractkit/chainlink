@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -77,7 +78,7 @@ type Keystore interface {
 
 // Opts are the options for the CRE services that are exposed by the application
 type Opts struct {
-	CapabilitiesRegistry   *capabilities.Registry
+	CapabilitiesRegistry   *registry.Registry
 	ExecutionHandlers      *confidentialrelay.ExecutionHandlers
 	CapabilitiesDispatcher remotetypes.Dispatcher
 	CapabilitiesSharedPeer p2ptypes.SharedPeer
@@ -615,8 +616,8 @@ func (w *dispatcherWrapper) newSubservices(
 	return []commonsrv.Service{w.don2DonSharedPeer, w.dispatcher}, nil
 }
 
-func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *capabilities.TestMetadataRegistry {
-	return &capabilities.TestMetadataRegistry{}
+func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *registry.TestMetadataRegistry {
+	return &registry.TestMetadataRegistry{}
 }
 
 // newDispatcherWrapper creates a new dispatcherWrapper service with peer wrappers if peering is enabled

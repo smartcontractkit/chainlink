@@ -39,6 +39,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/cosmoskey"
@@ -54,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tonkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tronkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -68,7 +70,6 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -78,7 +79,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
-	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -188,7 +188,7 @@ type TestApplication struct {
 	Started            bool
 	Backend            *simulated.Backend
 	Keys               []ethkey.KeyV2
-	CapabilityRegistry *capabilities.Registry
+	CapabilityRegistry *registry.Registry
 }
 
 // NewApplicationEVMDisabled creates a new application with default config but EVM disabled
@@ -296,10 +296,10 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	var capabilitiesRegistry *capabilities.Registry
-	capabilitiesRegistry = capabilities.NewRegistry(lggr)
+	var capabilitiesRegistry *registry.Registry
+	capabilitiesRegistry = registry.NewRegistry(lggr)
 	for _, dep := range flagsAndDeps {
-		registry, _ := dep.(*capabilities.Registry)
+		registry, _ := dep.(*registry.Registry)
 		if registry != nil {
 			capabilitiesRegistry = registry
 		}

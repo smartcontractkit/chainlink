@@ -23,6 +23,7 @@ import (
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
@@ -32,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -74,7 +74,7 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 		Logger: lggr,
 		LoopRegistry: plugins.NewLoopRegistry(lggr, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(),
 			cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(), cfg.Metering(), nil, "", cfg.LOOPP()),
-		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+		CapabilitiesRegistry: registry.NewRegistry(lggr),
 	}
 
 	relayers, err := chainlink.NewCoreRelayerChainInteroperators(chainlink.InitEVM(f, chainlink.EVMFactoryConfig{

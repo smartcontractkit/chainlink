@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
@@ -28,26 +28,26 @@ type RunnerConfig struct {
 
 type RunnerHooks struct {
 	// Initialize hook sets up resources used by the Runner
-	Initialize func(context.Context, RunnerConfig) (*capabilities.Registry, []services.Service)
+	Initialize func(context.Context, RunnerConfig) (*capreg.Registry, []services.Service)
 	// BeforeStart hook is a testing hook that can be used to check that resources were set up
-	BeforeStart func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*sdk.TriggerSubscription)
+	BeforeStart func(context.Context, RunnerConfig, *capreg.Registry, []services.Service, []*sdk.TriggerSubscription)
 	// Wait hook handles blocking for the runner to keep the standalone engine running
-	Wait func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	Wait func(context.Context, RunnerConfig, *capreg.Registry, []services.Service)
 	// AfterRun hook is a testing hook that can be used for checking engine and capability state directly after waiting
-	AfterRun func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	AfterRun func(context.Context, RunnerConfig, *capreg.Registry, []services.Service)
 	// Cleanup hook shuts down the services that were started in the Initialize hook
-	Cleanup func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	Cleanup func(context.Context, RunnerConfig, *capreg.Registry, []services.Service)
 	// Finally hook is a testing hook that can be used to check that resources were cleaned up
-	Finally func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service)
+	Finally func(context.Context, RunnerConfig, *capreg.Registry, []services.Service)
 }
 
-var emptyHook = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service) {}
-var emptyBeforeStart = func(context.Context, RunnerConfig, *capabilities.Registry, []services.Service, []*sdk.TriggerSubscription) {
+var emptyHook = func(context.Context, RunnerConfig, *capreg.Registry, []services.Service) {}
+var emptyBeforeStart = func(context.Context, RunnerConfig, *capreg.Registry, []services.Service, []*sdk.TriggerSubscription) {
 }
 
-var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabilities.Registry, []services.Service) {
-	registry := capabilities.NewRegistry(cfg.Lggr)
-	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capreg.Registry, []services.Service) {
+	registry := capreg.NewRegistry(cfg.Lggr)
+	registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 
 	srvcs := []services.Service{}
 	if cfg.EnableBilling {
@@ -100,11 +100,11 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabiliti
 	return registry, srvcs
 }
 
-var defaultWait = func(ctx context.Context, cfg RunnerConfig, registry *capabilities.Registry, services []services.Service) {
+var defaultWait = func(ctx context.Context, cfg RunnerConfig, registry *capreg.Registry, services []services.Service) {
 	<-ctx.Done()
 }
 
-var defaultCleanup = func(ctx context.Context, cfg RunnerConfig, registry *capabilities.Registry, services []services.Service) {
+var defaultCleanup = func(ctx context.Context, cfg RunnerConfig, registry *capreg.Registry, services []services.Service) {
 	for _, service := range services {
 		cfg.Lggr.Infow("Shutting down", "id", service.Name())
 		_ = service.Close()

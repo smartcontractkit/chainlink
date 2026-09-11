@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	registrysyncer "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	registry "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -23,7 +23,7 @@ func (_m *ORM) EXPECT() *ORM_Expecter {
 }
 
 // AddLocalRegistry provides a mock function with given fields: ctx, localRegistry
-func (_m *ORM) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer.LocalRegistry) error {
+func (_m *ORM) AddLocalRegistry(ctx context.Context, localRegistry registry.MetadataRegistry) error {
 	ret := _m.Called(ctx, localRegistry)
 
 	if len(ret) == 0 {
@@ -31,7 +31,7 @@ func (_m *ORM) AddLocalRegistry(ctx context.Context, localRegistry registrysynce
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, registrysyncer.LocalRegistry) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, registry.MetadataRegistry) error); ok {
 		r0 = rf(ctx, localRegistry)
 	} else {
 		r0 = ret.Error(0)
@@ -47,14 +47,14 @@ type ORM_AddLocalRegistry_Call struct {
 
 // AddLocalRegistry is a helper method to define mock.On call
 //   - ctx context.Context
-//   - localRegistry registrysyncer.LocalRegistry
+//   - localRegistry registry.MetadataRegistry
 func (_e *ORM_Expecter) AddLocalRegistry(ctx interface{}, localRegistry interface{}) *ORM_AddLocalRegistry_Call {
 	return &ORM_AddLocalRegistry_Call{Call: _e.mock.On("AddLocalRegistry", ctx, localRegistry)}
 }
 
-func (_c *ORM_AddLocalRegistry_Call) Run(run func(ctx context.Context, localRegistry registrysyncer.LocalRegistry)) *ORM_AddLocalRegistry_Call {
+func (_c *ORM_AddLocalRegistry_Call) Run(run func(ctx context.Context, localRegistry registry.MetadataRegistry)) *ORM_AddLocalRegistry_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(registrysyncer.LocalRegistry))
+		run(args[0].(context.Context), args[1].(registry.MetadataRegistry))
 	})
 	return _c
 }
@@ -64,29 +64,29 @@ func (_c *ORM_AddLocalRegistry_Call) Return(_a0 error) *ORM_AddLocalRegistry_Cal
 	return _c
 }
 
-func (_c *ORM_AddLocalRegistry_Call) RunAndReturn(run func(context.Context, registrysyncer.LocalRegistry) error) *ORM_AddLocalRegistry_Call {
+func (_c *ORM_AddLocalRegistry_Call) RunAndReturn(run func(context.Context, registry.MetadataRegistry) error) *ORM_AddLocalRegistry_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // LatestLocalRegistry provides a mock function with given fields: ctx
-func (_m *ORM) LatestLocalRegistry(ctx context.Context) (*registrysyncer.LocalRegistry, error) {
+func (_m *ORM) LatestLocalRegistry(ctx context.Context) (*registry.MetadataRegistry, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for LatestLocalRegistry")
 	}
 
-	var r0 *registrysyncer.LocalRegistry
+	var r0 *registry.MetadataRegistry
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (*registrysyncer.LocalRegistry, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (*registry.MetadataRegistry, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) *registrysyncer.LocalRegistry); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) *registry.MetadataRegistry); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*registrysyncer.LocalRegistry)
+			r0 = ret.Get(0).(*registry.MetadataRegistry)
 		}
 	}
 
@@ -117,12 +117,12 @@ func (_c *ORM_LatestLocalRegistry_Call) Run(run func(ctx context.Context)) *ORM_
 	return _c
 }
 
-func (_c *ORM_LatestLocalRegistry_Call) Return(_a0 *registrysyncer.LocalRegistry, _a1 error) *ORM_LatestLocalRegistry_Call {
+func (_c *ORM_LatestLocalRegistry_Call) Return(_a0 *registry.MetadataRegistry, _a1 error) *ORM_LatestLocalRegistry_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ORM_LatestLocalRegistry_Call) RunAndReturn(run func(context.Context) (*registrysyncer.LocalRegistry, error)) *ORM_LatestLocalRegistry_Call {
+func (_c *ORM_LatestLocalRegistry_Call) RunAndReturn(run func(context.Context) (*registry.MetadataRegistry, error)) *ORM_LatestLocalRegistry_Call {
 	_c.Call.Return(run)
 	return _c
 }

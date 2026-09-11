@@ -19,11 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -41,7 +41,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -140,7 +140,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -244,7 +244,7 @@ func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
 		expiry := 10 * time.Second
 		store := requests.NewStore[*vaulttypes.Request]()
 		handler := requests.NewHandler(lggr, store, clock, expiry)
-		reg := coreCapabilities.NewRegistry(lggr)
+		reg := registry.NewRegistry(lggr)
 		lf := limits.Factory{Settings: cresettings.DefaultGetter}
 		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 		require.NoError(t, err)
@@ -335,7 +335,7 @@ func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
 		expiry := 10 * time.Second
 		store := requests.NewStore[*vaulttypes.Request]()
 		handler := requests.NewHandler(lggr, store, clock, expiry)
-		reg := coreCapabilities.NewRegistry(lggr)
+		reg := registry.NewRegistry(lggr)
 		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 		require.NoError(t, err)
 		servicetest.Run(t, capability)
@@ -460,7 +460,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 			expiry := 10 * time.Second
 			store := requests.NewStore[*vaulttypes.Request]()
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-			reg := coreCapabilities.NewRegistry(lggr)
+			reg := registry.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
 			capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 			require.NoError(t, err)
@@ -539,7 +539,7 @@ func TestCapability_CapabilityCall_UsesMetadataWorkflowOwner(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -612,7 +612,7 @@ func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -704,7 +704,7 @@ func TestCapability_CapabilityCall_BackfillsGetSecretsWorkflowOwnerFromFirstSecr
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -797,7 +797,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -873,7 +873,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, fakeClock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, fakeClock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -1587,7 +1587,7 @@ func TestCapability_CRUD(t *testing.T) {
 			expiry := 10 * time.Second
 			store := requests.NewStore[*vaulttypes.Request]()
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-			reg := coreCapabilities.NewRegistry(lggr)
+			reg := registry.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
 			capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, lf, newTestRequestLifecycleTracker(t))
 			require.NoError(t, err)
@@ -1633,7 +1633,7 @@ func TestCapability_Lifecycle(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -1663,7 +1663,7 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lpk := NewLazyPublicKey()
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, lf, newTestRequestLifecycleTracker(t))

@@ -30,6 +30,7 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
@@ -52,7 +53,6 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -110,7 +110,7 @@ type Application interface {
 	WakeSessionReaper()
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
-	GetCapabilitiesRegistry() *capabilities.Registry
+	GetCapabilitiesRegistry() *registry.Registry
 
 	GetRelayers() RelayerChainInteroperators
 	GetLoopRegistry() *plugins.LoopRegistry
@@ -178,7 +178,7 @@ type ChainlinkApplication struct {
 	profiler                *pyroscope.Profiler
 	loopRegistry            *plugins.LoopRegistry
 	loopRegistrarConfig     plugins.RegistrarConfig
-	capabilitiesRegistry    *capabilities.Registry
+	capabilitiesRegistry    *registry.Registry
 	shardOrchestratorClient shardorchestrator.ClientInterface
 
 	started     bool
@@ -262,7 +262,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	if opts.CapabilitiesRegistry == nil {
 		// for tests only, in prod Registry should always be set at this point
-		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
+		opts.CapabilitiesRegistry = registry.NewRegistry(globalLogger)
 	}
 
 	if opts.ExecutionHandlers == nil {
@@ -1136,7 +1136,7 @@ func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
 	return app.txmStorageService
 }
 
-func (app *ChainlinkApplication) GetCapabilitiesRegistry() *capabilities.Registry {
+func (app *ChainlinkApplication) GetCapabilitiesRegistry() *registry.Registry {
 	return app.capabilitiesRegistry
 }
 

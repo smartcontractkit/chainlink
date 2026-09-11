@@ -6,22 +6,22 @@ import (
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 )
 
 // diffResult contains the added, removed and updated CCIP DONs.
 // It is determined by using the `diff` function below.
 type diffResult struct {
-	added   map[registrysyncer.DonID]registrysyncer.DON
-	removed map[registrysyncer.DonID]registrysyncer.DON
-	updated map[registrysyncer.DonID]registrysyncer.DON
+	added   map[registry.DonID]registry.DON
+	removed map[registry.DonID]registry.DON
+	updated map[registry.DonID]registry.DON
 }
 
 // diff compares the old and new state and returns the added, removed and updated CCIP DONs.
 func diff(
 	capabilityID string,
 	oldState,
-	newState *registrysyncer.LocalRegistry,
+	newState *registry.MetadataRegistry,
 ) (diffResult, error) {
 	ccipCapability, err := checkCapabilityPresence(capabilityID, newState)
 	if err != nil {
@@ -50,14 +50,14 @@ func diff(
 // compareDONs compares the current and new CCIP DONs and returns the added, removed and updated DONs.
 func compareDONs(
 	currCCIPDONs,
-	newCCIPDONs map[registrysyncer.DonID]registrysyncer.DON,
+	newCCIPDONs map[registry.DonID]registry.DON,
 ) (
 	dr diffResult,
 	err error,
 ) {
-	added := make(map[registrysyncer.DonID]registrysyncer.DON)
-	removed := make(map[registrysyncer.DonID]registrysyncer.DON)
-	updated := make(map[registrysyncer.DonID]registrysyncer.DON)
+	added := make(map[registry.DonID]registry.DON)
+	removed := make(map[registry.DonID]registry.DON)
+	updated := make(map[registry.DonID]registry.DON)
 
 	for id, don := range newCCIPDONs {
 		if currDONState, ok := currCCIPDONs[id]; !ok {
@@ -86,14 +86,14 @@ func compareDONs(
 
 // filterCCIPDONs filters the CCIP DONs from the given state.
 func filterCCIPDONs(
-	ccipCapability registrysyncer.Capability,
-	state *registrysyncer.LocalRegistry,
-) (map[registrysyncer.DonID]registrysyncer.DON, error) {
-	ccipDONs := make(map[registrysyncer.DonID]registrysyncer.DON)
+	ccipCapability registry.Capability,
+	state *registry.MetadataRegistry,
+) (map[registry.DonID]registry.DON, error) {
+	ccipDONs := make(map[registry.DonID]registry.DON)
 	for _, don := range state.IDsToDONs {
 		_, ok := don.CapabilityConfigurations[ccipCapability.ID]
 		if ok {
-			ccipDONs[registrysyncer.DonID(don.ID)] = don
+			ccipDONs[registry.DonID(don.ID)] = don
 		}
 	}
 
@@ -104,12 +104,12 @@ func filterCCIPDONs(
 // is present in the given capability registry state.
 func checkCapabilityPresence(
 	capabilityID string,
-	state *registrysyncer.LocalRegistry,
-) (registrysyncer.Capability, error) {
+	state *registry.MetadataRegistry,
+) (registry.Capability, error) {
 	// Sanity check to make sure the capability registry has the capability we are looking for.
 	ccipCapability, ok := state.IDsToCapabilities[capabilityID]
 	if !ok {
-		return registrysyncer.Capability{},
+		return registry.Capability{},
 			fmt.Errorf("failed to find capability with capabilityID %s in capability registry state", capabilityID)
 	}
 
@@ -117,6 +117,6 @@ func checkCapabilityPresence(
 }
 
 // isMemberOfDON returns true if and only if the given p2pID is a member of the given DON.
-func isMemberOfDON(don registrysyncer.DON, p2pID ragep2ptypes.PeerID) bool {
+func isMemberOfDON(don registry.DON, p2pID ragep2ptypes.PeerID) bool {
 	return slices.Contains(don.Members, p2pID)
 }

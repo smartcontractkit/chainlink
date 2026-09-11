@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	kcr_v1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -130,11 +131,11 @@ func randomWord() [32]byte {
 }
 
 type launcher struct {
-	localRegistry *registrysyncer.LocalRegistry
+	localRegistry *registry.MetadataRegistry
 	mu            sync.RWMutex
 }
 
-func (l *launcher) OnNewRegistry(_ context.Context, localRegistry *registrysyncer.LocalRegistry) error {
+func (l *launcher) OnNewRegistry(_ context.Context, localRegistry *registry.MetadataRegistry) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.localRegistry = localRegistry
@@ -165,7 +166,7 @@ func (o *orm) Cleanup() {
 	close(o.addLocalRegistryCh)
 }
 
-func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer.LocalRegistry) error {
+func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registry.MetadataRegistry) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.addLocalRegistryCh <- struct{}{}
@@ -173,7 +174,7 @@ func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer
 	return err
 }
 
-func (o *orm) LatestLocalRegistry(ctx context.Context) (*registrysyncer.LocalRegistry, error) {
+func (o *orm) LatestLocalRegistry(ctx context.Context) (*registry.MetadataRegistry, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.latestLocalRegistryCh <- struct{}{}
@@ -297,7 +298,7 @@ func TestReader_Integration(t *testing.T) {
 	assert.Len(t, s.IDsToCapabilities, 1)
 
 	gotCap := s.IDsToCapabilities[cid]
-	assert.Equal(t, registrysyncer.Capability{
+	assert.Equal(t, registry.Capability{
 		CapabilityType: capabilities.CapabilityTypeTarget,
 		ID:             "write-chain@1.0.1",
 	}, gotCap)
@@ -315,7 +316,7 @@ func TestReader_Integration(t *testing.T) {
 	assert.Equal(t, expectedDON, gotDon.DON)
 	assert.Equal(t, configb, gotDon.CapabilityConfigurations[cid].Config)
 
-	nodesInfo := []registrysyncer.NodeInfo{
+	nodesInfo := []registry.NodeInfo{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorID:      uint32(1),
@@ -355,7 +356,7 @@ func TestReader_Integration(t *testing.T) {
 	}
 
 	assert.Len(t, s.IDsToNodes, 3)
-	assert.Equal(t, map[p2ptypes.PeerID]registrysyncer.NodeInfo{
+	assert.Equal(t, map[p2ptypes.PeerID]registry.NodeInfo{
 		nodeSet[0]: nodesInfo[0],
 		nodeSet[1]: nodesInfo[1],
 		nodeSet[2]: nodesInfo[2],
@@ -499,11 +500,11 @@ func TestSyncer_LocalNode(t *testing.T) {
 	// The below state describes a Workflow DON (AcceptsWorkflows = true),
 	// which exposes the streams-trigger and write_chain capabilities.
 	// We expect receivers to be wired up and both capabilities to be added to the registry.
-	localRegistry := registrysyncer.NewLocalRegistry(
+	localRegistry := registry.NewMetadataRegistry(
 		lggr,
 		func() (p2ptypes.PeerID, error) { return pid, nil },
-		map[registrysyncer.DonID]registrysyncer.DON{
-			registrysyncer.DonID(dID): {
+		map[registry.DonID]registry.DON{
+			registry.DonID(dID): {
 				DON: capabilities.DON{
 					ID:               dID,
 					ConfigVersion:    uint32(2),
@@ -514,7 +515,7 @@ func TestSyncer_LocalNode(t *testing.T) {
 				},
 			},
 		},
-		map[p2ptypes.PeerID]registrysyncer.NodeInfo{
+		map[p2ptypes.PeerID]registry.NodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorID:      1,
 				Signer:              randomWord(),
@@ -540,7 +541,7 @@ func TestSyncer_LocalNode(t *testing.T) {
 				EncryptionPublicKey: randomWord(),
 			},
 		},
-		map[string]registrysyncer.Capability{
+		map[string]registry.Capability{
 			"test-target@1.0.0": {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 				ID:             "write-chain@1.0.1",

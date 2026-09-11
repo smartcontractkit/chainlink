@@ -15,11 +15,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -55,8 +55,8 @@ func newZoneBTestCapability(t *testing.T, settingsJSON string) *Capability {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler(lggr, store, clock, expiry)
 
-	reg := coreCapabilities.NewRegistry(lggr)
-	reg.SetLocalRegistry(&fakeMetadataRegistry{dons: map[uint32]capabilities.DON{
+	reg := registry.NewRegistry(lggr)
+	reg.SetMetadataRegistry(&fakeMetadataRegistry{dons: map[uint32]capabilities.DON{
 		zoneBDonID:          {ID: zoneBDonID, Name: "workflow_1_zone-b", Families: []string{"zone-b"}},
 		zoneADonID:          {ID: zoneADonID, Name: "workflow_1_zone-a", Families: []string{"zone-a"}},
 		zoneBMixedCaseDonID: {ID: zoneBMixedCaseDonID, Name: "workflow_1_zone-b_mixed", Families: []string{"Zone-B"}},
@@ -227,12 +227,12 @@ func (f *toggleableMetadataRegistry) DONByID(_ context.Context, donID uint32) (c
 func newOutageTestRestrictor(t *testing.T, settingsJSON string) (*zoneBRestrictor, *toggleableMetadataRegistry) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	fake := &toggleableMetadataRegistry{dons: map[uint32]capabilities.DON{
 		zoneADonID: {ID: zoneADonID, Name: "workflow_1_zone-a", Families: []string{"zone-a"}},
 		zoneBDonID: {ID: zoneBDonID, Name: "workflow_1_zone-b", Families: []string{"zone-b"}},
 	}}
-	reg.SetLocalRegistry(fake)
+	reg.SetMetadataRegistry(fake)
 
 	getter, err := settings.NewJSONGetter([]byte(settingsJSON))
 	require.NoError(t, err)

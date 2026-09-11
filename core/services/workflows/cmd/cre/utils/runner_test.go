@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -33,7 +33,7 @@ func TestRunner(t *testing.T) {
 		defer cancel()
 
 		hooks := DefaultHooks()
-		hooks.Finally = func(ctx context.Context, cfg RunnerConfig, registry *capabilities.Registry, svcs []services.Service) {
+		hooks.Finally = func(ctx context.Context, cfg RunnerConfig, registry *registry.Registry, svcs []services.Service) {
 			for _, service := range svcs {
 				err := service.Ready()
 				require.ErrorContains(t, err, "Stopped")

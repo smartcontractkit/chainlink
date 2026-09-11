@@ -4,11 +4,11 @@ import (
 	"os"
 	"path"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
@@ -50,7 +50,7 @@ func (l *standaloneLoopWrapper) Name() string { return "wrapped" }
 func newStandardCapabilities(
 	standardCapabilities map[string]standardCapConfig,
 	lggr logger.Logger,
-	registry *capabilities.Registry,
+	registry *registry.Registry,
 ) []services.Service {
 	// At most one entry per name in the map can be appended (enabled loop plugins).
 	caps := make([]services.Service, 0, len(standardCapabilities))

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -27,7 +28,6 @@ import (
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -55,7 +55,7 @@ func (m mockSubscriber) Subscribe(_ context.Context) (<-chan commoncap.DON, func
 func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
-	registry *capabilities.Registry,
+	registry *registry.Registry,
 	binary, config, secrets []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
@@ -264,7 +264,7 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 
 // NewCapabilities builds capabilities using latest standard capabilities where possible, otherwise filled in with faked capabilities.
 // Capabilities are then registered with the capability registry.
-func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
+func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *registry.Registry) ([]services.Service, error) {
 	caps, err := NewFakeCapabilities(ctx, lggr, registry)
 	if err != nil {
 		return nil, err
@@ -275,7 +275,7 @@ func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabili
 	return caps, nil
 }
 
-func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
+func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *registry.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
 
 	httpAction := fakes.NewDirectHTTPAction(lggr)

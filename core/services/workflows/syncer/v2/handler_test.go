@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -50,7 +51,6 @@ import (
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -177,8 +177,8 @@ func Test_Handler(t *testing.T) {
 		lf := limits.Factory{Logger: lggr}
 		emitter := custmsg.NewLabeler()
 		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-		registry := capabilities.NewRegistry(lggr)
-		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		registry := capreg.NewRegistry(lggr)
+		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 		mockORM := mocks.NewORM(t)
@@ -789,8 +789,8 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		er := NewEngineRegistry()
 
 		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-		registry := capabilities.NewRegistry(lggr)
-		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		registry := capreg.NewRegistry(lggr)
+		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 		trigger := &fireOnceTrigger{testActionBase{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test capture")}, triggerResponse}
 		require.NoError(t, registry.Add(ctx, trigger))
 		action := &captureAction{
@@ -905,8 +905,8 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		er := NewEngineRegistry()
 
 		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-		registry := capabilities.NewRegistry(lggr)
-		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		registry := capreg.NewRegistry(lggr)
+		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 		trigger := &fireOnceTrigger{testActionBase{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test capture")}, triggerResponse}
 		require.NoError(t, registry.Add(ctx, trigger))
 		action := &captureAction{
@@ -999,8 +999,8 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		}
 
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-		registry := capabilities.NewRegistry(lggr)
-		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		registry := capreg.NewRegistry(lggr)
+		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -1158,8 +1158,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		er := NewEngineRegistry()
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-		registry := capabilities.NewRegistry(lggr)
-		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		registry := capreg.NewRegistry(lggr)
+		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -1234,8 +1234,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		er := NewEngineRegistry()
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-		registry := capabilities.NewRegistry(lggr)
-		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		registry := capreg.NewRegistry(lggr)
+		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -1312,8 +1312,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		er := NewEngineRegistry()
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-		registry := capabilities.NewRegistry(lggr)
-		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		registry := capreg.NewRegistry(lggr)
+		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -1496,8 +1496,8 @@ func Test_eventHandler_StartsAndStopsWorkflowStore(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	lf := limits.Factory{Logger: lggr}
 	emitter := custmsg.NewLabeler()
-	registry := capabilities.NewRegistry(lggr)
-	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	registry := capreg.NewRegistry(lggr)
+	registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
@@ -1737,8 +1737,8 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	// Set up handler
 	er := NewEngineRegistry()
 	store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-	registry := capabilities.NewRegistry(lggr)
-	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	registry := capreg.NewRegistry(lggr)
+	registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
