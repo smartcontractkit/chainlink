@@ -161,14 +161,19 @@ func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event v2.Rout
 // forwardExecutionStatus is wired as the engine's OnExecutionStatusUpdate
 // hook. It resolves shard ownership on each call: on the primary shard it
 // sends the status to the secondary via the communicator; on the secondary
-// it is a no-op. This naturally handles role changes without a loop — if
-// the orchestrator reassigns ownership, the next execution picks up the
-// new role.
+// it is a no-op. This naturally handles role changes — if the orchestrator
+// reassigns ownership, the next execution picks up the new role.
 func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
 	if m.cfg.Communicator == nil {
 		return
 	}
 	if !m.isPrimaryShard(context.Background(), m.cfg.WorkflowID, m.cfg.WorkflowOwner) {
+		return
+	}
+	secondaryDon := m.resolveDon(context.Background(), m.cfg.WorkflowID, m.cfg.WorkflowOwner, 1)
+	if secondaryDon == nil {
+		m.cfg.Logger.Warnw("failover: primary cannot resolve secondary DON, skipping status update",
+			"workflowID", workflowID, "myShardID", m.cfg.MyShardID)
 		return
 	}
 	execStatus := mapExecutionStatus(status, errClass)
@@ -179,7 +184,7 @@ func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executi
 		TriggerIndex:   uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
 		Status:         execStatus,
 		PrimaryDonId:   m.cfg.MyShardID,
-	})
+	}, *secondaryDon)
 }
 
 // HandleExecutionStatusUpdate is called on the secondary shard when the
@@ -290,11 +295,11 @@ func (m *ShardFailoverManager) pruneLoop(ctx context.Context) {
 }
 
 // wireFailover sets up the communicator for ExecutionStatusUpdate messages.
-// It resolves both the primary and secondary shard DONs and configures the
-// communicator with them. The handler is always registered (harmless when
-// primary — nobody sends to us). Shard ownership is then resolved per-event
-// in admissionCheck and forwardExecutionStatus, so no re-wiring is needed
-// if the orchestrator reassigns roles at runtime.
+// It resolves the primary shard DON and registers a per-workflow handler
+// (with the primary DON for quorum validation) on the shared communicator.
+// The handler is always registered — when this node is primary, nobody
+// sends to us so the handler is simply never invoked. Shard ownership is
+// then resolved per-event in admissionCheck and forwardExecutionStatus.
 func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -314,31 +319,18 @@ func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 	}
 
 	primaryDon := m.resolveDon(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner, 0)
-	secondaryDon := m.resolveDon(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner, 1)
 
-	if primaryDon == nil && secondaryDon == nil {
-		m.cfg.Logger.Warnw("shard failover: no shard DONs found, skipping communicator wiring", "myShardID", m.cfg.MyShardID)
-		return nil
+	var primaryDonVal commoncap.DON
+	if primaryDon != nil {
+		primaryDonVal = *primaryDon
 	}
 
-	switch {
-	case primaryDon != nil && secondaryDon != nil:
-		m.cfg.Communicator.SetShardDons(*primaryDon, *secondaryDon)
-	case primaryDon != nil:
-		m.cfg.Communicator.SetShardDons(*primaryDon, commoncap.DON{})
-	default:
-		m.cfg.Communicator.SetShardDons(commoncap.DON{}, *secondaryDon)
-	}
-
-	m.cfg.Communicator.RegisterHandler(m.cfg.WorkflowID, m.HandleExecutionStatusUpdate)
+	m.cfg.Communicator.RegisterHandler(m.cfg.WorkflowID, primaryDonVal, m.HandleExecutionStatusUpdate)
 	m.cfg.Logger.Infow("shard failover: wired communicator",
 		"myShardID", m.cfg.MyShardID,
-		"primaryDonID", primaryDonIDOrZero(primaryDon),
-		"secondaryDonID", secondaryDonIDOrZero(secondaryDon))
+		"workflowID", m.cfg.WorkflowID,
+		"primaryDonID", primaryDonIDOrZero(primaryDon))
 
-	// Start the communicator if it hasn't been started yet. The shared
-	// communicator may already be running if another workflow's manager
-	// started it first — StartOnce is idempotent and will return nil.
 	if err := m.cfg.Communicator.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start communicator: %w", err)
 	}
@@ -346,13 +338,6 @@ func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 }
 
 func primaryDonIDOrZero(d *commoncap.DON) uint32 {
-	if d == nil {
-		return 0
-	}
-	return d.ID
-}
-
-func secondaryDonIDOrZero(d *commoncap.DON) uint32 {
 	if d == nil {
 		return 0
 	}

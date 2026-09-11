@@ -2,8 +2,6 @@ package sharding
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
@@ -23,9 +21,16 @@ import (
 // ExecutionStatusUpdate messages between shards via the d2d dispatcher.
 const ShardExecutionStatusUpdateCapabilityID = "shard-execution-status-update"
 
-// ShardHeartbeatCapabilityID is the capability ID used for routing
-// ShardHeartbeat messages between shards via the d2d dispatcher.
-const ShardHeartbeatCapabilityID = "shard-heartbeat"
+// ExecutionStatusUpdateHandler is called when a quorum of
+// ExecutionStatusUpdate messages has been collected for a workflow.
+type ExecutionStatusUpdateHandler func(msg *ringpb.ExecutionStatusUpdate)
+
+// workflowHandler bundles a per-workflow handler with the primary DON
+// used for quorum validation on incoming messages.
+type workflowHandler struct {
+	handler    ExecutionStatusUpdateHandler
+	primaryDon commoncap.DON
+}
 
 // ShardFailoverCommunicator handles d2d communication for shard failover
 // across all workflows on a node. It registers a single receiver with the
@@ -33,10 +38,11 @@ const ShardHeartbeatCapabilityID = "shard-heartbeat"
 // based on the workflow ID in the message payload. A single instance avoids
 // dispatcher conflicts when multiple workflows are deployed.
 //
-// The communicator is role-agnostic: it always registers a receiver and can
-// always send to the secondary shard. The ShardFailoverManager decides at
-// runtime whether to send (primary) or receive (secondary) by checking
-// ownership on each event — no static role assignment or re-wiring needed.
+// Primary/secondary DON info is registered per-workflow by each workflow's
+// ShardFailoverManager. The communicator itself is role-agnostic — it
+// always registers a receiver and can send to any target DON. The manager
+// decides at runtime whether to send (primary) or receive (secondary) by
+// checking ownership on each event.
 type ShardFailoverCommunicator struct {
 	services.StateMachine
 	stopCh     services.StopChan
@@ -44,56 +50,43 @@ type ShardFailoverCommunicator struct {
 	localDonID uint32
 	lggr       logger.SugaredLogger
 
-	mu           sync.RWMutex
-	primaryDon   commoncap.DON
-	secondaryDon commoncap.DON
-	handlers     map[string]ExecutionStatusUpdateHandler
+	mu       sync.RWMutex
+	handlers map[string]*workflowHandler
 
-	quorumMu        sync.Mutex
-	seenByHash      map[string]map[p2ptypes.PeerID]bool
-	seenAt          map[string]time.Time
-	deliveredHashes map[string]time.Time
-	expiryDuration  time.Duration
-	wg              sync.WaitGroup
+	quorumMu         sync.Mutex
+	seenByExecID     map[string]map[p2ptypes.PeerID]bool
+	seenAt           map[string]time.Time
+	deliveredExecIDs map[string]time.Time
+	expiryDuration   time.Duration
+	wg               sync.WaitGroup
 }
 
 // NewShardFailoverCommunicator creates a communicator that handles
 // ExecutionStatusUpdate messages for all workflows on this node.
 // The local DON ID is used for receiver registration with the dispatcher.
-// Call SetShardDons before Start so quorum checking and sending work correctly.
 func NewShardFailoverCommunicator(dispatcher remotetypes.Dispatcher, localDonID uint32, lggr logger.Logger) *ShardFailoverCommunicator {
 	return &ShardFailoverCommunicator{
-		stopCh:          make(services.StopChan),
-		dispatcher:      dispatcher,
-		localDonID:      localDonID,
-		lggr:            logger.Sugared(logger.With(lggr, "component", "ShardFailoverCommunicator")),
-		handlers:        make(map[string]ExecutionStatusUpdateHandler),
-		seenByHash:      make(map[string]map[p2ptypes.PeerID]bool),
-		seenAt:          make(map[string]time.Time),
-		deliveredHashes: make(map[string]time.Time),
-		expiryDuration:  10 * time.Minute,
+		stopCh:           make(services.StopChan),
+		dispatcher:       dispatcher,
+		localDonID:       localDonID,
+		lggr:             logger.Sugared(logger.With(lggr, "component", "ShardFailoverCommunicator")),
+		handlers:         make(map[string]*workflowHandler),
+		seenByExecID:     make(map[string]map[p2ptypes.PeerID]bool),
+		seenAt:           make(map[string]time.Time),
+		deliveredExecIDs: make(map[string]time.Time),
+		expiryDuration:   10 * time.Minute,
 	}
 }
 
-// SetShardDons provides the primary and secondary shard DON info.
-// primaryDon is used for quorum validation on Receive (who to accept from).
-// secondaryDon is used for Send (where to send to).
-// Must be called before Start. Can be called again at runtime to update
-// when shard config changes.
-func (c *ShardFailoverCommunicator) SetShardDons(primaryDon, secondaryDon commoncap.DON) {
-	c.mu.Lock()
-	c.primaryDon = primaryDon
-	c.secondaryDon = secondaryDon
-	c.mu.Unlock()
-}
-
 // RegisterHandler registers a handler for incoming ExecutionStatusUpdate
-// messages for the given workflow ID. Called by the secondary shard's
-// ShardFailoverManager. Multiple workflows can register handlers
-// concurrently; the communicator routes by workflow ID.
-func (c *ShardFailoverCommunicator) RegisterHandler(workflowID string, handler ExecutionStatusUpdateHandler) {
+// messages for the given workflow ID, along with the primary DON used for
+// quorum validation (i.e. the DON whose members are allowed to send).
+// Called by each workflow's ShardFailoverManager. Multiple workflows can
+// register handlers concurrently; the communicator routes by workflow ID
+// and validates quorum against the per-workflow primary DON.
+func (c *ShardFailoverCommunicator) RegisterHandler(workflowID string, primaryDon commoncap.DON, handler ExecutionStatusUpdateHandler) {
 	c.mu.Lock()
-	c.handlers[workflowID] = handler
+	c.handlers[workflowID] = &workflowHandler{handler: handler, primaryDon: primaryDon}
 	c.mu.Unlock()
 }
 
@@ -137,15 +130,16 @@ func (c *ShardFailoverCommunicator) Close() error {
 	})
 }
 
-// Send sends an ExecutionStatusUpdate to all members of the secondary shard DON.
-// Called by the primary shard's ShardFailoverManager.
-func (c *ShardFailoverCommunicator) Send(ctx context.Context, msg *ringpb.ExecutionStatusUpdate) {
-	c.mu.RLock()
-	secondary := c.secondaryDon
-	c.mu.RUnlock()
-
-	if len(secondary.Members) == 0 {
-		c.lggr.Warnw("ShardFailoverCommunicator: secondary DON not set, cannot send",
+// Send sends an ExecutionStatusUpdate to all members of the given target DON.
+// The caller (ShardFailoverManager) is responsible for resolving which DON
+// to send to — this is a per-workflow decision based on shard ownership.
+//
+// TODO: Currently the manager resolves the secondary DON per-event in
+// forwardExecutionStatus. If shard topology grows beyond two shards, this
+// needs to fan out to all secondary DONs for the workflow, not just one.
+func (c *ShardFailoverCommunicator) Send(ctx context.Context, msg *ringpb.ExecutionStatusUpdate, targetDon commoncap.DON) {
+	if len(targetDon.Members) == 0 {
+		c.lggr.Warnw("ShardFailoverCommunicator: target DON has no members, cannot send",
 			"workflowID", msg.WorkflowId)
 		return
 	}
@@ -157,14 +151,14 @@ func (c *ShardFailoverCommunicator) Send(ctx context.Context, msg *ringpb.Execut
 	}
 
 	messageID := fmt.Sprintf("%s:%s:%d", msg.WorkflowId, msg.TriggerEventId, msg.TriggerIndex)
-	for _, peerID := range secondary.Members {
+	for _, peerID := range targetDon.Members {
 		body := &remotetypes.MessageBody{
 			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
 			Method:           remotetypes.MethodExecutionStatusUpdate,
 			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
 			Payload:          payload,
 			CallerDonId:      c.localDonID,
-			CapabilityDonId:  secondary.ID,
+			CapabilityDonId:  targetDon.ID,
 			MessageId:        []byte(messageID),
 		}
 		if err := c.dispatcher.Send(peerID, body); err != nil {
@@ -174,20 +168,34 @@ func (c *ShardFailoverCommunicator) Send(ctx context.Context, msg *ringpb.Execut
 	}
 }
 
-// Receive implements remotetypes.Receiver. It validates the sender against the
-// primary DON, collects quorum, and routes the unmarshalled message to the
-// handler registered for the workflow ID in the message.
+// Receive implements remotetypes.Receiver. It unmarshals the payload to
+// extract the workflow ID and execution ID, validates the sender against the
+// per-workflow primary DON, collects F+1 quorum by execution ID, and routes
+// the message to the registered handler.
 func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetypes.MessageBody) {
 	if msg.Method != remotetypes.MethodExecutionStatusUpdate {
 		return
 	}
 
-	c.mu.RLock()
-	primary := c.primaryDon
-	c.mu.RUnlock()
+	var execUpdate ringpb.ExecutionStatusUpdate
+	if err := proto.Unmarshal(msg.Payload, &execUpdate); err != nil {
+		c.lggr.Errorw("failed to unmarshal ExecutionStatusUpdate", "err", err)
+		return
+	}
 
+	c.mu.RLock()
+	wh, ok := c.handlers[execUpdate.WorkflowId]
+	c.mu.RUnlock()
+	if !ok {
+		c.lggr.Debugw("no handler registered for workflow, dropping",
+			"workflowID", execUpdate.WorkflowId)
+		return
+	}
+
+	primary := wh.primaryDon
 	if len(primary.Members) == 0 {
-		c.lggr.Warnw("ShardFailoverCommunicator: primary DON not set, dropping message")
+		c.lggr.Warnw("ShardFailoverCommunicator: primary DON not set for workflow, dropping message",
+			"workflowID", execUpdate.WorkflowId)
 		return
 	}
 
@@ -198,24 +206,27 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 	}
 
 	if !isPeerInDON(sender, primary.Members) {
-		c.lggr.Warnw("ExecutionStatusUpdate from peer not in primary shard DON", "peerID", sender)
+		c.lggr.Warnw("ExecutionStatusUpdate from peer not in primary shard DON",
+			"peerID", sender, "workflowID", execUpdate.WorkflowId)
 		return
 	}
 
-	hash := sha256.Sum256(msg.Payload)
-	hashKey := hex.EncodeToString(hash[:])
+	// Dedup by execution ID rather than payload hash. Different primary
+	// nodes may produce slightly different payloads for the same execution,
+	// but the execution ID is guaranteed to match.
+	dedupKey := fmt.Sprintf("%s:%s", execUpdate.WorkflowId, execUpdate.ExecutionId)
 
 	c.quorumMu.Lock()
-	if _, ok := c.deliveredHashes[hashKey]; ok {
+	if _, ok := c.deliveredExecIDs[dedupKey]; ok {
 		c.quorumMu.Unlock()
 		return
 	}
 
-	peers, ok := c.seenByHash[hashKey]
+	peers, ok := c.seenByExecID[dedupKey]
 	if !ok {
 		peers = make(map[p2ptypes.PeerID]bool)
-		c.seenByHash[hashKey] = peers
-		c.seenAt[hashKey] = time.Now()
+		c.seenByExecID[dedupKey] = peers
+		c.seenAt[dedupKey] = time.Now()
 	}
 	if peers[sender] {
 		c.quorumMu.Unlock()
@@ -226,39 +237,26 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 	quorum := int(primary.F) + 1
 	reached := len(peers) >= quorum
 	if reached {
-		c.deliveredHashes[hashKey] = time.Now()
-		delete(c.seenByHash, hashKey)
-		delete(c.seenAt, hashKey)
+		c.deliveredExecIDs[dedupKey] = time.Now()
+		delete(c.seenByExecID, dedupKey)
+		delete(c.seenAt, dedupKey)
 	}
 	c.quorumMu.Unlock()
 
 	if !reached {
 		c.lggr.Debugw("ExecutionStatusUpdate quorum not yet reached",
-			"hash", hashKey, "received", len(peers), "required", quorum)
-		return
-	}
-
-	var execUpdate ringpb.ExecutionStatusUpdate
-	if err := proto.Unmarshal(msg.Payload, &execUpdate); err != nil {
-		c.lggr.Errorw("failed to unmarshal ExecutionStatusUpdate", "err", err)
+			"dedupKey", dedupKey, "received", len(peers), "required", quorum)
 		return
 	}
 
 	c.lggr.Infow("ExecutionStatusUpdate quorum reached, routing to handler",
 		"workflowID", execUpdate.WorkflowId,
 		"triggerEventID", execUpdate.TriggerEventId,
+		"executionID", execUpdate.ExecutionId,
 		"status", execUpdate.Status,
 		"peers", len(peers))
 
-	c.mu.RLock()
-	handler, ok := c.handlers[execUpdate.WorkflowId]
-	c.mu.RUnlock()
-	if !ok {
-		c.lggr.Debugw("no handler registered for workflow, dropping",
-			"workflowID", execUpdate.WorkflowId)
-		return
-	}
-	handler(&execUpdate)
+	wh.handler(&execUpdate)
 }
 
 func (c *ShardFailoverCommunicator) pruneLoop() {
@@ -276,15 +274,15 @@ func (c *ShardFailoverCommunicator) pruneLoop() {
 		case <-ticker.C:
 			c.quorumMu.Lock()
 			now := time.Now()
-			for hash, deliveredAt := range c.deliveredHashes {
+			for key, deliveredAt := range c.deliveredExecIDs {
 				if now.Sub(deliveredAt) >= c.expiryDuration {
-					delete(c.deliveredHashes, hash)
+					delete(c.deliveredExecIDs, key)
 				}
 			}
-			for hash, seenTime := range c.seenAt {
+			for key, seenTime := range c.seenAt {
 				if now.Sub(seenTime) >= c.expiryDuration {
-					delete(c.seenByHash, hash)
-					delete(c.seenAt, hash)
+					delete(c.seenByExecID, key)
+					delete(c.seenAt, key)
 				}
 			}
 			c.quorumMu.Unlock()

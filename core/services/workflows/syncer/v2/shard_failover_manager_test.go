@@ -244,10 +244,10 @@ func TestShardFailoverManager_MultipleWorkflowsSharedDispatcher(t *testing.T) {
 	wf1Received := make(chan *ringpb.ExecutionStatusUpdate, 1)
 	wf2Received := make(chan *ringpb.ExecutionStatusUpdate, 1)
 
-	comm.RegisterHandler("wf-1", func(msg *ringpb.ExecutionStatusUpdate) {
+	comm.RegisterHandler("wf-1", primaryDON, func(msg *ringpb.ExecutionStatusUpdate) {
 		wf1Received <- msg
 	})
-	comm.RegisterHandler("wf-2", func(msg *ringpb.ExecutionStatusUpdate) {
+	comm.RegisterHandler("wf-2", primaryDON, func(msg *ringpb.ExecutionStatusUpdate) {
 		wf2Received <- msg
 	})
 
