@@ -104,12 +104,9 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 		}
 	}
 
-	signers, err := stellarSigners(req.DON.NodeIDs, env.Offchain)
+	nodes, err := stellarSignerNodes(req.DON.NodeIDs, env.Offchain)
 	if err != nil {
 		return out, fmt.Errorf("failed to resolve stellar OCR signers for DON %q: %w", req.DON.Name, err)
-	}
-	if len(signers) == 0 {
-		return out, fmt.Errorf("no stellar signers found for DON %q", req.DON.Name)
 	}
 
 	var batchOps []mcmstypes.BatchOperation
@@ -118,6 +115,14 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 		ch, ok := env.BlockChains.StellarChains()[sel]
 		if !ok {
 			return out, fmt.Errorf("stellar chain not found for chain selector %d", sel)
+		}
+
+		signers, err := stellarSigners(nodes, sel)
+		if err != nil {
+			return out, fmt.Errorf("failed to resolve stellar OCR signers for DON %q on chain selector %d: %w", req.DON.Name, sel, err)
+		}
+		if len(signers) == 0 {
+			return out, fmt.Errorf("no stellar signers found for DON %q on chain selector %d", req.DON.Name, sel)
 		}
 
 		refKey := datastore.NewAddressRefKey(sel, ForwarderContract, version, req.Qualifier)
@@ -173,9 +178,9 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 	return out, nil
 }
 
-// stellarSigners returns ed25519 onchain public keys for the given node IDs by
-// reading FamilyStellar OCR configs from the job distributor.
-func stellarSigners(nodeIDs []string, offchainClient offchain.Client) ([][32]byte, error) {
+// stellarSignerNodes loads the DON's nodes from the job distributor and returns
+// them sorted by peer ID, which is the signer order the forwarder config uses.
+func stellarSignerNodes(nodeIDs []string, offchainClient offchain.Client) (deployment.Nodes, error) {
 	if offchainClient == nil {
 		return nil, errors.New("offchain client is required to resolve stellar OCR signers")
 	}
@@ -188,34 +193,70 @@ func stellarSigners(nodeIDs []string, offchainClient offchain.Client) ([][32]byt
 		return nodes[i].PeerID.String() < nodes[j].PeerID.String()
 	})
 
+	return nodes, nil
+}
+
+// stellarSigners returns the ed25519 onchain public keys of the non-bootstrap
+// nodes, in slice order, for the forwarder on chainSel.
+//
+// The OCR config registered in JD for chainSel itself is used when present.
+// Otherwise the node's other FamilyStellar configs are consulted: the Stellar
+// OCR2 key bundle is per chain family, so a node that only registered
+// stellar-mainnet in JD signs with the same key on stellar-testnet. If those
+// configs disagree on the key the node is ambiguous and an error is returned
+// instead of silently picking one (map iteration order is random).
+func stellarSigners(nodes deployment.Nodes, chainSel uint64) ([][32]byte, error) {
 	out := make([][32]byte, 0, len(nodes))
 	for _, n := range nodes {
 		if n.IsBootstrap {
 			continue
 		}
 
-		var stellarCC *deployment.OCRConfig
-		for details, cfg := range n.SelToOCRConfig {
-			family, famErr := chainselectors.GetSelectorFamily(details.ChainSelector)
-			if famErr == nil && family == chainselectors.FamilyStellar {
-				cc := cfg
-				stellarCC = &cc
-				break
-			}
+		key, err := stellarOnchainPublicKey(n, chainSel)
+		if err != nil {
+			return nil, err
 		}
-		if stellarCC == nil {
-			return nil, fmt.Errorf("no stellar OCR2 config for node %s", n.NodeID)
-		}
-		if len(stellarCC.OnchainPublicKey) != 32 {
-			return nil, fmt.Errorf("expected 32-byte stellar onchain public key for node %s, got %d", n.NodeID, len(stellarCC.OnchainPublicKey))
-		}
-		var arr [32]byte
-		copy(arr[:], stellarCC.OnchainPublicKey[:32])
-		out = append(out, arr)
+		out = append(out, key)
 	}
 
 	if len(out) == 0 {
 		return nil, errors.New("no stellar signers resolved from node OCR configs")
 	}
 	return out, nil
+}
+
+func stellarOnchainPublicKey(n deployment.Node, chainSel uint64) ([32]byte, error) {
+	var key [32]byte
+
+	if cfg, ok := n.OCRConfigForChainSelector(chainSel); ok {
+		if len(cfg.OnchainPublicKey) != 32 {
+			return key, fmt.Errorf("expected 32-byte stellar onchain public key for node %s on chain selector %d, got %d", n.NodeID, chainSel, len(cfg.OnchainPublicKey))
+		}
+		copy(key[:], cfg.OnchainPublicKey[:32])
+		return key, nil
+	}
+
+	found := false
+	for details, cfg := range n.SelToOCRConfig {
+		family, famErr := chainselectors.GetSelectorFamily(details.ChainSelector)
+		if famErr != nil || family != chainselectors.FamilyStellar {
+			continue
+		}
+		if len(cfg.OnchainPublicKey) != 32 {
+			return key, fmt.Errorf("expected 32-byte stellar onchain public key for node %s on chain selector %d, got %d", n.NodeID, details.ChainSelector, len(cfg.OnchainPublicKey))
+		}
+
+		var candidate [32]byte
+		copy(candidate[:], cfg.OnchainPublicKey[:32])
+		if found && candidate != key {
+			return key, fmt.Errorf("node %s has no stellar OCR2 config for chain selector %d and its other stellar chain configs use different key bundles; register a chain config for %d in JD", n.NodeID, chainSel, chainSel)
+		}
+		key = candidate
+		found = true
+	}
+
+	if !found {
+		return key, fmt.Errorf("no stellar OCR2 config for node %s", n.NodeID)
+	}
+	return key, nil
 }
