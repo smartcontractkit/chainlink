@@ -291,7 +291,7 @@ fromBlock = %d
 			}()
 
 			jids := make([]int32, 0, 4)
-			var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
+			servers, slowServers := make([]*httptest.Server, 4), make([]*httptest.Server, 4)
 			// We expect metadata of:
 			//  latestAnswer:nil // First call
 			//  latestAnswer:0
@@ -710,7 +710,7 @@ func InitOCR2(t *testing.T, lggr logger.Logger, b *simulated.Backend,
 	require.NoError(t, err)
 	err = bootstrapNode.App.AddJobV2(t.Context(), &ocrJob)
 	require.NoError(t, err)
-	return
+	return blockBeforeConfig
 }
 
 func withRPCServer(host string, httpPort, wsPort int, modules []string) func(nodeConf *node.Config, ethConf *ethconfig.Config) {

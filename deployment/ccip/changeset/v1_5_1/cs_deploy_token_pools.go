@@ -188,7 +188,7 @@ func (c DeployTokenPoolContractsConfig) plannedRefs() []datastore.AddressRef {
 			ChainSelector: chainSelector,
 			Type:          datastore.ContractType(tv.Type),
 			Version:       &version,
-			Qualifier:     string(c.TokenSymbol),
+			Qualifier:     poolConfig.TokenAddress.String(),
 		})
 	}
 
@@ -293,7 +293,7 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 			chainState := state.Chains[chainSelector]
 			// The ref is written by deployTokenPool at the moment the deployment confirms, onto
 			// the key this chain reserved above. Nothing is left to record afterwards.
-			contract, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, ds, string(c.TokenSymbol), deployedTypeAndVersion(poolConfig), poolConfig, c.IsTestRouter)
+			contract, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, ds, poolConfig.TokenAddress.String(), deployedTypeAndVersion(poolConfig), poolConfig, c.IsTestRouter)
 			if err != nil {
 				return fmt.Errorf("failed to deploy token pool contract: %w", err)
 			}

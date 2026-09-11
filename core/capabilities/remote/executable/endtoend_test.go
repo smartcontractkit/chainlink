@@ -271,11 +271,10 @@ func setupRemoteExecutableHarness(t *testing.T, underlying commoncap.ExecutableC
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
 		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, limits.NewGateLimiter(false), lggr)
 		cfg := &commoncap.RemoteExecutableConfig{
-			RequestHashExcludedAttributes: []string{},
-			RequestTimeout:                capabilityNodeResponseTimeout,
-			ServerMaxParallelRequests:     10,
+			RequestTimeout:            capabilityNodeResponseTimeout,
+			ServerMaxParallelRequests: 10,
 		}
-		require.NoError(t, capabilityNode.SetConfig(cfg, underlying, capInfo, capDonInfo, workflowDONs, nil))
+		require.NoError(t, capabilityNode.SetConfig(cfg, underlying, capInfo, capDonInfo, workflowDONs, executable.NewSimpleHasher(executable.OptInHasherConfig{})))
 		servicetest.Run(t, capabilityNode)
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 	}

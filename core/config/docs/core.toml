@@ -915,7 +915,7 @@ DurableEmitterEnabled = true # Default
 # DurableEmitterRetransmitBatchSize is the number of pending events the durable emitter replays per retransmit tick.
 DurableEmitterRetransmitBatchSize = 500 # Default
 # DurableEmitterEventTTL is how long an undelivered event is retained before the durable emitter expires it (older events are dropped).
-DurableEmitterEventTTL = '1h0m0s' # Default
+DurableEmitterEventTTL = '6h0m0s' # Default
 # DurableEmitterMaxQueuePayloadBytes is the byte ceiling used as the denominator for the durable emitter's
 # queue capacity_usage_ratio metric. Defaults to 1 GiB.
 DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
@@ -997,6 +997,8 @@ URL = "" # Default
 TLSEnabled = true # Default
 # RequestTimeout bounds each organization lookup against the linking service.
 RequestTimeout = '2s' # Default
+# DurableCacheEnabled turns on durable Postgres-backed caching of owner->orgID mappings.
+DurableCacheEnabled = true # Default
 
 # Billing holds settings for connecting to the billing service.
 [Billing]

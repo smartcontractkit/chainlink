@@ -164,6 +164,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 		})
 	case suite_config.SuiteScenarioDONTime:
 		t.Run("DON Time - "+topology, func(t *testing.T) {
+			if nonDeterminismCheckEnabled() {
+				t.Skip("DONTime registry launch requires all nodes to support jobless capability startup")
+			}
 			if parallelEnabled {
 				t.Parallel()
 			}

@@ -574,7 +574,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ChipIngressMaxGRPCRequestSize:          new(10485760),
 		DurableEmitterEnabled:                  new(false),
 		DurableEmitterRetransmitBatchSize:      new(500),
-		DurableEmitterEventTTL:                 commoncfg.MustNewDuration(1 * time.Hour),
+		DurableEmitterEventTTL:                 commoncfg.MustNewDuration(6 * time.Hour),
 		DurableEmitterMaxQueuePayloadBytes:     new(int64(1073741824)),
 		DurableEmitterInsertBatchFlushInterval: commoncfg.MustNewDuration(50 * time.Millisecond),
 		HeartbeatInterval:                      commoncfg.MustNewDuration(1 * time.Second),
@@ -615,9 +615,10 @@ func TestConfig_Marshal(t *testing.T) {
 			URL: new("https://workflow.fetcher.url"),
 		},
 		Linking: &toml.LinkingConfig{
-			URL:            new(""),
-			TLSEnabled:     new(true),
-			RequestTimeout: commoncfg.MustNewDuration(2 * time.Second),
+			URL:                 new(""),
+			TLSEnabled:          new(true),
+			RequestTimeout:      commoncfg.MustNewDuration(2 * time.Second),
+			DurableCacheEnabled: new(true),
 		},
 		ConfidentialRelay: &toml.ConfidentialRelayConfig{
 			Enabled:          new(bool),

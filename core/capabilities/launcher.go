@@ -54,6 +54,12 @@ type launcher struct {
 	metrics             *launcherMetrics
 	localCapMgr         localcapmgr.LocalCapabilityManager
 
+	// shardingEnabled and shardIndex carry this node's local shard identity,
+	// taken from the [Sharding] config section. shardIndex is only meaningful
+	// when shardingEnabled is true; it is 0 for unsharded deployments.
+	shardingEnabled bool
+	shardIndex      uint16
+
 	// workflowDONBindingGate is shared by all executable capability servers; when
 	// open they reject requests whose Metadata.WorkflowDonID does not match the
 	// authenticated calling DON.
@@ -93,6 +99,8 @@ func NewLauncher(
 	registry *Registry,
 	workflowDonNotifier DonNotifier,
 	limitsFactory limits.Factory,
+	shardingEnabled bool,
+	shardIndex uint16,
 ) (*launcher, error) {
 	if don2donSharedPeer == nil {
 		return nil, errors.New("don2donSharedPeer is required")
@@ -140,6 +148,8 @@ func NewLauncher(
 		metrics:                metrics,
 		workflowDONBindingGate: workflowDONBindingGate,
 		workflowTagHashFlag:    workflowTagHashFlag,
+		shardingEnabled:        shardingEnabled,
+		shardIndex:             shardIndex,
 	}, nil
 }
 
@@ -370,6 +380,11 @@ func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyn
 			w.serveCapabilities(ctx, w.myPeerID, myDON, remoteWorkflowDONs)
 		}
 	}
+
+	w.lggr.Debugw("My shard config",
+		"shardingEnabled", w.shardingEnabled,
+		"shardIndex", w.shardIndex,
+	)
 
 	// Lastly, we identify peers to connect to, based on their DONs functions
 	w.lggr.Debug("Updating peer connections")

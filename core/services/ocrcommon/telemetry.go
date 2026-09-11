@@ -186,7 +186,7 @@ func ParseMercuryEATelemetry(lggr logger.Logger, trrs pipeline.TaskRunResults, f
 
 		eaTelemetryValues = append(eaTelemetryValues, eaTelem)
 	}
-	return
+	return eaTelemetryValues
 }
 
 // parseEATelemetry attempts to parse the bridge telemetry
@@ -592,7 +592,7 @@ func getPricesFromBridgeTaskByTelemetryField(lggr logger.Logger, bridgeTask pipe
 	var benchmarkPrice, bidPrice, askPrice float64
 
 	// Outputs are the mapped tasks from this task.
-	var tasksWithTags = collectTaskRunResultsWithTags(bridgeTask, allTasks)
+	tasksWithTags := collectTaskRunResultsWithTags(bridgeTask, allTasks)
 
 	for _, trr := range tasksWithTags {
 		attributes, err := parseTelemetryAttributes(trr.Task.TaskTags())

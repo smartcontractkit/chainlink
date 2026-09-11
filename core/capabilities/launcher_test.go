@@ -105,6 +105,7 @@ func TestLauncher(t *testing.T) {
 			dispatcher,
 			registry,
 			&mockDonNotifier{}, limits.Factory{},
+			false, 0,
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -141,6 +142,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -186,7 +188,7 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	addCapabilityToDON(localRegistry, uint32(capDONID), fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
 	addDON(localRegistry, uint32(mixedDONID), uint32(0), uint8(1), true, true, capabilityDonNodes[2:3], nil, 1, [][32]byte{triggerCapID})
 	addCapabilityToDON(localRegistry, uint32(mixedDONID), fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
-	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
+	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{}, false, 0)
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Times(3)
@@ -269,7 +271,7 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	addDON(localRegistry, capDONZoneBID, uint32(0), uint8(1), true, false, capabilityDonNodesZoneB, []string{"zone-b"}, 1, [][32]byte{triggerCapID})
 	addCapabilityToDON(localRegistry, capDONZoneBID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
+	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{}, false, 0)
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Once()
@@ -342,6 +344,7 @@ func TestLauncher_ShardedCapabilityRoutingByFamily(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -397,7 +400,7 @@ func TestLauncher_DonPairsToUpdate_ShardedFamilies(t *testing.T) {
 	addDON(localRegistry, sharedCapDONID, uint32(0), uint8(1), true, false, sharedCapNodes, []string{"zone-a"}, 1, [][32]byte{capIDHash})
 	addCapabilityToDON(localRegistry, sharedCapDONID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
+	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{}, false, 0)
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Once()
@@ -429,7 +432,7 @@ func TestLauncher_DonPairsToUpdate_CapShardPairsOnlyWithWorkflowShard(t *testing
 	addDON(localRegistry, capShard0ID, uint32(0), uint8(1), true, false, capShard0Nodes, []string{"zone-a_shard-0"}, 1, [][32]byte{RandomUTF8BytesWord()})
 	addCapabilityToDON(localRegistry, capShard0ID, "write-chain_evm_1@1.0.0", capabilities.CapabilityTypeTarget, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
+	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{}, false, 0)
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Once()
@@ -468,7 +471,7 @@ func TestLauncher_DonPairsToUpdate_BootstrapConnectsIsolatedCapShard(t *testing.
 	addDON(localRegistry, capShard1ID, uint32(0), uint8(1), true, false, capShard1Nodes, []string{"zone-a_shard-1"}, 1, [][32]byte{RandomUTF8BytesWord()})
 	addCapabilityToDON(localRegistry, capShard1ID, "write-chain_evm_1@1.0.0", capabilities.CapabilityTypeTarget, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
+	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{}, false, 0)
 	require.NoError(t, err)
 
 	// bootstrapPID is a member of no DON and therefore of no shard family.
@@ -580,6 +583,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
 	)
 	require.NoError(t, err)
 	launcher.p2pStreamConfig = customStreamConfig
@@ -734,6 +738,7 @@ func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -861,6 +866,7 @@ func TestLauncher_OnNewRegistry_CallsLocalCapabilityManagerReconcile(t *testing.
 		dispatcher,
 		registry,
 		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
 	)
 	require.NoError(t, err)
 	launcher.SetLocalCapabilityManager(mockLCM)
@@ -901,6 +907,7 @@ func TestLauncher_OnNewRegistry_NilLocalCapabilityManager(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -925,4 +932,54 @@ func (m *mockLocalCapabilityManager) Reconcile(ctx context.Context, dons []regis
 		return m.reconcileFn(ctx, dons)
 	}
 	return nil
+}
+
+func TestLauncher_ShardIdentityFromConfig(t *testing.T) {
+	t.Parallel()
+
+	newTestLauncher := func(t *testing.T, shardingEnabled bool, shardIndex uint16) *launcher {
+		t.Helper()
+		lggr := logger.Test(t)
+		sharedPeer := mocks.NewSharedPeer(t)
+		// Only consulted when Start runs, which not every subtest does.
+		sharedPeer.On("ID").Return(ragetypes.PeerID(RandomUTF8BytesWord())).Maybe()
+		l, err := NewLauncher(
+			lggr,
+			sharedPeer,
+			nil,
+			remoteMocks.NewDispatcher(t),
+			NewRegistry(lggr),
+			&mockDonNotifier{},
+			limits.Factory{},
+			shardingEnabled,
+			shardIndex,
+		)
+		require.NoError(t, err)
+		return l
+	}
+
+	t.Run("retains the configured shard identity", func(t *testing.T) {
+		t.Parallel()
+		l := newTestLauncher(t, true, 2)
+		require.True(t, l.shardingEnabled)
+		require.Equal(t, uint16(2), l.shardIndex)
+		require.NoError(t, l.Start(t.Context()))
+		require.NoError(t, l.Close())
+	})
+
+	t.Run("shard index is retained when sharding is disabled", func(t *testing.T) {
+		t.Parallel()
+		l := newTestLauncher(t, false, 1)
+		require.False(t, l.shardingEnabled)
+		require.Equal(t, uint16(1), l.shardIndex)
+	})
+
+	t.Run("defaults to unsharded", func(t *testing.T) {
+		t.Parallel()
+		l := newTestLauncher(t, false, 0)
+		require.False(t, l.shardingEnabled)
+		require.Zero(t, l.shardIndex)
+		require.NoError(t, l.Start(t.Context()))
+		require.NoError(t, l.Close())
+	})
 }

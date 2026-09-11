@@ -241,7 +241,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 				tc.SourceChain,
 				tc.DestChain,
 				tc.TestRouter,
-				msg)
+				msg,
+			)
 
 			if i == 0 {
 				expectedSeqNumRange = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}

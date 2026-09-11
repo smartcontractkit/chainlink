@@ -179,7 +179,7 @@ func TestMergeTask(t *testing.T) {
 				require.Equal(t, pipeline.ErrKeypathNotFound, errors.Cause(err))
 				require.Nil(t, val)
 			} else {
-				assert.NoError(t, result.Error)
+				require.NoError(t, result.Error)
 				assert.Equal(t, test.wantData, result.Value)
 			}
 		})

@@ -2404,7 +2404,7 @@ ChipIngressDrainTimeout = '30s' # Default
 ChipIngressMaxGRPCRequestSize = 10485760 # Default
 DurableEmitterEnabled = true # Default
 DurableEmitterRetransmitBatchSize = 500 # Default
-DurableEmitterEventTTL = '1h0m0s' # Default
+DurableEmitterEventTTL = '6h0m0s' # Default
 DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
 DurableEmitterInsertBatchFlushInterval = '50ms' # Default
 HeartbeatInterval = '1s' # Default
@@ -2548,7 +2548,7 @@ DurableEmitterRetransmitBatchSize is the number of pending events the durable em
 
 ### DurableEmitterEventTTL
 ```toml
-DurableEmitterEventTTL = '1h0m0s' # Default
+DurableEmitterEventTTL = '6h0m0s' # Default
 ```
 DurableEmitterEventTTL is how long an undelivered event is retained before the durable emitter expires it (older events are dropped).
 
@@ -2766,6 +2766,7 @@ URL is override URL for the workflow fetcher service.
 URL = "" # Default
 TLSEnabled = true # Default
 RequestTimeout = '2s' # Default
+DurableCacheEnabled = true # Default
 ```
 
 
@@ -2786,6 +2787,12 @@ TLSEnabled enables TLS to be used to secure communication with the linking servi
 RequestTimeout = '2s' # Default
 ```
 RequestTimeout bounds each organization lookup against the linking service.
+
+### DurableCacheEnabled
+```toml
+DurableCacheEnabled = true # Default
+```
+DurableCacheEnabled turns on durable Postgres-backed caching of owner->orgID mappings.
 
 ## Billing
 ```toml
