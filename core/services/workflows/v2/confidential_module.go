@@ -27,6 +27,7 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
 const confidentialWorkflowsCapabilityID = "confidential-workflows@1.0.0-alpha"
@@ -101,6 +102,21 @@ func newConfidentialModuleMetrics(meter metric.Meter) (*confidentialModuleMetric
 		executionDuration: executionDuration,
 		executionFailures: executionFailures,
 	}, nil
+}
+
+// errorTypeAttribute labels enclave_execution_failures with the failure's root
+// cause, mirroring the enclave-side error_type convention so alerts can page on
+// system failures without firing on user-caused ones.
+const errorTypeAttribute = "error_type"
+
+// errorTypeFor classifies a failed enclave round-trip as "user" or "system".
+// A user-origin caperrors.Error propagating from the capability (e.g. a workflow
+// that exceeds its execution budget) is the user's, everything else is ours.
+func errorTypeFor(err error) string {
+	if events.ClassifyError(err, events.ErrorClassificationSystem) == events.ErrorClassificationUser {
+		return "user"
+	}
+	return "system"
 }
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
@@ -188,7 +204,8 @@ func (m *ConfidentialModule) Execute(
 	err := doRequest(ctx, m, workflowExecutionID, "Execute", capInput, capOutput, orgID)
 	m.metrics.executionDuration.Record(ctx, time.Since(start).Milliseconds(), attrs)
 	if err != nil {
-		m.metrics.executionFailures.Add(ctx, 1, attrs)
+		m.metrics.executionFailures.Add(ctx, 1, attrs,
+			metric.WithAttributes(attribute.String(errorTypeAttribute, errorTypeFor(err))))
 		return nil, err
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -292,6 +294,32 @@ func collectMetric(t *testing.T, reader *sdkmetric.ManualReader, name string) (i
 	return 0, false
 }
 
+// collectCounterAttr returns the value of attribute key on the named counter's
+// single data point, so tests can assert the failure classification label.
+func collectCounterAttr(t *testing.T, reader *sdkmetric.ManualReader, name, key string) (string, bool) {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != name {
+				continue
+			}
+			d, ok := m.Data.(metricdata.Sum[int64])
+			if !ok {
+				continue
+			}
+			require.Len(t, d.DataPoints, 1, "expected a single data point for %s", name)
+			v, found := d.DataPoints[0].Attributes.Value(attribute.Key(key))
+			if !found {
+				return "", false
+			}
+			return v.Emit(), true
+		}
+	}
+	return "", false
+}
+
 func TestConfidentialModule_Execute_Metrics(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -356,9 +384,37 @@ func TestConfidentialModule_Execute_Metrics(t *testing.T) {
 		require.True(t, ok, "enclave_execution_failures should be present")
 		assert.Equal(t, int64(1), failTotal)
 
+		errType, ok := collectCounterAttr(t, reader, "enclave_execution_failures", "error_type")
+		require.True(t, ok, "enclave_execution_failures should carry error_type")
+		assert.Equal(t, "system", errType, "an untyped error is the platform's")
+
 		durCount, ok := collectMetric(t, reader, "enclave_execution_time_ms")
 		require.True(t, ok, "duration recorded even on failure")
 		assert.Equal(t, int64(1), durCount)
+	})
+
+	t.Run("user-origin failure is labelled user", func(t *testing.T) {
+		t.Parallel()
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).Return(execCap, nil).Once()
+		// Mirrors the executor's wasm-timeout classification: a workflow that runs
+		// over its execution budget is the author's problem, not the platform's.
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{}, caperrors.NewPublicUserError(
+				errors.New("enclave wasm execution timed out"), caperrors.DeadlineExceeded)).Once()
+
+		mod, reader := meteredModule(t, capReg)
+		_, execErr := mod.Execute(ctx, execReq, &stubExecutionHelper{})
+		require.Error(t, execErr)
+
+		failTotal, ok := collectMetric(t, reader, "enclave_execution_failures")
+		require.True(t, ok, "enclave_execution_failures should be present")
+		assert.Equal(t, int64(1), failTotal)
+
+		errType, ok := collectCounterAttr(t, reader, "enclave_execution_failures", "error_type")
+		require.True(t, ok, "enclave_execution_failures should carry error_type")
+		assert.Equal(t, "user", errType)
 	})
 }
 
