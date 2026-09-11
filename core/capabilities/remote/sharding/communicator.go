@@ -3,6 +3,7 @@ package sharding
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -57,6 +58,7 @@ type ShardFailoverCommunicator struct {
 	seenByExecID     map[string]map[p2ptypes.PeerID]bool
 	seenAt           map[string]time.Time
 	deliveredExecIDs map[string]time.Time
+	statusesByExecID map[string][]ringpb.ExecutionStatus
 	expiryDuration   time.Duration
 	wg               sync.WaitGroup
 }
@@ -74,6 +76,7 @@ func NewShardFailoverCommunicator(dispatcher remotetypes.Dispatcher, localDonID 
 		seenByExecID:     make(map[string]map[p2ptypes.PeerID]bool),
 		seenAt:           make(map[string]time.Time),
 		deliveredExecIDs: make(map[string]time.Time),
+		statusesByExecID: make(map[string][]ringpb.ExecutionStatus),
 		expiryDuration:   10 * time.Minute,
 	}
 }
@@ -172,6 +175,11 @@ func (c *ShardFailoverCommunicator) Send(ctx context.Context, msg *ringpb.Execut
 // extract the workflow ID and execution ID, validates the sender against the
 // per-workflow primary DON, collects F+1 quorum by execution ID, and routes
 // the message to the registered handler.
+//
+// When quorum is reached, the handler receives the worst-case status among
+// all quorum messages: if any peer reports SYSTEM_ERROR, the aggregated
+// result is SYSTEM_ERROR. This ensures the secondary shard replays the
+// cached trigger event even if only a subset of primary nodes failed.
 func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetypes.MessageBody) {
 	if msg.Method != remotetypes.MethodExecutionStatusUpdate {
 		return
@@ -199,6 +207,9 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 		return
 	}
 
+	// msg.Sender is the verified peer ID set by the dispatcher after
+	// cryptographic validation of the incoming p2p message. It can be
+	// trusted as the authentic origin of this ExecutionStatusUpdate.
 	sender, err := remote.ToPeerID(msg.Sender)
 	if err != nil {
 		c.lggr.Errorw("failed to parse sender peer ID", "err", err)
@@ -234,6 +245,9 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 	}
 	peers[sender] = true
 
+	// Track the status from this peer so we can aggregate at quorum.
+	c.recordStatus(dedupKey, sender, execUpdate.Status)
+
 	quorum := int(primary.F) + 1
 	reached := len(peers) >= quorum
 	if reached {
@@ -249,14 +263,60 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 		return
 	}
 
-	c.lggr.Infow("ExecutionStatusUpdate quorum reached, routing to handler",
+	// Aggregate: if any quorum peer reported SYSTEM_ERROR, propagate
+	// SYSTEM_ERROR so the secondary replays the cached event. Otherwise
+	// use the majority status among the received messages.
+	aggregated := c.aggregateStatus(dedupKey)
+	c.clearStatuses(dedupKey)
+
+	c.lggr.Debugw("ExecutionStatusUpdate quorum reached, routing to handler",
 		"workflowID", execUpdate.WorkflowId,
 		"triggerEventID", execUpdate.TriggerEventId,
 		"executionID", execUpdate.ExecutionId,
-		"status", execUpdate.Status,
+		"aggregatedStatus", aggregated,
 		"peers", len(peers))
 
+	execUpdate.Status = aggregated
 	wh.handler(&execUpdate)
+}
+
+// recordStatus stores the status reported by a peer for a given execution.
+// Called under c.quorumMu.
+func (c *ShardFailoverCommunicator) recordStatus(dedupKey string, _ p2ptypes.PeerID, status ringpb.ExecutionStatus) {
+	c.statusesByExecID[dedupKey] = append(c.statusesByExecID[dedupKey], status)
+}
+
+// aggregateStatus returns the worst-case status among all received messages
+// for the given execution. If any peer reported SYSTEM_ERROR, the result is
+// SYSTEM_ERROR — this ensures the secondary shard replays the cached trigger
+// event even if only a subset of primary nodes experienced a system failure.
+// Otherwise the majority status is returned.
+// Called under c.quorumMu.
+func (c *ShardFailoverCommunicator) aggregateStatus(dedupKey string) ringpb.ExecutionStatus {
+	statuses := c.statusesByExecID[dedupKey]
+	counts := make(map[ringpb.ExecutionStatus]int, len(statuses))
+	for _, s := range statuses {
+		if s == ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR {
+			return ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR
+		}
+		counts[s]++
+	}
+
+	var best ringpb.ExecutionStatus
+	var bestCount int
+	for s, n := range counts {
+		if n > bestCount {
+			best = s
+			bestCount = n
+		}
+	}
+	return best
+}
+
+// clearStatuses removes the status tracking for a delivered execution.
+// Called under c.quorumMu.
+func (c *ShardFailoverCommunicator) clearStatuses(dedupKey string) {
+	delete(c.statusesByExecID, dedupKey)
 }
 
 func (c *ShardFailoverCommunicator) pruneLoop() {
@@ -283,6 +343,7 @@ func (c *ShardFailoverCommunicator) pruneLoop() {
 				if now.Sub(seenTime) >= c.expiryDuration {
 					delete(c.seenByExecID, key)
 					delete(c.seenAt, key)
+					delete(c.statusesByExecID, key)
 				}
 			}
 			c.quorumMu.Unlock()
@@ -296,4 +357,8 @@ func (c *ShardFailoverCommunicator) Name() string {
 
 func (c *ShardFailoverCommunicator) HealthReport() map[string]error {
 	return map[string]error{c.Name(): c.Healthy()}
+}
+
+func isPeerInDON(peer p2ptypes.PeerID, members []p2ptypes.PeerID) bool {
+	return slices.Contains(members, peer)
 }

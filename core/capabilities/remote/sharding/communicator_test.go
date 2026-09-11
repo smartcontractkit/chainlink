@@ -463,3 +463,56 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 	default:
 	}
 }
+
+func TestShardFailoverCommunicator_AggregatesMixedStatuses(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
+	disp := newInMemDispatcher()
+	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
+	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
+
+	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
+	require.NoError(t, comm.Start(ctx))
+	t.Cleanup(func() { _ = comm.Close() })
+
+	var receivedStatus ringpb.ExecutionStatus
+	var receivedMu sync.Mutex
+	comm.RegisterHandler("wf-1", primaryDON, func(msg *ringpb.ExecutionStatusUpdate) {
+		receivedMu.Lock()
+		receivedStatus = msg.Status
+		receivedMu.Unlock()
+	})
+
+	// Peer 1 reports SUCCESS, peer 2 reports SYSTEM_ERROR for the same execution.
+	msgSuccess := makeStatusMsg("wf-1", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
+	msgError := makeStatusMsg("wf-1", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR, primaryDON.ID)
+
+	payloadSuccess, _ := proto.Marshal(msgSuccess)
+	payloadError, _ := proto.Marshal(msgError)
+
+	makeBody := func(payload []byte, senderIdx int) *remotetypes.MessageBody {
+		return &remotetypes.MessageBody{
+			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
+			Method:           remotetypes.MethodExecutionStatusUpdate,
+			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
+			CapabilityDonId:  localDON.ID,
+			CallerDonId:      primaryDON.ID,
+			Payload:          payload,
+			Sender:           primaryDON.Members[senderIdx][:],
+		}
+	}
+
+	// First peer reports SUCCESS (quorum not reached yet).
+	comm.Receive(ctx, makeBody(payloadSuccess, 0))
+	time.Sleep(50 * time.Millisecond)
+
+	// Second peer reports SYSTEM_ERROR — quorum reached.
+	// Aggregation should produce SYSTEM_ERROR (worst-case).
+	comm.Receive(ctx, makeBody(payloadError, 1))
+
+	receivedMu.Lock()
+	assert.Equal(t, ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR, receivedStatus,
+		"aggregated status should be SYSTEM_ERROR when any peer reports it")
+	receivedMu.Unlock()
+}
