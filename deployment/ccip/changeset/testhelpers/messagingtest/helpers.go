@@ -129,6 +129,15 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Errorf("unsupported dest chain: %v", tc.DestChain)
 	}
 
+	destFamily, err := chain_selectors.GetSelectorFamily(tc.DestChain)
+	require.NoError(tc.T, err)
+	if destFamily == chain_selectors.FamilySui {
+		tip, err := tc.Env.BlockChains.SuiChains()[tc.DestChain].Client.GetLatestCheckpoint(tc.T.Context())
+		require.NoError(tc.T, err)
+		seq := tip.GetSequenceNumber()
+		startBlock = &seq
+	}
+
 	// Capture the Sui source's latest checkpoint before the send so we can replay from it
 	// afterwards (replaces the removed bind-time RescanRecent — see ReplaySuiSourceFromCheckpoint).
 	var suiSourceStart *uint64

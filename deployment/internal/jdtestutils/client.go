@@ -75,6 +75,34 @@ func (j JobClient) IsLogFilterRegistered(ctx context.Context, chainSel uint64, e
 	return true, nil
 }
 
+// IsLogFilterRegisteredQuorum reports whether at least f+1 non-bootstrap nodes have the
+// log filter for (chainSel, eventName, address) registered in their log-poller DB, where f
+// is derived from the non-bootstrap node count N via N = 3f+1.
+//
+// Unlike IsLogFilterRegistered (which requires ALL non-bootstrap nodes), this tolerates up
+// to f environmentally-unhealthy nodes that haven't bound contracts / registered the filter
+// yet. The CCIP DON only needs f+1 observations to commit and execute, so f+1 registered
+// nodes is sufficient for a message to flow. Per-node errors (e.g. a transient RPC
+// DeadlineExceeded on one overloaded node) are treated as "not registered" rather than
+// aborting the check, so a single flaky node cannot block the wait.
+func (j JobClient) IsLogFilterRegisteredQuorum(ctx context.Context, chainSel uint64, eventName string, address []byte) (bool, error) {
+	registered, total := 0, 0
+	for _, node := range j.list() {
+		if node.IsBoostrap {
+			continue
+		}
+		total++
+		if ok, err := node.IsLogFilterRegistered(ctx, chainSel, eventName, address); err == nil && ok {
+			registered++
+		}
+	}
+	if total == 0 {
+		return false, nil
+	}
+	f := (total - 1) / 3
+	return registered >= f+1, nil
+}
+
 func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) bool {
 	if filter == nil {
 		return true

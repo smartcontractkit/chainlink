@@ -44,11 +44,12 @@ require (
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260729172123-588778bf8e20
 	github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260716230027-bd85997bc03c
 	github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260706100550-d43558069754
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260807162113-653e56725854
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260812212436-23ab1060f955
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260818173204-4e52258ae336
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260908155618-50f521d70e62
+	github.com/smartcontractkit/chainlink-ccip/chains/solana/deployment v0.0.0-20260908155618-50f521d70e62
+	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260908155618-50f521d70e62
+	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260721154648-3e1c1fb5d8dc
 	github.com/smartcontractkit/chainlink-common/keystore v1.2.1-0.20260623104656-f39eba3e2bc6
 	github.com/smartcontractkit/chainlink-data-streams v1.0.0
@@ -61,9 +62,9 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260821005832-e896796fceed
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260827120130-362c4a408695
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260821005832-e896796fceed
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260827120130-362c4a408695
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260713162202-124316cd10ff

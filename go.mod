@@ -77,13 +77,13 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chain-selectors v1.0.106
+	github.com/smartcontractkit/chain-selectors v1.0.107
 	github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260716230027-bd85997bc03c
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260807162113-653e56725854
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
-	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260415165642-49f23e4d76cc
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260908155618-50f521d70e62
+	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-ccv v0.1.1-0.20260716164331-d938b371c5d6
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260721154648-3e1c1fb5d8dc
 	github.com/smartcontractkit/chainlink-common/keystore v1.2.1-0.20260623104656-f39eba3e2bc6
@@ -143,7 +143,7 @@ require (
 	golang.org/x/term v0.45.0
 	golang.org/x/time v0.15.0
 	gonum.org/v1/gonum v0.17.0
-	google.golang.org/grpc v1.82.0
+	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1

@@ -490,9 +490,9 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260729172123-588778bf8e20 // indirect
 	github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260716230027-bd85997bc03c // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260807162113-653e56725854 // indirect
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb // indirect
-	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260908155618-50f521d70e62 // indirect
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260908155618-50f521d70e62 // indirect
+	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260908155618-50f521d70e62 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.1.1-0.20260716164331-d938b371c5d6 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260716165322-7f2edff6e954 // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501 // indirect
@@ -520,7 +520,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1 // indirect
 	github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260714222251-887c274c6b64 // indirect
 	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260714222251-887c274c6b64 // indirect
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260821005832-e896796fceed // indirect
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260827120130-362c4a408695 // indirect
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.15.0 // indirect
