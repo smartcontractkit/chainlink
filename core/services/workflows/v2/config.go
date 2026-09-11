@@ -285,7 +285,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	shardingFailoverSetting.Scope = settings.ScopeGlobal
 	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, shardingFailoverSetting)
 	if err != nil {
-		return
+		return err
 	}
 	l.DONTimeRequestTimeout, err = lf.MakeTimeLimiter(cfg.DONTime.RequestTimeout)
 	if err != nil {

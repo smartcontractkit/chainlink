@@ -385,8 +385,8 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 
 	disp := newInMemDispatcher()
 	localDON := makeTestDON(3, 1, makeTestPeerID(30), makeTestPeerID(31), makeTestPeerID(32))
-	primaryDON_A := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
-	primaryDON_B := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
+	primaryDONA := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12))
+	primaryDONB := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
 	require.NoError(t, comm.Start(ctx))
@@ -397,23 +397,23 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 
 	// Two workflows with different primary DONs — this is the key
 	// scenario the reviewer identified: primary/secondary is per-workflow.
-	comm.RegisterHandler("wf-A", primaryDON_A, func(msg *ringpb.ExecutionStatusUpdate) {
+	comm.RegisterHandler("wf-A", primaryDONA, func(msg *ringpb.ExecutionStatusUpdate) {
 		wfAReceived <- msg
 	})
-	comm.RegisterHandler("wf-B", primaryDON_B, func(msg *ringpb.ExecutionStatusUpdate) {
+	comm.RegisterHandler("wf-B", primaryDONB, func(msg *ringpb.ExecutionStatusUpdate) {
 		wfBReceived <- msg
 	})
 
-	// Send from primaryDON_A members for wf-A
-	msgA := makeStatusMsg("wf-A", "evt-A", "exec-A", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON_A.ID)
+	// Send from primaryDONA members for wf-A
+	msgA := makeStatusMsg("wf-A", "evt-A", "exec-A", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDONA.ID)
 	payloadA, _ := proto.Marshal(msgA)
-	for _, peer := range primaryDON_A.Members[:2] {
+	for _, peer := range primaryDONA.Members[:2] {
 		require.NoError(t, disp.Send(peer, &remotetypes.MessageBody{
 			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
 			Method:           remotetypes.MethodExecutionStatusUpdate,
 			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
 			CapabilityDonId:  localDON.ID,
-			CallerDonId:      primaryDON_A.ID,
+			CallerDonId:      primaryDONA.ID,
 			Payload:          payloadA,
 			Sender:           peer[:],
 		}))
@@ -425,16 +425,16 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 		t.Fatal("timeout waiting for wf-A handler")
 	}
 
-	// Send from primaryDON_B members for wf-B
-	msgB := makeStatusMsg("wf-B", "evt-B", "exec-B", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON_B.ID)
+	// Send from primaryDONB members for wf-B
+	msgB := makeStatusMsg("wf-B", "evt-B", "exec-B", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDONB.ID)
 	payloadB, _ := proto.Marshal(msgB)
-	for _, peer := range primaryDON_B.Members[:2] {
+	for _, peer := range primaryDONB.Members[:2] {
 		require.NoError(t, disp.Send(peer, &remotetypes.MessageBody{
 			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
 			Method:           remotetypes.MethodExecutionStatusUpdate,
 			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
 			CapabilityDonId:  localDON.ID,
-			CallerDonId:      primaryDON_B.ID,
+			CallerDonId:      primaryDONB.ID,
 			Payload:          payloadB,
 			Sender:           peer[:],
 		}))
@@ -446,20 +446,20 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 		t.Fatal("timeout waiting for wf-B handler")
 	}
 
-	// Verify messages from primaryDON_A are rejected for wf-B (different primary)
+	// Verify messages from primaryDONA are rejected for wf-B (different primary)
 	bodyFromA := &remotetypes.MessageBody{
 		CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
 		Method:           remotetypes.MethodExecutionStatusUpdate,
 		CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
 		CapabilityDonId:  localDON.ID,
-		CallerDonId:      primaryDON_A.ID,
+		CallerDonId:      primaryDONA.ID,
 		Payload:          payloadB,
-		Sender:           primaryDON_A.Members[0][:],
+		Sender:           primaryDONA.Members[0][:],
 	}
 	comm.Receive(ctx, bodyFromA)
 	select {
 	case <-wfBReceived:
-		t.Fatal("wf-B should not accept messages from primaryDON_A")
+		t.Fatal("wf-B should not accept messages from primaryDONA")
 	default:
 	}
 }

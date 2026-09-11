@@ -217,7 +217,7 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 	dedupKey := fmt.Sprintf("%s:%s", execUpdate.WorkflowId, execUpdate.ExecutionId)
 
 	c.quorumMu.Lock()
-	if _, ok := c.deliveredExecIDs[dedupKey]; ok {
+	if _, delivered := c.deliveredExecIDs[dedupKey]; delivered {
 		c.quorumMu.Unlock()
 		return
 	}
