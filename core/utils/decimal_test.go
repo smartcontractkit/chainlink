@@ -1,12 +1,14 @@
 package utils
 
 import (
+	"encoding/json"
 	"math"
 	"math/big"
 	"testing"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDecimal(t *testing.T) {
@@ -46,6 +48,12 @@ func TestDecimal(t *testing.T) {
 		{math.NaN(), true},
 		{float32(math.NaN()), true},
 		{true, true},
+		{json.Number("1"), false},
+		{json.Number("1.1"), false},
+		{json.Number("-42"), false},
+		{json.Number("115792089237316195423570985008687907853269984665640564039457584007913129639935"), false},
+		{json.Number(""), true},
+		{json.Number("not-a-number"), true},
 	}
 	for _, tc := range tt {
 		_, err := ToDecimal(tc.v)
@@ -55,4 +63,29 @@ func TestDecimal(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}
+}
+
+func TestToDecimal_JSONNumber(t *testing.T) {
+	t.Parallel()
+
+	got, err := ToDecimal(json.Number("1024"))
+	require.NoError(t, err)
+	assert.True(t, decimal.NewFromInt(1024).Equal(got))
+
+	got, err = ToDecimal(json.Number("3.50"))
+	require.NoError(t, err)
+	assert.True(t, decimal.RequireFromString("3.50").Equal(got))
+
+	got, err = ToDecimal(json.Number("-7"))
+	require.NoError(t, err)
+	assert.True(t, decimal.NewFromInt(-7).Equal(got))
+
+	_, err = ToDecimal(json.Number("1e2"))
+	require.NoError(t, err)
+
+	_, err = ToDecimal(json.Number(""))
+	require.Error(t, err)
+
+	_, err = ToDecimal(json.Number("xyz"))
+	require.Error(t, err)
 }
