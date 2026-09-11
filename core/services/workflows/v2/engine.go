@@ -36,13 +36,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
@@ -55,6 +53,7 @@ var (
 	ErrShardDeniedNotOwner     = errors.New("shard ownership denied: not owner")
 	ErrShardDeniedOrchestrator = errors.New("shard ownership denied: orchestrator error")
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
+	ErrAdmissionCache          = errors.New("admission: event cached for failover")
 
 	ErrEngineDraining = errors.New("engine is draining")
 	ErrQueueFull      = errors.New("trigger event queue is full")
@@ -388,6 +387,22 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueDraining)
 		e.cfg.Hooks.OnTriggerEventDropped(triggerID, eventID, "draining")
 		return ErrEngineDraining
+	}
+
+	// Admission check: an external management layer (e.g. ShardFailoverManager)
+	// decides whether this event should be processed by the engine.
+	if err := e.cfg.Hooks.OnTriggerAdmission(ctx, event); err != nil {
+		if errors.Is(err, ErrAdmissionCache) {
+			e.logger().Infow("Trigger event cached for failover, not enqueuing", "triggerID", triggerID, "eventID", eventID)
+			return err
+		}
+		// Denied: ACK and drop
+		registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
+		if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
+			e.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
+		}
+		e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "admission_denied")
+		return err
 	}
 
 	// Stamp the deadline once at dispatch: observedAt + queue timeout.
@@ -925,64 +940,6 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 		}
 	}()
 
-	needShardOwnerCheck := e.cfg.ShardRoutingSteady == nil || !e.cfg.ShardRoutingSteady.SkipCommittedOwnerCheck()
-	if e.cfg.ShardingEnabled && needShardOwnerCheck {
-		var verdict shardownership.Verdict
-		var mapResp *ringpb.GetWorkflowShardMappingResponse
-		var ownErr error
-
-		switch {
-		case e.cfg.ShardResolver != nil:
-			shardID, found, resolveErr := e.cfg.ShardResolver.ResolveShard(ctx, e.cfg.WorkflowID, e.cfg.WorkflowOwner)
-			switch {
-			case resolveErr != nil:
-				verdict = shardownership.DenyOrchestratorError
-				ownErr = resolveErr
-			case !found || shardID != e.cfg.MyDonID:
-				verdict = shardownership.DenyNotOwner
-			default:
-				verdict = shardownership.Allow
-			}
-		case e.cfg.ShardOrchestratorClient != nil:
-			verdict, mapResp, ownErr = shardownership.CheckCommittedOwner(ctx, e.cfg.ShardOrchestratorClient, e.cfg.WorkflowID, e.cfg.MyDonID)
-		default:
-			verdict = shardownership.Allow
-		}
-
-		switch verdict {
-		case shardownership.Allow:
-		case shardownership.DenyOrchestratorError:
-			lggr.Warnw("Shard ownership check failed (orchestrator error); skipping execution", "err", ownErr)
-			e.metrics.IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx)
-			triggerDrop(monitoring.TriggerDropReasonShardDeniedOrchestrator)
-			executionStatus = store.StatusErrored
-			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-			if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID); ackErr != nil {
-				e.logger().Errorw("failed to ACK trigger after shard ownership orchestrator error", "eventID", triggerEvent.ID, "err", ackErr)
-			}
-			return ErrShardDeniedOrchestrator
-		case shardownership.DenyNotOwner:
-			logFields := []any{
-				"executionID", executionID,
-				"myDonID", e.cfg.MyDonID,
-				"routingStateId", mapResp.GetRoutingStateId(),
-				"routingSteady", mapResp.GetRoutingSteady(),
-			}
-			if m, ok := mapResp.GetMappings()[e.cfg.WorkflowID]; ok {
-				logFields = append(logFields, "mappedShard", m)
-			}
-			lggr.Infow("Skipping execution: workflow not owned by this shard per orchestrator", logFields...)
-			e.metrics.IncrementShardExecutionDeniedNotOwnerCounter(ctx)
-			triggerDrop(monitoring.TriggerDropReasonShardDeniedNotOwner)
-			executionStatus = store.StatusErrored
-			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-			if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID); ackErr != nil {
-				e.logger().Errorw("failed to ACK trigger after shard ownership denial", "eventID", triggerEvent.ID, "err", ackErr)
-			}
-			return ErrShardDeniedNotOwner
-		}
-	}
-
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
 
@@ -1087,6 +1044,7 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			}
 		}
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
+		e.cfg.Hooks.OnExecutionStatusUpdate(e.cfg.WorkflowID, executionID, triggerEvent.ID, event.TriggerIndex, executionStatus, execErrClass)
 		if execErr != nil {
 			e.cfg.Hooks.OnExecutionError(execErr.Error())
 		}

@@ -19,6 +19,10 @@ type ShardResolver interface {
 	ResolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error)
 }
 
+type AllShardsResolver interface {
+	ResolveAllShards(ctx context.Context, workflowID string, ownerHex string) ([]uint32, bool, error)
+}
+
 type OrgResolver interface {
 	Get(ctx context.Context, owner string) (string, error)
 }
@@ -81,6 +85,14 @@ func (m *manualShardResolver) ResolveShard(ctx context.Context, _ string, ownerH
 		return 0, false, err
 	}
 	return resolveManual(ctx, cfg, ownerHex, m.orgResolver)
+}
+
+func (m *manualShardResolver) ResolveAllShards(ctx context.Context, _ string, ownerHex string) ([]uint32, bool, error) {
+	cfg, err := loadShardAssignmentConfig(m.settings)
+	if err != nil || cfg == nil {
+		return nil, false, err
+	}
+	return resolveAllManual(ctx, cfg, ownerHex, m.orgResolver)
 }
 
 func (m *manualShardResolver) ResolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {
@@ -149,6 +161,37 @@ func resolveManual(ctx context.Context, cfg *cresettings.ShardAssignmentConfig, 
 	return 0, false, nil
 }
 
+func resolveAllManual(ctx context.Context, cfg *cresettings.ShardAssignmentConfig, ownerHex string, orgResolver OrgResolver) ([]uint32, bool, error) {
+	owner := normalizeOwner(ownerHex)
+
+	if shards, ok := cfg.PerOwnerAssignment[owner]; ok && len(shards) > 0 {
+		return shards, true, nil
+	}
+
+	if orgResolver != nil && len(cfg.PerOrgAssignment) > 0 {
+		orgID, err := orgResolver.Get(ctx, ownerHex)
+		if err == nil && orgID != "" {
+			if shards, ok := cfg.PerOrgAssignment[orgID]; ok && len(shards) > 0 {
+				return shards, true, nil
+			}
+		}
+	}
+
+	if cfg.HashedOwnerAssignment[owner] {
+		return nil, false, nil
+	}
+
+	if cfg.HashedDefaultAssignment {
+		return nil, false, nil
+	}
+
+	if len(cfg.StaticDefaultAssignment) > 0 {
+		return cfg.StaticDefaultAssignment, true, nil
+	}
+
+	return nil, false, nil
+}
+
 type overrideShardResolver struct {
 	manual      *manualShardResolver
 	orgResolver OrgResolver
@@ -180,6 +223,27 @@ func (o *overrideShardResolver) ResolveShard(ctx context.Context, workflowID str
 		}
 	}
 	return o.ringOCR.ResolveShard(ctx, workflowID, ownerHex)
+}
+
+func (o *overrideShardResolver) ResolveAllShards(ctx context.Context, workflowID string, ownerHex string) ([]uint32, bool, error) {
+	cfg, cfgErr := loadShardAssignmentConfig(o.manual.settings)
+	if cfgErr != nil {
+		return nil, false, cfgErr
+	}
+	if cfg != nil {
+		shards, found, resolveErr := resolveAllManual(ctx, cfg, ownerHex, o.orgResolver)
+		if resolveErr != nil {
+			return nil, false, resolveErr
+		}
+		if found {
+			return shards, true, nil
+		}
+	}
+	shardID, found, err := o.ringOCR.ResolveShard(ctx, workflowID, ownerHex)
+	if err != nil || !found {
+		return nil, false, err
+	}
+	return []uint32{shardID}, true, nil
 }
 
 func (o *overrideShardResolver) ResolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {

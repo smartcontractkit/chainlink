@@ -126,8 +126,9 @@ type workflowRegistry struct {
 
 	// myDonID is the DON ID of the shard this syncer belongs to.
 	// Set from don.ID after WaitForDon resolves. Used to filter workflows.
-	myDonID         uint32
-	shardingEnabled bool
+	myDonID              uint32
+	shardingEnabled      bool
+	shardingFailoverGate limits.GateLimiter
 
 	centralizedOwnerVerificationEnabled limits.GateLimiter
 	settingsGetter                      settings.Getter
@@ -294,6 +295,12 @@ func WithShardOrchestratorClient(client shardorchestrator.ClientInterface) Optio
 func WithShardEnabled(shardingEnabled bool) Option {
 	return func(wr *workflowRegistry) {
 		wr.shardingEnabled = shardingEnabled
+	}
+}
+
+func WithShardFailoverEnabled(gate limits.GateLimiter) Option {
+	return func(wr *workflowRegistry) {
+		wr.shardingFailoverGate = gate
 	}
 }
 
@@ -828,10 +835,27 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 		}
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
+	failoverEnabled := w.shardingFailoverGate != nil && w.shardingFailoverGate.AllowErr(ctx) == nil
 	for _, wf := range workflows {
 		id := wf.WorkflowID.Hex()
-		if shardID, ok := mappings[id]; ok && shardID == w.myDonID {
-			filtered = append(filtered, wf)
+		if failoverEnabled {
+			if allResolver, ok := w.shardResolver.(shardownership.AllShardsResolver); ok {
+				shards, found, err := allResolver.ResolveAllShards(ctx, id, hex.EncodeToString(wf.Owner))
+				if err != nil || !found {
+					continue
+				}
+				if slices.Contains(shards, w.myDonID) {
+					filtered = append(filtered, wf)
+				}
+			} else {
+				if shardID, ok := mappings[id]; ok && shardID == w.myDonID {
+					filtered = append(filtered, wf)
+				}
+			}
+		} else {
+			if shardID, ok := mappings[id]; ok && shardID == w.myDonID {
+				filtered = append(filtered, wf)
+			}
 		}
 	}
 	return filtered, nil

@@ -36,6 +36,8 @@ import (
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
+	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
@@ -125,6 +127,9 @@ type eventHandler struct {
 	myDonID                 uint32
 	shardRoutingSteady      *shardownership.SteadySignal
 	shardResolver           shardownership.ShardResolver
+	dispatcher              remotetypes.Dispatcher
+	shardDonLookup          func(ctx context.Context, shardID uint32) *commoncap.DON
+	shardFailoverComm       *sharding.ShardFailoverCommunicator
 
 	metrics *metrics
 }
@@ -191,6 +196,18 @@ func WithShardRoutingSteady(signal *shardownership.SteadySignal) func(*eventHand
 func WithShardResolver(resolver shardownership.ShardResolver) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardResolver = resolver
+	}
+}
+
+func WithDispatcher(dispatcher remotetypes.Dispatcher) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.dispatcher = dispatcher
+	}
+}
+
+func WithShardDonLookup(lookup func(ctx context.Context, shardID uint32) *commoncap.DON) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardDonLookup = lookup
 	}
 }
 
@@ -388,6 +405,9 @@ func (h *eventHandler) close() error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Close()
 	}
+	if h.shardFailoverComm != nil {
+		_ = h.shardFailoverComm.Close()
+	}
 	es := h.engineRegistry.PopAll()
 	// No metering is emitted on close: meter records anchor on workflow-spec
 	// storage transitions, not engine lifecycle, so stopping an engine at
@@ -399,6 +419,7 @@ func (h *eventHandler) close() error {
 	for _, e := range es {
 		cs = append(cs, e)
 	}
+
 	return services.CloseAll(cs...)
 }
 
@@ -888,11 +909,43 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 			RequirementsHandler: generichost.RequirementsHandler{Tee: confidential.Tee},
 		}},
 	)
-	cfg := h.newV2EngineConfig(selectingModule, workflowID, owner, tag, sdkName, name, config)
+	cfg := h.newV2EngineConfig(ctx, selectingModule, workflowID, owner, tag, sdkName, name, config)
 
 	h.wireInitDoneHook(cfg, initDone)
 
-	return v2.NewEngine(cfg)
+	var manager *ShardFailoverManager
+	if h.shardingEnabled && h.dispatcher != nil {
+		if h.shardFailoverComm == nil {
+			h.shardFailoverComm = sharding.NewShardFailoverCommunicator(h.dispatcher, h.myDonID, h.lggr)
+		}
+		manager = NewShardFailoverManager(ShardFailoverManagerConfig{
+			ShardingEnabled:         h.shardingEnabled,
+			MyShardID:               h.myDonID,
+			WorkflowID:              workflowID,
+			WorkflowOwner:           owner,
+			ShardResolver:           h.shardResolver,
+			ShardOrchestratorClient: h.shardOrchestratorClient,
+			ShardRoutingSteady:      h.shardRoutingSteady,
+			FailoverGate:            h.engineLimiters.ShardingFailoverEnabled,
+			Communicator:            h.shardFailoverComm,
+			ShardDonLookup:          h.shardDonLookup,
+			DonSubscriber:           h.workflowDonSubscriber,
+			Logger:                  h.lggr,
+		})
+		manager.WireHooks(cfg)
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if manager != nil {
+		manager.SetEngine(engine)
+		return manager, nil
+	}
+
+	return engine, nil
 }
 
 func (h *eventHandler) createEngineModule(
@@ -1216,12 +1269,13 @@ func (h *eventHandler) overrideFetcherForOwner(owner string) v2.SecretsFetcher {
 // newV2EngineConfig builds the common EngineConfig shared by both the normal
 // WASM engine and the confidential engine paths. Caller supplies the module.
 func (h *eventHandler) newV2EngineConfig(
+	ctx context.Context,
 	module host.ModuleV2,
 	workflowID, owner, tag, sdkName string,
 	name types.WorkflowName,
 	config []byte,
 ) *v2.EngineConfig {
-	return &v2.EngineConfig{
+	cfg := &v2.EngineConfig{
 		Lggr:                  h.lggr,
 		Module:                module,
 		WorkflowConfig:        config,
@@ -1262,9 +1316,10 @@ func (h *eventHandler) newV2EngineConfig(
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,
 	}
+
+	return cfg
 }
 
-// wireInitDoneHook wires the initDone channel to the OnInitialized lifecycle hook.
 // This will be called when the engine completes initialization (including trigger subscriptions).
 // We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
 func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- error) {
