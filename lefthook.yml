@@ -39,6 +39,17 @@ pre-commit:
                   run: typos --force-exclude --format brief {staged_files}
                   fail_text: "typos failed or missing. Install: https://github.com/crate-ci/typos#install"
 
+                # Lint GitHub Actions workflow files with actionlint
+                - name: actionlint
+                  tags: [lint]
+                  glob:
+                    - ".github/**/*.yml"
+                    - ".github/**/*.yaml"
+                    - ".github/*.yml"
+                    - ".github/*.yaml"
+                  run: tools/githooks/.bin/githooks actionlint {staged_files}
+                  fail_text: "actionlint failed or missing. Install maintained fork: https://github.com/kjanat/actionlint#installation"
+
                 - name: fix-and-generate
                   group:
                     jobs:
