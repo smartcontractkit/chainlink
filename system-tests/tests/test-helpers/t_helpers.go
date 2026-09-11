@@ -50,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -903,9 +902,7 @@ func selectArtifactTargetDONs(testEnv *ttypes.TestEnvironment, donTypes []cre.Ca
 func workflowArtifactsDir(t *testing.T, testEnv *ttypes.TestEnvironment) string {
 	t.Helper()
 	if testEnv.Execution == nil || testEnv.Execution.TestID == "" {
-		dir, err := os.MkdirTemp("", "cre-workflow-artifacts-*")
-		require.NoError(t, err, "failed to create artifacts directory")
-		return dir
+		return t.TempDir()
 	}
 
 	dir := filepath.Join(os.TempDir(), "cre-workflow-artifacts", testEnv.Execution.TestID)
