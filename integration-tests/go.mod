@@ -27,15 +27,15 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.35.1
 	github.com/segmentio/ksuid v1.0.4
-	github.com/smartcontractkit/chain-selectors v1.0.108
+	github.com/smartcontractkit/chain-selectors v1.0.109
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260828090428-9828cc37ebc2
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260821001950-7520b255725e
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260908155618-50f521d70e62
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260910175133-35e2c9207b2b
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260910195529-801eb99e80b2
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
-	github.com/smartcontractkit/chainlink-deployments-framework v0.120.1-0.20260828145648-3e1bcd2ac1da
+	github.com/smartcontractkit/chainlink-deployments-framework v0.122.2
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260810110946-8174b6bb7fc9
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260713161920-de075095648b
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea
@@ -46,9 +46,9 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20260126202327-6be9a05f0caf
 	github.com/smartcontractkit/chainlink/v2 v2.29.0
-	github.com/smartcontractkit/cld-changesets v0.8.2
+	github.com/smartcontractkit/cld-changesets v0.9.1-0.20260911120037-95e1c8bcb265
 	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342
-	github.com/smartcontractkit/mcms v0.55.0
+	github.com/smartcontractkit/mcms v0.55.2-0.20260911113758-08ee2754f62a
 	github.com/stretchr/testify v1.12.1
 	github.com/subosito/gotenv v1.6.0
 	github.com/testcontainers/testcontainers-go v0.44.0
@@ -56,7 +56,7 @@ require (
 	golang.org/x/exp v0.0.0-20260820142414-ca536658362e
 	golang.org/x/sync v0.22.0
 	golang.org/x/text v0.41.0
-	google.golang.org/grpc v1.83.1
+	google.golang.org/grpc v1.83.2
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
@@ -65,6 +65,7 @@ require github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260729
 require (
 	cosmossdk.io/collections v0.4.0 // indirect
 	github.com/bytecodealliance/wasmtime-go/v47 v47.0.0 // indirect
+	github.com/ethereum/hid v1.0.1-0.20260421154323-c2ab8d9bf68a // indirect
 	github.com/go-openapi/swag/cmdutils v0.28.0 // indirect
 	github.com/go-openapi/swag/conv v0.28.0 // indirect
 	github.com/go-openapi/swag/fileutils v0.28.0 // indirect
@@ -325,7 +326,6 @@ require (
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/karalabe/hid v1.0.1-0.20260315100226-f5d04adeffeb // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
@@ -447,7 +447,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260821155228-fa1d775e2138 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1 // indirect
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.7 // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.8 // indirect
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260713162202-124316cd10ff // indirect
 	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260716214810-db5ecc877490 // indirect
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260601214705-1ab0adfd785f // indirect

@@ -329,6 +329,8 @@ flowchart LR
 	click chainlink-ccv/build/devenv href "https://github.com/smartcontractkit/chainlink-ccv"
 	chainlink-ccv/deployment
 	click chainlink-ccv/deployment href "https://github.com/smartcontractkit/chainlink-ccv"
+	chainlink-ccv/integration/evm
+	click chainlink-ccv/integration/evm href "https://github.com/smartcontractkit/chainlink-ccv"
 	chainlink-common --> chainlink-common/pkg/chipingress
 	chainlink-common --> chainlink-protos/billing/go
 	chainlink-common --> chainlink-protos/cre/go
@@ -428,6 +430,7 @@ flowchart LR
 	click chainlink-solana/contracts href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink-stellar --> chainlink-ccv/build/devenv
 	chainlink-stellar --> chainlink-ccv/deployment
+	chainlink-stellar --> chainlink-ccv/integration/evm
 	chainlink-stellar --> chainlink/deployment
 	click chainlink-stellar href "https://github.com/smartcontractkit/chainlink-stellar"
 	chainlink-stellar/bindings
@@ -501,7 +504,7 @@ flowchart LR
 	click chainlink/devenv href "https://github.com/smartcontractkit/chainlink"
 	chainlink/devenv/fakes --> chainlink-testing-framework/framework/components/fake
 	click chainlink/devenv/fakes href "https://github.com/smartcontractkit/chainlink"
-	chainlink/integration-tests --> chainlink/deployment
+	chainlink/integration-tests
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/load-tests --> chainlink-testing-framework/havoc
 	chainlink/load-tests --> chainlink/integration-tests
@@ -715,6 +718,7 @@ flowchart LR
 		 chainlink-ccv
 		 chainlink-ccv/build/devenv
 		 chainlink-ccv/deployment
+		 chainlink-ccv/integration/evm
 	end
 	click chainlink-ccv-repo href "https://github.com/smartcontractkit/chainlink-ccv"
 
