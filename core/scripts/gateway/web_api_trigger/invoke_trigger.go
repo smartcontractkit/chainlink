@@ -116,7 +116,7 @@ func main() {
 	}
 
 	createRequest := func() (req *http.Request, err error) {
-		req, err = http.NewRequestWithContext(context.Background(), "POST", *gatewayURL, bytes.NewBuffer(rawMsg))
+		req, err = http.NewRequestWithContext(context.Background(), http.MethodPost, *gatewayURL, bytes.NewBuffer(rawMsg))
 		if err == nil {
 			req.Header.Set("Content-Type", "application/json")
 		}
