@@ -13,6 +13,7 @@ import (
 
 	"main/types"
 
+	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v3"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -20,7 +21,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
@@ -28,8 +29,7 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
-	workflowpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 )
 
 const balanceReaderABIJson = `[
@@ -88,7 +88,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 		runtime.Logger().Error(fmt.Sprintf("[logger] failed to get on-chain balance: %v", err))
 		return "", fmt.Errorf("failed to get on-chain balance: %w", err)
 	}
-	balanceAtResult := pb.NewIntFromBigInt(balanceAtOutput.Balance)
+	balanceAtResult := values.ProtoToBigInt(balanceAtOutput.Balance)
 	runtime.Logger().With().Info(fmt.Sprintf("[logger] Got on-chain balance with BalanceAt() for address %s: %s", addressToRead_1, balanceAtResult.String()))
 
 	// get balance with CallContract
@@ -149,7 +149,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 		return "", fmt.Errorf("failed to pack price report: %w", err)
 	}
 
-	report, err := runtime.GenerateReport(&workflowpb.ReportRequest{
+	report, err := runtime.GenerateReport(&cre.ReportRequest{
 		EncodedPayload: encodedPrice,
 		EncoderName:    "evm",
 		SigningAlgo:    "ecdsa",
@@ -222,7 +222,7 @@ func main() {
 		}
 
 		if cfg.AuthKeySecretName != "" {
-			cfg.AuthKey = sdk.SecretValue(cfg.AuthKeySecretName)
+			cfg.AuthKey = cfg.AuthKeySecretName
 		}
 
 		return cfg, nil
@@ -251,14 +251,14 @@ func getHTTPPrice(config types.WorkflowConfig, runtime cre.NodeRuntime) (priceOu
 	}
 
 	fetchRequest := http.Request{
-		Url:       config.URL + "?feedID=" + config.FeedID,
-		Method:    "GET",
-		TimeoutMs: 5000,
+		Url:     config.URL + "?feedID=" + config.FeedID,
+		Method:  "GET",
+		Timeout: durationpb.New(5 * time.Second),
 	}
 
-	if string(config.AuthKey) != "" {
+	if config.AuthKey != "" {
 		fetchRequest.Headers = map[string]string{
-			"Authorization": string(config.AuthKey),
+			"Authorization": config.AuthKey,
 		}
 	}
 
@@ -278,7 +278,7 @@ func getHTTPPrice(config types.WorkflowConfig, runtime cre.NodeRuntime) (priceOu
 		runtime.Logger().With(
 			"feedID", config.FeedID,
 		).Info(fmt.Sprintf("ripcord flag set for feed ID %s", config.FeedID))
-		return priceOutput{}, sdk.BreakErr
+		return priceOutput{}, capabilities.ErrStopExecution
 	}
 
 	return priceOutput{
