@@ -53,7 +53,7 @@ func ToPluginType(s string) (PluginType, error) {
 	}
 }
 
-type Plugins struct { //nolint:recvcheck // Scan requires pointer receiver, Value requires value receiver
+type Plugins struct {
 	Commit     bool `json:"commit"`
 	Execute    bool `json:"execute"`
 	Median     bool `json:"median"`
@@ -152,7 +152,7 @@ type ChainConfig struct {
 }
 
 // FluxMonitorConfig defines configuration for FluxMonitorJobs.
-type FluxMonitorConfig struct { //nolint:recvcheck // Scan requires pointer receiver, Value requires value receiver
+type FluxMonitorConfig struct {
 	Enabled bool `json:"enabled"`
 }
 
@@ -170,7 +170,7 @@ func (c *FluxMonitorConfig) Scan(value any) error {
 }
 
 // OCR1Config defines configuration for OCR1 Jobs.
-type OCR1Config struct { //nolint:recvcheck // Scan requires pointer receiver, Value requires value receiver
+type OCR1Config struct {
 	Enabled     bool        `json:"enabled"`
 	IsBootstrap bool        `json:"is_bootstrap"`
 	Multiaddr   null.String `json:"multiaddr"`
@@ -192,7 +192,7 @@ func (c *OCR1Config) Scan(value any) error {
 }
 
 // OCR2ConfigModel defines configuration for OCR2 Jobs.
-type OCR2ConfigModel struct { //nolint:recvcheck // Scan requires pointer receiver, Value requires value receiver
+type OCR2ConfigModel struct {
 	Enabled          bool        `json:"enabled"`
 	IsBootstrap      bool        `json:"is_bootstrap"`
 	Multiaddr        null.String `json:"multiaddr"`
