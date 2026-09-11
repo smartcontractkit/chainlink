@@ -21,17 +21,19 @@ var MinRequiredPGVersion = 110000
 func init() {
 	// from: https://www.postgresql.org/support/versioning/
 	now := time.Now()
+	// Cases are ordered newest-first so the correct EOL threshold is selected;
+	// see https://www.postgresql.org/support/versioning/
 	switch {
-	case now.Year() > 2023:
-		MinRequiredPGVersion = 120000
-	case now.Year() > 2024:
-		MinRequiredPGVersion = 130000
-	case now.Year() > 2025:
-		MinRequiredPGVersion = 140000
-	case now.Year() > 2026:
-		MinRequiredPGVersion = 150000
 	case now.Year() > 2027:
 		MinRequiredPGVersion = 160000
+	case now.Year() > 2026:
+		MinRequiredPGVersion = 150000
+	case now.Year() > 2025:
+		MinRequiredPGVersion = 140000
+	case now.Year() > 2024:
+		MinRequiredPGVersion = 130000
+	case now.Year() > 2023:
+		MinRequiredPGVersion = 120000
 	}
 }
 
