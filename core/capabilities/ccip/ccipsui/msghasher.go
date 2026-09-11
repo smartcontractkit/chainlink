@@ -300,6 +300,9 @@ func parseExtraDataMap(input map[string]any) (*big.Int, [32]byte, error) {
 
 	tokenReceiver, ok := input["tokenReceiver"]
 	if !ok {
+		tokenReceiver, ok = input["TokenReceiver"]
+	}
+	if !ok {
 		return nil, [32]byte{}, errors.New("token receiver not found in extra data map")
 	}
 
