@@ -40,7 +40,7 @@ require (
 	github.com/sethvargo/go-retry v0.3.0
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9
 	github.com/smartcontractkit/ccip-owner-contracts v0.2.1
-	github.com/smartcontractkit/chain-selectors v1.0.108
+	github.com/smartcontractkit/chain-selectors v1.0.109
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260828090428-9828cc37ebc2
 	github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260716230027-bd85997bc03c
 	github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260706100550-d43558069754
@@ -50,10 +50,10 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/deployment v0.0.0-20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260908155618-50f521d70e62
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260910175133-35e2c9207b2b
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260910195529-801eb99e80b2
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-data-streams v1.1.1
-	github.com/smartcontractkit/chainlink-deployments-framework v0.120.1-0.20260828145648-3e1bcd2ac1da
+	github.com/smartcontractkit/chainlink-deployments-framework v0.122.2
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260810110946-8174b6bb7fc9
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260713161920-de075095648b
@@ -62,19 +62,19 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1
-	github.com/smartcontractkit/chainlink-stellar v0.0.6-0.20260901125625-2d505ff46c8f
+	github.com/smartcontractkit/chainlink-stellar v0.0.7
 	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260901125625-2d505ff46c8f
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260827120130-362c4a408695
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260827120130-362c4a408695
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.7
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.8
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260713162202-124316cd10ff
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260520103847-15ca4de9dba9
-	github.com/smartcontractkit/cld-changesets v0.8.2
+	github.com/smartcontractkit/cld-changesets v0.9.1-0.20260911120037-95e1c8bcb265
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad
 	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342
-	github.com/smartcontractkit/mcms v0.55.0
+	github.com/smartcontractkit/mcms v0.55.2-0.20260911113758-08ee2754f62a
 	github.com/smartcontractkit/smdkg v0.0.0-20260819115032-4afa3ab56bc4
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
 	github.com/spf13/cobra v1.10.2
@@ -90,7 +90,7 @@ require (
 	golang.org/x/mod v0.39.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.22.0
-	google.golang.org/grpc v1.83.1
+	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -231,6 +231,7 @@ require (
 	github.com/esote/minmaxheap v1.0.0 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.8 // indirect
 	github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab // indirect
+	github.com/ethereum/hid v1.0.1-0.20260421154323-c2ab8d9bf68a // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/expr-lang/expr v1.17.8 // indirect
@@ -347,7 +348,6 @@ require (
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/karalabe/hid v1.0.1-0.20260315100226-f5d04adeffeb // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
