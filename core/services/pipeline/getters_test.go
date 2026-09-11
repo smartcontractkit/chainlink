@@ -95,6 +95,8 @@ func TestGetters_JSONWithVarExprs(t *testing.T) {
 		{`{ "$(foo.bar)": $(zet) }`, "value", 123, pipeline.ErrBadInput, false},
 		{`{ "x": { "__chainlink_key_path__": 0 } }`, "", nil, pipeline.ErrBadInput, false},
 		{`{ "e": $(err)`, "e", nil, pipeline.ErrBadInput, false},
+		{`0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c`, "", nil, pipeline.ErrBadInput, false},
+		{`{} {}`, "", nil, pipeline.ErrBadInput, false},
 	}
 
 	for _, test := range tests {

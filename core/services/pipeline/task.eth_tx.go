@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-viper/mapstructure/v2"
@@ -51,6 +52,28 @@ type ETHKeyStore interface {
 }
 
 var _ Task = (*ETHTxTask)(nil)
+
+func literalEVMAddress(value string) GetterFunc {
+	return func() (any, error) {
+		trimmed := strings.TrimSpace(value)
+		if len(trimmed) != 2+2*common.AddressLength ||
+			!strings.HasPrefix(trimmed, "0x") ||
+			!common.IsHexAddress(trimmed) {
+			return nil, ErrParameterEmpty
+		}
+		return []common.Address{common.HexToAddress(trimmed)}, nil
+	}
+}
+
+func ethTxFromGetters(value string, vars Vars) []GetterFunc {
+	return From(
+		VarExpr(value, vars),
+		literalEVMAddress(value),
+		JSONWithVarExprs(value, vars, false),
+		NonemptyString(value),
+		nil,
+	)
+}
 
 func (t *ETHTxTask) Type() TaskType {
 	return TaskTypeETHTx
@@ -100,7 +123,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		failOnRevert          BoolParam
 	)
 	err = stderrors.Join(
-		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
+		errors.Wrap(ResolveParam(&fromAddrs, ethTxFromGetters(t.From, vars)), "from"),
 		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
 		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), maximumGasLimit)), "gasLimit"),
