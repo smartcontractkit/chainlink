@@ -395,7 +395,7 @@ func gatewayResponse(t *testing.T, msgID, privateKey string) *jsonrpc.Request[js
 		Body: api.MessageBody{
 			DonID:     "donID",
 			MessageID: msgID,
-			Method:    ghcapabilities.MethodWebAPITarget,
+			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   responsePayload,
 		},
 	}

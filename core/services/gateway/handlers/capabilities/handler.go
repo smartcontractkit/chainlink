@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -26,23 +24,16 @@ import (
 )
 
 const (
-	// NOTE: more methods will go here. HTTP trigger/action/target; etc.
+	// NOTE: more methods will go here. HTTP action/target; etc.
 	// Any changes to this list of methods should be reflected in the
 	// handler's Methods() function.
-	MethodWebAPITarget   = "web_api_target"
-	MethodWebAPITrigger  = "web_api_trigger"
 	MethodComputeAction  = "compute_action"
 	MethodWorkflowSyncer = "workflow_syncer"
 
 	// Error messages
 	ErrTransformingMessageToRequest = "error transforming message to request"
-	ErrDecodingPayload              = "error decoding payload"
 
 	handlerName = "WebAPIHandler"
-
-	defaultCallbackMaxAgeSec        = 120   // 2 minutes
-	defaultMaxSavedCallbacks        = 20000 // could briefly exceed under heavy load
-	defaultCallbackPruneIntervalSec = 30
 )
 
 type handler struct {
@@ -50,29 +41,15 @@ type handler struct {
 	config          HandlerConfig
 	don             handlers.DON
 	donConfig       *config.DONConfig
-	savedCallbacks  map[string]*savedCallback
-	mu              sync.Mutex
 	lggr            logger.Logger
 	httpClient      network.HTTPClient
 	nodeRateLimiter *ratelimit.RateLimiter
 	wg              sync.WaitGroup
-	stopCh          services.StopChan
 	metrics         *metrics
 }
 
 type HandlerConfig struct {
-	NodeRateLimiter         ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
-	MaxAllowedMessageAgeSec uint                        `json:"maxAllowedMessageAgeSec"`
-
-	CallbackMaxAgeSec        int `json:"callbackMaxAgeSec"`
-	MaxSavedCallbacks        int `json:"maxSavedCallbacks"`
-	CallbackPruneIntervalSec int `json:"callbackPruneIntervalSec"`
-}
-
-type savedCallback struct {
-	id        string
-	createdAt time.Time
-	handlers.Callback
+	NodeRateLimiter ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
 }
 
 var _ handlers.Handler = (*handler)(nil)
@@ -82,15 +59,6 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
 		return nil, err
-	}
-	if cfg.CallbackMaxAgeSec == 0 {
-		cfg.CallbackMaxAgeSec = defaultCallbackMaxAgeSec
-	}
-	if cfg.MaxSavedCallbacks == 0 {
-		cfg.MaxSavedCallbacks = defaultMaxSavedCallbacks
-	}
-	if cfg.CallbackPruneIntervalSec == 0 {
-		cfg.CallbackPruneIntervalSec = defaultCallbackPruneIntervalSec
 	}
 
 	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
@@ -110,8 +78,6 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 		lggr:            logger.Named(lggr, "WebAPIHandler."+donConfig.DonID),
 		httpClient:      httpClient,
 		nodeRateLimiter: nodeRateLimiter,
-		savedCallbacks:  make(map[string]*savedCallback),
-		stopCh:          make(services.StopChan),
 		metrics:         metrics,
 	}, nil
 }
@@ -143,22 +109,6 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 			Payload:   payloadBytes,
 		},
 	}, nil
-}
-
-func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
-	h.mu.Lock()
-	savedCb, found := h.savedCallbacks[msg.Body.MessageID]
-	delete(h.savedCallbacks, msg.Body.MessageID)
-	h.mu.Unlock()
-
-	if found {
-		// Send first response from a node back to the user, ignore any other ones.
-		// TODO: in practice, we should wait for at least 2F+1 nodes to respond and then return an aggregated response
-		// back to the user.
-		codec := api.JSONRPCCodec{}
-		return savedCb.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
-	}
-	return nil
 }
 
 func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
@@ -238,8 +188,6 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 
 func (h *handler) Methods() []string {
 	return []string{
-		MethodWebAPITrigger,
-		MethodWebAPITarget,
 		MethodComputeAction,
 		MethodWorkflowSyncer,
 	}
@@ -255,9 +203,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 	start := time.Now()
 	switch msg.Body.Method {
-	case MethodWebAPITrigger:
-		err = h.handleWebAPITriggerMessage(ctx, msg, nodeAddr)
-	case MethodWebAPITarget, MethodComputeAction, MethodWorkflowSyncer:
+	case MethodComputeAction, MethodWorkflowSyncer:
 		err = h.handleWebAPIOutgoingMessage(ctx, msg, nodeAddr)
 	default:
 		err = fmt.Errorf("unsupported method: %s", msg.Body.Method)
@@ -268,25 +214,12 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 func (h *handler) Start(context.Context) error {
 	return h.StartOnce(handlerName, func() error {
-		h.wg.Go(func() {
-			ticker := time.NewTicker(time.Duration(h.config.CallbackPruneIntervalSec) * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					h.pruneCallbacks()
-				case <-h.stopCh:
-					return
-				}
-			}
-		})
 		return nil
 	})
 }
 
 func (h *handler) Close() error {
 	return h.StopOnce(handlerName, func() error {
-		close(h.stopCh)
 		h.wg.Wait()
 		return nil
 	})
@@ -296,128 +229,8 @@ func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[
 	return errors.New("capabilities handler does not support JSON-RPC user messages")
 }
 
-func (h *handler) pruneCallbacks() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	// First, remove expired callbacks.
-	maxAge := time.Duration(h.config.CallbackMaxAgeSec) * time.Second
-	now := time.Now()
-	var expired int
-	for id, cb := range h.savedCallbacks {
-		if now.Sub(cb.createdAt) > maxAge {
-			delete(h.savedCallbacks, id)
-			expired++
-		}
-	}
-
-	// If there are still too many callbacks, sort them by creation time and remove the oldest ones.
-	maxSize := h.config.MaxSavedCallbacks
-	var evicted int
-	if len(h.savedCallbacks) > maxSize {
-		type entry struct {
-			id        string
-			createdAt time.Time
-		}
-		entries := make([]entry, 0, len(h.savedCallbacks))
-		for id, cb := range h.savedCallbacks {
-			entries = append(entries, entry{id, cb.createdAt})
-		}
-		sort.Slice(entries, func(i, j int) bool {
-			return entries[i].createdAt.Before(entries[j].createdAt)
-		})
-		// Trim to maxSize/2 to avoid sorting the list too frequently.
-		for _, e := range entries[:len(entries)-maxSize/2] {
-			delete(h.savedCallbacks, e.id)
-			evicted++
-		}
-	}
-
-	if expired > 0 || evicted > 0 {
-		h.lggr.Infow("Pruned savedCallbacks", "expired", expired, "evicted", evicted, "remaining", len(h.savedCallbacks))
-	}
-}
-
-func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
-	body := msg.Body
-	var payload webapicap.TriggerRequestPayload
-	codec := api.JSONRPCCodec{}
-	err := json.Unmarshal(body.Payload, &payload)
-	if err != nil {
-		h.lggr.Errorw(ErrDecodingPayload, "err", err)
-		return callback.SendResponse(handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageID,
-				api.ToJSONRPCErrorCode(api.UserMessageParseError),
-				ErrDecodingPayload+" "+err.Error(),
-				nil,
-			),
-			ErrorCode: api.UserMessageParseError,
-		})
-	}
-
-	if payload.Timestamp == 0 {
-		h.lggr.Errorw(ErrDecodingPayload)
-		return callback.SendResponse(handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageID,
-				api.ToJSONRPCErrorCode(api.UserMessageParseError),
-				ErrDecodingPayload,
-				nil,
-			),
-			ErrorCode: api.UserMessageParseError,
-		})
-	}
-
-	if uint(time.Now().Unix())-h.config.MaxAllowedMessageAgeSec > uint(payload.Timestamp) { //nolint:gosec // G115: comparing unix timestamps, both fit within uint
-		h.lggr.Errorw("stale message")
-		return callback.SendResponse(handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageID,
-				api.ToJSONRPCErrorCode(api.HandlerError),
-				"stale message",
-				nil,
-			),
-			ErrorCode: api.HandlerError,
-		})
-	}
-	// TODO: apply allowlist and rate-limiting here
-	if msg.Body.Method != MethodWebAPITrigger {
-		h.lggr.Errorw("unsupported method", "method", body.Method)
-		return callback.SendResponse(handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageID,
-				api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
-				"invalid method "+msg.Body.Method,
-				nil,
-			),
-			ErrorCode: api.UnsupportedMethodError,
-		})
-	}
-	req, err := common.ValidatedRequestFromMessage(msg)
-	if err != nil {
-		h.lggr.Errorw(ErrTransformingMessageToRequest)
-		return callback.SendResponse(handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageID,
-				api.ToJSONRPCErrorCode(api.UserMessageParseError),
-				ErrTransformingMessageToRequest,
-				nil,
-			),
-			ErrorCode: api.UserMessageParseError,
-		})
-	}
-
-	h.mu.Lock()
-	h.savedCallbacks[msg.Body.MessageID] = &savedCallback{id: msg.Body.MessageID, createdAt: time.Now(), Callback: callback}
-	don := h.don
-	h.mu.Unlock()
-
-	// Send original request to all nodes
-	for _, member := range h.donConfig.Members {
-		err = errors.Join(err, don.SendToNode(ctx, member.Address, req))
-	}
-	return err
+func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ handlers.Callback) error {
+	return errors.New("capabilities handler does not support legacy user messages")
 }
 
 type metrics struct {
