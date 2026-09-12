@@ -27,6 +27,8 @@ type launcherMetrics struct {
 	localExposedFailure metric.Int64Gauge
 	localSkipped        metric.Int64Gauge
 
+	capabilityHostingDONs metric.Int64Gauge
+
 	completedUpdates metric.Int64Counter
 }
 
@@ -61,6 +63,16 @@ func (m *launcherMetrics) incrementCompletedUpdates(ctx context.Context) {
 	m.completedUpdates.Add(ctx, 1, attrs)
 }
 
+// recordCapabilityHostingDONs reports the number of in-family capability DONs
+// hosting the given capability. 1 is expected; values above 1 mean the same
+// capability is hosted by multiple DONs and only the lowest DON ID is routed to.
+func (m *launcherMetrics) recordCapabilityHostingDONs(ctx context.Context, capabilityID string, donCount int64) {
+	attrs := metric.WithAttributes(
+		attribute.String(keyCapabilityID, capabilityID),
+	)
+	m.capabilityHostingDONs.Record(ctx, donCount, attrs)
+}
+
 func newLauncherMetrics() (*launcherMetrics, error) {
 	remoteAddedSuccess, err := beholder.GetMeter().Int64Gauge("platform_launcher_remote_capability_added_success")
 	if err != nil {
@@ -92,18 +104,24 @@ func newLauncherMetrics() (*launcherMetrics, error) {
 		return nil, err
 	}
 
+	capabilityHostingDONs, err := beholder.GetMeter().Int64Gauge("platform_launcher_capability_hosting_dons")
+	if err != nil {
+		return nil, err
+	}
+
 	completedUpdates, err := beholder.GetMeter().Int64Counter("platform_launcher_completed_updates_total")
 	if err != nil {
 		return nil, err
 	}
 
 	return &launcherMetrics{
-		remoteAddedSuccess:  remoteAddedSuccess,
-		remoteAddedFailure:  remoteAddedFailure,
-		remoteSkipped:       remoteSkipped,
-		localExposedSuccess: localExposedSuccess,
-		localExposedFailure: localExposedFailure,
-		localSkipped:        localSkipped,
-		completedUpdates:    completedUpdates,
+		remoteAddedSuccess:    remoteAddedSuccess,
+		remoteAddedFailure:    remoteAddedFailure,
+		remoteSkipped:         remoteSkipped,
+		localExposedSuccess:   localExposedSuccess,
+		localExposedFailure:   localExposedFailure,
+		localSkipped:          localSkipped,
+		capabilityHostingDONs: capabilityHostingDONs,
+		completedUpdates:      completedUpdates,
 	}, nil
 }
