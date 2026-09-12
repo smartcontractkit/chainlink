@@ -1022,6 +1022,78 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 	require.ErrorContains(t, err, "limited: cannot use 2, limit is 1")
 }
 
+// TestSecretsFetcher_EnforcesSecretsCallsLimitOnRawSecrets ensures GetRawSecrets
+// (the enclave relay ingress path) is bounded by the same per-execution secrets
+// call budget as GetSecrets.
+func TestSecretsFetcher_EnforcesSecretsCallsLimitOnRawSecrets(t *testing.T) {
+	t.Parallel()
+
+	newFetcher := func(t *testing.T) RawSecretsFetcher {
+		t.Helper()
+		lggr := logger.TestLogger(t)
+		reg := coreCap.NewRegistry(lggr)
+		peer := RandomUTF8BytesWord()
+		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+
+		f, n := 2, 3
+		_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(f, n)
+		require.NoError(t, err)
+		vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+		require.NoError(t, err)
+		reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
+		return NewSecretsFetcher(
+			MetricsLabelerTest(t),
+			reg,
+			lggr,
+			limits.WorkflowResourcePoolLimiter[int](5),
+			limits.NewUpperBoundLimiter[int](1),
+			nil,
+			"",
+			"0x1111111111111111111111111111111111111111",
+			"wf",
+			"wfID",
+			"phaseID",
+			workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
+			nil,
+		)
+	}
+
+	req := &sdkpb.GetSecretsRequest{
+		Requests: []*sdkpb.SecretRequest{
+			{Id: "R1"},
+		},
+	}
+
+	t.Run("raw secrets calls are bounded", func(t *testing.T) {
+		t.Parallel()
+
+		sf := newFetcher(t)
+		keyFetcher := sf.(*secretsFetcher).encryptionKeyFetcher
+
+		// 1st call to occupy the only available slot in the limiter
+		_, _ = sf.GetRawSecrets(t.Context(), req, keyFetcher)
+
+		// second call should fail due to exceeding the bound limiter (limit == 1)
+		_, err := sf.GetRawSecrets(t.Context(), req, keyFetcher)
+		require.ErrorContains(t, err, "limited: cannot use 2, limit is 1")
+	})
+
+	t.Run("raw and normal secrets calls share the budget", func(t *testing.T) {
+		t.Parallel()
+
+		sf := newFetcher(t)
+		keyFetcher := sf.(*secretsFetcher).encryptionKeyFetcher
+
+		// GetSecrets internally fetches raw secrets without double counting
+		_, _ = sf.GetSecrets(t.Context(), req)
+
+		// the raw path must be charged against the same budget (limit == 1)
+		_, err := sf.GetRawSecrets(t.Context(), req, keyFetcher)
+		require.ErrorContains(t, err, "limited: cannot use 2, limit is 1")
+	})
+}
+
 func TestSecretsFetcher_VaultFirstThenLocalOverridesForVaultFailures(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)

@@ -38,10 +38,11 @@ type ExecutionHelper struct {
 	TimeProvider
 	SecretsFetcher
 
-	chainAllowed limits.GateLimiter
-	callLimiters map[capCall]limits.BoundLimiter[int]
-	mu           sync.Mutex
-	callCounts   map[limits.Limiter[int]]int
+	chainAllowed       limits.GateLimiter
+	callLimiters       map[capCall]limits.BoundLimiter[int]
+	defaultCallLimiter limits.BoundLimiter[int]
+	mu                 sync.Mutex
+	callCounts         map[limits.Limiter[int]]int
 
 	executionProfile *executionProfileCollector
 
@@ -52,6 +53,7 @@ type ExecutionHelper struct {
 
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 	c.chainAllowed = limiters.ChainAllowed
+	c.defaultCallLimiter = limits.NewUpperBoundLimiter[int](defaultCapabilityCallLimit)
 	c.callLimiters = map[capCall]limits.BoundLimiter[int]{
 		{"consensus", "Simple"}: limiters.ConsensusCalls,
 		{"consensus", "Report"}: limiters.ConsensusCalls,
@@ -92,6 +94,8 @@ func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 	}
 }
 
+const defaultCapabilityCallLimit = 5
+
 type capCall struct {
 	name   string
 	method string
@@ -113,22 +117,23 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	}
 
 	limiter, ok := c.callLimiters[capCall{name: capName, method: request.Method}]
-	if ok {
-		c.mu.Lock()
-		if c.callCounts == nil {
-			c.callCounts = make(map[limits.Limiter[int]]int)
-		}
-		cnt := c.callCounts[limiter] + 1
-		if err := limiter.Check(ctx, cnt); err != nil {
-			c.mu.Unlock()
-			return nil, caperrors.NewPublicUserError(
-				fmt.Errorf("capability call limit exceeded for %s.%s: %w", capName, request.Method, err),
-				caperrors.LimitExceeded,
-			)
-		}
-		c.callCounts[limiter] = cnt
-		c.mu.Unlock()
+	if !ok {
+		limiter = c.defaultCallLimiter
 	}
+	c.mu.Lock()
+	if c.callCounts == nil {
+		c.callCounts = make(map[limits.Limiter[int]]int)
+	}
+	cnt := c.callCounts[limiter] + 1
+	if err := limiter.Check(ctx, cnt); err != nil {
+		c.mu.Unlock()
+		return nil, caperrors.NewPublicUserError(
+			fmt.Errorf("capability call limit exceeded for %s.%s: %w", capName, request.Method, err),
+			caperrors.LimitExceeded,
+		)
+	}
+	c.callCounts[limiter] = cnt
+	c.mu.Unlock()
 
 	free, err := c.capCallsSemaphore.Wait(ctx, 1)
 	if err != nil {
@@ -335,10 +340,16 @@ func (c *ExecutionHelper) EmitUserMetric(ctx context.Context, metric *eventsv2.W
 	return events.EmitUserMetric(ctx, c.eventLabels(), metric)
 }
 
+// dontimeCapabilityID matches the capability ID registered by the OCR2 delegate
+// (core/services/ocr2/delegate.go).
+const dontimeCapabilityID = "dontime@1.0.0"
+
 // systemCapabilities lists capability IDs that are internal plumbing and must
 // not be callable from user workflow steps.
 var systemCapabilities = map[string]bool{
 	confidentialWorkflowsCapabilityID: true,
+	vaultcommon.CapabilityID:          true,
+	dontimeCapabilityID:               true,
 }
 
 func isSystemCapability(capID string) bool {

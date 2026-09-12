@@ -147,6 +147,19 @@ func (s *secretsFetcher) vaultGetSecretsMetadata(ctx context.Context, callbackID
 	return metadata, nil
 }
 
+// countSecretsCall reserves one call from the per-execution secrets call
+// budget shared by GetSecrets and GetRawSecrets.
+func (s *secretsFetcher) countSecretsCall(ctx context.Context) error {
+	s.callCounter.mu.Lock()
+	defer s.callCounter.mu.Unlock()
+	secretsCalled := s.callCounter.called + 1
+	if err := s.secretsCallsLimit.Check(ctx, secretsCalled); err != nil {
+		return err
+	}
+	s.callCounter.called = secretsCalled
+	return nil
+}
+
 func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{
 		Org:      s.orgID,
@@ -163,19 +176,14 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	}
 	vaultRequestID := vault.BuildWorkflowGetSecretsRequestID(metadata)
 	s.lggr.Debugw("get secrets request received", "vaultRequestID", vaultRequestID, "metadata", metadata)
-	s.callCounter.mu.Lock()
-	secretsCalled := s.callCounter.called + 1
-	if err := s.secretsCallsLimit.Check(ctx, secretsCalled); err != nil {
-		s.callCounter.mu.Unlock()
+	if err = s.countSecretsCall(ctx); err != nil {
 		return nil, err
 	}
-	s.callCounter.called = secretsCalled
-	s.callCounter.mu.Unlock()
 	start := time.Now()
 	resp, err := func() ([]*sdkpb.SecretResponse, error) {
-		free, err := s.semaphore.Wait(ctx, 1)
-		if err != nil {
-			return nil, err
+		free, waitErr := s.semaphore.Wait(ctx, 1)
+		if waitErr != nil {
+			return nil, waitErr
 		}
 		defer free()
 		return s.getSecretsForBatchWithLocalFallback(ctx, request)
@@ -287,11 +295,26 @@ func (s *secretsFetcher) getSecretsForBatchWithLocalFallback(ctx context.Context
 	return combined, nil
 }
 
-// GetRawSecrets performs all of the work required to obtain secrets from the
-// Vault DON except decrypting their values: it resolves the vault capability,
-// loads this DON's encryption keys, executes the vault GetSecrets request, and
-// returns the raw (still encrypted) vault response.
+// GetRawSecrets obtains secrets from the Vault DON without decrypting their
+// values. Raw fetches are charged against the same per-execution secrets call
+// budget as GetSecrets.
 func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
+	ctx = contexts.WithCRE(ctx, contexts.CRE{
+		Org:      s.orgID,
+		Owner:    s.workflowOwner,
+		Workflow: s.workflowID,
+	})
+	if err := s.countSecretsCall(ctx); err != nil {
+		return nil, err
+	}
+	return s.getRawSecrets(ctx, request, fetcher)
+}
+
+// getRawSecrets resolves the vault capability, loads this DON's encryption
+// keys, executes the vault GetSecrets request, and returns the raw (still
+// encrypted) vault response. Callers must have already reserved a call from
+// the per-execution secrets call budget via countSecretsCall.
+func (s *secretsFetcher) getRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
 		return nil, errors.New("failed to get vault capability: " + err.Error())
@@ -407,7 +430,7 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 		return nil, errors.New("failed to extract vault public key from capability config: " + err.Error())
 	}
 
-	batchedVaultResponse, err := s.GetRawSecrets(ctx, request, s.encryptionKeyFetcher)
+	batchedVaultResponse, err := s.getRawSecrets(ctx, request, s.encryptionKeyFetcher)
 	if err != nil {
 		return nil, err
 	}
