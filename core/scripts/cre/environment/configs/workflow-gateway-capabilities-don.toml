@@ -38,7 +38,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow"]
   enable_metering = true
   override_mode = "all"
@@ -70,7 +70,7 @@
 [[nodesets]]
   nodes = 4
   name = "capabilities"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["capabilities"]
   enable_metering = true
   exposes_remote_capabilities = true
@@ -100,7 +100,7 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300

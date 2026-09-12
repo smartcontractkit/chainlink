@@ -502,7 +502,7 @@ func startCmd() *cobra.Command {
 				for idx, don := range output.Dons.List() {
 					if don.HasFlag(cre.WorkflowDON) {
 						workflowDonID = libc.MustSafeUint32(idx + 1)
-						donFamily = don.DonFamily
+						donFamily = don.DonFamily()
 						break
 					}
 				}
