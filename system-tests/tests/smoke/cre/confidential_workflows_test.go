@@ -3,12 +3,15 @@ package cre
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -83,7 +86,16 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		fake := testhelpers.UseFakeEnclave()
 		testLogger.Info().Bool("fakeEnclaves", fake).Msg("Starting confidential workflows relay test")
 
-		tconf := t_helpers.GetTestConfig(t, confidentialWorkflowsConfigPath)
+		// The topology is overridable so a caller can supply a different one (the
+		// mixed-env job renders its own two-image variant). Without this the
+		// hardcoded single-image topology below always wins.
+		configPath := confidentialWorkflowsConfigPath
+		if override := os.Getenv("CRE_TOPOLOGY_CONFIG"); override != "" {
+			configPath = override
+		}
+		testLogger.Info().Str("topologyConfig", configPath).Msg("Resolved topology config")
+
+		tconf := t_helpers.GetTestConfig(t, configPath)
 		t.Setenv("CTF_CONFIGS", tconf.EnvironmentConfigPath)
 
 		// 1. Stand up the host-side services the enclaves need to reach. Their
@@ -126,6 +138,11 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		//    come from the standard feature set, configured by the topology TOML,
 		//    so nothing here has to be injected as Go values.
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, tconf)
+
+		// DEBUG-ONLY: under mixed-env the workflow DON runs 2 nodes per image, and
+		// only some of them load the confidential-workflows capability. Report what
+		// each node actually got before the run depends on it.
+		reportWorkflowNodeCapabilities(t, testLogger, confidentialWorkflowDONContainers(testEnv))
 
 		// 4. Publish the enclave list to the capability's on-chain registry config,
 		//    which the relay handler reads to decide where to route. The capability
@@ -182,7 +199,9 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		//    in-enclave HTTP fetch fails, so a successful execution implies the
 		//    whole relay + enclave path worked.
 		workflowID := registerConfidentialWorkflow(t, testEnv, testLogger, artifacts)
-		waitForConfidentialWorkflowExecution(t, testEnv, testLogger, workflowID, 5*time.Minute)
+		// Kept well inside the job's 7m TEST_TIMEOUT so a failure still leaves room
+		// for confidentialExecutionDiagnostics to scrape and print the node logs.
+		waitForConfidentialWorkflowExecution(t, testEnv, testLogger, workflowID, 3*time.Minute)
 
 		testLogger.Info().Msg("Confidential workflows relay E2E passed")
 	})
@@ -443,6 +462,19 @@ func waitForConfidentialWorkflowExecution(
 		Strs("containers", containers).
 		Msg("Waiting for a successful workflow execution")
 
+	// DEBUG-ONLY: the enclave identifies submitters by signer pubkey prefix only,
+	// so log every worker's P2P ID to map a missing signer back to a node.
+	if don := testEnv.Dons.MustWorkflowDON(); don != nil {
+		if workers, wErr := don.Workers(); wErr == nil {
+			for i, node := range workers {
+				testLogger.Info().
+					Int("workerIndex", i).
+					Str("peerID", hex.EncodeToString(node.Keys.P2PKey.PeerID[:])).
+					Msg("workflow DON worker identity")
+			}
+		}
+	}
+
 	deadline := time.Now().Add(timeout)
 	for {
 		for _, name := range containers {
@@ -473,26 +505,45 @@ func confidentialExecutionDiagnostics(t *testing.T, containers []string) string 
 		[]byte("Workflow execution failed"),
 		[]byte("failed to get regions from"),
 		[]byte("no compatible capability found"),
+		// DEBUG-ONLY: widen the net so the enclave/secret/outbound legs show up.
+		[]byte(`"level":"error"`),
+		[]byte(`"level":"warn"`),
+		[]byte("GetSecret"),
+		[]byte("outbound"),
+		[]byte("enclave"),
 	}
+
+	// Scrape under a context of our own: t.Context() is already cancelled once the
+	// test is failing, which makes every docker call return empty.
+	scrapeCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	seen := map[string]bool{}
 	var found []string
 	for _, name := range containers {
-		out, _ := exec.CommandContext(t.Context(), "docker", "logs", "--tail", "10000", name).CombinedOutput()
+		out, _ := exec.CommandContext(scrapeCtx, "docker", "logs", "--tail", "10000", name).CombinedOutput()
 		for line := range bytes.SplitSeq(out, []byte{'\n'}) {
 			for _, needle := range needles {
 				if !bytes.Contains(line, needle) {
 					continue
 				}
-				// Key on the message alone; every node logs the same failure.
-				key := string(needle)
+				// DEBUG-ONLY: key on the whole line so every distinct error is
+				// reported, not just the first per needle, and log it untruncated.
+				key := name + "|" + string(line)
 				if !seen[key] {
 					seen[key] = true
-					found = append(found, fmt.Sprintf("  [%s] %s", name, truncateForLog(line, 400)))
+					found = append(found, fmt.Sprintf("  [%s] %s", name, line))
 				}
 				break
 			}
 		}
+	}
+
+	// DEBUG-ONLY: dump each container's raw tail as well, so a cause that none of
+	// the needles match is still visible in the CI log.
+	for _, name := range containers {
+		out, _ := exec.CommandContext(scrapeCtx, "docker", "logs", "--tail", "200", name).CombinedOutput()
+		found = append(found, fmt.Sprintf("\n===== raw docker logs tail: %s =====\n%s", name, out))
 	}
 
 	if len(found) == 0 {
@@ -503,12 +554,92 @@ func confidentialExecutionDiagnostics(t *testing.T, containers []string) string 
 }
 
 // truncateForLog shortens a log line so a failure message stays readable.
+//
+//nolint:unused // DEBUG-ONLY: diagnostics print untruncated for now.
 func truncateForLog(line []byte, maxLen int) string {
 	if len(line) <= maxLen {
 		return string(line)
 	}
 
 	return string(line[:maxLen]) + "... (truncated)"
+}
+
+// reportWorkflowNodeCapabilities prints, per workflow-DON container, the image it
+// runs, whether the confidential-workflows plugin binary is present, and which
+// StandardCapabilities LOOPPs it actually started. Under mixed-env the two images
+// differ, so this is what distinguishes "binary missing from the baseline image"
+// from "binary present but the capability never launched".
+//
+// DEBUG-ONLY.
+func reportWorkflowNodeCapabilities(t *testing.T, testLogger zerolog.Logger, containers []string) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	run := func(args ...string) string {
+		out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
+		if err != nil {
+			return fmt.Sprintf("<%v: %s>", err, bytes.TrimSpace(out))
+		}
+		return string(bytes.TrimSpace(out))
+	}
+
+	for _, name := range containers {
+		image := run("inspect", "--format", "{{.Config.Image}}", name)
+		bins := run("exec", name, "sh", "-c", "ls /usr/local/bin | grep -i confidential || echo NONE")
+		// Every StandardCapabilities LOOPP logs under a "StandardCapabilities.<n>.<name>"
+		// logger, so the distinct set names what this node launched.
+		loopps := run("exec", name, "sh", "-c",
+			`grep -ho '"logger":"StandardCapabilities\.[0-9]*\.[a-z0-9-]*"' /root/*.log 2>/dev/null | sort -u || echo UNAVAILABLE`)
+
+		testLogger.Info().
+			Str("container", name).
+			Str("image", image).
+			Str("confidentialBinaries", bins).
+			Str("standardCapabilityLoopps", loopps).
+			Msg("workflow DON node capability inventory")
+	}
+
+	// Node logs go to stdout, not a file, so also derive the launched LOOPPs from
+	// the container log stream itself.
+	for _, name := range containers {
+		out, _ := exec.CommandContext(ctx, "docker", "logs", name).CombinedOutput()
+		seen := map[string]bool{}
+		for _, m := range regexp.MustCompile(`"logger":"(StandardCapabilities\.[0-9]+\.[a-zA-Z0-9._-]+)"`).FindAllSubmatch(out, -1) {
+			seen[string(m[1])] = true
+		}
+		names := make([]string, 0, len(seen))
+		for k := range seen {
+			names = append(names, k)
+		}
+		sort.Strings(names)
+
+		// Any plugin that failed to start says so once, early, and the line is far
+		// outside a --tail window by the time the test fails.
+		var launchErrs []string
+		for _, line := range bytes.Split(out, []byte{'\n'}) {
+			if !bytes.Contains(line, []byte("confidential")) {
+				continue
+			}
+			if bytes.Contains(line, []byte(`"level":"error"`)) ||
+				bytes.Contains(line, []byte(`"level":"warn"`)) ||
+				bytes.Contains(line, []byte("no such file")) ||
+				bytes.Contains(line, []byte("executable file not found")) {
+				launchErrs = append(launchErrs, truncateForLog(line, 400))
+				if len(launchErrs) >= 10 {
+					break
+				}
+			}
+		}
+
+		testLogger.Info().
+			Str("container", name).
+			Strs("startedLoopps", names).
+			Strs("confidentialLaunchProblems", launchErrs).
+			Int("totalLogBytes", len(out)).
+			Msg("workflow DON node LOOPP inventory (full log scan)")
+	}
 }
 
 // confidentialWorkflowDONContainers returns the chainlink container names for

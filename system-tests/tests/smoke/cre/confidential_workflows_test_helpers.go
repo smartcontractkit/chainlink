@@ -326,7 +326,10 @@ func configureEnclaves(
 		Signers:         signers,
 		MasterPublicKey: masterPublicKey,
 		T:               quorum,
-		F:               quorum,
+		// DEBUG-ONLY: the executor reconciles F against the DON's own F, so
+		// writing the quorum here never converges and no membership baseline is
+		// recorded.
+		F: uint32(don.F),
 	}
 	configBytes, err := json.Marshal(config)
 	require.NoError(t, err, "failed to marshal enclave config")
