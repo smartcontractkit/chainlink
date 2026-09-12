@@ -465,6 +465,8 @@ func addWorkerNodeConfig(
 	// and Local capabilities config before resetting Capabilities struct.
 	existingWorkflowRegistry := existingConfig.Capabilities.WorkflowRegistry
 	existingLocalCapabilities := existingConfig.Capabilities.Local
+	existingHTTPTrigger := existingConfig.Capabilities.HTTPTrigger
+	existingHTTPAction := existingConfig.Capabilities.HTTPAction
 
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
@@ -481,6 +483,8 @@ func addWorkerNodeConfig(
 		},
 		WorkflowRegistry: existingWorkflowRegistry,
 		Local:            existingLocalCapabilities,
+		HTTPTrigger:      existingHTTPTrigger,
+		HTTPAction:       existingHTTPAction,
 	}
 
 	if len(donMetadata.RegistryBasedLaunchAllowlist) > 0 {
@@ -515,6 +519,18 @@ func addWorkerNodeConfig(
 			NetworkID:       new("evm"),
 			ChainID:         new(strconv.FormatUint(commonInputs.registryChainID, 10)),
 			ContractVersion: new(commonInputs.capabilityRegistry.version.String()),
+		}
+	}
+
+	// HTTP capability configuration is sourced from node TOML
+	// ([Capabilities.HTTPTrigger] / [Capabilities.HTTPAction]); the values are
+	// injected into the capability service config at runtime. Only set the
+	// sections for capabilities this DON actually runs; values left unset let
+	// the capability binary apply its defaults, matching the previous
+	// job-spec behavior where these fields were omitted from generated specs.
+	if donMetadata.HasFlag(cre.HTTPActionCapability) && existingConfig.Capabilities.HTTPAction.ProxyMode == nil {
+		existingConfig.Capabilities.HTTPAction = coretoml.HTTPActionCapability{
+			ProxyMode: new("gateway"),
 		}
 	}
 

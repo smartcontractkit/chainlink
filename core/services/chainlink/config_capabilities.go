@@ -166,6 +166,181 @@ func (c *capabilitiesConfig) GatewayConnector() config.GatewayConnector {
 	}
 }
 
+func (c *capabilitiesConfig) HTTPTrigger() config.HTTPTriggerCapability {
+	return &httpTriggerCapability{
+		c: c.c.HTTPTrigger,
+	}
+}
+
+func (c *capabilitiesConfig) HTTPAction() config.HTTPActionCapability {
+	return &httpActionCapability{
+		c: c.c.HTTPAction,
+	}
+}
+
+type httpTriggerCapability struct {
+	c toml.HTTPTriggerCapability
+}
+
+func (h *httpTriggerCapability) MetadataBatchSize() uint16 {
+	if h.c.MetadataBatchSize != nil {
+		return *h.c.MetadataBatchSize
+	}
+	return 0
+}
+
+func (h *httpTriggerCapability) SendChannelBufferSize() uint16 {
+	if h.c.SendChannelBufferSize != nil {
+		return *h.c.SendChannelBufferSize
+	}
+	return 0
+}
+
+func (h *httpTriggerCapability) MaxAuthorizedKeysPerWorkflow() uint16 {
+	if h.c.MaxAuthorizedKeysPerWorkflow != nil {
+		return *h.c.MaxAuthorizedKeysPerWorkflow
+	}
+	return 0
+}
+
+func (h *httpTriggerCapability) RequestCacheTTL() uint32 {
+	if h.c.RequestCacheTTL != nil {
+		return *h.c.RequestCacheTTL
+	}
+	return 0
+}
+
+func (h *httpTriggerCapability) GatewayConnection() config.HTTPTriggerGatewayConnection {
+	return &httpTriggerGatewayConnection{
+		c: h.c.GatewayConnection,
+	}
+}
+
+type httpTriggerGatewayConnection struct {
+	c toml.HTTPTriggerGatewayConnection
+}
+
+func (g *httpTriggerGatewayConnection) RetryConfig() config.HTTPTriggerRetryConfig {
+	return &httpTriggerRetryConfig{
+		c: g.c.RetryConfig,
+	}
+}
+
+func (g *httpTriggerGatewayConnection) MaxPushMetadataDurationMs() uint32 {
+	if g.c.MaxPushMetadataDurationMs != nil {
+		return *g.c.MaxPushMetadataDurationMs
+	}
+	return 0
+}
+
+func (g *httpTriggerGatewayConnection) MaxPullMetadataDurationMs() uint32 {
+	if g.c.MaxPullMetadataDurationMs != nil {
+		return *g.c.MaxPullMetadataDurationMs
+	}
+	return 0
+}
+
+type httpTriggerRetryConfig struct {
+	c toml.HTTPTriggerRetryConfig
+}
+
+func (r *httpTriggerRetryConfig) InitialIntervalMs() int {
+	if r.c.InitialIntervalMs != nil {
+		return *r.c.InitialIntervalMs
+	}
+	return 0
+}
+
+func (r *httpTriggerRetryConfig) MaxIntervalTimeMs() int {
+	if r.c.MaxIntervalTimeMs != nil {
+		return *r.c.MaxIntervalTimeMs
+	}
+	return 0
+}
+
+func (r *httpTriggerRetryConfig) Multiplier() float64 {
+	if r.c.Multiplier != nil {
+		return *r.c.Multiplier
+	}
+	return 0
+}
+
+type httpActionCapability struct {
+	c toml.HTTPActionCapability
+}
+
+func (h *httpActionCapability) ProxyMode() string {
+	if h.c.ProxyMode != nil {
+		return *h.c.ProxyMode
+	}
+	return ""
+}
+
+func (h *httpActionCapability) GatewayConnection() config.HTTPActionGatewayConnection {
+	return &httpActionGatewayConnection{
+		c: h.c.GatewayConnection,
+	}
+}
+
+func (h *httpActionCapability) HTTPClient() config.HTTPActionHTTPClient {
+	return &httpActionHTTPClient{
+		c: h.c.HTTPClient,
+	}
+}
+
+type httpActionGatewayConnection struct {
+	c toml.HTTPActionGatewayConnection
+}
+
+func (g *httpActionGatewayConnection) InitialIntervalMs() uint32 {
+	if g.c.InitialIntervalMs != nil {
+		return *g.c.InitialIntervalMs
+	}
+	return 0
+}
+
+func (g *httpActionGatewayConnection) MaxElapsedTimeMs() uint32 {
+	if g.c.MaxElapsedTimeMs != nil {
+		return *g.c.MaxElapsedTimeMs
+	}
+	return 0
+}
+
+func (g *httpActionGatewayConnection) Multiplier() float64 {
+	if g.c.Multiplier != nil {
+		return *g.c.Multiplier
+	}
+	return 0
+}
+
+type httpActionHTTPClient struct {
+	c toml.HTTPActionHTTPClient
+}
+
+func (h *httpActionHTTPClient) BlockedIPs() []string {
+	return h.c.BlockedIPs
+}
+
+func (h *httpActionHTTPClient) BlockedIPsCIDR() []string {
+	return h.c.BlockedIPsCIDR
+}
+
+func (h *httpActionHTTPClient) AllowedPorts() []int {
+	return h.c.AllowedPorts
+}
+
+func (h *httpActionHTTPClient) AllowedSchemes() []string {
+	return h.c.AllowedSchemes
+}
+
+func (h *httpActionHTTPClient) AllowedIPs() []string {
+	return h.c.AllowedIPs
+}
+
+func (h *httpActionHTTPClient) AllowedIPsCIDR() []string {
+	return h.c.AllowedIPsCIDR
+}
+
 type capabilitiesExternalRegistry struct {
 	c toml.ExternalRegistry
 }

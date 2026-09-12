@@ -372,6 +372,37 @@ BinaryPathOverride = '/opt/chainlink/binaries/http_action'
 allowedPorts = '443,8443'
 proxyMode = 'gateway'
 
+[Capabilities.HTTPTrigger]
+MetadataBatchSize = 25
+SendChannelBufferSize = 500
+MaxAuthorizedKeysPerWorkflow = 10
+RequestCacheTTL = 3600
+
+[Capabilities.HTTPTrigger.GatewayConnection]
+MaxPushMetadataDurationMs = 45000
+MaxPullMetadataDurationMs = 46000
+
+[Capabilities.HTTPTrigger.GatewayConnection.RetryConfig]
+InitialIntervalMs = 200
+MaxIntervalTimeMs = 60000
+Multiplier = 3.0
+
+[Capabilities.HTTPAction]
+ProxyMode = 'direct'
+
+[Capabilities.HTTPAction.GatewayConnection]
+InitialIntervalMs = 200
+MaxElapsedTimeMs = 60000
+Multiplier = 3.0
+
+[Capabilities.HTTPAction.HTTPClient]
+BlockedIPs = ['10.0.0.1']
+BlockedIPsCIDR = ['10.0.0.0/8']
+AllowedPorts = [8443, 9443]
+AllowedSchemes = ['http', 'https']
+AllowedIPs = ['1.2.3.4']
+AllowedIPsCIDR = ['1.2.3.0/24']
+
 [Telemetry]
 Enabled = true
 CACertFile = 'cert-file'

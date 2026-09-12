@@ -139,6 +139,10 @@ func (c *Core) ValidateConfig() (err error) {
 		}
 	}
 
+	if verr := c.Capabilities.HTTPAction.Validate(); verr != nil {
+		err = errors.Join(err, verr)
+	}
+
 	return err
 }
 
@@ -2781,6 +2785,8 @@ type Capabilities struct {
 	WorkflowRegistry WorkflowRegistry         `toml:",omitempty"`
 	GatewayConnector GatewayConnector         `toml:",omitempty"`
 	Local            LocalCapabilities        `toml:",omitempty"`
+	HTTPTrigger      HTTPTriggerCapability    `toml:",omitempty"`
+	HTTPAction       HTTPActionCapability     `toml:",omitempty"`
 }
 
 // LocalCapabilities configures registry-based capability launching.
@@ -2806,6 +2812,86 @@ type CapabilityNodeConfig struct {
 	Config map[string]string `toml:",omitempty"`
 }
 
+// HTTPTriggerCapability configures the http-trigger capability (http-trigger@1.0.0-alpha).
+// These values are injected into the capability's service config at runtime;
+// the node TOML is the authoritative source.
+type HTTPTriggerCapability struct {
+	// MetadataBatchSize is the number of metadata items to send in a single batch to the gateway.
+	MetadataBatchSize *uint16 `toml:",omitempty"`
+	// SendChannelBufferSize is the size of the channel used to trigger workflows.
+	SendChannelBufferSize *uint16 `toml:",omitempty"`
+	// MaxAuthorizedKeysPerWorkflow limits the number of keys registered per workflow;
+	// it impacts the size of the auth metadata sent to the gateway.
+	MaxAuthorizedKeysPerWorkflow *uint16 `toml:",omitempty"`
+	// RequestCacheTTL is the time-to-live for cached request responses in seconds.
+	// Used for idempotency - cached responses are returned for duplicate requests within this window.
+	RequestCacheTTL *uint32 `toml:",omitempty"`
+	// GatewayConnection holds capability-specific gateway connection tuning.
+	// The Gateway Connector's own address/auth config lives in [Capabilities.GatewayConnector].
+	GatewayConnection HTTPTriggerGatewayConnection `toml:",omitempty"`
+}
+
+// HTTPTriggerGatewayConnection holds gateway connection tuning for the http-trigger capability.
+type HTTPTriggerGatewayConnection struct {
+	// RetryConfig configures the exponential backoff retry strategy for gateway requests.
+	RetryConfig HTTPTriggerRetryConfig `toml:",omitempty"`
+	// MaxPushMetadataDurationMs is the maximum duration in milliseconds for broadcasting metadata to the gateway.
+	MaxPushMetadataDurationMs *uint32 `toml:",omitempty"`
+	// MaxPullMetadataDurationMs is the maximum duration in milliseconds for responding to pull metadata from the gateway.
+	MaxPullMetadataDurationMs *uint32 `toml:",omitempty"`
+}
+
+// HTTPTriggerRetryConfig configures the exponential backoff retry strategy.
+type HTTPTriggerRetryConfig struct {
+	// InitialIntervalMs is the initial retry interval in milliseconds.
+	InitialIntervalMs *int `toml:",omitempty"`
+	// MaxIntervalTimeMs is the maximum retry interval in milliseconds.
+	MaxIntervalTimeMs *int `toml:",omitempty"`
+	// Multiplier is the backoff multiplier applied between retries.
+	Multiplier *float64 `toml:",omitempty"`
+}
+
+// HTTPActionCapability configures the http-action capability (http-actions@1.0.0-alpha).
+// These values are injected into the capability's service config at runtime;
+// the node TOML is the authoritative source.
+type HTTPActionCapability struct {
+	// ProxyMode is the outbound proxy mode: "gateway" or "direct".
+	ProxyMode *string `toml:",omitempty"`
+	// GatewayConnection holds capability-specific gateway connection tuning.
+	// The Gateway Connector's own address/auth config lives in [Capabilities.GatewayConnector].
+	GatewayConnection HTTPActionGatewayConnection `toml:",omitempty"`
+	// HTTPClient configures the HTTP client used in "direct" mode (no Gateway).
+	// These network restrictions are potentially sensitive and are never emitted
+	// into job specs; they are only read from node TOML.
+	HTTPClient HTTPActionHTTPClient `toml:",omitempty"`
+}
+
+// HTTPActionGatewayConnection holds gateway connection tuning for the http-action capability.
+type HTTPActionGatewayConnection struct {
+	// InitialIntervalMs is the initial interval in milliseconds for the exponential backoff retry strategy.
+	InitialIntervalMs *uint32 `toml:",omitempty"`
+	// MaxElapsedTimeMs is the maximum elapsed time in milliseconds for the exponential backoff retry strategy.
+	MaxElapsedTimeMs *uint32 `toml:",omitempty"`
+	// Multiplier is the multiplier for the exponential backoff retry strategy.
+	Multiplier *float64 `toml:",omitempty"`
+}
+
+// HTTPActionHTTPClient configures the HTTP client used in "direct" mode.
+type HTTPActionHTTPClient struct {
+	// BlockedIPs is a list of IP addresses that are not allowed to be accessed.
+	BlockedIPs []string `toml:",omitempty"`
+	// BlockedIPsCIDR is a list of CIDR blocks that are not allowed to be accessed.
+	BlockedIPsCIDR []string `toml:",omitempty"`
+	// AllowedPorts is a list of ports that are allowed for outgoing HTTP requests.
+	AllowedPorts []int `toml:",omitempty"`
+	// AllowedSchemes is a list of URL schemes (e.g., "http", "https") that are allowed.
+	AllowedSchemes []string `toml:",omitempty"`
+	// AllowedIPs is a list of IP addresses that are explicitly allowed to be accessed.
+	AllowedIPs []string `toml:",omitempty"`
+	// AllowedIPsCIDR is a list of CIDR blocks that are explicitly allowed to be accessed.
+	AllowedIPsCIDR []string `toml:",omitempty"`
+}
+
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.RateLimit.setFrom(&f.RateLimit)
 	c.Peering.setFrom(&f.Peering)
@@ -2815,6 +2901,99 @@ func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Dispatcher.setFrom(&f.Dispatcher)
 	c.GatewayConnector.setFrom(&f.GatewayConnector)
 	c.Local.setFrom(&f.Local)
+	c.HTTPTrigger.setFrom(&f.HTTPTrigger)
+	c.HTTPAction.setFrom(&f.HTTPAction)
+}
+
+func (c *HTTPTriggerCapability) setFrom(f *HTTPTriggerCapability) {
+	if f.MetadataBatchSize != nil {
+		c.MetadataBatchSize = f.MetadataBatchSize
+	}
+	if f.SendChannelBufferSize != nil {
+		c.SendChannelBufferSize = f.SendChannelBufferSize
+	}
+	if f.MaxAuthorizedKeysPerWorkflow != nil {
+		c.MaxAuthorizedKeysPerWorkflow = f.MaxAuthorizedKeysPerWorkflow
+	}
+	if f.RequestCacheTTL != nil {
+		c.RequestCacheTTL = f.RequestCacheTTL
+	}
+	c.GatewayConnection.setFrom(&f.GatewayConnection)
+}
+
+func (c *HTTPTriggerGatewayConnection) setFrom(f *HTTPTriggerGatewayConnection) {
+	c.RetryConfig.setFrom(&f.RetryConfig)
+	if f.MaxPushMetadataDurationMs != nil {
+		c.MaxPushMetadataDurationMs = f.MaxPushMetadataDurationMs
+	}
+	if f.MaxPullMetadataDurationMs != nil {
+		c.MaxPullMetadataDurationMs = f.MaxPullMetadataDurationMs
+	}
+}
+
+func (c *HTTPTriggerRetryConfig) setFrom(f *HTTPTriggerRetryConfig) {
+	if f.InitialIntervalMs != nil {
+		c.InitialIntervalMs = f.InitialIntervalMs
+	}
+	if f.MaxIntervalTimeMs != nil {
+		c.MaxIntervalTimeMs = f.MaxIntervalTimeMs
+	}
+	if f.Multiplier != nil {
+		c.Multiplier = f.Multiplier
+	}
+}
+
+func (c *HTTPActionCapability) setFrom(f *HTTPActionCapability) {
+	if f.ProxyMode != nil {
+		c.ProxyMode = f.ProxyMode
+	}
+	c.GatewayConnection.setFrom(&f.GatewayConnection)
+	c.HTTPClient.setFrom(&f.HTTPClient)
+}
+
+func (c *HTTPActionGatewayConnection) setFrom(f *HTTPActionGatewayConnection) {
+	if f.InitialIntervalMs != nil {
+		c.InitialIntervalMs = f.InitialIntervalMs
+	}
+	if f.MaxElapsedTimeMs != nil {
+		c.MaxElapsedTimeMs = f.MaxElapsedTimeMs
+	}
+	if f.Multiplier != nil {
+		c.Multiplier = f.Multiplier
+	}
+}
+
+func (c *HTTPActionHTTPClient) setFrom(f *HTTPActionHTTPClient) {
+	if f.BlockedIPs != nil {
+		c.BlockedIPs = f.BlockedIPs
+	}
+	if f.BlockedIPsCIDR != nil {
+		c.BlockedIPsCIDR = f.BlockedIPsCIDR
+	}
+	if f.AllowedPorts != nil {
+		c.AllowedPorts = f.AllowedPorts
+	}
+	if f.AllowedSchemes != nil {
+		c.AllowedSchemes = f.AllowedSchemes
+	}
+	if f.AllowedIPs != nil {
+		c.AllowedIPs = f.AllowedIPs
+	}
+	if f.AllowedIPsCIDR != nil {
+		c.AllowedIPsCIDR = f.AllowedIPsCIDR
+	}
+}
+
+// Validate checks that the HTTP capability config values are well-formed.
+func (c *HTTPActionCapability) Validate() error {
+	if c.ProxyMode != nil {
+		switch strings.ToLower(strings.TrimSpace(*c.ProxyMode)) {
+		case "gateway", "direct":
+		default:
+			return fmt.Errorf("Capabilities.HTTPAction.ProxyMode: invalid value %q, must be either 'gateway' or 'direct'", *c.ProxyMode)
+		}
+	}
+	return nil
 }
 
 func (l *LocalCapabilities) setFrom(f *LocalCapabilities) {
