@@ -7,6 +7,8 @@ import (
 )
 
 func TestSplitPrerequisiteJobs(t *testing.T) {
+	t.Parallel()
+
 	ids := func(jbs []Job) []int32 {
 		out := make([]int32, len(jbs))
 		for i, jb := range jbs {
@@ -16,6 +18,8 @@ func TestSplitPrerequisiteJobs(t *testing.T) {
 	}
 
 	t.Run("separates prerequisite jobs first, preserving order", func(t *testing.T) {
+		t.Parallel()
+
 		jbs := []Job{
 			{ID: 1, Type: Type("offchainreporting2")},
 			{ID: 2, Type: CRESettings},
@@ -28,6 +32,8 @@ func TestSplitPrerequisiteJobs(t *testing.T) {
 	})
 
 	t.Run("no prerequisite jobs leaves all as remaining", func(t *testing.T) {
+		t.Parallel()
+
 		jbs := []Job{
 			{ID: 1, Type: Type("offchainreporting2")},
 			{ID: 2, Type: Type("cron")},
@@ -38,6 +44,8 @@ func TestSplitPrerequisiteJobs(t *testing.T) {
 	})
 
 	t.Run("empty input", func(t *testing.T) {
+		t.Parallel()
+
 		prerequisite, remaining := splitPrerequisiteJobs(nil)
 		assert.Empty(t, prerequisite)
 		assert.Empty(t, remaining)
