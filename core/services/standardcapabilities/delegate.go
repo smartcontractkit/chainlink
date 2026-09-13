@@ -25,13 +25,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	triggercap "github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
-	webapitarget "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/trigger"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
@@ -74,11 +70,6 @@ type Delegate struct {
 
 	isNewlyCreatedJob bool
 }
-
-const (
-	commandOverrideForWebAPITrigger = "__builtin_web-api-trigger"
-	commandOverrideForWebAPITarget  = "__builtin_web-api-target"
-)
 
 type NewOracleFactoryFn func(generic.OracleFactoryParams) (core.OracleFactory, error)
 
@@ -388,42 +379,6 @@ func (d *Delegate) NewServices(
 	var cntor connector.GatewayConnector
 	if d.gatewayConnectorWrapper != nil {
 		cntor = d.gatewayConnectorWrapper.GetGatewayConnector()
-	}
-
-	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
-	if command == commandOverrideForWebAPITrigger {
-		if d.gatewayConnectorWrapper == nil || cntor == nil {
-			return nil, errors.New("gateway connector is required for web API Trigger capability")
-		}
-		triggerSrvc, err := trigger.NewTrigger(configJSON, d.registry, cntor, log)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
-		}
-		return []job.ServiceCtx{triggerSrvc}, nil
-	}
-
-	if command == commandOverrideForWebAPITarget {
-		if d.gatewayConnectorWrapper == nil || cntor == nil {
-			return nil, errors.New("gateway connector is required for web API Target capability")
-		}
-		if len(configJSON) == 0 {
-			return nil, errors.New("config is empty")
-		}
-		var targetCfg webapi.ServiceConfig
-		err := toml.Unmarshal([]byte(configJSON), &targetCfg)
-		if err != nil {
-			return nil, err
-		}
-		lggr := d.logger.Named("WebAPITarget")
-		handler, err := webapi.NewOutgoingConnectorHandler(cntor, targetCfg, capabilities.MethodWebAPITarget, lggr, d.selectorOpts...)
-		if err != nil {
-			return nil, err
-		}
-		capability, err := webapitarget.NewCapability(targetCfg, d.registry, handler, lggr)
-		if err != nil {
-			return nil, err
-		}
-		return []job.ServiceCtx{capability, handler}, nil
 	}
 
 	dependencies := core.StandardCapabilitiesDependencies{

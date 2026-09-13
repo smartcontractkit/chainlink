@@ -1,14 +1,11 @@
 package capabilities
 
 import (
-	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -16,11 +13,9 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -38,8 +33,7 @@ func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON,
 		PerSenderBurst: 100,
 	}
 	handlerConfig := HandlerConfig{
-		NodeRateLimiter:         nodeRateLimiterConfig,
-		MaxAllowedMessageAgeSec: 30,
+		NodeRateLimiter: nodeRateLimiterConfig,
 	}
 
 	cfgBytes, err := json.Marshal(handlerConfig)
@@ -76,7 +70,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageID: "123",
-			Method:    MethodWebAPITarget,
+			Method:    MethodWorkflowSyncer,
 			DonID:     "testDonId",
 			Payload:   json.RawMessage(payloadBytes),
 		},
@@ -104,7 +98,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 				return false
 			}
 			return m.Body.MessageID == "123" &&
-				MethodWebAPITarget == m.Body.Method &&
+				MethodWorkflowSyncer == m.Body.Method &&
 				m.Body.DonID == "testDonId" &&
 				payload.StatusCode == http.StatusOK &&
 				len(payload.Headers) == 0 &&
@@ -140,7 +134,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 				return false
 			}
 			return m.Body.MessageID == "123" &&
-				MethodWebAPITarget == m.Body.Method &&
+				MethodWorkflowSyncer == m.Body.Method &&
 				m.Body.DonID == "testDonId" &&
 				payload.StatusCode == http.StatusNotFound &&
 				string(payload.Body) == "access denied" &&
@@ -173,7 +167,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 				return false
 			}
 			return m.Body.MessageID == "123" &&
-				MethodWebAPITarget == m.Body.Method &&
+				MethodWorkflowSyncer == m.Body.Method &&
 				m.Body.DonID == "testDonId" &&
 				payload.ExecutionError &&
 				payload.ErrorMessage == "error while marshalling"
@@ -187,427 +181,16 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		handler.wg.Wait()
 		require.True(t, httpClient.AssertExpectations(t))
 		require.True(t, don.AssertExpectations(t))
-	})
-}
-
-func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, methodName, timestamp, payload string) *api.Message {
-	messageID := "12345"
-	if methodName == "" {
-		methodName = MethodWebAPITrigger
-	}
-	if timestamp == "" {
-		timestamp = strconv.FormatInt(time.Now().Unix(), 10)
-	}
-	donID := "workflow_don_1"
-	var payloadJSON []byte
-	if payload == "" {
-		ts, err := strconv.ParseInt(timestamp, 10, 64)
-		require.NoError(t, err)
-		reqPayload := webapicap.TriggerRequestPayload{
-			TriggerId:      "web-api-trigger@1.0.0",
-			TriggerEventId: "action_1234567890",
-			Timestamp:      ts,
-			Topics:         topics,
-			Params: webapicap.TriggerRequestPayloadParams(map[string]any{
-				"bid": "101",
-				"ask": "102",
-			}),
-		}
-		payloadJSON, err = json.Marshal(reqPayload)
-		require.NoError(t, err)
-	} else {
-		payloadJSON = []byte(payload)
-	}
-	msg := &api.Message{
-		Body: api.MessageBody{
-			MessageID: messageID,
-			Method:    methodName,
-			DonID:     donID,
-			Payload:   json.RawMessage(payloadJSON),
-		},
-	}
-	err := msg.Sign(key)
-	require.NoError(t, err)
-	err = msg.Validate()
-	require.NoError(t, err)
-	return msg
-}
-
-func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
-	handler, _, don, nodes := setupHandler(t)
-	ctx := t.Context()
-	msg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "", "")
-	codec := api.JSONRPCCodec{}
-
-	t.Run("happy case", func(t *testing.T) {
-		// sends to 2 dons
-		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			nodeReq := nodeRequest(msg)
-			require.Equal(t, nodeReq, args.Get(2))
-		}).Return(nil).Once()
-		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			nodeReq := nodeRequest(msg)
-			require.Equal(t, nodeReq, args.Get(2))
-		}).Return(nil).Once()
-
-		cb := hc.NewCallback()
-		err := handler.HandleLegacyUserMessage(ctx, msg, cb)
-		require.NoError(t, err)
-
-		resp, err := hc.ValidatedResponseFromMessage(msg)
-		require.NoError(t, err)
-		err = handler.HandleNodeMessage(ctx, resp, nodes[0].Address)
-		require.NoError(t, err)
-
-		r, err := cb.Wait(t.Context())
-		require.NoError(t, err)
-		require.Equal(t, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}, r)
-	})
-
-	t.Run("sad case invalid method", func(t *testing.T) {
-		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "foo", "", "")
-		cb := hc.NewCallback()
-		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, cb)
-		require.NoError(t, err)
-
-		r, err := cb.Wait(t.Context())
-		require.NoError(t, err)
-		require.Equal(t, handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageID,
-				api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
-				"invalid method foo",
-				nil,
-			),
-			ErrorCode: api.UnsupportedMethodError,
-		}, r)
-	})
-
-	t.Run("sad case stale message", func(t *testing.T) {
-		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "")
-		cb := hc.NewCallback()
-		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, cb)
-		require.NoError(t, err)
-		r, err := cb.Wait(t.Context())
-		require.NoError(t, err)
-		require.Equal(t, handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageID,
-				api.ToJSONRPCErrorCode(api.HandlerError),
-				"stale message",
-				nil,
-			),
-			ErrorCode: api.HandlerError,
-		}, r)
-	})
-
-	t.Run("sad case empty payload", func(t *testing.T) {
-		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "{}")
-		cb := hc.NewCallback()
-		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, cb)
-		require.NoError(t, err)
-		r, err := cb.Wait(t.Context())
-		require.NoError(t, err)
-		require.Equal(t, handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageID,
-				api.ToJSONRPCErrorCode(api.UserMessageParseError),
-				"error decoding payload field params in TriggerRequestPayload: required",
-				nil,
-			),
-			ErrorCode: api.UserMessageParseError,
-		}, r)
-	})
-
-	t.Run("sad case invalid payload", func(t *testing.T) {
-		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", `{"foo":"bar"}`)
-		cb := hc.NewCallback()
-		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, cb)
-		require.NoError(t, err)
-		r, err := cb.Wait(t.Context())
-		require.NoError(t, err)
-		require.Equal(t, handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageID,
-				api.ToJSONRPCErrorCode(api.UserMessageParseError),
-				"error decoding payload field params in TriggerRequestPayload: required",
-				nil,
-			),
-			ErrorCode: api.UserMessageParseError,
-		}, r)
-	})
-	t.Run("savedCallbacks stored only when message is valid", func(t *testing.T) {
-		require.Empty(t, handler.savedCallbacks)
-
-		invalidPayloadMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", `{"foo":"bar"}`)
-		cb := hc.NewCallback()
-		err := handler.HandleLegacyUserMessage(ctx, invalidPayloadMsg, cb)
-		require.NoError(t, err)
-		_, _ = cb.Wait(t.Context())
-
-		staleMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "")
-		cb2 := hc.NewCallback()
-		err = handler.HandleLegacyUserMessage(ctx, staleMsg, cb2)
-		require.NoError(t, err)
-		_, _ = cb2.Wait(t.Context())
-
-		badMethodMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "foo", "", "")
-		cb3 := hc.NewCallback()
-		err = handler.HandleLegacyUserMessage(ctx, badMethodMsg, cb3)
-		require.NoError(t, err)
-		_, _ = cb3.Wait(t.Context())
-
-		handler.mu.Lock()
-		require.Empty(t, handler.savedCallbacks, "error paths must not leave entries in savedCallbacks")
-		handler.mu.Unlock()
-	})
-
-	// TODO: Validate Senders and rate limit check, pending question in trigger about where senders and rate limits are validated
-}
-
-func TestHandleComputeActionMessage(t *testing.T) {
-	handler, httpClient, don, nodes := setupHandler(t)
-	ctx := t.Context()
-	nodeAddr := nodes[0].Address
-	payload := Request{
-		Method:    "GET",
-		URL:       "http://example.com",
-		Headers:   map[string]string{},
-		Body:      nil,
-		TimeoutMs: 2000,
-	}
-	payloadBytes, err := json.Marshal(payload)
-	require.NoError(t, err)
-	msg := &api.Message{
-		Body: api.MessageBody{
-			MessageID: "123",
-			Method:    MethodComputeAction,
-			DonID:     "testDonId",
-			Payload:   json.RawMessage(payloadBytes),
-		},
-	}
-	err = msg.Sign(nodes[0].PrivateKey)
-	require.NoError(t, err)
-
-	t.Run("OK-compute_with_fetch", func(t *testing.T) {
-		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
-			StatusCode: 200,
-			Headers:    map[string]string{},
-			Body:       []byte("response body"),
-		}, nil).Once()
-
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
-			var m api.Message
-			err2 := json.Unmarshal(*req.Params, &m)
-			if err2 != nil {
-				return false
-			}
-			var payload Response
-			err2 = json.Unmarshal(m.Body.Payload, &payload)
-			if err2 != nil {
-				return false
-			}
-			return m.Body.MessageID == "123" &&
-				MethodComputeAction == m.Body.Method &&
-				m.Body.DonID == "testDonId" &&
-				payload.StatusCode == http.StatusOK &&
-				len(payload.Headers) == 0 &&
-				string(payload.Body) == "response body" &&
-				!payload.ExecutionError
-		})).Return(nil).Once()
-
-		resp, err := hc.ValidatedResponseFromMessage(msg)
-		require.NoError(t, err)
-		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
-		require.NoError(t, err)
-
-		handler.wg.Wait()
-		require.True(t, httpClient.AssertExpectations(t))
-		require.True(t, don.AssertExpectations(t))
-	})
-
-	t.Run("NOK-payload_error_making_external_request", func(t *testing.T) {
-		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
-			StatusCode: 404,
-			Headers:    map[string]string{},
-			Body:       []byte("access denied"),
-		}, nil).Once()
-
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
-			var m api.Message
-			err2 := json.Unmarshal(*req.Params, &m)
-			if err2 != nil {
-				return false
-			}
-			var payload Response
-			err2 = json.Unmarshal(m.Body.Payload, &payload)
-			if err2 != nil {
-				return false
-			}
-			return m.Body.MessageID == "123" &&
-				MethodComputeAction == m.Body.Method &&
-				m.Body.DonID == "testDonId" &&
-				payload.StatusCode == http.StatusNotFound &&
-				string(payload.Body) == "access denied" &&
-				len(payload.Headers) == 0 &&
-				!payload.ExecutionError
-		})).Return(nil).Once()
-
-		resp, err := hc.ValidatedResponseFromMessage(msg)
-		require.NoError(t, err)
-		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
-		require.NoError(t, err)
-
-		handler.wg.Wait()
-		require.True(t, httpClient.AssertExpectations(t))
-		require.True(t, don.AssertExpectations(t))
-	})
-
-	t.Run("NOK-error_outside_payload", func(t *testing.T) {
-		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
-
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
-			var m api.Message
-			err2 := json.Unmarshal(*req.Params, &m)
-			if err2 != nil {
-				return false
-			}
-			var payload Response
-			err2 = json.Unmarshal(m.Body.Payload, &payload)
-			if err2 != nil {
-				return false
-			}
-			return m.Body.MessageID == "123" &&
-				MethodComputeAction == m.Body.Method &&
-				m.Body.DonID == "testDonId" &&
-				payload.ExecutionError &&
-				payload.ErrorMessage == "error while marshalling"
-		})).Return(nil).Once()
-
-		resp, err := hc.ValidatedResponseFromMessage(msg)
-		require.NoError(t, err)
-		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
-		require.NoError(t, err)
-
-		handler.wg.Wait()
-		require.True(t, httpClient.AssertExpectations(t))
-		require.True(t, don.AssertExpectations(t))
-	})
-}
-
-func TestPruneCallbacks(t *testing.T) {
-	handler, _, _, _ := setupHandler(t)
-
-	t.Run("removes expired entries", func(t *testing.T) {
-		handler.mu.Lock()
-		handler.savedCallbacks = make(map[string]*savedCallback)
-		now := time.Now()
-		maxAge := time.Duration(handler.config.CallbackMaxAgeSec) * time.Second
-		handler.savedCallbacks["old"] = &savedCallback{id: "old", createdAt: now.Add(-maxAge - time.Second)}
-		handler.savedCallbacks["fresh"] = &savedCallback{id: "fresh", createdAt: now}
-		handler.mu.Unlock()
-
-		handler.pruneCallbacks()
-
-		handler.mu.Lock()
-		require.Len(t, handler.savedCallbacks, 1)
-		require.Contains(t, handler.savedCallbacks, "fresh")
-		handler.mu.Unlock()
-	})
-
-	t.Run("enforces max size by evicting oldest", func(t *testing.T) {
-		// maxSize=2: trims to maxSize/2=1, so only the newest entry survives
-		handler.config.MaxSavedCallbacks = 2
-
-		handler.mu.Lock()
-		handler.savedCallbacks = make(map[string]*savedCallback)
-		now := time.Now()
-		handler.savedCallbacks["a"] = &savedCallback{id: "a", createdAt: now.Add(-3 * time.Second)}
-		handler.savedCallbacks["b"] = &savedCallback{id: "b", createdAt: now.Add(-2 * time.Second)}
-		handler.savedCallbacks["c"] = &savedCallback{id: "c", createdAt: now.Add(-1 * time.Second)}
-		handler.savedCallbacks["d"] = &savedCallback{id: "d", createdAt: now}
-		handler.mu.Unlock()
-
-		handler.pruneCallbacks()
-
-		handler.mu.Lock()
-		require.Len(t, handler.savedCallbacks, 1)
-		require.Contains(t, handler.savedCallbacks, "d")
-		handler.mu.Unlock()
-
-		handler.config.MaxSavedCallbacks = defaultMaxSavedCallbacks
-	})
-
-	t.Run("expires then enforces max size", func(t *testing.T) {
-		// maxSize=1: after expiry 2 live entries remain; maxSize/2=0 so trim target is
-		// len(entries)-0=2, evicting all live entries.
-		handler.config.MaxSavedCallbacks = 1
-
-		handler.mu.Lock()
-		handler.savedCallbacks = make(map[string]*savedCallback)
-		now := time.Now()
-		maxAge := time.Duration(handler.config.CallbackMaxAgeSec) * time.Second
-		handler.savedCallbacks["expired1"] = &savedCallback{id: "expired1", createdAt: now.Add(-maxAge - 2*time.Second)}
-		handler.savedCallbacks["expired2"] = &savedCallback{id: "expired2", createdAt: now.Add(-maxAge - time.Second)}
-		handler.savedCallbacks["old_live"] = &savedCallback{id: "old_live", createdAt: now.Add(-10 * time.Second)}
-		handler.savedCallbacks["new_live"] = &savedCallback{id: "new_live", createdAt: now}
-		handler.mu.Unlock()
-
-		handler.pruneCallbacks()
-
-		handler.mu.Lock()
-		require.Empty(t, handler.savedCallbacks)
-		handler.mu.Unlock()
-
-		handler.config.MaxSavedCallbacks = defaultMaxSavedCallbacks
-	})
-
-	t.Run("no-op when empty", func(t *testing.T) {
-		handler.mu.Lock()
-		handler.savedCallbacks = make(map[string]*savedCallback)
-		handler.mu.Unlock()
-
-		handler.pruneCallbacks()
-
-		handler.mu.Lock()
-		require.Empty(t, handler.savedCallbacks)
-		handler.mu.Unlock()
 	})
 }
 
 func TestHandlerStartClose(t *testing.T) {
-	if testing.Short() {
-		t.Skip("too slow for testing.Short")
-	}
-
 	handler, _, _, _ := setupHandler(t)
 	ctx := t.Context()
 
-	handler.config.CallbackPruneIntervalSec = 1
-	handler.config.CallbackMaxAgeSec = 1
-
 	require.NoError(t, handler.Start(ctx))
-
-	handler.mu.Lock()
-	handler.savedCallbacks["stale"] = &savedCallback{id: "stale", createdAt: time.Now().Add(-2 * time.Second)}
-	handler.mu.Unlock()
-
-	require.Eventually(t, func() bool {
-		handler.mu.Lock()
-		defer handler.mu.Unlock()
-		return len(handler.savedCallbacks) == 0
-	}, 5*time.Second, 100*time.Millisecond, "pruning goroutine should have removed the stale callback")
-
 	require.NoError(t, handler.Close())
 
 	require.ErrorContains(t, handler.Start(ctx), "has already been started")
 	require.ErrorContains(t, handler.Close(), "has already been stopped")
-}
-
-func nodeRequest(msg *api.Message) *jsonrpc.Request[json.RawMessage] {
-	req, err := hc.ValidatedRequestFromMessage(msg)
-	if err != nil {
-		panic(fmt.Sprintf("failed to create node request: %v", err))
-	}
-	return req
 }
