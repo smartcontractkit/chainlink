@@ -350,7 +350,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 
 	l.Debugw("handling gateway request")
 	switch body.Method {
-	case capabilities.MethodComputeAction, capabilities.MethodWorkflowSyncer:
+	case capabilities.MethodWorkflowSyncer:
 		body := &msg.Body
 		var payload capabilities.Response
 		err := json.Unmarshal(body.Payload, &payload)
@@ -428,7 +428,7 @@ func outgoingRateLimiterConfigDefaults(config ratelimit.RateLimiterConfig) ratel
 
 func validMethod(method string) bool {
 	switch method {
-	case capabilities.MethodComputeAction, capabilities.MethodWorkflowSyncer:
+	case capabilities.MethodWorkflowSyncer:
 		return true
 	default:
 		return false

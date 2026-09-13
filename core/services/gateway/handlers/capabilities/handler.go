@@ -24,10 +24,6 @@ import (
 )
 
 const (
-	// NOTE: more methods will go here. HTTP action/target; etc.
-	// Any changes to this list of methods should be reflected in the
-	// handler's Methods() function.
-	MethodComputeAction  = "compute_action"
 	MethodWorkflowSyncer = "workflow_syncer"
 
 	// Error messages
@@ -188,7 +184,6 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 
 func (h *handler) Methods() []string {
 	return []string{
-		MethodComputeAction,
 		MethodWorkflowSyncer,
 	}
 }
@@ -203,7 +198,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 	start := time.Now()
 	switch msg.Body.Method {
-	case MethodComputeAction, MethodWorkflowSyncer:
+	case MethodWorkflowSyncer:
 		err = h.handleWebAPIOutgoingMessage(ctx, msg, nodeAddr)
 	default:
 		err = fmt.Errorf("unsupported method: %s", msg.Body.Method)

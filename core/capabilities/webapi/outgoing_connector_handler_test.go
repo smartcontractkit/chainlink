@@ -170,7 +170,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		expectedBody := &api.MessageBody{
 			MessageID: msgID,
 			DonID:     donID,
-			Method:    ghcapabilities.MethodComputeAction,
+			Method:    ghcapabilities.MethodWorkflowSyncer,
 			Payload:   payload,
 		}
 
@@ -212,7 +212,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		expectedBody := &api.MessageBody{
 			MessageID: msgID,
 			DonID:     donID,
-			Method:    ghcapabilities.MethodComputeAction,
+			Method:    ghcapabilities.MethodWorkflowSyncer,
 			Payload:   payload,
 		}
 
@@ -257,7 +257,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		expectedBody := &api.MessageBody{
 			MessageID: msgID,
 			DonID:     donID,
-			Method:    ghcapabilities.MethodComputeAction,
+			Method:    ghcapabilities.MethodWorkflowSyncer,
 			Payload:   payload,
 		}
 
@@ -317,7 +317,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		expectedBody := &api.MessageBody{
 			MessageID: msgID,
 			DonID:     donID,
-			Method:    ghcapabilities.MethodComputeAction,
+			Method:    ghcapabilities.MethodWorkflowSyncer,
 			Payload:   payload,
 		}
 
@@ -376,7 +376,7 @@ func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceCo
 
 	mockFn(connector)
 
-	connectorHandler, err := NewOutgoingConnectorHandler(connector, serviceConfig, ghcapabilities.MethodComputeAction, log, gateway.WithFixedStart())
+	connectorHandler, err := NewOutgoingConnectorHandler(connector, serviceConfig, ghcapabilities.MethodWorkflowSyncer, log, gateway.WithFixedStart())
 	require.NoError(t, err)
 	return connector, connectorHandler
 }
@@ -395,7 +395,7 @@ func gatewayResponse(t *testing.T, msgID, privateKey string) *jsonrpc.Request[js
 		Body: api.MessageBody{
 			DonID:     "donID",
 			MessageID: msgID,
-			Method:    ghcapabilities.MethodComputeAction,
+			Method:    ghcapabilities.MethodWorkflowSyncer,
 			Payload:   responsePayload,
 		},
 	}
