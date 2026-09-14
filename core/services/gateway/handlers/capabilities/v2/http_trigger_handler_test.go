@@ -17,6 +17,9 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -943,7 +946,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_DeliversOnlyToRegisteredSha
 	require.NoError(t, err)
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
 	userRateLimiter := createTestUserRateLimiter()
-	handler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics)
+	handler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics, nil)
 
 	privateKey := createTestPrivateKey(t)
 	// Register workflow X on exactly 2 of the 3 shards (shard0 and shard1).
@@ -1863,7 +1866,7 @@ func newTestTriggerHandler(t *testing.T, lggr logger.Logger, cfg ServiceConfig, 
 		threshold := shard.f + 1
 		metadataHandler.aggs[shard.donID] = aggregation.NewWorkflowMetadataAggregator(metadataHandler.lggr, threshold, time.Duration(cfg.CleanUpPeriodMs)*time.Millisecond, testMetrics)
 	}
-	return NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics)
+	return NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics, nil)
 }
 
 func createTestTriggerHandler(t *testing.T) (*httpTriggerHandler, *handlermocks.DON) {
@@ -1901,7 +1904,7 @@ func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpT
 
 	metadataHandler := NewWorkflowMetadataHandler(lggr, WithDefaults(cfg), shards, nodeAddrToShard, testMetrics)
 	userRateLimiter := createTestUserRateLimiter()
-	handler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics)
+	handler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics, nil)
 	return handler, mockDon
 }
 
@@ -2015,6 +2018,88 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 		require.NoError(t, err)
 		requireUserErrorSent(t, r, jsonrpc.ErrLimitExceeded)
 	})
+}
+
+// stubOrgResolver is a minimal orgresolver.OrgResolver for tests: it maps owners to
+// orgs from a static table and never fails.
+type stubOrgResolver struct {
+	services.Service
+	orgByOwner map[string]string
+}
+
+func (s *stubOrgResolver) Get(_ context.Context, owner string) (string, error) {
+	return s.orgByOwner[owner], nil
+}
+
+// TestHttpTriggerHandler_CheckRateLimit_PerOrgOverride proves that a rate limit defined
+// at the org scope via settings (not hardcoded) is actually enforced end-to-end: the
+// handler resolves org through its OrgResolver and attaches it to the context, and the
+// settings hierarchy (workflow -> owner -> org -> global, see chainlink-common's
+// settings.Scope.rawKeys) then picks up an org-only override for a PerWorkflow-scoped
+// setting that has no workflow- or owner-level override of its own.
+func TestHttpTriggerHandler_CheckRateLimit_PerOrgOverride(t *testing.T) {
+	t.Parallel()
+
+	const (
+		restrictedOrg   = "org-restricted"
+		restrictedOwner = "0x1111111111111111111111111111111111aaaa"
+		restrictedWfID  = "0x1111"
+		normalOrg       = "org-normal"
+		normalOwner     = "0x2222222222222222222222222222222222bbbb"
+		normalWfID      = "0x2222"
+	)
+
+	// Only org-restricted gets an override (burst 0: deny everything); org-normal (and
+	// everything else) falls through to the global default (every 30s, burst 3).
+	getter, err := settings.NewJSONGetter([]byte(`{
+		"org": {
+			"org-restricted": {
+				"PerWorkflow": {
+					"HTTPTrigger": {
+						"RateLimit": "every1h:0"
+					}
+				}
+			}
+		}
+	}`))
+	require.NoError(t, err)
+
+	rateLimiter, err := limits.Factory{Settings: getter}.MakeRateLimiter(cresettings.Default.PerWorkflow.HTTPTrigger.RateLimit)
+	require.NoError(t, err)
+
+	orgResolver := &stubOrgResolver{orgByOwner: map[string]string{
+		restrictedOwner: restrictedOrg,
+		normalOwner:     normalOrg,
+	}}
+
+	metadataHandler := createTestMetadataHandler(t)
+	metadataHandler.workflowIDToRef[restrictedWfID] = workflowReference{workflowOwner: restrictedOwner, workflowName: "wf-restricted", workflowTag: "v1"}
+	metadataHandler.workflowIDToRef[normalWfID] = workflowReference{workflowOwner: normalOwner, workflowName: "wf-normal", workflowTag: "v1"}
+
+	testMetrics := createTestMetrics(t, &config.DONConfig{Members: []config.NodeConfig{{Address: "node1"}}})
+	handler := NewHTTPTriggerHandler(logger.Test(t), WithDefaults(ServiceConfig{}), nil, nil, metadataHandler, rateLimiter, testMetrics, orgResolver)
+
+	// The first check for each workflow creates its per-workflow-tenant limiter, seeded
+	// with the global default (burst 3) until the settings-backed value is first polled.
+	require.NoError(t, handler.checkRateLimit(t.Context(), restrictedWfID, "req-1", hc.NewCallback()))
+	require.NoError(t, handler.checkRateLimit(t.Context(), normalWfID, "req-2", hc.NewCallback()))
+
+	// chainlink-common's scoped RateLimiter refreshes settings-sourced values on a fixed
+	// poll interval (pkg/settings/limits.pollPeriod = 5s); wait past it so the org
+	// override is picked up. Deliberately not checking again in the meantime: that would
+	// burn through the default burst and could deny the next check for the wrong reason.
+	time.Sleep(6 * time.Second)
+
+	// org-restricted's override (burst 0) is now active: denied.
+	callback := hc.NewCallback()
+	err = handler.checkRateLimit(t.Context(), restrictedWfID, "req-3", callback)
+	require.Error(t, err)
+	payload, waitErr := callback.Wait(t.Context())
+	require.NoError(t, waitErr)
+	requireUserErrorSent(t, payload, jsonrpc.ErrLimitExceeded)
+
+	// org-normal has no override and still has burst left over from the global default: allowed.
+	require.NoError(t, handler.checkRateLimit(t.Context(), normalWfID, "req-4", hc.NewCallback()))
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *testing.T) {
@@ -2170,7 +2255,7 @@ func createMultiShardTriggerHandler(t *testing.T, donName string, shardNodeSets 
 	require.NoError(t, err)
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
 	userRateLimiter := createTestUserRateLimiter()
-	handler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics)
+	handler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics, nil)
 	return handler, mockDons, shards
 }
 
@@ -2383,7 +2468,7 @@ func TestHttpTriggerHandler_MultiShardSendFailureResilience(t *testing.T) {
 	require.NoError(t, err)
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
 	userRateLimiter := createTestUserRateLimiter()
-	handler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics)
+	handler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics, nil)
 
 	privateKey := createTestPrivateKey(t)
 	registerWorkflowOnShards(t, handler, workflowID, privateKey, shards[0], shards[1])

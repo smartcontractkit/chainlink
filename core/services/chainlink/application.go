@@ -692,6 +692,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				creServices.WorkflowRegistrySyncer,
 				globalLogger,
 				limitsFactory,
+				creServices.OrgResolver,
 			),
 			job.Stream: streams.NewDelegate(
 				globalLogger,

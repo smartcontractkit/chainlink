@@ -71,7 +71,7 @@ func (a *SVMAdapter) BuildMessage(components MessageComponents) (any, error) {
 }
 
 func (a *SVMAdapter) NativeFeeToken() string {
-	return solana.SolMint.String()
+	return solana.WrappedSol.String()
 }
 
 func (a *SVMAdapter) GetExtraArgs(receiver []byte, sourceFamily string, opts ...ExtraArgOpt) ([]byte, error) {

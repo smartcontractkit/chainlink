@@ -57,7 +57,7 @@ type ORM interface {
 	UpdateSpecDefinition(ctx context.Context, id int64, spec string) error
 
 	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
-	IsJobManagedByFeedsManager(ctx context.Context, jobID int64, feedsManagerID int64) (bool, error)
+	IsJobManagedByFeedsManager(ctx context.Context, jobID, feedsManagerID int64) (bool, error)
 
 	Transact(context.Context, func(ORM) error) error
 	WithDataSource(sqlutil.DataSource) ORM
@@ -151,7 +151,7 @@ RETURNING id;
 // CreateBatchChainConfig creates multiple chain configs.
 func (o *orm) CreateBatchChainConfig(ctx context.Context, cfgs []ChainConfig) (ids []int64, err error) {
 	if len(cfgs) == 0 {
-		return
+		return ids, err
 	}
 
 	stmt := `
@@ -896,7 +896,7 @@ SELECT exists (
 }
 
 // IsJobManagedByFeedsManager determines if a job is managed by a specific feeds manager.
-func (o *orm) IsJobManagedByFeedsManager(ctx context.Context, jobID int64, feedsManagerID int64) (exists bool, err error) {
+func (o *orm) IsJobManagedByFeedsManager(ctx context.Context, jobID, feedsManagerID int64) (exists bool, err error) {
 	stmt := `
 SELECT exists (
 	SELECT 1

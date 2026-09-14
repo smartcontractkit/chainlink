@@ -110,6 +110,43 @@ func TestParseExtraDataMap(t *testing.T) {
 			expectErr: false,
 		},
 		{
+			// Solana SuiExtraArgsV1 (chainlink-ccip PR #2239) decodes via Borsh, so the
+			// receiver surfaces under the capital struct field name "TokenReceiver". Token
+			// transfers must return that receiver verbatim, not silently zero it.
+			name: "Solana SuiExtraArgsV1: capital TokenReceiver is returned",
+			input: map[string]any{
+				"GasLimit":      new(big.Int).SetInt64(1000000),
+				"TokenReceiver": [32]byte{0x0A},
+			},
+			sourceSelector: solanaSelector,
+			want: &struct {
+				gasLimit      *big.Int
+				tokenReceiver [32]byte
+			}{
+				gasLimit:      new(big.Int).SetInt64(1000000),
+				tokenReceiver: [32]byte{0x0A},
+			},
+			expectErr: false,
+		},
+		{
+			// SuiExtraArgsV1 message-only carries an explicit zero TokenReceiver; the capital
+			// key is found and the zero value is returned (no error, no zero-default needed).
+			name: "Solana SuiExtraArgsV1 message-only: capital zero TokenReceiver returned",
+			input: map[string]any{
+				"GasLimit":      new(big.Int).SetInt64(1000000),
+				"TokenReceiver": [32]byte{},
+			},
+			sourceSelector: solanaSelector,
+			want: &struct {
+				gasLimit      *big.Int
+				tokenReceiver [32]byte
+			}{
+				gasLimit:      new(big.Int).SetInt64(1000000),
+				tokenReceiver: [32]byte{},
+			},
+			expectErr: false,
+		},
+		{
 			name: "no gas limit key of either casing",
 			input: map[string]any{
 				"tokenReceiver": [32]byte{0x01},

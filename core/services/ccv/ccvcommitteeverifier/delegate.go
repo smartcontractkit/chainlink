@@ -91,9 +91,22 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		}
 		chainsInConfig = append(chainsInConfig, protocol.ChainSelector(parsed))
 	}
-	legacyChains, err := ccvcommon.GetLegacyChains(ctx, d.lggr, d.chainServices, chainsInConfig)
+	legacyChains, missingChains, err := ccvcommon.GetLegacyChains(ctx, d.lggr, d.chainServices, chainsInConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get legacy chains: %w", err)
+	}
+
+	missingChainsMonitor, err := ccvcommon.NewMissingChainsMonitor(
+		d.lggr,
+		"CCVCommitteeVerifier/"+decodedCfg.VerifierID,
+		missingChains,
+		ccvcommon.DefaultMissingChainsReportInterval,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create missing chains monitor: %w", err)
+	}
+	if missingChainsMonitor != nil {
+		services = append(services, missingChainsMonitor)
 	}
 
 	signingKeys, err := d.ocrKs.GetAllOfType(corekeys.EVM)

@@ -2665,13 +2665,13 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
 			// No Module.Execute expectation: the execution must never reach WASM.
 		}, func(cfg *v2.EngineConfig) {
-			cfg.ShardingEnabled = true
-			cfg.MyDonID = 1
-			cfg.ShardResolver = &stubShardResolver{shardID: 2, found: true}
 			cfg.TriggerAcknowledger = ack
+			cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+				return v2.ErrShardDeniedNotOwner
+			}
 		})
 
-		err := ew.engine.ExecuteTrigger(ctx, makeEvent("shard_not_owner_event"))
+		err := ew.engine.Put(ctx, makeEvent("shard_not_owner_event"))
 		require.ErrorIs(t, err, v2.ErrShardDeniedNotOwner)
 
 		// The engine ACKs the skipped event before returning.
@@ -2696,15 +2696,15 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		t.Parallel()
 		ack := &recordingAcknowledger{}
 		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
-			// No Module.Execute expectation: the execution must never reach WASM.
+			// No Module.execute expectation: the execution must never reach WASM.
 		}, func(cfg *v2.EngineConfig) {
-			cfg.ShardingEnabled = true
-			cfg.MyDonID = 1
-			cfg.ShardResolver = &stubShardResolver{err: errors.New("ring ocr unavailable")}
 			cfg.TriggerAcknowledger = ack
+			cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+				return v2.ErrShardDeniedOrchestrator
+			}
 		})
 
-		err := ew.engine.ExecuteTrigger(ctx, makeEvent("shard_orchestrator_error_event"))
+		err := ew.engine.Put(ctx, makeEvent("shard_orchestrator_error_event"))
 		require.ErrorIs(t, err, v2.ErrShardDeniedOrchestrator)
 
 		// The engine ACKs the skipped event before returning.

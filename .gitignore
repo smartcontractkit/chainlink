@@ -52,13 +52,11 @@ cl_backup_*.tar.gz
 
 # Test artifacts
 core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
-race.*
-*output.txt
-/golangci-lint/
-.covdata
-core/services/job/testdata/wasm/testmodule.wasm
-core/services/job/testdata/wasm/testmodule.br
-temp-repo
+ race.*
+ *output.txt
+ /golangci-lint/
+ .covdata
+ temp-repo
 diagnose-*/
 diagnose-attempted-fixes-*.jsonl
 
