@@ -63,7 +63,7 @@
   registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:16.0"
     port = 13000
 
   [[nodesets.node_specs]]
@@ -119,7 +119,7 @@
   registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:16.0"
     port = 13400
 
   [[nodesets.node_specs]]
@@ -145,7 +145,7 @@
   capabilities = ["evm-2337"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:16.0"
     port = 13100
 
   [[nodesets.node_specs]]
@@ -171,7 +171,7 @@
   capabilities = ["evm-2337"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:16.0"
     port = 13500
 
   [[nodesets.node_specs]]
@@ -197,7 +197,7 @@
   capabilities = ["vault"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:16.0"
     port = 13600
 
   [[nodesets.node_specs]]
@@ -221,7 +221,7 @@
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:16.0"
     port = 13200
 
   [[nodesets.node_specs]]
