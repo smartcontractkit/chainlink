@@ -58,13 +58,13 @@ func TestCapabilitiesLocalConfig(t *testing.T) {
 
 	// Test RegistryBasedLaunchAllowlist - now contains regex patterns
 	allowlist := local.RegistryBasedLaunchAllowlist()
-	assert.Equal(t, []string{"^cron@1\\.0\\.0$", "^http-action@.*$"}, allowlist)
+	assert.Equal(t, []string{"^cron@1\\.0\\.0$", "^http-actions@.*$"}, allowlist)
 
 	// Test IsAllowlisted with regex matching
-	assert.True(t, local.IsAllowlisted("cron@1.0.0"))        // exact match via regex
-	assert.False(t, local.IsAllowlisted("cron@2.0.0"))       // version mismatch
-	assert.True(t, local.IsAllowlisted("http-action@1.0.0")) // matches any version
-	assert.True(t, local.IsAllowlisted("http-action@2.0.0")) // matches any version
+	assert.True(t, local.IsAllowlisted("cron@1.0.0"))         // exact match via regex
+	assert.False(t, local.IsAllowlisted("cron@2.0.0"))        // version mismatch
+	assert.True(t, local.IsAllowlisted("http-actions@1.0.0")) // matches any version
+	assert.True(t, local.IsAllowlisted("http-actions@2.0.0")) // matches any version
 	assert.False(t, local.IsAllowlisted("unknown@1.0.0"))
 
 	// Test Capabilities map
@@ -73,7 +73,7 @@ func TestCapabilitiesLocalConfig(t *testing.T) {
 	assert.Len(t, capabilities, 2)
 
 	// Test http-action config
-	httpAction := local.GetCapabilityConfig("http-action@1.0.0")
+	httpAction := local.GetCapabilityConfig("http-actions@1.0.0")
 	require.NotNil(t, httpAction)
 	assert.Equal(t, "/opt/chainlink/binaries/http_action", httpAction.BinaryPathOverride())
 	assert.Equal(t, "gateway", httpAction.Config()["proxyMode"])
@@ -212,8 +212,8 @@ func TestValidateCapabilityID(t *testing.T) {
 		wantErr bool
 	}{
 		{"valid simple", "cron@1.0.0", false},
-		{"valid with hyphen", "http-action@1.0.0", false},
-		{"valid with prerelease", "http-action@1.0.0-alpha", false},
+		{"valid with hyphen", "http-actions@1.0.0", false},
+		{"valid with prerelease", "http-actions@1.0.0-alpha", false},
 		{"valid complex version", "my-capability@10.20.30", false},
 		{"invalid missing version", "cron", true},
 		{"invalid missing name", "@1.0.0", true},
@@ -239,7 +239,7 @@ func TestValidateCapabilityID(t *testing.T) {
 func TestLocalCapabilitiesValidation(t *testing.T) {
 	t.Run("valid config with regex patterns", func(t *testing.T) {
 		cfg := toml.LocalCapabilities{
-			RegistryBasedLaunchAllowlist: []string{"^cron@1\\.0\\.0$", "^http-action@.*$", ".*"},
+			RegistryBasedLaunchAllowlist: []string{"^cron@1\\.0\\.0$", "^http-actions@.*$", ".*"},
 			Capabilities: map[string]toml.CapabilityNodeConfig{
 				"cron@1.0.0": {},
 			},

@@ -1988,15 +1988,15 @@ This allows staged rollout: capabilities not matching any pattern continue launc
 while matching capabilities transition to registry-based launching.
 Examples (using single-quoted TOML strings where backslashes are literal):
 - '^cron@1\.0\.0$' matches exactly "cron@1.0.0"
-- '^http-action@.*$' matches any version of http-action
+- '^http-actions@.*$' matches any version of http-actions
 - '.*' matches all capabilities
 
 Per-capability configuration. Each capability ID can have its own configuration section.
 Capability IDs must be in the format "name@version".
-[Capabilities.Local.Capabilities."http-action@1.0.0"]
+[Capabilities.Local.Capabilities."http-actions@1.0.0"]
 BinaryPathOverride overrides the default binary path for a LOOP capability.
 BinaryPathOverride = '/opt/chainlink/binaries/http_action' # Example
-[Capabilities.Local.Capabilities."http-action@1.0.0".Config]
+[Capabilities.Local.Capabilities."http-actions@1.0.0".Config]
 Capability-specific configuration as key-value pairs.
 proxyMode = 'gateway' # Example
 allowedPorts = '443,8443' # Example

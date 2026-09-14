@@ -508,9 +508,9 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		Local: toml.LocalCapabilities{
-			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-action@.*$`},
+			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-actions@.*$`},
 			Capabilities: map[string]toml.CapabilityNodeConfig{
-				"http-action@1.0.0": {
+				"http-actions@1.0.0": {
 					BinaryPathOverride: new("/opt/chainlink/binaries/http_action"),
 					Config:             map[string]string{"proxyMode": "gateway", "allowedPorts": "443,8443"},
 				},

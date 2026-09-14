@@ -356,7 +356,7 @@ DonID = 'example_gateway_don'
 URL = 'wss://localhost:8081/node'
 
 [Capabilities.Local]
-RegistryBasedLaunchAllowlist = ['^cron@1\.0\.0$', '^http-action@.*$']
+RegistryBasedLaunchAllowlist = ['^cron@1\.0\.0$', '^http-actions@.*$']
 
 [Capabilities.Local.Capabilities]
 [Capabilities.Local.Capabilities.'cron@1.0.0']
@@ -365,10 +365,10 @@ BinaryPathOverride = '/opt/chainlink/binaries/cron'
 [Capabilities.Local.Capabilities.'cron@1.0.0'.Config]
 fastestScheduleIntervalSeconds = '60'
 
-[Capabilities.Local.Capabilities.'http-action@1.0.0']
+[Capabilities.Local.Capabilities.'http-actions@1.0.0']
 BinaryPathOverride = '/opt/chainlink/binaries/http_action'
 
-[Capabilities.Local.Capabilities.'http-action@1.0.0'.Config]
+[Capabilities.Local.Capabilities.'http-actions@1.0.0'.Config]
 allowedPorts = '443,8443'
 proxyMode = 'gateway'
 

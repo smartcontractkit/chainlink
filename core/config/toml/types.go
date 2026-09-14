@@ -2797,7 +2797,7 @@ type LocalCapabilities struct {
 	// launched from the capabilities registry instead of via job specs.
 	// Examples (regex patterns):
 	//   - "^cron@1\.0\.0$" matches exactly "cron@1.0.0"
-	//   - "^http-action@.*$" matches any version of http-action
+	//   - "^http-actions@.*$" matches any version of http-actions
 	//   - ".*" matches all capabilities
 	RegistryBasedLaunchAllowlist []string `toml:",omitempty"`
 	// Capabilities contains per-capability node configuration, keyed by capability ID.
@@ -3035,7 +3035,7 @@ func ValidateCapabilityID(capID string) error {
 		return configutils.ErrInvalid{
 			Name:  "CapabilityID",
 			Value: capID,
-			Msg:   "must be in format 'name@version' (e.g., 'http-action@1.0.0')",
+			Msg:   "must be in format 'name@version' (e.g., 'http-actions@1.0.0')",
 		}
 	}
 	return nil
