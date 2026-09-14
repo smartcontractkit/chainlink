@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -480,8 +481,20 @@ func (h *Handler) fetchSecrets(
 
 	vaultResp, err := handler.GetRawSecrets(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
 	if err != nil {
-		l.Errorw("vault secrets fetch failed", "err", err)
-		return nil, &relayError{code: jsonrpc.ErrInternal, err: err}
+		// A user-origin caperrors.Error (e.g. an oversized GetSecrets batch
+		// rejected by the vault) keeps its classification across the remote
+		// boundary: answer invalid params with the real cause. Anything else
+		// stays internal, mirroring translateVaultResponse.
+		code := jsonrpc.ErrInternal
+		respErr := err
+		userErr := false
+		if capErr, ok := errors.AsType[caperrors.Error](err); ok && capErr.Origin() == caperrors.OriginUser {
+			code = jsonrpc.ErrInvalidParams
+			respErr = capErr // surface the vault's message, not the transport-wrapped chain
+			userErr = true
+		}
+		l.Errorw("vault secrets fetch failed", "userError", userErr, "err", err)
+		return nil, &relayError{code: code, err: respErr}
 	}
 
 	result, err := translateVaultResponse(vaultResp, params.EnclavePublicKey)

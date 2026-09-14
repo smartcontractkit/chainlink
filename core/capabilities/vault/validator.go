@@ -181,8 +181,11 @@ func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, reques
 	if len(request.Requests) == 0 {
 		return errors.New("no GetSecret request specified in request")
 	}
-	if len(request.Requests) >= vaulttypes.MaxBatchSize {
-		return fmt.Errorf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize)
+	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, len(request.Requests)); err != nil {
+		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
+			return fmt.Errorf("request batch size exceeds maximum of %d: %w", errBoundLimited.Limit, err)
+		}
+		return fmt.Errorf("failed to check request batch size limit: %w", err)
 	}
 
 	uniqueIDs := map[string]bool{}
@@ -254,7 +257,7 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 func (r *RequestValidator) CheckRequestBatchSize(ctx context.Context, batchSize int) error {
 	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, batchSize); err != nil {
 		if _, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
-			return fmt.Errorf("max batch size exceeded for request: %w", err)
+			return vaulttypes.NewUserError(fmt.Sprintf("max batch size exceeded for request: %s", err))
 		}
 		return errors.New("failed to check batch size")
 	}
