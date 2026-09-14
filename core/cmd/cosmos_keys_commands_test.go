@@ -19,7 +19,7 @@ import (
 )
 
 func TestCosmosKeyPresenter_RenderTable(t *testing.T) {
-	t.Skip("cosmos is not installed")
+	t.Skip("cosmos has been deprecated")
 	t.Parallel()
 
 	var (
@@ -55,7 +55,7 @@ func TestCosmosKeyPresenter_RenderTable(t *testing.T) {
 }
 
 func TestShell_CosmosKeys(t *testing.T) {
-	t.Skip("cosmos is not installed")
+	t.Skip("cosmos has been deprecated")
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Cosmos()
 	cleanup := func() {

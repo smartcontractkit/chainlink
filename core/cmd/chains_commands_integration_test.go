@@ -16,7 +16,7 @@ import (
 )
 
 func TestShell_IndexCosmosChains(t *testing.T) {
-	t.Skip("cosmos is not installed")
+	t.Skip("cosmos has been deprecated")
 	t.Parallel()
 
 	chainID := cosmostest.RandomChainID()

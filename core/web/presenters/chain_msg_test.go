@@ -41,6 +41,7 @@ func TestSolanaMessageResource(t *testing.T) {
 }
 
 func TestCosmosMessageResource(t *testing.T) {
+	t.Skip("cosmos has been deprecated")
 	t.Parallel()
 	id := "1"
 	chainID := cosmostest.RandomChainID()

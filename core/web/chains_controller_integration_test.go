@@ -24,6 +24,7 @@ import (
 )
 
 func Test_CosmosChainsController_Show(t *testing.T) {
+	t.Skip("cosmos has been deprecated")
 	t.Parallel()
 
 	const validID = "Chainlink-12"
@@ -131,6 +132,7 @@ TendermintURL = 'http://tender.mint'
 }
 
 func Test_CosmosChainsController_Index(t *testing.T) {
+	t.Skip("cosmos has been deprecated")
 	t.Parallel()
 
 	chainA := chainlink.RawConfig{

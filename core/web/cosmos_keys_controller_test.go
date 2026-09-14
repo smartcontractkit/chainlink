@@ -15,6 +15,7 @@ import (
 )
 
 func TestCosmosKeysController_Index_HappyPath(t *testing.T) {
+	t.Skip("cosmos has been deprecated")
 	t.Parallel()
 
 	client, keyStore := setupCosmosKeysControllerTests(t)
@@ -35,6 +36,7 @@ func TestCosmosKeysController_Index_HappyPath(t *testing.T) {
 }
 
 func TestCosmosKeysController_Create_HappyPath(t *testing.T) {
+	t.Skip("cosmos has been deprecated")
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -62,6 +64,7 @@ func TestCosmosKeysController_Create_HappyPath(t *testing.T) {
 }
 
 func TestCosmosKeysController_Delete_NonExistentCosmosKeyID(t *testing.T) {
+	t.Skip("cosmos has been deprecated")
 	t.Parallel()
 
 	client, _ := setupCosmosKeysControllerTests(t)
@@ -73,6 +76,7 @@ func TestCosmosKeysController_Delete_NonExistentCosmosKeyID(t *testing.T) {
 }
 
 func TestCosmosKeysController_Delete_HappyPath(t *testing.T) {
+	t.Skip("cosmos has been deprecated")
 	t.Parallel()
 	ctx := t.Context()
 
