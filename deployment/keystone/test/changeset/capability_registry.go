@@ -35,7 +35,7 @@ func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env 
 
 	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
 		Chains:      evmChains,
-		AddressBook: changesetOutput.AddressBook,
+		AddressBook: changesetOutput.AddressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
@@ -73,11 +73,11 @@ func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env 
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert capability configurations to capability configuration params: %w", err)
 		}
-		var peerIds [][32]byte
+		var peerIDs [][32]byte
 		for _, id := range don.NodeP2PIds {
-			peerIds = append(peerIds, id)
+			peerIDs = append(peerIDs, id)
 		}
-		tx, err = deployedContract.AddDON(chain.DeployerKey, peerIds, cfgs, don.IsPublic, don.AcceptsWorkflows, don.F)
+		tx, err = deployedContract.AddDON(chain.DeployerKey, peerIDs, cfgs, don.IsPublic, don.AcceptsWorkflows, don.F)
 		if _, err = cldf.ConfirmIfNoError(chain, tx, cldf.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)); err != nil {
 			return nil, fmt.Errorf("failed to add don: %w", err)
 		}

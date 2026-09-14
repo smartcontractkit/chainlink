@@ -21,6 +21,7 @@ type DeployBalanceReaderRequest struct {
 
 // DeployBalanceReader deploys the BalanceReader contract to all chains in the environment
 // callers must merge the output addressbook with the existing one
+//
 // Deprecated: use DeployBalanceReaderV2 instead
 func DeployBalanceReader(env cldf.Environment, cfg DeployBalanceReaderRequest) (cldf.ChangesetOutput, error) {
 	out := cldf.ChangesetOutput{
@@ -42,7 +43,7 @@ func DeployBalanceReader(env cldf.Environment, cfg DeployBalanceReaderRequest) (
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy BalanceReader to chain selector %d: %w", sel, err)
 		}
-		if err := out.AddressBook.Merge(csOut.AddressBook); err != nil { //nolint:staticcheck // TODO CRE-400
+		if err := out.AddressBook.Merge(csOut.AddressBook); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for chain selector %d: %w", sel, err)
 		}
 		if err := out.DataStore.Merge(csOut.DataStore.Seal()); err != nil {

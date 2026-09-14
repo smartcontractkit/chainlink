@@ -92,12 +92,12 @@ func (don *DON) ReplayAllLogs(blockbyChain map[uint64]uint64) error {
 	return nil
 }
 
-func (don *DON) NodeIds() []string {
-	var nodeIds []string
+func (don *DON) NodeIDs() []string {
+	var nodeIDs []string
 	for _, node := range don.Nodes {
-		nodeIds = append(nodeIds, node.NodeID)
+		nodeIDs = append(nodeIDs, node.NodeID)
 	}
-	return nodeIds
+	return nodeIDs
 }
 
 func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
@@ -505,7 +505,7 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd JobDistributor) (str
 	}
 	return n.gqlClient.CreateJobDistributor(ctx, client.JobDistributorInput{
 		Name:      "Job Distributor",
-		Uri:       jd.WSRPC,
+		URI:       jd.WSRPC,
 		PublicKey: csaKey,
 	})
 }
@@ -547,8 +547,8 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 	return nil
 }
 
-func (n *Node) ExportEVMKeysForChain(chainId string) ([]*clclient.ExportedEVMKey, error) {
-	return n.restClient.ExportEVMKeysForChain(chainId)
+func (n *Node) ExportEVMKeysForChain(chainID string) ([]*clclient.ExportedEVMKey, error) {
+	return n.restClient.ExportEVMKeysForChain(chainID)
 }
 
 // ReplayLogs replays logs for the chains on the node for given block numbers for each chain

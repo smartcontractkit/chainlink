@@ -8,7 +8,6 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodeapiv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	jdtypesv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -28,48 +27,48 @@ type NodesFilter struct {
 const defaultZone = "zone-a"
 
 func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
-	selectors := []*jdtypesv1.Selector{
+	selectors := []*ptypes.Selector{
 		{
 			Key:   "don_id",
-			Op:    jdtypesv1.SelectorOp_EQ,
+			Op:    ptypes.SelectorOp_EQ,
 			Value: new(strconv.FormatUint(f.DONID, 10)),
 		},
 		{
 			Key:   "environment",
-			Op:    jdtypesv1.SelectorOp_EQ,
+			Op:    ptypes.SelectorOp_EQ,
 			Value: &f.EnvLabel,
 		},
 		{
 			Key:   "product",
-			Op:    jdtypesv1.SelectorOp_EQ,
+			Op:    ptypes.SelectorOp_EQ,
 			Value: &f.ProductLabel,
 		},
 	}
 
 	if f.IsBootstrap {
-		selectors = append(selectors, &jdtypesv1.Selector{
+		selectors = append(selectors, &ptypes.Selector{
 			Key:   devenv.LabelNodeTypeKey,
-			Op:    jdtypesv1.SelectorOp_EQ,
+			Op:    ptypes.SelectorOp_EQ,
 			Value: new(devenv.LabelNodeTypeValueBootstrap),
 		})
 	} else {
-		selectors = append(selectors, &jdtypesv1.Selector{
+		selectors = append(selectors, &ptypes.Selector{
 			Key:   devenv.LabelNodeTypeKey,
-			Op:    jdtypesv1.SelectorOp_EQ,
+			Op:    ptypes.SelectorOp_EQ,
 			Value: new(devenv.LabelNodeTypeValuePlugin),
 		})
 	}
 
 	if f.Zone == defaultZone {
 		// default zone nodes do not have a zone label
-		selectors = append(selectors, &jdtypesv1.Selector{
+		selectors = append(selectors, &ptypes.Selector{
 			Key: "zone",
-			Op:  jdtypesv1.SelectorOp_NOT_EXIST,
+			Op:  ptypes.SelectorOp_NOT_EXIST,
 		})
 	} else {
-		selectors = append(selectors, &jdtypesv1.Selector{
+		selectors = append(selectors, &ptypes.Selector{
 			Key:   "zone",
-			Op:    jdtypesv1.SelectorOp_EQ,
+			Op:    ptypes.SelectorOp_EQ,
 			Value: &f.Zone,
 		})
 	}
@@ -173,25 +172,25 @@ func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec stri
 func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, workflowName string, environment string, zone string) {
 	if len(jobIDs) == 0 {
 		env.Logger.Debugf("jobIDs not present. Listing jobs to delete via workflow name")
-		jobSelectors := []*jdtypesv1.Selector{
+		jobSelectors := []*ptypes.Selector{
 			{
 				Key:   "workflow_name",
-				Op:    jdtypesv1.SelectorOp_EQ,
+				Op:    ptypes.SelectorOp_EQ,
 				Value: &workflowName,
 			},
 		}
 		if environment != "" {
-			jobSelectors = append(jobSelectors, &jdtypesv1.Selector{
+			jobSelectors = append(jobSelectors, &ptypes.Selector{
 				Key:   "environment",
-				Op:    jdtypesv1.SelectorOp_EQ,
+				Op:    ptypes.SelectorOp_EQ,
 				Value: &environment,
 			})
 		}
 
 		if zone != "" {
-			jobSelectors = append(jobSelectors, &jdtypesv1.Selector{
+			jobSelectors = append(jobSelectors, &ptypes.Selector{
 				Key:   "zone",
-				Op:    jdtypesv1.SelectorOp_EQ,
+				Op:    ptypes.SelectorOp_EQ,
 				Value: &zone,
 			})
 		}

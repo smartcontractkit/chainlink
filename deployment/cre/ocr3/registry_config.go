@@ -91,14 +91,6 @@ func ValidateOCR3Config(signers [][]byte, transmitters [][]byte, f uint32) error
 	return nil
 }
 
-// ocr3ConfigsJSON is a helper struct for parsing the ocr3Configs field from
-// a CapabilityConfig protobuf via JSON roundtrip.
-type ocr3ConfigsJSON struct {
-	Ocr3Configs map[string]struct {
-		ConfigCount uint64 `json:"configCount"`
-	} `json:"ocr3Configs"`
-}
-
 // GetCurrentOCR3ConfigCount reads the current OCR3 config count for a
 // capability/DON from the on-chain registry. Returns 0 if no config exists.
 func GetCurrentOCR3ConfigCount(
