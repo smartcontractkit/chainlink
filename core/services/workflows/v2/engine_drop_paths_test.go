@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -230,6 +231,53 @@ func TestEngine_LimitReadFallback_ExecutesAnyway(t *testing.T) { //nolint:parall
 			evt, ok := latestV2FinishedEvent(t, harness.beholderObserver)
 			require.True(t, ok, "execution should still emit a Finished event despite the limit read failure")
 			assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED, evt.Status)
+		})
+	}
+}
+
+// TestEngine_LimitReadNonRecoverable_Drops is the counterpart to
+// TestEngine_LimitReadFallback_ExecutesAnyway. A limit read that leaves no usable value —
+// ErrMissingTenant, i.e. the CRE context was never populated — is a programming error rather
+// than a degraded settings service, so the engine must fail the execution loudly instead of
+// enforcing the zero value it got back.
+func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+	missingTenant := limits.ErrMissingTenant{Scope: settings.ScopeWorkflow}
+	require.False(t, limits.IsErrRecoverable(missingTenant), "precondition")
+
+	testCases := map[string]func(cfg *v2.EngineConfig){
+		"ExecutionTime": func(cfg *v2.EngineConfig) {
+			cfg.LocalLimiters.ExecutionTime = &alwaysFailTimeLimiter{err: missingTenant}
+		},
+		"LogEvent": func(cfg *v2.EngineConfig) {
+			cfg.LocalLimiters.LogEvent = &failAfterNBoundLimiter[int]{n: 1, ok: 1000, failErr: missingTenant}
+		},
+		"ExecutionResponse": func(cfg *v2.EngineConfig) {
+			cfg.LocalLimiters.ExecutionResponse = &failAfterNBoundLimiter[config.Size]{n: 1, ok: config.Size(10 * 1024 * 1024), failErr: missingTenant}
+		},
+	}
+
+	for name, breakLimiter := range testCases { //nolint:paralleltest // shares the package-level beholder singleton
+		t.Run(name, func(t *testing.T) {
+			// No module.Execute expectation: the execution must never reach WASM.
+			harness := newDropPathHarness(t, setupMockBillingClient(t), breakLimiter)
+
+			harness.eventCh <- capabilities.TriggerResponse{
+				Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_nonrecoverable_" + name},
+			}
+
+			var evt *eventsv2.WorkflowExecutionFinished
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				got, ok := latestV2FinishedEvent(t, harness.beholderObserver)
+				if !assert.True(c, ok) {
+					return
+				}
+				evt = got
+			}, 5*time.Second, 50*time.Millisecond)
+
+			assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED, evt.Status,
+				"a programming error must not be papered over with the zero value")
+			assert.Equal(t, eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_SYSTEM_ERROR, evt.ClassifiedStatus,
+				"a missing tenant is our bug, not the user's")
 		})
 	}
 }

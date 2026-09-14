@@ -413,6 +413,13 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 	}
 	queueTimeout, err := e.cfg.LocalLimiters.TriggerEventQueueTimeout.Limit(ctx)
 	if err != nil {
+		if !limits.IsErrRecoverable(err) {
+			// No value was resolved, so the deadline below would already be expired.
+			e.logger().Errorw("Failed to get trigger event queue time limit with no usable value", "err", err)
+			e.metrics.With(platform.KeyTriggerID, triggerID).
+				IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonQueueAgeLimitReadFailed)
+			return ErrEnqueueFailed
+		}
 		// A settings read failure is not a reason to drop a customer's trigger event:
 		// the limiter still returns a usable timeout, so stamp the deadline and continue.
 		e.logger().Errorw("Failed to get trigger event queue time limit; continuing with the value the limiter returned", "err", err)
@@ -976,6 +983,15 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 	// WithTimeout returns a usable ctx/cancel even on a read failure; err is advisory.
 	execCtx, execCancel, err := e.cfg.LocalLimiters.ExecutionTime.WithTimeout(ctx)
 	if err != nil {
+		if !limits.IsErrRecoverable(err) {
+			lggr.Errorw("Failed to get execution time limit with no usable value", "err", err)
+			triggerDrop(monitoring.TriggerDropReasonExecutionTimeLimitReadFailed)
+			emitDroppedExecution(err, events.ErrorClassificationSystem)
+			if execCancel != nil {
+				execCancel() // WithTimeout may still have built a context
+			}
+			return err
+		}
 		lggr.Errorw("Failed to get execution time limit; continuing with the timeout the limiter returned", "err", err)
 		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.ExecutionTimeout.Key)
 		if execCtx == nil { // only nil when the limiter is closed and no ctx was built
@@ -998,6 +1014,12 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 	// (called per log line in emitUserLogs) is what actually enforces the cap.
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
+		if !limits.IsErrRecoverable(err) {
+			lggr.Errorw("Failed to get log event limit with no usable value", "err", err)
+			triggerDrop(monitoring.TriggerDropReasonLogEventLimitReadFailed)
+			emitDroppedExecution(err, events.ErrorClassificationSystem)
+			return err
+		}
 		lggr.Errorw("Failed to get log event limit; continuing with the value the limiter returned", "err", err)
 		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.LogEventLimit.Key)
 	}
@@ -1086,6 +1108,14 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 	// Limit is always usable even on a read failure; err is advisory.
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
+		if !limits.IsErrRecoverable(err) {
+			execErr = fmt.Errorf("failed to get execution response size limit with no usable value: %w", err)
+			lggr.Errorw(execErr.Error())
+			executionStatus = store.StatusErrored
+			execErrClass = events.ErrorClassificationSystem
+			triggerDrop(monitoring.TriggerDropReasonExecutionResponseLimitReadFailed)
+			return execErr
+		}
 		lggr.Errorw("Failed to get execution response size limit; continuing with the value the limiter returned", "err", err)
 		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.ExecutionResponseLimit.Key)
 	}
@@ -1315,6 +1345,10 @@ func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *met
 	// Limit is always usable even on a read failure; err is advisory.
 	workflowExecutionTimeout, err := e.cfg.LocalLimiters.ExecutionTime.Limit(ctx)
 	if err != nil {
+		if !limits.IsErrRecoverable(err) {
+			e.logger().Errorw("Failed to get execution time limit with no usable value; skipping compute deduction", "err", err)
+			return
+		}
 		e.logger().Errorw("Failed to get execution time limit; continuing with the value the limiter returned", "err", err)
 		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.ExecutionTimeout.Key)
 	}
@@ -1408,6 +1442,10 @@ func (e *Engine) donTimeRequestTimeout(ctx context.Context, limiter limits.TimeL
 	// A zero timeout is a valid, explicitly configured limit and is honoured as-is.
 	limit, err := limiter.Limit(ctx)
 	if err != nil {
+		if !limits.IsErrRecoverable(err) {
+			e.logger().Errorw("Failed to get DON time request timeout with no usable value; using the compiled default", "err", err)
+			return cresettings.Default.PerWorkflow.DONTime.RequestTimeout.DefaultValue
+		}
 		e.logger().Errorw("Failed to get DON time request timeout; continuing with the value the limiter returned", "err", err)
 		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.DONTime.RequestTimeout.Key)
 	}
