@@ -34,6 +34,7 @@ func solanaStartNewApplication(t *testing.T, cfgs ...chainlink.RawConfig) *cltes
 }
 
 func TestShell_IndexCosmosNodes(t *testing.T) {
+	t.Skip("cosmos is not installed")
 	t.Parallel()
 
 	chainID := cosmostest.RandomChainID()
