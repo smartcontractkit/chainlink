@@ -121,18 +121,26 @@ func reportLatestHead(ctx context.Context, lggr logger.Logger, endpoint commonty
 		return fmt.Errorf("failed getting head for chain %s: %w", relayID, err)
 	}
 
-	if head.Height == "" {
-		return fmt.Errorf("latest block height returned by relayer is empty for %s", relayID)
-	}
-
-	blockNum, err := strconv.ParseUint(head.Height, 10, 64)
+	blockNum, err := parseGenericHeadBlockNumber(relayID, head)
 	if err != nil {
-		return fmt.Errorf("failed to parse %s block height %s: %w", relayID, head.Height, err)
+		return err
 	}
 
-	finalized, err := fetchFinalizedHead(ctx, relayID, relay)
+	var finalized *telem.Block
+	finalizedHead, err := fetchFinalizedGenericHead(ctx, relayID, relay)
 	if err != nil {
 		lggr.Warnw("Failed to fetch finalized head", "chainID", relayID.ChainID, "network", relayID.Network, "err", err)
+	} else if finalizedHead != nil {
+		finalizedNum, parseErr := parseGenericHeadBlockNumber(relayID, *finalizedHead)
+		if parseErr != nil {
+			lggr.Warnw("Failed to parse finalized head block number", "chainID", relayID.ChainID, "network", relayID.Network, "err", parseErr)
+		} else {
+			finalized = &telem.Block{
+				Timestamp: finalizedHead.Timestamp,
+				Number:    finalizedNum,
+				Hash:      hex.EncodeToString(finalizedHead.Hash),
+			}
+		}
 	}
 
 	request := &telem.HeadReportRequest{
@@ -152,27 +160,27 @@ func reportLatestHead(ctx context.Context, lggr logger.Logger, endpoint commonty
 	return nil
 }
 
-func fetchFinalizedHead(ctx context.Context, relayID types.RelayID, relay loop.Relayer) (*telem.Block, error) {
+// parseGenericHeadBlockNumber parses the block height carried by a generic relayer head.
+func parseGenericHeadBlockNumber(relayID types.RelayID, head types.Head) (uint64, error) {
+	if head.Height == "" {
+		return 0, fmt.Errorf("latest block height returned by relayer is empty for %s", relayID)
+	}
+	blockNum, err := strconv.ParseUint(head.Height, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse %s block height %s: %w", relayID, head.Height, err)
+	}
+	return blockNum, nil
+}
+
+// fetchFinalizedGenericHead fetches a generic relayer's finalized head, returning nil (no
+// error) if the relayer does not implement FinalizedHead (codes.Unimplemented).
+func fetchFinalizedGenericHead(ctx context.Context, relayID types.RelayID, relay loop.Relayer) (*types.Head, error) {
 	head, err := relay.FinalizedHead(ctx)
 	if err != nil {
 		if status.Code(err) == codes.Unimplemented {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to fetch finalized head: %w", err)
+		return nil, fmt.Errorf("failed to fetch finalized head for %s: %w", relayID, err)
 	}
-
-	if head.Height == "" {
-		return nil, fmt.Errorf("latest block height returned by relayer is empty for %s", relayID)
-	}
-
-	blockNum, err := strconv.ParseUint(head.Height, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s finalized block height %s: %w", relayID, head.Height, err)
-	}
-
-	return &telem.Block{
-		Timestamp: head.Timestamp,
-		Number:    blockNum,
-		Hash:      hex.EncodeToString(head.Hash),
-	}, nil
+	return &head, nil
 }

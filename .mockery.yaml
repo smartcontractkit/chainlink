@@ -222,6 +222,7 @@ packages:
     interfaces:
       HeadReporter:
       PrometheusBackend:
+      HeadMetrics:
   github.com/smartcontractkit/libocr/commontypes:
     config:
       dir: "common/types/mocks"
