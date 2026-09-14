@@ -13,8 +13,6 @@ flowchart LR
 	click chainlink-aptos href "https://github.com/smartcontractkit/chainlink-aptos"
 	chainlink-aptos/codec --> chainlink-common
 	click chainlink-aptos/codec href "https://github.com/smartcontractkit/chainlink-aptos"
-	chainlink-automation --> chainlink-common
-	click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
 	chainlink-canton
 	click chainlink-canton href "https://github.com/smartcontractkit/chainlink-canton"
 	chainlink-ccip --> chainlink-common
@@ -75,7 +73,6 @@ flowchart LR
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-deployments-framework
 	click chainlink-deployments-framework href "https://github.com/smartcontractkit/chainlink-deployments-framework"
-	chainlink-evm --> chainlink-automation
 	chainlink-evm --> chainlink-data-streams
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
@@ -359,7 +356,6 @@ flowchart LR
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-deployments-framework --> mcms
 	click chainlink-deployments-framework href "https://github.com/smartcontractkit/chainlink-deployments-framework"
-	chainlink-evm --> chainlink-automation
 	chainlink-evm --> chainlink-data-streams
 	chainlink-evm --> chainlink-framework/capabilities
 	chainlink-evm --> chainlink-framework/chains
@@ -506,6 +502,7 @@ flowchart LR
 	click chainlink/devenv/fakes href "https://github.com/smartcontractkit/chainlink"
 	chainlink/integration-tests
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
+	chainlink/load-tests --> chainlink-automation
 	chainlink/load-tests --> chainlink-testing-framework/havoc
 	chainlink/load-tests --> chainlink/integration-tests
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"

@@ -36,7 +36,7 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260910195529-801eb99e80b2
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.122.2
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260911142028-ee1d129dce49
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260914143713-424babc506ab
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260713161920-de075095648b
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260827120130-362c4a408695
@@ -418,7 +418,6 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.2.1 // indirect
 	github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260716230027-bd85997bc03c // indirect
 	github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260706100550-d43558069754
-	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260908155618-50f521d70e62 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.9.1 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260724142814-45996a1bcb72 // indirect
