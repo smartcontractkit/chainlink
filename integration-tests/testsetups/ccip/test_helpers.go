@@ -361,11 +361,12 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 	// Just set all RMN nodes to support all chains.
 	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
-	var chainParams []devenv.ChainParam
-	var remoteChains []devenv.RemoteChains
+	evmChains := state.EVMChains()
+	chainParams := make([]devenv.ChainParam, 0, len(evmChains))
+	remoteChains := make([]devenv.RemoteChains, 0, len(evmChains))
 
-	var rpcs []devenv.Chain
-	for _, chainSel := range state.EVMChains() {
+	rpcs := make([]devenv.Chain, 0, len(evmChains))
+	for _, chainSel := range evmChains {
 		chain := state.MustGetEVMChainState(chainSel)
 		c, _ := chainsel.ChainBySelector(chainSel)
 		rmnName := MustCCIPNameToRMNName(c.Name)
@@ -519,7 +520,7 @@ func CreateDockerEnv(t *testing.T, v1_6TestConfig *testhelpers.TestConfigs) (
 		// if network is simulated, update the URLs with private chain RPCs in the docker test environment
 		// so that nodes can internally connect to the chain
 		if net.Simulated {
-			rpcProvider, err := env.GetRpcProvider(net.ChainID)
+			rpcProvider, err := env.GetRPCProvider(net.ChainID)
 			require.NoError(t, err, "Error getting rpc provider")
 			evmNetworks[i].HTTPURLs = rpcProvider.PrivateHttpUrls()
 			evmNetworks[i].URLs = rpcProvider.PrivateWsUrsl()
@@ -584,7 +585,7 @@ func StartChainlinkNodesWithImageSelector(
 	cfg tc.TestConfig,
 	imageSelector NodeImageSelector,
 ) error {
-	var evmNetworks []blockchain.EVMNetwork
+	evmNetworks := make([]blockchain.EVMNetwork, 0, len(env.EVMNetworks))
 	for i := range env.EVMNetworks {
 		evmNetworks = append(evmNetworks, *env.EVMNetworks[i])
 	}
@@ -667,7 +668,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 	for i, net := range evmNetworks {
 		// if network is simulated, update the URLs with deployed chain RPCs in the docker test environment
 		if net.Simulated {
-			rpcProvider, err := env.GetRpcProvider(net.ChainID)
+			rpcProvider, err := env.GetRPCProvider(net.ChainID)
 			require.NoError(t, err, "Error getting rpc provider")
 			evmNetworks[i].HTTPURLs = rpcProvider.PublicHttpUrls()
 			evmNetworks[i].URLs = rpcProvider.PublicWsUrls()
@@ -683,7 +684,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 			sethClient, err := utils.TestAwareSethClient(t, cfg, &evmNetwork)
 			require.NoError(t, err, "Error getting seth client for network %s", evmNetwork.Name)
 			require.NotEmpty(t, sethClient.PrivateKeys, seth.ErrNoKeyLoaded)
-			var keyExporters []contracts.ChainlinkKeyExporter
+			keyExporters := make([]contracts.ChainlinkKeyExporter, 0, len(nodes))
 			for j := range nodes {
 				node := nodes[j]
 				keyExporters = append(keyExporters, &node)
@@ -766,45 +767,45 @@ func CreateChainConfigFromNetworks(
 		networkPvtKeys[uint64(net.ChainID)] = net.PrivateKeys //nolint:gosec // G115
 	}
 	type chainDetails struct {
-		chainId  uint64
+		chainID  uint64
 		wsRPCs   []string
 		httpRPCs []string
 	}
-	var chains []devenv.ChainConfig
 	var chaindetails []chainDetails
 	if len(privateEthereumNetworks) == 0 {
 		for _, net := range evmNetworks {
-			chainId := net.ChainID
-			if chainId < 0 {
-				t.Fatalf("negative chain ID: %d", chainId)
+			chainID := net.ChainID
+			if chainID < 0 {
+				t.Fatalf("negative chain ID: %d", chainID)
 			}
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  uint64(chainId), //nolint:gosec // G115
+				chainID:  uint64(chainID), //nolint:gosec // G115
 				wsRPCs:   net.URLs,
 				httpRPCs: net.HTTPURLs,
 			})
 		}
 	} else {
 		for _, net := range privateEthereumNetworks {
-			chainId := net.EthereumChainConfig.ChainID
-			if chainId < 0 {
-				t.Fatalf("negative chain ID: %d", chainId)
+			chainID := net.EthereumChainConfig.ChainID
+			if chainID < 0 {
+				t.Fatalf("negative chain ID: %d", chainID)
 			}
-			rpcProvider, err := env.GetRpcProvider(int64(chainId))
+			rpcProvider, err := env.GetRPCProvider(int64(chainID))
 			require.NoError(t, err, "Error getting rpc provider")
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  uint64(chainId), //nolint:gosec // G115
+				chainID:  uint64(chainID), //nolint:gosec // G115
 				wsRPCs:   rpcProvider.PublicWsUrls(),
 				httpRPCs: rpcProvider.PublicHttpUrls(),
 			})
 		}
 	}
+	chains := make([]devenv.ChainConfig, 0, len(chaindetails))
 	for _, cd := range chaindetails {
-		chainId := cd.chainId
-		chainName, err := chainsel.NameFromChainId(chainId)
+		chainID := cd.chainID
+		chainName, err := chainsel.NameFromChainId(chainID)
 		require.NoError(t, err, "Error getting chain name")
 		chainCfg := devenv.ChainConfig{
-			ChainID:   strconv.FormatUint(chainId, 10),
+			ChainID:   strconv.FormatUint(chainID, 10),
 			ChainName: chainName,
 			ChainType: "EVM",
 			WSRPCs: []devenv.CribRPCs{
@@ -821,13 +822,13 @@ func CreateChainConfigFromNetworks(
 		var pvtKey *string
 		// if private keys are provided, use the first private key as deployer key
 		// otherwise it will try to load the private key from KMS
-		if len(networkPvtKeys[chainId]) > 0 {
-			pvtKey = new(networkPvtKeys[chainId][0])
+		if len(networkPvtKeys[chainID]) > 0 {
+			pvtKey = new(networkPvtKeys[chainID][0])
 		}
 		require.NoError(t, chainCfg.SetDeployerKey(pvtKey), "Error setting deployer key")
 		var additionalPvtKeys []string
-		if len(networkPvtKeys[chainId]) > 1 {
-			additionalPvtKeys = networkPvtKeys[chainId][1:]
+		if len(networkPvtKeys[chainID]) > 1 {
+			additionalPvtKeys = networkPvtKeys[chainID][1:]
 		}
 		// if no additional private keys are provided, this will set the users to default deployer key
 		require.NoError(t, chainCfg.SetUsers(additionalPvtKeys), "Error setting users")
@@ -853,11 +854,11 @@ func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 		if err != nil {
 			return nil, "", err
 		}
-		chainId, err := strconv.ParseInt(k, 10, 64)
+		chainID, err := strconv.ParseInt(k, 10, 64)
 		if err != nil {
 			return nil, "", err
 		}
-		configByChainMap[chainId] = chain
+		configByChainMap[chainID] = chain
 	}
 	if nodeConfig == "" {
 		tomlCfg = integrationnodes.NewConfig(
