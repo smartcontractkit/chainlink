@@ -15,13 +15,13 @@ import (
 )
 
 type capabilitiesRegistryNodeInfo struct {
-	NodeOperatorId      uint32         `json:"nodeOperatorId"`
+	NodeOperatorID      uint32         `json:"nodeOperatorId"`
 	ConfigCount         uint32         `json:"configCount"`
 	WorkflowDONId       uint32         `json:"workflowDONId"`
 	Signer              types.PeerID   `json:"signer"`
-	P2pId               types.PeerID   `json:"p2pId"`
+	P2pID               types.PeerID   `json:"p2pId"`
 	EncryptionPublicKey [32]byte       `json:"encryptionPublicKey"`
-	HashedCapabilityIds []types.PeerID `json:"hashedCapabilityIds"`
+	HashedCapabilityIDs []types.PeerID `json:"hashedCapabilityIds"`
 	CapabilitiesDONIds  []string       `json:"capabilitiesDONIds"`
 }
 
@@ -37,13 +37,13 @@ func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
 			capabilitiesDONIds[i] = id.String()
 		}
 		idsToNodes[k] = capabilitiesRegistryNodeInfo{
-			NodeOperatorId:      v.NodeOperatorID,
+			NodeOperatorID:      v.NodeOperatorID,
 			ConfigCount:         v.ConfigCount,
 			WorkflowDONId:       v.WorkflowDONId,
 			Signer:              types.PeerID(v.Signer[:]),
-			P2pId:               types.PeerID(v.P2pID[:]),
+			P2pID:               types.PeerID(v.P2pID[:]),
 			EncryptionPublicKey: v.EncryptionPublicKey,
-			HashedCapabilityIds: hashedCapabilityIDs,
+			HashedCapabilityIDs: hashedCapabilityIDs,
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
 	}
@@ -82,9 +82,9 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 
 	l.IDsToNodes = make(map[types.PeerID]NodeInfo)
 	for peerID, v := range temp.IDsToNodes {
-		hashedCapabilityIds := make([][32]byte, len(v.HashedCapabilityIds))
-		for i, id := range v.HashedCapabilityIds {
-			copy(hashedCapabilityIds[i][:], id[:])
+		hashedCapabilityIDs := make([][32]byte, len(v.HashedCapabilityIDs))
+		for i, id := range v.HashedCapabilityIDs {
+			copy(hashedCapabilityIDs[i][:], id[:])
 		}
 
 		capabilitiesDONIds := make([]*big.Int, len(v.CapabilitiesDONIds))
@@ -94,13 +94,13 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 			capabilitiesDONIds[i] = bigInt
 		}
 		l.IDsToNodes[peerID] = NodeInfo{
-			NodeOperatorID:      v.NodeOperatorId,
+			NodeOperatorID:      v.NodeOperatorID,
 			ConfigCount:         v.ConfigCount,
 			WorkflowDONId:       v.WorkflowDONId,
 			Signer:              v.Signer,
-			P2pID:               v.P2pId,
+			P2pID:               v.P2pID,
 			EncryptionPublicKey: v.EncryptionPublicKey,
-			HashedCapabilityIDs: hashedCapabilityIds,
+			HashedCapabilityIDs: hashedCapabilityIDs,
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
 	}
@@ -111,7 +111,7 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 }
 
 type ORM interface {
-	AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry) error
+	AddLocalRegistry(ctx context.Context, localRegistry *LocalRegistry) error
 	LatestLocalRegistry(ctx context.Context) (*LocalRegistry, error)
 }
 
@@ -130,7 +130,7 @@ func NewORM(ds sqlutil.DataSource, lggr logger.Logger) orm {
 	}
 }
 
-func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry) error {
+func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry *LocalRegistry) error {
 	orm.lggr.Debugw("Adding local registry to DB...")
 	return sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
 		localRegistryJSON, err := localRegistry.MarshalJSON()
@@ -141,10 +141,10 @@ func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry
 		// update if and only if the hash does not match the latest value
 		r, err := tx.ExecContext(
 			ctx,
-			`INSERT INTO registry_syncer_states (data, data_hash) 
-            SELECT $1, $2 
+			`INSERT INTO registry_syncer_states (data, data_hash)
+            SELECT $1, $2
             WHERE $2 NOT IN (
-                SELECT data_hash FROM registry_syncer_states 
+                SELECT data_hash FROM registry_syncer_states
                 ORDER BY id DESC LIMIT 1
             )`,
 			localRegistryJSON, hex.EncodeToString(hash[:]),
@@ -171,7 +171,7 @@ WHERE data_hash NOT IN (
 }
 
 func (orm orm) LatestLocalRegistry(ctx context.Context) (*LocalRegistry, error) {
-	var localRegistry LocalRegistry
+	localRegistry := &LocalRegistry{}
 	var localRegistryJSON string
 	err := orm.ds.GetContext(ctx, &localRegistryJSON, `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
 	if err != nil {
@@ -184,5 +184,5 @@ func (orm orm) LatestLocalRegistry(ctx context.Context) (*LocalRegistry, error) 
 	}
 	orm.lggr.Debugw("Fetched latest local registry from DB", "hash", hex.EncodeToString(hash[:]), "registry", localRegistry)
 
-	return &localRegistry, nil
+	return localRegistry, nil
 }

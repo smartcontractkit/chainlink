@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/trusted_blockhash_store"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -62,8 +62,7 @@ func (d *Delegate) JobType() job.Type {
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.BlockhashStoreSpec == nil {
-		return nil, errors.Errorf(
-			"blockhashstore.Delegate expects a BlockhashStoreSpec to be present, got %+v", jb)
+		return nil, errors.Errorf("blockhashstore.Delegate expects a BlockhashStoreSpec to be present, got %+v", jb)
 	}
 	marshalledJob, err := json.MarshalIndent(jb.BlockhashStoreSpec, "", " ")
 	if err != nil {
@@ -74,8 +73,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	cid := jb.BlockhashStoreSpec.EVMChainID.ToInt()
 	chainService, err := d.legacyChains.Get(cid.String())
 	if err != nil {
-		return nil, fmt.Errorf(
-			"getting chain ID %s: %w", cid, err)
+		return nil, fmt.Errorf("getting chain ID %s: %w", cid, err)
 	}
 	chain, ok := chainService.(legacyevm.Chain)
 	if !ok {
@@ -100,8 +98,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		fromAddresses = jb.BlockhashStoreSpec.FromAddresses
 	}
 
-	bhs, err := blockhash_store.NewBlockhashStore(
-		jb.BlockhashStoreSpec.BlockhashStoreAddress.Address(), chain.Client())
+	bhs, err := blockhash_store.NewBlockhashStore(jb.BlockhashStoreSpec.BlockhashStoreAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "building BHS")
 	}
@@ -121,8 +118,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	var coordinators []Coordinator
 	if jb.BlockhashStoreSpec.CoordinatorV2Address != nil {
 		var c *v2.VRFCoordinatorV2
-		if c, err = v2.NewVRFCoordinatorV2(
-			jb.BlockhashStoreSpec.CoordinatorV2Address.Address(), chain.Client()); err != nil {
+		if c, err = v2.NewVRFCoordinatorV2(jb.BlockhashStoreSpec.CoordinatorV2Address.Address(), chain.Client()); err != nil {
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
 
@@ -135,8 +131,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 	if jb.BlockhashStoreSpec.CoordinatorV2PlusAddress != nil {
 		var c v2plus.IVRFCoordinatorV2PlusInternalInterface
-		if c, err = v2plus.NewIVRFCoordinatorV2PlusInternal(
-			jb.BlockhashStoreSpec.CoordinatorV2PlusAddress.Address(), chain.Client()); err != nil {
+		if c, err = v2plus.NewIVRFCoordinatorV2PlusInternal(jb.BlockhashStoreSpec.CoordinatorV2PlusAddress.Address(), chain.Client()); err != nil {
 			return nil, errors.Wrap(err, "building V2Plus coordinator")
 		}
 
@@ -161,7 +156,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
 
-	log := d.logger.Named("BHSFeeder").With("jobID", jb.ID, "externalJobID", jb.ExternalJobID)
+	log := logger.With(logger.Named(d.logger, "BHSFeeder"), "jobID", jb.ID, "externalJobID", jb.ExternalJobID)
 	feeder := NewFeeder(
 		log,
 		NewMultiCoordinator(coordinators...),
@@ -177,7 +172,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 				return 0, errors.Wrap(err, "getting chain head")
 			}
 			return uint64(head.BlockNumber), nil //nolint:gosec //G115
-		})
+		},
+	)
 
 	return []job.ServiceCtx{&service{
 		feeder:     feeder,

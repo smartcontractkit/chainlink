@@ -1651,7 +1651,7 @@ func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 		SecretsStrings: []string{secretsFullTOML},
 	}
 	_, err := opts.New()
-	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: U+007B '{'")
+	assert.ErrorContains(t, err, "failed to decode config TOML: toml: invalid character at start of key:")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {

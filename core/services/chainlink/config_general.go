@@ -61,7 +61,7 @@ type GeneralConfigOpts struct {
 	SkipEnv bool
 }
 
-func (o *GeneralConfigOpts) Setup(configFiles []string, secretsFiles []string) error {
+func (o *GeneralConfigOpts) Setup(configFiles, secretsFiles []string) error {
 	configs := []string{}
 	for _, fileName := range configFiles {
 		b, err := os.ReadFile(fileName)
@@ -172,21 +172,19 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 
 func (o *GeneralConfigOpts) parse() (err error) {
 	for _, c := range o.ConfigStrings {
-		err := o.parseConfig(c)
-		if err != nil {
+		if err = o.parseConfig(c); err != nil {
 			return err
 		}
 	}
 
 	for _, s := range o.SecretsStrings {
-		err := o.parseSecrets(s)
-		if err != nil {
+		if err = o.parseSecrets(s); err != nil {
 			return err
 		}
 	}
 
 	o.Secrets.setDefaults()
-	return
+	return err
 }
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
@@ -272,7 +270,7 @@ func validateEnv() (err error) {
 			err = stderrors.Join(err, fmt.Errorf("environment variable %s must not be set: %w", k, v2.ErrUnsupported))
 		}
 	}
-	return
+	return err
 }
 
 func (g *generalConfig) LogConfiguration(log, warn coreconfig.LogfFn) {
@@ -583,6 +581,7 @@ func (g *generalConfig) ImportedP2PKey() coreconfig.ImportableKey {
 func (g *generalConfig) Tracing() coreconfig.Tracing {
 	return &tracingConfig{s: g.c.Tracing}
 }
+
 func (g *generalConfig) Telemetry() coreconfig.Telemetry {
 	return &telemetryConfig{s: g.c.Telemetry}
 }
@@ -614,6 +613,7 @@ func (g *generalConfig) JobSpecReporter() coreconfig.JobSpecReporter {
 func (g *generalConfig) Sharding() coreconfig.Sharding {
 	return &shardingConfig{s: g.c.Sharding}
 }
+
 func (g *generalConfig) LOOPP() coreconfig.LOOPP {
 	return &looppConfig{l: g.c.LOOPP}
 }

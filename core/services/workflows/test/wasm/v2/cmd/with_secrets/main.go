@@ -5,10 +5,11 @@ package main
 import (
 	"log/slog"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
-	"gopkg.in/yaml.v3"
 )
 
 type runtimeConfig struct {

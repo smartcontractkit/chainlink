@@ -113,10 +113,10 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		return nil, errors.New("DataSource must not be nil")
 	}
 	if cfg.Runner == nil {
-		return nil, errors.New("Runner must not be nil")
+		return nil, errors.New("runner must not be nil")
 	}
 	if cfg.Registry == nil {
-		return nil, errors.New("Registry must not be nil")
+		return nil, errors.New("registry must not be nil")
 	}
 	if cfg.RetirementReportCache == nil {
 		return nil, errors.New("RetirementReportCache must not be nil")

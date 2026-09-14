@@ -23,7 +23,7 @@ func (_m *ORM) EXPECT() *ORM_Expecter {
 }
 
 // AddLocalRegistry provides a mock function with given fields: ctx, localRegistry
-func (_m *ORM) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer.LocalRegistry) error {
+func (_m *ORM) AddLocalRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
 	ret := _m.Called(ctx, localRegistry)
 
 	if len(ret) == 0 {
@@ -31,7 +31,7 @@ func (_m *ORM) AddLocalRegistry(ctx context.Context, localRegistry registrysynce
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, registrysyncer.LocalRegistry) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *registrysyncer.LocalRegistry) error); ok {
 		r0 = rf(ctx, localRegistry)
 	} else {
 		r0 = ret.Error(0)
@@ -47,14 +47,14 @@ type ORM_AddLocalRegistry_Call struct {
 
 // AddLocalRegistry is a helper method to define mock.On call
 //   - ctx context.Context
-//   - localRegistry registrysyncer.LocalRegistry
+//   - localRegistry *registrysyncer.LocalRegistry
 func (_e *ORM_Expecter) AddLocalRegistry(ctx interface{}, localRegistry interface{}) *ORM_AddLocalRegistry_Call {
 	return &ORM_AddLocalRegistry_Call{Call: _e.mock.On("AddLocalRegistry", ctx, localRegistry)}
 }
 
-func (_c *ORM_AddLocalRegistry_Call) Run(run func(ctx context.Context, localRegistry registrysyncer.LocalRegistry)) *ORM_AddLocalRegistry_Call {
+func (_c *ORM_AddLocalRegistry_Call) Run(run func(ctx context.Context, localRegistry *registrysyncer.LocalRegistry)) *ORM_AddLocalRegistry_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(registrysyncer.LocalRegistry))
+		run(args[0].(context.Context), args[1].(*registrysyncer.LocalRegistry))
 	})
 	return _c
 }
@@ -64,7 +64,7 @@ func (_c *ORM_AddLocalRegistry_Call) Return(_a0 error) *ORM_AddLocalRegistry_Cal
 	return _c
 }
 
-func (_c *ORM_AddLocalRegistry_Call) RunAndReturn(run func(context.Context, registrysyncer.LocalRegistry) error) *ORM_AddLocalRegistry_Call {
+func (_c *ORM_AddLocalRegistry_Call) RunAndReturn(run func(context.Context, *registrysyncer.LocalRegistry) error) *ORM_AddLocalRegistry_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
@@ -53,7 +54,8 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 				*c.Insecure.DisableRateLimiting = true
 				*c.Insecure.InfiniteDepthQueries = true
 				*c.AuditLogger.Enabled = true
-			}}.New()
+			},
+		}.New()
 		require.NoError(t, err)
 
 		// Just asserting that override logic work on a safe config
@@ -200,11 +202,11 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		assert.Equal(t, databaseSecrets.Database.URL.URL().String(), opts.Secrets.Database.URL.URL().String())
 		assert.Equal(t, databaseSecrets.Database.BackupURL.URL().String(), opts.Secrets.Database.BackupURL.URL().String())
 
-		assert.Equal(t, (string)(*passwordSecrets.Password.Keystore), (string)(*opts.Password.Keystore))
-		assert.Equal(t, (string)(*passwordSecrets.Password.VRF), (string)(*opts.Password.VRF))
-		assert.Equal(t, (string)(*pyroscopeSecrets.Pyroscope.AuthToken), (string)(*opts.Secrets.Pyroscope.AuthToken))
-		assert.Equal(t, (string)(*prometheusSecrets.Prometheus.AuthToken), (string)(*opts.Prometheus.AuthToken))
-		assert.Equal(t, (string)(*thresholdSecrets.Threshold.ThresholdKeyShare), (string)(*opts.Threshold.ThresholdKeyShare))
+		assert.Equal(t, string(*passwordSecrets.Password.Keystore), string(*opts.Password.Keystore))
+		assert.Equal(t, string(*passwordSecrets.Password.VRF), string(*opts.Password.VRF))
+		assert.Equal(t, string(*pyroscopeSecrets.Pyroscope.AuthToken), string(*opts.Secrets.Pyroscope.AuthToken))
+		assert.Equal(t, string(*prometheusSecrets.Prometheus.AuthToken), string(*opts.Prometheus.AuthToken))
+		assert.Equal(t, string(*thresholdSecrets.Threshold.ThresholdKeyShare), string(*opts.Threshold.ThresholdKeyShare))
 
 		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ServerAddress.URL().String(), opts.Secrets.WebServer.LDAP.ServerAddress.URL().String())
 		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ReadOnlyUserLogin, opts.Secrets.WebServer.LDAP.ReadOnlyUserLogin)
@@ -226,7 +228,7 @@ func parseSecrets(secrets string) (*Secrets, error) {
 	return &s, nil
 }
 
-func assertDeepEqualityMercurySecrets(expected toml.MercurySecrets, actual toml.MercurySecrets) error {
+func assertDeepEqualityMercurySecrets(expected, actual toml.MercurySecrets) error {
 	if len(expected.Credentials) != len(actual.Credentials) {
 		return fmt.Errorf("maps are not equal in length: len(expected): %d, len(actual): %d", len(expected.Credentials), len(actual.Credentials))
 	}
@@ -234,10 +236,10 @@ func assertDeepEqualityMercurySecrets(expected toml.MercurySecrets, actual toml.
 	for key, value := range expected.Credentials {
 		equal := true
 		actualValue := actual.Credentials[key]
-		if (string)(*value.Username) != (string)(*actualValue.Username) {
+		if string(*value.Username) != string(*actualValue.Username) {
 			equal = false
 		}
-		if (string)(*value.Password) != (string)(*actualValue.Password) {
+		if string(*value.Password) != string(*actualValue.Password) {
 			equal = false
 		}
 		if value.URL.URL().String() != actualValue.URL.URL().String() {
@@ -245,14 +247,14 @@ func assertDeepEqualityMercurySecrets(expected toml.MercurySecrets, actual toml.
 		}
 		if !equal {
 			return fmt.Errorf("maps are not equal: expected[%s] = {%s, %s, %s}, actual[%s] = {%s, %s, %s}",
-				key, (string)(*value.Username), (string)(*value.Password), value.URL.URL().String(),
-				key, (string)(*actualValue.Username), (string)(*actualValue.Password), actualValue.URL.URL().String())
+				key, string(*value.Username), string(*value.Password), value.URL.URL().String(),
+				key, string(*actualValue.Username), string(*actualValue.Password), actualValue.URL.URL().String())
 		}
 	}
 	return nil
 }
 
-func merge(map1 toml.MercurySecrets, map2 toml.MercurySecrets) *toml.MercurySecrets {
+func merge(map1, map2 toml.MercurySecrets) *toml.MercurySecrets {
 	combinedMap := make(map[string]toml.MercuryCredentials)
 	maps.Copy(combinedMap, map1.Credentials)
 	maps.Copy(combinedMap, map2.Credentials)
