@@ -23,11 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -36,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 const TronEVMChainID = 3360022319
