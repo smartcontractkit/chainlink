@@ -111,7 +111,7 @@ func Test_GetCapabilityIDFromCommand(t *testing.T) {
 		},
 		{
 			name:     "http_action command",
-			command:  "http_action",
+			command:  "/usr/local/bin/http_action",
 			config:   "",
 			expected: "http-actions@1.0.0-alpha",
 		},

@@ -248,7 +248,7 @@ func (d *Delegate) NewServices(
 	// built-in defaults. This keeps job specs minimal while remaining backward
 	// compatible with specs that still carry these fields.
 	if d.capabilitiesCfg != nil {
-		switch command {
+		switch conversions.GetCommandFromCapabilityID(capabilityID) {
 		case "http_trigger":
 			configJSON = injectHTTPTriggerConfig(log, d.capabilitiesCfg.HTTPTrigger(), configJSON)
 		case "http_action":
