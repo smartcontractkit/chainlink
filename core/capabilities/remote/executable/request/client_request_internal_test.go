@@ -419,3 +419,21 @@ func TestClientRequest_trySendQuorumUnreachableError(t *testing.T) {
 	assert.Contains(t, capErrFromWrapped.Error(),
 		"[100]ConsensusFailed: response quorum unreachable: not enough matching capability responses: received 6/7 peer responses with 6 unique payloads; best match count 1, need 3 (1 responses pending)")
 }
+
+func Test_getPeerIDToTransmissionDelays(t *testing.T) {
+	t.Parallel()
+
+	peer1 := [32]byte(fmt.Appendf(nil, "%-32s", "one"))
+	peer2 := [32]byte(fmt.Appendf(nil, "%-32s", "two"))
+	peer3 := [32]byte(fmt.Appendf(nil, "%-32s", "three"))
+	peer4 := [32]byte(fmt.Appendf(nil, "%-32s", "four"))
+
+	ids := []p2ptypes.PeerID{peer1, peer2, peer3, peer4}
+
+	peerIDToDelay := getPeerIDToTransmissionDelays(ids)
+
+	assert.Len(t, peerIDToDelay, len(ids))
+	for _, id := range ids {
+		assert.Equal(t, time.Duration(0), peerIDToDelay[id])
+	}
+}
