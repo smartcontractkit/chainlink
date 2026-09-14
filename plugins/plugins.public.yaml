@@ -21,14 +21,6 @@ plugins:
       gitRef: "v0.0.0-20260827120130-362c4a408695"
       installPath: "./relayer/cmd/chainlink-sui"
 
-  cosmos:
-    - moduleURI: "github.com/smartcontractkit/chainlink-cosmos"
-      gitRef: "v0.5.2-0.20260219133256-b46d473fd6f5"
-      installPath: "./pkg/cosmos/cmd/chainlink-cosmos"
-      # These will be copied into /usr/lib in the container.
-      libs:
-        - /go/pkg/mod/github.com/!cosm!wasm/wasmvm@v*/internal/api/libwasmvm.*.so
-
   feeds:
     - moduleURI: "github.com/smartcontractkit/chainlink-feeds"
       gitRef: "v0.1.2-0.20250227211209-7cd000095135"
