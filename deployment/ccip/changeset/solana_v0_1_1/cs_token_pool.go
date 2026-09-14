@@ -451,14 +451,14 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
 		return cldf.ChangesetOutput{
-			AddressBook:           addressBook,
+			AddressBook:           addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:             ds,
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: addressBook,
+		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }
@@ -929,7 +929,7 @@ func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cld
 	}
 	e.Logger.Infow("Created multisig", "TokenMultisigAddress", newMultisig, "TokenMint", cfg.TokenMint)
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses,
+		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }
@@ -2134,7 +2134,7 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 
 	// the token pool lookup table is qualified by its full identity (token mint, pool type, metadata)
 	return cldf.ChangesetOutput{
-		AddressBook: newAddressBook,
+		AddressBook: newAddressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }
@@ -2203,7 +2203,6 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 	)
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
-		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		runSafely(func() {
 			solBurnMintTokenPool.SetProgramID(tokenPool)
 		})
@@ -2219,7 +2218,6 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 	case shared.LockReleaseTokenPool:
-		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		runSafely(func() {
 			solLockReleaseTokenPool.SetProgramID(tokenPool)
 		})
@@ -2334,7 +2332,6 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 	)
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
-		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		runSafely(func() {
 			solBurnMintTokenPool.SetProgramID(tokenPool)
 		})
@@ -2349,7 +2346,6 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 	case shared.LockReleaseTokenPool:
-		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		runSafely(func() {
 			solLockReleaseTokenPool.SetProgramID(tokenPool)
 		})
