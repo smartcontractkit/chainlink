@@ -68,7 +68,7 @@ type TestChainOpts struct {
 // allows to mock client/config on that chain
 func NewLegacyChains(t testing.TB, testopts TestChainOpts) *legacyevm.LegacyChains {
 	lggr, ks, opts := NewChainOpts(t, testopts)
-	cc, err := evmrelay.NewLegacyChainsAndConfig(lggr, ks, opts)
+	cc, err := evmrelay.NewLegacyChainsAndConfig(lggr, ks, opts) //nolint:staticcheck // test-only legacy default chain helper
 	require.NoError(t, err)
 	for _, c := range cc.Slice() {
 		servicetest.Run(t, c)
@@ -122,7 +122,7 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) (logger.Logger, keystore
 
 const NullClientChainID = evmclient.NullClientChainID
 
-// Deprecated, this is a replacement function for tests for now removed default evmChainID logic
+// MustGetDefaultChainID is a replacement function for tests for now removed default evmChainID logic
 func MustGetDefaultChainID(t testing.TB, evmCfgs configtoml.EVMConfigs) *big.Int {
 	if len(evmCfgs) == 0 {
 		t.Fatalf("at least one evm chain config must be defined")
@@ -135,7 +135,7 @@ func MustGetDefaultChainID(t testing.TB, evmCfgs configtoml.EVMConfigs) *big.Int
 	return chainID
 }
 
-// Deprecated, this is a replacement function for tests for now removed default chain logic
+// MustGetDefaultChain is a replacement function for tests for now removed default chain logic
 func MustGetDefaultChain(t testing.TB, cc legacyevm.LegacyChainContainer) legacyevm.Chain {
 	if len(cc.Slice()) == 0 {
 		t.Fatalf("at least one evm chain container must be defined")

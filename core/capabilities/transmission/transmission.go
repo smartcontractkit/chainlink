@@ -16,44 +16,52 @@ import (
 
 var (
 	// S = [N]
-	Schedule_AllAtOnce = "allAtOnce"
+	ScheduleAllAtOnce = "allAtOnce"
 	// S = [1 * N]
-	Schedule_OneAtATime = "oneAtATime"
+	ScheduleOneAtATime = "oneAtATime"
+
+	// Schedule_AllAtOnce is an alias retained for backward compatibility.
+	Schedule_AllAtOnce = ScheduleAllAtOnce //nolint:revive // backward compatibility
+	// Schedule_OneAtATime is an alias retained for backward compatibility.
+	Schedule_OneAtATime = ScheduleOneAtATime //nolint:revive // backward compatibility
 )
 
-type TransmissionConfig struct {
+type Config struct {
 	Schedule   string
 	DeltaStage time.Duration
 }
 
-func (tc *TransmissionConfig) String() string {
+// TransmissionConfig is an alias for Config retained for backward compatibility.
+type TransmissionConfig = Config //nolint:revive // backward compatibility
+
+func (tc *Config) String() string {
 	return fmt.Sprintf("[Schedule: %s, DeltaStage: %s]", tc.Schedule, tc.DeltaStage)
 }
 
-func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
+func ExtractTransmissionConfig(config *values.Map) (Config, error) {
 	var tc struct {
 		DeltaStage string
 		Schedule   string
 	}
 	err := config.UnwrapTo(&tc)
 	if err != nil {
-		return TransmissionConfig{}, fmt.Errorf("failed to unwrap transmission config from value map: %w", err)
+		return Config{}, fmt.Errorf("failed to unwrap transmission config from value map: %w", err)
 	}
 
 	// Default if no schedule and deltaStage is provided
 	if len(tc.Schedule) == 0 && len(tc.DeltaStage) == 0 {
-		return TransmissionConfig{
-			Schedule:   Schedule_AllAtOnce,
+		return Config{
+			Schedule:   ScheduleAllAtOnce,
 			DeltaStage: 0,
 		}, nil
 	}
 
 	duration, err := time.ParseDuration(tc.DeltaStage)
 	if err != nil {
-		return TransmissionConfig{}, fmt.Errorf("failed to parse DeltaStage %s as duration: %w", tc.DeltaStage, err)
+		return Config{}, fmt.Errorf("failed to parse DeltaStage %s as duration: %w", tc.DeltaStage, err)
 	}
 
-	return TransmissionConfig{
+	return Config{
 		Schedule:   tc.Schedule,
 		DeltaStage: duration,
 	}, nil
@@ -62,9 +70,9 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 func EnumToString(t capabilities.TransmissionSchedule) string {
 	switch t {
 	case capabilities.Schedule_AllAtOnce:
-		return Schedule_AllAtOnce
+		return ScheduleAllAtOnce
 	case capabilities.Schedule_OneAtATime:
-		return Schedule_OneAtATime
+		return ScheduleOneAtATime
 	default:
 		return "unknown"
 	}
@@ -86,7 +94,7 @@ func GetPeerIDToTransmissionDelay(donPeerIDs []types.PeerID, req capabilities.Ca
 	return GetPeerIDToTransmissionDelaysForConfig(donPeerIDs, workflowExecutionID, tc)
 }
 
-func GetPeerIDToTransmissionDelaysForConfig(donPeerIDs []types.PeerID, transmissionID string, tc TransmissionConfig) (map[types.PeerID]time.Duration, error) {
+func GetPeerIDToTransmissionDelaysForConfig(donPeerIDs []types.PeerID, transmissionID string, tc Config) (map[types.PeerID]time.Duration, error) {
 	donMemberCount := len(donPeerIDs)
 	key := transmissionScheduleSeed(transmissionID)
 	schedule, err := createTransmissionSchedule(tc.Schedule, donMemberCount)
@@ -119,13 +127,13 @@ func delayFor(position int, schedule []int, permutation []int, deltaStage time.D
 	return nil
 }
 
-func createTransmissionSchedule(scheduleType string, N int) ([]int, error) {
+func createTransmissionSchedule(scheduleType string, n int) ([]int, error) {
 	switch scheduleType {
-	case Schedule_AllAtOnce:
-		return []int{N}, nil
-	case Schedule_OneAtATime:
+	case ScheduleAllAtOnce:
+		return []int{n}, nil
+	case ScheduleOneAtATime:
 		sch := []int{}
-		for range N {
+		for range n {
 			sch = append(sch, 1)
 		}
 		return sch, nil

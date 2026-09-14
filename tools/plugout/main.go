@@ -438,7 +438,7 @@ func updateGitRefInYAML(pluginPath, module string, goModMV ModuleVersion) error 
 	}
 
 	newContent := strings.Join(lines, "\n")
-	if err := os.WriteFile(pluginPath, []byte(newContent), 0600); err != nil {
+	if err := os.WriteFile(pluginPath, []byte(newContent), 0600); err != nil { //nolint:gosec // pluginPath is constructed internally from module iteration
 		return fmt.Errorf("failed to write YAML file: %w", err)
 	}
 	return nil

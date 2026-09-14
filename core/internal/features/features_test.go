@@ -87,6 +87,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 	headers[webauth.APISecret] = secret
 
 	resp, cleanup := cltest.UnauthenticatedGet(t, url, headers)
+	defer resp.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 }

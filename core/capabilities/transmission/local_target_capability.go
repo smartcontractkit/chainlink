@@ -13,29 +13,29 @@ import (
 // the caller.
 type LocalTargetCapability struct {
 	lggr logger.Logger
-	capabilities.TargetCapability
+	capabilities.ExecutableCapability
 	localNode    capabilities.Node
 	capabilityID string
 }
 
-func NewLocalTargetCapability(lggr logger.Logger, capabilityID string, localDON capabilities.Node, underlying capabilities.TargetCapability) *LocalTargetCapability {
+func NewLocalTargetCapability(lggr logger.Logger, capabilityID string, localDON capabilities.Node, underlying capabilities.ExecutableCapability) *LocalTargetCapability {
 	return &LocalTargetCapability{
-		TargetCapability: underlying,
-		capabilityID:     capabilityID,
-		lggr:             lggr,
-		localNode:        localDON,
+		ExecutableCapability: underlying,
+		capabilityID:         capabilityID,
+		lggr:                 lggr,
+		localNode:            localDON,
 	}
 }
 
 func (l *LocalTargetCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	if l.localNode.PeerID == nil || l.localNode.WorkflowDON.ID == 0 {
 		l.lggr.Debug("empty DON info, executing immediately")
-		return l.TargetCapability.Execute(ctx, req)
+		return l.ExecutableCapability.Execute(ctx, req)
 	}
 
 	if req.Config == nil || req.Config.Underlying["schedule"] == nil {
 		l.lggr.Debug("no schedule found, executing immediately")
-		return l.TargetCapability.Execute(ctx, req)
+		return l.ExecutableCapability.Execute(ctx, req)
 	}
 
 	peerIDToTransmissionDelay, err := GetPeerIDToTransmissionDelay(l.localNode.WorkflowDON.Members, req)
@@ -52,6 +52,6 @@ func (l *LocalTargetCapability) Execute(ctx context.Context, req capabilities.Ca
 	case <-ctx.Done():
 		return capabilities.CapabilityResponse{}, ctx.Err()
 	case <-time.After(delay):
-		return l.TargetCapability.Execute(ctx, req)
+		return l.ExecutableCapability.Execute(ctx, req)
 	}
 }

@@ -21,8 +21,8 @@ type ORM interface {
 	CreateBridgeType(ctx context.Context, bt *BridgeType) error
 	UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error
 
-	GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error)
-	UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error
+	GetCachedResponse(ctx context.Context, dotID string, specID int32, maxElapsed time.Duration) ([]byte, error)
+	UpsertBridgeResponse(ctx context.Context, dotID string, specID int32, response []byte) error
 
 	ExternalInitiators(ctx context.Context, offset int, limit int) ([]ExternalInitiator, int, error)
 	CreateExternalInitiator(ctx context.Context, externalInitiator *ExternalInitiator) error
@@ -30,7 +30,7 @@ type ORM interface {
 	FindExternalInitiator(ctx context.Context, eia *auth.Token) (*ExternalInitiator, error)
 	FindExternalInitiatorByName(ctx context.Context, iname string) (exi ExternalInitiator, err error)
 
-	GetCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error)
+	GetCachedResponseWithFinished(ctx context.Context, dotID string, specID int32, maxElapsed time.Duration) ([]byte, time.Time, error)
 	BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeResponse) error
 
 	WithDataSource(sqlutil.DataSource) ORM
@@ -147,8 +147,8 @@ func (o *orm) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeT
 	return err
 }
 
-func (o *orm) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
-	response, _, err := o.GetCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
+func (o *orm) GetCachedResponse(ctx context.Context, dotID string, specID int32, maxElapsed time.Duration) ([]byte, error) {
+	response, _, err := o.GetCachedResponseWithFinished(ctx, dotID, specID, maxElapsed)
 	if err != nil {
 		return nil, err
 	}
@@ -156,13 +156,13 @@ func (o *orm) GetCachedResponse(ctx context.Context, dotId string, specId int32,
 	return response, nil
 }
 
-func (o *orm) GetCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
+func (o *orm) GetCachedResponseWithFinished(ctx context.Context, dotID string, specID int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
 	stalenessThreshold := time.Now().Add(-maxElapsed)
 	sql := `SELECT value, finished_at FROM bridge_last_value WHERE
-				dot_id = $1 AND 
-				spec_id = $2 AND 
-				finished_at > ($3)	
-				ORDER BY finished_at 
+				dot_id = $1 AND
+				spec_id = $2 AND
+				finished_at > ($3)
+				ORDER BY finished_at
 				DESC LIMIT 1;`
 
 	type responseType struct {
@@ -173,8 +173,8 @@ func (o *orm) GetCachedResponseWithFinished(ctx context.Context, dotId string, s
 	var result responseType
 
 	if err := pkgerrors.Wrap(
-		o.ds.GetContext(ctx, &result, sql, dotId, specId, stalenessThreshold),
-		fmt.Sprintf("failed to fetch last good value for task %s spec %d", dotId, specId),
+		o.ds.GetContext(ctx, &result, sql, dotID, specID, stalenessThreshold),
+		fmt.Sprintf("failed to fetch last good value for task %s spec %d", dotID, specID),
 	); err != nil {
 		return nil, time.Now(), err
 	}
@@ -182,19 +182,19 @@ func (o *orm) GetCachedResponseWithFinished(ctx context.Context, dotId string, s
 	return result.Value, result.FinishedAt, nil
 }
 
-func (o *orm) UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error {
-	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
+func (o *orm) UpsertBridgeResponse(ctx context.Context, dotID string, specID int32, response []byte) error {
+	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 				VALUES($1, $2, $3, $4)
 			ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 				DO UPDATE SET value = $3, finished_at = $4;`
 
-	_, err := o.ds.ExecContext(ctx, sql, dotId, specId, response, time.Now())
+	_, err := o.ds.ExecContext(ctx, sql, dotID, specID, response, time.Now())
 
 	return err
 }
 
 func (o *orm) BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeResponse) error {
-	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
+	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 			VALUES (:dot_id, :spec_id, :value, :finished_at)
 			ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 				DO UPDATE SET value = excluded.value, finished_at = excluded.finished_at;`
