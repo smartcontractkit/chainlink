@@ -82,7 +82,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		chainsInConfig = append(chainsInConfig, protocol.ChainSelector(parsed))
 	}
 
-	legacyChains, err := ccvcommon.GetLegacyChains(ctx, d.lggr, d.chainServices, chainsInConfig)
+	legacyChains, missingChains, err := ccvcommon.GetLegacyChains(ctx, d.lggr, d.chainServices, chainsInConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get legacy chains: %w", err)
 	}
@@ -90,22 +90,61 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	var roundRobins = make(map[protocol.ChainSelector]keys.RoundRobin, len(legacyChains))
 	var fromAddresses = make(map[protocol.ChainSelector][]common.Address, len(legacyChains))
 
+	// A chain that the keystore cannot serve is unusable for the executor, because it cannot
+	// transmit on it. Drop the chain and let the monitor report it, instead of stopping the job.
+	var unusable []protocol.ChainSelector
 	for chainSel := range legacyChains {
 		id, err3 := chainselectors.GetChainIDFromSelector(uint64(chainSel))
 		if err3 != nil {
-			return nil, fmt.Errorf("failed to get chain ID from selector (%d): %w", chainSel, err3)
+			d.lggr.Warnw("skipping chain: failed to get chain ID from selector", "chainSelector", chainSel, "err", err3)
+			unusable = append(unusable, chainSel)
+			continue
 		}
 		chainID, ok := new(big.Int).SetString(id, 10)
 		if !ok {
-			return nil, fmt.Errorf("failed to convert chain ID (%s) to big.Int: %w", id, err3)
+			d.lggr.Warnw("skipping chain: failed to convert chain ID to big.Int", "chainSelector", chainSel, "chainID", id)
+			unusable = append(unusable, chainSel)
+			continue
+		}
+
+		addressesForChain, err3 := d.ethKs.EnabledAddressesForChain(ctx, chainID)
+		if err3 != nil {
+			d.lggr.Warnw("skipping chain: failed to get addresses from eth keystore",
+				"chainSelector", chainSel, "chainID", chainID.String(), "err", err3)
+			unusable = append(unusable, chainSel)
+			continue
+		}
+		if len(addressesForChain) == 0 {
+			d.lggr.Warnw("skipping chain: no enabled address in the eth keystore",
+				"chainSelector", chainSel, "chainID", chainID.String())
+			unusable = append(unusable, chainSel)
+			continue
 		}
 
 		roundRobins[chainSel] = NewRoundRobin(d.ethKs, chainID)
-		addressesForChain, err3 := d.ethKs.EnabledAddressesForChain(ctx, chainID)
-		if err3 != nil {
-			return nil, fmt.Errorf("failed to get all addresses for chain %s from eth keystore: %w", chainID.String(), err3)
-		}
 		fromAddresses[chainSel] = addressesForChain
+	}
+	for _, chainSel := range unusable {
+		delete(legacyChains, chainSel)
+	}
+	missingChains = append(missingChains, unusable...)
+
+	if len(legacyChains) == 0 {
+		return nil, fmt.Errorf("no usable chain remains out of the %d chains in the configuration: %v",
+			len(chainsInConfig), chainsInConfig)
+	}
+
+	missingChainsMonitor, err := ccvcommon.NewMissingChainsMonitor(
+		d.lggr,
+		"CCVExecutor/"+decodedCfg.ExecutorID,
+		missingChains,
+		ccvcommon.DefaultMissingChainsReportInterval,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create missing chains monitor: %w", err)
+	}
+	if missingChainsMonitor != nil {
+		services = append(services, missingChainsMonitor)
 	}
 
 	// TODO: pass secrets as a separate param in the constructor.

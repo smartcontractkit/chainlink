@@ -102,8 +102,7 @@ func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableCon
 		remoteExecutableConfig = &commoncap.RemoteExecutableConfig{}
 	}
 	if messageHasher == nil {
-		r.lggr.Warn("no message hasher provided, using default V1 hasher")
-		messageHasher = NewV1Hasher(remoteExecutableConfig.RequestHashExcludedAttributes)
+		return errors.New("message hasher must be provided")
 	}
 	if capInfo.ID == "" || capInfo.ID != r.capabilityID {
 		return fmt.Errorf("capability info provided does not match the server's capabilityID: %s != %s", capInfo.ID, r.capabilityID)

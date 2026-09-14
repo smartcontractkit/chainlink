@@ -7,9 +7,11 @@
 | Command | Description | Replaces |
 |---|---|---|
 | `ci version` | Print version information (text or `--json`) | Custom version checks |
+| `ci runner spot` | Determine RunsOn runner spot setting based on GitHub events, branches, tags, and queue | Custom runner label logic |
 | `ci image resolve` | Resolve Chainlink Docker image URI (ECR public or SDLC) | `.github/scripts/resolve-chainlink-image.sh` |
 | `ci ccip resolve-baseline` | Resolve the CCIP release baseline image tag for mixed-version/rollout tests | `.github/scripts/resolve-ccip-release-baseline.sh` |
 | `ci changeset check-tags` | Validate semver in changeset frontmatter and check release tags | `.github/scripts/check-changeset-tags.sh` |
+| `ci tools matrix` | Generate test target matrix for tools directory | Inline matrix scripts |
 
 ## Usage
 

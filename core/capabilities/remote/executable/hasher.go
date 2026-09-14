@@ -20,44 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
-// V1 Capabilities only need a hasher for the ChainWrite Target.
-// This hasher excludes signatures from the Inputs map when hashing the request.
-type v1Hasher struct {
-	requestHashExcludedAttributes []string
-}
-
-func (r *v1Hasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byte, error) {
-	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
-	}
-
-	// An attribute called StepDependency is used to define a data dependency between steps,
-	// and not to provide input values; we should therefore disregard it when hashing the request
-	if len(r.requestHashExcludedAttributes) == 0 {
-		r.requestHashExcludedAttributes = []string{"StepDependency"}
-	}
-
-	for _, path := range r.requestHashExcludedAttributes {
-		if req.Inputs != nil {
-			req.Inputs.DeleteAtPath(path)
-		}
-	}
-
-	reqBytes, err := pb.MarshalCapabilityRequest(req)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
-	}
-	hash := sha256.Sum256(reqBytes)
-	return hash, nil
-}
-
-func NewV1Hasher(requestHashExcludedAttributes []string) types.MessageHasher {
-	return &v1Hasher{
-		requestHashExcludedAttributes: requestHashExcludedAttributes,
-	}
-}
-
 // V2 Capabilities (Executables) default to a simple hasher that hashes an
 // explicit allowlist of metadata fields. WriteReport methods use a hasher that
 // also excludes signatures from the WriteReportRequest.

@@ -8,6 +8,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -39,11 +40,12 @@ type handlerFactory struct {
 	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
 	lf                     limits.Factory
 	httpClientFactory      network.HTTPClientFactory
+	orgResolver            orgresolver.OrgResolver // optional; nil if the node isn't configured to resolve orgs (e.g. no Linking Service)
 }
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory) HandlerFactory {
+func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver) HandlerFactory {
 	return &handlerFactory{
 		legacyChains,
 		ds,
@@ -53,6 +55,7 @@ func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.D
 		workflowRegistrySyncer,
 		lf,
 		httpClientFactory,
+		orgResolver,
 	}
 }
 
@@ -81,7 +84,7 @@ func (hf *handlerFactory) NewHandler(
 	case WebAPICapabilitiesType:
 		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
 	case HTTPCapabilityType:
-		return v2.NewGatewayHandler(handlerConfig, shardedDONs, shardsConnMgrs, hf.httpClient, hf.lggr, hf.lf, hf.httpClientFactory)
+		return v2.NewGatewayHandler(handlerConfig, shardedDONs, shardsConnMgrs, hf.httpClient, hf.lggr, hf.lf, hf.httpClientFactory, hf.orgResolver)
 	case VaultHandlerType:
 		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	case ConfidentialRelayHandlerType:

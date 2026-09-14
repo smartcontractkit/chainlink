@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -36,11 +35,12 @@ func newChangesetCheckTagsCmd() *cobra.Command {
 		Short: "Check if at least one release tag exists in a changeset file",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			act := ghaction.NewAction(cmd.OutOrStdout())
 			if len(args) > 0 {
 				filePath = args[0]
 			}
 			if filePath == "" {
-				filePath = os.Getenv("CHANGESET_FILE_PATH")
+				filePath = act.GetInputOrEnv("file", "CHANGESET_FILE_PATH")
 			}
 			paths := strings.Fields(filePath)
 			if len(paths) == 0 {
@@ -70,8 +70,7 @@ func newChangesetCheckTagsCmd() *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "Error: No tags found in %s\n", filePath)
 			}
 
-			if os.Getenv("GITHUB_OUTPUT") != "" {
-				act := ghaction.New(cmd.OutOrStdout(), "", "")
+			if act.Getenv("GITHUB_OUTPUT") != "" {
 				if err := act.SetOutput("has_tags", strconv.FormatBool(res.HasTags)); err != nil {
 					return err
 				}

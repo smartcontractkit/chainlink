@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -97,7 +97,7 @@ jobs:
           echo "top_level_dir=$(pwd)" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Checkout .Github repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: smartcontractkit/.github

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 
 	"github.com/sethvargo/go-githubactions"
 )
@@ -15,6 +16,11 @@ type Action struct {
 	outputPath  string
 	envPath     string
 	summaryPath string
+}
+
+// NewAction creates a new Action context with default environment variable paths.
+func NewAction(out io.Writer) *Action {
+	return New(out, "", "")
 }
 
 // New creates a new Action context. If outputPath or envPath are empty,
@@ -73,6 +79,21 @@ func (a *Action) SetOutput(key, value string) error {
 	return nil
 }
 
+// SetOutputs writes multiple key-value pairs to GITHUB_OUTPUT file, or falls back to out when unset.
+func (a *Action) SetOutputs(outputs map[string]string) error {
+	keys := make([]string, 0, len(outputs))
+	for k := range outputs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if err := a.SetOutput(k, outputs[k]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SetEnv writes a key-value pair to GITHUB_ENV file, or falls back to out when unset.
 func (a *Action) SetEnv(key, value string) error {
 	if a.envPath == "" {
@@ -83,6 +104,15 @@ func (a *Action) SetEnv(key, value string) error {
 	return nil
 }
 
+// GetInputOrEnv returns the value of the given action input, falling back to
+// the given environment variable when the input is unset or empty.
+func (a *Action) GetInputOrEnv(inputKey, envKey string) string {
+	if v := a.GetInput(inputKey); v != "" {
+		return v
+	}
+	return a.Getenv(envKey)
+}
+
 // AddStepSummary writes markdown content to GITHUB_STEP_SUMMARY file, or falls back to out when unset.
 func (a *Action) AddStepSummary(markdown string) error {
 	if a.summaryPath == "" {
@@ -91,6 +121,11 @@ func (a *Action) AddStepSummary(markdown string) error {
 	}
 	a.Action.AddStepSummary(markdown)
 	return nil
+}
+
+// Context returns the typed GitHubContext populated from GitHub Actions environment variables and event payload.
+func (a *Action) Context() (*githubactions.GitHubContext, error) {
+	return a.Action.Context()
 }
 
 // WithGroup executes fn wrapped inside a group command block.

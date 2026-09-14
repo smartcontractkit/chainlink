@@ -164,6 +164,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 		})
 	case suite_config.SuiteScenarioDONTime:
 		t.Run("DON Time - "+topology, func(t *testing.T) {
+			if nonDeterminismCheckEnabled() {
+				t.Skip("DONTime registry launch requires all nodes to support jobless capability startup")
+			}
 			if parallelEnabled {
 				t.Parallel()
 			}
@@ -375,4 +378,13 @@ func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-ringocr-overrides.toml"),
 	)
 	ExecuteRingOCROverridesTest(t, testEnv)
+}
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_FailoverManualSwap(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-failover-don.toml"),
+	)
+	ExecuteFailoverManualSwapTest(t, testEnv)
 }

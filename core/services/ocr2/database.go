@@ -23,12 +23,10 @@ type db struct {
 	lggr         logger.SugaredLogger
 }
 
-var (
-	_ ocrtypes.Database = &db{}
-)
+var _ ocrtypes.Database = &db{}
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(ds sqlutil.DataSource, oracleSpecID int32, pluginID int32, lggr logger.Logger) *db {
+func NewDB(ds sqlutil.DataSource, oracleSpecID, pluginID int32, lggr logger.Logger) *db {
 	return &db{
 		ds:           ds,
 		oracleSpecID: oracleSpecID,
@@ -156,7 +154,7 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 		c.Transmitters = append(c.Transmitters, transmitter)
 	}
 
-	return
+	return c, err
 }
 
 func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
@@ -334,7 +332,7 @@ WHERE ocr2_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round 
 
 	err = errors.Wrap(err, "DeletePendingTransmission failed")
 
-	return
+	return err
 }
 
 func (d *db) DeletePendingTransmissionsOlderThan(ctx context.Context, t time.Time) (err error) {
@@ -347,7 +345,7 @@ WHERE ocr2_oracle_spec_id = $1 AND time < $2
 
 	err = errors.Wrap(err, "DeletePendingTransmissionsOlderThan failed")
 
-	return
+	return err
 }
 
 func (d *db) ReadProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string) (value []byte, err error) {
@@ -362,7 +360,7 @@ WHERE config_digest = $1 AND key = $2;
 
 	err = errors.Wrapf(err, "ReadProtocolState failed for job %d", d.oracleSpecID)
 
-	return
+	return value, err
 }
 
 func (d *db) WriteProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string, value []byte) (err error) {
@@ -376,7 +374,7 @@ ON CONFLICT (config_digest, key) DO UPDATE SET value = $3;`, configDigest, key, 
 
 	err = errors.Wrapf(err, "WriteProtocolState failed for job %d", d.oracleSpecID)
 
-	return
+	return err
 }
 
 // Defined for LibOCR 3.1, see: https://github.com/smartcontractkit/libocr/blob/babe0ec4e358262c3be15ea5bd24bb42370a0863/offchainreporting2plus/ocr3_1types/db.go#L10
@@ -392,7 +390,7 @@ WHERE config_digest = $1 and seq_nr = $2`,
 
 	err = errors.Wrapf(err, "ReadBlock failed for job %d", d.oracleSpecID)
 
-	return
+	return block, err
 }
 
 // Defined for LibOCR 3.1, see: https://github.com/smartcontractkit/libocr/blob/babe0ec4e358262c3be15ea5bd24bb42370a0863/offchainreporting2plus/ocr3_1types/db.go#L10
@@ -407,5 +405,5 @@ ON CONFLICT (config_digest, seq_nr) DO UPDATE SET block = $3;`, configDigest, se
 
 	err = errors.Wrapf(err, "WriteBlock failed for job %d", d.oracleSpecID)
 
-	return
+	return err
 }

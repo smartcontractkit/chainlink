@@ -22,16 +22,16 @@ const (
 	defaultProbeDelay    = 2 * time.Second
 )
 
-func newCcipCmd() *cobra.Command {
+func newCCIPCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ccip",
 		Short: "Commands for CCIP release operations",
 	}
-	cmd.AddCommand(newCcipResolveBaselineCmd())
+	cmd.AddCommand(newCCIPResolveBaselineCmd())
 	return cmd
 }
 
-func newCcipResolveBaselineCmd() *cobra.Command {
+func newCCIPResolveBaselineCmd() *cobra.Command {
 	var (
 		chainlinkVersion string
 		repo             string

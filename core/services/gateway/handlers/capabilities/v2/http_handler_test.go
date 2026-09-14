@@ -40,7 +40,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		lggr := logger.Test(t)
 
 		shardedDONs, connMgrs := shardedArgs(donConfig, mockDon)
-		handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+		handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.NotNil(t, handler.responseCache)
@@ -56,7 +56,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		lggr := logger.Test(t)
 
 		shardedDONs, connMgrs := shardedArgs(donConfig, mockDon)
-		handler, err := NewGatewayHandler(invalidConfig, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+		handler, err := NewGatewayHandler(invalidConfig, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
 		require.Error(t, err)
 		require.Nil(t, handler)
 	})
@@ -74,7 +74,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		lggr := logger.Test(t)
 
 		shardedDONs, connMgrs := shardedArgs(donConfig, mockDon)
-		handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+		handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.Equal(t, defaultCleanUpPeriodMs, handler.config.CleanUpPeriodMs) // Default value
@@ -436,7 +436,7 @@ func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 	lggr := logger.Test(t)
 
 	shardedDONs, connMgrs := shardedArgs(donConfig, mockDon)
-	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 	mockCache := newMockResponseCache()
@@ -499,7 +499,7 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandle
 	lggr := logger.Test(t)
 
 	shardedDONs, connMgrs := shardedArgs(donConfig, mockDon)
-	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 
@@ -1222,7 +1222,7 @@ func TestNewGatewayHandler_MultiShardCreatesRateLimitersForAllMembers(t *testing
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 
@@ -1272,7 +1272,7 @@ func TestGatewayHandler_SendResponseToNode_MultiShardRouting(t *testing.T) {
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 
