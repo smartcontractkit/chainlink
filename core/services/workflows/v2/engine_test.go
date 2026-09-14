@@ -2421,7 +2421,7 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 
 	// Create a real capabilities registry and set our updatable local registry
 	capRegistry := capreg.NewRegistry(lggr)
-	capRegistry.SetMetadataRegistry(localRegistry)
+	capRegistry.SetRegistryMetadata(localRegistry)
 
 	// Create a real engine configuration
 	engine, cfg := createTestEngineForDonVersionTest(t, lggr, capRegistry, donNotifier, trackingEmitter)
@@ -3172,7 +3172,7 @@ func (c *TriggerCapabilityWrapper) Info(ctx context.Context) (capabilities.Capab
 // updatableRegistry wraps LocalRegistry to allow thread-safe updates during testing
 // and implements the full CapabilitiesRegistry interface
 type updatableRegistry struct {
-	localRegistry *capreg.MetadataRegistry
+	localRegistry *capreg.RegistryMetadata
 	mu            sync.RWMutex
 }
 

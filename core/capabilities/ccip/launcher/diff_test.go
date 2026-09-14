@@ -17,8 +17,8 @@ import (
 func Test_diff(t *testing.T) {
 	type args struct {
 		capabilityID string
-		oldState     *registry.MetadataRegistry
-		newState     *registry.MetadataRegistry
+		oldState     *registry.RegistryMetadata
+		newState     *registry.RegistryMetadata
 	}
 	tests := []struct {
 		name    string
@@ -30,7 +30,7 @@ func Test_diff(t *testing.T) {
 			name: "no diff",
 			args: args{
 				capabilityID: defaultCapability.ID,
-				oldState: &registry.MetadataRegistry{
+				oldState: &registry.RegistryMetadata{
 					IDsToCapabilities: map[string]registry.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
@@ -39,7 +39,7 @@ func Test_diff(t *testing.T) {
 					},
 					IDsToNodes: map[types.PeerID]registry.NodeInfo{},
 				},
-				newState: &registry.MetadataRegistry{
+				newState: &registry.RegistryMetadata{
 					IDsToCapabilities: map[string]registry.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
@@ -59,12 +59,12 @@ func Test_diff(t *testing.T) {
 			"capability not present",
 			args{
 				capabilityID: defaultCapability.ID,
-				oldState: &registry.MetadataRegistry{
+				oldState: &registry.RegistryMetadata{
 					IDsToCapabilities: map[string]registry.Capability{
 						newCapability.ID: newCapability,
 					},
 				},
-				newState: &registry.MetadataRegistry{
+				newState: &registry.RegistryMetadata{
 					IDsToCapabilities: map[string]registry.Capability{
 						newCapability.ID: newCapability,
 					},
@@ -77,13 +77,13 @@ func Test_diff(t *testing.T) {
 			"diff present, new don",
 			args{
 				capabilityID: defaultCapability.ID,
-				oldState: &registry.MetadataRegistry{
+				oldState: &registry.RegistryMetadata{
 					IDsToCapabilities: map[string]registry.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
 					IDsToDONs: map[registry.DonID]registry.DON{},
 				},
-				newState: &registry.MetadataRegistry{
+				newState: &registry.RegistryMetadata{
 					IDsToCapabilities: map[string]registry.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
@@ -200,7 +200,7 @@ func Test_compareDONs(t *testing.T) {
 func Test_filterCCIPDONs(t *testing.T) {
 	type args struct {
 		ccipCapability registry.Capability
-		state          *registry.MetadataRegistry
+		state          *registry.RegistryMetadata
 	}
 	tests := []struct {
 		name    string
@@ -212,7 +212,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 			"one ccip don",
 			args{
 				ccipCapability: defaultCapability,
-				state: &registry.MetadataRegistry{
+				state: &registry.RegistryMetadata{
 					IDsToDONs: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
@@ -227,7 +227,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 			"no ccip dons - different capability",
 			args{
 				ccipCapability: newCapability,
-				state: &registry.MetadataRegistry{
+				state: &registry.RegistryMetadata{
 					IDsToDONs: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
@@ -240,7 +240,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 			"don with multiple capabilities, one of them ccip",
 			args{
 				ccipCapability: defaultCapability,
-				state: &registry.MetadataRegistry{
+				state: &registry.RegistryMetadata{
 					IDsToDONs: map[registry.DonID]registry.DON{
 						1: {
 							DON: getDON(1, []ragep2ptypes.PeerID{p2pID1}, 0),
@@ -280,7 +280,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 func Test_checkCapabilityPresence(t *testing.T) {
 	type args struct {
 		capabilityID string
-		state        *registry.MetadataRegistry
+		state        *registry.RegistryMetadata
 	}
 	tests := []struct {
 		name    string
@@ -292,7 +292,7 @@ func Test_checkCapabilityPresence(t *testing.T) {
 			"in registry state",
 			args{
 				capabilityID: defaultCapability.ID,
-				state: &registry.MetadataRegistry{
+				state: &registry.RegistryMetadata{
 					IDsToCapabilities: map[string]registry.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
@@ -305,7 +305,7 @@ func Test_checkCapabilityPresence(t *testing.T) {
 			"not in registry state",
 			args{
 				capabilityID: defaultCapability.ID,
-				state: &registry.MetadataRegistry{
+				state: &registry.RegistryMetadata{
 					IDsToCapabilities: map[string]registry.Capability{
 						newCapability.ID: newCapability,
 					},

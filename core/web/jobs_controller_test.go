@@ -586,7 +586,7 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 
 	// Seed a local test metadata registry so workflow jobs can resolve local
 	// node state without an on-chain capabilities registry.
-	app.GetCapabilitiesRegistry().SetMetadataRegistry(&registry.TestMetadataRegistry{})
+	app.GetCapabilitiesRegistry().SetRegistryMetadata(&registry.TestRegistryMetadata{})
 
 	client := app.NewHTTPClient(nil)
 	vrfKeyStore := app.GetKeyStore().VRF()

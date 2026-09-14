@@ -27,7 +27,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	lggr := logger.Test(t)
 	orm := registrysyncer.NewORM(db, lggr)
 
-	var states []registry.MetadataRegistry
+	var states []registry.RegistryMetadata
 	for range 11 {
 		state := generateState(t)
 		err := orm.AddLocalRegistry(ctx, state)
@@ -45,7 +45,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	assert.Equal(t, states[10], *state)
 }
 
-func generateState(t *testing.T) registry.MetadataRegistry {
+func generateState(t *testing.T) registry.RegistryMetadata {
 	dID := uint32(1)
 	var pid types.PeerID
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
@@ -67,7 +67,7 @@ func generateState(t *testing.T) registry.MetadataRegistry {
 	configb, err := proto.Marshal(config)
 	require.NoError(t, err)
 
-	return registry.MetadataRegistry{
+	return registry.RegistryMetadata{
 		IDsToDONs: map[registry.DonID]registry.DON{
 			registry.DonID(dID): {
 				DON: capabilities.DON{

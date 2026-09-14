@@ -12,8 +12,8 @@ import (
 )
 
 type ORM interface {
-	AddLocalRegistry(ctx context.Context, localRegistry registry.MetadataRegistry) error
-	LatestLocalRegistry(ctx context.Context) (*registry.MetadataRegistry, error)
+	AddLocalRegistry(ctx context.Context, localRegistry registry.RegistryMetadata) error
+	LatestLocalRegistry(ctx context.Context) (*registry.RegistryMetadata, error)
 }
 
 type orm struct {
@@ -31,7 +31,7 @@ func NewORM(ds sqlutil.DataSource, lggr logger.Logger) orm {
 	}
 }
 
-func (orm orm) AddLocalRegistry(ctx context.Context, metadataRegistry registry.MetadataRegistry) error {
+func (orm orm) AddLocalRegistry(ctx context.Context, metadataRegistry registry.RegistryMetadata) error {
 	orm.lggr.Debugw("Adding local registry to DB...")
 	return sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
 		localRegistryJSON, err := metadataRegistry.MarshalJSON()
@@ -71,8 +71,8 @@ WHERE data_hash NOT IN (
 	})
 }
 
-func (orm orm) LatestLocalRegistry(ctx context.Context) (*registry.MetadataRegistry, error) {
-	var localRegistry registry.MetadataRegistry
+func (orm orm) LatestLocalRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
+	var localRegistry registry.RegistryMetadata
 	var localRegistryJSON string
 	err := orm.ds.GetContext(ctx, &localRegistryJSON, `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
 	if err != nil {

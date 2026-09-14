@@ -117,7 +117,7 @@ func (s *ocrConfigService) HealthReport() map[string]error {
 
 // OnNewRegistry implements registrysyncer.Listener to receive registry updates with capability configurations.
 // It scans DONs to find which one(s) the current node belongs to and extracts OCR configs only for those DONs.
-func (s *ocrConfigService) OnNewRegistry(ctx context.Context, registry *registry.MetadataRegistry) error {
+func (s *ocrConfigService) OnNewRegistry(ctx context.Context, registry *registry.RegistryMetadata) error {
 	if ok := s.IfStarted(func() {}); !ok {
 		s.lggr.Warnw("OnNewRegistry called before service started, skipping")
 		return nil

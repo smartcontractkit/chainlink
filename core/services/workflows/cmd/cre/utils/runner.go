@@ -47,7 +47,7 @@ var emptyBeforeStart = func(context.Context, RunnerConfig, *capreg.Registry, []s
 
 var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capreg.Registry, []services.Service) {
 	registry := capreg.NewRegistry(cfg.Lggr)
-	registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+	registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 
 	srvcs := []services.Service{}
 	if cfg.EnableBilling {

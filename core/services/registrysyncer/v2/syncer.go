@@ -25,7 +25,7 @@ import (
 )
 
 type Listener interface {
-	OnNewRegistry(ctx context.Context, registry *registry.MetadataRegistry) error
+	OnNewRegistry(ctx context.Context, registry *registry.RegistryMetadata) error
 }
 
 type Syncer interface {
@@ -60,7 +60,7 @@ type registrySyncer struct {
 
 	orm registrysyncer.ORM
 
-	updateChan chan *registry.MetadataRegistry
+	updateChan chan *registry.RegistryMetadata
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -87,7 +87,7 @@ func New(
 	return &registrySyncer{
 		metrics:    metricLabeler,
 		stopCh:     make(services.StopChan),
-		updateChan: make(chan *registry.MetadataRegistry),
+		updateChan: make(chan *registry.RegistryMetadata),
 		lggr:       logger.Named(lggr, "RegistrySyncer"),
 		relayer:    relayer,
 		capabilitiesContract: types.BoundContract{
@@ -226,7 +226,7 @@ func (s *registrySyncer) updateStateLoop() {
 	}
 }
 
-func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.MetadataRegistry, error) {
+func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
 	caps := []capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo{}
 	// TODO support pagination if needed
 	// Using large limit for now to avoid pagination complexity
@@ -311,7 +311,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.M
 		idsToNodes[node.P2pId] = nodeInfo
 	}
 
-	return &registry.MetadataRegistry{
+	return &registry.RegistryMetadata{
 		Logger:            s.lggr,
 		GetPeerID:         s.getPeerID,
 		IDsToDONs:         idsToDONs,
@@ -338,7 +338,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		s.reader = reader
 	}
 
-	var latestRegistry *registry.MetadataRegistry
+	var latestRegistry *registry.RegistryMetadata
 	var err error
 
 	if isInitialSync {
@@ -375,7 +375,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	for _, listener := range s.listeners {
-		lrCopy := registry.DeepCopyLocalRegistry(latestRegistry)
+		lrCopy := registry.DeepCopyRegistryMetadata(latestRegistry)
 		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)

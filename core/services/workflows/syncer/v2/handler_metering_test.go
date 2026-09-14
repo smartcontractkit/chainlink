@@ -127,7 +127,7 @@ func newMeteringTestHandler(t *testing.T, artifactsStore WorkflowArtifactsStore,
 	lggr := logger.TestLogger(t)
 	lf := limits.Factory{Logger: lggr}
 	registry := capreg.NewRegistry(lggr)
-	registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+	registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -527,7 +527,7 @@ func newMeteringTestHandlerWithOrg(t *testing.T, artifactsStore WorkflowArtifact
 	lggr := logger.TestLogger(t)
 	lf := limits.Factory{Logger: lggr}
 	registry := capreg.NewRegistry(lggr)
-	registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+	registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)

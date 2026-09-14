@@ -518,7 +518,7 @@ func Test_launcher_processDiff(t *testing.T) {
 		homeChainReader *mocks.HomeChainReader
 		oracleCreator   *mocks.OracleCreator
 		instances       map[registry.DonID]pluginRegistry
-		regState        *registry.MetadataRegistry
+		regState        *registry.RegistryMetadata
 	}
 	type args struct {
 		diff diffResult
@@ -547,7 +547,7 @@ func Test_launcher_processDiff(t *testing.T) {
 							}),
 					},
 				},
-				regState: &registry.MetadataRegistry{
+				regState: &registry.RegistryMetadata{
 					IDsToDONs: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
@@ -614,7 +614,7 @@ func Test_launcher_processDiff(t *testing.T) {
 						Return(execOracle, nil)
 				}),
 				instances: map[registry.DonID]pluginRegistry{},
-				regState: &registry.MetadataRegistry{
+				regState: &registry.RegistryMetadata{
 					IDsToDONs: map[registry.DonID]registry.DON{},
 				},
 			},
@@ -700,7 +700,7 @@ func Test_launcher_processDiff(t *testing.T) {
 						}, func(m *mocks.CCIPOracle) {}),
 					},
 				},
-				regState: &registry.MetadataRegistry{
+				regState: &registry.RegistryMetadata{
 					IDsToDONs: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
@@ -768,7 +768,7 @@ func Test_launcher_processDiff(t *testing.T) {
 						Return(execOracle, nil)
 				}),
 				instances: map[registry.DonID]pluginRegistry{},
-				regState: &registry.MetadataRegistry{
+				regState: &registry.RegistryMetadata{
 					IDsToDONs: map[registry.DonID]registry.DON{},
 				},
 			},

@@ -178,7 +178,7 @@ func Test_Handler(t *testing.T) {
 		emitter := custmsg.NewLabeler()
 		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capreg.NewRegistry(lggr)
-		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+		registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 		mockORM := mocks.NewORM(t)
@@ -790,7 +790,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 
 		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capreg.NewRegistry(lggr)
-		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+		registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 		trigger := &fireOnceTrigger{testActionBase{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test capture")}, triggerResponse}
 		require.NoError(t, registry.Add(ctx, trigger))
 		action := &captureAction{
@@ -906,7 +906,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 
 		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capreg.NewRegistry(lggr)
-		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+		registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 		trigger := &fireOnceTrigger{testActionBase{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test capture")}, triggerResponse}
 		require.NoError(t, registry.Add(ctx, trigger))
 		action := &captureAction{
@@ -1000,7 +1000,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capreg.NewRegistry(lggr)
-		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+		registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -1159,7 +1159,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		er := NewEngineRegistry()
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capreg.NewRegistry(lggr)
-		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+		registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -1235,7 +1235,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		er := NewEngineRegistry()
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capreg.NewRegistry(lggr)
-		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+		registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -1313,7 +1313,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		er := NewEngineRegistry()
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capreg.NewRegistry(lggr)
-		registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+		registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -1497,7 +1497,7 @@ func Test_eventHandler_StartsAndStopsWorkflowStore(t *testing.T) {
 	lf := limits.Factory{Logger: lggr}
 	emitter := custmsg.NewLabeler()
 	registry := capreg.NewRegistry(lggr)
-	registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+	registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
@@ -1738,7 +1738,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	er := NewEngineRegistry()
 	store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	registry := capreg.NewRegistry(lggr)
-	registry.SetMetadataRegistry(&capreg.TestMetadataRegistry{})
+	registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)

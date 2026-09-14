@@ -84,7 +84,7 @@ func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registry.MetadataRegistry{
+	registry := &registry.RegistryMetadata{
 		Logger: lggr,
 		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
@@ -141,7 +141,7 @@ func TestOCRConfigService_GetContractConfig(t *testing.T) {
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registry.MetadataRegistry{
+	registry := &registry.RegistryMetadata{
 		Logger: lggr,
 		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
@@ -218,7 +218,7 @@ func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registry.MetadataRegistry{
+	registry := &registry.RegistryMetadata{
 		Logger: lggr,
 		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
@@ -300,7 +300,7 @@ func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registry.MetadataRegistry{
+	registry := &registry.RegistryMetadata{
 		Logger: lggr,
 		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
@@ -356,7 +356,7 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 	}
 	don1.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry1 := &registry.MetadataRegistry{
+	registry1 := &registry.RegistryMetadata{
 		Logger: lggr,
 		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don1,
@@ -399,7 +399,7 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 	}
 	don2.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry2 := &registry.MetadataRegistry{
+	registry2 := &registry.RegistryMetadata{
 		Logger: lggr,
 		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don2,
@@ -454,7 +454,7 @@ func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registry.MetadataRegistry{
+	registry := &registry.RegistryMetadata{
 		Logger: lggr,
 		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
@@ -508,7 +508,7 @@ func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registry.MetadataRegistry{
+	registry := &registry.RegistryMetadata{
 		Logger: lggr,
 		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
@@ -571,7 +571,7 @@ func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registry.MetadataRegistry{
+	registry := &registry.RegistryMetadata{
 		Logger: lggr,
 		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
@@ -614,7 +614,7 @@ func TestOCRConfigService_LegacyFallbackAfterRegistryReceived(t *testing.T) {
 	require.Error(t, err) // No registry received yet, no fallback.
 
 	// Send an empty registry update (no config for this capability).
-	registry := &registry.MetadataRegistry{
+	registry := &registry.RegistryMetadata{
 		Logger:            lggr,
 		IDsToDONs:         map[registry.DonID]registry.DON{},
 		IDsToNodes:        map[ragetypes.PeerID]registry.NodeInfo{},
@@ -693,7 +693,7 @@ func TestOCRConfigService_MultipleOCRKeys(t *testing.T) {
 	}
 	don.Members = []ragetypes.PeerID{testPeerID()}
 
-	registry := &registry.MetadataRegistry{
+	registry := &registry.RegistryMetadata{
 		Logger: lggr,
 		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don,
@@ -766,7 +766,7 @@ func TestOCRConfigService_DONMembershipFiltering(t *testing.T) {
 	}
 	don2.Members = []ragetypes.PeerID{otherPeerID} // Node not a member
 
-	registry := &registry.MetadataRegistry{
+	registry := &registry.RegistryMetadata{
 		Logger: lggr,
 		IDsToDONs: map[registry.DonID]registry.DON{
 			1: don1,

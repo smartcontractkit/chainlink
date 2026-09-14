@@ -760,15 +760,15 @@ func newNodes(count int) []ragetypes.PeerID {
 	return nodes
 }
 
-func buildLocalRegistry() *regpkg.MetadataRegistry {
-	return &regpkg.MetadataRegistry{
+func buildLocalRegistry() *regpkg.RegistryMetadata {
+	return &regpkg.RegistryMetadata{
 		IDsToDONs:         make(map[regpkg.DonID]regpkg.DON),
 		IDsToCapabilities: make(map[string]regpkg.Capability),
 		IDsToNodes:        make(map[ragetypes.PeerID]regpkg.NodeInfo),
 	}
 }
 
-func addDON(registry *regpkg.MetadataRegistry, donID uint32, configVersion uint32, f uint8, isPublic bool, acceptsWorkflows bool, members []ragetypes.PeerID, families []string, operatorID uint32, hashedCapabilityIDs [][32]byte) {
+func addDON(registry *regpkg.RegistryMetadata, donID uint32, configVersion uint32, f uint8, isPublic bool, acceptsWorkflows bool, members []ragetypes.PeerID, families []string, operatorID uint32, hashedCapabilityIDs [][32]byte) {
 	registry.IDsToDONs[regpkg.DonID(donID)] = regpkg.DON{
 		DON: capabilities.DON{
 			ID:               donID,
@@ -794,7 +794,7 @@ func addDON(registry *regpkg.MetadataRegistry, donID uint32, configVersion uint3
 	}
 }
 
-func addCapabilityToDON(registry *regpkg.MetadataRegistry, donID uint32, capabilityID string, capabilityType capabilities.CapabilityType, config []byte) {
+func addCapabilityToDON(registry *regpkg.RegistryMetadata, donID uint32, capabilityID string, capabilityType capabilities.CapabilityType, config []byte) {
 	don := registry.IDsToDONs[regpkg.DonID(donID)]
 	don.CapabilityConfigurations[capabilityID] = regpkg.CapabilityConfiguration{
 		Config: config,

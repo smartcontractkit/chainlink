@@ -106,7 +106,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 	cipher, err := tdh2easy.Encrypt(vaultPublicKey, []byte(rawSecret))
 	require.NoError(t, err)
@@ -285,7 +285,7 @@ func TestSecretsFetcher_DecryptsBinaryShares(t *testing.T) {
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 	cipher, err := tdh2easy.Encrypt(vaultPublicKey, []byte(rawSecret))
 	require.NoError(t, err)
@@ -400,7 +400,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 	owner := "1234567890abcdef1234567890abcdef12345678"
 
 	sf := NewSecretsFetcher(
@@ -435,7 +435,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := registry.NewRegistry(lggr)
 	peer := RandomUTF8BytesWord()
-	reg.SetMetadataRegistry(CreateLocalRegistry(t, peer))
+	reg.SetRegistryMetadata(CreateLocalRegistry(t, peer))
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return nil, errors.New("could not authorize the request")
@@ -449,7 +449,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 	owner := "1234567890abcdef1234567890abcdef12345678"
 	sf := NewSecretsFetcher(
@@ -490,7 +490,7 @@ func TestSecretsFetcher_VaultCapabilityRequestOmitsWorkflowIDMetadata(t *testing
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 	owner := "1234567890abcdef1234567890abcdef12345678"
 	normalizedOwner, err := normalizeOwner(owner)
@@ -552,7 +552,7 @@ func TestSecretsFetcher_VaultBatchLeavesOrgAndWorkflowIdentityUnset(t *testing.T
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 	owner := "1234567890abcdef1234567890abcdef12345678"
 	normalizedOwner, err := normalizeOwner(owner)
@@ -632,7 +632,7 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 	owner := "1234567890abcdef1234567890abcdef12345678"
 	normalizedOwner, err := normalizeOwner(owner)
@@ -712,7 +712,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 	sf := NewSecretsFetcher(
 		MetricsLabelerTest(t),
@@ -760,7 +760,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 	cipher, err := tdh2easy.Encrypt(vaultPublicKey, []byte(plainText1))
 	require.NoError(t, err)
@@ -850,7 +850,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 	assert.Contains(t, errVal.Error, "not enough decryption shares to decrypt the secret")
 }
 
-func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registry.MetadataRegistry {
+func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registry.RegistryMetadata {
 	workflowDonNodes := []p2ptypes.PeerID{
 		pid,
 		RandomUTF8BytesWord(),
@@ -859,7 +859,7 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registry.MetadataR
 	}
 
 	dID := uint32(1)
-	localRegistry := registry.NewMetadataRegistry(
+	localRegistry := registry.NewRegistryMetadata(
 		logger.TestLogger(t),
 		func() (p2ptypes.PeerID, error) { return pid, nil },
 		map[registry.DonID]registry.DON{
@@ -914,7 +914,7 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registry.MetadataR
 	return &localRegistry
 }
 
-func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPublicKey [32]byte, vaultPublicKey []byte) *registry.MetadataRegistry {
+func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPublicKey [32]byte, vaultPublicKey []byte) *registry.RegistryMetadata {
 	workflowDonNodes := []p2ptypes.PeerID{
 		pid,
 	}
@@ -931,7 +931,7 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 
 	require.NoError(t, err)
 	dID := uint32(1)
-	localRegistry := registry.NewMetadataRegistry(
+	localRegistry := registry.NewRegistryMetadata(
 		logger.TestLogger(t),
 		func() (p2ptypes.PeerID, error) { return pid, nil },
 		map[registry.DonID]registry.DON{
@@ -982,7 +982,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 	semaphore := limits.WorkflowResourcePoolLimiter[int](5)
 	// bound limiter of 1 call allowed
@@ -1035,7 +1035,7 @@ func TestSecretsFetcher_VaultFirstThenLocalOverridesForVaultFailures(t *testing.
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 	cipher, err := tdh2easy.Encrypt(vaultPublicKey, []byte(rawSecret))
 	require.NoError(t, err)
@@ -1156,7 +1156,7 @@ func TestSecretsFetcher_LocalOverridesWhenVaultExecuteFails(t *testing.T) {
 	require.NoError(t, err)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	reg.SetMetadataRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 	var vaultCalls int
 	mc := vaultMock.Vault{

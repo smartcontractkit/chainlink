@@ -21,7 +21,7 @@ type diffResult struct {
 func diff(
 	capabilityID string,
 	oldState,
-	newState *registry.MetadataRegistry,
+	newState *registry.RegistryMetadata,
 ) (diffResult, error) {
 	ccipCapability, err := checkCapabilityPresence(capabilityID, newState)
 	if err != nil {
@@ -87,7 +87,7 @@ func compareDONs(
 // filterCCIPDONs filters the CCIP DONs from the given state.
 func filterCCIPDONs(
 	ccipCapability registry.Capability,
-	state *registry.MetadataRegistry,
+	state *registry.RegistryMetadata,
 ) (map[registry.DonID]registry.DON, error) {
 	ccipDONs := make(map[registry.DonID]registry.DON)
 	for _, don := range state.IDsToDONs {
@@ -104,7 +104,7 @@ func filterCCIPDONs(
 // is present in the given capability registry state.
 func checkCapabilityPresence(
 	capabilityID string,
-	state *registry.MetadataRegistry,
+	state *registry.RegistryMetadata,
 ) (registry.Capability, error) {
 	// Sanity check to make sure the capability registry has the capability we are looking for.
 	ccipCapability, ok := state.IDsToCapabilities[capabilityID]

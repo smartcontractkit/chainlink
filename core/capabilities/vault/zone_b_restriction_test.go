@@ -56,7 +56,7 @@ func newZoneBTestCapability(t *testing.T, settingsJSON string) *Capability {
 	handler := requests.NewHandler(lggr, store, clock, expiry)
 
 	reg := registry.NewRegistry(lggr)
-	reg.SetMetadataRegistry(&fakeMetadataRegistry{dons: map[uint32]capabilities.DON{
+	reg.SetRegistryMetadata(&fakeMetadataRegistry{dons: map[uint32]capabilities.DON{
 		zoneBDonID:          {ID: zoneBDonID, Name: "workflow_1_zone-b", Families: []string{"zone-b"}},
 		zoneADonID:          {ID: zoneADonID, Name: "workflow_1_zone-a", Families: []string{"zone-a"}},
 		zoneBMixedCaseDonID: {ID: zoneBMixedCaseDonID, Name: "workflow_1_zone-b_mixed", Families: []string{"Zone-B"}},
@@ -232,7 +232,7 @@ func newOutageTestRestrictor(t *testing.T, settingsJSON string) (*zoneBRestricto
 		zoneADonID: {ID: zoneADonID, Name: "workflow_1_zone-a", Families: []string{"zone-a"}},
 		zoneBDonID: {ID: zoneBDonID, Name: "workflow_1_zone-b", Families: []string{"zone-b"}},
 	}}
-	reg.SetMetadataRegistry(fake)
+	reg.SetRegistryMetadata(fake)
 
 	getter, err := settings.NewJSONGetter([]byte(settingsJSON))
 	require.NoError(t, err)

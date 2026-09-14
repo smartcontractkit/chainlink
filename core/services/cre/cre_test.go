@@ -19,7 +19,7 @@ type registryListenerStub struct {
 	name string
 }
 
-func (*registryListenerStub) OnNewRegistry(context.Context, *registry.MetadataRegistry) error {
+func (*registryListenerStub) OnNewRegistry(context.Context, *registry.RegistryMetadata) error {
 	return nil
 }
 

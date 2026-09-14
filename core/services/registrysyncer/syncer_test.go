@@ -131,11 +131,11 @@ func randomWord() [32]byte {
 }
 
 type launcher struct {
-	localRegistry *registry.MetadataRegistry
+	localRegistry *registry.RegistryMetadata
 	mu            sync.RWMutex
 }
 
-func (l *launcher) OnNewRegistry(_ context.Context, localRegistry *registry.MetadataRegistry) error {
+func (l *launcher) OnNewRegistry(_ context.Context, localRegistry *registry.RegistryMetadata) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.localRegistry = localRegistry
@@ -166,7 +166,7 @@ func (o *orm) Cleanup() {
 	close(o.addLocalRegistryCh)
 }
 
-func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registry.MetadataRegistry) error {
+func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registry.RegistryMetadata) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.addLocalRegistryCh <- struct{}{}
@@ -174,7 +174,7 @@ func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registry.Metad
 	return err
 }
 
-func (o *orm) LatestLocalRegistry(ctx context.Context) (*registry.MetadataRegistry, error) {
+func (o *orm) LatestLocalRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.latestLocalRegistryCh <- struct{}{}
@@ -500,7 +500,7 @@ func TestSyncer_LocalNode(t *testing.T) {
 	// The below state describes a Workflow DON (AcceptsWorkflows = true),
 	// which exposes the streams-trigger and write_chain capabilities.
 	// We expect receivers to be wired up and both capabilities to be added to the registry.
-	localRegistry := registry.NewMetadataRegistry(
+	localRegistry := registry.NewRegistryMetadata(
 		lggr,
 		func() (p2ptypes.PeerID, error) { return pid, nil },
 		map[registry.DonID]registry.DON{
