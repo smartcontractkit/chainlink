@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBatchSplit(t *testing.T) {
-	list := []int{}
+	list := make([]int, 0, 100)
 	for i := range 100 {
 		list = append(list, i)
 	}
@@ -38,7 +39,7 @@ func TestBatchSplit(t *testing.T) {
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Len(t, batch, r.num) // check number of batches
 
 			temp := []int{}

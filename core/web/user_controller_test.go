@@ -72,6 +72,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 			t.Parallel()
 
 			resp, cleanup := client.Patch("/v2/user/password", bytes.NewBufferString(tc.reqBody))
+			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 
@@ -168,6 +169,7 @@ func TestUserController_CreateUser(t *testing.T) {
 			t.Parallel()
 
 			resp, cleanup := client.Post("/v2/users", bytes.NewBufferString(tc.reqBody))
+			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 
@@ -217,6 +219,7 @@ func TestUserController_UpdateRole(t *testing.T) {
 			t.Parallel()
 
 			resp, cleanup := client.Patch("/v2/users", bytes.NewBufferString(tc.reqBody))
+			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 
@@ -242,6 +245,7 @@ func TestUserController_DeleteUser(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, cleanup := client.Delete("/v2/users/" + url.QueryEscape(user.Email))
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -249,6 +253,7 @@ func TestUserController_DeleteUser(t *testing.T) {
 
 	// second attempt would fail
 	resp, cleanup = client.Delete("/v2/users/" + url.QueryEscape(user.Email))
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	errors = cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -265,6 +270,7 @@ func TestUserController_NewAPIToken(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 	body := fmt.Sprintf(`{"password":"%s"}`, cltest.Password)
 	resp, cleanup := client.Post("/v2/user/token", bytes.NewBufferString(body))
+	defer resp.Body.Close()
 	defer cleanup()
 
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -283,6 +289,7 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 	body := fmt.Sprintf(`{"password":"%s"}`, "wrong-password")
 	resp, cleanup := client.Post("/v2/user/token", bytes.NewBufferString(body))
+	defer resp.Body.Close()
 	defer cleanup()
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
@@ -296,6 +303,7 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 	body := fmt.Sprintf(`{"password":"%s"}`, cltest.Password)
 	resp, cleanup := client.Post("/v2/user/token/delete", bytes.NewBufferString(body))
+	defer resp.Body.Close()
 	defer cleanup()
 
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
@@ -310,6 +318,7 @@ func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 	body := fmt.Sprintf(`{"password":"%s"}`, "wrong-password")
 	resp, cleanup := client.Post("/v2/user/token/delete", bytes.NewBufferString(body))
+	defer resp.Body.Close()
 	defer cleanup()
 
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)

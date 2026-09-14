@@ -7,6 +7,8 @@ import (
 
 // JAID represents a JSON API ID.
 // It implements the api2go MarshalIdentifier and UnmarshalIdentifier interface.
+//
+//nolint:recvcheck // JAID requires value receiver GetID for promotion in embedded structs and pointer receiver SetID for unmarshaling
 type JAID struct {
 	ID string `json:"-"`
 }

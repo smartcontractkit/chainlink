@@ -82,10 +82,12 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	eiBar := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{NamePrefix: "bar"})
 
 	resp, cleanup := client.Get("/v2/external_initiators?size=x")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 
 	resp, cleanup = client.Get("/v2/external_initiators?size=1")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body := cltest.ParseResponseBody(t, resp)
@@ -95,35 +97,36 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	require.Equal(t, 2, metaCount)
 
 	var links jsonapi.Links
-	var externalInitiators []presenters.ExternalInitiatorResource
-	err = web.ParsePaginatedResponse(body, &externalInitiators, &links)
+	var is []presenters.ExternalInitiatorResource
+	err = web.ParsePaginatedResponse(body, &is, &links)
 	require.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
-	assert.Len(t, externalInitiators, 1)
-	assert.Equal(t, strconv.FormatInt(eiBar.ID, 10), externalInitiators[0].ID)
-	assert.Equal(t, eiBar.Name, externalInitiators[0].Name)
-	assert.Nil(t, externalInitiators[0].URL)
-	assert.Equal(t, eiBar.AccessKey, externalInitiators[0].AccessKey)
-	assert.Equal(t, eiBar.OutgoingToken, externalInitiators[0].OutgoingToken)
+	assert.Len(t, is, 1)
+	assert.Equal(t, strconv.FormatInt(eiBar.ID, 10), is[0].ID)
+	assert.Equal(t, eiBar.Name, is[0].Name)
+	assert.Nil(t, is[0].URL)
+	assert.Equal(t, eiBar.AccessKey, is[0].AccessKey)
+	assert.Equal(t, eiBar.OutgoingToken, is[0].OutgoingToken)
 
 	resp, cleanup = client.Get(links["next"].Href)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	externalInitiators = []presenters.ExternalInitiatorResource{}
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &externalInitiators, &links)
+	is = []presenters.ExternalInitiatorResource{}
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &is, &links)
 	require.NoError(t, err)
 	assert.Empty(t, links["next"])
 	assert.NotEmpty(t, links["prev"])
 
-	assert.Len(t, externalInitiators, 1)
-	assert.Equal(t, strconv.FormatInt(eiFoo.ID, 10), externalInitiators[0].ID)
-	assert.Equal(t, eiFoo.Name, externalInitiators[0].Name)
-	assert.Equal(t, eiFoo.URL.String(), externalInitiators[0].URL.String())
-	assert.Equal(t, eiFoo.AccessKey, externalInitiators[0].AccessKey)
-	assert.Equal(t, eiFoo.OutgoingToken, externalInitiators[0].OutgoingToken)
+	assert.Len(t, is, 1)
+	assert.Equal(t, strconv.FormatInt(eiFoo.ID, 10), is[0].ID)
+	assert.Equal(t, eiFoo.Name, is[0].Name)
+	assert.Equal(t, eiFoo.URL.String(), is[0].URL.String())
+	assert.Equal(t, eiFoo.AccessKey, is[0].AccessKey)
+	assert.Equal(t, eiFoo.OutgoingToken, is[0].OutgoingToken)
 }
 
 func TestExternalInitiatorsController_Create_success(t *testing.T) {
@@ -140,6 +143,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"name":"bitcoin","url":"http://without.a.name"}`),
 	)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &presenters.ExternalInitiatorAuthentication{}
@@ -167,6 +171,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"name":"no-url"}`),
 	)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 201)
 	ei := &presenters.ExternalInitiatorAuthentication{}
@@ -194,6 +199,7 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
 	)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
@@ -216,6 +222,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Delete("/v2/external_initiators/" + exi.Name)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusNoContent)
 }
@@ -249,6 +256,7 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			t.Parallel()
 			resp, cleanup := client.Delete(test.URL)
+			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			assert.Equal(t, http.StatusText(http.StatusNotFound), http.StatusText(resp.StatusCode))
 		})
