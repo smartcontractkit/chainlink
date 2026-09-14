@@ -11,6 +11,8 @@ import (
 )
 
 func TestConfigTemplateOmitsNodeConfig(t *testing.T) {
+	t.Parallel()
+
 	values := map[string]any{
 		"IncomingGlobalBurst":          10,
 		"IncomingGlobalRPS":            20,
