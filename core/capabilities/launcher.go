@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -578,16 +577,11 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 				// add to cachedShims later, only after startNewShim succeeds
 			}
 			// Update existing client config
-			transmissionConfig := &transmission.TransmissionConfig{
-				Schedule:   transmission.EnumToString(config.RemoteExecutableConfig.TransmissionSchedule),
-				DeltaStage: config.RemoteExecutableConfig.DeltaStage,
-			}
-
 			signers, err := signersFor(remoteDON, localRegistry)
 			if err != nil {
 				return fmt.Errorf("failed to get signers for executable client: %w", err)
 			}
-			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers, config.RemoteExecutableConfig.MinResponsesToAggregate)
+			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, signers, config.RemoteExecutableConfig.MinResponsesToAggregate)
 			if err != nil {
 				w.lggr.Errorw("failed to update client config", "capID", capID, "method", method, "error", err)
 				continue
