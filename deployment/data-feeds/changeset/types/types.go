@@ -217,6 +217,13 @@ type AcceptOwnershipConfig struct {
 	McmsConfig        *MCMSConfig      `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
+type TransferOwnershipConfig struct {
+	ContractAddresses []common.Address `json:"contractAddresses" yaml:"contractAddresses"`
+	NewOwnerAddress   common.Address   `json:"newOwnerAddress" yaml:"newOwnerAddress"`
+	ChainSelector     uint64           `json:"chainSelector" yaml:"chainSelector"`
+	McmsConfig        *MCMSConfig      `json:"mcmsConfig" yaml:"mcmsConfig"`
+}
+
 type NewFeedWithProxyConfig struct {
 	ChainSelector    uint64                                 `json:"chainSelector" yaml:"chainSelector"`
 	AccessController common.Address                         `json:"accessController" yaml:"accessController"`
