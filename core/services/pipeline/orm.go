@@ -247,9 +247,9 @@ func (o *orm) StoreRun(ctx context.Context, run *Run) (restart bool, err error) 
 		`
 
 		taskRuns := []TaskRun{}
-		query, args, err := tx.ds.BindNamed(sql, run.PipelineTaskRuns)
-		if err != nil {
-			return fmt.Errorf("failed to prepare named query: %w", err)
+		query, args, bindErr := tx.ds.BindNamed(sql, run.PipelineTaskRuns)
+		if bindErr != nil {
+			return fmt.Errorf("failed to prepare named query: %w", bindErr)
 		}
 		err = tx.ds.SelectContext(ctx, &taskRuns, query, args...)
 		if err != nil {
@@ -258,7 +258,7 @@ func (o *orm) StoreRun(ctx context.Context, run *Run) (restart bool, err error) 
 		run.PipelineTaskRuns = taskRuns
 		return nil
 	})
-	return
+	return restart, err
 }
 
 // DeleteRun cleans up a run that failed and is marked failEarly (should leave no trace of the run)
@@ -311,10 +311,10 @@ func (o *orm) UpdateTaskRunResult(ctx context.Context, taskID uuid.UUID, result 
 func (o *orm) InsertFinishedRuns(ctx context.Context, runs []*Run, saveSuccessfulTaskRuns bool) error {
 	err := o.transact(ctx, func(tx *orm) error {
 		pipelineRunsQuery := `
-INSERT INTO pipeline_runs 
+INSERT INTO pipeline_runs
 	(pipeline_spec_id, pruning_key, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
-VALUES 
-	(:pipeline_spec_id, :pruning_key, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state) 
+VALUES
+	(:pipeline_spec_id, :pruning_key, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 RETURNING id
 	`
 
@@ -695,7 +695,8 @@ LIMIT $3
 		o.lggr.Errorw("Failed to get RowsAffected while pruning runs", "err", err, "jobID", jobID)
 		return
 	}
-	if rowsAffected == 0 {
+	switch {
+	case rowsAffected == 0:
 		// check the spec still exists and garbage collect if necessary
 		var exists bool
 		if err := o.ds.GetContext(ctx, &exists, `SELECT EXISTS(SELECT ps.* FROM pipeline_specs ps JOIN job_pipeline_specs jps ON (ps.id=jps.pipeline_spec_id) WHERE jps.job_id = $1)`, jobID); err != nil {
@@ -706,9 +707,9 @@ LIMIT $3
 			o.lggr.Debugw("Pipeline spec no longer exists, removing prune count", "jobID", jobID)
 			o.pm.Delete(jobID)
 		}
-	} else if o.maxSuccessfulRuns < syncLimit {
+	case o.maxSuccessfulRuns < syncLimit:
 		o.lggr.Tracew("Pruned runs", "rowsAffected", rowsAffected, "jobID", jobID)
-	} else {
+	default:
 		o.lggr.Debugw("Pruned runs", "rowsAffected", rowsAffected, "jobID", jobID)
 	}
 }

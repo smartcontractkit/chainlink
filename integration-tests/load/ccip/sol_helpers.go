@@ -381,7 +381,7 @@ func prepSolAccount(ctx context.Context, t *testing.T, lggr logger.Logger, e *cl
 	sourceAccount := *e.BlockChains.SolanaChains()[sourceChain].DeployerKey
 	rpcClient := e.BlockChains.SolanaChains()[sourceChain].Client
 	tokenProgram := solana.TokenProgramID
-	wSOL := solana.SolMint
+	wSOL := solana.WrappedSol
 
 	// use the account 3x to get more funding
 	soltestutils.FundAccounts(ctx, []solana.PrivateKey{sourceAccount, sourceAccount, sourceAccount, sourceAccount, sourceAccount}, rpcClient, t)

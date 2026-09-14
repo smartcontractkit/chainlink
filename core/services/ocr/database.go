@@ -37,6 +37,7 @@ func NewDB(ds sqlutil.DataSource, oracleSpecID int32, lggr logger.Logger) *db {
 		lggr:         logger.Sugared(lggr),
 	}
 }
+
 func (d *db) WithDataSource(ds sqlutil.DataSource) OCRContractTrackerDB {
 	return NewDB(ds, d.oracleSpecID, d.lggr)
 }
@@ -132,7 +133,7 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 		c.Transmitters = append(c.Transmitters, common.BytesToAddress(t))
 	}
 
-	return
+	return c, err
 }
 
 func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
@@ -277,7 +278,7 @@ WHERE ocr_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round =
 
 	err = errors.Wrap(err, "DeletePendingTransmission failed")
 
-	return
+	return err
 }
 
 func (d *db) DeletePendingTransmissionsOlderThan(ctx context.Context, t time.Time) (err error) {
@@ -290,7 +291,7 @@ WHERE ocr_oracle_spec_id = $1 AND time < $2
 
 	err = errors.Wrap(err, "DeletePendingTransmissionsOlderThan failed")
 
-	return
+	return err
 }
 
 func (d *db) SaveLatestRoundRequested(ctx context.Context, rr offchainaggregator.OffchainAggregatorRoundRequested) error {
@@ -339,8 +340,8 @@ LIMIT 1
 	}
 
 	if err = rows.Err(); err != nil {
-		return
+		return rr, err
 	}
 
-	return
+	return rr, err
 }

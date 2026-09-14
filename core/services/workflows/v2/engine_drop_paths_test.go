@@ -90,22 +90,6 @@ func (f *alwaysErrCheckLimiter[N]) Limit(context.Context) (N, error) { return f.
 func (f *alwaysErrCheckLimiter[N]) Check(context.Context, N) error   { return f.err }
 func (f *alwaysErrCheckLimiter[N]) Close() error                     { return nil }
 
-// fakeShardResolver reports a fixed shard-ownership verdict, standing in for a real
-// ring orchestrator lookup.
-type fakeShardResolver struct {
-	shardID uint32
-	found   bool
-	err     error
-}
-
-func (f *fakeShardResolver) ResolveShard(context.Context, string, string) (uint32, bool, error) {
-	return f.shardID, f.found, f.err
-}
-
-func (f *fakeShardResolver) ResolveShards(context.Context, []string, []string) (map[string]uint32, error) {
-	return nil, nil
-}
-
 // latestV2FinishedEvent returns the most recently emitted v2 WorkflowExecutionFinished
 // event, or ok=false if none has been emitted yet.
 func latestV2FinishedEvent(t *testing.T, observer beholdertest.Observer) (evt *eventsv2.WorkflowExecutionFinished, ok bool) {
@@ -276,21 +260,21 @@ func TestEngine_LimitReadFallback_UsesLimiterValue(t *testing.T) { //nolint:para
 		"engine must use the value the limiter returned, not fall back to its own compiled default")
 }
 
-// TestEngine_ShardDenial_StaysSilent is a regression guard: with sharding on, every
-// node outside the owning shard denies every execution, so emitting Started/Finished
-// there (unlike the other drop paths) would publish a DON-wide failure for a run
-// that actually succeeded on the owner. This must stay silent.
-func TestEngine_ShardDenial_StaysSilent(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
-	billingClient := metmocks.NewBillingClient(t) // no billing calls expected: shard check runs before metering
+// TestEngine_AdmissionDenial_StaysSilent is a regression guard: an admission layer (e.g.
+// shard failover) denies the event on every node that does not own the workflow, so emitting
+// Started/Finished there (unlike the other drop paths) would publish a DON-wide failure for a
+// run that actually succeeded on the owner. This must stay silent.
+func TestEngine_AdmissionDenial_StaysSilent(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+	billingClient := metmocks.NewBillingClient(t) // no billing calls expected: admission runs before metering
 
 	harness := newDropPathHarness(t, billingClient, func(cfg *v2.EngineConfig) {
-		cfg.ShardingEnabled = true
-		cfg.MyDonID = 0
-		cfg.ShardResolver = &fakeShardResolver{shardID: 1, found: true} // some other shard owns it
+		cfg.Hooks.OnTriggerAdmission = func(context.Context, v2.RoutedTriggerEvent) error {
+			return errors.New("not owned by this node")
+		}
 	})
 
 	harness.eventCh <- capabilities.TriggerResponse{
-		Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_shard_denied"},
+		Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_admission_denied"},
 	}
 
 	require.Never(t, func() bool {

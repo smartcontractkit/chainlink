@@ -183,9 +183,8 @@ func decodeMeta(metaMap MapParam) (*txmgr.TxMeta, error) {
 	metaDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &txMeta,
 		ErrorUnused: true,
-		DecodeHook: func(from reflect.Type, to reflect.Type, data any) (any, error) {
-			switch from {
-			case stringType:
+		DecodeHook: func(from, to reflect.Type, data any) (any, error) {
+			if from == stringType {
 				switch to {
 				case int32Type:
 					i, err2 := strconv.ParseInt(data.(string), 10, 32)
@@ -217,11 +216,9 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, erro
 	checkerDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &transmitChecker,
 		ErrorUnused: true,
-		DecodeHook: func(from reflect.Type, to reflect.Type, data any) (any, error) {
-			switch from {
-			case stringType:
-				switch to {
-				case reflect.TypeFor[common.Address]():
+		DecodeHook: func(from, to reflect.Type, data any) (any, error) {
+			if from == stringType {
+				if to == reflect.TypeFor[common.Address]() {
 					ab, err := hex.DecodeString(data.(string))
 					if err != nil {
 						return nil, err
