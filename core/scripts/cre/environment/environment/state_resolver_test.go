@@ -64,10 +64,10 @@ func stateResolverTestTopologyWithIncoming(t *testing.T) *cre.Topology {
 
 	dm, err := cre.NewDonsMetadata([]*cre.DonMetadata{
 		deployTestBootstrapDON(),
-		{Name: "feeds-zone-a", ID: 1, DonFamily: "feeds-zone-a", Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
-		{Name: "feeds-zone-b", ID: 2, DonFamily: "feeds-zone-b", Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
-		{Name: "gateway-zone-a", DonFamily: "feeds-zone-a", NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
-		{Name: "gateway-zone-b", DonFamily: "feeds-zone-b", NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+		{Name: "feeds-zone-a", ID: 1, DonFamilies: []string{"feeds-zone-a"}, Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
+		{Name: "feeds-zone-b", ID: 2, DonFamilies: []string{"feeds-zone-b"}, Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
+		{Name: "gateway-zone-a", DonFamilies: []string{"feeds-zone-a"}, NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+		{Name: "gateway-zone-b", DonFamilies: []string{"feeds-zone-b"}, NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
 	}, infra.Provider{Type: infra.Docker})
 	require.NoError(t, err)
 

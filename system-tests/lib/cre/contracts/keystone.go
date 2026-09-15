@@ -95,7 +95,7 @@ func DeployKeystoneContracts(
 
 type donConfig struct {
 	id          uint32   // Capabilities Registry DON ID
-	donFamilies []string // nodesets.don_family + additional_don_families → CapabilitiesRegistryNewDONParams.DonFamilies
+	donFamilies []string // nodesets.don_families → CapabilitiesRegistryNewDONParams.DonFamilies
 	keystone_changeset.DonCapabilities
 	flags []cre.CapabilityFlag
 }
@@ -433,7 +433,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 
 		dons.c[donName] = donConfig{
 			id:              uint32(donMetadata.ID), //nolint:gosec // G115
-			donFamilies:     donMetadata.DonFamilies(),
+			donFamilies:     donMetadata.DonFamilies,
 			DonCapabilities: c,
 			flags:           donMetadata.Flags,
 		}

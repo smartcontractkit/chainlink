@@ -115,7 +115,9 @@ type Don struct {
 	ID         uint64 `toml:"id" json:"id"`
 	F          uint8  `toml:"f" json:"f"` // max faulty nodes
 	ShardIndex uint   `toml:"shard_index" json:"shard_index"`
-	DonFamily  string `toml:"don_family" json:"don_family"` // propagated from DonMetadata for feature PostEnvStartup scoping
+	// DonFamilies is propagated from DonMetadata for feature PostEnvStartup scoping.
+	// Use DonFamily() for the primary (first) entry.
+	DonFamilies []string `toml:"don_families" json:"don_families"`
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
@@ -130,13 +132,19 @@ type Don struct {
 	chainCapabilityIndex map[CapabilityFlag][]uint64
 }
 
+// DonFamily returns the primary family: the first entry of DonFamilies, or ""
+// when there are none.
+func (d *Don) DonFamily() string {
+	return primaryDonFamily(d.DonFamilies)
+}
+
 func (d *Don) Metadata() *DonMetadata {
 	dm := &DonMetadata{
 		Name:                         d.Name,
 		ID:                           d.ID,
 		Flags:                        d.Flags,
 		ShardIndex:                   d.ShardIndex,
-		DonFamily:                    d.DonFamily,
+		DonFamilies:                  d.DonFamilies,
 		NodesMetadata:                make([]*NodeMetadata, len(d.Nodes)),
 		CapabilityConfigs:            d.capabilityConfigs,
 		RegistryBasedLaunchAllowlist: d.RegistryBasedLaunchAllowlist,
@@ -247,7 +255,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		ID:                           donMetadata.ID,
 		Flags:                        donMetadata.Flags,
 		ShardIndex:                   donMetadata.ShardIndex,
-		DonFamily:                    donMetadata.DonFamily,
+		DonFamilies:                  donMetadata.DonFamilies,
 		RegistryBasedLaunchAllowlist: donMetadata.RegistryBasedLaunchAllowlist,
 		capabilityConfigs:            donMetadata.ns.CapabilityConfigs,
 		chainCapabilityIndex:         donMetadata.ns.chainCapabilityIndex,
