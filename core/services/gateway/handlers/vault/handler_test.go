@@ -1270,6 +1270,8 @@ func TestVaultHandler_HandleNodeMessage_StillAcceptsErrorOnlyResponses(t *testin
 }
 
 func TestVaultHandler_fetchVaultPublicKey_BypassesCache(t *testing.T) {
+	t.Parallel()
+
 	// The periodic background refresh must always forward to the nodes, even when a
 	// value is already cached. Otherwise it short-circuits on the cache and never
 	// refreshes the key, leaving the gateway serving a stale key indefinitely.
