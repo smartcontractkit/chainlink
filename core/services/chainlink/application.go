@@ -345,6 +345,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			FeatureConfig:  cfg.Feature(),
 			MailMon:        mailMon,
 			DS:             opts.DS,
+			// The global beholder client is initialized before this point
+			// (initGlobals, during BeforeNode), so chains get a real meter.
+			Meter: beholder.GetMeter(),
 		},
 		EthKeystore:   keyStore.Eth(),
 		CSAKeystore:   csaKeystore,

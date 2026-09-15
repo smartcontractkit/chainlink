@@ -3134,10 +3134,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 10500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3263,10 +3259,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3387,10 +3379,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3510,10 +3498,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3632,10 +3616,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -3757,10 +3737,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3880,10 +3856,6 @@ DatabaseTimeout = '2s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -4006,10 +3978,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4129,10 +4097,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -4259,10 +4223,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4382,10 +4342,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -4507,10 +4463,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4630,10 +4582,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -4760,10 +4708,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4886,10 +4830,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5011,10 +4951,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -5141,10 +5077,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5267,10 +5199,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -5396,10 +5324,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5520,10 +5444,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 3800000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5642,10 +5562,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -5772,10 +5688,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5897,10 +5809,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6021,10 +5929,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -6150,10 +6054,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 11000000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6277,10 +6177,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 11000000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -6407,10 +6303,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6531,10 +6423,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -6661,10 +6549,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6783,10 +6667,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -6913,10 +6793,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7039,10 +6915,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7163,10 +7035,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -7289,10 +7157,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7413,10 +7277,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7535,10 +7395,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -7665,10 +7521,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7794,10 +7646,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7916,10 +7764,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -8040,10 +7884,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -8170,10 +8010,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8299,10 +8135,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8422,10 +8254,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -8547,10 +8375,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8669,10 +8493,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -8799,10 +8619,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8921,10 +8737,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -9046,10 +8858,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9169,10 +8977,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -9294,10 +9098,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 3800000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9418,10 +9218,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -9547,10 +9343,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -9678,10 +9470,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9808,10 +9596,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9930,10 +9714,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -10060,10 +9840,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10182,10 +9958,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -10307,10 +10079,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -10436,10 +10204,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10563,10 +10327,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -10693,10 +10453,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10822,10 +10578,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10950,10 +10702,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 14500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11074,10 +10822,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -11203,10 +10947,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11326,10 +11066,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -11451,10 +11187,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11575,10 +11307,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -11707,10 +11435,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11838,10 +11562,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11961,10 +11681,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -12091,10 +11807,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12217,10 +11929,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12342,10 +12050,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -12472,10 +12176,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12601,10 +12301,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12728,10 +12424,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12851,10 +12543,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -12976,10 +12664,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13099,10 +12783,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -13229,10 +12909,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13358,10 +13034,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13481,10 +13153,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13603,10 +13271,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -13732,10 +13396,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13855,10 +13515,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13977,10 +13633,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -14106,10 +13758,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14230,10 +13878,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14353,10 +13997,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -14481,10 +14121,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 14500000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -14612,10 +14248,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14742,10 +14374,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14866,10 +14494,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -14995,10 +14619,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15122,10 +14742,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -15252,10 +14868,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15381,10 +14993,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15508,10 +15116,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15631,10 +15235,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 10500000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -15761,10 +15361,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15889,10 +15485,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -16016,10 +15608,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -16146,10 +15734,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -16270,10 +15854,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -16393,10 +15973,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -17092,7 +16668,6 @@ OCR2 = 100_000 # Example
 DR = 100_000 # Example
 VRF = 100_000 # Example
 FM = 100_000 # Example
-Keeper = 100_000 # Example
 ```
 
 
@@ -17125,12 +16700,6 @@ VRF overrides LimitDefault for VRF jobs.
 FM = 100_000 # Example
 ```
 FM overrides LimitDefault for Flux Monitor jobs.
-
-### Keeper
-```toml
-Keeper = 100_000 # Example
-```
-Keeper overrides LimitDefault for Keeper jobs.
 
 ## EVM.GasEstimator.BlockHistory
 ```toml
@@ -17710,19 +17279,6 @@ IsLoadBalancedRPC = false # Default
 IsLoadBalancedRPC indicates whether the http/ws url above has multiple rpc's behind it.
 If true, we should try reconnecting to the node even when its the only node in the Nodes list.
 If false and its the only node in the nodes list, we will mark it alive even when its out of sync, because it might still be able to send txs.
-
-## EVM.OCR2.Automation
-```toml
-[EVM.OCR2.Automation]
-GasLimit = 5400000 # Default
-```
-
-
-### GasLimit
-```toml
-GasLimit = 5400000 # Default
-```
-GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 
 ## EVM.Workflow
 ```toml

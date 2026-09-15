@@ -15,6 +15,7 @@ import (
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
@@ -657,7 +658,7 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 		{
 			name: "batch size at limit is accepted",
 			requests: func() []*vaultcommon.SecretRequest {
-				reqs := make([]*vaultcommon.SecretRequest, 9) // MaxBatchSize-1 = 9
+				reqs := make([]*vaultcommon.SecretRequest, 10) // limiter bound = 10
 				for i := range reqs {
 					reqs[i] = &vaultcommon.SecretRequest{Id: validID(fmt.Sprintf("key%d", i), "owner1", "main")}
 				}
@@ -665,15 +666,15 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 			}(),
 		},
 		{
-			name: "batch size equals MaxBatchSize is rejected",
+			name: "batch size above limit is rejected",
 			requests: func() []*vaultcommon.SecretRequest {
-				reqs := make([]*vaultcommon.SecretRequest, 10) // MaxBatchSize = 10
+				reqs := make([]*vaultcommon.SecretRequest, 11) // limiter bound = 10
 				for i := range reqs {
 					reqs[i] = &vaultcommon.SecretRequest{Id: validID(fmt.Sprintf("key%d", i), "owner1", "main")}
 				}
 				return reqs
 			}(),
-			errSubstr: "request batch size exceeds maximum of",
+			errSubstr: "request batch size exceeds maximum of 10",
 		},
 		{
 			name: "nil ID at index",
@@ -776,6 +777,42 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 			require.ErrorContains(t, err, tt.errSubstr)
 		})
 	}
+}
+
+func TestRequestValidator_CheckRequestBatchSize_UserErrorClassification(t *testing.T) {
+	t.Parallel()
+
+	newValidator := func() *RequestValidator {
+		return NewRequestValidator(
+			limits.NewUpperBoundLimiter(10),
+			limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		)
+	}
+
+	t.Run("bound breach is a user error with the real message", func(t *testing.T) {
+		t.Parallel()
+		err := newValidator().CheckRequestBatchSize(t.Context(), 11)
+		require.Error(t, err)
+		require.True(t, vaulttypes.IsUserError(err), "batch size breach must classify as a user error, got: %v", err)
+		require.ErrorContains(t, err, "max batch size exceeded for request")
+	})
+
+	t.Run("batch at limit passes", func(t *testing.T) {
+		t.Parallel()
+		require.NoError(t, newValidator().CheckRequestBatchSize(t.Context(), 10))
+	})
+
+	t.Run("limiter failure is not a user error", func(t *testing.T) {
+		t.Parallel()
+		validator := newValidator()
+		require.NoError(t, validator.Close())
+		err := validator.CheckRequestBatchSize(t.Context(), 1)
+		require.Error(t, err)
+		require.False(t, vaulttypes.IsUserError(err), "limiter failure must stay a system error, got: %v", err)
+	})
 }
 
 func TestValidateGetSecretsRequest_OwnerLengthPerBatchItem(t *testing.T) {

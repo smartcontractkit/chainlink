@@ -41,8 +41,7 @@ import (
 )
 
 const (
-	defaultCleanUpPeriod                    = 5 * time.Second
-	defaultPublicKeyGetCacheDurationSeconds = 300
+	defaultCleanUpPeriod = 5 * time.Second
 )
 
 var (
@@ -337,7 +336,9 @@ func (h *handler) fetchVaultPublicKey(ctx context.Context) {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to create new activeRequest", "error", err)
 		return
 	}
-	err = h.handlePublicKeyGet(ctx, ar)
+	// Skip the cache and forward directly to the vault nodes.
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
+	err = h.fanOutToVaultNodes(ctx, l, ar)
 	if err != nil {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
 		return
