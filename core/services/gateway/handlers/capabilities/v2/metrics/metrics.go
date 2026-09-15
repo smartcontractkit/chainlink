@@ -23,6 +23,13 @@ const (
 	AttrErrorString   = "error_string"
 	AttrMethodName    = "method_name"
 	AttrHTTPErrorCode = "http_error_code"
+	AttrBound         = "bound"
+)
+
+// Values for AttrBound, identifying which concurrency bound rejected a request.
+const (
+	BoundGlobal  = "global"
+	BoundPerNode = "per_node"
 )
 
 // CommonMetrics contains shared metrics between action and trigger handlers
@@ -47,6 +54,7 @@ type ActionMetrics struct {
 	blockedRequestCount            metric.Int64Counter
 	httpSendErrorCount             metric.Int64Counter
 	httpReadErrorCount             metric.Int64Counter
+	outboundConcurrencyThrottled   metric.Int64Counter
 }
 
 // TriggerMetrics contains metrics for HTTP triggers
@@ -253,6 +261,14 @@ func newActionMetrics(meter metric.Meter) (*ActionMetrics, error) {
 		return nil, fmt.Errorf("failed to create HTTP action HTTP read error count metric: %w", err)
 	}
 
+	m.outboundConcurrencyThrottled, err = meter.Int64Counter(
+		"http_action_outbound_concurrency_throttled",
+		metric.WithDescription("Number of outbound HTTP action requests rejected by an in-flight concurrency bound"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP action outbound concurrency throttled metric: %w", err)
+	}
+
 	return m, nil
 }
 
@@ -434,6 +450,16 @@ func (m *Metrics) IncrementActionRequestFailures(ctx context.Context, nodeAddres
 	m.action.requestFailures.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
+	))
+}
+
+// IncrementOutboundConcurrencyThrottled records a request rejected by an in-flight concurrency
+// bound; bound is BoundGlobal or BoundPerNode.
+func (m *Metrics) IncrementOutboundConcurrencyThrottled(ctx context.Context, nodeAddress string, bound string, lggr logger.Logger) {
+	m.action.outboundConcurrencyThrottled.Add(ctx, 1, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
+		attribute.String(AttrBound, bound),
 	))
 }
 
