@@ -76,7 +76,6 @@ type OCR2ChainType = string
 
 const (
 	OCR2ChainTypeEvm      = string(generated.OCR2ChainTypeEvm)
-	OCR2ChainTypeCosmos   = string(generated.OCR2ChainTypeCosmos)
 	OCR2ChainTypeSolana   = string(generated.OCR2ChainTypeSolana)
 	OCR2ChainTypeStarknet = string(generated.OCR2ChainTypeStarknet)
 	OCR2ChainTypeAptos    = string(generated.OCR2ChainTypeAptos)

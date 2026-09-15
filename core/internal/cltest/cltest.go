@@ -41,7 +41,6 @@ import (
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/cosmoskey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
@@ -123,7 +122,6 @@ var (
 	DefaultP2PPeerID p2pkey.PeerID
 	FixtureChainID   = *testutils.FixtureChainID
 
-	DefaultCosmosKey   = cosmoskey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultCSAKey      = csakey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultOCRKey      = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultOCR2Key     = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed), "evm")
@@ -474,12 +472,6 @@ func logPubKeys(t testing.TB, kr keystore.Master) {
 	for _, P2PKey := range p2ps {
 		p2pIDs = append(p2pIDs, P2PKey.ID())
 	}
-	cosmos, err := kr.Cosmos().GetAll()
-	require.NoError(t, err)
-	cosmosIDs := make([]string, len(cosmos))
-	for _, cosmosKey := range cosmos {
-		cosmosIDs = append(cosmosIDs, cosmosKey.ID())
-	}
 	solanas, err := kr.Solana().GetAll()
 	require.NoError(t, err)
 	solanaIDs := make([]string, len(solanas))
@@ -545,9 +537,6 @@ func logPubKeys(t testing.TB, kr keystore.Master) {
 	}
 	if len(p2pIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d P2P keys", len(p2pIDs)), "keys", p2pIDs)
-	}
-	if len(cosmosIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Cosmos keys", len(cosmosIDs)), "keys", cosmosIDs)
 	}
 	if len(solanaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Solana keys", len(solanaIDs)), "keys", solanaIDs)
