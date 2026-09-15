@@ -41,7 +41,7 @@
   registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:16.0"
     port = 13000
 
   [[nodesets.node_specs]]
@@ -68,7 +68,7 @@
   capabilities = ["stellar"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:16.0"
     port = 13100
 
   [[nodesets.node_specs]]
@@ -92,7 +92,7 @@
   supported_stellar_chains = ["baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:16.0"
     port = 13200
 
   [[nodesets.node_specs]]

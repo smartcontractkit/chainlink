@@ -121,7 +121,7 @@ services:
       - database
 
   database:
-    image: postgres:11.6
+    image: postgres:16
     volumes:
       - ./db/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh
     environment:
