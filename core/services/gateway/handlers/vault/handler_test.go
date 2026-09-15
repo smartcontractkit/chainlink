@@ -1269,6 +1269,41 @@ func TestVaultHandler_HandleNodeMessage_StillAcceptsErrorOnlyResponses(t *testin
 	assert.Nil(t, h.(*handler).getActiveRequest(requestID))
 }
 
+func TestVaultHandler_fetchVaultPublicKey_BypassesCache(t *testing.T) {
+	// The periodic background refresh must always forward to the nodes, even when a
+	// value is already cached. Otherwise it short-circuits on the cache and never
+	// refreshes the key, leaving the gateway serving a stale key indefinitely.
+	h, _, don, _ := setupHandler(t)
+
+	// Pre-warm the cache so a cache-first path would skip the nodes entirely.
+	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+
+	pkBytes, err := pk.Marshal()
+	require.NoError(t, err)
+	resultBytes, err := json.Marshal(&vaultcommon.GetPublicKeyResponse{PublicKey: hex.EncodeToString(pkBytes)})
+	require.NoError(t, err)
+
+	// Reply as a node as soon as the request is forwarded, so the refresh completes
+	// promptly instead of blocking on its internal deadline.
+	don.On("SendToNode", mock.Anything, NodeOne.Address, mock.Anything).
+		Run(func(args mock.Arguments) {
+			req := args.Get(2).(*jsonrpc.Request[json.RawMessage])
+			resp := jsonrpc.Response[json.RawMessage]{
+				ID:     req.ID,
+				Method: req.Method,
+				Result: (*json.RawMessage)(&resultBytes),
+			}
+			require.NoError(t, h.HandleNodeMessage(t.Context(), &resp, NodeOne.Address))
+		}).Return(nil)
+
+	h.(*handler).fetchVaultPublicKey(t.Context())
+
+	// Despite the warm cache, the request must have been fanned out to the nodes.
+	don.AssertCalled(t, "SendToNode", mock.Anything, NodeOne.Address, mock.Anything)
+}
+
 func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	h, callback, don, _ := setupHandler(t)
 	signers := []string{
