@@ -32,7 +32,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow"]
   override_mode = "all"
   http_port_range_start = 10100
@@ -60,7 +60,7 @@ TLSEnabled = false
 [[nodesets]]
   nodes = 4
   name = "capabilities"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
   override_mode = "all"
@@ -84,7 +84,7 @@ TLSEnabled = false
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway-us"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["bootstrap", "gateway"]
   gateway_don_id = "gateway_don_us"
   override_mode = "each"
@@ -108,7 +108,7 @@ TLSEnabled = false
 [[nodesets]]
   nodes = 1
   name = "gateway-eu"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["gateway"]
   gateway_don_id = "gateway_don_eu"
   override_mode = "each"

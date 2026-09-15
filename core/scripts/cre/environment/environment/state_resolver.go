@@ -141,7 +141,7 @@ func (r *LocalCREStateResolver) WorkflowDONFamily() (string, error) {
 		return "", err
 	}
 
-	return workflowDON.DonFamily, nil
+	return workflowDON.DonFamily(), nil
 }
 
 func (r *LocalCREStateResolver) WorkflowDONName() (string, error) {
