@@ -1030,7 +1030,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimitOnRawSecrets(t *testing.T) {
 	newFetcher := func(t *testing.T) RawSecretsFetcher {
 		t.Helper()
 		lggr := logger.TestLogger(t)
-		reg := coreCap.NewRegistry(lggr)
+		reg := registry.NewRegistry(lggr)
 		peer := RandomUTF8BytesWord()
 		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
@@ -1039,7 +1039,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimitOnRawSecrets(t *testing.T) {
 		require.NoError(t, err)
 		vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 		require.NoError(t, err)
-		reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+		reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
 
 		return NewSecretsFetcher(
 			MetricsLabelerTest(t),

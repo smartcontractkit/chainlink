@@ -27,13 +27,12 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	lggr := logger.Test(t)
 	orm := registrysyncer.NewORM(db, lggr)
 
-	var states []registry.RegistryMetadata
-	for range 11 {
+	states := make([]*registry.RegistryMetadata, 11)
+	for i := range 11 {
 		state := generateState(t)
 		err := orm.AddRegistryMetadata(ctx, &state)
 		require.NoError(t, err)
-		//nolint:govet // copylocks: the test only compares the stored value; the embedded RWMutex is not held
-		states = append(states, state)
+		states[i] = &state
 	}
 
 	var count int
@@ -43,8 +42,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 
 	state, err := orm.LatestRegistryMetadata(ctx)
 	require.NoError(t, err)
-	//nolint:govet // copylocks: the test only compares the stored value; the embedded RWMutex is not held
-	assert.Equal(t, states[10], *state)
+	assert.Equal(t, states[10], state)
 }
 
 func generateState(t *testing.T) registry.RegistryMetadata {
@@ -138,6 +136,7 @@ func generateState(t *testing.T) registry.RegistryMetadata {
 }
 
 func TestRegistrySyncerORM_AddRegistryMetadata_DuplicateHandling(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	ctx := t.Context()
 	lggr := logger.Test(t)

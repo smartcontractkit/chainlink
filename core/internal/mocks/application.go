@@ -9,8 +9,6 @@ import (
 
 	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
 
-	registry "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	context "context"
@@ -30,6 +28,8 @@ import (
 	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	plugins "github.com/smartcontractkit/chainlink/v2/plugins"
+
+	registry "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 
 	services "github.com/smartcontractkit/chainlink/v2/core/services"
 
