@@ -142,13 +142,14 @@ func decodeCapRegReportingPluginConfig(data []byte, capabilityID string) (capReg
 			return capRegPluginResult{}, fmt.Errorf("failed to unmarshal chain-cap reporting plugin config: %w", err)
 		}
 		return capRegPluginResult{chainCap: &ChainCapOffchainConfig{
-			MaxQueryLengthBytes:       eCfg.MaxQueryLengthBytes,
-			MaxObservationLengthBytes: eCfg.MaxObservationLengthBytes,
-			MaxReportLengthBytes:      eCfg.MaxReportLengthBytes,
-			MaxOutcomeLengthBytes:     eCfg.MaxOutcomeLengthBytes,
-			MaxReportCount:            eCfg.MaxReportCount,
-			MaxBatchSize:              eCfg.MaxBatchSize,
-			MinResponsesToAggregate:   eCfg.MinResponsesToAggregate,
+			MaxQueryLengthBytes:          eCfg.MaxQueryLengthBytes,
+			MaxObservationLengthBytes:    eCfg.MaxObservationLengthBytes,
+			MaxReportLengthBytes:         eCfg.MaxReportLengthBytes,
+			MaxOutcomeLengthBytes:        eCfg.MaxOutcomeLengthBytes,
+			MaxReportCount:               eCfg.MaxReportCount,
+			MaxBatchSize:                 eCfg.MaxBatchSize,
+			MinResponsesToAggregate:      eCfg.MinResponsesToAggregate,
+			EnableMissingRequestRecovery: eCfg.EnableMissingRequestRecovery,
 		}}, nil
 	}
 
