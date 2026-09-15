@@ -860,3 +860,67 @@ func durationPtr(d time.Duration) *commonconfig.Duration {
 	cd := *commonconfig.MustNewDuration(d)
 	return &cd
 }
+
+func TestMetering_ValidateConfig(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		name        string
+		config      *Metering
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "disabled with all nil fields",
+			config:      &Metering{},
+			expectError: false,
+		},
+		{
+			name: "records enabled with non-empty NodeID",
+			config: &Metering{
+				MeterRecordsEnabled: new(true),
+				NodeID:              new("clp-cre-wf-zone-a-1"),
+			},
+			expectError: false,
+		},
+		{
+			name: "records enabled with nil NodeID",
+			config: &Metering{
+				MeterRecordsEnabled: new(true),
+				NodeID:              nil,
+			},
+			expectError: true,
+			errorMsg:    "NodeID",
+		},
+		{
+			name: "records enabled with empty NodeID",
+			config: &Metering{
+				MeterRecordsEnabled: new(true),
+				NodeID:              new(""),
+			},
+			expectError: true,
+			errorMsg:    "NodeID",
+		},
+		{
+			name: "snapshots enabled without records enabled",
+			config: &Metering{
+				MeterSnapshotsEnabled: new(true),
+				NodeID:                new("clp-cre-wf-zone-a-1"),
+			},
+			expectError: true,
+			errorMsg:    "requires MeterRecordsEnabled to be true",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := tc.config.ValidateConfig()
+			if tc.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errorMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

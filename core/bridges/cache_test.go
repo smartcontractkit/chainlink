@@ -120,7 +120,7 @@ func TestBridgeCache_Type(t *testing.T) {
 		mORM.On("DeleteBridgeType", mock.Anything, expected).Return(nil)
 		require.NoError(t, cache.DeleteBridgeType(ctx, expected))
 
-		// bridge type is removed from cache so call to find fallsback to the data store
+		// bridge type is removed from cache so call to find fallback to the data store
 		mORM.On("FindBridge", mock.Anything, bridge).Return(bridges.BridgeType{}, errors.New("not found"))
 		_, err = cache.FindBridge(ctx, bridge)
 		require.Error(t, err)
@@ -128,6 +128,10 @@ func TestBridgeCache_Type(t *testing.T) {
 }
 
 func TestBridgeCache_Response(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	t.Run("loads response from data source", func(t *testing.T) {

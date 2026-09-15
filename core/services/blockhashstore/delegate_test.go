@@ -100,7 +100,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 	t.Run("happy", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*sqlutil.Big)(testutils.FixtureChainID)}}
-		services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
+		services, err := delegate.ServicesForSpec(t.Context(), spec)
 
 		require.NoError(t, err)
 		require.Len(t, services, 1)
@@ -116,7 +116,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 			CoordinatorV2PlusAddress: &coordinatorV2Plus,
 			EVMChainID:               (*sqlutil.Big)(testutils.FixtureChainID),
 		}}
-		services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
+		services, err := delegate.ServicesForSpec(t.Context(), spec)
 
 		require.NoError(t, err)
 		require.Len(t, services, 1)
@@ -124,7 +124,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 	t.Run("missing BlockhashStoreSpec", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: nil}
-		_, err := delegate.ServicesForSpec(testutils.Context(t), spec)
+		_, err := delegate.ServicesForSpec(t.Context(), spec)
 		assert.Error(t, err)
 	})
 
@@ -132,19 +132,19 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 			EVMChainID: sqlutil.NewI(123),
 		}}
-		_, err := delegate.ServicesForSpec(testutils.Context(t), spec)
+		_, err := delegate.ServicesForSpec(t.Context(), spec)
 		assert.Error(t, err)
 	})
 
 	t.Run("missing EnabledKeysForChain", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		_, err := testData.ethKeyStore.Delete(ctx, testData.sendingKey.ID())
 		require.NoError(t, err)
 
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 			WaitBlocks: defaultWaitBlocks,
 		}}
-		_, err = delegate.ServicesForSpec(testutils.Context(t), spec)
+		_, err = delegate.ServicesForSpec(t.Context(), spec)
 		assert.Error(t, err)
 	})
 }
@@ -169,12 +169,12 @@ func TestDelegate_StartStop(t *testing.T) {
 		RunTimeout: testutils.WaitTimeout(t),
 		EVMChainID: (*sqlutil.Big)(testutils.FixtureChainID),
 	}}
-	services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
+	services, err := delegate.ServicesForSpec(t.Context(), spec)
 
 	require.NoError(t, err)
 	require.Len(t, services, 1)
 
-	err = services[0].Start(testutils.Context(t))
+	err = services[0].Start(t.Context())
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {

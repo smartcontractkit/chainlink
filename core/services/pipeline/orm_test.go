@@ -7,20 +7,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -73,7 +70,7 @@ func setupORM(t *testing.T, heavy bool) (db *sqlx.DB, orm pipeline.ORM, jorm job
 
 	jorm = job.NewORM(db, orm, bridgeORM, keyStore, lggr)
 
-	return
+	return db, orm, jorm
 }
 
 func setupHeavyORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM, jorm job.ORM) {
@@ -85,7 +82,7 @@ func setupLiteORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM, jorm job.ORM) {
 }
 
 func Test_PipelineORM_CreateSpec(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db, orm, _ := setupLiteORM(t)
 
 	var (
@@ -116,7 +113,7 @@ func Test_PipelineORM_FindRun(t *testing.T) {
 	require.NoError(t, err)
 	expected := mustInsertPipelineRun(t, orm)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	run, err := orm.FindRun(ctx, expected.ID)
 	require.NoError(t, err)
 
@@ -134,14 +131,14 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM) pipeline.Run {
 		FinishedAt:  null.Time{},
 	}
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, orm.InsertRun(ctx, &run))
 	return run
 }
 
 func mustInsertAsyncRun(t *testing.T, orm pipeline.ORM, jobORM job.ORM) *pipeline.Run {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
@@ -162,7 +159,7 @@ func mustInsertAsyncRun(t *testing.T, orm pipeline.ORM, jobORM job.ORM) *pipelin
 }
 
 func TestInsertFinishedRuns(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db, orm, _ := setupLiteORM(t)
 
 	_, err := db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
@@ -172,7 +169,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 
 	ps := mustInsertPipelineSpec(t, db)
 
-	var runs []*pipeline.Run
+	runs := make([]*pipeline.Run, 0, 3)
 	for range 3 {
 		now := time.Now()
 		r := pipeline.Run{
@@ -222,7 +219,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 }
 
 func Test_PipelineORM_InsertFinishedRunWithSpec(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db, orm, jorm := setupLiteORM(t)
 
 	s := `
@@ -299,7 +296,7 @@ answer2 [type=bridge name=election_winner index=1];
 
 // Tests that inserting run results, then later updating the run results via upsert will work correctly.
 func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	_, orm, jorm := setupLiteORM(t)
 
 	run := mustInsertAsyncRun(t, orm, jorm)
@@ -379,7 +376,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 // Tests that trying to persist a partial run while new data became available (i.e. via /v2/restart)
 // will detect a restart and update the result data on the Run.
 func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db, orm, jorm := setupLiteORM(t)
 
 	run := mustInsertAsyncRun(t, orm, jorm)
@@ -390,14 +387,15 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 
 	now := time.Now()
 
-	ds1_id := uuid.New()
+	ds1ID := uuid.New()
 
 	// insert something for this pipeline_run to trigger an early resume while the pipeline is running
+	//nolint:sqlclosecheck // rows closed via defer below
 	rows, err := db.NamedQuery(`
 	INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
 	VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
 	`, pipeline.TaskRun{
-		ID:            ds1_id,
+		ID:            ds1ID,
 		PipelineRunID: run.ID,
 		Type:          "bridge",
 		DotID:         "ds1",
@@ -406,12 +404,12 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		FinishedAt:    null.TimeFrom(now),
 	})
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, rows.Close()) })
+	defer rows.Close()
 
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
-			ID:            ds1_id,
+			ID:            ds1ID,
 			PipelineRunID: run.ID,
 			Type:          "bridge",
 			DotID:         "ds1",
@@ -444,12 +442,12 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 }
 
 func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	_, orm, jorm := setupLiteORM(t)
 
 	run := mustInsertAsyncRun(t, orm, jorm)
 
-	ds1_id := uuid.New()
+	ds1ID := uuid.New()
 	now := time.Now()
 	address, err := hex.DecodeString("0x8bd112d3f8f92e41c861939545ad387307af9703")
 	require.NoError(t, err)
@@ -464,7 +462,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
-			ID:            ds1_id,
+			ID:            ds1ID,
 			PipelineRunID: run.ID,
 			Type:          "bridge",
 			DotID:         "ds1",
@@ -502,7 +500,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	// assert that run should be in "paused" state
 	require.Equal(t, pipeline.RunStatusSuspended, run.State)
 
-	r, start, err := orm.UpdateTaskRunResult(ctx, ds1_id, pipeline.Result{Value: "foo"})
+	r, start, err := orm.UpdateTaskRunResult(ctx, ds1ID, pipeline.Result{Value: "foo"})
 	run = &r
 	require.NoError(t, err)
 	assert.Positive(t, run.ID)
@@ -526,7 +524,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRun(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	_, orm, jorm := setupLiteORM(t)
 
 	run := mustInsertAsyncRun(t, orm, jorm)
@@ -569,10 +567,10 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	_, orm, jorm := setupHeavyORM(t)
 
-	var runsIds []int64
+	var runsIDs []int64
 
 	for i := 1; i <= 2000; i++ {
 		run := mustInsertAsyncRun(t, orm, jorm)
@@ -597,21 +595,22 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 		run.AllErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
 
 		restart, err := orm.StoreRun(ctx, run)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// no new data, so we don't need a restart
 		assert.False(t, restart)
 
-		runsIds = append(runsIds, run.ID)
+		runsIDs = append(runsIDs, run.ID)
 	}
 
-	err := orm.DeleteRunsOlderThan(testutils.Context(t), 1*time.Second)
-	assert.NoError(t, err)
+	err := orm.DeleteRunsOlderThan(t.Context(), 1*time.Second)
+	require.NoError(t, err)
 
-	for _, runId := range runsIds {
-		_, err := orm.FindRun(ctx, runId)
+	for _, runID := range runsIDs {
+		_, err := orm.FindRun(ctx, runID)
 		require.Error(t, err, "not found")
 	}
 }
+
 func Test_Prune(t *testing.T) {
 	t.Parallel()
 
@@ -628,7 +627,7 @@ func Test_Prune(t *testing.T) {
 	ps1 := mustInsertPipelineSpec(t, db)
 
 	// We need a job_pipeline_specs entry to test the pruning mechanism
-	err := torm.AddJobPipelineSpecWithoutConstraints(testutils.Context(t), ps1.ID, ps1.ID)
+	err := torm.AddJobPipelineSpecWithoutConstraints(t.Context(), ps1.ID, ps1.ID)
 	require.NoError(t, err)
 
 	jobID := ps1.ID
@@ -715,5 +714,5 @@ func mustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID i
 func mustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
 	err := db.Get(&spec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
 	require.NoError(t, err)
-	return
+	return spec
 }

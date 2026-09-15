@@ -137,7 +137,7 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 			proposerAddressByChain[target] = proposerAddr.String()
 			inspectorPerChain[target] = mcmsevm.NewInspector(chain.Client)
 			lggr.Infof("Transferring ownership of Keystone Forwarder to timelock for chain selector %d", target)
-			err = tranferOwnershipOp(b, target, forwarderAddress, chain, &batches, timelockAddr)
+			err = transferOwnershipOp(b, target, forwarderAddress, chain, &batches, timelockAddr)
 			if err != nil {
 				return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to transfer ownership of forwarder to timelock for chain selector %d: %w", target, err)
 			}
@@ -313,7 +313,7 @@ func configureForwarderOp(
 	return nil
 }
 
-func tranferOwnershipOp(
+func transferOwnershipOp(
 	b operations.Bundle,
 	target uint64,
 	forwarderAddress common.Address,

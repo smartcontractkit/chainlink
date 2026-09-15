@@ -17,7 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestAtrributesAttribute(t *testing.T) {
+func TestAttributesAttribute(t *testing.T) {
+	t.Parallel()
+
 	a := `ds1 [type=http method=GET tags=<{"attribute1":"value1", "attribute2":42}>];`
 	p, err := pipeline.Parse(a)
 	require.NoError(t, err)
@@ -78,7 +80,6 @@ func TestRetryUnmarshal(t *testing.T) {
 		max     time.Duration
 	}{
 		{
-
 			"nothing specified",
 			`ds1 [type=any];`,
 			0,
@@ -86,7 +87,6 @@ func TestRetryUnmarshal(t *testing.T) {
 			time.Minute,
 		},
 		{
-
 			"only retry specified",
 			`ds1 [type=any retries=5];`,
 			5,
@@ -221,7 +221,7 @@ func TestCheckInputs(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			outputs, err := pipeline.CheckInputs(test.pr, test.minLen, test.maxLen, test.maxErrors)
 			if test.err == nil {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Len(t, outputs, test.outputsLen)
 			} else {
 				assert.Equal(t, test.err, errors.Cause(err))
@@ -294,6 +294,7 @@ func TestSelectGasLimit(t *testing.T) {
 		assert.Equal(t, uint64(999), gasLimit)
 	})
 }
+
 func TestGetNextTaskOf(t *testing.T) {
 	trrs := pipeline.TaskRunResults{
 		{

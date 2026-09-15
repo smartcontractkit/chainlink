@@ -3,7 +3,6 @@ package v2
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -130,8 +129,9 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 // been cached already.  Before a workflow can be started this method must be called to ensure all artifacts used by the
 // workflow are available from the store.
 func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error) {
-	// Check if the workflow spec is already stored in the database
-	if spec, err := h.orm.GetWorkflowSpec(ctx, workflowID); err == nil {
+	// Check if the workflow spec is already stored in the database.
+	// A row whose binary payload is empty is a pause tombstone - don't use it.
+	if spec, err := h.orm.GetWorkflowSpec(ctx, workflowID); err == nil && spec.Workflow != "" {
 		// there is no update in the BinaryURL or ConfigURL, lets decode the stored artifacts
 		decodedBinary, err := hex.DecodeString(spec.Workflow)
 		if err != nil {
@@ -234,22 +234,24 @@ func (h *Store) GetWorkflowSpec(ctx context.Context, workflowID string) (*job.Wo
 	return spec, err
 }
 
+// ListWorkflowSpecs returns the persisted workflow specs (identity columns
+// only). It backs the orphan sweep and the metering snapshot path.
+func (h *Store) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error) {
+	return h.orm.ListWorkflowSpecs(ctx)
+}
+
 func (h *Store) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
 	return h.orm.UpsertWorkflowSpec(ctx, spec)
 }
 
-// DeleteWorkflowArtifacts removes the workflow spec from the database. If not found, returns nil.
-func (h *Store) DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error {
-	err := h.orm.DeleteWorkflowSpec(ctx, workflowID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			h.lggr.Warnw("failed to delete workflow spec: not found", "workflowID", workflowID)
-			return nil
-		}
-		return fmt.Errorf("failed to delete workflow spec: %w", err)
-	}
+// DeleteWorkflowArtifacts removes the workflow spec from the database. If not
+// found, returns (nil, nil).
+func (h *Store) DeleteWorkflowArtifacts(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {
+	return h.orm.DeleteWorkflowSpec(ctx, workflowID)
+}
 
-	return nil
+func (h *Store) PauseWorkflowArtifacts(ctx context.Context, workflowID string) error {
+	return h.orm.PauseWorkflowSpec(ctx, workflowID)
 }
 
 func (h *Store) DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error {

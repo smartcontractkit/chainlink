@@ -56,7 +56,7 @@ func (cc *chipIngressBatchClient) start(ctx context.Context) error {
 	return nil
 }
 
-// Send directs incoming telmetry messages to the worker responsible for pushing it to
+// Send directs incoming telemetry messages to the worker responsible for pushing it to
 // the ingress server. If the worker telemetry buffer is full, messages are dropped
 // and a warning is logged.
 func (cc *chipIngressBatchClient) Send(ctx context.Context, payload TelemPayload) {

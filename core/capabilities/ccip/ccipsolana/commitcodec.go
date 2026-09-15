@@ -11,7 +11,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // CommitPluginCodecV1 is a codec for encoding and decoding commit plugin reports.
@@ -23,7 +23,7 @@ func NewCommitPluginCodecV1() *CommitPluginCodecV1 {
 	return &CommitPluginCodecV1{}
 }
 
-func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.CommitPluginReport) ([]byte, error) {
+func (c *CommitPluginCodecV1) Encode(ctx context.Context, report ccipocr3.CommitPluginReport) ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := agbinary.NewBorshEncoder(&buf)
 	combinedRoots := report.BlessedMerkleRoots
@@ -87,7 +87,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		switch len(report.RMNSignatures) {
 		case 0:
 			if len(report.UnblessedMerkleRoots) == 0 {
-				return nil, errors.New("No RMN signature included for the blessed root")
+				return nil, errors.New("no RMN signature included for the blessed root")
 			}
 		case 1:
 			if len(report.BlessedMerkleRoots) == 0 {
@@ -99,7 +99,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 			copy(rmnSig64Array[32:], report.RMNSignatures[0].S[:])
 			commit.RmnSignatures = [][64]uint8{rmnSig64Array}
 		default:
-			return nil, fmt.Errorf("Multiple RMNSignatures in report: %d", len(report.RMNSignatures))
+			return nil, fmt.Errorf("multiple RMNSignatures in report: %d", len(report.RMNSignatures))
 		}
 	}
 
@@ -111,23 +111,23 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 	return buf.Bytes(), nil
 }
 
-func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptypes.CommitPluginReport, error) {
+func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (ccipocr3.CommitPluginReport, error) {
 	decoder := agbinary.NewBorshDecoder(bytes)
 	commitReport := ccip_offramp.CommitInput{}
 	err := commitReport.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return cciptypes.CommitPluginReport{}, err
+		return ccipocr3.CommitPluginReport{}, err
 	}
 
-	var merkleRoots []cciptypes.MerkleRootChain
+	var merkleRoots []ccipocr3.MerkleRootChain
 	if commitReport.MerkleRoot != nil {
-		merkleRoots = []cciptypes.MerkleRootChain{
+		merkleRoots = []ccipocr3.MerkleRootChain{
 			{
-				ChainSel:      cciptypes.ChainSelector(commitReport.MerkleRoot.SourceChainSelector),
+				ChainSel:      ccipocr3.ChainSelector(commitReport.MerkleRoot.SourceChainSelector),
 				OnRampAddress: commitReport.MerkleRoot.OnRampAddress,
-				SeqNumsRange: cciptypes.NewSeqNumRange(
-					cciptypes.SeqNum(commitReport.MerkleRoot.MinSeqNr),
-					cciptypes.SeqNum(commitReport.MerkleRoot.MaxSeqNr),
+				SeqNumsRange: ccipocr3.NewSeqNumRange(
+					ccipocr3.SeqNum(commitReport.MerkleRoot.MinSeqNr),
+					ccipocr3.SeqNum(commitReport.MerkleRoot.MaxSeqNr),
 				),
 				MerkleRoot: commitReport.MerkleRoot.MerkleRoot,
 			},
@@ -136,24 +136,24 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 
 	// tokenPrice and gasPrice data is big endian encoded, following EVM
 
-	tokenPriceUpdates := make([]cciptypes.TokenPrice, 0, len(commitReport.PriceUpdates.TokenPriceUpdates))
+	tokenPriceUpdates := make([]ccipocr3.TokenPrice, 0, len(commitReport.PriceUpdates.TokenPriceUpdates))
 	for _, update := range commitReport.PriceUpdates.TokenPriceUpdates {
-		tokenPriceUpdates = append(tokenPriceUpdates, cciptypes.TokenPrice{
-			TokenID: cciptypes.UnknownEncodedAddress(update.SourceToken.String()),
+		tokenPriceUpdates = append(tokenPriceUpdates, ccipocr3.TokenPrice{
+			TokenID: ccipocr3.UnknownEncodedAddress(update.SourceToken.String()),
 			Price:   decodeBEToBigInt(update.UsdPerToken[:]),
 		})
 	}
 
-	gasPriceUpdates := make([]cciptypes.GasPriceChain, 0, len(commitReport.PriceUpdates.GasPriceUpdates))
+	gasPriceUpdates := make([]ccipocr3.GasPriceChain, 0, len(commitReport.PriceUpdates.GasPriceUpdates))
 	for _, update := range commitReport.PriceUpdates.GasPriceUpdates {
-		gasPriceUpdates = append(gasPriceUpdates, cciptypes.GasPriceChain{
+		gasPriceUpdates = append(gasPriceUpdates, ccipocr3.GasPriceChain{
 			GasPrice: decodeBEToBigInt(update.UsdPerUnitGas[:]),
-			ChainSel: cciptypes.ChainSelector(update.DestChainSelector),
+			ChainSel: ccipocr3.ChainSelector(update.DestChainSelector),
 		})
 	}
 
-	commitPluginReport := cciptypes.CommitPluginReport{
-		PriceUpdates: cciptypes.PriceUpdates{
+	commitPluginReport := ccipocr3.CommitPluginReport{
+		PriceUpdates: ccipocr3.PriceUpdates{
 			TokenPriceUpdates: tokenPriceUpdates,
 			GasPriceUpdates:   gasPriceUpdates,
 		},
@@ -163,14 +163,14 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 		commitPluginReport.UnblessedMerkleRoots = merkleRoots
 	} else {
 		commitPluginReport.BlessedMerkleRoots = merkleRoots
-		rmnSigs := make([]cciptypes.RMNECDSASignature, 0, len(commitReport.RmnSignatures))
+		rmnSigs := make([]ccipocr3.RMNECDSASignature, 0, len(commitReport.RmnSignatures))
 		for _, sig := range commitReport.RmnSignatures {
 			// Leading 32 bytes are the R part, and trailing 32 bytes are the S part
 			var r [32]byte
 			copy(r[:], sig[:32])
 			var s [32]byte
 			copy(s[:], sig[32:])
-			rmnSigs = append(rmnSigs, cciptypes.RMNECDSASignature{
+			rmnSigs = append(rmnSigs, ccipocr3.RMNECDSASignature{
 				R: r,
 				S: s,
 			})
@@ -191,15 +191,15 @@ func encodeBigIntToFixedLengthBE(bi *big.Int, length int) []byte {
 	return paddedBytes
 }
 
-func decodeBEToBigInt(data []byte) cciptypes.BigInt {
+func decodeBEToBigInt(data []byte) ccipocr3.BigInt {
 	// Use big.Int.SetBytes to construct the big.Int
 	bi := new(big.Int).SetBytes(data)
 	if bi.Cmp(big.NewInt(0)) == 0 {
-		return cciptypes.NewBigInt(big.NewInt(0))
+		return ccipocr3.NewBigInt(big.NewInt(0))
 	}
 
-	return cciptypes.NewBigInt(bi)
+	return ccipocr3.NewBigInt(bi)
 }
 
 // Ensure CommitPluginCodec implements the CommitPluginCodec interface
-var _ cciptypes.CommitPluginCodec = (*CommitPluginCodecV1)(nil)
+var _ ccipocr3.CommitPluginCodec = (*CommitPluginCodecV1)(nil)

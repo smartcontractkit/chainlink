@@ -12,9 +12,7 @@ type GatewayConfig struct {
 	UserServerConfig        gw_net.HTTPServerConfig
 	NodeServerConfig        gw_net.WebSocketServerConfig
 	ConnectionManagerConfig ConnectionManagerConfig
-	// HTTPClientConfig is configuration for outbound HTTP calls to external endpoints
-	HTTPClientConfig gw_net.HTTPClientConfig
-	Dons             []DONConfig // Deprecated: use Services + ShardedDONs instead
+	HTTPClientConfig        gw_net.HTTPClientConfig
 
 	// Services defines logical groupings of handlers with attached DONs.
 	// Each service can have multiple handlers and be associated with multiple DONs.
@@ -23,7 +21,7 @@ type GatewayConfig struct {
 }
 
 type ConnectionManagerConfig struct {
-	AuthGatewayId             string
+	AuthGatewayID             string
 	AuthTimestampToleranceSec uint32
 	AuthChallengeLen          uint32
 	HeartbeatIntervalSec      uint32
@@ -34,7 +32,7 @@ type ConnectionManagerConfig struct {
 }
 
 type DONConfig struct {
-	DonId         string
+	DonID         string
 	HandlerName   string          // Deprecated: use Handlers instead
 	HandlerConfig json.RawMessage // Deprecated: use Handlers instead
 	Members       []NodeConfig
@@ -89,10 +87,6 @@ func (c *GatewayConfig) Validate() error {
 			return fmt.Errorf("PongTimeoutSec (%d) must be greater than HeartbeatIntervalSec (%d)",
 				pong, heartbeat)
 		}
-	}
-
-	if len(c.Dons) > 0 && (len(c.Services) > 0 || len(c.ShardedDONs) > 0) {
-		return errors.New("legacy Dons config and Services/ShardedDONs cannot be used together")
 	}
 
 	donNames := make(map[string]bool)

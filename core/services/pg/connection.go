@@ -41,7 +41,7 @@ type ConnectionConfig interface {
 	MaxIdleConns() int
 }
 
-func NewConnection(ctx context.Context, uri string, driverName string, config ConnectionConfig) (db *sqlx.DB, err error) {
+func NewConnection(ctx context.Context, uri, driverName string, config ConnectionConfig) (db *sqlx.DB, err error) {
 	if driverName == commonpg.DriverTxWrappedPostgres {
 		if err = sqltest.RegisterTxDB(uri); err != nil {
 			return nil, fmt.Errorf("failed to register %s: %w", commonpg.DriverTxWrappedPostgres, err)
@@ -79,8 +79,7 @@ func setMaxMercuryConns(db *sqlx.DB, config ConnectionConfig) {
 	var cnt int
 	if err := db.Get(&cnt, `SELECT COUNT(*) FROM ocr2_oracle_specs WHERE plugin_type = 'mercury'`); err != nil {
 		const errUndefinedTable = "42P01"
-		var pqerr *pgconn.PgError
-		if errors.As(err, &pqerr) {
+		if pqerr, ok := errors.AsType[*pgconn.PgError](err); ok {
 			if pqerr.Code == errUndefinedTable {
 				// no mercury jobs defined
 				return

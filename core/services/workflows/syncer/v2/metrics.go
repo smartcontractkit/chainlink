@@ -37,6 +37,10 @@ type metrics struct {
 
 	// On-disk WASM cache write (sync); duration tails indicate IO contention vs typical skew.
 	moduleStoreDuration metric.Int64Histogram
+
+	// Backfill of workflow_specs_v2.workflow_tag; "reason" is
+	// "filled_empty" (row had an empty tag) or "refreshed" (row had a stale tag).
+	workflowTagBackfill metric.Int64Counter
 }
 
 func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, event string, success bool) {
@@ -128,6 +132,15 @@ func (m *metrics) recordModuleStore(ctx context.Context, d time.Duration, succes
 	}
 	m.moduleStoreDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
 		attribute.String("success", strconv.FormatBool(success)),
+	))
+}
+
+func (m *metrics) incrementWorkflowTagBackfill(ctx context.Context, reason string) {
+	if m == nil {
+		return
+	}
+	m.workflowTagBackfill.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("reason", reason),
 	))
 }
 
@@ -351,6 +364,11 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	workflowTagBackfill, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_workflow_tag_backfill_total")
+	if err != nil {
+		return nil, err
+	}
+
 	return &metrics{
 		handleDuration:            handleDuration,
 		fetchedWorkflows:          fetchedWorkflows,
@@ -371,5 +389,6 @@ func newMetrics() (*metrics, error) {
 		activationDropped:         activationDropped,
 		activationAbandoned:       activationAbandoned,
 		moduleStoreDuration:       moduleStoreDuration,
+		workflowTagBackfill:       workflowTagBackfill,
 	}, nil
 }

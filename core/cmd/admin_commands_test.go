@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -61,7 +60,7 @@ func TestShell_CreateUser(t *testing.T) {
 }
 
 func TestShell_ChangeRole(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
@@ -101,7 +100,7 @@ func TestShell_ChangeRole(t *testing.T) {
 }
 
 func TestShell_DeleteUser(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
@@ -136,7 +135,7 @@ func TestShell_DeleteUser(t *testing.T) {
 }
 
 func TestShell_ListUsers(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
@@ -148,7 +147,7 @@ func TestShell_ListUsers(t *testing.T) {
 
 	testRenderer := &testRenderer{}
 	client.Renderer = testRenderer
-	assert.NoError(t, client.ListUsers(c), user.Email)
+	require.NoError(t, client.ListUsers(c), user.Email)
 
 	userPresenterFound := false
 	for _, presenter := range testRenderer.presenters {
@@ -156,7 +155,7 @@ func TestShell_ListUsers(t *testing.T) {
 			userPresenterFound = true
 			assert.Equal(t, presenter.Role, user.Role)
 			userHasActiveAPIToken, err := strconv.ParseBool(presenter.HasActiveAPIToken)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, userHasActiveAPIToken, user.TokenKey.String != "")
 			assert.True(t, presenter.CreatedAt.Equal(user.CreatedAt))
 			assert.True(t, presenter.CreatedAt.Equal(user.UpdatedAt))

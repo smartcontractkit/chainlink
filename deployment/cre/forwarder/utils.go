@@ -25,7 +25,7 @@ type Config struct {
 	Signers       []common.Address // the onchain public keys of the nodes in the DON corresponding to DonID
 }
 
-type configureFowarderResponse struct {
+type forwarderTxResponse struct {
 	ChainSelector uint64
 	DonID         uint32
 	Forwarder     common.Address
@@ -42,7 +42,7 @@ func configureForwarder(
 	cfg Config,
 	useMCMS bool,
 	strategy strategies.TransactionStrategy,
-) (*configureFowarderResponse, error) {
+) (*forwarderTxResponse, error) {
 	if fwdr == nil {
 		return nil, errors.New("nil forwarder contract")
 	}
@@ -61,7 +61,7 @@ func configureForwarder(
 	if useMCMS {
 		lggr.Infow("Created MCMS proposal for forwarder", "address", fwdr.Address().String(), "donId", cfg.DonID, "version", ver, "f", cfg.F, "signers", signers)
 
-		return &configureFowarderResponse{
+		return &forwarderTxResponse{
 			ChainSelector: chain.Selector,
 			DonID:         cfg.DonID,
 			Forwarder:     fwdr.Address(),
@@ -71,9 +71,45 @@ func configureForwarder(
 
 	lggr.Infow("Successfully configured forwarder", "address", fwdr.Address().String(), "donId", cfg.DonID, "version", ver, "f", cfg.F, "signers", signers)
 
-	return &configureFowarderResponse{
+	return &forwarderTxResponse{
 		ChainSelector: chain.Selector,
 		DonID:         cfg.DonID,
 		Forwarder:     fwdr.Address(),
+	}, nil
+}
+
+// clearForwarderConfig clears the config for the given DON id and config version on the forwarder contract.
+func clearForwarderConfig(
+	lggr logger.Logger,
+	chain cldf_evm.Chain,
+	fwdr *kf.KeystoneForwarder,
+	donID uint32,
+	configVersion uint32,
+	useMCMS bool,
+	strategy strategies.TransactionStrategy,
+) (*forwarderTxResponse, error) {
+	if fwdr == nil {
+		return nil, errors.New("nil forwarder contract")
+	}
+
+	operation, _, err := strategy.Apply(func(txOpts *bind.TransactOpts) (*types.Transaction, error) {
+		return fwdr.ClearConfig(txOpts, donID, configVersion)
+	})
+	if err != nil {
+		err = cldf.DecodeErr(kf.KeystoneForwarderABI, err)
+		return nil, fmt.Errorf("failed to call ClearConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
+	}
+
+	if useMCMS {
+		lggr.Infow("Created MCMS proposal to clear forwarder config", "address", fwdr.Address().String(), "donId", donID, "version", configVersion)
+	} else {
+		lggr.Infow("Successfully cleared forwarder config", "address", fwdr.Address().String(), "donId", donID, "version", configVersion)
+	}
+
+	return &forwarderTxResponse{
+		ChainSelector: chain.Selector,
+		DonID:         donID,
+		Forwarder:     fwdr.Address(),
+		MCMSOperation: operation,
 	}, nil
 }

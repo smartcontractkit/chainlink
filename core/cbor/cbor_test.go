@@ -178,7 +178,7 @@ func Test_ParseCBORToStruct_WrongFieldType(t *testing.T) {
 
 	parsed := struct {
 		Url  string `cbor:"url"`
-		Path []int  `cbor:"path"` // exect int but get string
+		Path []int  `cbor:"path"` // expect int but get string
 	}{}
 	err = ParseDietCBORToStruct(bytesCBOR, &parsed)
 

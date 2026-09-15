@@ -46,9 +46,8 @@ var (
 		shared.FeeQuoter,
 		fee_quoter.FeeQuoterMetaData,
 		&opsutils.ContractOpts{
-			Version:          &deployment.Version1_6_3, // defaults to v1_6_3, but can be overwritten by input params.FeeQuoterOpts
-			EVMBytecode:      common.FromHex(fee_quoter.FeeQuoterBin),
-			ZkSyncVMBytecode: fee_quoter.ZkBytecode,
+			Version:     &deployment.Version1_6_3, // defaults to v1_6_3, but can be overwritten by input params.FeeQuoterOpts
+			EVMBytecode: common.FromHex(fee_quoter.FeeQuoterBin),
 		},
 		func(input DeployFeeQInput) []any {
 			return []any{

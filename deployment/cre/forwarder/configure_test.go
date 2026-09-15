@@ -23,6 +23,10 @@ import (
 	changeset3 "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
+// setupForwarderQualifier is the qualifier the forwarder deployed by setupForwarderTest is
+// registered under in the datastore.
+const setupForwarderQualifier = "test-configure-forwarder"
+
 func TestConfigureForwardersSeq(t *testing.T) {
 	h, donConfig := setupForwarderTest(t, false)
 	env := h.Runtime.Environment()
@@ -33,7 +37,7 @@ func TestConfigureForwardersSeq(t *testing.T) {
 	}
 	input := forwarder.ConfigureSeqInput{
 		DON:        donConfig,
-		Qualifier:  "test-configure-forwarder",
+		Qualifier:  setupForwarderQualifier,
 		MCMSConfig: nil,
 		Chains:     map[uint64]struct{}{}, //  Empty means all chains
 	}
@@ -52,7 +56,7 @@ func TestConfigureForwarders(t *testing.T) {
 	t.Log("Starting configure changeset application...")
 	task := runtime.ChangesetTask(forwarder.ConfigureForwarders{}, forwarder.ConfigureSeqInput{
 		DON:        donConfig,
-		Qualifier:  "test-configure-forwarder",
+		Qualifier:  setupForwarderQualifier,
 		MCMSConfig: nil, // Not using MCMS for this test
 		Chains:     map[uint64]struct{}{h.RegistrySelector: {}},
 	})
@@ -75,7 +79,7 @@ func TestConfigureForwarders_WithMCMS(t *testing.T) {
 	t.Log("Starting configure changeset application with MCMS...")
 	task := runtime.ChangesetTask(forwarder.ConfigureForwarders{}, forwarder.ConfigureSeqInput{
 		DON:       donConfig,
-		Qualifier: "test-configure-forwarder",
+		Qualifier: setupForwarderQualifier,
 		MCMSConfig: &contracts.MCMSConfig{
 			MinDelay: 10 * time.Second,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -236,7 +240,7 @@ func setupForwarderTest(t *testing.T, enableMCMS bool) (*test.Harness, forwarder
 	}
 	input := forwarder.DeploySequenceInput{
 		Targets:   []uint64{registryChainSel},
-		Qualifier: "test-configure-forwarder",
+		Qualifier: setupForwarderQualifier,
 	}
 
 	got, err := operations.ExecuteSequence(env.OperationsBundle, forwarder.DeploySequence, deps, input)

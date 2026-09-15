@@ -1239,30 +1239,21 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 	}
 
 	ab := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 	homeChainSel, err := state.HomeChainSelector()
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get HomeChainSelector: %w", err)
 	}
 
 	chain := e.BlockChains.EVMChains()[homeChainSel]
-	err = deployDonIDClaimerContract(e, ab, state, chain)
+	err = deployDonIDClaimerContract(e, ab, ds, state, chain)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy donIDClaimer contract", "err", err, "addressBook", ab)
-
-		ds, err2 := shared.PopulateDataStore(ab)
-		if err2 != nil {
-			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
-		}
 
 		return cldf.ChangesetOutput{
 			AddressBook: ab,
 			DataStore:   ds,
-		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", errors.Join(err, err2))
-	}
-
-	ds, err := shared.PopulateDataStore(ab)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
@@ -1271,14 +1262,14 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 	}, nil
 }
 
-func deployDonIDClaimerContract(e cldf.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain cldf_evm.Chain) error {
+func deployDonIDClaimerContract(e cldf.Environment, ab cldf.AddressBook, ds datastore.MutableDataStore, state stateview.CCIPOnChainState, chain cldf_evm.Chain) error {
 	chainState, chainExists := state.Chains[chain.Selector]
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
 	}
 
 	if state.Chains[chain.Selector].DonIDClaimer == nil {
-		_, err := cldf.DeployContract(e.Logger, chain, ab,
+		_, err := shared.DeployContractAndRecord(e.Logger, chain, ab, ds, cldf.NewTypeAndVersion(shared.DonIDClaimer, deployment.Version1_6_1), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*don_id_claimer.DonIDClaimer] {
 				donIDClaimerAddr, tx2, donIDClaimerC, err2 := don_id_claimer.DeployDonIDClaimer(
 					chain.DeployerKey,

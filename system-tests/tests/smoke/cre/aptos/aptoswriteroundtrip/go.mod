@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260616232143-9a69bb7e7ebf

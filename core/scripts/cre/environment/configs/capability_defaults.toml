@@ -1,7 +1,11 @@
 [capability_configs.consensus]
   binary_name = "consensus"
 
-# Global values for consensus are optional - uses empty jobspec config by default
+# Global values for consensus are optional - uses empty jobspec config by default.
+# Oracle factory contract/chain/bootstrap/signing fields are resolved at runtime:
+#   - ocr_contract_address, chain_id: Capabilities.ExternalRegistry (CapabilitiesRegistry address/chain)
+#   - bootstrap_peers: Capabilities.Peering.V2.DefaultBootstrappers
+#   - ocr_key_bundle_id, transmitter_id, onchainSigningStrategy: node keystore/OCR config
 [capability_configs.consensus.values]
 # MaxRequestSizeBytes = 200000  # Default: 100000
 # RequestBatchSize = 1 # Default: 1
@@ -24,8 +28,8 @@
 [capability_configs.evm.values]
   LogTriggerPollInterval = 1500000000  # 1.5s in nanoseconds
   ReceiverGasMinimum = 500
-  # LogTriggerSendChannelBufferSize = 1000 # default 1000, ommited here to use default
-  # LogTriggerLimitQueryLogSize = 1000 # default 1000, ommited here to use default
+  # LogTriggerSendChannelBufferSize = 1000 # default 1000, omitted here to use default
+  # LogTriggerLimitQueryLogSize = 1000 # default 1000, omitted here to use default
   # Runtime values below are typically filled at runtime, but may be overridden
   # CreForwarderAddress = "0x0000000000000000000000000000000000000000"
   # NodeAddress = "0x0000000000000000000000000000000000000000"

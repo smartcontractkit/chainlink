@@ -5,11 +5,12 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
@@ -86,8 +87,8 @@ func TestTransmitter(t *testing.T) {
 		1,
 		report.ReportWithInfo,
 		[]types.AttributedOnchainSignature{
-			types.AttributedOnchainSignature{Signature: []byte{0: 2}},
-			types.AttributedOnchainSignature{Signature: []byte{0: 3}},
+			{Signature: []byte{0: 2}},
+			{Signature: []byte{0: 3}},
 		},
 	)
 	require.NoError(t, err)

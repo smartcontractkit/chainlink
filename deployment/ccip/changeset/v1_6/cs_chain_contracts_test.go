@@ -317,11 +317,11 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			onRamp := state.Chains[source].OnRamp
 			config, err := onRamp.GetDynamicConfig(&bind.CallOpts{Context: ctx})
 			require.NoError(t, err)
-			feeAgggregator := config.FeeAggregator
+			feeAggregator := config.FeeAggregator
 			deployer := tenv.Env.BlockChains.EVMChains()[source].DeployerKey
 
 			// LINK
-			tx, err := linkToken.GrantMintRole(deployer, feeAgggregator)
+			tx, err := linkToken.GrantMintRole(deployer, feeAggregator)
 			require.NoError(t, err)
 			_, err = tenv.Env.BlockChains.EVMChains()[source].Confirm(tx)
 			require.NoError(t, err)
@@ -343,10 +343,10 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			require.NoError(t, err)
 
 			// check init balances
-			aggregatorInitLinks, err := linkToken.BalanceOf(&bind.CallOpts{Context: ctx}, feeAgggregator)
+			aggregatorInitLinks, err := linkToken.BalanceOf(&bind.CallOpts{Context: ctx}, feeAggregator)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), aggregatorInitLinks.Int64())
-			aggregatorInitWeth, err := weth9.BalanceOf(&bind.CallOpts{Context: ctx}, feeAgggregator)
+			aggregatorInitWeth, err := weth9.BalanceOf(&bind.CallOpts{Context: ctx}, feeAggregator)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), aggregatorInitWeth.Int64())
 
@@ -372,10 +372,10 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			require.NoError(t, err)
 
 			// Assert that feeAggregator receives all fee tokens from OnRamp
-			aggregatorLinks, err := linkToken.BalanceOf(&bind.CallOpts{Context: ctx}, feeAgggregator)
+			aggregatorLinks, err := linkToken.BalanceOf(&bind.CallOpts{Context: ctx}, feeAggregator)
 			require.NoError(t, err)
 			assert.Equal(t, tokenAmount, aggregatorLinks)
-			aggregatorWeth, err := weth9.BalanceOf(&bind.CallOpts{Context: ctx}, feeAgggregator)
+			aggregatorWeth, err := weth9.BalanceOf(&bind.CallOpts{Context: ctx}, feeAggregator)
 			require.NoError(t, err)
 			assert.Equal(t, tokenAmount, aggregatorWeth)
 		})

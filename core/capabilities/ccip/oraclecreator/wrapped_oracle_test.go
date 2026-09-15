@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_wrappedOracle_Close(t *testing.T) {
@@ -58,7 +59,7 @@ func Test_wrappedOracle_Close(t *testing.T) {
 				return
 			}
 
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Equal(t, tt.expectedErr.Error(), err.Error())
 		})
 	}

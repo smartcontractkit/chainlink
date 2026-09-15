@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
@@ -66,8 +66,8 @@ func TestPlugin_Outcome(t *testing.T) {
 		require.NoError(t, err)
 
 		ctx := t.Context()
-		intialSeqNr := uint64(42)
-		outcomeCtx := ocr3types.OutcomeContext{SeqNr: intialSeqNr}
+		initialSeqNr := uint64(42)
+		outcomeCtx := ocr3types.OutcomeContext{SeqNr: initialSeqNr}
 
 		// Observations from 4 NOPs reporting health, workflows, and wantShards=3
 		observations := []struct {
@@ -134,7 +134,7 @@ func TestPlugin_Outcome(t *testing.T) {
 		require.NotNil(t, outcomeProto.State)
 		// When bootstrapping without PreviousOutcome, we use wantShards from observations (3)
 		// Since consensus wantShards (3) equals bootstrap shards, no transition needed - ID stays the same
-		require.Equal(t, intialSeqNr, outcomeProto.State.Id, "ID should match SeqNr (no transition needed)")
+		require.Equal(t, initialSeqNr, outcomeProto.State.Id, "ID should match SeqNr (no transition needed)")
 		t.Logf("Outcome - ID: %d, HealthyShards: %v", outcomeProto.State.Id, outcomeProto.State.GetRoutableShards())
 		t.Logf("Workflows assigned: %d", len(outcomeProto.Routes))
 
@@ -144,8 +144,8 @@ func TestPlugin_Outcome(t *testing.T) {
 		for wf := range expectedWorkflows {
 			route, exists := outcomeProto.Routes[wf]
 			require.True(t, exists, "workflow %s should be assigned", wf)
-			require.LessOrEqual(t, route.Shard, uint32(2), "shard should be healthy (0-2)")
-			t.Logf("  %s → shard %d", wf, route.Shard)
+			require.LessOrEqual(t, route.DonId, uint32(2), "shard should be healthy (0-2)")
+			t.Logf("  %s → shard %d", wf, route.DonId)
 		}
 
 		// Verify determinism: run again, should get same assignments
@@ -160,7 +160,7 @@ func TestPlugin_Outcome(t *testing.T) {
 		for wf, route1 := range outcomeProto.Routes {
 			route2, exists := outcomeProto2.Routes[wf]
 			require.True(t, exists)
-			require.Equal(t, route1.Shard, route2.Shard, "workflow %s should assign to same shard", wf)
+			require.Equal(t, route1.DonId, route2.DonId, "workflow %s should assign to same shard", wf)
 		}
 	})
 }
@@ -400,7 +400,7 @@ func TestPlugin_NewPlugin_NilArbiter(t *testing.T) {
 func TestPlugin_getHealthyShards(t *testing.T) {
 	tests := []struct {
 		name  string
-		votes map[uint32]int // shardID -> vote count
+		votes map[uint32]int // donID -> vote count
 		f     int
 		want  int
 	}{
@@ -527,7 +527,7 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 
 	route, exists := outcomeProto.Routes["workflow-123"]
 	require.True(t, exists, "workflow-123 should be in routes")
-	require.Equal(t, uint32(0), route.Shard, "workflow-123 should be assigned to shard 0 (fallback)")
+	require.Equal(t, uint32(0), route.DonId, "workflow-123 should be assigned to shard 0 (fallback)")
 }
 
 func TestPlugin_ValidateObservation_RejectsWantShardsZero(t *testing.T) {
@@ -688,10 +688,10 @@ func TestPlugin_RingStoreIntegration(t *testing.T) {
 
 		workflowsOnShard2 := []string{}
 		for wfID, route := range baselineProto.Routes {
-			if route.Shard == 2 {
+			if route.DonId == 2 {
 				workflowsOnShard2 = append(workflowsOnShard2, wfID)
 			}
-			t.Logf("Baseline: %s on shard %d", wfID, route.Shard)
+			t.Logf("Baseline: %s on shard %d", wfID, route.DonId)
 		}
 		require.NotEmpty(t, workflowsOnShard2, "at least one workflow should be on shard 2 for this test")
 
@@ -721,8 +721,8 @@ func TestPlugin_RingStoreIntegration(t *testing.T) {
 
 		for _, wfID := range workflowsOnShard2 {
 			newRoute := outcomeProto.Routes[wfID]
-			require.NotEqual(t, uint32(2), newRoute.Shard, "workflow should have moved from shard 2")
-			t.Logf("Workflow %s moved from shard 2 → %d", wfID, newRoute.Shard)
+			require.NotEqual(t, uint32(2), newRoute.DonId, "workflow should have moved from shard 2")
+			t.Logf("Workflow %s moved from shard 2 → %d", wfID, newRoute.DonId)
 		}
 	})
 }

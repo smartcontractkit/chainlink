@@ -52,14 +52,22 @@ type ProposeSolanaJobSpecInput struct {
 
 	ChainSelector        uint64   `json:"chainSelector" yaml:"chainSelector"`
 	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
-	// OCRContractQualifier selects the CapabilitiesRegistry qualifier on OCRChainSelector when readsEnabled is true.
+	// OCRContractQualifier selects the OCR oracle-factory config source on OCRChainSelector when readsEnabled is
+	// true. By default it is a CapabilitiesRegistry@2.0.0 qualifier. When UseStandaloneOCR3Contract is true it is
+	// instead a standalone OCR3Capability@1.0.0 qualifier (the legacy OCR3 flow).
 	OCRContractQualifier string        `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
 	OCRChainSelector     uint64        `json:"ocrChainSelector" yaml:"ocrChainSelector"`
 	ForwardersQualifier  string        `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
 	DeltaStage           time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
 
-	// ReadsEnabled turns on Solana read methods and wires OCR oracle factory (CapReg-backed, multi-chain signing).
+	// ReadsEnabled turns on Solana read methods and wires the OCR oracle factory (multi-chain signing).
 	ReadsEnabled bool `json:"readsEnabled,omitempty" yaml:"readsEnabled,omitempty"`
+
+	// UseStandaloneOCR3Contract sources the oracle-factory OCR3 config from a standalone OCR3Capability@1.0.0
+	// contract (named by OCRContractQualifier) instead of the CapabilitiesRegistry. Use when the CapabilitiesRegistry
+	// path is unavailable (e.g. capability_registry_update_don is too large to execute within gas limits). Defaults to
+	// false (CapReg-backed), preserving existing behavior.
+	UseStandaloneOCR3Contract bool `json:"useStandaloneOCR3Contract,omitempty" yaml:"useStandaloneOCR3Contract,omitempty"`
 
 	SolanaCapabilityInputs []SolanaCapabilityInput `json:"solanaCapabilityInputs" yaml:"solanaCapabilityInputs"`
 }
@@ -152,8 +160,14 @@ func (u ProposeSolanaJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 		}); err != nil {
 			return err
 		}
-		if err := resolveCapRegAddress(e, input.OCRChainSelector, input.OCRContractQualifier); err != nil {
-			return err
+		if input.UseStandaloneOCR3Contract {
+			if err := resolveOCR3ContractAddress(e, input.OCRChainSelector, input.OCRContractQualifier); err != nil {
+				return err
+			}
+		} else {
+			if err := resolveCapRegAddress(e, input.OCRChainSelector, input.OCRContractQualifier); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -222,14 +236,19 @@ func (u ProposeSolanaJobSpec) Apply(e cldf.Environment, input ProposeSolanaJobSp
 
 	if input.ReadsEnabled {
 		job.GenerateOracleFactory = true
-		job.UseCapRegOCRConfig = true
 		job.ContractQualifier = input.OCRContractQualifier
-		job.CapRegVersion = solanaCapRegVersion
 		job.OCRSigningStrategy = "multi-chain"
 		job.OCRChainSelector = pkg.ChainSelector(input.OCRChainSelector)
 		job.ChainSelectorEVM = pkg.ChainSelector(input.OCRChainSelector)
 		job.ChainSelectorSolana = pkg.ChainSelector(input.ChainSelector)
 		job.BootstrapPeers = input.BootstrapperOCR3Urls
+		if input.UseStandaloneOCR3Contract {
+			// Legacy OCR3 flow: read oracle config from a standalone OCR3Capability@1.0.0 contract.
+			job.UseCapRegOCRConfig = false
+		} else {
+			job.UseCapRegOCRConfig = true
+			job.CapRegVersion = solanaCapRegVersion
+		}
 	}
 
 	nodeIDToConfig := make(map[string]string, len(input.SolanaCapabilityInputs))

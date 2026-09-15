@@ -14,9 +14,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
 var _ Key = &mockKey{}
@@ -31,23 +30,26 @@ type mockKey struct {
 func (m *mockKey) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
 	return m.sig, nil
 }
+
 func (m *mockKey) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
 	return m.verify
 }
+
 func (m *mockKey) Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
 	return m.sig, nil
 }
+
 func (m *mockKey) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
 	return m.verify
 }
 func (m *mockKey) SignBlob(b []byte) (sig []byte, err error) { return m.sig, nil }
-func (m *mockKey) VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b []byte, sig []byte) bool {
+func (m *mockKey) VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b, sig []byte) bool {
 	return m.verify
 }
 
 func (m *mockKey) PublicKey() ocrtypes.OnchainPublicKey {
 	b := make([]byte, m.maxSignatureLen)
-	for i := 0; i < m.maxSignatureLen; i++ {
+	for i := range m.maxSignatureLen {
 		b[i] = byte(255)
 	}
 	return ocrtypes.OnchainPublicKey(b)
@@ -136,5 +138,5 @@ func mustRandBytes(n int) (b []byte) {
 	if err != nil {
 		panic(err)
 	}
-	return
+	return b
 }

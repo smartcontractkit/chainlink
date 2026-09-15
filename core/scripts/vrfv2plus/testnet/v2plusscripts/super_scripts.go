@@ -225,12 +225,12 @@ func SmokeTestVRF(e helpers.Environment) {
 	fmt.Println("key hash registered:", hexutil.Encode(provingKeyRegisteredLog.KeyHash[:]))
 
 	fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
-	registerdKeyHash, err := coordinator.SProvingKeyHashes(nil, big.NewInt(0))
+	registeredKeyHash, err := coordinator.SProvingKeyHashes(nil, big.NewInt(0))
 	helpers.PanicErr(err)
-	fmt.Printf("Key hash registered: %x\n", registerdKeyHash)
+	fmt.Printf("Key hash registered: %x\n", registeredKeyHash)
 	ourKeyHash := key.PublicKey.MustHash()
-	if !bytes.Equal(registerdKeyHash[:], ourKeyHash[:]) {
-		panic(fmt.Sprintf("unexpected key hash %s, expected %s", hexutil.Encode(registerdKeyHash[:]), hexutil.Encode(ourKeyHash[:])))
+	if !bytes.Equal(registeredKeyHash[:], ourKeyHash[:]) {
+		panic(fmt.Sprintf("unexpected key hash %s, expected %s", hexutil.Encode(registeredKeyHash[:]), hexutil.Encode(ourKeyHash[:])))
 	}
 
 	fmt.Println("\nDeploying consumer...")
@@ -760,9 +760,9 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, provingKeyMaxGasPrice)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
-		registerdKeyHash, err2 := coordinator.SProvingKeyHashes(nil, big.NewInt(0))
+		registeredKeyHash, err2 := coordinator.SProvingKeyHashes(nil, big.NewInt(0))
 		helpers.PanicErr(err2)
-		fmt.Println("Key hash registered:", hex.EncodeToString(registerdKeyHash[:]))
+		fmt.Println("Key hash registered:", hex.EncodeToString(registeredKeyHash[:]))
 	} else {
 		fmt.Println("NOT registering proving key - you must do this eventually in order to fully deploy VRF!")
 	}

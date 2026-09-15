@@ -12,14 +12,12 @@ import (
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func Test_createDON(t *testing.T) {
@@ -28,7 +26,7 @@ func Test_createDON(t *testing.T) {
 		p2pID           ragep2ptypes.PeerID
 		homeChainReader *mocks.HomeChainReader
 		oracleCreator   *mocks.OracleCreator
-		don             registrysyncer.DON
+		don             registry.DON
 	}
 	tests := []struct {
 		name    string
@@ -43,7 +41,7 @@ func Test_createDON(t *testing.T) {
 				p2pID1,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
-				registrysyncer.DON{
+				registry.DON{
 					DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID3, p2pID4}, 0),
 					CapabilityConfigurations: defaultCapCfgs,
 				},
@@ -84,7 +82,7 @@ func Test_createDON(t *testing.T) {
 				ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID()),
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
-				registrysyncer.DON{
+				registry.DON{
 					DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID3, p2pID4}, 0),
 					CapabilityConfigurations: defaultCapCfgs,
 				},
@@ -231,7 +229,7 @@ func Test_createDON(t *testing.T) {
 			if tt.expect != nil {
 				tt.expect(t, tt.args, tt.args.oracleCreator, tt.args.homeChainReader)
 			}
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 
 			latestConfigs, err := getConfigsForDon(ctx, tt.args.homeChainReader, tt.args.don)
 			require.NoError(t, err)
@@ -255,7 +253,7 @@ func Test_updateDON(t *testing.T) {
 		p2pID           ragep2ptypes.PeerID
 		homeChainReader *mocks.HomeChainReader
 		oracleCreator   *mocks.OracleCreator
-		don             registrysyncer.DON
+		don             registry.DON
 		prevPlugins     pluginRegistry
 	}
 	tests := []struct {
@@ -272,7 +270,7 @@ func Test_updateDON(t *testing.T) {
 				p2pID3,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
-				registrysyncer.DON{
+				registry.DON{
 					DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID3, p2pID4}, 0),
 					CapabilityConfigurations: defaultCapCfgs,
 				},
@@ -325,7 +323,7 @@ func Test_updateDON(t *testing.T) {
 				p2pID3,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
-				registrysyncer.DON{
+				registry.DON{
 					DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID3, p2pID4}, 0),
 					CapabilityConfigurations: defaultCapCfgs,
 				},
@@ -361,7 +359,7 @@ func Test_updateDON(t *testing.T) {
 				p2pID3,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
-				registrysyncer.DON{
+				registry.DON{
 					DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID3, p2pID4}, 0),
 					CapabilityConfigurations: defaultCapCfgs,
 				},
@@ -426,7 +424,7 @@ func Test_updateDON(t *testing.T) {
 				p2pID3,
 				mocks.NewHomeChainReader(t),
 				mocks.NewOracleCreator(t),
-				registrysyncer.DON{
+				registry.DON{
 					DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID3, p2pID4}, 0),
 					CapabilityConfigurations: defaultCapCfgs,
 				},
@@ -492,7 +490,7 @@ func Test_updateDON(t *testing.T) {
 			if tt.expect != nil {
 				tt.expect(t, tt.args, tt.args.oracleCreator, tt.args.homeChainReader)
 			}
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 
 			latestConfigs, err := getConfigsForDon(ctx, tt.args.homeChainReader, tt.args.don)
 			require.NoError(t, err)
@@ -519,8 +517,8 @@ func Test_launcher_processDiff(t *testing.T) {
 		p2pID           ragep2ptypes.PeerID
 		homeChainReader *mocks.HomeChainReader
 		oracleCreator   *mocks.OracleCreator
-		instances       map[registrysyncer.DonID]pluginRegistry
-		regState        registrysyncer.LocalRegistry
+		instances       map[registry.DonID]pluginRegistry
+		regState        *registry.RegistryMetadata
 	}
 	type args struct {
 		diff diffResult
@@ -535,7 +533,7 @@ func Test_launcher_processDiff(t *testing.T) {
 		{
 			"don removed success",
 			fields{
-				instances: map[registrysyncer.DonID]pluginRegistry{
+				instances: map[registry.DonID]pluginRegistry{
 					1: {
 						utils.RandomBytes32(): newMock(t,
 							func(t *testing.T) *mocks.CCIPOracle { return mocks.NewCCIPOracle(t) },
@@ -549,15 +547,15 @@ func Test_launcher_processDiff(t *testing.T) {
 							}),
 					},
 				},
-				regState: registrysyncer.LocalRegistry{
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+				regState: &registry.RegistryMetadata{
+					IDsToDONs: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
 				},
 			},
 			args{
 				diff: diffResult{
-					removed: map[registrysyncer.DonID]registrysyncer.DON{
+					removed: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
 				},
@@ -615,14 +613,14 @@ func Test_launcher_processDiff(t *testing.T) {
 					})).
 						Return(execOracle, nil)
 				}),
-				instances: map[registrysyncer.DonID]pluginRegistry{},
-				regState: registrysyncer.LocalRegistry{
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{},
+				instances: map[registry.DonID]pluginRegistry{},
+				regState: &registry.RegistryMetadata{
+					IDsToDONs: map[registry.DonID]registry.DON{},
 				},
 			},
 			args{
 				diff: diffResult{
-					added: map[registrysyncer.DonID]registrysyncer.DON{
+					added: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
 				},
@@ -692,7 +690,7 @@ func Test_launcher_processDiff(t *testing.T) {
 					})).
 						Return(execOracle, nil)
 				}),
-				instances: map[registrysyncer.DonID]pluginRegistry{
+				instances: map[registry.DonID]pluginRegistry{
 					1: {
 						digest1: newMock(t, func(t *testing.T) *mocks.CCIPOracle {
 							return mocks.NewCCIPOracle(t)
@@ -702,15 +700,15 @@ func Test_launcher_processDiff(t *testing.T) {
 						}, func(m *mocks.CCIPOracle) {}),
 					},
 				},
-				regState: registrysyncer.LocalRegistry{
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+				regState: &registry.RegistryMetadata{
+					IDsToDONs: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 					},
 				},
 			},
 			args{
 				diff: diffResult{
-					updated: map[registrysyncer.DonID]registrysyncer.DON{
+					updated: map[registry.DonID]registry.DON{
 						1: {
 							// new Node in Don: p2pID2
 							DON:                      getDON(1, []ragep2ptypes.PeerID{p2pID1, p2pID2}, 0),
@@ -769,14 +767,14 @@ func Test_launcher_processDiff(t *testing.T) {
 					m.EXPECT().Create(mock.Anything, uint32(2), mock.Anything).
 						Return(execOracle, nil)
 				}),
-				instances: map[registrysyncer.DonID]pluginRegistry{},
-				regState: registrysyncer.LocalRegistry{
-					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{},
+				instances: map[registry.DonID]pluginRegistry{},
+				regState: &registry.RegistryMetadata{
+					IDsToDONs: map[registry.DonID]registry.DON{},
 				},
 			},
 			args{
 				diff: diffResult{
-					added: map[registrysyncer.DonID]registrysyncer.DON{
+					added: map[registry.DonID]registry.DON{
 						1: defaultRegistryDon,
 						2: secondaryRegistryDon,
 					},
@@ -813,7 +811,7 @@ func Test_launcher_processDiff(t *testing.T) {
 				homeChainReader: tt.fields.homeChainReader,
 				oracleCreator:   tt.fields.oracleCreator,
 			}
-			err := l.processDiff(testutils.Context(t), tt.args.diff)
+			err := l.processDiff(t.Context(), tt.args.diff)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -831,6 +829,7 @@ func getOCR3Nodes(p2pIDs ...int64) []ccipreaderpkg.OCR3Node {
 	}
 	return nodes
 }
+
 func newMock[T any](t *testing.T, newer func(t *testing.T) T, expect func(m T)) T {
 	o := newer(t)
 	expect(o)

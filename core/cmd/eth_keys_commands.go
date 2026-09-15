@@ -164,7 +164,7 @@ type EthKeyPresenters []EthKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
@@ -178,7 +178,6 @@ func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
 // ListETHKeys renders the active account address with its ETH & LINK balance
 func (s *Shell) ListETHKeys(_ *cli.Context) (err error) {
 	resp, err := s.HTTP.Get(s.ctx(), "/v2/keys/evm")
-
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -194,10 +193,10 @@ func (s *Shell) ListETHKeys(_ *cli.Context) (err error) {
 // CreateETHKey creates a new ethereum key with the same password
 // as the one used to unlock the existing key.
 func (s *Shell) CreateETHKey(c *cli.Context) (err error) {
-	createUrl := url.URL{
+	createURL := url.URL{
 		Path: "/v2/keys/evm",
 	}
-	query := createUrl.Query()
+	query := createURL.Query()
 
 	if c.IsSet("evm-chain-id") {
 		query.Set("evmChainID", c.String("evm-chain-id"))
@@ -206,8 +205,8 @@ func (s *Shell) CreateETHKey(c *cli.Context) (err error) {
 		query.Set("maxGasPriceGWei", c.String("max-gas-price-gwei"))
 	}
 
-	createUrl.RawQuery = query.Encode()
-	resp, err := s.HTTP.Post(s.ctx(), createUrl.String(), nil)
+	createURL.RawQuery = query.Encode()
+	resp, err := s.HTTP.Post(s.ctx(), createURL.String(), nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -279,10 +278,10 @@ func (s *Shell) ImportETHKey(c *cli.Context) (err error) {
 		return s.errorOut(err)
 	}
 
-	importUrl := url.URL{
+	importURL := url.URL{
 		Path: "/v2/keys/evm/import",
 	}
-	query := importUrl.Query()
+	query := importURL.Query()
 
 	query.Set("oldpassword", strings.TrimSpace(string(oldPassword)))
 
@@ -290,8 +289,8 @@ func (s *Shell) ImportETHKey(c *cli.Context) (err error) {
 		query.Set("evmChainID", c.String("evmChainID"))
 	}
 
-	importUrl.RawQuery = query.Encode()
-	resp, err := s.HTTP.Post(s.ctx(), importUrl.String(), bytes.NewReader(keyJSON))
+	importURL.RawQuery = query.Encode()
+	resp, err := s.HTTP.Post(s.ctx(), importURL.String(), bytes.NewReader(keyJSON))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -326,14 +325,14 @@ func (s *Shell) ExportETHKey(c *cli.Context) (err error) {
 	}
 
 	address := c.Args().Get(0)
-	exportUrl := url.URL{
+	exportURL := url.URL{
 		Path: "/v2/keys/evm/export/" + address,
 	}
-	query := exportUrl.Query()
+	query := exportURL.Query()
 	query.Set("newpassword", strings.TrimSpace(string(newPassword)))
 
-	exportUrl.RawQuery = query.Encode()
-	resp, err := s.HTTP.Post(s.ctx(), exportUrl.String(), nil)
+	exportURL.RawQuery = query.Encode()
+	resp, err := s.HTTP.Post(s.ctx(), exportURL.String(), nil)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
@@ -377,11 +376,12 @@ func (s *Shell) UpdateChainEVMKey(c *cli.Context) (err error) {
 	abandon := c.String("abandon")
 	query.Set("abandon", abandon)
 
-	if c.IsSet("enable") && c.IsSet("disable") {
+	switch {
+	case c.IsSet("enable") && c.IsSet("disable"):
 		return s.errorOut(errors.New("cannot set both --enable and --disable simultaneously"))
-	} else if c.Bool("enable") {
+	case c.Bool("enable"):
 		query.Set("enabled", "true")
-	} else if c.Bool("disable") {
+	case c.Bool("disable"):
 		query.Set("enabled", "false")
 	}
 

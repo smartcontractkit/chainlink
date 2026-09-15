@@ -9,19 +9,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
-	"github.com/smartcontractkit/libocr/networking/rageping"
-
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	"github.com/smartcontractkit/libocr/networking/rageping"
 	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"

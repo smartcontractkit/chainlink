@@ -53,7 +53,7 @@
 * gas estimation
 
 To use it you don't need to add any specific configuration to your TOML files. Reasonable defaults have been added to `default.toml` file under `[Seth]` section. For some of the products
-we have added a couple of product-scoped overrides. For example for Automation's Load tests we have increased ephemeral addresses count from `10` to `100`:
+we have added a couple of product-scoped overrides. For example for Load tests we have increased ephemeral addresses count from `10` to `100`:
 ```toml
 [Load.Seth]
 ephemeral_addresses_number = 100

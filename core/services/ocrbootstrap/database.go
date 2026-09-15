@@ -6,6 +6,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -75,7 +76,7 @@ LIMIT 1`, d.oracleSpecID)
 		c.Transmitters = append(c.Transmitters, transmitter)
 	}
 
-	return
+	return c, err
 }
 
 func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {

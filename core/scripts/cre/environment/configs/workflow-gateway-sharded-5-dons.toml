@@ -41,14 +41,14 @@
 [[nodesets]]
   nodes = 4
   name = "shard0"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow", "shard"]
   override_mode = "each"
   http_port_range_start = 10000
 
   env_vars = { CL_EVM_CMD = "" }
   capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time",  "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -97,7 +97,7 @@
 [[nodesets]]
   nodes = 4
   name = "shard1"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow", "shard"]
   shard_index = 1
   override_mode = "all"
@@ -106,7 +106,7 @@
   env_vars = { CL_EVM_CMD = "" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["cron", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -126,7 +126,7 @@
 [[nodesets]]
   nodes = 4
   name = "shard2"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow", "shard"]
   shard_index = 2
   override_mode = "all"
@@ -135,7 +135,7 @@
   env_vars = { CL_EVM_CMD = "" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["cron", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -155,7 +155,7 @@
 [[nodesets]]
   nodes = 4
   name = "shard3"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow", "shard"]
   shard_index = 3
   override_mode = "all"
@@ -164,7 +164,7 @@
   env_vars = { CL_EVM_CMD = "" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["cron", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -184,7 +184,7 @@
 [[nodesets]]
   nodes = 4
   name = "shard4"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow", "shard"]
   shard_index = 4
   override_mode = "all"
@@ -193,7 +193,7 @@
   env_vars = { CL_EVM_CMD = "" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["cron", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -213,7 +213,7 @@
 [[nodesets]]
   nodes = 4
   name = "shard5"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow", "shard"]
   shard_index = 5
   override_mode = "all"
@@ -222,7 +222,7 @@
   env_vars = { CL_EVM_CMD = "" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["cron", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -242,7 +242,7 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300

@@ -371,8 +371,8 @@ func TestStore_GetWorkflowMappingsBatch(t *testing.T) {
 
 	mappings, version := store.GetWorkflowMappingsBatch([]string{"wf-1", "wf-2", "wf-nonexistent"})
 	require.Len(t, mappings, 2)
-	require.Equal(t, uint32(0), mappings["wf-1"].NewShardID)
-	require.Equal(t, uint32(1), mappings["wf-2"].NewShardID)
+	require.Equal(t, uint32(0), mappings["wf-1"].NewDonID)
+	require.Equal(t, uint32(1), mappings["wf-2"].NewDonID)
 	require.NotContains(t, mappings, "wf-nonexistent")
 	require.Equal(t, uint64(2), version)
 }

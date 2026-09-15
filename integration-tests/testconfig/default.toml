@@ -123,7 +123,7 @@ FeeCapDefault = '200 gwei'
 """
 
 [Seth]
-# controls which transactions are decoded/traced. Possbile values are: none, all, reverted (default).
+# controls which transactions are decoded/traced. Possible values are: none, all, reverted (default).
 # if transaction level doesn't match, then calling Decode() does nothing. It's advised to keep it set
 # to 'reverted' to limit noise.
 tracing_level = "reverted"
@@ -148,10 +148,10 @@ pending_nonce_protection_enabled = true
 root_key_funds_buffer = 1000 # 1000 ethers
 
 # when enabled when creating a new Seth client we will send 10k wei from root address to root address
-# to make sure transaction can be submited and mined
+# to make sure transaction can be submitted and mined
 check_rpc_health_on_start = false
 
-# feature-flagged expriments: "slow_funds_return" sets funds return priority to 'slow' (core only!);
+# feature-flagged experiments: "slow_funds_return" sets funds return priority to 'slow' (core only!);
 # "eip_1559_fee_equalizer" sets the tip/base fee to the higher value in case there's 3+ orders of magnitude difference between them
 experiments_enabled = []
 

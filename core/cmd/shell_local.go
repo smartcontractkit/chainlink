@@ -18,31 +18,30 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
-
 	"github.com/urfave/cli"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-ccv/cli/chainstatuses"
+	"github.com/smartcontractkit/chainlink-ccv/verifier/pkg/chainstatus"
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	beholderServices "github.com/smartcontractkit/chainlink/v2/core/services/beholder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -53,9 +52,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/smartcontractkit/chainlink-ccv/cli/chainstatuses"
-	"github.com/smartcontractkit/chainlink-ccv/verifier/pkg/chainstatus"
 )
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
@@ -792,7 +788,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	// TODO: BCF-2511 once the dust settles on BCF-2440/1 evaluate how the
 	// [loop.Relayer] interface needs to be extended to support programming similar to
 	// this pattern but in a chain-agnostic way
-	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String()) //nolint:staticcheck // legacy EVM chain access required for standalone rebroadcast (see BCF-2511)
 	if err != nil {
 		return s.errorOut(fmt.Errorf("failed to get EVM chain service for chain ID %s: %w", chainID.String(), err))
 	}
@@ -877,7 +873,7 @@ type HealthCheckPresenters []HealthCheckPresenter
 // RenderTable implements TableRenderer
 func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"Name", "Status", "Output"}
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
@@ -888,7 +884,7 @@ func (ps HealthCheckPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+var errDBURLMissing = errors.New("you must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
 
 // ConfigValidate validate the client configuration and pretty-prints results
 func (s *Shell) ConfigFileValidate(_ *cli.Context) error {
@@ -943,9 +939,9 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 		return s.errorOut(err)
 	}
 	cfg := s.Config
-	dbUrl := cfg.Database().URL()
+	dbURL := cfg.Database().URL()
 	userOnly := c.Bool("user-only")
-	if err := store.PrepareTestDB(s.Logger, dbUrl, userOnly); err != nil {
+	if err := store.PrepareTestDB(s.Logger, dbURL, userOnly); err != nil {
 		return s.errorOut(err)
 	}
 	return nil
@@ -1032,7 +1028,7 @@ func (s *Shell) StatusDatabase(_ *cli.Context) error {
 func (s *Shell) CreateMigration(c *cli.Context) error {
 	ctx := s.ctx()
 	if !c.Args().Present() {
-		return s.errorOut(errors.New("You must specify a migration name"))
+		return s.errorOut(errors.New("you must specify a migration name"))
 	}
 	db, err := store.NewConnection(ctx, s.Config.Database())
 	if err != nil {
@@ -1076,7 +1072,7 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 	if !strings.EqualFold("EVM", c.String("type")) {
 		return s.errorOut(errors.New("unknown chain type"))
 	}
-	rows, err := db.Query(tablesToDeleteFromQuery, "evm_chain_id")
+	rows, err := db.QueryContext(ctx, tablesToDeleteFromQuery, "evm_chain_id")
 	if err != nil {
 		return fmt.Errorf("failed to query tables with evm_chain_id column: %w", err)
 	}
@@ -1097,7 +1093,7 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 
 	for _, tableName := range tablesToDeleteFrom {
 		query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
-		_, err = db.Exec(query, c.String("id"))
+		_, err = db.ExecContext(ctx, query, c.String("id"))
 		if err != nil {
 			fmt.Printf("Error deleting rows containing evm_chain_id from %s: %v\n", tableName, err)
 		} else {
@@ -1123,7 +1119,7 @@ func migrateDB(ctx context.Context, config store.Config) error {
 func (s *Shell) RemoveBlocks(c *cli.Context) error {
 	start := c.Int64("start")
 	if start <= 0 {
-		return s.errorOut(errors.New("Must pass a positive value in '--start' parameter"))
+		return s.errorOut(errors.New("must pass a positive value in '--start' parameter"))
 	}
 
 	chainID := big.NewInt(0)

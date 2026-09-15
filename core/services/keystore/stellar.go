@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/stellarkey"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
@@ -168,7 +167,7 @@ type StellarLooppSigner struct {
 	core.UnimplementedKeystore
 }
 
-var _ loop.Keystore = &StellarLooppSigner{}
+var _ core.Keystore = &StellarLooppSigner{}
 
 // Accounts returns a list of Stellar StrKey "G..." account addresses.
 func (s *StellarLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {

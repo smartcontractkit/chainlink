@@ -38,7 +38,7 @@
 [[nodesets]]
   nodes = 4
   name = "shard0"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow", "shard"]
   shard_index = 0
   override_mode = "each"
@@ -46,7 +46,7 @@
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -63,7 +63,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["60051:50051", "19876:9876"]
-      user_config_overrides = ""
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-only\"\n"
 
   # Node 1 - expose Arbiter for test to seed state on all nodes
   [[nodesets.node_specs]]
@@ -73,7 +73,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["19877:9876"]
-      user_config_overrides = ""
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-only\"\n"
 
   # Node 2
   [[nodesets.node_specs]]
@@ -83,7 +83,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["19878:9876"]
-      user_config_overrides = ""
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-only\"\n"
 
   # Node 3
   [[nodesets.node_specs]]
@@ -93,12 +93,12 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["19879:9876"]
-      user_config_overrides = ""
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-only\"\n"
 
 [[nodesets]]
   nodes = 4
   name = "shard1"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow", "shard"]
   shard_index = 1
   override_mode = "all"
@@ -107,7 +107,7 @@
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -122,12 +122,12 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-only\"\n"
 
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300

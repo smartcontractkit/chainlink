@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	// InitChainUpgratesChangeset sets candidates for the commit and exec DONs for multiple destination chains and the sources connecting to them.
+	// InitChainUpgradesChangeset sets candidates for the commit and exec DONs for multiple destination chains and the sources connecting to them.
 	// It identifies all existing 1.5.0 source chains for each destination chain in the batch.
 	// For each 1.5.0 OnRamp connecting to a destination, configuration gets translated to the 1.6.0 FeeQuoter.
 	// In addition, OnRamps are connected to destination chains via test routers.

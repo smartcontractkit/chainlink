@@ -110,9 +110,6 @@ DeltaCOverride = '168h'
 DeltaCJitterOverride = '1h'
 ObservationGracePeriod = '1s'
 
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400_000
 
@@ -314,7 +311,6 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = true
 AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
@@ -517,8 +513,9 @@ ChipIngressDrainTimeout = '30s'
 ChipIngressMaxGRPCRequestSize = 10485760
 DurableEmitterEnabled = true
 DurableEmitterRetransmitBatchSize = 500
-DurableEmitterEventTTL = '1h0m0s'
+DurableEmitterEventTTL = '6h0m0s'
 DurableEmitterMaxQueuePayloadBytes = 1073741824
+DurableEmitterInsertBatchFlushInterval = '50ms'
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false
@@ -533,6 +530,16 @@ MetricCardinalityLimit = 100000
 [Telemetry.PrometheusBridge]
 Enabled = false
 Prefixes = ['go_']
+
+[Metering]
+MeterRecordsEnabled = false
+MeterSnapshotsEnabled = false
+Product = 'cre'
+Tenant = ''
+NumericTenantID = ''
+Environment = ''
+Zone = ''
+NodeID = ''
 
 [Workflows]
 [Workflows.Limits]
@@ -554,6 +561,8 @@ URL = ''
 [CRE.Linking]
 URL = ''
 TLSEnabled = true
+RequestTimeout = '2s'
+DurableCacheEnabled = true
 
 [CRE.ConfidentialRelay]
 Enabled = false
@@ -584,6 +593,7 @@ ArbiterRetryInterval = '12s'
 ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
+ShardAssignmentMode = 'manual-only'
 
 [LOOPP]
 GRPCServerMaxRecvMsgSize = '32.00mb'
@@ -698,10 +708,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[EVM.OCR2]
-[EVM.OCR2.Automation]
-GasLimit = 10500000
 
 [EVM.Workflow]
 GasLimitDefault = 400000

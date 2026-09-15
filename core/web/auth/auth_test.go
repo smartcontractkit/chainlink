@@ -33,30 +33,18 @@ func authSuccess(*gin.Context, webauth.Authenticator) error {
 	return nil
 }
 
-type userFindFailer struct {
-	sessions.AuthenticationProvider
-	err error
-}
-
-func (u userFindFailer) FindUser(ctx context.Context, email string) (sessions.User, error) {
-	return sessions.User{}, u.err
-}
-
-func (u userFindFailer) FindUserByAPIToken(ctx context.Context, token string) (sessions.User, error) {
-	return sessions.User{}, u.err
-}
-
-type userFindSuccesser struct {
+type stubAuthProvider struct {
 	sessions.AuthenticationProvider
 	user sessions.User
+	err  error
 }
 
-func (u userFindSuccesser) FindUser(ctx context.Context, email string) (sessions.User, error) {
-	return u.user, nil
+func (s stubAuthProvider) FindUser(ctx context.Context, email string) (sessions.User, error) {
+	return s.user, s.err
 }
 
-func (u userFindSuccesser) FindUserByAPIToken(ctx context.Context, token string) (sessions.User, error) {
-	return u.user, nil
+func (s stubAuthProvider) FindUserByAPIToken(ctx context.Context, token string) (sessions.User, error) {
+	return s.user, s.err
 }
 
 func TestAuthenticateByToken_Success(t *testing.T) {
@@ -66,7 +54,7 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
 	err := user.SetAuthToken(&apiToken)
 	require.NoError(t, err)
-	authr := userFindSuccesser{user: user}
+	authr := stubAuthProvider{user: user}
 
 	called := false
 	router := gin.New()
@@ -88,7 +76,7 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 
 func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 	t.Parallel()
-	authr := userFindFailer{err: auth.ErrorAuthFailed}
+	authr := stubAuthProvider{err: auth.ErrorAuthFailed}
 
 	called := false
 	router := gin.New()
@@ -115,7 +103,7 @@ func TestAuthenticateByToken_RejectsBlankAccessKey(t *testing.T) {
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
 	err := user.SetAuthToken(&apiToken)
 	require.NoError(t, err)
-	authr := userFindSuccesser{user: user}
+	authr := stubAuthProvider{user: user}
 
 	called := false
 	router := gin.New()

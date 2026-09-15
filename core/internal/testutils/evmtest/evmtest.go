@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -29,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -41,7 +39,7 @@ func NewChainScopedConfig(t testing.TB, cfg configtoml.HasEVMConfigs) evmconfig.
 	if len(cfg.EVMConfigs()) > 0 {
 		evmCfg = cfg.EVMConfigs()[0]
 	} else {
-		var chainID = (*sqlutil.Big)(testutils.FixtureChainID)
+		chainID := (*sqlutil.Big)(testutils.FixtureChainID)
 		evmCfg = &configtoml.EVMConfig{
 			ChainID: chainID,
 			Chain:   configtoml.Defaults(chainID),
@@ -188,12 +186,12 @@ func (mo *TestConfigs) Chains(chainIDs ...string) (cs []types.ChainStatus, count
 			}
 			c2.Config, err = c.TOMLString()
 			if err != nil {
-				return
+				return cs, count, err
 			}
 			cs = append(cs, c2)
 		}
 		count = len(cs)
-		return
+		return cs, count, err
 	}
 	for i := range mo.EVMConfigs {
 		c := mo.EVMConfigs[i]
@@ -207,12 +205,12 @@ func (mo *TestConfigs) Chains(chainIDs ...string) (cs []types.ChainStatus, count
 		}
 		c2.Config, err = c.TOMLString()
 		if err != nil {
-			return
+			return cs, count, err
 		}
 		cs = append(cs, c2)
 	}
 	count = len(cs)
-	return
+	return cs, count, err
 }
 
 // Nodes implements evmtypes.Configs
@@ -229,7 +227,7 @@ func (mo *TestConfigs) Nodes(chainID string) (nodes []evmtypes.Node, err error) 
 		}
 	}
 	err = fmt.Errorf("no nodes: chain %s: %w", chainID, chains.ErrNotFound)
-	return
+	return nodes, err
 }
 
 func (mo *TestConfigs) Node(name string) (evmtypes.Node, error) {
@@ -247,7 +245,7 @@ func (mo *TestConfigs) Node(name string) (evmtypes.Node, error) {
 	return evmtypes.Node{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
-func (mo *TestConfigs) NodeStatusesPaged(offset int, limit int, chainIDs ...string) (nodes []types.NodeStatus, cnt int, err error) {
+func (mo *TestConfigs) NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, cnt int, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 
@@ -261,13 +259,13 @@ func (mo *TestConfigs) NodeStatusesPaged(offset int, limit int, chainIDs ...stri
 			var n2 types.NodeStatus
 			n2, err = nodeStatus(n, id)
 			if err != nil {
-				return
+				return nodes, cnt, err
 			}
 			nodes = append(nodes, n2)
 		}
 	}
 	cnt = len(nodes)
-	return
+	return nodes, cnt, err
 }
 
 func legacyNode(n *configtoml.Node, chainID *sqlutil.Big) (v2 evmtypes.Node) {
@@ -282,7 +280,7 @@ func legacyNode(n *configtoml.Node, chainID *sqlutil.Big) (v2 evmtypes.Node) {
 	if n.SendOnly != nil {
 		v2.SendOnly = *n.SendOnly
 	}
-	return
+	return v2
 }
 
 func nodeStatus(n *configtoml.Node, chainID string) (types.NodeStatus, error) {

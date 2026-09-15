@@ -184,7 +184,7 @@ func getBootstrapURLs(dons *cre.Dons) ([]string, error) {
 		return nil, fmt.Errorf("failed to get peering configs: %w", err)
 	}
 
-	bootstrapURL := ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)
+	bootstrapURL := ocrPeeringCfg.OCRBootstrapperPeerID + "@" + ocrPeeringCfg.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)
 	return []string{bootstrapURL}, nil
 }
 
@@ -347,7 +347,7 @@ func configureRingOCR3(creEnv *cre.Environment, ringOCR3Addr common.Address, sha
 		DeltaRoundMillis:                  2000,
 		DeltaGraceMillis:                  500,
 		DeltaCertifiedCommitRequestMillis: 500,
-		DeltaStageMillis:                  60000,
+		DeltaStageMillis:                  15000,
 		MaxRoundsPerEpoch:                 100,
 		TransmissionSchedule:              []int{len(nodeIDs)},
 		MaxDurationQueryMillis:            5000,

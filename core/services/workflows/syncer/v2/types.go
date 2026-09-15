@@ -141,7 +141,6 @@ type WorkflowRegisteredEvent struct {
 	WorkflowTag   string
 	BinaryURL     string
 	ConfigURL     string
-	Tag           string
 	Attributes    []byte
 	Source        string // source that provided this workflow metadata
 }
@@ -155,7 +154,6 @@ type WorkflowActivatedEvent struct {
 	WorkflowTag   string
 	BinaryURL     string
 	ConfigURL     string
-	Tag           string
 	Attributes    []byte
 	Source        string // source that provided this workflow metadata
 }
@@ -169,7 +167,6 @@ type WorkflowPausedEvent struct {
 	WorkflowTag   string
 	BinaryURL     string
 	ConfigURL     string
-	Tag           string
 	Attributes    []byte
 	Source        string
 }

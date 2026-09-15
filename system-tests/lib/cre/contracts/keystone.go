@@ -95,7 +95,7 @@ func DeployKeystoneContracts(
 
 type donConfig struct {
 	id          uint32   // Capabilities Registry DON ID
-	donFamilies []string // nodesets.don_family + additional_don_families → CapabilitiesRegistryNewDONParams.DonFamilies
+	donFamilies []string // nodesets.don_families → CapabilitiesRegistryNewDONParams.DonFamilies
 	keystone_changeset.DonCapabilities
 	flags []cre.CapabilityFlag
 }
@@ -433,7 +433,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 
 		dons.c[donName] = donConfig{
 			id:              uint32(donMetadata.ID), //nolint:gosec // G115
-			donFamilies:     donMetadata.DonFamilies(),
+			donFamilies:     donMetadata.DonFamilies,
 			DonCapabilities: c,
 			flags:           donMetadata.Flags,
 		}
@@ -490,6 +490,22 @@ func ExecuteConfigureCapabilitiesRegistry(input cre.ConfigureCapabilityRegistryI
 		return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
 	}
 
+	return newCapabilityRegistry(capRegContract.Contract), nil
+}
+
+// BindCapabilityRegistry returns a CapabilityRegistry binding for an already-deployed
+// contract without running the configure sequence, for callers that only need to read
+// from the registry (e.g. resolving DON IDs) when reconfiguring it was skipped.
+func BindCapabilityRegistry(env *cldf.Environment, chainSelector uint64, addressHex string) (CapabilityRegistry, error) {
+	capRegContract, err := cre_contracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
+		env.DataStore.Addresses(),
+		env.BlockChains.EVMChains()[chainSelector],
+		addressHex,
+		"",
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get capabilities registry contract")
+	}
 	return newCapabilityRegistry(capRegContract.Contract), nil
 }
 

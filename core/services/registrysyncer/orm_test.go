@@ -4,38 +4,35 @@ import (
 	"encoding/hex"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	orm := registrysyncer.NewORM(db, lggr)
 
-	var states []registrysyncer.LocalRegistry
-	for range 11 {
+	states := make([]*registry.RegistryMetadata, 11)
+	for i := range 11 {
 		state := generateState(t)
-		err := orm.AddLocalRegistry(ctx, state)
+		err := orm.AddRegistryMetadata(ctx, &state)
 		require.NoError(t, err)
-		states = append(states, state)
+		states[i] = &state
 	}
 
 	var count int
@@ -43,12 +40,12 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 10, count)
 
-	state, err := orm.LatestLocalRegistry(ctx)
+	state, err := orm.LatestRegistryMetadata(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, states[10], *state)
+	assert.Equal(t, states[10], state)
 }
 
-func generateState(t *testing.T) registrysyncer.LocalRegistry {
+func generateState(t *testing.T) registry.RegistryMetadata {
 	dID := uint32(1)
 	var pid types.PeerID
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
@@ -66,22 +63,13 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 
 	config := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh: durationpb.New(20 * time.Second),
-				RegistrationExpiry:  durationpb.New(60 * time.Second),
-				// F + 1
-				MinResponsesToAggregate: uint32(1) + 1,
-				MessageExpiry:           durationpb.New(120 * time.Second),
-			},
-		},
 	}
 	configb, err := proto.Marshal(config)
 	require.NoError(t, err)
 
-	return registrysyncer.LocalRegistry{
-		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
-			registrysyncer.DonID(dID): {
+	return registry.RegistryMetadata{
+		IDsToDONs: map[registry.DonID]registry.DON{
+			registry.DonID(dID): {
 				DON: capabilities.DON{
 					ID:               dID,
 					ConfigVersion:    uint32(0),
@@ -90,7 +78,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 					AcceptsWorkflows: true,
 					Members:          toPeerIDs(nodes),
 				},
-				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+				CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 					capabilityIDStr: {
 						Config: configb,
 					},
@@ -100,7 +88,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				},
 			},
 		},
-		IDsToCapabilities: map[string]registrysyncer.Capability{
+		IDsToCapabilities: map[string]registry.Capability{
 			capabilityIDStr: {
 				ID:             capabilityIDStr,
 				CapabilityType: capabilities.CapabilityTypeAction,
@@ -110,7 +98,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				CapabilityType: capabilities.CapabilityTypeConsensus,
 			},
 		},
-		IDsToNodes: map[types.PeerID]registrysyncer.NodeInfo{
+		IDsToNodes: map[types.PeerID]registry.NodeInfo{
 			nodes[0]: {
 				NodeOperatorID:      1,
 				Signer:              randomWord(),
@@ -147,9 +135,10 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 	}
 }
 
-func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
+func TestRegistrySyncerORM_AddRegistryMetadata_DuplicateHandling(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	orm := registrysyncer.NewORM(db, lggr)
 
@@ -158,7 +147,7 @@ func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 		originalState := generateState(t)
 
 		// First insertion - should succeed
-		err := orm.AddLocalRegistry(ctx, originalState)
+		err := orm.AddRegistryMetadata(ctx, &originalState)
 		require.NoError(t, err)
 
 		// Get the initial ID and hash
@@ -170,7 +159,7 @@ func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 		require.NoError(t, err)
 
 		// Second insertion with same data - should not insert (no new row)
-		err = orm.AddLocalRegistry(ctx, originalState)
+		err = orm.AddRegistryMetadata(ctx, &originalState)
 		require.NoError(t, err)
 
 		// Check that latest ID hasn't changed (no new insertion)
@@ -183,7 +172,7 @@ func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 		newState := generateState(t)
 
 		// Third insertion with new data - should succeed and increment ID
-		err = orm.AddLocalRegistry(ctx, newState)
+		err = orm.AddRegistryMetadata(ctx, &newState)
 		require.NoError(t, err)
 
 		// Check that latest ID is incremented and hash is new
@@ -192,7 +181,7 @@ func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 		assert.NotEqual(t, newHash, hash, "Hash should change when inserting new data")
 
 		// Fourth insertion with original data again - should succeed and increment ID
-		err = orm.AddLocalRegistry(ctx, originalState)
+		err = orm.AddRegistryMetadata(ctx, &originalState)
 		require.NoError(t, err)
 
 		// Check that latest ID is incremented again and hash is back to original

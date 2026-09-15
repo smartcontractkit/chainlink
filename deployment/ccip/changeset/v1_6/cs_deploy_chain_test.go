@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -39,26 +38,6 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	homeChainSel := chain_selectors.TEST_90000001.Selector
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulated(t, []uint64{homeChainSel}),
-		environment.WithLogger(logger.Test(t)),
-	)
-	require.NoError(t, err)
-
-	testhelpers.RegisterNodes(t, env, 4, homeChainSel)
-
-	testDeployChainContractsChangesetWithEnv(t, *env, homeChainSel)
-}
-
-func TestDeployChainContractsChangesetZk(t *testing.T) {
-	// Timeouts in CI
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
-
-	t.Parallel()
-
-	homeChainSel := chain_selectors.TEST_90000001.Selector
-	zkChainSel := chain_selectors.TEST_90000050.Selector
-	env, err := environment.New(t.Context(),
-		environment.WithEVMSimulated(t, []uint64{homeChainSel}),
-		environment.WithZKSyncContainer(t, []uint64{zkChainSel}),
 		environment.WithLogger(logger.Test(t)),
 	)
 	require.NoError(t, err)

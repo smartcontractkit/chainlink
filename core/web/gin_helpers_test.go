@@ -30,7 +30,7 @@ func TestGinTestEngine(t *testing.T) {
 			})
 
 			w := httptest.NewRecorder()
-			req, err := http.NewRequestWithContext(t.Context(), "GET", "/ping", nil)
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/ping", nil)
 			require.NoError(t, err)
 
 			engine.ServeHTTP(w, req)

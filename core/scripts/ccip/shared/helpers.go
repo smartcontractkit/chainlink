@@ -15,13 +15,13 @@ import (
 )
 
 const RetryTiming = 5 * time.Second
-const CrossChainTimout = 5 * time.Minute
-const TxInclusionTimout = 3 * time.Minute
+const CrossChainTimeout = 5 * time.Minute
+const TxInclusionTimeout = 3 * time.Minute
 
 // WaitForMined wait for a tx to be included on chain. It will panic when
 // the tx is reverted/successful based on the shouldSucceed parameter.
 func WaitForMined(lggr logger.Logger, client ethereum.TransactionReader, hash common.Hash, shouldSucceed bool) error {
-	maxIterations := TxInclusionTimout / RetryTiming
+	maxIterations := TxInclusionTimeout / RetryTiming
 	for i := 0; i < int(maxIterations); i++ {
 		lggr.Info("[MINING] waiting for tx to be mined...")
 		receipt, _ := client.TransactionReceipt(context.Background(), hash)

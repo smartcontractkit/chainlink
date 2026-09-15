@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	bridgesMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
@@ -109,7 +108,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
+	_, trrs, err := r.ExecuteRun(t.Context(), spec, vars)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(d.Tasks))
 
@@ -118,11 +117,11 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.Len(t, finalResults.AllErrors, 12)
 	require.Len(t, finalResults.FatalErrors, 3)
 	assert.Equal(t, "9650000000000000000000", finalResults.Values[0].(decimal.Decimal).String())
-	assert.NoError(t, finalResults.FatalErrors[0])
+	require.NoError(t, finalResults.FatalErrors[0])
 	assert.Equal(t, "foo-index-1", finalResults.Values[1].(string))
-	assert.NoError(t, finalResults.FatalErrors[1])
+	require.NoError(t, finalResults.FatalErrors[1])
 	assert.Equal(t, "bar-index-2", finalResults.Values[2].(string))
-	assert.NoError(t, finalResults.FatalErrors[2])
+	require.NoError(t, finalResults.FatalErrors[2])
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
@@ -154,7 +153,7 @@ func Test_PipelineRunner_ExecuteEthAbiDecode(t *testing.T) {
 
 	s := fmt.Sprintf(`
 		ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"address": "0x1234"}}>]
-		ds1_parse [type=jsonparse path="data,result"]  
+		ds1_parse [type=jsonparse path="data,result"]
 		ds1_decode [type=ethabidecode abi="int256 data" data="$(ds1_parse)"];
 		ds1_value [type="multiply" input="$(ds1_decode.data)" times=1]
 
@@ -167,7 +166,7 @@ func Test_PipelineRunner_ExecuteEthAbiDecode(t *testing.T) {
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
+	_, trrs, err := r.ExecuteRun(t.Context(), spec, vars)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(d.Tasks))
 
@@ -327,7 +326,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			spec := pipeline.Spec{
 				DotDagSource: specStr,
 			}
-			_, taskRunResults, err := runner.ExecuteRun(testutils.Context(t), spec, pipeline.NewVarsFrom(test.vars))
+			_, taskRunResults, err := runner.ExecuteRun(t.Context(), spec, pipeline.NewVarsFrom(test.vars))
 			require.NoError(t, err)
 			require.Len(t, taskRunResults, len(p.Tasks))
 
@@ -412,7 +411,7 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 		}
 		vars := pipeline.NewVarsFrom(global)
 
-		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
+		_, trrs, err := r.ExecuteRun(t.Context(), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, len(d.Tasks))
 
@@ -439,7 +438,7 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 		}
 		vars := pipeline.NewVarsFrom(global)
 
-		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
+		_, trrs, err := r.ExecuteRun(t.Context(), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, len(d.Tasks))
 
@@ -487,7 +486,7 @@ answer1 [type=median                      index=0];
 	r, _ := newRunner(t, db, btORM, cfg)
 
 	// If we cancel before an API is finished, we should still get a median.
-	ctx, cancel := context.WithTimeout(testutils.Context(t), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancel()
 
 	spec := pipeline.Spec{DotDagSource: s}
@@ -536,10 +535,11 @@ final                [type=mean]
 fail_but_i_dont_care -> final;
 succeed1 -> final;
 succeed2 -> final;
-`}
+`,
+	}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, taskResults, err := r.ExecuteAndInsertFinishedRun(testutils.Context(t), spec, vars, false)
+	_, taskResults, err := r.ExecuteAndInsertFinishedRun(t.Context(), spec, vars, false)
 	finalResult := taskResults.FinalResult()
 	require.NoError(t, err)
 	assert.True(t, finalResult.HasErrors())
@@ -581,10 +581,11 @@ final                [type=mean]
 fail_but_i_dont_care -> final;
 succeed1 -> final;
 succeed2 -> final;
-`}
+`,
+	}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, taskResults, err := r.ExecuteAndInsertFinishedRun(testutils.Context(t), spec, vars, false)
+	_, taskResults, err := r.ExecuteAndInsertFinishedRun(t.Context(), spec, vars, false)
 	finalResult := taskResults.FinalResult()
 	require.NoError(t, err)
 	assert.True(t, finalResult.HasErrors())
@@ -599,7 +600,7 @@ func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, db, btORM, cfg)
 	input := map[string]any{"val": 2}
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(t.Context(), pipeline.Spec{
 		DotDagSource: `
 a [type=multiply input="$(val)" times=2]
 b1 [type=multiply input="$(a)" times=2]
@@ -626,7 +627,7 @@ func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, pgtest.NewSqlxDB(t), btORM, cfg)
 	input := map[string]any{"val": 2}
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(t.Context(), pipeline.Spec{
 		DotDagSource: `
 a [type=multiply input="$(val)" times=2]
 b1 [type=multiply input="$(a)" times=2 index=0]
@@ -651,15 +652,21 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		require.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		// TODO: assert finding the id
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]any{}
-		require.NoError(t, json.NewEncoder(w).Encode(response))
+		if !assert.NoError(t, json.NewEncoder(w).Encode(response)) {
+			return
+		}
 	})
 
 	// 1. Setup bridge
@@ -725,7 +732,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		run.ID = 1 // give it a valid "id"
 	}).Once()
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
-	incomplete, err := r.Run(testutils.Context(t), run, false, nil)
+	incomplete, err := r.Run(t.Context(), run, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
 	require.True(t, incomplete)             // still incomplete
@@ -734,7 +741,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	// Trigger run resumption with no new data
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
-	incomplete, err = r.Run(testutils.Context(t), run, false, nil)
+	incomplete, err = r.Run(t.Context(), run, false, nil)
 	require.NoError(t, err)
 	require.True(t, incomplete) // still incomplete
 
@@ -747,7 +754,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	// Trigger run resumption
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
-	incomplete, err = r.Run(testutils.Context(t), run, false, nil)
+	incomplete, err = r.Run(t.Context(), run, false, nil)
 	require.NoError(t, err)
 	require.False(t, incomplete) // done
 	require.Len(t, run.PipelineTaskRuns, 12)
@@ -781,15 +788,21 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		require.NoError(t, err)
-		require.Contains(t, reqBody.ResponseURL, "http://localhost:6688/v2/resume/")
+		if !assert.NoError(t, err) {
+			return
+		}
+		assert.Contains(t, reqBody.ResponseURL, "http://localhost:6688/v2/resume/")
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]any{}
-		require.NoError(t, json.NewEncoder(w).Encode(response))
+		if !assert.NoError(t, json.NewEncoder(w).Encode(response)) {
+			return
+		}
 	})
 
 	// 1. Setup bridge
@@ -867,7 +880,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}).Once()
 	// StoreRun is called again to store the final result
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
-	incomplete, err := r.Run(testutils.Context(t), run, false, nil)
+	incomplete, err := r.Run(t.Context(), run, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)
 	require.False(t, incomplete) // run is complete
@@ -901,7 +914,7 @@ func Test_PipelineRunner_LowercaseOutputs(t *testing.T) {
 		"first":  "camelCase",
 		"second": "UPPERCASE",
 	}
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(t.Context(), pipeline.Spec{
 		DotDagSource: `
 a [type=lowercase input="$(first)"]
 `,
@@ -923,7 +936,7 @@ func Test_PipelineRunner_UppercaseOutputs(t *testing.T) {
 	input := map[string]any{
 		"first": "somerAnDomTEST",
 	}
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(t.Context(), pipeline.Spec{
 		DotDagSource: `
 a [type=uppercase input="$(first)"]
 `,
@@ -945,7 +958,7 @@ func Test_PipelineRunner_HexDecodeOutputs(t *testing.T) {
 	input := map[string]any{
 		"astring": "0x12345678",
 	}
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(t.Context(), pipeline.Spec{
 		DotDagSource: `
 a [type=hexdecode input="$(astring)"]
 `,
@@ -968,7 +981,7 @@ func Test_PipelineRunner_HexEncodeAndDecode(t *testing.T) {
 	input := map[string]any{
 		"input_val": inputBytes,
 	}
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(t.Context(), pipeline.Spec{
 		DotDagSource: `
 en [type=hexencode input="$(input_val)"]
 de [type=hexdecode]
@@ -992,7 +1005,7 @@ func Test_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
 	input := map[string]any{
 		"astring": "SGVsbG8sIHBsYXlncm91bmQ=",
 	}
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(t.Context(), pipeline.Spec{
 		DotDagSource: `
 a [type=base64decode input="$(astring)"]
 `,
@@ -1015,7 +1028,7 @@ func Test_PipelineRunner_Base64EncodeAndDecode(t *testing.T) {
 	input := map[string]any{
 		"input_val": inputBytes,
 	}
-	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
+	_, trrs, err := r.ExecuteRun(t.Context(), pipeline.Spec{
 		DotDagSource: `
 en [type=base64encode input="$(input_val)"]
 de [type=base64decode]
@@ -1055,7 +1068,7 @@ succeed;
 		spec := pipeline.Spec{DotDagSource: fmt.Sprintf(template, 1)}
 		vars := pipeline.NewVarsFrom(nil)
 
-		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
+		_, trrs, err := r.ExecuteRun(t.Context(), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, 1)
 		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
@@ -1070,7 +1083,7 @@ succeed;
 		// even though this is set to 2, it should use the cached version
 		spec.DotDagSource = fmt.Sprintf(template, 2)
 
-		_, trrs, err = r.ExecuteRun(testutils.Context(t), spec, vars)
+		_, trrs, err = r.ExecuteRun(t.Context(), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, 1)
 		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())

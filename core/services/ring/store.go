@@ -11,8 +11,8 @@ import (
 )
 
 type MappingMeta struct {
-	OldShardID   uint32
-	NewShardID   uint32
+	OldDonID     uint32
+	NewDonID     uint32
 	InTransition bool
 	UpdatedAt    time.Time
 }
@@ -29,9 +29,9 @@ type AllocationRequest struct {
 //   - Arbiter: provides shard health and scaling decisions
 //   - ShardOrchestrator: consumes routing state to direct workflow execution
 type Store struct {
-	routingState     map[string]uint32       // workflow_id -> shard_id (cache of allocated workflows)
+	routingState     map[string]uint32       // workflow_id -> don_id (cache of allocated workflows)
 	routingStateMeta map[string]*MappingMeta // workflow_id -> mapping metadata
-	shardHealth      map[uint32]bool         // shard_id -> is_healthy
+	shardHealth      map[uint32]bool         // don_id -> is_healthy
 	healthyShards    []uint32                // Sorted list of healthy shards
 	currentState     *ringpb.RoutingState    // Current routing state (steady or transition)
 	mappingVersion   uint64
@@ -67,9 +67,9 @@ func (s *Store) updateHealthyShards() {
 
 	s.healthyShards = make([]uint32, 0)
 
-	for shardID, healthy := range s.shardHealth {
+	for donID, healthy := range s.shardHealth {
 		if healthy {
-			s.healthyShards = append(s.healthyShards, shardID)
+			s.healthyShards = append(s.healthyShards, donID)
 		}
 	}
 
@@ -120,17 +120,17 @@ func (s *Store) GetShardForWorkflow(ctx context.Context, workflowID string) (uin
 }
 
 // SetShardForWorkflow is called by the RingOCR plugin whenever it finishes a round with allocations for a given workflow ID.
-func (s *Store) SetShardForWorkflow(workflowID string, shardID uint32) {
+func (s *Store) SetShardForWorkflow(workflowID string, donID uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	oldShardID := s.routingState[workflowID]
-	s.routingState[workflowID] = shardID
+	oldDonID := s.routingState[workflowID]
+	s.routingState[workflowID] = donID
 
 	inTransition := !IsInSteadyState(s.currentState)
 	s.routingStateMeta[workflowID] = &MappingMeta{
-		OldShardID:   oldShardID,
-		NewShardID:   shardID,
+		OldDonID:     oldDonID,
+		NewDonID:     donID,
 		InTransition: inTransition,
 		UpdatedAt:    time.Now(),
 	}
@@ -140,7 +140,7 @@ func (s *Store) SetShardForWorkflow(workflowID string, shardID uint32) {
 	if waiters, ok := s.pendingAllocs[workflowID]; ok {
 		for _, ch := range waiters {
 			select {
-			case ch <- shardID:
+			case ch <- donID:
 			default:
 			}
 		}
@@ -187,9 +187,9 @@ func (s *Store) GetShardHealth() map[uint32]bool {
 	return maps.Clone(s.shardHealth)
 }
 
-func (s *Store) SetShardHealth(shardID uint32, healthy bool) {
+func (s *Store) SetShardHealth(donID uint32, healthy bool) {
 	s.mu.Lock()
-	s.shardHealth[shardID] = healthy
+	s.shardHealth[donID] = healthy
 	s.mu.Unlock()
 	s.updateHealthyShards()
 }
@@ -256,19 +256,19 @@ func (s *Store) GetWorkflowMappingsBatch(workflowIDs []string) (map[string]*Mapp
 
 	result := make(map[string]*MappingMeta, len(workflowIDs))
 	for _, wfID := range workflowIDs {
-		if shardID, ok := s.routingState[wfID]; ok {
+		if donID, ok := s.routingState[wfID]; ok {
 			meta := s.routingStateMeta[wfID]
 			if meta != nil {
 				result[wfID] = &MappingMeta{
-					OldShardID:   meta.OldShardID,
-					NewShardID:   meta.NewShardID,
+					OldDonID:     meta.OldDonID,
+					NewDonID:     meta.NewDonID,
 					InTransition: meta.InTransition,
 					UpdatedAt:    meta.UpdatedAt,
 				}
 			} else {
 				result[wfID] = &MappingMeta{
-					NewShardID: shardID,
-					UpdatedAt:  time.Now(),
+					NewDonID:  donID,
+					UpdatedAt: time.Now(),
 				}
 			}
 		}
@@ -276,17 +276,17 @@ func (s *Store) GetWorkflowMappingsBatch(workflowIDs []string) (map[string]*Mapp
 	return result, s.mappingVersion
 }
 
-func (s *Store) RegisterWorkflowsFromShard(shardID uint32, workflowIDs []string) {
+func (s *Store) RegisterWorkflowsFromShard(donID uint32, workflowIDs []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	now := time.Now()
 	for _, wfID := range workflowIDs {
 		if _, exists := s.routingState[wfID]; !exists {
-			s.routingState[wfID] = shardID
+			s.routingState[wfID] = donID
 			s.routingStateMeta[wfID] = &MappingMeta{
-				OldShardID:   0,
-				NewShardID:   shardID,
+				OldDonID:     0,
+				NewDonID:     donID,
 				InTransition: false,
 				UpdatedAt:    now,
 			}
@@ -304,19 +304,19 @@ func (s *Store) SyncRoutes(routes map[string]uint32) {
 	now := time.Now()
 	inTransition := !IsInSteadyState(s.currentState)
 
-	for wfID, shardID := range routes {
+	for wfID, donID := range routes {
 		old := s.routingState[wfID]
-		s.routingState[wfID] = shardID
+		s.routingState[wfID] = donID
 		s.routingStateMeta[wfID] = &MappingMeta{
-			OldShardID:   old,
-			NewShardID:   shardID,
+			OldDonID:     old,
+			NewDonID:     donID,
 			InTransition: inTransition,
 			UpdatedAt:    now,
 		}
 		if waiters, ok := s.pendingAllocs[wfID]; ok {
 			for _, ch := range waiters {
 				select {
-				case ch <- shardID:
+				case ch <- donID:
 				default:
 				}
 			}

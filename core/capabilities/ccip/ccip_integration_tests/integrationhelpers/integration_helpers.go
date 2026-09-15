@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
@@ -31,8 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -51,16 +50,16 @@ func NewReader(
 	address common.Address,
 	chainReaderConfig config.ChainReaderConfig,
 ) types.ContractReader {
-	cr, err := read.NewChainReaderService(testutils.Context(t), logger.Test(t), logPoller, headTracker, client, chainReaderConfig)
+	cr, err := read.NewChainReaderService(t.Context(), logger.Test(t), logPoller, headTracker, client, chainReaderConfig)
 	require.NoError(t, err)
-	err = cr.Bind(testutils.Context(t), []types.BoundContract{
+	err = cr.Bind(t.Context(), []types.BoundContract{
 		{
 			Address: address.String(),
 			Name:    consts.ContractNameCCIPConfig,
 		},
 	})
 	require.NoError(t, err)
-	require.NoError(t, cr.Start(testutils.Context(t)))
+	require.NoError(t, cr.Start(t.Context()))
 	for {
 		if err := cr.Ready(); err == nil {
 			break
@@ -158,7 +157,7 @@ func (t TestUniverse) NewContractReader(ctx context.Context, cfg []byte) (types.
 }
 
 func P2pIDsFromInts(ints []int64) [][32]byte {
-	var p2pIDs [][32]byte
+	p2pIDs := make([][32]byte, 0, len(ints))
 	for _, i := range ints {
 		p2pID := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(i)).PeerID()
 		p2pIDs = append(p2pIDs, p2pID)
@@ -176,7 +175,7 @@ func P2pIDsFromInts(ints []int64) [][32]byte {
 	return p2pIDs
 }
 
-func (t *TestUniverse) AddCapability(p2pIDs [][32]byte) {
+func (t TestUniverse) AddCapability(p2pIDs [][32]byte) {
 	_, err := t.CapReg.AddCapabilities(t.Transactor, []kcr.CapabilitiesRegistryCapability{
 		{
 			LabelledName:          CcipCapabilityLabelledName,
@@ -253,13 +252,13 @@ func NewHomeChainReader(
 		chainFamily,
 		chainID,
 	)
-	require.NoError(t, hcr.Start(testutils.Context(t)))
+	require.NoError(t, hcr.Start(t.Context()))
 	t.Cleanup(func() { require.NoError(t, hcr.Close()) })
 
 	return hcr
 }
 
-func (t *TestUniverse) AddDONToRegistry(
+func (t TestUniverse) AddDONToRegistry(
 	ccipCapabilityID [32]byte,
 	chainSelector uint64,
 	f uint8,
@@ -268,7 +267,7 @@ func (t *TestUniverse) AddDONToRegistry(
 	tabi, err := ccip_home.CCIPHomeMetaData.GetAbi()
 	require.NoError(t.TestingT, err)
 
-	var nodes []ccip_home.CCIPHomeOCR3Node
+	nodes := make([]ccip_home.CCIPHomeOCR3Node, 0, len(p2pIDs))
 
 	for i := range p2pIDs {
 		nodes = append(nodes, ccip_home.CCIPHomeOCR3Node{

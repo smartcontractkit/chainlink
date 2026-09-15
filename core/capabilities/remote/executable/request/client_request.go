@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -22,10 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -93,6 +90,7 @@ type ClientRequest struct {
 
 	requiredResponseConfirmations int
 	remoteNodeCount               int
+	remoteDonF                    int
 
 	requestTimeout time.Duration
 
@@ -101,10 +99,11 @@ type ClientRequest struct {
 	wg       *sync.WaitGroup
 }
 
-// TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
+// NewClientExecuteRequest creates a new client request for a remote executable capability.
+// V2 capabilities always use the AllAtOnce transmission schedule.
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string,
+	requestTimeout time.Duration, capMethodName string,
 	signers [][]byte, minResponsesToAggregate uint32,
 ) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
@@ -121,21 +120,8 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	// to ensure that it supports parallel step execution
 	requestID := types.MethodExecute + ":" + workflowExecutionID + ":" + req.Metadata.ReferenceID
 
-	var tc transmission.TransmissionConfig
-	if transmissionConfig != nil {
-		// all v2 capabilities should be all at once
-		tc = transmission.TransmissionConfig{
-			Schedule: transmission.Schedule_AllAtOnce,
-		}
-	} else { // per-workflow setting used by V1 Capabilities
-		tc, err = transmission.ExtractTransmissionConfig(req.Config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
-		}
-	}
-
 	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate)
 }
 
 var (
@@ -157,7 +143,7 @@ func requiredConfirmations(f uint8, minResponsesToAggregate uint32) int {
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
+	methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
 	signers [][]byte, minResponsesToAggregate uint32,
 ) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
@@ -165,21 +151,16 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		return nil, errors.New("remote capability info missing DON")
 	}
 
-	peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelaysForConfig(remoteCapabilityDonInfo.Members, requestID, tc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
-	}
+	peerIDToTransmissionDelay := getPeerIDToTransmissionDelays(remoteCapabilityDonInfo.Members)
 
 	// send schedule through beholder for single execution performance tracking
-	err = emitTransmissionScheduleEvent(ctx,
-		tc.Schedule,
+	if err := emitTransmissionScheduleEvent(ctx,
 		workflowExecutionID,
 		requestID,
 		remoteCapabilityInfo.ID,
 		stepRef,
 		peerIDToTransmissionDelay,
-	)
-	if err != nil {
+	); err != nil {
 		lggr.Errorw("failed to emit transmission schedule event", "error", err)
 	}
 
@@ -260,6 +241,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		requestTimeout:                requestTimeout,
 		requiredResponseConfirmations: requiredConfirmations(remoteCapabilityDonInfo.F, minResponsesToAggregate),
 		remoteNodeCount:               len(remoteCapabilityDonInfo.Members),
+		remoteDonF:                    int(remoteCapabilityDonInfo.F),
 		responseIDCount:               make(map[[32]byte]int),
 		meteringResponses:             make(map[[32]byte][]commoncap.MeteringNodeDetail),
 		errorCount:                    make(map[string]int),
@@ -273,32 +255,28 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 	}, nil
 }
 
-func emitTransmissionScheduleEvent(ctx context.Context, scheduleType, workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration) error {
-	// Create a slice of peer IDs sorted by their delay values
-	type peerDelay struct {
-		peerID p2ptypes.PeerID
-		delay  time.Duration
+// getPeerIDToTransmissionDelays returns a map of PeerID to the time.Duration that the node
+// with that PeerID should wait before transmitting the capability request. If a node is not
+// in the map, it should not transmit. With the AllAtOnce schedule every DON member transmits
+// immediately.
+func getPeerIDToTransmissionDelays(donPeerIDs []p2ptypes.PeerID) map[p2ptypes.PeerID]time.Duration {
+	peerIDToTransmissionDelay := make(map[p2ptypes.PeerID]time.Duration, len(donPeerIDs))
+	for _, peerID := range donPeerIDs {
+		peerIDToTransmissionDelay[peerID] = 0
 	}
+	return peerIDToTransmissionDelay
+}
 
-	peerDelays := make([]peerDelay, 0, len(peerIDToTransmissionDelay))
+func emitTransmissionScheduleEvent(ctx context.Context, workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration) error {
+	// map of peer IDs to their transmission delays in milliseconds
+	peerDelaysMap := make(map[string]int64, len(peerIDToTransmissionDelay))
 	for peerID, delay := range peerIDToTransmissionDelay {
-		peerDelays = append(peerDelays, peerDelay{peerID, delay})
-	}
-
-	// Sort by delay value
-	sort.Slice(peerDelays, func(i, j int) bool {
-		return peerDelays[i].delay < peerDelays[j].delay
-	})
-
-	// Create map with sorted peers and their delays in milliseconds
-	peerDelaysMap := make(map[string]int64, len(peerDelays))
-	for _, pd := range peerDelays {
-		peerDelaysMap[pd.peerID.String()] = pd.delay.Milliseconds()
+		peerDelaysMap[peerID.String()] = delay.Milliseconds()
 	}
 
 	msg := &events.TransmissionsScheduledEvent{
 		Timestamp:              time.Now().Format(time.RFC3339),
-		ScheduleType:           scheduleType,
+		ScheduleType:           ScheduleAllAtOnce,
 		WorkflowExecutionID:    workflowExecutionID,
 		TransmissionID:         transmissionID,
 		CapabilityID:           capabilityID,
@@ -519,6 +497,16 @@ func (c *ClientRequest) pending() int {
 
 func (c *ClientRequest) hasValidAttestation(resp commoncap.CapabilityResponse) bool {
 	if resp.OCRAttestation == nil {
+		return false
+	}
+
+	// report_attestation.go in libocr only ever collects F+1 signatures before declaring a report complete
+	// (it stops as soon as it has one signature past the DON's F threshold). That means an OCRAttestation
+	// can never carry more than F+1 signatures, regardless of how the capability DON is configured.
+	// When requiredResponseConfirmations (driven by minResponsesToAggregate) is set above F+1, verifyAttestation
+	// would therefore always fail and log a spurious "this is most likely a bug" error on every response. In that
+	// case we deliberately skip attestation verification altogether and fall back to the identical-response quorum check instead.
+	if c.requiredResponseConfirmations > c.remoteDonF+1 {
 		return false
 	}
 

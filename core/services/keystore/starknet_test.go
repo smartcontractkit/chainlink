@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
@@ -24,7 +22,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db)
-	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))
+	require.NoError(t, keyStore.Unlock(t.Context(), cltest.Password))
 	ks := keyStore.StarkNet()
 	reset := func() {
 		ctx := context.Background() // Executed on cleanup
@@ -48,7 +46,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 
 	t.Run("creates a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
@@ -58,7 +56,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 
 	t.Run("imports and exports a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		exportJSON, err := ks.Export(key.ID(), cltest.Password)
@@ -77,7 +75,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		newKey, err := starkkey.New()
 		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
@@ -96,12 +94,12 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := ks.EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = ks.EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
@@ -110,9 +108,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 }
 
 func TestStarknetSigner(t *testing.T) {
-	var (
-		starknetSenderAddr = "legit"
-	)
+	starknetSenderAddr := "legit"
 	baseKs := mocks.NewStarkNet(t)
 	starkKey, err := starkkey.New()
 	require.NoError(t, err)
@@ -125,13 +121,13 @@ func TestStarknetSigner(t *testing.T) {
 	// on existing sender id
 	t.Run("key exists", func(t *testing.T) {
 		baseKs.On("Get", starknetSenderAddr).Return(starkKey, nil)
-		signed, err := lk.Sign(testutils.Context(t), starknetSenderAddr, nil)
+		signed, err := lk.Sign(t.Context(), starknetSenderAddr, nil)
 		require.Nil(t, signed)
 		require.NoError(t, err)
 	})
 	t.Run("key doesn't exists", func(t *testing.T) {
 		baseKs.On("Get", mock.Anything).Return(starkkey.Key{}, errors.New("key doesn't exist"))
-		signed, err := lk.Sign(testutils.Context(t), "not an address", nil)
+		signed, err := lk.Sign(t.Context(), "not an address", nil)
 		require.Nil(t, signed)
 		require.Error(t, err)
 	})

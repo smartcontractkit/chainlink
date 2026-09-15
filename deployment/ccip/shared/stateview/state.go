@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/proxy_admin"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/token_governor"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
@@ -33,7 +33,6 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
@@ -299,16 +298,21 @@ func (c CCIPOnChainState) runSingleChainValidation(
 			chainState.RMNRemote.Address().Hex(), isRMNEnabledInRMNHomeBySourceChain[sel], isRMNEnabledInRmnRemote))
 	}
 	var fqV2 *fqv2ops.FeeQuoterContract
-	if ds, dsErr := ccipshared.PopulateDataStore(e.ExistingAddresses); dsErr == nil {
-		if e.DataStore != nil {
-			_ = ds.Merge(e.DataStore)
-		}
-		chainAddresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(sel))
-		if fqAddr, fqVer, fqErr := ccipshared.ResolveFeeQuoterAddressAndVersion(chainAddresses, sel); fqErr == nil && fqVer.Major() >= 2 {
-			if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
-				if v2, bindErr := fqv2ops.NewFeeQuoterContract(fqAddr, evmChain.Client); bindErr == nil {
-					fqV2 = v2
-				}
+	// Resolve FeeQuoter candidates from a plain ref slice drawn from both the environment
+	// DataStore (qualified refs) and the existing address book (chain-singleton refs). Using a
+	// slice rather than a keyed datastore avoids collisions among multi-instance refs and works
+	// even when the environment DataStore is nil/empty.
+	candidates, err := ccipshared.CollectAddressRefs(e)
+	if err != nil {
+		// Return here rather than continuing with nil candidates: on a chain that does have a v2
+		// FeeQuoter, falling through would silently take the v1-only path and bury the real cause
+		// under a cascade of unrelated v1-vs-v2 mismatch errors.
+		return append(errs, fmt.Errorf("failed to collect address refs: %w", err))
+	}
+	if fqAddr, fqVer, fqErr := ccipshared.ResolveFeeQuoterAddressAndVersion(candidates, sel); fqErr == nil && fqVer.Major() >= 2 {
+		if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
+			if v2, bindErr := fqv2ops.NewFeeQuoterContract(fqAddr, evmChain.Client); bindErr == nil {
+				fqV2 = v2
 			}
 		}
 	}
@@ -408,11 +412,11 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]evmstate.MCMSWithTime
 func (c CCIPOnChainState) SolanaMCMSStateByChain(e cldf.Environment) map[uint64]solstate.MCMSWithTimelockState {
 	mcmsStateByChain := make(map[uint64]solstate.MCMSWithTimelockState)
 	for chainSelector := range e.BlockChains.SolanaChains() {
-		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return mcmsStateByChain
 		}
-		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[chainSelector], addreses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[chainSelector], addresses)
 		if err != nil {
 			return mcmsStateByChain
 		}

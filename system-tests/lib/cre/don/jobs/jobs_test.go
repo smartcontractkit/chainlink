@@ -136,7 +136,9 @@ func TestApproveMissingProposalMatch(t *testing.T) {
 	require.ErrorContains(t, err, "no job proposal found for job spec missing-spec")
 }
 
-func TestAcceptTreatsApprovedWorkflowSpecAsSuccess(t *testing.T) {
+func TestAcceptAutoApprovedSpecTolerance(t *testing.T) {
+	t.Parallel()
+
 	restoreApprove := approveJobProposalSpec
 	t.Cleanup(func() {
 		approveJobProposalSpec = restoreApprove
@@ -146,6 +148,13 @@ func TestAcceptTreatsApprovedWorkflowSpecAsSuccess(t *testing.T) {
 		return errors.New("cannot approve an approved spec")
 	}
 
-	err := accept(context.Background(), &cre.Node{Name: "node-a"}, "proposal-id", `type = "workflow"`)
+	// CRE settings specs get auto-approved by the node on proposal, so a
+	// subsequent explicit approve that races into an already-approved spec is tolerated.
+	err := accept(context.Background(), &cre.Node{Name: "node-a"}, "proposal-id", `type = "cresettings"`)
 	require.NoError(t, err)
+
+	// Workflow specs are no longer auto-approved, so the same race is not tolerated.
+	err = accept(context.Background(), &cre.Node{Name: "node-a"}, "proposal-id", `type = "workflow"`)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "failed to accept job for node node-a")
 }

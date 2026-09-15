@@ -16,5 +16,5 @@ func NewAuthed(cookie string) *Authed {
 
 func (a *Authed) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Set("cookie", a.cookie)
-	return a.wrapped.Do(req)
+	return a.wrapped.Do(req) //nolint:gosec // G704
 }

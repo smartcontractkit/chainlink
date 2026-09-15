@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-feeds/median"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -36,7 +37,7 @@ type medianConfig struct {
 	plugins.RegistrarConfig
 }
 
-func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, jobPipelineResultWriteQueueDepth uint64, pluginProcessCfg plugins.RegistrarConfig) MedianConfig {
+func NewMedianConfig(jobPipelineMaxSuccessfulRuns, jobPipelineResultWriteQueueDepth uint64, pluginProcessCfg plugins.RegistrarConfig) MedianConfig {
 	return &medianConfig{
 		jobPipelineMaxSuccessfulRuns:     jobPipelineMaxSuccessfulRuns,
 		jobPipelineResultWriteQueueDepth: jobPipelineResultWriteQueueDepth,
@@ -62,16 +63,16 @@ func NewMedianServices(ctx context.Context,
 	argsNoPlugin libocr.OCR2OracleArgs,
 	cfg MedianConfig,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
-	errorLog loop.ErrorLog,
+	errorLog core.ErrorLog,
 ) (srvs []job.ServiceCtx, err error) {
 	var pluginConfig config.PluginConfig
 	err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
-		return
+		return srvs, err
 	}
 	err = pluginConfig.ValidatePluginConfig()
 	if err != nil {
-		return
+		return srvs, err
 	}
 	spec := jb.OCR2OracleSpec
 
@@ -95,7 +96,7 @@ func NewMedianServices(ctx context.Context,
 		PluginConfig:  spec.PluginConfig.Bytes(),
 	})
 	if err != nil {
-		return
+		return srvs, err
 	}
 
 	medianProvider, ok := provider.(types.MedianProvider)
@@ -155,7 +156,7 @@ func NewMedianServices(ctx context.Context,
 		if err2 != nil {
 			err = fmt.Errorf("failed to parse median env file: %w", err2)
 			abort()
-			return
+			return srvs, err
 		}
 		cmdFn, telem, err2 := cfg.RegisterLOOP(plugins.CmdConfig{
 			ID:  medianLggr.Name(),
@@ -165,7 +166,7 @@ func NewMedianServices(ctx context.Context,
 		if err2 != nil {
 			err = fmt.Errorf("failed to register loop: %w", err2)
 			abort()
-			return
+			return srvs, err
 		}
 		median := loop.NewMedianService(lggr, telem, cmdFn, medianProvider, spec.ContractID, dataSource, juelsPerFeeCoinSource, gasPriceSubunitsDataSource, errorLog, pluginConfig.DeviationFunctionDefinition)
 		argsNoPlugin.ReportingPluginFactory = median
@@ -175,7 +176,7 @@ func NewMedianServices(ctx context.Context,
 		if err != nil {
 			err = fmt.Errorf("failed to create median factory: %w", err)
 			abort()
-			return
+			return srvs, err
 		}
 	}
 
@@ -183,11 +184,11 @@ func NewMedianServices(ctx context.Context,
 	oracle, err = libocr.NewOracle(argsNoPlugin)
 	if err != nil {
 		abort()
-		return
+		return srvs, err
 	}
 	srvs = append(srvs, runSaver, job.NewServiceAdapter(oracle))
 	if !jb.OCR2OracleSpec.CaptureEATelemetry {
 		lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
 	}
-	return
+	return srvs, err
 }

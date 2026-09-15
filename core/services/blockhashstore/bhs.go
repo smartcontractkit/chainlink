@@ -156,9 +156,9 @@ func (c *BulletproofBHS) IsTrusted() bool {
 func (c *BulletproofBHS) IsStored(ctx context.Context, blockNum uint64) (bool, error) {
 	var err error
 	if c.IsTrusted() {
-		_, err = c.trustedBHS.GetBlockhash(&bind.CallOpts{Context: ctx}, big.NewInt(int64(blockNum)))
+		_, err = c.trustedBHS.GetBlockhash(&bind.CallOpts{Context: ctx}, big.NewInt(0).SetUint64(blockNum))
 	} else {
-		_, err = c.bhs.GetBlockhash(&bind.CallOpts{Context: ctx}, big.NewInt(int64(blockNum)))
+		_, err = c.bhs.GetBlockhash(&bind.CallOpts{Context: ctx}, big.NewInt(0).SetUint64(blockNum))
 	}
 	if err != nil && strings.Contains(err.Error(), "reverted") {
 		// Transaction reverted because the blockhash is not stored

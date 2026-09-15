@@ -3,7 +3,6 @@ package ccipnoop
 import (
 	"context"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
@@ -24,9 +23,9 @@ func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCod
 }
 
 // Hash implements the MessageHasher interface.
-func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
+func (h *MessageHasherV1) Hash(_ context.Context, msg ccipocr3.Message) (ccipocr3.Bytes32, error) {
 	return [32]byte{}, nil
 }
 
 // Interface compliance check
-var _ cciptypes.MessageHasher = (*MessageHasherV1)(nil)
+var _ ccipocr3.MessageHasher = (*MessageHasherV1)(nil)

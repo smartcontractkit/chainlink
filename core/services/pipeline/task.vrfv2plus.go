@@ -12,17 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
 
-var (
-	vrfCoordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI)
-)
+var vrfCoordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI)
 
 // VRFTaskV2Plus is identical to VRFTaskV2 except that it uses the V2Plus VRF
 // request commitment, which includes a boolean indicating whether native or
@@ -78,7 +75,7 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, lggr logger.Logger, vars Vars, in
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid preSeed")}, runInfo
 	}
-	requestId, ok := logValues["requestId"].(*big.Int)
+	requestID, ok := logValues["requestId"].(*big.Int)
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid requestId")}, runInfo
 	}
@@ -148,13 +145,13 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, lggr logger.Logger, vars Vars, in
 	output := hexutil.Encode(b)
 	results["output"] = output
 	// RequestID needs to be a [32]byte for EvmTxMeta.
-	results["requestID"] = hexutil.Encode(requestId.Bytes())
+	results["requestID"] = hexutil.Encode(requestID.Bytes())
 
 	// store vrf proof and request commitment separately so they can be used in a batch fashion
 	results["proof"] = onChainProof
 	results["requestCommitment"] = rc
 
-	lggr.Debugw("Completed VRF V2 task run", "reqID", requestId.String(), "output", output)
+	lggr.Debugw("Completed VRF V2 task run", "reqID", requestID.String(), "output", output)
 
 	return Result{Value: results}, runInfo
 }

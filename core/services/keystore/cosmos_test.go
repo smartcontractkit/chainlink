@@ -4,14 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/cosmoskey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -20,7 +18,7 @@ func Test_CosmosKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db)
-	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))
+	require.NoError(t, keyStore.Unlock(t.Context(), cltest.Password))
 	ks := keyStore.Cosmos()
 	reset := func() {
 		ctx := context.Background() // Executed during cleanup
@@ -44,7 +42,7 @@ func Test_CosmosKeyStore_E2E(t *testing.T) {
 
 	t.Run("creates a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
@@ -54,13 +52,13 @@ func Test_CosmosKeyStore_E2E(t *testing.T) {
 
 	t.Run("imports and exports a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		exportJSON, err := ks.Export(key.ID(), cltest.Password)
 		require.NoError(t, err)
 		_, err = ks.Export("non-existent", cltest.Password)
-		assert.Error(t, err)
+		require.Error(t, err)
 		_, err = ks.Delete(ctx, key.ID())
 		require.NoError(t, err)
 		_, err = ks.Get(key.ID())
@@ -68,9 +66,9 @@ func Test_CosmosKeyStore_E2E(t *testing.T) {
 		importedKey, err := ks.Import(ctx, exportJSON, cltest.Password)
 		require.NoError(t, err)
 		_, err = ks.Import(ctx, exportJSON, cltest.Password)
-		assert.Error(t, err)
+		require.Error(t, err)
 		_, err = ks.Import(ctx, []byte(""), cltest.Password)
-		assert.Error(t, err)
+		require.Error(t, err)
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
@@ -79,19 +77,19 @@ func Test_CosmosKeyStore_E2E(t *testing.T) {
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		newKey := cosmoskey.New()
 		err := ks.Add(ctx, newKey)
 		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
-		assert.Error(t, err)
+		require.Error(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
 		_, err = ks.Delete(ctx, newKey.ID())
 		require.NoError(t, err)
 		_, err = ks.Delete(ctx, newKey.ID())
-		assert.Error(t, err)
+		require.Error(t, err)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
 		require.Empty(t, keys)
@@ -101,12 +99,12 @@ func Test_CosmosKeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := ks.EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = ks.EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		keys, err := ks.GetAll()
 		require.NoError(t, err)

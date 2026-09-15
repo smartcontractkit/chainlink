@@ -64,7 +64,7 @@ func TestBridgePresenter_RenderTable(t *testing.T) {
 
 func TestShell_IndexBridges(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
@@ -110,7 +110,7 @@ func TestShell_ShowBridge(t *testing.T) {
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	require.NoError(t, app.BridgeORM().CreateBridgeType(testutils.Context(t), bt))
+	require.NoError(t, app.BridgeORM().CreateBridgeType(t.Context(), bt))
 
 	set := flag.NewFlagSet("test", 0)
 	flagSetApplyFromAction(client.ShowBridge, set, "")
@@ -175,7 +175,7 @@ func TestShell_RemoveBridge(t *testing.T) {
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err := app.BridgeORM().CreateBridgeType(testutils.Context(t), bt)
+	err := app.BridgeORM().CreateBridgeType(t.Context(), bt)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
@@ -204,7 +204,7 @@ func TestShell_UpdateBridge(t *testing.T) {
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	require.NoError(t, app.BridgeORM().CreateBridgeType(testutils.Context(t), bt))
+	require.NoError(t, app.BridgeORM().CreateBridgeType(t.Context(), bt))
 	tests := []struct {
 		name    string
 		args    []string

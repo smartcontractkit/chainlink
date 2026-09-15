@@ -11,28 +11,25 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 type SecretsFetcher interface {
@@ -46,7 +43,7 @@ type RawSecretsFetcher interface {
 }
 
 type secretsFetcher struct {
-	capRegistry core.CapabilitiesRegistry
+	capRegistry registry.CapabilitiesRegistry
 	lggr        logger.Logger
 
 	semaphore         limits.ResourcePoolLimiter[int]
@@ -81,7 +78,7 @@ type secretsCallCounter struct {
 
 func NewSecretsFetcher(
 	metrics *monitoring.WorkflowsMetricLabeler,
-	capRegistry core.CapabilitiesRegistry,
+	capRegistry registry.CapabilitiesRegistry,
 	lggr logger.Logger,
 	semaphore limits.ResourcePoolLimiter[int],
 	secretsCalls limits.BoundLimiter[int],
@@ -150,6 +147,19 @@ func (s *secretsFetcher) vaultGetSecretsMetadata(ctx context.Context, callbackID
 	return metadata, nil
 }
 
+// countSecretsCall reserves one call from the per-execution secrets call
+// budget shared by GetSecrets and GetRawSecrets.
+func (s *secretsFetcher) countSecretsCall(ctx context.Context) error {
+	s.callCounter.mu.Lock()
+	defer s.callCounter.mu.Unlock()
+	secretsCalled := s.callCounter.called + 1
+	if err := s.secretsCallsLimit.Check(ctx, secretsCalled); err != nil {
+		return err
+	}
+	s.callCounter.called = secretsCalled
+	return nil
+}
+
 func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{
 		Org:      s.orgID,
@@ -164,21 +174,16 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	if err != nil {
 		return nil, err
 	}
-	vaultRequestID := vaultutils.BuildWorkflowGetSecretsRequestID(metadata)
+	vaultRequestID := vault.BuildWorkflowGetSecretsRequestID(metadata)
 	s.lggr.Debugw("get secrets request received", "vaultRequestID", vaultRequestID, "metadata", metadata)
-	s.callCounter.mu.Lock()
-	secretsCalled := s.callCounter.called + 1
-	if err := s.secretsCallsLimit.Check(ctx, secretsCalled); err != nil {
-		s.callCounter.mu.Unlock()
+	if err = s.countSecretsCall(ctx); err != nil {
 		return nil, err
 	}
-	s.callCounter.called = secretsCalled
-	s.callCounter.mu.Unlock()
 	start := time.Now()
 	resp, err := func() ([]*sdkpb.SecretResponse, error) {
-		free, err := s.semaphore.Wait(ctx, 1)
-		if err != nil {
-			return nil, err
+		free, waitErr := s.semaphore.Wait(ctx, 1)
+		if waitErr != nil {
+			return nil, waitErr
 		}
 		defer free()
 		return s.getSecretsForBatchWithLocalFallback(ctx, request)
@@ -290,11 +295,26 @@ func (s *secretsFetcher) getSecretsForBatchWithLocalFallback(ctx context.Context
 	return combined, nil
 }
 
-// GetRawSecrets performs all of the work required to obtain secrets from the
-// Vault DON except decrypting their values: it resolves the vault capability,
-// loads this DON's encryption keys, executes the vault GetSecrets request, and
-// returns the raw (still encrypted) vault response.
+// GetRawSecrets obtains secrets from the Vault DON without decrypting their
+// values. Raw fetches are charged against the same per-execution secrets call
+// budget as GetSecrets.
 func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
+	ctx = contexts.WithCRE(ctx, contexts.CRE{
+		Org:      s.orgID,
+		Owner:    s.workflowOwner,
+		Workflow: s.workflowID,
+	})
+	if err := s.countSecretsCall(ctx); err != nil {
+		return nil, err
+	}
+	return s.getRawSecrets(ctx, request, fetcher)
+}
+
+// getRawSecrets resolves the vault capability, loads this DON's encryption
+// keys, executes the vault GetSecrets request, and returns the raw (still
+// encrypted) vault response. Callers must have already reserved a call from
+// the per-execution secrets call budget via countSecretsCall.
+func (s *secretsFetcher) getRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
 		return nil, errors.New("failed to get vault capability: " + err.Error())
@@ -308,7 +328,7 @@ func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSe
 	if err != nil {
 		return nil, err
 	}
-	vaultRequestID := vaultutils.BuildWorkflowGetSecretsRequestID(metadata)
+	vaultRequestID := vault.BuildWorkflowGetSecretsRequestID(metadata)
 	vp := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0),
 	}
@@ -410,7 +430,7 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 		return nil, errors.New("failed to extract vault public key from capability config: " + err.Error())
 	}
 
-	batchedVaultResponse, err := s.GetRawSecrets(ctx, request, s.encryptionKeyFetcher)
+	batchedVaultResponse, err := s.getRawSecrets(ctx, request, s.encryptionKeyFetcher)
 	if err != nil {
 		return nil, err
 	}
@@ -553,18 +573,18 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 	for i, encryptedDecryptionShareBytes := range encryptedDecryptionShares {
 		decryptionShareBytes, err := s.workflowEncryptionKey.Decrypt(encryptedDecryptionShareBytes)
 		if err != nil {
-			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i)
+			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i, "err", err)
 			continue
 		}
 		decryptionShare := &tdh2easy.DecryptionShare{}
 		err = decryptionShare.Unmarshal(decryptionShareBytes)
 		if err != nil {
-			lggr.Debugw("failed to unmarshal decryption share", "index", i)
+			lggr.Debugw("failed to unmarshal decryption share", "index", i, "err", err)
 			continue
 		}
 		err = tdh2easy.VerifyShare(cipherText, cfg.VaultPublicKey, decryptionShare)
 		if err != nil {
-			lggr.Debugw("failed to verify decryption share", "index", i)
+			lggr.Debugw("failed to verify decryption share", "index", i, "err", err)
 			continue
 		}
 		decryptionShares = append(decryptionShares, decryptionShare)
@@ -572,7 +592,7 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 	lggr.Debugw("decryption shares collected", "count", len(decryptionShares), "expected", len(encryptedDecryptionShares), "threshold", cfg.Threshold)
 
 	if len(decryptionShares) < cfg.Threshold {
-		return "", fmt.Errorf("not enough decryption shares to decrypt the secret: have %d, need at least %d", len(encryptedDecryptionShares), cfg.Threshold)
+		return "", fmt.Errorf("not enough decryption shares to decrypt the secret: have %d, need at least %d", len(decryptionShares), cfg.Threshold)
 	}
 
 	// Note that the last parameter 'n' to tdh2easy.Aggregate() isn't verified by the library at all.

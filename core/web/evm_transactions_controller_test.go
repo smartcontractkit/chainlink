@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"

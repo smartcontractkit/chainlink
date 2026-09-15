@@ -72,24 +72,19 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", err, cldf.ErrInvalidConfig)
 	}
 	ab := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 	// Note we also deploy the cap reg.
-	_, err = deployHomeChain(env.Logger, env, ab, env.ExistingAddresses, env.BlockChains.EVMChains()[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
+	_, err = deployHomeChain(env.Logger, env, ab, ds, env.ExistingAddresses, env.BlockChains.EVMChains()[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
-		ds, err2 := populateHomeChainDataStore(env.ExistingAddresses, ab)
-		if err2 != nil {
-			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
-		}
+		// Build the partial datastore from ab only so it stays consistent with the returned
+		// AddressBook; homeRefs refs are datastore-only on the success path and would otherwise
+		// appear in the datastore without a matching address-book entry on a partial output.
 
 		return cldf.ChangesetOutput{
 			AddressBook: ab,
 			DataStore:   ds,
-		}, errors.Join(err, err2)
-	}
-
-	ds, err := populateHomeChainDataStore(env.ExistingAddresses, ab)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
+		}, err
 	}
 
 	return cldf.ChangesetOutput{
@@ -98,40 +93,45 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 	}, nil
 }
 
-func populateHomeChainDataStore(existingAddresses cldf.AddressBook, ab cldf.AddressBook) (*datastore.MemoryDataStore, error) {
-	dsAb := cldf.NewMemoryAddressBook()
-	if existingAddresses != nil {
-		if err := dsAb.Merge(existingAddresses); err != nil {
-			return nil, fmt.Errorf("merge existing addresses for DataStore: %w", err)
-		}
-	}
-	if err := dsAb.Merge(ab); err != nil {
-		return nil, fmt.Errorf("merge new addresses for DataStore: %w", err)
-	}
-	ds, err := shared.PopulateDataStore(dsAb)
-	if err != nil {
-		return nil, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-	}
-	return ds, nil
-}
-
+// saveExistingContractIfNeeded records a home-chain singleton ref. homeRefs is a datastore-only
+// book that always receives the ref so the output datastore can resolve existing home contracts
+// (CapabilitiesRegistry, CCIPHome, RMNHome) even when they were not deployed this run. ab is the
+// changeset's returned address book; the ref is only added there when it is not already present in
+// existingAddresses, so a repeated application stays idempotent (callers merge ab back into the
+// environment and AddressBook.Merge rejects duplicate addresses).
 func saveExistingContractIfNeeded(
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	existingAddresses cldf.AddressBook,
 	chainSelector uint64,
 	address common.Address,
 	tv cldf.TypeAndVersion,
 ) error {
+	// If the environment already contains this contract, only the datastore needs a new ref.
+	// Otherwise RecordAddress writes the address book first and the datastore second, so an
+	// address-book failure cannot leave the returned output with a datastore-only singleton.
 	if existingAddresses != nil {
 		addrs, err := existingAddresses.AddressesForChain(chainSelector)
 		if err == nil {
-			if _, exists := addrs[address.Hex()]; exists {
+			for recordedAddress, recordedTV := range addrs {
+				if !shared.AddressesEqual(chainSelector, recordedAddress, address.Hex()) {
+					continue
+				}
+				if !recordedTV.Equal(tv) {
+					return fmt.Errorf("existing address book records %s as %s, want %s", recordedAddress, recordedTV.String(), tv.String())
+				}
+				if err := shared.RecordAddress(nil, ds, chainSelector, address.Hex(), tv, ""); err != nil {
+					return fmt.Errorf("record %s: %w", tv.Type, err)
+				}
 				return nil
 			}
+		} else if !errors.Is(err, cldf.ErrChainNotFound) {
+			return fmt.Errorf("read existing address book for chain %d: %w", chainSelector, err)
 		}
 	}
-	if err := ab.Save(chainSelector, address.Hex(), tv); err != nil {
-		return fmt.Errorf("save existing %s to address book: %w", tv.Type, err)
+
+	if err := shared.RecordAddress(ab, ds, chainSelector, address.Hex(), tv, ""); err != nil {
+		return fmt.Errorf("record %s: %w", tv.Type, err)
 	}
 	return nil
 }
@@ -178,6 +178,7 @@ func deployCapReg(
 	lggr logger.Logger,
 	state stateview.CCIPOnChainState,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	existingAddresses cldf.AddressBook,
 	chain cldf_evm.Chain,
 ) (*cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
@@ -187,7 +188,7 @@ func deployCapReg(
 		if cr != nil {
 			lggr.Infow("Found CapabilitiesRegistry in chain state", "address", cr.Address().String())
 			tv := cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0)
-			if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, cr.Address(), tv); err != nil {
+			if err := saveExistingContractIfNeeded(ab, ds, existingAddresses, chain.Selector, cr.Address(), tv); err != nil {
 				return nil, err
 			}
 			return &cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
@@ -195,7 +196,8 @@ func deployCapReg(
 			}, nil
 		}
 	}
-	capReg, err := cldf.DeployContract(lggr, chain, ab,
+	capReg, err := shared.DeployContractAndRecord(lggr, chain, ab, ds,
+		cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0), "",
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 				chain.DeployerKey,
@@ -224,6 +226,7 @@ func deployHomeChain(
 	lggr logger.Logger,
 	e cldf.Environment,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	existingAddresses cldf.AddressBook,
 	chain cldf_evm.Chain,
 	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
@@ -237,7 +240,7 @@ func deployHomeChain(
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	// Deploy CapabilitiesRegistry, CCIPHome, RMNHome
-	capReg, err := deployCapReg(lggr, state, ab, existingAddresses, chain)
+	capReg, err := deployCapReg(lggr, state, ab, ds, existingAddresses, chain)
 	if err != nil {
 		return nil, err
 	}
@@ -252,13 +255,13 @@ func deployHomeChain(
 		ccipHome := state.Chains[chain.Selector].CCIPHome
 		lggr.Infow("CCIPHome already deployed", "addr", ccipHome.Address().String())
 		tv := cldf.NewTypeAndVersion(shared.CCIPHome, deployment.Version1_6_0)
-		if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, ccipHome.Address(), tv); err != nil {
+		if err := saveExistingContractIfNeeded(ab, ds, existingAddresses, chain.Selector, ccipHome.Address(), tv); err != nil {
 			return nil, err
 		}
 		ccipHomeAddr = ccipHome.Address()
 	} else {
-		ccipHome, err := cldf.DeployContract(
-			lggr, chain, ab,
+		ccipHome, err := shared.DeployContractAndRecord(lggr, chain, ab, ds,
+			cldf.NewTypeAndVersion(shared.CCIPHome, deployment.Version1_6_0), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
 				ccAddr, tx, cc, err2 := ccip_home.DeployCCIPHome(
 					chain.DeployerKey,
@@ -283,12 +286,12 @@ func deployHomeChain(
 	if rmnHome != nil {
 		lggr.Infow("RMNHome already deployed", "addr", rmnHome.Address().String())
 		tv := cldf.NewTypeAndVersion(shared.RMNHome, deployment.Version1_6_0)
-		if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, rmnHome.Address(), tv); err != nil {
+		if err := saveExistingContractIfNeeded(ab, ds, existingAddresses, chain.Selector, rmnHome.Address(), tv); err != nil {
 			return nil, err
 		}
 	} else {
-		rmnHomeContract, err := cldf.DeployContract(
-			lggr, chain, ab,
+		rmnHomeContract, err := shared.DeployContractAndRecord(lggr, chain, ab, ds,
+			cldf.NewTypeAndVersion(shared.RMNHome, deployment.Version1_6_0), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*rmn_home.RMNHome] {
 				rmnAddr, tx, rmn, err2 := rmn_home.DeployRMNHome(
 					chain.DeployerKey,

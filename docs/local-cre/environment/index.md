@@ -44,6 +44,48 @@ Current `env start` flags from source code include:
 - `--with-billing`
 - `--setup-config`
 - `--grpc-port`
+- `--local-node`
+- `--local-capabilities`
+- `--capabilities-path`
+- `--local-build-platform`
+- `--local-node-image`
+
+## Building the Node and Capabilities from Local Source
+
+By default the node image and CRE capability plugins come from the topology's
+`docker_ctx` build (in-Docker) and the pinned upstream capability versions. When
+you are actively developing the node or a capability, the following flags build
+them from your **local working tree** instead — including local `replace`
+directives (e.g. a local `chainlink-common`) that an in-Docker build cannot see.
+
+- `--local-node` — cross-compile the Chainlink node from the local checkout on
+  the host, bake it into a minimal image, and use it for every node (overrides
+  the topology's `docker_ctx`/`image`).
+- `--local-capabilities <names|all>` — build these CRE capabilities from local
+  source and inject them into the nodes (via `capabilities` / `capabilities_container_dir`),
+  overriding the versions baked into the node image. Unlisted capabilities keep
+  the image's version. Accepts `all` or a comma-separated list, e.g.
+  `cron,consensus,evm,http-action,http-trigger`.
+- `--capabilities-path <dir>` — location of the local capabilities repo
+  (default `$CRE_CAPABILITIES_PATH`, else `~/go/src/github.com/smartcontractkit/capabilities`).
+- `--local-build-platform <os/arch>` — target for the local builds (default `linux/<host arch>`).
+- `--local-node-image <tag>` — image tag for the locally built node (default `cre-node:local`).
+
+Examples:
+
+```bash
+# Node + all capabilities from local source (with observability):
+go run . env start --with-observability --local-node --local-capabilities all
+
+# Full (pinned) node image, but override only cron + evm with local builds:
+go run . env start --local-capabilities cron,evm
+```
+
+Prerequisites (one-time, not performed by these flags): a C cross-compiler for
+the node's CGO build when the host OS/arch differs from the target (override with
+`CRE_LOCAL_CC` / `CRE_LOCAL_CXX` / `CRE_LOCAL_LIBDIR`), and the managed images
+present (`go run . env setup`). On Linux hosts building `linux/<same arch>` no
+cross-compiler is needed.
 
 Stop:
 

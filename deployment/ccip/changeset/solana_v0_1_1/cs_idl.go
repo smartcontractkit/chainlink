@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -595,8 +596,11 @@ func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastate
 // Build instruction to interact with Anchor IDL using the list of ids above for each message
 func buildIdlInstruction(programID solana.PublicKey, accountsForIx solana.AccountMetaSlice, idlInstruction int, params []byte) (solana.GenericInstruction, error) {
 	data := binary.LittleEndian.AppendUint64([]byte{}, IdlIxTag) // 8-byte Extend instruction identifier
-	data = append(data, byte(idlInstruction))                    // Append the numeric ID of the operation
-	data = append(data, params...)                               // Append any additional parameters
+	if idlInstruction > math.MaxUint8 {
+		return solana.GenericInstruction{}, fmt.Errorf("invalid idl instruction: does not fit in byte: %d", idlInstruction)
+	}
+	data = append(data, byte(idlInstruction)) //nolint:gosec //G115 // Append the numeric ID of the operation
+	data = append(data, params...)            // Append any additional parameters
 
 	instruction := solana.NewInstruction(
 		programID,
@@ -634,7 +638,7 @@ func getTxIfMCMSExecuteIfNot(e cldf.Environment, programID string, programName s
 
 // generate set buffer ix using solana-go sdk
 func setBufferIdlInstruction(e cldf.Environment, programID, buffer, authority solana.PublicKey) (solana.GenericInstruction, error) {
-	accounts, instruction, err := getAccountsFoSetBufferIdlInstruction(e, programID, buffer, authority)
+	accounts, instruction, err := getAccountsForSetBufferIdlInstruction(e, programID, buffer, authority)
 	if err != nil {
 		return instruction, err
 	}
@@ -642,7 +646,7 @@ func setBufferIdlInstruction(e cldf.Environment, programID, buffer, authority so
 }
 
 func createIdlInstruction(e cldf.Environment, programID, authority solana.PublicKey, dataLen uint64) (solana.GenericInstruction, error) {
-	accounts, instruction, err := getAccountsFoCreateIdlInstruction(e, programID, authority)
+	accounts, instruction, err := getAccountsForCreateIdlInstruction(e, programID, authority)
 	if err != nil {
 		return instruction, err
 	}
@@ -659,7 +663,7 @@ func idlCreateParams(dataLen uint64) []byte {
 }
 
 // Following the Anchor 0.29.0 Implementation: https://github.com/solana-foundation/anchor/blob/2a050757609a3c59bd77084a259f5ea64fcebfa6/lang/syn/src/codegen/program/idl.rs#L38
-func getAccountsFoCreateIdlInstruction(
+func getAccountsForCreateIdlInstruction(
 	e cldf.Environment,
 	programID solana.PublicKey,
 	authority solana.PublicKey,
@@ -693,7 +697,7 @@ func getAccountsFoCreateIdlInstruction(
 	return accounts, solana.GenericInstruction{}, nil
 }
 
-func getAccountsFoSetBufferIdlInstruction(e cldf.Environment, programID solana.PublicKey, buffer solana.PublicKey, authority solana.PublicKey) (solana.AccountMetaSlice, solana.GenericInstruction, error) {
+func getAccountsForSetBufferIdlInstruction(e cldf.Environment, programID solana.PublicKey, buffer solana.PublicKey, authority solana.PublicKey) (solana.AccountMetaSlice, solana.GenericInstruction, error) {
 	idlAddress, err := getIDLAddress(e, programID)
 	if err != nil {
 		return nil, solana.GenericInstruction{}, fmt.Errorf("error getting idl address for %s: %w", programID.String(), err)

@@ -1,7 +1,7 @@
 name: Cleanup Caches
 
-# See:
-# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/caching-dependencies-to-speed-up-workflows#force-deleting-cache-entries
+# Note: This workflow purges GitHub-hosted caches via GitHub's API.
+# Caches stored in the RunsOn S3 bucket are managed outside GitHub Actions cache lifecycle.
 
 on:
   pull_request:
@@ -21,7 +21,7 @@ jobs:
       PR_NUMBER: ${{ github.event.pull_request.number }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 

@@ -1359,7 +1359,7 @@ runTimeout                    = "{{.RunTimeout}}"
 	return MarshallTemplate(b, "BlockHeaderFeeder Job", vrfTemplateString)
 }
 
-// WebhookJobSpec reprsents a webhook job
+// WebhookJobSpec represents a webhook job
 type WebhookJobSpec struct {
 	Name              string `toml:"name"`
 	Initiator         string `toml:"initiator"`         // External initiator name

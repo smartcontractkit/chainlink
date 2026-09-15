@@ -8,16 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/freeport"
-
-	"github.com/jmoiron/sqlx"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -26,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 )
 
@@ -51,29 +46,6 @@ observationSource = """
 """
 `
 
-	ocr2Keeper21JobSpecTemplate = `
-type = "offchainreporting2"
-pluginType = "ocr2automation"
-relay = "evm"
-name = "ocr2keeper"
-schemaVersion = 1
-contractID = "%s"
-contractConfigTrackerPollInterval = "15s"
-ocrKeyBundleID = "%s"
-transmitterID = "%s"
-p2pv2Bootstrappers = [
-"%s"
-]
-
-[relayConfig]
-chainID = %d
-
-[pluginConfig]
-maxServiceWorkers = 100
-cacheEvictionInterval = "1s"
-mercuryCredentialName = "%s"
-contractVersion = "v2.1"
-`
 	voterTurnoutDataSourceTemplate = `
 // data source 1
 ds1          [type=bridge name="%s"];
@@ -196,8 +168,8 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.Equal(t, expected.OCROracleSpec.ContractConfigConfirmations, actual.OCROracleSpec.ContractConfigConfirmations)
 }
 
-func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
-	var ocrSpec = job.OCROracleSpec{
+func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchURL, timeout string) *job.Job {
+	ocrSpec := job.OCROracleSpec{
 		P2PV2Bootstrappers:                     pq.StringArray{},
 		ObservationTimeout:                     sqlutil.Interval(10 * time.Second),
 		BlockchainTimeout:                      sqlutil.Interval(20 * time.Second),
@@ -206,13 +178,13 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 		ContractConfigConfirmations:            uint16(3),
 		EVMChainID:                             sqlutil.New(testutils.FixtureChainID),
 	}
-	var os = job.Job{
+	os := job.Job{
 		Name:          null.NewString("a job", true),
 		Type:          job.OffchainReporting,
 		SchemaVersion: 1,
 		ExternalJobID: uuid.New(),
 	}
-	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, testutils.FixtureChainID.String(), fetchUrl, timeout)
+	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, testutils.FixtureChainID.String(), fetchURL, timeout)
 	keyStore := cltest.NewKeyStore(t, db)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		ChainConfigs:   cfg.EVMConfigs(),
@@ -258,7 +230,7 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	t.Helper()
 
 	id := uuid.New()
-	var jb = job.Job{
+	jb := job.Job{
 		Name:          null.StringFrom(id.String()),
 		ExternalJobID: id,
 	}
@@ -271,45 +243,6 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 		ocrspec.P2PV2Bootstrappers = pq.StringArray{}
 	}
 	jb.OCROracleSpec = &ocrspec
-
-	return &jb
-}
-
-func makeOCR2Keeper21JobSpec(t testing.TB, ks keystore.Master, transmitter common.Address, chainID *big.Int) *job.Job {
-	t.Helper()
-	ctx := testutils.Context(t)
-
-	bootstrapNodePort := freeport.GetOne(t)
-	bootstrapPeerID := "peerId"
-
-	kb, _ := ks.OCR2().Create(ctx, corekeys.EVM)
-	_, registry := cltest.MustInsertRandomKey(t, ks.Eth())
-
-	ocr2Keeper21Job := fmt.Sprintf(ocr2Keeper21JobSpecTemplate, registry.String(), kb.ID(), transmitter,
-		fmt.Sprintf("%s127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), chainID, "mercury cred")
-
-	jobSpec := makeOCR2JobSpecFromToml(t, ocr2Keeper21Job)
-
-	return jobSpec
-}
-
-func makeOCR2JobSpecFromToml(t testing.TB, jobSpecToml string) *job.Job {
-	t.Helper()
-
-	id := uuid.New()
-	var jb = job.Job{
-		Name:          null.StringFrom(id.String()),
-		ExternalJobID: id,
-	}
-	err := toml.Unmarshal([]byte(jobSpecToml), &jb)
-	require.NoError(t, err, jobSpecToml)
-	var ocr2spec job.OCR2OracleSpec
-	err = toml.Unmarshal([]byte(jobSpecToml), &ocr2spec)
-	require.NoError(t, err)
-	if ocr2spec.P2PV2Bootstrappers == nil {
-		ocr2spec.P2PV2Bootstrappers = pq.StringArray{}
-	}
-	jb.OCR2OracleSpec = &ocr2spec
 
 	return &jb
 }

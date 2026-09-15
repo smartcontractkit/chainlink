@@ -49,7 +49,7 @@ type don2DonSharedPeer struct {
 	isBootstrap bool
 
 	recvCh          chan p2ptypes.Message
-	discoveryGroups map[string]networking.PeerGroup // keyed by donPairHash()
+	discoveryGroups map[string]networking.PeerGroup // keyed by pairID()
 	remotePeers     map[ragetypes.PeerID]*remotePeer
 	mu              sync.RWMutex // protects discoveryGroups and remotePeers
 
@@ -57,6 +57,8 @@ type don2DonSharedPeer struct {
 }
 
 var _ p2ptypes.SharedPeer = &don2DonSharedPeer{}
+
+const defaultRecvChSize = 10000
 
 type remotePeer struct {
 	// A PeerGroup with exactly two members, connecting our peer with a single remote peer.
@@ -226,6 +228,24 @@ func (sp *don2DonSharedPeer) stateEqual(desiredDONPairsIDs map[string]struct{}, 
 func (sp *don2DonSharedPeer) updateConnections(donPairs []p2ptypes.DonPair, desiredDONPairsIDs map[string]struct{}, desiredRemotePeers map[ragetypes.PeerID]struct{}, streamConfig p2ptypes.StreamConfig) error {
 	sp.mu.Lock()
 	defer sp.mu.Unlock()
+
+	// Remove obsolete groups.
+	// This must run *before* the groups are created below. If it ran after, a creation failure
+	// would return early and skip it, leaving stale groups open forever so that every later
+	// update failed the same way. Closing first also avoids briefly holding two registrations
+	// for the same DON pair.
+	for donPairID := range sp.discoveryGroups {
+		if _, ok := desiredDONPairsIDs[donPairID]; !ok {
+			peerGroup := sp.discoveryGroups[donPairID]
+			err := peerGroup.Close()
+			if err != nil {
+				sp.lggr.Errorw("failed to close discovery group", "donPairId", donPairID, "err", err)
+			}
+			delete(sp.discoveryGroups, donPairID)
+			sp.lggr.Infow("Closed discovery group", "donPairId", donPairID)
+		}
+	}
+
 	// Phase 1 - create discovery groups. Those groups consist of peers from exactly two DONs.
 	for _, dp := range donPairs {
 		pairID := pairID(dp[0], dp[1])
@@ -244,29 +264,14 @@ func (sp *don2DonSharedPeer) updateConnections(donPairs []p2ptypes.DonPair, desi
 			peers = append(peers, pidStr) // no duplicate peers
 		}
 
-		if _, ok := sp.discoveryGroups[pairID]; !ok {
-			digest := donPairDigest(dp[0].ID, dp[1].ID)
-			peerGroup, err := sp.pgFactory.NewPeerGroup(digest, peers, sp.bootstrappers)
-			if err != nil {
-				sp.lggr.Errorw("failed to create discovery group", "digest", digest, "err", err)
-				return fmt.Errorf("failed to create discovery group: %w", err)
-			}
-			sp.lggr.Infow("Created discovery group", "donPairId", pairID, "don1", dp[0].ID, "don2", dp[1].ID, "numPeers", len(peers))
-			sp.discoveryGroups[pairID] = peerGroup
+		digest := donPairDigest(dp[0], dp[1])
+		peerGroup, err := sp.pgFactory.NewPeerGroup(digest, peers, sp.bootstrappers)
+		if err != nil {
+			sp.lggr.Errorw("failed to create discovery group", "digest", digest, "don1", dp[0].ID, "don2", dp[1].ID, "err", err)
+			return fmt.Errorf("failed to create discovery group: %w", err)
 		}
-	}
-
-	// Remove obsolete groups
-	for donPairID := range sp.discoveryGroups {
-		if _, ok := desiredDONPairsIDs[donPairID]; !ok {
-			peerGroup := sp.discoveryGroups[donPairID]
-			err := peerGroup.Close()
-			if err != nil {
-				sp.lggr.Errorw("failed to close discovery group", "donPairId", donPairID, "err", err)
-			}
-			delete(sp.discoveryGroups, donPairID)
-			sp.lggr.Infow("Closed discovery group", "donPairId", donPairID)
-		}
+		sp.lggr.Infow("Created discovery group", "donPairId", pairID, "digest", digest, "don1", dp[0].ID, "don2", dp[1].ID, "numPeers", len(peers))
+		sp.discoveryGroups[pairID] = peerGroup
 	}
 
 	// Phase 2 - create messaging groups for Don2Don streams. Each group consists of exactly two Peers.
@@ -359,15 +364,12 @@ func pairID(donA, donB capabilities.DON) string {
 	return fmt.Sprintf("%d-%d-%s-%s", donA.ID, donB.ID, hex.EncodeToString(hashPeersA[:]), hex.EncodeToString(hashPeersB[:]))
 }
 
-func donPairDigest(donID1, donID2 uint32) ocr2types.ConfigDigest {
-	// Create a digest based on sorted DON IDs
-	if donID1 > donID2 {
-		donID1, donID2 = donID2, donID1
-	}
+func donPairDigest(donA, donB capabilities.DON) ocr2types.ConfigDigest {
 	var digest ocr2types.ConfigDigest
 	binary.BigEndian.PutUint16(digest[:], uint16(ocr2types.ConfigDigestPrefixDONToDONDiscoveryGroup))
-	binary.BigEndian.PutUint32(digest[2:], donID1)
-	binary.BigEndian.PutUint32(digest[6:], donID2)
+	// pairID() already sorts the DONs and their member lists, so this is order-independent.
+	pairHash := sha256.Sum256([]byte(pairID(donA, donB)))
+	copy(digest[2:], pairHash[:30])
 	return digest
 }
 

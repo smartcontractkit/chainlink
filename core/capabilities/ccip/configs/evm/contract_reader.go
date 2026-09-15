@@ -8,13 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/codec"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/evm"
-	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -24,8 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/evm"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
 const (
@@ -409,7 +408,7 @@ var USDCReaderConfig = config.ChainReaderConfig{
 						GenericDataWordDetails: map[string]evm.DataWordDetail{
 							consts.CCTPMessageSentValue: {
 								Name: consts.CCTPMessageSentValue,
-								// Filtering by the 3rd word (indexing starts from 0) so it's ptr(2)
+								// Filtering by the 3rd word (indexing starts from 0) so it's new(2)
 								Index: new(2),
 								Type:  "bytes32",
 							},

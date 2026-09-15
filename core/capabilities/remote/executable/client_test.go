@@ -12,14 +12,12 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/synctest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -40,12 +38,6 @@ func Test_Client_DonTopologies(t *testing.T) {
 
 	ctx := t.Context()
 
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_OneAtATime,
-		"deltaStage": "10ms",
-	})
-	require.NoError(t, err)
-
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		if assert.NoError(t, responseError) {
 			mp, err := response.Value.Unwrap()
@@ -65,7 +57,7 @@ func Test_Client_DonTopologies(t *testing.T) {
 	methods = append(methods, func(caller commoncap.ExecutableCapability) {
 		executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 		if assert.NoError(t, err) {
-			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			executeMethod(ctx, caller, executeInputs, responseTest, t)
 		}
 	})
 
@@ -85,70 +77,6 @@ func Test_Client_DonTopologies(t *testing.T) {
 		testClient(t, 10, responseTimeOut, 10, 9,
 			capability, method)
 	}
-}
-
-func Test_Client_TransmissionSchedules(t *testing.T) {
-	t.Parallel()
-
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-104")
-	ctx := t.Context()
-
-	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		if assert.NoError(t, responseError) {
-			mp, err := response.Value.Unwrap()
-			if assert.NoError(t, err) {
-				assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
-			}
-		}
-	}
-
-	capability := &TestCapability{}
-
-	responseTimeOut := 10 * time.Minute
-
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_OneAtATime,
-		"deltaStage": "10ms",
-	})
-	require.NoError(t, err)
-
-	testClient(t, 1, responseTimeOut, 1, 0,
-		capability, func(caller commoncap.ExecutableCapability) {
-			executeInputs, err2 := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			if assert.NoError(t, err2) {
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-			}
-		},
-	)
-	testClient(t, 10, responseTimeOut, 10, 3,
-		capability, func(caller commoncap.ExecutableCapability) {
-			executeInputs, err2 := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			if assert.NoError(t, err2) {
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-			}
-		},
-	)
-
-	transmissionSchedule, err = values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "10ms",
-	})
-	require.NoError(t, err)
-
-	testClient(t, 1, responseTimeOut, 1, 0,
-		capability, func(caller commoncap.ExecutableCapability) {
-			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			if assert.NoError(t, err) {
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-			}
-		})
-	testClient(t, 10, responseTimeOut, 10, 3,
-		capability, func(caller commoncap.ExecutableCapability) {
-			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			if assert.NoError(t, err) {
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-			}
-		})
 }
 
 func Test_Client_ResponseAggregationGrace(t *testing.T) {
@@ -200,19 +128,13 @@ func Test_Client_ResponseAggregationGrace(t *testing.T) {
 					},
 				}
 
-				transmissionSchedule, err := values.NewMap(map[string]any{
-					"schedule":   transmission.Schedule_AllAtOnce,
-					"deltaStage": "10ms",
-				})
-				require.NoError(t, err)
-
 				executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 				require.NoError(t, err)
 
 				testClient(t, tc.numWorkflowPeers, requestTimeout, tc.numCapabilityPeers, tc.capabilityDonF,
 					capability,
 					func(caller commoncap.ExecutableCapability) {
-						executeMethod(ctx, caller, transmissionSchedule, executeInputs, tc.responseTest, t)
+						executeMethod(ctx, caller, executeInputs, tc.responseTest, t)
 					},
 				)
 			})
@@ -247,12 +169,6 @@ func Test_Client_ConsensusFailedIfInsufficientCapabilityPeerResponses(t *testing
 
 	capability := &TestCapability{}
 
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "10ms",
-	})
-	require.NoError(t, err)
-
 	// F+1 exceeds peer count; first divergent response makes quorum unreachable.
 
 	testClient(t, 10, 1*time.Second, 10, 11,
@@ -260,7 +176,7 @@ func Test_Client_ConsensusFailedIfInsufficientCapabilityPeerResponses(t *testing
 		func(caller commoncap.ExecutableCapability) {
 			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 			if assert.NoError(t, err) {
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+				executeMethod(ctx, caller, executeInputs, responseTest, t)
 			}
 		})
 }
@@ -275,11 +191,6 @@ func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
 	}
 
 	capability := &TestCapability{}
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "20s",
-	})
-	require.NoError(t, err)
 
 	cancel()
 	testClient(t, 2, 20*time.Second, 2, 2,
@@ -287,7 +198,7 @@ func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
 		func(caller commoncap.ExecutableCapability) {
 			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 			if assert.NoError(t, err) {
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+				executeMethod(ctx, caller, executeInputs, responseTest, t)
 			}
 		})
 }
@@ -338,7 +249,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	for i := range numWorkflowPeers {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		caller := executable.NewClient(capInfo.ID, "", workflowPeerDispatcher, lggr)
-		err := caller.SetConfig(capInfo, workflowDonInfo, workflowNodeResponseTimeout, nil, nil, 0)
+		err := caller.SetConfig(capInfo, workflowDonInfo, workflowNodeResponseTimeout, nil, 0)
 		require.NoError(t, err)
 		servicetest.Run(t, caller)
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
@@ -361,7 +272,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	wg.Wait()
 }
 
-func executeMethod(ctx context.Context, caller commoncap.ExecutableCapability, transmissionSchedule *values.Map,
+func executeMethod(ctx context.Context, caller commoncap.ExecutableCapability,
 	executeInputs *values.Map, responseTest func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error), t *testing.T) {
 	responseCh, err := caller.Execute(ctx,
 		commoncap.CapabilityRequest{
@@ -370,7 +281,6 @@ func executeMethod(ctx context.Context, caller commoncap.ExecutableCapability, t
 				WorkflowExecutionID: workflowExecutionID1,
 				WorkflowOwner:       workflowOwnerID,
 			},
-			Config: transmissionSchedule,
 			Inputs: executeInputs,
 		})
 
@@ -468,7 +378,7 @@ func (t *clientTestServer) sendResponse(messageID string, responseErr error,
 
 type clientSetConfigTestFixture struct {
 	Client interface {
-		SetConfig(commoncap.CapabilityInfo, commoncap.DON, time.Duration, *transmission.TransmissionConfig, [][]byte, uint32) error
+		SetConfig(commoncap.CapabilityInfo, commoncap.DON, time.Duration, [][]byte, uint32) error
 		Info(context.Context) (commoncap.CapabilityInfo, error)
 		Start(context.Context) error
 		Close() error
@@ -518,12 +428,7 @@ func TestClient_SetConfig(t *testing.T) {
 
 		fixture := newClientSetConfigTestFixture(t)
 
-		transmissionConfig := &transmission.TransmissionConfig{
-			Schedule:   transmission.Schedule_OneAtATime,
-			DeltaStage: 10 * time.Millisecond,
-		}
-
-		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, transmissionConfig, nil, 0)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, 0)
 		require.NoError(t, err)
 
 		info, err := fixture.Client.Info(t.Context())
@@ -541,7 +446,7 @@ func TestClient_SetConfig(t *testing.T) {
 			CapabilityType: commoncap.CapabilityTypeAction,
 		}
 
-		err := fixture.Client.SetConfig(invalidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0)
+		err := fixture.Client.SetConfig(invalidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, 0)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "capability info provided does not match the client's capabilityID")
 		assert.Contains(t, err.Error(), "different_capability@1.0.0 != test_capability@1.0.0")
@@ -558,7 +463,7 @@ func TestClient_SetConfig(t *testing.T) {
 			F:       0,
 		}
 
-		err := fixture.Client.SetConfig(fixture.ValidCapInfo, invalidDonInfo, fixture.ValidTimeout, nil, nil, 0)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, invalidDonInfo, fixture.ValidTimeout, nil, 0)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "empty localDonInfo provided")
 	})
@@ -569,7 +474,7 @@ func TestClient_SetConfig(t *testing.T) {
 		fixture := newClientSetConfigTestFixture(t)
 
 		initialTimeout := 10 * time.Second
-		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, initialTimeout, nil, nil, 0)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, initialTimeout, nil, 0)
 		require.NoError(t, err)
 
 		newTimeout := 60 * time.Second
@@ -579,7 +484,7 @@ func TestClient_SetConfig(t *testing.T) {
 			F:       1,
 		}
 
-		err = fixture.Client.SetConfig(fixture.ValidCapInfo, newDonInfo, newTimeout, nil, nil, 0)
+		err = fixture.Client.SetConfig(fixture.ValidCapInfo, newDonInfo, newTimeout, nil, 0)
 		require.NoError(t, err)
 
 		info, err := fixture.Client.Info(t.Context())
@@ -607,7 +512,7 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 		fixture := newClientSetConfigTestFixture(t)
 		ctx := t.Context()
 
-		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0))
+		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, 0))
 		require.NoError(t, fixture.Client.Start(ctx))
 		require.NoError(t, fixture.Client.Close())
 	})
@@ -618,12 +523,12 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 		fixture := newClientSetConfigTestFixture(t)
 		ctx := t.Context()
 
-		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0))
+		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, 0))
 		require.NoError(t, fixture.Client.Start(ctx))
 
 		newCapInfo := fixture.ValidCapInfo
 		newCapInfo.Description = "new description"
-		require.NoError(t, fixture.Client.SetConfig(newCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0))
+		require.NoError(t, fixture.Client.SetConfig(newCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, 0))
 
 		info, err := fixture.Client.Info(ctx)
 		require.NoError(t, err)

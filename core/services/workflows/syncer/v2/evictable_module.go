@@ -109,14 +109,14 @@ func newLoadedModule(mod host.ModuleV2) *loadedModule {
 // A plain Add(1) would race with a release that already drove the count to zero
 // and called Close, leading to a use-after-close. CAS makes the increment
 // conditional on the entry still being live.
-func (e *loadedModule) tryAcquire() (acquired bool, exhausted bool) {
+func (e *loadedModule) tryAcquire() (acquired, exhausted bool) {
 	cas := tryAcquireCompareAndSwap
 	if cas == nil {
 		cas = func(e *loadedModule, old, next int64) bool {
 			return e.refCount.CompareAndSwap(old, next)
 		}
 	}
-	for attempt := 0; attempt < tryAcquireMaxAttempts; attempt++ {
+	for range tryAcquireMaxAttempts {
 		n := e.refCount.Load()
 		if n == 0 {
 			return false, false
@@ -236,7 +236,7 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 	// cancellation is not starved.
 	var pinned *loadedModule
 	var skewRecorded bool
-	for attempt := 0; attempt < executePinMaxAttempts; attempt++ {
+	for range executePinMaxAttempts {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}

@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -88,7 +87,7 @@ func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 }
 
 func Test_Version_CheckVersion(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 
 	lggr := logger.TestLogger(t)
@@ -132,7 +131,7 @@ func Test_Version_CheckVersion(t *testing.T) {
 }
 
 func TestORM_CheckVersion_CCIP(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 
 	lggr := logger.TestLogger(t)
@@ -212,7 +211,7 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 }
 
 func TestORM_NodeVersion_FindLatestNodeVersion(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(db, logger.TestLogger(t))
 

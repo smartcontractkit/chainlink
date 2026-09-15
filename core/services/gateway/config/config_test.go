@@ -252,22 +252,6 @@ func TestGatewayConfig_Validate(t *testing.T) {
 			config: GatewayConfig{},
 		},
 		{
-			name: "legacy Dons and Services cannot be used together",
-			config: GatewayConfig{
-				Dons:     []DONConfig{{DonId: "legacy"}},
-				Services: []ServiceConfig{validService},
-			},
-			wantErr: "legacy Dons config and Services/ShardedDONs cannot be used together",
-		},
-		{
-			name: "legacy Dons and ShardedDONs cannot be used together",
-			config: GatewayConfig{
-				Dons:        []DONConfig{{DonId: "legacy"}},
-				ShardedDONs: []ShardedDONConfig{validDON},
-			},
-			wantErr: "legacy Dons config and Services/ShardedDONs cannot be used together",
-		},
-		{
 			name: "PongTimeoutSec less than HeartbeatIntervalSec",
 			config: GatewayConfig{
 				ConnectionManagerConfig: ConnectionManagerConfig{

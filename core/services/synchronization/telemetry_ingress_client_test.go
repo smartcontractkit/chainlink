@@ -12,10 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
@@ -62,7 +60,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	})
 
 	// Send telemetry
-	telemIngressClient.Send(testutils.Context(t), telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType)
+	telemIngressClient.Send(t.Context(), telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType)
 
 	// Wait for the telemetry to be handled
 	gomega.NewWithT(t).Eventually(called.Load).Should(gomega.BeTrue())

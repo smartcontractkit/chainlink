@@ -9,11 +9,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -101,8 +102,7 @@ func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableCon
 		remoteExecutableConfig = &commoncap.RemoteExecutableConfig{}
 	}
 	if messageHasher == nil {
-		r.lggr.Warn("no message hasher provided, using default V1 hasher")
-		messageHasher = NewV1Hasher(remoteExecutableConfig.RequestHashExcludedAttributes)
+		return errors.New("message hasher must be provided")
 	}
 	if capInfo.ID == "" || capInfo.ID != r.capabilityID {
 		return fmt.Errorf("capability info provided does not match the server's capabilityID: %s != %s", capInfo.ID, r.capabilityID)
@@ -172,7 +172,11 @@ func (r *server) Start(ctx context.Context) error {
 		}
 
 		// Initialize parallel executor with the configured max parallel requests
-		r.parallelExecutor = remote.NewParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests), "executable_server")
+		slotUsageAttrs := []attribute.KeyValue{
+			attribute.String("capabilityID", r.capabilityID),
+			attribute.String("capMethodName", r.capMethodName),
+		}
+		r.parallelExecutor = remote.NewParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests), "executable_server", slotUsageAttrs...)
 
 		r.wg.Go(func() {
 			ticker := time.NewTicker(getServerTickerInterval(cfg))
@@ -264,7 +268,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		return
 	}
 
-	msgHash, err := cfg.hasher.Hash(msg)
+	msgHash, err := cfg.hasher.Hash(ctx, msg)
 	if err != nil {
 		r.lggr.Errorw("failed to get message hash", "err", err)
 		return
@@ -276,17 +280,14 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	r.lggr.Debugw("received request", "msgId", msg.MessageId, "requestID", requestID)
 
-	if requestIDs, ok := r.messageIDToRequestIDsCount[messageID]; ok {
+	requestIDs, requestIDsOK := r.messageIDToRequestIDsCount[messageID]
+	if requestIDsOK {
 		requestIDs[requestID]++
-	} else {
-		r.messageIDToRequestIDsCount[messageID] = map[string]int{requestID: 1}
-	}
-
-	requestIDs := r.messageIDToRequestIDsCount[messageID]
-	if len(requestIDs) > 1 {
-		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
-		// so a warning is logged
-		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
+		if len(requestIDs) > 1 {
+			// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
+			// so a warning is logged
+			r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
+		}
 	}
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
@@ -307,6 +308,11 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 			request:   sr,
 			messageID: messageID,
 		}
+	}
+
+	if !requestIDsOK {
+		// This is separate from inverse case because we want to wait until after the early returns in between.
+		r.messageIDToRequestIDsCount[messageID] = map[string]int{requestID: 1}
 	}
 
 	reqAndMsgID := r.requestIDToRequest[requestID]

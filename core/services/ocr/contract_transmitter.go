@@ -5,16 +5,16 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter/ocr"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
+	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter/ocr"
 )
 
 var (

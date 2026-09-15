@@ -24,22 +24,20 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
 	ks_stellar "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
-	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 const EnvironmentName = "local-cre"
@@ -66,8 +64,10 @@ const (
 	HTTPActionCapability        CapabilityFlag = "http-action"
 	SolanaCapability            CapabilityFlag = "solana"
 	ConfidentialRelayCapability CapabilityFlag = "confidential-relay"
-	AptosCapability             CapabilityFlag = "aptos"
-	StellarCapability           CapabilityFlag = "stellar"
+	// ConfidentialWorkflowsCapability doubles as the enclave application name.
+	ConfidentialWorkflowsCapability CapabilityFlag = "confidential-workflows"
+	AptosCapability                 CapabilityFlag = "aptos"
+	StellarCapability               CapabilityFlag = "stellar"
 	// Add more capabilities as needed
 )
 
@@ -141,23 +141,23 @@ type CapabilityFlagsProvider interface {
 func NewEnvironmentDependencies(
 	cfp CapabilityFlagsProvider,
 	cvp ContractVersionsProvider,
-) *envionmentDependencies {
-	return &envionmentDependencies{
+) *environmentDependencies {
+	return &environmentDependencies{
 		flagsProvider:       cfp,
 		contractSetProvider: cvp,
 	}
 }
 
-type envionmentDependencies struct {
+type environmentDependencies struct {
 	flagsProvider       CapabilityFlagsProvider
 	contractSetProvider ContractVersionsProvider
 }
 
-func (e *envionmentDependencies) ContractVersions() map[ContractType]*semver.Version {
+func (e *environmentDependencies) ContractVersions() map[ContractType]*semver.Version {
 	return e.contractSetProvider.ContractVersions()
 }
 
-func (e *envionmentDependencies) SupportedCapabilityFlags() []CapabilityFlag {
+func (e *environmentDependencies) SupportedCapabilityFlags() []CapabilityFlag {
 	return e.flagsProvider.SupportedCapabilityFlags()
 }
 
@@ -450,6 +450,7 @@ type GenerateConfigsInput struct {
 	Topology                  *Topology
 	Provider                  infra.Provider
 	ChipRouterInternalGRPCURL string
+	EnableMetering            bool
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -527,12 +528,13 @@ func allDigits(value string) bool {
 }
 
 type DonMetadata struct {
-	NodesMetadata                []*NodeMetadata                     `toml:"nodes_metadata" json:"nodes_metadata"`
-	Flags                        []string                            `toml:"flags" json:"flags"`
-	ID                           uint64                              `toml:"id" json:"id"`
-	Name                         string                              `toml:"name" json:"name"`
-	DonFamily                    string                              `toml:"don_family" json:"don_family"` // nodesets.don_family; gateway pairing, cap-registration, and workflow deploy family
-	AdditionalDonFamilies        []string                            `toml:"additional_don_families" json:"additional_don_families"`
+	NodesMetadata []*NodeMetadata `toml:"nodes_metadata" json:"nodes_metadata"`
+	Flags         []string        `toml:"flags" json:"flags"`
+	ID            uint64          `toml:"id" json:"id"`
+	Name          string          `toml:"name" json:"name"`
+	// DonFamilies are all CapReg families this DON belongs to, normalized (trimmed,
+	// non-empty, de-duplicated) at construction.
+	DonFamilies                  []string                            `toml:"don_families" json:"don_families"`
 	ExposesRemoteCapabilities    bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
 	ShardIndex                   uint                                `toml:"shard_index" json:"shard_index"`
 	CapabilityConfigs            map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
@@ -583,8 +585,9 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	// Propagate merged configs back to NodeSet for consistent access across codebase
 	c.CapabilityConfigs = capConfigs
 
-	if strings.TrimSpace(c.DonFamily) == "" {
-		return nil, fmt.Errorf("nodeset %q has no don_family; set don_family on every nodeset", c.Name)
+	donFamilies := normalizedDonFamilies(c.DonFamilies)
+	if len(donFamilies) == 0 {
+		return nil, fmt.Errorf("nodeset %q has no don_families; set don_families on every nodeset", c.Name)
 	}
 
 	out := &DonMetadata{
@@ -592,8 +595,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 		Flags:                        c.Flags(),
 		NodesMetadata:                nodes,
 		Name:                         c.Name,
-		DonFamily:                    strings.TrimSpace(c.DonFamily),
-		AdditionalDonFamilies:        trimmedNonEmpty(c.AdditionalDonFamilies),
+		DonFamilies:                  donFamilies,
 		ns:                           c,
 		ExposesRemoteCapabilities:    c.ExposesRemoteCapabilities,
 		ShardIndex:                   c.ShardIndex,
@@ -621,11 +623,12 @@ func trimmedNonEmpty(in []string) []string {
 	return out
 }
 
-// DonFamilies returns primary DonFamily plus AdditionalDonFamilies, de-duplicated in order.
-func (m *DonMetadata) DonFamilies() []string {
-	families := make([]string, 0, 1+len(m.AdditionalDonFamilies))
-	seen := make(map[string]struct{}, 1+len(m.AdditionalDonFamilies))
-	for _, f := range append([]string{m.DonFamily}, m.AdditionalDonFamilies...) {
+// normalizedDonFamilies trims, drops empty entries and de-duplicates, preserving
+// order. The first surviving entry becomes the primary family.
+func normalizedDonFamilies(in []string) []string {
+	out := make([]string, 0, len(in))
+	seen := make(map[string]struct{}, len(in))
+	for _, f := range in {
 		f = strings.TrimSpace(f)
 		if f == "" {
 			continue
@@ -634,9 +637,24 @@ func (m *DonMetadata) DonFamilies() []string {
 			continue
 		}
 		seen[f] = struct{}{}
-		families = append(families, f)
+		out = append(out, f)
 	}
-	return families
+	return out
+}
+
+// DonFamily returns the primary family: the first entry of DonFamilies, or ""
+// when there are none. It is the family used for gateway pairing,
+// cap-registration and workflow deploy.
+func (m *DonMetadata) DonFamily() string {
+	return primaryDonFamily(m.DonFamilies)
+}
+
+// primaryDonFamily returns the first family, or "" when there are none.
+func primaryDonFamily(families []string) string {
+	if len(families) == 0 {
+		return ""
+	}
+	return families[0]
 }
 
 func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (CapabilityConfigs, error) {
@@ -1259,11 +1277,12 @@ type NodeSet struct {
 
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (e.g. cron, http-trigger)
 	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
-	// DonFamily groups workflow and gateway nodesets for per-family gateway pairing in local CRE.
-	// Required on every nodeset; env start fails if missing or unmatched (see topology_don_family.go).
-	DonFamily string `toml:"don_family" validate:"required"`
-	// AdditionalDonFamilies are extra CapReg families for sharded capability routing.
-	AdditionalDonFamilies []string `toml:"additional_don_families"`
+	// DonFamilies groups workflow and gateway nodesets for per-family gateway pairing
+	// in local CRE, and carries any extra CapReg families used for sharded capability
+	// routing. At least one entry is required on every nodeset; env start fails if
+	// missing or unmatched (see topology_don_family.go). The first entry is the
+	// primary family used for gateway pairing, cap-registration and workflow deploy.
+	DonFamilies []string `toml:"don_families" validate:"required,min=1"`
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
 	SupportedEVMChains []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
 	EnvVars            map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node
@@ -1283,6 +1302,10 @@ type NodeSet struct {
 	RegistryBasedLaunchAllowlist []string `toml:"registry_based_launch_allowlist"`
 	// GatewayDonID is the gateway DON used for multi-gateway HTTP action routing on gateway nodesets.
 	GatewayDonID string `toml:"gateway_don_id"`
+
+	// EnableMetering turns on framework-generated [Metering] node config for this
+	// nodeset's worker nodes (durable MeterRecord/MeterSnapshot emission).
+	EnableMetering bool `toml:"enable_metering"`
 
 	chainCapabilityIndex      map[CapabilityFlag][]uint64
 	chainCapabilityIndexBuilt bool
@@ -1412,15 +1435,15 @@ func (c *NodeSet) EVMChains() []uint64 {
 }
 
 type CapabilitiesPeeringData struct {
-	GlobalBootstraperPeerID string `toml:"global_bootstraper_peer_id" json:"global_bootstraper_peer_id"`
-	GlobalBootstraperHost   string `toml:"global_bootstraper_host" json:"global_bootstraper_host"`
-	Port                    int    `toml:"port" json:"port"`
+	GlobalBootstrapperPeerID string `toml:"global_bootstraper_peer_id" json:"global_bootstraper_peer_id"` // typos:ignore // 'bootstraper', fixing at this point could cause errors
+	GlobalBootstrapperHost   string `toml:"global_bootstraper_host" json:"global_bootstraper_host"`       // typos:ignore // 'bootstraper', fixing at this point could cause errors
+	Port                     int    `toml:"port" json:"port"`
 }
 
 type OCRPeeringData struct {
-	OCRBootstraperPeerID string `toml:"ocr_bootstraper_peer_id" json:"ocr_bootstraper_peer_id"`
-	OCRBootstraperHost   string `toml:"ocr_bootstraper_host" json:"ocr_bootstraper_host"`
-	Port                 int    `toml:"port" json:"port"`
+	OCRBootstrapperPeerID string `toml:"ocr_bootstraper_peer_id" json:"ocr_bootstraper_peer_id"` // typos:ignore // 'bootstraper', fixing at this point could cause errors
+	OCRBootstrapperHost   string `toml:"ocr_bootstraper_host" json:"ocr_bootstraper_host"`       // typos:ignore // 'bootstraper', fixing at this point could cause errors
+	Port                  int    `toml:"port" json:"port"`
 }
 
 func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {

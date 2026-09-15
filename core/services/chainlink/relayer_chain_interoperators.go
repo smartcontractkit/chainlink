@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -33,7 +32,7 @@ type RelayerChainInteroperators interface {
 
 	LoopRelayerStorer
 	LegacyChainer
-	ChainsNodesStatuser
+	StatusReader
 }
 
 // LoopRelayerStorer is key-value like interface for storing and
@@ -46,33 +45,34 @@ type LoopRelayerStorer interface {
 // LegacyChainer is an interface for getting legacy chains
 // This will be deprecated/removed when products depend only
 // on the relayer interface.
+//
 // Deprecated: use the Relayer interface
 type LegacyChainer interface {
 	// Deprecated: use the relayer interface
 	LegacyEVMChains() legacyevm.LegacyChainContainer
 }
 
-// NetworkChainStatus is a ChainStatus from a particlar Network.
+// NetworkChainStatus is a ChainStatus from a particular Network.
 type NetworkChainStatus struct {
 	Network string
 	types.ChainStatus
 }
 
-type ChainStatuser interface {
+type ChainStatusReader interface {
 	ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]NetworkChainStatus, int, error)
 }
 
-// NodesStatuser is an interface for node configuration and state.
+// NodeStatusReader is an interface for node configuration and state.
 // TODO BCF-2440, BCF-2511 may need Node(ctx,name) to get a node status by name
-type NodesStatuser interface {
+type NodeStatusReader interface {
 	NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []types.NodeStatus, count int, err error)
 }
 
-// ChainsNodesStatuser report statuses about chains and nodes
-type ChainsNodesStatuser interface {
-	ChainStatuser
-	NodesStatuser
+// StatusReader report statuses about chains and nodes
+type StatusReader interface {
+	ChainStatusReader
+	NodeStatusReader
 }
 
 var _ RelayerChainInteroperators = &CoreRelayerChainInteroperators{}
@@ -388,8 +388,10 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		totalErr error
 		result   []types.NodeStatus
 	)
+	// Copy under the lock: Get inserts dummy relayers lazily, so the live map cannot be iterated unlocked.
+	relayers := rs.GetIDToRelayerMap()
 	if len(relayerIDs) == 0 {
-		keys := slices.Collect(maps.Keys(rs.loopRelayers))
+		keys := slices.Collect(maps.Keys(relayers))
 		slices.SortFunc(keys, func(a, b types.RelayID) int {
 			if c := strings.Compare(a.Network, b.Network); c != 0 {
 				return c
@@ -397,7 +399,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 			return strings.Compare(a.ChainID, b.ChainID)
 		})
 		for _, key := range keys {
-			lr := rs.loopRelayers[key]
+			lr := relayers[key]
 			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
@@ -408,7 +410,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		}
 	} else {
 		for _, rid := range relayerIDs {
-			lr, exist := rs.loopRelayers[rid]
+			lr, exist := relayers[rid]
 			if !exist {
 				totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
 				continue
@@ -469,11 +471,9 @@ func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInte
 // Returns a slice of [loop.Relayer]. A typically usage pattern to is
 // use [List(criteria)].Slice() for range based operations
 func (rs *CoreRelayerChainInteroperators) Slice() []loop.Relayer {
-	var result []loop.Relayer
-	for _, r := range rs.loopRelayers {
-		result = append(result, r)
-	}
-	return result
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	return slices.Collect(maps.Values(rs.loopRelayers))
 }
 func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
 	return rs.srvs

@@ -3,6 +3,7 @@ package ocr3
 import (
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,11 +17,16 @@ import (
 	dontimepb "github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime/pb"
 )
 
+// chainCapabilityIDMarker is the substring present in the capability ID of every
+// chain capability (e.g. "evm:ChainSelector:5009297550715157269@1.0.0"), regardless
+// of chain family. It is used to disambiguate ChainCapOffchainConfig from ConsensusCapOffchainConfig
+const chainCapabilityIDMarker = ":ChainSelector:"
+
 // DecodeCapRegOCR3Configs decodes the OCR3 offchain configs from a serialized
 // CapabilityConfig protobuf (as stored in the CapabilitiesRegistry contract).
 // Returns a map from OCR3 instance name (e.g. "__default__") to a decoded OracleConfig
 // containing human-readable timing parameters and plugin-specific offchain config.
-func DecodeCapRegOCR3Configs(rawCapCfg []byte) (map[string]*OracleConfig, error) {
+func DecodeCapRegOCR3Configs(rawCapCfg []byte, capabilityID string) (map[string]*OracleConfig, error) {
 	if len(rawCapCfg) == 0 {
 		return nil, nil
 	}
@@ -39,7 +45,7 @@ func DecodeCapRegOCR3Configs(rawCapCfg []byte) (map[string]*OracleConfig, error)
 		if ocr3Cfg == nil || len(ocr3Cfg.OffchainConfig) == 0 {
 			continue
 		}
-		decoded, err := decodeCapRegOCR3Config(ocr3Cfg)
+		decoded, err := decodeCapRegOCR3Config(ocr3Cfg, capabilityID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode OCR3 config for instance %q: %w", instanceName, err)
 		}
@@ -55,7 +61,7 @@ func DecodeCapRegOCR3Configs(rawCapCfg []byte) (map[string]*OracleConfig, error)
 // decodeCapRegOCR3Config decodes a single OCR3Config proto into an OracleConfig.
 // The offchain_config bytes are libocr-encoded; PublicConfigFromContractConfig is used
 // to extract timing parameters and the embedded reporting plugin config.
-func decodeCapRegOCR3Config(pbOCR3Cfg *capabilitiespb.OCR3Config) (*OracleConfig, error) {
+func decodeCapRegOCR3Config(pbOCR3Cfg *capabilitiespb.OCR3Config, capabilityID string) (*OracleConfig, error) {
 	signers := make([]ocr2types.OnchainPublicKey, len(pbOCR3Cfg.Signers))
 	for i, s := range pbOCR3Cfg.Signers {
 		signers[i] = s
@@ -81,7 +87,7 @@ func decodeCapRegOCR3Config(pbOCR3Cfg *capabilitiespb.OCR3Config) (*OracleConfig
 		return nil, fmt.Errorf("failed to decode libocr offchain config: %w", err)
 	}
 
-	pluginCfg, err := decodeCapRegReportingPluginConfig(publicConfig.ReportingPluginConfig)
+	pluginCfg, err := decodeCapRegReportingPluginConfig(publicConfig.ReportingPluginConfig, capabilityID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode reporting plugin config: %w", err)
 	}
@@ -98,14 +104,14 @@ type capRegPluginResult struct {
 	chainCap  *ChainCapOffchainConfig
 }
 
-// decodeCapRegReportingPluginConfig auto-detects the plugin type from binary
-// ReportingPluginConfig bytes using the same heuristics as the OCR3 contract view decoder.
+// decodeCapRegReportingPluginConfig decodes binary ReportingPluginConfig bytes into the
+// plugin-specific sub-config.
 //
-// Detection heuristics (applied in order):
-//  1. Dontime:   executionRemovalTime (field 8) decodes to a duration >= 1 minute.
-//  2. Consensus: outcomePruningThreshold (field 7) or requestTimeout (field 8) is non-zero.
-//  3. Chain-cap: maxQueryLengthBytes (field 1) is non-zero but no fields 7–9 are set.
-func decodeCapRegReportingPluginConfig(data []byte) (capRegPluginResult, error) {
+// Dontime is detected heuristically: executionRemovalTime (field 8) decodes to a duration >= 1 minute.
+// Otherwise, the config is decoded as either ChainCapOffchainConfig or ConsensusCapOffchainConfig
+// based on capabilityID, since both messages share protobuf field 7 (minResponsesToAggregate vs.
+// outcomePruningThreshold) and can't be reliably told apart from their encoded bytes alone.
+func decodeCapRegReportingPluginConfig(data []byte, capabilityID string) (capRegPluginResult, error) {
 	if len(data) == 0 {
 		return capRegPluginResult{}, nil
 	}
@@ -130,28 +136,11 @@ func decodeCapRegReportingPluginConfig(data []byte) (capRegPluginResult, error) 
 		}}, nil
 	}
 
-	var cCfg capocr3types.ReportingPluginConfig
-	if err := proto.Unmarshal(data, &cCfg); err == nil &&
-		(cCfg.OutcomePruningThreshold != 0 || cCfg.RequestTimeout != nil) {
-		var reqTimeout time.Duration
-		if cCfg.RequestTimeout != nil {
-			reqTimeout = cCfg.RequestTimeout.AsDuration()
+	if strings.Contains(capabilityID, chainCapabilityIDMarker) {
+		var eCfg evmcapocr3types.ReportingPluginConfig
+		if err := proto.Unmarshal(data, &eCfg); err != nil {
+			return capRegPluginResult{}, fmt.Errorf("failed to unmarshal chain-cap reporting plugin config: %w", err)
 		}
-		return capRegPluginResult{consensus: &ConsensusCapOffchainConfig{
-			MaxQueryLengthBytes:       cCfg.MaxQueryLengthBytes,
-			MaxObservationLengthBytes: cCfg.MaxObservationLengthBytes,
-			MaxReportLengthBytes:      cCfg.MaxReportLengthBytes,
-			MaxOutcomeLengthBytes:     cCfg.MaxOutcomeLengthBytes,
-			MaxReportCount:            cCfg.MaxReportCount,
-			// NOTE: MaxBatchSize is not used by the consensus plugin v2 (but still used by v1)
-			MaxBatchSize:            cCfg.MaxBatchSize,
-			OutcomePruningThreshold: cCfg.OutcomePruningThreshold,
-			RequestTimeout:          reqTimeout,
-		}}, nil
-	}
-
-	var eCfg evmcapocr3types.ReportingPluginConfig
-	if err := proto.Unmarshal(data, &eCfg); err == nil && eCfg.MaxQueryLengthBytes != 0 {
 		return capRegPluginResult{chainCap: &ChainCapOffchainConfig{
 			MaxQueryLengthBytes:       eCfg.MaxQueryLengthBytes,
 			MaxObservationLengthBytes: eCfg.MaxObservationLengthBytes,
@@ -159,10 +148,29 @@ func decodeCapRegReportingPluginConfig(data []byte) (capRegPluginResult, error) 
 			MaxOutcomeLengthBytes:     eCfg.MaxOutcomeLengthBytes,
 			MaxReportCount:            eCfg.MaxReportCount,
 			MaxBatchSize:              eCfg.MaxBatchSize,
+			MinResponsesToAggregate:   eCfg.MinResponsesToAggregate,
 		}}, nil
 	}
 
-	return capRegPluginResult{}, nil
+	var cCfg capocr3types.ReportingPluginConfig
+	if err := proto.Unmarshal(data, &cCfg); err != nil {
+		return capRegPluginResult{}, fmt.Errorf("failed to unmarshal consensus reporting plugin config: %w", err)
+	}
+	var reqTimeout time.Duration
+	if cCfg.RequestTimeout != nil {
+		reqTimeout = cCfg.RequestTimeout.AsDuration()
+	}
+	return capRegPluginResult{consensus: &ConsensusCapOffchainConfig{
+		MaxQueryLengthBytes:       cCfg.MaxQueryLengthBytes,
+		MaxObservationLengthBytes: cCfg.MaxObservationLengthBytes,
+		MaxReportLengthBytes:      cCfg.MaxReportLengthBytes,
+		MaxOutcomeLengthBytes:     cCfg.MaxOutcomeLengthBytes,
+		MaxReportCount:            cCfg.MaxReportCount,
+		// NOTE: MaxBatchSize is not used by the consensus plugin v2 (but still used by v1)
+		MaxBatchSize:            cCfg.MaxBatchSize,
+		OutcomePruningThreshold: cCfg.OutcomePruningThreshold,
+		RequestTimeout:          reqTimeout,
+	}}, nil
 }
 
 // buildCapRegOracleConfig assembles an OracleConfig from libocr PublicConfig timing fields

@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 

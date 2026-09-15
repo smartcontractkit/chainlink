@@ -302,8 +302,8 @@ func TestETHCallTask(t *testing.T) {
 			test.setupClientMocks(ethClient, config)
 
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.LimitDefault = ptr(gasLimit)
-				c.EVM[0].GasEstimator.LimitJobType.DR = ptr(drJobTypeGasLimit)
+				c.EVM[0].GasEstimator.LimitDefault = new(gasLimit)
+				c.EVM[0].GasEstimator.LimitJobType.DR = new(drJobTypeGasLimit)
 			})
 			lggr := logger.TestLogger(t)
 
@@ -330,7 +330,7 @@ func TestETHCallTask(t *testing.T) {
 
 			task.HelperSetDependencies(legacyChains, cfg.JobPipeline(), test.specGasLimit, pipeline.DirectRequestJobType)
 
-			result, runInfo := task.Run(testutils.Context(t), lggr, test.vars, test.inputs)
+			result, runInfo := task.Run(t.Context(), lggr, test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 

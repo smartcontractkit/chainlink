@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/stellarwrite
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260623200841-e0322b819f62

@@ -9,9 +9,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -20,7 +21,6 @@ import (
 	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
@@ -186,7 +186,7 @@ func ParseMercuryEATelemetry(lggr logger.Logger, trrs pipeline.TaskRunResults, f
 
 		eaTelemetryValues = append(eaTelemetryValues, eaTelem)
 	}
-	return
+	return eaTelemetryValues
 }
 
 // parseEATelemetry attempts to parse the bridge telemetry
@@ -220,7 +220,7 @@ func parseEATelemetry(b []byte) (EATelemetry, error) {
 	}, nil
 }
 
-// getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and trys to return
+// getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and tries to return
 // the response as a *big.Int.
 // Currently utils.ToDecimal cannot handle hex strings, so this function also has a special case,
 // to check and handle if the result is a hex string, if the call to utils.ToDecimal fails.
@@ -592,7 +592,7 @@ func getPricesFromBridgeTaskByTelemetryField(lggr logger.Logger, bridgeTask pipe
 	var benchmarkPrice, bidPrice, askPrice float64
 
 	// Outputs are the mapped tasks from this task.
-	var tasksWithTags = collectTaskRunResultsWithTags(bridgeTask, allTasks)
+	tasksWithTags := collectTaskRunResultsWithTags(bridgeTask, allTasks)
 
 	for _, trr := range tasksWithTags {
 		attributes, err := parseTelemetryAttributes(trr.Task.TaskTags())

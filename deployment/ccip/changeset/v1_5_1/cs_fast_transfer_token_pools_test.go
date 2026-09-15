@@ -787,12 +787,12 @@ func TestFastTransferUpdateLaneConfigChangeset_EdgeCases(t *testing.T) {
 
 				if tc.bidirectional {
 					poolB := state.Chains[selectorB].BurnMintFastTransferTokenPools[testhelpers.TestTokenSymbol][shared.FastTransferTokenPoolVersion]
-					resultBA, _, err := poolB.GetDestChainConfig(nil, selectorA)
+					result, _, err := poolB.GetDestChainConfig(nil, selectorA)
 					require.NoError(t, err)
-					require.Equal(t, tc.update.FastTransferFillerFeeBps, resultBA.FastTransferFillerFeeBps)
-					require.Equal(t, tc.update.FastTransferPoolFeeBps, resultBA.FastTransferPoolFeeBps)
-					require.Equal(t, tc.update.FillAmountMaxRequest, resultBA.MaxFillAmountPerRequest)
-					require.Equal(t, tc.update.FillerAllowlistEnabled, resultBA.FillerAllowlistEnabled)
+					require.Equal(t, tc.update.FastTransferFillerFeeBps, result.FastTransferFillerFeeBps)
+					require.Equal(t, tc.update.FastTransferPoolFeeBps, result.FastTransferPoolFeeBps)
+					require.Equal(t, tc.update.FillAmountMaxRequest, result.MaxFillAmountPerRequest)
+					require.Equal(t, tc.update.FillerAllowlistEnabled, result.FillerAllowlistEnabled)
 				}
 			}
 		})

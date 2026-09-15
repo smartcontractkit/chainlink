@@ -13,16 +13,15 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
-
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
 func TestFingerprint(t *testing.T) {
 	t.Parallel()
 
-	ot := time.Now()
-	bytes32 := sha256.Sum256([]byte(ot.String()))
+	observationTime := time.Now()
+	bytes32 := sha256.Sum256([]byte(observationTime.String()))
 	configDigest := bytes32[:]
 	donID := uint32(2)
 	streamID := uint32(123)
@@ -42,36 +41,36 @@ func TestFingerprint(t *testing.T) {
 				DonId:                donID,
 				StreamId:             streamID,
 				ConfigDigest:         configDigest,
-				ObservationTimestamp: ot.UnixNano(),
+				ObservationTimestamp: observationTime.UnixNano(),
 			},
 			typ:         synchronization.LLOObservation,
 			fingerprint: fmt.Sprintf("%d-%d-%x", donID, streamID, configDigest),
-			ts:          int32(ot.Unix()), //nolint:gosec // G115
+			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
 			name: "successful outcome",
-			msg: &llocommon.LLOOutcomeTelemetry{
+			msg: &lloprotocol.LLOOutcomeTelemetry{
 				DonId:                           donID,
 				ConfigDigest:                    configDigest,
-				ObservationTimestampNanoseconds: uint64(ot.UnixNano()),
+				ObservationTimestampNanoseconds: uint64(observationTime.UnixNano()),
 			},
 			typ:         synchronization.LLOOutcome,
 			fingerprint: fmt.Sprintf("%d-%x", donID, configDigest),
-			ts:          int32(ot.Unix()), //nolint:gosec // G115
+			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
 			name: "successful report",
-			msg: &llocommon.LLOReportTelemetry{
+			msg: &lloprotocol.LLOReportTelemetry{
 				DonId:                           donID,
 				ChannelId:                       channelID,
 				ConfigDigest:                    configDigest,
-				ObservationTimestampNanoseconds: uint64(ot.UnixNano()),
+				ObservationTimestampNanoseconds: uint64(observationTime.UnixNano()),
 			},
 			typ:         synchronization.LLOReport,
 			fingerprint: fmt.Sprintf("%d-%d-%x", donID, channelID, configDigest),
-			ts:          int32(ot.Unix()), //nolint:gosec // G115
+			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
@@ -82,11 +81,11 @@ func TestFingerprint(t *testing.T) {
 				SpecId:               345,
 				BridgeAdapterName:    "bridge-adapter",
 				ConfigDigest:         configDigest,
-				ObservationTimestamp: ot.UnixNano(),
+				ObservationTimestamp: observationTime.UnixNano(),
 			},
 			typ:         synchronization.PipelineBridge,
 			fingerprint: fmt.Sprintf("%d-%d-%d-%s-%x", donID, streamID, 345, "bridge-adapter", configDigest),
-			ts:          int32(ot.Unix()), //nolint:gosec // G115
+			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
@@ -121,12 +120,12 @@ func TestSample(t *testing.T) {
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
 	t0 := time.Unix(1600000000, 0)
-	msg0 := &llocommon.LLOOutcomeTelemetry{
+	msg0 := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(t0.UnixNano()),
 	}
-	msg1 := &llocommon.LLOOutcomeTelemetry{
+	msg1 := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(t0.Add(50 * time.Millisecond).UnixNano()),
@@ -142,6 +141,10 @@ func TestSample(t *testing.T) {
 
 // TestPruningLoop ensures the pruning loop works as expected.
 func TestPruningLoop(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)
@@ -153,7 +156,7 @@ func TestPruningLoop(t *testing.T) {
 	samplr.prunePeriod = time.Second
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
-	msg := &llocommon.LLOOutcomeTelemetry{
+	msg := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(time.Now().UnixNano()),
@@ -168,7 +171,7 @@ func TestPruningLoop(t *testing.T) {
 		return flag != nil
 	}
 
-	msg2 := &llocommon.LLOOutcomeTelemetry{
+	msg2 := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(time.Now().Add(10 * time.Second).UnixNano()),

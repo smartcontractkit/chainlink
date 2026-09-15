@@ -13,59 +13,18 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/counter"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_gas_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 )
 
-// OCRv2Config represents the config for the OCRv2 contract
-type OCRv2Config struct {
-	Signers               []common.Address
-	Transmitters          []common.Address
-	F                     uint8
-	OnchainConfig         []byte
-	TypedOnchainConfig21  i_keeper_registry_master_wrapper_2_1.IAutomationV21PlusCommonOnchainConfigLegacy
-	TypedOnchainConfig22  i_automation_registry_master_wrapper_2_2.AutomationRegistryBase22OnchainConfig
-	TypedOnchainConfig23  i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23OnchainConfig
-	OffchainConfigVersion uint64
-	OffchainConfig        []byte
-	BillingTokens         []common.Address
-	BillingConfigs        []i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23BillingConfig
-}
-
 func Bytes32ToSlice(a [32]byte) (r []byte) {
 	r = append(r, a[:]...)
 	return
-}
-
-func GetRegistryContractABI(version KeeperRegistryVersion) (*abi.ABI, error) {
-	var (
-		contractABI *abi.ABI
-		err         error
-	)
-	switch version {
-	case RegistryVersion_2_0:
-		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
-	case RegistryVersion_2_1:
-		contractABI, err = i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterMetaData.GetAbi()
-	case RegistryVersion_2_2:
-		contractABI, err = i_automation_registry_master_wrapper_2_2.IAutomationRegistryMasterMetaData.GetAbi()
-	case RegistryVersion_2_3:
-		contractABI, err = i_automation_registry_master_wrapper_2_3.IAutomationRegistryMaster23MetaData.GetAbi()
-	default:
-		return nil, fmt.Errorf("unsupported keeper registry version: %v", version)
-	}
-
-	return contractABI, err
 }
 
 // EthereumLinkToken represents a LinkToken address
@@ -567,47 +526,4 @@ func (c *Counter) Count() (*big.Int, error) {
 		return nil, err
 	}
 	return data, nil
-}
-
-type EthereumAutomationSimpleLogCounterConsumer struct {
-	client   *seth.Client
-	consumer *simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounter
-	address  *common.Address
-}
-
-func (v *EthereumAutomationSimpleLogCounterConsumer) Address() string {
-	return v.address.Hex()
-}
-
-func (v *EthereumAutomationSimpleLogCounterConsumer) Start() error {
-	return nil
-}
-
-func (v *EthereumAutomationSimpleLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {
-	return v.consumer.Counter(&bind.CallOpts{
-		From:    v.client.MustGetRootKeyAddress(),
-		Context: ctx,
-	})
-}
-
-func DeployAutomationSimpleLogTriggerConsumerFromKey(client *seth.Client, isStreamsLookup bool, keyNum int) (KeeperConsumer, error) {
-	abi, err := simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.GetAbi()
-	if err != nil {
-		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("failed to get SimpleLogUpkeepCounter ABI: %w", err)
-	}
-	data, err := client.DeployContract(client.NewTXKeyOpts(keyNum), "SimpleLogUpkeepCounter", *abi, common.FromHex(simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.Bin), isStreamsLookup)
-	if err != nil {
-		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("SimpleLogUpkeepCounter instance deployment have failed: %w", err)
-	}
-
-	instance, err := simple_log_upkeep_counter_wrapper.NewSimpleLogUpkeepCounter(data.Address, MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("failed to instantiate SimpleLogUpkeepCounter instance: %w", err)
-	}
-
-	return &EthereumAutomationSimpleLogCounterConsumer{
-		client:   client,
-		consumer: instance,
-		address:  &data.Address,
-	}, nil
 }

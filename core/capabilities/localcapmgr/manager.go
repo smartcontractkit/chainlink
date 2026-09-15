@@ -11,12 +11,14 @@ import (
 	"sync"
 	"time"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities/conversions"
 )
 
@@ -27,7 +29,7 @@ type LocalCapabilityManager interface {
 	services.Service
 
 	// Called by Launcher.OnNewRegistry() for each registry update.
-	Reconcile(ctx context.Context, allMyDONs []registrysyncer.DON) error
+	Reconcile(ctx context.Context, allMyDONs []registry.DON) error
 }
 
 // runningCapability tracks a started capability.
@@ -42,7 +44,7 @@ type runningCapability struct {
 type capabilityInfo struct {
 	capID      string
 	donID      uint32
-	config     registrysyncer.CapabilityConfiguration
+	config     registry.CapabilityConfiguration
 	configHash string
 }
 
@@ -66,7 +68,9 @@ type localCapabilityManager struct {
 // Wraps standardcapabilities.Delegate.NewServices to avoid direct dependency on the Delegate.
 // donID is the authoritative on-chain DON ID this plugin process is being spawned for; it is
 // known here because Reconcile keys desired state by (capID, donID).
-type NewServicesFn func(ctx context.Context, capID string, donID uint32, command string, configJSON string) ([]job.ServiceCtx, error)
+// ocr3Config is the on-chain OCR3 config parsed from the capability configuration, or nil when
+// none is present; it lets the delegate align the node's signer/transmitter with the registry.
+type NewServicesFn func(ctx context.Context, capID string, donID uint32, command string, configJSON string, ocr3Config *ocrtypes.ContractConfig) ([]job.ServiceCtx, error)
 
 func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabilities, newServicesFn NewServicesFn) (LocalCapabilityManager, error) {
 	metrics, err := newMetrics()
@@ -124,7 +128,7 @@ func (m *localCapabilityManager) Name() string {
 // It starts new capabilities, stops removed ones, and restarts those with changed config.
 func (m *localCapabilityManager) Reconcile(
 	ctx context.Context,
-	allMyDONs []registrysyncer.DON,
+	allMyDONs []registry.DON,
 ) error {
 	desired := m.buildDesiredState(allMyDONs)
 
@@ -177,7 +181,7 @@ func (m *localCapabilityManager) Reconcile(
 
 // buildDesiredState extracts capabilities that should be running from DON configs.
 // Only includes capabilities that are in the RegistryBasedLaunchAllowlist.
-func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registrysyncer.DON) map[string]*capabilityInfo {
+func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registry.DON) map[string]*capabilityInfo {
 	desired := make(map[string]*capabilityInfo)
 	for _, don := range myCapabilityDONs {
 		for capID, capCfg := range don.CapabilityConfigurations {
@@ -200,17 +204,19 @@ func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registrysy
 func (m *localCapabilityManager) startCapability(ctx context.Context, info *capabilityInfo) (*runningCapability, error) {
 	start := time.Now()
 
+	// command is only meaningful for standard capabilities that launch a plugin
+	// binary (e.g. consensus, cron). OCR2-based capabilities (e.g. dontime) run
+	// in-process and do not need a binary, so an empty command is allowed there;
+	// the newServicesFn routes on capability ID and ignores it.
 	command := m.resolveCapabilityBinary(info.capID)
-	if command == "" {
-		return nil, fmt.Errorf("could not resolve capability binary for %s", info.capID)
-	}
 	configJSON, err := m.buildConfigJSON(info)
 	if err != nil {
 		return nil, fmt.Errorf("build config for %s: %w", info.capID, err)
 	}
 
-	// TODO(CRE-1775): pass also Ocr3Configs and OracleFactoryConfigs if present onchain
-	svcs, err := m.newServicesFn(ctx, info.capID, info.donID, command, configJSON)
+	// TODO(CRE-1775): also derive and pass OracleFactoryConfigs if present onchain.
+	ocr3Config := extractDefaultOCR3Config(info.config)
+	svcs, err := m.newServicesFn(ctx, info.capID, info.donID, command, configJSON, ocr3Config)
 	if err != nil {
 		return nil, fmt.Errorf("build services for %s: %w", info.capID, err)
 	}
@@ -292,6 +298,26 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 		return "", fmt.Errorf("marshal merged config for %s: %w", info.capID, err)
 	}
 	return string(b), nil
+}
+
+// extractDefaultOCR3Config returns the `default` on-chain OCR3 config parsed from the
+// capability configuration, or nil when the configuration is empty, cannot be parsed,
+// or carries no OCR3 config. The delegate uses it to align the node's signer and
+// transmitter with the registry.
+// By `default,` we mean the config from the registry stored under the "default" key.
+func extractDefaultOCR3Config(cc registry.CapabilityConfiguration) *ocrtypes.ContractConfig {
+	if len(cc.Config) == 0 {
+		return nil
+	}
+	parsed, err := cc.Unmarshal()
+	if err != nil {
+		return nil
+	}
+	cfg, ok := parsed.Ocr3Configs[capabilitiespb.OCR3ConfigDefaultKey]
+	if !ok {
+		return nil
+	}
+	return &cfg
 }
 
 func (m *localCapabilityManager) closeServices(rc *runningCapability) error {

@@ -39,7 +39,7 @@ func TestPlugin_ValidateObservation_GetSecrets_BogusShareLabelRejected(t *testin
 
 	honestResp := buildHonestGetSecretsResponse(t, id, esHex, vaultPub, vaultShares[0], []string{encKey}, esBytes, id.Owner)
 	byzResp := proto.Clone(honestResp).(*vaultcommon.GetSecretsResponse)
-	byzResp.Responses[0].GetData().EncryptedDecryptionKeyShares[0].EncryptionKey = strings.Repeat("ba", 32)
+	byzResp.Responses[0].GetData().EncryptedDecryptionKeyShares[0].EncryptionKey = strings.Repeat("cd", 32)
 
 	rdr := &kv{m: make(map[string]response)}
 	writeGetSecretsPendingQueueItem(t, rdr, vaulttypes.KeyFor(id), req)
@@ -64,7 +64,7 @@ func TestPlugin_ValidateObservation_GetSecrets_EmbeddedRequestMismatchRejected(t
 	require.NoError(t, err)
 
 	realKey := strings.Repeat("ab", 32)
-	bogusKey := strings.Repeat("ba", 32)
+	bogusKey := strings.Repeat("cd", 32)
 	id := &vaultcommon.SecretIdentifier{Owner: "52bc44d5378309ee2abf1539bf71de1b7d7be3b5", Namespace: "main", Key: "mysecret"}
 	pendingReq := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{realKey}}},
@@ -96,11 +96,11 @@ func TestPlugin_ValidateObservation_GetSecrets_EmbeddedRequestMismatchRejected(t
 	require.ErrorContains(t, err, "embedded GetSecrets request does not match pending queue request")
 }
 
-func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeysFlag(t *testing.T) {
+func TestPlugin_ShaForObservation_GetSecrets_IncludesEncryptionKeysInSHA(t *testing.T) {
 	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	realKey := strings.Repeat("ab", 32)
-	bogusKey := strings.Repeat("ba", 32)
+	bogusKey := strings.Repeat("cd", 32)
 	req := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{realKey}}},
 	}
@@ -130,23 +130,15 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeysFlag(t *test
 	byzObs := proto.Clone(honestObs).(*vaultcommon.Observation)
 	byzObs.Response = &vaultcommon.Observation_GetSecretsResponse{GetSecretsResponse: byzResp}
 
-	ctx := context.Background()
-	pluginOff := newTestReportingPlugin(t, withOnchainCfg(4, 1))
-	shaHonestOff, err := pluginOff.shaForObservation(ctx, honestObs)
+	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1))
+	shaHonest, err := plugin.shaForObservation(honestObs)
 	require.NoError(t, err)
-	shaByzOff, err := pluginOff.shaForObservation(ctx, byzObs)
+	shaByz, err := plugin.shaForObservation(byzObs)
 	require.NoError(t, err)
-	require.Equal(t, shaHonestOff, shaByzOff)
-
-	pluginOn := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
-	shaHonestOn, err := pluginOn.shaForObservation(ctx, honestObs)
-	require.NoError(t, err)
-	shaByzOn, err := pluginOn.shaForObservation(ctx, byzObs)
-	require.NoError(t, err)
-	require.NotEqual(t, shaHonestOn, shaByzOn)
+	require.NotEqual(t, shaHonest, shaByz)
 }
 
-func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_PermutedEntryOrder(t *testing.T) {
+func TestPlugin_ShaForObservation_GetSecrets_PermutedEntryOrder(t *testing.T) {
 	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	keyA := strings.Repeat("aa", 32)
@@ -179,17 +171,16 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_PermutedEnt
 		}
 	}
 
-	ctx := context.Background()
-	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
+	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1))
 
-	shaAB, err := plugin.shaForObservation(ctx, makeObs([]string{keyA, keyB}, []string{"share-a1", "share-b1"}))
+	shaAB, err := plugin.shaForObservation(makeObs([]string{keyA, keyB}, []string{"share-a1", "share-b1"}))
 	require.NoError(t, err)
-	shaBA, err := plugin.shaForObservation(ctx, makeObs([]string{keyB, keyA}, []string{"share-b2", "share-a2"}))
+	shaCD, err := plugin.shaForObservation(makeObs([]string{keyB, keyA}, []string{"share-b2", "share-a2"}))
 	require.NoError(t, err)
-	require.NotEqual(t, shaAB, shaBA)
+	require.NotEqual(t, shaAB, shaCD)
 }
 
-func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_DifferentShareBytesSameLabels(t *testing.T) {
+func TestPlugin_ShaForObservation_GetSecrets_DifferentShareBytesSameLabels(t *testing.T) {
 	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	encKey := strings.Repeat("ab", 32)
@@ -220,17 +211,16 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_DifferentSh
 		}
 	}
 
-	ctx := context.Background()
-	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
+	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1))
 
-	sha1, err := plugin.shaForObservation(ctx, makeObs("share-from-node-1"))
+	sha1, err := plugin.shaForObservation(makeObs("share-from-node-1"))
 	require.NoError(t, err)
-	sha2, err := plugin.shaForObservation(ctx, makeObs("share-from-node-2"))
+	sha2, err := plugin.shaForObservation(makeObs("share-from-node-2"))
 	require.NoError(t, err)
 	require.Equal(t, sha1, sha2)
 }
 
-func TestPlugin_StateTransition_GetSecretsRequest_ShareAggregationIncludesPublicKeys_CombinesShares(t *testing.T) {
+func TestPlugin_StateTransition_GetSecretsRequest_CombinesSharesByEncryptionKey(t *testing.T) {
 	t.Parallel()
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -239,7 +229,6 @@ func TestPlugin_StateTransition_GetSecretsRequest_ShareAggregationIncludesPublic
 		withLggr(lggr),
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultGetSecretsShareAggregationIncludesPublicKeys(),
 	)
 
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
@@ -271,6 +260,9 @@ func TestPlugin_StateTransition_GetSecretsRequest_ShareAggregationIncludesPublic
 		}
 	}
 
+	kv := &kv{m: make(map[string]response)}
+	writeGetSecretsPendingQueueItem(t, kv, vaulttypes.KeyFor(id), req)
+
 	obsb1 := marshalObservations(t, observation{id, req, makeResp([]string{keyA, keyB}, "share-a1", "share-b1")})
 	obsb2 := marshalObservations(t, observation{id, req, makeResp([]string{keyA, keyB}, "share-a2", "share-b2")})
 	obsb3 := marshalObservations(t, observation{id, req, makeResp([]string{keyA, keyB}, "share-a3", "share-b3")})
@@ -284,7 +276,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_ShareAggregationIncludesPublic
 			{Observer: 1, Observation: libocrtypes.Observation(obsb2)},
 			{Observer: 2, Observation: libocrtypes.Observation(obsb3)},
 		},
-		&kv{m: make(map[string]response)},
+		kv,
 		nil,
 	)
 	require.NoError(t, err)

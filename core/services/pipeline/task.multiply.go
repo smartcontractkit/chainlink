@@ -20,8 +20,8 @@ type MultiplyTask struct {
 }
 
 var (
-	_                  Task = (*MultiplyTask)(nil)
-	ErrMultiplyOverlow      = errors.New("multiply overflow")
+	_                   Task = (*MultiplyTask)(nil)
+	ErrMultiplyOverflow      = errors.New("multiply overflow")
 )
 
 func (t *MultiplyTask) Type() TaskType {
@@ -49,7 +49,7 @@ func (t *MultiplyTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs
 
 	newExp := int64(a.Decimal().Exponent()) + int64(b.Decimal().Exponent())
 	if newExp > math.MaxInt32 || newExp < math.MinInt32 {
-		return Result{Error: ErrMultiplyOverlow}, runInfo
+		return Result{Error: ErrMultiplyOverflow}, runInfo
 	}
 
 	value := a.Decimal().Mul(b.Decimal())

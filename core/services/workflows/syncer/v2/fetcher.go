@@ -146,7 +146,7 @@ func (s *FetcherService) Fetch(ctx context.Context, messageID string, req ghcapa
 		return nil, fmt.Errorf("invalid response from gateway: %w", err)
 	}
 
-	s.lggr.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender, "workflowID", req.WorkflowID)
+	s.lggr.Debugw("received gateway response", "donID", resp.Body.DonID, "msgID", resp.Body.MessageID, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender, "workflowID", req.WorkflowID)
 
 	var payload ghcapabilities.Response
 	if err = json.Unmarshal(resp.Body.Payload, &payload); err != nil {
@@ -275,7 +275,11 @@ func newHTTPFetcher(baseURL string, lggr logger.Logger) types.FetcherFunc {
 			return nil, fmt.Errorf("HTTP request failed with status code: %d", resp.StatusCode)
 		}
 
-		data, err := io.ReadAll(resp.Body)
+		reader := resp.Body
+		if req.MaxResponseBytes > 0 {
+			reader = http.MaxBytesReader(nil, resp.Body, int64(req.MaxResponseBytes))
+		}
+		data, err := io.ReadAll(reader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}

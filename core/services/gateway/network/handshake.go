@@ -32,31 +32,31 @@ type ConnectionInitiator interface {
 
 type ConnectionAcceptor interface {
 	// Verify auth header, save state of the attempt and generate a challenge for the node.
-	StartHandshake(authHeader []byte) (attemptId string, challenge []byte, err error)
+	StartHandshake(authHeader []byte) (attemptID string, challenge []byte, err error)
 
 	// Verify signed challenge and update connection, if successful.
-	FinalizeHandshake(attemptId string, response []byte, conn *websocket.Conn) error
+	FinalizeHandshake(attemptID string, response []byte, conn *websocket.Conn) error
 
 	// Clear attempt's state.
-	AbortHandshake(attemptId string)
+	AbortHandshake(attemptID string)
 }
 
 // Components going into the auth header, excluding the signature.
 type AuthHeaderElems struct {
 	Timestamp uint32
-	DonId     string
-	GatewayId string
+	DonID     string
+	GatewayID string
 }
 
 type ChallengeElems struct {
 	Timestamp      uint32
-	GatewayId      string
+	GatewayID      string
 	ChallengeBytes []byte
 }
 
 var (
 	ErrAuthHeaderParse           = errors.New("unable to parse auth header")
-	ErrAuthInvalidDonId          = errors.New("invalid DON ID")
+	ErrAuthInvalidDonID          = errors.New("invalid DON ID")
 	ErrAuthInvalidNode           = errors.New("unexpected node address")
 	ErrAuthInvalidGateway        = errors.New("invalid gateway ID")
 	ErrAuthInvalidTimestamp      = errors.New("timestamp outside of tolerance range")
@@ -67,8 +67,8 @@ var (
 
 func PackAuthHeader(elems *AuthHeaderElems) []byte {
 	packed := common.Uint32ToBytes(elems.Timestamp)
-	packed = append(packed, common.StringToAlignedBytes(elems.DonId, HandshakeDonIdLen)...)
-	packed = append(packed, common.StringToAlignedBytes(elems.GatewayId, HandshakeGatewayURLLen)...)
+	packed = append(packed, common.StringToAlignedBytes(elems.DonID, HandshakeDonIDLen)...)
+	packed = append(packed, common.StringToAlignedBytes(elems.GatewayID, HandshakeGatewayURLLen)...)
 	return packed
 }
 
@@ -80,18 +80,18 @@ func UnpackSignedAuthHeader(data []byte) (elems *AuthHeaderElems, signer []byte,
 	offset := 0
 	elems.Timestamp = common.BytesToUint32(data[offset : offset+HandshakeTimestampLen])
 	offset += HandshakeTimestampLen
-	elems.DonId = common.AlignedBytesToString(data[offset : offset+HandshakeDonIdLen])
-	offset += HandshakeDonIdLen
-	elems.GatewayId = common.AlignedBytesToString(data[offset : offset+HandshakeGatewayURLLen])
+	elems.DonID = common.AlignedBytesToString(data[offset : offset+HandshakeDonIDLen])
+	offset += HandshakeDonIDLen
+	elems.GatewayID = common.AlignedBytesToString(data[offset : offset+HandshakeGatewayURLLen])
 	offset += HandshakeGatewayURLLen
 	signature := data[offset:]
 	signer, err = common.ExtractSigner(signature, data[:len(data)-HandshakeSignatureLen])
-	return
+	return elems, signer, err
 }
 
 func PackChallenge(elems *ChallengeElems) []byte {
 	packed := common.Uint32ToBytes(elems.Timestamp)
-	packed = append(packed, common.StringToAlignedBytes(elems.GatewayId, HandshakeGatewayURLLen)...)
+	packed = append(packed, common.StringToAlignedBytes(elems.GatewayID, HandshakeGatewayURLLen)...)
 	packed = append(packed, elems.ChallengeBytes...)
 	return packed
 }
@@ -102,7 +102,7 @@ func UnpackChallenge(data []byte) (*ChallengeElems, error) {
 	}
 	unpacked := &ChallengeElems{}
 	unpacked.Timestamp = common.BytesToUint32(data[0:HandshakeTimestampLen])
-	unpacked.GatewayId = common.AlignedBytesToString(data[HandshakeTimestampLen : HandshakeTimestampLen+HandshakeGatewayURLLen])
+	unpacked.GatewayID = common.AlignedBytesToString(data[HandshakeTimestampLen : HandshakeTimestampLen+HandshakeGatewayURLLen])
 	unpacked.ChallengeBytes = data[HandshakeTimestampLen+HandshakeGatewayURLLen:]
 	return unpacked, nil
 }

@@ -19,6 +19,10 @@ import (
 )
 
 func TestHTTPClient_Send(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	// Setup the test environment
@@ -308,6 +312,10 @@ func TestHTTPClient_Send(t *testing.T) {
 // this means that the errors returned can change depending on whether the tests are
 // run on osx or on linux.
 func TestHTTPClient_BlocksUnallowed(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	// Setup the test environment
@@ -939,6 +947,60 @@ func TestHTTPClient_RedirectIsErrBlockedRequest(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrBlockedRequest, "redirect responses should be flagged as ErrBlockedRequest")
 	require.ErrorContains(t, err, "redirects are not allowed")
+}
+
+func TestTruncateLogError(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+
+	// Start a server only to obtain an allowlisted host/port, then close it so
+	// requests fail at the transport layer with a *url.Error.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	target := server.URL + "/my/path?token=abc123"
+	server.Close()
+
+	u, err := url.Parse(server.URL)
+	require.NoError(t, err)
+	portInt, err := strconv.ParseInt(u.Port(), 10, 32)
+	require.NoError(t, err)
+
+	config := HTTPClientConfig{
+		AllowedIPs:   []string{u.Hostname()},
+		AllowedPorts: []int{int(portInt)},
+	}
+
+	client, err := NewHTTPClient(config, lggr)
+	require.NoError(t, err)
+
+	// Grab the underlying doer so we get the raw *url.Error; Send wraps it.
+	hc, ok := client.(*httpClient)
+	require.True(t, ok, "NewHTTPClient should return a *httpClient")
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
+	require.NoError(t, err)
+
+	resp, doErr := hc.client.Do(req)
+	require.Error(t, doErr)
+	if resp != nil {
+		resp.Body.Close()
+	}
+
+	var urlErr *url.Error
+	require.ErrorAs(t, doErr, &urlErr, "http doer failures should be *url.Error")
+	require.ErrorContains(t, urlErr, "my/path")
+	require.ErrorContains(t, urlErr, "token=abc123")
+
+	sanitized := truncateLogError(doErr)
+	require.Error(t, sanitized)
+
+	// Scheme and host are preserved...
+	require.Contains(t, sanitized.Error(), u.Scheme+"://"+u.Host)
+	// ...while the path and query are stripped.
+	require.NotContains(t, sanitized.Error(), "my/path")
+	require.NotContains(t, sanitized.Error(), "token=abc123")
+	// The underlying cause is preserved for errors.Is/As checks.
+	require.ErrorIs(t, sanitized, urlErr.Err)
 }
 
 // verifyBackwardCompatibility checks that all keys in MultiHeaders are also present in Headers

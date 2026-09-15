@@ -171,14 +171,14 @@ type reportingPluginValidationService struct {
 func (r *reportingPluginValidationService) ValidateConfig(ctx context.Context, config map[string]any) error {
 	tt, ok := config["telemetryType"]
 	if !ok {
-		return errors.New("expected telemtry type")
+		return errors.New("expected telemetry type")
 	}
 	telemetryType, ok := tt.(string)
 	if !ok {
-		return fmt.Errorf("expected telemtry type to be of type string but got %T", tt)
+		return fmt.Errorf("expected telemetry type to be of type string but got %T", tt)
 	}
 	if telemetryType != "median" {
-		return fmt.Errorf("expected telemtry type to be median but got %q", telemetryType)
+		return fmt.Errorf("expected telemetry type to be median but got %q", telemetryType)
 	}
 
 	return nil

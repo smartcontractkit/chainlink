@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -23,6 +23,18 @@ const (
 	HealthStatusPassing = "passing"
 	HealthStatusFailing = "failing"
 )
+
+// PublicReadyz is a minimal readiness endpoint intended for public load balancer health checks.
+// Unlike Readyz, it never returns per-check details regardless of query parameters, to avoid
+// leaking internal service state on publicly reachable endpoints.
+func (hc *HealthController) PublicReadyz(c *gin.Context) {
+	ready, _ := hc.App.GetHealthChecker().IsReady()
+	if !ready {
+		c.Status(http.StatusServiceUnavailable)
+		return
+	}
+	c.Status(http.StatusOK)
+}
 
 // NOTE: We only implement the k8s readiness check, *not* the liveness check. Liveness checks are only recommended in cases
 // where the app doesn't crash itself on panic, and if implemented incorrectly can cause cascading failures.
@@ -227,7 +239,7 @@ func (t checkTree) WriteHTMLTo(w io.Writer) error {
 }
 
 func (t checkTree) writeHTMLTo(w *linePrefixWriter) error {
-	keys := maps.Keys(t)
+	keys := slices.AppendSeq(make([]string, 0, len(t)), maps.Keys(t))
 	slices.Sort(keys)
 	for _, short := range keys {
 		node := t[short]

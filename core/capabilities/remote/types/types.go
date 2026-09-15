@@ -19,6 +19,8 @@ const (
 	MethodTriggerEvent             = "TriggerEvent"
 	MethodExecute                  = "Execute"
 	MethodTriggerEventAck          = "TriggerEventACK"
+	MethodExecutionStatusUpdate    = "ExecutionStatusUpdate"
+	MethodShardHeartbeat           = "ShardHeartbeat"
 )
 
 type Dispatcher interface {
@@ -51,5 +53,5 @@ type DON struct {
 }
 
 type MessageHasher interface {
-	Hash(msg *MessageBody) ([32]byte, error)
+	Hash(ctx context.Context, msg *MessageBody) ([32]byte, error)
 }

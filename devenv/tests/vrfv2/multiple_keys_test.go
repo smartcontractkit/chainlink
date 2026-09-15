@@ -60,7 +60,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 		fulfillTimeout := parseFulfillTimeout(c.RandomWordsFulfilledEventTimeout)
 		// Match legacy smoke/vrfv2_test.go: always use Seth key 0 for consumer requests.
 		// The assertion is on fulfillment tx senders — the VRF job rotates node fromAddresses.
-		var fromAddrs []string
+		fromAddrs := make([]string, 0, c.NumTxKeys+1)
 		for range c.NumTxKeys + 1 {
 			_, fulfilled, err := requestRandomnessAndWaitForFulfillment(ctx, consumers[0], coord, keyHash, subID,
 				c.MinimumConfirmations, c.CallbackGasLimit, c.NumberOfWords,
@@ -74,7 +74,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 			fromAddrs = append(fromAddrs, strings.ToLower(from))
 		}
 
-		var keyAddrs []string
+		keyAddrs := make([]string, 0, len(txKeys.Data))
 		for _, k := range txKeys.Data {
 			keyAddrs = append(keyAddrs, strings.ToLower(k.Attributes.Address))
 		}

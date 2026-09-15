@@ -410,6 +410,10 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCVExecutorJobs(t *testin
 }
 
 func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	obs := beholdertest.NewObserver(t)
 
 	jobs := make([]job.Job, 1001)

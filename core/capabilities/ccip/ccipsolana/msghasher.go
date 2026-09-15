@@ -9,12 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // MessageHasherV1 implements the MessageHasher interface.
@@ -39,7 +37,7 @@ func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCod
 }
 
 // Hash implements the MessageHasher interface.
-func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
+func (h *MessageHasherV1) Hash(_ context.Context, msg ccipocr3.Message) (ccipocr3.Bytes32, error) {
 	h.lggr.Debugw("hashing message", "msg", msg)
 
 	anyToSolanaMessage := ccip_offramp.Any2SVMRampMessage{}
@@ -204,4 +202,4 @@ func SerializeExtraArgs(tag []byte, data any) ([]byte, error) {
 }
 
 // Interface compliance check
-var _ cciptypes.MessageHasher = (*MessageHasherV1)(nil)
+var _ ccipocr3.MessageHasher = (*MessageHasherV1)(nil)

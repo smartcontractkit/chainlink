@@ -124,7 +124,7 @@ func verifyRounds(t *testing.T, in *de.Cfg, o2 *ocr2aggregator.OCR2Aggregator, t
 						`/trigger_deviation?result=%d`, currentRoundSettings.value,
 					),
 				)
-				// apply varios chaos experiments for next round
+				// apply various chaos experiments for next round
 				if currentRoundSettings.gas != nil {
 					L.Info().Msg("Creating gas spike")
 					simulateGasSpike(t, c, currentRoundSettings.gas)

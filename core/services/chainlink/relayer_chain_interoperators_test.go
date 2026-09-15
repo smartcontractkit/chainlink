@@ -8,24 +8,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -85,10 +81,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		Logger:               lggr,
 		LoopRegistry:         plugins.NewTestLoopRegistry(lggr),
 		GRPCOpts:             loop.GRPCOpts{},
-		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+		CapabilitiesRegistry: registry.NewRegistry(lggr),
 	}
 
-	testctx := testutils.Context(t)
+	testctx := t.Context()
 
 	tests := []struct {
 		name                    string

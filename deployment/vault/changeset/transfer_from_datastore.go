@@ -3,6 +3,7 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
@@ -63,7 +64,7 @@ func TransferMCMSOwnershipFromDataStore(e cldf.Environment, input TransferFromDa
 		contractsByChain[chainSel] = addrs
 	}
 
-	mcmsConfig := cldfproposalutils.TimelockConfig{MinDelay: 0}
+	mcmsConfig := cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second}
 	if mcmsConfig.TimelockQualifierPerChain == nil {
 		mcmsConfig.TimelockQualifierPerChain = make(map[uint64]string)
 	}

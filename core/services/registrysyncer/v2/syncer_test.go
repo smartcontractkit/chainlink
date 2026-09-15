@@ -18,12 +18,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
@@ -34,10 +34,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	registrysyncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
@@ -105,11 +104,11 @@ func randomWord() [32]byte {
 }
 
 type launcher struct {
-	localRegistry *registrysyncer.LocalRegistry
+	localRegistry *registry.RegistryMetadata
 	mu            sync.RWMutex
 }
 
-func (l *launcher) OnNewRegistry(_ context.Context, localRegistry *registrysyncer.LocalRegistry) error {
+func (l *launcher) OnNewRegistry(_ context.Context, localRegistry *registry.RegistryMetadata) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.localRegistry = localRegistry
@@ -140,19 +139,19 @@ func (o *orm) Cleanup() {
 	close(o.addLocalRegistryCh)
 }
 
-func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer.LocalRegistry) error {
+func (o *orm) AddRegistryMetadata(ctx context.Context, localRegistry *registry.RegistryMetadata) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.addLocalRegistryCh <- struct{}{}
-	err := o.ormMock.AddLocalRegistry(ctx, localRegistry)
+	err := o.ormMock.AddRegistryMetadata(ctx, localRegistry)
 	return err
 }
 
-func (o *orm) LatestLocalRegistry(ctx context.Context) (*registrysyncer.LocalRegistry, error) {
+func (o *orm) LatestRegistryMetadata(ctx context.Context) (*registry.RegistryMetadata, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.latestLocalRegistryCh <- struct{}{}
-	return o.ormMock.LatestLocalRegistry(ctx)
+	return o.ormMock.LatestRegistryMetadata(ctx)
 }
 
 func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
@@ -164,7 +163,7 @@ func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
 }
 
 func TestReader_Integration(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	// Create a simulated backend similar to V1 tests
@@ -263,14 +262,6 @@ func TestReader_Integration(t *testing.T) {
 	// Create capability configuration
 	config := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(20 * time.Second),
-				RegistrationExpiry:      durationpb.New(60 * time.Second),
-				MinResponsesToAggregate: uint32(1) + 1,
-				MessageExpiry:           durationpb.New(120 * time.Second),
-			},
-		},
 	}
 	configb, err := proto.Marshal(config)
 	require.NoError(t, err)
@@ -318,7 +309,7 @@ func TestReader_Integration(t *testing.T) {
 	// Test V2 capabilities with string IDs
 	assert.Len(t, s.IDsToCapabilities, 1)
 	gotCap := s.IDsToCapabilities[cid]
-	assert.Equal(t, registrysyncer.Capability{
+	assert.Equal(t, registry.Capability{
 		CapabilityType: capabilities.CapabilityTypeTarget,
 		ID:             "write-chain@1.0.1",
 	}, gotCap)
@@ -344,7 +335,7 @@ func TestReader_Integration(t *testing.T) {
 	require.NoError(t, err, "Failed to hash capability ID")
 
 	// Test V2 node info with string capability IDs
-	expectedNodesInfo := []registrysyncer.NodeInfo{
+	expectedNodesInfo := []registry.NodeInfo{
 		{
 			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
@@ -384,7 +375,7 @@ func TestReader_Integration(t *testing.T) {
 	}
 
 	assert.Len(t, s.IDsToNodes, 3)
-	assert.Equal(t, map[p2ptypes.PeerID]registrysyncer.NodeInfo{
+	assert.Equal(t, map[p2ptypes.PeerID]registry.NodeInfo{
 		nodeSet[0]: expectedNodesInfo[0],
 		nodeSet[1]: expectedNodesInfo[1],
 		nodeSet[2]: expectedNodesInfo[2],
@@ -392,7 +383,7 @@ func TestReader_Integration(t *testing.T) {
 }
 
 func TestSyncer_V2_DBIntegration(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	// Create a simulated backend similar to V1 tests
@@ -480,13 +471,6 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 	// Create capability configuration
 	config := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(20 * time.Second),
-				RegistrationExpiry:      durationpb.New(60 * time.Second),
-				MinResponsesToAggregate: uint32(1) + 1,
-			},
-		},
 	}
 	configb, err := proto.Marshal(config)
 	require.NoError(t, err)
@@ -517,8 +501,8 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 
 	// Test database integration
 	syncerORM := newORM(t)
-	syncerORM.ormMock.On("LatestLocalRegistry", mock.Anything).Return(nil, errors.New("no state found"))
-	syncerORM.ormMock.On("AddLocalRegistry", mock.Anything, mock.Anything).Return(nil)
+	syncerORM.ormMock.On("LatestRegistryMetadata", mock.Anything).Return(nil, errors.New("no state found"))
+	syncerORM.ormMock.On("AddRegistryMetadata", mock.Anything, mock.Anything).Return(nil)
 
 	factory := newContractReaderFactory(t, simulatedBackend)
 
@@ -559,7 +543,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 }
 
 func TestSyncer_V2_LocalNode(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	var pid p2ptypes.PeerID
@@ -578,11 +562,11 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 	dFamilies := []string{"workflow-don-family-v2"}
 	dConfig := []byte("test-don-v2-db-config")
 	// Test local registry with string capability IDs
-	localRegistry := registrysyncer.NewLocalRegistry(
+	localRegistry := registry.NewRegistryMetadata(
 		lggr,
 		func() (p2ptypes.PeerID, error) { return pid, nil },
-		map[registrysyncer.DonID]registrysyncer.DON{
-			registrysyncer.DonID(dID): {
+		map[registry.DonID]registry.DON{
+			registry.DonID(dID): {
 				DON: capabilities.DON{
 					Name:             dName,
 					Families:         dFamilies,
@@ -596,7 +580,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 				},
 			},
 		},
-		map[p2ptypes.PeerID]registrysyncer.NodeInfo{
+		map[p2ptypes.PeerID]registry.NodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorID:      1,
 				Signer:              randomWord(),
@@ -626,7 +610,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 				CapabilityIDs:       []string{"write-chain@1.0.1"}, // V2 uses string IDs
 			},
 		},
-		map[string]registrysyncer.Capability{
+		map[string]registry.Capability{
 			"write-chain@1.0.1": {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 				ID:             "write-chain@1.0.1",
@@ -674,7 +658,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 }
 
 func TestReader_V2_FamilyOperations(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	// Create a simulated backend
@@ -786,14 +770,6 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	// Create capability configurations
 	capConfig := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(20 * time.Second),
-				RegistrationExpiry:      durationpb.New(60 * time.Second),
-				MinResponsesToAggregate: uint32(1) + 1,
-				MessageExpiry:           durationpb.New(120 * time.Second),
-			},
-		},
 	}
 	configb, err := proto.Marshal(capConfig)
 	require.NoError(t, err)

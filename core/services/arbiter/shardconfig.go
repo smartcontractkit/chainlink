@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/dev/generated/latest/shard_config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

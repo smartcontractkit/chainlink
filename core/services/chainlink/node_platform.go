@@ -13,8 +13,9 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"google.golang.org/protobuf/proto"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"

@@ -17,16 +17,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn"
 )
 
 type Runner interface {
@@ -66,9 +66,10 @@ type runner struct {
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
 	runReaperWorker        *commonutils.SleeperTask
-	lggr                   logger.Logger
+	lggr                   logger.SugaredLogger
 	httpClient             *http.Client
 	unrestrictedHTTPClient *http.Client
+	bridgeConnManager      bridgeconn.BridgeConnManager
 
 	// test helper
 	runFinished func(*Run)
@@ -79,8 +80,6 @@ type runner struct {
 
 var (
 	// PromPipelineTaskExecutionTime reports how long each pipeline task took to execute
-	// TODO: Make private again after
-	// https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
 	PromPipelineTaskExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pipeline_task_execution_time",
 		Help: "How long each pipeline task took to execute",
@@ -118,11 +117,11 @@ func NewRunner(
 	lggr logger.Logger,
 	httpClient, unrestrictedHTTPClient *http.Client,
 ) *runner {
-	lggr = lggr.Named("PipelineRunner")
+	sugaredLggr := logger.Sugared(lggr).Named("PipelineRunner")
 
 	r := &runner{
 		orm:                    orm,
-		btORM:                  bridges.NewCache(btORM, lggr, bridges.DefaultUpsertInterval),
+		btORM:                  bridges.NewCache(btORM, sugaredLggr, bridges.DefaultUpsertInterval),
 		config:                 cfg,
 		bridgeConfig:           bridgeCfg,
 		legacyEVMChains:        legacyChains,
@@ -131,9 +130,10 @@ func NewRunner(
 		chStop:                 make(chan struct{}),
 		wgDone:                 sync.WaitGroup{},
 		runFinished:            func(*Run) {},
-		lggr:                   lggr,
+		lggr:                   sugaredLggr,
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
+		bridgeConnManager:      bridgeconn.NewBridgeConnManager(sugaredLggr),
 	}
 
 	r.runReaperWorker = commonutils.NewSleeperTask(
@@ -229,11 +229,11 @@ type memoryTaskRun struct {
 }
 
 // When a task panics, we catch the panic and wrap it in an error for reporting to the scheduler.
-type ErrRunPanicked struct {
+type RunPanickedError struct {
 	v any
 }
 
-func (err ErrRunPanicked) Error() string {
+func (err RunPanickedError) Error() string {
 	return fmt.Sprintf("goroutine panicked when executing run: %v", err.v)
 }
 
@@ -326,7 +326,7 @@ func (r *runner) ExecuteRun(ctx context.Context, spec Spec, vars Vars) (*Run, Ta
 func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 	pipeline, err = spec.GetOrParsePipeline()
 	if err != nil {
-		return
+		return pipeline, err
 	}
 
 	// initialize certain task params
@@ -344,11 +344,12 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			bt.bridgeConfig = r.bridgeConfig
 			// orm added to BridgeTask
 			bt.orm = r.btORM
-			bt.specId = spec.ID
+			bt.specID = spec.ID
 			// URL is "safe" because it comes from the node's own database. We
 			// must use the unrestrictedHTTPClient because some node operators
 			// may run external adapters on their own hardware
 			bt.httpClient = r.unrestrictedHTTPClient
+			bt.bridgeConnManager = r.bridgeConnManager
 			bt.requiredJSONPaths = bt.getRequiredJSONPaths()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
@@ -383,7 +384,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	}
 
 	scheduler := newScheduler(pipeline, run, vars, l)
-	go scheduler.Run()
+	go scheduler.Run() //nolint:gosec // G118
 
 	// This is "just in case" for cleaning up any stray reports.
 	// Normally the scheduler loop doesn't stop until all in progress runs report back
@@ -408,7 +409,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 			scheduler.report(reportCtx, TaskRunResult{
 				ID:         uuid.New(),
 				Task:       taskRun.task,
-				Result:     Result{Error: ErrRunPanicked{err}},
+				Result:     Result{Error: RunPanickedError{err}},
 				FinishedAt: null.TimeFrom(t),
 				CreatedAt:  t, // TODO: more accurate start time
 			})
@@ -484,12 +485,12 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	}
 
 	// TODO: drop this once we stop using TaskRunResults
-	var taskRunResults TaskRunResults
+	taskRunResults := make(TaskRunResults, 0, len(scheduler.results))
 	for _, result := range scheduler.results {
 		taskRunResults = append(taskRunResults, result)
 	}
 
-	var idxs []int32
+	idxs := make([]int32, 0, len(taskRunResults))
 	for i := range taskRunResults {
 		idxs = append(idxs, taskRunResults[i].Task.OutputIndex())
 	}
@@ -535,7 +536,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	return taskRunResults
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.Logger) TaskRunResult {
+func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.SugaredLogger) TaskRunResult {
 	start := time.Now()
 	l = l.With("taskName", taskRun.task.DotID(),
 		"taskType", taskRun.task.Type(),
@@ -563,13 +564,13 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	}
 
 	result, runInfo := taskRun.task.Run(ctx, l, taskRun.vars, taskRun.inputs)
-	loggerFields := []any{"runInfo", runInfo,
+	loggerFields := []any{
+		"runInfo", runInfo,
 		"resultValue", result.Value,
 		"resultError", result.Error,
 		"resultType", fmt.Sprintf("%T", result.Value),
 	}
-	switch v := result.Value.(type) {
-	case []byte:
+	if v, ok := result.Value.([]byte); ok {
 		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))
 		loggerFields = append(loggerFields, "resultHex", hex.EncodeToString(v))
 	}

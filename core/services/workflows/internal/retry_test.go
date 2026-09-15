@@ -13,6 +13,10 @@ import (
 )
 
 func TestRetryableZeroMaxRetries(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)

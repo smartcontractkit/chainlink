@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	jdchangesets "github.com/smartcontractkit/cld-changesets/jd/changesets"
+	jdchangesets "github.com/smartcontractkit/cld-changesets/jd/changesets/jobs"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -32,8 +32,8 @@ func TestDeleteCCIPJobs(t *testing.T) {
 	// run delete JobChangeset
 	_, err = commonChangesets.Apply(t, e.Env,
 		commonChangesets.Configure(
-			jdchangesets.DeleteJobsChangeset,
-			jobIDs,
+			jdchangesets.DeleteJobsChangeset{},
+			jdchangesets.DeleteJobsInput{JobIDs: jobIDs},
 		),
 	)
 	require.NoError(t, err)
@@ -66,8 +66,8 @@ func TestRevokeJobs(t *testing.T) {
 	// run RevokeJobChangeset
 	_, err = commonChangesets.Apply(t, e.Env,
 		commonChangesets.Configure(
-			jdchangesets.RevokeJobsChangeset,
-			jobIDs,
+			jdchangesets.RevokeJobsChangeset{},
+			jdchangesets.RevokeJobsInput{JobIDs: jobIDs},
 		),
 	)
 	// currently all test nodes auto accept proposals so we can't revoke them

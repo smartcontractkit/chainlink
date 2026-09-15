@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -61,15 +61,14 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			expectedError: "failed to parse bootstrap peers",
 		},
 		{
-			name: "invalid oracle config: missing bootstrap peers",
+			name: "valid minimal oracle config: bootstrap peers resolved at runtime",
 			tomlString: `
 			type="standardcapabilities"
-			command="path/to/binary"
+			command="consensus"
 
 			[oracle_factory]
 			enabled=true
 			`,
-			expectedError: "no bootstrap peers found",
 		},
 		{
 			name: "valid spec",

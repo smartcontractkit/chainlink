@@ -11,9 +11,9 @@ import (
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -39,14 +39,19 @@ func New(
 		capabilityID:    capabilityID,
 		lggr:            lggr,
 		homeChainReader: homeChainReader,
-		regState: registrysyncer.LocalRegistry{
-			IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
-			IDsToNodes:        make(map[p2ptypes.PeerID]registrysyncer.NodeInfo),
-			IDsToCapabilities: make(map[string]registrysyncer.Capability),
+		regState: &registry.RegistryMetadata{
+			IDsToDONs:         make(map[registry.DonID]registry.DON),
+			IDsToNodes:        make(map[p2ptypes.PeerID]registry.NodeInfo),
+			IDsToCapabilities: make(map[string]registry.Capability),
+		},
+		latestState: &registry.RegistryMetadata{
+			IDsToDONs:         make(map[registry.DonID]registry.DON),
+			IDsToNodes:        make(map[p2ptypes.PeerID]registry.NodeInfo),
+			IDsToCapabilities: make(map[string]registry.Capability),
 		},
 		tickInterval:  tickInterval,
 		oracleCreator: oracleCreator,
-		instances:     make(map[registrysyncer.DonID]pluginRegistry),
+		instances:     make(map[registry.DonID]pluginRegistry),
 	}
 }
 
@@ -64,9 +69,9 @@ type launcher struct {
 	homeChainReader ccipreader.HomeChain
 	stopChan        services.StopChan
 	// latestState is the latest capability registry state received from the syncer.
-	latestState registrysyncer.LocalRegistry
+	latestState *registry.RegistryMetadata
 	// regState is the latest capability registry state that we have successfully processed.
-	regState      registrysyncer.LocalRegistry
+	regState      *registry.RegistryMetadata
 	oracleCreator cctypes.OracleCreator
 	lock          sync.RWMutex
 	wg            sync.WaitGroup
@@ -75,28 +80,28 @@ type launcher struct {
 	// instances is a map of CCIP DON IDs to a map of the OCR instances that are running on them.
 	// This map uses the config digest as the key, and the instance as the value.
 	// We can have up to a maximum of 4 instances per CCIP DON (active/candidate) x (commit/exec)
-	instances map[registrysyncer.DonID]pluginRegistry
+	instances map[registry.DonID]pluginRegistry
 }
 
 // OnNewRegistry implements registrysyncer.Listener.
-func (l *launcher) OnNewRegistry(ctx context.Context, state *registrysyncer.LocalRegistry) error {
+func (l *launcher) OnNewRegistry(ctx context.Context, state *registry.RegistryMetadata) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	l.lggr.Debugw("Received new state from syncer", "dons", state.IDsToDONs)
-	l.latestState = *state
+	l.latestState = state
 	return nil
 }
 
-func (l *launcher) getLatestState() registrysyncer.LocalRegistry {
+func (l *launcher) getLatestState() *registry.RegistryMetadata {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	return l.latestState
 }
 
-func (l *launcher) runningDONIDs() []registrysyncer.DonID {
+func (l *launcher) runningDONIDs() []registry.DonID {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
-	var runningDONs []registrysyncer.DonID
+	runningDONs := make([]registry.DonID, 0, len(l.instances))
 	for id := range l.instances {
 		runningDONs = append(runningDONs, id)
 	}
@@ -191,7 +196,7 @@ func (l *launcher) processDiff(ctx context.Context, diff diffResult) error {
 
 // processUpdate will manage when configurations of an existing don are updated
 // If new oracles are needed, they are created and started. Old ones will be shut down
-func (l *launcher) processUpdate(ctx context.Context, updated map[registrysyncer.DonID]registrysyncer.DON) error {
+func (l *launcher) processUpdate(ctx context.Context, updated map[registry.DonID]registry.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
@@ -238,7 +243,7 @@ func (l *launcher) processUpdate(ctx context.Context, updated map[registrysyncer
 
 // processAdded is for when a new don is created. We know that all oracles
 // must be created and started
-func (l *launcher) processAdded(ctx context.Context, added map[registrysyncer.DonID]registrysyncer.DON) error {
+func (l *launcher) processAdded(ctx context.Context, added map[registry.DonID]registry.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
@@ -282,7 +287,7 @@ func (l *launcher) processAdded(ctx context.Context, added map[registrysyncer.Do
 }
 
 // processRemoved handles the situation when an entire DON is removed
-func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysyncer.DON) error {
+func (l *launcher) processRemoved(removed map[registry.DonID]registry.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
@@ -310,7 +315,7 @@ func updateDON(
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
 	prevPlugins pluginRegistry,
-	don registrysyncer.DON,
+	don registry.DON,
 	oracleCreator cctypes.OracleCreator,
 	latestConfigs []ccipreader.OCR3ConfigWithMeta,
 ) (pluginRegistry, error) {
@@ -346,7 +351,7 @@ func createDON(
 	ctx context.Context,
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
-	don registrysyncer.DON,
+	don registry.DON,
 	oracleCreator cctypes.OracleCreator,
 	configs []ccipreader.OCR3ConfigWithMeta,
 ) (pluginRegistry, error) {
@@ -374,7 +379,8 @@ func createDON(
 func getConfigsForDon(
 	ctx context.Context,
 	homeChainReader ccipreader.HomeChain,
-	don registrysyncer.DON) ([]ccipreader.OCR3ConfigWithMeta, error) {
+	don registry.DON,
+) ([]ccipreader.OCR3ConfigWithMeta, error) {
 	// this should be a retryable error.
 	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(ctx, don.ID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {

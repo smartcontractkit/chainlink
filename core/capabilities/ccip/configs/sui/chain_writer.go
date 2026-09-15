@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
-
 	types "github.com/smartcontractkit/chainlink-common/pkg/types/sui"
 )
 
@@ -148,11 +147,4 @@ func GetChainWriterConfig(publicKeyStr string) (types.ChainWriterConfig, error) 
 		// TODO: come back to it
 		// FeeStrategy: chainwriter.DefaultFeeStrategy,
 	}, nil
-}
-
-// Helper function to convert a string to a string pointer
-//
-//go:fix inline
-func strPtr(s string) *string {
-	return new(s)
 }

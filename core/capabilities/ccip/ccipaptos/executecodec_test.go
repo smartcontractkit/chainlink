@@ -8,40 +8,39 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 )
 
-var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big.Int, destGasAmount uint32) cciptypes.ExecutePluginReport {
+var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big.Int, destGasAmount uint32) ccipocr3.ExecutePluginReport {
 	const numChainReports = 1
 	const msgsPerReport = 1
 	const numTokensPerMsg = 3
 
-	chainReports := make([]cciptypes.ExecutePluginReportSingleChain, numChainReports)
+	chainReports := make([]ccipocr3.ExecutePluginReportSingleChain, numChainReports)
 	for i := range numChainReports {
-		reportMessages := make([]cciptypes.Message, msgsPerReport)
+		reportMessages := make([]ccipocr3.Message, msgsPerReport)
 		for j := range msgsPerReport {
-			data, err := cciptypes.NewBytesFromString(utils.RandomAddress().String())
+			data, err := ccipocr3.NewBytesFromString(utils.RandomAddress().String())
 			require.NoError(t, err)
 
-			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
+			tokenAmounts := make([]ccipocr3.RampTokenAmount, numTokensPerMsg)
 			for z := range numTokensPerMsg {
 				// Use BCS to pack destGasAmount
 				encodedDestExecData, err2 := bcs.SerializeU32(destGasAmount)
 				require.NoError(t, err2)
 
-				tokenAmounts[z] = cciptypes.RampTokenAmount{
+				tokenAmounts[z] = ccipocr3.RampTokenAmount{
 					SourcePoolAddress: utils.RandomAddress().Bytes(),
 					DestTokenAddress:  generateAddressBytes(),
 					ExtraData:         data,
-					Amount:            cciptypes.NewBigInt(utils.RandUint256()),
+					Amount:            ccipocr3.NewBigInt(utils.RandUint256()),
 					DestExecData:      encodedDestExecData,
 				}
 			}
@@ -53,12 +52,12 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 			// Prepend the tag
 			extraArgs := append(evmExtraArgsV1Tag, encodedExtraArgsFields...)
 
-			reportMessages[j] = cciptypes.Message{
-				Header: cciptypes.RampMessageHeader{
+			reportMessages[j] = ccipocr3.Message{
+				Header: ccipocr3.RampMessageHeader{
 					MessageID:           utils.RandomBytes32(),
-					SourceChainSelector: cciptypes.ChainSelector(rand.Uint64()),
-					DestChainSelector:   cciptypes.ChainSelector(rand.Uint64()),
-					SequenceNumber:      cciptypes.SeqNum(rand.Uint64()),
+					SourceChainSelector: ccipocr3.ChainSelector(rand.Uint64()),
+					DestChainSelector:   ccipocr3.ChainSelector(rand.Uint64()),
+					SequenceNumber:      ccipocr3.SeqNum(rand.Uint64()),
 					Nonce:               rand.Uint64(),
 					MsgHash:             utils.RandomBytes32(),
 					OnRamp:              utils.RandomAddress().Bytes(),
@@ -68,7 +67,7 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 				Receiver:       generateAddressBytes(),
 				ExtraArgs:      extraArgs,
 				FeeToken:       generateAddressBytes(),
-				FeeTokenAmount: cciptypes.NewBigInt(utils.RandUint256()),
+				FeeTokenAmount: ccipocr3.NewBigInt(utils.RandUint256()),
 				TokenAmounts:   tokenAmounts,
 			}
 		}
@@ -78,16 +77,16 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 			tokenData[j] = [][]byte{{0x1}, {0x2, 0x3}}
 		}
 
-		chainReports[i] = cciptypes.ExecutePluginReportSingleChain{
-			SourceChainSelector: cciptypes.ChainSelector(chainSelector),
+		chainReports[i] = ccipocr3.ExecutePluginReportSingleChain{
+			SourceChainSelector: ccipocr3.ChainSelector(chainSelector),
 			Messages:            reportMessages,
 			OffchainTokenData:   tokenData,
-			Proofs:              []cciptypes.Bytes32{utils.RandomBytes32(), utils.RandomBytes32()},
-			ProofFlagBits:       cciptypes.NewBigInt(big.NewInt(0)),
+			Proofs:              []ccipocr3.Bytes32{utils.RandomBytes32(), utils.RandomBytes32()},
+			ProofFlagBits:       ccipocr3.NewBigInt(big.NewInt(0)),
 		}
 	}
 
-	return cciptypes.ExecutePluginReport{ChainReports: chainReports}
+	return ccipocr3.ExecutePluginReport{ChainReports: chainReports}
 }
 
 func TestExecutePluginCodecV1(t *testing.T) {
@@ -108,7 +107,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	testCases := []struct {
 		name          string
-		report        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport
+		report        func(report ccipocr3.ExecutePluginReport) ccipocr3.ExecutePluginReport
 		expErr        bool
 		chainSelector uint64
 		destGasAmount uint32
@@ -116,7 +115,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	}{
 		{
 			name:          "base report EVM chain",
-			report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
+			report:        func(report ccipocr3.ExecutePluginReport) ccipocr3.ExecutePluginReport { return report },
 			expErr:        false,
 			chainSelector: 5009297550715157269, // ETH mainnet chain selector
 			gasLimit:      gasLimit,
@@ -124,7 +123,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 		},
 		{
 			name:          "base report non-EVM chain", // Name updated for clarity
-			report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
+			report:        func(report ccipocr3.ExecutePluginReport) ccipocr3.ExecutePluginReport { return report },
 			expErr:        false,
 			chainSelector: 124615329519749607, // Solana mainnet chain selector
 			gasLimit:      gasLimit,
@@ -132,8 +131,8 @@ func TestExecutePluginCodecV1(t *testing.T) {
 		},
 		{
 			name: "reports have empty msgs",
-			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
-				report.ChainReports[0].Messages = []cciptypes.Message{}
+			report: func(report ccipocr3.ExecutePluginReport) ccipocr3.ExecutePluginReport {
+				report.ChainReports[0].Messages = []ccipocr3.Message{}
 				return report
 			},
 			expErr:        true,
@@ -143,7 +142,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 		},
 		{
 			name: "reports have empty offchain token data",
-			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
+			report: func(report ccipocr3.ExecutePluginReport) ccipocr3.ExecutePluginReport {
 				report.ChainReports[0].OffchainTokenData = [][][]byte{}
 				return report
 			},
@@ -175,11 +174,11 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			// ignore unavailable fields in comparison - This part remains the same
 			for i := range report.ChainReports {
 				for j := range report.ChainReports[i].Messages {
-					report.ChainReports[i].Messages[j].Header.MsgHash = cciptypes.Bytes32{}
-					report.ChainReports[i].Messages[j].Header.OnRamp = cciptypes.UnknownAddress{}
-					report.ChainReports[i].Messages[j].FeeToken = cciptypes.UnknownAddress{}
-					report.ChainReports[i].Messages[j].ExtraArgs = cciptypes.Bytes{}
-					report.ChainReports[i].Messages[j].FeeTokenAmount = cciptypes.BigInt{}
+					report.ChainReports[i].Messages[j].Header.MsgHash = ccipocr3.Bytes32{}
+					report.ChainReports[i].Messages[j].Header.OnRamp = ccipocr3.UnknownAddress{}
+					report.ChainReports[i].Messages[j].FeeToken = ccipocr3.UnknownAddress{}
+					report.ChainReports[i].Messages[j].ExtraArgs = ccipocr3.Bytes{}
+					report.ChainReports[i].Messages[j].FeeTokenAmount = ccipocr3.BigInt{}
 				}
 			}
 
@@ -203,16 +202,16 @@ func TestExecutePluginCodecV1_Decode(t *testing.T) {
 	expectedGasLimit := big.NewInt(100000)
 	expectedMessageIDBytes, err := hexutil.Decode("0x20865dcacbd6afb6a2288daa164caf75517009a289fa3135281fb1e4800b11bc")
 	require.NoError(t, err)
-	var expectedMessageID cciptypes.Bytes32
+	var expectedMessageID ccipocr3.Bytes32
 	copy(expectedMessageID[:], expectedMessageIDBytes)
 
-	const expectedEVMSourceChainSelector cciptypes.ChainSelector = 909606746561742123
-	const expectedDestChainSelector cciptypes.ChainSelector = 743186221051783445
-	const expectedSequenceNumber cciptypes.SeqNum = 1
+	const expectedEVMSourceChainSelector ccipocr3.ChainSelector = 909606746561742123
+	const expectedDestChainSelector ccipocr3.ChainSelector = 743186221051783445
+	const expectedSequenceNumber ccipocr3.SeqNum = 1
 	const expectedNonce uint64 = 0
 	expectedLeafBytes, err := hexutil.Decode("0x258dc7f9ec033388ee50bf3e0debfc841a278054f5b2ce41728f7459267c719e")
 	require.NoError(t, err)
-	var expectedLeafHash cciptypes.Bytes32
+	var expectedLeafHash ccipocr3.Bytes32
 	copy(expectedLeafHash[:], expectedLeafBytes)
 
 	reportBytes, err := hexutil.Decode("0x2b851c4684929f0c20865dcacbd6afb6a2288daa164caf75517009a289fa3135281fb1e4800b11bc2b851c4684929f0c15a9c133ee53500a0100000000000000000000000000000014d87929a32cf0cbdc9e2d07ffc7c33344079de7271268656c6c6f20434349505265636569766572bd8a1fb0af25dc8700d2d302cfbae718c3b2c3c61cfe47f58a45b1126c006490a086010000000000000000000000000000000000000000000000000000000000000000")

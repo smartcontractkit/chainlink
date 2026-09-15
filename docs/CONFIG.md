@@ -1022,7 +1022,6 @@ ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 CaptureEATelemetry = false # Default
-CaptureAutomationCustomTelemetry = true # Default
 AllowNoBootstrappers = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
@@ -1119,12 +1118,6 @@ KeyBundleID is a sha256 hexadecimal hash identifier.
 CaptureEATelemetry = false # Default
 ```
 CaptureEATelemetry toggles collecting extra information from External Adaptares
-
-### CaptureAutomationCustomTelemetry
-```toml
-CaptureAutomationCustomTelemetry = true # Default
-```
-CaptureAutomationCustomTelemetry toggles collecting automation specific telemetry
 
 ### AllowNoBootstrappers
 ```toml
@@ -1271,7 +1264,7 @@ PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 TraceLogging = false # Default
 EnableExperimentalRageP2P = false # Default
 ```
-P2P has a versioned networking stack. Currenly only `[P2P.V2]` is supported.
+P2P has a versioned networking stack. Currently only `[P2P.V2]` is supported.
 All nodes in the OCR network should share the same networking stack.
 
 ### IncomingMessageBufferSize
@@ -1297,19 +1290,22 @@ them all in case we regained connection and now send a bunch at once
 ```toml
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 ```
-PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID is the peer ID of the node's P2P host. If unspecified, the single P2P
+key from the node keystore is used; if the keystore contains multiple P2P keys,
+PeerID must be set.
 
 ### TraceLogging
 ```toml
 TraceLogging = false # Default
 ```
-TraceLogging enables trace level logging.
+TraceLogging **DEPRECATED**: has no effect. Use `OCR.TraceLogging` (for the P2P
+networking stack) or `OCR2.TraceLogging` (for OCR2 jobs) instead.
 
 ### EnableExperimentalRageP2P
 ```toml
 EnableExperimentalRageP2P = false # Default
 ```
-EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
+EnableExperimentalRageP2P enables the experimental ragep2p version required by OCR3.1.
 
 ## P2P.V2
 ```toml
@@ -1327,16 +1323,28 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```toml
 Enabled = true # Default
 ```
-Enabled enables P2P V2.
-Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
+Enabled enables P2P V2, the networking stack that OCR, OCR2, OCR3, OCR3.1, and
+bootstrap jobs use to communicate with other nodes.
+It must be enabled when OCR.Enabled or OCR2.Enabled is true, otherwise the node
+fails to boot.
 
 ### AnnounceAddresses
 ```toml
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`.
-The addresses should be reachable by other nodes on the network. When attempting to connect to another node,
-a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
+AnnounceAddresses are the `ip:port` addresses this node advertises to other
+nodes. These addresses should be reachable by those nodes.
+Use IP addresses only: hostnames and domain names are not valid. Each address
+must include a port. IPv6 addresses must be enclosed in `[]` and cannot
+include zone identifiers such as `%eth0`. If omitted or empty,
+ListenAddresses are used instead.
+If those values include addresses with unspecified IPs such as `0.0.0.0:port`
+or `[::]:port`, the node attempts to replace them with detected interface IPs
+before advertising them. If autodetection fails, concrete IP entries are
+still used, but entries with unspecified IPs are dropped. Startup fails if no
+usable announce addresses remain.
+For security reasons, it is strongly recommended to use
+random/unpredictable ports.
 
 ### DefaultBootstrappers
 ```toml
@@ -1355,7 +1363,7 @@ nodes will regularly broadcast signed announcements containing their PeerID and 
 ```toml
 DeltaDial = '15s' # Default
 ```
-DeltaDial controls how far apart Dial attempts are
+DeltaDial is the minimum duration between dial attempts to a single peer. The actual duration may be longer due to jitter.
 
 ### DeltaReconcile
 ```toml
@@ -1367,8 +1375,12 @@ DeltaReconcile controls how often a Reconcile message is sent to every peer.
 ```toml
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
-but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+ListenAddresses are the `ip:port` addresses this node listens on.
+At least one listen address is required.
+You can use `0.0.0.0:port` or `[::]:port` to listen on all interfaces.
+If AnnounceAddresses is omitted or empty, ListenAddresses are also used as
+AnnounceAddresses, and thus must satisfy the AnnounceAddresses requirements
+above.
 
 ## Capabilities.RateLimit
 ```toml
@@ -1725,38 +1737,37 @@ EnableExperimentalRageP2P = false # Default
 ```toml
 IncomingMessageBufferSize = 10 # Default
 ```
-IncomingMessageBufferSize is the per-remote number of incoming
-messages to buffer. Any additional messages received on top of those
-already in the queue will be dropped.
+IncomingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
+capabilities P2P host are not configurable; for shared peering, use
+`Capabilities.SharedPeering.StreamConfig`.
 
 ### OutgoingMessageBufferSize
 ```toml
 OutgoingMessageBufferSize = 10 # Default
 ```
-OutgoingMessageBufferSize is the per-remote number of outgoing
-messages to buffer. Any additional messages send on top of those
-already in the queue will displace the oldest.
-NOTE: OutgoingMessageBufferSize should be comfortably smaller than remote's
-IncomingMessageBufferSize to give the remote enough space to process
-them all in case we regained connection and now send a bunch at once
+OutgoingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
+capabilities P2P host are not configurable; for shared peering, use
+`Capabilities.SharedPeering.StreamConfig`.
 
 ### PeerID
 ```toml
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 ```
-PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID is the peer ID to use for the capabilities P2P host; see
+[`P2P.PeerID`](#p2p).
 
 ### TraceLogging
 ```toml
 TraceLogging = false # Default
 ```
-TraceLogging enables trace level logging.
+TraceLogging **DEPRECATED**: has no effect.
 
 ### EnableExperimentalRageP2P
 ```toml
 EnableExperimentalRageP2P = false # Default
 ```
-EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
+EnableExperimentalRageP2P currently has no effect in this section; the
+capabilities P2P host always uses the production ragep2p stack.
 
 ## Capabilities.Peering.V2
 ```toml
@@ -1774,47 +1785,38 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```toml
 Enabled = false # Default
 ```
-Enabled enables P2P V2.
+Enabled enables a dedicated P2P V2 host for capabilities (DON-to-DON)
+communication, independent of the top-level `P2P` host.
 
 ### AnnounceAddresses
 ```toml
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`.
-The addresses should be reachable by other nodes on the network. When attempting to connect to another node,
-a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
+AnnounceAddresses: see [`P2P.V2.AnnounceAddresses`](#p2pv2).
 
 ### DefaultBootstrappers
 ```toml
 DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
 ```
-DefaultBootstrappers is the default bootstrapper peers for libocr's v2 networking stack.
-
-Oracle nodes typically only know each other’s PeerIDs, but not their hostnames, IP addresses, or ports.
-DefaultBootstrappers are special nodes that help other nodes discover each other’s `AnnounceAddresses` so they can communicate.
-Nodes continuously attempt to connect to bootstrappers configured in here. When a node wants to connect to another node
-(which it knows only by PeerID, but not by address), it discovers the other node’s AnnounceAddresses from communications
-received from its DefaultBootstrappers or other discovered nodes. To facilitate discovery,
-nodes will regularly broadcast signed announcements containing their PeerID and AnnounceAddresses.
+DefaultBootstrappers: see [`P2P.V2.DefaultBootstrappers`](#p2pv2).
 
 ### DeltaDial
 ```toml
 DeltaDial = '15s' # Default
 ```
-DeltaDial controls how far apart Dial attempts are
+DeltaDial: see [`P2P.V2.DeltaDial`](#p2pv2).
 
 ### DeltaReconcile
 ```toml
 DeltaReconcile = '1m' # Default
 ```
-DeltaReconcile controls how often a Reconcile message is sent to every peer.
+DeltaReconcile: see [`P2P.V2.DeltaReconcile`](#p2pv2).
 
 ### ListenAddresses
 ```toml
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
-but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+ListenAddresses: see [`P2P.V2.ListenAddresses`](#p2pv2).
 
 ## Capabilities.GatewayConnector
 ```toml
@@ -1958,7 +1960,7 @@ MessageRateLimiterCapacity is the "burst" of the message rate limiter.
 ```toml
 BytesRateLimiterRate = 5000000.0 # Default
 ```
-BytesRateLimiterRate is the max size of precessed messages per second.
+BytesRateLimiterRate is the max size of processed messages per second.
 
 ### BytesRateLimiterCapacity
 ```toml
@@ -2402,8 +2404,9 @@ ChipIngressDrainTimeout = '30s' # Default
 ChipIngressMaxGRPCRequestSize = 10485760 # Default
 DurableEmitterEnabled = true # Default
 DurableEmitterRetransmitBatchSize = 500 # Default
-DurableEmitterEventTTL = '1h0m0s' # Default
+DurableEmitterEventTTL = '6h0m0s' # Default
 DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
+DurableEmitterInsertBatchFlushInterval = '50ms' # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
 LogStreamingEnabled = false # Default
@@ -2545,7 +2548,7 @@ DurableEmitterRetransmitBatchSize is the number of pending events the durable em
 
 ### DurableEmitterEventTTL
 ```toml
-DurableEmitterEventTTL = '1h0m0s' # Default
+DurableEmitterEventTTL = '6h0m0s' # Default
 ```
 DurableEmitterEventTTL is how long an undelivered event is retained before the durable emitter expires it (older events are dropped).
 
@@ -2555,6 +2558,13 @@ DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
 ```
 DurableEmitterMaxQueuePayloadBytes is the byte ceiling used as the denominator for the durable emitter's
 queue capacity_usage_ratio metric. Defaults to 1 GiB.
+
+### DurableEmitterInsertBatchFlushInterval
+```toml
+DurableEmitterInsertBatchFlushInterval = '50ms' # Default
+```
+DurableEmitterInsertBatchFlushInterval is the linger time the durable emitter waits to coalesce concurrent
+emits into a single multi-row INSERT. Lower values reduce per-emit latency at the cost of smaller batches.
 
 ### HeartbeatInterval
 ```toml
@@ -2652,6 +2662,71 @@ Prefixes = ["go_"] # Default
 Prefixes is a set of filters to restrict which prometheus metrics are forwarded based on prefix matching.
 By default, we only forward the go runtime metrics. Empty means forward everything.
 
+## Metering
+```toml
+[Metering]
+MeterRecordsEnabled = false # Default
+MeterSnapshotsEnabled = false # Default
+Product = 'cre' # Default
+Tenant = '' # Default
+NumericTenantID = '' # Default
+Environment = '' # Default
+Zone = '' # Default
+NodeID = '' # Default
+```
+Metering configures durable resource metering emission and the coarse
+deployment/node identity dimensions stamped on emitted MeterRecords and
+MeterSnapshots.
+
+### MeterRecordsEnabled
+```toml
+MeterRecordsEnabled = false # Default
+```
+MeterRecordsEnabled enables durable MeterRecord emission for LOOP plugins.
+
+### MeterSnapshotsEnabled
+```toml
+MeterSnapshotsEnabled = false # Default
+```
+MeterSnapshotsEnabled enables durable MeterSnapshot emission for LOOP plugins.
+Requires MeterRecordsEnabled = true.
+
+### Product
+```toml
+Product = 'cre' # Default
+```
+Product is the deployment product identity dimension, e.g. 'cre'.
+
+### Tenant
+```toml
+Tenant = '' # Default
+```
+Tenant is the human-readable tenant name, e.g. 'mainline'.
+
+### NumericTenantID
+```toml
+NumericTenantID = '' # Default
+```
+NumericTenantID is the numbered tenant identifier represented as a string.
+
+### Environment
+```toml
+Environment = '' # Default
+```
+Environment is the deployment environment identity dimension, e.g. 'production'.
+
+### Zone
+```toml
+Zone = '' # Default
+```
+Zone is the deployment zone identity dimension, e.g. 'wf-zone-a'.
+
+### NodeID
+```toml
+NodeID = '' # Default
+```
+NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA public key).
+
 ## CRE.Streams
 ```toml
 [CRE.Streams]
@@ -2690,6 +2765,8 @@ URL is override URL for the workflow fetcher service.
 [CRE.Linking]
 URL = "" # Default
 TLSEnabled = true # Default
+RequestTimeout = '2s' # Default
+DurableCacheEnabled = true # Default
 ```
 
 
@@ -2704,6 +2781,18 @@ URL is the locator for the Chainlink linking service.
 TLSEnabled = true # Default
 ```
 TLSEnabled enables TLS to be used to secure communication with the linking service. This is enabled by default.
+
+### RequestTimeout
+```toml
+RequestTimeout = '2s' # Default
+```
+RequestTimeout bounds each organization lookup against the linking service.
+
+### DurableCacheEnabled
+```toml
+DurableCacheEnabled = true # Default
+```
+DurableCacheEnabled turns on durable Postgres-backed caching of owner->orgID mappings.
 
 ## Billing
 ```toml
@@ -2858,6 +2947,7 @@ ArbiterRetryInterval = '12s' # Default
 ShardIndex = 0 # Default
 ShardOrchestratorPort = 50051 # Default
 ShardOrchestratorAddress = '' # Default
+ShardAssignmentMode = 'manual-only' # Default
 ```
 Sharding holds settings for node sharding configuration.
 
@@ -2907,6 +2997,13 @@ ShardOrchestratorAddress = '' # Default
 ```
 ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
 Required when ShardingEnabled=true and ShardIndex > 0.
+
+### ShardAssignmentMode
+```toml
+ShardAssignmentMode = 'manual-only' # Default
+```
+ShardAssignmentMode controls how workflows are assigned to shards.
+One of: "manual-only" (default), "ringocr-only", "ringocr-with-overrides".
 
 ## LOOPP
 ```toml
@@ -3037,10 +3134,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 10500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3166,10 +3259,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3290,10 +3379,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3413,10 +3498,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3535,10 +3616,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -3660,10 +3737,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3783,10 +3856,6 @@ DatabaseTimeout = '2s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -3909,10 +3978,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4032,10 +4097,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -4162,10 +4223,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4285,10 +4342,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -4410,10 +4463,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4533,10 +4582,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -4663,10 +4708,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4789,10 +4830,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4914,10 +4951,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -5044,10 +5077,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5170,10 +5199,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -5299,10 +5324,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5423,10 +5444,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 3800000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5545,10 +5562,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -5675,10 +5688,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5800,10 +5809,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5924,10 +5929,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -6053,10 +6054,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 11000000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6180,10 +6177,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 11000000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -6310,10 +6303,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6434,10 +6423,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -6564,10 +6549,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6686,10 +6667,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -6816,10 +6793,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6942,10 +6915,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7066,10 +7035,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -7192,10 +7157,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7316,10 +7277,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7438,10 +7395,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -7568,10 +7521,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7697,10 +7646,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7819,10 +7764,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -7943,10 +7884,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -8073,10 +8010,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8202,10 +8135,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8325,10 +8254,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -8450,10 +8375,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8572,10 +8493,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -8702,10 +8619,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8824,10 +8737,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -8949,10 +8858,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9072,10 +8977,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -9197,10 +9098,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 3800000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9321,10 +9218,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -9450,10 +9343,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -9581,10 +9470,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9711,10 +9596,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9833,10 +9714,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -9963,10 +9840,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10085,10 +9958,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -10210,10 +10079,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -10339,10 +10204,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10466,10 +10327,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -10596,10 +10453,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10725,10 +10578,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10853,10 +10702,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 14500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10977,10 +10822,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -11106,10 +10947,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11229,10 +11066,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -11354,10 +11187,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11478,10 +11307,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -11610,10 +11435,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11741,10 +11562,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11864,10 +11681,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -11994,10 +11807,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12120,10 +11929,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12245,10 +12050,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -12375,10 +12176,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12504,10 +12301,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12631,10 +12424,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12754,10 +12543,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -12879,10 +12664,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13002,10 +12783,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -13132,10 +12909,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13261,10 +13034,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13384,10 +13153,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13506,10 +13271,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -13635,10 +13396,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13758,10 +13515,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13880,10 +13633,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -14009,10 +13758,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14133,10 +13878,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14256,10 +13997,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -14384,10 +14121,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 14500000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -14515,10 +14248,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14645,10 +14374,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14769,10 +14494,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -14898,10 +14619,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15025,10 +14742,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -15155,10 +14868,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15284,10 +14993,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15411,10 +15116,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15534,10 +15235,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 10500000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -15664,10 +15361,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15792,10 +15485,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15919,10 +15608,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -16049,10 +15734,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -16173,10 +15854,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -16296,10 +15973,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -16637,7 +16310,7 @@ MinAttempts = 3 # Example
 ```toml
 Enabled = false # Default
 ```
-Enabled enables or disables automatically purging transactions that have been idenitified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.
+Enabled enables or disables automatically purging transactions that have been identified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.
 
 ### DetectionApiUrl
 ```toml
@@ -16860,7 +16533,7 @@ SenderAddress is optional and can be set to a specific sender address for gas li
 
 If you are using gas limit estimation:
 - Setting SenderAddress is optional for most products. If it is set, the from address for the transaction for gas estimation will be set to the inputted SenderAddress. If it is not set, the actual address the transaction is sent from is used if available.
-- Setting SenderAddress is neccessary for gas limit estimation to function correctly for CCIP. Gas limit estimation works only in CCIP 1.6 and above if SenderAddress is set to the given example value (0x00c11c11c11C11c11C11c11c11C11C11c11C11c1). This value is hardcoded in the CCIP 1.6 contracts and is not needed for other products.
+- Setting SenderAddress is necessary for gas limit estimation to function correctly for CCIP. Gas limit estimation works only in CCIP 1.6 and above if SenderAddress is set to the given example value (0x00c11c11c11C11c11C11c11c11C11C11c11C11c1). This value is hardcoded in the CCIP 1.6 contracts and is not needed for other products.
 
 
 ### BumpMin
@@ -16933,7 +16606,7 @@ In EIP-1559 mode, the following changes occur to how configuration works:
 - All new transactions will be sent as type 0x2 transactions specifying a TipCap and FeeCap. Be aware that existing pending legacy transactions will continue to be gas bumped in legacy mode.
 - `BlockHistoryEstimator` will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
 - `FixedPriceEstimator` will use `GasTipCapDefault` instead of `GasPriceDefault` for the tip cap
-- `FixedPriceEstimator` will use `GasFeeCapDefault` instaed of `GasPriceDefault` for the fee cap
+- `FixedPriceEstimator` will use `GasFeeCapDefault` instead of `GasPriceDefault` for the fee cap
 - `PriceMin` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
 - `PriceMax` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
 - `Keeper.GasTipCapBufferPercent` is ignored in EIP-1559 mode and `Keeper.GasTipCapBufferPercent` is used instead
@@ -16995,7 +16668,6 @@ OCR2 = 100_000 # Example
 DR = 100_000 # Example
 VRF = 100_000 # Example
 FM = 100_000 # Example
-Keeper = 100_000 # Example
 ```
 
 
@@ -17028,12 +16700,6 @@ VRF overrides LimitDefault for VRF jobs.
 FM = 100_000 # Example
 ```
 FM overrides LimitDefault for Flux Monitor jobs.
-
-### Keeper
-```toml
-Keeper = 100_000 # Example
-```
-Keeper overrides LimitDefault for Keeper jobs.
 
 ## EVM.GasEstimator.BlockHistory
 ```toml
@@ -17389,7 +17055,7 @@ ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' 
 LimitReached = '(: |^)limit reached' # Example
 TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Example
 TerminallyUnderpriced = '(: |^)terminally underpriced' # Example
-InsufficientEth = '(: |^)insufficeint eth' # Example
+InsufficientEth = '(: |^)insufficient eth' # Example
 TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Example
 L2FeeTooLow = '(: |^)l2 fee too low' # Example
 L2FeeTooHigh = '(: |^)l2 fee too high' # Example
@@ -17441,7 +17107,7 @@ TerminallyUnderpriced is a regex pattern to match against terminally underpriced
 
 ### InsufficientEth
 ```toml
-InsufficientEth = '(: |^)insufficeint eth' # Example
+InsufficientEth = '(: |^)insufficient eth' # Example
 ```
 InsufficientEth is a regex pattern to match against insufficient eth errors.
 
@@ -17614,19 +17280,6 @@ IsLoadBalancedRPC indicates whether the http/ws url above has multiple rpc's beh
 If true, we should try reconnecting to the node even when its the only node in the Nodes list.
 If false and its the only node in the nodes list, we will mark it alive even when its out of sync, because it might still be able to send txs.
 
-## EVM.OCR2.Automation
-```toml
-[EVM.OCR2.Automation]
-GasLimit = 5400000 # Default
-```
-
-
-### GasLimit
-```toml
-GasLimit = 5400000 # Default
-```
-GasLimit controls the gas limit for transmit transactions from ocr2automation job.
-
 ## EVM.Workflow
 ```toml
 [EVM.Workflow]
@@ -17661,7 +17314,7 @@ GasLimitDefault is the default gas limit for workflow transactions.
 ```toml
 TxAcceptanceState = 2 # Default
 ```
-TxAcceptanceState is the default acceptance state for writer DON tranmissions.
+TxAcceptanceState is the default acceptance state for writer DON transmissions.
 
 ### PollPeriod
 ```toml
@@ -17673,7 +17326,7 @@ PollPeriod is the default poll period for checking transmission state
 ```toml
 AcceptanceTimeout = '30s' # Default
 ```
-AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
+AcceptanceTimeout is the default timeout for a transmission to be accepted on chain
 
 ## Cosmos
 ```toml
@@ -17752,7 +17405,7 @@ GasLimitMultiplier scales the estimated gas limit.
 ```toml
 MaxMsgsPerBatch = 100 # Default
 ```
-MaxMsgsPerBatch limits the numbers of mesages per transaction batch.
+MaxMsgsPerBatch limits the numbers of messages per transaction batch.
 
 ### OCR2CachePollPeriod
 ```toml
@@ -17975,7 +17628,7 @@ Ensure the value is greater than the number of blocks that would be produced bet
 ```toml
 ComputeUnitLimitDefault = 200_000 # Default
 ```
-ComputeUnitLimitDefault is the compute units limit applied to transactions unless overriden during the txm enqueue
+ComputeUnitLimitDefault is the compute units limit applied to transactions unless overridden during the txm enqueue
 
 ### EstimateComputeUnitLimit
 ```toml
@@ -18019,7 +17672,7 @@ TxAcceptanceState = 3 # Default
 ```toml
 AcceptanceTimeout = '45s' # Default
 ```
-AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
+AcceptanceTimeout is the default timeout for a transmission to be accepted on chain
 
 ### ForwarderAddress
 ```toml
@@ -18064,7 +17717,7 @@ PollPeriod is the default poll period for checking transmission state
 ```toml
 TxAcceptanceState = 3 # Default
 ```
-TxAcceptanceState is the default acceptance state for writer DON tranmissions.
+TxAcceptanceState is the default acceptance state for writer DON transmissions.
 
 ## Solana.MultiNode
 ```toml
@@ -18123,7 +17776,7 @@ SyncThreshold is the number of blocks behind the best node that a node can be be
 ```toml
 NodeIsSyncingEnabled = false # Default
 ```
-NodeIsSyncingEnabled enables the feature to avoid sending transactions to nodes that are syncing. Not relavant for Solana.
+NodeIsSyncingEnabled enables the feature to avoid sending transactions to nodes that are syncing. Not relevant for Solana.
 
 ### LeaseDuration
 ```toml

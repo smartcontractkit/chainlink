@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -94,7 +93,7 @@ func TestTelemetryAdapter(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := ta.Send(testutils.Context(t), test.networkID, test.chainID, test.contractID, test.telemetryType, test.payload)
+			err := ta.Send(t.Context(), test.networkID, test.chainID, test.contractID, test.telemetryType, test.payload)
 			if test.errorMsg != "" {
 				assert.ErrorContains(t, err, test.errorMsg)
 			} else {

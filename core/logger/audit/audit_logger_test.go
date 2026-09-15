@@ -14,7 +14,6 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -114,7 +113,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 	// Create a new chainlink test application passing in our test logger
 	// and audit logger
 	app := cltest.NewApplication(t, logger, auditLogger)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}
 	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}

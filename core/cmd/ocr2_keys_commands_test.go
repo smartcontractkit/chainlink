@@ -13,10 +13,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -84,13 +82,13 @@ func TestShell_OCR2Keys(t *testing.T) {
 
 	t.Run("ListOCR2KeyBundles", func(tt *testing.T) {
 		defer cleanup()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, r := app.NewShellAndRenderer()
 
 		key, err := app.GetKeyStore().OCR2().Create(ctx, "evm")
 		require.NoError(t, err)
 		requireOCR2KeyCount(t, app, 1)
-		assert.NoError(t, client.ListOCR2KeyBundles(cltest.EmptyCLIContext()))
+		require.NoError(t, client.ListOCR2KeyBundles(cltest.EmptyCLIContext()))
 		require.Len(t, r.Renders, 1)
 		output := *r.Renders[0].(*cmd.OCR2KeyBundlePresenters)
 		require.Equal(t, key.ID(), output[0].ID)
@@ -117,7 +115,7 @@ func TestShell_OCR2Keys(t *testing.T) {
 
 	t.Run("DeleteOCR2KeyBundle", func(tt *testing.T) {
 		defer cleanup()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, r := app.NewShellAndRenderer()
 
 		key, err := app.GetKeyStore().OCR2().Create(ctx, "evm")
@@ -140,7 +138,7 @@ func TestShell_OCR2Keys(t *testing.T) {
 	t.Run("ImportExportOCR2Key", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, _ := app.NewShellAndRenderer()
 
 		err := app.KeyStore.OCR2().Add(ctx, cltest.DefaultOCR2Key)

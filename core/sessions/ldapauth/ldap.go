@@ -612,7 +612,7 @@ func (l *ldapAuthenticator) Sessions(ctx context.Context, offset, limit int) ([]
 	return sessions, nil
 }
 
-// FindExternalInitiator supports the 'Run' role external intiator header auth functionality
+// FindExternalInitiator supports the 'Run' role external initiator header auth functionality
 func (l *ldapAuthenticator) FindExternalInitiator(ctx context.Context, eia *auth.Token) (*bridges.ExternalInitiator, error) {
 	exi := &bridges.ExternalInitiator{}
 	err := l.ds.GetContext(ctx, exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)

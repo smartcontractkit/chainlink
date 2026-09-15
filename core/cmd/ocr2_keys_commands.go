@@ -110,7 +110,7 @@ type OCR2KeyBundlePresenters []OCR2KeyBundlePresenter
 // RenderTable implements TableRenderer
 func (ps OCR2KeyBundlePresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Type", "On-chain pubkey", "Off-chain pubkey", "Config pubkey"}
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

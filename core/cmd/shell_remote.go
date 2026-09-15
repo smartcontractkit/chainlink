@@ -20,9 +20,8 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -327,7 +326,7 @@ func (s *Shell) configV2Str(userOnly bool) (string, error) {
 	if err != nil {
 		return "", s.errorOut(err)
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return "", s.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
 	}
 	var configV2Resource web.ConfigV2Resource
@@ -375,9 +374,9 @@ func (s *Shell) SetLogSQL(c *cli.Context) (err error) {
 	}
 
 	// Sets logSql to true || false based on the --enabled flag
-	logSql := c.Bool("enable")
+	logSQL := c.Bool("enable")
 
-	request := web.LogPatchRequest{SQLEnabled: &logSql}
+	request := web.LogPatchRequest{SQLEnabled: &logSQL}
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return s.errorOut(err)
@@ -462,11 +461,12 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	if err != nil {
 		return b, stderrors.Join(errors.New(resp.Status), err)
 	}
-	if resp.StatusCode == http.StatusUnauthorized {
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized:
 		return b, errUnauthorized
-	} else if resp.StatusCode == http.StatusForbidden {
+	case resp.StatusCode == http.StatusForbidden:
 		return b, errForbidden
-	} else if resp.StatusCode >= http.StatusBadRequest {
+	case resp.StatusCode >= http.StatusBadRequest:
 		errorMessage, err2 := parseErrorResponseBody(b)
 		if err2 != nil {
 			return b, err2
@@ -482,6 +482,7 @@ func (s *Shell) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool,
 		lggr.Warnw("Got error querying for version. Remote node version is unknown and CLI may behave in unexpected ways.", "err", err)
 		return nil
 	}
+	defer resp.Body.Close()
 	b, err := parseResponse(resp)
 	if err != nil {
 		lggr.Warnw("Got error parsing http response for remote version. Remote node version is unknown and CLI may behave in unexpected ways.", "resp", resp, "err", err)
@@ -508,7 +509,7 @@ func (s *Shell) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool,
 		if err2 := s.CookieAuthenticator.Logout(); err2 != nil {
 			s.Logger.Debugw("CookieAuthenticator failed to logout", "err", err2)
 		}
-		return ErrIncompatible{CLIVersion: cliVersion, CLISha: cliSha, RemoteVersion: remoteVersion, RemoteSha: remoteSha}
+		return IncompatibleError{CLIVersion: cliVersion, CLISha: cliSha, RemoteVersion: remoteVersion, RemoteSha: remoteSha}
 	}
 	return nil
 }
@@ -526,6 +527,7 @@ func (s *Shell) Health(c *cli.Context) error {
 	if err != nil {
 		return s.errorOut(err)
 	}
+	defer resp.Body.Close()
 	b, err := parseResponse(resp)
 	if err != nil {
 		return s.errorOut(err)
@@ -534,12 +536,12 @@ func (s *Shell) Health(c *cli.Context) error {
 	return nil
 }
 
-// ErrIncompatible is returned when the cli and remote versions are not compatible.
-type ErrIncompatible struct {
+// IncompatibleError is returned when the cli and remote versions are not compatible.
+type IncompatibleError struct {
 	CLIVersion, CLISha       string
 	RemoteVersion, RemoteSha string
 }
 
-func (e ErrIncompatible) Error() string {
+func (e IncompatibleError) Error() string {
 	return fmt.Sprintf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-version-check to bypass this", e.CLIVersion, e.CLISha, e.RemoteVersion, e.RemoteSha)
 }

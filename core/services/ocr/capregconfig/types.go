@@ -4,7 +4,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
 
 // OCRConfigService provides OCR configuration from CapabilitiesRegistry.
@@ -19,7 +19,7 @@ import (
 // registry-based config and legacy contract-based config based on availability.
 type OCRConfigService interface {
 	services.Service
-	registrysyncer.Listener
+	v2.Listener
 
 	// GetConfigTracker returns a ContractConfigTracker for the specified capability.
 	//
@@ -42,4 +42,11 @@ type OCRConfigService interface {
 		ocrConfigKey string,
 		legacyDigester ocrtypes.OffchainConfigDigester,
 	) (ocrtypes.OffchainConfigDigester, error)
+
+	// GetContractConfig returns the registry-based OCR contract config cached for the
+	// specified capability, if available. It exposes the parsed on-chain config
+	// (signers, transmitters, etc.) so callers can align a node's transmitter and
+	// signing key with what the registry expects. The bool is false when no
+	// registry config has been cached yet for the given capability/key.
+	GetContractConfig(capabilityID string, ocrConfigKey string) (ocrtypes.ContractConfig, bool)
 }

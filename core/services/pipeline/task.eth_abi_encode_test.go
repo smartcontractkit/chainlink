@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -222,7 +221,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(t.Context(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 
@@ -512,7 +511,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(t.Context(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 
@@ -575,7 +574,7 @@ func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(t.Context(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 

@@ -14,7 +14,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
@@ -143,20 +142,20 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 	return buf.Bytes(), nil
 }
 
-func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte) (cciptypes.ExecutePluginReport, error) {
+func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte) (ccipocr3.ExecutePluginReport, error) {
 	decoder := agbinary.NewBorshDecoder(encodedReport)
 	executeReport := ccip_offramp.ExecutionReportSingleChain{}
 	err := executeReport.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
+		return ccipocr3.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
 	}
 
-	tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(executeReport.Message.TokenAmounts))
+	tokenAmounts := make([]ccipocr3.RampTokenAmount, 0, len(executeReport.Message.TokenAmounts))
 	for _, tokenAmount := range executeReport.Message.TokenAmounts {
 		destData := make([]byte, 4)
 		binary.LittleEndian.PutUint32(destData, tokenAmount.DestGasAmount)
 
-		tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
+		tokenAmounts = append(tokenAmounts, ccipocr3.RampTokenAmount{
 			SourcePoolAddress: tokenAmount.SourcePoolAddress,
 			DestTokenAddress:  tokenAmount.DestTokenAddress.Bytes(),
 			ExtraData:         tokenAmount.ExtraData,
@@ -169,26 +168,26 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	encoder := agbinary.NewBorshEncoder(&buf)
 	err = executeReport.Message.ExtraArgs.MarshalWithEncoder(encoder)
 	if err != nil {
-		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
+		return ccipocr3.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
 	}
 
-	messages := []cciptypes.Message{
+	messages := []ccipocr3.Message{
 		{
-			Header: cciptypes.RampMessageHeader{
+			Header: ccipocr3.RampMessageHeader{
 				MessageID:           executeReport.Message.Header.MessageId,
-				SourceChainSelector: cciptypes.ChainSelector(executeReport.Message.Header.SourceChainSelector),
-				DestChainSelector:   cciptypes.ChainSelector(executeReport.Message.Header.DestChainSelector),
-				SequenceNumber:      cciptypes.SeqNum(executeReport.Message.Header.SequenceNumber),
+				SourceChainSelector: ccipocr3.ChainSelector(executeReport.Message.Header.SourceChainSelector),
+				DestChainSelector:   ccipocr3.ChainSelector(executeReport.Message.Header.DestChainSelector),
+				SequenceNumber:      ccipocr3.SeqNum(executeReport.Message.Header.SequenceNumber),
 				Nonce:               executeReport.Message.Header.Nonce,
-				MsgHash:             cciptypes.Bytes32{},        // todo: info not available, but not required atm
-				OnRamp:              cciptypes.UnknownAddress{}, // todo: info not available, but not required atm
+				MsgHash:             ccipocr3.Bytes32{},        // todo: info not available, but not required atm
+				OnRamp:              ccipocr3.UnknownAddress{}, // todo: info not available, but not required atm
 			},
 			Sender:         executeReport.Message.Sender,
 			Data:           executeReport.Message.Data,
 			Receiver:       executeReport.Message.TokenReceiver.Bytes(),
 			ExtraArgs:      buf.Bytes(),
-			FeeToken:       cciptypes.UnknownAddress{}, // <-- todo: info not available, but not required atm
-			FeeTokenAmount: cciptypes.BigInt{},         // <-- todo: info not available, but not required atm
+			FeeToken:       ccipocr3.UnknownAddress{}, // <-- todo: info not available, but not required atm
+			FeeTokenAmount: ccipocr3.BigInt{},         // <-- todo: info not available, but not required atm
 			TokenAmounts:   tokenAmounts,
 		},
 	}
@@ -198,20 +197,20 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		offchainTokenData = append(offchainTokenData, executeReport.OffchainTokenData)
 	}
 
-	proofs := make([]cciptypes.Bytes32, 0, len(executeReport.Proofs))
+	proofs := make([]ccipocr3.Bytes32, 0, len(executeReport.Proofs))
 	for _, proof := range executeReport.Proofs {
 		proofs = append(proofs, proof)
 	}
 
-	chainReport := cciptypes.ExecutePluginReportSingleChain{
-		SourceChainSelector: cciptypes.ChainSelector(executeReport.SourceChainSelector),
+	chainReport := ccipocr3.ExecutePluginReportSingleChain{
+		SourceChainSelector: ccipocr3.ChainSelector(executeReport.SourceChainSelector),
 		Messages:            messages,
 		OffchainTokenData:   offchainTokenData,
 		Proofs:              proofs,
 	}
 
-	report := cciptypes.ExecutePluginReport{
-		ChainReports: []cciptypes.ExecutePluginReportSingleChain{chainReport},
+	report := ccipocr3.ExecutePluginReport{
+		ChainReports: []ccipocr3.ExecutePluginReportSingleChain{chainReport},
 	}
 
 	return report, nil
@@ -256,7 +255,7 @@ func encodeBigIntToFixedLengthLE(bi *big.Int, length int) []byte {
 	return paddedBytes
 }
 
-func decodeLEToBigInt(data []byte) cciptypes.BigInt {
+func decodeLEToBigInt(data []byte) ccipocr3.BigInt {
 	// Avoid modifying original data
 	buf := make([]byte, len(data))
 	copy(buf, data)
@@ -269,11 +268,11 @@ func decodeLEToBigInt(data []byte) cciptypes.BigInt {
 	// Use big.Int.SetBytes to construct the big.Int
 	bi := new(big.Int).SetBytes(buf)
 	if bi.Cmp(big.NewInt(0)) == 0 {
-		return cciptypes.NewBigInt(big.NewInt(0))
+		return ccipocr3.NewBigInt(big.NewInt(0))
 	}
 
-	return cciptypes.NewBigInt(bi)
+	return ccipocr3.NewBigInt(bi)
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface
-var _ cciptypes.ExecutePluginCodec = (*ExecutePluginCodecV1)(nil)
+var _ ccipocr3.ExecutePluginCodec = (*ExecutePluginCodecV1)(nil)

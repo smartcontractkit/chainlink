@@ -6,10 +6,9 @@ import (
 
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/beholderwrapper/metrics"
 )
 

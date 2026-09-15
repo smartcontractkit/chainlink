@@ -145,7 +145,7 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 	l.wgReleased.Add(1)
 	// Once the lock is acquired, Release() method must be used to release the lock (hence different context).
 	// This is done on purpose: Release() method has exclusive control on releasing the lock.
-	go l.loop(lctx)
+	go l.loop(lctx) //nolint:gosec // G118
 
 	return nil
 }

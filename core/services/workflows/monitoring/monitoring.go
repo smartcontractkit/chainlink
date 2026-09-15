@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
-
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
@@ -83,6 +82,8 @@ type EngineMetrics struct {
 	donTimeCallsCounter    metric.Int64Counter
 	donTimeTimeoutsCounter metric.Int64Counter
 	donTimeErrorsCounter   metric.Int64Counter
+
+	orgIDMissingCounter metric.Int64Counter
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -440,6 +441,14 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register don time errors counter: %w", err)
 	}
 
+	em.orgIDMissingCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_org_id_missing_total",
+		metric.WithDescription("Count of beholder events emitted by the engine without a resolved organization ID"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register org id missing counter: %w", err)
+	}
+
 	return em, nil
 }
 
@@ -500,14 +509,6 @@ func MetricViews() []sdkmetric.View {
 			sdkmetric.Instrument{Name: "platform_engine_execution_semaphore_wait_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
 				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60},
-			}},
-		),
-		// Reduce from OTel's 16 default buckets to 8 to limit series cardinality;
-		// Capabilities dashboards only use p50/p90, so coarse buckets are fine.
-		sdkmetric.NewView(
-			sdkmetric.Instrument{Name: "platform_engine_get_secrets_duration_ms"},
-			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 10, 50, 100, 250, 500, 1000},
 			}},
 		),
 	}
@@ -811,4 +812,14 @@ func (c WorkflowsMetricLabeler) IncrementDonTimeTimeoutsCounter(ctx context.Cont
 func (c WorkflowsMetricLabeler) IncrementDonTimeErrorsCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.donTimeErrorsCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementOrgIDMissingCounter increments the org_id_missing counter when the
+// engine emits beholder events without a resolved organization ID. The reason
+// attribute identifies why the org ID is missing (resolver_nil, resolver_error,
+// or empty_response).
+func (c WorkflowsMetricLabeler) IncrementOrgIDMissingCounter(ctx context.Context, reason string) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	otelLabels = append(otelLabels, attribute.String("reason", reason))
+	c.em.orgIDMissingCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

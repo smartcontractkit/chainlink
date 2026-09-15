@@ -1,3 +1,3 @@
 # Notes
 - Node operators do not always run their migrations with 
-super user priviledges so you cannot use ```CREATE EXTENSION```
+super user privileges so you cannot use ```CREATE EXTENSION```

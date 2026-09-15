@@ -52,19 +52,19 @@ func Up56(ctx context.Context, tx *sql.Tx) error {
 		dbURL := os.Getenv("DATABASE_URL")
 		if strings.Contains(dbURL, "_test") {
 			log.Println("Running on a database ending in _test; assume we are running in a test suite and skip creation of the default chain")
-		} else {
-			chainIDStr := os.Getenv("ETH_CHAIN_ID")
-			if chainIDStr == "" {
-				log.Println("ETH_CHAIN_ID was not specified, auto-creating chain with id 1")
-				chainIDStr = "1"
-			}
-			chainID, ok := new(big.Int).SetString(chainIDStr, 10)
-			if !ok {
-				panic("ETH_CHAIN_ID was invalid, expected a number, got: " + chainIDStr)
-			}
-			_, err := tx.ExecContext(ctx, "INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW());", chainID.String())
-			return err
+			return nil
 		}
+		chainIDStr := os.Getenv("ETH_CHAIN_ID")
+		if chainIDStr == "" {
+			log.Println("ETH_CHAIN_ID was not specified, auto-creating chain with id 1")
+			chainIDStr = "1"
+		}
+		chainID, ok := new(big.Int).SetString(chainIDStr, 10)
+		if !ok {
+			panic("ETH_CHAIN_ID was invalid, expected a number, got: " + chainIDStr)
+		}
+		_, err := tx.ExecContext(ctx, "INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW());", chainID.String())
+		return err
 	}
 	return nil
 }

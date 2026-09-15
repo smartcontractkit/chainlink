@@ -58,8 +58,7 @@ func (p *BridgePresenter) RenderTable(rt RendererTable) error {
 		p.FriendlyConfirmations(),
 		p.OutgoingToken,
 	})
-	render("Bridge", table)
-	return nil
+	return render("Bridge", table)
 }
 
 type BridgePresenters []BridgePresenter
@@ -75,8 +74,7 @@ func (ps BridgePresenters) RenderTable(rt RendererTable) error {
 		})
 	}
 
-	render("Bridges", table)
-	return nil
+	return render("Bridges", table)
 }
 
 // IndexBridges returns all bridges.

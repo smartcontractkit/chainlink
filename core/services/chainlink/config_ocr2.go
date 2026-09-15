@@ -61,10 +61,6 @@ func (o *ocr2Config) CaptureEATelemetry() bool {
 	return *o.c.CaptureEATelemetry
 }
 
-func (o *ocr2Config) CaptureAutomationCustomTelemetry() bool {
-	return *o.c.CaptureAutomationCustomTelemetry
-}
-
 func (o *ocr2Config) AllowNoBootstrappers() bool {
 	return *o.c.AllowNoBootstrappers
 }

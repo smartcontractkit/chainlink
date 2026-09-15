@@ -2,11 +2,13 @@ package v2
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
+	"strconv"
 	"sync"
 	"time"
 
@@ -16,14 +18,17 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
@@ -31,10 +36,11 @@ import (
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
+	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
@@ -54,7 +60,7 @@ type ORM interface {
 // has completed initialization (including trigger subscriptions). For v2 engines, this is wired to
 // the OnInitialized lifecycle hook. For v1 legacy DAG engines, nil is sent immediately after engine
 // creation since they don't support async initialization hooks.
-type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
+type engineFactoryFn func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
 
 type DrainableService interface {
 	Drain() bool
@@ -72,7 +78,7 @@ type eventHandler struct {
 	lggr logger.Logger
 
 	workflowStore          store.Store
-	capRegistry            core.CapabilitiesRegistry
+	capRegistry            registry.CapabilitiesRegistry
 	executionHandlers      *confidentialrelay.ExecutionHandlers
 	donTimeStore           *dontime.Store
 	useLocalTimeProvider   bool
@@ -88,8 +94,14 @@ type eventHandler struct {
 	workflowEncryptionKey  workflowkey.Key
 	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
-	orgResolver            orgresolver.OrgResolver
-	secretsFetcher         v2.SecretsFetcher
+
+	// specMeter owns all metering for durable workflow-spec storage (the
+	// ResourceManager lifecycle, identity, snapshots). Nil when metering is
+	// disabled: its handler-facing methods are nil-receiver safe no-ops.
+	specMeter *SpecMeter
+
+	orgResolver    orgresolver.OrgResolver
+	secretsFetcher v2.SecretsFetcher
 	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
 	localSecretOverrides map[string]map[string]string
 
@@ -112,8 +124,12 @@ type eventHandler struct {
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardingEnabled         bool
-	myShardID               uint32
+	myDonID                 uint32
 	shardRoutingSteady      *shardownership.SteadySignal
+	shardResolver           shardownership.ShardResolver
+	dispatcher              remotetypes.Dispatcher
+	shardDonLookup          func(ctx context.Context, shardID uint32) *commoncap.DON
+	shardFailoverComm       *sharding.ShardFailoverCommunicator
 
 	metrics *metrics
 }
@@ -137,7 +153,7 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 
 func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ string, _ []byte, _ []byte, _ string, initDone chan<- error) (services.Service, error) {
+		e.engineFactory = func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, initDone chan<- error) (services.Service, error) {
 			// For static engines (used in tests), signal immediate initialization success
 			if initDone != nil {
 				initDone <- nil
@@ -153,17 +169,45 @@ func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	}
 }
 
-func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool, shardID uint32) func(*eventHandler) {
+// WithSpecMeter supplies the SpecMeter that emits metering.v1.MeterRecord
+// events for the workflow_specs_v2 storage lifecycle. The handler runs it as a
+// sub-service and reports storage transitions through EmitSpecDelta; all other
+// metering concerns (ResourceManager lifecycle, identity, snapshots) live on
+// the meter. A nil meter (metering disabled) is a valid no-op.
+func WithSpecMeter(sm *SpecMeter) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.specMeter = sm
+	}
+}
+
+func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardOrchestratorClient = client
 		e.shardingEnabled = shardingEnabled
-		e.myShardID = shardID
 	}
 }
 
 func WithShardRoutingSteady(signal *shardownership.SteadySignal) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardRoutingSteady = signal
+	}
+}
+
+func WithShardResolver(resolver shardownership.ShardResolver) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardResolver = resolver
+	}
+}
+
+func WithDispatcher(dispatcher remotetypes.Dispatcher) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.dispatcher = dispatcher
+	}
+}
+
+func WithShardDonLookup(lookup func(ctx context.Context, shardID uint32) *commoncap.DON) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardDonLookup = lookup
 	}
 }
 
@@ -253,8 +297,10 @@ func WithModuleEngineVersion(v string) func(*eventHandler) {
 type WorkflowArtifactsStore interface {
 	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
+	ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error)
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
-	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error
+	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
+	PauseWorkflowArtifacts(ctx context.Context, workflowID string) error
 	DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error
 }
 
@@ -264,7 +310,7 @@ func NewEventHandler(
 	workflowStore store.Store,
 	donTimeStore *dontime.Store,
 	useLocalTimeProvider bool,
-	capRegistry core.CapabilitiesRegistry,
+	capRegistry registry.CapabilitiesRegistry,
 	executionHandlers *confidentialrelay.ExecutionHandlers,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
@@ -306,7 +352,8 @@ func NewEventHandler(
 		workflowArtifactsStore: workflowArtifacts,
 		workflowEncryptionKey:  workflowEncryptionKey,
 		workflowDonSubscriber:  workflowDonSubscriber,
-		tracer:                 noop.NewTracerProvider().Tracer(""), // default to noop, enable via WithDebugMode
+		// default, enable via WithDebugMode
+		tracer: noop.NewTracerProvider().Tracer(""),
 	}
 	metricsInst, metricsErr := newMetrics()
 	if metricsErr != nil {
@@ -320,12 +367,17 @@ func NewEventHandler(
 
 	eh.Service, eh.eng = services.Config{
 		Name: "EventHandler",
-		// The workflow store is started and stopped alongside the handler.
+		// The workflow store and the spec meter are started and stopped
+		// alongside the handler.
 		NewSubServices: func(logger.Logger) []services.Service {
-			if eh.workflowStore == nil {
-				return nil
+			var subs []services.Service
+			if eh.workflowStore != nil {
+				subs = append(subs, eh.workflowStore)
 			}
-			return []services.Service{eh.workflowStore}
+			if eh.specMeter != nil {
+				subs = append(subs, eh.specMeter)
+			}
+			return subs
 		},
 		Start: eh.start,
 		Close: eh.close,
@@ -334,23 +386,40 @@ func NewEventHandler(
 	return eh, nil
 }
 
-func (h *eventHandler) start(_ context.Context) error {
+func (h *eventHandler) start(context.Context) error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Start()
 	}
 	return nil
 }
 
+// SetWorkflowDon supplies the launcher-resolved workflow DON identity for
+// metering and shard ownership. Called by the registry after WaitForDon,
+// before any event is dispatched; the value is static for the life of the node.
+func (h *eventHandler) SetWorkflowDon(don commoncap.DON) {
+	h.myDonID = don.ID
+	h.specMeter.SetWorkflowDon(don)
+}
+
 func (h *eventHandler) close() error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Close()
 	}
+	if h.shardFailoverComm != nil {
+		_ = h.shardFailoverComm.Close()
+	}
 	es := h.engineRegistry.PopAll()
+	// No metering is emitted on close: meter records anchor on workflow-spec
+	// storage transitions, not engine lifecycle, so stopping an engine at
+	// shutdown leaves the persisted spec (and therefore its metered level)
+	// untouched. A spec that is genuinely released stops being snapshotted
+	// (the spec meter sub-service unregisters itself after this hook runs).
 	cs := make([]io.Closer, 0, len(es)+1)
 	cs = append(cs, h.engineLimiters)
 	for _, e := range es {
 		cs = append(cs, e)
 	}
+
 	return services.CloseAll(cs...)
 }
 
@@ -434,7 +503,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
-			platform.KeyWorkflowTag, payload.Tag,
+			platform.KeyWorkflowTag, payload.WorkflowTag,
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
@@ -444,7 +513,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err2 != nil {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -459,7 +528,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		h.lggr.Debugw("handled event (WorkflowPaused)", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
-			"workflowTag", payload.Tag, "type", event.Name)
+			"workflowTag", payload.WorkflowTag, "type", event.Name)
 		return nil
 	case WorkflowDeleted:
 		payload, ok := event.Data.(WorkflowDeletedEvent)
@@ -469,21 +538,20 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		wfID := payload.WorkflowID.Hex()
 
-		// Get workflow spec from database to get owner and name info for organization lookup
-		// Alternative: wire through workflowOwner into the Event, but that requires a lot more surgery
-		spec, err := h.workflowArtifactsStore.GetWorkflowSpec(ctx, wfID)
+		// Get workflow spec from database to get owner and name info for organization lookup,
+		// and to check if the spec exists to determine if a MeterRecord is warranted.
 		var wfOwner, wfName, orgID string
-		if err != nil {
-			// Workflow spec not found, proceed with deletion but without event metadata
-			h.lggr.Warnw("Workflow spec not found during deletion, proceeding without org info", "workflowID", wfID, "error", err)
-		} else {
+		if spec, gerr := h.workflowArtifactsStore.GetWorkflowSpec(ctx, wfID); gerr == nil && spec != nil {
 			wfOwner = spec.WorkflowOwner
 			wfName = spec.WorkflowName
-			if wfOwner != "" {
-				orgID, err = h.fetchOrganizationID(ctx, wfOwner)
-				if err != nil {
-					h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", err)
-				}
+		} else if gerr != nil && !errors.Is(gerr, sql.ErrNoRows) {
+			h.lggr.Errorw("failed to read workflow spec during deletion, proceeding without metadata", "workflowID", wfID, "error", gerr)
+		}
+		if wfOwner != "" {
+			if resolvedOrgID, orgErr := h.fetchOrganizationID(ctx, wfOwner); orgErr != nil {
+				h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", orgErr)
+			} else {
+				orgID = resolvedOrgID
 			}
 		}
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
@@ -507,7 +575,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 
-		if herr = h.workflowDeletedEvent(ctx, payload); herr != nil {
+		if herr = h.workflowDeletedEvent(ctx, payload, wfOwner); herr != nil {
 			if errors.Is(herr, ErrDrainInProgress) {
 				logCustMsg(ctx, cma, fmt.Sprintf("workflow deletion deferred: %v", herr), h.lggr)
 			} else {
@@ -532,6 +600,17 @@ func (h *eventHandler) workflowActivatedEvent(
 	// Convert WorkflowActivatedEvent to WorkflowRegisteredEvent since they have identical fields
 	registeredPayload := WorkflowRegisteredEvent(payload)
 	return h.workflowRegisteredEvent(ctx, registeredPayload)
+}
+
+// workflowTagBackfillActive reports whether the cresettings
+// PerWorkflow.FeatureWorkflowTagBackfillActivePeriod window covers time.Now().
+// Fail-closed: any error or missing limiter is treated as inactive so a
+// misconfigured deploy cannot silently start rewriting workflow_tag.
+func (h *eventHandler) workflowTagBackfillActive(ctx context.Context) bool {
+	if h.featureFlags == nil || h.featureFlags.WorkflowTagBackfill == nil {
+		return false
+	}
+	return h.featureFlags.WorkflowTagBackfill.Check(ctx, config.Timestamp(time.Now().Unix())) == nil
 }
 
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
@@ -559,13 +638,18 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// - existing registration that has been updated with a new status
 	spec, err := h.workflowArtifactsStore.GetWorkflowSpec(ctx, payload.WorkflowID.Hex())
 	switch {
-	case err != nil:
+	case errors.Is(err, sql.ErrNoRows):
 		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
 		if innerErr != nil {
 			return innerErr
 		}
 
+		h.specMeter.EmitSpecDelta(ctx, 1, newSpec.StorageBytes, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner),
+			resourcemanager.EventID("workflow-spec-register", payload.WorkflowID.Hex(), strconv.FormatUint(payload.CreatedAt, 10)))
+
 		spec = newSpec
+	case err != nil:
+		return fmt.Errorf("failed to get workflow spec: %w", err)
 	case spec.WorkflowID != payload.WorkflowID.Hex() ||
 		spec.WorkflowOwner != hex.EncodeToString(payload.WorkflowOwner) ||
 		spec.WorkflowName != payload.WorkflowName:
@@ -573,12 +657,73 @@ func (h *eventHandler) workflowRegisteredEvent(
 		if innerErr != nil {
 			return innerErr
 		}
+		// A different spec's artifacts were persisted under this key: the newly
+		// stored spec is a fresh durable resource, so emit a +1 delta.
+		h.specMeter.EmitSpecDelta(ctx, 1, newSpec.StorageBytes, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner),
+			resourcemanager.EventID("workflow-spec-register", payload.WorkflowID.Hex(), strconv.FormatUint(payload.CreatedAt, 10)))
 
+		spec = newSpec
+	case status == job.WorkflowSpecStatusActive && spec.Workflow == "":
+		// Activating a paused tombstone: the artifact payload was cleared at
+		// pause time, so refetch and re-persist it. Level-neutral for metering
+		// (the registration generation was never released), so no delta.
+		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
+		if innerErr != nil {
+			return innerErr
+		}
 		spec = newSpec
 	case spec.Status != status:
 		spec.Status = status
 		if _, innerErr := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); innerErr != nil {
 			return fmt.Errorf("failed to update workflow spec: %w", innerErr)
+		}
+		// Status-only flip: no artifact-persistence transition, no delta.
+	}
+
+	// backfill registered_at, source, workflow_tag when necessary
+	backfill := false
+	if spec.RegisteredAt == 0 && payload.CreatedAt > 0 {
+		spec.RegisteredAt = int64(payload.CreatedAt) //nolint:gosec // G115: CreatedAt is a timestamp that cannot overflow int64
+		backfill = true
+	}
+	if spec.Source == "" && payload.Source != "" {
+		spec.Source = payload.Source
+		backfill = true
+	}
+	// WorkflowTag is used by remote capability requests; an empty local value
+	// diverges the request hash from nodes that have the on-chain tag. Gated by
+	// cresettings PerWorkflow.FeatureWorkflowTagBackfillActivePeriod: the
+	// backfill only fires when time.Now() falls inside the configured window,
+	// so ops can coordinate a healing pass across the DON. Default window is
+	// far-future, so a fresh deploy is a no-op.
+	var (
+		tagBackfilled bool
+		tagBefore     string
+	)
+	if h.workflowTagBackfillActive(ctx) &&
+		spec.WorkflowTag != payload.WorkflowTag && payload.WorkflowTag != "" {
+		tagBefore = spec.WorkflowTag
+		spec.WorkflowTag = payload.WorkflowTag
+		backfill = true
+		tagBackfilled = true
+	}
+	if backfill {
+		if _, err := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); err != nil {
+			h.lggr.Warnw("failed to backfill registered_at/source/workflow_tag", "workflowID", spec.WorkflowID, "err", err)
+		} else if tagBackfilled {
+			reason := "refreshed"
+			if tagBefore == "" {
+				reason = "filled_empty"
+			}
+			h.lggr.Infow("backfilled workflow_tag",
+				"workflowID", spec.WorkflowID,
+				"workflowOwner", spec.WorkflowOwner,
+				"workflowName", spec.WorkflowName,
+				"tagBefore", tagBefore,
+				"tagAfter", spec.WorkflowTag,
+				"reason", reason,
+			)
+			h.metrics.incrementWorkflowTagBackfill(ctx, reason)
 		}
 	}
 
@@ -670,6 +815,9 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
 		Attributes:    payload.Attributes,
+		RegisteredAt:  int64(payload.CreatedAt), //nolint:gosec // G115: CreatedAt is a timestamp that cannot overflow int64
+		Source:        payload.Source,
+		StorageBytes:  int64(len(decodedBinary)) + int64(len(config)),
 	}
 
 	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, entry); err != nil {
@@ -700,16 +848,12 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 	return organizationID, nil
 }
 
-func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 	var sdkName string
-	h.emitterMu.RLock()
-	labeler := h.emitter
-	h.emitterMu.RUnlock()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                               lggr,
-		Labeler:                              labeler,
 		MemoryLimiter:                        h.engineLimiters.WASMMemorySize,
 		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
 		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
@@ -730,46 +874,12 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 	h.lggr.Debugw("Creating module for workflowID", "workflowID", workflowID)
 
-	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
+	module, err := host.NewModule(ctx, moduleConfig, binary)
 	if err != nil {
 		return nil, err
 	}
 
 	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
-
-	if module.IsLegacyDAG() { // V1 aka "DAG"
-		sdkSpec, specErr := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
-		if specErr != nil {
-			return nil, fmt.Errorf("failed to get workflow sdk spec: %w", specErr)
-		}
-
-		// WorkflowRegistry V2 contract does not contain secrets
-		emptySecretsFetcher := func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
-			return map[string]string{}, nil
-		}
-
-		cfg := workflows.Config{
-			Lggr:           h.lggr,
-			Workflow:       *sdkSpec,
-			WorkflowID:     workflowID,
-			WorkflowOwner:  owner, // this gets hex encoded in the engine.
-			WorkflowName:   name,
-			Registry:       h.capRegistry,
-			Store:          h.workflowStore,
-			Config:         config,
-			Binary:         binary,
-			SecretsFetcher: emptySecretsFetcher,
-			RateLimiter:    h.ratelimiter,
-			WorkflowLimits: h.workflowLimits,
-
-			BillingClient:           h.billingClient,
-			ShardOrchestratorClient: h.shardOrchestratorClient,
-			ShardingEnabled:         h.shardingEnabled,
-			MyShardID:               h.myShardID,
-			ShardRoutingSteady:      h.shardRoutingSteady,
-		}
-		return workflows.NewEngine(ctx, cfg)
-	}
 
 	// V2 aka "NoDAG"
 	// Wrap the local WASM module in a RequirementSelectingModule that routes
@@ -791,11 +901,43 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			RequirementsHandler: generichost.RequirementsHandler{Tee: confidential.Tee},
 		}},
 	)
-	cfg := h.newV2EngineConfig(selectingModule, workflowID, owner, tag, sdkName, name, config)
+	cfg := h.newV2EngineConfig(ctx, selectingModule, workflowID, owner, tag, sdkName, name, config)
 
 	h.wireInitDoneHook(cfg, initDone)
 
-	return v2.NewEngine(cfg)
+	var manager *ShardFailoverManager
+	if h.shardingEnabled && h.dispatcher != nil {
+		if h.shardFailoverComm == nil {
+			h.shardFailoverComm = sharding.NewShardFailoverCommunicator(h.dispatcher, h.myDonID, h.lggr)
+		}
+		manager = NewShardFailoverManager(ShardFailoverManagerConfig{
+			ShardingEnabled:         h.shardingEnabled,
+			MyShardID:               h.myDonID,
+			WorkflowID:              workflowID,
+			WorkflowOwner:           owner,
+			ShardResolver:           h.shardResolver,
+			ShardOrchestratorClient: h.shardOrchestratorClient,
+			ShardRoutingSteady:      h.shardRoutingSteady,
+			FailoverGate:            h.engineLimiters.ShardingFailoverEnabled,
+			Communicator:            h.shardFailoverComm,
+			ShardDonLookup:          h.shardDonLookup,
+			DonSubscriber:           h.workflowDonSubscriber,
+			Logger:                  h.lggr,
+		})
+		manager.WireHooks(cfg)
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if manager != nil {
+		manager.SetEngine(engine)
+		return manager, nil
+	}
+
+	return engine, nil
 }
 
 func (h *eventHandler) createEngineModule(
@@ -815,7 +957,7 @@ func (h *eventHandler) createEngineModule(
 		if storeErr != nil {
 			h.lggr.Warnw("Failed to cache module binary to disk, LRU eviction disabled for this workflow", "workflowID", workflowID, "err", storeErr)
 		} else {
-			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)), host.WithDeterminism())
+			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)))
 			h.moduleLRU.Register(workflowID, evictable)
 			engineModule = evictable
 		}
@@ -824,32 +966,17 @@ func (h *eventHandler) createEngineModule(
 	return engineModule
 }
 
-// workflowPausedEvent handles the WorkflowPausedEvent event type. This method must remain idempotent.
-func (h *eventHandler) workflowPausedEvent(
-	ctx context.Context,
-	payload WorkflowPausedEvent,
-) error {
-	return h.workflowDeletedEvent(ctx, WorkflowDeletedEvent{WorkflowID: payload.WorkflowID})
-}
-
-// workflowDeletedEvent handles the WorkflowDeletedEvent event type. This method must remain idempotent.
-func (h *eventHandler) workflowDeletedEvent(
-	ctx context.Context,
-	payload WorkflowDeletedEvent,
-) error {
-	// The order in the handler is slightly different to the order in `tryEngineCleanup`.
-	// This is because the engine requires its corresponding DB record to be present to be successfully
-	// closed.
-	// At the same time, popping the engine should occur last to allow deletes to be retried if any of the
-	// prior steps fail.
-	workflowID := payload.WorkflowID.Hex()
-	e, ok := h.engineRegistry.Get(payload.WorkflowID)
+// stopEngine drains (returning ErrDrainInProgress while executions remain) and
+// closes the engine for workflowID if one is registered.
+// Returns the drainable handle (nil-able) for drain-completed metrics.
+func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.WorkflowID) (DrainableService, error) {
+	e, ok := h.engineRegistry.Get(workflowID)
 	var drainable DrainableService
-	var isDrainable bool
 	if ok {
+		var isDrainable bool
 		if drainable, isDrainable = e.Service.(DrainableService); isDrainable {
 			if started := drainable.Drain(); started {
-				h.lggr.Infow("initiated drain for workflow engine", "workflowID", workflowID)
+				h.lggr.Infow("initiated drain for workflow in workflow engine", "workflowID", workflowID.String())
 				if h.metrics != nil {
 					h.metrics.incrementDrainStarted(ctx)
 				}
@@ -860,38 +987,107 @@ func (h *eventHandler) workflowDeletedEvent(
 					h.metrics.incrementDeleteDeferred(ctx, "drain_in_progress")
 				}
 				h.lggr.Infow("workflow deletion deferred: active executions still running",
-					"workflowID", workflowID,
+					"workflowID", workflowID.String(),
 					"activeExecutions", active)
-				return fmt.Errorf("%w: %d active executions still running", ErrDrainInProgress, active)
+				return nil, fmt.Errorf("%w: %d active executions still running", ErrDrainInProgress, active)
 			}
 		}
 
 		if innerErr := e.Close(); innerErr != nil && !errors.Is(innerErr, services.ErrAlreadyStopped) {
-			return fmt.Errorf("failed to close workflow engine: %w", innerErr)
+			return nil, fmt.Errorf("failed to close workflow engine: %w", innerErr)
 		}
 	}
+	return drainable, nil
+}
 
-	if err := h.workflowArtifactsStore.DeleteWorkflowArtifacts(ctx, payload.WorkflowID.Hex()); err != nil {
+// releaseSpecStorage deletes the persisted spec row and, iff a row was
+// actually removed, emits the -1 generation delta on both billing units
+// (workflow count and storage bytes). RowsAffected is the exactly-once gate: redeliveries
+// observe no row and emit nothing; a transient DELETE error returns before
+// emission so the retry emits when the delete lands. The event_id is derived
+// AFTER the delete from the row's persisted registered_at, so all nodes emit
+// the identical id. Module-cache cleanup always runs. owner may be empty; org
+// resolution is fail-open.
+func (h *eventHandler) releaseSpecStorage(ctx context.Context, workflowID, owner string) error {
+	deletedSpec, err := h.workflowArtifactsStore.DeleteWorkflowArtifacts(ctx, workflowID)
+	if err != nil {
 		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
 	}
+	if deletedSpec != nil {
+		parts := []string{workflowID}
+		if deletedSpec.RegisteredAt > 0 {
+			parts = append(parts, strconv.FormatInt(deletedSpec.RegisteredAt, 10))
+		}
+		h.specMeter.EmitSpecDelta(ctx, -1, deletedSpec.StorageBytes, workflowID, owner, resourcemanager.EventID("workflow-spec-delete", parts...))
+	}
+	h.cleanupModuleCache(workflowID)
+	return nil
+}
 
-	h.cleanupModuleCache(payload.WorkflowID.Hex())
+// workflowPausedEvent handles WorkflowPaused. Idempotent.
+//
+// Pause is level-neutral for metering: the spec row survives as a tombstone
+// (status=paused, artifact payload cleared to free storage) so the
+// registration generation stays metered until deletion — mirroring the
+// on-chain registry, which retains the paused registration. This holds for
+// both billing units: the persisted storage_bytes is NOT cleared, so storage
+// is billed for the registration lifetime regardless of the freed payload.
+// Emitting per-cycle pause/activate deltas is impossible without drift: no
+// DON-consistent per-occurrence discriminator exists, so a -1 here would
+// force the re-activation +1 to reuse the register event_id and be dropped by
+// consumer dedup. Deltas therefore fire only at generation boundaries
+// (register/delete).
+func (h *eventHandler) workflowPausedEvent(
+	ctx context.Context,
+	payload WorkflowPausedEvent,
+) error {
+	workflowID := payload.WorkflowID.Hex()
+	if _, err := h.stopEngine(ctx, payload.WorkflowID); err != nil {
+		return err
+	}
+	if err := h.workflowArtifactsStore.PauseWorkflowArtifacts(ctx, workflowID); err != nil {
+		return fmt.Errorf("failed to pause workflow artifacts: %w", err)
+	}
+	h.cleanupModuleCache(workflowID)
+	if _, err := h.engineRegistry.Pop(payload.WorkflowID); err != nil && !errors.Is(err, ErrNotFound) {
+		return err
+	}
+	return nil
+}
 
-	_, err := h.engineRegistry.Pop(payload.WorkflowID)
+// workflowDeletedEvent handles the WorkflowDeletedEvent event type. This method must remain idempotent.
+func (h *eventHandler) workflowDeletedEvent(
+	ctx context.Context,
+	payload WorkflowDeletedEvent,
+	owner string,
+) error {
+	workflowID := payload.WorkflowID.Hex()
+	drainable, err := h.stopEngine(ctx, payload.WorkflowID)
+	if err != nil {
+		return err
+	}
+	if err = h.releaseSpecStorage(ctx, workflowID, owner); err != nil {
+		return err
+	}
+	_, err = h.engineRegistry.Pop(payload.WorkflowID)
 	if errors.Is(err, ErrNotFound) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-
-	if isDrainable {
+	if drainable != nil {
 		startedAt, exists := drainable.DrainStartedAt()
 		if exists && h.metrics != nil {
 			h.metrics.recordDrainCompleted(ctx, time.Since(startedAt))
 		}
 	}
 	return nil
+}
+
+// ListWorkflowSpecs backs the orphan sweep.
+func (h *eventHandler) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error) {
+	return h.workflowArtifactsStore.ListWorkflowSpecs(ctx)
 }
 
 // tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
@@ -974,7 +1170,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return nonRetryable(fmt.Errorf("invalid workflow id: %w", err))
 	}
 	if !types.WorkflowID(hash).Equal(wid) {
-		return nonRetryable(fmt.Errorf("workflowID mismatch: %x != %x", hash, wid))
+		return nonRetryable(fmt.Errorf("workflowID mismatch: %s != %s", types.WorkflowID(hash).Hex(), wid.Hex()))
 	}
 
 	// Start a new WorkflowEngine instance, and add it to local engine registry
@@ -1065,12 +1261,13 @@ func (h *eventHandler) overrideFetcherForOwner(owner string) v2.SecretsFetcher {
 // newV2EngineConfig builds the common EngineConfig shared by both the normal
 // WASM engine and the confidential engine paths. Caller supplies the module.
 func (h *eventHandler) newV2EngineConfig(
+	ctx context.Context,
 	module host.ModuleV2,
 	workflowID, owner, tag, sdkName string,
 	name types.WorkflowName,
 	config []byte,
 ) *v2.EngineConfig {
-	return &v2.EngineConfig{
+	cfg := &v2.EngineConfig{
 		Lggr:                  h.lggr,
 		Module:                module,
 		WorkflowConfig:        config,
@@ -1107,12 +1304,14 @@ func (h *eventHandler) newV2EngineConfig(
 
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
-		MyShardID:               h.myShardID,
+		MyDonID:                 h.myDonID,
 		ShardRoutingSteady:      h.shardRoutingSteady,
+		ShardResolver:           h.shardResolver,
 	}
+
+	return cfg
 }
 
-// wireInitDoneHook wires the initDone channel to the OnInitialized lifecycle hook.
 // This will be called when the engine completes initialization (including trigger subscriptions).
 // We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
 func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- error) {
@@ -1200,7 +1399,8 @@ func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
 				return fmt.Errorf("capabilities registry not ready: %w", err)
 			}
 			return nil
-		})
+		},
+	)
 }
 
 // customerFacingError returns a deterministic, user-actionable error for beholder emission.
@@ -1210,8 +1410,7 @@ func customerFacingError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var fetchErr *types.ArtifactFetchError
-	if errors.As(err, &fetchErr) {
+	if fetchErr, ok := errors.AsType[*types.ArtifactFetchError](err); ok {
 		return errors.New(fetchErr.CustomerError())
 	}
 	return err

@@ -142,7 +142,7 @@ func (agg *WorkflowMetadataAggregator) Collect(obs *gateway_common.WorkflowMetad
 
 // Aggregate returns the aggregated workflow metadata for workflows that have reached the threshold.
 // Results are sorted chronologically by sequence number (newest first, oldest last).
-func (agg *WorkflowMetadataAggregator) Aggregate() ([]gateway_common.WorkflowMetadata, error) {
+func (agg *WorkflowMetadataAggregator) Aggregate() []gateway_common.WorkflowMetadata {
 	agg.mu.RLock()
 	defer agg.mu.RUnlock()
 
@@ -173,7 +173,7 @@ func (agg *WorkflowMetadataAggregator) Aggregate() ([]gateway_common.WorkflowMet
 		aggregated[i] = obs.metadata
 	}
 
-	return aggregated, nil
+	return aggregated
 }
 
 type NodeObservations struct {

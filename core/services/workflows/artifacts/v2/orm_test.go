@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-
-	"github.com/stretchr/testify/require"
 )
 
 func Test_UpsertWorkflowSpec(t *testing.T) {
@@ -33,6 +34,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 			ConfigURL:     "http://example.com/config",
 			CreatedAt:     time.Now(),
 			SpecType:      job.WASMFile,
+			StorageBytes:  12,
 		}
 
 		_, err := orm.UpsertWorkflowSpec(ctx, spec)
@@ -43,6 +45,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs_v2 WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_tag = $3`, spec.WorkflowOwner, spec.WorkflowName, spec.WorkflowTag)
 		require.NoError(t, err)
 		require.Equal(t, spec.Workflow, dbSpec.Workflow)
+		require.Equal(t, int64(12), dbSpec.StorageBytes, "storage_bytes must round-trip on insert")
 	})
 
 	t.Run("updates existing spec", func(t *testing.T) {
@@ -64,13 +67,15 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 			ConfigURL:     "http://example.com/config",
 			CreatedAt:     time.Now(),
 			SpecType:      job.WASMFile,
+			StorageBytes:  12,
 		}
 
 		_, err := orm.UpsertWorkflowSpec(ctx, spec)
 		require.NoError(t, err)
 
-		// Update the status
+		// Update the status and the storage footprint
 		spec.Status = job.WorkflowSpecStatusPaused
+		spec.StorageBytes = 24
 
 		_, err = orm.UpsertWorkflowSpec(ctx, spec)
 		require.NoError(t, err)
@@ -81,6 +86,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, spec.Config, dbSpec.Config)
 		require.Equal(t, spec.Status, dbSpec.Status)
+		require.Equal(t, int64(24), dbSpec.StorageBytes, "storage_bytes must round-trip on conflict-update")
 	})
 
 	t.Run("sets CreatedAt to current time if zero value is provided", func(t *testing.T) {
@@ -188,14 +194,35 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 			ConfigURL:     "http://example.com/config",
 			CreatedAt:     time.Now(),
 			SpecType:      job.WASMFile,
+			RegisteredAt:  1717171717,
+			Source:        "ContractWorkflowSource",
+			StorageBytes:  12,
 		}
 
 		id, err := orm.UpsertWorkflowSpec(ctx, spec)
 		require.NoError(t, err)
 		require.NotZero(t, id)
 
-		err = orm.DeleteWorkflowSpec(ctx, spec.WorkflowID)
+		deletedSpec, err := orm.DeleteWorkflowSpec(ctx, spec.WorkflowID)
 		require.NoError(t, err)
+		require.NotNil(t, deletedSpec)
+
+		// The RETURNING clause must scan the full row back: the caller derives
+		// the metering delete event_id from the row's persisted registered_at
+		// and releases the row's durable storage bytes.
+		assert.Equal(t, spec.WorkflowID, deletedSpec.WorkflowID)
+		assert.Equal(t, spec.WorkflowOwner, deletedSpec.WorkflowOwner)
+		assert.Equal(t, spec.WorkflowName, deletedSpec.WorkflowName)
+		assert.Equal(t, spec.WorkflowTag, deletedSpec.WorkflowTag)
+		assert.Equal(t, spec.Workflow, deletedSpec.Workflow)
+		assert.Equal(t, spec.Config, deletedSpec.Config)
+		assert.Equal(t, spec.Status, deletedSpec.Status)
+		assert.Equal(t, spec.BinaryURL, deletedSpec.BinaryURL)
+		assert.Equal(t, spec.ConfigURL, deletedSpec.ConfigURL)
+		assert.Equal(t, spec.SpecType, deletedSpec.SpecType)
+		assert.Equal(t, int64(1717171717), deletedSpec.RegisteredAt)
+		assert.Equal(t, "ContractWorkflowSource", deletedSpec.Source)
+		assert.Equal(t, int64(12), deletedSpec.StorageBytes)
 
 		// Verify the record is deleted from the database
 		var dbSpec job.WorkflowSpec
@@ -204,16 +231,16 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 		require.Equal(t, sql.ErrNoRows, err)
 	})
 
-	t.Run("fails if no workflow spec exists", func(t *testing.T) {
+	t.Run("returns false for non-existent workflow spec", func(t *testing.T) {
 		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
 		ctx := t.Context()
 		lggr := logger.TestLogger(t)
 		orm := &orm{ds: db, lggr: lggr}
 
-		err := orm.DeleteWorkflowSpec(ctx, "non-existent-workflow-id")
-		require.Error(t, err)
-		require.Equal(t, sql.ErrNoRows, err)
+		deletedSpec, err := orm.DeleteWorkflowSpec(ctx, "non-existent-workflow-id")
+		require.NoError(t, err)
+		assert.Nil(t, deletedSpec)
 	})
 }
 
@@ -262,6 +289,104 @@ func Test_DeleteWorkflowSpecs(t *testing.T) {
 	require.NoError(t, orm.DeleteWorkflowSpecs(ctx, []string{}))
 }
 
+func Test_PauseWorkflowSpec(t *testing.T) {
+	t.Parallel()
+	t.Run("tombstones the row: status paused, artifacts cleared, registered_at preserved", func(t *testing.T) {
+		t.Parallel()
+		db := pgtest.NewSqlxDB(t)
+		ctx := t.Context()
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
+		_, err := orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    "cid-123",
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			Status:        job.WorkflowSpecStatusActive,
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+			RegisteredAt:  1717171717,
+			StorageBytes:  12,
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, orm.PauseWorkflowSpec(ctx, "cid-123"))
+
+		paused, err := orm.GetWorkflowSpec(ctx, "cid-123")
+		require.NoError(t, err)
+		assert.Equal(t, job.WorkflowSpecStatusPaused, paused.Status)
+		assert.Empty(t, paused.Workflow, "artifact payload must be cleared")
+		assert.Empty(t, paused.Config, "config payload must be cleared")
+		assert.Equal(t, int64(1717171717), paused.RegisteredAt, "registration generation must survive the tombstone")
+		assert.Equal(t, int64(12), paused.StorageBytes, "storage_bytes must survive the tombstone so the delete-time metering delta releases the registered footprint")
+		assert.Equal(t, "owner-123", paused.WorkflowOwner)
+
+		// Idempotent: pausing again is a no-op.
+		require.NoError(t, orm.PauseWorkflowSpec(ctx, "cid-123"))
+	})
+
+	t.Run("pausing an absent row is a no-op", func(t *testing.T) {
+		t.Parallel()
+		db := pgtest.NewSqlxDB(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
+		require.NoError(t, orm.PauseWorkflowSpec(t.Context(), "non-existent-workflow-id"))
+	})
+}
+
+func Test_ListWorkflowSpecs(t *testing.T) {
+	t.Parallel()
+	db := pgtest.NewSqlxDB(t)
+	ctx := t.Context()
+	lggr := logger.TestLogger(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	want := map[string]struct {
+		owner        string
+		registeredAt int64
+		source       string
+		storageBytes int64
+	}{
+		"wf-1": {"owner-1", 100, "ContractWorkflowSource", 12},
+		"wf-2": {"owner-2", 200, "GRPCWorkflowSource", 34},
+		"wf-3": {"owner-3", 0, "", 0}, // pre-migration row: registered_at, source and storage_bytes defaulted
+	}
+	for id, w := range want {
+		_, err := orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
+			Workflow:      "binary",
+			Config:        "config",
+			WorkflowID:    id,
+			WorkflowOwner: w.owner,
+			WorkflowName:  "wf",
+			Status:        job.WorkflowSpecStatusActive,
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+			RegisteredAt:  w.registeredAt,
+			Source:        w.source,
+			StorageBytes:  w.storageBytes,
+		})
+		require.NoError(t, err)
+	}
+
+	specs, err := orm.ListWorkflowSpecs(ctx)
+	require.NoError(t, err)
+	require.Len(t, specs, len(want))
+	for _, spec := range specs {
+		w, ok := want[spec.WorkflowID]
+		require.True(t, ok, "unexpected workflow_id %q", spec.WorkflowID)
+		assert.Equal(t, w.owner, spec.WorkflowOwner)
+		assert.Equal(t, w.registeredAt, spec.RegisteredAt)
+		assert.Equal(t, w.source, spec.Source)
+		assert.Equal(t, w.storageBytes, spec.StorageBytes, "the metering snapshot projection must include storage_bytes")
+		// The projection deliberately omits the heavy artifact columns.
+		assert.Empty(t, spec.Workflow)
+		assert.Empty(t, spec.Config)
+	}
+}
+
 func Test_GetWorkflowSpec(t *testing.T) {
 	t.Parallel()
 	t.Run("gets a workflow spec by ID", func(t *testing.T) {
@@ -293,7 +418,7 @@ func Test_GetWorkflowSpec(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, spec.Workflow, dbSpec.Workflow)
 
-		err = orm.DeleteWorkflowSpec(ctx, spec.WorkflowID)
+		_, err = orm.DeleteWorkflowSpec(ctx, spec.WorkflowID)
 		require.NoError(t, err)
 	})
 

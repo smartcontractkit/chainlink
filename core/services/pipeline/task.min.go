@@ -65,7 +65,7 @@ func (t *MinTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Re
 		if lax {
 			return Result{}, runInfo // if lax is enabled, return nil result with no error
 		}
-		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no values to minize")}, runInfo
+		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no values to minimize")}, runInfo
 	}
 
 	err = decimalValues.UnmarshalPipelineParam(values)

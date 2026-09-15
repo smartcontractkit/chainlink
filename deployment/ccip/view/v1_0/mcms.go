@@ -5,7 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/evm/bindings"
 	mcmstypes "github.com/smartcontractkit/mcms/types"

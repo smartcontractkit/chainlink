@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -136,7 +137,7 @@ func TestCBORParseTask(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(t.Context(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 
@@ -147,7 +148,7 @@ func TestCBORParseTask(t *testing.T) {
 					assert.Contains(t, result.Error.Error(), test.expectedErrorContains)
 				}
 			} else {
-				assert.NoError(t, result.Error)
+				require.NoError(t, result.Error)
 				assert.Equal(t, test.expected, result.Value)
 			}
 		})

@@ -74,7 +74,7 @@ func (c *Client) GetWorkflowShardMapping(ctx context.Context, workflowIDs []stri
 // ReportWorkflowTriggerRegistration reports workflow trigger registration to shard 0
 func (c *Client) ReportWorkflowTriggerRegistration(ctx context.Context, req *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
 	c.logger.Debugw("Calling ReportWorkflowTriggerRegistration",
-		"shardID", req.SourceShardId,
+		"donID", req.SourceDonId,
 		"workflowCount", len(req.RegisteredWorkflows))
 
 	resp, err := c.client.ReportWorkflowTriggerRegistration(ctx, req)

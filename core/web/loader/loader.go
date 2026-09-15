@@ -37,7 +37,7 @@ func New(app chainlink.Application) *Dataloader {
 		jps      = &jobProposalBatcher{app: app}
 		jpSpecs  = &jobProposalSpecBatcher{app: app}
 		jbs      = &jobBatcher{app: app}
-		attmpts  = &ethTransactionAttemptBatcher{app: app}
+		attempts = &ethTransactionAttemptBatcher{app: app}
 		specErrs = &jobSpecErrorsBatcher{app: app}
 	)
 
@@ -45,7 +45,7 @@ func New(app chainlink.Application) *Dataloader {
 		app: app,
 
 		ChainsByRelayIDLoader:                     dataloader.NewBatchedLoader(chains.loadByRelayIDs),
-		EthTxAttemptsByEthTxIDLoader:              dataloader.NewBatchedLoader(attmpts.loadByEthTransactionIDs),
+		EthTxAttemptsByEthTxIDLoader:              dataloader.NewBatchedLoader(attempts.loadByEthTransactionIDs),
 		FeedsManagersByIDLoader:                   dataloader.NewBatchedLoader(mgrs.loadByIDs),
 		FeedsManagerChainConfigsByManagerIDLoader: dataloader.NewBatchedLoader(ccfgs.loadByManagerIDs),
 		JobProposalsByManagerIDLoader:             dataloader.NewBatchedLoader(jps.loadByManagersIDs),

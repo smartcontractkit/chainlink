@@ -9,7 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 )
 
 var (
@@ -44,9 +44,9 @@ var (
 
 // StreamValueCache is used by dataSource to decouple the read/write paths for stream values.
 type StreamValueCache interface {
-	Get(id llotypes.StreamID) (llocommon.StreamValue, time.Time)
-	UpdateStreamValues(streamValues llocommon.StreamValues)
-	AddMany(values map[llotypes.StreamID]llocommon.StreamValue, ttl time.Duration)
+	Get(id llotypes.StreamID) (lloprotocol.StreamValue, time.Time)
+	UpdateStreamValues(streamValues lloprotocol.StreamValues)
+	AddMany(values map[llotypes.StreamID]lloprotocol.StreamValue, ttl time.Duration)
 	Close() error
 }
 
@@ -69,7 +69,7 @@ type Cache struct {
 }
 
 type item struct {
-	value     llocommon.StreamValue
+	value     lloprotocol.StreamValue
 	expiresAt time.Time
 	writtenAt time.Time // wall clock at Add/AddMany; used for cache_hit_entry_age_ms
 }
@@ -122,7 +122,7 @@ func NewCache(cleanupInterval time.Duration) *Cache {
 }
 
 // Add adds a stream value to the cache.
-func (c *Cache) Add(id llotypes.StreamID, value llocommon.StreamValue, ttl time.Duration) {
+func (c *Cache) Add(id llotypes.StreamID, value lloprotocol.StreamValue, ttl time.Duration) {
 	now := time.Now()
 	var expiresAt time.Time
 	if ttl > 0 {
@@ -133,7 +133,7 @@ func (c *Cache) Add(id llotypes.StreamID, value llocommon.StreamValue, ttl time.
 	c.values[id] = item{value: value, expiresAt: expiresAt, writtenAt: now}
 }
 
-func (c *Cache) AddMany(values map[llotypes.StreamID]llocommon.StreamValue, ttl time.Duration) {
+func (c *Cache) AddMany(values map[llotypes.StreamID]lloprotocol.StreamValue, ttl time.Duration) {
 	now := time.Now()
 	var expiresAt time.Time
 	if ttl > 0 {
@@ -148,7 +148,7 @@ func (c *Cache) AddMany(values map[llotypes.StreamID]llocommon.StreamValue, ttl 
 
 // UpdateStreamValues mutates streamValues in-place for zero-allocation reads.
 // Emits cache hit/miss metrics async.
-func (c *Cache) UpdateStreamValues(streamValues llocommon.StreamValues) {
+func (c *Cache) UpdateStreamValues(streamValues lloprotocol.StreamValues) {
 	events := make([]metricEvent, 0, len(streamValues))
 
 	c.mu.RLock()
@@ -177,7 +177,7 @@ func (c *Cache) UpdateStreamValues(streamValues llocommon.StreamValues) {
 	c.sendMetrics(events)
 }
 
-func (c *Cache) Get(id llotypes.StreamID) (llocommon.StreamValue, time.Time) {
+func (c *Cache) Get(id llotypes.StreamID) (lloprotocol.StreamValue, time.Time) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	item, ok := c.values[id]

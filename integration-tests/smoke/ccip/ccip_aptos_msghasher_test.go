@@ -206,7 +206,7 @@ func computeOnChainHash(
 	sourcePoolAddresses := make([][]byte, len(msg.TokenAmounts))
 	destTokenAddresses := make([]aptos.AccountAddress, len(msg.TokenAmounts))
 	destGasAmounts := make([]uint32, len(msg.TokenAmounts))
-	extraDatas := make([][]byte, len(msg.TokenAmounts))
+	extraData := make([][]byte, len(msg.TokenAmounts))
 	amounts := make([]*big.Int, len(msg.TokenAmounts))
 
 	for i, token := range msg.TokenAmounts {
@@ -215,7 +215,7 @@ func computeOnChainHash(
 		copy(addr[:], token.DestTokenAddress)
 		destTokenAddresses[i] = addr
 		destGasAmounts[i] = parseDestGasAmount(token.DestExecData)
-		extraDatas[i] = token.ExtraData
+		extraData[i] = token.ExtraData
 		amounts[i] = token.Amount.Int
 	}
 
@@ -237,7 +237,7 @@ func computeOnChainHash(
 		sourcePoolAddresses,
 		destTokenAddresses,
 		destGasAmounts,
-		extraDatas,
+		extraData,
 		amounts,
 	)
 	require.NoError(t, err, "On chain offramp::calculate_message_hash() failed")

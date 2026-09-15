@@ -80,8 +80,7 @@ func (p *EthTxPresenter) RenderTable(rt RendererTable) error {
 		p.State,
 	})
 
-	render(fmt.Sprintf("Ethereum Transaction %v", p.Hash.Hex()), table)
-	return nil
+	return render(fmt.Sprintf("Ethereum Transaction %v", p.Hash.Hex()), table)
 }
 
 type EthTxPresenters []EthTxPresenter
@@ -100,8 +99,7 @@ func (ps EthTxPresenters) RenderTable(rt RendererTable) error {
 		})
 	}
 
-	render("Ethereum Transactions", table)
-	return nil
+	return render("Ethereum Transactions", table)
 }
 
 // IndexTransactions returns the list of transactions in descending order,

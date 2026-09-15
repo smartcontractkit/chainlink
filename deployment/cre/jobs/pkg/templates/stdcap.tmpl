@@ -8,15 +8,27 @@ config = """{{ .Config }}"""
 {{ if and .OracleFactory .OracleFactory.Enabled }}
 [oracle_factory]
 enabled = {{ .OracleFactory.Enabled }}
+{{- if .OracleFactory.BootstrapPeers }}
 bootstrap_peers = [{{ range $index, $peer := .OracleFactory.BootstrapPeers }}{{ if $index }}, {{ end }}"{{ $peer }}"{{ end }}]
+{{- end }}
+{{- if .OracleFactory.OCRContractAddress }}
 ocr_contract_address = "{{ .OracleFactory.OCRContractAddress }}"
+{{- end }}
+{{- if .OracleFactory.OCRKeyBundleID }}
 ocr_key_bundle_id = "{{ .OracleFactory.OCRKeyBundleID }}"
+{{- end }}
+{{- if .OracleFactory.ChainID }}
 chain_id = "{{ .OracleFactory.ChainID }}"
+{{- end }}
+{{- if .OracleFactory.TransmitterID }}
 transmitter_id = "{{ .OracleFactory.TransmitterID }}"
+{{- end }}
+{{- if .OracleFactory.OnchainSigningStrategy.StrategyName }}
 [oracle_factory.onchainSigningStrategy]
 strategyName = "{{ .OracleFactory.OnchainSigningStrategy.StrategyName }}"
 [oracle_factory.onchainSigningStrategy.config]
 {{- range $key, $value := .OracleFactory.OnchainSigningStrategy.Config }}
 {{ $key }} = "{{ $value }}"
+{{- end }}
 {{- end }}
 {{ end }}

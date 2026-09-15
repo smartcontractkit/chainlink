@@ -9,14 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func TestConfigHash(t *testing.T) {
@@ -56,10 +57,10 @@ func TestBuildDesiredState(t *testing.T) {
 		localCfg: &testLocalCapabilities{allowlisted: map[string]bool{"cron@1.0.0": true, "consensus@1.0.0": true}},
 	}
 
-	dons := []registrysyncer.DON{
+	dons := []registry.DON{
 		{
 			DON: capabilities.DON{ID: 1},
-			CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 				"cron@1.0.0":      {Config: []byte(`{"interval": 60}`)},
 				"consensus@1.0.0": {Config: []byte(`{"key": "evm"}`)},
 				"unknown@1.0.0":   {Config: []byte(`{}`)}, // not allowlisted
@@ -67,7 +68,7 @@ func TestBuildDesiredState(t *testing.T) {
 		},
 		{
 			DON: capabilities.DON{ID: 2},
-			CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 				"cron@1.0.0": {Config: []byte(`{"interval": 30}`)},
 			},
 		},
@@ -89,10 +90,10 @@ func TestBuildDesiredState_NilLocalConfig(t *testing.T) {
 		localCfg: nil,
 	}
 
-	dons := []registrysyncer.DON{
+	dons := []registry.DON{
 		{
 			DON: capabilities.DON{ID: 1},
-			CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 				"cron@1.0.0": {Config: []byte(`{}`)},
 			},
 		},
@@ -102,11 +103,47 @@ func TestBuildDesiredState_NilLocalConfig(t *testing.T) {
 	assert.Empty(t, desired, "nil config should not allow any capabilities")
 }
 
-func noopServiceBuilder(_ context.Context, _ string, _ uint32, _ string, _ string) ([]job.ServiceCtx, error) {
+func TestExtractDefaultOCR3Config(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty config returns nil", func(t *testing.T) {
+		t.Parallel()
+		assert.Nil(t, extractDefaultOCR3Config(registry.CapabilityConfiguration{}))
+	})
+
+	t.Run("config without OCR3 returns nil", func(t *testing.T) {
+		t.Parallel()
+		cc := registry.CapabilityConfiguration{Config: mustMarshalCapConfig(t, map[string]string{"k": "v"})}
+		assert.Nil(t, extractDefaultOCR3Config(cc))
+	})
+
+	t.Run("returns default OCR3 config", func(t *testing.T) {
+		t.Parallel()
+		raw, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+				capabilitiespb.OCR3ConfigDefaultKey: {
+					Signers:      [][]byte{{0x01, 0x02}},
+					Transmitters: [][]byte{{0xab, 0xcd}},
+					F:            1,
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		got := extractDefaultOCR3Config(registry.CapabilityConfiguration{Config: raw})
+		require.NotNil(t, got)
+		require.Len(t, got.Signers, 1)
+		assert.Equal(t, ocrtypes.OnchainPublicKey{0x01, 0x02}, got.Signers[0])
+		require.Len(t, got.Transmitters, 1)
+		assert.Equal(t, ocrtypes.Account("abcd"), got.Transmitters[0])
+	})
+}
+
+func noopServiceBuilder(_ context.Context, _ string, _ uint32, _ string, _ string, _ *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
 	return []job.ServiceCtx{&mockService{}}, nil
 }
 
-func failingServiceBuilder(_ context.Context, _ string, _ uint32, _ string, _ string) ([]job.ServiceCtx, error) {
+func failingServiceBuilder(_ context.Context, _ string, _ uint32, _ string, _ string, _ *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
 	return nil, assert.AnError
 }
 
@@ -130,10 +167,10 @@ func TestReconcile_StartsNewCapabilities(t *testing.T) {
 	}
 
 	onchainCfg := mustMarshalCapConfig(t, map[string]string{"test": "true"})
-	dons := []registrysyncer.DON{
+	dons := []registry.DON{
 		{
 			DON: capabilities.DON{ID: 1},
-			CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 				"test-cap@1.0.0": {Config: onchainCfg},
 			},
 		},
@@ -180,10 +217,10 @@ func TestReconcile_StopsRemovedCapabilities(t *testing.T) {
 	}
 
 	// Only test-cap@1.0.0 is in the desired state.
-	dons := []registrysyncer.DON{
+	dons := []registry.DON{
 		{
 			DON: capabilities.DON{ID: 1},
-			CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 				"test-cap@1.0.0": {Config: emptyCfg},
 			},
 		},
@@ -228,10 +265,10 @@ func TestReconcile_DetectsConfigChange(t *testing.T) {
 		metrics: metrics,
 	}
 
-	dons := []registrysyncer.DON{
+	dons := []registry.DON{
 		{
 			DON: capabilities.DON{ID: 1},
-			CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 				"test-cap@1.0.0": {Config: newCfg},
 			},
 		},
@@ -271,10 +308,10 @@ func TestReconcile_ContinuesOnStartFailure(t *testing.T) {
 		metrics:             metrics,
 	}
 
-	dons := []registrysyncer.DON{
+	dons := []registry.DON{
 		{
 			DON: capabilities.DON{ID: 1},
-			CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 				"failing-cap@1.0.0": {Config: emptyCfg},
 				"good-cap@1.0.0":    {Config: emptyCfg},
 			},
@@ -431,7 +468,7 @@ func TestBuildConfigJSON(t *testing.T) {
 				},
 			},
 		}
-		info := &capabilityInfo{capID: "cap@1.0.0", config: registrysyncer.CapabilityConfiguration{}}
+		info := &capabilityInfo{capID: "cap@1.0.0", config: registry.CapabilityConfiguration{}}
 		result, err := mgr.buildConfigJSON(info)
 		require.NoError(t, err)
 
@@ -448,7 +485,7 @@ func TestBuildConfigJSON(t *testing.T) {
 		onchainBytes := mustMarshalCapConfig(t, map[string]string{"chainId": "42"})
 		info := &capabilityInfo{
 			capID:  "cap@1.0.0",
-			config: registrysyncer.CapabilityConfiguration{Config: onchainBytes},
+			config: registry.CapabilityConfiguration{Config: onchainBytes},
 		}
 		result, err := mgr.buildConfigJSON(info)
 		require.NoError(t, err)
@@ -471,7 +508,7 @@ func TestBuildConfigJSON(t *testing.T) {
 		onchainBytes := mustMarshalCapConfig(t, map[string]string{"chainId": "42", "onchainOnly": "true"})
 		info := &capabilityInfo{
 			capID:  "cap@1.0.0",
-			config: registrysyncer.CapabilityConfiguration{Config: onchainBytes},
+			config: registry.CapabilityConfiguration{Config: onchainBytes},
 		}
 		result, err := mgr.buildConfigJSON(info)
 		require.NoError(t, err)
@@ -488,7 +525,7 @@ func TestBuildConfigJSON(t *testing.T) {
 			lggr:     lggr,
 			localCfg: &testLocalCapabilities{allowlisted: map[string]bool{"cap@1.0.0": true}},
 		}
-		info := &capabilityInfo{capID: "cap@1.0.0", config: registrysyncer.CapabilityConfiguration{}}
+		info := &capabilityInfo{capID: "cap@1.0.0", config: registry.CapabilityConfiguration{}}
 		result, err := mgr.buildConfigJSON(info)
 		require.NoError(t, err)
 		assert.Equal(t, "{}", result)
@@ -506,7 +543,7 @@ func TestBuildConfigJSON(t *testing.T) {
 		}
 		info := &capabilityInfo{
 			capID:  "cap@1.0.0",
-			config: registrysyncer.CapabilityConfiguration{Config: []byte("not-valid-proto")},
+			config: registry.CapabilityConfiguration{Config: []byte("not-valid-proto")},
 		}
 		result, err := mgr.buildConfigJSON(info)
 		require.NoError(t, err)

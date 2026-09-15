@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonevm "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
@@ -41,11 +42,9 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -148,7 +147,7 @@ func TestEvmWrite(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db)
 
 	lggr := logger.TestLogger(t, zapcore.DebugLevel)
-	cRegistry := evmcapabilities.NewRegistry(lggr)
+	cRegistry := capreg.NewRegistry(lggr)
 	relayer, err := evm.NewRelayer(lggr, chain, evm.RelayerOpts{
 		DS:                   db,
 		EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
@@ -157,7 +156,7 @@ func TestEvmWrite(t *testing.T) {
 	})
 	require.NoError(t, err)
 	servicetest.Run(t, relayer)
-	registeredCapabilities, err := cRegistry.List(testutils.Context(t))
+	registeredCapabilities, err := cRegistry.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, registeredCapabilities, 1) // WriteTarget should be added to the registry
 
@@ -288,7 +287,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("succeeds with valid report", func(t *testing.T) {
 		mockSuccessfulTransmission("")
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, lggr)
@@ -308,7 +307,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("succeeds with valid CCIP report", func(t *testing.T) {
 		mockSuccessfulTransmission("ccip")
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, lggr)
@@ -335,7 +334,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("succeeds with valid POR report", func(t *testing.T) {
 		mockSuccessfulTransmission("por")
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, lggr)
@@ -363,7 +362,7 @@ func TestEvmWrite(t *testing.T) {
 	t.Run("succeeds with valid report, but logs error for missing processor", func(t *testing.T) {
 		mockSuccessfulTransmission("")
 
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, lggr)
@@ -393,7 +392,7 @@ func TestEvmWrite(t *testing.T) {
 
 		evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Once()
 
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, lggr)
 		require.NoError(t, err)
 
@@ -408,7 +407,7 @@ func TestEvmWrite(t *testing.T) {
 	})
 
 	t.Run("fails with invalid config", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.TestLogger(t))
 		require.NoError(t, err)
 
@@ -428,7 +427,7 @@ func TestEvmWrite(t *testing.T) {
 	})
 
 	t.Run("fails when TXM CreateTransaction returns error", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.TestLogger(t))
 		require.NoError(t, err)
 
@@ -447,7 +446,7 @@ func TestEvmWrite(t *testing.T) {
 	})
 
 	t.Run("Relayer fails to start WriteTarget capability on missing config", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		testChain := evmmocks.NewChain(t)
 		testCfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 			c.Workflow.FromAddress = nil
@@ -460,7 +459,7 @@ func TestEvmWrite(t *testing.T) {
 		testChain.On("Close").Return(nil)
 		testChain.On("ID").Return(big.NewInt(11155111))
 		testChain.On("Config").Return(testCfg)
-		capabilityRegistry := evmcapabilities.NewRegistry(lggr)
+		capabilityRegistry := capreg.NewRegistry(lggr)
 
 		relayer, err := evm.NewRelayer(lggr, testChain, evm.RelayerOpts{
 			DS:                   db,

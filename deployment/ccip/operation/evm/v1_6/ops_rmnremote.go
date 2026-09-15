@@ -40,9 +40,8 @@ var (
 		shared.RMNRemote,
 		rmn_remote.RMNRemoteMetaData,
 		&opsutils.ContractOpts{
-			Version:          &deployment.Version1_6_0,
-			EVMBytecode:      common.FromHex(rmn_remote.RMNRemoteBin),
-			ZkSyncVMBytecode: rmn_remote.ZkBytecode,
+			Version:     &deployment.Version1_6_0,
+			EVMBytecode: common.FromHex(rmn_remote.RMNRemoteBin),
 		},
 		func(input DeployRMNRemoteInput) []any {
 			return []any{

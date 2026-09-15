@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
@@ -54,7 +55,7 @@ func TestChainWriterConfigRaw(t *testing.T) {
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t,
 					tt.fromAddress,
 					config.Contracts[consts.ContractNameOffRamp].Configs[consts.MethodCommit].FromAddress)

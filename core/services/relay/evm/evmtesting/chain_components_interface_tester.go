@@ -163,7 +163,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) config
 						EventDefinitions: &config.EventDefinitions{
 							PollingFilter: &config.PollingFilter{},
 						},
-						// This doesn't have to be here, since the defalt mapping would work, but is left as an example.
+						// This doesn't have to be here, since the default mapping would work, but is left as an example.
 						// Keys which are string float values(confidence levels) are chain agnostic and should be reused across chains.
 						// These float values can map to different finality concepts across chains.
 						ConfidenceConfirmations: map[string]int{"0.0": int(evmtypes.Unconfirmed), "1.0": int(evmtypes.Finalized)},
@@ -296,8 +296,8 @@ func (it *EVMChainComponentsInterfaceTester[T]) Name() string {
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetAccountBytes(i int) []byte {
 	account := [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	account[i%20] += byte(i)
-	account[(i+3)%20] += byte(i + 3)
+	account[i%20] += byte(i)         //nolint:gosec // G115
+	account[(i+3)%20] += byte(i + 3) //nolint:gosec // G115
 	return account[:]
 }
 

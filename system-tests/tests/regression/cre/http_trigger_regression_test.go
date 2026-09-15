@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
@@ -25,14 +26,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // regression - HTTP trigger negative test cases
@@ -259,7 +259,7 @@ func createHTTPTriggerRequestWithKey(t *testing.T, workflowName, workflowOwner s
 		Workflow: gateway_common.WorkflowSelector{
 			WorkflowOwner: workflowOwner,
 			WorkflowName:  workflowName,
-			WorkflowTag:   "TEMP_TAG",
+			WorkflowTag:   workflow.DefaultWorkflowTag,
 		},
 		Input: []byte(`{
 			"customer": "test-customer-unauthorized",

@@ -115,6 +115,7 @@ func PrepareNodeTOMLs(
 					Topology:                  topology,
 					Provider:                  creEnv.Provider,
 					ChipRouterInternalGRPCURL: chipRouterInternalGRPCURL,
+					EnableMetering:            localNodeSets[i].EnableMetering,
 				},
 				configFactoryFunctions,
 			)
@@ -186,6 +187,9 @@ func PrepareNodeTOMLs(
 	for i := range localNodeSets {
 		for j := range localNodeSets[i].NodeSpecs {
 			if localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides != "" {
+				if err := validateUserConfigOverrides(localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides); err != nil {
+					return nil, errors.Wrapf(err, "invalid user_config_overrides for nodeset %q node %d", localNodeSets[i].Name, j)
+				}
 				localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides = transformUserConfigOverrides(
 					localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides,
 				)
@@ -294,7 +298,7 @@ func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, no
 			"node.don":         donMetadata.Name,
 			"node.index":       strconv.Itoa(nodeMetadata.Index),
 		}
-		resourceAttributes["don_family"] = donMetadata.DonFamily // OTel label; mirrors nodeset pairing key
+		resourceAttributes["don_family"] = donMetadata.DonFamily() // OTel label; mirrors nodeset pairing key
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             new(true),
 			Endpoint:            new(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
@@ -329,7 +333,7 @@ func addBootstrapNodeConfig(
 		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstrapperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
@@ -362,7 +366,8 @@ func addBootstrapNodeConfig(
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{
@@ -416,7 +421,7 @@ func addWorkerNodeConfig(
 	donMetadata *cre.DonMetadata,
 	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstrapperPeerID, []string{ocrPeeringData.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
@@ -450,6 +455,10 @@ func addWorkerNodeConfig(
 			URL:        new("billing-platform-service:2223"),
 			TLSEnabled: new(false),
 		}
+
+		if commonInputs.enableMetering {
+			existingConfig.Metering = meteringNodeConfig(donMetadata, m.Index)
+		}
 	}
 
 	// Preserve existing WorkflowRegistry config (e.g., AdditionalSourcesConfig from user_config_overrides)
@@ -460,7 +469,8 @@ func addWorkerNodeConfig(
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{
@@ -553,7 +563,7 @@ func addWorkerNodeConfig(
 
 		gateways := []coretoml.ConnectorGateway{}
 		// Workflow nodes only receive gateway connectors paired to their don_family.
-		connectors := topology.GatewayConnectorsForDonFamily(donMetadata.DonFamily)
+		connectors := topology.GatewayConnectorsForDonFamily(donMetadata.DonFamily())
 		if len(connectors.Configurations) > 0 {
 			for _, gateway := range connectors.Configurations {
 				gateways = append(gateways, gateway.ToConnectorGateway())
@@ -568,6 +578,23 @@ func addWorkerNodeConfig(
 		}
 	}
 	return existingConfig, nil
+}
+
+// meteringNodeConfig returns the [Metering] section for a worker node with
+// local-cre deployment dimensions. NodeID is derived from the DON name and
+// node index to be unique per node within the DON (required by
+// Metering.ValidateConfig and per-node snapshot dedup).
+func meteringNodeConfig(donMetadata *cre.DonMetadata, nodeIndex int) coretoml.Metering {
+	return coretoml.Metering{
+		MeterRecordsEnabled:   new(true),
+		MeterSnapshotsEnabled: new(true),
+		Product:               new("cre"),
+		Tenant:                new("local-cre"),
+		NumericTenantID:       new("1"),
+		Environment:           new("local"),
+		Zone:                  new(donMetadata.Name),
+		NodeID:                new(donMetadata.Name + "-node-" + strconv.Itoa(nodeIndex)),
+	}
 }
 
 func addGatewayNodeConfig(
@@ -591,10 +618,16 @@ func addGatewayNodeConfig(
 		existingConfig.P2P.V2.ListenAddresses = new([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)})
 	}
 
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstrapperPeerID, []string{ocrPeeringData.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
+	if ocrBErr != nil {
+		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
+	}
+
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{
@@ -672,6 +705,7 @@ type commonInputs struct {
 	provider infra.Provider
 
 	chipRouterInternalGRPCURL string
+	enableMetering            bool
 }
 
 func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
@@ -716,6 +750,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		},
 		provider:                  input.Provider,
 		chipRouterInternalGRPCURL: input.ChipRouterInternalGRPCURL,
+		enableMetering:            input.EnableMetering,
 	}, nil
 }
 
@@ -779,6 +814,10 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 
 	return solChain, nil
 }
+
+// stellarMaxResourceFeeStroops is the per-transaction Soroban resource fee cap applied to the
+// Stellar TXM in Local CRE nodes: 10_000_000 stroops = 1 XLM.
+const stellarMaxResourceFeeStroops = int64(10_000_000)
 
 type stellarChain struct {
 	Name    string
@@ -936,6 +975,13 @@ func appendStellarChain(existingConfig *corechainlink.RawConfigs, stChain *stell
 	*existingConfig = append(*existingConfig, corechainlink.RawConfig{
 		"Enabled": true,
 		"ChainID": stChain.ChainID,
+		"TxManager": map[string]any{
+			// Cap on the Soroban resource fee per transaction, in stroops. The chainlink-stellar
+			// TXM rejects a tx at assembly time when the simulated resource fee exceeds this cap.
+			// A forwarder -> data feeds cache write simulates at ~1.7M stroops on localnet, above
+			// the plugin default of 1_000_000, so set it explicitly to a value with headroom.
+			"MaxResourceFee": stellarMaxResourceFeeStroops,
+		},
 		"Nodes": []map[string]any{
 			{
 				"Name": stChain.Name,
@@ -969,6 +1015,37 @@ func transformAdditionalSourceURLs(sources []coretoml.AdditionalWorkflowSource) 
 	}
 
 	return transformed
+}
+
+// frameworkManagedSections are top-level node-config tables the framework
+// generates itself (see baseNodeConfig/addWorkerNodeConfig): Telemetry points
+// nodes at the chip-router (the test sink and other consumers subscribe to the
+// router, so overriding ChipIngressEndpoint silently bypasses them), Billing
+// at the local billing service, and Metering is gated by the nodeset-level
+// enable_metering flag. Overriding any of them in user_config_overrides wins
+// the last-one-wins config merge on the node and desynchronizes the
+// environment from what the framework wired up.
+var frameworkManagedSections = []string{"Telemetry", "Billing", "Metering"}
+
+// validateUserConfigOverrides rejects user_config_overrides that set
+// framework-managed config tables. It parses the TOML rather than string
+// matching so comments mentioning these sections stay legal.
+func validateUserConfigOverrides(userConfig string) error {
+	var parsed map[string]any
+	if err := toml.Unmarshal([]byte(userConfig), &parsed); err != nil {
+		return errors.Wrap(err, "user_config_overrides is not valid TOML")
+	}
+	for _, section := range frameworkManagedSections {
+		if _, found := parsed[section]; found {
+			return errors.Errorf(
+				"[%s] is framework-managed and cannot be set via user_config_overrides; "+
+					"the framework generates it (pointing telemetry at the chip-router). "+
+					"For metering, set enable_metering = true on the nodeset instead",
+				section,
+			)
+		}
+	}
+	return nil
 }
 
 // transformUserConfigOverrides transforms URLs in a user config overrides string to use

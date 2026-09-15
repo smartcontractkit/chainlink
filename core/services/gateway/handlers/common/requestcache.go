@@ -25,13 +25,13 @@ type RequestCache[T any] interface {
 type ResponseProcessor[T any] func(response *api.Message, state *T) (aggregated *handlers.UserCallbackPayload, newState *T, err error)
 
 type requestCache[T any] struct {
-	cache        map[globalId]*pendingRequest[T]
+	cache        map[globalID]*pendingRequest[T]
 	maxCacheSize uint32
 	timeout      time.Duration
 	mu           sync.Mutex
 }
 
-type globalId struct {
+type globalID struct {
 	sender string
 	id     string
 }
@@ -44,7 +44,7 @@ type pendingRequest[T any] struct {
 }
 
 func NewRequestCache[T any](timeout time.Duration, maxCacheSize uint32) RequestCache[T] {
-	return &requestCache[T]{cache: make(map[globalId]*pendingRequest[T]), timeout: timeout, maxCacheSize: maxCacheSize}
+	return &requestCache[T]{cache: make(map[globalID]*pendingRequest[T]), timeout: timeout, maxCacheSize: maxCacheSize}
 }
 
 func (c *requestCache[T]) NewRequest(lggr logger.Logger, request *api.Message, callback handlers.Callback, responseData *T) error {
@@ -54,7 +54,7 @@ func (c *requestCache[T]) NewRequest(lggr logger.Logger, request *api.Message, c
 	if responseData == nil {
 		return errors.New("responseData is nil")
 	}
-	key := globalId{request.Body.Sender, request.Body.MessageId}
+	key := globalID{request.Body.Sender, request.Body.MessageID}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	_, ok := c.cache[key]
@@ -64,7 +64,7 @@ func (c *requestCache[T]) NewRequest(lggr logger.Logger, request *api.Message, c
 	if len(c.cache) >= int(c.maxCacheSize) {
 		return errors.New("request cache is full")
 	}
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	timer := time.AfterFunc(c.timeout, func() {
 		err := c.deleteAndSendOnce(key, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(request), ErrorCode: api.RequestTimeoutError})
 		if err != nil {
@@ -84,7 +84,7 @@ func (c *requestCache[T]) ProcessResponse(response *api.Message, process Respons
 	if response == nil {
 		return errors.New("response is nil")
 	}
-	key := globalId{response.Body.Receiver, response.Body.MessageId}
+	key := globalID{response.Body.Receiver, response.Body.MessageID}
 	// retrieve entry
 	c.mu.Lock()
 	entry, ok := c.cache[key]
@@ -108,7 +108,7 @@ func (c *requestCache[T]) ProcessResponse(response *api.Message, process Respons
 	return nil
 }
 
-func (c *requestCache[T]) deleteAndSendOnce(key globalId, callbackResponse handlers.UserCallbackPayload) error {
+func (c *requestCache[T]) deleteAndSendOnce(key globalID, callbackResponse handlers.UserCallbackPayload) error {
 	c.mu.Lock()
 	entry, deleted := c.cache[key]
 	delete(c.cache, key)

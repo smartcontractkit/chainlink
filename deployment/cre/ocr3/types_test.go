@@ -23,7 +23,7 @@ func Test_toNodeKeys(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
+	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(registryChainID, 10), chainsel.FamilyEVM)
 	if err != nil {
 		panic(err)
 	}

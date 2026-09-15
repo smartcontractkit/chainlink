@@ -122,8 +122,9 @@ func WaitTimeoutCustom(t *testing.T, requested time.Duration) time.Duration {
 // Context returns a context with the test's deadline, if available.
 //
 // Deprecated: use [testing.TB.Context] directly
+//
+//go:fix inline
 func Context(tb testing.TB) context.Context {
-	tb.Helper()
 	return tb.Context()
 }
 
@@ -238,7 +239,7 @@ func SkipShortDB(tb testing.TB) {
 
 func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected int64) {
 	t.Helper()
-	ctx := Context(t)
+	ctx := t.Context()
 	var count int64
 	err := ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 	require.NoError(t, err)

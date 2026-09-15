@@ -21,6 +21,10 @@ type GatewayMetrics struct {
 	nodeConnectedEvents    metric.Int64Counter
 	keepalivePingsSent     metric.Int64Counter
 	keepalivePongsReceived metric.Int64Counter
+	donConnectedNodes      metric.Int64Gauge
+	donRequiredNodes       metric.Int64Gauge
+	donConfiguredNodes     metric.Int64Gauge
+	userReady              metric.Int64Gauge
 }
 
 type HTTPServerMetrics struct {
@@ -80,6 +84,21 @@ func (m *GatewayMetrics) RecordKeepalivePongsReceived(ctx context.Context, nodeA
 	))
 }
 
+func (m *GatewayMetrics) RecordDONConnectionState(ctx context.Context, donID string, connected, required, configured int) {
+	attrs := metric.WithAttributes(attribute.String("donID", donID))
+	m.donConnectedNodes.Record(ctx, int64(connected), attrs)
+	m.donRequiredNodes.Record(ctx, int64(required), attrs)
+	m.donConfiguredNodes.Record(ctx, int64(configured), attrs)
+}
+
+func (m *GatewayMetrics) RecordUserReady(ctx context.Context, ready bool) {
+	value := int64(0)
+	if ready {
+		value = 1
+	}
+	m.userReady.Record(ctx, value)
+}
+
 func NewGatewayMetrics() (*GatewayMetrics, error) {
 	nodeMsgHandleDuration, err := beholder.GetMeter().Int64Histogram("platform_gateway_node_msg_handler_duration_ms")
 	if err != nil {
@@ -116,6 +135,26 @@ func NewGatewayMetrics() (*GatewayMetrics, error) {
 		return nil, err
 	}
 
+	donConnectedNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_connected_nodes")
+	if err != nil {
+		return nil, err
+	}
+
+	donRequiredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_required_nodes")
+	if err != nil {
+		return nil, err
+	}
+
+	donConfiguredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_configured_nodes")
+	if err != nil {
+		return nil, err
+	}
+
+	userReady, err := beholder.GetMeter().Int64Gauge("platform_gateway_user_ready")
+	if err != nil {
+		return nil, err
+	}
+
 	return &GatewayMetrics{
 		nodeMsgHandleDuration:  nodeMsgHandleDuration,
 		nodeMsgHandleCount:     nodeMsgHandleCount,
@@ -124,6 +163,10 @@ func NewGatewayMetrics() (*GatewayMetrics, error) {
 		nodeConnectedEvents:    nodeConnectedEvents,
 		keepalivePingsSent:     keepalivePingsSent,
 		keepalivePongsReceived: keepalivePongsReceived,
+		donConnectedNodes:      donConnectedNodes,
+		donRequiredNodes:       donRequiredNodes,
+		donConfiguredNodes:     donConfiguredNodes,
+		userReady:              userReady,
 	}, nil
 }
 

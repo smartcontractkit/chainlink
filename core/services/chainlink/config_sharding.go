@@ -47,3 +47,10 @@ func (s *shardingConfig) ShardOrchestratorAddress() *url.URL {
 	}
 	return s.s.ShardOrchestratorAddress.URL()
 }
+
+func (s *shardingConfig) ShardAssignmentMode() string {
+	if s.s.ShardAssignmentMode == nil {
+		return toml.ShardAssignmentModeManualOnly
+	}
+	return *s.s.ShardAssignmentMode
+}

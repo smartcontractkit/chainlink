@@ -56,8 +56,8 @@ func TestTestLogger(t *testing.T) {
 		idKey, workerId      = "workerId", "42"
 		resultKey, resultVal = "result", "success"
 	)
-	wrkLgr := srvLgr.Named(workerName).With(idKey, workerId)
-	wrkLgr.Infow(workerMessage, resultKey, resultVal)
+	workLgr := srvLgr.Named(workerName).With(idKey, workerId)
+	workLgr.Infow(workerMessage, resultKey, resultVal)
 	// [INFO]	Did some work		logger/test_logger_test.go:49 version=unset@unset logger=ServiceName.WorkerName result=success workerId=42
 	logs = observed.TakeAll()
 	require.Len(t, logs, 1)

@@ -117,7 +117,7 @@ func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec stri
 		env.Logger.Debugf("nodeIDs provided. Fetching nodes for node IDs %s", nodeFilters.NodeIDs)
 		nodes, err = getNodes(ctx, env, nodeFilters.NodeIDs)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get nodes for ndoe Ids %s: %w", nodeFilters.NodeIDs, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get nodes for node Ids %s: %w", nodeFilters.NodeIDs, err)
 		}
 	} else {
 		// Fetch nodes based on filter

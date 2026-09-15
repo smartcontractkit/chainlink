@@ -20,7 +20,6 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
@@ -28,10 +27,9 @@ import (
 var errSignedPayloadRequestIDMismatch = errors.New("signed payload request id mismatch")
 
 type baseAggregator struct {
-	capabilitiesRegistry        capabilitiesRegistry
-	metrics                     *metrics
-	donID                       string
-	signedResponseRequestIDGate limits.GateLimiter
+	capabilitiesRegistry capabilitiesRegistry
+	metrics              *metrics
+	donID                string
 	// vaultHandlerDonID scopes registry lookup when several vault DONs exist.
 	//
 	// Source: gateway job TOML [[gatewayConfig.ShardedDONs]] DonName (see deployment/cre/jobs/pkg/gateway_job.go),
@@ -54,32 +52,14 @@ func methodSupportsSignedOCRValidation(method string) bool {
 	}
 }
 
-func (a *baseAggregator) signedResponseRequestIDEnabled(ctx context.Context, l logger.Logger) bool {
-	allowed, err := a.signedResponseRequestIDGate.Limit(ctx)
-	if err != nil {
-		l.Errorw("unexpected error evaluating CRE gate", "gate", "VaultSignedResponseRequestIDEnabled", "error", err)
-		return false
-	}
-	return allowed
-}
-
 func (a *baseAggregator) Aggregate(ctx context.Context, l logger.Logger, requestID string, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	don, err := a.donForVaultCapability(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DON for vault capability: %w", err)
 	}
 
-	if a.signedResponseRequestIDEnabled(ctx, l) {
-		if methodSupportsSignedOCRValidation(currResp.Method) {
-			currResp, err = a.validateUsingSignatures(ctx, l, don.DON, don.Nodes, requestID, currResp, true)
-			if err == nil {
-				return currResp, nil
-			}
-
-			l.Debugw("failed to validate signatures, falling back to quorum aggregation", "error", err)
-		}
-	} else {
-		currResp, err = a.validateUsingSignatures(ctx, l, don.DON, don.Nodes, requestID, currResp, false)
+	if methodSupportsSignedOCRValidation(currResp.Method) {
+		currResp, err = a.validateUsingSignatures(ctx, l, don.DON, don.Nodes, requestID, currResp)
 		if err == nil {
 			return currResp, nil
 		}
@@ -260,7 +240,7 @@ func (a *baseAggregator) recordSignedPayloadRequestIDMismatch(ctx context.Contex
 	))
 }
 
-func (a *baseAggregator) validateUsingSignatures(ctx context.Context, l logger.Logger, don capabilities.DON, nodes []capabilities.Node, requestID string, resp *jsonrpc.Response[json.RawMessage], validateSignedPayloadRequestID bool) (*jsonrpc.Response[json.RawMessage], error) {
+func (a *baseAggregator) validateUsingSignatures(ctx context.Context, l logger.Logger, don capabilities.DON, nodes []capabilities.Node, requestID string, resp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	if resp.Result == nil {
 		if resp.Error != nil {
 			return nil, errors.New("response has an error, cannot validate signatures. Error: " + resp.Error.Error())
@@ -282,10 +262,6 @@ func (a *baseAggregator) validateUsingSignatures(ctx context.Context, l logger.L
 	err = vaulttypes.ValidateSignatures(r, signers, int(don.F+1))
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate signatures: %w", err)
-	}
-
-	if !validateSignedPayloadRequestID {
-		return resp, nil
 	}
 
 	payloadRequestID, err := vaultutils.SignedPayloadRequestID(resp.Method, r.Payload)

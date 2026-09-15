@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
 )
 
@@ -86,5 +85,42 @@ func Test_decodeExtraArgs(t *testing.T) {
 		ooe, exist := output["AllowOutOfOrderExecution"]
 		require.True(t, exist)
 		require.Equal(t, false, ooe)
+	})
+
+	t.Run("decode extra args into map sui", func(t *testing.T) {
+		t.Parallel()
+		tokenReceiver := [32]byte{0x0A, 0x0B}
+		receiverObjectIDs := [][32]byte{{0x01}, {0x02}}
+		extraArgs := fee_quoter.SuiExtraArgsV1{
+			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
+			AllowOutOfOrderExecution: true,
+			TokenReceiver:            tokenReceiver,
+			ReceiverObjectIds:        receiverObjectIDs,
+		}
+
+		var buf bytes.Buffer
+		encoder := agbinary.NewBorshEncoder(&buf)
+		err := extraArgs.MarshalWithEncoder(encoder)
+		require.NoError(t, err)
+
+		output, err := extraDataDecoder.DecodeExtraArgsToMap(append(suiExtraArgsV1Tag, buf.Bytes()...))
+		require.NoError(t, err)
+		require.Len(t, output, 4)
+
+		gasLimit, exist := output["GasLimit"]
+		require.True(t, exist)
+		require.Equal(t, agbinary.Uint128{Lo: 5000, Hi: 0}.BigInt(), gasLimit)
+
+		ooe, exist := output["AllowOutOfOrderExecution"]
+		require.True(t, exist)
+		require.Equal(t, true, ooe)
+
+		receiver, exist := output["TokenReceiver"]
+		require.True(t, exist)
+		require.Equal(t, tokenReceiver, receiver)
+
+		objectIDs, exist := output["ReceiverObjectIds"]
+		require.True(t, exist)
+		require.Equal(t, receiverObjectIDs, objectIDs)
 	})
 }

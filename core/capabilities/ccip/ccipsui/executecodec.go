@@ -89,7 +89,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode ExtraArgs: %w", err)
 	}
-	gasLimit, tokenReceiver, err := parseExtraDataMap(decodedExtraArgsMap) // Use a helper to extract the gas limit
+	gasLimit, tokenReceiver, err := parseExtraDataMap(decodedExtraArgsMap, chainReport.SourceChainSelector) // Use a helper to extract the gas limit
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract values from decoded ExtraArgs map: %w", err)
 	}

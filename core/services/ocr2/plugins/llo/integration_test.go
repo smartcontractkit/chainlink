@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/freeport"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -39,9 +40,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
-	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
-	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
+	lloreportcodec "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec"
+	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec/evm"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
 	mercuryverifier "github.com/smartcontractkit/chainlink-data-streams/mercury/verifier"
@@ -61,7 +63,6 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -225,10 +226,16 @@ type OCRConfig struct {
 	MaxDurationShouldTransmitAcceptedReport time.Duration
 	F                                       int
 	OnchainConfig                           []byte
+
+	// ocr31 selects the OCR3.1 (llo/v31) config format when true. It changes the
+	// confighelper used by generateConfig (ocr3_1confighelper => offchainConfigVersion
+	// 310) so the on-chain config matches what an OCR3.1 node validates. The
+	// config digest prefix (LLO 0x0009) is identical across OCR3.0/3.1.
+	ocr31 bool
 }
 
 func makeDefaultOCRConfig() *OCRConfig {
-	defaultOnchainConfig, err := (&llocommon.EVMOnchainConfigCodec{}).Encode(llocommon.OnchainConfig{
+	defaultOnchainConfig, err := (&lloprotocol.EVMOnchainConfigCodec{}).Encode(lloprotocol.OnchainConfig{
 		Version:                 1,
 		PredecessorConfigDigest: nil,
 	})
@@ -257,7 +264,7 @@ func makeDefaultOCRConfig() *OCRConfig {
 
 func WithPredecessorConfigDigest(predecessorConfigDigest ocr2types.ConfigDigest) OCRConfigOption {
 	return func(cfg *OCRConfig) {
-		onchainConfig, err := (&llocommon.EVMOnchainConfigCodec{}).Encode(llocommon.OnchainConfig{
+		onchainConfig, err := (&lloprotocol.EVMOnchainConfigCodec{}).Encode(lloprotocol.OnchainConfig{
 			Version:                 1,
 			PredecessorConfigDigest: &predecessorConfigDigest,
 		})
@@ -268,7 +275,7 @@ func WithPredecessorConfigDigest(predecessorConfigDigest ocr2types.ConfigDigest)
 	}
 }
 
-func WithOffchainConfig(offchainConfig llocommon.OffchainConfig) OCRConfigOption {
+func WithOffchainConfig(offchainConfig lloprotocol.OffchainConfig) OCRConfigOption {
 	return func(cfg *OCRConfig) {
 		offchainConfigEncoded, err := offchainConfig.Encode()
 		if err != nil {
@@ -285,6 +292,13 @@ func WithOracles(oracles []confighelper.OracleIdentityExtra) OCRConfigOption {
 	}
 }
 
+// WithOCR31 switches config generation to the OCR3.1 (llo/v31) format.
+func WithOCR31() OCRConfigOption {
+	return func(cfg *OCRConfig) {
+		cfg.ocr31 = true
+	}
+}
+
 type OCRConfigOption func(*OCRConfig)
 
 func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.OnchainPublicKey, transmitters []types.Account, f uint8, outOnchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) {
@@ -295,33 +309,88 @@ func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.Onch
 	}
 	t.Logf("Using OCR config: %+v\n", cfg)
 	var err error
-	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
-		cfg.DeltaProgress,
-		cfg.DeltaResend,
-		cfg.DeltaInitial,
-		cfg.DeltaRound,
-		cfg.DeltaGrace,
-		cfg.DeltaCertifiedCommitRequest,
-		cfg.DeltaStage,
-		cfg.RMax,
-		cfg.S,
-		cfg.Oracles,
-		cfg.ReportingPluginConfig,
-		cfg.MaxDurationInitialization,
-		cfg.MaxDurationQuery,
-		cfg.MaxDurationObservation,
-		cfg.MaxDurationShouldAcceptAttestedReport,
-		cfg.MaxDurationShouldTransmitAcceptedReport,
-		cfg.F,
-		cfg.OnchainConfig,
-	)
+	if cfg.ocr31 {
+		signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = generateOCR31Config(cfg)
+	} else {
+		signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
+			cfg.DeltaProgress,
+			cfg.DeltaResend,
+			cfg.DeltaInitial,
+			cfg.DeltaRound,
+			cfg.DeltaGrace,
+			cfg.DeltaCertifiedCommitRequest,
+			cfg.DeltaStage,
+			cfg.RMax,
+			cfg.S,
+			cfg.Oracles,
+			cfg.ReportingPluginConfig,
+			cfg.MaxDurationInitialization,
+			cfg.MaxDurationQuery,
+			cfg.MaxDurationObservation,
+			cfg.MaxDurationShouldAcceptAttestedReport,
+			cfg.MaxDurationShouldTransmitAcceptedReport,
+			cfg.F,
+			cfg.OnchainConfig,
+		)
+	}
 
 	require.NoError(t, err)
 
-	return
+	return signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig
 }
 
-func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, inOffchainConfig llocommon.OffchainConfig) ocr2types.ConfigDigest {
+// generateOCR31Config maps the shared OCRConfig to ocr3_1confighelper's OCR3.1
+// argument shape (offchainConfigVersion 310). The v3.0 MaxDurationQuery/Observation
+// become OCR3.1 warn durations; DeltaResend/DeltaInitial/DeltaCertifiedCommitRequest
+// move into the optional-config struct.
+func generateOCR31Config(cfg *OCRConfig) (signers []types.OnchainPublicKey, transmitters []types.Account, f uint8, outOnchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte, err error) {
+	// OCR3.1 requires a positive MaxDurationInitialization (unlike OCR3.0 where it
+	// is optional); default it when the shared config leaves it unset.
+	maxDurationInitialization := time.Second
+	if cfg.MaxDurationInitialization != nil && *cfg.MaxDurationInitialization > 0 {
+		maxDurationInitialization = *cfg.MaxDurationInitialization
+	}
+	deltaResend := cfg.DeltaResend
+	deltaInitial := cfg.DeltaInitial
+	deltaReportsPlusPrecursorRequest := cfg.DeltaCertifiedCommitRequest
+	// OCR3.1 requires every warn/max duration to be positive. The shared OCRConfig
+	// leaves several at 0 (valid for OCR3.0); positive-default them here.
+	positive := func(d time.Duration) time.Duration {
+		if d > 0 {
+			return d
+		}
+		return time.Second
+	}
+	return ocr3_1confighelper.ContractSetConfigArgsForTests(
+		ocr3_1confighelper.CheckPublicConfigLevelDefault,
+		cfg.Oracles,
+		cfg.F,
+		cfg.DeltaProgress,
+		cfg.DeltaRound,
+		cfg.DeltaGrace,
+		cfg.RMax,
+		cfg.DeltaStage,
+		cfg.S,
+		cfg.ReportingPluginConfig,
+		cfg.OnchainConfig,
+		maxDurationInitialization,
+		positive(cfg.MaxDurationQuery),       // warnDurationQuery
+		positive(cfg.MaxDurationObservation), // warnDurationObservation
+		time.Second,                          // warnDurationValidateObservation
+		time.Second,                          // warnDurationObservationQuorum
+		time.Second,                          // warnDurationStateTransition
+		time.Second,                          // warnDurationCommitted
+		positive(cfg.MaxDurationShouldAcceptAttestedReport),
+		positive(cfg.MaxDurationShouldTransmitAcceptedReport),
+		ocr3_1confighelper.ContractSetConfigArgsOptionalConfig{
+			DeltaResend:                      &deltaResend,
+			DeltaInitial:                     &deltaInitial,
+			DeltaReportsPlusPrecursorRequest: &deltaReportsPlusPrecursorRequest,
+		},
+	)
+}
+
+func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, inOffchainConfig lloprotocol.OffchainConfig) ocr2types.ConfigDigest {
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateConfig(t, WithOracles(oracles), WithOffchainConfig(inOffchainConfig))
 
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
@@ -368,7 +437,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	donIDPadded := llo.DonIDToBytes32(donID)
 	var isProduction bool
 	{
-		cfg, err := (&llocommon.EVMOnchainConfigCodec{}).Decode(onchainConfig)
+		cfg, err := (&lloprotocol.EVMOnchainConfigCodec{}).Decode(onchainConfig)
 		require.NoError(t, err)
 		isProduction = cfg.PredecessorConfigDigest == nil
 	}
@@ -392,7 +461,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	} else {
 		topic = llo.StagingConfigSet
 	}
-	logs, err := backend.Client().FilterLogs(t.Context(), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
+	logs, err := backend.Client().FilterLogs(t.Context(), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{{topic, donIDPadded}}})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(logs), 1)
 
@@ -416,7 +485,7 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	t.Parallel()
-	offchainConfigs := []llocommon.OffchainConfig{
+	offchainConfigs := []lloprotocol.OffchainConfig{
 		{
 			ProtocolVersion:                     0,
 			DefaultMinReportIntervalNanoseconds: 0,
@@ -434,7 +503,7 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	}
 }
 
-func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig llocommon.OffchainConfig) {
+func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig lloprotocol.OffchainConfig) {
 	testStartTimeStamp := time.Now()
 	multiplier := decimal.New(1, 18)
 	expirationWindow := time.Hour / time.Second
@@ -656,7 +725,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_multi_formats(t *testing.T) {
 	t.Parallel()
-	offchainConfigs := []llocommon.OffchainConfig{
+	offchainConfigs := []lloprotocol.OffchainConfig{
 		{
 			ProtocolVersion:                     0,
 			DefaultMinReportIntervalNanoseconds: 0,
@@ -666,15 +735,24 @@ func TestIntegration_LLO_multi_formats(t *testing.T) {
 			DefaultMinReportIntervalNanoseconds: 1,
 		},
 	}
+	ocrVersions := []struct {
+		name  string
+		ocr31 bool
+	}{
+		{"OCR3.0/v30", false},
+		{"OCR3.1/v31", true},
+	}
 	for _, offchainConfig := range offchainConfigs {
-		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
-			t.Parallel()
-			testIntegrationLLOMultiFormats(t, offchainConfig)
-		})
+		for _, ov := range ocrVersions {
+			t.Run(fmt.Sprintf("%s/offchainConfig=%+v", ov.name, offchainConfig), func(t *testing.T) {
+				t.Parallel()
+				testIntegrationLLOMultiFormats(t, offchainConfig, ov.ocr31)
+			})
+		}
 	}
 }
 
-func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig llocommon.OffchainConfig) {
+func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig lloprotocol.OffchainConfig, ocr31 bool) {
 	testStartTimeStamp := time.Now()
 	expirationWindow := uint32(3600)
 
@@ -858,7 +936,7 @@ lloConfigMode = "bluegreen"
 					},
 				}),
 			},
-			// Sample funding rate scheam
+			// Sample funding rate schema
 			4: {
 				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 				Streams: []llotypes.Stream{
@@ -1010,6 +1088,9 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+		if ocr31 {
+			pluginConfig += "\nocrVersion = \"3.1\""
+		}
 
 		bridgeName := "superbridge"
 
@@ -1101,9 +1182,9 @@ stonk_price_timestamped_missing_indicated_time [type=merge left="{}" right="{\\"
 dp -> missing_provider_indicated_time_parse -> missing_provider_indicated_time;
 dp -> stonk_price_parse -> stonk_price_timestamped_missing_indicated_time;
 `, bridgeName, marketStatusStreamID,
-			llocommon.LLOStreamValue_TimestampedStreamValue, timestampedStonkPriceStreamID,
-			llocommon.LLOStreamValue_TimestampedStreamValue, nullTimestampPriceStreamID,
-			llocommon.LLOStreamValue_TimestampedStreamValue, missingTimestampPriceStreamID,
+			lloprotocol.LLOStreamValue_TimestampedStreamValue, timestampedStonkPriceStreamID,
+			lloprotocol.LLOStreamValue_TimestampedStreamValue, nullTimestampPriceStreamID,
+			lloprotocol.LLOStreamValue_TimestampedStreamValue, missingTimestampPriceStreamID,
 		)
 
 		benchmarkPricePipeline := fmt.Sprintf(`
@@ -1197,8 +1278,12 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 		}
 
 		// Set config on configurator
+		productionConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
+		if ocr31 {
+			productionConfigOpts = append(productionConfigOpts, WithOCR31())
+		}
 		digest := setProductionConfig(
-			t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, productionConfigOpts...,
 		)
 
 		// NOTE: Wait for one of each type of report
@@ -1435,7 +1520,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 
 	// PROTOCOL CONFIGURATION
 	ocrConfigOpts := []OCRConfigOption{
-		WithOffchainConfig(llocommon.OffchainConfig{
+		WithOffchainConfig(lloprotocol.OffchainConfig{
 			ProtocolVersion:                     1,
 			DefaultMinReportIntervalNanoseconds: uint64(defaultMinReportInterval),
 			EnableObservationCompression:        true,
@@ -1557,7 +1642,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		// mercurytransmitter addr => count of reports
 		cnts := map[string]int{}
 		// mercurytransmitter addr => channel ID => reports
-		m := map[string]map[uint32][]llocommon.Report{}
+		m := map[string]map[uint32][]lloprotocol.Report{}
 
 		for {
 			pckt, err := receiveWithTimeout(t, packets, reportTimeout)
@@ -1568,12 +1653,12 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			req := pckt.req
 
 			assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-			_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+			_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 			require.NoError(t, err)
 
 			cm, exists := m[addr.String()]
 			if !exists {
-				cm = make(map[uint32][]llocommon.Report)
+				cm = make(map[uint32][]lloprotocol.Report)
 				m[addr.String()] = cm
 			}
 			cm[r.ChannelID] = append(cm[r.ChannelID], r)
@@ -1613,7 +1698,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					assert.Equal(t, blueDigest, r.ConfigDigest)
 					assert.False(t, r.Specimen)
 					assert.Len(t, r.Values, 1)
-					assert.Equal(t, "2976.39", r.Values[0].(*llocommon.Decimal).String())
+					assert.Equal(t, "2976.39", r.Values[0].(*lloprotocol.Decimal).String())
 
 					if i > 0 {
 						if rs[i-1].SeqNr+1 != r.SeqNr {
@@ -1671,7 +1756,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 
 	// PROTOCOL CONFIGURATION
 	// TODO: test both
-	offchainConfig := llocommon.OffchainConfig{
+	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(50 * time.Millisecond),
 	}
@@ -1778,13 +1863,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 				req := pckt.req
 
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				assert.Equal(t, blueDigest, r.ConfigDigest)
 				assert.False(t, r.Specimen)
 				assert.Len(t, r.Values, 1)
-				assert.Equal(t, "2976.39", r.Values[0].(*llocommon.Decimal).String())
+				assert.Equal(t, "2976.39", r.Values[0].(*lloprotocol.Decimal).String())
 
 				m[addr.String()]++
 				finished := 0
@@ -1827,14 +1912,31 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 
 	// starting offchainConfig, the test will handle
 	// blue green for ProtocolVersion and EnableObservationCompression changes
-	offchainConfig := llocommon.OffchainConfig{
+	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     0,
 		DefaultMinReportIntervalNanoseconds: 0,
-		EnableObservationCompression:        false}
-	testIntegrationLLOBlueGreenLifecycle(t, offchainConfig)
+		EnableObservationCompression:        false,
+	}
+	for _, ocr31 := range []bool{false, true} {
+		name := "OCR3.0/v30"
+		if ocr31 {
+			name = "OCR3.1/v31"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig, ocr31)
+		})
+	}
 }
 
-func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig llocommon.OffchainConfig) {
+func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig lloprotocol.OffchainConfig, ocr31 bool) {
+	// withVersion appends WithOCR31() to config options when running the v31 variant.
+	withVersion := func(opts ...OCRConfigOption) []OCRConfigOption {
+		if ocr31 {
+			return append(opts, WithOCR31())
+		}
+		return opts
+	}
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)
 
@@ -1909,17 +2011,20 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+		if ocr31 {
+			pluginConfig += "\nocrVersion = \"3.1\""
+		}
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, configuratorAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
 		var blueDigest ocr2types.ConfigDigest
 		var greenDigest ocr2types.ConfigDigest
 
-		allReports := make(map[types.ConfigDigest][]llocommon.Report)
+		allReports := make(map[types.ConfigDigest][]lloprotocol.Report)
 		// start off with blue=production, green=staging (specimen reports)
 		{
 			// Set config on configurator
 			blueDigest = setProductionConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
 			)
 
 			// NOTE: Wait until blue produces a report
@@ -1929,7 +2034,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -1937,7 +2042,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				assert.Equal(t, blueDigest, r.ConfigDigest)
 				assert.False(t, r.Specimen)
 				assert.Len(t, r.Values, 1)
-				assert.Equal(t, "2976.39", r.Values[0].(*llocommon.Decimal).String())
+				assert.Equal(t, "2976.39", r.Values[0].(*lloprotocol.Decimal).String())
 				break
 			}
 		}
@@ -1945,7 +2050,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		{
 			offchainConfig.EnableObservationCompression = true
 			greenDigest = setStagingConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithPredecessorConfigDigest(blueDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig),
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(WithPredecessorConfigDigest(blueDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
 			)
 
 			// NOTE: Wait until green produces the first "specimen" report
@@ -1955,13 +2060,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
 				if r.Specimen {
 					assert.Len(t, r.Values, 1)
-					assert.Equal(t, "2976.39", r.Values[0].(*llocommon.Decimal).String())
+					assert.Equal(t, "2976.39", r.Values[0].(*lloprotocol.Decimal).String())
 
 					assert.Equal(t, greenDigest, r.ConfigDigest)
 					break
@@ -1980,7 +2085,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -2001,7 +2106,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				seenSeqNr := uint64(0)
 				highestObsTsNanos := uint64(0)
 				highestValidAfterNanos := uint64(0)
-				for i := 0; i < len(allReports[digest]); i++ {
+				for i := range len(allReports[digest]) {
 					r := allReports[digest][i]
 					switch digest {
 					case greenDigest:
@@ -2071,7 +2176,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					break
 				}
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -2084,7 +2189,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			offchainConfig.ProtocolVersion = 1
 			offchainConfig.DefaultMinReportIntervalNanoseconds = 1
 			blueDigest = setStagingConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithPredecessorConfigDigest(greenDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig),
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(WithPredecessorConfigDigest(greenDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
 			)
 
 			// NOTE: Wait until blue produces the first "specimen" report
@@ -2094,7 +2199,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -2118,7 +2223,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -2159,7 +2264,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -2170,11 +2275,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 				if r.ChannelID == 2 {
 					assert.Len(t, r.Values, 1)
-					assert.Equal(t, "13.25", r.Values[0].(*llocommon.Decimal).String())
+					assert.Equal(t, "13.25", r.Values[0].(*lloprotocol.Decimal).String())
 					break
 				}
 				assert.Len(t, r.Values, 1)
-				assert.Equal(t, "2976.39", r.Values[0].(*llocommon.Decimal).String())
+				assert.Equal(t, "2976.39", r.Values[0].(*lloprotocol.Decimal).String())
 			}
 		}
 		t.Run("deleting the jobs turns off oracles and cleans up resources", func(t *testing.T) {
@@ -2188,8 +2293,20 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 	t.Parallel()
+	for _, ocr31 := range []bool{false, true} {
+		name := "OCR3.0/v30"
+		if ocr31 {
+			name = "OCR3.1/v31"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOChannelMerging(t, ocr31)
+		})
+	}
+}
 
-	offchainConfig := llocommon.OffchainConfig{
+func testIntegrationLLOChannelMerging(t *testing.T, ocr31 bool) {
+	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
 		EnableObservationCompression:        true,
@@ -2220,7 +2337,7 @@ func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
-	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) {
 		packetCh := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
@@ -2270,6 +2387,9 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+		if ocr31 {
+			pluginConfig += "\nocrVersion = \"3.1\""
+		}
 
 		// Add stream specs and LLO jobs to all nodes
 		for i, node := range nodes {
@@ -2289,12 +2409,16 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 
 		// Set initial OCR config
+		mergeConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
+		if ocr31 {
+			mergeConfigOpts = append(mergeConfigOpts, WithOCR31())
+		}
 		digest := setProductionConfig(
-			t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, mergeConfigOpts...,
 		)
 
 		// Track reports by channel ID
-		reportsByChannel := make(map[uint32][]llocommon.Report)
+		reportsByChannel := make(map[uint32][]lloprotocol.Report)
 		lastReportTimeByChannel := make(map[uint32]time.Time)
 
 		// Helper function to wait for reports from specific channels
@@ -2315,7 +2439,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
 					continue
 				}
-				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 				if err != nil {
 					continue
 				}
@@ -2330,7 +2454,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 
 		// Scenario 1: Owner adds initial channels
-		t.Run("Owner adds initial channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+		t.Run("Owner adds initial channels", func(t *testing.T) {
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
 					ReportFormat: llotypes.ReportFormatJSON,
@@ -2382,15 +2506,15 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				assert.Equal(t, digest, report.ConfigDigest)
 				assert.False(t, report.Specimen)
 				if channelID == 3 {
-					assert.Equal(t, "13.25", report.Values[0].(*llocommon.Decimal).String())
+					assert.Equal(t, "13.25", report.Values[0].(*lloprotocol.Decimal).String())
 				} else {
-					assert.Equal(t, "2976.39", report.Values[0].(*llocommon.Decimal).String())
+					assert.Equal(t, "2976.39", report.Values[0].(*lloprotocol.Decimal).String())
 				}
 			}
 		})
 
 		// Scenario 2: Adders add new channels
-		t.Run("Adders add new channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+		t.Run("Adders add new channels", func(t *testing.T) {
 			// Adder1 adds channels
 			adder1Definitions := llotypes.ChannelDefinitions{
 				10: {
@@ -2488,7 +2612,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 3: Owner tombstone some channels
-		t.Run("Owner tombstone channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+		t.Run("Owner tombstone channels", func(t *testing.T) {
 			// Owner updates definitions, add tombstone to channel 2 and 21
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
@@ -2555,7 +2679,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					}
 					req := pckt.req
 					if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
-						_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+						_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 						if err == nil && tombstonedChannels[r.ChannelID] {
 							seenTombstonedChannels[r.ChannelID] = true
 						}
@@ -2568,7 +2692,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 4: Owner overwrites adder channel
-		t.Run("Owner overwrites adder channel", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+		t.Run("Owner overwrites adder channel", func(t *testing.T) {
 			// Owner sets a channel definition with same ID as adder1's channel 10
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
@@ -2617,11 +2741,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 				req := pckt.req
 				if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
-					_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+					_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 					if err == nil && r.ChannelID == 10 {
 						// Check if it has linkStream value (13.25) - owner's configuration
 						// It might still have ethStream value (2976.39) initially, but should eventually switch
-						value := r.Values[0].(*llocommon.Decimal).String()
+						value := r.Values[0].(*lloprotocol.Decimal).String()
 						if value == "13.25" {
 							foundOwnerReport = true
 						}
@@ -2632,7 +2756,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 5: Verify adder cannot remove channels
-		t.Run("Adder cannot remove channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+		t.Run("Adder cannot remove channels", func(t *testing.T) {
 			// Adder1 tries to set definitions that exclude channel 11 (which they previously added)
 			adder1NewDefinitions := llotypes.ChannelDefinitions{
 				10: {
@@ -2678,7 +2802,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 				req := pckt.req
 				if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
-					_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+					_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 					if err == nil && r.ChannelID == 11 {
 						foundChannel11Report = true
 					}
@@ -2694,7 +2818,19 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 // and no longer transmits reports for that channel.
 func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) {
 	t.Parallel()
+	for _, ocr31 := range []bool{false, true} {
+		name := "OCR3.0/v30"
+		if ocr31 {
+			name = "OCR3.1/v31"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOTombstone(t, ocr31)
+		})
+	}
+}
 
+func testIntegrationLLOTombstone(t *testing.T, ocr31 bool) {
 	const (
 		salt              = 500
 		donID             = uint32(777666)
@@ -2702,7 +2838,7 @@ func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) 
 		streamIDTombstone = uint32(191)
 	)
 
-	offchainConfig := llocommon.OffchainConfig{
+	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
 		EnableObservationCompression:        true,
@@ -2749,6 +2885,9 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+	if ocr31 {
+		pluginConfig += "\nocrVersion = \"3.1\""
+	}
 
 	var streamACalls, streamBCalls atomic.Uint64
 	priceA := decimal.NewFromFloat(111.1)
@@ -2791,9 +2930,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	require.NoError(t, err)
 	backend.Commit()
 
+	tombstoneConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
+	if ocr31 {
+		tombstoneConfigOpts = append(tombstoneConfigOpts, WithOCR31())
+	}
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
-		WithOracles(oracles), WithOffchainConfig(offchainConfig),
+		tombstoneConfigOpts...,
 	)
 
 	seenChannels := make(map[uint32]bool)
@@ -2806,7 +2949,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
 			return len(seenChannels) == 2
 		}
-		_, _, r, _, errDecode := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+		_, _, r, _, errDecode := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 		if errDecode != nil {
 			return len(seenChannels) == 2
 		}
@@ -2852,7 +2995,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
 				continue
 			}
-			_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
+			_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
 			if err == nil && tombstonedChannel[r.ChannelID] {
 				sawTombstoned = true
 				break
@@ -2886,6 +3029,132 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		"tombstoned channel's stream should not be observed (no additional bridge calls)")
 }
 
+// TestIntegration_LLO_bridgeConnManagerHappyPath exercises the BridgeConnManager
+// flow end to end: BridgeTask.Run subscribes to a new asset pair on a bridge with
+// UseConnectionManager=true, the fake EA (a real gRPC server implementing
+// streamspb.StreamServiceServer) sends back an observation, and BridgeConnManager
+// caches it for BridgeTask.Run to serve on subsequent pipeline runs, ultimately
+// producing an LLO report carrying that value. Happy path only.
+func TestIntegration_LLO_bridgeConnManagerHappyPath(t *testing.T) {
+	t.Parallel()
+
+	const (
+		salt     = 600
+		donID    = uint32(848484)
+		streamID = uint32(290)
+	)
+
+	offchainConfig := lloprotocol.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := range nNodes {
+		k := big.NewInt(int64(salt + i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_bridgeconnmanager", backend, bootstrapCSAKey, nil)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	packetCh := make(chan *packet, 100000)
+	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+	serverPubKey := serverKey.PublicKey
+	srv := NewMercuryServer(t, serverKey, packetCh)
+	serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
+	})
+
+	chainID := testutils.SimulatedChainID
+	relayType := "evm"
+	relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+	addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-bridgeconnmanager", relayType, relayConfig)
+
+	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+	price := decimal.NewFromFloat(1234.5)
+	for i, node := range nodes {
+		bridgeName := createGRPCStreamBridge(t, "connmanager", i, price, node.App.BridgeORM())
+		addSingleDecimalStreamJob(t, node, streamID, bridgeName)
+		addLLOJob(
+			t,
+			node,
+			configuratorAddress,
+			bootstrapPeerID,
+			bootstrapNodePort,
+			clientPubKeys[i],
+			"bridgeconnmanager-stream-test",
+			pluginConfig,
+			relayType,
+			relayConfig,
+		)
+	}
+
+	channelDefinitions := llotypes.ChannelDefinitions{
+		1: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamID, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+	}
+	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+	require.NoError(t, err)
+	backend.Commit()
+
+	setProductionConfig(
+		t, donID, steve, backend, configurator, configuratorAddress, nodes,
+		WithOracles(oracles), WithOffchainConfig(offchainConfig),
+	)
+
+	// The fake EA only starts sending observations once BridgeConnManager's
+	// EAConn sends its first subscription snapshot (on a fixed 10s interval), so
+	// this loop tolerates reports that predate the first cached observation and
+	// keeps polling until one carries the expected price.
+	require.Eventually(t, func() bool {
+		pckt, errReceive := receiveWithTimeout(t, packetCh, 2*time.Second)
+		if errReceive != nil {
+			return false
+		}
+		req := pckt.req
+		if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+			return false
+		}
+		_, _, r, _, errDecode := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
+		if errDecode != nil || r.ChannelID != 1 {
+			return false
+		}
+		if len(r.Values) != 1 {
+			return false
+		}
+		dv, ok := r.Values[0].(*lloprotocol.Decimal)
+		if !ok {
+			return false
+		}
+		return dv.Decimal().Equal(price)
+	}, reportTimeout, 100*time.Millisecond, "expected a report sourced from the bridge connection manager cache")
+}
+
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
@@ -2906,7 +3175,7 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
 		})
 	}
-	return
+	return oracles, nodes
 }
 
 func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.ChannelDefinitions) (url string, sha [32]byte) {
@@ -2957,11 +3226,11 @@ func newSingleABIEncoder(typ string, multiplier *sqlutil.Big) (enc lloevm.ABIEnc
 		if err != nil {
 			panic(err)
 		}
-		return
+		return enc
 	}
 	err := json.Unmarshal(fmt.Appendf(nil, `{"type":"%s","multiplier":"%s"}`, typ, multiplier.String()), &enc)
 	if err != nil {
 		panic(err)
 	}
-	return
+	return enc
 }

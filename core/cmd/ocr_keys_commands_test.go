@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -66,7 +65,7 @@ func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
 
 func TestShell_ListOCRKeyBundles(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
@@ -76,7 +75,7 @@ func TestShell_ListOCRKeyBundles(t *testing.T) {
 
 	requireOCRKeyCount(t, app, 1)
 
-	assert.NoError(t, client.ListOCRKeyBundles(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListOCRKeyBundles(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	output := *r.Renders[0].(*cmd.OCRKeyBundlePresenters)
 	require.Equal(t, key.ID(), output[0].ID)
@@ -103,7 +102,7 @@ func TestShell_CreateOCRKeyBundle(t *testing.T) {
 
 func TestShell_DeleteOCRKeyBundle(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
@@ -131,7 +130,7 @@ func TestShell_DeleteOCRKeyBundle(t *testing.T) {
 
 func TestShell_ImportExportOCRKey(t *testing.T) {
 	defer deleteKeyExportFile(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()

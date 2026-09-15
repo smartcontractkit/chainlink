@@ -31,29 +31,15 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
-	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	evmlogger "github.com/smartcontractkit/chainlink-evm/pkg/log"
-	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	mocks2 "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
@@ -71,8 +57,21 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_wrapper_consumer_example"
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmlogger "github.com/smartcontractkit/chainlink-evm/pkg/log"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	mocks2 "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -201,10 +200,12 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	}
 
 	consumerABI, err := abi.JSON(strings.NewReader(
-		vrf_consumer_v2.VRFConsumerV2ABI))
+		vrf_consumer_v2.VRFConsumerV2ABI,
+	))
 	require.NoError(t, err)
 	coordinatorABI, err := abi.JSON(strings.NewReader(
-		vrf_coordinator_v2.VRFCoordinatorV2ABI))
+		vrf_coordinator_v2.VRFCoordinatorV2ABI,
+	))
 	require.NoError(t, err)
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	h, err := backend.Client().HeaderByNumber(t.Context(), nil)
@@ -218,14 +219,15 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 
 	// Deploy link
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
-		sergey, backend.Client())
+		sergey, backend.Client(),
+	)
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
 	backend.Commit()
 
 	// Deploy feed
-	linkEthFeed, _, _, err :=
-		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-			evil, backend.Client(), 18, vrftesthelpers.WeiPerUnitLink.BigInt()) // 0.01 eth per link
+	linkEthFeed, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+		evil, backend.Client(), 18, vrftesthelpers.WeiPerUnitLink.BigInt(),
+	) // 0.01 eth per link
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -240,23 +242,23 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	backend.Commit()
 
 	// Deploy VRF V2 coordinator
-	coordinatorAddress, _, coordinatorContract, err :=
-		vrf_coordinator_v2.DeployVRFCoordinatorV2(
-			neil, backend.Client(), linkAddress, bhsAddress, linkEthFeed /* linkEth*/)
+	coordinatorAddress, _, coordinatorContract, err := vrf_coordinator_v2.DeployVRFCoordinatorV2(
+		neil, backend.Client(), linkAddress, bhsAddress, linkEthFeed, /* linkEth*/
+	)
 	require.NoError(t, err, "failed to deploy VRFCoordinatorV2 contract to simulated ethereum blockchain")
 	backend.Commit()
 
 	// Deploy batch VRF V2 coordinator
-	batchCoordinatorAddress, _, batchCoordinatorContract, err :=
-		batch_vrf_coordinator_v2.DeployBatchVRFCoordinatorV2(
-			neil, backend.Client(), coordinatorAddress,
-		)
+	batchCoordinatorAddress, _, batchCoordinatorContract, err := batch_vrf_coordinator_v2.DeployBatchVRFCoordinatorV2(
+		neil, backend.Client(), coordinatorAddress,
+	)
 	require.NoError(t, err, "failed to deploy BatchVRFCoordinatorV2 contract to simulated ethereum blockchain")
 	backend.Commit()
 
 	// Deploy old VRF v2 coordinator from bytecode
 	oldRootContractAddress, oldRootContract := deployOldCoordinator(
-		t, linkAddress, bhsAddress, linkEthFeed, backend, neil)
+		t, linkAddress, bhsAddress, linkEthFeed, backend, neil,
+	)
 
 	// Deploy the VRFOwner contract, which will own the VRF coordinator
 	// in some tests.
@@ -276,10 +278,9 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	backend.Commit()
 
 	// Deploy batch VRF V2 coordinator
-	oldBatchCoordinatorAddress, _, oldBatchCoordinatorContract, err :=
-		batch_vrf_coordinator_v2.DeployBatchVRFCoordinatorV2(
-			neil, backend.Client(), coordinatorAddress,
-		)
+	oldBatchCoordinatorAddress, _, oldBatchCoordinatorContract, err := batch_vrf_coordinator_v2.DeployBatchVRFCoordinatorV2(
+		neil, backend.Client(), coordinatorAddress,
+	)
 	require.NoError(t, err, "failed to deploy BatchVRFCoordinatorV2 contract wrapping old vrf coordinator v2 to simulated ethereum blockchain")
 	backend.Commit()
 
@@ -306,9 +307,9 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	}
 
 	// Deploy malicious consumer with 1 link
-	maliciousConsumerContractAddress, _, maliciousConsumerContract, err :=
-		vrf_malicious_consumer_v2.DeployVRFMaliciousConsumerV2(
-			evil, backend.Client(), coordinatorAddress, linkAddress)
+	maliciousConsumerContractAddress, _, maliciousConsumerContract, err := vrf_malicious_consumer_v2.DeployVRFMaliciousConsumerV2(
+		evil, backend.Client(), coordinatorAddress, linkAddress,
+	)
 	backend.Commit()
 	require.NoError(t, err, "failed to deploy VRFMaliciousConsumer contract to simulated ethereum blockchain")
 	_, err = linkContract.Transfer(sergey, maliciousConsumerContractAddress, assets.Ether(1).ToInt()) // Actually, LINK
@@ -333,7 +334,8 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	t.Log("initialize calldata:", hexified, "coordinator:", coordinatorAddress.String(), "link:", linkAddress)
 	require.NoError(t, err)
 	proxyAddress, _, _, err := vrfv2_transparent_upgradeable_proxy.DeployVRFV2TransparentUpgradeableProxy(
-		neil, backend.Client(), upgradeableConsumerAddress, proxyAdminAddress, initializeCalldata)
+		neil, backend.Client(), upgradeableConsumerAddress, proxyAdminAddress, initializeCalldata,
+	)
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -347,7 +349,8 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	require.Equal(t, upgradeableConsumerAddress, implAddress)
 
 	proxiedConsumer, err := vrf_consumer_v2_upgradeable_example.NewVRFConsumerV2UpgradeableExample(
-		proxyAddress, backend.Client())
+		proxyAddress, backend.Client(),
+	)
 	require.NoError(t, err)
 
 	cAddress, err := proxiedConsumer.COORDINATOR(nil)
@@ -634,7 +637,7 @@ func createVRFJobs(
 	// only be useful for tests, probably a more robust way is to have the job spawner accept a signal that a
 	// job is fully up and running and not add it to the active jobs list before then)
 
-	return
+	return jobs
 }
 
 func requestRandomnessForWrapper(
@@ -832,7 +835,7 @@ func assertRandomWordsFulfilled(
 		}
 		return false
 	}, 3*time.Second, 100*time.Millisecond, "RandomWordsFulfilled event not found")
-	return
+	return rwfe
 }
 
 func assertNumRandomWords(
@@ -1147,7 +1150,8 @@ func testEoa(
 		vrfOwnerAddress,
 		vrfVersion,
 		batchingEnabled,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make a randomness request with the EOA. This request is impossible to fulfill.
@@ -1182,7 +1186,7 @@ func testEoa(
 	require.False(t, broadcastsBeforeFinality[0].Consumed)
 
 	// Create new blocks until the finality depth has elapsed.
-	for i := 0; i < int(finalityDepth); i++ {
+	for range finalityDepth {
 		uni.backend.Commit()
 	}
 
@@ -1237,7 +1241,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
 	)
 }
 
-func deployWrapper(t *testing.T, uni coordinatorV2UniverseCommon, wrapperOverhead uint32, coordinatorOverhead uint32, keyHash common.Hash) (
+func deployWrapper(t *testing.T, uni coordinatorV2UniverseCommon, wrapperOverhead, coordinatorOverhead uint32, keyHash common.Hash) (
 	wrapper *vrfv2_wrapper.VRFV2Wrapper,
 	wrapperAddress common.Address,
 	wrapperConsumer *vrfv2_wrapper_consumer_example.VRFV2WrapperConsumerExample,
@@ -1255,7 +1259,7 @@ func deployWrapper(t *testing.T, uni coordinatorV2UniverseCommon, wrapperOverhea
 	require.NoError(t, err)
 	uni.backend.Commit()
 
-	return
+	return wrapper, wrapperAddress, wrapperConsumer, wrapperConsumerAddress
 }
 
 func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
@@ -1296,7 +1300,8 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 		new(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	wrapper, _, consumer, consumerAddress := deployWrapper(t, uni.coordinatorV2UniverseCommon, wrapperOverhead, coordinatorOverhead, keyHash)
@@ -1379,7 +1384,8 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 		new(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	wrapper, _, consumer, consumerAddress := deployWrapper(t, uni.coordinatorV2UniverseCommon, wrapperOverhead, coordinatorOverhead, keyHash)
@@ -1611,13 +1617,15 @@ func registerProvingKeyHelper(t *testing.T, uni coordinatorV2UniverseCommon, coo
 			t.Error("gasLaneMaxGas must be non-nil for V2+")
 		}
 		_, err = coordinator.RegisterProvingKey(
-			uni.neil, nil, pair(secp256k1.Coordinates(p)), gasLaneMaxGas)
+			uni.neil, nil, pair(secp256k1.Coordinates(p)), gasLaneMaxGas,
+		)
 	} else {
 		if gasLaneMaxGas != nil {
 			t.Log("gasLaneMaxGas is ignored for V2")
 		}
 		_, err = coordinator.RegisterProvingKey(
-			uni.neil, &uni.nallory.From, pair(secp256k1.Coordinates(p)), nil)
+			uni.neil, &uni.nallory.From, pair(secp256k1.Coordinates(p)), nil,
+		)
 	}
 	require.NoError(t, err)
 	uni.backend.Commit()
@@ -1633,12 +1641,13 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
-		owner, backend.Client())
+		owner, backend.Client(),
+	)
 	require.NoError(t, err)
 	backend.Commit()
-	coordinatorAddress, _, coordinator, err :=
-		vrf_coordinator_v2.DeployVRFCoordinatorV2(
-			owner, backend.Client(), linkAddress, common.Address{}, common.Address{})
+	coordinatorAddress, _, coordinator, err := vrf_coordinator_v2.DeployVRFCoordinatorV2(
+		owner, backend.Client(), linkAddress, common.Address{}, common.Address{},
+	)
 	require.NoError(t, err)
 	backend.Commit()
 	_, err = coordinator.SetConfig(owner, uint16(1), uint32(10000), 1, 1, big.NewInt(10), vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
@@ -1697,12 +1706,13 @@ func TestSimpleConsumerExample(t *testing.T) {
 	}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
-		owner, backend.Client())
+		owner, backend.Client(),
+	)
 	require.NoError(t, err)
 	backend.Commit()
-	coordinatorAddress, _, _, err :=
-		vrf_coordinator_v2.DeployVRFCoordinatorV2(
-			owner, backend.Client(), linkAddress, common.Address{}, common.Address{})
+	coordinatorAddress, _, _, err := vrf_coordinator_v2.DeployVRFCoordinatorV2(
+		owner, backend.Client(), linkAddress, common.Address{}, common.Address{},
+	)
 	require.NoError(t, err)
 	backend.Commit()
 	consumerAddress, _, consumer, err := vrf_single_consumer_example.DeployVRFSingleConsumerExample(owner, backend.Client(), coordinatorAddress, linkAddress, 1, 1, 1, [32]byte{})
@@ -1774,7 +1784,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 		new(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Create and fund a subscription.
@@ -2384,7 +2395,8 @@ func TestVRFV2Integration_ReplayOldRequestsOnStartUp(t *testing.T) {
 func FindLatestRandomnessRequestedLog(t *testing.T,
 	coordContract v22.CoordinatorV2_X,
 	keyHash [32]byte,
-	requestID *big.Int) v22.RandomWordsRequested {
+	requestID *big.Int,
+) v22.RandomWordsRequested {
 	var rf []v22.RandomWordsRequested
 	require.Eventually(t, func() bool {
 		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{keyHash}, nil, []common.Address{})

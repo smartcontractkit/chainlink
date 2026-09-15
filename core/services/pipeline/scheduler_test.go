@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -144,7 +143,7 @@ func TestScheduler(t *testing.T) {
 			case taskRun := <-s.taskCh:
 				require.Equal(t, event.expected, taskRun.task.DotID())
 				now := time.Now()
-				s.report(testutils.Context(t), TaskRunResult{
+				s.report(t.Context(), TaskRunResult{
 					ID:         uuid.New(),
 					Task:       taskRun.task,
 					Result:     event.result,

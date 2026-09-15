@@ -112,10 +112,12 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	}
 
 	consumerABI, err := abi.JSON(strings.NewReader(
-		vrfv2plus_consumer_example.VRFV2PlusConsumerExampleABI))
+		vrfv2plus_consumer_example.VRFV2PlusConsumerExampleABI,
+	))
 	require.NoError(t, err)
 	coordinatorABI, err := abi.JSON(strings.NewReader(
-		vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI))
+		vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI,
+	))
 	require.NoError(t, err)
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	h, err := backend.Client().HeaderByNumber(t.Context(), nil)
@@ -129,14 +131,15 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 
 	// Deploy link
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
-		sergey, backend.Client())
+		sergey, backend.Client(),
+	)
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
 	backend.Commit()
 
 	// Deploy feed
-	linkEthFeed, _, _, err :=
-		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-			evil, backend.Client(), 18, vrftesthelpers.WeiPerUnitLink.BigInt()) // 0.01 eth per link
+	linkEthFeed, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+		evil, backend.Client(), 18, vrftesthelpers.WeiPerUnitLink.BigInt(),
+	) // 0.01 eth per link
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -156,13 +159,13 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	backend.Commit()
 
 	// Deploy VRF V2plus coordinator
-	var bhsAddr = bhsAddress
+	bhsAddr := bhsAddress
 	if trusting {
 		bhsAddr = trustedBHSAddress
 	}
-	coordinatorAddress, _, coordinatorContract, err :=
-		vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
-			neil, backend.Client(), bhsAddr)
+	coordinatorAddress, _, coordinatorContract, err := vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
+		neil, backend.Client(), bhsAddr,
+	)
 	require.NoError(t, err, "failed to deploy VRFCoordinatorV2 contract to simulated ethereum blockchain")
 	backend.Commit()
 
@@ -171,7 +174,8 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	backend.Commit()
 
 	migrationTestCoordinatorAddress, _, migrationTestCoordinator, err := vrf_coordinator_v2_plus_v2_example.DeployVRFCoordinatorV2PlusV2Example(
-		neil, backend.Client(), linkAddress, coordinatorAddress)
+		neil, backend.Client(), linkAddress, coordinatorAddress,
+	)
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -180,10 +184,9 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	backend.Commit()
 
 	// Deploy batch VRF V2 coordinator
-	batchCoordinatorAddress, _, batchCoordinatorContract, err :=
-		batch_vrf_coordinator_v2plus.DeployBatchVRFCoordinatorV2Plus(
-			neil, backend.Client(), coordinatorAddress,
-		)
+	batchCoordinatorAddress, _, batchCoordinatorContract, err := batch_vrf_coordinator_v2plus.DeployBatchVRFCoordinatorV2Plus(
+		neil, backend.Client(), coordinatorAddress,
+	)
 	require.NoError(t, err, "failed to deploy BatchVRFCoordinatorV2 contract to simulated ethereum blockchain")
 	backend.Commit()
 
@@ -194,9 +197,9 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	)
 	for _, author := range vrfConsumers {
 		// Deploy a VRF consumer. It has a starting balance of 500 LINK.
-		consumerContractAddress, _, consumerContract, err2 :=
-			vrfv2plus_consumer_example.DeployVRFV2PlusConsumerExample(
-				author, backend.Client(), coordinatorAddress, linkAddress)
+		consumerContractAddress, _, consumerContract, err2 := vrfv2plus_consumer_example.DeployVRFV2PlusConsumerExample(
+			author, backend.Client(), coordinatorAddress, linkAddress,
+		)
 		require.NoError(t, err2, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
 		backend.Commit()
 		_, err2 = linkContract.Transfer(sergey, consumerContractAddress, assets.Ether(500).ToInt()) // Actually, LINK
@@ -210,9 +213,9 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	}
 
 	// Deploy malicious consumer with 1 link
-	maliciousConsumerContractAddress, _, maliciousConsumerContract, err :=
-		vrf_malicious_consumer_v2_plus.DeployVRFMaliciousConsumerV2Plus(
-			evil, backend.Client(), coordinatorAddress, linkAddress)
+	maliciousConsumerContractAddress, _, maliciousConsumerContract, err := vrf_malicious_consumer_v2_plus.DeployVRFMaliciousConsumerV2Plus(
+		evil, backend.Client(), coordinatorAddress, linkAddress,
+	)
 	require.NoError(t, err, "failed to deploy VRFMaliciousConsumer contract to simulated ethereum blockchain")
 	backend.Commit()
 	_, err = linkContract.Transfer(sergey, maliciousConsumerContractAddress, assets.Ether(1).ToInt()) // Actually, LINK
@@ -237,7 +240,8 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	t.Log("initialize calldata:", hexified, "coordinator:", coordinatorAddress.String(), "link:", linkAddress)
 	require.NoError(t, err)
 	proxyAddress, _, _, err := vrfv2_transparent_upgradeable_proxy.DeployVRFV2TransparentUpgradeableProxy(
-		neil, backend.Client(), upgradeableConsumerAddress, proxyAdminAddress, initializeCalldata)
+		neil, backend.Client(), upgradeableConsumerAddress, proxyAdminAddress, initializeCalldata,
+	)
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -251,7 +255,8 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	require.Equal(t, upgradeableConsumerAddress, implAddress)
 
 	proxiedConsumer, err := vrf_consumer_v2_plus_upgradeable_example.NewVRFConsumerV2PlusUpgradeableExample(
-		proxyAddress, backend.Client())
+		proxyAddress, backend.Client(),
+	)
 	require.NoError(t, err)
 
 	cAddress, err := proxiedConsumer.COORDINATOR(nil)
@@ -466,7 +471,8 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 				_, err := coordinator.GetSubscription(nil, rwfe.SubID())
 				require.NoError(t, err)
 				require.Equal(t, expectedSubID, rwfe.SubID())
-			})
+			},
+		)
 	})
 	t.Run("native payment", func(tt *testing.T) {
 		tt.Parallel()
@@ -489,7 +495,8 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 				_, err := coordinator.GetSubscription(nil, rwfe.SubID())
 				require.NoError(t, err)
 				require.Equal(t, expectedSubID, rwfe.SubID())
-			})
+			},
+		)
 	})
 }
 
@@ -739,18 +746,19 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
-		owner, backend.Client())
+		owner, backend.Client(),
+	)
 	require.NoError(t, err)
 	backend.Commit()
 	// Deploy feed
-	linkEthFeed, _, _, err :=
-		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-			owner, backend.Client(), 18, vrftesthelpers.WeiPerUnitLink.BigInt()) // 0.01 eth per link
+	linkEthFeed, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+		owner, backend.Client(), 18, vrftesthelpers.WeiPerUnitLink.BigInt(),
+	) // 0.01 eth per link
 	require.NoError(t, err)
 	backend.Commit()
-	coordinatorAddress, _, coordinator, err :=
-		vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
-			owner, backend.Client(), common.Address{}) // bhs not needed for this test
+	coordinatorAddress, _, coordinator, err := vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
+		owner, backend.Client(), common.Address{},
+	) // bhs not needed for this test
 	require.NoError(t, err)
 	backend.Commit()
 	_, err = coordinator.SetConfig(owner,
@@ -821,18 +829,19 @@ func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
 	}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
-		owner, backend.Client())
+		owner, backend.Client(),
+	)
 	require.NoError(t, err)
 	backend.Commit()
 	// Deploy feed
-	linkEthFeed, _, _, err :=
-		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-			owner, backend.Client(), 18, vrftesthelpers.WeiPerUnitLink.BigInt()) // 0.01 eth per link
+	linkEthFeed, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+		owner, backend.Client(), 18, vrftesthelpers.WeiPerUnitLink.BigInt(),
+	) // 0.01 eth per link
 	require.NoError(t, err)
 	backend.Commit()
-	coordinatorAddress, _, coordinator, err :=
-		vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
-			owner, backend.Client(), common.Address{}) // bhs not needed for this test
+	coordinatorAddress, _, coordinator, err := vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
+		owner, backend.Client(), common.Address{},
+	) // bhs not needed for this test
 	require.NoError(t, err)
 	backend.Commit()
 	_, err = coordinator.SetLINKAndLINKNativeFeed(owner, linkAddress, linkEthFeed)
@@ -1006,7 +1015,7 @@ func requestAndEstimateFulfillmentCost(
 ) {
 	_, err := consumerContract.RequestRandomness(consumer, vrfkey.PublicKey.MustHash(), subID, minConfs, gas, numWords, nativePayment)
 	require.NoError(t, err)
-	for i := 0; i < int(minConfs); i++ {
+	for range minConfs {
 		uni.backend.Commit()
 	}
 
@@ -1143,7 +1152,8 @@ func setupSubscriptionAndFund(
 	consumerContract vrftesthelpers.VRFConsumerContract,
 	consumerAddress common.Address,
 	linkAmount *big.Int,
-	nativeAmount *big.Int) *big.Int {
+	nativeAmount *big.Int,
+) *big.Int {
 	tx, err := uni.rootContract.CreateSubscription(consumer)
 	require.NoError(t, err)
 	uni.backend.Commit()
@@ -1172,7 +1182,8 @@ func setupSubscriptionAndFund(
 	b, err := utils.ABIEncode(`[{"type":"uint256"}]`, subID)
 	require.NoError(t, err)
 	_, err = uni.linkContract.TransferAndCall(
-		uni.sergey, uni.rootContractAddress, linkAmount, b)
+		uni.sergey, uni.rootContractAddress, linkAmount, b,
+	)
 	require.NoError(t, err, "failed to fund sub")
 	uni.backend.Commit()
 
@@ -1234,7 +1245,8 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 		nil,
 		vrfcommon.V2Plus,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make some randomness requests.
@@ -1331,7 +1343,8 @@ func requestRandomnessAndValidate(t *testing.T,
 	minConfs uint16,
 	gas, numWords uint32,
 	uni coordinatorV2PlusUniverse,
-	nativePayment bool) (*big.Int, *big.Int) {
+	nativePayment bool,
+) (*big.Int, *big.Int) {
 	_, err := consumerContract.RequestRandomness(
 		consumer,
 		keyHash,

@@ -29,7 +29,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -604,7 +606,7 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 		rpcClient := e.BlockChains.SolanaChains()[solChainSel].Client
 		router := state.SolChains[solChainSel].Router
 		tokenProgram := solana.TokenProgramID
-		wSOL := solana.SolMint
+		wSOL := solana.WrappedSol
 		// token transfer enablement changesets
 		ixAtaUser, accountWSOLAta, err := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, sourceAccount.PublicKey(), sourceAccount.PublicKey())
 		if err != nil {
@@ -989,7 +991,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 	execOCRConfigPerSelector := make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
 	chainType := v1_6.Default
-	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.BlockChains.EVMChains()[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
+	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, datastore.NewMemoryDataStore(), e.BlockChains.EVMChains()[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
 	if err != nil {
 		return *e, fmt.Errorf("failed to deploy feeds: %w", err)
 	}
@@ -1013,7 +1015,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
 		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[selector].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 		// TODO: point this to proper SOL feed, apparently 0 signified SOL
-		tokenInfo[cciptypes.UnknownEncodedAddress(solana.SolMint.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
+		tokenInfo[ccipocr3common.UnknownEncodedAddress(solana.WrappedSol.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, tokenInfo,
 			func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 				params.OCRParameters.MaxDurationQuery = 100 * time.Millisecond

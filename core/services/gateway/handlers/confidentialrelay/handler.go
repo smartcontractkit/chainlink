@@ -28,7 +28,18 @@ import (
 )
 
 const (
-	defaultCleanUpPeriod = 5 * time.Second
+	// defaultCleanUpPeriod is how often expired requests are swept and closed grace
+	// windows are forwarded, so it also bounds how far past its deadline a grace
+	// window can run.
+	defaultCleanUpPeriod = time.Second
+
+	defaultRequestTimeoutSec  = 30
+	defaultNodeSendTimeoutSec = 10
+
+	// defaultQuorumGraceMillis bounds the extra wait after quorum is reached. It must
+	// stay well below the caller's own HTTP deadline, which is what actually cuts the
+	// request short when the DON never produces 2F+1 signed responses.
+	defaultQuorumGraceMillis = 10_000
 
 	// Re-exported from chainlink-common for local use and test convenience.
 	MethodSecretsGet     = relaytypes.MethodSecretsGet
@@ -66,11 +77,49 @@ func newMetrics() (*metrics, error) {
 	}, nil
 }
 
+// requestLabels are the identifiers the gateway pulls out of a relay request's
+// params purely for logging, so a gateway line can be correlated with the
+// relay-DON's and the enclave's lines for the same workflow execution. The
+// gateway stays a dumb relay: it does not otherwise interpret params.
+type requestLabels struct {
+	WorkflowID  string `json:"workflow_id"`
+	ExecutionID string `json:"execution_id"`
+}
+
+// extractRequestLabels best-effort decodes the logging identifiers from a
+// request's params. Both relay methods' params carry these fields. A decode
+// failure leaves them empty and is only logged: these labels are for
+// correlation, and the params themselves are validated by the relay nodes,
+// not here, so a request whose params do not decode is still fanned out and
+// rejected there. ProcessRequest has already parsed the envelope as valid
+// JSON by this point, so a failure here means params is not an object or
+// carries non-string identifiers — malformed input rather than a gateway bug,
+// hence debug level to avoid handing a caller a log-spam lever.
+func (h *handler) extractRequestLabels(req jsonrpc.Request[json.RawMessage]) requestLabels {
+	var labels requestLabels
+	if req.Params == nil {
+		return labels
+	}
+	if err := json.Unmarshal(*req.Params, &labels); err != nil {
+		h.lggr.Debugw("could not decode relay request params for logging labels",
+			"method", req.Method, "requestID", req.ID, "err", err)
+	}
+	return labels
+}
+
 type activeRequest struct {
 	req       jsonrpc.Request[json.RawMessage]
+	labels    requestLabels
 	responses map[string]*jsonrpc.Response[json.RawMessage]
 	mu        sync.Mutex
 	completed atomic.Bool
+
+	// graceStarted is set the first time the request holds F+1 signed responses, so
+	// the grace deadline is armed once per request rather than moved forward by every
+	// later response. graceDeadline is guarded by mu and is only meaningful once
+	// graceStarted is set.
+	graceStarted  atomic.Bool
+	graceDeadline time.Time
 
 	createdAt time.Time
 	gwhandlers.Callback
@@ -110,19 +159,54 @@ func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawM
 	return copied
 }
 
+func (ar *activeRequest) armGraceDeadline(deadline time.Time) bool {
+	if !ar.graceStarted.CompareAndSwap(false, true) {
+		return false
+	}
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+	ar.graceDeadline = deadline
+	return true
+}
+
+// graceElapsed reports whether the request reached quorum and its grace window has
+// since closed, meaning the collected bundle should be forwarded now.
+func (ar *activeRequest) graceElapsed(now time.Time) bool {
+	if !ar.graceStarted.Load() {
+		return false
+	}
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+	return !ar.graceDeadline.IsZero() && !now.Before(ar.graceDeadline)
+}
+
 type relayBundler interface {
 	Bundle(req jsonrpc.Request[json.RawMessage], resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*BundleSummary, error)
 }
 
 type Config struct {
 	RequestTimeoutSec int `json:"requestTimeoutSec"`
+
+	// NodeSendTimeoutSec bounds each individual fan-out send to a single relay node, and is
+	// clamped to RequestTimeoutSec. It must stay below it so that one node whose connection
+	// accepts no writes cannot delay delivery to the rest of the DON.
+	NodeSendTimeoutSec int `json:"nodeSendTimeoutSec"`
+
+	// QuorumGraceMillis is how long the handler keeps collecting responses after the
+	// first F+1 signed responses arrive, before forwarding whatever it has. It bounds
+	// the wait for a DON that answers with quorum but never reaches 2F+1 signed
+	// responses, which would otherwise hold the request until RequestTimeoutSec and
+	// forward a long-viable bundle after the caller's own deadline has passed.
+	// Clamped to RequestTimeoutSec; a negative value disables the grace window and
+	// restores waiting until expiry.
+	QuorumGraceMillis int `json:"quorumGraceMillis"`
 }
 
 type handler struct {
 	services.StateMachine
 	donConfig *config.DONConfig
 	don       gwhandlers.DON
-	codec     api.JsonRPCCodec
+	codec     api.JSONRPCCodec
 	lggr      logger.Logger
 	mu        sync.RWMutex
 	stopCh    services.StopChan
@@ -130,6 +214,8 @@ type handler struct {
 	globalNodeRateLimiter limits.RateLimiter
 	perNodeRateLimiters   map[string]limits.RateLimiter
 	requestTimeout        time.Duration
+	nodeSendTimeout       time.Duration
+	quorumGrace           time.Duration
 
 	activeRequests map[string]*activeRequest
 	metrics        *metrics
@@ -154,7 +240,24 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	}
 
 	if cfg.RequestTimeoutSec == 0 {
-		cfg.RequestTimeoutSec = 30
+		cfg.RequestTimeoutSec = defaultRequestTimeoutSec
+	}
+
+	if cfg.NodeSendTimeoutSec == 0 {
+		cfg.NodeSendTimeoutSec = defaultNodeSendTimeoutSec
+	}
+	if cfg.NodeSendTimeoutSec > cfg.RequestTimeoutSec {
+		cfg.NodeSendTimeoutSec = cfg.RequestTimeoutSec
+	}
+
+	switch {
+	case cfg.QuorumGraceMillis == 0:
+		cfg.QuorumGraceMillis = defaultQuorumGraceMillis
+	case cfg.QuorumGraceMillis < 0:
+		cfg.QuorumGraceMillis = 0
+	}
+	if maxGraceMillis := cfg.RequestTimeoutSec * 1000; cfg.QuorumGraceMillis > maxGraceMillis {
+		cfg.QuorumGraceMillis = maxGraceMillis
 	}
 
 	globalNodeRateLimiter, err := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayGlobalRate)
@@ -179,8 +282,10 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	return &handler{
 		donConfig:             donConfig,
 		don:                   don,
-		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonId),
+		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonID),
 		requestTimeout:        time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeSendTimeout:       time.Duration(cfg.NodeSendTimeoutSec) * time.Second,
+		quorumGrace:           time.Duration(cfg.QuorumGraceMillis) * time.Millisecond,
 		globalNodeRateLimiter: globalNodeRateLimiter,
 		perNodeRateLimiters:   perNodeRateLimiters,
 		activeRequests:        make(map[string]*activeRequest),
@@ -203,6 +308,7 @@ func (h *handler) Start(_ context.Context) error {
 			for {
 				select {
 				case <-ticker.Chan():
+					h.forwardGracedRequests(ctx)
 					h.removeExpiredRequests(ctx)
 				case <-h.stopCh:
 					return
@@ -241,7 +347,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
-		l := logger.With(h.lggr, "method", er.req.Method, "requestID", er.req.ID)
+		l := h.requestLogger(er.req, er.labels)
 		l.Debugw("request expired, evaluating collected relay responses",
 			"collected", len(responses),
 			"nodes", len(h.donConfig.Members),
@@ -271,6 +377,20 @@ func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ g
 	return errors.New("confidential relay handler does not support legacy messages")
 }
 
+// requestLogger returns the logger for one relay request: the gateway request
+// id plus the workflow/execution identity it carries, so a line can be
+// correlated with the relay DON's and the enclave's logs for the same
+// execution. The request id changes per enclave retry; the execution identity
+// does not.
+func (h *handler) requestLogger(req jsonrpc.Request[json.RawMessage], labels requestLabels) logger.Logger {
+	return logger.With(h.lggr,
+		"method", req.Method,
+		"requestID", req.ID,
+		"workflowID", labels.WorkflowID,
+		"executionID", labels.ExecutionID,
+	)
+}
+
 func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) error {
 	if req.ID == "" {
 		return errors.New("request ID cannot be empty")
@@ -279,10 +399,11 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request ID is too long: " + strconv.Itoa(len(req.ID)) + ". max is 200 characters")
 	}
 
-	l := logger.With(h.lggr, "method", req.Method, "requestID", req.ID)
-	l.Debugw("handling confidential relay request")
+	labels := h.extractRequestLabels(req)
+	l := h.requestLogger(req, labels)
+	l.Debugw("handling confidential relay request", "nodes", len(h.donConfig.Members), "f", h.donConfig.F)
 
-	ar, err := h.newActiveRequest(req, callback)
+	ar, err := h.newActiveRequest(req, labels, callback)
 	if err != nil {
 		return err
 	}
@@ -290,16 +411,17 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	return h.fanOutToNodes(ctx, l, ar)
 }
 
-func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) (*activeRequest, error) {
+func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], labels requestLabels, callback gwhandlers.Callback) (*activeRequest, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.activeRequests[req.ID] != nil {
-		h.lggr.Errorw("request id already exists", "requestID", req.ID)
+		h.lggr.Errorw("request id already exists", "requestID", req.ID, "executionID", labels.ExecutionID)
 		return nil, errors.New("request ID already exists: " + req.ID)
 	}
 	ar := &activeRequest{
 		Callback:  callback,
 		req:       req,
+		labels:    labels,
 		createdAt: h.clock.Now(),
 		responses: map[string]*jsonrpc.Response[json.RawMessage]{},
 	}
@@ -335,6 +457,9 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		l.Debugw("no pending request found for ID")
 		return nil
 	}
+	// A node response carries no params, so the execution identity comes from
+	// the request it answers.
+	l = logger.With(l, "workflowID", ar.labels.WorkflowID, "executionID", ar.labels.ExecutionID)
 
 	added := ar.addResponseForNode(nodeAddr, resp)
 	if !added {
@@ -382,6 +507,24 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 		return h.forwardBundle(ctx, l, ar, summary)
 	}
 	if maxPossibleSigned < minQuorum {
+		// A user-level node error means the request is invalid for every node,
+		// so report it rather than the generic quorum failure.
+		if userErr := summary.UserError(); userErr != nil {
+			l.Warnw("relay quorum unreachable due to a user error; propagating node error",
+				"signed", summary.Signed(),
+				"minQuorum", minQuorum,
+				"collected", summary.Total(),
+				"nodes", nodes,
+				"remaining", remaining,
+				"expired", expired,
+				"errors", summary.Error(),
+				"undecodable", summary.Undecodable(),
+				"userErrorCode", userErr.Code,
+				"nodeErrors", summary.NodeErrorsFormatted(),
+			)
+			return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.InvalidParamsError,
+				errors.New(sanitizeNodeErrorMessage(userErr.Message))))
+		}
 		if expired {
 			l.Warnw("request expired before relay quorum was reached",
 				"signed", summary.Signed(),
@@ -414,6 +557,9 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 			fmt.Errorf("relay quorum unreachable: %d signed responses, at most %d possible, need %d (collected=%d nodes=%d remaining=%d errors=%d undecodable=%d)",
 				summary.Signed(), maxPossibleSigned, minQuorum, summary.Total(), nodes, remaining, summary.Error(), summary.Undecodable())))
 	}
+	if !expired && summary.Signed() >= minQuorum {
+		h.startQuorumGrace(l, ar, summary)
+	}
 	l.Debugw("waiting for more signed relay responses before forwarding bundle",
 		"signed", summary.Signed(),
 		"earlyNeed", earlyNeed,
@@ -427,6 +573,89 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 		"nodeErrors", summary.NodeErrorsFormatted(),
 	)
 	return nil
+}
+
+// startQuorumGrace arms the grace window the first time a request holds minQuorum
+// signed responses. It bounds how long a request that will never reach earlyNeed
+// keeps waiting for the rest of the DON: without it such a request is held until
+// requestTimeout, long after the caller's own deadline has elapsed, so a bundle
+// that was viable within milliseconds is forwarded to nobody. The deadline is swept
+// by the cleanup goroutine rather than a timer, so no completion path runs on an
+// untracked goroutine.
+func (h *handler) startQuorumGrace(l logger.Logger, ar *activeRequest, summary *BundleSummary) {
+	if h.quorumGrace <= 0 {
+		return
+	}
+	if !ar.armGraceDeadline(h.clock.Now().Add(h.quorumGrace)) {
+		return
+	}
+	l.Infow("relay quorum reached below earlyNeed; starting grace window",
+		"signed", summary.Signed(),
+		"minQuorum", h.donConfig.F+1,
+		"earlyNeed", 2*h.donConfig.F+1,
+		"collected", summary.Total(),
+		"nodes", len(h.donConfig.Members),
+		"grace", h.quorumGrace,
+	)
+}
+
+// forwardGracedRequests forwards the bundle for every request whose grace window has
+// closed. Collected responses are never replaced, so the signed count only grows: a
+// request that armed the window still holds at least minQuorum signed responses here.
+func (h *handler) forwardGracedRequests(ctx context.Context) {
+	h.mu.RLock()
+	var graced []*activeRequest
+	now := h.clock.Now()
+	for _, ar := range h.activeRequests {
+		if ar.graceElapsed(now) {
+			graced = append(graced, ar)
+		}
+	}
+	h.mu.RUnlock()
+
+	for _, ar := range graced {
+		h.forwardAfterGrace(ctx, ar)
+	}
+}
+
+func (h *handler) forwardAfterGrace(ctx context.Context, ar *activeRequest) {
+	l := h.requestLogger(ar.req, ar.labels)
+	summary, err := h.bundler.Bundle(ar.req, ar.copiedResponses(), l)
+	if err != nil {
+		l.Errorw("failed to build relay response bundle after quorum grace", "error", err)
+		if sendErr := h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err)); sendErr != nil {
+			l.Errorw("error returning bundle failure after quorum grace", "error", sendErr)
+		}
+		return
+	}
+
+	minQuorum := h.donConfig.F + 1
+	nodes := len(h.donConfig.Members)
+	if summary.Signed() < minQuorum {
+		l.Warnw("quorum grace elapsed below quorum; leaving request to expiry",
+			"signed", summary.Signed(),
+			"minQuorum", minQuorum,
+			"collected", summary.Total(),
+			"nodes", nodes,
+		)
+		return
+	}
+
+	l.Infow("quorum grace elapsed; forwarding partial signed bundle",
+		"signed", summary.Signed(),
+		"minQuorum", minQuorum,
+		"earlyNeed", 2*h.donConfig.F+1,
+		"collected", summary.Total(),
+		"nodes", nodes,
+		"unanswered", nodes-summary.Total(),
+		"grace", h.quorumGrace,
+		"errors", summary.Error(),
+		"undecodable", summary.Undecodable(),
+		"nodeErrors", summary.NodeErrorsFormatted(),
+	)
+	if err := h.forwardBundle(ctx, l, ar, summary); err != nil {
+		l.Errorw("error forwarding bundle after quorum grace", "error", err)
+	}
 }
 
 // forwardBundle sends a previously-built bundle to the enclave. The gateway makes
@@ -460,9 +689,16 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 		nodeErrors atomic.Uint32
 	)
 
+	// Each send is bounded independently. A node whose websocket accepts no writes blocks
+	// until its context is cancelled, and because the caller only reads the response callback
+	// after this function returns, an unbounded send would hold the request open until the
+	// client gives up, discarding a bundle that already reached quorum.
+	sendCtx, cancel := context.WithTimeout(ctx, h.nodeSendTimeout)
+	defer cancel()
+
 	for _, node := range h.donConfig.Members {
 		group.Go(func() error {
-			err := h.don.SendToNode(ctx, node.Address, &ar.req)
+			err := h.don.SendToNode(sendCtx, node.Address, &ar.req)
 			if err != nil {
 				nodeErrors.Add(1)
 				l.Errorw("error sending request to node", "node", node.Address, "error", err)
@@ -476,17 +712,25 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	numNodeErrors := nodeErrors.Load()
 	remainingPossibleResponses := len(h.donConfig.Members) - int(numNodeErrors)
 	if remainingPossibleResponses < h.donConfig.F+1 && numNodeErrors > 0 {
+		// The individual send failures are logged above; this is the aggregate
+		// decision that ends the request, so it gets its own line.
+		l.Errorw("too few relay nodes reachable to reach quorum; failing request",
+			"nodeErrors", numNodeErrors,
+			"reachable", remainingPossibleResponses,
+			"minQuorum", h.donConfig.F+1,
+			"nodes", len(h.donConfig.Members),
+		)
 		return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
 
-	l.Debugw("successfully forwarded request to relay nodes")
+	l.Debugw("successfully forwarded request to relay nodes", "nodeErrors", numNodeErrors)
 	return nil
 }
 
 // sendResponseAndClearRequest claims the request, sends payload, and removes it from
 // activeRequests. Concurrent completion paths (node-message forward,
-// terminal-state forward, expiry) may all race here; only the first claimer
-// sends. Metrics are recorded only after a successful send so losers do not
+// terminal-state forward, quorum grace, expiry) may all race here; only the first
+// claimer sends. Metrics are recorded only after a successful send so losers do not
 // double-count.
 func (h *handler) sendResponseAndClearRequest(ctx context.Context, ar *activeRequest, payload gwhandlers.UserCallbackPayload) error {
 	if !ar.completed.CompareAndSwap(false, true) {
@@ -501,12 +745,12 @@ func (h *handler) sendResponseAndClearRequest(ctx context.Context, ar *activeReq
 	h.mu.Unlock()
 
 	if sendErr != nil {
-		h.lggr.Errorw("error sending response to user", "requestID", ar.req.ID, "error", sendErr)
+		h.lggr.Errorw("error sending response to user", "requestID", ar.req.ID, "executionID", ar.labels.ExecutionID, "error", sendErr)
 		return sendErr
 	}
 
 	h.recordMetrics(ctx, payload.ErrorCode)
-	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "errorCode", payload.ErrorCode)
+	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "executionID", ar.labels.ExecutionID, "errorCode", payload.ErrorCode)
 	return nil
 }
 
@@ -515,16 +759,16 @@ func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
 	switch errorCode {
 	case api.HandlerError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donConfig.DonID),
 			attribute.String("error", errorCode.String()),
 		))
 	case api.UnsupportedDONIdError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donConfig.DonID),
 		))
 	case api.NoError:
 		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donConfig.DonID),
 		))
 	}
 }

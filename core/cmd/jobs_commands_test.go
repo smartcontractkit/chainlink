@@ -100,7 +100,7 @@ func TestJobRenderer_GetTasks(t *testing.T) {
 
 		tasks, err := r.GetTasks()
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, []string{
 			"ds1 http",
 			"ds1_parse jsonparse",
@@ -115,7 +115,7 @@ func TestJobRenderer_GetTasks(t *testing.T) {
 
 		tasks, err := r.GetTasks()
 
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, tasks)
 	})
 }
@@ -317,7 +317,7 @@ func TestShell_CreateJobV2(t *testing.T) {
 }
 
 func requireJobsCount(t *testing.T, orm job.ORM, expected int) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	jobs, _, err := orm.FindJobs(ctx, 0, 1000)
 	require.NoError(t, err)
 	require.Len(t, jobs, expected)

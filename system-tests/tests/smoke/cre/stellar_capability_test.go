@@ -16,7 +16,6 @@ import (
 	"github.com/stellar/go-stellar-sdk/xdr"
 
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	stellarfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	thelpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -45,7 +44,7 @@ const (
 func executeStellarReadLatestLedgerTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
-	stellarChain blockchains.Blockchain,
+	stellarChain *stellchain.Blockchain,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
@@ -67,7 +66,7 @@ func executeStellarReadLatestLedgerTest(
 func executeStellarReadContractSmokeTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
-	stellarChain blockchains.Blockchain,
+	stellarChain *stellchain.Blockchain,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
@@ -146,37 +145,36 @@ func executeStellarReadContractSmokeTest(
 	lggr.Info().Int("cases", len(steps)).Str("expected_log", expectLogReadContractBatchOK).Msg("Stellar ReadContract capability test passed")
 }
 
-// ExecuteStellarWriteTest deploys a CRE receiver + a workflow that generates an
+// executeStellarWriteTest deploys a CRE receiver + a workflow that generates an
 // ed25519 OCR report and submits it via WriteReport through the Soroban CRE
-// forwarder, then asserts the receiver recorded the report on-chain.
+// forwarder, then asserts the receiver recorded the report on-chain with payload integrity check.
 func executeStellarWriteTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
-	stellarChain blockchains.Blockchain,
+	stellarChain *stellchain.Blockchain,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
 	ctx := context.Background()
 
-	concreteChain, ok := stellarChain.(*stellchain.Blockchain)
-	require.True(t, ok, "expected concrete *stellar.Blockchain, got %T", stellarChain)
-
-	receiverID, err := stellarfeature.DeployStellarTestReceiver(ctx, concreteChain)
+	receiverID, err := stellarfeature.DeployStellarTestReceiver(ctx, stellarChain)
 	require.NoError(t, err, "failed to deploy Stellar CRE test receiver")
 	lggr.Info().Str("receiver", receiverID).Msg("Deployed Stellar CRE test receiver")
 
-	writeDon := stellarWriteDon(t, tenv)
-	workers, err := writeDon.Workers()
-	require.NoError(t, err, "failed to list Stellar DON workers")
-	require.NotEmpty(t, workers, "Stellar DON has no worker nodes")
-	requiredSignatures := (len(workers)-1)/3 + 1
+	requiredSignatures := stellarRequiredSignatures(t, tenv)
 
-	const workflowName = "stellar-write-workflow"
+	// Use a deterministic payload: hex "6400000000000000" is bytes [0x64, 0x00, ...]
+	// which the receiver's last_value_u64() reads as little-endian u64 = 100.
+	const reportPayloadHex = "6400000000000000"
+	const expectedValue uint64 = 100
+
+	workflowName := thelpers.UniqueStellarWorkflowName("stellar-write-workflow")
 	workflowConfig := thelpers.StellarWriteWorkflowConfig{
 		ChainSelector:      stellarChain.ChainSelector(),
 		WorkflowName:       workflowName,
 		ReceiverContractID: receiverID,
+		ReportPayloadHex:   reportPayloadHex,
 		RequiredSignatures: requiredSignatures,
 	}
 
@@ -186,17 +184,26 @@ func executeStellarWriteTest(
 	expectedLog := "Stellar write consensus succeeded"
 	thelpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, thelpers.WorkflowEngineInitErrorLog, expectedLog, thelpers.StellarWorkflowTimeout, thelpers.WithUserLogWorkflowID(workflowID))
 
-	// Assert the report was actually delivered on-chain: the receiver's on_report
-	// incremented its report count.
+	// Assert the report was delivered and the payload matches on-chain.
 	require.Eventually(t, func() bool {
-		n, cErr := stellarfeature.ReceiverReportCount(ctx, concreteChain, receiverID)
+		n, cErr := stellarfeature.ReceiverReportCount(ctx, stellarChain, receiverID)
 		if cErr != nil {
 			lggr.Warn().Err(cErr).Msg("stellar receiver report_count query failed; retrying")
 			return false
 		}
-		return n > 0
-	}, 2*time.Minute, 5*time.Second, "Stellar receiver did not record any report")
-	lggr.Info().Str("expected_log", expectedLog).Msg("Stellar write capability test passed")
+		if n == 0 {
+			return false
+		}
+		val, vErr := stellarfeature.ReceiverLastValueU64(ctx, stellarChain, receiverID)
+		if vErr != nil {
+			lggr.Warn().Err(vErr).Msg("stellar receiver last_value_u64 query failed; retrying")
+			return false
+		}
+		lggr.Info().Uint64("on_chain_value", val).Uint64("expected_value", expectedValue).Msg("Stellar write on-chain value read")
+		return val == expectedValue
+	}, 2*time.Minute, 5*time.Second, "Stellar receiver did not record the expected payload value %d", expectedValue)
+
+	lggr.Info().Str("expected_log", expectedLog).Uint64("payload_value", expectedValue).Msg("Stellar write capability test passed")
 }
 
 // setupStellarScenario provisions an isolated per-test context for a Stellar read scenario:
@@ -204,7 +211,7 @@ func executeStellarWriteTest(
 // chip sink capturing that scenario's workflow logs. Call it at the top of each scenario subtest.
 func setupStellarScenario(t *testing.T, tenv *configuration.TestEnvironment) (
 	*configuration.TestEnvironment,
-	blockchains.Blockchain,
+	*stellchain.Blockchain,
 	<-chan *workflowevents.UserLogs,
 	<-chan *commonevents.BaseMessage,
 ) {
@@ -245,4 +252,14 @@ func stellarWriteDon(t *testing.T, tenv *configuration.TestEnvironment) *crelib.
 	dons := tenv.Dons.DonsWithFlag(crelib.StellarCapability)
 	require.NotEmpty(t, dons, "could not find a DON hosting the Stellar capability")
 	return dons[0]
+}
+
+// stellarRequiredSignatures returns the f+1 signature count the Soroban
+// forwarder expects, derived from the write DON's worker count.
+func stellarRequiredSignatures(t *testing.T, tenv *configuration.TestEnvironment) int {
+	t.Helper()
+	workers, err := stellarWriteDon(t, tenv).Workers()
+	require.NoError(t, err, "failed to list Stellar DON workers")
+	require.NotEmpty(t, workers, "Stellar DON has no worker nodes")
+	return (len(workers)-1)/3 + 1
 }

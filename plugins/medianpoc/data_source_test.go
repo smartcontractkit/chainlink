@@ -11,10 +11,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 type mockPipelineRunner struct {

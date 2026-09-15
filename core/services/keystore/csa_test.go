@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -19,7 +18,7 @@ import (
 func Test_CSAKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := keystore.ExposedNewMaster(t, db)
-	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))
+	require.NoError(t, keyStore.Unlock(t.Context(), cltest.Password))
 	ks := keyStore.CSA()
 	reset := func() {
 		ctx := context.Background() // Executed on cleanup
@@ -47,7 +46,7 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 
 	t.Run("creates a key", func(t *testing.T) {
 		t.Cleanup(reset)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
@@ -55,18 +54,18 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.Equal(t, key, retrievedKey)
 
 		t.Run("prevents creating more than one key", func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			k, err2 := ks.Create(ctx)
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
+			require.Error(t, err2)
 			assert.True(t, errors.Is(err2, keystore.ErrCSAKeyExists))
 		})
 	})
 
 	t.Run("imports and exports a key", func(t *testing.T) {
 		t.Cleanup(reset)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		exportJSON, err := ks.Export(key.ID(), cltest.Password)
@@ -83,15 +82,15 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.Equal(t, importedKey, retrievedKey)
 
 		t.Run("prevents importing more than one key", func(t *testing.T) {
-			k, err2 := ks.Import(testutils.Context(t), exportJSON, cltest.Password)
+			k, err2 := ks.Import(t.Context(), exportJSON, cltest.Password)
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
+			require.Error(t, err2)
 			assert.Equal(t, fmt.Sprintf("key with ID %s already exists", key.ID()), err2.Error())
 		})
 
 		t.Run("fails to import malformed key", func(t *testing.T) {
-			k, err2 := ks.Import(testutils.Context(t), []byte(""), cltest.Password)
+			k, err2 := ks.Import(t.Context(), []byte(""), cltest.Password)
 
 			assert.Zero(t, k)
 			assert.Error(t, err2)
@@ -100,14 +99,14 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		t.Run("fails to export non-existent key", func(t *testing.T) {
 			exportJSON, err = ks.Export("non-existent", cltest.Password)
 
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Empty(t, exportJSON)
 		})
 	})
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		t.Cleanup(reset)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		newKey, err := csakey.NewV2()
 		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
@@ -124,18 +123,18 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.Error(t, err)
 
 		t.Run("prevents adding more than one key", func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			err = ks.Add(ctx, newKey)
 			require.NoError(t, err)
 
 			err = ks.Add(ctx, newKey)
 
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.True(t, errors.Is(err, keystore.ErrCSAKeyExists))
 		})
 
 		t.Run("fails to delete non-existent key", func(t *testing.T) {
-			k, err2 := ks.Delete(testutils.Context(t), "non-existent")
+			k, err2 := ks.Delete(t.Context(), "non-existent")
 
 			assert.Zero(t, k)
 			assert.Error(t, err2)
@@ -144,17 +143,17 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 
 	t.Run("adds an externally created key/ensures it already exists", func(t *testing.T) {
 		t.Cleanup(reset)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 
 		newKey, err := csakey.NewV2()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = keyStore.CSA().EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		keys, err2 := ks.GetAll()
-		assert.NoError(t, err2)
+		require.NoError(t, err2)
 
 		require.Len(t, keys, 1)
 		require.Equal(t, newKey.ID(), keys[0].ID())
@@ -164,14 +163,14 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 
 	t.Run("auto creates a key if it doesn't exists when trying to ensure it already exists", func(t *testing.T) {
 		t.Cleanup(reset)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 
 		keys, err := ks.GetAll()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Empty(t, keys)
 
 		err = keyStore.CSA().EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		keys, err = ks.GetAll()
 		assert.NoError(t, err)

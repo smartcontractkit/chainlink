@@ -374,7 +374,7 @@ func (c *client) UpdateJobProposalSpecDefinition(ctx context.Context, id string,
 }
 
 func (c *client) login() error {
-	b, err := json.Marshal(c.credentials)
+	b, err := json.Marshal(c.credentials) //nolint:gosec // G117
 	if err != nil {
 		return fmt.Errorf("failed to marshal credentials: %w", err)
 	}

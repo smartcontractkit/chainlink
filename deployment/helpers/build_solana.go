@@ -137,7 +137,7 @@ func replaceKeysForUpgrade(e cldf.Environment, cloneDir, anchorDir string, progr
 
 		// Replace declare_id!("..."); with the new key
 		updatedContent := regexp.MustCompile(`declare_id!\(".*?"\);`).ReplaceAllString(string(content), fmt.Sprintf(`declare_id!("%s");`, key))
-		err = os.WriteFile(fullPath, []byte(updatedContent), 0600)
+		err = os.WriteFile(fullPath, []byte(updatedContent), 0600) //nolint:gosec // G704
 		if err != nil {
 			return fmt.Errorf("failed to write updated keys to file %s: %w", fullPath, err)
 		}
@@ -248,7 +248,7 @@ func buildLocally(e cldf.Environment, config BuildSolanaConfig, params DomainPar
 		return fmt.Errorf("error replacing keys for upgrade: %w", err)
 	}
 
-	// run sync to replace keys in programs that need to be synchonized
+	// run sync to replace keys in programs that need to be synchronized
 	for _, sync := range params.Syncers {
 		if err := sync(); err != nil {
 			return fmt.Errorf("error syncing program files: %w", err)

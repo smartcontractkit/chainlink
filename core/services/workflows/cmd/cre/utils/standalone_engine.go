@@ -11,11 +11,11 @@ import (
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v3"
 
-	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -24,14 +24,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -58,7 +54,7 @@ func (m mockSubscriber) Subscribe(_ context.Context) (<-chan commoncap.DON, func
 func NewStandaloneEngine(
 	ctx context.Context,
 	lggr logger.Logger,
-	registry *capabilities.Registry,
+	registry *registry.Registry,
 	binary, config, secrets []byte,
 	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
@@ -66,16 +62,14 @@ func NewStandaloneEngine(
 	workflowSettingsCfgFn func(*cresettings.Workflows),
 ) (services.Service, []*sdkpb.TriggerSubscription, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: defaultOwner, Workflow: defaultWorkflowID})
-	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                  lggr,
-		Labeler:                 labeler,
 		MaxCompressedBinarySize: defaultMaxUncompressedBinarySize,
 		IsUncompressed:          true,
 		Timeout:                 &defaultTimeout,
 	}
 
-	mainModule, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
+	mainModule, err := host.NewModule(ctx, moduleConfig, binary)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
@@ -115,15 +109,6 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, err
 	}
-	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
-		GlobalRPS:      defaultRPS,
-		GlobalBurst:    defaultBurst,
-		PerSenderRPS:   defaultRPS,
-		PerSenderBurst: defaultBurst,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   1000000000,
 		PerOwner: 1000000000,
@@ -140,38 +125,6 @@ func NewStandaloneEngine(
 		}
 
 		billingClient, _ = billing.NewWorkflowClient(lggr, billingClientAddr, clientOpts...)
-	}
-
-	if module.IsLegacyDAG() {
-		sdkSpec, specErr := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
-		if specErr != nil {
-			return nil, nil, specErr
-		}
-
-		cfg := workflows.Config{
-			Lggr:                 lggr,
-			Workflow:             *sdkSpec,
-			WorkflowID:           defaultWorkflowID,
-			WorkflowOwner:        defaultOwner,
-			WorkflowName:         name,
-			Registry:             registry,
-			Store:                store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
-			Config:               config,
-			Binary:               binary,
-			SecretsFetcher:       SecretsFor,
-			RateLimiter:          rl,
-			WorkflowLimits:       workflowLimits,
-			NewWorkerTimeout:     time.Minute,
-			StepTimeout:          time.Minute,
-			MaxExecutionDuration: time.Minute,
-			BillingClient:        billingClient,
-		}
-
-		engine, engineErr := workflows.NewEngine(ctx, cfg)
-		if engineErr != nil {
-			return nil, nil, engineErr
-		}
-		return engine, nil, nil
 	}
 
 	secretsFetcher, err := NewFileBasedSecrets(secrets)
@@ -304,7 +257,7 @@ func SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWork
 
 // NewCapabilities builds capabilities using latest standard capabilities where possible, otherwise filled in with faked capabilities.
 // Capabilities are then registered with the capability registry.
-func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
+func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *registry.Registry) ([]services.Service, error) {
 	caps, err := NewFakeCapabilities(ctx, lggr, registry)
 	if err != nil {
 		return nil, err
@@ -315,14 +268,8 @@ func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabili
 	return caps, nil
 }
 
-func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
+func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *registry.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
-
-	streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
-	if err := registry.Add(ctx, streamsTrigger); err != nil {
-		return nil, err
-	}
-	caps = append(caps, streamsTrigger)
 
 	httpAction := fakes.NewDirectHTTPAction(lggr)
 	if err := registry.Add(ctx, httpserver.NewClientServer(httpAction)); err != nil {
@@ -330,21 +277,12 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 	caps = append(caps, httpAction)
 
-	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
-	if err != nil {
-		return nil, err
-	}
-	if err := registry.Add(ctx, fakeConsensus); err != nil {
-		return nil, err
-	}
-	caps = append(caps, fakeConsensus)
-
 	// generate deterministic signers - need to be configured on the Forwarder contract
 	nSigners := 4
 	signers := make([]ocr2key.KeyBundle, nSigners)
 	for i := range nSigners {
 		signer := ocr2key.MustNewInsecure(fakes.SeedForKeys(), corekeys.EVM)
-		lggr.Infow("Generated new consensus signer", "addrss", common.BytesToAddress(signer.PublicKey()))
+		lggr.Infow("Generated new consensus signer", "address", common.BytesToAddress(signer.PublicKey()))
 		signers[i] = signer
 	}
 	fakeConsensusNoDAG := fakes.NewFakeConsensusNoDAG(signers, lggr)

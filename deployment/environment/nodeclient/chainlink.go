@@ -849,7 +849,7 @@ func (c *ChainlinkClient) ImportVRFKey(vrfExportKey *VRFExportKey) (*VRFKey, *ht
 	return vrfKey, resp.RawResponse, err
 }
 
-// CreateCSAKey creates a CSA key on the Chainlink node, only 1 CSA key per noe
+// CreateCSAKey creates a CSA key on the Chainlink node, only 1 CSA key per node
 func (c *ChainlinkClient) CreateCSAKey() (*CSAKey, *http.Response, error) {
 	csaKey := &CSAKey{}
 	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating CSA Key")

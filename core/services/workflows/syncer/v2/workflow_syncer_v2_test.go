@@ -21,11 +21,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -36,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -301,8 +301,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-	capRegistry := corecaps.NewRegistry(lggr)
-	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
+	capRegistry := registry.NewRegistry(lggr)
+	capRegistry.SetRegistryMetadata(&registry.TestRegistryMetadata{})
 	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 		ArtifactStorageHost: "storage.chain.link",
 	}))
@@ -405,8 +405,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-	capRegistry := corecaps.NewRegistry(lggr)
-	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
+	capRegistry := registry.NewRegistry(lggr)
+	capRegistry.SetRegistryMetadata(&registry.TestRegistryMetadata{})
 	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 		ArtifactStorageHost: "storage.chain.link",
 	}))
@@ -455,7 +455,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	}, tests.WaitTimeout(t), 10*time.Millisecond)
 }
 
-func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
+func Test_StartReconciliation_InitialStateSyncV2(t *testing.T) {
 	t.Parallel()
 	t.Run("with heavy load", func(t *testing.T) {
 		t.Parallel()
@@ -623,7 +623,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 	}
 }
 
-func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
+func Test_StartReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)

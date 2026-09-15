@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,6 +13,7 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -145,4 +147,118 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 	require.NotNil(t, mcmsState.ProposerMcm)
 	require.NotNil(t, mcmsState.BypasserMcm)
 	require.NotNil(t, mcmsState.CancellerMcm)
+}
+
+func TestSaveExistingContractsDualWrite(t *testing.T) {
+	t.Parallel()
+
+	dummyEnv := cldf.Environment{
+		Name:              "dummy",
+		Logger:            logger.TestLogger(t),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
+			}),
+	}
+	addr1 := common.BigToAddress(big.NewInt(1)).String()
+	addr2 := common.BigToAddress(big.NewInt(2)).String()
+
+	t.Run("records each contract in both registries under its operator qualifier", func(t *testing.T) {
+		t.Parallel()
+		cfg := ExistingContractsConfig{
+			ExistingContracts: []Contract{
+				{
+					Address: addr1,
+					TypeAndVersion: cldf.TypeAndVersion{
+						Type:    "dummy1",
+						Version: deployment.Version1_5_0,
+					},
+					ChainSelector: chainsel.TEST_90000001.Selector,
+					Qualifier:     "LINK",
+				},
+				{
+					Address: addr2,
+					TypeAndVersion: cldf.TypeAndVersion{
+						Type:    "dummy2",
+						Version: deployment.Version1_1_0,
+					},
+					ChainSelector: chainsel.TEST_90000001.Selector,
+				},
+			},
+		}
+
+		output, err := SaveExistingContractsChangeset(dummyEnv, cfg)
+		require.NoError(t, err)
+
+		addresses, err := output.AddressBook.Addresses() //nolint:staticcheck // AddressBook is deprecated but still returned by this changeset.
+		require.NoError(t, err)
+		require.Len(t, addresses[chainsel.TEST_90000001.Selector], 2)
+
+		refs, err := output.DataStore.Addresses().Fetch()
+		require.NoError(t, err)
+		require.Len(t, refs, 2)
+		byAddr := make(map[string]datastore.AddressRef, len(refs))
+		for _, ref := range refs {
+			byAddr[ref.Address] = ref
+		}
+		require.Equal(t, "LINK", byAddr[addr1].Qualifier)
+		require.Empty(t, byAddr[addr2].Qualifier)
+	})
+
+	t.Run("re-recording the same contract is idempotent", func(t *testing.T) {
+		t.Parallel()
+		ec := Contract{
+			Address: addr1,
+			TypeAndVersion: cldf.TypeAndVersion{
+				Type:    "dummy1",
+				Version: deployment.Version1_5_0,
+			},
+			ChainSelector: chainsel.TEST_90000001.Selector,
+			Qualifier:     "LINK",
+		}
+		cfg := ExistingContractsConfig{ExistingContracts: []Contract{ec, ec}}
+
+		output, err := SaveExistingContractsChangeset(dummyEnv, cfg)
+		require.NoError(t, err)
+		refs, err := output.DataStore.Addresses().Fetch()
+		require.NoError(t, err)
+		require.Len(t, refs, 1)
+	})
+
+	t.Run("rejects a qualifier derived from the imported address", func(t *testing.T) {
+		t.Parallel()
+		cfg := ExistingContractsConfig{
+			ExistingContracts: []Contract{{
+				Address: addr1,
+				TypeAndVersion: cldf.TypeAndVersion{
+					Type:    "dummy1",
+					Version: deployment.Version1_5_0,
+				},
+				ChainSelector: chainsel.TEST_90000001.Selector,
+				Qualifier:     strings.ToLower(addr1) + "-dummy1",
+			}},
+		}
+
+		_, err := SaveExistingContractsChangeset(dummyEnv, cfg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "contains the address being imported")
+	})
+
+	t.Run("rejects a key already holding a different contract", func(t *testing.T) {
+		t.Parallel()
+		tv := cldf.TypeAndVersion{Type: "dummy1", Version: deployment.Version1_5_0}
+		cfg := ExistingContractsConfig{
+			ExistingContracts: []Contract{
+				{Address: addr1, TypeAndVersion: tv, ChainSelector: chainsel.TEST_90000001.Selector, Qualifier: "LINK"},
+				{Address: addr2, TypeAndVersion: tv, ChainSelector: chainsel.TEST_90000001.Selector, Qualifier: "LINK"},
+			},
+		}
+
+		_, err := SaveExistingContractsChangeset(dummyEnv, cfg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "same datastore key")
+		require.Contains(t, err.Error(), "provide distinct semantic qualifiers")
+		require.Contains(t, err.Error(), "LINK")
+	})
 }

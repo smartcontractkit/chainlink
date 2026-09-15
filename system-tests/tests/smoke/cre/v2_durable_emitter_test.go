@@ -108,11 +108,12 @@ func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	// Deploy a cron workflow that fires every 5 seconds.
 	lggr.Info().Msg("Deploying cron workflow for durable emitter test...")
 	workflowConfig := crontypes.WorkflowConfig{
-		Schedule: "*/5 * * * * *",
+		// 30s is the minimal cron interval
+		Schedule: "*/30 * * * * *",
 	}
 	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, "durable-emitter-test", &workflowConfig, workflowFileLocation)
 
-	const minExpectedEvents int64 = 4
+	const minExpectedEvents int64 = 1
 	lggr.Info().Msg("Waiting for sustained durable event activity...")
 
 	require.Eventually(t, func() bool {
@@ -129,5 +130,5 @@ func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		t.Logf("chip_durable_events: +%d inserts, +%d deletes, %d pending", newInserts, newDeletes, pending)
 
 		return newInserts >= minExpectedEvents && newDeletes >= minExpectedEvents
-	}, 2*time.Minute, 5*time.Second, "expected at least %d insert+delete events", minExpectedEvents)
+	}, 1*time.Minute, 30*time.Second, "expected at least %d insert+delete events", minExpectedEvents)
 }

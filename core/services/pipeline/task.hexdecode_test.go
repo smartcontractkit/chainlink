@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -46,7 +45,7 @@ func TestHexDecodeTask(t *testing.T) {
 			t.Run("without vars through job DAG", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.HexDecodeTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0)}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("without vars through input param", func(t *testing.T) {
 				inputStr := test.input
@@ -60,7 +59,7 @@ func TestHexDecodeTask(t *testing.T) {
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Input:    inputStr,
 				}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(map[string]any{
@@ -70,7 +69,7 @@ func TestHexDecodeTask(t *testing.T) {
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					Input:    "$(foo.bar)",
 				}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 		})
 	}

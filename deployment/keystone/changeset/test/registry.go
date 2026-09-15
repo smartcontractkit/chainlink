@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"math"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -297,7 +296,8 @@ func addDons(
 		// add the don
 		isPublic := true
 		f := len(don.P2PIDs)/3 + 1
-		tx, err := registry.AddDON(chain.DeployerKey, internal.PeerIDsToBytes(don.P2PIDs), capConfigs, isPublic, acceptsWorkflows, uint8(f))
+		require.LessOrEqual(t, f, math.MaxUint8)
+		tx, err := registry.AddDON(chain.DeployerKey, internal.PeerIDsToBytes(don.P2PIDs), capConfigs, isPublic, acceptsWorkflows, uint8(f)) //nolint:gosec // G115
 		if err != nil {
 			err2 := cldf.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 			require.Fail(t, fmt.Sprintf("failed to call AddDON: %s:  %s", err, err2))
@@ -436,24 +436,6 @@ func GetDefaultCapConfig(t *testing.T, capability capabilities_registry.Capabili
 	t.Helper()
 	defaultCfg := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-	}
-	switch capability.CapabilityType {
-	case uint8(0): // trigger
-		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(20 * time.Second),
-				RegistrationExpiry:      durationpb.New(60 * time.Second),
-				MinResponsesToAggregate: uint32(10),
-			},
-		}
-	case uint8(3): // target
-		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
-			RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
-				RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
-			},
-		}
-	case uint8(2): // consensus
-	default:
 	}
 	return defaultCfg
 }

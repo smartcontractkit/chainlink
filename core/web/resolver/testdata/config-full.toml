@@ -162,7 +162,6 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = true
 AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
@@ -373,8 +372,9 @@ ChipIngressDrainTimeout = '30s'
 ChipIngressMaxGRPCRequestSize = 10485760
 DurableEmitterEnabled = false
 DurableEmitterRetransmitBatchSize = 500
-DurableEmitterEventTTL = '1h0m0s'
+DurableEmitterEventTTL = '6h0m0s'
 DurableEmitterMaxQueuePayloadBytes = 1073741824
+DurableEmitterInsertBatchFlushInterval = '50ms'
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false
@@ -393,6 +393,16 @@ Foo = 'bar'
 [Telemetry.PrometheusBridge]
 Enabled = true
 Prefixes = ['ocr_']
+
+[Metering]
+MeterRecordsEnabled = true
+MeterSnapshotsEnabled = true
+Product = 'cre'
+Tenant = 'mainline'
+NumericTenantID = '42'
+Environment = 'production'
+Zone = 'wf-zone-a'
+NodeID = 'clp-cre-wf-zone-a-1'
 
 [Workflows]
 [Workflows.Limits]
@@ -414,6 +424,8 @@ URL = 'https://workflow.fetcher.url'
 [CRE.Linking]
 URL = ''
 TLSEnabled = true
+RequestTimeout = '2s'
+DurableCacheEnabled = true
 
 [CRE.ConfidentialRelay]
 Enabled = false
@@ -444,6 +456,7 @@ ArbiterRetryInterval = '12s'
 ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
+ShardAssignmentMode = 'manual-only'
 
 [LOOPP]
 GRPCServerMaxRecvMsgSize = '42.00mb'
@@ -521,7 +534,6 @@ OCR = 1001
 DR = 1002
 VRF = 1003
 FM = 1004
-Keeper = 1005
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
@@ -592,10 +604,6 @@ DatabaseTimeout = '1s'
 DeltaCOverride = '1h0m0s'
 DeltaCJitterOverride = '1s'
 ObservationGracePeriod = '1s'
-
-[EVM.OCR2]
-[EVM.OCR2.Automation]
-GasLimit = 540
 
 [EVM.Workflow]
 GasLimitDefault = 400000

@@ -42,7 +42,7 @@ func (t *SumTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Re
 	}
 
 	if allowed, isSet := maybeAllowedFaults.Uint64(); isSet {
-		allowedFaults = int(allowed)
+		allowedFaults = int(allowed) //nolint:gosec // G115
 	} else {
 		allowedFaults = len(valuesAndErrs) - 1
 	}

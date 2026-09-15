@@ -1,0 +1,158 @@
+name: SonarQube Scan
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_run:
+    workflows: ["CI Core"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  scan:
+    name: SonarQube Scan
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.actor.login != 'dependabot[bot]' && github.event.workflow_run.head_repository.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Download artifacts from parent workflow
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        if: ${{ github.event_name == 'workflow_run' }}
+
+      - name: Check and Set SonarQube Report Paths
+        id: report-paths
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          BASE_BRANCH: ${{ github.event.workflow_run.pull_requests[0].base.ref || 'develop' }}
+        run: |
+          # Check and assign paths for coverage/test reports in go_core_tests_logs
+          core_artifact="go_core_tests_logs"
+          if [ -d "$core_artifact" ]; then
+            echo "Found $core_artifact"
+            sonarqube_coverage_report_paths=$(find "./${core_artifact}" -name coverage.txt | paste -sd "," -)
+            sonarqube_tests_report_paths=$(find "./${core_artifact}" -name output.txt | paste -sd "," -)
+            echo "Coverage report paths: $sonarqube_coverage_report_paths"
+            echo "Tests report paths: $sonarqube_tests_report_paths"
+          else
+            echo "Did not find $core_artifact"
+            sonarqube_coverage_report_paths=""
+            sonarqube_tests_report_paths=""
+          fi
+
+          # Check and assign paths for coverage/test reports in go_core_tests_integration_logs
+          integration_tests_artifact="go_core_tests_integration_logs"
+          if [ -d "$integration_tests_artifact" ]; then
+            echo "Found $integration_tests_artifact"
+            integration_coverage_paths=$(find "./${integration_tests_artifact}" -name coverage.txt | paste -sd "," -)
+            integration_tests_paths=$(find "./${integration_tests_artifact}" -name output.txt | paste -sd "," -)
+
+            # Append to existing paths if they are set, otherwise assign directly
+            sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
+            sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$integration_tests_paths"
+          fi
+
+          # Check and assign paths for coverage/test reports in go_core_scripts_tests_logs
+          scripts_tests_artifact="go_core_scripts_tests_logs"
+          if [ -d "$scripts_tests_artifact" ]; then
+              echo "Found $scripts_tests_artifact"
+              scripts_coverage_paths=$(find "./${scripts_tests_artifact}" -name coverage.txt | paste -sd "," -)
+              scripts_tests_paths=$(find "./${scripts_tests_artifact}" -name output.txt | paste -sd "," -)
+
+              # Append to existing paths if they are set, otherwise assign directly
+              sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$scripts_coverage_paths"
+              sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$scripts_tests_paths"
+          fi
+
+          # Check and assign paths for lint reports
+          # To find reports in the folders named differently (because of the matrix strategy),
+          # We need to loop through the artifacts. It allows usage of RegExp folders (skipped if not found).
+          sonarqube_lint_report_paths=""
+          shopt -s nullglob
+          for golang_lint_artifact in golangci-lint-report*
+          do
+              [[ -d "$golang_lint_artifact" ]] || continue
+              echo "Found golangci-lint-report artifact: $golang_lint_artifact"
+              part=$(find "$golang_lint_artifact" -type f -name 'golangci-lint-report.xml' -printf '%p,')
+              sonarqube_lint_report_paths+="$part"
+          done
+          shopt -u nullglob
+          echo "Lint report paths: $sonarqube_lint_report_paths"
+
+          # Sonar overwrites a branch's measures with whatever an analysis reports, so
+          # publishing with no reports at all would zero out coverage. Skip instead.
+          if [[ -z "${sonarqube_tests_report_paths}${sonarqube_coverage_report_paths}${sonarqube_lint_report_paths}" ]]; then
+            echo "::warning::No test, coverage, or lint reports found, skipping SonarQube analysis"
+            echo "has-reports=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # workflow_run carries no PR context of its own, so pass it explicitly. Without
+          # this, sonar-scanner cannot auto-detect the PR and reports the analysis against
+          # the default branch.
+          ARGS=""
+          if [[ -n "${PR_NUMBER}" ]]; then
+            ARGS="$ARGS -Dsonar.pullrequest.key=${PR_NUMBER}"
+            ARGS="$ARGS -Dsonar.pullrequest.branch=${HEAD_BRANCH}"
+            ARGS="$ARGS -Dsonar.pullrequest.base=${BASE_BRANCH}"
+          elif [[ "${HEAD_BRANCH}" == "develop" || "${HEAD_BRANCH}" == release/* ]]; then
+            ARGS="$ARGS -Dsonar.branch.name=${HEAD_BRANCH}"
+          else
+            # A PR branch with no pull_requests entry. Analyzing it as a long-lived Sonar
+            # branch would clutter the project, so skip.
+            echo "::warning::No PR context for '${HEAD_BRANCH}', skipping SonarQube analysis"
+            echo "has-reports=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -z "$sonarqube_tests_report_paths" ]]; then
+            echo "::warning::No test report paths found, will not pass to sonarqube"
+          else
+            echo "Found test report paths: $sonarqube_tests_report_paths"
+            ARGS="$ARGS -Dsonar.go.tests.reportPaths=$sonarqube_tests_report_paths"
+          fi
+
+          if [[ -z "$sonarqube_coverage_report_paths" ]]; then
+            echo "::warning::No coverage report paths found, will not pass to sonarqube"
+          else
+            echo "Found coverage report paths: $sonarqube_coverage_report_paths"
+            ARGS="$ARGS -Dsonar.go.coverage.reportPaths=$sonarqube_coverage_report_paths"
+          fi
+
+          if [[ -z "$sonarqube_lint_report_paths" ]]; then
+            echo "::warning::No lint report paths found, will not pass to sonarqube"
+          else
+            echo "Found lint report paths: $sonarqube_lint_report_paths"
+            ARGS="$ARGS -Dsonar.go.golangci-lint.reportPaths=$sonarqube_lint_report_paths"
+          fi
+
+          echo "Final SONARQUBE_ARGS: $ARGS"
+          echo "SONARQUBE_ARGS=$ARGS" >> "$GITHUB_ENV"
+          echo "has-reports=true" >> "$GITHUB_OUTPUT"
+
+      - name: SonarQube Scan
+        if: ${{ steps.report-paths.outputs.has-reports == 'true' }}
+        uses: sonarsource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
+        with:
+          args: ${{ env.SONARQUBE_ARGS }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"

@@ -22,7 +22,6 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -132,14 +131,14 @@ func ValidatedOracleSpecTomlCfg(gcfg GeneralConfig, configFn func(id *big.Int, c
 
 // Parameters that must be explicitly set by the operator.
 var (
-	// Common to both bootstrap and non-boostrap
+	// Common to both bootstrap and non-bootstrap
 	params = map[string]struct{}{
 		"type":            {},
 		"schemaVersion":   {},
 		"contractAddress": {},
 		"isBootstrapPeer": {},
 	}
-	// Boostrap and non-bootstrap parameters
+	// Bootstrap and non-bootstrap parameters
 	// are mutually exclusive.
 	bootstrapParams    = map[string]struct{}{}
 	nonBootstrapParams = map[string]struct{}{

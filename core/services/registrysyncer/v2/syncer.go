@@ -10,23 +10,27 @@ import (
 	"sync"
 	"time"
 
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-
-	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
+type Listener interface {
+	OnNewRegistry(ctx context.Context, registry *registry.RegistryMetadata) error
+}
+
 type Syncer interface {
 	services.Service
-	AddListener(h ...registrysyncer.Listener)
+	AddListener(h ...Listener)
 }
 
 type ContractReaderFactory interface {
@@ -35,7 +39,7 @@ type ContractReaderFactory interface {
 
 type RegistrySyncer interface {
 	Sync(ctx context.Context, isInitialSync bool) error
-	AddListener(listeners ...registrysyncer.Listener)
+	AddListener(listeners ...Listener)
 	Start(ctx context.Context) error
 	Close() error
 	Ready() error
@@ -47,7 +51,7 @@ type registrySyncer struct {
 	services.StateMachine
 	metrics              *syncerMetricLabeler
 	stopCh               services.StopChan
-	listeners            []registrysyncer.Listener
+	listeners            []Listener
 	reader               types.ContractReader
 	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error)
 	relayer              ContractReaderFactory
@@ -56,7 +60,7 @@ type registrySyncer struct {
 
 	orm registrysyncer.ORM
 
-	updateChan chan *registrysyncer.LocalRegistry
+	updateChan chan *registry.RegistryMetadata
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -83,7 +87,7 @@ func New(
 	return &registrySyncer{
 		metrics:    metricLabeler,
 		stopCh:     make(services.StopChan),
-		updateChan: make(chan *registrysyncer.LocalRegistry),
+		updateChan: make(chan *registry.RegistryMetadata),
 		lggr:       logger.Named(lggr, "RegistrySyncer"),
 		relayer:    relayer,
 		capabilitiesContract: types.BoundContract{
@@ -215,14 +219,14 @@ func (s *registrySyncer) updateStateLoop() {
 				// channel has been closed, terminating.
 				return
 			}
-			if err := s.orm.AddLocalRegistry(ctx, *localRegistry); err != nil {
+			if err := s.orm.AddRegistryMetadata(ctx, localRegistry); err != nil {
 				s.lggr.Errorw("failed to save state to local registry", "error", err)
 			}
 		}
 	}
 }
 
-func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysyncer.LocalRegistry, error) {
+func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
 	caps := []capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo{}
 	// TODO support pagination if needed
 	// Using large limit for now to avoid pagination complexity
@@ -236,14 +240,14 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 		return nil, fmt.Errorf("failed to get latest value for getCapabilities: %w", err)
 	}
 
-	idsToCapabilities := map[string]registrysyncer.Capability{}
+	idsToCapabilities := map[string]registry.Capability{}
 	for _, c := range caps {
 		capabilityType, _, parseErr := parseCapabilityMetadata(c.Metadata)
 		if parseErr != nil {
 			s.lggr.Warnw("failed to parse capability metadata, skipping", "capabilityID", c.CapabilityId, "error", parseErr)
 			continue
 		}
-		idsToCapabilities[c.CapabilityId] = registrysyncer.Capability{
+		idsToCapabilities[c.CapabilityId] = registry.Capability{
 			ID:             c.CapabilityId,
 			CapabilityType: toCapabilityType(capabilityType),
 		}
@@ -256,16 +260,16 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 		return nil, fmt.Errorf("failed to get latest value for getDONs: %w", err)
 	}
 
-	idsToDONs := map[registrysyncer.DonID]registrysyncer.DON{}
+	idsToDONs := map[registry.DonID]registry.DON{}
 	for _, d := range dons {
-		cc := map[string]registrysyncer.CapabilityConfiguration{}
+		cc := map[string]registry.CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
-			cc[dc.CapabilityId] = registrysyncer.CapabilityConfiguration{
+			cc[dc.CapabilityId] = registry.CapabilityConfiguration{
 				Config: dc.Config,
 			}
 		}
 
-		idsToDONs[registrysyncer.DonID(d.Id)] = registrysyncer.DON{
+		idsToDONs[registry.DonID(d.Id)] = registry.DON{
 			DON:                      *toDONInfo(d),
 			CapabilityConfigurations: cc,
 		}
@@ -278,9 +282,9 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 		return nil, fmt.Errorf("failed to get latest value for getNodes: %w", err)
 	}
 
-	idsToNodes := map[p2ptypes.PeerID]registrysyncer.NodeInfo{}
+	idsToNodes := map[p2ptypes.PeerID]registry.NodeInfo{}
 	for _, node := range nodes {
-		nodeInfo := registrysyncer.NodeInfo{
+		nodeInfo := registry.NodeInfo{
 			NodeOperatorID:      node.NodeOperatorId,
 			ConfigCount:         node.ConfigCount,
 			WorkflowDONId:       node.WorkflowDONId,
@@ -307,7 +311,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 		idsToNodes[node.P2pId] = nodeInfo
 	}
 
-	return &registrysyncer.LocalRegistry{
+	return &registry.RegistryMetadata{
 		Logger:            s.lggr,
 		GetPeerID:         s.getPeerID,
 		IDsToDONs:         idsToDONs,
@@ -321,7 +325,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	defer s.mu.RUnlock()
 
 	if len(s.listeners) == 0 {
-		s.lggr.Warn("sync called, but no listeners are registered; nooping")
+		s.lggr.Warn("sync called, but no listeners are registered; no-op")
 		return nil
 	}
 
@@ -334,12 +338,12 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		s.reader = reader
 	}
 
-	var latestRegistry *registrysyncer.LocalRegistry
+	var latestRegistry *registry.RegistryMetadata
 	var err error
 
 	if isInitialSync {
 		s.lggr.Debug("syncing with local registry")
-		latestRegistry, err = s.orm.LatestLocalRegistry(ctx)
+		latestRegistry, err = s.orm.LatestRegistryMetadata(ctx)
 		if err != nil {
 			s.lggr.Warnw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {
@@ -371,7 +375,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	for _, listener := range s.listeners {
-		lrCopy := registrysyncer.DeepCopyLocalRegistry(latestRegistry)
+		lrCopy := registry.DeepCopyRegistryMetadata(latestRegistry)
 		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
@@ -424,7 +428,7 @@ func toDONInfo(don capabilities_registry_v2.CapabilitiesRegistryDONInfo) *capabi
 	}
 }
 
-func (s *registrySyncer) AddListener(listeners ...registrysyncer.Listener) {
+func (s *registrySyncer) AddListener(listeners ...Listener) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.listeners = append(s.listeners, listeners...)

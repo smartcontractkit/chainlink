@@ -9,6 +9,7 @@
 
 [[blockchains]]
   type = "stellar"
+  image = "stellar/quickstart:pr968-v653-b1315.2-latest"
   chain_id = "baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"
   # Pin the standalone network to mainnet's live protocol (26) so local/CI matches
   docker_cmd_params = ["--protocol-version", "26"]
@@ -25,7 +26,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow"]
   override_mode = "all"
   http_port_range_start = 10100
@@ -35,9 +36,9 @@
   # Stellar chains this DON supports (string network ids), used for key generation and node relayer config.
   supported_stellar_chains = ["baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"]
   # Workflow runtime limits need both the EVM registry chain (1337) and the Stellar chain selector.
-  env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","17301180955411967724":"true"}},"ExecutionTimestampsEnabled":"true"}}', CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","17301180955411967724":"true"}},"ExecutionTimestampsEnabled":"true","ChainRead":{"CallLimit":"32"}}}', CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["cron", "consensus", "don-time"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -55,7 +56,7 @@
 [[nodesets]]
   nodes = 4
   name = "capabilities"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
   override_mode = "all"
@@ -82,7 +83,7 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300

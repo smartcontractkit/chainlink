@@ -30,7 +30,7 @@ type mockConfig struct {
 	goroutineThreshold   int
 }
 
-var (
+const (
 	testInterval = 50 * time.Millisecond
 	testDuration = 20 * time.Millisecond
 	testRate     = 100
@@ -98,6 +98,10 @@ func (c mockConfig) GoroutineThreshold() int {
 }
 
 func TestNurse(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	l := logger.TestLogger(t)
 	nrse := NewNurse(newMockConfig(t), l)
 	nrse.AddCheck("test", func() (bool, Meta) { return true, Meta{} })

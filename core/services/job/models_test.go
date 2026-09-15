@@ -2,25 +2,21 @@ package job_test
 
 import (
 	_ "embed"
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
@@ -32,7 +28,7 @@ func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
 	forwardingAllowed = false
 	command = "consensus"
 	config = """"""
-	
+
 	[oracle_factory]
 	enabled = true
 	bootstrap_peers = ["12D3KooWBAzThfs9pD4WcsFKCi68EUz2fZgZskDBT6JcJRndPss5@cl-keystone-two-bt-0:5001"]
@@ -75,7 +71,8 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 		want    types.RelayID
 		wantErr bool
 	}{
-		{name: "err no chain id",
+		{
+			name:    "err no chain id",
 			fields:  fields{},
 			want:    types.RelayID{},
 			wantErr: true,
@@ -272,7 +269,8 @@ func TestOCR2OracleSpec(t *testing.T) {
 				"publicKey": "0xdeadbeef",
 			},
 		},
-		PluginConfig: map[string]any{"juelsPerFeeCoinSource": `  // data source 1
+		PluginConfig: map[string]any{
+			"juelsPerFeeCoinSource": `  // data source 1
   ds1          [type=bridge name="%s"];
   ds1_parse    [type=jsonparse path="data"];
   ds1_multiply [type=multiply times=2];
@@ -311,106 +309,5 @@ func TestOCR2OracleSpec(t *testing.T) {
 			t.Log("marshaled compact:", string(gotB))
 			require.Equal(t, compact, string(gotB))
 		})
-	})
-}
-
-func TestWorkflowSpec_Validate(t *testing.T) {
-	type fields struct {
-		Workflow string
-	}
-	tests := []struct {
-		name              string
-		fields            fields
-		wantWorkflowOwner string
-		wantWorkflowName  string
-
-		wantError bool
-	}{
-		{
-			name: "valid",
-			fields: fields{
-				Workflow: pkgworkflows.WFYamlSpec(t, "workflow01", "0x0123456789012345678901234567890123456789"),
-			},
-			wantWorkflowOwner: "0123456789012345678901234567890123456789", // the workflow job spec strips the 0x prefix to limit to 40	characters
-			wantWorkflowName:  "workflow01",
-		},
-		{
-			name: "valid no name",
-			fields: fields{
-				Workflow: pkgworkflows.WFYamlSpec(t, "", "0x0123456789012345678901234567890123456789"),
-			},
-			wantWorkflowOwner: "0123456789012345678901234567890123456789", // the workflow job spec strips the 0x prefix to limit to 40	characters
-			wantWorkflowName:  "",
-		},
-		{
-			name: "valid no owner",
-			fields: fields{
-				Workflow: pkgworkflows.WFYamlSpec(t, "workflow01", ""),
-			},
-			wantWorkflowOwner: "",
-			wantWorkflowName:  "workflow01",
-		},
-		{
-			name: "invalid ",
-			fields: fields{
-				Workflow: "garbage",
-			},
-			wantError: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			w := &job.WorkflowSpec{
-				Workflow: tt.fields.Workflow,
-			}
-			err := w.Validate(testutils.Context(t))
-			require.Equal(t, tt.wantError, err != nil)
-			if !tt.wantError {
-				assert.NotEmpty(t, w.WorkflowID)
-				assert.Equal(t, tt.wantWorkflowOwner, w.WorkflowOwner)
-				assert.Equal(t, tt.wantWorkflowName, w.WorkflowName)
-			}
-		})
-	}
-
-	t.Run("WASM can validate", func(t *testing.T) {
-		configLocation := "testdata/config.json"
-
-		w := &job.WorkflowSpec{
-			Workflow: createTestBinary(t),
-			SpecType: job.WASMFile,
-			Config:   configLocation,
-		}
-
-		err := w.Validate(testutils.Context(t))
-		require.NoError(t, err)
-		require.NotEmpty(t, w.WorkflowID)
-	})
-
-	t.Run("WASM can validate from TOML", func(t *testing.T) {
-		const wasmWorkfowTomlTemplate = `
-			workflow_owner = "%s"
-			workflow_name = "%s"
-			spec_type = "%s"
-			workflow = "%s"
-			config = "%s"
-		`
-		configLocation := "testdata/config.json"
-		tomlSpec := fmt.Sprintf(wasmWorkfowTomlTemplate,
-			"0x0123456789012345678901234567890123456788",
-			"wf-2",
-			job.WASMFile,
-			createTestBinary(t),
-			configLocation,
-		)
-		var w job.WorkflowSpec
-		err := toml.Unmarshal([]byte(tomlSpec), &w)
-		require.NoError(t, err)
-
-		err = w.Validate(testutils.Context(t))
-		require.NoError(t, err)
-		require.NotEmpty(t, w.WorkflowID)
-		assert.Equal(t, "0123456789012345678901234567890123456788", w.WorkflowOwner)
-		assert.Equal(t, "wf-2", w.WorkflowName)
 	})
 }

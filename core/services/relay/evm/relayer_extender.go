@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
@@ -57,7 +56,7 @@ func NewLegacyChains(
 	}
 
 	// map with lazy initialization for the txm to access evm clients for different chain
-	var clientsByChainID = make(map[string]rollups.DAClient)
+	clientsByChainID := make(map[string]rollups.DAClient)
 	for i := range enabled {
 		cid := enabled[i].ChainID.ToInt()
 		opts := legacyevm.ChainRelayOpts{
@@ -76,7 +75,7 @@ func NewLegacyChains(
 		clientsByChainID[cid.String()] = chain.Client()
 		result = append(result, chain)
 	}
-	return
+	return result, err
 }
 
 // Deprecated: use the Relayer interface

@@ -17,10 +17,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
@@ -103,7 +102,8 @@ func testSingleConsumerHappyPath(
 		vrfOwnerAddress,
 		vrfVersion,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
@@ -390,7 +390,8 @@ func testMultipleConsumersNeedTrustedBHS(
 		nil,
 		vrfVersion,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
 	var (
@@ -412,7 +413,8 @@ func testMultipleConsumersNeedTrustedBHS(
 		waitBlocks = 400
 	}
 	_ = vrftesthelpers.CreateAndStartBHSJob(
-		t, bhsKeyAddressesStrings, app, "", v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000, 0, waitBlocks)
+		t, bhsKeyAddressesStrings, app, "", v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000, 0, waitBlocks,
+	)
 
 	// Ensure log poller is ready and has all logs.
 	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
@@ -587,7 +589,8 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		vrfOwnerAddress,
 		vrfVersion,
 		true,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make some randomness requests.
@@ -692,7 +695,8 @@ func testSingleConsumerNeedsTopUp(
 		vrfOwnerAddress,
 		vrfVersion,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	numWords := uint32(20)
@@ -794,7 +798,8 @@ func testBlockHeaderFeeder(
 		vrfOwnerAddress,
 		vrfVersion,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 	var (
 		v2coordinatorAddress     string
@@ -809,7 +814,8 @@ func testBlockHeaderFeeder(
 
 	_ = vrftesthelpers.CreateAndStartBlockHeaderFeederJob(
 		t, bhfKeys, app, uni.bhsContractAddress.String(), uni.batchBHSContractAddress.String(),
-		v2coordinatorAddress, v2plusCoordinatorAddress)
+		v2coordinatorAddress, v2plusCoordinatorAddress,
+	)
 
 	// Ensure log poller is ready and has all logs.
 	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
@@ -906,18 +912,20 @@ func setupAndFundSubscriptionAndConsumer(
 		b, err2 := evmutils.ABIEncode(`[{"type":"uint256"}]`, subID)
 		require.NoError(t, err2)
 		_, err2 = uni.linkContract.TransferAndCall(
-			uni.sergey, coordinatorAddress, fundingAmount, b)
+			uni.sergey, coordinatorAddress, fundingAmount, b,
+		)
 		require.NoError(t, err2, "failed to fund sub")
 		uni.backend.Commit()
-		return
+		return subID
 	}
 	b, err := evmutils.ABIEncode(`[{"type":"uint64"}]`, subID.Uint64())
 	require.NoError(t, err)
 	_, err = uni.linkContract.TransferAndCall(
-		uni.sergey, coordinatorAddress, fundingAmount, b)
+		uni.sergey, coordinatorAddress, fundingAmount, b,
+	)
 	require.NoError(t, err, "failed to fund sub")
 	uni.backend.Commit()
-	return
+	return subID
 }
 
 func testSingleConsumerForcedFulfillment(
@@ -996,7 +1004,8 @@ func testSingleConsumerForcedFulfillment(
 		new(uni.vrfOwnerAddress),
 		vrfVersion,
 		batchEnabled,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Transfer ownership of the VRF coordinator to the VRF owner,
@@ -1141,7 +1150,8 @@ func testSingleConsumerEIP150(
 		nil,
 		vrfVersion,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
@@ -1212,7 +1222,8 @@ func testSingleConsumerEIP150Revert(
 		nil,
 		vrfVersion,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
@@ -1276,7 +1287,8 @@ func testSingleConsumerBigGasCallbackSandwich(
 		nil,
 		vrfVersion,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make some randomness requests, each one block apart, which contain a single low-gas request sandwiched between two high-gas requests.
@@ -1400,13 +1412,13 @@ func testSingleConsumerMultipleGasLanes(
 		nil,
 		vrfVersion,
 		false,
-		cheapGasLane, expensiveGasLane)
+		cheapGasLane, expensiveGasLane,
+	)
 	cheapHash := jbs[0].VRFSpec.PublicKey.MustHash()
 	expensiveHash := jbs[1].VRFSpec.PublicKey.MustHash()
 
 	numWords := uint32(20)
-	cheapRequestID, _ :=
-		requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, cheapHash, subID, numWords, 500_000, uni.rootContract, uni.backend, nativePayment)
+	cheapRequestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, cheapHash, subID, numWords, 500_000, uni.rootContract, uni.backend, nativePayment)
 
 	// Wait for fulfillment to be queued for cheap key hash.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -1516,7 +1528,8 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 		nil,
 		vrfVersion,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the randomness request.
@@ -1571,7 +1584,8 @@ func testConsumerProxyHappyPath(
 	// Create a subscription and fund with 5 LINK.
 	subID := subscribeAndAssertSubscriptionCreatedEvent(
 		t, consumerContract, consumerOwner, consumerContractAddress,
-		assets.Ether(5).ToInt(), uni.rootContract, uni.backend, nativePayment)
+		assets.Ether(5).ToInt(), uni.rootContract, uni.backend, nativePayment,
+	)
 
 	// Create gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
@@ -1590,13 +1604,15 @@ func testConsumerProxyHappyPath(
 		nil,
 		vrfVersion,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the first randomness request.
 	numWords := uint32(20)
 	requestID1, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(
-		t, consumerContract, consumerOwner, keyHash, subID, numWords, 750_000, uni.rootContract, uni.backend, nativePayment)
+		t, consumerContract, consumerOwner, keyHash, subID, numWords, 750_000, uni.rootContract, uni.backend, nativePayment,
+	)
 
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -1624,7 +1640,8 @@ func testConsumerProxyHappyPath(
 
 	// Make the second randomness request and assert fulfillment is successful
 	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(
-		t, consumerContract, consumerOwner, keyHash, subID, numWords, 750_000, uni.rootContract, uni.backend, nativePayment)
+		t, consumerContract, consumerOwner, keyHash, subID, numWords, 750_000, uni.rootContract, uni.backend, nativePayment,
+	)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
 		runs, err := app.PipelineORM().GetAllRuns(ctx)
@@ -1666,7 +1683,8 @@ func testConsumerProxyCoordinatorZeroAddress(
 		uni.linkContractAddress)
 	require.NoError(t, err)
 	_, _, _, err = vrfv2_transparent_upgradeable_proxy.DeployVRFV2TransparentUpgradeableProxy(
-		uni.neil, uni.backend.Client(), upgradeableConsumerAddress, uni.proxyAdminAddress, initializeCalldata)
+		uni.neil, uni.backend.Client(), upgradeableConsumerAddress, uni.proxyAdminAddress, initializeCalldata,
+	)
 	require.Error(t, err)
 }
 

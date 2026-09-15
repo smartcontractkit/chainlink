@@ -16,10 +16,9 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 type ocrConfigService struct {
@@ -71,6 +70,18 @@ func NewOCRConfigService(lggr logger.Logger, peerIDProviderFn PeerIDProvider, ch
 	}
 }
 
+// GetContractConfig returns the cached registry-based OCR contract config for the
+// given capability/key, if one has been received from the registry.
+func (s *ocrConfigService) GetContractConfig(capabilityID string, ocrConfigKey string) (ocrtypes.ContractConfig, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	cached, ok := s.configs[configKey{CapabilityID: capabilityID, OCRConfigKey: ocrConfigKey}]
+	if !ok || cached == nil {
+		return ocrtypes.ContractConfig{}, false
+	}
+	return cached.ContractConfig, true
+}
+
 func (s *ocrConfigService) Start(ctx context.Context) error {
 	return s.StartOnce("OCRConfigService", func() error {
 		if s.peerIDProviderFn == nil {
@@ -106,7 +117,7 @@ func (s *ocrConfigService) HealthReport() map[string]error {
 
 // OnNewRegistry implements registrysyncer.Listener to receive registry updates with capability configurations.
 // It scans DONs to find which one(s) the current node belongs to and extracts OCR configs only for those DONs.
-func (s *ocrConfigService) OnNewRegistry(ctx context.Context, registry *registrysyncer.LocalRegistry) error {
+func (s *ocrConfigService) OnNewRegistry(ctx context.Context, registry *registry.RegistryMetadata) error {
 	if ok := s.IfStarted(func() {}); !ok {
 		s.lggr.Warnw("OnNewRegistry called before service started, skipping")
 		return nil

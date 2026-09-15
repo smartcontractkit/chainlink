@@ -3,9 +3,9 @@ package promwrapper
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var _ ocr3types.ReportingPluginFactory[any] = &ReportingPluginFactory[any]{}

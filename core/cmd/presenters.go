@@ -2,7 +2,7 @@ package cmd
 
 // JAID represents a JSON API ID.
 //
-// It implements the api2go MarshalIdentifier and UnmarshalIdentitier interface.
+// It implements the api2go MarshalIdentifier and UnmarshalIdentifier interface.
 //
 // When you embed a JSONAPI resource into a presenter, it will not render the
 // ID into the JSON object when you perform a json.Marshal. Instead we use this
@@ -27,7 +27,7 @@ func (jaid JAID) GetID() string {
 	return jaid.ID
 }
 
-// SetID implements the api2go UnmarshalIdentitier interface.
+// SetID implements the api2go UnmarshalIdentifier interface.
 func (jaid *JAID) SetID(value string) error {
 	jaid.ID = value
 

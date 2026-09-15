@@ -534,7 +534,7 @@ func NewCapabilityConfigurations(cfgs []capabilities_registry.CapabilitiesRegist
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal capability configuration for capability %s: %w", cfg.CapabilityId, err)
 		}
-		decodedOCR3, err := creocr3.DecodeCapRegOCR3Configs(cfg.Config)
+		decodedOCR3, err := creocr3.DecodeCapRegOCR3Configs(cfg.Config, cfg.CapabilityId)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode OCR3 configs for capability %s: %w", cfg.CapabilityId, err)
 		}

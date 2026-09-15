@@ -30,14 +30,14 @@
 [[nodesets]]
   nodes = 4
   name = "workflow"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow"]
   override_mode = "all"
   http_port_range_start = 10100
 
   env_vars = { CL_EVM_CMD = "" }
   capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -60,7 +60,7 @@ IdleTimeout = '30s'
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
