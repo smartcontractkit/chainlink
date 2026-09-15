@@ -15,9 +15,9 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
@@ -42,7 +42,7 @@ type Capability struct {
 	clock                clockwork.Clock
 	expiresAfter         time.Duration
 	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
-	capabilitiesRegistry core.CapabilitiesRegistry
+	capabilitiesRegistry registry.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
 	lifecycle            *RequestLifecycleTracker
 	zoneBRestrictor      *zoneBRestrictor
@@ -324,7 +324,7 @@ func NewCapability(
 	clock clockwork.Clock,
 	expiresAfter time.Duration,
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
-	capabilitiesRegistry core.CapabilitiesRegistry,
+	capabilitiesRegistry registry.CapabilitiesRegistry,
 	publicKey *LazyPublicKey,
 	limitsFactory limits.Factory,
 	lifecycle *RequestLifecycleTracker,

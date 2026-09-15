@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	ocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonevm "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
@@ -44,7 +45,6 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -147,7 +147,7 @@ func TestEvmWrite(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db)
 
 	lggr := logger.TestLogger(t, zapcore.DebugLevel)
-	cRegistry := evmcapabilities.NewRegistry(lggr)
+	cRegistry := capreg.NewRegistry(lggr)
 	relayer, err := evm.NewRelayer(lggr, chain, evm.RelayerOpts{
 		DS:                   db,
 		EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
@@ -459,7 +459,7 @@ func TestEvmWrite(t *testing.T) {
 		testChain.On("Close").Return(nil)
 		testChain.On("ID").Return(big.NewInt(11155111))
 		testChain.On("Config").Return(testCfg)
-		capabilityRegistry := evmcapabilities.NewRegistry(lggr)
+		capabilityRegistry := capreg.NewRegistry(lggr)
 
 		relayer, err := evm.NewRelayer(lggr, testChain, evm.RelayerOpts{
 			DS:                   db,
