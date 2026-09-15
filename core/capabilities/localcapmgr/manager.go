@@ -14,11 +14,11 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities/conversions"
 )
 
@@ -29,7 +29,7 @@ type LocalCapabilityManager interface {
 	services.Service
 
 	// Called by Launcher.OnNewRegistry() for each registry update.
-	Reconcile(ctx context.Context, allMyDONs []registrysyncer.DON) error
+	Reconcile(ctx context.Context, allMyDONs []registry.DON) error
 }
 
 // runningCapability tracks a started capability.
@@ -44,7 +44,7 @@ type runningCapability struct {
 type capabilityInfo struct {
 	capID      string
 	donID      uint32
-	config     registrysyncer.CapabilityConfiguration
+	config     registry.CapabilityConfiguration
 	configHash string
 }
 
@@ -128,7 +128,7 @@ func (m *localCapabilityManager) Name() string {
 // It starts new capabilities, stops removed ones, and restarts those with changed config.
 func (m *localCapabilityManager) Reconcile(
 	ctx context.Context,
-	allMyDONs []registrysyncer.DON,
+	allMyDONs []registry.DON,
 ) error {
 	desired := m.buildDesiredState(allMyDONs)
 
@@ -181,7 +181,7 @@ func (m *localCapabilityManager) Reconcile(
 
 // buildDesiredState extracts capabilities that should be running from DON configs.
 // Only includes capabilities that are in the RegistryBasedLaunchAllowlist.
-func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registrysyncer.DON) map[string]*capabilityInfo {
+func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registry.DON) map[string]*capabilityInfo {
 	desired := make(map[string]*capabilityInfo)
 	for _, don := range myCapabilityDONs {
 		for capID, capCfg := range don.CapabilityConfigurations {
@@ -305,7 +305,7 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 // or carries no OCR3 config. The delegate uses it to align the node's signer and
 // transmitter with the registry.
 // By `default,` we mean the config from the registry stored under the "default" key.
-func extractDefaultOCR3Config(cc registrysyncer.CapabilityConfiguration) *ocrtypes.ContractConfig {
+func extractDefaultOCR3Config(cc registry.CapabilityConfiguration) *ocrtypes.ContractConfig {
 	if len(cc.Config) == 0 {
 		return nil
 	}

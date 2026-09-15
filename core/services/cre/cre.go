@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -79,7 +80,7 @@ type Keystore interface {
 
 // Opts are the options for the CRE services that are exposed by the application
 type Opts struct {
-	CapabilitiesRegistry   *capabilities.Registry
+	CapabilitiesRegistry   *registry.Registry
 	ExecutionHandlers      *confidentialrelay.ExecutionHandlers
 	CapabilitiesDispatcher remotetypes.Dispatcher
 	CapabilitiesSharedPeer p2ptypes.SharedPeer
@@ -618,11 +619,11 @@ func (w *dispatcherWrapper) newSubservices(
 	return []commonsrv.Service{w.don2DonSharedPeer, w.dispatcher}, nil
 }
 
-func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *capabilities.TestMetadataRegistry {
-	return &capabilities.TestMetadataRegistry{}
+func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *registry.TestRegistryMetadata {
+	return &registry.TestRegistryMetadata{}
 }
 
-func newShardDonLookup(capRegistry *capabilities.Registry) func(ctx context.Context, shardID uint32) *commoncap.DON {
+func newShardDonLookup(capRegistry *registry.Registry) func(ctx context.Context, shardID uint32) *commoncap.DON {
 	return func(ctx context.Context, shardID uint32) *commoncap.DON {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
