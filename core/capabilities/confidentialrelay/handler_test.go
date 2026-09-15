@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
@@ -646,6 +647,47 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.NotNil(t, resp.Error)
 				// Vault system failures are internal errors → ErrInternal, not a user error.
 				assert.Equal(t, jsonrpc.ErrInternal, resp.Error.Code)
+			},
+		},
+		{
+			name:        "secrets get GetRawSecrets user error classified as invalid params",
+			registry:    secretsGetTestRegistry,
+			req:         secretsGetTestRequest,
+			workflowID:  "wf-secrets-1",
+			executionID: "0000000000000000000000000000000000000000000000000000000000000001",
+			helper: func(_ *testing.T) *mockExecutionHelper {
+				// Reproduces the real chain: the vault's public user caperrors.Error
+				// is serialized at the remote boundary, deserialized client-side,
+				// and wrapped by the engine.
+				serialized := caperrors.NewPublicUserError(
+					errors.New("could not validate get secrets request: request batch size exceeds maximum of 10: limit of 10 exceeded"),
+					caperrors.LimitExceeded,
+				).SerializeToRemoteString()
+				deserialized := caperrors.DeserializeErrorFromString(serialized)
+				return &mockExecutionHelper{secretsErr: fmt.Errorf("failed to execute vault.GetSecrets: error executing request: INTERNAL_ERROR : %w", deserialized)}
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.NotNil(t, resp.Error)
+				// Must reach the caller with the real cause, not "internal error".
+				assert.Equal(t, jsonrpc.ErrInvalidParams, resp.Error.Code)
+				assert.Contains(t, resp.Error.Message, "request batch size exceeds maximum of 10")
+				assert.NotEqual(t, internalErrorMessage, resp.Error.Message)
+			},
+		},
+		{
+			name:        "secrets get GetRawSecrets system error classified as internal",
+			registry:    secretsGetTestRegistry,
+			req:         secretsGetTestRequest,
+			workflowID:  "wf-secrets-1",
+			executionID: "0000000000000000000000000000000000000000000000000000000000000001",
+			helper: func(_ *testing.T) *mockExecutionHelper {
+				// Node-side failures carry no user classification: internal and masked.
+				return &mockExecutionHelper{secretsErr: errors.New("failed to get vault capability: not found")}
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.NotNil(t, resp.Error)
+				assert.Equal(t, jsonrpc.ErrInternal, resp.Error.Code)
+				assert.Equal(t, internalErrorMessage, resp.Error.Message)
 			},
 		},
 		{

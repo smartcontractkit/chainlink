@@ -8279,6 +8279,21 @@ func TestUserFacingError(t *testing.T) {
 	})
 }
 
+func TestCheckRequestBatchSize_UserErrorSurfacesRealMessage(t *testing.T) {
+	t.Parallel()
+
+	validator := makeTestValidator(t, 1024, 64, 64, 64, 2)
+
+	err := validator.CheckRequestBatchSize(t.Context(), 3)
+	require.Error(t, err)
+	require.True(t, vaulttypes.IsUserError(err), "batch size breach must classify as a user error, got: %v", err)
+
+	// The real message must surface instead of the system-error fallback, so
+	// the relay classifies the failure as a user error.
+	assert.Equal(t, err.Error(), userFacingError(err, vaulttypes.SecretGetSystemErrorFallback))
+	assert.Contains(t, userFacingError(err, "request is not valid"), "max batch size exceeded for request")
+}
+
 func TestLogUserErrorAware(t *testing.T) {
 	t.Run("logs at debug level for userError", func(t *testing.T) {
 		lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)

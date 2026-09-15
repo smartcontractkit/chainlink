@@ -236,6 +236,7 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		})
 		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
 		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
+		executeVaultSecretsGetBatchTooBigViaWorkflowTest(t, subEnv, "vget2", ulCh, bmCh)
 	})
 
 	t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
@@ -1011,6 +1012,38 @@ func executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog,
 		"Vault get correctly rejected invalid identifier", 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 	testLogger.Info().Msg("Vault get invalid identifier via workflow test completed")
+}
+
+// executeVaultSecretsGetBatchTooBigViaWorkflowTest verifies an oversized
+// GetSecrets batch is rejected with the real user-facing cause, asserting the
+// message survives the workflow-DON -> vault-DON remote capability hop.
+func executeVaultSecretsGetBatchTooBigViaWorkflowTest(
+	t *testing.T, testEnv *ttypes.TestEnvironment,
+	workflowBaseName string,
+	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
+) {
+	testLogger := framework.L
+	testLogger.Info().Msg("Verifying get secret is rejected for oversized batch via workflow...")
+
+	const workflowFileLocation = "./vaultsecret/main.go"
+
+	// One over the limit; keys are valid identifiers so the batch size check
+	// fires, not identifier validation.
+	keys := make([]string, vaulttypes.MaxBatchSize+1)
+	for i := range keys {
+		keys[i] = fmt.Sprintf("batchkey%d", i)
+	}
+
+	workflowName := t_helpers.UniqueWorkflowName(testEnv, workflowBaseName)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &vaultsecret_config.Config{
+		SecretNamespace:   "main",
+		BatchSecretKeys:   keys,
+		ExpectBatchTooBig: true,
+	}, workflowFileLocation)
+
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog,
+		"Vault get correctly rejected oversized batch", 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	testLogger.Info().Msg("Vault get oversized batch via workflow test completed")
 }
 
 // executeVaultSecretsIdentifierValidationTest verifies that the gateway rejects requests whose

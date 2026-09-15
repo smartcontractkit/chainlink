@@ -40,6 +40,9 @@ func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string,
 	if cfg.ExpectInvalidIdentifier {
 		return evaluateInvalidIdentifiers(cfg, runtime)
 	}
+	if cfg.ExpectBatchTooBig {
+		return evaluateBatchTooBig(cfg, runtime)
+	}
 
 	phases := cfg.EffectivePhases()
 	if len(phases) == 0 {
@@ -103,6 +106,36 @@ func evaluateInvalidIdentifiers(cfg config.Config, runtime cre.Runtime) (string,
 	}
 
 	return fmt.Sprintf("Invalid identifier correctly rejected: key=%s", cfg.SecretKey), nil
+}
+
+// evaluateBatchTooBig submits a GetSecrets batch larger than the vault request
+// batch size limit and verifies the rejection carries the real user-facing
+// cause across the workflow-DON -> vault-DON remote capability hop.
+func evaluateBatchTooBig(cfg config.Config, runtime cre.Runtime) (string, error) {
+	if len(cfg.BatchSecretKeys) == 0 {
+		return "", fmt.Errorf("expectBatchTooBig requires batchSecretKeys to be set")
+	}
+
+	reqs := make([]*cre.SecretRequest, len(cfg.BatchSecretKeys))
+	for i, key := range cfg.BatchSecretKeys {
+		reqs[i] = &cre.SecretRequest{
+			Namespace: cfg.SecretNamespace,
+			Id:        key,
+		}
+	}
+
+	_, err := runtime.GetSecrets(reqs).Await()
+	if err == nil {
+		runtime.Logger().Error("Expected batch size validation to fail but GetSecrets succeeded", "count", len(reqs))
+		return "", fmt.Errorf("expected batch size validation failure for %d secrets, but batch was retrieved", len(reqs))
+	}
+	if !strings.Contains(err.Error(), "request batch size exceeds maximum of") {
+		runtime.Logger().Error("GetSecrets failed with an unexpected error", "count", len(reqs), "error", err)
+		return "", fmt.Errorf("expected batch size rejection for %d secrets, got: %w", len(reqs), err)
+	}
+
+	runtime.Logger().Info("Vault get correctly rejected oversized batch", "count", len(reqs), "error", err)
+	return fmt.Sprintf("Oversized batch correctly rejected: %d secrets", len(reqs)), nil
 }
 
 func evaluatePhase(runtime cre.Runtime, phase config.Phase) error {
