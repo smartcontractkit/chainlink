@@ -172,7 +172,7 @@ func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (
 // forceEmptyOCRRounds reports whether the VaultForceEmptyOCRRounds gate is open,
 // treating an unevaluatable gate as closed.
 func (r *ReportingPlugin) forceEmptyOCRRounds(ctx context.Context) bool {
-	open, err := r.cfg.VaultForceEmptyOCRRounds.Open(ctx)
+	open, err := r.cfg.VaultForceEmptyOCRRounds.IsOpen(ctx)
 	if err != nil {
 		r.lggr.Errorw("unexpected error evaluating CRE gate", "gate", "VaultForceEmptyOCRRounds", "error", err)
 		return false
