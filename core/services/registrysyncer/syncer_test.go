@@ -166,19 +166,19 @@ func (o *orm) Cleanup() {
 	close(o.addLocalRegistryCh)
 }
 
-func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registry.RegistryMetadata) error {
+func (o *orm) AddRegistryMetadata(ctx context.Context, localRegistry *registry.RegistryMetadata) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.addLocalRegistryCh <- struct{}{}
-	err := o.ormMock.AddLocalRegistry(ctx, localRegistry)
+	err := o.ormMock.AddRegistryMetadata(ctx, localRegistry)
 	return err
 }
 
-func (o *orm) LatestLocalRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
+func (o *orm) LatestRegistryMetadata(ctx context.Context) (*registry.RegistryMetadata, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.latestLocalRegistryCh <- struct{}{}
-	return o.ormMock.LatestLocalRegistry(ctx)
+	return o.ormMock.LatestRegistryMetadata(ctx)
 }
 
 func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
@@ -450,8 +450,8 @@ func TestSyncer_DBIntegration(t *testing.T) {
 
 	factory := newContractReaderFactory(t, sim)
 	syncerORM := newORM(t)
-	syncerORM.ormMock.On("LatestLocalRegistry", mock.Anything).Return(nil, errors.New("no state found"))
-	syncerORM.ormMock.On("AddLocalRegistry", mock.Anything, mock.Anything).Return(nil)
+	syncerORM.ormMock.On("LatestRegistryMetadata", mock.Anything).Return(nil, errors.New("no state found"))
+	syncerORM.ormMock.On("AddRegistryMetadata", mock.Anything, mock.Anything).Return(nil)
 	syncer, err := newTestSyncer(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 

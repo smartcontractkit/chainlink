@@ -12,8 +12,8 @@ import (
 )
 
 type ORM interface {
-	AddLocalRegistry(ctx context.Context, localRegistry registry.RegistryMetadata) error
-	LatestLocalRegistry(ctx context.Context) (*registry.RegistryMetadata, error)
+	AddRegistryMetadata(ctx context.Context, registryMetadata *registry.RegistryMetadata) error
+	LatestRegistryMetadata(ctx context.Context) (*registry.RegistryMetadata, error)
 }
 
 type orm struct {
@@ -31,10 +31,10 @@ func NewORM(ds sqlutil.DataSource, lggr logger.Logger) orm {
 	}
 }
 
-func (orm orm) AddLocalRegistry(ctx context.Context, metadataRegistry registry.RegistryMetadata) error {
+func (orm orm) AddRegistryMetadata(ctx context.Context, registryMetadata *registry.RegistryMetadata) error {
 	orm.lggr.Debugw("Adding local registry to DB...")
 	return sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
-		localRegistryJSON, err := metadataRegistry.MarshalJSON()
+		localRegistryJSON, err := registryMetadata.MarshalJSON()
 		if err != nil {
 			return err
 		}
@@ -57,7 +57,7 @@ func (orm orm) AddLocalRegistry(ctx context.Context, metadataRegistry registry.R
 		n, _ := r.RowsAffected()
 		if n != 0 {
 			id, _ := r.LastInsertId()
-			orm.lggr.Debugw("Inserted new local registry", "id", id, "hash", hex.EncodeToString(hash[:]), "registry", metadataRegistry)
+			orm.lggr.Debugw("Inserted new local registry", "id", id, "hash", hex.EncodeToString(hash[:]), "registry", registryMetadata)
 		} else {
 			orm.lggr.Debugw("No rows affected, local registry updated. ", "hash", hex.EncodeToString(hash[:]))
 		}
@@ -71,7 +71,7 @@ WHERE data_hash NOT IN (
 	})
 }
 
-func (orm orm) LatestLocalRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
+func (orm orm) LatestRegistryMetadata(ctx context.Context) (*registry.RegistryMetadata, error) {
 	var localRegistry registry.RegistryMetadata
 	var localRegistryJSON string
 	err := orm.ds.GetContext(ctx, &localRegistryJSON, `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
@@ -83,6 +83,7 @@ func (orm orm) LatestLocalRegistry(ctx context.Context) (*registry.RegistryMetad
 	if err != nil {
 		return nil, err
 	}
+	//nolint:govet // copylocks: logging the value copies RegistryMetadata's embedded RWMutex, which is not held here
 	orm.lggr.Debugw("Fetched latest local registry from DB", "hash", hex.EncodeToString(hash[:]), "registry", localRegistry)
 
 	return &localRegistry, nil

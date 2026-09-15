@@ -219,7 +219,7 @@ func (s *registrySyncer) updateStateLoop() {
 				// channel has been closed, terminating.
 				return
 			}
-			if err := s.orm.AddLocalRegistry(ctx, *localRegistry); err != nil {
+			if err := s.orm.AddRegistryMetadata(ctx, localRegistry); err != nil {
 				s.lggr.Errorw("failed to save state to local registry", "error", err)
 			}
 		}
@@ -343,7 +343,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 
 	if isInitialSync {
 		s.lggr.Debug("syncing with local registry")
-		latestRegistry, err = s.orm.LatestLocalRegistry(ctx)
+		latestRegistry, err = s.orm.LatestRegistryMetadata(ctx)
 		if err != nil {
 			s.lggr.Warnw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {

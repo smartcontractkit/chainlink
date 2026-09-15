@@ -30,8 +30,9 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	var states []registry.RegistryMetadata
 	for range 11 {
 		state := generateState(t)
-		err := orm.AddLocalRegistry(ctx, state)
+		err := orm.AddRegistryMetadata(ctx, &state)
 		require.NoError(t, err)
+		//nolint:govet // copylocks: the test only compares the stored value; the embedded RWMutex is not held
 		states = append(states, state)
 	}
 
@@ -40,8 +41,9 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 10, count)
 
-	state, err := orm.LatestLocalRegistry(ctx)
+	state, err := orm.LatestRegistryMetadata(ctx)
 	require.NoError(t, err)
+	//nolint:govet // copylocks: the test only compares the stored value; the embedded RWMutex is not held
 	assert.Equal(t, states[10], *state)
 }
 
@@ -135,7 +137,7 @@ func generateState(t *testing.T) registry.RegistryMetadata {
 	}
 }
 
-func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
+func TestRegistrySyncerORM_AddRegistryMetadata_DuplicateHandling(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := t.Context()
 	lggr := logger.Test(t)
@@ -146,7 +148,7 @@ func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 		originalState := generateState(t)
 
 		// First insertion - should succeed
-		err := orm.AddLocalRegistry(ctx, originalState)
+		err := orm.AddRegistryMetadata(ctx, &originalState)
 		require.NoError(t, err)
 
 		// Get the initial ID and hash
@@ -158,7 +160,7 @@ func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 		require.NoError(t, err)
 
 		// Second insertion with same data - should not insert (no new row)
-		err = orm.AddLocalRegistry(ctx, originalState)
+		err = orm.AddRegistryMetadata(ctx, &originalState)
 		require.NoError(t, err)
 
 		// Check that latest ID hasn't changed (no new insertion)
@@ -171,7 +173,7 @@ func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 		newState := generateState(t)
 
 		// Third insertion with new data - should succeed and increment ID
-		err = orm.AddLocalRegistry(ctx, newState)
+		err = orm.AddRegistryMetadata(ctx, &newState)
 		require.NoError(t, err)
 
 		// Check that latest ID is incremented and hash is new
@@ -180,7 +182,7 @@ func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 		assert.NotEqual(t, newHash, hash, "Hash should change when inserting new data")
 
 		// Fourth insertion with original data again - should succeed and increment ID
-		err = orm.AddLocalRegistry(ctx, originalState)
+		err = orm.AddRegistryMetadata(ctx, &originalState)
 		require.NoError(t, err)
 
 		// Check that latest ID is incremented again and hash is back to original

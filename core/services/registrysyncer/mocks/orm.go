@@ -22,17 +22,17 @@ func (_m *ORM) EXPECT() *ORM_Expecter {
 	return &ORM_Expecter{mock: &_m.Mock}
 }
 
-// AddLocalRegistry provides a mock function with given fields: ctx, localRegistry
-func (_m *ORM) AddLocalRegistry(ctx context.Context, localRegistry registry.RegistryMetadata) error {
-	ret := _m.Called(ctx, localRegistry)
+// AddRegistryMetadata provides a mock function with given fields: ctx, registryMetadata
+func (_m *ORM) AddRegistryMetadata(ctx context.Context, registryMetadata *registry.RegistryMetadata) error {
+	ret := _m.Called(ctx, registryMetadata)
 
 	if len(ret) == 0 {
-		panic("no return value specified for AddLocalRegistry")
+		panic("no return value specified for AddRegistryMetadata")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, registry.RegistryMetadata) error); ok {
-		r0 = rf(ctx, localRegistry)
+	if rf, ok := ret.Get(0).(func(context.Context, *registry.RegistryMetadata) error); ok {
+		r0 = rf(ctx, registryMetadata)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -40,41 +40,41 @@ func (_m *ORM) AddLocalRegistry(ctx context.Context, localRegistry registry.Regi
 	return r0
 }
 
-// ORM_AddLocalRegistry_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddLocalRegistry'
-type ORM_AddLocalRegistry_Call struct {
+// ORM_AddRegistryMetadata_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddRegistryMetadata'
+type ORM_AddRegistryMetadata_Call struct {
 	*mock.Call
 }
 
-// AddLocalRegistry is a helper method to define mock.On call
+// AddRegistryMetadata is a helper method to define mock.On call
 //   - ctx context.Context
-//   - localRegistry registry.RegistryMetadata
-func (_e *ORM_Expecter) AddLocalRegistry(ctx interface{}, localRegistry interface{}) *ORM_AddLocalRegistry_Call {
-	return &ORM_AddLocalRegistry_Call{Call: _e.mock.On("AddLocalRegistry", ctx, localRegistry)}
+//   - registryMetadata *registry.RegistryMetadata
+func (_e *ORM_Expecter) AddRegistryMetadata(ctx interface{}, registryMetadata interface{}) *ORM_AddRegistryMetadata_Call {
+	return &ORM_AddRegistryMetadata_Call{Call: _e.mock.On("AddRegistryMetadata", ctx, registryMetadata)}
 }
 
-func (_c *ORM_AddLocalRegistry_Call) Run(run func(ctx context.Context, localRegistry registry.RegistryMetadata)) *ORM_AddLocalRegistry_Call {
+func (_c *ORM_AddRegistryMetadata_Call) Run(run func(ctx context.Context, registryMetadata *registry.RegistryMetadata)) *ORM_AddRegistryMetadata_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(registry.RegistryMetadata))
+		run(args[0].(context.Context), args[1].(*registry.RegistryMetadata))
 	})
 	return _c
 }
 
-func (_c *ORM_AddLocalRegistry_Call) Return(_a0 error) *ORM_AddLocalRegistry_Call {
+func (_c *ORM_AddRegistryMetadata_Call) Return(_a0 error) *ORM_AddRegistryMetadata_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *ORM_AddLocalRegistry_Call) RunAndReturn(run func(context.Context, registry.RegistryMetadata) error) *ORM_AddLocalRegistry_Call {
+func (_c *ORM_AddRegistryMetadata_Call) RunAndReturn(run func(context.Context, *registry.RegistryMetadata) error) *ORM_AddRegistryMetadata_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// LatestLocalRegistry provides a mock function with given fields: ctx
-func (_m *ORM) LatestLocalRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
+// LatestRegistryMetadata provides a mock function with given fields: ctx
+func (_m *ORM) LatestRegistryMetadata(ctx context.Context) (*registry.RegistryMetadata, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for LatestLocalRegistry")
+		panic("no return value specified for LatestRegistryMetadata")
 	}
 
 	var r0 *registry.RegistryMetadata
@@ -99,30 +99,30 @@ func (_m *ORM) LatestLocalRegistry(ctx context.Context) (*registry.RegistryMetad
 	return r0, r1
 }
 
-// ORM_LatestLocalRegistry_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestLocalRegistry'
-type ORM_LatestLocalRegistry_Call struct {
+// ORM_LatestRegistryMetadata_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestRegistryMetadata'
+type ORM_LatestRegistryMetadata_Call struct {
 	*mock.Call
 }
 
-// LatestLocalRegistry is a helper method to define mock.On call
+// LatestRegistryMetadata is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *ORM_Expecter) LatestLocalRegistry(ctx interface{}) *ORM_LatestLocalRegistry_Call {
-	return &ORM_LatestLocalRegistry_Call{Call: _e.mock.On("LatestLocalRegistry", ctx)}
+func (_e *ORM_Expecter) LatestRegistryMetadata(ctx interface{}) *ORM_LatestRegistryMetadata_Call {
+	return &ORM_LatestRegistryMetadata_Call{Call: _e.mock.On("LatestRegistryMetadata", ctx)}
 }
 
-func (_c *ORM_LatestLocalRegistry_Call) Run(run func(ctx context.Context)) *ORM_LatestLocalRegistry_Call {
+func (_c *ORM_LatestRegistryMetadata_Call) Run(run func(ctx context.Context)) *ORM_LatestRegistryMetadata_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context))
 	})
 	return _c
 }
 
-func (_c *ORM_LatestLocalRegistry_Call) Return(_a0 *registry.RegistryMetadata, _a1 error) *ORM_LatestLocalRegistry_Call {
+func (_c *ORM_LatestRegistryMetadata_Call) Return(_a0 *registry.RegistryMetadata, _a1 error) *ORM_LatestRegistryMetadata_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ORM_LatestLocalRegistry_Call) RunAndReturn(run func(context.Context) (*registry.RegistryMetadata, error)) *ORM_LatestLocalRegistry_Call {
+func (_c *ORM_LatestRegistryMetadata_Call) RunAndReturn(run func(context.Context) (*registry.RegistryMetadata, error)) *ORM_LatestRegistryMetadata_Call {
 	_c.Call.Return(run)
 	return _c
 }
