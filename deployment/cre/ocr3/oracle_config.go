@@ -177,24 +177,26 @@ func (oc *ConsensusCapOffchainConfig) ToProto() (proto.Message, error) {
 }
 
 type ChainCapOffchainConfig struct {
-	MaxQueryLengthBytes       uint32 `yaml:"maxQueryLengthBytes"`
-	MaxObservationLengthBytes uint32 `yaml:"maxObservationLengthBytes"`
-	MaxReportLengthBytes      uint32 `yaml:"maxReportLengthBytes"`
-	MaxOutcomeLengthBytes     uint32 `yaml:"maxOutcomeLengthBytes"`
-	MaxReportCount            uint32 `yaml:"maxReportCount"`
-	MaxBatchSize              uint32 `yaml:"maxBatchSize"`
-	MinResponsesToAggregate   uint32 `yaml:"minResponsesToAggregate,omitempty"`
+	MaxQueryLengthBytes          uint32 `yaml:"maxQueryLengthBytes"`
+	MaxObservationLengthBytes    uint32 `yaml:"maxObservationLengthBytes"`
+	MaxReportLengthBytes         uint32 `yaml:"maxReportLengthBytes"`
+	MaxOutcomeLengthBytes        uint32 `yaml:"maxOutcomeLengthBytes"`
+	MaxReportCount               uint32 `yaml:"maxReportCount"`
+	MaxBatchSize                 uint32 `yaml:"maxBatchSize"`
+	MinResponsesToAggregate      uint32 `yaml:"minResponsesToAggregate,omitempty"`
+	EnableMissingRequestRecovery bool   `yaml:"enableMissingRequestRecovery,omitempty"` // need to check if i need omitempty or not
 }
 
 func (oc *ChainCapOffchainConfig) ToProto() (proto.Message, error) {
 	return &evmcapocr3types.ReportingPluginConfig{
-		MaxQueryLengthBytes:       oc.MaxQueryLengthBytes,
-		MaxObservationLengthBytes: oc.MaxObservationLengthBytes,
-		MaxReportLengthBytes:      oc.MaxReportLengthBytes,
-		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
-		MaxReportCount:            oc.MaxReportCount,
-		MaxBatchSize:              oc.MaxBatchSize,
-		MinResponsesToAggregate:   oc.MinResponsesToAggregate,
+		MaxQueryLengthBytes:          oc.MaxQueryLengthBytes,
+		MaxObservationLengthBytes:    oc.MaxObservationLengthBytes,
+		MaxReportLengthBytes:         oc.MaxReportLengthBytes,
+		MaxOutcomeLengthBytes:        oc.MaxOutcomeLengthBytes,
+		MaxReportCount:               oc.MaxReportCount,
+		MaxBatchSize:                 oc.MaxBatchSize,
+		MinResponsesToAggregate:      oc.MinResponsesToAggregate,
+		EnableMissingRequestRecovery: oc.EnableMissingRequestRecovery,
 	}, nil
 }
 

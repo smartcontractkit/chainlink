@@ -307,13 +307,14 @@ func decodeReportingPluginConfigForType(data []byte, pluginType PluginType) (rep
 			return reportingPluginResult{}, fmt.Errorf("unmarshal chain-cap ReportingPluginConfig: %w", err)
 		}
 		return reportingPluginResult{chainCap: &ocr3.ChainCapOffchainConfig{
-			MaxQueryLengthBytes:       eCfg.MaxQueryLengthBytes,
-			MaxObservationLengthBytes: eCfg.MaxObservationLengthBytes,
-			MaxReportLengthBytes:      eCfg.MaxReportLengthBytes,
-			MaxOutcomeLengthBytes:     eCfg.MaxOutcomeLengthBytes,
-			MaxReportCount:            eCfg.MaxReportCount,
-			MaxBatchSize:              eCfg.MaxBatchSize,
-			MinResponsesToAggregate:   eCfg.MinResponsesToAggregate,
+			MaxQueryLengthBytes:          eCfg.MaxQueryLengthBytes,
+			MaxObservationLengthBytes:    eCfg.MaxObservationLengthBytes,
+			MaxReportLengthBytes:         eCfg.MaxReportLengthBytes,
+			MaxOutcomeLengthBytes:        eCfg.MaxOutcomeLengthBytes,
+			MaxReportCount:               eCfg.MaxReportCount,
+			MaxBatchSize:                 eCfg.MaxBatchSize,
+			MinResponsesToAggregate:      eCfg.MinResponsesToAggregate,
+			EnableMissingRequestRecovery: eCfg.EnableMissingRequestRecovery,
 		}}, nil
 
 	default:

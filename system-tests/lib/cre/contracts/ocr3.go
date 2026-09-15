@@ -75,12 +75,13 @@ func DefaultChainCapabilityOCR3Config() *ocr3.OracleConfig {
 	const mib = 1024 * kib
 	cfg.ConsensusCapOffchainConfig = nil
 	cfg.ChainCapOffchainConfig = &ocr3.ChainCapOffchainConfig{
-		MaxQueryLengthBytes:       mib,
-		MaxObservationLengthBytes: 97 * kib,
-		MaxReportLengthBytes:      mib,
-		MaxOutcomeLengthBytes:     mib,
-		MaxReportCount:            1000,
-		MaxBatchSize:              200,
+		MaxQueryLengthBytes:          mib,
+		MaxObservationLengthBytes:    97 * kib,
+		MaxReportLengthBytes:         mib,
+		MaxOutcomeLengthBytes:        mib,
+		MaxReportCount:               1000,
+		MaxBatchSize:                 200,
+		EnableMissingRequestRecovery: true,
 	}
 	return cfg
 }
