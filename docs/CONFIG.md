@@ -1988,18 +1988,193 @@ This allows staged rollout: capabilities not matching any pattern continue launc
 while matching capabilities transition to registry-based launching.
 Examples (using single-quoted TOML strings where backslashes are literal):
 - '^cron@1\.0\.0$' matches exactly "cron@1.0.0"
-- '^http-action@.*$' matches any version of http-action
+- '^http-actions@.*$' matches any version of http-actions
 - '.*' matches all capabilities
 
 Per-capability configuration. Each capability ID can have its own configuration section.
 Capability IDs must be in the format "name@version".
-[Capabilities.Local.Capabilities."http-action@1.0.0"]
+[Capabilities.Local.Capabilities."http-actions@1.0.0"]
 BinaryPathOverride overrides the default binary path for a LOOP capability.
 BinaryPathOverride = '/opt/chainlink/binaries/http_action' # Example
-[Capabilities.Local.Capabilities."http-action@1.0.0".Config]
+[Capabilities.Local.Capabilities."http-actions@1.0.0".Config]
 Capability-specific configuration as key-value pairs.
 proxyMode = 'gateway' # Example
 allowedPorts = '443,8443' # Example
+
+## Capabilities.HTTPTrigger
+```toml
+[Capabilities.HTTPTrigger]
+MetadataBatchSize = 50 # Default
+SendChannelBufferSize = 1000 # Default
+MaxAuthorizedKeysPerWorkflow = 100 # Default
+RequestCacheTTL = 86400 # Default
+```
+
+
+### MetadataBatchSize
+```toml
+MetadataBatchSize = 50 # Default
+```
+MetadataBatchSize is the number of metadata items to send in a single batch to the gateway.
+Node TOML is the authoritative source for these values; they are injected into the
+http-trigger capability's service config at runtime, overriding any job-spec values.
+
+### SendChannelBufferSize
+```toml
+SendChannelBufferSize = 1000 # Default
+```
+SendChannelBufferSize is the size of the channel used to trigger workflows.
+
+### MaxAuthorizedKeysPerWorkflow
+```toml
+MaxAuthorizedKeysPerWorkflow = 100 # Default
+```
+MaxAuthorizedKeysPerWorkflow is the maximum number of authorized keys per workflow.
+This impacts the size of the auth metadata sent to the gateway.
+
+### RequestCacheTTL
+```toml
+RequestCacheTTL = 86400 # Default
+```
+RequestCacheTTL is the time-to-live for cached request responses in seconds.
+Used for idempotency - cached responses are returned for duplicate requests within this window.
+
+## Capabilities.HTTPTrigger.GatewayConnection
+```toml
+[Capabilities.HTTPTrigger.GatewayConnection]
+MaxPushMetadataDurationMs = 30000 # Default
+MaxPullMetadataDurationMs = 30000 # Default
+```
+
+
+### MaxPushMetadataDurationMs
+```toml
+MaxPushMetadataDurationMs = 30000 # Default
+```
+MaxPushMetadataDurationMs is the maximum duration in milliseconds for broadcasting metadata to the gateway.
+
+### MaxPullMetadataDurationMs
+```toml
+MaxPullMetadataDurationMs = 30000 # Default
+```
+MaxPullMetadataDurationMs is the maximum duration in milliseconds for responding to pull metadata from the gateway.
+
+## Capabilities.HTTPTrigger.GatewayConnection.RetryConfig
+```toml
+[Capabilities.HTTPTrigger.GatewayConnection.RetryConfig]
+InitialIntervalMs = 100 # Default
+MaxIntervalTimeMs = 30000 # Default
+Multiplier = 2.0 # Default
+```
+
+
+### InitialIntervalMs
+```toml
+InitialIntervalMs = 100 # Default
+```
+InitialIntervalMs is the initial retry interval in milliseconds.
+
+### MaxIntervalTimeMs
+```toml
+MaxIntervalTimeMs = 30000 # Default
+```
+MaxIntervalTimeMs is the maximum retry interval in milliseconds.
+
+### Multiplier
+```toml
+Multiplier = 2.0 # Default
+```
+Multiplier is the backoff multiplier applied between retries.
+
+## Capabilities.HTTPAction
+```toml
+[Capabilities.HTTPAction]
+ProxyMode = 'gateway' # Default
+```
+
+
+### ProxyMode
+```toml
+ProxyMode = 'gateway' # Default
+```
+ProxyMode is the outbound proxy mode: 'gateway' or 'direct'.
+
+## Capabilities.HTTPAction.GatewayConnection
+```toml
+[Capabilities.HTTPAction.GatewayConnection]
+InitialIntervalMs = 100 # Default
+MaxElapsedTimeMs = 30000 # Default
+Multiplier = 2.0 # Default
+```
+
+
+### InitialIntervalMs
+```toml
+InitialIntervalMs = 100 # Default
+```
+InitialIntervalMs is the initial interval in milliseconds for the exponential backoff retry strategy.
+
+### MaxElapsedTimeMs
+```toml
+MaxElapsedTimeMs = 30000 # Default
+```
+MaxElapsedTimeMs is the maximum elapsed time in milliseconds for the exponential backoff retry strategy.
+
+### Multiplier
+```toml
+Multiplier = 2.0 # Default
+```
+Multiplier is the multiplier for the exponential backoff retry strategy.
+
+## Capabilities.HTTPAction.HTTPClient
+```toml
+[Capabilities.HTTPAction.HTTPClient]
+BlockedIPs = [] # Default
+BlockedIPsCIDR = [] # Default
+AllowedPorts = [443] # Default
+AllowedSchemes = ['https'] # Default
+AllowedIPs = [] # Default
+AllowedIPsCIDR = [] # Default
+```
+HTTP client settings for "direct" mode (when no Gateway is used). These network
+restrictions are potentially sensitive and are never emitted into job specs;
+they are only read from node TOML.
+
+### BlockedIPs
+```toml
+BlockedIPs = [] # Default
+```
+BlockedIPs is a list of IP addresses that are not allowed to be accessed.
+
+### BlockedIPsCIDR
+```toml
+BlockedIPsCIDR = [] # Default
+```
+BlockedIPsCIDR is a list of CIDR blocks that are not allowed to be accessed.
+
+### AllowedPorts
+```toml
+AllowedPorts = [443] # Default
+```
+AllowedPorts is a list of ports that are allowed for outgoing HTTP requests.
+
+### AllowedSchemes
+```toml
+AllowedSchemes = ['https'] # Default
+```
+AllowedSchemes is a list of URL schemes (e.g., 'http', 'https') that are allowed.
+
+### AllowedIPs
+```toml
+AllowedIPs = [] # Default
+```
+AllowedIPs is a list of IP addresses that are explicitly allowed to be accessed.
+
+### AllowedIPsCIDR
+```toml
+AllowedIPsCIDR = [] # Default
+```
+AllowedIPsCIDR is a list of CIDR blocks that are explicitly allowed to be accessed.
 
 ## AutoPprof
 ```toml

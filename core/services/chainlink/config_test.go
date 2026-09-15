@@ -508,9 +508,9 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		Local: toml.LocalCapabilities{
-			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-action@.*$`},
+			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-actions@.*$`},
 			Capabilities: map[string]toml.CapabilityNodeConfig{
-				"http-action@1.0.0": {
+				"http-actions@1.0.0": {
 					BinaryPathOverride: new("/opt/chainlink/binaries/http_action"),
 					Config:             map[string]string{"proxyMode": "gateway", "allowedPorts": "443,8443"},
 				},
@@ -518,6 +518,37 @@ func TestConfig_Marshal(t *testing.T) {
 					BinaryPathOverride: new("/opt/chainlink/binaries/cron"),
 					Config:             map[string]string{"fastestScheduleIntervalSeconds": "60"},
 				},
+			},
+		},
+		HTTPTrigger: toml.HTTPTriggerCapability{
+			MetadataBatchSize:            new(uint16(25)),
+			SendChannelBufferSize:        new(uint16(500)),
+			MaxAuthorizedKeysPerWorkflow: new(uint16(10)),
+			RequestCacheTTL:              new(uint32(3600)),
+			GatewayConnection: toml.HTTPTriggerGatewayConnection{
+				MaxPushMetadataDurationMs: new(uint32(45000)),
+				MaxPullMetadataDurationMs: new(uint32(46000)),
+				RetryConfig: toml.HTTPTriggerRetryConfig{
+					InitialIntervalMs: new(200),
+					MaxIntervalTimeMs: new(60000),
+					Multiplier:        new(3.0),
+				},
+			},
+		},
+		HTTPAction: toml.HTTPActionCapability{
+			ProxyMode: new("direct"),
+			GatewayConnection: toml.HTTPActionGatewayConnection{
+				InitialIntervalMs: new(uint32(200)),
+				MaxElapsedTimeMs:  new(uint32(60000)),
+				Multiplier:        new(3.0),
+			},
+			HTTPClient: toml.HTTPActionHTTPClient{
+				BlockedIPs:     []string{"10.0.0.1"},
+				BlockedIPsCIDR: []string{"10.0.0.0/8"},
+				AllowedPorts:   []int{8443, 9443},
+				AllowedSchemes: []string{"http", "https"},
+				AllowedIPs:     []string{"1.2.3.4"},
+				AllowedIPsCIDR: []string{"1.2.3.0/24"},
 			},
 		},
 	}

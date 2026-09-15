@@ -58,13 +58,13 @@ func TestCapabilitiesLocalConfig(t *testing.T) {
 
 	// Test RegistryBasedLaunchAllowlist - now contains regex patterns
 	allowlist := local.RegistryBasedLaunchAllowlist()
-	assert.Equal(t, []string{"^cron@1\\.0\\.0$", "^http-action@.*$"}, allowlist)
+	assert.Equal(t, []string{"^cron@1\\.0\\.0$", "^http-actions@.*$"}, allowlist)
 
 	// Test IsAllowlisted with regex matching
-	assert.True(t, local.IsAllowlisted("cron@1.0.0"))        // exact match via regex
-	assert.False(t, local.IsAllowlisted("cron@2.0.0"))       // version mismatch
-	assert.True(t, local.IsAllowlisted("http-action@1.0.0")) // matches any version
-	assert.True(t, local.IsAllowlisted("http-action@2.0.0")) // matches any version
+	assert.True(t, local.IsAllowlisted("cron@1.0.0"))         // exact match via regex
+	assert.False(t, local.IsAllowlisted("cron@2.0.0"))        // version mismatch
+	assert.True(t, local.IsAllowlisted("http-actions@1.0.0")) // matches any version
+	assert.True(t, local.IsAllowlisted("http-actions@2.0.0")) // matches any version
 	assert.False(t, local.IsAllowlisted("unknown@1.0.0"))
 
 	// Test Capabilities map
@@ -73,7 +73,7 @@ func TestCapabilitiesLocalConfig(t *testing.T) {
 	assert.Len(t, capabilities, 2)
 
 	// Test http-action config
-	httpAction := local.GetCapabilityConfig("http-action@1.0.0")
+	httpAction := local.GetCapabilityConfig("http-actions@1.0.0")
 	require.NotNil(t, httpAction)
 	assert.Equal(t, "/opt/chainlink/binaries/http_action", httpAction.BinaryPathOverride())
 	assert.Equal(t, "gateway", httpAction.Config()["proxyMode"])
@@ -107,6 +107,104 @@ func TestCapabilitiesLocalConfigEmpty(t *testing.T) {
 	assert.Nil(t, local.GetCapabilityConfig("any@1.0.0"))
 }
 
+func TestHTTPCapabilitiesConfig(t *testing.T) {
+	t.Parallel()
+
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{fullTOML},
+	}
+	cfg, err := opts.New()
+	require.NoError(t, err)
+
+	ht := cfg.Capabilities().HTTPTrigger()
+	assert.Equal(t, uint16(25), ht.MetadataBatchSize())
+	assert.Equal(t, uint16(500), ht.SendChannelBufferSize())
+	assert.Equal(t, uint16(10), ht.MaxAuthorizedKeysPerWorkflow())
+	assert.Equal(t, uint32(3600), ht.RequestCacheTTL())
+
+	htGw := ht.GatewayConnection()
+	assert.Equal(t, uint32(45000), htGw.MaxPushMetadataDurationMs())
+	assert.Equal(t, uint32(46000), htGw.MaxPullMetadataDurationMs())
+
+	htRetry := htGw.RetryConfig()
+	assert.Equal(t, 200, htRetry.InitialIntervalMs())
+	assert.Equal(t, 60000, htRetry.MaxIntervalTimeMs())
+	assert.InDelta(t, 3.0, htRetry.Multiplier(), 0)
+
+	ha := cfg.Capabilities().HTTPAction()
+	assert.Equal(t, "direct", ha.ProxyMode())
+
+	haGw := ha.GatewayConnection()
+	assert.Equal(t, uint32(200), haGw.InitialIntervalMs())
+	assert.Equal(t, uint32(60000), haGw.MaxElapsedTimeMs())
+	assert.InDelta(t, 3.0, haGw.Multiplier(), 0)
+
+	haHc := ha.HTTPClient()
+	assert.Equal(t, []string{"10.0.0.1"}, haHc.BlockedIPs())
+	assert.Equal(t, []string{"10.0.0.0/8"}, haHc.BlockedIPsCIDR())
+	assert.Equal(t, []int{8443, 9443}, haHc.AllowedPorts())
+	assert.Equal(t, []string{"http", "https"}, haHc.AllowedSchemes())
+	assert.Equal(t, []string{"1.2.3.4"}, haHc.AllowedIPs())
+	assert.Equal(t, []string{"1.2.3.0/24"}, haHc.AllowedIPsCIDR())
+}
+
+func TestHTTPCapabilitiesConfig_DefaultsWhenOmitted(t *testing.T) {
+	t.Parallel()
+
+	// Empty config: the TOML layer applies the documented defaults, matching
+	// the capability binaries' built-in defaults exactly. These are the same
+	// values the capabilities previously fell back to when job specs omitted
+	// the fields, so runtime behavior is unchanged.
+	tomlStr := ``
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{tomlStr},
+	}
+	cfg, err := opts.New()
+	require.NoError(t, err)
+
+	ht := cfg.Capabilities().HTTPTrigger()
+	assert.Equal(t, uint16(50), ht.MetadataBatchSize())
+	assert.Equal(t, uint16(1000), ht.SendChannelBufferSize())
+	assert.Equal(t, uint16(100), ht.MaxAuthorizedKeysPerWorkflow())
+	assert.Equal(t, uint32(86400), ht.RequestCacheTTL())
+	assert.Equal(t, uint32(30000), ht.GatewayConnection().MaxPushMetadataDurationMs())
+	assert.Equal(t, uint32(30000), ht.GatewayConnection().MaxPullMetadataDurationMs())
+	assert.Equal(t, 100, ht.GatewayConnection().RetryConfig().InitialIntervalMs())
+	assert.Equal(t, 30000, ht.GatewayConnection().RetryConfig().MaxIntervalTimeMs())
+	assert.InDelta(t, 2.0, ht.GatewayConnection().RetryConfig().Multiplier(), 0)
+
+	ha := cfg.Capabilities().HTTPAction()
+	assert.Equal(t, "gateway", ha.ProxyMode())
+	assert.Equal(t, uint32(100), ha.GatewayConnection().InitialIntervalMs())
+	assert.Equal(t, uint32(30000), ha.GatewayConnection().MaxElapsedTimeMs())
+	assert.InDelta(t, 2.0, ha.GatewayConnection().Multiplier(), 0)
+	assert.Empty(t, ha.HTTPClient().BlockedIPs())
+	assert.Empty(t, ha.HTTPClient().BlockedIPsCIDR())
+	assert.Equal(t, []int{443}, ha.HTTPClient().AllowedPorts())
+	assert.Equal(t, []string{"https"}, ha.HTTPClient().AllowedSchemes())
+	assert.Empty(t, ha.HTTPClient().AllowedIPs())
+	assert.Empty(t, ha.HTTPClient().AllowedIPsCIDR())
+}
+
+func TestHTTPActionConfig_InvalidProxyMode(t *testing.T) {
+	t.Parallel()
+
+	tomlStr := `
+[Capabilities.HTTPAction]
+ProxyMode = 'invalid-mode'
+`
+	opts := GeneralConfigOpts{
+		ConfigStrings: []string{tomlStr},
+	}
+	cfg, err := opts.New()
+	require.NoError(t, err)
+
+	err = cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Capabilities.HTTPAction.ProxyMode")
+	assert.Contains(t, err.Error(), "must be either 'gateway' or 'direct'")
+}
+
 func TestValidateCapabilityID(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -114,8 +212,8 @@ func TestValidateCapabilityID(t *testing.T) {
 		wantErr bool
 	}{
 		{"valid simple", "cron@1.0.0", false},
-		{"valid with hyphen", "http-action@1.0.0", false},
-		{"valid with prerelease", "http-action@1.0.0-alpha", false},
+		{"valid with hyphen", "http-actions@1.0.0", false},
+		{"valid with prerelease", "http-actions@1.0.0-alpha", false},
 		{"valid complex version", "my-capability@10.20.30", false},
 		{"invalid missing version", "cron", true},
 		{"invalid missing name", "@1.0.0", true},
@@ -141,7 +239,7 @@ func TestValidateCapabilityID(t *testing.T) {
 func TestLocalCapabilitiesValidation(t *testing.T) {
 	t.Run("valid config with regex patterns", func(t *testing.T) {
 		cfg := toml.LocalCapabilities{
-			RegistryBasedLaunchAllowlist: []string{"^cron@1\\.0\\.0$", "^http-action@.*$", ".*"},
+			RegistryBasedLaunchAllowlist: []string{"^cron@1\\.0\\.0$", "^http-actions@.*$", ".*"},
 			Capabilities: map[string]toml.CapabilityNodeConfig{
 				"cron@1.0.0": {},
 			},

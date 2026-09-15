@@ -111,7 +111,7 @@ func Test_GetCapabilityIDFromCommand(t *testing.T) {
 		},
 		{
 			name:     "http_action command",
-			command:  "http_action",
+			command:  "/usr/local/bin/http_action",
 			config:   "",
 			expected: "http-actions@1.0.0-alpha",
 		},
@@ -182,6 +182,21 @@ func Test_GetCommandFromCapabilityID(t *testing.T) {
 			name:         "http action capability - different version",
 			capabilityID: "http-actions@2.0.0",
 			expected:     "http_action",
+		},
+		{
+			name:         "http trigger capability - missing version separator",
+			capabilityID: "http-triggered@1.0.0",
+			expected:     "",
+		},
+		{
+			name:         "http action capability - singular name",
+			capabilityID: "http-action@1.0.0-alpha",
+			expected:     "",
+		},
+		{
+			name:         "http action capability - missing version separator",
+			capabilityID: "http-actions-v2",
+			expected:     "",
 		},
 		{
 			name:         "evm mainnet capability",

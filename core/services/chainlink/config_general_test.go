@@ -49,10 +49,11 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	t.Run("insecure config ignore override on non-dev builds", func(t *testing.T) {
 		config, err := GeneralConfigOpts{
 			OverrideFn: func(c *Config, s *Secrets) {
-				*c.Insecure.DevWebServer = true
-				*c.Insecure.DisableRateLimiting = true
-				*c.Insecure.InfiniteDepthQueries = true
-				*c.AuditLogger.Enabled = true
+				enabled := true
+				c.Insecure.DevWebServer = &enabled
+				c.Insecure.DisableRateLimiting = &enabled
+				c.Insecure.InfiniteDepthQueries = &enabled
+				c.AuditLogger.Enabled = &enabled
 			}}.New()
 		require.NoError(t, err)
 
