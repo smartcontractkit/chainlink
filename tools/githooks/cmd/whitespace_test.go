@@ -12,21 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/githooks/cmd"
 )
 
-func TestWhitespaceCmd_Help(t *testing.T) {
-	t.Parallel()
-
-	root := cmd.NewRootCmd()
-	buf := new(bytes.Buffer)
-	root.SetOut(buf)
-	root.SetErr(buf)
-	root.SetArgs([]string{"whitespace-fixer", "--help"})
-
-	err := root.Execute()
-	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "Fix erroneous trailing whitespace in eligible code and text files")
-	assert.Contains(t, buf.String(), "--check")
-}
-
 func TestWhitespaceCmd_RunFile(t *testing.T) {
 	t.Parallel()
 

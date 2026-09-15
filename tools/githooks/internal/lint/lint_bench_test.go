@@ -13,7 +13,7 @@ import (
 
 type benchExecutor struct{}
 
-func (b *benchExecutor) Run(ctx context.Context, dir string, name string, args ...string) error {
+func (b *benchExecutor) Run(ctx context.Context, dir, name string, args ...string) error {
 	return nil
 }
 
