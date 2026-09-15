@@ -370,7 +370,6 @@ require (
 	github.com/andybalholm/brotli v1.2.2
 	github.com/apache/arrow-go/v18 v18.6.0 // indirect
 	github.com/aptos-labs/aptos-go-sdk v1.13.0
-	github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
 	github.com/aws/aws-sdk-go v1.55.8 // indirect
@@ -658,7 +657,6 @@ require (
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/samber/lo v1.53.0 // indirect
-	github.com/sanity-io/litter v1.5.5 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/scylladb/go-reflectx v1.0.1 // indirect
