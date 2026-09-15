@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"encoding/json"
 	"math"
 	"math/big"
 	"testing"
@@ -237,6 +238,40 @@ func TestETHABIEncodeTask(t *testing.T) {
 			}
 		})
 	}
+}
+
+// json.Number is what JSON unmarshalling produces for numeric tokens. ETHABIEncode
+// used to fail with "type json.Number cannot be converted to decimal.Decimal"
+// when encoding integer arrays such as uint256[] (issue #8504).
+func TestETHABIEncode_JSONNumberArray(t *testing.T) {
+	t.Parallel()
+
+	runEncode := func(t *testing.T, values any) pipeline.Result {
+		t.Helper()
+		task := pipeline.ETHABIEncodeTask{
+			BaseTask: pipeline.NewBaseTask(0, "encode", nil, nil, 0),
+			ABI:      "fulfill(uint256[] _data)",
+			Data:     `{ "_data": $(foo) }`,
+		}
+		vars := pipeline.NewVarsFrom(map[string]any{"foo": values})
+		result, runInfo := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
+		assert.False(t, runInfo.IsPending)
+		assert.False(t, runInfo.IsRetryable)
+		return result
+	}
+
+	fromJSONNumbers := runEncode(t, []any{json.Number("100"), json.Number("200")})
+	require.NoError(t, fromJSONNumbers.Error)
+
+	fromInts := runEncode(t, []any{int64(100), int64(200)})
+	require.NoError(t, fromInts.Error)
+	require.Equal(t, fromInts.Value, fromJSONNumbers.Value)
+
+	fromJSONScalar := runEncode(t, []any{json.Number("115792089237316195423570985008687907853269984665640564039457584007913129639935")})
+	require.NoError(t, fromJSONScalar.Error)
+
+	fromStringInts := runEncode(t, []any{"1", "2", "3"})
+	require.NoError(t, fromStringInts.Error)
 }
 
 func TestETHABIEncode_EncodeIntegers(t *testing.T) {
