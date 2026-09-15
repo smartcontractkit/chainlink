@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -181,7 +181,7 @@ type service struct {
 	ocr2cfg             OCR2Config
 	connMgr             ConnectionsManager
 	legacyChains        legacyevm.LegacyChainContainer
-	lggr                commonlogger.SugaredLogger
+	lggr                logger.SugaredLogger
 	version             string
 	loopRegistrarConfig plugins.RegistrarConfig
 	syncNodeInfoCancel  atomicCancelFns
@@ -205,12 +205,12 @@ func NewService(
 	ocrCfg OCRConfig,
 	ocr2Cfg OCR2Config,
 	legacyChains legacyevm.LegacyChainContainer,
-	lggr commonlogger.Logger,
+	lggr logger.Logger,
 	version string,
 	rc plugins.RegistrarConfig,
 	opts ...ServiceOption,
 ) *service {
-	sugaredLggr := commonlogger.Sugared(lggr).Named("Feeds")
+	sugaredLggr := logger.Sugared(lggr).Named("Feeds")
 	svc := &service{
 		orm:                 orm,
 		jobORM:              jobORM,
@@ -613,7 +613,7 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 		return 0, fmt.Errorf("GetJobProposalByRemoteUUID did not find any proposals to delete: %w", err)
 	}
 
-	logger := s.lggr.With(
+	lggr := s.lggr.With(
 		"job_proposal_id", proposal.ID,
 	)
 
@@ -624,13 +624,13 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 	}
 
 	if err = s.orm.DeleteProposal(ctx, proposal.ID); err != nil {
-		logger.Errorw("Failed to delete the proposal", "err", err)
+		lggr.Errorw("Failed to delete the proposal", "err", err)
 		return 0, fmt.Errorf("DeleteProposal failed: %w", err)
 	}
-	logger.Infow("Successfully deleted job proposal", "jobProposalID", proposal.ID)
+	lggr.Infow("Successfully deleted job proposal", "jobProposalID", proposal.ID)
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job proposal deletion", "err", err)
+		lggr.Errorw("Failed to push metrics for job proposal deletion", "err", err)
 	}
 
 	return proposal.ID, nil
@@ -676,13 +676,13 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 		return 0, errors.Wrap(err, "RevokeSpec failed")
 	}
 
-	logger := s.lggr.With(
+	lggr := s.lggr.With(
 		"job_proposal_id", proposal.ID,
 		"job_proposal_spec_id", latest.ID,
 	)
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for revoke job", "err", err)
+		lggr.Errorw("Failed to push metrics for revoke job", "err", err)
 	}
 
 	return proposal.ID, nil
@@ -796,7 +796,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		}
 	}
 
-	logger := s.lggr.With(
+	lggr := s.lggr.With(
 		"job_proposal_remote_uuid", args.RemoteUUID,
 	)
 
@@ -840,7 +840,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	jobType, err := getJobType(args.Spec)
 	switch {
 	case err != nil:
-		logger.Errorw("Failed to validate spec while checking for workflow", "err", err)
+		lggr.Errorw("Failed to validate spec while checking for workflow", "err", err)
 	case jobType == job.CRESettings:
 		promWorkflowRequests.Inc()
 		promFeedsWorkflowRequests.Inc()
@@ -848,10 +848,10 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		if err != nil {
 			promWorkflowFailures.Inc()
 			promFeedsWorkflowFailures.Inc()
-			logger.Errorw("Failed to auto approve "+jobType.String()+" spec", "id", id, "err", err)
+			lggr.Errorw("Failed to auto approve "+jobType.String()+" spec", "id", id, "err", err)
 			return 0, fmt.Errorf("failed to approve %s spec %d: %w", jobType, id, err)
 		}
-		logger.Infow("Successful "+jobType.String()+" spec auto approval", "id", id)
+		lggr.Infow("Successful "+jobType.String()+" spec auto approval", "id", id)
 		promWorkflowApprovals.Inc()
 		promFeedsWorkflowApprovals.Inc()
 	default:
@@ -860,7 +860,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for propose job", "err", err)
+		lggr.Errorw("Failed to push metrics for propose job", "err", err)
 	}
 
 	return id, nil
@@ -906,7 +906,7 @@ func (s *service) RejectSpec(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "fms rpc client is not connected")
 	}
 
-	logger := s.lggr.With(
+	lggr := s.lggr.With(
 		"job_proposal_id", proposal.ID,
 		"job_proposal_spec_id", id,
 	)
@@ -930,7 +930,7 @@ func (s *service) RejectSpec(ctx context.Context, id int64) error {
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job rejection", "err", err)
+		lggr.Errorw("Failed to push metrics for job rejection", "err", err)
 	}
 
 	return nil
@@ -958,14 +958,14 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return err
 	}
 
-	logger := s.lggr.With(
+	lggr := s.lggr.With(
 		"job_proposal_id", proposal.ID,
 		"job_proposal_spec_id", id,
 	)
 
 	fmsClient, err := s.connMgr.GetClient(proposal.FeedsManagerID)
 	if err != nil {
-		logger.Errorw("Failed to get FMS Client", "err", err)
+		lggr.Errorw("Failed to get FMS Client", "err", err)
 
 		return errors.Wrap(err, "fms rpc client")
 	}
@@ -982,7 +982,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 
 	// Check that the bridges exist
 	if err = s.jobORM.AssertBridgesExist(ctx, j.Pipeline); err != nil {
-		logger.Errorw("Failed to approve job spec due to bridge check", "err", err.Error())
+		lggr.Errorw("Failed to approve job spec due to bridge check", "err", err.Error())
 
 		return errors.Wrap(err, "failed to approve job spec due to bridge check")
 	}
@@ -1064,7 +1064,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			approvedSpec, serr := tx.orm.GetApprovedSpec(ctx, proposal.ID)
 			if serr != nil {
 				if !errors.Is(serr, sql.ErrNoRows) {
-					logger.Errorw("Failed to get approved spec", "err", serr)
+					lggr.Errorw("Failed to get approved spec", "err", serr)
 
 					// Return an error for any other errors fetching the
 					// approved spec
@@ -1075,7 +1075,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			// If a spec is found, cancel the existing job spec
 			if serr == nil {
 				if cerr := tx.orm.CancelSpec(ctx, approvedSpec.ID); cerr != nil {
-					logger.Errorw("Failed to delete the cancel the spec", "err", cerr)
+					lggr.Errorw("Failed to delete the cancel the spec", "err", cerr)
 
 					return cerr
 				}
@@ -1083,7 +1083,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 
 			// Delete the job
 			if serr = s.jobSpawner.DeleteJob(ctx, tx.ds, existingJobID); serr != nil {
-				logger.Errorw("Failed to delete the job", "err", serr)
+				lggr.Errorw("Failed to delete the job", "err", serr)
 
 				return errors.Wrap(serr, "DeleteJob failed")
 			}
@@ -1091,14 +1091,14 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 
 		// Create the job
 		if txerr = s.jobSpawner.CreateJob(ctx, tx.ds, j); txerr != nil {
-			logger.Errorw("Failed to create job", "err", txerr)
+			lggr.Errorw("Failed to create job", "err", txerr)
 
 			return txerr
 		}
 
 		// Approve the job proposal spec
 		if txerr = tx.orm.ApproveSpec(ctx, id, j.ExternalJobID); txerr != nil {
-			logger.Errorw("Failed to approve spec", "err", txerr)
+			lggr.Errorw("Failed to approve spec", "err", txerr)
 
 			return txerr
 		}
@@ -1108,7 +1108,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			Uuid:    proposal.RemoteUUID.String(),
 			Version: int64(spec.Version),
 		}); txerr != nil {
-			logger.Errorw("Failed to approve job to FMS", "err", txerr)
+			lggr.Errorw("Failed to approve job to FMS", "err", txerr)
 
 			return txerr
 		}
@@ -1120,7 +1120,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job approval", "err", err)
+		lggr.Errorw("Failed to push metrics for job approval", "err", err)
 	}
 
 	return nil
@@ -1163,7 +1163,7 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "fms rpc client")
 	}
 
-	logger := s.lggr.With(
+	lggr := s.lggr.With(
 		"job_proposal_id", jp.ID,
 		"job_proposal_spec_id", id,
 	)
@@ -1208,7 +1208,7 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job cancellation", "err", err)
+		lggr.Errorw("Failed to push metrics for job cancellation", "err", err)
 	}
 
 	return nil

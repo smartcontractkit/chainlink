@@ -37,16 +37,15 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func testRequestLifecycleTracker(t *testing.T, lggr commonlogger.Logger) *vaultcap.RequestLifecycleTracker {
+func testRequestLifecycleTracker(t *testing.T, lggr logger.Logger) *vaultcap.RequestLifecycleTracker {
 	t.Helper()
 	lc, err := vaultcap.NewRequestLifecycleTracker(lggr)
 	require.NoError(t, err)
@@ -87,7 +86,7 @@ func assertLimit[N limits.Number](t *testing.T, expected int, limiter limits.Bou
 }
 
 func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
 	_, orm := setupORM(t)
@@ -179,7 +178,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 }
 
 func TestPlugin_ReportingPluginFactory_PassesValidate(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
 	_, orm := setupORM(t)
@@ -207,7 +206,7 @@ func TestPlugin_ReportingPluginFactory_PassesValidate(t *testing.T) {
 }
 
 func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
 	// Simulate DKG for a single recipient.
@@ -264,7 +263,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 }
 
 func TestPlugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
 	lpk := vaultcap.NewLazyPublicKey()
@@ -867,7 +866,7 @@ func TestPlugin_Observation_PendingQueueEnabled_BroadcastsPendingQueueBlobsInPar
 }
 
 func TestPlugin_Observation_PendingQueueEnabled_BroadcastBlobError(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := newTestReportingPlugin(t, withStore(store), withLggr(lggr))
 
@@ -1263,7 +1262,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
@@ -2679,7 +2678,7 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 }
 
 func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -3146,7 +3145,7 @@ func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T)
 }
 
 func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -3222,7 +3221,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -3283,7 +3282,7 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -3415,7 +3414,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 
 func TestPlugin_StateTransition_GetSecretsRequest_ByzantineDivergentSHA(t *testing.T) {
 	t.Parallel()
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	// N=4, F=1: 2F+1=3, F+1=2. One Byzantine observation with a divergent SHA must not stall the GET.
@@ -3775,7 +3774,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_DeterministicAcrossInvocations
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -3903,7 +3902,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testin
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_CapsSharesAtTwoFPlusOne(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -4049,7 +4048,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_OmitsOutcomeRequest(t *testing
 }
 
 func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -4207,7 +4206,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_PerOwnerLimitEnforcedWhenAt
 }
 
 func TestPlugin_StateTransition_CreateSecrets_ResponseOwnerMatchesStoredIdentifier(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(
@@ -4770,7 +4769,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWith
 }
 
 func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -4855,7 +4854,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 }
 
 func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -5181,7 +5180,7 @@ func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.
 }
 
 func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -5277,7 +5276,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -5767,7 +5766,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -7797,7 +7796,7 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(
@@ -7865,7 +7864,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *te
 }
 
 func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
-	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(
@@ -8214,7 +8213,7 @@ func TestUserFacingError(t *testing.T) {
 
 func TestLogUserErrorAware(t *testing.T) {
 	t.Run("logs at debug level for userError", func(t *testing.T) {
-		lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 		err := vaulttypes.NewUserError("key does not exist")
 
 		logUserErrorAware(lggr, "failed to observe request", err, "id", "req-1")
@@ -8232,7 +8231,7 @@ func TestLogUserErrorAware(t *testing.T) {
 	})
 
 	t.Run("logs at error level for internal error", func(t *testing.T) {
-		lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 		err := errors.New("database connection lost")
 
 		logUserErrorAware(lggr, "failed to observe request", err, "id", "req-2")
@@ -8250,7 +8249,7 @@ func TestLogUserErrorAware(t *testing.T) {
 	})
 
 	t.Run("logs at debug level for wrapped userError", func(t *testing.T) {
-		lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 		err := fmt.Errorf("validation: %w", vaulttypes.NewUserError("bad input"))
 
 		logUserErrorAware(lggr, "request failed", err, "op", "create")
@@ -8262,7 +8261,7 @@ func TestLogUserErrorAware(t *testing.T) {
 	})
 
 	t.Run("includes all key-value pairs in log entry", func(t *testing.T) {
-		lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 		err := errors.New("internal error")
 
 		logUserErrorAware(lggr, "op failed", err, "id", "req-3", "requestID", "abc-123")
@@ -8390,7 +8389,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("failed broadcast is skipped and logged", func(t *testing.T) {
-		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
 		}
@@ -8419,7 +8418,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("all broadcasts fail returns empty slice", func(t *testing.T) {
-		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
 		}
@@ -8438,7 +8437,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("marshal blob failure skips item and logs warning", func(t *testing.T) {
-		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return nil, errors.New("marshal error")
 		}
@@ -8457,7 +8456,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("mix of broadcast and marshal failures", func(t *testing.T) {
-		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 
 		marshalCallCount := atomic.Int32{}
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
@@ -8533,7 +8532,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("slow broadcast hits per-call timeout and is skipped", func(t *testing.T) {
-		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
 		}

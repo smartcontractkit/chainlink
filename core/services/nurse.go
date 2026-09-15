@@ -21,10 +21,9 @@ import (
 	"github.com/google/pprof/profile"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -68,7 +67,7 @@ const (
 	traceProfName = "trace"
 )
 
-func NewNurse(cfg Config, log common.Logger) *Nurse {
+func NewNurse(cfg Config, log logger.Logger) *Nurse {
 	n := &Nurse{
 		cfg:      cfg,
 		checks:   make(map[string]CheckFunc),
@@ -167,18 +166,26 @@ func (n *Nurse) checkGoroutines() (bool, Meta) {
 	}
 }
 
-func (n *Nurse) gatherVitals(reason string, meta Meta) {
-	loggerFields := (logger.Fields{"reason": reason}).Merge(logger.Fields(meta))
+func metaFields(reason string, meta Meta, extra ...any) []any {
+	fields := make([]any, 0, 2+len(meta)*2+len(extra))
+	fields = append(fields, "reason", reason)
+	for k, v := range meta {
+		fields = append(fields, k, v)
+	}
+	fields = append(fields, extra...)
+	return fields
+}
 
-	n.eng.Debugw("Nurse is gathering vitals", loggerFields.Slice()...)
+func (n *Nurse) gatherVitals(reason string, meta Meta) {
+	n.eng.Debugw("Nurse is gathering vitals", metaFields(reason, meta)...)
 
 	size, err := n.totalProfileBytes()
 	if err != nil {
-		n.eng.Errorw("could not fetch total profile bytes", loggerFields.With("err", err).Slice()...)
+		n.eng.Errorw("could not fetch total profile bytes", metaFields(reason, meta, "err", err)...)
 		return
 	} else if size >= uint64(n.cfg.MaxProfileSize()) {
 		n.eng.Warnw("cannot write pprof profile, total profile size exceeds configured PPROF_MAX_PROFILE_SIZE",
-			loggerFields.With("total", size, "max", n.cfg.MaxProfileSize()).Slice()...,
+			metaFields(reason, meta, "total", size, "max", n.cfg.MaxProfileSize())...,
 		)
 		return
 	}
@@ -187,7 +194,7 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 
 	err = n.appendLog(now, reason, meta)
 	if err != nil {
-		n.eng.Warnw("cannot write pprof profile", loggerFields.With("err", err).Slice()...)
+		n.eng.Warnw("cannot write pprof profile", metaFields(reason, meta, "err", err)...)
 		return
 	}
 	var wg sync.WaitGroup

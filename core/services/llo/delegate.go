@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
@@ -136,7 +135,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	if cfg.ReportingPluginConfig.VerboseLogging {
 		codecLggr = logger.Named(lggr, "ReportCodecs")
 	} else {
-		codecLggr = corelogger.NullLogger
+		codecLggr = logger.Nop()
 	}
 	reportCodecs := NewReportCodecs(codecLggr, cfg.DonID)
 

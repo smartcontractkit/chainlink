@@ -15,7 +15,7 @@ import (
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/offchainaggregator/generated/ocr/offchain_aggregator_wrapper"
@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -62,7 +61,7 @@ func NewDelegate(
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	legacyChains legacyevm.LegacyChainContainer,
-	lggr logger.SugaredLogger,
+	lggr logger.Logger,
 	cfg Config,
 	mailMon *mailbox.Monitor,
 ) *Delegate {
@@ -75,7 +74,7 @@ func NewDelegate(
 		peerWrapper:           peerWrapper,
 		monitoringEndpointGen: monitoringEndpointGen,
 		legacyChains:          legacyChains,
-		lggr:                  logger.Sugared(lggr.Named("OCR")),
+		lggr:                  logger.Sugared(logger.Named(lggr, "OCR")),
 		cfg:                   cfg,
 		mailMon:               mailMon,
 	}
@@ -332,7 +331,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	return services, nil
 }
 
-func (d *Delegate) maybeCreateConfigOverrider(logger commonlogger.Logger, chain legacyevm.Chain, contractAddress types.EIP55Address) (*ConfigOverriderImpl, error) {
+func (d *Delegate) maybeCreateConfigOverrider(lggr logger.Logger, chain legacyevm.Chain, contractAddress types.EIP55Address) (*ConfigOverriderImpl, error) {
 	flagsContractAddress := chain.Config().EVM().FlagsContractAddress()
 	if flagsContractAddress != "" {
 		flags, err := NewFlags(flagsContractAddress, chain.Client())
@@ -344,7 +343,7 @@ func (d *Delegate) maybeCreateConfigOverrider(logger commonlogger.Logger, chain 
 		}
 
 		ticker := utils.NewPausableTicker(ConfigOverriderPollInterval)
-		return NewConfigOverriderImpl(logger, chain.Config().EVM().OCR(), contractAddress, flags, &ticker)
+		return NewConfigOverriderImpl(lggr, chain.Config().EVM().OCR(), contractAddress, flags, &ticker)
 	}
 	return nil, nil
 }

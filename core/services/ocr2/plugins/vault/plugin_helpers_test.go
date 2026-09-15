@@ -12,19 +12,18 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type testPluginOption func(*testPluginBuildOpts)
 
 type testPluginBuildOpts struct {
-	lggr                                 common.SugaredLogger
+	lggr                                 logger.SugaredLogger
 	store                                *requests.Store[*vaulttypes.Request]
 	publicKey                            *tdh2easy.PublicKey
 	privateKeyShare                      *tdh2easy.PrivateShare
@@ -44,8 +43,8 @@ type testPluginBuildOpts struct {
 	maxReportsPlusPrecursorBytesOverride int
 }
 
-func withLggr(lggr common.Logger) testPluginOption {
-	return func(o *testPluginBuildOpts) { o.lggr = common.Sugared(lggr) }
+func withLggr(lggr logger.Logger) testPluginOption {
+	return func(o *testPluginBuildOpts) { o.lggr = logger.Sugared(lggr) }
 }
 
 func withStore(store *requests.Store[*vaulttypes.Request]) testPluginOption {
@@ -108,7 +107,7 @@ func withMaxObservationBytes(n int) testPluginOption {
 func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPlugin {
 	t.Helper()
 	o := testPluginBuildOpts{
-		lggr:                              common.Sugared(logger.TestLogger(t)),
+		lggr:                              logger.TestSugared(t),
 		store:                             requests.NewStore[*vaulttypes.Request](),
 		onchainCfg:                        ocr3types.ReportingPluginConfig{N: 0, F: 0},
 		maxSecretsPerOwner:                1,

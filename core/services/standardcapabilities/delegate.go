@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -27,7 +27,6 @@ import (
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	triggercap "github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -47,7 +46,7 @@ type RelayGetter interface {
 }
 
 type Delegate struct {
-	logger                  logger.SugaredLogger
+	logger                  logger.Logger
 	ds                      sqlutil.DataSource
 	jobORM                  job.ORM
 	registry                core.CapabilitiesRegistry
@@ -75,7 +74,7 @@ type Delegate struct {
 type NewOracleFactoryFn func(generic.OracleFactoryParams) (core.OracleFactory, error)
 
 func NewDelegate(
-	logger logger.SugaredLogger,
+	logger logger.Logger,
 	ds sqlutil.DataSource,
 	jobORM job.ORM,
 	registry core.CapabilitiesRegistry,
@@ -178,7 +177,7 @@ func (d *Delegate) NewServices(
 	capabilityDonID uint32,
 	registryOCRConfig *ocrtypes.ContractConfig,
 ) ([]job.ServiceCtx, error) {
-	log := logger.Sugared(d.logger.Named("StandardCapabilities").Named(strconv.Itoa(int(jobID))).Named(jobName))
+	log := logger.Sugared(logger.Named(d.logger, "StandardCapabilities")).Named(strconv.Itoa(int(jobID))).Named(jobName)
 
 	// Warn when neither the job spec nor the TOML config provide bootstrap peers.
 	// The oracle factory will fail at startup if it can't find peers, so the error
@@ -382,6 +381,45 @@ func (d *Delegate) NewServices(
 		cntor = d.gatewayConnectorWrapper.GetGatewayConnector()
 	}
 
+<<<<<<< HEAD
+=======
+	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
+	if command == commandOverrideForWebAPITrigger {
+		if d.gatewayConnectorWrapper == nil || cntor == nil {
+			return nil, errors.New("gateway connector is required for web API Trigger capability")
+		}
+		triggerSrvc, err := trigger.NewTrigger(configJSON, d.registry, cntor, log)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
+		}
+		return []job.ServiceCtx{triggerSrvc}, nil
+	}
+
+	if command == commandOverrideForWebAPITarget {
+		if d.gatewayConnectorWrapper == nil || cntor == nil {
+			return nil, errors.New("gateway connector is required for web API Target capability")
+		}
+		if len(configJSON) == 0 {
+			return nil, errors.New("config is empty")
+		}
+		var targetCfg webapi.ServiceConfig
+		err := toml.Unmarshal([]byte(configJSON), &targetCfg)
+		if err != nil {
+			return nil, err
+		}
+		lggr := logger.Named(d.logger, "WebAPITarget")
+		handler, err := webapi.NewOutgoingConnectorHandler(cntor, targetCfg, capabilities.MethodWebAPITarget, lggr, d.selectorOpts...)
+		if err != nil {
+			return nil, err
+		}
+		capability, err := webapitarget.NewCapability(targetCfg, d.registry, handler, lggr)
+		if err != nil {
+			return nil, err
+		}
+		return []job.ServiceCtx{capability, handler}, nil
+	}
+
+>>>>>>> 03aa0795b8 (refactor(core/services): standardize chainlink-common logger and fix pg version check)
 	dependencies := core.StandardCapabilitiesDependencies{
 		Config:             configJSON,
 		Store:              kvStore,
@@ -408,7 +446,7 @@ func (d *Delegate) NewServices(
 // infrastructure issues like getPeerID failing or the registry being unavailable —
 // results in returning 0 with a warning logged. The caller then falls back to
 // labeling events with the consumer workflow's DON ID. See CRE-4409.
-func resolveCapabilityDonID(ctx context.Context, lggr common.Logger, registry core.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) uint32 {
+func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry core.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) uint32 {
 	if registry == nil {
 		lggr.Warnw("Capabilities registry is nil; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID)
 		return 0

@@ -14,14 +14,14 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 type db struct {
 	ds           sqlutil.DataSource
 	oracleSpecID int32
-	lggr         commonlogger.SugaredLogger
+	lggr         logger.SugaredLogger
 }
 
 var (
@@ -30,11 +30,11 @@ var (
 )
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(ds sqlutil.DataSource, oracleSpecID int32, lggr commonlogger.Logger) *db {
+func NewDB(ds sqlutil.DataSource, oracleSpecID int32, lggr logger.Logger) *db {
 	return &db{
 		ds:           ds,
 		oracleSpecID: oracleSpecID,
-		lggr:         commonlogger.Sugared(lggr),
+		lggr:         logger.Sugared(lggr),
 	}
 }
 

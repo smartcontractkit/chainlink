@@ -12,9 +12,9 @@ import (
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -251,7 +251,7 @@ func TestResolveCapabilityDonID(t *testing.T) {
 			donWithNodes(20, node(localPeerID)),
 		}, nil)
 
-		got := resolveCapabilityDonID(ctx, logger.TestLogger(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
@@ -266,7 +266,7 @@ func TestResolveCapabilityDonID(t *testing.T) {
 			donWithNodes(10, node(testPeerID(2))),
 		}, nil)
 
-		got := resolveCapabilityDonID(ctx, logger.TestLogger(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
@@ -282,7 +282,7 @@ func TestResolveCapabilityDonID(t *testing.T) {
 			donWithNodes(20, node(localPeerID)),
 		}, nil)
 
-		got := resolveCapabilityDonID(ctx, logger.TestLogger(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
@@ -294,7 +294,7 @@ func TestResolveCapabilityDonID(t *testing.T) {
 
 		registry := mocks.NewCapabilitiesRegistry(t)
 
-		got := resolveCapabilityDonID(ctx, logger.TestLogger(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return p2ptypes.PeerID{}, errors.New("dispatcher not ready")
 		}, capabilityID)
 
@@ -307,7 +307,7 @@ func TestResolveCapabilityDonID(t *testing.T) {
 		registry := mocks.NewCapabilitiesRegistry(t)
 		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return(nil, errors.New("registry unavailable"))
 
-		got := resolveCapabilityDonID(ctx, logger.TestLogger(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
