@@ -163,7 +163,7 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment, existingState s
 }
 
 func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
-	existingState, err := stateview.LoadOnchainState(e)
+	existingState, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing onchain state: %w", err)
 	}
@@ -1348,7 +1348,7 @@ func ExtendGlobalLookupTableChangeset(e cldf.Environment, cfg ExtendGlobalLookup
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("chain not found for selector %d", cfg.ChainSelector)
 	}
-	existingState, err := stateview.LoadOnchainState(e)
+	existingState, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}

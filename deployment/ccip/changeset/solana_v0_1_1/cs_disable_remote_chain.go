@@ -32,7 +32,7 @@ type DisableRemoteChainConfig struct {
 }
 
 func (cfg DisableRemoteChainConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -83,7 +83,7 @@ func DisableRemoteChain(e cldf.Environment, cfg DisableRemoteChainConfig) (cldf.
 		return cldf.ChangesetOutput{}, err
 	}
 
-	s, err := stateview.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

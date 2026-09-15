@@ -122,7 +122,7 @@ func ProcessConfig[T any](
 func AggregateAndCleanup(e cldf.Environment, finalOutput *cldf.ChangesetOutput, abToRemove cldf.AddressBook, cfg *cldfproposalutils.TimelockConfig, proposalDesc string) error {
 	allProposals := finalOutput.MCMSTimelockProposals
 	if len(allProposals) > 0 {
-		state, err := stateview.LoadOnchainState(e)
+		state, err := stateview.LoadOnchainStateSolana(e)
 		if err != nil {
 			return fmt.Errorf("failed to load onchain state: %w", err)
 		}
@@ -401,7 +401,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 	}
 
 	if len(finalCSOut.MCMSTimelockProposals) > 1 {
-		state, err := stateview.LoadOnchainState(e)
+		state, err := stateview.LoadOnchainStateSolana(e)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 		}
