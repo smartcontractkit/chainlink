@@ -4,13 +4,14 @@
 
 ## Features
 
-- **End-of-File Normalization:** Ensures eligible text and code files (`.go`, `.py`, `.md`, `.yaml`, `.json`, etc.) end with exactly one newline (`\n`), leaving empty files 0 bytes.
+- **End-of-File Normalization:** Ensures eligible text and code files end with exactly one newline.
 - **Trailing Whitespace Fixing:** Fixes erroneous trailing whitespace across eligible text and document files (preserving Markdown 2-space hard line breaks).
 - **Module & Package Resolution:** Automatically maps changed or staged Go files to their enclosing `go.mod` module roots and specific package paths (e.g. `./core/logger`).
 - **Targeted Code Generation:** Runs `go generate` only for packages where `.proto` or generate files changed, updates config schema docs and `go.md` when relevant files change, and regenerates mocks via `mockery` when affected packages are listed in a `.mockery.yaml`.
 - **Parallel Module Tidy:** Runs `go mod tidy` in parallel across all affected modules.
 - **Targeted Linting:** Runs `golangci-lint` only against the exact changed packages within affected modules instead of scanning whole modules or the entire repository.
 - **Targeted Unit Testing:** Discovers changed test packages and executes `tools/test` with `-short` directly on those packages (aligned with CI unit test scope).
+- **PR Diff Size Guard:** Calculates branch diff against the default branch merge-base, classifies size (`small`, `medium`, `large`), warns or fails on large diffs, and prompts developers to break PRs into smaller chunks.
 - **Dependency Changes:** Automatically runs on all packages (`./...`) if a module's `go.mod` or `go.sum` is modified.
 - **Lefthook Integration:** Seamlessly works with Lefthook staged/push file filters and `stage_fixed`.
 
@@ -113,6 +114,34 @@ go -C tools/githooks run . test core/logger/logger_test.go tools/ci-testshard/ma
 # Flags
 #   --short      Run tests in -short mode (default: true)
 go -C tools/githooks run . test --short=false
+```
+
+### `pr-size` (aliases: `big-pr-guard`, `pr-guard`, `diff-guard`, `diff-size`)
+
+Calculates the git diff of the current branch against the default branch (the PR diff), classifies it into size categories (`small`, `medium`, `large`), and prompts the developer with recommendations to split large PRs.
+
+```bash
+# Check PR diff size with default settings
+go -C tools/githooks run . pr-size
+
+# Check with custom thresholds
+go -C tools/githooks run . pr-size --small-limit=100 --medium-limit=300
+
+# Fail the command on large PRs (useful in CI or strict pre-push mode)
+go -C tools/githooks run . pr-size --fail-on-large
+
+# Bypass large PR failure via flag or env var
+go -C tools/githooks run . pr-size --fail-on-large --allow-large-pr
+ALLOW_LARGE_PR=true go -C tools/githooks run . pr-size --fail-on-large
+
+# Select calculation strategy: per-file-max (default), sum, max, or weighted
+go -C tools/githooks run . pr-size --strategy=per-file-max
+
+# Diff against a specific base branch or ref
+go -C tools/githooks run . pr-size --base=origin/develop
+
+# Automatically ignores generated files defined in .gitattributes (linguist-generated=true)
+go -C tools/githooks run . pr-size --ignore-generated=true
 ```
 
 ## Running Tests & Benchmarks

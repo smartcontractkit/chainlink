@@ -30,6 +30,8 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newGenerateCmd())
 	rootCmd.AddCommand(newEOFCmd())
 	rootCmd.AddCommand(newWhitespaceCmd())
+	rootCmd.AddCommand(newPRSizeCmd())
+	rootCmd.AddCommand(newSampleOutputsCmd())
 	return rootCmd
 }
 
