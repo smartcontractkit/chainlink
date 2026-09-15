@@ -10,6 +10,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -35,7 +36,7 @@ type RelayerFactory struct {
 	loop.GRPCOpts
 	Registerer            prometheus.Registerer
 	MercuryPool           wsrpc.Pool
-	CapabilitiesRegistry  coretypes.CapabilitiesRegistry
+	CapabilitiesRegistry  registry.CapabilitiesRegistry
 	HTTPClient            *http.Client
 	RetirementReportCache retirement.RetirementReportCache
 }

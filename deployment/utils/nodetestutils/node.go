@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
+	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -46,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/internal/evmtestutils"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -493,7 +493,7 @@ func NewNode(
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Opts: cre.Opts{
-			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+			CapabilitiesRegistry: capreg.NewRegistry(lggr),
 		},
 		Config:   cfg,
 		DS:       db,

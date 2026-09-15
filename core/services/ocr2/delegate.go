@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/diskmonitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
@@ -142,7 +143,7 @@ type Delegate struct {
 	retirementReportCache retirement.RetirementReportCache
 
 	legacyChains                   legacyevm.LegacyChainContainer // legacy: use relayers instead
-	capabilitiesRegistry           core.CapabilitiesRegistry
+	capabilitiesRegistry           registry.CapabilitiesRegistry
 	dontimeStore                   *dontime.Store
 	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
@@ -279,7 +280,7 @@ type DelegateOpts struct {
 	EthKs                          keystore.Eth
 	Relayers                       RelayGetter
 	MailMon                        *mailbox.Monitor
-	CapabilitiesRegistry           core.CapabilitiesRegistry
+	CapabilitiesRegistry           registry.CapabilitiesRegistry
 	DonTimeStore                   *dontime.Store
 	RetirementReportCache          retirement.RetirementReportCache
 	GatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
@@ -784,7 +785,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	capabilitiesRegistry core.CapabilitiesRegistry,
+	capabilitiesRegistry registry.CapabilitiesRegistry,
 	wrapper *gatewayconnector.ServiceWrapper,
 	syncer syncerV2.WorkflowRegistrySyncer,
 	limitsFactory limits.Factory,
@@ -1349,7 +1350,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	capabilitiesRegistry core.CapabilitiesRegistry,
+	capabilitiesRegistry registry.CapabilitiesRegistry,
 	keyValueStore core.KeyValueStore,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec

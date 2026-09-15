@@ -19,12 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -43,7 +43,7 @@ type RawSecretsFetcher interface {
 }
 
 type secretsFetcher struct {
-	capRegistry core.CapabilitiesRegistry
+	capRegistry registry.CapabilitiesRegistry
 	lggr        logger.Logger
 
 	semaphore         limits.ResourcePoolLimiter[int]
@@ -78,7 +78,7 @@ type secretsCallCounter struct {
 
 func NewSecretsFetcher(
 	metrics *monitoring.WorkflowsMetricLabeler,
-	capRegistry core.CapabilitiesRegistry,
+	capRegistry registry.CapabilitiesRegistry,
 	lggr logger.Logger,
 	semaphore limits.ResourcePoolLimiter[int],
 	secretsCalls limits.BoundLimiter[int],

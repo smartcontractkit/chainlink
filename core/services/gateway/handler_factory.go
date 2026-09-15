@@ -7,11 +7,11 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -36,7 +36,7 @@ type handlerFactory struct {
 	ds                     sqlutil.DataSource
 	lggr                   logger.Logger
 	httpClient             network.HTTPClient
-	capabilitiesRegistry   core.CapabilitiesRegistry
+	capabilitiesRegistry   registry.CapabilitiesRegistry
 	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
 	lf                     limits.Factory
 	httpClientFactory      network.HTTPClientFactory
@@ -45,7 +45,7 @@ type handlerFactory struct {
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver) HandlerFactory {
+func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry registry.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver) HandlerFactory {
 	return &handlerFactory{
 		legacyChains,
 		ds,
