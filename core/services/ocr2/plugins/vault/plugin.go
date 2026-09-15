@@ -586,7 +586,7 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 }
 
 func (r *ReportingPlugin) shouldPurgePendingQueue(ctx context.Context) bool {
-	if gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if r.forceEmptyOCRRounds(ctx) {
 		return true
 	}
 	stallThreshold, err := r.cfg.VaultPendingQueueStallThreshold.Limit(ctx)
@@ -1289,7 +1289,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 
 	readKV := NewReadStore(keyValueReader, r.metrics)
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if !r.forceEmptyOCRRounds(ctx) {
 		var err error
 		pendingQueueItems, err = readKV.GetPendingQueue(ctx)
 		if err != nil {
@@ -1325,7 +1325,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	//   This is because honest nodes may omit tail items when the full Observations proto would exceed the
 	//   max observation byte limit.
 	// - that all pending queue items can be fetched as blobs.
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if !r.forceEmptyOCRRounds(ctx) {
 		if err := r.validatePendingQueueObservationsPrefix(pendingQueueItems, obs); err != nil {
 			return err
 		}
@@ -1434,7 +1434,7 @@ func (r *ReportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, a
 		return true, nil
 	}
 
-	if gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if r.forceEmptyOCRRounds(ctx) {
 		return true, nil
 	}
 
