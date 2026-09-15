@@ -142,30 +142,6 @@ func (r *RelayerFactory) NewStarkNet(ks, ksCSA coretypes.Keystore, chainCfgs Raw
 	return r.NewLOOPRelayer("StarkNet", relay.NetworkStarkNet, env.StarknetPlugin, ks, ksCSA, chainCfgs)
 }
 
-type CosmosFactoryConfig struct {
-	Keystore    keystore.Cosmos
-	TOMLConfigs RawConfigs
-}
-
-func (c CosmosFactoryConfig) Validate() error {
-	var err error
-	if c.Keystore == nil {
-		err = errors.Join(err, errors.New("nil Keystore"))
-	}
-	if len(c.TOMLConfigs) == 0 {
-		err = errors.Join(err, errors.New("no CosmosConfigs provided"))
-	}
-
-	if err != nil {
-		err = fmt.Errorf("invalid CosmosFactoryConfig: %w", err)
-	}
-	return err
-}
-
-func (r *RelayerFactory) NewCosmos(ks, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-	return r.NewLOOPRelayer("Cosmos", relay.NetworkCosmos, env.CosmosPlugin, ks, ksCSA, chainCfgs)
-}
-
 func (r *RelayerFactory) NewAptos(ks, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
 	return r.NewLOOPRelayer("Aptos", relay.NetworkAptos, env.AptosPlugin, ks, ksCSA, chainCfgs)
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/cosmoskey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
@@ -48,7 +47,6 @@ type Master interface {
 	OCR2() OCR2
 	P2P() P2P
 	Solana() Solana
-	Cosmos() Cosmos
 	StarkNet() StarkNet
 	Aptos() Aptos
 	Stellar() Stellar
@@ -63,7 +61,6 @@ type Master interface {
 }
 type master struct {
 	*keyManager
-	cosmos       *cosmos
 	csa          *csa
 	eth          *eth
 	ocr          *ocr
@@ -99,7 +96,6 @@ func newMaster(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, announ
 
 	return &master{
 		keyManager:   km,
-		cosmos:       newCosmosKeyStore(km),
 		csa:          newCSAKeyStore(km),
 		eth:          newEthKeyStore(km, orm, orm.ds),
 		ocr:          newOCRKeyStore(km),
@@ -140,10 +136,6 @@ func (ks *master) P2P() P2P {
 
 func (ks *master) Solana() Solana {
 	return ks.solana
-}
-
-func (ks *master) Cosmos() Cosmos {
-	return ks.cosmos
 }
 
 func (ks *master) StarkNet() StarkNet {
@@ -296,8 +288,6 @@ func (km *keyManager) isLocked() bool {
 
 func GetFieldNameForKey(unknownKey Key) (string, error) {
 	switch unknownKey.(type) {
-	case cosmoskey.Key:
-		return "Cosmos", nil
 	case csakey.KeyV2:
 		return "CSA", nil
 	case ethkey.KeyV2:

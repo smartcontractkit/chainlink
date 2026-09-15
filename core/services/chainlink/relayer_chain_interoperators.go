@@ -140,23 +140,6 @@ func InitEVM(factory RelayerFactory, config EVMFactoryConfig) CoreRelayerChainIn
 	}
 }
 
-// InitCosmos is a option for instantiating Cosmos relayers
-func InitCosmos(factory RelayerFactory, ks keystore.Cosmos, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
-	return func(op *CoreRelayerChainInteroperators) (err error) {
-		loopKs := &keystore.CosmosLoopSigner{Cosmos: ks}
-		relayers, err := factory.NewCosmos(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
-		if err != nil {
-			return fmt.Errorf("failed to setup Cosmos relayer: %w", err)
-		}
-		for id, relayer := range relayers {
-			op.srvs = append(op.srvs, relayer)
-			op.loopRelayers[id] = relayer
-		}
-
-		return nil
-	}
-}
-
 // InitSolana is a option for instantiating Solana relayers
 func InitSolana(factory RelayerFactory, ks keystore.Solana, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {

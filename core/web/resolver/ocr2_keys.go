@@ -19,8 +19,6 @@ type OCR2ChainType string
 const (
 	// OCR2ChainTypeEVM defines OCR2 EVM Chain Type
 	OCR2ChainTypeEVM = "EVM"
-	// OCR2ChainTypeCosmos defines OCR2 Cosmos Chain Type
-	OCR2ChainTypeCosmos = "COSMOS"
 	// OCR2ChainTypeSolana defines OCR2 Solana Chain Type
 	OCR2ChainTypeSolana = "SOLANA"
 	// OCR2ChainTypeStarkNet defines OCR2 StarkNet Chain Type
@@ -40,8 +38,6 @@ func ToOCR2ChainType(s string) (OCR2ChainType, error) {
 	switch s {
 	case string(corekeys.EVM):
 		return OCR2ChainTypeEVM, nil
-	case string(corekeys.Cosmos):
-		return OCR2ChainTypeCosmos, nil
 	case string(corekeys.Solana):
 		return OCR2ChainTypeSolana, nil
 	case string(corekeys.StarkNet):
@@ -64,8 +60,6 @@ func FromOCR2ChainType(ct OCR2ChainType) string {
 	switch ct {
 	case OCR2ChainTypeEVM:
 		return string(corekeys.EVM)
-	case OCR2ChainTypeCosmos:
-		return string(corekeys.Cosmos)
 	case OCR2ChainTypeSolana:
 		return string(corekeys.Solana)
 	case OCR2ChainTypeStarkNet:

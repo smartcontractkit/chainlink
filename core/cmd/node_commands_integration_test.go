@@ -14,65 +14,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
-
-func cosmosStartNewApplication(t *testing.T, cfgs ...chainlink.RawConfig) *cltest.TestApplication {
-	return startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Cosmos = cfgs
-		c.EVM = nil
-	})
-}
 
 func solanaStartNewApplication(t *testing.T, cfgs ...chainlink.RawConfig) *cltest.TestApplication {
 	return startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = cfgs
 		c.EVM = nil
 	})
-}
-
-func TestShell_IndexCosmosNodes(t *testing.T) {
-	t.Skip("cosmos has been deprecated")
-	t.Parallel()
-
-	chainID := cosmostest.RandomChainID()
-	node := map[string]any{
-		"Name":          new("second"),
-		"TendermintURL": config.MustParseURL("http://tender.mint.test/bombay-12"),
-	}
-	chain := chainlink.RawConfig{
-		"ChainID": chainID,
-		"Nodes":   []any{node},
-	}
-	app := cosmosStartNewApplication(t, chain)
-	client, r := app.NewShellAndRenderer()
-	require.NoError(t, cmd.NewNodeClient(client, "cosmos").IndexNodes(cltest.EmptyCLIContext()))
-	require.NotEmpty(t, r.Renders)
-	nodes := *r.Renders[0].(*cmd.NodePresenters)
-	require.Len(t, nodes, 1)
-	n := nodes[0]
-	assert.Equal(t, cltest.FormatWithPrefixedChainID(chainID, "second"), n.ID)
-	assert.Equal(t, chainID, n.ChainID)
-	assert.Equal(t, "second", n.Name)
-	wantConfig, err := toml.Marshal(node)
-	require.NoError(t, err)
-	assert.Equal(t, string(wantConfig), n.Config)
-	assertTableRenders(t, r)
-
-	// Render table and check the fields order
-	b := new(bytes.Buffer)
-	rt := cmd.RendererTable{b}
-	require.NoError(t, nodes.RenderTable(rt))
-	renderLines := strings.Split(b.String(), "\n")
-	assert.Len(t, renderLines, 10)
-	assert.Contains(t, renderLines[2], "Name")
-	assert.Contains(t, renderLines[2], n.Name)
-	assert.Contains(t, renderLines[3], "Chain ID")
-	assert.Contains(t, renderLines[3], n.ChainID)
-	assert.Contains(t, renderLines[4], "State")
-	assert.Contains(t, renderLines[4], n.State)
 }
 
 func starknetStartNewApplication(t *testing.T, cfgs ...chainlink.RawConfig) *cltest.TestApplication {

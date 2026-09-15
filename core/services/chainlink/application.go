@@ -359,9 +359,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction
 	initOps := []CoreRelayerChainInitFunc{InitDummy(relayerFactory), InitEVM(relayerFactory, evmFactoryCfg)}
 
-	if cfg.CosmosEnabled() {
-		initOps = append(initOps, InitCosmos(relayerFactory, keyStore.Cosmos(), keyStore.CSA(), cfg.CosmosConfigs()))
-	}
 	if cfg.SolanaEnabled() {
 		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), keyStore.CSA(), cfg.SolanaConfigs()))
 	}

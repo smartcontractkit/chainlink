@@ -1751,7 +1751,6 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: sqlutil.NewI(99999133712345)}}
-	c.Cosmos = RawConfigs{{"ChainID": new("unknown cosmos chain")}}
 	c.Solana = RawConfigs{{"ChainID": new("unknown solana chain")}}
 	c.Starknet = RawConfigs{{"ChainID": new("unknown starknet chain")}}
 	c.setDefaults()
