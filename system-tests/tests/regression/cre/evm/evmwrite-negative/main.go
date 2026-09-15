@@ -252,7 +252,7 @@ func writeReport(runtime cre.Runtime, evmClient evm.Client, receiver []byte, rep
 		runtime.Logger().Error("failed to write report on-chain", "error", err)
 		return nil, fmt.Errorf("failed to write report on-chain: %w", err)
 	}
-	runtime.Logger().Info("Report successfully submitted on-chain", "write_output", wrOutput)
+	runtime.Logger().Info("Report successfully submitted on-chain", "write_output", wrOutput, "gas", gasConfig.GasLimit)
 
 	return wrOutput, nil
 }
