@@ -28,8 +28,8 @@ const (
 
 // Values for AttrBound, identifying which concurrency bound rejected a request.
 const (
-	BoundGlobal  = "global"
-	BoundPerNode = "per_node"
+	BoundGlobal          = "global"
+	BoundPerWorkflowNode = "per_workflow_node"
 )
 
 // CommonMetrics contains shared metrics between action and trigger handlers
@@ -454,7 +454,7 @@ func (m *Metrics) IncrementActionRequestFailures(ctx context.Context, nodeAddres
 }
 
 // IncrementOutboundConcurrencyThrottled records a request rejected by an in-flight concurrency
-// bound; bound is BoundGlobal or BoundPerNode.
+// bound; bound is either BoundGlobal or BoundPerWorkflowNode.
 func (m *Metrics) IncrementOutboundConcurrencyThrottled(ctx context.Context, nodeAddress string, bound string, lggr logger.Logger) {
 	m.action.outboundConcurrencyThrottled.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),

@@ -44,24 +44,26 @@ const (
 
 type gatewayHandler struct {
 	services.StateMachine
-	config                     ServiceConfig
-	shards                     []*shardEndpoint          // all DON shards served by this handler, across the full DON×shard matrix
-	nodeAddrToShard            map[string]*shardEndpoint // node address -> owning shard, for routing responses back to the correct shard conn manager
-	lggr                       logger.Logger
-	httpClient                 network.HTTPClient
-	globalNodeRateLimiter      limits.RateLimiter            // Global rate limiter shared across all incoming node requests from workflow DON
-	perNodeRateLimiters        map[string]limits.RateLimiter // Per-node rate limiters keyed by node address, one independent bucket per DON member
-	mtlsRequestRateLimiter     limits.RateLimiter
-	mtlsConcurrencyLimiter     limits.ResourcePoolLimiter[int]            // Bounds the number of in-flight outbound mTLS requests
-	outboundConcurrencyLimiter limits.ResourcePoolLimiter[int]            // Bounds in-flight outbound HTTP action requests across all nodes
+	config            ServiceConfig
+	shards            []*shardEndpoint          // all DON shards served by this handler, across the full DON×shard matrix
+	nodeAddrToShard   map[string]*shardEndpoint // node address -> owning shard, for routing responses back to the correct shard conn manager
+	lggr              logger.Logger
+	httpClient        network.HTTPClient
+	wg                sync.WaitGroup
+	stopCh            services.StopChan
+	responseCache     ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
+	triggerHandler    HTTPTriggerHandler
+	metadataHandler   *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
+	metrics           *metrics.Metrics
+	httpClientFactory network.HTTPClientFactory
+
+	// Limiters. "Node" throughout means a workflow DON node calling this gateway.
+	globalNodeRateLimiter      limits.RateLimiter                         // Rate across all incoming node requests
+	perNodeRateLimiters        map[string]limits.RateLimiter              // Rate per node, one independent bucket per DON member
+	mtlsRequestRateLimiter     limits.RateLimiter                         // Rate across outbound mTLS requests
+	mtlsConcurrencyLimiter     limits.ResourcePoolLimiter[int]            // In-flight outbound mTLS requests
+	outboundConcurrencyLimiter limits.ResourcePoolLimiter[int]            // In-flight outbound HTTP action requests across all nodes
 	perNodeOutboundLimiters    map[string]limits.ResourcePoolLimiter[int] // Same, per node, so one node cannot take every slot
-	wg                         sync.WaitGroup
-	stopCh                     services.StopChan
-	responseCache              ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
-	triggerHandler             HTTPTriggerHandler
-	metadataHandler            *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
-	metrics                    *metrics.Metrics
-	httpClientFactory          network.HTTPClientFactory
 }
 
 type ResponseCache interface {
@@ -496,7 +498,7 @@ func (h *gatewayHandler) acquireOutboundSlot(ctx context.Context, nodeAddr strin
 		if freeErr := h.outboundConcurrencyLimiter.Free(ctx, 1); freeErr != nil {
 			h.lggr.Errorw("failed to release global outbound slot after per-node rejection", "err", freeErr, "nodeAddr", nodeAddr)
 		}
-		h.metrics.IncrementOutboundConcurrencyThrottled(ctx, nodeAddr, metrics.BoundPerNode, h.lggr)
+		h.metrics.IncrementOutboundConcurrencyThrottled(ctx, nodeAddr, metrics.BoundPerWorkflowNode, h.lggr)
 		return nil, fmt.Errorf("outbound concurrency limit reached for node %s: %w", nodeAddr, err)
 	}
 
