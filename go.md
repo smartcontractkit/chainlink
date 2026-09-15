@@ -292,8 +292,6 @@ flowchart LR
 	click chainlink-aptos/codec href "https://github.com/smartcontractkit/chainlink-aptos"
 	chainlink-aptos/deployment
 	click chainlink-aptos/deployment href "https://github.com/smartcontractkit/chainlink-aptos"
-	chainlink-automation --> chainlink-common
-	click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
 	chainlink-canton
 	click chainlink-canton href "https://github.com/smartcontractkit/chainlink-canton"
 	chainlink-canton/contracts/v2 --> go-daml
@@ -502,7 +500,6 @@ flowchart LR
 	click chainlink/devenv/fakes href "https://github.com/smartcontractkit/chainlink"
 	chainlink/integration-tests
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
-	chainlink/load-tests --> chainlink-automation
 	chainlink/load-tests --> chainlink-testing-framework/havoc
 	chainlink/load-tests --> chainlink/integration-tests
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
