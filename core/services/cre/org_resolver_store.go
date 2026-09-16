@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
@@ -16,17 +17,29 @@ import (
 const orgResolverCacheTable = "cre.org_resolver_cache"
 
 // orgResolverStore is a Postgres-backed implementation of orgresolver.Cache.
+// It keeps an in-memory copy of every entry it has seen so repeated Get calls
+// for the same owner don't hit the DB.
 type orgResolverStore struct {
 	ds sqlutil.DataSource
+
+	mu    sync.RWMutex
+	cache map[string]orgresolver.CacheEntry
 }
 
 // NewOrgResolverStore creates a durable cache store for the OrgResolver.
 func NewOrgResolverStore(ds sqlutil.DataSource) *orgResolverStore {
-	return &orgResolverStore{ds: ds}
+	return &orgResolverStore{ds: ds, cache: make(map[string]orgresolver.CacheEntry)}
 }
 
 // Get returns the cached entry for owner. ok is false if no entry exists.
 func (s *orgResolverStore) Get(ctx context.Context, owner string) (orgresolver.CacheEntry, bool, error) {
+	s.mu.RLock()
+	entry, ok := s.cache[owner]
+	s.mu.RUnlock()
+	if ok {
+		return entry, true, nil
+	}
+
 	const q = `SELECT org_id, updated_at FROM ` + orgResolverCacheTable + ` WHERE workflow_owner = $1`
 	var row struct {
 		OrgID     string    `db:"org_id"`
@@ -38,7 +51,12 @@ func (s *orgResolverStore) Get(ctx context.Context, owner string) (orgresolver.C
 		}
 		return orgresolver.CacheEntry{}, false, fmt.Errorf("failed to get cached org for owner %s: %w", owner, err)
 	}
-	return orgresolver.CacheEntry{OrgID: row.OrgID, RefreshedAt: row.UpdatedAt}, true, nil
+
+	entry = orgresolver.CacheEntry{OrgID: row.OrgID, RefreshedAt: row.UpdatedAt}
+	s.mu.Lock()
+	s.cache[owner] = entry
+	s.mu.Unlock()
+	return entry, true, nil
 }
 
 // Set stores or updates the mapping for owner.
@@ -51,6 +69,10 @@ ON CONFLICT (workflow_owner) DO UPDATE SET org_id = EXCLUDED.org_id, updated_at 
 	if _, err := s.ds.ExecContext(ctx, q, owner, entry.OrgID, entry.RefreshedAt); err != nil {
 		return fmt.Errorf("failed to upsert org for owner %s: %w", owner, err)
 	}
+
+	s.mu.Lock()
+	s.cache[owner] = entry
+	s.mu.Unlock()
 	return nil
 }
 
