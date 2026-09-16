@@ -1390,7 +1390,7 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 			}
 			// A settings read failure should not stop the drain. Fail open instead.
 			if limits.IsErrRecoverable(err) {
-			e.logger().Errorw("Failed to check user log event limit; emitting anyway", "err", err)
+				e.logger().Errorw("Failed to check user log event limit; emitting anyway", "err", err)
 			} else {
 				e.logger().Errorw("User log event limit could not be evaluated; emitting anyway", "err", err)
 			}
