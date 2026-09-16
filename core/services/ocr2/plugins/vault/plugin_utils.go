@@ -10,11 +10,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // resolveVaultOCRBoundLimitInt builds a short-lived BoundLimiter for an integer-sized CRE setting, reads Limit once, and closes the limiter.
@@ -180,14 +180,14 @@ func (r *ReportingPlugin) isForceEmptyOCRRoundsEnabled(ctx context.Context) bool
 	return open
 }
 
-func (r *ReportingPlugin) roundLggr(seqNr uint64) logger.Logger {
+func (r *ReportingPlugin) roundLggr(seqNr uint64) logger.SugaredLogger {
 	return r.lggr.With("seqNr", seqNr)
 }
 
-func (r *ReportingPlugin) requestLggr(seqNr uint64, requestID string) logger.Logger {
+func (r *ReportingPlugin) requestLggr(seqNr uint64, requestID string) logger.SugaredLogger {
 	return r.roundLggr(seqNr).With("requestID", requestID)
 }
 
-func (r *ReportingPlugin) typedRequestLggr(seqNr uint64, requestID, requestType string) logger.Logger {
+func (r *ReportingPlugin) typedRequestLggr(seqNr uint64, requestID, requestType string) logger.SugaredLogger {
 	return r.requestLggr(seqNr, requestID).With("requestType", requestType)
 }

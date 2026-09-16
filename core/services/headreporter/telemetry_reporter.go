@@ -13,10 +13,10 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -33,13 +33,13 @@ func NewLegacyEVMTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEnd
 	for _, chainID := range chainIDs {
 		endpoints[chainID.Uint64()] = monitoringEndpointGen.GenMonitoringEndpoint("EVM", chainID.String(), "", synchronization.HeadReport)
 	}
-	return &legacyEVMTelemetryReporter{lggr: lggr.Named("TelemetryReporter"), endpoints: endpoints}
+	return &legacyEVMTelemetryReporter{lggr: logger.Named(lggr, "TelemetryReporter"), endpoints: endpoints}
 }
 
 func (t *legacyEVMTelemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
 	monitoringEndpoint := t.endpoints[head.EVMChainID.ToInt().Uint64()]
 	if monitoringEndpoint == nil {
-		return fmt.Errorf("No monitoring endpoint provided chain_id=%d", head.EVMChainID.ToInt().Int64())
+		return fmt.Errorf("no monitoring endpoint provided chain_id=%d", head.EVMChainID.ToInt().Int64())
 	}
 	var finalized *telem.Block
 	latestFinalizedHead := head.LatestFinalizedHead()
@@ -90,7 +90,7 @@ func NewTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGene
 	for relayID := range relayers {
 		endpoints[relayID] = monitoringEndpointGen.GenMonitoringEndpoint(relayID.Network, relayID.ChainID, "", synchronization.HeadReport)
 	}
-	return &loopTelemetryReporter{lggr: lggr.Named("TelemetryReporter"), endpoints: endpoints, relays: relayers}
+	return &loopTelemetryReporter{lggr: logger.Named(lggr, "TelemetryReporter"), endpoints: endpoints, relays: relayers}
 }
 
 // ReportNewHead is unimplemented because there is no Headtracker to subscribe to

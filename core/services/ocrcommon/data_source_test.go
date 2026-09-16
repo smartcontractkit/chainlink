@@ -120,7 +120,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		persistedVal := sqlutil.NewI(1337)
 
 		result, err := json.Marshal(&ocrcommon.ResultTimePair{Result: *persistedVal, Time: time.Now()})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		mockKVStore.On("Get", mock.Anything, mock.Anything).Return(result, nil)
 
 		// set updater to a long time so that it doesn't log errors after the test is done
@@ -198,8 +198,8 @@ func Test_InMemoryDataSourceWithProm(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.JSONEq(t, jsonParseTaskValue, val.String()) // returns expected value after pipeline run
-	assert.Equal(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromOcrMedianValues))
-	assert.Equal(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromBridgeJsonParseValues))
+	assert.InEpsilon(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromOcrMedianValues), 1e-9)
+	assert.InEpsilon(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromBridgeJSONParseValues), 1e-9)
 }
 
 type mockSaver struct {

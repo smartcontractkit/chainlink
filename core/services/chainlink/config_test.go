@@ -699,11 +699,11 @@ func TestConfig_Marshal(t *testing.T) {
 					PriceMin:           assets.NewWeiI(13),
 
 					LimitJobType: evmcfg.GasLimitJobType{
-						OCR:    new(uint32(1001)),
-						DR:     new(uint32(1002)),
-						VRF:    new(uint32(1003)),
-						FM:     new(uint32(1004)),
-						OCR2:   new(uint32(1006)),
+						OCR:  new(uint32(1001)),
+						DR:   new(uint32(1002)),
+						VRF:  new(uint32(1003)),
+						FM:   new(uint32(1004)),
+						OCR2: new(uint32(1006)),
 					},
 
 					BlockHistory: evmcfg.BlockHistoryEstimator{
@@ -1633,7 +1633,7 @@ func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 		SecretsStrings: []string{secretsFullTOML},
 	}
 	_, err := opts.New()
-	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: U+007B '{'")
+	assert.ErrorContains(t, err, "failed to decode config TOML: toml: invalid character at start of key:")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {

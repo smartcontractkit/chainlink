@@ -16,11 +16,10 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
@@ -51,7 +50,7 @@ type (
 		p2pCfg   config.P2P
 		ocrCfg   PeerWrapperOCRConfig
 		ds       sqlutil.DataSource
-		lggr     logger.Logger
+		lggr     logger.SugaredLogger
 		PeerID   p2pkey.PeerID
 
 		// Used at shutdown to stop all of this peer's goroutines
@@ -87,7 +86,7 @@ func NewSingletonPeerWrapper(keyStore keystore.Master, p2pCfg config.P2P, ocrCfg
 		p2pCfg:   p2pCfg,
 		ocrCfg:   ocrCfg,
 		ds:       ds,
-		lggr:     lggr.Named("SingletonPeerWrapper"),
+		lggr:     logger.Sugared(lggr).Named("SingletonPeerWrapper"),
 	}
 }
 
@@ -147,7 +146,7 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	config := p.p2pCfg
 	peerConfig := ocrnetworking.PeerConfig{
 		PeerKeyring: peerKeyring,
-		Logger:      commonlogger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
+		Logger:      logger.NewOCRWrapper(p.lggr, p.ocrCfg.TraceLogging(), func(string) {}),
 
 		// V2 config
 		V2ListenAddresses:    config.V2().ListenAddresses(),

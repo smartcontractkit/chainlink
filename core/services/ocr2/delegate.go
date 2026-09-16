@@ -132,7 +132,7 @@ type Delegate struct {
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	cfg                   DelegateConfig
-	lggr                  logger.Logger
+	lggr                  logger.SugaredLogger
 	ks                    keystore.OCR2
 	ethKs                 keystore.Eth
 	workflowKs            keystore.Workflow
@@ -275,7 +275,7 @@ type DelegateOpts struct {
 	PeerWrapper                    *ocrcommon.SingletonPeerWrapper
 	MonitoringEndpointGen          telemetry.MonitoringEndpointGenerator
 	LegacyChains                   legacyevm.LegacyChainContainer
-	Lggr                           logger.Logger
+	Lggr                           logger.SugaredLogger
 	Ks                             keystore.OCR2
 	EthKs                          keystore.Eth
 	Relayers                       RelayGetter
@@ -316,7 +316,7 @@ func NewDelegate(
 		monitoringEndpointGen:          opts.MonitoringEndpointGen,
 		legacyChains:                   opts.LegacyChains,
 		cfg:                            cfg,
-		lggr:                           opts.Lggr.Named("OCR2"),
+		lggr:                           logger.Sugared(opts.Lggr.Named("OCR2")),
 		ks:                             opts.Ks,
 		ethKs:                          opts.EthKs,
 		workflowKs:                     opts.WorkflowKs,
@@ -362,7 +362,7 @@ func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 	rid, err := spec.RelayID()
 	if err != nil {
 		d.lggr.Errorw("DeleteJob", "err", JobSpecNoRelayerError{Err: err, PluginName: string(spec.PluginType)})
-		return nil
+		return nil //nolint:nilerr // deletion must not be blocked by a malformed spec
 	}
 	// we only have clean to do for the EVM
 	if rid.Network == relay.NetworkEVM {
@@ -889,7 +889,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	srvs = append(srvs, dm)
 
 	fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
-	err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700))
+	err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
 	}
@@ -990,7 +990,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	srvs = append(srvs, dkgProvider)
 
 	fullPathDKG := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String(), "_dkg")
-	err = utils.EnsureDirAndMaxPerms(fullPathDKG, os.FileMode(0700))
+	err = utils.EnsureDirAndMaxPerms(fullPathDKG, os.FileMode(0o700))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
 	}
@@ -1738,7 +1738,7 @@ func (d *Delegate) newServicesLLO(
 	// and DKG OCR3.1 plugins are (pebble under OCR2().KeyValueStoreRootDir()).
 	if pluginCfg.IsOCR31() {
 		fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
-		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700)); err != nil {
+		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
 			return nil, fmt.Errorf("failed to create LLO key value store directory: %w", err)
 		}
 		cfg.BinaryNetworkEndpoint2Factory = d.peerWrapper.Peer3_1
@@ -1820,14 +1820,4 @@ type errorLog struct {
 
 func (l *errorLog) SaveError(ctx context.Context, msg string) error {
 	return l.recordError(ctx, l.jobID, msg)
-}
-
-type logWriter struct {
-	log logger.Logger
-}
-
-func (l *logWriter) Write(p []byte) (n int, err error) {
-	l.log.Debug(string(p), nil)
-	n = len(p)
-	return
 }
