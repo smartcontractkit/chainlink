@@ -1233,7 +1233,7 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 
 func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemoteChainConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Setting up token pool for remote chain", "cfg", cfg)
-	envState, err := stateview.LoadOnchainStateSolana(e)
+	envState, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

@@ -99,7 +99,7 @@ func (cfg *AddRemoteChainToRouterConfig) Validate(e cldf.Environment, state stat
 
 // Adds new remote chain configurations
 func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig) (cldf.ChangesetOutput, error) {
-	s, err := stateview.LoadOnchainStateSolana(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -339,7 +339,7 @@ func (cfg *AddRemoteChainToFeeQuoterConfig) Validate(e cldf.Environment, state s
 
 // Adds new remote chain configurations
 func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoterConfig) (cldf.ChangesetOutput, error) {
-	s, err := stateview.LoadOnchainStateSolana(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -530,7 +530,7 @@ func (cfg *AddRemoteChainToOffRampConfig) Validate(e cldf.Environment, state sta
 
 // Adds new remote chain configurations
 func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConfig) (cldf.ChangesetOutput, error) {
-	s, err := stateview.LoadOnchainStateSolana(e)
+	s, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

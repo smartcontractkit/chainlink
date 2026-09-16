@@ -769,7 +769,7 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 		return ccipcommoncs.OrchestrateChangesetsConfig{}, errors.New("MCMS config is required")
 	}
 
-	state, err := stateview.LoadOnchainStateSolana(env)
+	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}

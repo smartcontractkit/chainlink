@@ -70,7 +70,7 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 	if family != chainsel.FamilySolana {
 		return fmt.Errorf("chain %d is not a solana chain", c.ChainSelector)
 	}
-	existingState, err := stateview.LoadOnchainStateSolana(e)
+	existingState, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load existing onchain state: %w", err)
 	}
@@ -132,7 +132,7 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
-	state, _ := stateview.LoadOnchainStateSolana(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
 
@@ -431,7 +431,7 @@ func SetAuthorityIDLByMCMs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutpu
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
-	state, _ := stateview.LoadOnchainStateSolana(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
 
@@ -461,7 +461,7 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
-	state, _ := stateview.LoadOnchainStateSolana(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
@@ -494,7 +494,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
-	state, _ := stateview.LoadOnchainStateSolana(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
@@ -524,7 +524,7 @@ func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
-	state, _ := stateview.LoadOnchainStateSolana(e)
+	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
 
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)

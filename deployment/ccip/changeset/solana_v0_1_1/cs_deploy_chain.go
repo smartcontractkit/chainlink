@@ -163,7 +163,7 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment, existingState s
 }
 
 func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsConfig) (cldf.ChangesetOutput, error) {
-	existingState, err := stateview.LoadOnchainStateSolana(e)
+	existingState, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing onchain state: %w", err)
 	}
