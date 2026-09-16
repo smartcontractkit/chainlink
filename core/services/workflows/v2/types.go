@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 // EventSink is how trigger events are delivered to an engine for execution.
@@ -76,4 +77,20 @@ type RoutedTriggerEvent struct {
 	// SequenceNumber determines the execution order of trigger events across the DON. In M1 it is always 0 (no consensus ordering).
 	SequenceNumber uint64
 	Event          capabilities.TriggerResponse
+}
+
+// Drainable is the graceful-shutdown contract. The syncer has an identical
+// local interface (syncer/v2.DrainableService). Both are satisfied by the
+// same methods, so no cross-package dependency is introduced.
+type Drainable interface {
+	Drain() bool
+	ActiveExecutions() int32
+	DrainStartedAt() (time.Time, bool)
+}
+
+// WorkflowEngine is the contract every workflow engine implementation satisfies.
+type WorkflowEngine interface {
+	services.Service
+	EventSink
+	Drainable
 }
