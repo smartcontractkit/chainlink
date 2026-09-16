@@ -23,6 +23,7 @@ func TestOCR2KeysController_Index_HappyPath(t *testing.T) {
 	keys, _ := OCRKeyStore.GetAll()
 
 	response, cleanup := client.Get("/v2/keys/ocr2")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -52,6 +53,7 @@ func TestOCR2KeysController_Create_HappyPath(t *testing.T) {
 			initialLength := len(keys)
 
 			response, cleanup := client.Post(fmt.Sprintf("/v2/keys/ocr2/%s", test.chainType), nil)
+			defer response.Body.Close()
 			tt.Cleanup(cleanup)
 			cltest.AssertServerResponse(tt, response, http.StatusOK)
 
@@ -80,6 +82,7 @@ func TestOCR2KeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
 
 	nonExistentOCRKeyID := "eb81f4a35033ac8dd68b9d33a039a713d6fd639af6852b81f47ffeda1c95de54"
 	response, cleanup := client.Delete("/v2/keys/ocr2/" + nonExistentOCRKeyID)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
@@ -94,6 +97,7 @@ func TestOCR2KeysController_Delete_HappyPath(t *testing.T) {
 	key, _ := OCRKeyStore.Create(ctx, "evm")
 
 	response, cleanup := client.Delete("/v2/keys/ocr2/" + key.ID())
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	require.Error(t, utils.JustError(OCRKeyStore.Get(key.ID())))

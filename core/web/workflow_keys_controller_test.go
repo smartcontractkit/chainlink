@@ -36,6 +36,7 @@ func TestWorkflowKeysController_Index_HappyPath(t *testing.T) {
 	require.Len(t, keys, 1)
 
 	response, cleanup := client.Get("/v2/keys/workflow")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 

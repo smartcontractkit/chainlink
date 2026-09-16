@@ -21,6 +21,7 @@ func TestBuildInfoController_Show_APICredentials(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Get("/v2/build_info")
+	defer resp.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body := string(cltest.ParseResponseBody(t, resp))
@@ -43,5 +44,6 @@ func TestBuildInfoController_Show_NoCredentials(t *testing.T) {
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
