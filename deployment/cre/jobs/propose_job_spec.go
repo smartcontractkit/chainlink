@@ -21,7 +21,9 @@ type ProposeJobSpecInput struct {
 	Environment string `json:"environment" yaml:"environment"`
 	Domain      string `json:"domain" yaml:"domain"`
 
-	DONName    string                     `json:"donName" yaml:"donName"`
+	DONName string `json:"donName" yaml:"donName"`
+	// JDDONName overrides the DON name used for JD node lookup. Defaults to DONName.
+	JDDONName  string                     `json:"jdDonName,omitempty" yaml:"jdDonName,omitempty"`
 	DONFilters []offchain.TargetDONFilter `json:"donFilters" yaml:"donFilters"`
 
 	JobName     string                    `json:"jobName" yaml:"jobName"`
@@ -114,6 +116,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				Domain:      input.Domain,
 				Environment: input.Environment,
 				DONName:     input.DONName,
+				JDDONName:   input.JDDONName,
 				DONFilters:  input.DONFilters,
 				ExtraLabels: input.ExtraLabels,
 			},
