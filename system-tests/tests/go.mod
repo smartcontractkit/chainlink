@@ -39,6 +39,12 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite => ./smoke/cre/solana/solwrite
 
+replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/solwrite-negative => ./regression/cre/solana/solwrite-negative
+
+replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/solread-negative => ./regression/cre/solana/solread-negative
+
+replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/sollogtrigger-negative => ./regression/cre/solana/sollogtrigger-negative
+
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger => ./smoke/cre/solana/sollogtrigger
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret => ./smoke/cre/vaultsecret
@@ -95,6 +101,9 @@ require (
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread v0.0.0-20260609191154-1ecc282df958
+	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/sollogtrigger-negative v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/solread-negative v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/solwrite-negative v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.32.0
 	github.com/smartcontractkit/cld-changesets v0.9.1-0.20260911120037-95e1c8bcb265

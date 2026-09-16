@@ -518,6 +518,9 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/http
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/httpaction-negative
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/solana/sollogtrigger-negative
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/solana/solread-negative
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/solana/solwrite-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/evmread
@@ -546,6 +549,14 @@ flowchart LR
 	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/networking/http
 	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/regression/cre/httpaction-negative href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/regression/cre/solana/sollogtrigger-negative --> cre-sdk-go/capabilities/blockchain/solana
+	click chainlink/system-tests/tests/regression/cre/solana/sollogtrigger-negative href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/regression/cre/solana/solread-negative --> cre-sdk-go/capabilities/blockchain/solana
+	chainlink/system-tests/tests/regression/cre/solana/solread-negative --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/regression/cre/solana/solread-negative href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/regression/cre/solana/solwrite-negative --> cre-sdk-go/capabilities/blockchain/solana
+	chainlink/system-tests/tests/regression/cre/solana/solwrite-negative --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/regression/cre/solana/solwrite-negative href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/aptos/aptosread --> cre-sdk-go/capabilities/blockchain/aptos
 	chainlink/system-tests/tests/smoke/cre/aptos/aptosread --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/aptos/aptosread href "https://github.com/smartcontractkit/chainlink"
@@ -666,6 +677,9 @@ flowchart LR
 		 chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 		 chainlink/system-tests/tests/regression/cre/http
 		 chainlink/system-tests/tests/regression/cre/httpaction-negative
+		 chainlink/system-tests/tests/regression/cre/solana/sollogtrigger-negative
+		 chainlink/system-tests/tests/regression/cre/solana/solread-negative
+		 chainlink/system-tests/tests/regression/cre/solana/solwrite-negative
 		 chainlink/system-tests/tests/smoke/cre/aptos/aptosread
 		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite
 		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip

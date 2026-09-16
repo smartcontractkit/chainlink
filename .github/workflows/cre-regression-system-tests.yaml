@@ -90,7 +90,12 @@ jobs:
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/regression/cre/*_test.go)
 
           per_test_configs='{
-            "Test_CRE_V2_Stellar_Regression": "configs/workflow-gateway-don-stellar.toml"
+            "Test_CRE_V2_Stellar_Regression": "configs/workflow-gateway-don-stellar.toml",
+            "Test_CRE_V2_Solana_WriteReport_Invalid_Receiver_Regression": "configs/workflow-don-solana.toml",
+            "Test_CRE_V2_Solana_WriteReport_Invalid_Payload_Regression": "configs/workflow-don-solana.toml",
+            "Test_CRE_V2_Solana_Read_Account_Calls_Regression": "configs/workflow-don-solana.toml",
+            "Test_CRE_V2_Solana_Read_Program_Block_And_Tx_Calls_Regression": "configs/workflow-don-solana.toml",
+            "Test_CRE_V2_Solana_LogTrigger_Invalid_Filter_Regression": "configs/workflow-don-solana.toml"
           }'
 
           tests=$(echo "$test_names" | jq -c -R -s \
