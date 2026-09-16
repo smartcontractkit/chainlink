@@ -577,6 +577,7 @@ func TestIDL(t *testing.T) {
 			},
 		),
 	})
+	require.NoError(t, err)
 
 	// Close IDL
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
