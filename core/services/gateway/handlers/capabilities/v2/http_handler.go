@@ -45,22 +45,26 @@ const (
 
 type gatewayHandler struct {
 	services.StateMachine
-	config                 ServiceConfig
-	shards                 []*shardEndpoint          // all DON shards served by this handler, across the full DON×shard matrix
-	nodeAddrToShard        map[string]*shardEndpoint // node address -> owning shard, for routing responses back to the correct shard conn manager
-	lggr                   logger.Logger
-	httpClient             network.HTTPClient
-	globalNodeRateLimiter  limits.RateLimiter            // Global rate limiter shared across all incoming node requests from workflow DON
-	perNodeRateLimiters    map[string]limits.RateLimiter // Per-node rate limiters keyed by node address, one independent bucket per DON member
-	mtlsRequestRateLimiter limits.RateLimiter
-	mtlsConcurrencyLimiter limits.ResourcePoolLimiter[int] // Bounds the number of in-flight outbound mTLS requests
-	wg                     sync.WaitGroup
-	stopCh                 services.StopChan
-	responseCache          ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
-	triggerHandler         HTTPTriggerHandler
-	metadataHandler        *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
-	metrics                *metrics.Metrics
-	httpClientFactory      network.HTTPClientFactory
+	config            ServiceConfig
+	shards            []*shardEndpoint          // all DON shards served by this handler, across the full DON×shard matrix
+	nodeAddrToShard   map[string]*shardEndpoint // node address -> owning shard, for routing responses back to the correct shard conn manager
+	lggr              logger.Logger
+	httpClient        network.HTTPClient
+	wg                sync.WaitGroup
+	stopCh            services.StopChan
+	responseCache     ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
+	triggerHandler    HTTPTriggerHandler
+	metadataHandler   *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
+	metrics           *metrics.Metrics
+	httpClientFactory network.HTTPClientFactory
+
+	// Limiters. "Node" throughout means a workflow DON node calling this gateway.
+	globalNodeRateLimiter      limits.RateLimiter                         // Rate across all incoming node requests
+	perNodeRateLimiters        map[string]limits.RateLimiter              // Rate per node, one independent bucket per DON member
+	mtlsRequestRateLimiter     limits.RateLimiter                         // Rate across outbound mTLS requests
+	mtlsConcurrencyLimiter     limits.ResourcePoolLimiter[int]            // In-flight outbound mTLS requests
+	outboundConcurrencyLimiter limits.ResourcePoolLimiter[int]            // In-flight outbound HTTP action requests across all nodes
+	perNodeOutboundLimiters    map[string]limits.ResourcePoolLimiter[int] // Same, per node, so one node cannot take every slot
 }
 
 type ResponseCache interface {
@@ -161,6 +165,20 @@ func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.Shard
 		return nil, fmt.Errorf("failed to create mtls concurrency limiter: %w", err)
 	}
 
+	outboundConcurrencyLimiter, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.GatewayHTTPActionOutboundConcurrencyLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create outbound concurrency limiter: %w", err)
+	}
+	perNodeOutboundLimiters := make(map[string]limits.ResourcePoolLimiter[int], len(members))
+	for _, member := range members {
+		var pl limits.ResourcePoolLimiter[int]
+		pl, err = limits.MakeResourcePoolLimiter(lf, cresettings.Default.GatewayHTTPActionOutboundPerNodeConcurrencyLimit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create per-node outbound concurrency limiter for %s: %w", member.Address, err)
+		}
+		perNodeOutboundLimiters[member.Address] = pl
+	}
+
 	metrics, err := metrics.NewMetrics(members)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
@@ -178,12 +196,16 @@ func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.Shard
 		perNodeRateLimiters:    perNodeRateLimiters,
 		mtlsRequestRateLimiter: mtlsRequestRateLimiter,
 		mtlsConcurrencyLimiter: mtlsConcurrencyLimiter,
-		stopCh:                 make(services.StopChan),
-		responseCache:          newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
-		triggerHandler:         triggerHandler,
-		metadataHandler:        metadataHandler,
-		metrics:                metrics,
-		httpClientFactory:      httpClientFactory,
+
+		outboundConcurrencyLimiter: outboundConcurrencyLimiter,
+		perNodeOutboundLimiters:    perNodeOutboundLimiters,
+
+		stopCh:            make(services.StopChan),
+		responseCache:     newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
+		triggerHandler:    triggerHandler,
+		metadataHandler:   metadataHandler,
+		metrics:           metrics,
+		httpClientFactory: httpClientFactory,
 	}, nil
 }
 
@@ -422,10 +444,17 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 
 	sendResponseTimeout := time.Duration(defaultSendResponseTimeoutMs) * time.Millisecond
 
+	// Reserve a slot before dispatching, so a rejected request never buffers a response. The rejection is logged, not sent to the node
+	release, err := h.acquireOutboundSlot(ctx, nodeAddr)
+	if err != nil {
+		return err
+	}
+
 	// send response to node async
 	h.wg.Go(func() {
 		// not cancelled when parent is cancelled to ensure the goroutine can finish
 		baseCtx := context.WithoutCancel(ctx)
+		defer release(baseCtx)
 		httpCtx, httpCancel := context.WithTimeout(baseCtx, timeout)
 		defer httpCancel()
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
@@ -452,6 +481,36 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		}
 	})
 	return nil
+}
+
+// acquireOutboundSlot reserves a slot against the global and per-node bounds, rolling back the
+// global one if the per-node bound rejects. Non-blocking; release MUST be called exactly once.
+func (h *gatewayHandler) acquireOutboundSlot(ctx context.Context, nodeAddr string) (release func(context.Context), err error) {
+	perNode, ok := h.perNodeOutboundLimiters[nodeAddr]
+	if !ok {
+		return nil, fmt.Errorf("received outbound request from unexpected node %s", nodeAddr)
+	}
+
+	if err = h.outboundConcurrencyLimiter.Use(ctx, 1); err != nil {
+		h.metrics.IncrementOutboundConcurrencyThrottled(ctx, nodeAddr, metrics.BoundGlobal, h.lggr)
+		return nil, fmt.Errorf("gateway outbound concurrency limit reached: %w", err)
+	}
+	if err = perNode.Use(ctx, 1); err != nil {
+		if freeErr := h.outboundConcurrencyLimiter.Free(ctx, 1); freeErr != nil {
+			h.lggr.Errorw("failed to release global outbound slot after per-node rejection", "err", freeErr, "nodeAddr", nodeAddr)
+		}
+		h.metrics.IncrementOutboundConcurrencyThrottled(ctx, nodeAddr, metrics.BoundPerWorkflowNode, h.lggr)
+		return nil, fmt.Errorf("outbound concurrency limit reached for node %s: %w", nodeAddr, err)
+	}
+
+	return func(releaseCtx context.Context) {
+		if freeErr := perNode.Free(releaseCtx, 1); freeErr != nil {
+			h.lggr.Errorw("failed to release per-node outbound slot", "err", freeErr, "nodeAddr", nodeAddr)
+		}
+		if freeErr := h.outboundConcurrencyLimiter.Free(releaseCtx, 1); freeErr != nil {
+			h.lggr.Errorw("failed to release global outbound slot", "err", freeErr, "nodeAddr", nodeAddr)
+		}
+	}, nil
 }
 
 func (h *gatewayHandler) HealthReport() map[string]error {
@@ -513,6 +572,14 @@ func (h *gatewayHandler) Close() error {
 		}
 		if err = h.mtlsConcurrencyLimiter.Close(); err != nil {
 			h.lggr.Errorw("failed to close mtls concurrency limiter", "err", err)
+		}
+		if err = h.outboundConcurrencyLimiter.Close(); err != nil {
+			h.lggr.Errorw("failed to close outbound concurrency limiter", "err", err)
+		}
+		for nodeAddr, pl := range h.perNodeOutboundLimiters {
+			if err = pl.Close(); err != nil {
+				h.lggr.Errorw("failed to close per-node outbound concurrency limiter", "nodeAddr", nodeAddr, "err", err)
+			}
 		}
 		close(h.stopCh)
 		h.wg.Wait()
