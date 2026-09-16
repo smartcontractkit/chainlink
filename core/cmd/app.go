@@ -202,7 +202,6 @@ func NewApp(s *Shell) *cli.App {
 				initOCRKeysSubCmd(s),
 				initOCR2KeysSubCmd(s),
 
-				keysCommand("Cosmos", NewCosmosKeysClient(s)),
 				keysCommand("Solana", NewSolanaKeysClient(s)),
 				keysCommand("StarkNet", NewStarkNetKeysClient(s)),
 				keysCommand("Aptos", NewAptosKeysClient(s)),
@@ -306,7 +305,6 @@ func NewApp(s *Shell) *cli.App {
 			Usage: "Commands for handling transactions",
 			Subcommands: []cli.Command{
 				initEVMTxSubCmd(s),
-				initCosmosTxSubCmd(s),
 				initSolanaTxSubCmd(s),
 			},
 		},

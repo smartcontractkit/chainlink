@@ -1408,7 +1408,7 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 10 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 9 errors:
 	- P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
@@ -1477,13 +1477,6 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: missing: must have at least one node
 		- 5.Transactions.AutoPurge.DetectionApiUrl: invalid value (): must be set for scroll
 		- 6.Nodes: missing: 0th node (primary) must have a valid WSURL when http polling is disabled
-	- Cosmos: 4 errors:
-		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
-		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique
-		- 1.Nodes: missing: expected at least one node
-		- 2: 2 errors:
-			- ChainID: missing: required for all chains
-			- Nodes: missing: expected at least one node
 	- Solana: 4 errors:
 		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (bar): duplicate - must be unique
@@ -1747,7 +1740,6 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: sqlutil.NewI(99999133712345)}}
-	c.Cosmos = RawConfigs{{"ChainID": new("unknown cosmos chain")}}
 	c.Solana = RawConfigs{{"ChainID": new("unknown solana chain")}}
 	c.Starknet = RawConfigs{{"ChainID": new("unknown starknet chain")}}
 	c.setDefaults()
