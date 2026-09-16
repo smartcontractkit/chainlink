@@ -1086,8 +1086,11 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 		return execErr
 	}
 	execHelper = &ExecutionHelper{
-		Engine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
+		WorkflowEngine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+		cfg: e.cfg, capCallsSemaphore: e.capCallsSemaphore, meterReports: e.meterReports,
+		metrics: e.metrics, localNode: &e.localNode, orgID: e.orgID,
+		logger: e.logger, eventLabels: e.eventLabels,
 		executionProfile: newExecutionProfileCollector(),
 		suspension:       suspension,
 	}

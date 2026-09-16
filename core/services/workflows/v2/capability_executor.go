@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -14,6 +15,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -25,18 +27,33 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
 var _ host.ExecutionHelper = (*ExecutionHelper)(nil)
 
 type ExecutionHelper struct {
-	*Engine
+	WorkflowEngine
 	WorkflowExecutionID string
 	ExecutionTimestamp  time.Time
 	UserLogChan         chan<- *protoevents.LogLine
 	TimeProvider
 	SecretsFetcher
+
+	// The following fields mirror unexported engine state that the helper reads
+	// during capability calls. They are populated by the engine at construction.
+	cfg               *EngineConfig
+	capCallsSemaphore limits.ResourcePoolLimiter[int]
+	meterReports      *metering.Reports
+	metrics           *monitoring.WorkflowsMetricLabeler
+	localNode         *atomic.Pointer[capabilities.Node]
+	orgID             string
+
+	// logger and eventLabels mirror the engine's private methods of the same
+	// name, bound at construction so the helper can emit logs and events.
+	logger      func() logger.SugaredLogger
+	eventLabels func() map[string]string
 
 	chainAllowed       limits.GateLimiter
 	callLimiters       map[capCall]limits.BoundLimiter[int]
@@ -161,7 +178,10 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		return nil, fmt.Errorf("capability %q is system-only and cannot be called from a workflow", info.ID)
 	}
 
-	localNode := c.localNode.Load()
+	var localNode *capabilities.Node
+	if c.localNode != nil {
+		localNode = c.localNode.Load()
+	}
 
 	// If the capability info is missing a DON, then
 	// the capability is local, and we should use the localNode's DON ID.
