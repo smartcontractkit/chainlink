@@ -415,7 +415,6 @@ func incomingRateLimiterConfigDefaults(config ratelimit.RateLimiterConfig) ratel
 	}
 	return config
 }
-
 func outgoingRateLimiterConfigDefaults(config ratelimit.RateLimiterConfig) ratelimit.RateLimiterConfig {
 	if config.GlobalBurst == 0 {
 		config.GlobalBurst = DefaultGlobalBurst
@@ -487,7 +486,7 @@ type metrics struct {
 	method            string
 }
 
-func (m *metrics) recordSingleNodeRequestDuration(ctx context.Context, d time.Duration, status, wid string) {
+func (m *metrics) recordSingleNodeRequestDuration(ctx context.Context, d time.Duration, status string, wid string) {
 	m.handleDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
 		attribute.String("status", status),
 		attribute.String("workflowID", wid),
@@ -495,7 +494,7 @@ func (m *metrics) recordSingleNodeRequestDuration(ctx context.Context, d time.Du
 	))
 }
 
-func (m *metrics) recordAwaitConnectionDuration(ctx context.Context, d time.Duration, wid, gateway string, success bool) {
+func (m *metrics) recordAwaitConnectionDuration(ctx context.Context, d time.Duration, wid string, gateway string, success bool) {
 	successStr := "false"
 	if success {
 		successStr = "true"
