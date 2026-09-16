@@ -87,8 +87,8 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 		}
 		outputs = append(outputs, out)
 		var addresses cldf.AddressBook
-		if out.AddressBook != nil {
-			addresses = out.AddressBook
+		if out.AddressBook != nil { //nolint:staticcheck // SA1019 AddressBook is deprecated
+			addresses = out.AddressBook //nolint:staticcheck // SA1019 AddressBook is deprecated
 			err := addresses.Merge(currentEnv.ExistingAddresses)
 			if err != nil {
 				return e, nil, fmt.Errorf("failed to merge address book: %w", err)

@@ -28,7 +28,7 @@ type UpdateAuthorizedAddressesRequest struct {
 
 func (r *UpdateAuthorizedAddressesRequest) Validate() error {
 	if len(r.Addresses) == 0 {
-		return errors.New("Must provide at least 1 address")
+		return errors.New("must provide at least 1 address")
 	}
 
 	return nil
