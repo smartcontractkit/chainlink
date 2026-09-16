@@ -196,10 +196,6 @@ func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
 	return g.c.EVM
 }
 
-func (g *generalConfig) CosmosConfigs() RawConfigs {
-	return g.c.Cosmos
-}
-
 func (g *generalConfig) SolanaConfigs() RawConfigs {
 	return g.c.Solana
 }
@@ -323,15 +319,6 @@ func (g *generalConfig) EVMEnabled() bool {
 
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
-		if c.IsEnabled() {
-			return true
-		}
-	}
-	return false
-}
-
-func (g *generalConfig) CosmosEnabled() bool {
-	for _, c := range g.c.Cosmos {
 		if c.IsEnabled() {
 			return true
 		}

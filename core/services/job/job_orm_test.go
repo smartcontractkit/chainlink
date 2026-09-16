@@ -969,18 +969,6 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("test Cosmos key validation", func(t *testing.T) {
-		ctx := t.Context()
-		jb.OCR2OracleSpec.Relay = relay.NetworkCosmos
-		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
-		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
-
-		cosmosKey, err := keyStore.Cosmos().Create(ctx)
-		require.NoError(t, err)
-		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, cosmosKey.ID())
-		require.NoError(t, err)
-	})
-
 	t.Run("test Solana key validation", func(t *testing.T) {
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkSolana

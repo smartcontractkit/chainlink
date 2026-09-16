@@ -242,8 +242,6 @@ func (r nodePlatformSubmitterKeyReader) submitterKeysForRelay(ctx context.Contex
 		return nodePlatformKeyIDs(r.keyStore.Solana())
 	case relay.NetworkAptos:
 		return nodePlatformKeyIDs(r.keyStore.Aptos())
-	case relay.NetworkCosmos:
-		return nodePlatformKeyIDs(r.keyStore.Cosmos())
 	case relay.NetworkStarkNet:
 		return nodePlatformKeyIDs(r.keyStore.StarkNet())
 	case relay.NetworkTON:
