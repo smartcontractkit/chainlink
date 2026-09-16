@@ -699,6 +699,7 @@ func TestEthKeys_SetFrom(t *testing.T) {
 }
 
 func TestEthKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
+	t.Parallel()
 	// Secrets files are applied in order and must union: a key from an earlier
 	// -s file has to survive a later file that only carries other chains' keys.
 	base := &EthKeys{Keys: []*EthKey{
@@ -737,6 +738,7 @@ func TestEthKeys_validateMerge_nilID(t *testing.T) {
 }
 
 func TestSolKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
+	t.Parallel()
 	base := &SolKeys{Keys: []*SolKey{
 		{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new("devnet")},
 	}}
@@ -765,6 +767,7 @@ func TestSolKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 }
 
 func TestAptosKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
+	t.Parallel()
 	base := &AptosKeys{Keys: []*AptosKey{
 		{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new(uint64(1))},
 	}}
@@ -793,6 +796,7 @@ func TestAptosKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 }
 
 func TestStellarKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
+	t.Parallel()
 	base := &StellarKeys{Keys: []*StellarKey{
 		{JSON: new(commonconfig.SecretString("key1")), Password: new(commonconfig.SecretString("pass1")), ID: new("testnet")},
 	}}
