@@ -9,9 +9,9 @@ import (
 	"golang.org/x/oauth2"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 )
 
@@ -19,8 +19,8 @@ import (
 func NewTestOIDCAuthenticator(
 	ds sqlutil.DataSource,
 	oidcCfg config.OIDC,
-	lggr logger.Logger,
-	auditLogger audit.AuditLogger,
+	lggr common.Logger,
+	auditLogger audit.Logger,
 ) (*oidcAuthenticator, error) {
 	var provider *oidc.Provider
 	var oidcConfig *oidc.Config
@@ -51,7 +51,7 @@ func NewTestOIDCAuthenticator(
 		provider:     provider,
 		oidcConfig:   oidcConfig,
 		oauth2Config: oauth2Config,
-		lggr:         lggr.Named("OIDCAuthenticationProvider"),
+		lggr:         common.Sugared(lggr).Named("OIDCAuthenticationProvider"),
 		auditLogger:  auditLogger,
 	}
 

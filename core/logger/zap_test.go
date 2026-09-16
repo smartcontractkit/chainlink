@@ -29,12 +29,12 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 	logsDir := t.TempDir()
 	tmpFile, err := os.CreateTemp(logsDir, "*")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer func() { assert.NoError(t, tmpFile.Close()) }()
 
 	var logFileSize utils.FileSize
 	err = logFileSize.UnmarshalText([]byte("100mb"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	pollCfg := newDiskPollConfig(1 * time.Second)
 
@@ -140,7 +140,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		logFile := local.LogsFile()
 		b, err := os.ReadFile(logFile)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logs := string(b)
 		lines := strings.Split(logs, "\n")
@@ -191,7 +191,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		logFile := local.LogsFile()
 		b, err := os.ReadFile(logFile)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		logs := string(b)
 		lines := strings.Split(logs, "\n")
@@ -213,12 +213,12 @@ func TestZapLogger_LogCaller(t *testing.T) {
 
 	logsDir := t.TempDir()
 	tmpFile, err := os.CreateTemp(logsDir, "*")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer func() { assert.NoError(t, tmpFile.Close()) }()
 
 	var logFileSize utils.FileSize
 	err = logFileSize.UnmarshalText([]byte("100mb"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	pollChan := make(chan time.Time)
 	stop := func() {
@@ -254,7 +254,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 
 	logFile := local.LogsFile()
 	b, err := os.ReadFile(logFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	logs := string(b)
 	lines := strings.Split(logs, "\n")
