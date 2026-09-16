@@ -44,7 +44,7 @@ func TestAddNops(t *testing.T) {
 		csOut, err := changeset.AddNops(te.Env, req)
 		require.NoError(t, err)
 		require.Empty(t, csOut.MCMSTimelockProposals)
-		require.Nil(t, csOut.AddressBook)
+		require.Nil(t, csOut.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
 		assertNopsExist(t, te.CapabilitiesRegistry(), nops...)
 		t.Run("idempotent", func(t *testing.T) {
 			_, err = changeset.AddNops(te.Env, req)
@@ -77,7 +77,7 @@ func TestAddNops(t *testing.T) {
 		csOut, err := changeset.AddNops(te.Env, req)
 		require.NoError(t, err)
 		require.Len(t, csOut.MCMSTimelockProposals, 1)
-		require.Nil(t, csOut.AddressBook)
+		require.Nil(t, csOut.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
 
 		err = applyProposal(t, te, commonchangeset.Configure(cldf.CreateLegacyChangeSet(changeset.AddNops), req))
 		require.NoError(t, err)
