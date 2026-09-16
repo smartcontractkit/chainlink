@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -37,11 +38,29 @@ const (
 	v1UserLogsEntity          = "workflows.v1." + workflowEvents.UserLogs
 )
 
+// failingSettingsGetter stands in for a settings service that is down, so a real
+// limits.BoundLimiter exercises its own fallback path (compiled default + advisory error)
+// rather than a hand-rolled approximation of it.
+type failingSettingsGetter struct{}
+
+func (failingSettingsGetter) GetScoped(context.Context, settings.Scope, string) (string, error) {
+	return "", errors.New("settings getter unavailable")
+}
+
+// boundLimiterWithFailingReads returns a real BoundLimiter whose reads always fail, so it
+// hands back spec's compiled default alongside an (advisory, recoverable) error.
+func boundLimiterWithFailingReads[N limits.Number](t *testing.T, spec settings.IsSetting[N]) limits.BoundLimiter[N] {
+	t.Helper()
+	l, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: failingSettingsGetter{}}, spec)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, l.Close()) })
+	return l
+}
+
 // failAfterNBoundLimiter succeeds (returning ok, nil) for the first n calls to Limit,
-// then returns (ok, failErr) after that, mirroring the real chainlink-common
-// BoundLimiter. LogEvent and ExecutionResponse are both peeked once during
-// trigger-subscription init and again per execution, so an always-failing fake would
-// break engine initialization before the value-on-error path could be exercised.
+// then returns (ok, failErr) after that. Only needed for non-recoverable errors: a real
+// limiter emits ErrMissingTenant solely when CRE context is absent, which the engine always
+// populates, and an always-failing fake would fail Subscribe before startExecution is reached.
 type failAfterNBoundLimiter[N limits.Number] struct {
 	mu      sync.Mutex
 	calls   int
@@ -205,10 +224,10 @@ func TestEngine_LimitReadFallback_ExecutesAnyway(t *testing.T) { //nolint:parall
 			cfg.LocalLimiters.ExecutionTime = &alwaysFailTimeLimiter{err: errors.New("limit read boom")}
 		},
 		"LogEvent": func(cfg *v2.EngineConfig) {
-			cfg.LocalLimiters.LogEvent = &failAfterNBoundLimiter[int]{n: 1, ok: 1000, failErr: errors.New("limit read boom")}
+			cfg.LocalLimiters.LogEvent = boundLimiterWithFailingReads(t, cresettings.Default.PerWorkflow.LogEventLimit)
 		},
 		"ExecutionResponse": func(cfg *v2.EngineConfig) {
-			cfg.LocalLimiters.ExecutionResponse = &failAfterNBoundLimiter[config.Size]{n: 1, ok: config.Size(10 * 1024 * 1024), failErr: errors.New("limit read boom")}
+			cfg.LocalLimiters.ExecutionResponse = boundLimiterWithFailingReads(t, cresettings.Default.PerWorkflow.ExecutionResponseLimit)
 		},
 	}
 
@@ -274,6 +293,8 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) { //nolint:parallelt
 				evt = got
 			}, 5*time.Second, 50*time.Millisecond)
 
+			assert.NotEmpty(t, harness.beholderObserver.Messages(t, "beholder_entity", v2ExecutionStartedEntity),
+				"the Started/Finished pair is what makes the drop visible; Finished alone is not enough")
 			assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED, evt.Status,
 				"a programming error must not be papered over with the zero value")
 			assert.Equal(t, eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_SYSTEM_ERROR, evt.ClassifiedStatus,
@@ -287,8 +308,14 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) { //nolint:parallelt
 func TestEngine_LimitReadFallback_UsesLimiterValue(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
 	const resolvedValue = config.Size(12345)
 
+	// A real limiter whose own default differs from the engine-wide compiled default, so
+	// "used the limiter's value" and "substituted its own default" are distinguishable.
+	spec := cresettings.Default.PerWorkflow.ExecutionResponseLimit
+	spec.DefaultValue = resolvedValue
+	require.NotEqual(t, resolvedValue, cresettings.Default.PerWorkflow.ExecutionResponseLimit.DefaultValue)
+
 	harness := newDropPathHarness(t, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
-		cfg.LocalLimiters.ExecutionResponse = &failAfterNBoundLimiter[config.Size]{n: 1, ok: resolvedValue, failErr: errors.New("limit read boom")}
+		cfg.LocalLimiters.ExecutionResponse = boundLimiterWithFailingReads(t, spec)
 	})
 
 	var gotMaxResponseSize uint64
