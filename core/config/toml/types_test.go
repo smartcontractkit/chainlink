@@ -711,7 +711,7 @@ func TestEthKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 
 	require.NoError(t, base.SetFrom(disjoint))
 
-	ids := make([]int, len(base.Keys))
+	ids := make([]int, 0, len(base.Keys))
 	for _, k := range base.Keys {
 		ids = append(ids, *k.ID)
 	}
@@ -726,6 +726,7 @@ func TestEthKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 }
 
 func TestEthKeys_validateMerge_nilID(t *testing.T) {
+	t.Parallel()
 	// A secrets file may omit ID, and merging must survive it: a missing field
 	// is a validation error, not a crash.
 	base := &EthKeys{}
@@ -748,7 +749,7 @@ func TestSolKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 
 	require.NoError(t, base.SetFrom(disjoint))
 
-	ids := make([]string, len(base.Keys))
+	ids := make([]string, 0, len(base.Keys))
 	for _, k := range base.Keys {
 		ids = append(ids, *k.ID)
 	}
@@ -777,7 +778,7 @@ func TestAptosKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 
 	require.NoError(t, base.SetFrom(disjoint))
 
-	ids := make([]uint64, len(base.Keys))
+	ids := make([]uint64, 0, len(base.Keys))
 	for _, k := range base.Keys {
 		ids = append(ids, *k.ID)
 	}
@@ -806,7 +807,7 @@ func TestStellarKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 
 	require.NoError(t, base.SetFrom(disjoint))
 
-	ids := make([]string, len(base.Keys))
+	ids := make([]string, 0, len(base.Keys))
 	for _, k := range base.Keys {
 		ids = append(ids, *k.ID)
 	}
@@ -828,6 +829,7 @@ func TestStellarKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 // accepted. All four key types share the "all fields must be nil or non-nil"
 // rule.
 func TestKeys_ValidateConfig_partialFields(t *testing.T) {
+	t.Parallel()
 	secret := new(models.Secret("s"))
 	stellarSecret := new(commonconfig.SecretString("s"))
 
@@ -843,6 +845,7 @@ func TestKeys_ValidateConfig_partialFields(t *testing.T) {
 		{"StellarKey missing ID", &StellarKey{JSON: stellarSecret, Password: stellarSecret}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			require.Error(t, tt.cfg.ValidateConfig())
 		})
 	}
