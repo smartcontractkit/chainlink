@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"

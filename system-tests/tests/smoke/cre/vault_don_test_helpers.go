@@ -149,7 +149,7 @@ func sendVaultRequestToGatewayWithHeaders(t *testing.T, gatewayURL string, reque
 	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
 
 	for attempt := range maxRetries + 1 {
-		req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, gatewayURL, bytes.NewBuffer(requestBody))
 		require.NoError(t, err, "failed to create request")
 
 		req.Header.Set("Content-Type", "application/json")
@@ -189,7 +189,7 @@ func sendVaultRequestToGatewayWithHeadersNoT(gatewayURL string, requestBody []by
 	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
 
 	for attempt := range maxRetries + 1 {
-		req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, gatewayURL, bytes.NewBuffer(requestBody))
 		if err != nil {
 			return 0, nil, fmt.Errorf("create request: %w", err)
 		}

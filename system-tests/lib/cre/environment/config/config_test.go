@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
