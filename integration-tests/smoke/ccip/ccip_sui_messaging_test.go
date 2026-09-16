@@ -120,7 +120,7 @@ func prepareSui2EvmMessagingTest(t *testing.T) sui2EvmMessagingFixtures {
 	suiFQDestConfig, err := suifeeQuoter.DevInspect().GetDestChainConfig(ctx, &suiBind.CallOpts{
 		Signer:           e.Env.BlockChains.SuiChains()[sourceChain].Signer,
 		WaitForExecution: true,
-	}, suiBind.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
+	}, codec.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
 	require.NoError(t, err, "Failed to get destination chain config")
 
 	n := uint64(0)

@@ -5,10 +5,10 @@ import "github.com/ethereum/go-ethereum/common"
 type MercuryServerType string
 
 const (
-	MS_WSRPC MercuryServerType = "wsrpc"
-	MS_WS    MercuryServerType = "ws"
-	MS_REST  MercuryServerType = "rest"
-	MS_ALL   MercuryServerType = "all"
+	MSWSRPC MercuryServerType = "wsrpc"
+	MSWS    MercuryServerType = "ws"
+	MSREST  MercuryServerType = "rest"
+	MSAll   MercuryServerType = "all"
 )
 
 type MercuryServerOpts struct {
@@ -24,8 +24,8 @@ type MercuryServerOpts struct {
 		Port        string
 	}
 	Database struct {
-		Url               string
-		WriterInstanceUrl string
+		URL               string
+		WriterInstanceURL string
 		EncryptionKey     string
 	}
 	Bootstrap struct {
@@ -37,7 +37,7 @@ type MercuryServerOpts struct {
 }
 
 type User struct {
-	Id       string
+	ID       string
 	Username string
 	Password string
 }
