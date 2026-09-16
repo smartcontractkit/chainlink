@@ -326,7 +326,11 @@ func (e *Engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, e
 
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
-		return nil, err
+		if !limits.IsErrRecoverable(err) {
+			return nil, err
+		}
+		e.logger().Errorw("Failed to get log event limit; continuing with the value the limiter returned", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.LogEventLimit.Key)
 	}
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
@@ -341,7 +345,11 @@ func (e *Engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, e
 
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
-		return nil, err
+		if !limits.IsErrRecoverable(err) {
+			return nil, err
+		}
+		e.logger().Errorw("Failed to get execution response size limit; continuing with the value the limiter returned", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.ExecutionResponseLimit.Key)
 	}
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		return nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
@@ -1381,14 +1389,22 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 				return false
 			}
 			// A settings read failure should not stop the drain. Fail open instead.
+			if limits.IsErrRecoverable(err) {
 			e.logger().Errorw("Failed to check user log event limit; emitting anyway", "err", err)
+			} else {
+				e.logger().Errorw("User log event limit could not be evaluated; emitting anyway", "err", err)
+			}
 			e.metrics.IncrementLimitCheckUnenforcedCounter(emitCtx, cresettings.Default.PerWorkflow.LogEventLimit.Key)
 		}
 		if err := e.cfg.LocalLimiters.LogLine.Check(emitCtx, config.Size(len(logLine.Message))); err != nil {
 			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[config.Size]](err); ok {
 				logLine.Message = logLine.Message[:errBoundLimited.Limit] + " ...(truncated)"
 			} else {
-				e.logger().Errorw("Failed to check user log line limit; emitting untruncated", "err", err)
+				if limits.IsErrRecoverable(err) {
+					e.logger().Errorw("Failed to check user log line limit; emitting untruncated", "err", err)
+				} else {
+					e.logger().Errorw("User log line limit could not be evaluated; emitting untruncated", "err", err)
+				}
 				e.metrics.IncrementLimitCheckUnenforcedCounter(emitCtx, cresettings.Default.PerWorkflow.LogLineLimit.Key)
 			}
 		}
