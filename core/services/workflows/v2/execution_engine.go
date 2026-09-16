@@ -42,7 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
 
-// TODO: remove EventSink check after the dispatcher owns admission (CRE-6179).
+// TODO: remove EventSink check after the coordinator owns admission (CRE-6179).
 var _ EventSink = (*ExecutionEngine)(nil)
 var _ WorkflowEngine = (*ExecutionEngine)(nil)
 
@@ -190,14 +190,13 @@ func NewExecutionEngine(cfg *EngineConfig) (*ExecutionEngine, error) {
 	// Create engine first so we can use the buildLabels method
 	engine := &ExecutionEngine{
 		cfg:                     cfg,
-		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
 		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
 		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
 	}
 
 	// The acknowledger must be injected by the caller (the syncer wires the
-	// TriggerDispatcher here). The standalone engine injects itself.
+	// TriggerCoordinator here).
 	if cfg.TriggerAcknowledger == nil {
 		return nil, errors.New("trigger acknowledger not set")
 	}
@@ -321,7 +320,7 @@ func (e *ExecutionEngine) Draining() bool {
 }
 
 // Put enqueues a trigger event into the engine's internal queue. It is a transitional method that wraps the existing queue.
-// It exists only until the dispatcher owns admission (CRE-6179). At that point the engine's queue is removed and the dispatcher calls HandleTriggerEvent directly.
+// It exists only until the coordinator owns admission (CRE-6179). At that point the engine's queue is removed and the coordinator calls HandleTriggerEvent directly.
 func (e *ExecutionEngine) Put(ctx context.Context, event RoutedTriggerEvent) error { // transitional
 	triggerID := event.TriggerCapID
 	eventID := event.Event.Event.ID
@@ -548,7 +547,7 @@ func (e *ExecutionEngine) handleAllTriggerEvents(ctx context.Context) {
 			defer free()
 
 			// Legacy path: startExecution handles all errors internally (metrics, ACK, hooks).
-			// This logs eventID context at the call site; the future dispatcher admitter
+			// This logs eventID context at the call site; the future coordinator admitter
 			// (CRE-6176) will use this error for admission decisions.
 			if err := e.ExecuteTrigger(ctx, queueHead); err != nil {
 				// Dedup and shard-denial are expected outcomes (the event is handled,
@@ -773,7 +772,7 @@ func (e *ExecutionEngine) startExecution(ctx context.Context, event RoutedTrigge
 		return execErr
 	}
 	execHelper = &ExecutionHelper{
-		WorkflowEngine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
+		WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 		cfg: e.cfg, capCallsSemaphore: e.capCallsSemaphore, meterReports: e.meterReports,
 		metrics: e.metrics, localNode: &e.localNode, orgID: e.orgID,

@@ -19,15 +19,41 @@ func withStubbedLocalNode(t *testing.T, cfg *v2.EngineConfig) {
 	cfg.CapRegistry = reg
 }
 
-// engineCtors maps each engine implementation name to its constructor. It is the
-// table that proves ExecutionEngine is a faithful, behaviorally-identical copy of
-// Engine: any test parameterized over it exercises both types identically. When
-// CRE-6176 stripping begins, tests that encode behavior being moved to the
-// TriggerDispatcher will start failing here — informatively — telling the owner
-// exactly which assertions are affected.
-var engineCtors = map[string]func(*v2.EngineConfig) (v2.WorkflowEngine, error){
-	"Engine":          func(c *v2.EngineConfig) (v2.WorkflowEngine, error) { return v2.NewEngine(c) },
-	"ExecutionEngine": func(c *v2.EngineConfig) (v2.WorkflowEngine, error) { return v2.NewExecutionEngine(c) },
+// withNoopAcknowledger sets a no-op TriggerAcknowledger, which NewExecutionEngine
+// requires. (Engine self-injects when nil, so it must not be set for Engine.)
+func withNoopAcknowledger(cfg *v2.EngineConfig) {
+	cfg.TriggerAcknowledger = noopAcknowledger{}
+}
+
+// engineImpl pairs an engine constructor with whether it is the execution-only
+// variant (which the test coordinator must register/ACK on behalf of).
+type engineImpl struct {
+	ctor          engineCtor
+	executionOnly bool
+}
+
+// engineImpls maps each engine implementation name to its constructor metadata.
+// Tests parameterized over it exercise both types through the shared
+// WorkflowEngine interface. Engine owns trigger registration; ExecutionEngine is
+// execution-only and depends on an injected acknowledger (the test coordinator).
+var engineImpls = map[string]engineImpl{
+	"Engine": {ctor: func(c *v2.EngineConfig) (v2.WorkflowEngine, error) { return v2.NewEngine(c) }, executionOnly: false},
+	"ExecutionEngine": {ctor: func(c *v2.EngineConfig) (v2.WorkflowEngine, error) {
+		return v2.NewExecutionEngine(c)
+	}, executionOnly: true},
+}
+
+// forEachEngineImpl runs fn once per engine implementation, as a named subtest. fn
+// receives a config and must construct the engine via newCoordinatedEngine with
+// the supplied impl.
+func forEachEngineImpl(t *testing.T, fn func(t *testing.T, impl engineImpl)) {
+	t.Helper()
+	for name, impl := range engineImpls {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			fn(t, impl)
+		})
+	}
 }
 
 // TestEngine_SatisfiesWorkflowEngine is a construction smoke test parameterized
@@ -35,33 +61,30 @@ var engineCtors = map[string]func(*v2.EngineConfig) (v2.WorkflowEngine, error){
 // interface and can be constructed from the same valid config.
 func TestEngine_SatisfiesWorkflowEngine(t *testing.T) {
 	t.Parallel()
-	for name, ctor := range engineCtors {
+	for name, impl := range engineImpls {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			cfg := defaultTestConfig(t, nil)
 			withStubbedLocalNode(t, cfg)
+			if impl.executionOnly {
+				withNoopAcknowledger(cfg)
+			}
 
-			engine, err := ctor(cfg)
+			engine, err := impl.ctor(cfg)
 			require.NoError(t, err)
 			require.NotNil(t, engine)
-
-			// The interface is satisfied (compile-time assertions live in the
-			// source files); this is the runtime construction smoke test.
-			var _ v2.WorkflowEngine = engine
-			// Both engines report the identical service name (see plan §2e): the
-			// name feeds health-report keys, so it must not differ between them.
 			require.Equal(t, "WorkflowEngine.WorkflowEngineV2", engine.Name())
 		})
 	}
 }
 
 // TestExecutionEngine_SatisfiesInterfaces asserts the interface contracts the
-// copy is expected to hold today. The Acknowledger assertion is expected to be
-// deleted during CRE-6176 stripping — its removal is the signal that AC 4 landed.
+// execution-only engine is expected to hold.
 func TestExecutionEngine_SatisfiesInterfaces(t *testing.T) {
 	t.Parallel()
 	cfg := defaultTestConfig(t, nil)
 	withStubbedLocalNode(t, cfg)
+	withNoopAcknowledger(cfg)
 
 	engine, err := v2.NewExecutionEngine(cfg)
 	require.NoError(t, err)
@@ -69,5 +92,4 @@ func TestExecutionEngine_SatisfiesInterfaces(t *testing.T) {
 
 	var _ v2.WorkflowEngine = engine
 	var _ v2.EventSink = engine
-	var _ v2.Acknowledger = engine // self-injects today; removed when ACK moves to the dispatcher
 }

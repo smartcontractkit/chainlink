@@ -48,7 +48,7 @@ type EventSink interface {
 //   - Shard ownership denial — this node is not the shard owner; the engine
 //     ACKs to signal the event was processed (skipped).
 //   - Normal execution start — the engine ACKs after the execution begins
-//     (not shown in the current code path; reserved for M2 dispatcher).
+//     (not shown in the current code path; reserved for the M2 coordinator).
 //
 // Ack is idempotent: calling it multiple times for the same event is safe.
 // The implementation is responsible for looking up the trigger handle by
@@ -65,7 +65,7 @@ type RoutedTriggerEvent struct {
 	TriggerIndex int
 
 	// ObservedAt is the time the RoutedTriggerEvent was constructed by the
-	// dispatcher. It is used for skew metrics (queue wait time)
+	// coordinator. It is used for skew metrics (queue wait time)
 	// and deadline enforcement.
 	ObservedAt time.Time
 

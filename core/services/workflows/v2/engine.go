@@ -375,7 +375,7 @@ func (e *Engine) Draining() bool {
 }
 
 // Put enqueues a trigger event into the engine's internal queue. It is a transitional method that wraps the existing queue.
-// It exists only until the dispatcher owns admission (CRE-6179). At that point the engine's queue is removed and the dispatcher calls HandleTriggerEvent directly.
+// It exists only until the coordinator owns admission (CRE-6179). At that point the engine's queue is removed and the coordinator calls HandleTriggerEvent directly.
 func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // transitional
 	triggerID := event.TriggerCapID
 	eventID := event.Event.Event.ID
@@ -861,7 +861,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			defer free()
 
 			// Legacy path: startExecution handles all errors internally (metrics, ACK, hooks).
-			// This logs eventID context at the call site; the future dispatcher admitter
+			// This logs eventID context at the call site; the future coordinator admitter
 			// (CRE-6176) will use this error for admission decisions.
 			if err := e.ExecuteTrigger(ctx, queueHead); err != nil {
 				// Dedup and shard-denial are expected outcomes (the event is handled,
@@ -1086,7 +1086,7 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 		return execErr
 	}
 	execHelper = &ExecutionHelper{
-		WorkflowEngine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
+		WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 		cfg: e.cfg, capCallsSemaphore: e.capCallsSemaphore, meterReports: e.meterReports,
 		metrics: e.metrics, localNode: &e.localNode, orgID: e.orgID,
