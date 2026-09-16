@@ -180,6 +180,17 @@ func proposeAndReport(
 	nodeIDToConfig map[string]string,
 	domain, env, donName, zone string,
 ) (cldf.ChangesetOutput, error) {
+	return proposeAndReportWithJDDON(e, job, nodeIDToConfig, domain, env, donName, "", zone)
+}
+
+// proposeAndReportWithJDDON is proposeAndReport with an explicit DON name for JD
+// node lookup. See ProposeStandardCapabilityJobInput.JDDONName.
+func proposeAndReportWithJDDON(
+	e cldf.Environment,
+	job pkg.StandardCapabilityJob,
+	nodeIDToConfig map[string]string,
+	domain, env, donName, jdDONName, zone string,
+) (cldf.ChangesetOutput, error) {
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		operations2.ProposeStandardCapabilityJob,
@@ -190,6 +201,7 @@ func proposeAndReport(
 			Domain:         domain,
 			Environment:    env,
 			DONName:        donName,
+			JDDONName:      jdDONName,
 
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: "zone", Value: zone},
