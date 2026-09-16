@@ -80,7 +80,9 @@ var valueFlags = map[string]string{
 	"SendChannelBufferSize":        "trigger.send-channel-buffer-size",
 	"RequestCacheTTL":              "trigger.request-cache-ttl",
 	"MaxAuthorizedKeysPerWorkflow": "trigger.max-authorized-keys-per-workflow",
-	"ProxyMode":                    "action.proxy-mode",
+	// Where an outbound request goes needs nothing said here: a run with a gateway
+	// goes through it, which is what a node has. --outbound.direct is the way out,
+	// and a node is not the place for it.
 }
 
 type HTTP struct{}

@@ -7,6 +7,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260616233142-e7de09d4f553
 	github.com/smartcontractkit/cre-sdk-go v1.13.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v1.0.0-beta.9
+	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.4.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/protobuf v1.36.11

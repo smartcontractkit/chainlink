@@ -39,11 +39,8 @@
   binary_name = "http"
 
 [capability_configs.http-trigger.values]
-  # 1 is gateway mode: an outbound request goes through the gateway, so that every
-  # node of the DON is answered with the same thing. 0 makes each node fetch for
-  # itself.
-  ProxyMode = 1
-  # The rest are left out to use the binary's own defaults; uncomment to override.
+  # Left out to use the binary's own defaults; uncomment to override. Where an
+  # outbound request goes is not among them: a run with a gateway goes through it.
   # SendChannelBufferSize = 1000
   # RequestCacheTTL = 300
   # MaxAuthorizedKeysPerWorkflow = 5

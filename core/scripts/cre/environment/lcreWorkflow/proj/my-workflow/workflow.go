@@ -3,15 +3,22 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
+	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 
 	"proj/contracts/evm/src/generated/capabilities_registry"
 )
+
+// randomNumberURL returns a single random integer in [1,100] as plain text.
+const randomNumberURL = "https://www.random.org/integers/?num=1&min=1&max=100&col=1&base=10&format=plain&rnd=new"
 
 type ExecutionResult struct {
 	RegistryTypeAndVersion string
@@ -41,7 +48,6 @@ func InitWorkflow(config *Config, logger *slog.Logger, secretsProvider cre.Secre
 func onCronTrigger(config *Config, runtime cre.Runtime, trigger *cron.Payload) (*ExecutionResult, error) {
 	logger := runtime.Logger()
 
-	// 1) EVM read: CapabilitiesRegistry.typeAndVersion()
 	version, err := readRegistryTypeAndVersion(config, runtime)
 	if err != nil {
 		return nil, err
@@ -52,12 +58,11 @@ func onCronTrigger(config *Config, runtime cre.Runtime, trigger *cron.Payload) (
 		"typeAndVersion", version,
 	)
 
-	// 2) Random number with median consensus across the DON nodes.
-	// Each node draws from its own NodeRuntime random source; the DON agrees on the median.
-	randomMedian, err := cre.RunInNodeMode(
+	randomMedian, err := http.SendRequest(
 		config,
 		runtime,
-		nextRandomNumber,
+		&http.Client{},
+		fetchRandomNumber,
 		cre.ConsensusMedianAggregation[int64](),
 	).Await()
 	if err != nil {
@@ -90,15 +95,27 @@ func readRegistryTypeAndVersion(config *Config, runtime cre.Runtime) (string, er
 	return version, nil
 }
 
-// nextRandomNumber runs per-node and returns this node's next random int in [1,100]
-// drawn from the NodeRuntime's random source.
-func nextRandomNumber(config *Config, nodeRuntime cre.NodeRuntime) (int64, error) {
-	rng, err := nodeRuntime.Rand()
+// fetchRandomNumber runs per-node and returns this node's random int in [1,100]
+// fetched from random.org over the HTTP capability.
+func fetchRandomNumber(config *Config, logger *slog.Logger, sendRequester *http.SendRequester) (int64, error) {
+	resp, err := sendRequester.SendRequest(&http.Request{
+		Url:     randomNumberURL,
+		Method:  "GET",
+		Timeout: &durationpb.Duration{Seconds: 10},
+	}).Await()
 	if err != nil {
-		return 0, fmt.Errorf("failed to get node random source: %w", err)
+		return 0, fmt.Errorf("failed to fetch random number: %w", err)
 	}
 
-	n := int64(rng.Intn(100) + 1)
-	nodeRuntime.Logger().Info("Generated random number (per node)", "value", n)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return 0, fmt.Errorf("unexpected status code %d fetching random number: %s", resp.StatusCode, string(resp.Body))
+	}
+
+	n, err := strconv.ParseInt(strings.TrimSpace(string(resp.Body)), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse random number %q: %w", string(resp.Body), err)
+	}
+
+	logger.Info("Fetched random number (per node)", "value", n)
 	return n, nil
 }
