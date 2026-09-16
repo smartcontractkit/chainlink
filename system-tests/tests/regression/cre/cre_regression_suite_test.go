@@ -5,9 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
 var (

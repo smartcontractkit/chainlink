@@ -96,7 +96,7 @@ type NodeKeys struct {
 	OCR2BundleIDs map[ChainFamily]string
 }
 
-func (n NodeKeys) PeerID() string {
+func (n *NodeKeys) PeerID() string {
 	if n.P2PKey == nil {
 		return ""
 	}
