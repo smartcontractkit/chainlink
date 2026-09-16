@@ -255,7 +255,7 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: addressBook,
+		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }
@@ -297,7 +297,7 @@ func SaveProxyAdmin(e cldf.Environment, c TransparentUpgradeableProxyChangesetCo
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: addressBook,
+		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }

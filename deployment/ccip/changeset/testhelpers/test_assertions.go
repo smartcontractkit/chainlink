@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -423,10 +423,10 @@ func SeqNumberRangeToSlice(seqRanges map[SourceDestPair]ccipocr3.SeqNumRange) ma
 }
 
 const (
-	EXECUTION_STATE_UNTOUCHED  = 0
-	EXECUTION_STATE_INPROGRESS = 1
-	EXECUTION_STATE_SUCCESS    = 2
-	EXECUTION_STATE_FAILURE    = 3
+	EXECUTION_STATE_UNTOUCHED  = 0 //nolint:revive // var-naming: legacy naming convention
+	EXECUTION_STATE_INPROGRESS = 1 //nolint:revive // var-naming: legacy naming convention
+	EXECUTION_STATE_SUCCESS    = 2 //nolint:revive // var-naming: legacy naming convention
+	EXECUTION_STATE_FAILURE    = 3 //nolint:revive // var-naming: legacy naming convention
 )
 
 func executionStateToString(state uint8) string {

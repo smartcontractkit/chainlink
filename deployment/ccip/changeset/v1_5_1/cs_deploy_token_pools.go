@@ -323,7 +323,7 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 	// in as each pool was confirmed, so by this point the store is already complete and there is
 	// nothing left that can fail.
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses,
+		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }

@@ -155,7 +155,7 @@ func SaveExistingContractsChangeset(env cldf.Environment, cfg ExistingContractsC
 		}
 	}
 	return cldf.ChangesetOutput{
-		AddressBook: ab,
+		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }
