@@ -32,8 +32,6 @@ type Config struct {
 
 	EVM configtoml.EVMConfigs `toml:",omitempty"`
 
-	Cosmos RawConfigs `toml:",omitempty"`
-
 	Solana RawConfigs `toml:",omitempty"`
 
 	Starknet RawConfigs `toml:",omitempty"`
@@ -331,8 +329,6 @@ func (c *Config) setDefaults() {
 		}
 	}
 
-	c.Cosmos.SetDefaults()
-
 	c.Solana.SetDefaults()
 
 	c.Starknet.SetDefaults()
@@ -356,7 +352,6 @@ func (c *Config) SetFrom(f *Config) (err error) {
 	}
 
 	appendErr(c.EVM.SetFrom(&f.EVM), "EVM")
-	appendErr(c.Cosmos.SetFrom(f.Cosmos), "Cosmos")
 	appendErr(c.Solana.SetFrom(f.Solana), "Solana")
 	appendErr(c.Starknet.SetFrom(f.Starknet), "Starknet")
 	appendErr(c.Aptos.SetFrom(f.Aptos), "Aptos")

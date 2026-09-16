@@ -475,9 +475,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.EVMEnabled() {
 			enabledChains = append(enabledChains, corekeys.EVM)
 		}
-		if s.Config.CosmosEnabled() {
-			enabledChains = append(enabledChains, corekeys.Cosmos)
-		}
 		if s.Config.SolanaEnabled() {
 			enabledChains = append(enabledChains, corekeys.Solana)
 		}
@@ -518,12 +515,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 		err2 := app.GetKeyStore().P2P().EnsureKey(rootCtx)
 		if err2 != nil {
 			return fmt.Errorf("failed to ensure p2p key: %w", err2)
-		}
-	}
-	if s.Config.CosmosEnabled() {
-		err2 := app.GetKeyStore().Cosmos().EnsureKey(rootCtx)
-		if err2 != nil {
-			return fmt.Errorf("failed to ensure cosmos key: %w", err2)
 		}
 	}
 	if s.Config.SolanaEnabled() {

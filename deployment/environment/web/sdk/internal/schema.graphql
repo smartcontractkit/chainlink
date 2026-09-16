@@ -35,7 +35,6 @@ type Query {
     solanaKeys: SolanaKeysPayload!
     aptosKeys: AptosKeysPayload!
     suiKeys: SuiKeysPayload!
-    cosmosKeys: CosmosKeysPayload!
     starknetKeys: StarkNetKeysPayload!
     tronKeys: TronKeysPayload!
     tonKeys: TONKeysPayload!
@@ -202,13 +201,7 @@ type ConfigV2Payload {
   user: String!
   effective: String!
 }
-type CosmosKey {
-	id: ID!
-}
 
-type CosmosKeysPayload {
-	results: [CosmosKey!]!
-}
 type CSAKey {
     id: ID!
     publicKey: String!
@@ -795,7 +788,6 @@ type DeleteOCRKeyBundleSuccess {
 union DeleteOCRKeyBundlePayload = DeleteOCRKeyBundleSuccess | NotFoundError
 enum OCR2ChainType {
     EVM
-    COSMOS
     SOLANA
     STARKNET
     APTOS

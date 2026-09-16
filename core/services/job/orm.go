@@ -626,11 +626,6 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 		if err != nil {
 			return errors.Errorf("no EVM key matching: %q", key)
 		}
-	case relay.NetworkCosmos:
-		_, err := keyStore.Cosmos().Get(key)
-		if err != nil {
-			return errors.Errorf("no Cosmos key matching: %q", key)
-		}
 	case relay.NetworkSolana:
 		_, err := keyStore.Solana().Get(key)
 		if err != nil {
