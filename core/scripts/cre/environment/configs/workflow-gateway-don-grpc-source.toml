@@ -55,7 +55,7 @@
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13000
 
 [[nodesets.node_specs]]
@@ -86,7 +86,7 @@ Name = 'mock-private-registry'
   supported_evm_chains = [1337, 2337]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13200
 
   [[nodesets.node_specs]]

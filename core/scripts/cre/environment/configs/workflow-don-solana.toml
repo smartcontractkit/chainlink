@@ -57,7 +57,7 @@
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13000
 
  [[nodesets.node_specs]]
@@ -87,7 +87,7 @@
   capabilities = ["vault", "solana"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13100
 
   [[nodesets.node_specs]]
@@ -111,7 +111,7 @@
   supported_evm_chains = [1337]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13200
 
   [[nodesets.node_specs]]

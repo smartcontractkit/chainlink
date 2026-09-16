@@ -53,7 +53,7 @@
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13000
 
   # Node 0 - expose ShardOrchestrator and Arbiter ports for testing
@@ -111,7 +111,7 @@
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13100
 
 [[nodesets.node_specs]]
@@ -140,7 +140,7 @@
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13200
 
 [[nodesets.node_specs]]
@@ -169,7 +169,7 @@
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13300
 
 [[nodesets.node_specs]]
@@ -198,7 +198,7 @@
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13400
 
 [[nodesets.node_specs]]
@@ -227,7 +227,7 @@
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13500
 
 [[nodesets.node_specs]]
@@ -251,7 +251,7 @@
   supported_evm_chains = [1337, 2337]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13200
 
   [[nodesets.node_specs]]
