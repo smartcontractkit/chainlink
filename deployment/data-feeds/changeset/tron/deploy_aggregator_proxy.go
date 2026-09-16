@@ -61,7 +61,7 @@ func deployAggregatorProxyLogic(env cldf.Environment, c types.DeployAggregatorPr
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address ref in datastore: %w", err)
 		}
 	}
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil //nolint:staticcheck // SA1019 AddressBook is deprecated
 }
 
 func deployAggregatorProxyPrecondition(env cldf.Environment, c types.DeployAggregatorProxyTronConfig) error {

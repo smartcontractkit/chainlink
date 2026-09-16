@@ -11,7 +11,7 @@ import (
 
 type JobDistributorInput struct {
 	Name      string `json:"name"`
-	Uri       string `json:"uri"`
+	URI       string `json:"uri"`
 	PublicKey string `json:"publicKey"`
 }
 
@@ -38,7 +38,7 @@ type JobDistributorChainConfigInput struct {
 }
 
 type JobProposalApprovalSuccessSpec struct {
-	Id              string `json:"id"`
+	ID              string `json:"id"`
 	Definition      string `json:"definition"`
 	Version         int    `json:"version"`
 	Status          string `json:"status"`

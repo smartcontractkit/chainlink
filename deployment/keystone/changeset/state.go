@@ -45,7 +45,7 @@ type ContractSet struct {
 
 func (cs ContractSet) Convert() internal.ContractSet {
 	return internal.ContractSet{
-		MCMSWithTimelockState: internal.MCMSWithTimelockState{
+		MCMSWithTimelockState: internal.MCMSWithTimelockState{ //nolint:staticcheck // SA1019 MCMSWithTimelockState is deprecated
 			MCMSWithTimelockContracts: cs.MCMSWithTimelockContracts,
 		},
 		Forwarder:            cs.Forwarder,
@@ -116,7 +116,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 
 func loadContractSet(lggr logger.Logger, chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
-	mcmsWithTimelock, err := internal.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmsWithTimelock, err := internal.MaybeLoadMCMSWithTimelockChainState(chain, addresses) //nolint:staticcheck // SA1019 MaybeLoadMCMSWithTimelockChainState is deprecated
 	if err != nil {
 		return nil, fmt.Errorf("failed to load mcms contract: %w", err)
 	}

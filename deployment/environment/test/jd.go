@@ -348,16 +348,6 @@ func (s *store) getNode(id string) (*wrappedNode, error) {
 	return n, nil
 }
 
-func (s *store) getNodeByP2P(p2p p2pKey) (*wrappedNode, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	id, ok := s.p2pToID[p2p]
-	if !ok {
-		return nil, fmt.Errorf("node not found for p2p %s", p2p)
-	}
-	return s.getNode(id)
-}
-
 func (s *store) getNodeByCSA(csa csaKey) (*wrappedNode, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
