@@ -711,7 +711,7 @@ func TestEthKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 
 	require.NoError(t, base.SetFrom(disjoint))
 
-	var ids []int
+	ids := make([]int, len(base.Keys))
 	for _, k := range base.Keys {
 		ids = append(ids, *k.ID)
 	}
@@ -748,7 +748,7 @@ func TestSolKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 
 	require.NoError(t, base.SetFrom(disjoint))
 
-	var ids []string
+	ids := make([]string, len(base.Keys))
 	for _, k := range base.Keys {
 		ids = append(ids, *k.ID)
 	}
@@ -777,7 +777,7 @@ func TestAptosKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 
 	require.NoError(t, base.SetFrom(disjoint))
 
-	var ids []uint64
+	ids := make([]uint64, len(base.Keys))
 	for _, k := range base.Keys {
 		ids = append(ids, *k.ID)
 	}
@@ -806,7 +806,7 @@ func TestStellarKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 
 	require.NoError(t, base.SetFrom(disjoint))
 
-	var ids []string
+	ids := make([]string, len(base.Keys))
 	for _, k := range base.Keys {
 		ids = append(ids, *k.ID)
 	}
