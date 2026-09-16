@@ -12,9 +12,9 @@ import (
 	"github.com/Masterminds/semver/v3"
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -204,19 +204,22 @@ func SolanaWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, batchNa
 func runSolanaWriteNegativeTestSuite(t *testing.T, batchName string, tests []solanaNegativeTest) {
 	requireSolanaBatchFitsCallLimit(t, batchName, len(tests), solanaMaxWriteCallsPerBatch, "writes")
 
-	if parallelEnabled {
-		t.Parallel()
-	}
 	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetTestConfig(t, solanaRegressionConfigPath))
 
 	SolanaWriteFailsTest(t, testEnv, batchName, tests)
 }
 
 func Test_CRE_V2_Solana_WriteReport_Invalid_Receiver_Regression(t *testing.T) {
+	if parallelEnabled {
+		t.Parallel()
+	}
 	runSolanaWriteNegativeTestSuite(t, "invalid-receiver", solanaNegativeTestsWriteReportInvalidReceiver)
 }
 
 func Test_CRE_V2_Solana_WriteReport_Invalid_Payload_Regression(t *testing.T) {
+	if parallelEnabled {
+		t.Parallel()
+	}
 	runSolanaWriteNegativeTestSuite(t, "invalid-payload", solanaNegativeTestsWriteReportInvalidPayload)
 }
 
@@ -398,7 +401,6 @@ func SolanaReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, batchNam
 // runSolanaReadNegativeTestSuite runs one batch of Solana read negative cases.
 func runSolanaReadNegativeTestSuite(t *testing.T, batchName string, tests []solanaNegativeTest) {
 	requireSolanaBatchFitsCallLimit(t, batchName, len(tests), solanaMaxReadCallsPerBatch, "chain reads")
-
 	if parallelEnabled {
 		t.Parallel()
 	}
@@ -408,10 +410,16 @@ func runSolanaReadNegativeTestSuite(t *testing.T, batchName string, tests []sola
 }
 
 func Test_CRE_V2_Solana_Read_Account_Calls_Regression(t *testing.T) {
+	if parallelEnabled {
+		t.Parallel()
+	}
 	runSolanaReadNegativeTestSuite(t, "account-calls", solanaReadBatchAccountCalls)
 }
 
 func Test_CRE_V2_Solana_Read_Program_Block_And_Tx_Calls_Regression(t *testing.T) {
+	if parallelEnabled {
+		t.Parallel()
+	}
 	runSolanaReadNegativeTestSuite(t, "program-block-and-tx-calls", solanaReadBatchProgramBlockAndTxCalls)
 }
 
@@ -509,6 +517,9 @@ func SolanaLogTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, so
 }
 
 func Test_CRE_V2_Solana_LogTrigger_Invalid_Filter_Regression(t *testing.T) {
+	if parallelEnabled {
+		t.Parallel()
+	}
 	for _, tCase := range solanaNegativeTestsLogTrigger {
 		testName := fmt.Sprintf(solanaTestNameTemplate, tCase.functionToTest, tCase.name)
 		t.Run(testName, func(t *testing.T) {
