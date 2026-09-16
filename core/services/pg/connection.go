@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 )
 
-var MinRequiredPGVersion = 110000
+var MinRequiredPGVersion = 150000
 
 func init() {
 	// from: https://www.postgresql.org/support/versioning/
@@ -24,16 +24,14 @@ func init() {
 	// Cases are ordered newest-first so the correct EOL threshold is selected;
 	// see https://www.postgresql.org/support/versioning/
 	switch {
+	case now.Year() > 2029:
+		MinRequiredPGVersion = 180000
+	case now.Year() > 2028:
+		MinRequiredPGVersion = 170000
 	case now.Year() > 2027:
 		MinRequiredPGVersion = 160000
-	case now.Year() > 2026:
+	case now.Year() >= 2026:
 		MinRequiredPGVersion = 150000
-	case now.Year() > 2025:
-		MinRequiredPGVersion = 140000
-	case now.Year() > 2024:
-		MinRequiredPGVersion = 130000
-	case now.Year() > 2023:
-		MinRequiredPGVersion = 120000
 	}
 }
 

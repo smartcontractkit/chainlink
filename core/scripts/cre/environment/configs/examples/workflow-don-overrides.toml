@@ -54,7 +54,7 @@
 #       IncomingGlobalBurst = 20
 
   [nodesets.db]
-    image = "postgres:16.0"
+    image = "postgres:15.0"
     port = 13000
 
   [[nodesets.node_specs]]
