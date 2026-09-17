@@ -951,7 +951,12 @@ func recordTokenMultisig(
 		return fmt.Errorf("failed to save new token multisig to address book: %w", err)
 	}
 
-	datastoreTV := cldf.NewTypeAndVersion("TOKEN_MULTISIG", deployment.Version1_6_0)
+	// PascalCase, matching every other Solana contract type in the datastore. 374 of the
+	// 380 existing Solana rows already use it; SCREAMING_SNAKE was the outlier here and in
+	// the 2.0 writer, and two spellings for one concept means a lookup by type resolves
+	// only half the population. The address-book identity above keeps its own legacy
+	// spelling -- that store is being retired, and changing it would rewrite history.
+	datastoreTV := cldf.NewTypeAndVersion("TokenMultisig", deployment.Version1_6_0)
 	datastoreTV.AddLabel(mint.String())
 	return shared.RecordAddress(nil, ds, chainSelector, address, datastoreTV, qualifier)
 }
