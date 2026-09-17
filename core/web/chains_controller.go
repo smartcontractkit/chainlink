@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -32,11 +32,11 @@ func (e chainDisabledError) Error() string {
 type chainsController struct {
 	chainStats  chainlink.RelayerChainInteroperators
 	newResource func(chainlink.NetworkChainStatus) presenters.ChainResource
-	lggr        common.Logger
+	lggr        logger.Logger
 	auditLogger audit.AuditLogger
 }
 
-func NewChainsController(chainStats chainlink.RelayerChainInteroperators, lggr common.Logger, auditLogger audit.AuditLogger) *chainsController {
+func NewChainsController(chainStats chainlink.RelayerChainInteroperators, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController {
 	return &chainsController{
 		chainStats:  chainStats,
 		newResource: presenters.NewChainResource,
@@ -52,7 +52,6 @@ func (cc *chainsController) Index(c *gin.Context, size, page, offset int) {
 	}
 
 	chains, count, err := chainStats.ChainStatuses(c.Request.Context(), offset, size)
-
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

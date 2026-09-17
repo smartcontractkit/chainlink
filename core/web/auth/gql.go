@@ -7,22 +7,24 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
-type sessionUserKey struct{}
-type GQLSession struct {
-	SessionID string
-	User      *clsessions.User
-}
+type (
+	sessionUserKey struct{}
+	GQLSession     struct {
+		SessionID string
+		User      *clsessions.User
+	}
+)
 
 // AuthenticateGQL middleware checks the session cookie for a user and sets it
 // on the request context if it exists. It is the responsibility of each resolver
 // to validate whether it requires an authenticated user.
 //
 // We currently only support GQL authentication by session cookie.
-func AuthenticateGQL(authenticator Authenticator, lggr common.Logger) gin.HandlerFunc {
+func AuthenticateGQL(authenticator Authenticator, lggr logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 		session := sessions.Default(c)

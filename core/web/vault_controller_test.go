@@ -93,7 +93,6 @@ func TestVaultController_VerifyDKGResult_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 
 	response, cleanup := client.Post("/v2/vault/dkg_results/verify", bytes.NewReader(bdata))
-	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 }
@@ -157,7 +156,6 @@ func TestVaultController_VerifyDKGResult_WrongKey(t *testing.T) {
 	require.NoError(t, err)
 
 	response, cleanup := client.Post("/v2/vault/dkg_results/verify", bytes.NewReader(bdata))
-	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusBadRequest)
 }
@@ -174,7 +172,6 @@ func TestVaultController_VerifyDKGResult_CantFindResultForInstanceID(t *testing.
 	require.NoError(t, err)
 
 	response, cleanup := client.Post("/v2/vault/dkg_results/verify", bytes.NewReader(bdata))
-	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
@@ -190,7 +187,6 @@ func TestVaultController_VerifyDKGResult_MissingInstanceIDOrPublicKey(t *testing
 	require.NoError(t, err)
 
 	response, cleanup := client.Post("/v2/vault/dkg_results/verify", bytes.NewReader(bdata))
-	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusBadRequest)
 
@@ -200,7 +196,6 @@ func TestVaultController_VerifyDKGResult_MissingInstanceIDOrPublicKey(t *testing
 	require.NoError(t, err)
 
 	response, cleanup = client.Post("/v2/vault/dkg_results/verify", bytes.NewReader(bdata))
-	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusBadRequest)
 }
@@ -252,7 +247,6 @@ func TestVaultController_ExportDKGResult(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/vault/dkg_results/export", bytes.NewReader(bdata))
-	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 }

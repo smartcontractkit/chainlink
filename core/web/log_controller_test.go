@@ -43,7 +43,6 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	resp, clean := client.Get("/v2/log")
-	defer resp.Body.Close()
 	t.Cleanup(clean)
 
 	svcLogConfig := presenters.ServiceLogConfigResource{}
@@ -119,7 +118,6 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			buf := bytes.NewBuffer(requestData)
 
 			resp, cleanup := client.Patch("/v2/log", buf)
-			defer resp.Body.Close()
 			defer cleanup()
 
 			svcLogConfig := presenters.ServiceLogConfigResource{}

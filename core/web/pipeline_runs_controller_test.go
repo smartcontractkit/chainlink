@@ -43,7 +43,6 @@ func TestPipelineRunsController_CreateWebhookJobRejected(t *testing.T) {
 	body, err := json.Marshal(web.CreateJobRequest{TOML: tomlStr})
 	require.NoError(t, err)
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
-	defer response.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 	require.Contains(t, string(cltest.ParseResponseBody(t, response)), "job type webhook has been removed")
@@ -67,7 +66,6 @@ func TestPipelineRunsController_RunExistingWebhookJobRejected(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 	body := strings.NewReader(`{"data":{"result":"123.45"}}`)
 	response, cleanup := client.Post("/v2/jobs/"+jobUUID.String()+"/runs", body)
-	defer response.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 	require.Contains(t, string(cltest.ParseResponseBody(t, response)), "webhook")
@@ -84,7 +82,6 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	url.RawQuery = query.Encode()
 
 	response, cleanup := client.Get(url.String())
-	defer response.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -110,7 +107,6 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs")
-	defer response.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -136,7 +132,6 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs?page=1&size=1")
-	defer response.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -161,7 +156,6 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs/" + strconv.FormatInt(runIDs[0], 10))
-	defer response.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -184,7 +178,6 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	response, cleanup := client.Get("/v2/jobs/1/runs/invalid-run-ID")
-	defer response.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 }

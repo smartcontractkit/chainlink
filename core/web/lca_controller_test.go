@@ -21,7 +21,6 @@ func TestLCAController_FindLCA(t *testing.T) {
 	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Get("/v2/find_lca?evmChainID=1")
-	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
 	b, err := io.ReadAll(resp.Body)

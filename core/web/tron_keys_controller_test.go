@@ -20,7 +20,6 @@ func TestTronKeysController_Index_HappyPath(t *testing.T) {
 	keys, _ := keyStore.Tron().GetAll()
 
 	response, cleanup := client.Get("/v2/keys/tron")
-	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -43,7 +42,6 @@ func TestTronKeysController_Create_HappyPath(t *testing.T) {
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/tron", nil)
-	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -68,7 +66,6 @@ func TestTronKeysController_Delete_NonExistentTronKeyID(t *testing.T) {
 
 	nonExistentTronKeyID := "foobar"
 	response, cleanup := client.Delete("/v2/keys/tron/" + nonExistentTronKeyID)
-	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusNotFound, response.StatusCode)
 }
@@ -84,7 +81,6 @@ func TestTronKeysController_Delete_HappyPath(t *testing.T) {
 	key, _ := keyStore.Tron().Create(ctx)
 
 	response, cleanup := client.Delete("/v2/keys/tron/" + key.ID())
-	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, response.StatusCode)
 	require.Error(t, utils.JustError(keyStore.Tron().Get(key.ID())))

@@ -102,7 +102,6 @@ func TestLoopRegistry(t *testing.T) {
 		t.Parallel()
 		// under the covers this is routing thru the app into loop registry
 		resp, cleanup := client.Get("/discovery")
-		defer resp.Body.Close()
 		t.Cleanup(cleanup)
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -126,7 +125,6 @@ func TestLoopRegistry(t *testing.T) {
 		t.Parallel()
 		// plugin name `mockLoopImpl` matches key in PluginConfigs
 		resp, cleanup := client.Get(expectedLooppEndPoint)
-		defer resp.Body.Close()
 		t.Cleanup(cleanup)
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -145,7 +143,6 @@ func TestLoopRegistry(t *testing.T) {
 		t.Parallel()
 		// core node metrics endpoint
 		resp, cleanup := client.Get(expectedCoreEndPoint)
-		defer resp.Body.Close()
 		t.Cleanup(cleanup)
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -158,7 +155,6 @@ func TestLoopRegistry(t *testing.T) {
 		t.Parallel()
 		// request plugin that doesn't exist
 		resp, cleanup := client.Get("/plugins/noexist/metrics")
-		defer resp.Body.Close()
 		t.Cleanup(cleanup)
 		cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 	})

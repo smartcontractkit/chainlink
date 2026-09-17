@@ -50,7 +50,6 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/bridge_types/", nil)
-	defer resp.Body.Close()
 	defer cleanup()
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)

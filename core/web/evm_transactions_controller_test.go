@@ -49,7 +49,6 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	size := 2
 	resp, cleanup := client.Get(fmt.Sprintf("/v2/transactions?size=%d", size))
-	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -74,7 +73,6 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Get("/v2/transactions?size=TrainingDay")
-	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 422)
 }
@@ -96,7 +94,6 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	attempt.Tx = tx
 
 	resp, cleanup := client.Get("/v2/transactions/" + attempt.Hash.String())
-	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -129,7 +126,6 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	attempt := tx.TxAttempts[0]
 
 	resp, cleanup := client.Get("/v2/transactions/" + (attempt.Hash.String() + "1"))
-	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 }

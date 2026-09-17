@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -57,7 +57,6 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Get("/v2/keys/evm")
-	defer resp.Body.Close()
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -99,7 +98,6 @@ func TestETHKeysController_Index_Errors(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Get("/v2/keys/eth")
-	defer resp.Body.Close()
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -134,7 +132,6 @@ func TestETHKeysController_Index_Disabled(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Get("/v2/keys/eth")
-	defer resp.Body.Close()
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -169,7 +166,6 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Get("/v2/keys/eth")
-	defer resp.Body.Close()
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -196,7 +192,6 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Get("/v2/keys/eth")
-	defer resp.Body.Close()
 	defer cleanup()
 
 	balances := []webpresenters.ETHKeyResource{}
@@ -235,7 +230,6 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	chainURL.RawQuery = query.Encode()
 
 	resp, cleanup := client.Post(chainURL.String(), nil)
-	defer resp.Body.Close()
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
@@ -277,7 +271,6 @@ func TestETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
 
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
-	defer resp.Body.Close()
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -322,7 +315,6 @@ func TestETHKeysController_ChainSuccess_Disable(t *testing.T) {
 
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
-	defer resp.Body.Close()
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -367,7 +359,6 @@ func TestETHKeysController_ChainSuccess_Enable(t *testing.T) {
 
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
-	defer resp.Body.Close()
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -418,7 +409,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	txStore := txmgr.NewTxStore(app.GetDB(), logger.TestLogger(t))
+	txStore := txmgr.NewTxStore(app.GetDB(), logger.Test(t))
 
 	txes, err := txStore.FindTxesByFromAddressAndState(t.Context(), addr, "fatal_error")
 	require.NoError(t, err)
@@ -434,7 +425,6 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
-	defer resp.Body.Close()
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -482,7 +472,6 @@ func TestETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
 
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
-	defer resp.Body.Close()
 	defer cleanup()
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -516,7 +505,6 @@ func TestETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
 
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
-	defer resp.Body.Close()
 	defer cleanup()
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -546,7 +534,6 @@ func TestETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
 
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
-	defer resp.Body.Close()
 	defer cleanup()
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -576,7 +563,6 @@ func TestETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
 
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
-	defer resp.Body.Close()
 	defer cleanup()
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
@@ -606,7 +592,6 @@ func TestETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
 
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
-	defer resp.Body.Close()
 	defer cleanup()
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -639,7 +624,6 @@ func TestETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
 
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
-	defer resp.Body.Close()
 	defer cleanup()
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
@@ -670,7 +654,6 @@ func TestETHKeysController_DeleteSuccess(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 	chainURL := url.URL{Path: "/v2/keys/evm/" + addr0.Hex()}
 	resp, cleanup := client.Delete(chainURL.String())
-	defer resp.Body.Close()
 	defer cleanup()
 	t.Log(resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -684,7 +667,6 @@ func TestETHKeysController_DeleteSuccess(t *testing.T) {
 	assert.False(t, deletedKey.Disabled)
 
 	resp, cleanup2 := client.Get("/v2/keys/evm")
-	defer resp.Body.Close()
 	defer cleanup2()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -714,7 +696,6 @@ func TestETHKeysController_DeleteFailure_InvalidAddress(t *testing.T) {
 	chainURL := url.URL{Path: "/v2/keys/evm" + "/bad_address"}
 
 	resp, cleanup := client.Delete(chainURL.String())
-	defer resp.Body.Close()
 	defer cleanup()
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -737,7 +718,6 @@ func TestETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
 	chainURL := url.URL{Path: "/v2/keys/evm/" + testutils.NewAddress().Hex()}
 
 	resp, cleanup := client.Delete(chainURL.String())
-	defer resp.Body.Close()
 	defer cleanup()
 	t.Log(resp)
 

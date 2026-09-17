@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -118,7 +118,7 @@ func TestGuiAssets_AssetsFS(t *testing.T) {
 	t.Parallel()
 
 	efs := web.NewEmbedFileSystem(testFs, "fixtures/operator_ui")
-	handler := web.ServeGzippedAssets("/fixtures/operator_ui/", efs, logger.TestLogger(t))
+	handler := web.ServeGzippedAssets("/fixtures/operator_ui/", efs, logger.Test(t))
 
 	t.Run("it get exact assets if Accept-Encoding is not specified", func(t *testing.T) {
 		t.Parallel()

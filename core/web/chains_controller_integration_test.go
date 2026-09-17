@@ -136,7 +136,6 @@ SendOnly = false
 			resp, cleanup := controller.client.Get(
 				"/v2/chains/solana/" + tc.inputID,
 			)
-			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 
@@ -175,12 +174,10 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	controller := setupSolanaChainsControllerTestV2(t, chainA, chainB)
 
 	badResp, cleanup := controller.client.Get("/v2/chains/solana?size=asd")
-	defer badResp.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusUnprocessableEntity, badResp.StatusCode)
 
 	resp, cleanup := controller.client.Get("/v2/chains/solana?size=1")
-	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -203,7 +200,6 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	assert.NotEmpty(t, chains[0].Config)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
-	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 

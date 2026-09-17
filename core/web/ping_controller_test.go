@@ -24,7 +24,6 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Get("/v2/ping")
-	defer resp.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body := string(cltest.ParseResponseBody(t, resp))

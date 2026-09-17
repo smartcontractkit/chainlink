@@ -35,9 +35,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
@@ -161,7 +160,6 @@ func secureMiddleware(tlsRedirect bool, tlsHost string, devWebServer bool) gin.H
 	secureFunc := func() gin.HandlerFunc {
 		return func(c *gin.Context) {
 			err := secureMiddleware.Process(c.Writer, c.Request)
-
 			// If there was an error, do not continue.
 			if err != nil {
 				c.Abort()
@@ -457,14 +455,16 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 // This is higher because it serves main.js and any static images. There are
 // 5 assets which must be served, so this allows for 20 requests/min
-var staticAssetsRateLimit = int64(100)
-var staticAssetsRateLimitPeriod = 1 * time.Minute
-var indexRateLimit = int64(20)
-var indexRateLimitPeriod = 1 * time.Minute
+var (
+	staticAssetsRateLimit       = int64(100)
+	staticAssetsRateLimitPeriod = 1 * time.Minute
+	indexRateLimit              = int64(20)
+	indexRateLimitPeriod        = 1 * time.Minute
+)
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(engine *gin.Engine, rateLimitingDisabled bool, lggr logger.SugaredLogger) {
+func guiAssetRoutes(engine *gin.Engine, rateLimitingDisabled bool, lggr logger.Logger) {
 	// Serve static files
 	var assetsRouterHandlers []gin.HandlerFunc
 	if !rateLimitingDisabled {
@@ -521,7 +521,7 @@ func guiAssetRoutes(engine *gin.Engine, rateLimitingDisabled bool, lggr logger.S
 			}
 			return
 		}
-		defer lggr.ErrorIfFn(file.Close, "Error closing file")
+		defer logger.Sugared(lggr).ErrorIfFn(file.Close, "Error closing file")
 
 		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 	})
@@ -530,7 +530,7 @@ func guiAssetRoutes(engine *gin.Engine, rateLimitingDisabled bool, lggr logger.S
 }
 
 // Inspired by https://github.com/gin-gonic/gin/issues/961
-func loggerFunc(lggr common.Logger) gin.HandlerFunc {
+func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		buf, err := io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -584,7 +584,7 @@ func uiCorsHandler(ao string) gin.HandlerFunc {
 	return cors.New(c)
 }
 
-func readBody(reader io.Reader, lggr common.Logger) string {
+func readBody(reader io.Reader, lggr logger.Logger) string {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(reader)
 	if err != nil {
