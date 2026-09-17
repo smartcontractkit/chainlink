@@ -78,9 +78,12 @@ func (o *HTTPAction) PreEnvStartup(
 	}, nil
 }
 
+// configTemplate renders the http-action capability's job-spec config.
+// proxyMode and gateway/httpClient settings are sourced from node TOML
+// ([Capabilities.HTTPAction]) and are intentionally NOT emitted here;
+// only the per-workflow rate limiters remain in the job spec.
 const configTemplate = `
 {
-	"proxyMode": "{{.ProxyMode}}",
 	"incomingRateLimiter": {
 		"globalBurst": {{printf "%v" .IncomingGlobalBurst}},
 		"globalRPS": {{printf "%v" .IncomingGlobalRPS}},

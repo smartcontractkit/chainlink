@@ -372,6 +372,33 @@ WSHandshakeTimeoutMillis = 0
 AuthMinChallengeLen = 0
 AuthTimestampToleranceSec = 0
 
+[Capabilities.HTTPTrigger]
+MetadataBatchSize = 50
+SendChannelBufferSize = 1000
+MaxAuthorizedKeysPerWorkflow = 100
+RequestCacheTTL = 86400
+
+[Capabilities.HTTPTrigger.GatewayConnection]
+MaxPushMetadataDurationMs = 30000
+MaxPullMetadataDurationMs = 30000
+
+[Capabilities.HTTPTrigger.GatewayConnection.RetryConfig]
+InitialIntervalMs = 100
+MaxIntervalTimeMs = 30000
+Multiplier = 2.0
+
+[Capabilities.HTTPAction]
+ProxyMode = 'gateway'
+
+[Capabilities.HTTPAction.GatewayConnection]
+InitialIntervalMs = 100
+MaxElapsedTimeMs = 30000
+Multiplier = 2.0
+
+[Capabilities.HTTPAction.HTTPClient]
+AllowedPorts = [443]
+AllowedSchemes = ['https']
+
 [Telemetry]
 Enabled = false
 CACertFile = ''
