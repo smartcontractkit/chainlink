@@ -496,7 +496,9 @@ func addSuiSolanaLaneChangesets(
 
 	return []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
-			lanes.ConnectChains(lanes.GetLaneAdapterRegistry(), cs_ccip.GetRegistry()),
+			// These are v1.6.0 lanes, so no v2 lane version resolver is wired and the
+			// downgrade guard is disabled.
+			lanes.ConnectChains(lanes.GetLaneAdapterRegistry(), cs_ccip.GetRegistry(), nil),
 			lanes.ConnectChainsConfig{
 				MCMS: ccipmcms.Input{
 					ValidUntil:     validUntil,
