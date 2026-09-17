@@ -31,11 +31,8 @@ import (
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
 
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
@@ -205,8 +202,6 @@ var StartCmdRecoverHandlerFunc = func(p any, persistedChipIngressStackState *env
 func startCmd() *cobra.Command {
 	var (
 		extraAllowedGatewayPorts []int
-		withExampleFlag          bool
-		exampleWorkflowTimeout   time.Duration
 		withPluginsDockerImage   string
 		doSetup                  bool
 		cleanupOnFailure         bool
@@ -403,8 +398,6 @@ func startCmd() *cobra.Command {
 				}
 			}
 
-			registryChainOut := output.CreEnvironment.Blockchains[0]
-
 			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil, "")
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
@@ -488,39 +481,6 @@ func startCmd() *cobra.Command {
 					return errors.Wrap(startBillingErr, "failed to start Billing Platform Service")
 				}
 			}
-
-			if withExampleFlag {
-				if output.GatewayConnectors == nil || len(output.GatewayConnectors.Configurations) == 0 {
-					return errors.New("no gateway connector configurations found")
-				}
-
-				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
-				workflowRegistryAddress := libcontracts.MustGetAddressFromDataStore(output.CreEnvironment.CldfEnvironment.DataStore, output.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-
-				var workflowDonID uint32
-				var donFamily string
-				for idx, don := range output.Dons.List() {
-					if don.HasFlag(cre.WorkflowDON) {
-						workflowDonID = libc.MustSafeUint32(idx + 1)
-						donFamily = don.DonFamily()
-						break
-					}
-				}
-
-				if workflowDonID == 0 {
-					return errors.New("no workflow DON found")
-				}
-
-				donFamily, familyErr := finalizeWorkflowDonFamily(donFamily)
-				if familyErr != nil {
-					return familyErr
-				}
-
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, donFamily, exampleWorkflowTimeout, workflowRegistryAddress, output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
-				if deployErr != nil {
-					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
-				}
-			}
 			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
@@ -549,8 +509,6 @@ func startCmd() *cobra.Command {
 	cmd.Flags().DurationVarP(&cleanupWait, "wait-on-error-timeout", "w", 15*time.Second, "Time to wait before removing Docker containers if environment fails to start (e.g. 10s, 1m, 1h)")
 	cmd.Flags().BoolVarP(&cleanupOnFailure, "cleanup-on-error", "l", false, "Whether to remove Docker containers if startup fails")
 	cmd.Flags().IntSliceVarP(&extraAllowedGatewayPorts, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway Connector (e.g. 8080,8081)")
-	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploys and registers example workflow")
-	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
 	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "DEPRECATED:Docker image to use (set Docker image in TOML config instead)")
 	cmd.Flags().BoolVar(&withChipIngressStack, "with-chip-ingress-stack", false, "Deploy Chip Ingress stack (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withChipIngressStack, "with-beholder", "b", false, "Deprecated: use --with-chip-ingress-stack. Deploy Chip Ingress stack (Chip Ingress + Red Panda)")

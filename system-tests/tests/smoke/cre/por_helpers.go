@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,25 +17,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
+
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-
+	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
+	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	tron_df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/tron"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-
-	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
-
-	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	tron_keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
-
-	corevm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
-
-	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -75,6 +72,20 @@ func BeforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, 
 	require.NoError(t, err, "failed to create fake price provider")
 
 	return priceProvider, porWfCfg
+}
+
+func GenerateWriteTargetName(t *testing.T, chainID uint64) string {
+	chainName, err := chainselectors.NameFromChainId(chainID)
+	if err != nil {
+		t.Fatalf("could not resolve chain ID %d", chainID)
+	}
+
+	wtID, err := writetarget.NewWriteTargetID("", chainName, strconv.FormatUint(chainID, 10), "1.0.0")
+	if err != nil {
+		t.Fatalf("could not generate write target id: %s", err)
+	}
+
+	return wtID
 }
 
 // ExecutePoRTest deploys DataFeedsCache + ReadBalances contracts on all writable chains,
@@ -153,7 +164,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 		require.NoError(t, addrErr, "failed to create and fund addresses to read")
 
 		testLogger.Info().Msg("Creating PoR workflow configuration file...")
-		writeTargetName := corevm.GenerateWriteTargetName(chainID)
+		writeTargetName := GenerateWriteTargetName(t, chainID)
 		testLogger.Info().Msgf("Generated WriteTargetName for chain %d (%s): %s", chainID, chainFamily, writeTargetName)
 
 		workflowConfig := portypes.WorkflowConfig{
@@ -239,7 +250,7 @@ func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, pric
 	addressesToRead, addrErr := t_helpers.CreateAndFundAddressesEVM(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput)
 	require.NoError(t, addrErr, "failed to create and fund addresses for soak workflow %s", wfConfig.WorkflowName)
 
-	writeTargetName := corevm.GenerateWriteTargetName(chainID)
+	writeTargetName := GenerateWriteTargetName(t, chainID)
 	testLogger.Info().Msgf("SetupPoRWorkflowForSoak: chain=%d writeTarget=%s cache=%s feedID=%s cron=%q",
 		chainID, writeTargetName, dataFeedsCacheAddress.Hex(), feedID, wfConfig.CronSchedule)
 
