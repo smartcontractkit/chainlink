@@ -368,7 +368,7 @@ flowchart LR
 	click chainlink-evm/gethwrappers/helpers href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
-	chainlink-framework/capabilities --> chainlink-common
+	chainlink-framework/capabilities
 	click chainlink-framework/capabilities href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-framework/chains --> chainlink-framework/multinode
 	click chainlink-framework/chains href "https://github.com/smartcontractkit/chainlink-framework"
@@ -473,7 +473,6 @@ flowchart LR
 	click chainlink-ton/deployment href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-tron/relayer --> chainlink-common
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
-	chainlink/core/scripts --> chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based
 	chainlink/core/scripts --> chainlink/system-tests/lib
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
 	chainlink/core/scripts/cre/environment/examples/workflows/cron --> cre-sdk-go/capabilities/scheduler/cron
