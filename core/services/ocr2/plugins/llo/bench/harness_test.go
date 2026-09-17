@@ -108,7 +108,7 @@ func (w workload) String() string {
 // full set of stream IDs referenced.
 func (w workload) channelDefinitions() (llotypes.ChannelDefinitions, []llotypes.StreamID) {
 	defs := make(llotypes.ChannelDefinitions, w.numChannels)
-	var streamIDs []llotypes.StreamID
+	streamIDs := make([]llotypes.StreamID, 0, w.streamsPerChannel*w.numChannels)
 	var sid llotypes.StreamID
 	for c := range w.numChannels {
 		streams := make([]llotypes.Stream, 0, w.streamsPerChannel)

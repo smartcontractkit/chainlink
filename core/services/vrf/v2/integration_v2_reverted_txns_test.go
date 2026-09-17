@@ -427,7 +427,7 @@ func genReqProofNCommitment(t *testing.T,
 		PreSeed:          s,
 		BlockHash:        requestLog.Raw().BlockHash,
 		BlockNum:         requestLog.Raw().BlockNumber,
-		SubId:            sub.subID,
+		SubID:            sub.subID,
 		CallbackGasLimit: req.callbackGasLimit,
 		NumWords:         req.numWords,
 		Sender:           th.eoaConsumerAddr,
@@ -530,7 +530,7 @@ func getTxnReceiptDB(db *sqlx.DB, txesID int64) ([]v2.TxnReceiptDB, error) {
 			FROM evm.receipts
 			WHERE tx_hash IN (SELECT hash FROM attempts)
 		)
-		SELECT r.tx_hash, 
+		SELECT r.tx_hash,
 			r.receipt,
 			t.from_address,
 			t.meta->>'SubId' as sub_id,

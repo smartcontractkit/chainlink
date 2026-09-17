@@ -18,7 +18,7 @@ func (o *ocr2Config) Enabled() bool {
 }
 
 func (o *ocr2Config) ContractConfirmations() uint16 {
-	return uint16(*o.c.ContractConfirmations)
+	return uint16(*o.c.ContractConfirmations) //nolint:gosec // G115: confirmation count is far below math.MaxUint16
 }
 
 func (o *ocr2Config) ContractTransmitterTransmitTimeout() time.Duration {
