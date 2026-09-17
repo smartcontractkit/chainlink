@@ -69,6 +69,7 @@ const pinnedWorkflowDonConfigVersion = 1
 // TODO: remove acknowledger check after CRE-6002 is implemented.
 var _ Acknowledger = (*Engine)(nil)
 var _ EventSink = (*Engine)(nil)
+var _ WorkflowEngine = (*Engine)(nil)
 
 type Engine struct {
 	services.Service

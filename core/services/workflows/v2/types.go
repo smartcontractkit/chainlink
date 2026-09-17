@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 // EventSink is how trigger events are delivered to an engine for execution.
@@ -54,6 +55,23 @@ type EventSink interface {
 // triggerRegistrationID and calling AckEvent on it.
 type Acknowledger interface {
 	Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error
+}
+
+// Drainable is the graceful-shutdown contract. The syncer has a structurally
+// identical local interface (syncer/v2.DrainableService); both are satisfied by
+// the same methods, so no cross-package dependency is introduced.
+type Drainable interface {
+	Drain() bool
+	ActiveExecutions() int32
+	DrainStartedAt() (time.Time, bool)
+}
+
+// WorkflowEngine is the contract every workflow engine implementation satisfies,
+// independent of which component owns trigger registration and acknowledgement.
+type WorkflowEngine interface {
+	services.Service
+	EventSink
+	Drainable
 }
 
 // RoutedTriggerEvent is the canonical trigger event type that flows
