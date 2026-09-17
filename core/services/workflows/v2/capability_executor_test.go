@@ -26,12 +26,12 @@ func TestExecutionHelper_SystemCapabilityBlocked(t *testing.T) {
 	resolvedInfo := capabilities.CapabilityInfo{ID: confidentialWorkflowsCapabilityID}
 	reg := stubRegistry{cap: stubExecutableCapability{CapabilityInfo: resolvedInfo}}
 
-	engine := &Engine{cfg: &EngineConfig{
+	engine := &baseEngine{cfg: &EngineConfig{
 		Lggr:        logger.TestLogger(t),
 		CapRegistry: reg,
 	}}
 	engine.setLogger(commonlogger.Sugared(commonlogger.Test(t)))
-	exec := &ExecutionHelper{Engine: engine}
+	exec := &ExecutionHelper{baseEngine: engine}
 
 	req := &sdk.CapabilityRequest{
 		Id:         confidentialWorkflowsCapabilityID,
@@ -82,12 +82,12 @@ func TestExecutionHelper_SystemCapabilityResolvedBypass(t *testing.T) {
 	resolvedInfo := capabilities.CapabilityInfo{ID: confidentialWorkflowsCapabilityID}
 	reg := stubRegistry{cap: stubExecutableCapability{CapabilityInfo: resolvedInfo}}
 
-	engine := &Engine{cfg: &EngineConfig{
+	engine := &baseEngine{cfg: &EngineConfig{
 		Lggr:        logger.TestLogger(t),
 		CapRegistry: reg,
 	}}
 	engine.setLogger(commonlogger.Sugared(commonlogger.Test(t)))
-	exec := &ExecutionHelper{Engine: engine}
+	exec := &ExecutionHelper{baseEngine: engine}
 
 	// Request a version strictly below the registered system-only one; the raw
 	// ID is not in the deny map, so the fast-path check does not catch it.
@@ -128,12 +128,12 @@ func TestExecutionHelper_VaultAndDonTimeSystemCapabilitiesBlocked(t *testing.T) 
 			resolvedInfo := capabilities.CapabilityInfo{ID: tt.registeredID}
 			reg := stubRegistry{cap: stubExecutableCapability{CapabilityInfo: resolvedInfo}}
 
-			engine := &Engine{cfg: &EngineConfig{
+			engine := &baseEngine{cfg: &EngineConfig{
 				Lggr:        logger.TestLogger(t),
 				CapRegistry: reg,
 			}}
 			engine.setLogger(commonlogger.Sugared(commonlogger.Test(t)))
-			exec := &ExecutionHelper{Engine: engine}
+			exec := &ExecutionHelper{baseEngine: engine}
 
 			req := &sdk.CapabilityRequest{
 				Id:         tt.requestID,
