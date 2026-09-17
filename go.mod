@@ -82,7 +82,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-ccv v0.12.0
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260914191328-10cc2b41997e
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260915135448-9ec0150ecb5d
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260724142814-45996a1bcb72
 	github.com/smartcontractkit/chainlink-data-streams v1.1.1
