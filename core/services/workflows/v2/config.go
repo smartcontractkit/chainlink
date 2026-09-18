@@ -82,6 +82,10 @@ type EngineConfig struct {
 	ShardResolver           shardownership.ShardResolver
 
 	TriggerAcknowledger Acknowledger
+
+	// CachedTriggerSubscriptions, when non-nil, is used by Subscribe() instead
+	// of executing the WASM binary's Subscribe request.
+	CachedTriggerSubscriptions []*sdkpb.TriggerSubscription
 }
 
 type EngineLimiters struct {
@@ -125,6 +129,7 @@ type EngineLimiters struct {
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
 	ShardingFailoverEnabled                     limits.GateLimiter
+	CachedTriggerSubscriptionsEnabled           limits.GateLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
 }
 
