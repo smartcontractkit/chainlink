@@ -21,6 +21,7 @@ import (
 )
 
 const (
+	auditLoggerName   = "AuditLogger"
 	bufferCapacity    = 2048
 	webRequestTimeout = 10
 )
@@ -91,7 +92,7 @@ func NewAuditLogger(logger logger.Logger, config config.AuditLogger) (AuditLogge
 
 	// Create new AuditLoggerService
 	auditLogger := AuditLoggerService{
-		logger:          logger.Helper(1),
+		logger:          logger.Named(auditLoggerName).Helper(1),
 		enabled:         true,
 		forwardToUrl:    forwardToUrl,
 		headers:         headers,
