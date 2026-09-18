@@ -23,14 +23,7 @@ import (
 )
 
 // TriggerRegistrationDeps bundles what RegisterWorkflowTriggers needs beyond
-// per-call metadata — dependencies each caller already owns in a different
-// shape (Engine via EngineLimiters, TriggerCoordinator via its own fields).
-//
-// ChainAllowed and Settings are both nil-safe: a nil ChainAllowed skips the
-// chain-access check entirely (TriggerCoordinator has none yet — the check
-// moves with the limiter split, CRE-6177), and a nil Settings falls back to
-// each setting's default — the same fallback an always-nil settings.Getter
-// already produced before this was shared.
+// per-call metadata.
 type TriggerRegistrationDeps struct {
 	CapRegistry  core.CapabilitiesRegistry
 	RegTimeout   limits.TimeLimiter
@@ -53,24 +46,21 @@ type TriggerRegistrationMetadata struct {
 	WorkflowDonID                 uint32
 	WorkflowRegistryChainSelector string
 	WorkflowRegistryAddress       string
-	// OrgID is the resolved org ID, if any. Whether it's actually sent is
-	// still gated by cresettings.Default.PropagateOrgIDInRequestMetadata,
-	// evaluated here against deps.Settings — same as before this was shared.
+	// OrgID is the resolved org ID.
 	OrgID string
 }
 
 // RegisterWorkflowTriggers concurrently registers subs against their trigger
 // capabilities (resolved via deps.CapRegistry), after validating each
 // subscription's chain selector and, if deps.ChainAllowed is set, checking
-// chain access for it. On success it returns the registered trigger
-// capability IDs (in subscription order), one TriggerHandle per registration
-// keyed by registration ID, and each registration's event channel (also in
-// subscription order, ready for RunTriggerReader). On any registration
-// failure it unregisters every handle that DID succeed and returns the first
-// error — nothing is left half-registered.
+// chain access for it.
 //
-// Shared by Engine.runTriggerSubscriptionPhase and
-// TriggerCoordinator.RegisterTriggers.
+// On success it returns the registered trigger capability IDs
+// (in subscription order), one TriggerHandle per registration
+// keyed by registration ID, and each registration's event channel.
+//
+// On any registration failure it unregisters every handle that did succeed
+// and returns the first error.
 func RegisterWorkflowTriggers(
 	ctx context.Context,
 	deps TriggerRegistrationDeps,
@@ -212,12 +202,9 @@ func RegisterWorkflowTriggers(
 }
 
 // UnregisterTriggerHandles unregisters every handle in handles with the
-// capability registry. It logs (rather than returns) individual
+// capability registry. It logs individual
 // UnregisterTrigger failures and returns how many occurred, so callers can
 // log their own summary.
-//
-// Shared by RegisterWorkflowTriggers' rollback path, Engine.unregisterAllTriggers,
-// and TriggerCoordinator.UnregisterTriggers.
 func UnregisterTriggerHandles(ctx context.Context, lggr logger.Logger, workflowID string, workflowDonID uint32, handles map[string]*TriggerHandle) (failCount int) {
 	for registrationID, handle := range handles {
 		if err := handle.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{

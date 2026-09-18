@@ -14,19 +14,9 @@ import (
 
 // RunTriggerReader consumes triggerEventCh until it closes or ctx is done,
 // converting each received capabilities.TriggerResponse into a
-// RoutedTriggerEvent and handing it to deliver. It is the loop body only —
-// the caller owns spawning the goroutine (via its own services.Engine), since
+// RoutedTriggerEvent and handing it to deliver.
+// The caller owns spawning the goroutine, since
 // goroutine lifecycle differs between callers.
-//
-// Shared by Engine's own per-subscription reader and TriggerCoordinator's:
-// the only thing that differs between them is what deliver resolves to — the
-// engine calling its own Put directly, vs. the coordinator resolving an
-// EventSink from the registry on every call. A deliver error is always
-// logged and the loop continues; it never exits early on a delivery failure,
-// only on ctx.Done() or the channel closing. That includes the coordinator's
-// "engine not found" / "engine doesn't accept trigger events" cases — deliver
-// returns an error for those like any other delivery failure, rather than
-// the reader special-casing an early exit for them.
 func RunTriggerReader(
 	ctx context.Context,
 	lggr logger.Logger,

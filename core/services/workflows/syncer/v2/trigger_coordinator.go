@@ -23,14 +23,19 @@ import (
 
 // TriggerCoordinator owns trigger registration, the trigger handle map, event
 // channel reading, and acknowledgement for all workflows on this node.
+//
+// TODO(CRE-6179): feature flag and wire into syncer. nothing constructs or
+// registers a TriggerCoordinator outside its own package/tests.
 type TriggerCoordinator interface {
 	services.Service
 	RegisterTriggers(ctx context.Context, cre contexts.CRE, params RegistrationParams, subs []*sdkpb.TriggerSubscription) ([]string, error)
+
 	// UnregisterTriggers stops event ingress for the workflow immediately, then
 	// releases its retained trigger handles once the engine reports no more
 	// active executions (or a bounded timeout elapses). Safe to call even if
 	// the workflow was never registered.
 	UnregisterTriggers(workflowID string) error
+
 	// Ack acknowledges a trigger event by resolving the registration's handle
 	// and calling AckEvent on the trigger capability. Engines call this after
 	// execution starts, on duplicate executions, and on shard-ownership
@@ -46,12 +51,10 @@ var (
 
 // RegistrationParams carries the workflow-scoped metadata stamped into every
 // TriggerRegistrationRequest for one workflow. contexts.CRE only holds tenant
-// identity (org/owner/workflow); the syncer, which owns these values, supplies
-// the rest alongside the subscriptions.
+// identity (org/owner/workflow).
 type RegistrationParams struct {
 	// WorkflowName is nil-safe: a nil value sends both the hex-encoded and
-	// decoded workflow name empty, rather than panicking on a nil interface
-	// call (see v2.RegisterWorkflowTriggers).
+	// decoded workflow name empty.
 	WorkflowName                  types.WorkflowName
 	WorkflowTag                   string
 	WorkflowDonID                 uint32
@@ -59,19 +62,13 @@ type RegistrationParams struct {
 	WorkflowRegistryChainSelector string
 }
 
-// eventSink is the delivery surface the coordinator uses to feed engines. It
-// is the engine's transitional Put method; the coordinator never holds an
-// engine reference, it resolves one from the registry at delivery time and
-// only needs this narrow interface.
+// eventSink is the delivery surface the coordinator uses to feed engines.
 type eventSink interface {
 	Put(ctx context.Context, event v2.RoutedTriggerEvent) error
 }
 
 // activeExecutionsReporter is how UnregisterTriggers waits for a workflow's
-// in-flight executions to finish before releasing its trigger handles. Every
-// engine implementation already exposes this (it backs Drain/DrainableService
-// on the syncer side); the coordinator only needs this one method of it, and
-// resolves it from the registry the same way eventSink is resolved.
+// in-flight executions to finish before releasing its trigger handles.
 type activeExecutionsReporter interface {
 	ActiveExecutions() int32
 }
@@ -131,10 +128,7 @@ func NewTriggerCoordinator(lggr logger.Logger, capReg core.CapabilitiesRegistry,
 	return d
 }
 
-// start is a no-op: the coordinator has no background work of its own — reader
-// goroutines are started per subscription by RegisterTriggers and tracked by
-// the embedded services.Engine. The method exists to satisfy the
-// services.Service Start hook contract.
+// start is a no-op: the coordinator has no background work of its own
 func (d *triggerCoordinator) start(context.Context) error { return nil }
 
 func (d *triggerCoordinator) close() error {
@@ -162,11 +156,12 @@ func (d *triggerCoordinator) RegisterTriggers(ctx context.Context, cre contexts.
 		CapRegistry: d.capReg,
 		RegTimeout:  d.regTime,
 		// ChainAllowed and Settings are both nil for now: chain access
-		// enforcement moves with the limiter split (CRE-6177), and there's
-		// no dynamic settings source wired up here yet. RegisterWorkflowTriggers
-		// treats both as nil-safe, matching this coordinator's prior behavior.
-		Logger:  d.lggr,
-		Metrics: d.metrics,
+		// enforcement moves with the limiter split (CRE-6177), and there's no
+		// dynamic settings source wired up here yet.
+		ChainAllowed: nil,
+		Settings:     nil,
+		Logger:       d.lggr,
+		Metrics:      d.metrics,
 	}, v2.TriggerRegistrationMetadata{
 		WorkflowID:                    cre.Workflow,
 		WorkflowOwner:                 cre.Owner,
@@ -194,16 +189,13 @@ func (d *triggerCoordinator) RegisterTriggers(ctx context.Context, cre contexts.
 }
 
 // startReader runs one reader goroutine per subscription. It resolves the
-// engine from the registry on every event rather than holding a reference —
-// see the deliver closure below for why. A missing or non-conforming engine
-// is just another delivery failure to RunTriggerReader, not a reason for the
-// reader itself to exit.
+// engine from the registry on every event rather than holding a reference.
+//
+// Reading only stops when either the coordinator or trigger channel is closed.
 func (d *triggerCoordinator) startReader(ctx context.Context, wid types.WorkflowID, idx int, sub *sdkpb.TriggerSubscription, triggerEventCh <-chan capabilities.TriggerResponse) {
-	// deliver resolves the engine from the registry on every call — never a
-	// held reference — since it's invoked once per event by RunTriggerReader.
+	// deliver resolves the engine from the registry on every call.
 	// An engine that's gone, or that doesn't accept trigger events, is just
-	// another delivery failure to RunTriggerReader: logged and retried on the
-	// next event, not a reason for the reader itself to exit early.
+	// another delivery failure to RunTriggerReader.
 	deliver := func(ctx context.Context, event v2.RoutedTriggerEvent) error {
 		svc, found := d.registry.Get(wid)
 		if !found {
@@ -221,9 +213,7 @@ func (d *triggerCoordinator) startReader(ctx context.Context, wid types.Workflow
 }
 
 // Ack acknowledges a trigger event by resolving the registration's handle
-// and calling AckEvent on the trigger capability. Engines call this after
-// execution starts, on duplicate executions, and on shard-ownership denials —
-// the point at which the event is fully handled and must not be redelivered.
+// and calling AckEvent on the trigger capability.
 func (d *triggerCoordinator) Ack(ctx context.Context, workflowID, triggerCapID, triggerRegistrationID, eventID string) error {
 	wid, err := types.WorkflowIDFromHex(workflowID)
 	if err != nil {
@@ -242,11 +232,11 @@ func (d *triggerCoordinator) Ack(ctx context.Context, workflowID, triggerCapID, 
 }
 
 // UnregisterTriggers unregisters the workflow's triggers with the capability
-// registry, stopping event ingress immediately. The handles are retained —
-// so an execution already in flight can still Ack — until the engine reports
-// no more active executions (or releaseHandlesTimeout elapses), at which
-// point they're released in the background. Safe to call even if the
-// workflow was never registered.
+// registry, stopping event ingress immediately. The handles are retained until
+// the engine reports no more active executions (or releaseHandlesTimeout elapses),
+// at which point they're released in the background.
+//
+// Safe to call even if the workflow was never registered.
 func (d *triggerCoordinator) UnregisterTriggers(workflowID string) error {
 	wid, err := types.WorkflowIDFromHex(workflowID)
 	if err != nil {
@@ -273,36 +263,39 @@ func (d *triggerCoordinator) UnregisterTriggers(workflowID string) error {
 }
 
 // releaseHandlesWhenDrained waits for the workflow's engine to report zero
-// active executions — resolving it from the registry the same way the reader
-// resolves eventSink, since the coordinator holds no engine reference — and
-// then drops the retained handles. It gives up and releases anyway, with a
-// warning, if releaseHandlesTimeout elapses or the engine is no longer in the
-// registry (already popped, so nothing is left to wait for).
+// active executions and then drops the retained handles. It gives up and
+// releases anyway, with a warning, if releaseHandlesTimeout elapses or
+// the engine is no longer in the registry.
 func (d *triggerCoordinator) releaseHandlesWhenDrained(ctx context.Context, wid types.WorkflowID) {
 	ctx, cancel := context.WithTimeout(ctx, releaseHandlesTimeout)
 	defer cancel()
-	ticker := time.NewTicker(releaseHandlesPollInterval)
-	defer ticker.Stop()
-
-waitForDrain:
-	for {
-		svc, found := d.registry.Get(wid)
-		if !found {
-			break waitForDrain
-		}
-		reporter, ok := svc.Service.(activeExecutionsReporter)
-		if !ok || reporter.ActiveExecutions() == 0 {
-			break waitForDrain
-		}
-		select {
-		case <-ctx.Done():
-			d.lggr.Warnw("Timed out waiting for active executions to drain; releasing trigger handles anyway", "workflowID", wid)
-			break waitForDrain
-		case <-ticker.C:
-		}
-	}
+	d.waitForDrain(ctx, wid)
 
 	d.mu.Lock()
 	delete(d.workflows, wid)
 	d.mu.Unlock()
+}
+
+// waitForDrain blocks until wid's engine reports zero active executions, is
+// no longer in the registry, or ctx is done.
+func (d *triggerCoordinator) waitForDrain(ctx context.Context, wid types.WorkflowID) {
+	ticker := time.NewTicker(releaseHandlesPollInterval)
+	defer ticker.Stop()
+
+	for {
+		svc, found := d.registry.Get(wid)
+		if !found {
+			return
+		}
+		reporter, ok := svc.Service.(activeExecutionsReporter)
+		if !ok || reporter.ActiveExecutions() == 0 {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			d.lggr.Warnw("Timed out waiting for active executions to drain; releasing trigger handles anyway", "workflowID", wid)
+			return
+		case <-ticker.C:
+		}
+	}
 }

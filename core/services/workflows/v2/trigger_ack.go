@@ -11,12 +11,7 @@ import (
 
 // AckTriggerHandle acknowledges a trigger event against the given handle,
 // logging and bumping the same success/failure metrics regardless of caller.
-// handle may be nil (registration not found) — the caller resolves it under
-// its own lock, since Engine and TriggerCoordinator hold trigger handles in
-// different shapes (a flat map vs. one nested per workflow) and shouldn't be
-// forced to share the lookup itself.
-//
-// Shared by Engine.Ack and TriggerCoordinator.Ack.
+// handle may be nil (i.e., registration not found)
 func AckTriggerHandle(
 	ctx context.Context,
 	lggr logger.Logger,
