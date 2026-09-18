@@ -46,17 +46,9 @@ type TriggerDispatcher interface {
 }
 
 var (
-	_ TriggerDispatcher     = (*triggerDispatcher)(nil)
-	_ v2.Acknowledger       = (*triggerDispatcher)(nil)
-	_ WorkflowLimitReporter = (*triggerDispatcher)(nil)
+	_ TriggerDispatcher = (*triggerDispatcher)(nil)
+	_ v2.Acknowledger   = (*triggerDispatcher)(nil)
 )
-
-// WorkflowLimitReporter records workflow count limit rejections, surfaced by
-// the syncer when it acquires the limit on an engine's behalf.
-type WorkflowLimitReporter interface {
-	ReportWorkflowLimitPerOwner(ctx context.Context)
-	ReportWorkflowLimitGlobal(ctx context.Context)
-}
 
 // RegistrationParams carries the workflow-scoped metadata stamped into every
 // TriggerRegistrationRequest for one workflow. contexts.CRE only holds tenant
@@ -155,16 +147,6 @@ func NewTriggerDispatcher(lggr logger.Logger, capReg core.CapabilitiesRegistry, 
 		Close: d.close,
 	}.NewServiceEngine(d.lggr)
 	return d
-}
-
-// ReportWorkflowLimitPerOwner records a per-owner workflow count limit rejection.
-func (d *triggerDispatcher) ReportWorkflowLimitPerOwner(ctx context.Context) {
-	d.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
-}
-
-// ReportWorkflowLimitGlobal records a global workflow count limit rejection.
-func (d *triggerDispatcher) ReportWorkflowLimitGlobal(ctx context.Context) {
-	d.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
 }
 
 // start is a no-op: the dispatcher has no background work of its own — reader
