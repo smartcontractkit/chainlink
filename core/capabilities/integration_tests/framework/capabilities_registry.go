@@ -2,17 +2,18 @@ package framework
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	registrysyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
 
 type CapabilitiesRegistry struct {
@@ -25,11 +26,13 @@ type CapabilitiesRegistry struct {
 }
 
 func NewCapabilitiesRegistry(ctx context.Context, t *testing.T, backend *EthBlockchain) *CapabilitiesRegistry {
-	addr, _, contract, err := kcr.DeployCapabilitiesRegistry(backend.transactionOpts, backend.Client())
+	// Tests routinely run DONs with a single node and F=0, which the registry rejects unless explicitly allowed.
+	addr, _, contract, err := kcr.DeployCapabilitiesRegistry(backend.transactionOpts, backend.Client(),
+		kcr.CapabilitiesRegistryConstructorParams{CanAddOneNodeDONs: true})
 	require.NoError(t, err)
 	backend.Commit()
 
-	_, err = contract.AddNodeOperators(backend.transactionOpts, []kcr.CapabilitiesRegistryNodeOperator{
+	_, err = contract.AddNodeOperators(backend.transactionOpts, []kcr.CapabilitiesRegistryNodeOperatorParams{
 		{
 			Admin: backend.transactionOpts.From,
 			Name:  "TEST_NODE_OPERATOR",
@@ -60,6 +63,24 @@ func (r *CapabilitiesRegistry) getAddress() common.Address {
 	return r.addr
 }
 
+// NewRegistryCapability builds the registry entry for a capability. The v2 registry identifies
+// capabilities by their "<name>@<version>" ID and carries the capability and response types as JSON
+// metadata rather than as dedicated fields, so it is encoded here using the struct the registry
+// syncer decodes it with.
+func NewRegistryCapability(t *testing.T, capabilityID string, capabilityType registrysyncerv2.ContractCapabilityType,
+	responseType uint8) kcr.CapabilitiesRegistryCapability {
+	metadata, err := json.Marshal(registrysyncerv2.CapabilityMetadata{
+		CapabilityType: uint8(capabilityType),
+		ResponseType:   responseType,
+	})
+	require.NoError(t, err)
+
+	return kcr.CapabilitiesRegistryCapability{
+		CapabilityId: capabilityID,
+		Metadata:     metadata,
+	}
+}
+
 type capability struct {
 	donCapabilityConfig *pb.CapabilityConfig
 	registryConfig      kcr.CapabilitiesRegistryCapability
@@ -69,17 +90,11 @@ type capability struct {
 
 // SetupDON sets up a new DON with the given capabilities and returns the DON ID
 func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities []capability) int {
-	hashedCapabilityIDs := make([][32]byte, 0, len(capabilities))
-
-	for _, c := range capabilities {
-		id, err := r.contract.GetHashedCapabilityId(&bind.CallOpts{}, c.registryConfig.LabelledName, c.registryConfig.Version)
-		require.NoError(r.t, err)
-		hashedCapabilityIDs = append(hashedCapabilityIDs, id)
-	}
-
 	registryCapabilities := make([]kcr.CapabilitiesRegistryCapability, 0, len(capabilities))
+	capabilityIDs := make([]string, 0, len(capabilities))
 	for _, c := range capabilities {
 		registryCapabilities = append(registryCapabilities, c.registryConfig)
+		capabilityIDs = append(capabilityIDs, c.registryConfig.CapabilityId)
 	}
 
 	_, err := r.contract.AddCapabilities(r.backend.transactionOpts, registryCapabilities)
@@ -97,7 +112,7 @@ func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities [
 		n, innerErr := peerToNode(r.nodeOperatorID, peer)
 		require.NoError(r.t, innerErr)
 
-		n.HashedCapabilityIds = hashedCapabilityIDs
+		n.CapabilityIds = capabilityIDs
 		nodes = append(nodes, n)
 	}
 
@@ -106,17 +121,27 @@ func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities [
 	r.backend.Commit()
 
 	capabilityConfigurations := make([]kcr.CapabilitiesRegistryCapabilityConfiguration, 0, len(capabilities))
-	for i, c := range capabilities {
+	for _, c := range capabilities {
 		configBinary, err2 := proto.Marshal(c.donCapabilityConfig)
 		require.NoError(r.t, err2)
 
 		capabilityConfigurations = append(capabilityConfigurations, kcr.CapabilitiesRegistryCapabilityConfiguration{
-			CapabilityId: hashedCapabilityIDs[i],
+			CapabilityId: c.registryConfig.CapabilityId,
 			Config:       configBinary,
 		})
 	}
 
-	_, err = r.contract.AddDON(r.backend.transactionOpts, peerIDs, capabilityConfigurations, true, donInfo.AcceptsWorkflows, donInfo.F)
+	_, err = r.contract.AddDONs(r.backend.transactionOpts, []kcr.CapabilitiesRegistryNewDONParams{
+		{
+			Name:                     donInfo.name,
+			DonFamilies:              []string{donInfo.name},
+			CapabilityConfigurations: capabilityConfigurations,
+			Nodes:                    peerIDs,
+			F:                        donInfo.F,
+			IsPublic:                 true,
+			AcceptsWorkflows:         donInfo.AcceptsWorkflows,
+		},
+	})
 	require.NoError(r.t, err)
 	r.backend.Commit()
 

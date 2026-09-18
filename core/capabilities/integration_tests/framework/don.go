@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -230,7 +230,7 @@ func (d *DON) GetExternalCapabilities() (map[CapabilityRegistration]bool, error)
 		for _, node := range d.nodes {
 			result[CapabilityRegistration{
 				nodePeerID:      hex.EncodeToString(node.peer.PeerID[:]),
-				capabilityID:    publishedCapability.registryConfig.LabelledName + "@" + publishedCapability.registryConfig.Version,
+				capabilityID:    publishedCapability.registryConfig.CapabilityId,
 				capabilityDonID: d.GetID(),
 			}] = true
 		}
@@ -419,6 +419,7 @@ func startNewNode(ctx context.Context,
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Capabilities.ExternalRegistry.ChainID = new(fmt.Sprintf("%d", testutils.SimulatedChainID))
 		c.Capabilities.ExternalRegistry.Address = new(capRegistryAddr.String())
+		c.Capabilities.ExternalRegistry.ContractVersion = new("2.0.0")
 		c.Capabilities.Peering.V2.Enabled = new(true)
 		c.Capabilities.WorkflowRegistry.SyncStrategy = new(syncer.SyncStrategyReconciliation)
 		c.Feature.FeedsManager = new(false)

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -35,6 +35,7 @@ func peerToNode(nopID uint32, p peerIDAndOCRSigner) (kcr.CapabilitiesRegistryNod
 		P2pId:               p.PeerID,
 		Signer:              sigb,
 		EncryptionPublicKey: testutils.Random32Byte(),
+		CsaKey:              testutils.Random32Byte(),
 	}, nil
 }
 
