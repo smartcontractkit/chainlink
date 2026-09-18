@@ -1046,11 +1046,6 @@ func rejectedDonIDs(observed *observer.ObservedLogs) []uint32 {
 // remoteWorkflowDONs through filterDONsByFamilies before handing them to serveCapabilities, so a
 // capability DON must only expose itself to workflow DONs in its own family, and must only be
 // connected to those workflow DONs' peers.
-//
-// The filtered set becomes the served capability's caller-authorization table, so the assertion is
-// behavioural rather than a check on what was passed: the launcher registers the real executable
-// server with the dispatcher, and that server turns away an Execute request whose CallerDonId is
-// absent from the table.
 func TestLauncher_OnNewRegistry_FiltersRemoteWorkflowDONsByFamily(t *testing.T) {
 	t.Parallel()
 	lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
@@ -1109,8 +1104,6 @@ func TestLauncher_OnNewRegistry_FiltersRemoteWorkflowDONsByFamily(t *testing.T) 
 			require.True(t, ok, "expected a remotetypes.Receiver as fourth argument")
 			served = receiver
 		}).Return(nil)
-	// An accepted request is answered asynchronously; an unregistered one never gets this far.
-	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	launcher, err := NewLauncher(
 		lggr,
@@ -1131,7 +1124,7 @@ func TestLauncher_OnNewRegistry_FiltersRemoteWorkflowDONsByFamily(t *testing.T) 
 	served.Receive(t.Context(), executeMsgFrom(t, servedCapID, capDonID, wfZoneBID, "exec-zone-b"))
 	served.Receive(t.Context(), executeMsgFrom(t, servedCapID, capDonID, wfZoneAID, "exec-zone-a"))
 
-	// Both messages were well formed enough to reach the caller-DON check, so the assertion below
+	// Both messages were well formed enough to reach the caller-DON check, so the assertions below
 	// cannot pass just because a request was dropped earlier for being malformed.
 	require.Equal(t, 2, observedLogs.FilterMessage("received request").Len(),
 		"expected both Execute requests to reach the caller-DON check")
@@ -1145,10 +1138,6 @@ func TestLauncher_OnNewRegistry_FiltersRemoteWorkflowDONsByFamily(t *testing.T) 
 	wfZoneADON := localRegistry.IDsToDONs[regpkg.DonID(wfZoneAID)].DON
 	require.Equal(t, []p2ptypes.DonPair{{capDON, wfZoneADON}}, capturedPairs,
 		"capability node should only be connected to the zone-a workflow DON")
-	for _, pair := range capturedPairs {
-		assert.NotEqual(t, wfZoneBID, pair[0].ID, "connected to out-of-family workflow DON %d", wfZoneBID)
-		assert.NotEqual(t, wfZoneBID, pair[1].ID, "connected to out-of-family workflow DON %d", wfZoneBID)
-	}
 }
 
 // mockLocalCapabilityManager is a test mock that records calls to Reconcile.
