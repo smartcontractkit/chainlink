@@ -239,8 +239,7 @@ func (t checkTree) WriteHTMLTo(w io.Writer) error {
 }
 
 func (t checkTree) writeHTMLTo(w *linePrefixWriter) error {
-	keys := slices.Collect(maps.Keys(t))
-	slices.Sort(keys)
+	keys := slices.Sorted(maps.Keys(t))
 	for _, short := range keys {
 		node := t[short]
 		if _, err := io.WriteString(w, `

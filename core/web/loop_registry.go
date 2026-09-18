@@ -17,8 +17,8 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -30,7 +30,7 @@ type LoopRegistryServer struct {
 	discoveryHostName string // discovery endpoint hostname. must be accessible to external prom for scraping
 	loopHostName      string // internal hostname of loopps. used by node to forward external prom requests
 	registry          *plugins.LoopRegistry
-	logger            logger.SugaredLogger
+	logger            logger.Logger
 	promClient        *http.Client
 
 	jsonMarshalFn func(any) ([]byte, error)
@@ -144,7 +144,7 @@ func pprofURLVals(gc *gin.Context) (urlVals url.Values, timeout time.Duration) {
 			timeout = time.Duration(i+PPROFOverheadSeconds) * time.Second
 		}
 	}
-	return
+	return urlVals, timeout
 }
 
 func (l *LoopRegistryServer) pluginPPROFHandler(gc *gin.Context) {
@@ -187,7 +187,7 @@ func (l *LoopRegistryServer) pluginPPROFPOSTSymbolHandler(gc *gin.Context) {
 	l.doRequest(gc, "POST", pluginURL, bytes.NewReader(body), timeout, pluginName)
 }
 
-func (l *LoopRegistryServer) doRequest(gc *gin.Context, method string, url string, body io.Reader, timeout time.Duration, pluginName string) {
+func (l *LoopRegistryServer) doRequest(gc *gin.Context, method, url string, body io.Reader, timeout time.Duration, pluginName string) {
 	ctx, cancel := context.WithTimeout(gc.Request.Context(), timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, method, url, body)

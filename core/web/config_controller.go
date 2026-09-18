@@ -38,17 +38,17 @@ func (cc *ConfigController) Show(c *gin.Context) {
 	} else {
 		toml = effective
 	}
-	jsonAPIResponse(c, ConfigV2Resource{toml}, "config")
+	jsonAPIResponse(c, &ConfigV2Resource{toml}, "config")
 }
 
 type ConfigV2Resource struct {
 	Config string `json:"config"`
 }
 
-func (c ConfigV2Resource) GetID() string {
+func (c *ConfigV2Resource) GetID() string {
 	return utils.NewBytes32ID()
 }
 
-func (c ConfigV2Resource) SetID(string) error {
+func (c *ConfigV2Resource) SetID(string) error {
 	return nil
 }
