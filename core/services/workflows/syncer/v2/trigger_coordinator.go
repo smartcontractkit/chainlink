@@ -116,15 +116,7 @@ type triggerCoordinator struct {
 type workflowTriggers struct {
 	cre     contexts.CRE
 	params  RegistrationParams
-	handles map[string]*triggerHandle // registrationID -> handle
-}
-
-// triggerHandle is a registered trigger capability plus the registration
-// payload/method needed to unregister it.
-type triggerHandle struct {
-	capabilities.TriggerCapability
-	payload *anypb.Any
-	method  string
+	handles map[string]*v2.TriggerHandle // registrationID -> handle
 }
 
 // NewTriggerCoordinator returns a coordinator wired to the given engine
@@ -275,16 +267,16 @@ func (d *triggerCoordinator) RegisterTriggers(ctx context.Context, cre contexts.
 	registrationErr := g.Wait()
 	close(resultsCh)
 
-	// Collect results into the per-workflow state and the flat ACK index.
+	// Collect results into the per-workflow state.
 	eventChans := make([]<-chan capabilities.TriggerResponse, len(subs))
 	triggerCapIDs := make([]string, len(subs))
-	wt := &workflowTriggers{cre: cre, params: params, handles: make(map[string]*triggerHandle, len(subs))}
+	wt := &workflowTriggers{cre: cre, params: params, handles: make(map[string]*v2.TriggerHandle, len(subs))}
 
 	for result := range resultsCh {
-		wt.handles[result.registrationID] = &triggerHandle{
+		wt.handles[result.registrationID] = &v2.TriggerHandle{
 			TriggerCapability: result.triggerCap,
-			payload:           result.payload,
-			method:            result.method,
+			Payload:           result.payload,
+			Method:            result.method,
 		}
 		eventChans[result.index] = result.eventCh
 		triggerCapIDs[result.index] = result.triggerCapID
@@ -383,7 +375,7 @@ func (d *triggerCoordinator) Ack(ctx context.Context, workflowID, triggerCapID, 
 	}
 
 	d.mu.RLock()
-	var handle *triggerHandle
+	var handle *v2.TriggerHandle
 	if wt, ok := d.workflows[wid]; ok {
 		handle = wt.handles[triggerRegistrationID]
 	}
@@ -393,7 +385,7 @@ func (d *triggerCoordinator) Ack(ctx context.Context, workflowID, triggerCapID, 
 		tm.IncrementTriggerEventAckFailureCounter(ctx)
 		return fmt.Errorf("failed to find trigger %s for workflow %s", triggerRegistrationID, workflowID)
 	}
-	if err := handle.AckEvent(ctx, triggerRegistrationID, eventID, handle.method); err != nil {
+	if err := handle.AckEvent(ctx, triggerRegistrationID, eventID, handle.Method); err != nil {
 		tm.IncrementTriggerEventAckFailureCounter(ctx)
 		return err
 	}
@@ -429,8 +421,8 @@ func (d *triggerCoordinator) UnregisterTriggers(workflowID string) error {
 				WorkflowID:    workflowID,
 				WorkflowDonID: wt.params.WorkflowDonID,
 			},
-			Payload: handle.payload,
-			Method:  handle.method,
+			Payload: handle.Payload,
+			Method:  handle.Method,
 		}); unregErr != nil {
 			d.lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", unregErr)
 		}
@@ -489,8 +481,8 @@ func (d *triggerCoordinator) unregisterAll(ctx context.Context, wid types.Workfl
 				WorkflowID:    wid.String(),
 				WorkflowDonID: wt.params.WorkflowDonID,
 			},
-			Payload: handle.payload,
-			Method:  handle.method,
+			Payload: handle.Payload,
+			Method:  handle.Method,
 		}); err != nil {
 			d.lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
 		}

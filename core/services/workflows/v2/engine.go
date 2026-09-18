@@ -67,8 +67,10 @@ var (
 const pinnedWorkflowDonConfigVersion = 1
 
 // TODO: remove acknowledger check after CRE-6002 is implemented.
-var _ Acknowledger = (*Engine)(nil)
-var _ EventSink = (*Engine)(nil)
+var (
+	_ Acknowledger = (*Engine)(nil)
+	_ EventSink    = (*Engine)(nil)
+)
 
 type Engine struct {
 	services.Service
@@ -92,7 +94,7 @@ type Engine struct {
 	workflowLimitUsed atomic.Bool // true if GlobalWorkflowLimit must be freed
 
 	// registration ID -> trigger capability
-	triggers map[string]*triggerCapability
+	triggers map[string]*TriggerHandle
 	// used to separate registration and unregistration phases
 	triggersRegMu sync.Mutex
 
@@ -119,10 +121,12 @@ type Engine struct {
 	drainStartedAtNs atomic.Int64
 }
 
-type triggerCapability struct {
+// TriggerHandle is a registered trigger capability plus the registration
+// payload/method needed to unregister and re-deliver to it.
+type TriggerHandle struct {
 	capabilities.TriggerCapability
-	payload *anypb.Any
-	method  string
+	Payload *anypb.Any
+	Method  string
 }
 
 func TriggerRegistrationID(workflowID string, triggerIndex int) string {
@@ -231,7 +235,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	// Create engine first so we can use the buildLabels method
 	engine := &Engine{
 		cfg:                     cfg,
-		triggers:                make(map[string]*triggerCapability),
+		triggers:                make(map[string]*TriggerHandle),
 		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
 		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
 		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
@@ -459,11 +463,6 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 }
 
 // Ack acknowledges a trigger event via the injected TriggerAcknowledger.
-// In M1 this is the existing engine's internal acknowledger logic. In M2 the
-// OCR reporting plugin implements this to ACK. workflowID is unused here —
-// the engine's own trigger handle map is already scoped to itself — but is
-// part of the Acknowledger interface so other implementations don't need a
-// side index to resolve it.
 func (e *Engine) Ack(ctx context.Context, _, triggerCapID, triggerRegistrationID, eventID string) error {
 	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
 
@@ -477,7 +476,7 @@ func (e *Engine) Ack(ctx context.Context, _, triggerCapID, triggerRegistrationID
 		tm.IncrementTriggerEventAckFailureCounter(ctx)
 		return fmt.Errorf("failed to find trigger %s", triggerRegistrationID)
 	}
-	err := trigger.AckEvent(ctx, triggerRegistrationID, eventID, trigger.method)
+	err := trigger.AckEvent(ctx, triggerRegistrationID, eventID, trigger.Method)
 	if err != nil {
 		tm.IncrementTriggerEventAckFailureCounter(ctx)
 		return err
@@ -773,10 +772,10 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 	triggerCapIDs := make([]string, len(subscriptions))
 
 	for result := range resultsCh {
-		e.triggers[result.registrationID] = &triggerCapability{
+		e.triggers[result.registrationID] = &TriggerHandle{
 			TriggerCapability: result.triggerCap,
-			payload:           result.payload,
-			method:            result.method,
+			Payload:           result.payload,
+			Method:            result.method,
 		}
 		eventChans[result.index] = result.eventCh
 		triggerCapIDs[result.index] = result.triggerCapID
@@ -1318,8 +1317,8 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 				WorkflowID:    e.cfg.WorkflowID,
 				WorkflowDonID: e.localNode.Load().WorkflowDON.ID,
 			},
-			Payload: trigger.payload,
-			Method:  trigger.method,
+			Payload: trigger.Payload,
+			Method:  trigger.Method,
 		})
 		if err != nil {
 			e.logger().Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
@@ -1327,7 +1326,7 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 		}
 	}
 	e.logger().Infow("All triggers unregistered", "numTriggers", len(e.triggers), "failed", failCount)
-	e.triggers = make(map[string]*triggerCapability)
+	e.triggers = make(map[string]*TriggerHandle)
 }
 
 func (e *Engine) heartbeatLoop(ctx context.Context) {
