@@ -506,6 +506,84 @@ func wantExecutionID(t *testing.T, workflowID, triggerEventID string, triggerInd
 	return id
 }
 
+func TestEngine_Subscribe_CachedTriggerSubscriptions(t *testing.T) {
+	t.Parallel()
+
+	cachedSubs := []*sdkpb.TriggerSubscription{
+		{Id: "id_0", Method: "method"},
+		{Id: "id_1", Method: "method"},
+	}
+
+	t.Run("gate enabled: cache is used, WASM never executed", func(t *testing.T) {
+		t.Parallel()
+
+		module := modulemocks.NewModuleV2(t)
+		module.EXPECT().Start()
+		module.EXPECT().Close()
+		// No module.EXPECT().Execute(...): the mock fails the test if Subscribe()
+		// falls through to WASM instead of using the cache.
+		capreg := regmocks.NewCapabilitiesRegistry(t)
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+		trigger0, trigger1 := capmocks.NewTriggerCapability(t), capmocks.NewTriggerCapability(t)
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger0, nil).Once()
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_1").Return(trigger1, nil).Once()
+		tr0Ch, tr1Ch := make(chan capabilities.TriggerResponse), make(chan capabilities.TriggerResponse)
+		trigger0.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(tr0Ch, nil).Once()
+		trigger1.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(tr1Ch, nil).Once()
+		trigger0.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+		trigger1.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+		cfg := defaultTestConfig(t, func(c *cresettings.Workflows) {
+			c.FeatureCachedTriggerSubscriptionsEnabled.DefaultValue = true
+		})
+		cfg.Module = module
+		cfg.CapRegistry = capreg
+		cfg.CachedTriggerSubscriptions = cachedSubs
+		initDoneCh := make(chan error, 1)
+		cfg.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) { initDoneCh <- err },
+		}
+
+		engine, err := v2.NewEngine(cfg)
+		require.NoError(t, err)
+		servicetest.Run(t, engine)
+		require.NoError(t, <-initDoneCh)
+	})
+
+	t.Run("gate disabled: cache is ignored, falls back to WASM", func(t *testing.T) {
+		t.Parallel()
+
+		module := modulemocks.NewModuleV2(t)
+		module.EXPECT().Start()
+		module.EXPECT().Close()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
+		capreg := regmocks.NewCapabilitiesRegistry(t)
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+		trigger0, trigger1 := capmocks.NewTriggerCapability(t), capmocks.NewTriggerCapability(t)
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger0, nil).Once()
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_1").Return(trigger1, nil).Once()
+		tr0Ch, tr1Ch := make(chan capabilities.TriggerResponse), make(chan capabilities.TriggerResponse)
+		trigger0.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(tr0Ch, nil).Once()
+		trigger1.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(tr1Ch, nil).Once()
+		trigger0.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+		trigger1.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+		cfg := defaultTestConfig(t, nil) // FeatureCachedTriggerSubscriptionsEnabled defaults to false
+		cfg.Module = module
+		cfg.CapRegistry = capreg
+		cfg.CachedTriggerSubscriptions = cachedSubs // present, but must be ignored while the gate is off
+		initDoneCh := make(chan error, 1)
+		cfg.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) { initDoneCh <- err },
+		}
+
+		engine, err := v2.NewEngine(cfg)
+		require.NoError(t, err)
+		servicetest.Run(t, engine)
+		require.NoError(t, <-initDoneCh)
+	})
+}
+
 func newTriggerSubs(n int) *sdkpb.ExecutionResult {
 	subs := make([]*sdkpb.TriggerSubscription, 0, n)
 	for i := range n {

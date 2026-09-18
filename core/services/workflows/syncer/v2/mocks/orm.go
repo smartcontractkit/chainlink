@@ -292,6 +292,54 @@ func (_c *ORM_PauseWorkflowSpec_Call) RunAndReturn(run func(context.Context, str
 	return _c
 }
 
+// SaveTriggerSubscriptions provides a mock function with given fields: ctx, id, payload
+func (_m *ORM) SaveTriggerSubscriptions(ctx context.Context, id string, payload []byte) error {
+	ret := _m.Called(ctx, id, payload)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveTriggerSubscriptions")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, []byte) error); ok {
+		r0 = rf(ctx, id, payload)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ORM_SaveTriggerSubscriptions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveTriggerSubscriptions'
+type ORM_SaveTriggerSubscriptions_Call struct {
+	*mock.Call
+}
+
+// SaveTriggerSubscriptions is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - payload []byte
+func (_e *ORM_Expecter) SaveTriggerSubscriptions(ctx interface{}, id interface{}, payload interface{}) *ORM_SaveTriggerSubscriptions_Call {
+	return &ORM_SaveTriggerSubscriptions_Call{Call: _e.mock.On("SaveTriggerSubscriptions", ctx, id, payload)}
+}
+
+func (_c *ORM_SaveTriggerSubscriptions_Call) Run(run func(ctx context.Context, id string, payload []byte)) *ORM_SaveTriggerSubscriptions_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].([]byte))
+	})
+	return _c
+}
+
+func (_c *ORM_SaveTriggerSubscriptions_Call) Return(_a0 error) *ORM_SaveTriggerSubscriptions_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ORM_SaveTriggerSubscriptions_Call) RunAndReturn(run func(context.Context, string, []byte) error) *ORM_SaveTriggerSubscriptions_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpsertWorkflowSpec provides a mock function with given fields: ctx, spec
 func (_m *ORM) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
 	ret := _m.Called(ctx, spec)
