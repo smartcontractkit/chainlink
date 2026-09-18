@@ -27,9 +27,9 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
-// TriggerDispatcher owns trigger registration, the trigger handle map, event
+// TriggerCoordinator owns trigger registration, the trigger handle map, event
 // channel reading, and acknowledgement for all workflows on this node.
-type TriggerDispatcher interface {
+type TriggerCoordinator interface {
 	services.Service
 	RegisterTriggers(ctx context.Context, cre contexts.CRE, params RegistrationParams, subs []*sdkpb.TriggerSubscription) ([]string, error)
 	// UnregisterTriggers stops event ingress for the workflow immediately, then
@@ -46,8 +46,8 @@ type TriggerDispatcher interface {
 }
 
 var (
-	_ TriggerDispatcher = (*triggerDispatcher)(nil)
-	_ v2.Acknowledger   = (*triggerDispatcher)(nil)
+	_ TriggerCoordinator = (*triggerCoordinator)(nil)
+	_ v2.Acknowledger    = (*triggerCoordinator)(nil)
 )
 
 // RegistrationParams carries the workflow-scoped metadata stamped into every
@@ -62,8 +62,8 @@ type RegistrationParams struct {
 	WorkflowRegistryChainSelector string
 }
 
-// eventSink is the delivery surface the dispatcher uses to feed engines. It
-// is the engine's transitional Put method; the dispatcher never holds an
+// eventSink is the delivery surface the coordinator uses to feed engines. It
+// is the engine's transitional Put method; the coordinator never holds an
 // engine reference, it resolves one from the registry at delivery time and
 // only needs this narrow interface.
 type eventSink interface {
@@ -73,7 +73,7 @@ type eventSink interface {
 // activeExecutionsReporter is how UnregisterTriggers waits for a workflow's
 // in-flight executions to finish before releasing its trigger handles. Every
 // engine implementation already exposes this (it backs Drain/DrainableService
-// on the syncer side); the dispatcher only needs this one method of it, and
+// on the syncer side); the coordinator only needs this one method of it, and
 // resolves it from the registry the same way eventSink is resolved.
 type activeExecutionsReporter interface {
 	ActiveExecutions() int32
@@ -89,8 +89,8 @@ const (
 	releaseHandlesTimeout = 5 * time.Minute
 )
 
-// triggerDispatcher is the implementation of TriggerDispatcher.
-type triggerDispatcher struct {
+// triggerCoordinator is the implementation of TriggerCoordinator.
+type triggerCoordinator struct {
 	services.Service
 	eng *services.Engine
 
@@ -111,7 +111,7 @@ type triggerDispatcher struct {
 	workflows map[types.WorkflowID]*workflowTriggers
 }
 
-// workflowTriggers is everything the dispatcher owns for one workflow: the
+// workflowTriggers is everything the coordinator owns for one workflow: the
 // tenant context, registration metadata, and the handle map.
 type workflowTriggers struct {
 	cre     contexts.CRE
@@ -127,12 +127,12 @@ type triggerHandle struct {
 	method  string
 }
 
-// NewTriggerDispatcher returns a dispatcher wired to the given engine
+// NewTriggerCoordinator returns a coordinator wired to the given engine
 // registry. regTime bounds the total time spent registering a workflow's
 // triggers.
-func NewTriggerDispatcher(lggr logger.Logger, capReg core.CapabilitiesRegistry, registry *EngineRegistry, regTime limits.TimeLimiter, metrics *monitoring.WorkflowsMetricLabeler, clock clockwork.Clock) TriggerDispatcher {
-	d := &triggerDispatcher{
-		lggr:                logger.Named(lggr, "TriggerDispatcher"),
+func NewTriggerCoordinator(lggr logger.Logger, capReg core.CapabilitiesRegistry, registry *EngineRegistry, regTime limits.TimeLimiter, metrics *monitoring.WorkflowsMetricLabeler, clock clockwork.Clock) TriggerCoordinator {
+	d := &triggerCoordinator{
+		lggr:                logger.Named(lggr, "TriggerCoordinator"),
 		capReg:              capReg,
 		registry:            registry,
 		regTime:             regTime,
@@ -142,22 +142,22 @@ func NewTriggerDispatcher(lggr logger.Logger, capReg core.CapabilitiesRegistry, 
 		workflows:           make(map[types.WorkflowID]*workflowTriggers),
 	}
 	d.Service, d.eng = services.Config{
-		Name:  "TriggerDispatcher",
+		Name:  "TriggerCoordinator",
 		Start: d.start,
 		Close: d.close,
 	}.NewServiceEngine(d.lggr)
 	return d
 }
 
-// start is a no-op: the dispatcher has no background work of its own — reader
+// start is a no-op: the coordinator has no background work of its own — reader
 // goroutines are started per subscription by RegisterTriggers and tracked by
 // the embedded services.Engine. The method exists to satisfy the
 // services.Service Start hook contract.
-func (d *triggerDispatcher) start(context.Context) error { return nil }
+func (d *triggerCoordinator) start(context.Context) error { return nil }
 
-func (d *triggerDispatcher) close() error {
+func (d *triggerCoordinator) close() error {
 	// Reader goroutines are owned by d.eng and stopped when it stops. Handles
-	// are dropped with the dispatcher; per-workflow cleanup (unregister, drain,
+	// are dropped with the coordinator; per-workflow cleanup (unregister, drain,
 	// handle release) is driven by the syncer via UnregisterTriggers.
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -170,7 +170,7 @@ func (d *triggerDispatcher) close() error {
 // starts one reader goroutine per subscription, and returns the registered
 // trigger capability IDs. On any registration failure it rolls back the
 // successful registrations.
-func (d *triggerDispatcher) RegisterTriggers(ctx context.Context, cre contexts.CRE, params RegistrationParams, subs []*sdkpb.TriggerSubscription) ([]string, error) {
+func (d *triggerCoordinator) RegisterTriggers(ctx context.Context, cre contexts.CRE, params RegistrationParams, subs []*sdkpb.TriggerSubscription) ([]string, error) {
 	wid, err := types.WorkflowIDFromHex(cre.Workflow)
 	if err != nil {
 		return nil, fmt.Errorf("invalid workflowID in CRE context: %w", err)
@@ -314,7 +314,7 @@ func (d *triggerDispatcher) RegisterTriggers(ctx context.Context, cre contexts.C
 // startReader runs one reader goroutine per subscription. It resolves the
 // engine from the registry at delivery time and never holds an engine
 // reference; if the engine is gone the reader exits.
-func (d *triggerDispatcher) startReader(ctx context.Context, wid types.WorkflowID, idx int, sub *sdkpb.TriggerSubscription, triggerEventCh <-chan capabilities.TriggerResponse) {
+func (d *triggerCoordinator) startReader(ctx context.Context, wid types.WorkflowID, idx int, sub *sdkpb.TriggerSubscription, triggerEventCh <-chan capabilities.TriggerResponse) {
 	d.eng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 		for {
 			select {
@@ -371,7 +371,7 @@ func (d *triggerDispatcher) startReader(ctx context.Context, wid types.WorkflowI
 // and calling AckEvent on the trigger capability. Engines call this after
 // execution starts, on duplicate executions, and on shard-ownership denials —
 // the point at which the event is fully handled and must not be redelivered.
-func (d *triggerDispatcher) Ack(ctx context.Context, workflowID, triggerCapID, triggerRegistrationID, eventID string) error {
+func (d *triggerCoordinator) Ack(ctx context.Context, workflowID, triggerCapID, triggerRegistrationID, eventID string) error {
 	d.lggr.Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
 
 	tm := d.metrics.With(platform.KeyTriggerID, triggerCapID)
@@ -407,7 +407,7 @@ func (d *triggerDispatcher) Ack(ctx context.Context, workflowID, triggerCapID, t
 // no more active executions (or releaseHandlesTimeout elapses), at which
 // point they're released in the background. Safe to call even if the
 // workflow was never registered.
-func (d *triggerDispatcher) UnregisterTriggers(workflowID string) error {
+func (d *triggerCoordinator) UnregisterTriggers(workflowID string) error {
 	wid, err := types.WorkflowIDFromHex(workflowID)
 	if err != nil {
 		return fmt.Errorf("invalid workflowID: %w", err)
@@ -445,11 +445,11 @@ func (d *triggerDispatcher) UnregisterTriggers(workflowID string) error {
 
 // releaseHandlesWhenDrained waits for the workflow's engine to report zero
 // active executions — resolving it from the registry the same way the reader
-// resolves eventSink, since the dispatcher holds no engine reference — and
+// resolves eventSink, since the coordinator holds no engine reference — and
 // then drops the retained handles. It gives up and releases anyway, with a
 // warning, if releaseHandlesTimeout elapses or the engine is no longer in the
 // registry (already popped, so nothing is left to wait for).
-func (d *triggerDispatcher) releaseHandlesWhenDrained(ctx context.Context, wid types.WorkflowID) {
+func (d *triggerCoordinator) releaseHandlesWhenDrained(ctx context.Context, wid types.WorkflowID) {
 	ctx, cancel := context.WithTimeout(ctx, releaseHandlesTimeout)
 	defer cancel()
 	ticker := time.NewTicker(releaseHandlesPollInterval)
@@ -481,7 +481,7 @@ waitForDrain:
 // unregisterAll rolls back every successful registration when one or more
 // registrations failed. Unlike UnregisterTriggers it also drops the handles,
 // because a failed RegisterTriggers leaves no executions in flight.
-func (d *triggerDispatcher) unregisterAll(ctx context.Context, wid types.WorkflowID, wt *workflowTriggers) {
+func (d *triggerCoordinator) unregisterAll(ctx context.Context, wid types.WorkflowID, wt *workflowTriggers) {
 	for registrationID, handle := range wt.handles {
 		if err := handle.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
