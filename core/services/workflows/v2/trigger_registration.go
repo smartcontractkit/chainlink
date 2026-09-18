@@ -202,7 +202,7 @@ func RegisterWorkflowTriggers(
 	// If any registration failed, unregister successful ones and return error
 	if registrationErr != nil {
 		deps.Logger.Errorw("One or more trigger registrations failed - reverting all", "err", registrationErr)
-		unregisterOnFailure(ctx, deps.Logger, meta.WorkflowID, meta.WorkflowDonID, handles)
+		UnregisterTriggerHandles(ctx, deps.Logger, meta.WorkflowID, meta.WorkflowDonID, handles)
 		return nil, nil, nil, registrationErr
 	}
 
@@ -211,12 +211,14 @@ func RegisterWorkflowTriggers(
 	return triggerCapIDs, handles, eventChans, nil
 }
 
-// unregisterOnFailure rolls back every handle that registered successfully
-// when at least one registration in the same batch failed. It logs (rather
-// than returns) individual UnregisterTrigger failures, matching
-// Engine.unregisterAllTriggers and TriggerCoordinator.unregisterAll's
-// existing tolerance for a handle that fails to unregister cleanly.
-func unregisterOnFailure(ctx context.Context, lggr logger.Logger, workflowID string, workflowDonID uint32, handles map[string]*TriggerHandle) {
+// UnregisterTriggerHandles unregisters every handle in handles with the
+// capability registry. It logs (rather than returns) individual
+// UnregisterTrigger failures and returns how many occurred, so callers can
+// log their own summary.
+//
+// Shared by RegisterWorkflowTriggers' rollback path, Engine.unregisterAllTriggers,
+// and TriggerCoordinator.UnregisterTriggers.
+func UnregisterTriggerHandles(ctx context.Context, lggr logger.Logger, workflowID string, workflowDonID uint32, handles map[string]*TriggerHandle) (failCount int) {
 	for registrationID, handle := range handles {
 		if err := handle.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
@@ -228,6 +230,8 @@ func unregisterOnFailure(ctx context.Context, lggr logger.Logger, workflowID str
 			Method:  handle.Method,
 		}); err != nil {
 			lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
+			failCount++
 		}
 	}
+	return failCount
 }

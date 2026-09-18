@@ -275,19 +275,8 @@ func (d *triggerCoordinator) UnregisterTriggers(workflowID string) error {
 
 	// Unregister with the capability registry outside the lock.
 	ctx := context.Background()
-	for registrationID, handle := range wt.handles {
-		if unregErr := handle.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
-			TriggerID: registrationID,
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID:    workflowID,
-				WorkflowDonID: wt.params.WorkflowDonID,
-			},
-			Payload: handle.Payload,
-			Method:  handle.Method,
-		}); unregErr != nil {
-			d.lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", unregErr)
-		}
-	}
+	failCount := v2.UnregisterTriggerHandles(ctx, d.lggr, workflowID, wt.params.WorkflowDonID, wt.handles)
+	d.lggr.Infow("All triggers unregistered", "numTriggers", len(wt.handles), "failed", failCount)
 	d.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 
 	d.eng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {

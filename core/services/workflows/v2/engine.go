@@ -1170,22 +1170,7 @@ func (e *Engine) close() error {
 
 // NOTE: needs to be called under the triggersRegMu lock
 func (e *Engine) unregisterAllTriggers(ctx context.Context) {
-	failCount := 0
-	for registrationID, trigger := range e.triggers {
-		err := trigger.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
-			TriggerID: registrationID,
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID:    e.cfg.WorkflowID,
-				WorkflowDonID: e.localNode.Load().WorkflowDON.ID,
-			},
-			Payload: trigger.Payload,
-			Method:  trigger.Method,
-		})
-		if err != nil {
-			e.logger().Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
-			failCount++
-		}
-	}
+	failCount := UnregisterTriggerHandles(ctx, e.logger(), e.cfg.WorkflowID, e.localNode.Load().WorkflowDON.ID, e.triggers)
 	e.logger().Infow("All triggers unregistered", "numTriggers", len(e.triggers), "failed", failCount)
 	e.triggers = make(map[string]*TriggerHandle)
 }
