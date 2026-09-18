@@ -465,25 +465,11 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 
 // Ack acknowledges a trigger event via the injected TriggerAcknowledger.
 func (e *Engine) Ack(ctx context.Context, _, triggerCapID, triggerRegistrationID, eventID string) error {
-	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
-
-	tm := e.metrics.With(platform.KeyTriggerID, triggerCapID)
-
 	e.triggersRegMu.Lock()
-	trigger, ok := e.triggers[triggerRegistrationID]
+	trigger := e.triggers[triggerRegistrationID]
 	e.triggersRegMu.Unlock()
 
-	if !ok {
-		tm.IncrementTriggerEventAckFailureCounter(ctx)
-		return fmt.Errorf("failed to find trigger %s", triggerRegistrationID)
-	}
-	err := trigger.AckEvent(ctx, triggerRegistrationID, eventID, trigger.Method)
-	if err != nil {
-		tm.IncrementTriggerEventAckFailureCounter(ctx)
-		return err
-	}
-	tm.IncrementTriggerEventAckSuccessCounter(ctx)
-	return nil
+	return AckTriggerHandle(ctx, e.logger(), e.metrics, triggerCapID, triggerRegistrationID, eventID, trigger)
 }
 
 // resolveOrgID resolves the organization ID for the given workflow owner.

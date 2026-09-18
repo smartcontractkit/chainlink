@@ -225,13 +225,9 @@ func (d *triggerCoordinator) startReader(ctx context.Context, wid types.Workflow
 // execution starts, on duplicate executions, and on shard-ownership denials —
 // the point at which the event is fully handled and must not be redelivered.
 func (d *triggerCoordinator) Ack(ctx context.Context, workflowID, triggerCapID, triggerRegistrationID, eventID string) error {
-	d.lggr.Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
-
-	tm := d.metrics.With(platform.KeyTriggerID, triggerCapID)
-
 	wid, err := types.WorkflowIDFromHex(workflowID)
 	if err != nil {
-		tm.IncrementTriggerEventAckFailureCounter(ctx)
+		d.metrics.With(platform.KeyTriggerID, triggerCapID).IncrementTriggerEventAckFailureCounter(ctx)
 		return fmt.Errorf("invalid workflowID: %w", err)
 	}
 
@@ -242,15 +238,16 @@ func (d *triggerCoordinator) Ack(ctx context.Context, workflowID, triggerCapID, 
 	}
 	d.mu.RUnlock()
 
-	if handle == nil {
-		tm.IncrementTriggerEventAckFailureCounter(ctx)
-		return fmt.Errorf("failed to find trigger %s for workflow %s", triggerRegistrationID, workflowID)
-	}
-	if err := handle.AckEvent(ctx, triggerRegistrationID, eventID, handle.Method); err != nil {
-		tm.IncrementTriggerEventAckFailureCounter(ctx)
+	// handle is resolved above (rather than left to v2.AckTriggerHandle) so
+	// the not-found error here can keep the extra "for workflow %s" context
+	// Engine's equivalent has no use for (an Engine only ever has one
+	// workflow).
+	if err := v2.AckTriggerHandle(ctx, d.lggr, d.metrics, triggerCapID, triggerRegistrationID, eventID, handle); err != nil {
+		if handle == nil {
+			return fmt.Errorf("failed to find trigger %s for workflow %s", triggerRegistrationID, workflowID)
+		}
 		return err
 	}
-	tm.IncrementTriggerEventAckSuccessCounter(ctx)
 	return nil
 }
 
