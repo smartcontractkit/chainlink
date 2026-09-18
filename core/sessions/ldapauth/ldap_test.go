@@ -27,7 +27,7 @@ func setupAuthenticationProvider(t *testing.T, ldapClient ldapauth.LDAPClient) (
 
 	cfg := ldapauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
-	ldapAuthProvider, err := ldapauth.NewTestLDAPAuthenticator(db, &cfg, logger.TestLogger(t), &audit.AuditLoggerService{})
+	ldapAuthProvider, err := ldapauth.NewTestLDAPAuthenticator(db, &cfg, logger.TestLogger(t), &audit.LoggerService{})
 	if err != nil {
 		t.Fatalf("Error constructing NewTestLDAPAuthenticator: %v\n", err)
 	}

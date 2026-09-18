@@ -23,12 +23,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -47,8 +47,8 @@ type oidcAuthenticator struct {
 	provider     *oidc.Provider
 	oidcConfig   *oidc.Config
 	oauth2Config *oauth2.Config
-	lggr         logger.Logger
-	auditLogger  audit.AuditLogger
+	lggr         common.SugaredLogger
+	auditLogger  audit.Logger
 }
 
 // ExchangeTokenRequest represents the expected JSON payload from the frontend
@@ -69,8 +69,8 @@ var _ clsessions.AuthenticationProvider = (*oidcAuthenticator)(nil)
 func NewOIDCAuthenticator(
 	ds sqlutil.DataSource,
 	oidcCfg config.OIDC,
-	lggr logger.Logger,
-	auditLogger audit.AuditLogger,
+	lggr common.Logger,
+	auditLogger audit.Logger,
 ) (*oidcAuthenticator, error) {
 	// Ensure all RBAC role mappings to OIDC Id claims are defined, and required fields populated, or error on startup
 	lggr.Debugf("OIDC CFG:\n %#v\n", oidcCfg)
@@ -124,7 +124,7 @@ func NewOIDCAuthenticator(
 		provider:     provider,
 		oidcConfig:   oidcConfig,
 		oauth2Config: oauth2Config,
-		lggr:         lggr.Named("OIDCAuthenticationProvider"),
+		lggr:         common.Sugared(lggr).Named("OIDCAuthenticationProvider"),
 		auditLogger:  auditLogger,
 	}
 
@@ -563,7 +563,7 @@ func (oi *oidcAuthenticator) Sessions(ctx context.Context, offset, limit int) ([
 	var sessions []clsessions.Session
 	sql := `SELECT * FROM oidc_sessions ORDER BY created_at, id LIMIT $1 OFFSET $2;`
 	if err := oi.ds.SelectContext(ctx, &sessions, sql, limit, offset); err != nil {
-		return sessions, nil
+		return nil, err
 	}
 	return sessions, nil
 }

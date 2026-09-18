@@ -123,6 +123,7 @@ func WaitTimeoutCustom(t *testing.T, requested time.Duration) time.Duration {
 //
 // Deprecated: use [testing.TB.Context] directly
 //
+
 //go:fix inline
 func Context(tb testing.TB) context.Context {
 	return tb.Context()
