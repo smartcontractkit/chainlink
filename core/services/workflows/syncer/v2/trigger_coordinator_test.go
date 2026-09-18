@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,12 +24,15 @@ import (
 	enginev2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
-// fakePutEngine is a services.Service that also implements the dispatcher's
-// narrow eventSink interface, so a RegisterTriggers reader can resolve and
-// deliver to it via the EngineRegistry, exactly as it would a real engine.
+// fakePutEngine is a services.Service that also implements the coordinator's
+// narrow eventSink and activeExecutionsReporter interfaces, so a
+// RegisterTriggers reader can resolve and deliver to it via the
+// EngineRegistry, and UnregisterTriggers can wait on it, exactly as it would
+// a real engine.
 type fakePutEngine struct {
 	fakeService
-	putCh chan enginev2.RoutedTriggerEvent
+	putCh  chan enginev2.RoutedTriggerEvent
+	active atomic.Int32
 }
 
 func newFakePutEngine() *fakePutEngine {
@@ -40,14 +44,19 @@ func (f *fakePutEngine) Put(_ context.Context, event enginev2.RoutedTriggerEvent
 	return nil
 }
 
-var _ eventSink = (*fakePutEngine)(nil)
+func (f *fakePutEngine) ActiveExecutions() int32 { return f.active.Load() }
 
-func newTestDispatcher(t *testing.T, capReg *regmocks.CapabilitiesRegistry, registry *EngineRegistry) TriggerDispatcher {
+var (
+	_ eventSink                = (*fakePutEngine)(nil)
+	_ activeExecutionsReporter = (*fakePutEngine)(nil)
+)
+
+func newTestCoordinator(t *testing.T, capReg *regmocks.CapabilitiesRegistry, registry *EngineRegistry) TriggerCoordinator {
 	t.Helper()
-	dispatcherMetrics, err := monitoring.InitMonitoringResources()
+	coordinatorMetrics, err := monitoring.InitMonitoringResources()
 	require.NoError(t, err)
-	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), dispatcherMetrics)
-	d := NewTriggerDispatcher(logger.TestLogger(t), capReg, registry, limits.NewTimeLimiter(5*time.Second), metricsLabeler, clockwork.NewFakeClock())
+	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), coordinatorMetrics)
+	d := NewTriggerCoordinator(logger.TestLogger(t), capReg, registry, limits.NewTimeLimiter(5*time.Second), metricsLabeler, clockwork.NewFakeClock())
 	require.NoError(t, d.Start(t.Context()))
 	t.Cleanup(func() { _ = d.Close() })
 	return d
@@ -69,7 +78,7 @@ func Test_RegisterTriggers_Success(t *testing.T) {
 
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	registry := NewEngineRegistry()
-	d := newTestDispatcher(t, capReg, registry)
+	d := newTestCoordinator(t, capReg, registry)
 
 	trigger0, trigger1 := capmocks.NewTriggerCapability(t), capmocks.NewTriggerCapability(t)
 	capReg.EXPECT().GetTrigger(mock.Anything, "id_0").Return(trigger0, nil).Once()
@@ -79,7 +88,9 @@ func Test_RegisterTriggers_Success(t *testing.T) {
 
 	wid := testWorkflowID(1)
 	cre := contexts.CRE{Owner: "owner-a", Workflow: wid.Hex()}
-	triggerIDs, err := d.RegisterTriggers(t.Context(), cre, RegistrationParams{WorkflowName: "wf"}, []*sdkpb.TriggerSubscription{testSub("id_0"), testSub("id_1")})
+	workflowName, err := types.NewWorkflowName("wf")
+	require.NoError(t, err)
+	triggerIDs, err := d.RegisterTriggers(t.Context(), cre, RegistrationParams{WorkflowName: workflowName}, []*sdkpb.TriggerSubscription{testSub("id_0"), testSub("id_1")})
 	require.NoError(t, err)
 	require.Equal(t, []string{"id_0", "id_1"}, triggerIDs)
 
@@ -98,7 +109,7 @@ func Test_RegisterTriggers_RollbackOnFailure(t *testing.T) {
 
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	registry := NewEngineRegistry()
-	d := newTestDispatcher(t, capReg, registry)
+	d := newTestCoordinator(t, capReg, registry)
 
 	trigger0, trigger1 := capmocks.NewTriggerCapability(t), capmocks.NewTriggerCapability(t)
 	capReg.EXPECT().GetTrigger(mock.Anything, "id_0").Return(trigger0, nil).Once()
@@ -115,12 +126,12 @@ func Test_RegisterTriggers_RollbackOnFailure(t *testing.T) {
 
 	// No handle was retained for id_0 either: Ack for it must fail.
 	regID := enginev2.TriggerRegistrationID(wid.Hex(), 0)
-	err = d.Ack(t.Context(), "id_0", regID, "event-1")
+	err = d.Ack(t.Context(), wid.Hex(), "id_0", regID, "event-1")
 	require.Error(t, err)
 }
 
 // Test_RegisterTriggers_ReaderDeliversToEngineViaRegistry covers "reading"
-// and "engine lookup via registry": the dispatcher never holds an engine
+// and "engine lookup via registry": the coordinator never holds an engine
 // reference — its reader goroutine resolves the target engine from the
 // EngineRegistry at delivery time, by workflow ID, for every event.
 func Test_RegisterTriggers_ReaderDeliversToEngineViaRegistry(t *testing.T) {
@@ -128,7 +139,7 @@ func Test_RegisterTriggers_ReaderDeliversToEngineViaRegistry(t *testing.T) {
 
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	registry := NewEngineRegistry()
-	d := newTestDispatcher(t, capReg, registry)
+	d := newTestCoordinator(t, capReg, registry)
 
 	trigger := capmocks.NewTriggerCapability(t)
 	capReg.EXPECT().GetTrigger(mock.Anything, "id_0").Return(trigger, nil).Once()
@@ -156,29 +167,43 @@ func Test_RegisterTriggers_ReaderDeliversToEngineViaRegistry(t *testing.T) {
 }
 
 // If the engine isn't in the registry (e.g. it was popped before this event arrived),
-// the reader must not panic or deliver anywhere — it drops the event and returns.
-func Test_RegisterTriggers_ReaderExitsWhenEngineGone(t *testing.T) {
+// the reader must not panic or deliver anywhere — it logs and keeps reading, exactly
+// like any other delivery failure (RunTriggerReader has no special case for it). If the
+// engine later appears in the registry, the next event is delivered normally.
+func Test_RegisterTriggers_ReaderSurvivesEngineGone(t *testing.T) {
 	t.Parallel()
 
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	registry := NewEngineRegistry()
-	d := newTestDispatcher(t, capReg, registry)
+	d := newTestCoordinator(t, capReg, registry)
 
 	trigger := capmocks.NewTriggerCapability(t)
 	capReg.EXPECT().GetTrigger(mock.Anything, "id_0").Return(trigger, nil).Once()
-	eventCh := make(chan capabilities.TriggerResponse, 1)
+	eventCh := make(chan capabilities.TriggerResponse, 2)
 	trigger.EXPECT().RegisterTrigger(mock.Anything, mock.Anything).Return(eventCh, nil).Once()
 
 	wid := testWorkflowID(4)
-	// Deliberately never added to the registry.
+	// Deliberately never added to the registry yet.
 	cre := contexts.CRE{Owner: "owner-a", Workflow: wid.Hex()}
 	_, err := d.RegisterTriggers(t.Context(), cre, RegistrationParams{}, []*sdkpb.TriggerSubscription{testSub("id_0")})
 	require.NoError(t, err)
 
-	// Must not panic or hang; give the reader goroutine a moment to observe
-	// the event and exit.
+	// Must not panic or hang while the engine is missing.
 	eventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event-1"}}
 	time.Sleep(100 * time.Millisecond)
+
+	// The reader kept looping (didn't exit on the earlier delivery failure):
+	// once the engine appears, the next event is delivered to it.
+	engine := newFakePutEngine()
+	require.NoError(t, registry.Add(wid, "test-source", engine))
+	eventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event-2"}}
+
+	select {
+	case routed := <-engine.putCh:
+		require.Equal(t, "event-2", routed.Event.Event.ID)
+	case <-time.After(2 * time.Second):
+		t.Fatal("reader exited instead of continuing after a delivery failure")
+	}
 }
 
 // Ack resolves the registration's handle and calls AckEvent on the underlying
@@ -188,7 +213,7 @@ func Test_Ack_DelegatesToTriggerCapability(t *testing.T) {
 
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	registry := NewEngineRegistry()
-	d := newTestDispatcher(t, capReg, registry)
+	d := newTestCoordinator(t, capReg, registry)
 
 	trigger := capmocks.NewTriggerCapability(t)
 	capReg.EXPECT().GetTrigger(mock.Anything, "id_0").Return(trigger, nil).Once()
@@ -201,10 +226,10 @@ func Test_Ack_DelegatesToTriggerCapability(t *testing.T) {
 
 	regID := enginev2.TriggerRegistrationID(wid.Hex(), 0)
 	trigger.EXPECT().AckEvent(mock.Anything, regID, "event-1", "Trigger").Return(nil).Once()
-	require.NoError(t, d.Ack(t.Context(), "id_0", regID, "event-1"))
+	require.NoError(t, d.Ack(t.Context(), wid.Hex(), "id_0", regID, "event-1"))
 }
 
-// An eventID/registrationID the dispatcher never registered (or already
+// An eventID/registrationID the coordinator never registered (or already
 // released) resolves to nothing, and Ack must return an error rather than
 // panicking or silently succeeding.
 func Test_Ack_UnknownRegistration_ReturnsError(t *testing.T) {
@@ -212,28 +237,34 @@ func Test_Ack_UnknownRegistration_ReturnsError(t *testing.T) {
 
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	registry := NewEngineRegistry()
-	d := newTestDispatcher(t, capReg, registry)
+	d := newTestCoordinator(t, capReg, registry)
 
-	err := d.Ack(t.Context(), "id_0", "trigger_reg_does_not_exist_0", "event-1")
+	wid := testWorkflowID(9)
+	err := d.Ack(t.Context(), wid.Hex(), "id_0", "trigger_reg_does_not_exist_0", "event-1")
 	require.Error(t, err)
 }
 
 // Unregistering stops ingress immediately (UnregisterTrigger is called on the capability) but
-// the handle is RETAINED, so an execution that was already in flight when unregistration
-// started can still successfully Ack. Only ReleaseHandles (called by the syncer once the engine
-// has fully drained and closed) makes that Ack impossible.
-func Test_UnregisterTriggers_RetainsHandlesForInFlightAck(t *testing.T) {
+// the handle is RETAINED for as long as the engine reports active executions, so an execution
+// that was already in flight when unregistration started can still successfully Ack. Once the
+// engine reports it has drained, UnregisterTriggers releases the handle in the background and
+// that Ack becomes impossible.
+func Test_UnregisterTriggers_RetainsHandlesUntilEngineDrains(t *testing.T) {
 	t.Parallel()
 
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	registry := NewEngineRegistry()
-	d := newTestDispatcher(t, capReg, registry)
+	d := newTestCoordinator(t, capReg, registry)
 
 	trigger := capmocks.NewTriggerCapability(t)
 	capReg.EXPECT().GetTrigger(mock.Anything, "id_0").Return(trigger, nil).Once()
 	trigger.EXPECT().RegisterTrigger(mock.Anything, mock.Anything).Return(make(chan capabilities.TriggerResponse), nil).Once()
 
 	wid := testWorkflowID(6)
+	engine := newFakePutEngine()
+	engine.active.Store(1) // an execution is in flight
+	require.NoError(t, registry.Add(wid, "test-source", engine))
+
 	cre := contexts.CRE{Owner: "owner-a", Workflow: wid.Hex()}
 	_, err := d.RegisterTriggers(t.Context(), cre, RegistrationParams{}, []*sdkpb.TriggerSubscription{testSub("id_0")})
 	require.NoError(t, err)
@@ -242,41 +273,32 @@ func Test_UnregisterTriggers_RetainsHandlesForInFlightAck(t *testing.T) {
 	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 	require.NoError(t, d.UnregisterTriggers(wid.Hex()))
 
-	// ...but the handle is retained: an execution still in flight (started
-	// before unregistration) can still Ack successfully.
+	// ...but the handle is retained while the engine still reports an active
+	// execution: it can still Ack successfully.
 	regID := enginev2.TriggerRegistrationID(wid.Hex(), 0)
 	trigger.EXPECT().AckEvent(mock.Anything, regID, "in-flight-event", "Trigger").Return(nil).Once()
-	require.NoError(t, d.Ack(t.Context(), "id_0", regID, "in-flight-event"))
+	require.NoError(t, d.Ack(t.Context(), wid.Hex(), "id_0", regID, "in-flight-event"))
 
-	// Once the syncer has drained and closed the engine, it releases the
-	// handles. From this point on, Ack for the same registration must fail —
-	// there is nothing left to resolve it to.
-	require.NoError(t, d.ReleaseHandles(wid.Hex()))
-	err = d.Ack(t.Context(), "id_0", regID, "too-late-event")
-	require.Error(t, err)
+	// Once the engine reports it has drained, the coordinator releases the
+	// handle in the background. From this point on, Ack for the same
+	// registration must eventually fail — there is nothing left to resolve
+	// it to. The poll loop's own Ack calls may land before release finishes,
+	// so this expectation is optional (.Maybe()) and only exercised on those.
+	trigger.EXPECT().AckEvent(mock.Anything, regID, "too-late-event", "Trigger").Return(nil).Maybe()
+	engine.active.Store(0)
+	require.Eventually(t, func() bool {
+		return d.Ack(t.Context(), wid.Hex(), "id_0", regID, "too-late-event") != nil
+	}, 3*time.Second, 20*time.Millisecond, "handle was never released after the engine drained")
 }
 
-// ReleaseHandles may be called more than once (e.g. a retried cleanup) without error.
-func Test_ReleaseHandles_IsIdempotent(t *testing.T) {
-	t.Parallel()
-
-	capReg := regmocks.NewCapabilitiesRegistry(t)
-	registry := NewEngineRegistry()
-	d := newTestDispatcher(t, capReg, registry)
-
-	wid := testWorkflowID(7)
-	require.NoError(t, d.ReleaseHandles(wid.Hex()))
-	require.NoError(t, d.ReleaseHandles(wid.Hex()))
-}
-
-// Unregistering a workflow the dispatcher never registered (e.g. a duplicate/retried
+// Unregistering a workflow the coordinator never registered (e.g. a duplicate/retried
 // cleanup event racing with an already-completed one).
 func Test_UnregisterTriggers_UnknownWorkflow_ReturnsError(t *testing.T) {
 	t.Parallel()
 
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	registry := NewEngineRegistry()
-	d := newTestDispatcher(t, capReg, registry)
+	d := newTestCoordinator(t, capReg, registry)
 
 	wid := testWorkflowID(8)
 	require.Error(t, d.UnregisterTriggers(wid.Hex()))

@@ -224,7 +224,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			WorkflowExecutionID:      c.WorkflowExecutionID,
 			WorkflowName:             c.cfg.WorkflowName.Hex(),
 			WorkflowDonID:            localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: pinnedWorkflowDonConfigVersion,
+			WorkflowDonConfigVersion: PinnedWorkflowDonConfigVersion,
 			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
 			DecodedWorkflowName:      c.cfg.WorkflowName.String(),
 			SpendLimits:              spendLimits,
