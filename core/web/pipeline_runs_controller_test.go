@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/freeport"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -71,6 +72,34 @@ func TestPipelineRunsController_RunExistingWebhookJobRejected(t *testing.T) {
 	require.Contains(t, string(cltest.ParseResponseBody(t, response)), "webhook")
 }
 
+// assertPipelineRunResult asserts the outputs/errors/inputs of a pipeline run created by
+// setupPipelineRunsControllerTests, comparing parsed fields directly instead of matching
+// raw JSON substrings.
+func assertPipelineRunResult(t *testing.T, got presenters.PipelineRunResource) {
+	t.Helper()
+
+	three := "3"
+	uhOh := "uh oh"
+	assert.Equal(t, []*string{&three}, got.Outputs)
+	assert.Equal(t, []*string{nil}, got.Errors) //nolint:staticcheck // Errors is deprecated but still populated for backwards compatibility
+	assert.Equal(t, []*string{&uhOh}, got.AllErrors)
+	assert.Equal(t, []*string{nil}, got.FatalErrors)
+	assert.Equal(t, jsonserializable.JSONSerializable{
+		Valid: true,
+		Val: map[string]any{
+			"answer":       "3",
+			"ds1":          `{"USD": 1}`,
+			"ds1_multiply": "3",
+			"ds1_parse":    int64(1),
+			"ds2":          `{"USD": 1}`,
+			"ds2_multiply": "3",
+			"ds2_parse":    int64(1),
+			"ds3":          map[string]any{},
+			"jobRun":       map[string]any{"meta": nil},
+		},
+	}, got.Inputs)
+}
+
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	t.Parallel()
 
@@ -87,7 +116,6 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 
 	var parsedResponse []presenters.PipelineRunResource
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"allErrors":["uh oh"],"fatalErrors":[null],"inputs":{"answer":"3","ds1":{"BoolValue":false,"DecimalValue":{},"MapValue":null,"SliceValue":null,"StringValue":"{\"USD\": 1}","Type":3},"ds1_multiply":"3","ds1_parse":1,"ds2":{"BoolValue":false,"DecimalValue":{},"MapValue":null,"SliceValue":null,"StringValue":"{\"USD\": 1}","Type":3},"ds2_multiply":"3","ds2_parse":1,"ds3":{},"jobRun":{"meta":null}}`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
 	require.NoError(t, err)
@@ -99,6 +127,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
 	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
 	require.Len(t, parsedResponse[1].TaskRuns, 8)
+	assertPipelineRunResult(t, parsedResponse[1])
 }
 
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
@@ -112,7 +141,6 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 
 	var parsedResponse []presenters.PipelineRunResource
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"allErrors":["uh oh"],"fatalErrors":[null],"inputs":{"answer":"3","ds1":{"BoolValue":false,"DecimalValue":{},"MapValue":null,"SliceValue":null,"StringValue":"{\"USD\": 1}","Type":3},"ds1_multiply":"3","ds1_parse":1,"ds2":{"BoolValue":false,"DecimalValue":{},"MapValue":null,"SliceValue":null,"StringValue":"{\"USD\": 1}","Type":3},"ds2_multiply":"3","ds2_parse":1,"ds3":{},"jobRun":{"meta":null}}`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
 	require.NoError(t, err)
@@ -124,6 +152,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
 	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
 	require.Len(t, parsedResponse[1].TaskRuns, 8)
+	assertPipelineRunResult(t, parsedResponse[1])
 }
 
 func TestPipelineRunsController_Index_Pagination(t *testing.T) {
@@ -137,7 +166,6 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 
 	var parsedResponse []presenters.PipelineRunResource
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"allErrors":["uh oh"],"fatalErrors":[null],"inputs":{"answer":"3","ds1":{"BoolValue":false,"DecimalValue":{},"MapValue":null,"SliceValue":null,"StringValue":"{\"USD\": 1}","Type":3},"ds1_multiply":"3","ds1_parse":1,"ds2":{"BoolValue":false,"DecimalValue":{},"MapValue":null,"SliceValue":null,"StringValue":"{\"USD\": 1}","Type":3},"ds2_multiply":"3","ds2_parse":1,"ds3":{},"jobRun":{"meta":null}}`)
 	assert.Contains(t, string(responseBytes), `"meta":{"count":2}`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
@@ -148,6 +176,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 	assert.NotNil(t, parsedResponse[0].CreatedAt)
 	assert.NotNil(t, parsedResponse[0].FinishedAt)
 	require.Len(t, parsedResponse[0].TaskRuns, 8)
+	assertPipelineRunResult(t, parsedResponse[0])
 }
 
 func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
@@ -161,7 +190,6 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 
 	var parsedResponse presenters.PipelineRunResource
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"allErrors":["uh oh"],"fatalErrors":[null],"inputs":{"answer":"3","ds1":{"BoolValue":false,"DecimalValue":{},"MapValue":null,"SliceValue":null,"StringValue":"{\"USD\": 1}","Type":3},"ds1_multiply":"3","ds1_parse":1,"ds2":{"BoolValue":false,"DecimalValue":{},"MapValue":null,"SliceValue":null,"StringValue":"{\"USD\": 1}","Type":3},"ds2_multiply":"3","ds2_parse":1,"ds3":{},"jobRun":{"meta":null}}`)
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
 	require.NoError(t, err)
 
@@ -169,6 +197,7 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 	assert.NotNil(t, parsedResponse.CreatedAt)
 	assert.NotNil(t, parsedResponse.FinishedAt)
 	require.Len(t, parsedResponse.TaskRuns, 8)
+	assertPipelineRunResult(t, parsedResponse)
 }
 
 func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
