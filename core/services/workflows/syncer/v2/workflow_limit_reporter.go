@@ -9,7 +9,7 @@ import (
 // WorkflowLimitReporter records workflow count limit rejections (gate 0:
 // global and per-owner workflow count).
 //
-// This is deliberately its own type rather than part of TriggerDispatcher:
+// This is deliberately its own type rather than part of TriggerCoordinator:
 // gate 0 is a syncer-level concern (CAPPL-794 tracks moving its check out of
 // the engine into the syncer), unrelated to trigger registration/ACK. Note
 // that today Engine.init() still performs the check itself and increments
