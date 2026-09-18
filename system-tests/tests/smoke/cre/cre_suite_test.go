@@ -223,7 +223,6 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 
 	t_helpers.ApplyCRESettings(t, testEnv,
 		t_helpers.Global("\nMissingRequestRecoveryEnabled = 'true'"),
-		// t_helpers.Workflow(workflowID, "\nMissingRequestRecoveryEnabled = 'true'"),
 	)
 	testCases, err := evm_config.CasesForReadBucket(bucket)
 	require.NoErrorf(t, err, "failed to load EVM read bucket %q", bucket)
