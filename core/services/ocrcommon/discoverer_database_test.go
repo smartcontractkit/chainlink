@@ -49,12 +49,12 @@ func Test_DiscovererDatabase(t *testing.T) {
 		t.Run(tt.name+" StoreAnnouncement writes a value", func(t *testing.T) {
 			ann := []byte{1, 2, 3}
 			err := dd1.StoreAnnouncement(ctx, "remote1", ann)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// test upsert
 			ann = []byte{4, 5, 6}
 			err = dd1.StoreAnnouncement(ctx, "remote1", ann)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// write a different value
 			ann = []byte{7, 8, 9}
@@ -80,7 +80,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 		t.Run(tt.name+" is scoped to local peer ID", func(t *testing.T) {
 			ann := []byte{10, 11, 12}
 			err := dd2.StoreAnnouncement(ctx, "remote1", ann)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			announcements, err := dd2.ReadAnnouncements(ctx, []string{"remote1"})
 			require.NoError(t, err)

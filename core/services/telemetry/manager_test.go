@@ -23,7 +23,7 @@ import (
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 )
 
-func setupMockConfig(t *testing.T, useBatchSend bool, chipIngressEnabled bool) *mocks.TelemetryIngress {
+func setupMockConfig(t *testing.T, useBatchSend, chipIngressEnabled bool) *mocks.TelemetryIngress {
 	tic := mocks.NewTelemetryIngress(t)
 	tic.On("BufferSize").Return(uint(123))
 	tic.On("Logging").Return(true)
@@ -128,7 +128,7 @@ func TestNewManager(t *testing.T) {
 		},
 	}
 
-	var mockEndpoints []config.TelemetryIngressEndpoint
+	mockEndpoints := make([]config.TelemetryIngressEndpoint, 0, len(endpoints))
 
 	for _, e := range endpoints {
 		te := mocks.NewTelemetryIngressEndpoint(t)

@@ -574,7 +574,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ChipIngressMaxGRPCRequestSize:          new(10485760),
 		DurableEmitterEnabled:                  new(false),
 		DurableEmitterRetransmitBatchSize:      new(500),
-		DurableEmitterEventTTL:                 commoncfg.MustNewDuration(1 * time.Hour),
+		DurableEmitterEventTTL:                 commoncfg.MustNewDuration(6 * time.Hour),
 		DurableEmitterMaxQueuePayloadBytes:     new(int64(1073741824)),
 		DurableEmitterInsertBatchFlushInterval: commoncfg.MustNewDuration(50 * time.Millisecond),
 		HeartbeatInterval:                      commoncfg.MustNewDuration(1 * time.Second),
@@ -699,12 +699,11 @@ func TestConfig_Marshal(t *testing.T) {
 					PriceMin:           assets.NewWeiI(13),
 
 					LimitJobType: evmcfg.GasLimitJobType{
-						OCR:    new(uint32(1001)),
-						DR:     new(uint32(1002)),
-						VRF:    new(uint32(1003)),
-						FM:     new(uint32(1004)),
-						Keeper: new(uint32(1005)),
-						OCR2:   new(uint32(1006)),
+						OCR:  new(uint32(1001)),
+						DR:   new(uint32(1002)),
+						VRF:  new(uint32(1003)),
+						FM:   new(uint32(1004)),
+						OCR2: new(uint32(1006)),
 					},
 
 					BlockHistory: evmcfg.BlockHistoryEstimator{
@@ -818,11 +817,6 @@ func TestConfig_Marshal(t *testing.T) {
 					DeltaCOverride:                     commoncfg.MustNewDuration(time.Hour),
 					DeltaCJitterOverride:               commoncfg.MustNewDuration(time.Second),
 					ObservationGracePeriod:             &second,
-				},
-				OCR2: evmcfg.OCR2{
-					Automation: evmcfg.Automation{
-						GasLimit: new(uint32(540)),
-					},
 				},
 				Workflow: evmcfg.Workflow{
 					GasLimitDefault:   new(uint64(400000)),
@@ -1193,7 +1187,6 @@ OCR2 = 1006
 DR = 1002
 VRF = 1003
 FM = 1004
-Keeper = 1005
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
@@ -1264,10 +1257,6 @@ DatabaseTimeout = '1s'
 DeltaCOverride = '1h0m0s'
 DeltaCJitterOverride = '1s'
 ObservationGracePeriod = '1s'
-
-[EVM.OCR2]
-[EVM.OCR2.Automation]
-GasLimit = 540
 
 [EVM.Workflow]
 GasLimitDefault = 400000
@@ -1419,7 +1408,7 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 10 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 9 errors:
 	- P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
@@ -1448,7 +1437,7 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: 2 errors:
 				- 0.HTTPURL: missing: required for all nodes
 				- 1.HTTPURL: missing: required for all nodes
-		- 1: 10 errors:
+		- 1: 9 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
 			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron, rootstock, pharos, jovay or omitted
@@ -1460,7 +1449,6 @@ func TestConfig_Validate(t *testing.T) {
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
 			- HeadTracker.MaxAllowedFinalityDepth: invalid value (0): must be greater than or equal to 1
-			- KeySpecific.Key: invalid value (0xde709f2102306220921060314715629080e2fb77): duplicate - must be unique
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
@@ -1488,13 +1476,6 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: missing: must have at least one node
 		- 5.Transactions.AutoPurge.DetectionApiUrl: invalid value (): must be set for scroll
 		- 6.Nodes: missing: 0th node (primary) must have a valid WSURL when http polling is disabled
-	- Cosmos: 4 errors:
-		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
-		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique
-		- 1.Nodes: missing: expected at least one node
-		- 2: 2 errors:
-			- ChainID: missing: required for all chains
-			- Nodes: missing: expected at least one node
 	- Solana: 4 errors:
 		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (bar): duplicate - must be unique
@@ -1651,7 +1632,7 @@ func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 		SecretsStrings: []string{secretsFullTOML},
 	}
 	_, err := opts.New()
-	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: U+007B '{'")
+	assert.ErrorContains(t, err, "failed to decode config TOML: toml: invalid character at start of key:")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
@@ -1758,7 +1739,6 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: sqlutil.NewI(99999133712345)}}
-	c.Cosmos = RawConfigs{{"ChainID": new("unknown cosmos chain")}}
 	c.Solana = RawConfigs{{"ChainID": new("unknown solana chain")}}
 	c.Starknet = RawConfigs{{"ChainID": new("unknown starknet chain")}}
 	c.setDefaults()

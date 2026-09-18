@@ -16,6 +16,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
@@ -67,6 +68,7 @@ type httpTriggerHandler struct {
 	userRateLimiter         limits.RateLimiter
 	metrics                 *metrics.Metrics
 	wg                      sync.WaitGroup
+	orgResolver             orgresolver.OrgResolver // optional; nil if the node isn't configured to resolve orgs (e.g. no Linking Service)
 }
 
 type HTTPTriggerHandler interface {
@@ -75,7 +77,7 @@ type HTTPTriggerHandler interface {
 	HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error
 }
 
-func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, shards []*shardEndpoint, nodeAddrToShard map[string]*shardEndpoint, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, metrics *metrics.Metrics) *httpTriggerHandler {
+func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, shards []*shardEndpoint, nodeAddrToShard map[string]*shardEndpoint, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, metrics *metrics.Metrics, orgResolver orgresolver.OrgResolver) *httpTriggerHandler {
 	return &httpTriggerHandler{
 		lggr:                    logger.Named(lggr, "RequestCallbacks"),
 		callbacks:               make(map[string]savedCallback),
@@ -86,6 +88,7 @@ func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, shards []*shar
 		workflowMetadataHandler: workflowMetadataHandler,
 		userRateLimiter:         userRateLimiter,
 		metrics:                 metrics,
+		orgResolver:             orgResolver,
 	}
 }
 
@@ -372,6 +375,20 @@ func (h *httpTriggerHandler) authorizeRequest(ctx context.Context, workflowID st
 	return key, nil
 }
 
+// resolveOrgID resolves the organization ID for owner, or returns "" if it can't be resolved
+func (h *httpTriggerHandler) resolveOrgID(ctx context.Context, owner string) string {
+	if h.orgResolver == nil {
+		h.lggr.Warnw("OrgResolver is nil, continuing without an orgID", "workflowOwner", owner)
+		return ""
+	}
+	orgID, err := h.orgResolver.Get(ctx, owner)
+	if err != nil {
+		h.lggr.Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", owner, "err", err)
+		return ""
+	}
+	return orgID
+}
+
 func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, requestID string, callback handlers.Callback) error {
 	workflowRef, found := h.workflowMetadataHandler.GetWorkflowReference(workflowID)
 	if !found {
@@ -379,8 +396,8 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 		return errors.New("workflow reference not found")
 	}
 
-	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: workflowRef.workflowOwner, Workflow: workflowID})
+	orgID := h.resolveOrgID(ctx, workflowRef.workflowOwner)
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: workflowRef.workflowOwner, Org: orgID, Workflow: workflowID})
 	if err := h.userRateLimiter.AllowErr(ctx); err != nil {
 		lggr := logger.With(h.lggr, platform.KeyWorkflowID, workflowID, platform.KeyWorkflowOwner, workflowRef.workflowOwner, "requestID", requestID, "err", err)
 		if errLimited, ok := errors.AsType[limits.ErrorRateLimited](err); ok {

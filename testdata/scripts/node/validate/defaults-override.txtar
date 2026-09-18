@@ -431,7 +431,7 @@ ChipIngressDrainTimeout = '30s'
 ChipIngressMaxGRPCRequestSize = 10485760
 DurableEmitterEnabled = true
 DurableEmitterRetransmitBatchSize = 500
-DurableEmitterEventTTL = '1h0m0s'
+DurableEmitterEventTTL = '6h0m0s'
 DurableEmitterMaxQueuePayloadBytes = 1073741824
 DurableEmitterInsertBatchFlushInterval = '50ms'
 HeartbeatInterval = '1s'
@@ -626,10 +626,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[EVM.OCR2]
-[EVM.OCR2.Automation]
-GasLimit = 10500000
 
 [EVM.Workflow]
 GasLimitDefault = 400000

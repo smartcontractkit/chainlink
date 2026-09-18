@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 // zoneBFamily is the DON family (in the capabilities registry) identifying the
@@ -25,7 +25,7 @@ const zoneBFamily = "zone-b"
 // never from caller-supplied metadata.
 type zoneBRestrictor struct {
 	lggr                 logger.Logger
-	capabilitiesRegistry core.CapabilitiesRegistry
+	capabilitiesRegistry registry.CapabilitiesRegistry
 	// restrictEnabled is the master gate. When open, GetSecrets reads from a
 	// zone-b workflow DON are restricted to allowlisted workflow owners.
 	restrictEnabled limits.GateLimiter
@@ -42,7 +42,7 @@ type zoneBRestrictor struct {
 	zoneCache map[uint32]bool
 }
 
-func newZoneBRestrictor(lggr logger.Logger, limitsFactory limits.Factory, capabilitiesRegistry core.CapabilitiesRegistry) (*zoneBRestrictor, error) {
+func newZoneBRestrictor(lggr logger.Logger, limitsFactory limits.Factory, capabilitiesRegistry registry.CapabilitiesRegistry) (*zoneBRestrictor, error) {
 	restrictEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultZoneBWorkflowGetSecretsRestrictEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create zone-b restrict gate limiter: %w", err)
@@ -69,7 +69,7 @@ func newZoneBRestrictor(lggr logger.Logger, limitsFactory limits.Factory, capabi
 // resolves to a zone-b DON. The owner is read from ctx, which must already carry
 // the (normalized) CRE owner via RequestMetadata.ContextWithCRE.
 func (z *zoneBRestrictor) enforce(ctx context.Context, workflowDonID uint32) error {
-	enabled, err := z.restrictEnabled.Limit(ctx)
+	enabled, err := z.restrictEnabled.IsOpen(ctx)
 	if err != nil {
 		return fmt.Errorf("could not evaluate zone-b vault read restriction gate: %w", err)
 	}

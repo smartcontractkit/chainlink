@@ -298,7 +298,7 @@ func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, no
 			"node.don":         donMetadata.Name,
 			"node.index":       strconv.Itoa(nodeMetadata.Index),
 		}
-		resourceAttributes["don_family"] = donMetadata.DonFamily // OTel label; mirrors nodeset pairing key
+		resourceAttributes["don_family"] = donMetadata.DonFamily() // OTel label; mirrors nodeset pairing key
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             new(true),
 			Endpoint:            new(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
@@ -563,7 +563,7 @@ func addWorkerNodeConfig(
 
 		gateways := []coretoml.ConnectorGateway{}
 		// Workflow nodes only receive gateway connectors paired to their don_family.
-		connectors := topology.GatewayConnectorsForDonFamily(donMetadata.DonFamily)
+		connectors := topology.GatewayConnectorsForDonFamily(donMetadata.DonFamily())
 		if len(connectors.Configurations) > 0 {
 			for _, gateway := range connectors.Configurations {
 				gateways = append(gateways, gateway.ToConnectorGateway())

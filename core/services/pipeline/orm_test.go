@@ -70,7 +70,7 @@ func setupORM(t *testing.T, heavy bool) (db *sqlx.DB, orm pipeline.ORM, jorm job
 
 	jorm = job.NewORM(db, orm, bridgeORM, keyStore, lggr)
 
-	return
+	return db, orm, jorm
 }
 
 func setupHeavyORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM, jorm job.ORM) {
@@ -169,7 +169,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 
 	ps := mustInsertPipelineSpec(t, db)
 
-	var runs []*pipeline.Run
+	runs := make([]*pipeline.Run, 0, 3)
 	for range 3 {
 		now := time.Now()
 		r := pipeline.Run{
@@ -387,14 +387,15 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 
 	now := time.Now()
 
-	ds1_id := uuid.New()
+	ds1ID := uuid.New()
 
-	// insert something for this pipeline_run to trigger an early resume while the pipeline is running //nolint:sqlclosecheck
-	rows, err := db.NamedQuery(` 
+	// insert something for this pipeline_run to trigger an early resume while the pipeline is running
+	//nolint:sqlclosecheck // rows closed via defer below
+	rows, err := db.NamedQuery(`
 	INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
 	VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
 	`, pipeline.TaskRun{
-		ID:            ds1_id,
+		ID:            ds1ID,
 		PipelineRunID: run.ID,
 		Type:          "bridge",
 		DotID:         "ds1",
@@ -403,12 +404,12 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		FinishedAt:    null.TimeFrom(now),
 	})
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, rows.Close()) })
+	defer rows.Close()
 
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
-			ID:            ds1_id,
+			ID:            ds1ID,
 			PipelineRunID: run.ID,
 			Type:          "bridge",
 			DotID:         "ds1",
@@ -446,7 +447,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 
 	run := mustInsertAsyncRun(t, orm, jorm)
 
-	ds1_id := uuid.New()
+	ds1ID := uuid.New()
 	now := time.Now()
 	address, err := hex.DecodeString("0x8bd112d3f8f92e41c861939545ad387307af9703")
 	require.NoError(t, err)
@@ -461,7 +462,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task
 		{
-			ID:            ds1_id,
+			ID:            ds1ID,
 			PipelineRunID: run.ID,
 			Type:          "bridge",
 			DotID:         "ds1",
@@ -499,7 +500,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	// assert that run should be in "paused" state
 	require.Equal(t, pipeline.RunStatusSuspended, run.State)
 
-	r, start, err := orm.UpdateTaskRunResult(ctx, ds1_id, pipeline.Result{Value: "foo"})
+	r, start, err := orm.UpdateTaskRunResult(ctx, ds1ID, pipeline.Result{Value: "foo"})
 	run = &r
 	require.NoError(t, err)
 	assert.Positive(t, run.ID)
@@ -569,7 +570,7 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 	ctx := t.Context()
 	_, orm, jorm := setupHeavyORM(t)
 
-	var runsIds []int64
+	var runsIDs []int64
 
 	for i := 1; i <= 2000; i++ {
 		run := mustInsertAsyncRun(t, orm, jorm)
@@ -594,21 +595,22 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 		run.AllErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
 
 		restart, err := orm.StoreRun(ctx, run)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// no new data, so we don't need a restart
 		assert.False(t, restart)
 
-		runsIds = append(runsIds, run.ID)
+		runsIDs = append(runsIDs, run.ID)
 	}
 
 	err := orm.DeleteRunsOlderThan(t.Context(), 1*time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	for _, runId := range runsIds {
-		_, err := orm.FindRun(ctx, runId)
+	for _, runID := range runsIDs {
+		_, err := orm.FindRun(ctx, runID)
 		require.Error(t, err, "not found")
 	}
 }
+
 func Test_Prune(t *testing.T) {
 	t.Parallel()
 
@@ -712,5 +714,5 @@ func mustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID i
 func mustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
 	err := db.Get(&spec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
 	require.NoError(t, err)
-	return
+	return spec
 }

@@ -9,8 +9,6 @@ import (
 
 	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
 
-	capabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	context "context"
@@ -30,6 +28,8 @@ import (
 	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	plugins "github.com/smartcontractkit/chainlink/v2/plugins"
+
+	registry "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 
 	services "github.com/smartcontractkit/chainlink/v2/core/services"
 
@@ -447,19 +447,19 @@ func (_c *Application_GetAuditLogger_Call) RunAndReturn(run func() audit.AuditLo
 }
 
 // GetCapabilitiesRegistry provides a mock function with no fields
-func (_m *Application) GetCapabilitiesRegistry() *capabilities.Registry {
+func (_m *Application) GetCapabilitiesRegistry() *registry.Registry {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCapabilitiesRegistry")
 	}
 
-	var r0 *capabilities.Registry
-	if rf, ok := ret.Get(0).(func() *capabilities.Registry); ok {
+	var r0 *registry.Registry
+	if rf, ok := ret.Get(0).(func() *registry.Registry); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*capabilities.Registry)
+			r0 = ret.Get(0).(*registry.Registry)
 		}
 	}
 
@@ -483,12 +483,12 @@ func (_c *Application_GetCapabilitiesRegistry_Call) Run(run func()) *Application
 	return _c
 }
 
-func (_c *Application_GetCapabilitiesRegistry_Call) Return(_a0 *capabilities.Registry) *Application_GetCapabilitiesRegistry_Call {
+func (_c *Application_GetCapabilitiesRegistry_Call) Return(_a0 *registry.Registry) *Application_GetCapabilitiesRegistry_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Application_GetCapabilitiesRegistry_Call) RunAndReturn(run func() *capabilities.Registry) *Application_GetCapabilitiesRegistry_Call {
+func (_c *Application_GetCapabilitiesRegistry_Call) RunAndReturn(run func() *registry.Registry) *Application_GetCapabilitiesRegistry_Call {
 	_c.Call.Return(run)
 	return _c
 }

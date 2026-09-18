@@ -27,6 +27,9 @@ var (
 
 	// bytes4(keccak256("CCIP EVMExtraArgsV2"));
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
+
+	// bytes4(keccak256("CCIP SuiExtraArgsV1")); added by chainlink-ccip PR #2239
+	suiExtraArgsV1Tag = hexutil.MustDecode("0x21ea4ca9")
 )
 
 // ExtraDataDecoder is a helper struct for decoding extra data
@@ -60,6 +63,15 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs ccipocr3.Bytes) (map[st
 		}
 		val = reflect.ValueOf(args)
 		typ = reflect.TypeFor[fee_quoter.SVMExtraArgsV1]()
+	case string(suiExtraArgsV1Tag):
+		var args fee_quoter.SuiExtraArgsV1
+		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
+		err := args.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode extra args: %w", err)
+		}
+		val = reflect.ValueOf(args)
+		typ = reflect.TypeFor[fee_quoter.SuiExtraArgsV1]()
 	default:
 		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs[:4])
 	}

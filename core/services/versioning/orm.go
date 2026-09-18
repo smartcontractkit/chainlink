@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Version ORM manages the node_versions table
@@ -32,7 +32,7 @@ type orm struct {
 func NewORM(ds sqlutil.DataSource, lggr logger.Logger) *orm {
 	return &orm{
 		ds:   ds,
-		lggr: lggr.Named("VersioningORM"),
+		lggr: logger.Named(lggr, "VersioningORM"),
 	}
 }
 
@@ -51,7 +51,7 @@ func (o *orm) UpsertNodeVersion(ctx context.Context, version NodeVersion) error 
 		if env.SkipAppVersionCheck.IsTrue() {
 			o.lggr.Warnw("Skipping app version check", "appVersion", version.Version)
 		} else {
-			if _, _, err := CheckVersion(ctx, tx, logger.NullLogger, version.Version, env.IgnorePrereleaseVersionCheck.IsTrue()); err != nil {
+			if _, _, err := CheckVersion(ctx, tx, logger.Nop(), version.Version, env.IgnorePrereleaseVersionCheck.IsTrue()); err != nil {
 				return err
 			}
 		}
@@ -73,7 +73,7 @@ created_at = EXCLUDED.created_at
 // node_versions table that is higher than the current app version.
 // If ignorePrerelease is true, pre-release information is ignored when comparing versions.
 func CheckVersion(ctx context.Context, ds sqlutil.DataSource, lggr logger.Logger, appVersion string, ignorePrerelease bool) (appv, dbv *semver.Version, err error) {
-	lggr = lggr.Named("Version")
+	lggr = logger.Named(lggr, "Version")
 	var dbVersion string
 	err = ds.GetContext(ctx, &dbVersion, `SELECT version FROM node_versions ORDER BY created_at DESC LIMIT 1 FOR UPDATE`)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -93,7 +93,7 @@ func CheckVersion(ctx context.Context, ds sqlutil.DataSource, lggr logger.Logger
 	appv, apperr := semver.NewVersion(appVersion)
 	if dberr != nil {
 		lggr.Warnf("Database version %q is not valid semver; skipping version check", dbVersion)
-		return nil, nil, nil
+		return nil, nil, nil //nolint:nilerr // intentionally skip the check when the stored version is invalid
 	}
 	if apperr != nil {
 		return nil, nil, errors.Errorf("Application version %q is not valid semver", appVersion)

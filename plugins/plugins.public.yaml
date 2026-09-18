@@ -21,14 +21,6 @@ plugins:
       gitRef: "v0.0.0-20260827120130-362c4a408695"
       installPath: "./relayer/cmd/chainlink-sui"
 
-  cosmos:
-    - moduleURI: "github.com/smartcontractkit/chainlink-cosmos"
-      gitRef: "v0.5.2-0.20260219133256-b46d473fd6f5"
-      installPath: "./pkg/cosmos/cmd/chainlink-cosmos"
-      # These will be copied into /usr/lib in the container.
-      libs:
-        - /go/pkg/mod/github.com/!cosm!wasm/wasmvm@v*/internal/api/libwasmvm.*.so
-
   feeds:
     - moduleURI: "github.com/smartcontractkit/chainlink-feeds"
       gitRef: "v0.1.2-0.20250227211209-7cd000095135"
@@ -36,7 +28,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.3.1-0.20260828163002-995f1f057c76"
+      gitRef: "v1.3.1-0.20260910161304-da23c5c00c4b"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
@@ -66,7 +58,7 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20260810110946-8174b6bb7fc9"
+      gitRef: "v0.3.4-0.20260917132551-2a2b38e8b744"
       installPath: "./pkg/cmd/chainlink-evm"
 
   capability-cron:
@@ -88,7 +80,7 @@ plugins:
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
+      gitRef: "18bbcedb5aded4ce47aba13ff29beef0b3fe5af2"
       installPath: "."
 
   capability-httptrigger:
@@ -103,12 +95,12 @@ plugins:
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "2d0679d1fddcce0b27cd604c71ed0d64c0daac3a"
+      gitRef: "4ba75af01dc81899c1cca757ee905357b88184ca"
       installPath: "."
 
   capability-aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "0de7433796544b33fd29c66d592b3a913d59f7e2"
+      gitRef: "977e430d6ff4db1fba42a4d8a20bc92c8b2ceaba"
       installPath: "."
 
   capability-stellar:

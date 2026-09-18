@@ -338,8 +338,6 @@ DR = 100_000 # Example
 VRF = 100_000 # Example
 # FM overrides LimitDefault for Flux Monitor jobs.
 FM = 100_000 # Example
-# Keeper overrides LimitDefault for Keeper jobs.
-Keeper = 100_000 # Example
 
 
 # These settings allow you to configure how your node calculates gas prices when using the block history estimator.
@@ -586,10 +584,6 @@ Order = 100 # Default
 # If true, we should try reconnecting to the node even when its the only node in the Nodes list.
 # If false and its the only node in the nodes list, we will mark it alive even when its out of sync, because it might still be able to send txs.
 IsLoadBalancedRPC = false # Default
-
-[EVM.OCR2.Automation]
-# GasLimit controls the gas limit for transmit transactions from ocr2automation job.
-GasLimit = 5400000 # Default
 
 [EVM.Workflow]
 # FromAddress is Address of the transmitter key to use for workflow writes.

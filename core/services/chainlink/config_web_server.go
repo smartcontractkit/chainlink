@@ -142,7 +142,7 @@ func (w *webServerConfig) BridgeCacheTTL() time.Duration {
 }
 
 func (w *webServerConfig) HTTPMaxSize() int64 {
-	return int64(*w.c.HTTPMaxSize)
+	return int64(*w.c.HTTPMaxSize) //nolint:gosec // G115: HTTP request size limit is far below math.MaxInt64
 }
 
 func (w *webServerConfig) StartTimeout() time.Duration {
@@ -297,7 +297,7 @@ func (l *ldapConfig) ReadUserGroupCN() string {
 	return *l.c.ReadUserGroupCN
 }
 
-func (l *ldapConfig) UserApiTokenEnabled() bool {
+func (l *ldapConfig) UserApiTokenEnabled() bool { //nolint:revive // method name required by core/config.LDAP interface
 	if l.c.UserApiTokenEnabled == nil {
 		return false
 	}

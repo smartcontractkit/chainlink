@@ -1,13 +1,16 @@
 package v2
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -17,12 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -33,7 +36,7 @@ type EngineConfig struct {
 	Lggr                 logger.Logger
 	Module               host.ModuleV2
 	WorkflowConfig       []byte // workflow author provided config
-	CapRegistry          core.CapabilitiesRegistry
+	CapRegistry          registry.CapabilitiesRegistry
 	DonTimeStore         *dontime.Store
 	UseLocalTimeProvider bool // Set true when DON Time Plugin is not running
 	ExecutionsStore      store.Store
@@ -90,7 +93,7 @@ type EngineLimiters struct {
 	TriggerRegistrationsTime limits.TimeLimiter
 	TriggerSubscription      limits.BoundLimiter[int]
 	TriggerEventQueue        limits.QueueLimiter[RoutedTriggerEvent]
-	TriggerEventQueueTime    limits.TimeLimiter
+	TriggerEventQueueTimeout limits.BoundLimiter[time.Duration]
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
 	WASMBinarySize           limits.BoundLimiter[config.Size]
@@ -121,6 +124,7 @@ type EngineLimiters struct {
 	ExecutionTimestampsEnabled                  limits.GateLimiter
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
+	ShardingFailoverEnabled                     limits.GateLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
 }
 
@@ -140,148 +144,155 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	}
 	l.ExecutionResponse, err = limits.MakeUpperBoundLimiter(lf, cfg.ExecutionResponseLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.TriggerSubscriptionTime, err = lf.MakeTimeLimiter(cfg.TriggerSubscriptionTimeout)
 	if err != nil {
-		return
+		return err
 	}
 	l.TriggerRegistrationsTime, err = lf.MakeTimeLimiter(cfg.TriggerRegistrationsTimeout)
 	if err != nil {
-		return
+		return err
 	}
 	l.TriggerSubscription, err = limits.MakeUpperBoundLimiter(lf, cfg.TriggerSubscriptionLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.TriggerEventQueue, err = limits.MakeQueueLimiter[RoutedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
 	if err != nil {
-		return
+		return err
 	}
-	l.TriggerEventQueueTime, err = lf.MakeTimeLimiter(cfg.TriggerEventQueueTimeout)
+	l.TriggerEventQueueTimeout, err = limits.MakeUpperBoundLimiter(lf, cfg.TriggerEventQueueTimeout)
 	if err != nil {
-		return
+		return err
 	}
 
 	globalExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.WorkflowExecutionConcurrencyLimit)
 	if err != nil {
-		return
+		return err
 	}
 	orgExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.PerOrg.WorkflowExecutionConcurrencyLimit)
 	if err != nil {
-		return
+		return err
 	}
 	ownerExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.PerOwner.WorkflowExecutionConcurrencyLimit)
 	if err != nil {
-		return
+		return err
 	}
 	wfExec, err := limits.MakeResourcePoolLimiter(lf, cfg.ExecutionConcurrencyLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.ExecutionConcurrency = limits.MultiResourcePoolLimiter[int]{wfExec, ownerExec, orgExec, globalExec}
 
 	l.WASMBinarySize, err = limits.MakeUpperBoundLimiter(lf, cfg.WASMBinarySizeLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.WASMMemorySize, err = limits.MakeUpperBoundLimiter(lf, cfg.WASMMemoryLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.WASMCompressedBinarySize, err = limits.MakeUpperBoundLimiter(lf, cfg.WASMCompressedBinarySizeLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.CapabilityConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.CapabilityConcurrencyLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.SecretsConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.SecretsConcurrencyLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.ExecutionTime, err = lf.MakeTimeLimiter(cfg.ExecutionTimeout)
 	if err != nil {
-		return
+		return err
 	}
 	l.CapabilityCallTime, err = lf.MakeTimeLimiter(cfg.CapabilityCallTimeout)
 	if err != nil {
-		return
+		return err
 	}
 	l.LogEvent, err = limits.MakeUpperBoundLimiter(lf, cfg.LogEventLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.LogLine, err = limits.MakeUpperBoundLimiter(lf, cfg.LogLineLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.UserMetricEnabled, err = limits.MakeGateLimiter(lf, cfg.UserMetricEnabled)
 	if err != nil {
-		return
+		return err
 	}
 	l.UserMetricPayload, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricPayloadLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.UserMetricNameLength, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricNameLengthLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.UserMetricLabelsPerMetric, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricLabelsPerMetric)
 	if err != nil {
-		return
+		return err
 	}
 	l.UserMetricLabelValueLength, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricLabelValueLength)
 	if err != nil {
-		return
+		return err
 	}
 	l.ChainAllowed, err = limits.MakeGateLimiter(lf, cfg.ChainAllowed)
 	if err != nil {
-		return
+		return err
 	}
 	l.ChainWriteTargets, err = limits.MakeUpperBoundLimiter(lf, cfg.ChainWrite.TargetsLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.ChainReadCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.ChainRead.CallLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.ConsensusCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.Consensus.CallLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.HTTPActionCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.HTTPAction.CallLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.ConfidentialHTTPCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.ConfidentialHTTP.CallLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.SecretsCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.Secrets.CallLimit)
 	if err != nil {
-		return
+		return err
 	}
 	l.ExecutionTimestampsEnabled, err = limits.MakeGateLimiter(lf, cfg.ExecutionTimestampsEnabled)
 	if err != nil {
-		return
+		return err
 	}
 	l.ConfidentialWorkflowsEnabled, err = limits.MakeGateLimiter(lf, cfg.ConfidentialWorkflows.Enabled)
 	if err != nil {
-		return
+		return err
 	}
 	l.CentralizedWorkflowOwnerVerificationEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.CentralizedWorkflowOwnerVerificationEnabled)
 	if err != nil {
-		return
+		return err
+	}
+	shardingFailoverSetting := settings.Bool(false)
+	shardingFailoverSetting.Key = "ShardingFailoverEnabled"
+	shardingFailoverSetting.Scope = settings.ScopeGlobal
+	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, shardingFailoverSetting)
+	if err != nil {
+		return err
 	}
 	l.DONTimeRequestTimeout, err = lf.MakeTimeLimiter(cfg.DONTime.RequestTimeout)
 	if err != nil {
-		return
+		return err
 	}
-	return
+	return err
 }
 
 // EvictWorkflow removes per-workflow scoped state (background goroutines,
@@ -295,7 +306,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
 		l.TriggerEventQueue,
-		l.TriggerEventQueueTime,
+		l.TriggerEventQueueTimeout,
 		l.ExecutionConcurrency,
 		l.WASMBinarySize,
 		l.WASMMemorySize,
@@ -339,7 +350,7 @@ func (l *EngineLimiters) Close() error {
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
 		l.TriggerEventQueue,
-		l.TriggerEventQueueTime,
+		l.TriggerEventQueueTimeout,
 		l.ExecutionConcurrency,
 		l.WASMBinarySize,
 		l.WASMMemorySize,
@@ -413,14 +424,25 @@ type LifecycleHooks struct {
 	// registration begins. It allows the caller (syncer/dispatcher) to
 	// inspect or modify the subscriptions before they are registered with
 	// the capabilities registry. Returning an error aborts initialization.
-	OnSubscriptionsReady   func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error
-	OnSubscribedToTriggers func(triggerIDs []string)
-	OnTriggerEventDropped  func(triggerID, eventID, reason string)
-	OnExecutionFinished    func(executionID string, status string)
-	OnExecutionError       func(msg string)
-	OnResultReceived       func(*sdkpb.ExecutionResult)
-	OnRateLimited          func(executionID string)
-	OnNodeSynced           func(node commoncap.Node, err error)
+	OnSubscriptionsReady    func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error
+	OnSubscribedToTriggers  func(triggerIDs []string)
+	OnTriggerEventDropped   func(triggerID, eventID, reason string)
+	OnExecutionFinished     func(executionID string, status string)
+	OnExecutionError        func(msg string)
+	OnExecutionStatusUpdate func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification)
+	OnResultReceived        func(*sdkpb.ExecutionResult)
+	OnRateLimited           func(executionID string)
+	OnNodeSynced            func(node commoncap.Node, err error)
+
+	// OnTriggerAdmission is called before a trigger event is enqueued for
+	// execution. It allows an external management layer (e.g. the
+	// ShardFailoverManager) to decide whether the engine should process the
+	// event.  Return values:
+	//   - nil: the event is allowed; the engine enqueues and executes it.
+	//   - ErrAdmissionCache: the event was cached by the admission layer;
+	//     the engine drops it without ACKing.
+	//   - any other error: the event is denied; the engine ACKs and drops it.
+	OnTriggerAdmission func(ctx context.Context, event RoutedTriggerEvent) error
 
 	// Used by the standalone engine
 	OnRequirementsSet func(executionId string, requirements *sdkpb.Requirements)
@@ -508,7 +530,14 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		h.OnExecutionError = func(msg string) {}
 	}
 	if h.OnExecutionFinished == nil {
-		h.OnExecutionFinished = func(executionID string, status string) {}
+		h.OnExecutionFinished = func(executionID, status string) {}
+	}
+	if h.OnExecutionStatusUpdate == nil {
+		h.OnExecutionStatusUpdate = func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
+		}
+	}
+	if h.OnTriggerAdmission == nil {
+		h.OnTriggerAdmission = func(_ context.Context, _ RoutedTriggerEvent) error { return nil }
 	}
 	if h.OnRateLimited == nil {
 		h.OnRateLimited = func(executionID string) {}

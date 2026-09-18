@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -36,13 +37,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
@@ -55,6 +54,7 @@ var (
 	ErrShardDeniedNotOwner     = errors.New("shard ownership denied: not owner")
 	ErrShardDeniedOrchestrator = errors.New("shard ownership denied: orchestrator error")
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
+	ErrAdmissionCache          = errors.New("admission: event cached for failover")
 
 	ErrEngineDraining = errors.New("engine is draining")
 	ErrQueueFull      = errors.New("trigger event queue is full")
@@ -326,12 +326,16 @@ func (e *Engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, e
 
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
-		return nil, err
+		if !limits.IsErrRecoverable(err) {
+			return nil, err
+		}
+		e.logger().Errorw("Failed to get log event limit; continuing with the value the limiter returned", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.LogEventLimit.Key)
 	}
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
-	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID, e.eventLabels())
+	e.srvcEng.GoCtx(subCtx, func(ctx context.Context) {
+		e.emitUserLogs(ctx, userLogChan, e.cfg.WorkflowID, e.eventLabels())
 	})
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
@@ -341,7 +345,11 @@ func (e *Engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, e
 
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
-		return nil, err
+		if !limits.IsErrRecoverable(err) {
+			return nil, err
+		}
+		e.logger().Errorw("Failed to get execution response size limit; continuing with the value the limiter returned", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.ExecutionResponseLimit.Key)
 	}
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		return nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
@@ -390,17 +398,40 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 		return ErrEngineDraining
 	}
 
+	// Admission check: an external management layer (e.g. ShardFailoverManager)
+	// decides whether this event should be processed by the engine.
+	if err := e.cfg.Hooks.OnTriggerAdmission(ctx, event); err != nil {
+		if errors.Is(err, ErrAdmissionCache) {
+			e.logger().Infow("Trigger event cached for failover, not enqueuing", "triggerID", triggerID, "eventID", eventID)
+			return err
+		}
+		// Denied: ACK and drop
+		registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
+		if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
+			e.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
+		}
+		e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "admission_denied")
+		return err
+	}
+
 	// Stamp the deadline once at dispatch: observedAt + queue timeout.
 	// If ObservedAt is not set, use the current time.
 	if event.ObservedAt.IsZero() {
 		event.ObservedAt = e.cfg.Clock.Now()
 	}
-	queueTimeout, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
+	queueTimeout, err := e.cfg.LocalLimiters.TriggerEventQueueTimeout.Limit(ctx)
 	if err != nil {
-		e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
-		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
-		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonQueueAgeLimitReadFailed)
-		return ErrEnqueueFailed
+		if !limits.IsErrRecoverable(err) {
+			// No value was resolved, so the deadline below would already be expired.
+			e.logger().Errorw("Failed to get trigger event queue time limit with no usable value", "err", err)
+			e.metrics.With(platform.KeyTriggerID, triggerID).
+				IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonQueueAgeLimitReadFailed)
+			return ErrEnqueueFailed
+		}
+		// A settings read failure is not a reason to drop a customer's trigger event:
+		// the limiter still returns a usable timeout, so stamp the deadline and continue.
+		e.logger().Errorw("Failed to get trigger event queue time limit; continuing with the value the limiter returned", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.Key)
 	}
 	event.Deadline = event.ObservedAt.Add(queueTimeout)
 
@@ -925,62 +956,14 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 		}
 	}()
 
-	needShardOwnerCheck := e.cfg.ShardRoutingSteady == nil || !e.cfg.ShardRoutingSteady.SkipCommittedOwnerCheck()
-	if e.cfg.ShardingEnabled && needShardOwnerCheck {
-		var verdict shardownership.Verdict
-		var mapResp *ringpb.GetWorkflowShardMappingResponse
-		var ownErr error
-
-		switch {
-		case e.cfg.ShardResolver != nil:
-			shardID, found, resolveErr := e.cfg.ShardResolver.ResolveShard(ctx, e.cfg.WorkflowID, e.cfg.WorkflowOwner)
-			switch {
-			case resolveErr != nil:
-				verdict = shardownership.DenyOrchestratorError
-				ownErr = resolveErr
-			case !found || shardID != e.cfg.MyDonID:
-				verdict = shardownership.DenyNotOwner
-			default:
-				verdict = shardownership.Allow
-			}
-		case e.cfg.ShardOrchestratorClient != nil:
-			verdict, mapResp, ownErr = shardownership.CheckCommittedOwner(ctx, e.cfg.ShardOrchestratorClient, e.cfg.WorkflowID, e.cfg.MyDonID)
-		default:
-			verdict = shardownership.Allow
-		}
-
-		switch verdict {
-		case shardownership.Allow:
-		case shardownership.DenyOrchestratorError:
-			lggr.Warnw("Shard ownership check failed (orchestrator error); skipping execution", "err", ownErr)
-			e.metrics.IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx)
-			triggerDrop(monitoring.TriggerDropReasonShardDeniedOrchestrator)
-			executionStatus = store.StatusErrored
-			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-			if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID); ackErr != nil {
-				e.logger().Errorw("failed to ACK trigger after shard ownership orchestrator error", "eventID", triggerEvent.ID, "err", ackErr)
-			}
-			return ErrShardDeniedOrchestrator
-		case shardownership.DenyNotOwner:
-			logFields := []any{
-				"executionID", executionID,
-				"myDonID", e.cfg.MyDonID,
-				"routingStateId", mapResp.GetRoutingStateId(),
-				"routingSteady", mapResp.GetRoutingSteady(),
-			}
-			if m, ok := mapResp.GetMappings()[e.cfg.WorkflowID]; ok {
-				logFields = append(logFields, "mappedShard", m)
-			}
-			lggr.Infow("Skipping execution: workflow not owned by this shard per orchestrator", logFields...)
-			e.metrics.IncrementShardExecutionDeniedNotOwnerCounter(ctx)
-			triggerDrop(monitoring.TriggerDropReasonShardDeniedNotOwner)
-			executionStatus = store.StatusErrored
-			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-			if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID); ackErr != nil {
-				e.logger().Errorw("failed to ACK trigger after shard ownership denial", "eventID", triggerEvent.ID, "err", ackErr)
-			}
-			return ErrShardDeniedNotOwner
-		}
+	// emitDroppedExecution publishes the Started/Finished pair for an execution abandoned
+	// before the normal Started/Finished emit points below, so the failure reaches the UI
+	// instead of vanishing.
+	emitDroppedExecution := func(cause error, class events.ErrorClassification) {
+		executionStatus = store.StatusErrored
+		_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, store.StatusErrored, executionID, cause, class, lggr)
+		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, store.StatusErrored)
 	}
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
@@ -1005,11 +988,23 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 		e.deductStandardBalances(ctx, meteringReport)
 	}
 
+	// WithTimeout returns a usable ctx/cancel even on a read failure; err is advisory.
 	execCtx, execCancel, err := e.cfg.LocalLimiters.ExecutionTime.WithTimeout(ctx)
 	if err != nil {
-		lggr.Errorw("Failed to get execution time limit", "err", err)
-		triggerDrop(monitoring.TriggerDropReasonExecutionTimeLimitReadFailed)
-		return err
+		if !limits.IsErrRecoverable(err) {
+			lggr.Errorw("Failed to get execution time limit with no usable value", "err", err)
+			triggerDrop(monitoring.TriggerDropReasonExecutionTimeLimitReadFailed)
+			emitDroppedExecution(err, events.ErrorClassificationSystem)
+			if execCancel != nil {
+				execCancel() // WithTimeout may still have built a context
+			}
+			return err
+		}
+		lggr.Errorw("Failed to get execution time limit; continuing with the timeout the limiter returned", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.ExecutionTimeout.Key)
+		if execCtx == nil { // only nil when the limiter is closed and no ctx was built
+			execCtx, execCancel = context.WithTimeout(ctx, cresettings.Default.PerWorkflow.ExecutionTimeout.DefaultValue)
+		}
 	}
 	defer execCancel()
 	triggerCapID := event.TriggerCapID
@@ -1023,22 +1018,30 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 	executionLogger := logger.With(lggr, "executionID", executionID, "triggerID", event.TriggerCapID,
 		"triggerIndex", event.TriggerIndex, "eventID", triggerEvent.ID)
 
+	// This is only a peek to size the user-log channel's burst buffer; LogEvent.Check
+	// (called per log line in emitUserLogs) is what actually enforces the cap.
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
-		lggr.Errorw("Failed to get log event limit", "err", err)
-		triggerDrop(monitoring.TriggerDropReasonLogEventLimitReadFailed)
-		return err
+		if !limits.IsErrRecoverable(err) {
+			lggr.Errorw("Failed to get log event limit with no usable value", "err", err)
+			triggerDrop(monitoring.TriggerDropReasonLogEventLimitReadFailed)
+			emitDroppedExecution(err, events.ErrorClassificationSystem)
+			return err
+		}
+		lggr.Errorw("Failed to get log event limit; continuing with the value the limiter returned", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.LogEventLimit.Key)
 	}
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
-	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(execCtx, userLogChan, executionID, loggerLabels)
+	e.srvcEng.GoCtx(execCtx, func(ctx context.Context) {
+		e.emitUserLogs(ctx, userLogChan, executionID, loggerLabels)
 	})
 
 	tid, err := safe.IntToUint64(event.TriggerIndex)
 	if err != nil {
 		executionLogger.Errorw("Failed to convert trigger index to uint64", "err", err)
 		triggerDrop(monitoring.TriggerDropReasonTriggerIndexInvalid)
+		emitDroppedExecution(err, events.ErrorClassificationSystem)
 		return err
 	}
 
@@ -1087,6 +1090,7 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			}
 		}
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
+		e.cfg.Hooks.OnExecutionStatusUpdate(e.cfg.WorkflowID, executionID, triggerEvent.ID, event.TriggerIndex, executionStatus, execErrClass)
 		if execErr != nil {
 			e.cfg.Hooks.OnExecutionError(execErr.Error())
 		}
@@ -1109,14 +1113,19 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 	suspension := &suspensionTracker{}
 	timeProvider = newMeasuredTimeProvider(timeProvider, e.cfg.Clock, suspension)
 
+	// Limit is always usable even on a read failure; err is advisory.
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
-		lggr.Errorw("Failed to get execution response size limit", "err", err)
-		executionStatus = store.StatusErrored
-		execErr = err
-		execErrClass = events.ErrorClassificationSystem
-		triggerDrop(monitoring.TriggerDropReasonExecutionResponseLimitReadFailed)
-		return err
+		if !limits.IsErrRecoverable(err) {
+			execErr = fmt.Errorf("failed to get execution response size limit with no usable value: %w", err)
+			lggr.Errorw(execErr.Error())
+			executionStatus = store.StatusErrored
+			execErrClass = events.ErrorClassificationSystem
+			triggerDrop(monitoring.TriggerDropReasonExecutionResponseLimitReadFailed)
+			return execErr
+		}
+		lggr.Errorw("Failed to get execution response size limit; continuing with the value the limiter returned", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.ExecutionResponseLimit.Key)
 	}
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		execErr = fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
@@ -1341,10 +1350,15 @@ func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *met
 	// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
 	// Add an extra second of metering padding for context cancel propagation
 	ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
+	// Limit is always usable even on a read failure; err is advisory.
 	workflowExecutionTimeout, err := e.cfg.LocalLimiters.ExecutionTime.Limit(ctx)
 	if err != nil {
-		e.logger().Errorw("Failed to get execution time limit", "err", err)
-		return
+		if !limits.IsErrRecoverable(err) {
+			e.logger().Errorw("Failed to get execution time limit with no usable value; skipping compute deduction", "err", err)
+			return
+		}
+		e.logger().Errorw("Failed to get execution time limit; continuing with the value the limiter returned", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.ExecutionTimeout.Key)
 	}
 	compMs := decimal.NewFromInt(workflowExecutionTimeout.Milliseconds() + ctxCancelPadding)
 	computeUnit := billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()
@@ -1369,22 +1383,30 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 		if e.cfg.DebugMode {
 			e.logger().Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
 		}
-		err := e.cfg.LocalLimiters.LogEvent.Check(emitCtx, count)
-		if err != nil {
+		if err := e.cfg.LocalLimiters.LogEvent.Check(emitCtx, count); err != nil {
 			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
 				e.logger().Warnw("Max user log events per execution reached, dropping event", "maxEvents", errBoundLimited.Limit, "err", err)
 				return false
 			}
-			e.logger().Errorw("Failed to get user log event limit", "err", err)
-			return false
+			// A settings read failure should not stop the drain. Fail open instead.
+			if limits.IsErrRecoverable(err) {
+				e.logger().Errorw("Failed to check user log event limit; emitting anyway", "err", err)
+			} else {
+				e.logger().Errorw("User log event limit could not be evaluated; emitting anyway", "err", err)
+			}
+			e.metrics.IncrementLimitCheckUnenforcedCounter(emitCtx, cresettings.Default.PerWorkflow.LogEventLimit.Key)
 		}
-		maxUserLogLength, err := e.cfg.LocalLimiters.LogLine.Limit(emitCtx)
-		if err != nil {
-			e.logger().Errorw("Failed to get user log line limit", "err", err)
-			return false
-		}
-		if len(logLine.Message) > int(maxUserLogLength) {
-			logLine.Message = logLine.Message[:maxUserLogLength] + " ...(truncated)"
+		if err := e.cfg.LocalLimiters.LogLine.Check(emitCtx, config.Size(len(logLine.Message))); err != nil {
+			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[config.Size]](err); ok {
+				logLine.Message = logLine.Message[:errBoundLimited.Limit] + " ...(truncated)"
+			} else {
+				if limits.IsErrRecoverable(err) {
+					e.logger().Errorw("Failed to check user log line limit; emitting untruncated", "err", err)
+				} else {
+					e.logger().Errorw("User log line limit could not be evaluated; emitting untruncated", "err", err)
+				}
+				e.metrics.IncrementLimitCheckUnenforcedCounter(emitCtx, cresettings.Default.PerWorkflow.LogLineLimit.Key)
+			}
 		}
 
 		if err := events.EmitUserLogs(emitCtx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
@@ -1430,18 +1452,18 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 }
 
 func (e *Engine) donTimeRequestTimeout(ctx context.Context, limiter limits.TimeLimiter) time.Duration {
-	defaultTimeout := cresettings.Default.PerWorkflow.DONTime.RequestTimeout.DefaultValue
-	if limiter != nil {
-		limit, err := limiter.Limit(ctx)
-		if err != nil {
-			e.logger().Errorw("Failed to get DON time request timeout", "err", err)
-			return defaultTimeout
-		}
-		if limit <= 0 {
-			e.logger().Warnw("DON time request timeout is less than or equal to 0, using default timeout", "defaultTimeout", defaultTimeout)
-			return defaultTimeout
-		}
-		return limit
+	if limiter == nil {
+		return cresettings.Default.PerWorkflow.DONTime.RequestTimeout.DefaultValue
 	}
-	return defaultTimeout
+	// A zero timeout is a valid, explicitly configured limit and is honoured as-is.
+	limit, err := limiter.Limit(ctx)
+	if err != nil {
+		if !limits.IsErrRecoverable(err) {
+			e.logger().Errorw("Failed to get DON time request timeout with no usable value; using the compiled default", "err", err)
+			return cresettings.Default.PerWorkflow.DONTime.RequestTimeout.DefaultValue
+		}
+		e.logger().Errorw("Failed to get DON time request timeout; continuing with the value the limiter returned", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.DONTime.RequestTimeout.Key)
+	}
+	return limit
 }
