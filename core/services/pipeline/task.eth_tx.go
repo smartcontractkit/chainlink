@@ -50,6 +50,21 @@ type ETHKeyStore interface {
 	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addrs ...common.Address) (common.Address, error)
 }
 
+func literalAddressSlice(value string) GetterFunc {
+	return func() (any, error) {
+		value, err := NonemptyString(value)()
+		if err != nil {
+			return nil, err
+		}
+
+		var address AddressParam
+		if err := address.UnmarshalPipelineParam(value); err != nil {
+			return nil, ErrParameterEmpty
+		}
+		return []common.Address{common.Address(address)}, nil
+	}
+}
+
 var _ Task = (*ETHTxTask)(nil)
 
 func (t *ETHTxTask) Type() TaskType {
@@ -100,7 +115,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		failOnRevert          BoolParam
 	)
 	err = stderrors.Join(
-		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
+		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), literalAddressSlice(t.From), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
 		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
 		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), maximumGasLimit)), "gasLimit"),
