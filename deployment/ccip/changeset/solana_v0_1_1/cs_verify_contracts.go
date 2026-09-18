@@ -315,7 +315,7 @@ func setConfig(e cldf.Environment, chain cldf_solana.Chain) error {
 
 func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainStateSolana(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
