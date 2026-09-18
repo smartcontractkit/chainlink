@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 	"golang.org/x/sync/errgroup"
@@ -31,11 +32,11 @@ import (
 type TriggerDispatcher interface {
 	services.Service
 	RegisterTriggers(ctx context.Context, cre contexts.CRE, params RegistrationParams, subs []*sdkpb.TriggerSubscription) ([]string, error)
+	// UnregisterTriggers stops event ingress for the workflow immediately, then
+	// releases its retained trigger handles once the engine reports no more
+	// active executions (or a bounded timeout elapses). Safe to call even if
+	// the workflow was never registered.
 	UnregisterTriggers(workflowID string) error
-	// ReleaseHandles drops the retained handles for a workflow, after which
-	// its in-flight executions can no longer acknowledge. Called by the syncer
-	// once the engine has drained and closed.
-	ReleaseHandles(workflowID string) error
 	// Ack acknowledges a trigger event by resolving the registration's handle
 	// and calling AckEvent on the trigger capability. Engines call this after
 	// execution starts, on duplicate executions, and on shard-ownership
@@ -77,6 +78,25 @@ type eventSink interface {
 	Put(ctx context.Context, event v2.RoutedTriggerEvent) error
 }
 
+// activeExecutionsReporter is how UnregisterTriggers waits for a workflow's
+// in-flight executions to finish before releasing its trigger handles. Every
+// engine implementation already exposes this (it backs Drain/DrainableService
+// on the syncer side); the dispatcher only needs this one method of it, and
+// resolves it from the registry the same way eventSink is resolved.
+type activeExecutionsReporter interface {
+	ActiveExecutions() int32
+}
+
+const (
+	// releaseHandlesPollInterval is how often UnregisterTriggers rechecks
+	// ActiveExecutions while waiting to release a workflow's trigger handles.
+	releaseHandlesPollInterval = 250 * time.Millisecond
+	// releaseHandlesTimeout bounds that wait so a workflow whose engine never
+	// reaches zero active executions (e.g. it was already popped from the
+	// registry mid-drain) doesn't leak its trigger handles forever.
+	releaseHandlesTimeout = 5 * time.Minute
+)
+
 // triggerDispatcher is the implementation of TriggerDispatcher.
 type triggerDispatcher struct {
 	services.Service
@@ -100,13 +120,11 @@ type triggerDispatcher struct {
 }
 
 // workflowTriggers is everything the dispatcher owns for one workflow: the
-// tenant context, registration metadata, the handle map, and the ingress
-// state.
+// tenant context, registration metadata, and the handle map.
 type workflowTriggers struct {
 	cre     contexts.CRE
 	params  RegistrationParams
 	handles map[string]*triggerHandle // registrationID -> handle
-	unreg   bool                      // ingress stopped, handles retained
 }
 
 // triggerHandle is a registered trigger capability plus the registration
@@ -400,9 +418,11 @@ func (d *triggerDispatcher) Ack(ctx context.Context, workflowID, triggerCapID, t
 }
 
 // UnregisterTriggers unregisters the workflow's triggers with the capability
-// registry, stopping event ingress. The handles are retained so executions
-// already in flight can still acknowledge; the syncer drops them via
-// ReleaseHandles once the engine has drained and closed.
+// registry, stopping event ingress immediately. The handles are retained —
+// so an execution already in flight can still Ack — until the engine reports
+// no more active executions (or releaseHandlesTimeout elapses), at which
+// point they're released in the background. Safe to call even if the
+// workflow was never registered.
 func (d *triggerDispatcher) UnregisterTriggers(workflowID string) error {
 	wid, err := types.WorkflowIDFromHex(workflowID)
 	if err != nil {
@@ -411,12 +431,10 @@ func (d *triggerDispatcher) UnregisterTriggers(workflowID string) error {
 
 	d.mu.Lock()
 	wt, ok := d.workflows[wid]
+	d.mu.Unlock()
 	if !ok {
-		d.mu.Unlock()
 		return fmt.Errorf("no triggers registered for workflow %s", workflowID)
 	}
-	wt.unreg = true // ingress stopped; handles retained
-	d.mu.Unlock()
 
 	// Unregister with the capability registry outside the lock.
 	ctx := context.Background()
@@ -434,20 +452,46 @@ func (d *triggerDispatcher) UnregisterTriggers(workflowID string) error {
 		}
 	}
 	d.metrics.IncrementWorkflowUnregisteredCounter(ctx)
+
+	d.eng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
+		d.releaseHandlesWhenDrained(ctx, wid)
+	})
 	return nil
 }
 
-// ReleaseHandles drops the retained handles for a workflow, after which its
-// in-flight executions can no longer acknowledge. Safe to call multiple times.
-func (d *triggerDispatcher) ReleaseHandles(workflowID string) error {
-	wid, err := types.WorkflowIDFromHex(workflowID)
-	if err != nil {
-		return fmt.Errorf("invalid workflowID: %w", err)
+// releaseHandlesWhenDrained waits for the workflow's engine to report zero
+// active executions — resolving it from the registry the same way the reader
+// resolves eventSink, since the dispatcher holds no engine reference — and
+// then drops the retained handles. It gives up and releases anyway, with a
+// warning, if releaseHandlesTimeout elapses or the engine is no longer in the
+// registry (already popped, so nothing is left to wait for).
+func (d *triggerDispatcher) releaseHandlesWhenDrained(ctx context.Context, wid types.WorkflowID) {
+	ctx, cancel := context.WithTimeout(ctx, releaseHandlesTimeout)
+	defer cancel()
+	ticker := time.NewTicker(releaseHandlesPollInterval)
+	defer ticker.Stop()
+
+waitForDrain:
+	for {
+		svc, found := d.registry.Get(wid)
+		if !found {
+			break waitForDrain
+		}
+		reporter, ok := svc.Service.(activeExecutionsReporter)
+		if !ok || reporter.ActiveExecutions() == 0 {
+			break waitForDrain
+		}
+		select {
+		case <-ctx.Done():
+			d.lggr.Warnw("Timed out waiting for active executions to drain; releasing trigger handles anyway", "workflowID", wid)
+			break waitForDrain
+		case <-ticker.C:
+		}
 	}
+
 	d.mu.Lock()
-	defer d.mu.Unlock()
 	delete(d.workflows, wid)
-	return nil
+	d.mu.Unlock()
 }
 
 // unregisterAll rolls back every successful registration when one or more
