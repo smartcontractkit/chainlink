@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -24,11 +25,14 @@ import (
 )
 
 // fakePutEngine is a services.Service that also implements the dispatcher's
-// narrow eventSink interface, so a RegisterTriggers reader can resolve and
-// deliver to it via the EngineRegistry, exactly as it would a real engine.
+// narrow eventSink and activeExecutionsReporter interfaces, so a
+// RegisterTriggers reader can resolve and deliver to it via the
+// EngineRegistry, and UnregisterTriggers can wait on it, exactly as it would
+// a real engine.
 type fakePutEngine struct {
 	fakeService
-	putCh chan enginev2.RoutedTriggerEvent
+	putCh  chan enginev2.RoutedTriggerEvent
+	active atomic.Int32
 }
 
 func newFakePutEngine() *fakePutEngine {
@@ -40,7 +44,12 @@ func (f *fakePutEngine) Put(_ context.Context, event enginev2.RoutedTriggerEvent
 	return nil
 }
 
-var _ eventSink = (*fakePutEngine)(nil)
+func (f *fakePutEngine) ActiveExecutions() int32 { return f.active.Load() }
+
+var (
+	_ eventSink                = (*fakePutEngine)(nil)
+	_ activeExecutionsReporter = (*fakePutEngine)(nil)
+)
 
 func newTestDispatcher(t *testing.T, capReg *regmocks.CapabilitiesRegistry, registry *EngineRegistry) TriggerDispatcher {
 	t.Helper()
@@ -220,10 +229,11 @@ func Test_Ack_UnknownRegistration_ReturnsError(t *testing.T) {
 }
 
 // Unregistering stops ingress immediately (UnregisterTrigger is called on the capability) but
-// the handle is RETAINED, so an execution that was already in flight when unregistration
-// started can still successfully Ack. Only ReleaseHandles (called by the syncer once the engine
-// has fully drained and closed) makes that Ack impossible.
-func Test_UnregisterTriggers_RetainsHandlesForInFlightAck(t *testing.T) {
+// the handle is RETAINED for as long as the engine reports active executions, so an execution
+// that was already in flight when unregistration started can still successfully Ack. Once the
+// engine reports it has drained, UnregisterTriggers releases the handle in the background and
+// that Ack becomes impossible.
+func Test_UnregisterTriggers_RetainsHandlesUntilEngineDrains(t *testing.T) {
 	t.Parallel()
 
 	capReg := regmocks.NewCapabilitiesRegistry(t)
@@ -235,6 +245,10 @@ func Test_UnregisterTriggers_RetainsHandlesForInFlightAck(t *testing.T) {
 	trigger.EXPECT().RegisterTrigger(mock.Anything, mock.Anything).Return(make(chan capabilities.TriggerResponse), nil).Once()
 
 	wid := testWorkflowID(6)
+	engine := newFakePutEngine()
+	engine.active.Store(1) // an execution is in flight
+	require.NoError(t, registry.Add(wid, "test-source", engine))
+
 	cre := contexts.CRE{Owner: "owner-a", Workflow: wid.Hex()}
 	_, err := d.RegisterTriggers(t.Context(), cre, RegistrationParams{}, []*sdkpb.TriggerSubscription{testSub("id_0")})
 	require.NoError(t, err)
@@ -243,31 +257,22 @@ func Test_UnregisterTriggers_RetainsHandlesForInFlightAck(t *testing.T) {
 	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 	require.NoError(t, d.UnregisterTriggers(wid.Hex()))
 
-	// ...but the handle is retained: an execution still in flight (started
-	// before unregistration) can still Ack successfully.
+	// ...but the handle is retained while the engine still reports an active
+	// execution: it can still Ack successfully.
 	regID := enginev2.TriggerRegistrationID(wid.Hex(), 0)
 	trigger.EXPECT().AckEvent(mock.Anything, regID, "in-flight-event", "Trigger").Return(nil).Once()
 	require.NoError(t, d.Ack(t.Context(), wid.Hex(), "id_0", regID, "in-flight-event"))
 
-	// Once the syncer has drained and closed the engine, it releases the
-	// handles. From this point on, Ack for the same registration must fail —
-	// there is nothing left to resolve it to.
-	require.NoError(t, d.ReleaseHandles(wid.Hex()))
-	err = d.Ack(t.Context(), wid.Hex(), "id_0", regID, "too-late-event")
-	require.Error(t, err)
-}
-
-// ReleaseHandles may be called more than once (e.g. a retried cleanup) without error.
-func Test_ReleaseHandles_IsIdempotent(t *testing.T) {
-	t.Parallel()
-
-	capReg := regmocks.NewCapabilitiesRegistry(t)
-	registry := NewEngineRegistry()
-	d := newTestDispatcher(t, capReg, registry)
-
-	wid := testWorkflowID(7)
-	require.NoError(t, d.ReleaseHandles(wid.Hex()))
-	require.NoError(t, d.ReleaseHandles(wid.Hex()))
+	// Once the engine reports it has drained, the dispatcher releases the
+	// handle in the background. From this point on, Ack for the same
+	// registration must eventually fail — there is nothing left to resolve
+	// it to. The poll loop's own Ack calls may land before release finishes,
+	// so this expectation is optional (.Maybe()) and only exercised on those.
+	trigger.EXPECT().AckEvent(mock.Anything, regID, "too-late-event", "Trigger").Return(nil).Maybe()
+	engine.active.Store(0)
+	require.Eventually(t, func() bool {
+		return d.Ack(t.Context(), wid.Hex(), "id_0", regID, "too-late-event") != nil
+	}, 3*time.Second, 20*time.Millisecond, "handle was never released after the engine drained")
 }
 
 // Unregistering a workflow the dispatcher never registered (e.g. a duplicate/retried
