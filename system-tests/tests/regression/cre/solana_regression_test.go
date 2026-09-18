@@ -87,6 +87,61 @@ var (
 // system-owned (and therefore non-executable) account.
 var solanaFundingAmount = big.NewInt(1_000_000_000)
 
+// Test_CRE_V2_Solana_Regression runs all Solana regression scenarios as subtests under a single
+// CI matrix entry, mirroring Test_CRE_V2_Stellar_Regression.
+//
+// Unlike the Stellar group, which boots one test environment and shares it across its subtests,
+// every Solana subtest sets up its own environment with per-test keys, so the whole group can
+// run in parallel (CRE_TEST_PARALLEL_ENABLED) without the subtests colliding on the shared
+// registry deployer nonces.
+func Test_CRE_V2_Solana_Regression(t *testing.T) {
+	if parallelEnabled {
+		t.Parallel()
+	}
+
+	t.Run("WriteReportInvalidReceiver", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
+		runSolanaWriteNegativeTestSuite(t, "invalid-receiver", solanaNegativeTestsWriteReportInvalidReceiver)
+	})
+
+	t.Run("WriteReportInvalidPayload", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
+		runSolanaWriteNegativeTestSuite(t, "invalid-payload", solanaNegativeTestsWriteReportInvalidPayload)
+	})
+
+	t.Run("ReadAccountCalls", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
+		runSolanaReadNegativeTestSuite(t, "account-calls", solanaReadBatchAccountCalls)
+	})
+
+	t.Run("ReadProgramBlockAndTxCalls", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
+		runSolanaReadNegativeTestSuite(t, "program-block-and-tx-calls", solanaReadBatchProgramBlockAndTxCalls)
+	})
+
+	// Log trigger cases cannot be batched - a rejected registration fails the whole engine, so
+	// each case runs as its own subtest with its own workflow deployment.
+	for _, tCase := range solanaNegativeTestsLogTrigger {
+		testName := fmt.Sprintf(solanaTestNameTemplate, tCase.functionToTest, tCase.name)
+		t.Run(testName, func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetTestConfig(t, solanaRegressionConfigPath))
+
+			SolanaLogTriggerFailsTest(t, testEnv, tCase)
+		})
+	}
+}
+
 //////////////////////////////////////////////////////
 // WRITE NEGATIVE TESTS
 //////////////////////////////////////////////////////
@@ -206,22 +261,6 @@ func runSolanaWriteNegativeTestSuite(t *testing.T, batchName string, tests []sol
 	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetTestConfig(t, solanaRegressionConfigPath))
 
 	SolanaWriteFailsTest(t, testEnv, batchName, tests)
-}
-
-//nolint:paralleltest // t.Parallel is conditional on the CRE_TEST_PARALLEL_ENABLED opt-in
-func Test_CRE_V2_Solana_WriteReport_Invalid_Receiver_Regression(t *testing.T) {
-	if parallelEnabled {
-		t.Parallel()
-	}
-	runSolanaWriteNegativeTestSuite(t, "invalid-receiver", solanaNegativeTestsWriteReportInvalidReceiver)
-}
-
-//nolint:paralleltest // t.Parallel is conditional on the CRE_TEST_PARALLEL_ENABLED opt-in
-func Test_CRE_V2_Solana_WriteReport_Invalid_Payload_Regression(t *testing.T) {
-	if parallelEnabled {
-		t.Parallel()
-	}
-	runSolanaWriteNegativeTestSuite(t, "invalid-payload", solanaNegativeTestsWriteReportInvalidPayload)
 }
 
 //////////////////////////////////////////////////////
@@ -408,22 +447,6 @@ func runSolanaReadNegativeTestSuite(t *testing.T, batchName string, tests []sola
 	SolanaReadFailsTest(t, testEnv, batchName, tests)
 }
 
-//nolint:paralleltest // t.Parallel is conditional on the CRE_TEST_PARALLEL_ENABLED opt-in
-func Test_CRE_V2_Solana_Read_Account_Calls_Regression(t *testing.T) {
-	if parallelEnabled {
-		t.Parallel()
-	}
-	runSolanaReadNegativeTestSuite(t, "account-calls", solanaReadBatchAccountCalls)
-}
-
-//nolint:paralleltest // t.Parallel is conditional on the CRE_TEST_PARALLEL_ENABLED opt-in
-func Test_CRE_V2_Solana_Read_Program_Block_And_Tx_Calls_Regression(t *testing.T) {
-	if parallelEnabled {
-		t.Parallel()
-	}
-	runSolanaReadNegativeTestSuite(t, "program-block-and-tx-calls", solanaReadBatchProgramBlockAndTxCalls)
-}
-
 //////////////////////////////////////////////////////
 // LOG TRIGGER NEGATIVE TESTS
 //////////////////////////////////////////////////////
@@ -515,24 +538,6 @@ func SolanaLogTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, so
 		t_helpers.WithBaseMessageLabelContains("err", solanaNegativeTest.expectedError),
 	)
 	testLogger.Info().Msgf("Solana LogTrigger Fail test successfully completed for test case %s", solanaNegativeTest.name)
-}
-
-//nolint:paralleltest // t.Parallel is conditional on the CRE_TEST_PARALLEL_ENABLED opt-in
-func Test_CRE_V2_Solana_LogTrigger_Invalid_Filter_Regression(t *testing.T) {
-	if parallelEnabled {
-		t.Parallel()
-	}
-	for _, tCase := range solanaNegativeTestsLogTrigger {
-		testName := fmt.Sprintf(solanaTestNameTemplate, tCase.functionToTest, tCase.name)
-		t.Run(testName, func(t *testing.T) {
-			if parallelEnabled {
-				t.Parallel()
-			}
-			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetTestConfig(t, solanaRegressionConfigPath))
-
-			SolanaLogTriggerFailsTest(t, testEnv, tCase)
-		})
-	}
 }
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
