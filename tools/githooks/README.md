@@ -10,6 +10,7 @@
 - **Targeted Code Generation:** Runs `go generate` only for packages where `.proto` or generate files changed, updates config schema docs and `go.md` when relevant files change, and regenerates mocks via `mockery` when affected packages are listed in a `.mockery.yaml`.
 - **Parallel Module Tidy:** Runs `go mod tidy` in parallel across all affected modules.
 - **Targeted Linting:** Runs `golangci-lint` only against the exact changed packages within affected modules instead of scanning whole modules or the entire repository.
+- **GitHub Actions Workflow Linting:** Runs `actionlint` (using maintained fork [kjanat/actionlint](https://github.com/kjanat/actionlint)) on affected workflow files when `.github` YAML files change.
 - **Targeted Unit Testing:** Discovers changed test packages and executes `tools/test` with `-short` directly on those packages (aligned with CI unit test scope).
 - **Dependency Changes:** Automatically runs on all packages (`./...`) if a module's `go.mod` or `go.sum` is modified.
 - **Lefthook Integration:** Seamlessly works with Lefthook staged/push file filters and `stage_fixed`.
@@ -97,6 +98,29 @@ go -C tools/githooks run . lint core/services/app.go deployment/environment/env.
 #   --fix        Fix issues automatically where possible (default: true)
 #   --rev string Show issues introduced since rev (default: merge-base with the origin default branch)
 go -C tools/githooks run . lint --fix=false --rev=origin/develop
+```
+
+### `actionlint` (aliases: `al`)
+
+Runs [actionlint](https://github.com/kjanat/actionlint) on GitHub Actions workflow files when `.github` YAML files change. When specific workflow files are modified, only those files are linted; if non-workflow `.github` YAML files (e.g. `.github/actionlint.yml`, composite actions) change, all workflows are validated.
+
+Requires the maintained `kjanat/actionlint` fork:
+```bash
+go install actionlint.kjanat.dev/cmd/actionlint@latest
+# or with mise:
+mise use -g go:actionlint.kjanat.dev/cmd/actionlint@latest
+```
+
+```bash
+# Run actionlint for workflow files changed since merge-base with default branch
+go -C tools/githooks run . actionlint
+
+# Run actionlint for specific changed workflow files
+go -C tools/githooks run . actionlint .github/workflows/auto-update.yml
+
+# Flags
+#   --rev string Show issues introduced since rev (default: merge-base with the origin default branch)
+go -C tools/githooks run . actionlint --rev=origin/develop
 ```
 
 ### `test` (aliases: `only-changed`, `short-test`)
