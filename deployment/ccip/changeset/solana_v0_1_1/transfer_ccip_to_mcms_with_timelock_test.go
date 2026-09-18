@@ -198,7 +198,7 @@ func TestValidate(t *testing.T) {
 
 // prepareEnvironmentForOwnershipTransfer helper that deploys the necessary contracts as pre-requisite to
 // the transfer ownership changeset.
-func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, stateview.CCIPOnChainState) {
+func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, stateview.CCIPOnChainStateSolana) {
 	t.Helper()
 
 	homeChainSel := chainselectors.TEST_90000001.Selector

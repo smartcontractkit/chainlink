@@ -95,7 +95,7 @@ func TransferAndWrapAcceptOwnership(
 
 // transferOwnershipRouter transfers ownership of the router to the timelock.
 func transferOwnershipRouter(
-	ccipState stateview.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainStateSolana,
 	chainSelector uint64,
 	solChain cldf_solana.Chain,
 	currentOwner solana.PublicKey,
@@ -173,7 +173,7 @@ func transferOwnershipRouter(
 
 // transferOwnershipFeeQuoter transfers ownership of the fee quoter to the timelock.
 func transferOwnershipFeeQuoter(
-	ccipState stateview.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainStateSolana,
 	chainSelector uint64,
 	solChain cldf_solana.Chain,
 	currentOwner solana.PublicKey,
@@ -251,7 +251,7 @@ func transferOwnershipFeeQuoter(
 
 // transferOwnershipOffRamp transfers ownership of the offRamp to the timelock.
 func transferOwnershipOffRamp(
-	ccipState stateview.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainStateSolana,
 	chainSelector uint64,
 	solChain cldf_solana.Chain,
 	currentOwner solana.PublicKey,
@@ -329,7 +329,7 @@ func transferOwnershipOffRamp(
 
 // transferOwnershipLockMintTokenPools transfers ownership of the lock mint token pools.
 func transferOwnershipBurnMintTokenPools(
-	ccipState stateview.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainStateSolana,
 	tokenPoolConfigPDA solana.PublicKey,
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
@@ -404,7 +404,7 @@ func transferOwnershipBurnMintTokenPools(
 
 // transferOwnershipLockReleaseTokenPools transfers ownership of the lock mint token pools.
 func transferOwnershipLockReleaseTokenPools(
-	ccipState stateview.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainStateSolana,
 	tokenPoolConfigPDA solana.PublicKey,
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
@@ -479,7 +479,7 @@ func transferOwnershipLockReleaseTokenPools(
 
 // transferOwnershipCCTPTokenPools transfers ownership of the CCTP token pool.
 func transferOwnershipCCTPTokenPools(
-	ccipState stateview.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainStateSolana,
 	tokenPoolConfigPDA solana.PublicKey,
 	tokenMint solana.PublicKey,
 	chainSelector uint64,
@@ -553,7 +553,7 @@ func transferOwnershipCCTPTokenPools(
 
 // transferOwnershipRMNRemote transfers ownership of the RMNRemote to the timelock.
 func transferOwnershipRMNRemote(
-	ccipState stateview.CCIPOnChainState,
+	ccipState stateview.CCIPOnChainStateSolana,
 	chainSelector uint64,
 	solChain cldf_solana.Chain,
 	currentOwner solana.PublicKey,

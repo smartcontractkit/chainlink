@@ -1558,7 +1558,7 @@ type SetRouterCfg struct {
 	Router solana.PublicKey
 }
 
-func (cfg TokenPoolOpsCfg) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
+func (cfg TokenPoolOpsCfg) Validate(e cldf.Environment, state stateview.CCIPOnChainStateSolana) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 	if cfg.PoolType == "" {
 		return errors.New("pool type must be defined")
@@ -1605,7 +1605,7 @@ func (cfg TokenPoolOpsCfg) Validate(e cldf.Environment, state stateview.CCIPOnCh
 // set router address on token pool config pda
 func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput, error) {
 	e.Logger.Infof("Setting pool config for token %s", cfg.SolTokenPubKey)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

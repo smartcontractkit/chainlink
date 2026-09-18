@@ -128,6 +128,27 @@ type CCIPOnChainState struct {
 	evmMu       *sync.RWMutex
 }
 
+// CCIPOnChainStateSolana is the Solana half of CCIPOnChainState.
+//
+// It exists so that Solana-only code does not have to accept a struct naming the EVM, Aptos, Sui
+// and TON chain-state types. That naming is a compile-time dependency on the other families even
+// when the code never reads them, and it is what keeps the Solana changesets pinned to this repo.
+//
+// It is deliberately not an alias or an embedding of CCIPOnChainState: the point is that it cannot
+// reach the other families at all. In particular it has no evmMu, so the evmMu-guarded accessors
+// are not merely unusable but absent.
+type CCIPOnChainStateSolana struct {
+	SolChains map[uint64]solana.CCIPChainState
+}
+
+// Solana narrows the full cross-family state to its Solana half, for calling a Solana-only
+// helper from a changeset that legitimately needs the other families too (an EVM<->Solana
+// lane, say). The narrowing is one-way on purpose: it is the only supported way to cross
+// from CCIPOnChainState into CCIPOnChainStateSolana.
+func (s CCIPOnChainState) Solana() CCIPOnChainStateSolana {
+	return CCIPOnChainStateSolana{SolChains: s.SolChains}
+}
+
 type CCIPStateView struct {
 	Chains      map[string]view.ChainView
 	SolChains   map[string]view.SolChainView
@@ -2009,8 +2030,8 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 	return nil
 }
 
-func LoadOnchainStateSolana(e cldf.Environment) (CCIPOnChainState, error) {
-	state := CCIPOnChainState{
+func LoadOnchainStateSolana(e cldf.Environment) (CCIPOnChainStateSolana, error) {
+	state := CCIPOnChainStateSolana{
 		SolChains: make(map[uint64]solana.CCIPChainState),
 	}
 	for chainSelector, chain := range e.BlockChains.SolanaChains() {
