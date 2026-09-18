@@ -341,12 +341,13 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 // the nodes' "Updated settings" logs (see logSettingsConvergence).
 //
 // detachFromCallerContext must be true when called from a t.Cleanup (i.e. during revert):
-// every JD call here runs through CldfEnvironment.GetContext(), which returns the context
-// the environment was built with — ultimately a t.Context(). testing.T.Context() is
-// documented to be canceled just before the test's Cleanup functions run, so without this,
-// a revert-on-cleanup always fails with "context canceled", not because anything is
-// actually wrong. context.WithoutCancel keeps any context values while dropping that
-// already-fired cancellation.
+// every JD call here runs through CldfEnvironment.GetContext() or the OperationsBundle's
+// GetContext (the changeset/operation layer uses b.GetContext(), not the env's), both of
+// which close over the context the environment was built with — ultimately a t.Context().
+// testing.T.Context() is documented to be canceled just before the test's Cleanup
+// functions run, so without this, a revert-on-cleanup always fails with "context
+// canceled", not because anything is actually wrong. context.WithoutCancel keeps any
+// context values while dropping that already-fired cancellation.
 func deliverCRESettings(env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string, detachFromCallerContext bool) error {
 	cldfEnv := *env.CreEnvironment.CldfEnvironment
 	if detachFromCallerContext {
@@ -354,6 +355,15 @@ func deliverCRESettings(env *ttypes.TestEnvironment, don *cre.Don, settingsTOML 
 		cldfEnv.GetContext = func() context.Context {
 			return context.WithoutCancel(baseGetContext())
 		}
+		// The operations layer (ExecuteOperation -> b.GetContext()) sources its context
+		// from the OperationsBundle, which holds its own copy of the closure. Detach it
+		// too, or node lookups during revert still fail with "context canceled".
+		bundle := cldfEnv.OperationsBundle
+		baseBundleGetContext := bundle.GetContext
+		bundle.GetContext = func() context.Context {
+			return context.WithoutCancel(baseBundleGetContext())
+		}
+		cldfEnv.OperationsBundle = bundle
 	}
 
 	input := cre_jobs.ProposeJobSpecInput{
