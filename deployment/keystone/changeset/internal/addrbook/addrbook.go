@@ -2,7 +2,6 @@
 //
 // Addressbook is deprecated but this remains as a temporary solution
 // for backwards compatibility.
-
 package addrbook
 
 import (

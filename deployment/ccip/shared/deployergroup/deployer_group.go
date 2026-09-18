@@ -25,8 +25,9 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -118,7 +119,7 @@ func (d *DeploymentContext) Fork(description string) *DeploymentContext {
 	}
 }
 
-type DeployerGroupWithContext interface {
+type WithContext interface {
 	WithDeploymentContext(description string) *DeployerGroup
 }
 
@@ -153,7 +154,7 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 //	state.Chains[selector].RMNRemote.Curse()
 //	# Execute the transaction or create the proposal
 //	deployerGroup.Enact("Curse RMNRemote")
-func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmConfig *cldfproposalutils.TimelockConfig) DeployerGroupWithContext {
+func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmConfig *cldfproposalutils.TimelockConfig) WithContext {
 	addresses, _ := e.ExistingAddresses.Addresses()
 	d := &deployerGroupBuilder{
 		e:               e,
