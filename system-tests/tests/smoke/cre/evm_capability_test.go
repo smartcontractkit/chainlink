@@ -67,6 +67,9 @@ func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, t
 			// Each case uses a fresh per-test execution context to avoid shared-signer nonce collisions,
 			// while still reusing the shared environment cache (sync.Once) for admin sessions.
 			perCaseEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+			t_helpers.ApplyCRESettings(t, perCaseEnv,
+				t_helpers.Global("\nMissingRequestRecoveryEnabled = 'true'"),
+			)
 			enabledChains := t_helpers.GetEVMEnabledChains(t, perCaseEnv)
 			t_helpers.StartLoggingOnlyChipTestSink(t, evmReadLogFilePath(t, perCaseEnv))
 

@@ -221,9 +221,6 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 	require.NoError(t, evm_config.ValidateReadBucketRegistry(), "invalid EVM read bucket registry")
 
-	t_helpers.ApplyCRESettings(t, testEnv,
-		t_helpers.Global("\nMissingRequestRecoveryEnabled = 'true'"),
-	)
 	testCases, err := evm_config.CasesForReadBucket(bucket)
 	require.NoErrorf(t, err, "failed to load EVM read bucket %q", bucket)
 
