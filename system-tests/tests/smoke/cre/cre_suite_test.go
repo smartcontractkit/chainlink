@@ -221,12 +221,17 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 	require.NoError(t, evm_config.ValidateReadBucketRegistry(), "invalid EVM read bucket registry")
 
+	h := t_helpers.ApplyCRESettings(t, testEnv,
+		t_helpers.Global("\nMissingRequestRecoveryEnabled = 'true'"),
+		// t_helpers.Workflow(workflowID, "\nMissingRequestRecoveryEnabled = 'true'"),
+	)
 	testCases, err := evm_config.CasesForReadBucket(bucket)
 	require.NoErrorf(t, err, "failed to load EVM read bucket %q", bucket)
 
 	t.Run(fmt.Sprintf("EVM Read (%s) - %s", bucket, topology), func(t *testing.T) {
 		ExecuteEVMReadTestForCases(t, testEnv, testCases)
 	})
+	h.Reset(t)
 }
 
 const solanaConfigPath = "/configs/workflow-don-solana.toml"
