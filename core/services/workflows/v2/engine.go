@@ -85,6 +85,7 @@ func (e *Engine) start(ctx context.Context) error {
 // init is the legacy initialization: it acquires the workflow-count limit before
 // anything else and registers the workflow's triggers before reporting success.
 func (e *Engine) init(ctx context.Context) {
+	// Tracer is no-op if DebugMode is false
 	ctx, span := e.tracer.Start(ctx, "workflow_engine_init",
 		trace.WithAttributes(
 			attribute.String("version", "v2"),

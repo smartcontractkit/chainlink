@@ -24,10 +24,6 @@ import (
 // Expected errors:
 //   - ErrDuplicateExecution — the event was already executed (dedup gate).
 //     The engine ACKs the duplicate internally before returning.
-//   - ErrShardDeniedNotOwner — this node is not the shard owner.
-//     The engine ACKs the event internally before returning.
-//   - ErrShardDeniedOrchestrator — shard ownership check failed due to
-//     orchestrator error. The engine ACKs the event internally before returning.
 //   - ErrMeteringReserveFailed — metering report reservation failed.
 //     No ACK is sent; the caller may retry.
 //

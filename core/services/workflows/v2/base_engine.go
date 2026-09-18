@@ -666,9 +666,8 @@ func (e *baseEngine) handleAllTriggerEvents(ctx context.Context) {
 			// This logs eventID context at the call site; the future coordinator admitter
 			// (CRE-6176) will use this error for admission decisions.
 			if err := e.ExecuteTrigger(ctx, queueHead); err != nil {
-				// Dedup and shard-denial are expected outcomes (the event is handled,
-				// just not executed here), so they log at info rather than error level.
-				if errors.Is(err, ErrDuplicateExecution) || errors.Is(err, ErrShardDeniedNotOwner) {
+				// Dedup is an expected outcome (the event is handled, just not executed here), so it's logged at info rather than error level.
+				if errors.Is(err, ErrDuplicateExecution) {
 					e.logger().Infow("Skipping trigger event execution", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
 				} else {
 					e.logger().Errorw("Failed to execute trigger event", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
