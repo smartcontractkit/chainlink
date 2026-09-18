@@ -22,7 +22,7 @@ const (
 )
 
 // AvaBloom represents a 2048 bit bloom filter.
-type AvaBloom [BloomByteLength]byte
+type AvaBloom [BloomByteLength]byte //nolint:recvcheck // value receiver for TextMarshaler and queries; pointer receiver for mutators
 
 // SetBytes sets the content of b to the given bytes.
 // It panics if d is not of suitable size.
@@ -80,7 +80,7 @@ func (b *AvaBloom) UnmarshalText(input []byte) error {
 func bloomValues(data []byte, hashbuf []byte) (uint, byte, uint, byte, uint, byte) {
 	sha := crypto.NewKeccakState()
 	sha.Write(data)
-	sha.Read(hashbuf) //nolint:errcheck
+	sha.Read(hashbuf) //nolint:errcheck // keccak state read does not error
 	// The actual bits to flip
 	v1 := byte(1 << (hashbuf[1] & 0x7))
 	v2 := byte(1 << (hashbuf[3] & 0x7))
@@ -290,7 +290,7 @@ func (h *AvaHeader) Hash() common.Hash {
 func rlpHash(x any) (h common.Hash) {
 	sha := crypto.NewKeccakState()
 	sha.Reset()
-	rlp.Encode(sha, x) //nolint:errcheck
-	sha.Read(h[:])     //nolint:errcheck
+	rlp.Encode(sha, x) //nolint:errcheck // rlp encode to hash buffer does not fail
+	sha.Read(h[:])     //nolint:errcheck // keccak state read does not error
 	return h
 }
