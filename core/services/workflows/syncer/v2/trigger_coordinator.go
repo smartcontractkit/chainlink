@@ -7,16 +7,11 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -54,7 +49,10 @@ var (
 // identity (org/owner/workflow); the syncer, which owns these values, supplies
 // the rest alongside the subscriptions.
 type RegistrationParams struct {
-	WorkflowName                  string // decoded workflow name
+	// WorkflowName is nil-safe: a nil value sends both the hex-encoded and
+	// decoded workflow name empty, rather than panicking on a nil interface
+	// call (see v2.RegisterWorkflowTriggers).
+	WorkflowName                  types.WorkflowName
 	WorkflowTag                   string
 	WorkflowDonID                 uint32
 	WorkflowRegistryAddress       string
@@ -99,12 +97,6 @@ type triggerCoordinator struct {
 	regTime  limits.TimeLimiter // bounds total trigger registration time
 	metrics  *monitoring.WorkflowsMetricLabeler
 	clock    clockwork.Clock
-	// pinnedConfigVersion is the DON config version stamped into registration
-	// metadata. It is pinned to 1 so that config updates on the registry do not
-	// force forwarder contract updates: the version is included in every report
-	// but is irrelevant to forwarder validation, which only checks DON ID and
-	// the set of signer public keys.
-	pinnedConfigVersion uint32
 
 	mu        sync.RWMutex
 	workflows map[types.WorkflowID]*workflowTriggers
@@ -123,14 +115,13 @@ type workflowTriggers struct {
 // triggers.
 func NewTriggerCoordinator(lggr logger.Logger, capReg core.CapabilitiesRegistry, registry *EngineRegistry, regTime limits.TimeLimiter, metrics *monitoring.WorkflowsMetricLabeler, clock clockwork.Clock) TriggerCoordinator {
 	d := &triggerCoordinator{
-		lggr:                logger.Named(lggr, "TriggerCoordinator"),
-		capReg:              capReg,
-		registry:            registry,
-		regTime:             regTime,
-		metrics:             metrics,
-		clock:               clock,
-		pinnedConfigVersion: 1,
-		workflows:           make(map[types.WorkflowID]*workflowTriggers),
+		lggr:      logger.Named(lggr, "TriggerCoordinator"),
+		capReg:    capReg,
+		registry:  registry,
+		regTime:   regTime,
+		metrics:   metrics,
+		clock:     clock,
+		workflows: make(map[types.WorkflowID]*workflowTriggers),
 	}
 	d.Service, d.eng = services.Config{
 		Name:  "TriggerCoordinator",
@@ -167,144 +158,46 @@ func (d *triggerCoordinator) RegisterTriggers(ctx context.Context, cre contexts.
 		return nil, fmt.Errorf("invalid workflowID in CRE context: %w", err)
 	}
 
-	// check if all requested triggers exist in the registry
-	triggers := make([]capabilities.TriggerCapability, 0, len(subs))
-	for _, sub := range subs {
-		// Only the chain selector's presence/format is validated here; the
-		// access check itself moves with the limiter split (CRE-6177) and
-		// isn't implemented yet, so there's nothing to do with the parsed
-		// value yet — don't carry it as dead state until there is.
-		_, labels, _ := capabilities.ParseID(sub.Id)
-		if _, err2 := capabilities.ChainSelectorLabel(labels); err2 != nil {
-			return nil, fmt.Errorf("invalid chain selector for ID %s: %w", sub.Id, err2)
-		}
-
-		triggerCap, triggerErr := d.capReg.GetTrigger(ctx, sub.Id)
-		if triggerErr != nil {
-			return nil, fmt.Errorf("trigger capability not found: %w", triggerErr)
-		}
-		triggers = append(triggers, triggerCap)
-	}
-
-	// register to all triggers concurrently
-	regCtx, regCancel, err := d.regTime.WithTimeout(ctx)
+	triggerCapIDs, handles, eventChans, err := v2.RegisterWorkflowTriggers(ctx, v2.TriggerRegistrationDeps{
+		CapRegistry: d.capReg,
+		RegTimeout:  d.regTime,
+		// ChainAllowed and Settings are both nil for now: chain access
+		// enforcement moves with the limiter split (CRE-6177), and there's
+		// no dynamic settings source wired up here yet. RegisterWorkflowTriggers
+		// treats both as nil-safe, matching this coordinator's prior behavior.
+		Logger:  d.lggr,
+		Metrics: d.metrics,
+	}, v2.TriggerRegistrationMetadata{
+		WorkflowID:                    cre.Workflow,
+		WorkflowOwner:                 cre.Owner,
+		WorkflowName:                  params.WorkflowName,
+		WorkflowTag:                   params.WorkflowTag,
+		WorkflowDonID:                 params.WorkflowDonID,
+		WorkflowRegistryChainSelector: params.WorkflowRegistryChainSelector,
+		WorkflowRegistryAddress:       params.WorkflowRegistryAddress,
+		OrgID:                         cre.Org,
+	}, subs)
 	if err != nil {
 		return nil, err
-	}
-	defer regCancel()
-
-	// trigger registration results for use in concurrent trigger subscriptions
-	type triggerRegResult struct {
-		index          int
-		registrationID string
-		triggerCap     capabilities.TriggerCapability
-		eventCh        <-chan capabilities.TriggerResponse
-		payload        *anypb.Any
-		method         string
-		triggerCapID   string
-	}
-
-	resultsCh := make(chan triggerRegResult, len(subs))
-	g, gCtx := errgroup.WithContext(regCtx)
-
-	// Launch concurrent trigger registrations
-	for i, sub := range subs {
-		triggerCap := triggers[i]
-		g.Go(func() error {
-			registrationID := v2.TriggerRegistrationID(cre.Workflow, i)
-			args := []any{"triggerID", sub.Id, "method", sub.Method}
-			if sub.Payload != nil {
-				args = append(args, "payload", protojson.Format(sub.Payload))
-			}
-			d.lggr.Infow("Registering trigger", args...)
-			metadata := capabilities.RequestMetadata{
-				WorkflowID:                    cre.Workflow,
-				WorkflowOwner:                 cre.Owner,
-				WorkflowName:                  params.WorkflowName,
-				DecodedWorkflowName:           params.WorkflowName,
-				WorkflowTag:                   params.WorkflowTag,
-				WorkflowDonID:                 params.WorkflowDonID,
-				WorkflowDonConfigVersion:      d.pinnedConfigVersion,
-				ReferenceID:                   fmt.Sprintf("trigger_%d", i),
-				WorkflowRegistryChainSelector: params.WorkflowRegistryChainSelector,
-				WorkflowRegistryAddress:       params.WorkflowRegistryAddress,
-				EngineVersion:                 platform.ValueWorkflowVersionV2,
-				// no WorkflowExecutionID needed (or available at this stage)
-			}
-			var creGetter settings.Getter
-			propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(gCtx, creGetter)
-			if propagateOrgIDMeta && cre.Org != "" {
-				metadata.OrgID = cre.Org
-			}
-			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
-				TriggerID: registrationID,
-				Metadata:  metadata,
-				Payload:   sub.Payload,
-				Method:    sub.Method,
-			})
-			if regErr != nil {
-				d.lggr.Errorw("Trigger registration failed", "triggerID", sub.Id, "err", regErr)
-				d.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(gCtx)
-				return fmt.Errorf("failed to register trigger %s: %w", sub.Id, regErr)
-			}
-			// Send successful result
-			resultsCh <- triggerRegResult{
-				index:          i,
-				registrationID: registrationID,
-				triggerCap:     triggerCap,
-				eventCh:        triggerEventCh,
-				payload:        sub.Payload,
-				method:         sub.Method,
-				triggerCapID:   sub.Id,
-			}
-			return nil
-		})
-	}
-
-	// wait for all registrations to complete.
-	// returns first non-nil error.
-	registrationErr := g.Wait()
-	close(resultsCh)
-
-	// Collect results into the per-workflow state.
-	eventChans := make([]<-chan capabilities.TriggerResponse, len(subs))
-	triggerCapIDs := make([]string, len(subs))
-	wt := &workflowTriggers{cre: cre, params: params, handles: make(map[string]*v2.TriggerHandle, len(subs))}
-
-	for result := range resultsCh {
-		wt.handles[result.registrationID] = &v2.TriggerHandle{
-			TriggerCapability: result.triggerCap,
-			Payload:           result.payload,
-			Method:            result.method,
-		}
-		eventChans[result.index] = result.eventCh
-		triggerCapIDs[result.index] = result.triggerCapID
-	}
-
-	// If any registration failed, unregister successful ones and return error
-	if registrationErr != nil {
-		d.lggr.Errorw("One or more trigger registrations failed - reverting all", "err", registrationErr)
-		d.unregisterAll(ctx, wid, wt)
-		return nil, registrationErr
 	}
 
 	d.mu.Lock()
 	// Replace any prior state (e.g. re-registration after a config update).
-	d.workflows[wid] = wt
+	d.workflows[wid] = &workflowTriggers{cre: cre, params: params, handles: handles}
 	d.mu.Unlock()
 
 	// start listening for trigger events only if all registrations succeeded
 	for idx, triggerEventCh := range eventChans {
 		d.startReader(ctx, wid, idx, subs[idx], triggerEventCh)
 	}
-	d.lggr.Infow("All triggers registered successfully", "numTriggers", len(subs), "triggerIDs", triggerCapIDs)
-	d.metrics.IncrementWorkflowRegisteredCounter(ctx)
 	return triggerCapIDs, nil
 }
 
 // startReader runs one reader goroutine per subscription. It resolves the
-// engine from the registry at delivery time and never holds an engine
-// reference; if the engine is gone the reader exits.
+// engine from the registry on every event rather than holding a reference —
+// see the deliver closure below for why. A missing or non-conforming engine
+// is just another delivery failure to RunTriggerReader, not a reason for the
+// reader itself to exit.
 func (d *triggerCoordinator) startReader(ctx context.Context, wid types.WorkflowID, idx int, sub *sdkpb.TriggerSubscription, triggerEventCh <-chan capabilities.TriggerResponse) {
 	// deliver resolves the engine from the registry on every call — never a
 	// held reference — since it's invoked once per event by RunTriggerReader.
@@ -433,28 +326,6 @@ waitForDrain:
 		}
 	}
 
-	d.mu.Lock()
-	delete(d.workflows, wid)
-	d.mu.Unlock()
-}
-
-// unregisterAll rolls back every successful registration when one or more
-// registrations failed. Unlike UnregisterTriggers it also drops the handles,
-// because a failed RegisterTriggers leaves no executions in flight.
-func (d *triggerCoordinator) unregisterAll(ctx context.Context, wid types.WorkflowID, wt *workflowTriggers) {
-	for registrationID, handle := range wt.handles {
-		if err := handle.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
-			TriggerID: registrationID,
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID:    wid.String(),
-				WorkflowDonID: wt.params.WorkflowDonID,
-			},
-			Payload: handle.Payload,
-			Method:  handle.Method,
-		}); err != nil {
-			d.lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
-		}
-	}
 	d.mu.Lock()
 	delete(d.workflows, wid)
 	d.mu.Unlock()

@@ -88,7 +88,9 @@ func Test_RegisterTriggers_Success(t *testing.T) {
 
 	wid := testWorkflowID(1)
 	cre := contexts.CRE{Owner: "owner-a", Workflow: wid.Hex()}
-	triggerIDs, err := d.RegisterTriggers(t.Context(), cre, RegistrationParams{WorkflowName: "wf"}, []*sdkpb.TriggerSubscription{testSub("id_0"), testSub("id_1")})
+	workflowName, err := types.NewWorkflowName("wf")
+	require.NoError(t, err)
+	triggerIDs, err := d.RegisterTriggers(t.Context(), cre, RegistrationParams{WorkflowName: workflowName}, []*sdkpb.TriggerSubscription{testSub("id_0"), testSub("id_1")})
 	require.NoError(t, err)
 	require.Equal(t, []string{"id_0", "id_1"}, triggerIDs)
 
