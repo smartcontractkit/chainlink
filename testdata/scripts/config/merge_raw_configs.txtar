@@ -542,6 +542,7 @@ PerOwner = 200
 UseLocalTimeProvider = true
 EnableDKGRecipient = false
 DebugMode = false
+CachedTriggerSubscriptionsEnabled = false
 
 [CRE.Streams]
 WsURL = ''
