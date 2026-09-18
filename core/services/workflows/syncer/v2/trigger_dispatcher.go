@@ -179,12 +179,14 @@ func (d *triggerDispatcher) RegisterTriggers(ctx context.Context, cre contexts.C
 	// check if all requested triggers exist in the registry
 	triggers := make([]capabilities.TriggerCapability, 0, len(subs))
 	for _, sub := range subs {
+		// Only the chain selector's presence/format is validated here; the
+		// access check itself moves with the limiter split (CRE-6177) and
+		// isn't implemented yet, so there's nothing to do with the parsed
+		// value yet — don't carry it as dead state until there is.
 		_, labels, _ := capabilities.ParseID(sub.Id)
-		chainSelector, err2 := capabilities.ChainSelectorLabel(labels)
-		if err2 != nil {
+		if _, err2 := capabilities.ChainSelectorLabel(labels); err2 != nil {
 			return nil, fmt.Errorf("invalid chain selector for ID %s: %w", sub.Id, err2)
 		}
-		_ = chainSelector // chain access check moves with the limiter split (CRE-6177)
 
 		triggerCap, triggerErr := d.capReg.GetTrigger(ctx, sub.Id)
 		if triggerErr != nil {
