@@ -238,17 +238,7 @@ func (d *triggerCoordinator) Ack(ctx context.Context, workflowID, triggerCapID, 
 	}
 	d.mu.RUnlock()
 
-	// handle is resolved above (rather than left to v2.AckTriggerHandle) so
-	// the not-found error here can keep the extra "for workflow %s" context
-	// Engine's equivalent has no use for (an Engine only ever has one
-	// workflow).
-	if err := v2.AckTriggerHandle(ctx, d.lggr, d.metrics, triggerCapID, triggerRegistrationID, eventID, handle); err != nil {
-		if handle == nil {
-			return fmt.Errorf("failed to find trigger %s for workflow %s", triggerRegistrationID, workflowID)
-		}
-		return err
-	}
-	return nil
+	return v2.AckTriggerHandle(ctx, d.lggr, d.metrics, triggerCapID, triggerRegistrationID, eventID, handle)
 }
 
 // UnregisterTriggers unregisters the workflow's triggers with the capability
