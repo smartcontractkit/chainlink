@@ -51,9 +51,11 @@ type EventSink interface {
 //
 // Ack is idempotent: calling it multiple times for the same event is safe.
 // The implementation is responsible for looking up the trigger handle by
-// triggerRegistrationID and calling AckEvent on it.
+// workflowID and triggerRegistrationID and calling AckEvent on it. workflowID
+// is passed explicitly rather than parsed out of triggerRegistrationID or
+// resolved through a side index, since every caller already has it.
 type Acknowledger interface {
-	Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error
+	Ack(ctx context.Context, workflowID, triggerCapID, triggerRegistrationID, eventID string) error
 }
 
 // RoutedTriggerEvent is the canonical trigger event type that flows

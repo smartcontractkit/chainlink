@@ -115,7 +115,7 @@ func Test_RegisterTriggers_RollbackOnFailure(t *testing.T) {
 
 	// No handle was retained for id_0 either: Ack for it must fail.
 	regID := enginev2.TriggerRegistrationID(wid.Hex(), 0)
-	err = d.Ack(t.Context(), "id_0", regID, "event-1")
+	err = d.Ack(t.Context(), wid.Hex(), "id_0", regID, "event-1")
 	require.Error(t, err)
 }
 
@@ -201,7 +201,7 @@ func Test_Ack_DelegatesToTriggerCapability(t *testing.T) {
 
 	regID := enginev2.TriggerRegistrationID(wid.Hex(), 0)
 	trigger.EXPECT().AckEvent(mock.Anything, regID, "event-1", "Trigger").Return(nil).Once()
-	require.NoError(t, d.Ack(t.Context(), "id_0", regID, "event-1"))
+	require.NoError(t, d.Ack(t.Context(), wid.Hex(), "id_0", regID, "event-1"))
 }
 
 // An eventID/registrationID the dispatcher never registered (or already
@@ -214,7 +214,8 @@ func Test_Ack_UnknownRegistration_ReturnsError(t *testing.T) {
 	registry := NewEngineRegistry()
 	d := newTestDispatcher(t, capReg, registry)
 
-	err := d.Ack(t.Context(), "id_0", "trigger_reg_does_not_exist_0", "event-1")
+	wid := testWorkflowID(9)
+	err := d.Ack(t.Context(), wid.Hex(), "id_0", "trigger_reg_does_not_exist_0", "event-1")
 	require.Error(t, err)
 }
 
@@ -246,13 +247,13 @@ func Test_UnregisterTriggers_RetainsHandlesForInFlightAck(t *testing.T) {
 	// before unregistration) can still Ack successfully.
 	regID := enginev2.TriggerRegistrationID(wid.Hex(), 0)
 	trigger.EXPECT().AckEvent(mock.Anything, regID, "in-flight-event", "Trigger").Return(nil).Once()
-	require.NoError(t, d.Ack(t.Context(), "id_0", regID, "in-flight-event"))
+	require.NoError(t, d.Ack(t.Context(), wid.Hex(), "id_0", regID, "in-flight-event"))
 
 	// Once the syncer has drained and closed the engine, it releases the
 	// handles. From this point on, Ack for the same registration must fail —
 	// there is nothing left to resolve it to.
 	require.NoError(t, d.ReleaseHandles(wid.Hex()))
-	err = d.Ack(t.Context(), "id_0", regID, "too-late-event")
+	err = d.Ack(t.Context(), wid.Hex(), "id_0", regID, "too-late-event")
 	require.Error(t, err)
 }
 

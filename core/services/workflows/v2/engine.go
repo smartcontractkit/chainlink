@@ -407,7 +407,7 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 		}
 		// Denied: ACK and drop
 		registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-		if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
+		if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, e.cfg.WorkflowID, event.TriggerCapID, registrationID, eventID); ackErr != nil {
 			e.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
 		}
 		e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "admission_denied")
@@ -460,8 +460,11 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 
 // Ack acknowledges a trigger event via the injected TriggerAcknowledger.
 // In M1 this is the existing engine's internal acknowledger logic. In M2 the
-// OCR reporting plugin implements this to ACK.
-func (e *Engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
+// OCR reporting plugin implements this to ACK. workflowID is unused here —
+// the engine's own trigger handle map is already scoped to itself — but is
+// part of the Acknowledger interface so other implementations don't need a
+// side index to resolve it.
+func (e *Engine) Ack(ctx context.Context, _, triggerCapID, triggerRegistrationID, eventID string) error {
 	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
 
 	tm := e.metrics.With(platform.KeyTriggerID, triggerCapID)
@@ -937,7 +940,7 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 			tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
 			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonDuplicateExecution)
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-			ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID)
+			ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, e.cfg.WorkflowID, event.TriggerCapID, registrationID, triggerEvent.ID)
 			if ackErr != nil {
 				e.lggr.Errorw("failed to re-ACK trigger event", "eventID", triggerEvent.ID, "err", ackErr)
 			}
@@ -1053,7 +1056,7 @@ func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) e
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
 	registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-	err = e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID)
+	err = e.cfg.TriggerAcknowledger.Ack(ctx, e.cfg.WorkflowID, event.TriggerCapID, registrationID, triggerEvent.ID)
 	if err != nil {
 		e.lggr.Errorf("failed to ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
 	}

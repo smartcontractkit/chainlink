@@ -41,7 +41,7 @@ type TriggerDispatcher interface {
 	// execution starts, on duplicate executions, and on shard-ownership
 	// denials — the point at which the event is fully handled and must not be
 	// redelivered.
-	Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error
+	Ack(ctx context.Context, workflowID, triggerCapID, triggerRegistrationID, eventID string) error
 }
 
 var (
@@ -97,11 +97,6 @@ type triggerDispatcher struct {
 
 	mu        sync.RWMutex
 	workflows map[types.WorkflowID]*workflowTriggers
-	// index maps registrationID -> owning workflow. Engines acknowledge with
-	// only (triggerCapID, registrationID, eventID) and no workflowID, so Ack
-	// resolves the handle through this flat index instead of parsing the
-	// workflowID back out of the registrationID string.
-	index map[string]types.WorkflowID
 }
 
 // workflowTriggers is everything the dispatcher owns for one workflow: the
@@ -135,7 +130,6 @@ func NewTriggerDispatcher(lggr logger.Logger, capReg core.CapabilitiesRegistry, 
 		clock:               clock,
 		pinnedConfigVersion: 1,
 		workflows:           make(map[types.WorkflowID]*workflowTriggers),
-		index:               make(map[string]types.WorkflowID),
 	}
 	d.Service, d.eng = services.Config{
 		Name:  "TriggerDispatcher",
@@ -168,7 +162,6 @@ func (d *triggerDispatcher) close() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.workflows = make(map[types.WorkflowID]*workflowTriggers)
-	d.index = make(map[string]types.WorkflowID)
 	return nil
 }
 
@@ -304,13 +297,7 @@ func (d *triggerDispatcher) RegisterTriggers(ctx context.Context, cre contexts.C
 
 	d.mu.Lock()
 	// Replace any prior state (e.g. re-registration after a config update).
-	if old, ok := d.workflows[wid]; ok {
-		d.dropIndexLocked(wid, old)
-	}
 	d.workflows[wid] = wt
-	for registrationID := range wt.handles {
-		d.index[registrationID] = wid
-	}
 	d.mu.Unlock()
 
 	// start listening for trigger events only if all registrations succeeded
@@ -382,27 +369,29 @@ func (d *triggerDispatcher) startReader(ctx context.Context, wid types.WorkflowI
 // and calling AckEvent on the trigger capability. Engines call this after
 // execution starts, on duplicate executions, and on shard-ownership denials —
 // the point at which the event is fully handled and must not be redelivered.
-func (d *triggerDispatcher) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
+func (d *triggerDispatcher) Ack(ctx context.Context, workflowID, triggerCapID, triggerRegistrationID, eventID string) error {
 	d.lggr.Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
 
 	tm := d.metrics.With(platform.KeyTriggerID, triggerCapID)
 
+	wid, err := types.WorkflowIDFromHex(workflowID)
+	if err != nil {
+		tm.IncrementTriggerEventAckFailureCounter(ctx)
+		return fmt.Errorf("invalid workflowID: %w", err)
+	}
+
 	d.mu.RLock()
-	wid, ok := d.index[triggerRegistrationID]
 	var handle *triggerHandle
-	if ok {
-		if wt, wtOK := d.workflows[wid]; wtOK {
-			handle = wt.handles[triggerRegistrationID]
-		}
+	if wt, ok := d.workflows[wid]; ok {
+		handle = wt.handles[triggerRegistrationID]
 	}
 	d.mu.RUnlock()
 
 	if handle == nil {
 		tm.IncrementTriggerEventAckFailureCounter(ctx)
-		return fmt.Errorf("failed to find trigger %s", triggerRegistrationID)
+		return fmt.Errorf("failed to find trigger %s for workflow %s", triggerRegistrationID, workflowID)
 	}
-	err := handle.AckEvent(ctx, triggerRegistrationID, eventID, handle.method)
-	if err != nil {
+	if err := handle.AckEvent(ctx, triggerRegistrationID, eventID, handle.method); err != nil {
 		tm.IncrementTriggerEventAckFailureCounter(ctx)
 		return err
 	}
@@ -457,21 +446,8 @@ func (d *triggerDispatcher) ReleaseHandles(workflowID string) error {
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if wt, ok := d.workflows[wid]; ok {
-		d.dropIndexLocked(wid, wt)
-		delete(d.workflows, wid)
-	}
+	delete(d.workflows, wid)
 	return nil
-}
-
-// dropIndexLocked removes the workflow's registrationIDs from the flat ACK
-// index. Caller must hold d.mu.
-func (d *triggerDispatcher) dropIndexLocked(wid types.WorkflowID, wt *workflowTriggers) {
-	for registrationID := range wt.handles {
-		if w, ok := d.index[registrationID]; ok && w == wid {
-			delete(d.index, registrationID)
-		}
-	}
 }
 
 // unregisterAll rolls back every successful registration when one or more
@@ -492,7 +468,6 @@ func (d *triggerDispatcher) unregisterAll(ctx context.Context, wid types.Workflo
 		}
 	}
 	d.mu.Lock()
-	d.dropIndexLocked(wid, wt)
 	delete(d.workflows, wid)
 	d.mu.Unlock()
 }
