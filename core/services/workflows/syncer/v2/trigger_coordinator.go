@@ -2,7 +2,6 @@ package v2
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -307,55 +306,24 @@ func (d *triggerCoordinator) RegisterTriggers(ctx context.Context, cre contexts.
 // engine from the registry at delivery time and never holds an engine
 // reference; if the engine is gone the reader exits.
 func (d *triggerCoordinator) startReader(ctx context.Context, wid types.WorkflowID, idx int, sub *sdkpb.TriggerSubscription, triggerEventCh <-chan capabilities.TriggerResponse) {
-	d.eng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case event, isOpen := <-triggerEventCh:
-				if !isOpen {
-					return
-				}
-				triggerID := sub.Id
-				eventID := event.Event.ID
-				d.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventReceivedCounter(ctx)
-				d.lggr.Debugw("Processing trigger event", "triggerID", triggerID, "eventID", eventID)
-				if event.Err != nil {
-					d.lggr.Errorw("Received a trigger event with error, dropping", "triggerID", triggerID, "err", event.Err)
-					tm := d.metrics.With(platform.KeyTriggerID, triggerID)
-					tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
-					tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonTriggerResponseError)
-					continue
-				}
-
-				// resolve the engine at DELIVERY time — never hold a reference.
-				svc, found := d.registry.Get(wid)
-				if !found {
-					return // engine gone; reader exits
-				}
-				sink, ok := svc.Service.(eventSink)
-				if !ok {
-					d.lggr.Errorw("Engine does not accept trigger events", "workflowID", wid)
-					return
-				}
-
-				routed := v2.RoutedTriggerEvent{
-					WorkflowID:   wid.String(),
-					TriggerCapID: triggerID,
-					TriggerIndex: idx,
-					ObservedAt:   d.clock.Now(),
-					Event:        event,
-				}
-				if err := sink.Put(ctx, routed); err != nil {
-					// Draining is expected during workflow deletion, so it logs at info rather than error level.
-					if errors.Is(err, v2.ErrEngineDraining) {
-						d.lggr.Infow("Dropping trigger event: engine draining", "triggerID", triggerID, "eventID", eventID)
-					} else {
-						d.lggr.Errorw("Failed to put routed trigger event", "triggerID", triggerID, "eventID", eventID, "err", err)
-					}
-				}
-			}
+	// deliver resolves the engine from the registry on every call — never a
+	// held reference — since it's invoked once per event by RunTriggerReader.
+	// An engine that's gone, or that doesn't accept trigger events, is just
+	// another delivery failure to RunTriggerReader: logged and retried on the
+	// next event, not a reason for the reader itself to exit early.
+	deliver := func(ctx context.Context, event v2.RoutedTriggerEvent) error {
+		svc, found := d.registry.Get(wid)
+		if !found {
+			return fmt.Errorf("no engine registered for workflow %s", wid)
 		}
+		sink, ok := svc.Service.(eventSink)
+		if !ok {
+			return fmt.Errorf("engine for workflow %s does not accept trigger events", wid)
+		}
+		return sink.Put(ctx, event)
+	}
+	d.eng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
+		v2.RunTriggerReader(ctx, d.lggr, d.metrics, d.clock, wid.String(), sub.Id, idx, triggerEventCh, deliver)
 	})
 }
 

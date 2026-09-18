@@ -790,46 +790,9 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 
 	// start listening for trigger events only if all registrations succeeded
 	for idx, triggerEventCh := range eventChans {
+		triggerID := subscriptions[idx].Id
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case event, isOpen := <-triggerEventCh:
-					if !isOpen {
-						return
-					}
-					triggerID := subscriptions[idx].Id
-					eventID := event.Event.ID
-					e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventReceivedCounter(ctx)
-					e.logger().Debugw("Processing trigger event", "triggerID", triggerID, "eventID", eventID)
-					if event.Err != nil {
-						e.logger().Errorw("Received a trigger event with error, dropping", "triggerID", triggerID, "err", event.Err)
-						tm := e.metrics.With(platform.KeyTriggerID, triggerID)
-						tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
-						tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonTriggerResponseError)
-						continue
-					}
-
-					routed := RoutedTriggerEvent{
-						WorkflowID:     e.cfg.WorkflowID,
-						TriggerCapID:   triggerID,
-						TriggerIndex:   idx,
-						ObservedAt:     e.cfg.Clock.Now(),
-						SequenceNumber: 0,
-						Event:          event,
-					}
-
-					if err := e.Put(ctx, routed); err != nil {
-						// Draining is expected during workflow deletion, so it logs at info rather than error level.
-						if errors.Is(err, ErrEngineDraining) {
-							e.logger().Infow("Dropping trigger event: engine draining", "triggerID", triggerID, "eventID", eventID)
-						} else {
-							e.logger().Errorw("Failed to put routed trigger event", "triggerID", triggerID, "eventID", eventID, "err", err)
-						}
-					}
-				}
-			}
+			RunTriggerReader(ctx, e.logger(), e.metrics, e.cfg.Clock, e.cfg.WorkflowID, triggerID, idx, triggerEventCh, e.Put)
 		})
 	}
 	e.logger().Infow("All triggers registered successfully", "numTriggers", len(subscriptions), "triggerIDs", triggerCapIDs)

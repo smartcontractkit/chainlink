@@ -165,8 +165,10 @@ func Test_RegisterTriggers_ReaderDeliversToEngineViaRegistry(t *testing.T) {
 }
 
 // If the engine isn't in the registry (e.g. it was popped before this event arrived),
-// the reader must not panic or deliver anywhere — it drops the event and returns.
-func Test_RegisterTriggers_ReaderExitsWhenEngineGone(t *testing.T) {
+// the reader must not panic or deliver anywhere — it logs and keeps reading, exactly
+// like any other delivery failure (RunTriggerReader has no special case for it). If the
+// engine later appears in the registry, the next event is delivered normally.
+func Test_RegisterTriggers_ReaderSurvivesEngineGone(t *testing.T) {
 	t.Parallel()
 
 	capReg := regmocks.NewCapabilitiesRegistry(t)
@@ -175,19 +177,31 @@ func Test_RegisterTriggers_ReaderExitsWhenEngineGone(t *testing.T) {
 
 	trigger := capmocks.NewTriggerCapability(t)
 	capReg.EXPECT().GetTrigger(mock.Anything, "id_0").Return(trigger, nil).Once()
-	eventCh := make(chan capabilities.TriggerResponse, 1)
+	eventCh := make(chan capabilities.TriggerResponse, 2)
 	trigger.EXPECT().RegisterTrigger(mock.Anything, mock.Anything).Return(eventCh, nil).Once()
 
 	wid := testWorkflowID(4)
-	// Deliberately never added to the registry.
+	// Deliberately never added to the registry yet.
 	cre := contexts.CRE{Owner: "owner-a", Workflow: wid.Hex()}
 	_, err := d.RegisterTriggers(t.Context(), cre, RegistrationParams{}, []*sdkpb.TriggerSubscription{testSub("id_0")})
 	require.NoError(t, err)
 
-	// Must not panic or hang; give the reader goroutine a moment to observe
-	// the event and exit.
+	// Must not panic or hang while the engine is missing.
 	eventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event-1"}}
 	time.Sleep(100 * time.Millisecond)
+
+	// The reader kept looping (didn't exit on the earlier delivery failure):
+	// once the engine appears, the next event is delivered to it.
+	engine := newFakePutEngine()
+	require.NoError(t, registry.Add(wid, "test-source", engine))
+	eventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event-2"}}
+
+	select {
+	case routed := <-engine.putCh:
+		require.Equal(t, "event-2", routed.Event.Event.ID)
+	case <-time.After(2 * time.Second):
+		t.Fatal("reader exited instead of continuing after a delivery failure")
+	}
 }
 
 // Ack resolves the registration's handle and calls AckEvent on the underlying
