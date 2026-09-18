@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -20,7 +20,7 @@ type Keystore[K keystore.Key] interface {
 	Create(context.Context) (K, error)
 	Delete(ctx context.Context, id string) (K, error)
 	Import(ctx context.Context, keyJSON []byte, password string) (K, error)
-	Export(id string, password string) ([]byte, error)
+	Export(id, password string) ([]byte, error)
 }
 
 type KeysController interface {
@@ -47,7 +47,8 @@ type keysController[K keystore.Key, R jsonapi.EntityNamer] struct {
 }
 
 func NewKeysController[K keystore.Key, R jsonapi.EntityNamer](ks Keystore[K], lggr logger.Logger, auditLogger audit.AuditLogger, resourceName string,
-	newResource func(K) *R, newResources func([]K) []R) KeysController {
+	newResource func(K) *R, newResources func([]K) []R,
+) KeysController {
 	var k K
 	typ, err := keystore.GetFieldNameForKey(k)
 	if err != nil {

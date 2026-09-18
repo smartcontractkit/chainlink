@@ -13,14 +13,14 @@ import (
 
 // FeedsManagerResolver resolves the FeedsManager type.
 type FeedsManagerResolver struct {
-	mgr feeds.FeedsManager
+	mgr feeds.Manager
 }
 
-func NewFeedsManager(mgr feeds.FeedsManager) *FeedsManagerResolver {
+func NewFeedsManager(mgr feeds.Manager) *FeedsManagerResolver {
 	return &FeedsManagerResolver{mgr: mgr}
 }
 
-func NewFeedsManagers(mgrs []feeds.FeedsManager) []*FeedsManagerResolver {
+func NewFeedsManagers(mgrs []feeds.Manager) []*FeedsManagerResolver {
 	resolvers := make([]*FeedsManagerResolver, 0, len(mgrs))
 	for _, mgr := range mgrs {
 		resolvers = append(resolvers, NewFeedsManager(mgr))
@@ -87,11 +87,11 @@ func (r *FeedsManagerResolver) DisabledAt() *graphql.Time {
 // -- FeedsManager Query --
 
 type FeedsManagerPayloadResolver struct {
-	mgr *feeds.FeedsManager
+	mgr *feeds.Manager
 	NotFoundErrorUnionType
 }
 
-func NewFeedsManagerPayload(mgr *feeds.FeedsManager, err error) *FeedsManagerPayloadResolver {
+func NewFeedsManagerPayload(mgr *feeds.Manager, err error) *FeedsManagerPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
 
 	return &FeedsManagerPayloadResolver{mgr: mgr, NotFoundErrorUnionType: e}
@@ -110,10 +110,10 @@ func (r *FeedsManagerPayloadResolver) ToFeedsManager() (*FeedsManagerResolver, b
 
 // FeedsManagersPayloadResolver resolves a list of feeds managers
 type FeedsManagersPayloadResolver struct {
-	feedsManagers []feeds.FeedsManager
+	feedsManagers []feeds.Manager
 }
 
-func NewFeedsManagersPayload(feedsManagers []feeds.FeedsManager) *FeedsManagersPayloadResolver {
+func NewFeedsManagersPayload(feedsManagers []feeds.Manager) *FeedsManagersPayloadResolver {
 	return &FeedsManagersPayloadResolver{
 		feedsManagers: feedsManagers,
 	}
@@ -128,13 +128,13 @@ func (r *FeedsManagersPayloadResolver) Results() []*FeedsManagerResolver {
 
 // CreateFeedsManagerPayloadResolver -
 type CreateFeedsManagerPayloadResolver struct {
-	mgr *feeds.FeedsManager
+	mgr *feeds.Manager
 	// inputErrors maps an input path to a string
 	inputErrs map[string]string
 	NotFoundErrorUnionType
 }
 
-func NewCreateFeedsManagerPayload(mgr *feeds.FeedsManager, err error, inputErrs map[string]string) *CreateFeedsManagerPayloadResolver {
+func NewCreateFeedsManagerPayload(mgr *feeds.Manager, err error, inputErrs map[string]string) *CreateFeedsManagerPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
 
 	return &CreateFeedsManagerPayloadResolver{
@@ -184,10 +184,10 @@ func (r *CreateFeedsManagerPayloadResolver) ToInputErrors() (*InputErrorsResolve
 }
 
 type CreateFeedsManagerSuccessResolver struct {
-	mgr feeds.FeedsManager
+	mgr feeds.Manager
 }
 
-func NewCreateFeedsManagerSuccessResolver(mgr feeds.FeedsManager) *CreateFeedsManagerSuccessResolver {
+func NewCreateFeedsManagerSuccessResolver(mgr feeds.Manager) *CreateFeedsManagerSuccessResolver {
 	return &CreateFeedsManagerSuccessResolver{
 		mgr: mgr,
 	}
@@ -240,12 +240,12 @@ func (r *DuplicateFeedsManagerErrorResolver) Code() ErrorCode {
 
 // UpdateFeedsManagerPayloadResolver -
 type UpdateFeedsManagerPayloadResolver struct {
-	mgr       *feeds.FeedsManager
+	mgr       *feeds.Manager
 	inputErrs map[string]string
 	NotFoundErrorUnionType
 }
 
-func NewUpdateFeedsManagerPayload(mgr *feeds.FeedsManager, err error, inputErrs map[string]string) *UpdateFeedsManagerPayloadResolver {
+func NewUpdateFeedsManagerPayload(mgr *feeds.Manager, err error, inputErrs map[string]string) *UpdateFeedsManagerPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
 
 	return &UpdateFeedsManagerPayloadResolver{
@@ -278,10 +278,10 @@ func (r *UpdateFeedsManagerPayloadResolver) ToInputErrors() (*InputErrorsResolve
 }
 
 type UpdateFeedsManagerSuccessResolver struct {
-	mgr feeds.FeedsManager
+	mgr feeds.Manager
 }
 
-func NewUpdateFeedsManagerSuccessResolver(mgr feeds.FeedsManager) *UpdateFeedsManagerSuccessResolver {
+func NewUpdateFeedsManagerSuccessResolver(mgr feeds.Manager) *UpdateFeedsManagerSuccessResolver {
 	return &UpdateFeedsManagerSuccessResolver{
 		mgr: mgr,
 	}
@@ -294,11 +294,11 @@ func (r *UpdateFeedsManagerSuccessResolver) FeedsManager() *FeedsManagerResolver
 // -- EnableFeedsManager Mutation --
 
 type EnableFeedsManagerPayloadResolver struct {
-	mgr *feeds.FeedsManager
+	mgr *feeds.Manager
 	NotFoundErrorUnionType
 }
 
-func NewEnableFeedsManagerPayload(mgr *feeds.FeedsManager, err error) *EnableFeedsManagerPayloadResolver {
+func NewEnableFeedsManagerPayload(mgr *feeds.Manager, err error) *EnableFeedsManagerPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
 
 	return &EnableFeedsManagerPayloadResolver{
@@ -316,10 +316,10 @@ func (r *EnableFeedsManagerPayloadResolver) ToEnableFeedsManagerSuccess() (*Enab
 }
 
 type EnableFeedsManagerSuccessResolver struct {
-	mgr feeds.FeedsManager
+	mgr feeds.Manager
 }
 
-func NewEnableFeedsManagerSuccessResolver(mgr feeds.FeedsManager) *EnableFeedsManagerSuccessResolver {
+func NewEnableFeedsManagerSuccessResolver(mgr feeds.Manager) *EnableFeedsManagerSuccessResolver {
 	return &EnableFeedsManagerSuccessResolver{
 		mgr: mgr,
 	}
@@ -332,11 +332,11 @@ func (r *EnableFeedsManagerSuccessResolver) FeedsManager() *FeedsManagerResolver
 // -- DisableFeedsManager Mutation --
 
 type DisableFeedsManagerPayloadResolver struct {
-	mgr *feeds.FeedsManager
+	mgr *feeds.Manager
 	NotFoundErrorUnionType
 }
 
-func NewDisableFeedsManagerPayload(mgr *feeds.FeedsManager, err error) *DisableFeedsManagerPayloadResolver {
+func NewDisableFeedsManagerPayload(mgr *feeds.Manager, err error) *DisableFeedsManagerPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
 
 	return &DisableFeedsManagerPayloadResolver{
@@ -354,10 +354,10 @@ func (r *DisableFeedsManagerPayloadResolver) ToDisableFeedsManagerSuccess() (*Di
 }
 
 type DisableFeedsManagerSuccessResolver struct {
-	mgr feeds.FeedsManager
+	mgr feeds.Manager
 }
 
-func NewDisableFeedsManagerSuccessResolver(mgr feeds.FeedsManager) *DisableFeedsManagerSuccessResolver {
+func NewDisableFeedsManagerSuccessResolver(mgr feeds.Manager) *DisableFeedsManagerSuccessResolver {
 	return &DisableFeedsManagerSuccessResolver{
 		mgr: mgr,
 	}
