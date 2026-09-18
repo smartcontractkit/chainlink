@@ -114,7 +114,7 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 	txns, err := doAddRemoteChainToRouter(e, s, cfg, ab, ds)
 	if err != nil {
 		return cldf.ChangesetOutput{
-			AddressBook: ab,
+			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:   ds,
 		}, err
 	}
@@ -129,12 +129,15 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           ab,
+			AddressBook:           ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:             ds,
 		}, nil
 	}
 
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
+	return cldf.ChangesetOutput{
+		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		DataStore:   ds,
+	}, nil
 }
 
 func doAddRemoteChainToRouter(
@@ -339,7 +342,10 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 	if err != nil {
 		// skipped: doAddRemoteChainToFeeQuoter does not save any lane/multi-instance refs,
 		// so the datastore needs no additional qualifier pass.
-		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, err //nolint:staticcheck // Phase 1 still returns the address book
+		return cldf.ChangesetOutput{
+			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			DataStore:   ds,
+		}, err
 	}
 
 	// create proposals for ixns
@@ -353,14 +359,17 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 		// so the datastore needs no additional qualifier pass.
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           ab,
+			AddressBook:           ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:             ds,
 		}, nil
 	}
 
 	// skipped: doAddRemoteChainToFeeQuoter does not save any lane/multi-instance refs,
 	// so the datastore needs no additional qualifier pass.
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
+	return cldf.ChangesetOutput{
+		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		DataStore:   ds,
+	}, nil
 }
 
 func doAddRemoteChainToFeeQuoter(
@@ -521,8 +530,7 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 	txns, err := doAddRemoteChainToOffRamp(e, s, cfg, ab, ds)
 	if err != nil {
 		return cldf.ChangesetOutput{
-			//nolint:staticcheck // SA1019: AddressBook is deprecated, migration to DataStore pending
-			AddressBook: ab,
+			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:   ds,
 		}, err
 	}
@@ -536,12 +544,15 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 		}
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           ab,
+			AddressBook:           ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:             ds,
 		}, nil
 	}
 
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
+	return cldf.ChangesetOutput{
+		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		DataStore:   ds,
+	}, nil
 }
 
 func doAddRemoteChainToOffRamp(
