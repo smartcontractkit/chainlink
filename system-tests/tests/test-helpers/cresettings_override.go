@@ -23,6 +23,7 @@ package helpers
 //     disagree. Approve() below only returns once every targeted node accepted the job.
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -255,7 +256,7 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option)
 		t.Logf("[cresettings] DON %q: applying override (hash %s) over baseline (hash %s)",
 			don.Name, shortHash(appliedHash), shortHash(baselineHash))
 
-		err := deliverCRESettings(env, don, appliedTOML)
+		err := deliverCRESettings(env, don, appliedTOML, false)
 		require.NoErrorf(t, err, "failed to deliver CRE settings override to DON %q", don.Name)
 
 		h.targets = append(h.targets, creSettingsTarget{
@@ -318,7 +319,7 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 
 	for _, tg := range h.targets {
 		t.Logf("[cresettings] DON %q: reverting to baseline (hash %s)", tg.don.Name, shortHash(tg.baselineHash))
-		err := deliverCRESettings(h.env, tg.don, tg.baselineTOML)
+		err := deliverCRESettings(h.env, tg.don, tg.baselineTOML, true)
 		if err != nil {
 			if fatal {
 				require.NoErrorf(t, err, "failed to revert CRE settings on DON %q", tg.don.Name)
@@ -338,10 +339,26 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 // JD proposal history on repeated deliveries (e.g. reverting to the same baseline twice,
 // which failed with "no job proposal found"). Application is confirmed best-effort via
 // the nodes' "Updated settings" logs (see logSettingsConvergence).
-func deliverCRESettings(env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string) error {
+//
+// detachFromCallerContext must be true when called from a t.Cleanup (i.e. during revert):
+// every JD call here runs through CldfEnvironment.GetContext(), which returns the context
+// the environment was built with — ultimately a t.Context(). testing.T.Context() is
+// documented to be canceled just before the test's Cleanup functions run, so without this,
+// a revert-on-cleanup always fails with "context canceled", not because anything is
+// actually wrong. context.WithoutCancel keeps any context values while dropping that
+// already-fired cancellation.
+func deliverCRESettings(env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string, detachFromCallerContext bool) error {
+	cldfEnv := *env.CreEnvironment.CldfEnvironment
+	if detachFromCallerContext {
+		baseGetContext := cldfEnv.GetContext
+		cldfEnv.GetContext = func() context.Context {
+			return context.WithoutCancel(baseGetContext())
+		}
+	}
+
 	input := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
-		Environment: env.CreEnvironment.CldfEnvironment.Name,
+		Environment: cldfEnv.Name,
 		DONName:     don.Name,
 		JobName:     "cre-settings",
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: "cre-settings-override"},
@@ -352,10 +369,10 @@ func deliverCRESettings(env *ttypes.TestEnvironment, don *cre.Don, settingsTOML 
 		Inputs:   job_types.JobSpecInput{"settings": settingsTOML},
 	}
 
-	if err := (cre_jobs.ProposeJobSpec{}).VerifyPreconditions(*env.CreEnvironment.CldfEnvironment, input); err != nil {
+	if err := (cre_jobs.ProposeJobSpec{}).VerifyPreconditions(cldfEnv, input); err != nil {
 		return fmt.Errorf("verify settings job preconditions: %w", err)
 	}
-	if _, err := (cre_jobs.ProposeJobSpec{}).Apply(*env.CreEnvironment.CldfEnvironment, input); err != nil {
+	if _, err := (cre_jobs.ProposeJobSpec{}).Apply(cldfEnv, input); err != nil {
 		return fmt.Errorf("propose settings job: %w", err)
 	}
 	return nil

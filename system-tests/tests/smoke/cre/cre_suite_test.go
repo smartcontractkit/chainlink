@@ -221,8 +221,6 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 	require.NoError(t, evm_config.ValidateReadBucketRegistry(), "invalid EVM read bucket registry")
 
-	// Scope the override with an option — here to THIS test's workflow, so it can't affect
-	// any other test. It auto-reverts when the test ends. myWorkflowID is hex, no 0x.
 	t_helpers.ApplyCRESettings(t, testEnv,
 		t_helpers.Global("\nMissingRequestRecoveryEnabled = 'true'"),
 	)
