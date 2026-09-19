@@ -2889,6 +2889,7 @@ An empty list disables all OCR2 telemetry. Use ["all"] to enable all OCR2 plugin
 UseLocalTimeProvider = true # Default
 EnableDKGRecipient = false # Default
 DebugMode = false # Default
+CachedTriggerSubscriptionsEnabled = false # Default
 ```
 
 
@@ -2909,6 +2910,12 @@ EnableDKGRecipient should be set to true if the DON runs a capability that uses 
 DebugMode = false # Default
 ```
 DebugMode enables additional tracing and logging for workflow engines.
+
+### CachedTriggerSubscriptionsEnabled
+```toml
+CachedTriggerSubscriptionsEnabled = false # Default
+```
+CachedTriggerSubscriptionsEnabled makes workflow engines reuse a previously-persisted trigger subscription payload instead of executing the workflow's WASM Subscribe() call on every engine start.
 
 ## CRE.ConfidentialRelay
 ```toml

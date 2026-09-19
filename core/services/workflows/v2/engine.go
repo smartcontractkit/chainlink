@@ -320,7 +320,7 @@ func (e *Engine) ExecuteTrigger(ctx context.Context, event RoutedTriggerEvent) e
 // CachedTriggerSubscriptionsEnabled gate is on, it's returned directly without executing the
 // WASM binary.
 func (e *Engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
-	if e.cfg.CachedTriggerSubscriptions != nil && e.cfg.LocalLimiters.CachedTriggerSubscriptionsEnabled.AllowErr(ctx) == nil {
+	if e.cfg.CachedTriggerSubscriptions != nil && e.cfg.CachedTriggerSubscriptionsEnabled {
 		return e.cfg.CachedTriggerSubscriptions, nil
 	}
 

@@ -533,12 +533,11 @@ func TestEngine_Subscribe_CachedTriggerSubscriptions(t *testing.T) {
 		trigger0.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 		trigger1.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 
-		cfg := defaultTestConfig(t, func(c *cresettings.Workflows) {
-			c.FeatureCachedTriggerSubscriptionsEnabled.DefaultValue = true
-		})
+		cfg := defaultTestConfig(t, nil)
 		cfg.Module = module
 		cfg.CapRegistry = capreg
 		cfg.CachedTriggerSubscriptions = cachedSubs
+		cfg.CachedTriggerSubscriptionsEnabled = true
 		initDoneCh := make(chan error, 1)
 		cfg.Hooks = v2.LifecycleHooks{
 			OnInitialized: func(err error) { initDoneCh <- err },
@@ -568,10 +567,10 @@ func TestEngine_Subscribe_CachedTriggerSubscriptions(t *testing.T) {
 		trigger0.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 		trigger1.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 
-		cfg := defaultTestConfig(t, nil) // FeatureCachedTriggerSubscriptionsEnabled defaults to false
+		cfg := defaultTestConfig(t, nil)
 		cfg.Module = module
 		cfg.CapRegistry = capreg
-		cfg.CachedTriggerSubscriptions = cachedSubs // present, but must be ignored while the gate is off
+		cfg.CachedTriggerSubscriptions = cachedSubs // present, but must be ignored: CachedTriggerSubscriptionsEnabled defaults to false
 		initDoneCh := make(chan error, 1)
 		cfg.Hooks = v2.LifecycleHooks{
 			OnInitialized: func(err error) { initDoneCh <- err },

@@ -121,6 +121,11 @@ type eventHandler struct {
 	// When enabled, traces are created for workflow execution and syncer events.
 	debugMode bool
 
+	// cachedTriggerSubscriptionsEnabled gates whether a previously-persisted
+	// workflow_specs_v2.trigger_subscriptions value is used to skip WASM
+	// Subscribe() calls on engine start. See CRE.CachedTriggerSubscriptionsEnabled.
+	cachedTriggerSubscriptionsEnabled bool
+
 	// tracer is the OTel tracer for this handler. It's a noop tracer when debug mode is disabled.
 	tracer trace.Tracer
 
@@ -240,6 +245,15 @@ func WithDebugMode(debugMode bool) func(*eventHandler) {
 			// set to no-op just in case a real tracer was initialised elsewhere
 			e.tracer = noop.NewTracerProvider().Tracer("")
 		}
+	}
+}
+
+// WithCachedTriggerSubscriptionsEnabled propagates the
+// CRE.CachedTriggerSubscriptionsEnabled node config to workflow engines
+// created by this handler.
+func WithCachedTriggerSubscriptionsEnabled(enabled bool) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.cachedTriggerSubscriptionsEnabled = enabled
 	}
 }
 
@@ -1307,13 +1321,14 @@ func (h *eventHandler) newV2EngineConfig(
 		}(),
 		BillingClient: h.billingClient,
 
-		WorkflowRegistryAddress:       h.workflowRegistryAddress,
-		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
-		OrgResolver:                   h.orgResolver,
-		SecretsFetcher:                h.secretsFetcher,
-		OverrideFetcher:               h.overrideFetcherForOwner(owner),
-		DebugMode:                     h.debugMode,
-		SdkName:                       sdkName,
+		WorkflowRegistryAddress:           h.workflowRegistryAddress,
+		WorkflowRegistryChainSelector:     h.workflowRegistryChainSelector,
+		OrgResolver:                       h.orgResolver,
+		SecretsFetcher:                    h.secretsFetcher,
+		OverrideFetcher:                   h.overrideFetcherForOwner(owner),
+		DebugMode:                         h.debugMode,
+		CachedTriggerSubscriptionsEnabled: h.cachedTriggerSubscriptionsEnabled,
+		SdkName:                           sdkName,
 
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,

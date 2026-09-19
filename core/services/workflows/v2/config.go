@@ -84,8 +84,18 @@ type EngineConfig struct {
 	TriggerAcknowledger Acknowledger
 
 	// CachedTriggerSubscriptions, when non-nil, is used by Subscribe() instead
-	// of executing the WASM binary's Subscribe request.
+	// of executing the WASM binary's Subscribe request. Populated by the
+	// syncer from a previously-persisted workflow_specs_v2.trigger_subscriptions
+	// value; nil means no cache was available, so Subscribe falls back to the
+	// normal WASM call.
 	CachedTriggerSubscriptions []*sdkpb.TriggerSubscription
+
+	// CachedTriggerSubscriptionsEnabled gates whether CachedTriggerSubscriptions
+	// (when present) is actually used, or ignored in favor of always calling
+	// WASM. Node-level static config (CRE.CachedTriggerSubscriptionsEnabled),
+	// not a per-workflow dynamic setting: writing the cache always happens
+	// regardless of this flag.
+	CachedTriggerSubscriptionsEnabled bool
 }
 
 type EngineLimiters struct {
@@ -129,7 +139,6 @@ type EngineLimiters struct {
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
 	ShardingFailoverEnabled                     limits.GateLimiter
-	CachedTriggerSubscriptionsEnabled           limits.GateLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
 }
 
