@@ -351,7 +351,7 @@ var evmNegativeTestsWriteReportCorruptReceiverAddress = []evmNegativeTest{
 }
 
 var evmNegativeTestsWriteReportInvalidGas = []evmNegativeTest{
-	{"low", "100000", writeReportInvalidGas, "lower than minimum gas limit"},
+	{"low", "10000", writeReportInvalidGas, "lower than minimum gas limit"},
 	{"too high", "100000000000", writeReportInvalidGas, "gas limit exceeds configured limit"},
 }
 
