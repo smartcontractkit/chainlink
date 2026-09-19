@@ -14,6 +14,11 @@ type CRE interface {
 	// DebugMode returns true if debug mode is enabled for workflow engines.
 	// When enabled, additional OTel tracing and logging is performed.
 	DebugMode() bool
+	// CachedTriggerSubscriptionsEnabled returns true if workflow engines should
+	// reuse a previously-persisted trigger subscription payload
+	// (workflow_specs_v2.trigger_subscriptions) instead of executing the
+	// workflow's WASM Subscribe() call on every engine start.
+	CachedTriggerSubscriptionsEnabled() bool
 	LocalSecretOverrides() map[string]map[string]string
 	ConfidentialRelay() CREConfidentialRelay
 }
