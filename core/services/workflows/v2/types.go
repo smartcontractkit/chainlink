@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 // EventSink is how trigger events are delivered to an engine for execution.
@@ -23,10 +24,6 @@ import (
 // Expected errors:
 //   - ErrDuplicateExecution — the event was already executed (dedup gate).
 //     The engine ACKs the duplicate internally before returning.
-//   - ErrShardDeniedNotOwner — this node is not the shard owner.
-//     The engine ACKs the event internally before returning.
-//   - ErrShardDeniedOrchestrator — shard ownership check failed due to
-//     orchestrator error. The engine ACKs the event internally before returning.
 //   - ErrMeteringReserveFailed — metering report reservation failed.
 //     No ACK is sent; the caller may retry.
 //
@@ -47,7 +44,7 @@ type EventSink interface {
 //   - Shard ownership denial — this node is not the shard owner; the engine
 //     ACKs to signal the event was processed (skipped).
 //   - Normal execution start — the engine ACKs after the execution begins
-//     (not shown in the current code path; reserved for M2 dispatcher).
+//     (not shown in the current code path; reserved for M2 coordinator).
 //
 // Ack is idempotent: calling it multiple times for the same event is safe.
 // The implementation is responsible for looking up the trigger handle by
@@ -56,19 +53,36 @@ type Acknowledger interface {
 	Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error
 }
 
+// Drainable is the graceful-shutdown contract. The syncer has a structurally
+// identical local interface (syncer/v2.DrainableService); both are satisfied by
+// the same methods, so no cross-package dependency is introduced.
+type Drainable interface {
+	Drain() bool
+	ActiveExecutions() int32
+	DrainStartedAt() (time.Time, bool)
+}
+
+// WorkflowEngine is the contract every workflow engine implementation satisfies,
+// independent of which component owns trigger registration and acknowledgement.
+type WorkflowEngine interface {
+	services.Service
+	EventSink
+	Drainable
+}
+
 // RoutedTriggerEvent is the canonical trigger event type that flows
-// through the dispatch path into the engine.
+// through the coordinator path into the engine.
 type RoutedTriggerEvent struct {
 	WorkflowID   string
 	TriggerCapID string
 	TriggerIndex int
 
 	// ObservedAt is the time the RoutedTriggerEvent was constructed by the
-	// dispatcher. It is used for skew metrics (queue wait time)
+	// coordinator. It is used for skew metrics (queue wait time)
 	// and deadline enforcement.
 	ObservedAt time.Time
 
-	// Deadline is the expiry of this event in the dispatch queue,
+	// Deadline is the expiry of this event in the coordinator queue,
 	// stamped once at dispatch as ObservedAt + TriggerEventQueueTimeout.
 	// A settings change after dispatch does not affect already-queued events
 	Deadline time.Time

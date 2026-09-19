@@ -31,7 +31,7 @@ import (
 var _ host.ExecutionHelper = (*ExecutionHelper)(nil)
 
 type ExecutionHelper struct {
-	*Engine
+	*baseEngine
 	WorkflowExecutionID string
 	ExecutionTimestamp  time.Time
 	UserLogChan         chan<- *protoevents.LogLine
