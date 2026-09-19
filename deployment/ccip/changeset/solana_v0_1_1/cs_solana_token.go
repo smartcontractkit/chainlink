@@ -223,7 +223,7 @@ type MintSolanaTokenConfig struct {
 func (cfg MintSolanaTokenConfig) Validate(e cldf.Environment) error {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ func MintSolanaToken(e cldf.Environment, cfg MintSolanaTokenConfig) (cldf.Change
 	}
 	// get chain
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainStateSolana(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	// get addresses
 	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
@@ -282,7 +282,7 @@ type CreateSolanaTokenATAConfig struct {
 
 func CreateSolanaTokenATA(e cldf.Environment, cfg CreateSolanaTokenATAConfig) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainStateSolana(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)

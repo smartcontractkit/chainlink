@@ -329,7 +329,7 @@ type routerSolanaState struct {
 }
 
 func loadRouterSolanaState(e cldf.Environment, cfg OnboardTokenPoolsForSelfServeConfig) (globalState, routerSolanaState, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return globalState{}, routerSolanaState{}, err
 	}
