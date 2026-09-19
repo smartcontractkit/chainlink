@@ -922,8 +922,8 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 
 	if len(cachedTriggerSubs) > 0 {
 		var req sdkpb.TriggerSubscriptionRequest
-		if err := proto.Unmarshal(cachedTriggerSubs, &req); err != nil {
-			h.lggr.Warnw("failed to unmarshal cached trigger subscriptions; falling back to WASM Subscribe", "workflowID", workflowID, "err", err)
+		if unmarshalErr := proto.Unmarshal(cachedTriggerSubs, &req); unmarshalErr != nil {
+			h.lggr.Warnw("failed to unmarshal cached trigger subscriptions; falling back to WASM Subscribe", "workflowID", workflowID, "err", unmarshalErr)
 		} else {
 			cfg.CachedTriggerSubscriptions = req.Subscriptions
 		}
