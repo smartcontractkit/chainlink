@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,6 +60,10 @@ func executeStellarDataFeedsWriteTest(
 		RequiredSignatures: requiredSignatures,
 	}
 	workflowID := thelpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, stellarDataFeedsWorkflowFile)
+
+	thelpers.ApplyCRESettings(t, tenv, thelpers.Workflow(strings.TrimPrefix(workflowID, "0x"), `
+[PerWorkflow.ChainWrite.Stellar.MaxResourceFee]
+Default = '10000000'`))
 
 	expectedLog := "Stellar DF write succeeded"
 	thelpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, thelpers.WorkflowEngineInitErrorLog, expectedLog, thelpers.StellarWorkflowTimeout, thelpers.WithUserLogWorkflowID(workflowID))
