@@ -63,49 +63,49 @@ plugins:
 
   capability-cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
+      gitRef: "4d4c4ec65942cf2732b8bc0594278cd05165aec2"
       installPath: "."
       flags: "-tags timetzdata"
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
+      gitRef: "4d4c4ec65942cf2732b8bc0594278cd05165aec2"
       installPath: "."
 
   capability-workflowevent:
     - enabled: false
       moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
-      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
+      gitRef: "4d4c4ec65942cf2732b8bc0594278cd05165aec2"
       installPath: "."
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "18bbcedb5aded4ce47aba13ff29beef0b3fe5af2"
+      gitRef: "4d4c4ec65942cf2732b8bc0594278cd05165aec2"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
+      gitRef: "4d4c4ec65942cf2732b8bc0594278cd05165aec2"
       installPath: "."
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "2d0679d1fddcce0b27cd604c71ed0d64c0daac3a"
+      gitRef: "4d4c4ec65942cf2732b8bc0594278cd05165aec2"
       installPath: "."
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "4ba75af01dc81899c1cca757ee905357b88184ca"
+      gitRef: "4d4c4ec65942cf2732b8bc0594278cd05165aec2"
       installPath: "."
 
   capability-aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "977e430d6ff4db1fba42a4d8a20bc92c8b2ceaba"
+      gitRef: "4d4c4ec65942cf2732b8bc0594278cd05165aec2"
       installPath: "."
 
   capability-stellar:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
-      gitRef: "37945e9e0fa41f14eaac47ad457cd6270b0ef0bf"
+      gitRef: "6a1de784d8c8d39ea101e5e6964f2126e42abad9"
       installPath: "."
 
   confidential-http:
