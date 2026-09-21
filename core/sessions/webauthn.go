@@ -32,11 +32,23 @@ type WebAuthnConfiguration struct {
 	RPOrigin string
 }
 
+// rpOrigins converts a single configured origin into the []string form the
+// go-webauthn library now requires (RPOrigin is deprecated), preserving the
+// library's own validation: an empty origin still results in a construction-
+// time error from webauthn.New rather than silently accepting an empty
+// string as a valid origin entry.
+func rpOrigins(origin string) []string {
+	if origin == "" {
+		return nil
+	}
+	return []string{origin}
+}
+
 func (store *WebAuthnSessionStore) BeginWebAuthnRegistration(user User, uwas []WebAuthn, config WebAuthnConfiguration) (*protocol.CredentialCreation, error) {
 	webAuthn, err := webauthn.New(&webauthn.Config{
-		RPDisplayName: "Chainlink Operator", // Display Name
-		RPID:          config.RPID,          // Generally the domain name
-		RPOrigin:      config.RPOrigin,      // The origin URL for WebAuthn requests
+		RPDisplayName: "Chainlink Operator",       // Display Name
+		RPID:          config.RPID,                // Generally the domain name
+		RPOrigins:     rpOrigins(config.RPOrigin), // The origin URLs for WebAuthn requests
 	})
 	if err != nil {
 		return nil, err
@@ -71,9 +83,9 @@ func (store *WebAuthnSessionStore) BeginWebAuthnRegistration(user User, uwas []W
 
 func (store *WebAuthnSessionStore) FinishWebAuthnRegistration(user User, uwas []WebAuthn, response *http.Request, config WebAuthnConfiguration) (*webauthn.Credential, error) {
 	webAuthn, err := webauthn.New(&webauthn.Config{
-		RPDisplayName: "Chainlink Operator", // Display Name
-		RPID:          config.RPID,          // Generally the domain name
-		RPOrigin:      config.RPOrigin,      // The origin URL for WebAuthn requests
+		RPDisplayName: "Chainlink Operator",       // Display Name
+		RPID:          config.RPID,                // Generally the domain name
+		RPOrigins:     rpOrigins(config.RPOrigin), // The origin URLs for WebAuthn requests
 	})
 	if err != nil {
 		return nil, err
@@ -100,9 +112,9 @@ func (store *WebAuthnSessionStore) FinishWebAuthnRegistration(user User, uwas []
 
 func BeginWebAuthnLogin(user User, uwas []WebAuthn, sr SessionRequest) (*protocol.CredentialAssertion, error) {
 	webAuthn, err := webauthn.New(&webauthn.Config{
-		RPDisplayName: "Chainlink Operator",       // Display Name
-		RPID:          sr.WebAuthnConfig.RPID,     // Generally the domain name
-		RPOrigin:      sr.WebAuthnConfig.RPOrigin, // The origin URL for WebAuthn requests
+		RPDisplayName: "Chainlink Operator",                  // Display Name
+		RPID:          sr.WebAuthnConfig.RPID,                // Generally the domain name
+		RPOrigins:     rpOrigins(sr.WebAuthnConfig.RPOrigin), // The origin URLs for WebAuthn requests
 	})
 	if err != nil {
 		return nil, err
@@ -129,9 +141,9 @@ func BeginWebAuthnLogin(user User, uwas []WebAuthn, sr SessionRequest) (*protoco
 
 func FinishWebAuthnLogin(user User, uwas []WebAuthn, sr SessionRequest) error {
 	webAuthn, err := webauthn.New(&webauthn.Config{
-		RPDisplayName: "Chainlink Operator",       // Display Name
-		RPID:          sr.WebAuthnConfig.RPID,     // Generally the domain name
-		RPOrigin:      sr.WebAuthnConfig.RPOrigin, // The origin URL for WebAuthn requests
+		RPDisplayName: "Chainlink Operator",                  // Display Name
+		RPID:          sr.WebAuthnConfig.RPID,                // Generally the domain name
+		RPOrigins:     rpOrigins(sr.WebAuthnConfig.RPOrigin), // The origin URLs for WebAuthn requests
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create webAuthn structure with RPID: %s and RPOrigin: %s: %w", sr.WebAuthnConfig.RPID, sr.WebAuthnConfig.RPOrigin, err)

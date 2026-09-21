@@ -2,6 +2,7 @@ package audit_test
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"io"
 	"net/http"
@@ -78,6 +79,44 @@ func (c Config) Headers() (models.ServiceHeaders, error) {
 
 func (c Config) JsonWrapperKey() string { //nolint:revive // method name required by interface
 	return ""
+}
+
+// badForwardToURLConfig fails ForwardToUrl(), all other methods delegate to Config.
+type badForwardToURLConfig struct {
+	Config
+}
+
+func (c badForwardToURLConfig) ForwardToUrl() (commonconfig.URL, error) { //nolint:revive // method name required by interface
+	return commonconfig.URL{}, errors.New("bad forward-to url")
+}
+
+// badHeadersConfig fails Headers(), all other methods delegate to Config.
+type badHeadersConfig struct {
+	Config
+}
+
+func (c badHeadersConfig) Headers() (models.ServiceHeaders, error) {
+	return nil, errors.New("bad headers")
+}
+
+func TestNewAuditLogger_ConfigErrors(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestSugared(t)
+
+	t.Run("returns error when ForwardToUrl fails", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := audit.NewAuditLogger(lggr, badForwardToURLConfig{})
+		require.ErrorContains(t, err, "bad forward-to url")
+	})
+
+	t.Run("returns error when Headers fails", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := audit.NewAuditLogger(lggr, badHeadersConfig{})
+		require.ErrorContains(t, err, "bad headers")
+	})
 }
 
 func TestCheckLoginAuditLog(t *testing.T) {

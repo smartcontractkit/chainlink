@@ -72,6 +72,20 @@ func TestWebAuthnSessionStore(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestBeginWebAuthnRegistration_EmptyRPOrigin(t *testing.T) {
+	t.Parallel()
+
+	s := NewWebAuthnSessionStore()
+	user := mustRandomUser(t)
+
+	// An empty RPOrigin must still fail at construction time, matching
+	// go-webauthn's own validation, rather than silently producing a
+	// RelyingParty with no allowed origins.
+	wcfg := WebAuthnConfiguration{RPID: "test-rpid", RPOrigin: ""}
+	_, err := s.BeginWebAuthnRegistration(user, nil, wcfg)
+	require.ErrorContains(t, err, "RPOrigins")
+}
+
 func mustRandomUser(t testing.TB) User {
 	email := fmt.Sprintf("user-%v@chainlink.test", mrand.Int63())
 	r, err := NewUser(email, testutils.Password, UserRoleAdmin)
