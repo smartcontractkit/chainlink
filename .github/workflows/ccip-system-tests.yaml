@@ -56,6 +56,13 @@ on:
         description:
           "When true, restricts the matrix to tests flagged mixed_version=true
           (used by the release rollout job)."
+      run_mixed_version_tests:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "Whether to run the mixed-version tests. Only used for manual
+          workflow_dispatch runs; these tests are skipped on automatic runs."
   workflow_call:
     inputs:
       chainlink_image_repository_path:
