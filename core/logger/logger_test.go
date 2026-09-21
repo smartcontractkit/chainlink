@@ -65,10 +65,9 @@ func TestOtelCore(t *testing.T) {
 				otelCore := otelzap.NewCore(noopLogger, otelzap.WithLevel(zapcore.DebugLevel))
 
 				logger, closeFn = cfg.NewWithCores(otelCore)
-				defer func() {
-					err := closeFn()
-					require.NoError(t, err)
-				}()
+				t.Cleanup(func() {
+					require.NoError(t, closeFn())
+				})
 				require.NotNil(t, logger)
 
 				// Test that logger works with otel core
@@ -76,10 +75,9 @@ func TestOtelCore(t *testing.T) {
 			} else {
 				// Test that regular logger works
 				logger, closeFn = cfg.NewWithCores()
-				defer func() {
-					err := closeFn()
-					require.NoError(t, err)
-				}()
+				t.Cleanup(func() {
+					require.NoError(t, closeFn())
+				})
 				require.NotNil(t, logger)
 
 				logger.Info("test log message without otel")
@@ -107,10 +105,10 @@ func TestAtomicCoreSwap(t *testing.T) {
 	}
 
 	lggr, closeFn := lggrCfg.NewWithCores(ac.root)
-	defer func() {
+	t.Cleanup(func() {
 		ac.Close()
 		require.NoError(t, closeFn())
-	}()
+	})
 
 	// Create observer to capture logs
 	otelCore, otelLogs := observer.New(zapcore.InfoLevel)

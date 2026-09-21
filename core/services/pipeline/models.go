@@ -202,7 +202,7 @@ func (r *Run) StringAllErrors() []*string {
 	return allErrors
 }
 
-type RunErrors []null.String //nolint:recvcheck // Scan requires pointer receiver to unmarshal, Value requires value receiver for driver.Valuer
+type RunErrors []null.String
 
 func (re *RunErrors) Scan(value any) error {
 	if value == nil {

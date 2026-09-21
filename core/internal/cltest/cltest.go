@@ -567,7 +567,7 @@ func NewEthMocksWithDefaultChain(t testing.TB) (c *clienttest.Client) {
 	testutils.SkipShortDB(t)
 	c = NewEthMocks(t)
 	c.On("ConfiguredChainID").Return(&FixtureChainID).Maybe()
-	return
+	return c
 }
 
 func NewEthMocks(t testing.TB) *clienttest.Client {
@@ -902,7 +902,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request)) //nolint:bodyclose // body closed via deferred cleanup()
-	defer cleanup()
+	t.Cleanup(cleanup)
 	AssertServerResponse(t, resp, http.StatusOK)
 
 	var createdJob job.Job
@@ -915,7 +915,7 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec)) //nolint:bodyclose // body closed via deferred cleanup()
-	defer cleanup()
+	t.Cleanup(cleanup)
 	AssertServerResponse(t, resp, http.StatusOK)
 
 	var jobResponse webpresenters.JobResource
@@ -928,7 +928,7 @@ func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID)) //nolint:bodyclose // body closed via deferred cleanup()
-	defer cleanup()
+	t.Cleanup(cleanup)
 	AssertServerResponse(t, resp, http.StatusNoContent)
 }
 
@@ -951,7 +951,7 @@ func CreateJobRunViaUserByID(
 	bodyBuf := bytes.NewBufferString(body)
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs/"+strconv.Itoa(int(jobID))+"/runs", bodyBuf) //nolint:bodyclose // body closed via deferred cleanup()
-	defer cleanup()
+	t.Cleanup(cleanup)
 	AssertServerResponse(t, resp, 200)
 	var pr webpresenters.PipelineRunResource
 	ParseJSONAPIResponse(t, resp, &pr)
@@ -969,7 +969,7 @@ func CreateExternalInitiatorViaWeb(
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/external_initiators", bytes.NewBufferString(payload)) //nolint:bodyclose // body closed via deferred cleanup()
-	defer cleanup()
+	t.Cleanup(cleanup)
 	AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &webpresenters.ExternalInitiatorAuthentication{}
 	ParseJSONAPIResponse(t, resp, ei)
@@ -1002,16 +1002,17 @@ func WaitForSpecErrorV2(t *testing.T, ds sqlutil.DataSource, jobID int32, count 
 	return jse
 }
 
-func WaitForPipelineError(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+func WaitForPipelineError(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusErrored)
 }
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusCompleted)
 }
 
-func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration, state pipeline.RunStatus) []pipeline.Run {
+func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration, state pipeline.RunStatus) []pipeline.Run {
 	t.Helper()
 
 	var pr []pipeline.Run
@@ -1187,7 +1188,7 @@ func UnauthenticatedGet(t testing.TB, url string, headers map[string]string) (*h
 	return unauthenticatedHTTP(t, "GET", url, nil, headers)
 }
 
-func unauthenticatedHTTP(t testing.TB, method string, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
+func unauthenticatedHTTP(t testing.TB, method, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()

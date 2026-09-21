@@ -308,7 +308,7 @@ func (s *OCROracleSpec) SetID(value string) error {
 
 // JSONConfig is a map for config properties which are encoded as JSON in the database by implementing
 // sql.Scanner and driver.Valuer.
-type JSONConfig map[string]any //nolint:recvcheck // Scan requires pointer receiver to unmarshal into map, Value requires value receiver for driver.Valuer
+type JSONConfig map[string]any
 
 // Bytes returns the raw bytes
 func (r JSONConfig) Bytes() []byte {
@@ -857,7 +857,7 @@ type StandardCapabilitiesConfig struct {
 	OracleFactory     OracleFactoryConfig `toml:"oracle_factory"`
 }
 
-type OracleFactoryConfig struct { //nolint:recvcheck // Scan requires pointer receiver to unmarshal into struct, Value requires value receiver for driver.Valuer
+type OracleFactoryConfig struct {
 	Enabled            bool                   `toml:"enabled"`
 	BootstrapPeers     []string               `toml:"bootstrap_peers"`
 	OCRContractAddress string                 `toml:"ocr_contract_address"`

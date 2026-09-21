@@ -30,7 +30,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	logsDir := t.TempDir()
 	tmpFile, err := os.CreateTemp(logsDir, "*")
 	require.NoError(t, err)
-	defer func() { assert.NoError(t, tmpFile.Close()) }()
+	t.Cleanup(func() { assert.NoError(t, tmpFile.Close()) })
 
 	var logFileSize utils.FileSize
 	err = logFileSize.UnmarshalText([]byte("100mb"))
@@ -214,7 +214,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	logsDir := t.TempDir()
 	tmpFile, err := os.CreateTemp(logsDir, "*")
 	require.NoError(t, err)
-	defer func() { assert.NoError(t, tmpFile.Close()) }()
+	t.Cleanup(func() { assert.NoError(t, tmpFile.Close()) })
 
 	var logFileSize utils.FileSize
 	err = logFileSize.UnmarshalText([]byte("100mb"))
@@ -278,7 +278,7 @@ func TestLogger_Leak(t *testing.T) {
 	}
 
 	ac := NewUpdatableCore()
-	defer ac.Close()
+	t.Cleanup(func() { ac.Close() })
 	startObjectsNum := heapObjects()
 	aLggr := ac.root.With([]zapcore.Field{})
 	bLggr := aLggr.With([]zapcore.Field{})

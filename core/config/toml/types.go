@@ -559,12 +559,12 @@ func (d *DatabaseSecrets) validateConfig(buildMode string) (err error) {
 	case *d.AllowSimplePasswords && buildMode == build.Prod:
 		err = errors.Join(err, configutils.InvalidError{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
 	case !*d.AllowSimplePasswords:
-		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
+		if verr := validateDBURL(url.URL(*d.URL)); verr != nil {
 			err = errors.Join(err, configutils.InvalidError{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
 	if d.BackupURL != nil && !*d.AllowSimplePasswords {
-		if verr := validateDBURL((url.URL)(*d.BackupURL)); verr != nil {
+		if verr := validateDBURL(url.URL(*d.BackupURL)); verr != nil {
 			err = errors.Join(err, configutils.InvalidError{Name: "BackupURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
@@ -924,7 +924,7 @@ func (l *DatabaseLock) ValidateConfig() (err error) {
 			Msg: fmt.Sprintf("must be less than or equal to half of LeaseDuration (%s)", l.LeaseDuration),
 		})
 	}
-	return
+	return err
 }
 
 func (l *DatabaseLock) setFrom(f *DatabaseLock) {
@@ -1038,23 +1038,23 @@ func (p *AuditLogger) SetFrom(f *AuditLogger) {
 // LogLevel replaces dpanic with crit/CRIT
 type LogLevel zapcore.Level
 
-func (l *LogLevel) String() string {
-	zl := zapcore.Level(*l)
+func (l LogLevel) String() string {
+	zl := zapcore.Level(l)
 	if zl == zapcore.DPanicLevel {
 		return "crit"
 	}
 	return zl.String()
 }
 
-func (l *LogLevel) CapitalString() string {
-	zl := zapcore.Level(*l)
+func (l LogLevel) CapitalString() string {
+	zl := zapcore.Level(l)
 	if zl == zapcore.DPanicLevel {
 		return "CRIT"
 	}
 	return zl.CapitalString()
 }
 
-func (l *LogLevel) MarshalText() ([]byte, error) {
+func (l LogLevel) MarshalText() ([]byte, error) {
 	return []byte(l.String()), nil
 }
 
@@ -1858,7 +1858,7 @@ func (ins *Insecure) ValidateConfig() (err error) {
 
 func (ins *Insecure) validateConfig(buildMode string) (err error) {
 	if buildMode == build.Dev {
-		return
+		return err
 	}
 	if ins.DevWebServer != nil && *ins.DevWebServer {
 		err = errors.Join(err, configutils.InvalidError{Name: "DevWebServer", Value: *ins.DevWebServer, Msg: "insecure configs are not allowed on secure builds"})
@@ -1925,7 +1925,7 @@ func (m *MercuryTLS) ValidateConfig() (err error) {
 			err = errors.Join(err, configutils.InvalidError{Name: "CertFile", Value: *m.CertFile, Msg: "must be a valid file path"})
 		}
 	}
-	return
+	return err
 }
 
 type MercuryTransmitter struct {
@@ -2477,21 +2477,21 @@ func (a *AdditionalWorkflowSource) setFrom(f *AdditionalWorkflowSource) {
 }
 
 // GetURL implements config.AdditionalWorkflowSource.
-func (a *AdditionalWorkflowSource) GetURL() string {
+func (a AdditionalWorkflowSource) GetURL() string {
 	if a.URL == nil {
 		return ""
 	}
 	return *a.URL
 }
 
-func (a *AdditionalWorkflowSource) GetTLSEnabled() bool {
+func (a AdditionalWorkflowSource) GetTLSEnabled() bool {
 	if a.TLSEnabled == nil {
 		return true // Default to enabled
 	}
 	return *a.TLSEnabled
 }
 
-func (a *AdditionalWorkflowSource) GetName() string {
+func (a AdditionalWorkflowSource) GetName() string {
 	if a.Name == nil {
 		return ""
 	}
@@ -2656,7 +2656,7 @@ func (r *WorkflowRegistry) ValidateConfig() error {
 func (r *WorkflowRegistry) AdditionalSources() []config.AdditionalWorkflowSource {
 	result := make([]config.AdditionalWorkflowSource, len(r.AdditionalSourcesConfig))
 	for i := range r.AdditionalSourcesConfig {
-		result[i] = &r.AdditionalSourcesConfig[i]
+		result[i] = r.AdditionalSourcesConfig[i]
 	}
 	return result
 }
