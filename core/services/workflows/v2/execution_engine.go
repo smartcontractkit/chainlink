@@ -37,7 +37,7 @@ func NewExecutionEngine(cfg *EngineConfig) (*ExecutionEngine, error) {
 }
 
 func (e *ExecutionEngine) start(ctx context.Context) error {
-	return e.startWith(ctx, e.init)
+	return e.startWith(ctx, e.init, nil)
 }
 
 // init is the execution-only initialization: DON sync -> Subscribe ->

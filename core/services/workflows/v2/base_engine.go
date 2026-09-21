@@ -64,8 +64,8 @@ var (
 const pinnedWorkflowDonConfigVersion = 1
 
 // baseEngine holds the execution machinery shared by every workflow engine:
-// module execution, metering, secrets, labels, the heartbeat, drain state, DON
-// sync, and the trigger-event queue.
+// module execution, metering, secrets, labels, the heartbeat, drain state, and
+// DON sync.
 //
 // It is never used directly. Engine (legacy, trigger-owning) and ExecutionEngine
 // (execution-only) each embed it and supply their own start/init/close. The
@@ -89,9 +89,7 @@ type baseEngine struct {
 	loggerLabels atomic.Pointer[map[string]string]
 	localNode    atomic.Pointer[capabilities.Node]
 
-	allTriggerEventsQueueCh limits.QueueLimiter[RoutedTriggerEvent]
-	executionsSemaphore     limits.ResourcePoolLimiter[int]
-	capCallsSemaphore       limits.ResourcePoolLimiter[int]
+	capCallsSemaphore limits.ResourcePoolLimiter[int]
 
 	meterReports *metering.Reports
 
@@ -223,10 +221,8 @@ func newBaseEngine(cfg *EngineConfig) (*baseEngine, logger.SugaredLogger, error)
 
 	// Create engine first so we can use the buildLabels method
 	engine := &baseEngine{
-		cfg:                     cfg,
-		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
-		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
-		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
+		cfg:               cfg,
+		capCallsSemaphore: cfg.LocalLimiters.CapabilityConcurrency,
 	}
 
 	// Build labels using the helper method
@@ -374,82 +370,6 @@ func (e *baseEngine) Draining() bool {
 	return e.draining.Load()
 }
 
-// Put enqueues a trigger event into the engine's internal queue. It is a transitional method that wraps the existing queue.
-// It exists only until the coordinator owns admission (CRE-6179). At that point the engine's queue is removed and the coordinator calls HandleTriggerEvent directly.
-func (e *baseEngine) Put(ctx context.Context, event RoutedTriggerEvent) error { // transitional
-	triggerID := event.TriggerCapID
-	eventID := event.Event.Event.ID
-	idx := event.TriggerIndex
-
-	if e.Draining() {
-		e.logger().Infow("Engine is draining, dropping trigger event before enqueue", "triggerID", triggerID, "eventID", eventID)
-		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
-		tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
-		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueDraining)
-		e.cfg.Hooks.OnTriggerEventDropped(triggerID, eventID, "draining")
-		return ErrEngineDraining
-	}
-
-	// Admission check: an external management layer (e.g. ShardFailoverManager)
-	// decides whether this event should be processed by the engine.
-	if err := e.cfg.Hooks.OnTriggerAdmission(ctx, event); err != nil {
-		if errors.Is(err, ErrAdmissionCache) {
-			e.logger().Infow("Trigger event cached for failover, not enqueuing", "triggerID", triggerID, "eventID", eventID)
-			return err
-		}
-		// Denied: ACK and drop
-		registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-		if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
-			e.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
-		}
-		e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "admission_denied")
-		return err
-	}
-
-	// Stamp the deadline once at dispatch: observedAt + queue timeout.
-	// If ObservedAt is not set, use the current time.
-	if event.ObservedAt.IsZero() {
-		event.ObservedAt = e.cfg.Clock.Now()
-	}
-	queueTimeout, err := e.cfg.LocalLimiters.TriggerEventQueueTimeout.Limit(ctx)
-	if err != nil {
-		if !limits.IsErrRecoverable(err) {
-			// No value was resolved, so the deadline below would already be expired.
-			e.logger().Errorw("Failed to get trigger event queue time limit with no usable value", "err", err)
-			e.metrics.With(platform.KeyTriggerID, triggerID).
-				IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonQueueAgeLimitReadFailed)
-			return ErrEnqueueFailed
-		}
-		// A settings read failure is not a reason to drop a customer's trigger event:
-		// the limiter still returns a usable timeout, so stamp the deadline and continue.
-		e.logger().Errorw("Failed to get trigger event queue time limit; continuing with the value the limiter returned", "err", err)
-		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.Key)
-	}
-	event.Deadline = event.ObservedAt.Add(queueTimeout)
-
-	if err := e.allTriggerEventsQueueCh.Put(ctx, event); err != nil {
-		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
-		tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
-		retErr := ErrEnqueueFailed
-		if _, ok := errors.AsType[limits.ErrorQueueFull](err); ok {
-			// queue full, drop the event
-			e.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
-			tm.IncrementWorkflowTriggerEventQueueFullCounter(ctx)
-			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueQueueFull)
-			retErr = ErrQueueFull
-		} else {
-			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueFailed)
-		}
-		e.logger().Errorw("Failed to enqueue trigger event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
-		tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
-		return retErr
-	}
-	e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueuedCounter(ctx)
-	e.logger().Debugw("Enqueued trigger event", "triggerID", triggerID, "eventID", eventID)
-
-	return nil
-}
-
 // resolveOrgID resolves the organization ID for the given workflow owner.
 // If resolution fails, the returned ID is empty and Reason explains why.
 // The original error from the resolver (if any) is preserved in Err and
@@ -471,7 +391,12 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 
 // startWith performs the startup shared by every engine and spawns initFn as the
 // initialization goroutine. Each engine passes its own init.
-func (e *baseEngine) startWith(ctx context.Context, initFn func(context.Context)) error {
+//
+// triggerLoopFn is Engine's queue-draining loop (handleAllTriggerEvents). It is
+// legacy-only: ExecutionEngine has no queue to drain, since its future
+// coordinator calls ExecuteTrigger directly instead of going through Put. Pass
+// nil to skip it.
+func (e *baseEngine) startWith(ctx context.Context, initFn func(context.Context), triggerLoopFn func(context.Context)) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
 
@@ -488,7 +413,9 @@ func (e *baseEngine) startWith(ctx context.Context, initFn func(context.Context)
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, initFn)
-	e.srvcEng.GoCtx(ctx, e.handleAllTriggerEvents)
+	if triggerLoopFn != nil {
+		e.srvcEng.GoCtx(ctx, triggerLoopFn)
+	}
 	return nil
 }
 
@@ -621,60 +548,6 @@ func (e *baseEngine) localNodeSync(ctx context.Context) {
 	e.storeLoggerLabels(labelsMap)
 
 	e.cfg.Hooks.OnNodeSynced(localNode, nil)
-}
-
-func (e *baseEngine) handleAllTriggerEvents(ctx context.Context) {
-	for {
-		queueHead, err := e.allTriggerEventsQueueCh.Wait(ctx)
-		if err != nil {
-			return
-		}
-		eventID := queueHead.Event.Event.ID
-		triggerMetricLabels := e.metrics.With(platform.KeyTriggerID, queueHead.TriggerCapID)
-		if e.Draining() {
-			triggerMetricLabels.IncrementTriggerEventDequeueDroppedCounter(ctx)
-			triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonDequeueDraining)
-			e.cfg.Hooks.OnTriggerEventDropped(queueHead.TriggerCapID, eventID, "draining")
-			e.logger().Infow("Engine is draining, stopping trigger handling loop", "eventID", eventID, "triggerID", queueHead.TriggerCapID)
-			return
-		}
-
-		now := e.cfg.Clock.Now()
-		eventAge := now.Sub(queueHead.ObservedAt)
-		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
-		triggerMetricLabels.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
-		if now.After(queueHead.Deadline) {
-			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.TriggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
-			triggerMetricLabels.IncrementTriggerEventExpiredCounter(ctx)
-			triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExpired)
-			continue
-		}
-
-		semWaitStart := e.cfg.Clock.Now()
-		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
-		triggerMetricLabels.RecordExecutionSemaphoreWaitSeconds(ctx, e.cfg.Clock.Now().Sub(semWaitStart).Seconds())
-		if err != nil {
-			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
-			triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExecutionSemaphoreWaitFailed)
-			continue
-		}
-
-		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
-			defer free()
-
-			// Legacy path: startExecution handles all errors internally (metrics, ACK, hooks).
-			// This logs eventID context at the call site; the future coordinator admitter
-			// (CRE-6176) will use this error for admission decisions.
-			if err := e.ExecuteTrigger(ctx, queueHead); err != nil {
-				// Dedup is an expected outcome (the event is handled, just not executed here), so it's logged at info rather than error level.
-				if errors.Is(err, ErrDuplicateExecution) {
-					e.logger().Infow("Skipping trigger event execution", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
-				} else {
-					e.logger().Errorw("Failed to execute trigger event", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
-				}
-			}
-		})
-	}
 }
 
 // startExecution initiates a new workflow execution, blocking until completed
