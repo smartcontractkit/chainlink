@@ -109,6 +109,7 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 
 func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
 	h.lggr.Debugw("handling webAPI outgoing message", "messageId", msg.Body.MessageID, "nodeAddr", nodeAddr)
+	h.metrics.recordArtifactFetchRequestReceived(ctx, msg.Body.Method)
 	if !h.nodeRateLimiter.Allow(nodeAddr) {
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
@@ -134,9 +135,17 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 		newCtx := context.WithoutCancel(ctx)
 		newCtx, cancel := context.WithTimeout(newCtx, timeout)
 		defer cancel()
-		l := logger.With(h.lggr, "url", payload.URL, "messageId", msg.Body.MessageID, "method", payload.Method, "timeout", payload.TimeoutMs)
+		l := logger.With(h.lggr, "url", payload.URL, "messageId", msg.Body.MessageID, "method", payload.Method, "timeout", payload.TimeoutMs, "workflowID", payload.WorkflowID)
 		l.Debug("Sending request to client")
 		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
+		switch {
+		case err == nil:
+			h.metrics.recordArtifactFetchOutcome(newCtx, fetchOutcomeSuccess)
+		case errors.Is(err, context.DeadlineExceeded):
+			h.metrics.recordArtifactFetchOutcome(newCtx, fetchOutcomeTimeout)
+		default:
+			h.metrics.recordArtifactFetchOutcome(newCtx, fetchOutcomeExternalError)
+		}
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
 			payload := Response{
@@ -173,6 +182,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 			return
 		}
 		err = h.don.SendToNode(newCtx, nodeAddr, req)
+		h.metrics.recordArtifactFetchResponseDelivery(newCtx, err == nil)
 		if err != nil {
 			l.Errorw("failed to send to node", "err", err, "to", nodeAddr)
 			return
@@ -228,8 +238,17 @@ func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ h
 	return errors.New("capabilities handler does not support legacy user messages")
 }
 
+const (
+	fetchOutcomeSuccess       = "success"
+	fetchOutcomeTimeout       = "timeout"
+	fetchOutcomeExternalError = "external_error"
+)
+
 type metrics struct {
-	handleDuration metric.Int64Histogram
+	handleDuration    metric.Int64Histogram
+	requestsTotal     metric.Int64Counter
+	fetchOutcomeTotal metric.Int64Counter
+	deliveryTotal     metric.Int64Counter
 }
 
 func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, method string, success bool) {
@@ -243,11 +262,59 @@ func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, met
 	))
 }
 
+// recordArtifactFetchRequestReceived counts every artifact-fetch request the gateway
+// receives from a node, independent of whether it is later rate-limited or fails.
+func (m *metrics) recordArtifactFetchRequestReceived(ctx context.Context, method string) {
+	m.requestsTotal.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("method", method),
+	))
+}
+
+// recordArtifactFetchOutcome counts the result of the outbound HTTP call the gateway
+// makes to the external endpoint on behalf of the node.
+func (m *metrics) recordArtifactFetchOutcome(ctx context.Context, outcome string) {
+	m.fetchOutcomeTotal.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("outcome", outcome),
+	))
+}
+
+// recordArtifactFetchResponseDelivery counts whether the gateway succeeded in delivering
+// the fetch result back to the requesting node over the DON connection.
+func (m *metrics) recordArtifactFetchResponseDelivery(ctx context.Context, success bool) {
+	successStr := "false"
+	if success {
+		successStr = "true"
+	}
+	m.deliveryTotal.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("success", successStr),
+	))
+}
+
 func newMetrics() (*metrics, error) {
 	h, err := beholder.GetMeter().Int64Histogram("platform_gateway_capabilities_handle_node_message_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	return &metrics{handleDuration: h}, nil
+	requestsTotal, err := beholder.GetMeter().Int64Counter("platform_gateway_capabilities_artifact_fetch_requests_total")
+	if err != nil {
+		return nil, err
+	}
+
+	fetchOutcomeTotal, err := beholder.GetMeter().Int64Counter("platform_gateway_capabilities_artifact_fetch_outcome_total")
+	if err != nil {
+		return nil, err
+	}
+
+	deliveryTotal, err := beholder.GetMeter().Int64Counter("platform_gateway_capabilities_response_delivery_total")
+	if err != nil {
+		return nil, err
+	}
+
+	return &metrics{
+		handleDuration:    h,
+		requestsTotal:     requestsTotal,
+		fetchOutcomeTotal: fetchOutcomeTotal,
+		deliveryTotal:     deliveryTotal,
+	}, nil
 }
