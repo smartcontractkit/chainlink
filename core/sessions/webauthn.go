@@ -34,11 +34,10 @@ type WebAuthnConfiguration struct {
 
 func (store *WebAuthnSessionStore) BeginWebAuthnRegistration(user User, uwas []WebAuthn, config WebAuthnConfiguration) (*protocol.CredentialCreation, error) {
 	webAuthn, err := webauthn.New(&webauthn.Config{
-		RPDisplayName: "Chainlink Operator",      // Display Name
-		RPID:          config.RPID,               // Generally the domain name
-		RPOrigins:     []string{config.RPOrigin}, // The origin URL for WebAuthn requests
+		RPDisplayName: "Chainlink Operator", // Display Name
+		RPID:          config.RPID,          // Generally the domain name
+		RPOrigin:      config.RPOrigin,      // The origin URL for WebAuthn requests
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +56,6 @@ func (store *WebAuthnSessionStore) BeginWebAuthnRegistration(user User, uwas []W
 		waUser,
 		registerOptions,
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -73,9 +71,9 @@ func (store *WebAuthnSessionStore) BeginWebAuthnRegistration(user User, uwas []W
 
 func (store *WebAuthnSessionStore) FinishWebAuthnRegistration(user User, uwas []WebAuthn, response *http.Request, config WebAuthnConfiguration) (*webauthn.Credential, error) {
 	webAuthn, err := webauthn.New(&webauthn.Config{
-		RPDisplayName: "Chainlink Operator",      // Display Name
-		RPID:          config.RPID,               // Generally the domain name
-		RPOrigins:     []string{config.RPOrigin}, // The origin URL for WebAuthn requests
+		RPDisplayName: "Chainlink Operator", // Display Name
+		RPID:          config.RPID,          // Generally the domain name
+		RPOrigin:      config.RPOrigin,      // The origin URL for WebAuthn requests
 	})
 	if err != nil {
 		return nil, err
@@ -102,11 +100,10 @@ func (store *WebAuthnSessionStore) FinishWebAuthnRegistration(user User, uwas []
 
 func BeginWebAuthnLogin(user User, uwas []WebAuthn, sr SessionRequest) (*protocol.CredentialAssertion, error) {
 	webAuthn, err := webauthn.New(&webauthn.Config{
-		RPDisplayName: "Chainlink Operator",                 // Display Name
-		RPID:          sr.WebAuthnConfig.RPID,               // Generally the domain name
-		RPOrigins:     []string{sr.WebAuthnConfig.RPOrigin}, // The origin URL for WebAuthn requests
+		RPDisplayName: "Chainlink Operator",       // Display Name
+		RPID:          sr.WebAuthnConfig.RPID,     // Generally the domain name
+		RPOrigin:      sr.WebAuthnConfig.RPOrigin, // The origin URL for WebAuthn requests
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -132,11 +129,10 @@ func BeginWebAuthnLogin(user User, uwas []WebAuthn, sr SessionRequest) (*protoco
 
 func FinishWebAuthnLogin(user User, uwas []WebAuthn, sr SessionRequest) error {
 	webAuthn, err := webauthn.New(&webauthn.Config{
-		RPDisplayName: "Chainlink Operator",                 // Display Name
-		RPID:          sr.WebAuthnConfig.RPID,               // Generally the domain name
-		RPOrigins:     []string{sr.WebAuthnConfig.RPOrigin}, // The origin URL for WebAuthn requests
+		RPDisplayName: "Chainlink Operator",       // Display Name
+		RPID:          sr.WebAuthnConfig.RPID,     // Generally the domain name
+		RPOrigin:      sr.WebAuthnConfig.RPOrigin, // The origin URL for WebAuthn requests
 	})
-
 	if err != nil {
 		return pkgerrors.Wrapf(err, "failed to create webAuthn structure with RPID: %s and RPOrigin: %s", sr.WebAuthnConfig.RPID, sr.WebAuthnConfig.RPOrigin)
 	}
@@ -265,7 +261,7 @@ func (store *WebAuthnSessionStore) take(key string) (val string, ok bool) {
 	if ok {
 		delete(store.inProgressRegistrations, key)
 	}
-	return
+	return val, ok
 }
 
 // GetWebauthnSession unmarshals and returns the webauthn session information
@@ -274,10 +270,10 @@ func (store *WebAuthnSessionStore) GetWebauthnSession(key string) (data webauthn
 	assertion, ok := store.take(key)
 	if !ok {
 		err = pkgerrors.New("assertion not in challenge store")
-		return
+		return data, err
 	}
 	err = json.Unmarshal([]byte(assertion), &data)
-	return
+	return data, err
 }
 
 func AddCredentialToUser(ctx context.Context, ap AuthenticationProvider, email string, credential *webauthn.Credential) error {

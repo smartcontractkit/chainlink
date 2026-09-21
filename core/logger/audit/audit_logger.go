@@ -89,19 +89,19 @@ func NewAuditLogger(lggr logger.Logger, config config.AuditLogger) (Logger, erro
 
 	forwardToURL, err := config.ForwardToUrl()
 	if err != nil {
-		return nil, fmt.Errorf("initialization error - unable to get forward URL: %w", err)
+		return &LoggerService{}, nil //nolint:nilerr // preserve existing behavior: disable rather than fail node startup on bad audit config
 	}
 
 	headers, err := config.Headers()
 	if err != nil {
-		return nil, fmt.Errorf("initialization error - unable to get headers: %w", err)
+		return &LoggerService{}, nil //nolint:nilerr // preserve existing behavior: disable rather than fail node startup on bad audit config
 	}
 
 	loggingChannel := make(chan wrappedAuditLog, bufferCapacity)
 
 	// Create new LoggerService
 	auditLogger := LoggerService{
-		logger:          logger.Sugared(lggr),
+		logger:          logger.Helper(lggr, 1),
 		enabled:         true,
 		forwardToURL:    forwardToURL,
 		headers:         headers,

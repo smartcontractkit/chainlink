@@ -93,12 +93,12 @@ func TestCheckLoginAuditLog(t *testing.T) {
 
 	// Create a test logger because the audit logger relies on this logger
 	// as well
-	logger := logger.TestSugared(t)
+	lggr := logger.TestSugared(t)
 
 	auditLoggerTestConfig := Config{}
 
 	// Create new AuditLoggerService
-	auditLogger, err := audit.NewAuditLogger(logger.Named("AuditLogger"), &auditLoggerTestConfig)
+	auditLogger, err := audit.NewAuditLogger(lggr.Named("AuditLogger"), &auditLoggerTestConfig)
 	require.NoError(t, err)
 
 	// Cast to concrete type so we can swap out the internals
@@ -111,7 +111,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 
 	// Create a new chainlink test application passing in our test logger
 	// and audit logger
-	app := cltest.NewApplication(t, logger, auditLogger)
+	app := cltest.NewApplication(t, lggr, auditLogger)
 	require.NoError(t, app.Start(t.Context()))
 
 	enteredStrings := []string{cltest.APIEmailAdmin, cltest.Password}

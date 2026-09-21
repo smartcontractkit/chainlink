@@ -902,7 +902,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request)) //nolint:bodyclose // body closed via deferred cleanup()
-	t.Cleanup(cleanup)
+	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
 	var createdJob job.Job
@@ -915,7 +915,7 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec)) //nolint:bodyclose // body closed via deferred cleanup()
-	t.Cleanup(cleanup)
+	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
 	var jobResponse webpresenters.JobResource
@@ -928,7 +928,7 @@ func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID)) //nolint:bodyclose // body closed via deferred cleanup()
-	t.Cleanup(cleanup)
+	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusNoContent)
 }
 
@@ -951,7 +951,7 @@ func CreateJobRunViaUserByID(
 	bodyBuf := bytes.NewBufferString(body)
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs/"+strconv.Itoa(int(jobID))+"/runs", bodyBuf) //nolint:bodyclose // body closed via deferred cleanup()
-	t.Cleanup(cleanup)
+	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	var pr webpresenters.PipelineRunResource
 	ParseJSONAPIResponse(t, resp, &pr)
@@ -969,7 +969,7 @@ func CreateExternalInitiatorViaWeb(
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/external_initiators", bytes.NewBufferString(payload)) //nolint:bodyclose // body closed via deferred cleanup()
-	t.Cleanup(cleanup)
+	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &webpresenters.ExternalInitiatorAuthentication{}
 	ParseJSONAPIResponse(t, resp, ei)

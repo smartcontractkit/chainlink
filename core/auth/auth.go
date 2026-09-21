@@ -18,6 +18,8 @@ var (
 	ErrAuthFailed = pkgerrors.New("Authentication failed")
 
 	// ErrorAuthFailed is retained for backward compatibility.
+	//
+	// Deprecated: use ErrAuthFailed instead.
 	ErrorAuthFailed = ErrAuthFailed //nolint:errname // backward compatibility
 )
 

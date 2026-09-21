@@ -104,6 +104,7 @@ func (m *mockGatewayConnector) AddHandler(_ context.Context, methods []string, _
 	m.addedMethods = methods
 	return nil
 }
+
 func (m *mockGatewayConnector) RemoveHandler(_ context.Context, _ []string) error {
 	m.removed = true
 	return nil
@@ -152,12 +153,14 @@ func (m *mockCapRegistry) ConfigForCapability(_ context.Context, capID string, _
 	}
 	return capabilities.CapabilityConfiguration{}, fmt.Errorf("config not found: %s", capID)
 }
+
 func (m *mockCapRegistry) DONsForCapability(_ context.Context, capID string) ([]capabilities.DONWithNodes, error) {
 	if dons, ok := m.dons[capID]; ok {
 		return dons, nil
 	}
 	return nil, fmt.Errorf("no DONs found for: %s", capID)
 }
+
 func (m *mockCapRegistry) LocalNode(_ context.Context) (capabilities.Node, error) {
 	return m.localNode, nil
 }
@@ -451,6 +454,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
 				require.NotEmpty(t, result.Signature.Signature)
+				require.Len(t, result.Signatures, 1) //nolint:staticcheck // SA1019 still populated for legacy readers
 				assertValidCapabilitySignature(t, params, result)
 
 				decoded, err := base64.StdEncoding.DecodeString(result.Result.Payload)
@@ -559,6 +563,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
 				require.NotEmpty(t, result.Signature.Signature)
+				require.Len(t, result.Signatures, 1) //nolint:staticcheck // SA1019 still populated for legacy readers
 				assertValidCapabilitySignature(t, params, result)
 				assert.Equal(t, "execution failed", result.Result.Error)
 				assert.Empty(t, result.Result.Payload)
@@ -580,6 +585,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				var result confidentialrelaytypes.SignedSecretsResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
 				require.NotEmpty(t, result.Signature.Signature)
+				require.Len(t, result.Signatures, 1) //nolint:staticcheck // SA1019 still populated for legacy readers
 				assertValidSecretsSignature(t, params, result)
 				require.Len(t, result.Result.Secrets, 1)
 				assert.Equal(t, "API_KEY", result.Result.Secrets[0].ID.Key)

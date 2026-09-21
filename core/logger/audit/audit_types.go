@@ -65,6 +65,11 @@ const (
 	ChainRPCNodeAdded   EventID = "CHAIN_RPC_NODE_ADDED"
 	ChainRPCNodeDeleted EventID = "CHAIN_RPC_NODE_DELETED"
 
+	// ChainRpcNodeAdded is an alias retained for backward compatibility.
+	ChainRpcNodeAdded = ChainRPCNodeAdded //nolint:revive // backward compatibility
+	// ChainRpcNodeDeleted is an alias retained for backward compatibility.
+	ChainRpcNodeDeleted = ChainRPCNodeDeleted //nolint:revive // backward compatibility
+
 	BridgeCreated EventID = "BRIDGE_CREATED"
 	BridgeUpdated EventID = "BRIDGE_UPDATED"
 	BridgeDeleted EventID = "BRIDGE_DELETED"
