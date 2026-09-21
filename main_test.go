@@ -57,12 +57,6 @@ func TestMain(m *testing.M) {
 	})
 }
 
-// Temporary workaround for skipping flaky tests as we improve our tracking process
-var skipFlakyTests = map[string]string{ // test name: issue number
-	// "TestScripts/nodes/evm/list/list":       "https://smartcontract-it.atlassian.net/browse/DX-107",
-	// "TestScripts/keys/eth/list/unavailable": "https://smartcontract-it.atlassian.net/browse/DX-110",
-}
-
 // TestScripts walks through the testdata/scripts directory and runs all .txtar
 // files with the testscripts library. To run an individual test, specify it in the
 // -run param of go test without the txtar or txt suffix, like so:
@@ -78,28 +72,14 @@ func TestScripts(t *testing.T) {
 		t.Run(strings.TrimPrefix(path, "testdata/scripts/"), func(t *testing.T) {
 			t.Parallel()
 
-			// Check each .txtar file against skipFlakyTests
 			matches, err := filepath.Glob(filepath.Join(path, "*.txtar"))
 			require.NoError(t, err)
-
-			var filesToRun []string
-			for _, match := range matches {
-				scriptName := strings.TrimSuffix(filepath.Base(match), ".txtar")
-				fullTestName := t.Name() + "/" + scriptName
-
-				if message, shouldSkip := skipFlakyTests[fullTestName]; shouldSkip {
-					t.Logf("Skipping Flaky Test: %s - %s", fullTestName, message)
-					continue
-				}
-				filesToRun = append(filesToRun, match)
-			}
-
-			if len(filesToRun) == 0 {
-				t.Skip("all scripts in directory skipped")
+			if len(matches) == 0 {
+				t.Skip("no scripts found")
 			}
 
 			testscript.Run(t, testscript.Params{
-				Files:               filesToRun,
+				Files:               matches,
 				Setup:               commonEnv(),
 				ContinueOnError:     true,
 				RequireExplicitExec: true,
