@@ -429,10 +429,13 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 		return err
 	}
 
-	// Stamp the deadline once at dispatch: observedAt + queue timeout.
-	// If ObservedAt is not set, use the current time.
+	// The producer must stamp ObservedAt at dispatch; the deadline below is
+	// derived from it. Reject events that arrive without it so the contract is
+	// enforced on both sides of the interface rather than silently backfilled.
 	if event.ObservedAt.IsZero() {
-		event.ObservedAt = e.cfg.Clock.Now()
+		e.logger().Errorw("Trigger event missing ObservedAt, dropping", "triggerID", triggerID, "eventID", eventID)
+		e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "observed_at_missing")
+		return ErrObservedAtMissing
 	}
 	queueTimeout, err := e.cfg.LocalLimiters.TriggerEventQueueTimeout.Limit(ctx)
 	if err != nil {

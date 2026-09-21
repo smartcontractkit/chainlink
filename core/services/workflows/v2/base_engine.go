@@ -56,6 +56,11 @@ var (
 	ErrEngineDraining = errors.New("engine is draining")
 	ErrQueueFull      = errors.New("trigger event queue is full")
 	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
+
+	// ErrObservedAtMissing is returned by Put when the producer did not stamp
+	// ObservedAt. The coordinator must set it at dispatch so queue-wait metrics
+	// and deadline enforcement are anchored on both sides of the interface.
+	ErrObservedAtMissing = errors.New("trigger event ObservedAt not set")
 )
 
 // Pin config version to 1 to avoid updating forwarder contracts on every single config update.
