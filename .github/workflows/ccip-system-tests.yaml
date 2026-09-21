@@ -107,6 +107,13 @@ on:
         description:
           "When true, restricts the matrix to tests flagged mixed_version=true
           (used by the release rollout job)."
+      run_mixed_version_tests:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "Whether to run the mixed-version tests. Only used for manual
+          workflow_dispatch runs; these tests are skipped on automatic runs."
 
 jobs:
   define-test-matrix:
@@ -134,10 +141,19 @@ jobs:
           TESTS_JSON='[
             {"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2"},
             {"test_name":"TestRMN_GlobalCurseTwoMessagesOnTwoLanes","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","rmn_rageproxy_version":"master-amd6416f5d86","rmn_afn2proxy_version":"master-amd64-10b42b2"},
-            {"test_name":"TestDeleteCCIPJobs-TestRevokeJobs","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","job_timeout":20},
-            {"test_name":"Test_CCIPMixedVersionDON","timeout":"20m","selected_network":"SIMULATED_1,SIMULATED_2","mixed_version":true},
-            {"test_name":"Test_CCIPRollingUpgrade","timeout":"30m","selected_network":"SIMULATED_1,SIMULATED_2","mixed_version":true}
+            {"test_name":"TestDeleteCCIPJobs-TestRevokeJobs","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","job_timeout":20}
           ]'
+
+          # Mixed-version tests are only included when explicitly enabled via
+          # workflow_dispatch input. They are skipped on automatic runs (PRs,
+          # merge queue, etc.) because they require a specific baseline image
+          # and are designed for release validation.
+          if [[ "${{ inputs.run_mixed_version_tests }}" == "true" ]]; then
+            TESTS_JSON=$(echo "$TESTS_JSON" | jq '. += [
+              {"test_name":"Test_CCIPMixedVersionDON","timeout":"20m","selected_network":"SIMULATED_1,SIMULATED_2","mixed_version":true},
+              {"test_name":"Test_CCIPRollingUpgrade","timeout":"30m","selected_network":"SIMULATED_1,SIMULATED_2","mixed_version":true}
+            ]')
+          fi
 
           tests=$(echo "$TESTS_JSON" | jq -c \
             --argjson run_id "$RUN_ID" \
