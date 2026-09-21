@@ -2,13 +2,31 @@ package framework
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
+	"math/big"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+)
+
+const (
+	// The v2 registry gates workflows on a per DON family limit rather than on the v1 allowlist of
+	// DON IDs, so a family is only usable once these limits are set.
+	workflowRegistryDONLimit         = uint32(10000)
+	workflowRegistryUserDefaultLimit = uint32(1000)
+
+	// Request type discriminator the registry expects in the payload signed for LinkOwner.
+	workflowRegistryLinkRequestType = uint8(0)
+
+	workflowRegistryOwnerLinkValidity = time.Hour
 )
 
 type WorkflowRegistry struct {
@@ -24,123 +42,158 @@ func NewWorkflowRegistry(ctx context.Context, t *testing.T, backend *EthBlockcha
 	backend.Commit()
 	require.NoError(t, err)
 
-	// setup contract state to allow the secrets to be updated
-	updateAuthorizedAddress(t, backend, wfRegistryC, []common.Address{backend.transactionOpts.From}, true)
+	r := &WorkflowRegistry{t: t, addr: wfRegistryAddr, contract: wfRegistryC, backend: backend}
 
-	return &WorkflowRegistry{t: t, addr: wfRegistryAddr, contract: wfRegistryC, backend: backend}
+	// The v2 registry only accepts workflows from a linked owner whose signer is allowlisted, so the
+	// deployer is set up as both before any workflow can be registered.
+	r.updateAllowedSigners([]common.Address{backend.transactionOpts.From})
+	r.linkOwner(ctx, backend.transactionOpts.From)
+
+	return r
 }
 
-func (r *WorkflowRegistry) UpdateAllowedDons(donIDs []uint32) {
-	updateAllowedDONs(r.t, r.backend, r.contract, donIDs, true)
+// UpdateAllowedDons sets the workflow limits for the given DON families. Families are the v2
+// registry's equivalent of the v1 allowlist of DON IDs, and match the families the DON is
+// registered under in the capabilities registry.
+func (r *WorkflowRegistry) UpdateAllowedDons(donFamilies []string) {
+	for _, donFamily := range donFamilies {
+		_, err := r.contract.SetDONLimit(r.backend.transactionOpts, donFamily, workflowRegistryDONLimit,
+			workflowRegistryUserDefaultLimit)
+		require.NoError(r.t, err, "failed to set limits for DON family %s", donFamily)
+		r.commit()
+
+		limits, err := r.contract.GetMaxWorkflowsPerDON(&bind.CallOpts{From: r.backend.transactionOpts.From}, donFamily)
+		require.NoError(r.t, err)
+		require.Equal(r.t, workflowRegistryDONLimit, limits.MaxWorkflows)
+	}
 }
 
-func (r *WorkflowRegistry) RegisterWorkflow(input Workflow, donID uint32) {
-	registerWorkflow(r.t, r.backend, r.contract, input, donID)
+func (r *WorkflowRegistry) RegisterWorkflow(input Workflow, donFamily string) {
+	r.upsertWorkflow(input, donFamily)
 }
 
-func (r *WorkflowRegistry) UpdateWorkflow(input UpdatedWorkflow, donID uint32) {
-	updateWorkflow(r.t, r.backend, r.contract, input)
-}
-
-func (r *WorkflowRegistry) ComputeHashKey(owner string, field string) [32]byte {
-	return computeHashKey(r.t, r.contract, owner, field)
-}
-
-func updateAuthorizedAddress(
-	t *testing.T,
-	th *EthBlockchain,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
-	addresses []common.Address,
-	_ bool,
-) {
-	t.Helper()
-	_, err := wfRegC.UpdateAuthorizedAddresses(th.transactionOpts, addresses, true)
-	require.NoError(t, err, "failed to update authorised addresses")
-	th.Commit()
-	th.Commit()
-	th.Commit()
-	gotAddresses, err := wfRegC.GetAllAuthorizedAddresses(&bind.CallOpts{
-		From: th.transactionOpts.From,
-	})
-	require.NoError(t, err)
-	require.ElementsMatch(t, addresses, gotAddresses)
-}
-
-func updateAllowedDONs(
-	t *testing.T,
-	th *EthBlockchain,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
-	donIDs []uint32,
-	allowed bool,
-) {
-	t.Helper()
-	_, err := wfRegC.UpdateAllowedDONs(th.transactionOpts, donIDs, allowed)
-	require.NoError(t, err, "failed to update DONs")
-	th.Commit()
-	th.Commit()
-	th.Commit()
-	gotDons, err := wfRegC.GetAllAllowedDONs(&bind.CallOpts{
-		From: th.transactionOpts.From,
-	})
-	require.NoError(t, err)
-	require.ElementsMatch(t, donIDs, gotDons)
+// UpdateWorkflow updates a previously registered workflow. The v2 registry has a single upsert
+// entrypoint, and rejects updates that change the status or the DON family of a workflow.
+func (r *WorkflowRegistry) UpdateWorkflow(input Workflow, donFamily string) {
+	r.upsertWorkflow(input, donFamily)
 }
 
 type Workflow struct {
 	Name       string
+	Tag        string
 	ID         [32]byte
 	Status     uint8
 	BinaryURL  string
 	ConfigURL  string
-	SecretsURL string
+	Attributes []byte
+	KeepAlive  bool
 }
 
-func registerWorkflow(
-	t *testing.T,
-	th *EthBlockchain,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
-	input Workflow,
-	donID uint32,
-) {
-	t.Helper()
-	_, err := wfRegC.RegisterWorkflow(th.transactionOpts, input.Name, input.ID, donID,
-		input.Status, input.BinaryURL, input.ConfigURL, input.SecretsURL)
-	require.NoError(t, err, "failed to register workflow")
-	th.Commit()
-	th.Commit()
-	th.Commit()
+func (r *WorkflowRegistry) upsertWorkflow(input Workflow, donFamily string) {
+	r.t.Helper()
+	_, err := r.contract.UpsertWorkflow(r.backend.transactionOpts, input.Name, input.Tag, input.ID, input.Status,
+		donFamily, input.BinaryURL, input.ConfigURL, input.Attributes, input.KeepAlive)
+	require.NoError(r.t, err, "failed to upsert workflow")
+	r.commit()
 }
 
-type UpdatedWorkflow struct {
-	WorkflowKey [32]byte
-	ID          [32]byte
-	BinaryURL   string
-	ConfigURL   string
-	SecretsURL  string
+func (r *WorkflowRegistry) updateAllowedSigners(addresses []common.Address) {
+	r.t.Helper()
+	_, err := r.contract.UpdateAllowedSigners(r.backend.transactionOpts, addresses, true)
+	require.NoError(r.t, err, "failed to update allowed signers")
+	r.commit()
+
+	for _, address := range addresses {
+		allowed, err := r.contract.IsAllowedSigner(&bind.CallOpts{From: r.backend.transactionOpts.From}, address)
+		require.NoError(r.t, err)
+		require.True(r.t, allowed, "signer %s was not allowlisted", address)
+	}
 }
 
-func updateWorkflow(
-	t *testing.T,
-	th *EthBlockchain,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
-	input UpdatedWorkflow,
-) {
-	t.Helper()
-	_, err := wfRegC.UpdateWorkflow(th.transactionOpts, input.WorkflowKey, input.ID, input.BinaryURL, input.ConfigURL, input.SecretsURL)
-	require.NoError(t, err, "failed to update workflow")
-	th.Commit()
-	th.Commit()
-	th.Commit()
+// linkOwner proves ownership of the given address to the registry, which the v2 contract requires
+// before that address can register any workflow.
+func (r *WorkflowRegistry) linkOwner(ctx context.Context, owner common.Address) {
+	r.t.Helper()
+
+	typeAndVersion, err := r.contract.TypeAndVersion(&bind.CallOpts{From: r.backend.transactionOpts.From})
+	require.NoError(r.t, err)
+
+	chainID, err := r.backend.Client().ChainID(ctx)
+	require.NoError(r.t, err)
+
+	validityTimestamp := big.NewInt(time.Now().UTC().Add(workflowRegistryOwnerLinkValidity).Unix())
+	proof := ownershipProofHash(owner.String(), "integration-tests", "1")
+
+	arguments, err := ownershipLinkABIArguments()
+	require.NoError(r.t, err)
+
+	packed, err := arguments.Pack(workflowRegistryLinkRequestType, owner, chainID, r.addr, typeAndVersion,
+		validityTimestamp, proof)
+	require.NoError(r.t, err)
+
+	hash := crypto.Keccak256(packed)
+
+	// The contract recovers the signer using EIP-191, so the digest has to carry the same prefix.
+	prefixedMessage := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(hash), hash)
+	signature, err := r.backend.SignHash(crypto.Keccak256([]byte(prefixedMessage)))
+	require.NoError(r.t, err)
+	signature[64] += 27
+
+	_, err = r.contract.LinkOwner(r.backend.transactionOpts, validityTimestamp, proof, signature)
+	require.NoError(r.t, err, "failed to link owner")
+	r.commit()
+
+	linked, err := r.contract.IsOwnerLinked(&bind.CallOpts{From: r.backend.transactionOpts.From}, owner)
+	require.NoError(r.t, err)
+	require.True(r.t, linked, "owner %s was not linked", owner)
 }
 
-func computeHashKey(
-	t *testing.T,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
-	owner string,
-	field string,
-) [32]byte {
-	t.Helper()
-	hashKey, err := wfRegC.ComputeHashKey(&bind.CallOpts{}, common.HexToAddress(owner), field)
-	require.NoError(t, err, "failed to compute hash key")
-	return hashKey
+func ownershipProofHash(workflowOwnerAddress, organizationID, nonce string) [32]byte {
+	return sha256.Sum256([]byte(workflowOwnerAddress + organizationID + nonce))
+}
+
+// ownershipLinkABIArguments describes, in order, the payload the registry hashes when verifying an
+// owner link signature.
+func ownershipLinkABIArguments() (abi.Arguments, error) {
+	uint8Type, err := abi.NewType("uint8", "", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create uint8 type: %w", err)
+	}
+
+	addressType, err := abi.NewType("address", "", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create address type: %w", err)
+	}
+
+	bytes32Type, err := abi.NewType("bytes32", "", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bytes32 type: %w", err)
+	}
+
+	uint256Type, err := abi.NewType("uint256", "", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create uint256 type: %w", err)
+	}
+
+	stringType, err := abi.NewType("string", "", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create string type: %w", err)
+	}
+
+	return abi.Arguments{
+		{Type: uint8Type},   // request type
+		{Type: addressType}, // owner address
+		{Type: uint256Type}, // chain ID
+		{Type: addressType}, // address of the contract
+		{Type: stringType},  // type and version string
+		{Type: uint256Type}, // validity timestamp
+		{Type: bytes32Type}, // ownership proof hash
+	}, nil
+}
+
+// commit mines enough blocks for the writes above to be visible to finalized reads.
+func (r *WorkflowRegistry) commit() {
+	r.backend.Commit()
+	r.backend.Commit()
+	r.backend.Commit()
 }
