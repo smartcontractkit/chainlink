@@ -36,7 +36,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.35.1
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chain-selectors v1.0.109
+	github.com/smartcontractkit/chain-selectors v1.0.111
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260916222901-720a003dab50
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260917115705-1d3a14a9b049
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d
@@ -513,7 +513,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260916222901-720a003dab50 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260916222901-720a003dab50 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260916222901-720a003dab50 // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.12.0 // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.13.1-0.20260918171034-c93b0d2ef3c0 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260915184316-2730f1867c92 // indirect
 	github.com/smartcontractkit/chainlink-confidential-compute v1.3.0 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v1.1.1 // indirect
@@ -528,7 +528,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-rules v0.0.0-20260505131349-78e491b80735 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260804200254-c1accce563a8 // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260916140808-f5d22b3cb3ee // indirect
 	github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36 // indirect
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305 // indirect
 	github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260729184203-90b4cdd48536 // indirect

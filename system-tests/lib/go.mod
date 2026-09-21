@@ -34,7 +34,7 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/sethvargo/go-retry v0.3.0
-	github.com/smartcontractkit/chain-selectors v1.0.109
+	github.com/smartcontractkit/chain-selectors v1.0.111
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260828090428-9828cc37ebc2
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260916222901-720a003dab50
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260917115705-1d3a14a9b049
@@ -43,7 +43,7 @@ require (
 	github.com/smartcontractkit/chainlink-deployments-framework v0.122.2
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260917132551-2a2b38e8b744
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260713161920-de075095648b
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260804200254-c1accce563a8
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260916140808-f5d22b3cb3ee
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260821155228-fa1d775e2138
@@ -495,7 +495,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260916222901-720a003dab50 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260916222901-720a003dab50 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260916222901-720a003dab50 // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.12.0 // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.13.1-0.20260918171034-c93b0d2ef3c0 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260915184316-2730f1867c92 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v1.1.1 // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501 // indirect

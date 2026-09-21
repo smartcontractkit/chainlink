@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -40,7 +41,7 @@ func TestVerifyPasswordComplexity(t *testing.T) {
 			if len(test.errors) == 0 {
 				assert.NoError(t, err)
 			} else {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.ErrorContains(t, err, utils.ErrMsgHeader)
 				for _, subErr := range test.errors {
 					assert.ErrorContains(t, err, subErr.Error())
@@ -67,17 +68,17 @@ func TestPasswordFromFile(t *testing.T) {
 			t.Parallel()
 
 			pwdFile, err := os.CreateTemp(t.TempDir(), "")
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			defer os.Remove(pwdFile.Name())
 			_, err = pwdFile.WriteString(test.password)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			pwd, err := utils.PasswordFromFile(pwdFile.Name())
 			if test.err != nil {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.ErrorContains(t, err, test.err.Error())
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, pwd, test.password)
 			}
 		})
