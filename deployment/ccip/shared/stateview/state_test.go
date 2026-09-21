@@ -41,10 +41,10 @@ func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	fq1 := utils.RandomAddress().Hex()
 	fq2 := utils.RandomAddress().Hex()
-	state, err := stateview.LoadChainState(t.Context(), tenv.Env.BlockChains.EVMChains()[tenv.HomeChainSel], map[string]cldf.TypeAndVersion{
+	state, err := stateview.LoadChainState(t.Context(), tenv.Env.BlockChains.EVMChains()[tenv.HomeChainSel], stateview.TypeVersionsToSlices(map[string]cldf.TypeAndVersion{
 		fq1: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0),
 		fq2: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_2_0),
-	})
+	}))
 	require.NoError(t, err)
 
 	require.Equal(t, fq2, state.FeeQuoter.Address().Hex(), "expected latest fee quoter to be selected")
@@ -132,10 +132,10 @@ func TestLoadChainState_LegacyV15EVM2EVMDatastoreKeys(t *testing.T) {
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	evm2evmAddrs := map[string]cldf.TypeAndVersion{
+	evm2evmAddrs := stateview.TypeVersionsToSlices(map[string]cldf.TypeAndVersion{
 		onRamp.Address().Hex():  cldf.NewTypeAndVersion(shared.EVM2EVMOnRamp, deployment.Version1_5_0),
 		offRamp.Address().Hex(): cldf.NewTypeAndVersion(shared.EVM2EVMOffRamp, deployment.Version1_5_0),
-	}
+	})
 
 	legacyDisabled, err := stateview.LoadChainState(t.Context(), chain, evm2evmAddrs)
 	require.NoError(t, err)
@@ -151,10 +151,10 @@ func TestLoadChainState_LegacyV15EVM2EVMDatastoreKeys(t *testing.T) {
 	require.Equal(t, evm_2_evm_onramp.EVM2EVMOnRampABI, lcs.ABIByAddress[onRamp.Address().Hex()])
 	require.Equal(t, evm_2_evm_offramp.EVM2EVMOffRampABI, lcs.ABIByAddress[offRamp.Address().Hex()])
 
-	legacyNamesAddrs := map[string]cldf.TypeAndVersion{
+	legacyNamesAddrs := stateview.TypeVersionsToSlices(map[string]cldf.TypeAndVersion{
 		onRamp.Address().Hex():  cldf.NewTypeAndVersion(shared.OnRamp, deployment.Version1_5_0),
 		offRamp.Address().Hex(): cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_5_0),
-	}
+	})
 	byLegacyKeys, err := stateview.LoadChainState(t.Context(), chain, legacyNamesAddrs, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	require.Equal(t, onRamp.Address(), byLegacyKeys.EVM2EVMOnRamp[dstSel].Address())
@@ -268,11 +268,11 @@ func TestLoadChainState_LegacyEVM2EVMAndV16OnRampCoexist(t *testing.T) {
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	combined := map[string]cldf.TypeAndVersion{
+	combined := stateview.TypeVersionsToSlices(map[string]cldf.TypeAndVersion{
 		evmOnRamp.Address().Hex():  cldf.NewTypeAndVersion(shared.EVM2EVMOnRamp, deployment.Version1_5_0),
 		evmOffRamp.Address().Hex(): cldf.NewTypeAndVersion(shared.EVM2EVMOffRamp, deployment.Version1_5_0),
 		v16Addr.Hex():              cldf.NewTypeAndVersion(shared.OnRamp, deployment.Version1_6_0),
-	}
+	})
 
 	withoutLegacy, err := stateview.LoadChainState(t.Context(), chain, combined)
 	require.NoError(t, err)
