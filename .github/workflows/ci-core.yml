@@ -41,7 +41,7 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: match-some
         with:
           # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
@@ -52,7 +52,7 @@ jobs:
             workflow:
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: match-every
         with:
           # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
@@ -191,7 +191,7 @@ jobs:
         modules: ${{ fromJson(needs.filter.outputs.affected-modules) }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0
+        uses: runs-on/action@efac073ea2507ec18797de3a81704201ade11d9d # v2.3.1
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -367,7 +367,7 @@ jobs:
       actions: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0
+        uses: runs-on/action@efac073ea2507ec18797de3a81704201ade11d9d # v2.3.1
         with:
           metrics: cpu,network,memory,disk,io
 
@@ -541,7 +541,7 @@ jobs:
           steps.print-races.outputs.post_to_slack == 'true'  &&
           (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') &&
           matrix.type.should-run == 'true'
-        uses: slackapi/slack-github-action@03ea5433c137af7c0495bc0cad1af10403fc800c # v3.0.2
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
@@ -597,7 +597,7 @@ jobs:
         shell: bash
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0
+        uses: runs-on/action@efac073ea2507ec18797de3a81704201ade11d9d # v2.3.1
       - uses: actions/checkout@v7
         with:
           persist-credentials: false

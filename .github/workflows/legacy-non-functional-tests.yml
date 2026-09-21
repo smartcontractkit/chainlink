@@ -123,14 +123,14 @@ jobs:
           just-version: "1.40.0"
 
       - name: Configure AWS credentials using OIDC
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
           aws-region: us-west-2
 
       - name: Login to Amazon ECRs (private)
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
         with:
           registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
         env:
@@ -138,14 +138,14 @@ jobs:
 
       - name: Login to Amazon ECR (public)
         id: login-ecr-public
-        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
         with:
           registry-type: public
         env:
           AWS_REGION: us-east-1
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           cache: true
           go-version-file: devenv/go.mod
