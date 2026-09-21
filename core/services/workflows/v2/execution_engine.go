@@ -32,7 +32,7 @@ func NewExecutionEngine(cfg *EngineConfig) (*ExecutionEngine, error) {
 	}
 
 	e := &ExecutionEngine{baseEngine: base}
-	base.attachService(lggr, e.start, e.close)
+	base.attachService(lggr, "WorkflowExecutionEngine", e.start, e.close)
 	return e, nil
 }
 

@@ -260,9 +260,9 @@ func newBaseEngine(cfg *EngineConfig) (*baseEngine, logger.SugaredLogger, error)
 
 // attachService installs the single services.Engine for this workflow engine.
 // start and close belong to the outer type that owns the lifecycle.
-func (e *baseEngine) attachService(lggr logger.SugaredLogger, start func(context.Context) error, closeFn func() error) {
+func (e *baseEngine) attachService(lggr logger.SugaredLogger, engineName string, start func(context.Context) error, closeFn func() error) {
 	e.Service, e.srvcEng = services.Config{
-		Name:  "WorkflowEngineV2",
+		Name:  engineName,
 		Start: start,
 		Close: closeFn,
 	}.NewServiceEngine(lggr)

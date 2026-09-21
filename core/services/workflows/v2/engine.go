@@ -79,7 +79,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	}
 
 	// The lifecycle is Engine's; the single services.Engine lives on the base.
-	base.attachService(lggr, e.start, e.close)
+	base.attachService(lggr, "WorkflowEngineV2", e.start, e.close)
 	return e, nil
 }
 

@@ -39,7 +39,7 @@ func TestNewExecutionEngine_Succeeds(t *testing.T) {
 	engine, err := v2.NewExecutionEngine(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, engine)
-	require.Equal(t, "WorkflowEngine.WorkflowEngineV2", engine.Name())
+	require.Equal(t, "WorkflowEngine.WorkflowExecutionEngine", engine.Name())
 
 	// Compile-time interface assertions.
 	var _ v2.WorkflowEngine = engine
