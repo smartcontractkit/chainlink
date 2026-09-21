@@ -124,7 +124,7 @@ func (cfg UpgradeConfig) Validate(e cldf.Environment, chainSelector uint64) erro
 		return errors.New("upgrade authority must be set for fee quoter and router upgrades")
 	}
 	if cfg.MCMS != nil {
-		return cfg.MCMS.ValidateSolana(e, chainSelector)
+		return stateview.ValidateSolanaTimelockConfig(e, chainSelector, cfg.MCMS)
 	}
 	return nil
 }

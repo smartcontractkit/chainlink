@@ -356,7 +356,7 @@ func ValidateMCMSWithState(env cldf.Environment, selector uint64, mcmConfig *cld
 			return fmt.Errorf("mcm config is invalid for chain %d: %w", selector, err)
 		}
 	case chain_selectors.FamilySolana:
-		if err := mcmConfig.ValidateSolana(env, selector); err != nil {
+		if err := stateview.ValidateSolanaTimelockConfig(env, selector, mcmConfig); err != nil {
 			return fmt.Errorf("mcm config is invalid for chain %d: %w", selector, err)
 		}
 	case chain_selectors.FamilyTon:
