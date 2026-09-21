@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -25,7 +25,7 @@ func setupORM(t *testing.T) (*sqlx.DB, sessions.AuthenticationProvider) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), &audit.LoggerService{})
+	orm := localauth.NewORM(db, time.Minute, logger.TestSugared(t), &audit.LoggerService{})
 
 	return db, orm
 }
@@ -68,7 +68,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := t.Context()
 			db := pgtest.NewSqlxDB(t)
-			orm := localauth.NewORM(db, test.sessionDuration, logger.TestLogger(t), &audit.LoggerService{})
+			orm := localauth.NewORM(db, test.sessionDuration, logger.TestSugared(t), &audit.LoggerService{})
 
 			user := cltest.MustRandomUser(t)
 			require.NoError(t, orm.CreateUser(ctx, &user))

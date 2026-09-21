@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
@@ -27,7 +27,7 @@ func setupAuthenticationProvider(t *testing.T, ldapClient ldapauth.LDAPClient) (
 
 	cfg := ldapauth.TestConfig{}
 	db := pgtest.NewSqlxDB(t)
-	ldapAuthProvider, err := ldapauth.NewTestLDAPAuthenticator(db, &cfg, logger.TestLogger(t), &audit.LoggerService{})
+	ldapAuthProvider, err := ldapauth.NewTestLDAPAuthenticator(db, &cfg, logger.TestSugared(t), &audit.LoggerService{})
 	if err != nil {
 		t.Fatalf("Error constructing NewTestLDAPAuthenticator: %v\n", err)
 	}

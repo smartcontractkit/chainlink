@@ -4,7 +4,7 @@ import (
 	"time"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -14,14 +14,14 @@ import (
 func NewTestLDAPAuthenticator(
 	ds sqlutil.DataSource,
 	ldapCfg config.LDAP,
-	lggr common.Logger,
+	lggr logger.Logger,
 	auditLogger audit.Logger,
 ) (*ldapAuthenticator, error) {
 	ldapAuth := ldapAuthenticator{
 		ds:          ds,
 		ldapClient:  newLDAPClient(ldapCfg),
 		config:      ldapCfg,
-		lggr:        common.Sugared(lggr).Named("LDAPAuthenticationProvider"),
+		lggr:        logger.Sugared(lggr).Named("LDAPAuthenticationProvider"),
 		auditLogger: auditLogger,
 	}
 
@@ -42,8 +42,7 @@ func (l *ldapAuthenticator) SetLDAPClient(newClient LDAPClient) {
 }
 
 // Implements config.LDAP
-type TestConfig struct {
-}
+type TestConfig struct{}
 
 func (t *TestConfig) ServerAddress() string {
 	return "ldaps://MOCK"

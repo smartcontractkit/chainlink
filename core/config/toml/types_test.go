@@ -188,6 +188,7 @@ func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
 		})
 	}
 }
+
 func TestTracing_ValidateCollectorTarget(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -456,6 +457,7 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 		})
 	}
 
+	//nolint:paralleltest // TODO: Fix these in upcoming refactoring
 	for _, tt := range unencryptedTests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracing := &Tracing{

@@ -13,8 +13,8 @@ import (
 	"github.com/urfave/cli"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -41,7 +41,6 @@ type LoginLogItem struct {
 
 func (mock *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	b, err := io.ReadAll(req.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +93,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 
 	// Create a test logger because the audit logger relies on this logger
 	// as well
-	logger := logger.TestLogger(t)
+	logger := logger.TestSugared(t)
 
 	auditLoggerTestConfig := Config{}
 

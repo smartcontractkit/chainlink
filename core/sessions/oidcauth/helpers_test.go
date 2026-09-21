@@ -9,7 +9,7 @@ import (
 	"golang.org/x/oauth2"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -19,7 +19,7 @@ import (
 func NewTestOIDCAuthenticator(
 	ds sqlutil.DataSource,
 	oidcCfg config.OIDC,
-	lggr common.Logger,
+	lggr logger.Logger,
 	auditLogger audit.Logger,
 ) (*oidcAuthenticator, error) {
 	var provider *oidc.Provider
@@ -51,7 +51,7 @@ func NewTestOIDCAuthenticator(
 		provider:     provider,
 		oidcConfig:   oidcConfig,
 		oauth2Config: oauth2Config,
-		lggr:         common.Sugared(lggr).Named("OIDCAuthenticationProvider"),
+		lggr:         logger.Sugared(lggr).Named("OIDCAuthenticationProvider"),
 		auditLogger:  auditLogger,
 	}
 
@@ -82,8 +82,7 @@ const (
 )
 
 // Implements config.OIDC
-type TestConfig struct {
-}
+type TestConfig struct{}
 
 func (t *TestConfig) ClientID() string {
 	return "abcd1234"

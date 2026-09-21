@@ -14,14 +14,16 @@ import (
 	"time"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-const bufferCapacity = 2048
-const webRequestTimeout = 10
+const (
+	bufferCapacity    = 2048
+	webRequestTimeout = 10
+)
 
 type Data = map[string]any
 
@@ -41,7 +43,7 @@ type HTTPAuditLoggerInterface interface {
 }
 
 type LoggerService struct {
-	logger          common.Logger            // The standard logger configured in the node
+	logger          logger.Logger            // The standard logger configured in the node
 	enabled         bool                     // Whether the audit logger is enabled or not
 	forwardToURL    commonconfig.URL         // Location we are going to send logs to
 	headers         []models.ServiceHeader   // Headers to be sent along with logs for identification/authentication
@@ -73,7 +75,7 @@ var NoopLogger Logger = &LoggerService{}
 // Parses and validates the AUDIT_LOGS_* environment values and returns an enabled
 // AuditLogger instance. If the environment variables are not set, the logger
 // is disabled and short circuits execution via enabled flag.
-func NewAuditLogger(lggr common.Logger, config config.AuditLogger) (Logger, error) {
+func NewAuditLogger(lggr logger.Logger, config config.AuditLogger) (Logger, error) {
 	// If the unverified config is nil, then we assume this came from the
 	// configuration system and return a nil logger.
 	if config == nil || !config.Enabled() {
@@ -99,7 +101,7 @@ func NewAuditLogger(lggr common.Logger, config config.AuditLogger) (Logger, erro
 
 	// Create new LoggerService
 	auditLogger := LoggerService{
-		logger:          common.Sugared(lggr),
+		logger:          logger.Sugared(lggr),
 		enabled:         true,
 		forwardToURL:    forwardToURL,
 		headers:         headers,

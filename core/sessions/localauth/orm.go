@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	pkgerrors "github.com/pkg/errors"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -23,19 +23,21 @@ import (
 type orm struct {
 	ds              sqlutil.DataSource
 	sessionDuration time.Duration
-	lggr            common.SugaredLogger
+	lggr            logger.SugaredLogger
 	auditLogger     audit.Logger
 }
 
 // orm implements sessions.AuthenticationProvider and sessions.BasicAdminUsersORM interfaces
-var _ sessions.AuthenticationProvider = (*orm)(nil)
-var _ sessions.BasicAdminUsersORM = (*orm)(nil)
+var (
+	_ sessions.AuthenticationProvider = (*orm)(nil)
+	_ sessions.BasicAdminUsersORM     = (*orm)(nil)
+)
 
-func NewORM(ds sqlutil.DataSource, sd time.Duration, lggr common.Logger, auditLogger audit.Logger) sessions.AuthenticationProvider {
+func NewORM(ds sqlutil.DataSource, sd time.Duration, lggr logger.Logger, auditLogger audit.Logger) sessions.AuthenticationProvider {
 	return &orm{
 		ds:              ds,
 		sessionDuration: sd,
-		lggr:            common.Sugared(lggr).Named("LocalAuthAuthenticationProviderORM"),
+		lggr:            logger.Sugared(lggr).Named("LocalAuthAuthenticationProviderORM"),
 		auditLogger:     auditLogger,
 	}
 }
@@ -49,20 +51,20 @@ func (o *orm) FindUser(ctx context.Context, email string) (sessions.User, error)
 func (o *orm) FindUserByAPIToken(ctx context.Context, apiToken string) (user sessions.User, err error) {
 	sql := "SELECT * FROM users WHERE token_key = $1"
 	err = o.ds.GetContext(ctx, &user, sql, apiToken)
-	return
+	return user, err
 }
 
 func (o *orm) findUser(ctx context.Context, email string) (user sessions.User, err error) {
 	sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
 	err = o.ds.GetContext(ctx, &user, sql, email)
-	return
+	return user, err
 }
 
 // ListUsers will load and return all user rows from the db.
 func (o *orm) ListUsers(ctx context.Context) (users []sessions.User, err error) {
 	sql := "SELECT * FROM users ORDER BY email ASC;"
 	err = o.ds.SelectContext(ctx, &users, sql)
-	return
+	return users, err
 }
 
 // findValidSession finds an unexpired session by its ID and returns the associated email.
@@ -202,7 +204,6 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 	// attestation back from the user, we now need to verify that it is
 	// correct.
 	err = sessions.FinishWebAuthnLogin(user, uwas, sr)
-
 	if err != nil {
 		// The user does have WebAuthn enabled but failed the check
 		o.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]any{"email": sr.Email, "error": err})
@@ -306,7 +307,7 @@ func (o *orm) SetPassword(ctx context.Context, user *sessions.User, newPassword 
 }
 
 // TestPassword checks plaintext user provided password with hashed database password, returns nil if matched
-func (o *orm) TestPassword(ctx context.Context, email string, password string) error {
+func (o *orm) TestPassword(ctx context.Context, email, password string) error {
 	var hashedPassword string
 	if err := o.ds.GetContext(ctx, &hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
 		return pkgerrors.New("no matching user for provided email")
@@ -356,9 +357,9 @@ func (o *orm) SaveWebAuthn(ctx context.Context, token *sessions.WebAuthn) error 
 func (o *orm) Sessions(ctx context.Context, offset, limit int) (sessions []sessions.Session, err error) {
 	sql := `SELECT * FROM sessions ORDER BY created_at, id LIMIT $1 OFFSET $2;`
 	if err = o.ds.SelectContext(ctx, &sessions, sql, limit, offset); err != nil {
-		return
+		return sessions, err
 	}
-	return
+	return sessions, err
 }
 
 // NOTE: this is duplicated from the bridges ORM to appease the AuthStorer interface
