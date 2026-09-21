@@ -222,6 +222,7 @@ jobs:
         if: ${{ failure() && steps.golang-lint.outputs.golang-report-critical-issue-count > 0 && needs.run-frequency.outputs.one-per-weekday-frequency == 'true' }}
         uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
+          errors: true
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
@@ -543,6 +544,7 @@ jobs:
           matrix.type.should-run == 'true'
         uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
+          errors: true
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |

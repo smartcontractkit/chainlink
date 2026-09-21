@@ -174,39 +174,10 @@ jobs:
     steps:
       - name: Send slack notification for failed resource regression tests
         id: send-slack-notification
-        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        uses: ./.github/actions/notify-slack-alert
         with:
-          errors: "true"
-          method: chat.postMessage
-          token: ${{ secrets.QA_SLACK_API_KEY }}
-          payload: |
-            {
-              "channel": "C0117GGJB6Y",
-              "text": "CRE Resource Regression Test Failed. Investigation is required.",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*:rotating_light: CRE Resource Regression Test Failed. Investigation is required. :rotating_light:*"
-                  }
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "Alerting <@U033CGL3CDT>, CRE Resource Regression Test failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. Please investigate."
-                  }
-                },
-                {
-                  "type": "divider"
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "Chainlink nodes used more resources than expected. Check the Docker logs and the alloc.pprof file."
-                  }
-                }
-              ]
-            }
+          slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
+          slack_channel_id: "C0117GGJB6Y"
+          title: "CRE Resource Regression Test Failed. Investigation is required."
+          body: "Alerting <@U033CGL3CDT>, CRE Resource Regression Test failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. Please investigate."
+          extra_body: "Chainlink nodes used more resources than expected. Check the Docker logs and the alloc.pprof file."

@@ -87,7 +87,7 @@ runs:
     - name: Post to Slack
       uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
       with:
-        errors: "true"
+        errors: true
         method: chat.postMessage
         token: ${{ inputs.slack_bot_token }}
         payload-file-path: ${{ steps.slack-payload.outputs.file }}
