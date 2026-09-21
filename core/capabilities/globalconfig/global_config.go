@@ -2,18 +2,20 @@
 // node via the cresettings job (config_type=capabilities_registry).
 //
 // The cresettings delegate writes the latest payload here; the Launcher reads it (Phase 2)
-// and merges it with the on-chain registry. For now GlobalConfig stores the raw payload and
-// its monotonic version only — full parsing into per-DON capability config lands with the
-// OffchainCapabilitiesRegistry proto (see the Offchain Capabilities Registry design).
+// and cross-validates it against the on-chain registry. Payloads are parsed into the
+// OffchainCapabilitiesRegistry proto shared with chainlink-common so the offchain and
+// on-chain shapes stay identical (see the Offchain Capabilities Registry design).
 package globalconfig
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
+
+	"google.golang.org/protobuf/encoding/protojson"
+
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 )
 
 // Update is a single offchain config delivery.
@@ -29,6 +31,7 @@ type Update struct {
 type GlobalConfig struct {
 	mu      sync.RWMutex
 	raw     string
+	parsed  *capabilitiespb.OffchainCapabilitiesRegistry
 	version uint64
 	hash    string
 }
@@ -40,10 +43,11 @@ func New() *GlobalConfig { return &GlobalConfig{} }
 // any payload whose version is not strictly greater than the currently applied version
 // (monotonic; version 0 means "unset" and is always accepted as the first value).
 func (g *GlobalConfig) Store(u Update) error {
-	version, err := peekVersion(u.Raw)
+	reg, err := parse(u.Raw)
 	if err != nil {
 		return err
 	}
+	version := reg.GetVersion()
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -56,6 +60,7 @@ func (g *GlobalConfig) Store(u Update) error {
 	}
 
 	g.raw = u.Raw
+	g.parsed = reg
 	g.version = version
 	g.hash = u.Hash
 	return nil
@@ -69,41 +74,36 @@ func (g *GlobalConfig) Load() (raw string, version uint64) {
 	return g.raw, g.version
 }
 
-// Validate checks that a payload is well-formed enough to accept (valid JSON with a
-// readable version). It does not yet validate the full config structure.
+// LoadParsed returns the current parsed registry and its version. The registry is nil when
+// nothing has been applied yet. The returned message must not be mutated.
+func (g *GlobalConfig) LoadParsed() (reg *capabilitiespb.OffchainCapabilitiesRegistry, version uint64) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.parsed, g.version
+}
+
+// Validate checks that a payload parses into an OffchainCapabilitiesRegistry. It does not
+// perform on-chain cross-validation, which happens in the Launcher where the on-chain DON
+// set is available.
 func Validate(raw string) error {
-	_, err := peekVersion(raw)
+	_, err := parse(raw)
 	return err
 }
 
-// peekVersion extracts the top-level "version" field from the offchain config JSON without
-// depending on the full OffchainCapabilitiesRegistry proto type. Proto JSON encodes uint64
-// as a string, but the human-authored form may use a number, so both are accepted.
-func peekVersion(raw string) (uint64, error) {
+// Parse decodes an offchain_config payload (proto JSON) into an OffchainCapabilitiesRegistry.
+func Parse(raw string) (*capabilitiespb.OffchainCapabilitiesRegistry, error) {
+	return parse(raw)
+}
+
+// parse decodes proto-JSON into the registry proto. Unknown fields are discarded so that a
+// node running an older schema tolerates payloads authored against a newer one.
+func parse(raw string) (*capabilitiespb.OffchainCapabilitiesRegistry, error) {
 	if strings.TrimSpace(raw) == "" {
-		return 0, errors.New("offchain config: empty payload")
+		return nil, errors.New("offchain config: empty payload")
 	}
-	var head struct {
-		Version any `json:"version"`
+	var reg capabilitiespb.OffchainCapabilitiesRegistry
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal([]byte(raw), &reg); err != nil {
+		return nil, fmt.Errorf("offchain config: invalid payload: %w", err)
 	}
-	if err := json.Unmarshal([]byte(raw), &head); err != nil {
-		return 0, fmt.Errorf("offchain config: invalid JSON: %w", err)
-	}
-	switch v := head.Version.(type) {
-	case nil:
-		return 0, nil
-	case float64:
-		if v < 0 {
-			return 0, fmt.Errorf("offchain config: negative version %v", v)
-		}
-		return uint64(v), nil
-	case string:
-		n, err := strconv.ParseUint(v, 10, 64)
-		if err != nil {
-			return 0, fmt.Errorf("offchain config: invalid version %q: %w", v, err)
-		}
-		return n, nil
-	default:
-		return 0, fmt.Errorf("offchain config: invalid version type %T", v)
-	}
+	return &reg, nil
 }

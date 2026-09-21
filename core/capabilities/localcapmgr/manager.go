@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities/conversions"
@@ -62,6 +63,10 @@ type localCapabilityManager struct {
 	// which the offchain capabilities registry will later be layered. Binary-path/allowlist
 	// still read directly from localCfg.
 	configProvider CapabilityConfigProvider
+	// offchainRegistry is the offchain capabilities registry delivered via the cresettings
+	// job. Phase 2 cross-validates it against the on-chain registry and emits telemetry only;
+	// it does not yet affect running capabilities. Nil when the feature is not wired.
+	offchainRegistry *globalconfig.GlobalConfig
 
 	runningCapabilities map[string]*runningCapability
 	mu                  sync.RWMutex
@@ -76,7 +81,8 @@ type localCapabilityManager struct {
 // none is present; it lets the delegate align the node's signer/transmitter with the registry.
 type NewServicesFn func(ctx context.Context, capID string, donID uint32, command string, configJSON string, ocr3Config *ocrtypes.ContractConfig) ([]job.ServiceCtx, error)
 
-func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabilities, newServicesFn NewServicesFn) (LocalCapabilityManager, error) {
+// offchainRegistry may be nil, in which case the offchain cross-validation pass is skipped.
+func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabilities, newServicesFn NewServicesFn, offchainRegistry *globalconfig.GlobalConfig) (LocalCapabilityManager, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local capability manager metrics: %w", err)
@@ -86,6 +92,7 @@ func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabili
 		localCfg:            localCfg,
 		newServicesFn:       newServicesFn,
 		configProvider:      tomlCapabilityConfigProvider{localCfg: localCfg},
+		offchainRegistry:    offchainRegistry,
 		runningCapabilities: make(map[string]*runningCapability),
 		metrics:             metrics,
 	}, nil
@@ -136,6 +143,10 @@ func (m *localCapabilityManager) Reconcile(
 	allMyDONs []registry.DON,
 ) error {
 	desired := m.buildDesiredState(allMyDONs)
+
+	// Phase 2 parallel-run: observe the offchain registry and cross-validate it against the
+	// on-chain DON set. Telemetry only — it does not influence desired state below.
+	m.crossValidateOffchain(ctx, allMyDONs)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()

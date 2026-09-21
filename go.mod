@@ -411,6 +411,11 @@ require (
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
 
+// TEMPORARY (CRE offchain capabilities registry, Phase 0/2): point at the local
+// chainlink-common checkout carrying the OffchainCapabilitiesRegistry proto. Replace with a
+// real version bump once that change is merged and tagged in chainlink-common. DO NOT MERGE.
+replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
+
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 
 tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot

@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -104,6 +105,11 @@ type Opts struct {
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 
 	ShardAssignmentSettings *loop.AtomicSettings
+
+	// OffchainCapabilitiesRegistry holds the offchain capabilities registry config delivered
+	// via the cresettings job (config_type=capabilities_registry). The LocalCapabilityManager
+	// cross-validates it against the on-chain registry (Phase 2, telemetry only).
+	OffchainCapabilitiesRegistry *globalconfig.GlobalConfig
 }
 
 // Services contains all CRE-related services
@@ -522,7 +528,7 @@ func (s *Services) newRegistrySyncer(
 				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), nil, donID, ocr3Config)
 			}
 
-			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
+			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn, opts.OffchainCapabilitiesRegistry)
 			if lcmErr != nil {
 				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}
