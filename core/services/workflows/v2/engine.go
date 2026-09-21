@@ -122,9 +122,6 @@ func (e *Engine) init(ctx context.Context) {
 // useWorkflowLimit acquires one slot of the node's workflow-count limit. The
 // returned error is the one that must reach OnInitialized: the scope-specific
 // sentinel for a limit breach, the raw error otherwise.
-//
-// TODO(CAPPL-794 / CRE-6176 AC 5): this moves to the syncer. Acquire and release
-// must move together — see close().
 func (e *Engine) useWorkflowLimit(ctx context.Context) error {
 	err := e.cfg.GlobalWorkflowLimit.Use(ctx, 1)
 	if err == nil {
