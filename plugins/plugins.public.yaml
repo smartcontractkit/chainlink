@@ -105,7 +105,7 @@ plugins:
 
   capability-stellar:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
-      gitRef: "6a1de784d8c8d39ea101e5e6964f2126e42abad9"
+      gitRef: "37945e9e0fa41f14eaac47ad457cd6270b0ef0bf"
       installPath: "."
 
   confidential-http:
