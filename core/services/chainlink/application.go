@@ -55,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	configtoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -313,6 +314,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	atomicSettings := &loop.AtomicSettings{}
 	atomicSettings.SetGetter(commoncresettings.DefaultGetter)
 	shardAssignmentSettings := &loop.AtomicSettings{}
+	offchainCapRegistry := globalconfig.New()
 	limitsFactory := limits.Factory{
 		Meter:    meter,
 		Logger:   globalLogger.Named("Limits"),
@@ -728,7 +730,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// surface a visible error in the UI rather than silently doing nothing.
 	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
-	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings)
+	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings, offchainCapRegistry)
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,

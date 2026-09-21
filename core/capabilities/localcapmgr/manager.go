@@ -58,6 +58,10 @@ type localCapabilityManager struct {
 
 	localCfg      config.LocalCapabilities
 	newServicesFn NewServicesFn
+	// configProvider yields node-local capability config overrides. It is the seam through
+	// which the offchain capabilities registry will later be layered. Binary-path/allowlist
+	// still read directly from localCfg.
+	configProvider CapabilityConfigProvider
 
 	runningCapabilities map[string]*runningCapability
 	mu                  sync.RWMutex
@@ -81,6 +85,7 @@ func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabili
 		lggr:                logger.Named(lggr, "LocalCapabilityManager"),
 		localCfg:            localCfg,
 		newServicesFn:       newServicesFn,
+		configProvider:      tomlCapabilityConfigProvider{localCfg: localCfg},
 		runningCapabilities: make(map[string]*runningCapability),
 		metrics:             metrics,
 	}, nil
@@ -246,6 +251,22 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	}, nil
 }
 
+// overridesFor returns node-local capability config overrides via the config provider.
+// It falls back to reading TOML directly when no provider is set (e.g. managers built as
+// struct literals in tests); the constructor always installs a provider in production.
+func (m *localCapabilityManager) overridesFor(capID string) map[string]string {
+	if m.configProvider != nil {
+		return m.configProvider.LocalConfigOverrides(capID)
+	}
+	if m.localCfg == nil {
+		return nil
+	}
+	if capCfg := m.localCfg.GetCapabilityConfig(capID); capCfg != nil {
+		return capCfg.Config()
+	}
+	return nil
+}
+
 func (m *localCapabilityManager) resolveCapabilityBinary(capID string) string {
 	if m.localCfg != nil {
 		capCfg := m.localCfg.GetCapabilityConfig(capID)
@@ -264,13 +285,8 @@ func (m *localCapabilityManager) resolveCapabilityBinary(capID string) string {
 func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, error) {
 	merged := make(map[string]any)
 
-	if m.localCfg != nil {
-		capCfg := m.localCfg.GetCapabilityConfig(info.capID)
-		if capCfg != nil {
-			for k, v := range capCfg.Config() {
-				merged[k] = v
-			}
-		}
+	for k, v := range m.overridesFor(info.capID) {
+		merged[k] = v
 	}
 
 	if len(info.config.Config) > 0 {

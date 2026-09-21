@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -39,13 +40,11 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
 
-	configType := ConfigTypeSettings
-	if spec.Settings != "" {
-		ct, ok := extractConfigType(spec.Settings)
-		if ok {
-			configType = ct
-		}
-	}
+	configType := resolveConfigType(spec)
+
+	// payload is the hashed content and varies by config_type: settings-based types hash
+	// the Settings TOML; capabilities_registry hashes the OffchainConfig proto-JSON.
+	payload := spec.Settings
 
 	switch configType {
 	case ConfigTypeShardAssignment:
@@ -56,19 +55,38 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 		if _, err = settings.NewTOMLGetter([]byte(spec.Settings)); err != nil {
 			return jb, errors.Wrap(err, "invalid settings toml")
 		}
+	case ConfigTypeCapRegistry:
+		payload = spec.OffchainConfig
+		if err = globalconfig.Validate(spec.OffchainConfig); err != nil {
+			return jb, errors.Wrap(err, "invalid capabilities_registry config")
+		}
 	default:
 		return jb, fmt.Errorf("unknown config_type %q", configType)
 	}
 
-	shaSum := sha256.Sum256([]byte(spec.Settings))
+	shaSum := sha256.Sum256([]byte(payload))
 	hash := hex.EncodeToString(shaSum[:])
 	if spec.Hash == "" {
 		spec.Hash = hash
 	} else if spec.Hash != hash {
-		return jb, fmt.Errorf("invalid sha256 hash %s: calculated %s from: \n%s", spec.Hash, hash, spec.Settings)
+		return jb, fmt.Errorf("invalid sha256 hash %s: calculated %s from: \n%s", spec.Hash, hash, payload)
 	}
 
 	return jb, nil
+}
+
+// resolveConfigType returns the config_type for a spec: the top-level ConfigType field when
+// set, else a config_type key embedded in Settings (legacy), else the default "settings".
+func resolveConfigType(spec job.CRESettingsSpec) string {
+	if spec.ConfigType != "" {
+		return spec.ConfigType
+	}
+	if spec.Settings != "" {
+		if ct, ok := extractConfigType(spec.Settings); ok {
+			return ct
+		}
+	}
+	return ConfigTypeSettings
 }
 
 func extractConfigType(settings string) (string, bool) {
