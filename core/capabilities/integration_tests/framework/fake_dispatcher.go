@@ -113,7 +113,7 @@ func (a *FakeRageP2PNetwork) GetCapabilityRegistrations() map[CapabilityRegistra
 	return copiedRegistrations
 }
 
-func (a *FakeRageP2PNetwork) registerReceiverNode(nodePeerID p2ptypes.PeerID, capabilityID string, capabilityDonID uint32, receiver remotetypes.Receiver) {
+func (a *FakeRageP2PNetwork) registerReceiverNode(nodePeerID p2ptypes.PeerID, capabilityID string, capabilityDonID uint32, method string, receiver remotetypes.Receiver) {
 	a.mux.Lock()
 	defer a.mux.Unlock()
 
@@ -133,6 +133,7 @@ func (a *FakeRageP2PNetwork) registerReceiverNode(nodePeerID p2ptypes.PeerID, ca
 		receiverKey: receiverKey{
 			capabilityID: capabilityID,
 			donID:        capabilityDonID,
+			method:       method,
 		},
 		receiver: receiver,
 	}
@@ -164,6 +165,7 @@ type brokerNode struct {
 type receiverKey struct {
 	capabilityID string
 	donID        uint32
+	method       string
 }
 
 type registerReceiverRequest struct {
@@ -187,6 +189,7 @@ func (a *FakeRageP2PNetwork) newNode() *brokerNode {
 				k := receiverKey{
 					capabilityID: msg.CapabilityId,
 					donID:        msg.CapabilityDonId,
+					method:       msg.CapabilityMethod,
 				}
 
 				r, ok := receivers[k]
@@ -221,8 +224,9 @@ type brokerDispatcher struct {
 }
 
 type key struct {
-	capID string
-	donID uint32
+	capID  string
+	donID  uint32
+	method string
 }
 
 func (t *brokerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
@@ -236,23 +240,30 @@ func (t *brokerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Mes
 }
 
 func (t *brokerDispatcher) SetReceiver(capabilityID string, donID uint32, receiver remotetypes.Receiver) error {
+	k := key{capID: capabilityID, donID: donID}
+	return t.setReceiver(k, receiver)
+}
+
+func (t *brokerDispatcher) setReceiver(k key, receiver remotetypes.Receiver) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	k := key{capID: capabilityID, donID: donID}
 	_, ok := t.receivers[k]
 	if ok {
-		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", remote.ErrReceiverExists, capabilityID, donID)
+		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", remote.ErrReceiverExists, k.capID, k.donID)
 	}
 	t.receivers[k] = receiver
 
-	t.broker.(*FakeRageP2PNetwork).registerReceiverNode(t.callerPeerID, capabilityID, donID, receiver)
+	t.broker.(*FakeRageP2PNetwork).registerReceiverNode(t.callerPeerID, k.capID, k.donID, k.method, receiver)
 	return nil
 }
+
 func (t *brokerDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
 
 func (t *brokerDispatcher) SetReceiverForMethod(capabilityID string, donID uint32, method string, receiver remotetypes.Receiver) error {
-	return errors.New("not implemented")
+	k := key{capID: capabilityID, donID: donID, method: method}
+	return t.setReceiver(k, receiver)
 }
+
 func (t *brokerDispatcher) RemoveReceiverForMethod(capabilityID string, donID uint32, method string) {
 }
 
