@@ -86,13 +86,13 @@ func (c DonContext) WaitForCapabilitiesToBeExposed(t *testing.T, dons ...*DON) {
 	}, 1*time.Minute, 1*time.Second, "timeout waiting for capabilities to be exposed")
 }
 
-func (c DonContext) WaitForWorkflowRegistryMetadata(t *testing.T, workflowName string, owner string, workflowID [32]byte) {
+func (c DonContext) WaitForWorkflowRegistryMetadata(t *testing.T, workflowName string, tag string, owner string, workflowID [32]byte) {
 	require.Eventually(t, func() bool {
-		wf, err := c.workflowRegistry.contract.GetWorkflowMetadata(&bind.CallOpts{}, common.HexToAddress(owner), workflowName)
+		wf, err := c.workflowRegistry.contract.GetWorkflow(&bind.CallOpts{}, common.HexToAddress(owner), workflowName, tag)
 		if err != nil {
 			return false
 		}
-		return wf.WorkflowID == workflowID
+		return wf.WorkflowId == workflowID
 	}, 1*time.Minute, 5*time.Second, "timeout waiting for workflow")
 }
 
@@ -202,11 +202,12 @@ func (d *DON) Initialise() {
 	d.id = &d.config.ID
 
 	if d.config.AcceptsWorkflows && d.workflowRegistry != nil {
-		d.workflowRegistry.UpdateAllowedDons([]uint32{d.config.ID})
+		d.workflowRegistry.UpdateAllowedDons([]string{d.config.name})
 		d.nodeConfigModifiers = append(d.nodeConfigModifiers, func(c *chainlink.Config, node *capabilityNode) {
 			workflowRegistryAddressStr := d.workflowRegistry.addr.String()
 			c.Capabilities.WorkflowRegistry.Address = &workflowRegistryAddressStr
 			c.Capabilities.WorkflowRegistry.ChainID = new(fmt.Sprintf("%d", testutils.SimulatedChainID))
+			c.Capabilities.WorkflowRegistry.ContractVersion = new("2.0.0")
 		})
 	}
 	d.initialised = true
@@ -368,12 +369,12 @@ func (d *DON) AddWorkflow(workflow Workflow) error {
 		return errors.New("cannot add workflow to non-initialised DON")
 	}
 
-	d.workflowRegistry.RegisterWorkflow(workflow, *d.id)
+	d.workflowRegistry.RegisterWorkflow(workflow, d.config.name)
 
 	return nil
 }
 
-func (d *DON) UpdateWorkflow(workflow UpdatedWorkflow) error {
+func (d *DON) UpdateWorkflow(workflow Workflow) error {
 	if !d.config.AcceptsWorkflows {
 		return errors.New("cannot add workflow to non-workflow DON")
 	}
@@ -382,13 +383,9 @@ func (d *DON) UpdateWorkflow(workflow UpdatedWorkflow) error {
 		return errors.New("cannot add workflow to non-initialised DON")
 	}
 
-	d.workflowRegistry.UpdateWorkflow(workflow, *d.id)
+	d.workflowRegistry.UpdateWorkflow(workflow, d.config.name)
 
 	return nil
-}
-
-func (d *DON) ComputeHashKey(owner string, field string) [32]byte {
-	return d.workflowRegistry.ComputeHashKey(owner, field)
 }
 
 type TriggerFactory interface {
