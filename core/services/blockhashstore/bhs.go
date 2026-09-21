@@ -118,7 +118,7 @@ func (c *BulletproofBHS) StoreTrusted(
 	recentBlockhash common.Hash,
 ) error {
 	// Convert and pack arguments for a "storeTrusted" function call to the trusted BHS.
-	var blockNumsBig []*big.Int
+	blockNumsBig := make([]*big.Int, 0, len(blockNums))
 	for _, b := range blockNums {
 		blockNumsBig = append(blockNumsBig, new(big.Int).SetUint64(b))
 	}
@@ -170,7 +170,7 @@ func (c *BulletproofBHS) IsStored(ctx context.Context, blockNum uint64) (bool, e
 }
 
 func (c *BulletproofBHS) sendingKeys() []common.Address {
-	var keys []common.Address
+	keys := make([]common.Address, 0, len(c.fromAddresses))
 	for _, a := range c.fromAddresses {
 		keys = append(keys, a.Address())
 	}

@@ -119,7 +119,7 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, lggr logger.Logger, vars Vars, in
 		PreSeed:          preSeed,
 		BlockHash:        common.BytesToHash(requestBlockHash),
 		BlockNum:         uint64(requestBlockNumber),
-		SubId:            subID,
+		SubID:            subID,
 		CallbackGasLimit: callbackGasLimit,
 		NumWords:         numWords,
 		Sender:           sender,

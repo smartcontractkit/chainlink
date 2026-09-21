@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
@@ -113,10 +112,10 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		return nil, errors.New("DataSource must not be nil")
 	}
 	if cfg.Runner == nil {
-		return nil, errors.New("Runner must not be nil")
+		return nil, errors.New("runner must not be nil")
 	}
 	if cfg.Registry == nil {
-		return nil, errors.New("Registry must not be nil")
+		return nil, errors.New("registry must not be nil")
 	}
 	if cfg.RetirementReportCache == nil {
 		return nil, errors.New("RetirementReportCache must not be nil")
@@ -136,7 +135,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	if cfg.ReportingPluginConfig.VerboseLogging {
 		codecLggr = logger.Named(lggr, "ReportCodecs")
 	} else {
-		codecLggr = corelogger.NullLogger
+		codecLggr = logger.Nop()
 	}
 	reportCodecs := NewReportCodecs(codecLggr, cfg.DonID)
 

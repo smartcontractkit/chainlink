@@ -33,6 +33,7 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 	req.Header.Set("Content-Type", web.MediaType)
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
@@ -85,6 +86,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	resp, err := client.Do(request)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
@@ -120,6 +122,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	resp, err := client.Do(request)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
@@ -145,6 +148,7 @@ func TestSessions_RateLimited(t *testing.T) {
 		resp, err := client.Do(request)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		_ = resp.Body.Close()
 	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, ts.URL+"/sessions", bytes.NewBufferString(input))
@@ -152,6 +156,7 @@ func TestSessions_RateLimited(t *testing.T) {
 
 	resp, err := client.Do(request)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, 429, resp.StatusCode)
 }
 
@@ -174,6 +179,7 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 
 	resp, err := client.Do(request)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusRequestEntityTooLarge, resp.StatusCode)
 }
 
@@ -191,6 +197,7 @@ func TestRouter_GinHelmetHeaders(t *testing.T) {
 	require.NoError(t, err)
 	res, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
+	defer res.Body.Close()
 	for _, tt := range []struct {
 		HelmetName  string
 		HeaderKey   string

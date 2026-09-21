@@ -122,7 +122,7 @@ func ChainTypeToProtoChainType(chainType ChainType) proto.ChainType {
 
 // FeedsManager defines a registered Feeds Manager Service and the connection
 // information.
-type FeedsManager struct {
+type FeedsManager struct { //nolint:revive // stutter is part of public API
 	ID                 int64
 	Name               string
 	URI                string
@@ -132,6 +132,8 @@ type FeedsManager struct {
 	UpdatedAt          time.Time
 	DisabledAt         *time.Time
 }
+
+type Manager = FeedsManager
 
 // ChainConfig defines the chain configuration for a Feeds Manager.
 type ChainConfig struct {
