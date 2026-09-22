@@ -290,7 +290,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
 	if err != nil {
-		return nil, err
+		appLggr.Criticalf("Failed to initialize audit logger: %v. In a future release, this error will prevent node startup.", err)
+		auditLogger = audit.NoopLogger
 	}
 
 	creOpts := cre.Opts{
