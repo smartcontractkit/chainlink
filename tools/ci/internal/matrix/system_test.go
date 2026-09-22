@@ -2,6 +2,7 @@ package matrix_test
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -191,4 +192,90 @@ func Test_CRE_V2_Standard_Regression(t *testing.T) {}
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "run ID is required")
+}
+
+func TestBuildCRESmokeMatrix_EmptyDir(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	res, err := matrix.BuildCRESmokeMatrix(context.Background(), matrix.CRESmokeOptions{
+		Dir:   tmpDir,
+		RunID: "123",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	data, err := json.Marshal(res)
+	require.NoError(t, err)
+	assert.Equal(t, "[]", string(data))
+}
+
+func TestBuildCRERegressionMatrix_EmptyDir(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	res, err := matrix.BuildCRERegressionMatrix(context.Background(), matrix.CRERegressionOptions{
+		Dir:   tmpDir,
+		RunID: "123",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	data, err := json.Marshal(res)
+	require.NoError(t, err)
+	assert.Equal(t, "[]", string(data))
+}
+
+func TestBuildCRESmokeMatrix_AdditionalOverrides(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "smoke_test.go")
+	content := `package smoke_test
+
+import "testing"
+
+func Test_CRE_V2_FailoverManualSwap(t *testing.T) {}
+func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {}
+`
+	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
+
+	res, err := matrix.BuildCRESmokeMatrix(context.Background(), matrix.CRESmokeOptions{
+		Dir:   tmpDir,
+		RunID: "123456",
+	})
+	require.NoError(t, err)
+	require.Len(t, res, 2)
+
+	assert.Equal(t, "Test_CRE_V2_FailoverManualSwap", res[0].TestName)
+	assert.Equal(t, "workflow-gateway-failover", res[0].Topology)
+	assert.Equal(t, "configs/workflow-gateway-failover-don.toml", res[0].Configs)
+
+	assert.Equal(t, "Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger", res[1].TestName)
+	assert.Equal(t, "workflow-sharded-capabilities", res[1].Topology)
+	assert.Equal(t, "configs/workflow-sharded-capabilities-don.toml", res[1].Configs)
+}
+
+func TestBuildCRERegressionMatrix_AdditionalOverrides(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "regression_test.go")
+	content := `package regression_test
+
+import "testing"
+
+func Test_CRE_V2_Solana_Regression(t *testing.T) {}
+`
+	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
+
+	res, err := matrix.BuildCRERegressionMatrix(context.Background(), matrix.CRERegressionOptions{
+		Dir:   tmpDir,
+		RunID: "789012",
+	})
+	require.NoError(t, err)
+	require.Len(t, res, 1)
+
+	assert.Equal(t, "Test_CRE_V2_Solana_Regression", res[0].TestName)
+	assert.Equal(t, "configs/workflow-don-solana.toml", res[0].Configs)
 }

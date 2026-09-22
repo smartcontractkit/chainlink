@@ -79,8 +79,14 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	"Test_CRE_V2_ShardManualAssignment": {
 		{Topology: "workflow-gateway-sharded-manual", Configs: "configs/workflow-gateway-sharded-manual.toml"},
 	},
+	"Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger": {
+		{Topology: "workflow-sharded-capabilities", Configs: "configs/workflow-sharded-capabilities-don.toml"},
+	},
 	"Test_CRE_V2_ShardRingOCROverrides": {
 		{Topology: "workflow-gateway-sharded-ringocr-overrides", Configs: "configs/workflow-gateway-sharded-ringocr-overrides.toml"},
+	},
+	"Test_CRE_V2_FailoverManualSwap": {
+		{Topology: "workflow-gateway-failover", Configs: "configs/workflow-gateway-failover-don.toml"},
 	},
 	"Test_CRE_V2_Module_Cache": {
 		{Topology: "workflow-gateway-cache-test", Configs: "configs/workflow-gateway-don-cache-test.toml"},
@@ -95,6 +101,7 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 
 var defaultCRERegressionPerTestConfigs = map[string]string{
 	"Test_CRE_V2_Stellar_Regression": "configs/workflow-gateway-don-stellar.toml",
+	"Test_CRE_V2_Solana_Regression":  "configs/workflow-don-solana.toml",
 }
 
 // BuildCRESmokeMatrix discovers tests in dir and constructs CRE smoke test matrix.
@@ -111,7 +118,7 @@ func BuildCRESmokeMatrix(ctx context.Context, opts CRESmokeOptions) ([]CRESmokeE
 		return nil, err
 	}
 
-	var entries []CRESmokeEntry
+	entries := make([]CRESmokeEntry, 0, len(testNames))
 	testID := 0
 
 	for _, name := range testNames {
@@ -153,7 +160,7 @@ func BuildCRERegressionMatrix(ctx context.Context, opts CRERegressionOptions) ([
 		return nil, err
 	}
 
-	var entries []CRERegressionEntry
+	entries := make([]CRERegressionEntry, 0, len(testNames))
 	for i, name := range testNames {
 		configs, ok := defaultCRERegressionPerTestConfigs[name]
 		if !ok {
