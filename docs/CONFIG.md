@@ -16090,7 +16090,7 @@ When FinalityTagEnabled is false, SafeTagSupported is ignored and LatestSafeBloc
 ```toml
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3' # Example
 ```
-FlagsContractAddress can optionally point to a [Flags contract](../contracts/src/v0.8/Flags.sol). If set, the node will lookup that contract for each job that supports flags contracts (currently OCR and FM jobs are supported). If the job's contractAddress is set as hibernating in the FlagsContractAddress address, it overrides the standard update parameters (such as heartbeat/threshold).
+FlagsContractAddress can optionally point to a [Flags contract](https://github.com/smartcontractkit/chainlink-evm/blob/develop/contracts/src/v0.8/l2ep/Flags.sol). If set, the node will lookup that contract for each job that supports flags contracts (currently OCR and FM jobs are supported). If the job's contractAddress is set as hibernating in the FlagsContractAddress address, it overrides the standard update parameters (such as heartbeat/threshold).
 
 ### LinkContractAddress
 ```toml
