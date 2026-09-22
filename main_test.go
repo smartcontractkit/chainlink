@@ -135,64 +135,19 @@ func commonEnv() func(*testscript.Env) error {
 			envVarName := strings.TrimSpace(string(b))
 			te.T().Log("test database requested:", envVarName)
 
-			// use a script-scoped TB so the DB is dropped when the script ends,
-			// not when the whole TestScripts suite finishes
-			u2 := testdb.New(&scriptTB{te: te}, true).String()
+			// Env.T implements testing.TB when started via testscript.Run
+			// (it wraps the per-script *testing.T), so its Cleanup runs when
+			// this script ends — not when the whole TestScripts suite finishes.
+			// Do not switch this suite to testscript.RunT.
+			// https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript#Env.T
+			tb := te.T().(testing.TB)
+			u2 := testdb.New(tb, true).String()
 
 			te.Setenv(envVarName, u2)
 		}
 		return nil
 	}
 }
-
-// scriptTB adapts a testscript Env to testing.TB. Only the methods used by
-// testdb (via pgtestdb and testify) are overridden; Cleanup is scoped to the
-// current script via Env.Defer. Skip-related methods are overridden so calls
-// from testify never hit the nil-embedded interface and panic. Everything else
-// panics via the nil-embedded testing.TB.
-type scriptTB struct {
-	testing.TB
-	te      *testscript.Env
-	skipped bool
-	failed  bool
-}
-
-func (s *scriptTB) Cleanup(f func()) { s.te.Defer(f) }
-func (s *scriptTB) Helper()          {}
-func (s *scriptTB) Failed() bool     { return s.failed }
-func (s *scriptTB) Fail()            { s.failed = true }
-func (s *scriptTB) FailNow()         { s.te.T().FailNow() }
-func (s *scriptTB) Skip(args ...any) {
-	s.skipped = true
-	s.te.T().Skip(args...)
-}
-
-func (s *scriptTB) Skipf(format string, args ...any) {
-	s.skipped = true
-	s.te.T().Skip(fmt.Sprintf(format, args...))
-}
-func (s *scriptTB) SkipNow()                 { s.skipped = true }
-func (s *scriptTB) Skipped() bool            { return s.skipped }
-func (s *scriptTB) Setenv(key, value string) { s.te.Setenv(key, value) }
-func (s *scriptTB) Fatal(args ...any)        { s.te.T().Fatal(args...) }
-func (s *scriptTB) Fatalf(format string, args ...any) {
-	s.te.T().Fatal(fmt.Sprintf(format, args...))
-}
-
-func (s *scriptTB) Error(args ...any) {
-	s.te.T().Log(args...)
-	s.te.T().FailNow()
-}
-
-func (s *scriptTB) Errorf(format string, args ...any) {
-	s.te.T().Log(fmt.Sprintf(format, args...))
-	s.te.T().FailNow()
-}
-func (s *scriptTB) Log(args ...any) { s.te.T().Log(args...) }
-func (s *scriptTB) Logf(format string, args ...any) {
-	s.te.T().Log(fmt.Sprintf(format, args...))
-}
-func (s *scriptTB) Name() string { return s.te.WorkDir }
 
 func takeFreePort() (int, func(), error) {
 	ports, err := freeport.Take(1)
