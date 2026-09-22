@@ -254,7 +254,7 @@ func evmCapabilityDONsByFamily(t *testing.T, testEnv *ttypes.TestEnvironment, wo
 	t.Helper()
 
 	for _, ns := range testEnv.Config.NodeSets {
-		if !slices.Contains(ns.DONTypes, string(cre.CapabilitiesDON)) {
+		if !slices.Contains(ns.DONTypes, cre.CapabilitiesDON) {
 			continue
 		}
 
