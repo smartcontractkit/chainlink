@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -20,6 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
+
+var _ v2.EventSink = (*ShardFailoverManager)(nil)
+
+var ErrHooksNotWired = errors.New("hooks have not been wired for this engine")
 
 // cachedExpiry is how long a cached trigger event is kept for potential failover replay.
 const cachedExpiry = 10 * time.Minute
@@ -50,6 +55,8 @@ type ShardFailoverManager struct {
 
 	mu    sync.RWMutex
 	cache map[string]cachedEvent
+
+	isWired atomic.Bool
 }
 
 type cachedEvent struct {
@@ -94,8 +101,12 @@ func NewShardFailoverManager(cfg ShardFailoverManagerConfig) *ShardFailoverManag
 // EngineConfig so the engine delegates shard decisions to this manager.
 // Must be called before v2.NewEngine.
 func (m *ShardFailoverManager) WireHooks(cfg *v2.EngineConfig) {
+	fn := sync.OnceFunc(func() {
+		m.isWired.Store(true)
+	})
 	cfg.Hooks.OnTriggerAdmission = m.admissionCheck
 	cfg.Hooks.OnExecutionStatusUpdate = m.forwardExecutionStatus
+	fn()
 }
 
 // SetEngine injects the engine after it has been created. Required before Start.
@@ -218,6 +229,18 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 				"err", err)
 		}
 	}
+}
+
+// ExecuteTrigger checks if the trigger may be admitted.  Fails if
+// WireHooks has not been called first.
+func (m *ShardFailoverManager) ExecuteTrigger(ctx context.Context, event v2.RoutedTriggerEvent) error {
+	if !m.isWired.Load() {
+		return ErrHooksNotWired
+	}
+	if err := m.engine.CheckAdmission(ctx, event); err != nil {
+		return err
+	}
+	return m.engine.ExecuteTrigger(ctx, event)
 }
 
 // checkShardOwnership performs a dynamic per-trigger shard ownership check.

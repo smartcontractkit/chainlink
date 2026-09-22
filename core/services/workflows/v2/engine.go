@@ -67,8 +67,10 @@ var (
 const pinnedWorkflowDonConfigVersion = 1
 
 // TODO: remove acknowledger check after CRE-6002 is implemented.
-var _ Acknowledger = (*Engine)(nil)
-var _ EventSink = (*Engine)(nil)
+var (
+	_ Acknowledger = (*Engine)(nil)
+	_ EventSink    = (*Engine)(nil)
+)
 
 type Engine struct {
 	services.Service
@@ -382,6 +384,28 @@ func (e *Engine) Draining() bool {
 	return e.draining.Load()
 }
 
+// CheckAdmission allows an external management layer (e.g. ShardFailoverManager)
+// to decide whether this event should be processed by the engine.
+func (e *Engine) CheckAdmission(ctx context.Context, event RoutedTriggerEvent) error {
+	triggerID := event.TriggerCapID
+	eventID := event.Event.Event.ID
+
+	if err := e.cfg.Hooks.OnTriggerAdmission(ctx, event); err != nil {
+		if errors.Is(err, ErrAdmissionCache) {
+			e.logger().Infow("Trigger event cached for failover, not enqueuing", "triggerID", triggerID, "eventID", eventID)
+			return err
+		}
+		// Denied: ACK and drop
+		registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
+		if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
+			e.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
+		}
+		e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "admission_denied")
+		return err
+	}
+	return nil
+}
+
 // Put enqueues a trigger event into the engine's internal queue. It is a transitional method that wraps the existing queue.
 // It exists only until the dispatcher owns admission (CRE-6179). At that point the engine's queue is removed and the dispatcher calls HandleTriggerEvent directly.
 func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // transitional
@@ -398,19 +422,7 @@ func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // t
 		return ErrEngineDraining
 	}
 
-	// Admission check: an external management layer (e.g. ShardFailoverManager)
-	// decides whether this event should be processed by the engine.
-	if err := e.cfg.Hooks.OnTriggerAdmission(ctx, event); err != nil {
-		if errors.Is(err, ErrAdmissionCache) {
-			e.logger().Infow("Trigger event cached for failover, not enqueuing", "triggerID", triggerID, "eventID", eventID)
-			return err
-		}
-		// Denied: ACK and drop
-		registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-		if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
-			e.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
-		}
-		e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "admission_denied")
+	if err := e.CheckAdmission(ctx, event); err != nil {
 		return err
 	}
 
