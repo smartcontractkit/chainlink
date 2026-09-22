@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
@@ -21,6 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
 	stvault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -103,6 +107,218 @@ hashed_default_assignment = false
 	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, testLogger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, execTimeout)
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed on correct shards")
 	testLogger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards (manual-only mode)")
+}
+
+// ExecuteManualShardAssignmentWithEVMLogTriggerTest exercises manual-only shard assignment on a
+// topology where the same capability is hosted by several capability DON shards and routed by DON
+// family (configs/workflow-sharded-capabilities-don.toml).
+//
+// It differs from ExecuteManualShardAssignmentTest in three ways:
+//   - the workflow is pinned with per_owner_assignment instead of per_org_assignment, so no linking
+//     service is involved and the highest-precedence branch of the manual resolver is covered;
+//   - the workflow is driven by an EVM log trigger instead of cron, and the workflow shards host no
+//     EVM capability of their own, so the trigger must be served by a remote capability DON;
+//   - it asserts which capability DON served that trigger: only the capability shard sharing a DON
+//     family with the workflow shard may ack the trigger event, the other one must stay idle.
+//
+// There is no Ring OCR here: SetupSharding is never called, so no ShardConfig contract, no Ring
+// OCR3 contract and no Ring jobs exist. Nodes fall back to the default "manual-only" assignment
+// mode (core/services/chainlink/config_sharding.go), which resolves ownership purely from the
+// shard-assignment job spec.
+func ExecuteManualShardAssignmentWithEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	testLogger := framework.L
+
+	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
+	require.GreaterOrEqual(t, len(shardDONs), 2, "Expected at least 2 shard DONs for manual assignment log trigger test")
+
+	shardLeaderDON := getShardZeroDon(t, testEnv)
+	shardLeaderDonID := uint32(shardLeaderDON.ID) //nolint:gosec // G115: overflow is unrealistic
+
+	// Pin to a non-leader shard on purpose. The leader is where the static default below sends
+	// anything the per-owner entry does not match, so an assignment that silently did not take
+	// effect cannot look like a pass.
+	nonLeaderDONs := slices.DeleteFunc(slices.Clone(shardDONs), func(don *cre.Don) bool {
+		return don.ID == shardLeaderDON.ID
+	})
+	require.NotEmpty(t, nonLeaderDONs, "Expected to find a non-leader shard DON")
+	targetDON := nonLeaderDONs[0]
+	targetDonID := uint32(targetDON.ID) //nolint:gosec // G115: overflow is unrealistic
+
+	// Both capability shards host the same EVM chain and the workflow shards host none, so the
+	// only thing that can decide who serves the log trigger is the DON family the workflow shard
+	// shares with one of them. servingCapDON is that shard; idleCapDONs must never be involved.
+	targetNodeSet := nodeSetForDON(t, testEnv, targetDON)
+	servingCapDON, idleCapDONs := evmCapabilityDONsByFamily(t, testEnv, targetNodeSet)
+	logTriggerChain := evmChainEnabledOnNodeSet(t, testEnv, servingCapDON)
+	logTriggerChainID := logTriggerChain.CtfOutput().ChainID
+
+	workflowOwner := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient.MustGetRootPrivateKey()
+	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
+
+	testLogger.Info().
+		Str("shardLeaderDON", shardLeaderDON.Name).
+		Uint32("shardLeaderDonID", shardLeaderDonID).
+		Str("targetDON", targetDON.Name).
+		Uint32("targetDonID", targetDonID).
+		Str("logTriggerChainID", logTriggerChainID).
+		Str("workflowOwner", workflowOwnerAddress).
+		Str("servingCapDON", servingCapDON.Name).
+		Strs("idleCapDONs", nodeSetNames(idleCapDONs)).
+		Msg("Manual shard assignment with EVM log trigger")
+
+	workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, testLogger, logTriggerChain)
+	expectedUserLog := "Data for manual shard assignment log trigger chain " + logTriggerChainID
+
+	emitCtx, emitCancelFn := context.WithCancel(t.Context())
+	defer emitCancelFn()
+	startEVMLogTriggerEventEmitter(emitCtx, t, testLogger, logTriggerChainID, logTriggerChain, msgEmitter, expectedUserLog)
+
+	// per_owner_assignment takes precedence over both per_org_assignment and the static default,
+	// so the static default points at the leader to prove the per-owner entry is what routed.
+	shardAssignmentTOML := fmt.Sprintf(`
+static_default_assignment = [%d]
+hashed_default_assignment = false
+
+[per_owner_assignment]
+  %q = [%d]
+`, shardLeaderDonID, workflowOwnerAddress, targetDonID)
+
+	// Every shard resolves ownership from its own copy of the spec, so both the shard that must
+	// run the workflow and the shard that must not need it.
+	for _, don := range shardDONs {
+		proposeAndApproveShardAssignmentJob(t, testEnv, don, shardAssignmentTOML, testLogger)
+	}
+
+	// One workflow is enough: manual resolution keys off the owner alone, ignoring the workflow ID
+	// (resolveManual in core/services/workflows/shardownership/resolver.go), so extra workflows
+	// would re-evaluate the same per_owner_assignment branch at the cost of another WASM compile.
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "manualshard-evmlogtrigger", &workflowConfig, "./evm/logtrigger/main.go")
+	workflowIDs := []string{workflowID}
+	workflowToShardIndex := map[string]uint32{workflowID: targetDonID}
+	testLogger.Info().Str("workflowID", workflowID).Msg("Deployed workflow for manual shard assignment log trigger test")
+
+	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+	})
+
+	execTimeout := 4 * time.Minute
+	timeoutCtx, cancelTimeout := context.WithTimeout(t.Context(), execTimeout)
+	defer cancelTimeout()
+	execCtx, cancelCause := context.WithCancelCause(timeoutCtx)
+	defer cancelCause(nil)
+	go t_helpers.FailOnBaseMessage(execCtx, cancelCause, t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog)
+
+	// waitForAllWorkflowsExecuted only counts a workflow once it is seen on its expected shard,
+	// so a log from the leader shard is reported as a mismatch rather than accepted.
+	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, testLogger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, execTimeout)
+	require.Len(t, executedWorkflows, len(workflowIDs), "Workflow did not execute on the manually assigned shard")
+	testLogger.Info().Msg("EVM log trigger workflow executed on the manually assigned shard")
+
+	// The ack is logged by the node that hosts the trigger capability, so the container it comes
+	// from names the capability DON that served the trigger. The ack can trail the user log, hence
+	// the retry on the positive side; by the time it lands, an ack on the out-of-family shard would
+	// already be in its logs.
+	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, servingCapDON.Name, triggerEventACKLogNeedle, 2*time.Minute, 5*time.Second)
+	for _, idle := range idleCapDONs {
+		t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, idle.Name, triggerEventACKLogNeedle)
+	}
+	testLogger.Info().Str("servingCapDON", servingCapDON.Name).Msg("Log trigger was served by the in-family capability DON only")
+}
+
+// nodeSetForDON returns the node set that backs don. Node sets carry the DON family and
+// chain-capability information the Don snapshot does not.
+func nodeSetForDON(t *testing.T, testEnv *ttypes.TestEnvironment, don *cre.Don) *cre.NodeSet {
+	t.Helper()
+
+	for _, ns := range testEnv.Config.NodeSets {
+		if ns.Name == don.Name {
+			return ns
+		}
+	}
+
+	require.FailNowf(t, "node set not found", "failed to find the node set for DON %s", don.Name)
+	return nil
+}
+
+// evmCapabilityDONsByFamily splits the capability DONs that host an EVM capability into the single
+// one sharing a DON family with workflowNodeSet - the one the launcher's family-overlap filter must
+// route to - and the rest, which must never serve that workflow's triggers.
+func evmCapabilityDONsByFamily(t *testing.T, testEnv *ttypes.TestEnvironment, workflowNodeSet *cre.NodeSet) (inFamily *cre.NodeSet, outOfFamily []*cre.NodeSet) {
+	t.Helper()
+
+	for _, ns := range testEnv.Config.NodeSets {
+		if !slices.Contains(ns.DONTypes, string(cre.CapabilitiesDON)) {
+			continue
+		}
+
+		enabledChainIDs, err := ns.GetEnabledChainIDsForCapability(cre.EVMCapability)
+		require.NoErrorf(t, err, "failed to get EVM-enabled chain IDs for DON %s", ns.Name)
+		if len(enabledChainIDs) == 0 {
+			continue
+		}
+
+		if sharesDonFamily(workflowNodeSet, ns) {
+			require.Nilf(t, inFamily, "DONs %s and %s both host EVM in a family of %s, routing would be ambiguous", ns.Name, nodeSetName(inFamily), workflowNodeSet.Name)
+			inFamily = ns
+			continue
+		}
+		outOfFamily = append(outOfFamily, ns)
+	}
+
+	require.NotNilf(t, inFamily, "no capability DON hosts an EVM capability in a DON family of %s", workflowNodeSet.Name)
+	require.NotEmptyf(t, outOfFamily, "every EVM capability DON shares a family with %s, so routing cannot be told apart from a broadcast", workflowNodeSet.Name)
+	return inFamily, outOfFamily
+}
+
+func sharesDonFamily(a, b *cre.NodeSet) bool {
+	return slices.ContainsFunc(a.DonFamilies, func(family string) bool {
+		return slices.Contains(b.DonFamilies, family)
+	})
+}
+
+func nodeSetName(ns *cre.NodeSet) string {
+	if ns == nil {
+		return ""
+	}
+	return ns.Name
+}
+
+func nodeSetNames(nodeSets []*cre.NodeSet) []string {
+	names := make([]string, 0, len(nodeSets))
+	for _, ns := range nodeSets {
+		names = append(names, ns.Name)
+	}
+	return names
+}
+
+// evmChainEnabledOnNodeSet returns a deployed blockchain whose EVM capability is enabled on the
+// given node set. It reads the node set rather than Don.GetEnabledChainIDsForCapability, because
+// the node set builds its chain-capability index on demand while the Don only carries a snapshot.
+func evmChainEnabledOnNodeSet(t *testing.T, testEnv *ttypes.TestEnvironment, nodeSet *cre.NodeSet) blockchains.Blockchain {
+	t.Helper()
+
+	enabledChainIDs, err := nodeSet.GetEnabledChainIDsForCapability(cre.EVMCapability)
+	require.NoErrorf(t, err, "failed to get EVM-enabled chain IDs for DON %s", nodeSet.Name)
+	require.NotEmptyf(t, enabledChainIDs, "DON %s has no EVM chain enabled, it cannot serve a log trigger", nodeSet.Name)
+
+	for _, chainID := range enabledChainIDs {
+		for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
+			if bcOutput.ChainID() == chainID {
+				return bcOutput
+			}
+		}
+	}
+
+	require.FailNowf(t, "no deployed blockchain matches the EVM chains enabled on the DON",
+		"DON %s has EVM chains %v enabled, none of which is deployed in this environment", nodeSet.Name, enabledChainIDs)
+	return nil
 }
 
 func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) {

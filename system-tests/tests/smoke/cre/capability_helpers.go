@@ -22,8 +22,12 @@ import (
 	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
 )
 
-// chainlink-common/pkg/capabilities/base_trigger.go logs this when AckEvent is called.
-var triggerEventACKLogPattern = regexp.MustCompile(`Event ACK`)
+// triggerEventACKLogNeedle is what chainlink-common/pkg/capabilities/base_trigger.go logs when
+// AckEvent is called. It is written by the node hosting the trigger capability, so its container
+// identifies which DON served the trigger.
+const triggerEventACKLogNeedle = "Event ACK"
+
+var triggerEventACKLogPattern = regexp.MustCompile(triggerEventACKLogNeedle)
 
 // verifyTriggerEventACKLogs starts parallel readers (one per container stream) that scan for BaseTrigger
 // Event ACK lines. Call the returned cleanup after the test step finishes to cancel scanners and close
