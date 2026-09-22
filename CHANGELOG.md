@@ -4,6 +4,14 @@
 
 ### Patch Changes
 
+- [#23801](https://github.com/smartcontractkit/chainlink/pull/23801) [`420e219`](https://github.com/smartcontractkit/chainlink/commit/420e219ba1217cdf4251744d35eef649b0a8a8fc) - #updated observation cache TTL and bridge cache-fallback test coverage
+
+- [#23801](https://github.com/smartcontractkit/chainlink/pull/23801) [`5afb3c5`](https://github.com/smartcontractkit/chainlink/commit/5afb3c55c1ea148b7011d224d23367f18ade54db) - Removing deprecated Cosmos support #nops #removed
+
+## 2.62.3
+
+### Patch Changes
+
 - [#23753](https://github.com/smartcontractkit/chainlink/pull/23753) [`24318bf`](https://github.com/smartcontractkit/chainlink/commit/24318bf9491939d4bf8657f690f49a17fbe4d3a4) - #added add bridge-cache fallback for UseConnectionManager bridge tasks
 
 ## 2.62.3
