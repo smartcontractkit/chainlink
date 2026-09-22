@@ -43,6 +43,10 @@ func NewORM(ds sqlutil.DataSource, sd time.Duration, lggr logger.Logger, auditLo
 	}
 }
 
+// ErrMFAFailed is returned when any step of the MFA/WebAuthn login flow fails.
+// The generic message deliberately avoids leaking why MFA failed.
+var ErrMFAFailed = errors.New("MFA error")
+
 // FindUser will attempt to return an API user by email.
 func (o *orm) FindUser(ctx context.Context, email string) (sessions.User, error) {
 	return o.findUser(ctx, email)
@@ -169,7 +173,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 	if err != nil {
 		// There was an error with the database query
 		lggr.Errorf("Could not fetch user's MFA data: %v", err)
-		return "", errors.New("MFA error")
+		return "", ErrMFAFailed
 	}
 
 	// No webauthn tokens registered for the current user, so normal authentication is now complete
@@ -189,13 +193,13 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 		options, webauthnError := sessions.BeginWebAuthnLogin(user, uwas, sr)
 		if webauthnError != nil {
 			lggr.Errorf("Could not begin WebAuthn verification: %v", webauthnError)
-			return "", errors.New("MFA error")
+			return "", ErrMFAFailed
 		}
 
 		j, jsonError := json.Marshal(options)
 		if jsonError != nil {
 			lggr.Errorf("Could not serialize WebAuthn challenge: %v", jsonError)
-			return "", errors.New("MFA error")
+			return "", ErrMFAFailed
 		}
 
 		return "", errors.New(string(j))
@@ -209,7 +213,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 		// The user does have WebAuthn enabled but failed the check
 		o.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]any{"email": sr.Email, "error": err})
 		lggr.Errorf("User sent an invalid attestation: %v", err)
-		return "", errors.New("MFA error")
+		return "", ErrMFAFailed
 	}
 
 	lggr.Infof("User passed MFA authentication and login will proceed")

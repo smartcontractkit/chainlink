@@ -266,7 +266,7 @@ func TestORM_WebAuthn(t *testing.T) {
 		Password: cltest.Password,
 	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "MFA Error")
+	require.ErrorIs(t, err, localauth.ErrMFAFailed)
 
 	ss := sessions.NewWebAuthnSessionStore()
 	_, err = orm.CreateSession(ctx, sessions.SessionRequest{
@@ -294,7 +294,7 @@ func TestORM_WebAuthn(t *testing.T) {
 		WebAuthnData: "invalid-format",
 	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "MFA Error")
+	require.ErrorIs(t, err, localauth.ErrMFAFailed)
 
 	challengeResp, err := json.Marshal(protocol.CredentialAssertionResponse{
 		PublicKeyCredential: protocol.PublicKeyCredential{
