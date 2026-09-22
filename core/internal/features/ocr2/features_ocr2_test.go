@@ -25,12 +25,12 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -45,7 +45,7 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	t.Parallel()
 	owner, b, ocrContractAddress, ocrContract, nodeConfig := SetupOCR2Contracts(t)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	bootstrapNodePort := freeport.GetOne(t)
 	bootstrapNode := SetupNodeOCR2(t, owner, bootstrapNodePort, true /* useForwarders */, b, nil, nodeConfig)
 
@@ -102,7 +102,7 @@ chainID 			= 1337
 	}()
 
 	jids := make([]int32, 0, 4)
-	var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
+	servers, slowServers := make([]*httptest.Server, 4), make([]*httptest.Server, 4)
 	// We expect metadata of:
 	//  latestAnswer:nil // First call
 	//  latestAnswer:0

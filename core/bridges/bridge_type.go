@@ -25,12 +25,12 @@ type BridgeTypeRequest struct {
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
-func (bt BridgeTypeRequest) GetID() string {
+func (bt *BridgeTypeRequest) GetID() string {
 	return bt.Name.String()
 }
 
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (bt BridgeTypeRequest) GetName() string {
+func (bt *BridgeTypeRequest) GetName() string {
 	return "bridges"
 }
 

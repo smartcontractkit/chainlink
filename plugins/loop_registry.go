@@ -47,7 +47,8 @@ type LoopRegistry struct {
 
 func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, dbConfig config.Database,
 	mercury dataengine.Mercury, pyroscope config.Pyroscope, autoPPROF config.AutoPprof, tracing config.Tracing, telemetry config.Telemetry,
-	metering config.Metering, telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string, looppCfg config.LOOPP) *LoopRegistry {
+	metering config.Metering, telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string, looppCfg config.LOOPP,
+) *LoopRegistry {
 	return &LoopRegistry{
 		registry:               map[string]*RegisteredLoop{},
 		lggr:                   logger.Named(lggr, "LoopRegistry"),
@@ -228,8 +229,8 @@ func (m *LoopRegistry) Unregister(id string) {
 
 // Return slice sorted by plugin name. Safe for concurrent use.
 func (m *LoopRegistry) List() []*RegisteredLoop {
-	var registeredLoops []*RegisteredLoop
 	m.mu.Lock()
+	registeredLoops := make([]*RegisteredLoop, 0, len(m.registry))
 	for _, known := range m.registry {
 		registeredLoops = append(registeredLoops, known)
 	}

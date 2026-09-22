@@ -84,6 +84,9 @@ type EngineMetrics struct {
 	donTimeErrorsCounter   metric.Int64Counter
 
 	orgIDMissingCounter metric.Int64Counter
+
+	limitReadFallbackTotal    metric.Int64Counter
+	limitCheckUnenforcedTotal metric.Int64Counter
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -447,6 +450,22 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register org id missing counter: %w", err)
+	}
+
+	em.limitReadFallbackTotal, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_limit_read_fallback_total",
+		metric.WithDescription("Limit reads that failed and fell back to the static default, by limitKey"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register limit read fallback counter: %w", err)
+	}
+
+	em.limitCheckUnenforcedTotal, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_limit_check_unenforced_total",
+		metric.WithDescription("Limit checks that could not be evaluated, so the limit went unenforced (failed open), by limitKey"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register limit check unenforced counter: %w", err)
 	}
 
 	return em, nil
@@ -822,4 +841,25 @@ func (c WorkflowsMetricLabeler) IncrementOrgIDMissingCounter(ctx context.Context
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	otelLabels = append(otelLabels, attribute.String("reason", reason))
 	c.em.orgIDMissingCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementLimitReadFallbackCounter records one limit read that failed and fell back
+// to a default instead of dropping the execution/event. limitKey should be the
+// canonical settings.Setting.Key for the limit that failed.
+func (c WorkflowsMetricLabeler) IncrementLimitReadFallbackCounter(ctx context.Context, limitKey string) {
+	lc := c.With(platform.KeyLimitKey, limitKey)
+	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()
+	lc.em.limitReadFallbackTotal.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementLimitCheckUnenforcedCounter records one limit Check that could not be
+// evaluated (a settings read failure rather than the bound being exceeded), so the
+// limit was skipped and the operation allowed through. Distinct from
+// IncrementLimitReadFallbackCounter: there is no default to substitute here, the limit
+// simply went unenforced, so a non-zero rate means a limit is not being applied.
+// limitKey should be the canonical settings.Setting.Key for the limit that failed.
+func (c WorkflowsMetricLabeler) IncrementLimitCheckUnenforcedCounter(ctx context.Context, limitKey string) {
+	lc := c.With(platform.KeyLimitKey, limitKey)
+	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()
+	lc.em.limitCheckUnenforcedTotal.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

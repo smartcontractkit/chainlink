@@ -9,8 +9,8 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
 
@@ -18,7 +18,7 @@ func TestNewOracleFactory(t *testing.T) {
 	params := OracleFactoryParams{
 		JobID:   1,
 		JobName: "test-job",
-		Logger:  logger.TestLogger(t),
+		Logger:  logger.TestSugared(t),
 	}
 
 	factory, err := NewOracleFactory(params)
@@ -32,7 +32,7 @@ func TestNewOracleFactory_WithOCRConfigService(t *testing.T) {
 	params := OracleFactoryParams{
 		JobID:            1,
 		JobName:          "test-job",
-		Logger:           logger.TestLogger(t),
+		Logger:           logger.TestSugared(t),
 		OCRConfigService: mockService,
 		CapabilityID:     "offchain_reporting@1.0.0",
 	}
@@ -68,7 +68,7 @@ func (m *mockOCRConfigService) GetConfigDigester(
 	return &mockConfigDigester{}, nil
 }
 
-func (m *mockOCRConfigService) GetContractConfig(capabilityID string, ocrConfigKey string) (ocrtypes.ContractConfig, bool) {
+func (m *mockOCRConfigService) GetContractConfig(capabilityID, ocrConfigKey string) (ocrtypes.ContractConfig, bool) {
 	return ocrtypes.ContractConfig{}, false
 }
 
@@ -78,9 +78,11 @@ func (m *mockConfigTracker) Notify() <-chan struct{} { return nil }
 func (m *mockConfigTracker) LatestConfigDetails(ctx context.Context) (uint64, ocrtypes.ConfigDigest, error) {
 	return 0, ocrtypes.ConfigDigest{}, nil
 }
+
 func (m *mockConfigTracker) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
 	return ocrtypes.ContractConfig{}, nil
 }
+
 func (m *mockConfigTracker) LatestBlockHeight(ctx context.Context) (uint64, error) {
 	return 0, nil
 }
@@ -90,6 +92,7 @@ type mockConfigDigester struct{}
 func (m *mockConfigDigester) ConfigDigest(ctx context.Context, cc ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
 	return ocrtypes.ConfigDigest{}, nil
 }
+
 func (m *mockConfigDigester) ConfigDigestPrefix(ctx context.Context) (ocrtypes.ConfigDigestPrefix, error) {
 	return ocrtypes.ConfigDigestPrefixKeystoneOCR3Capability, nil
 }

@@ -5,15 +5,15 @@ import (
 	"time"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type sessionReaper struct {
 	ds     sqlutil.DataSource
 	config SessionReaperConfig
-	lggr   logger.Logger
+	lggr   logger.SugaredLogger
 }
 
 type SessionReaperConfig interface {
@@ -26,7 +26,7 @@ func NewSessionReaper(ds sqlutil.DataSource, config SessionReaperConfig, lggr lo
 	return utils.NewSleeperTaskCtx(&sessionReaper{
 		ds,
 		config,
-		lggr.Named("SessionReaper"),
+		logger.Sugared(lggr).Named("SessionReaper"),
 	})
 }
 
@@ -34,7 +34,8 @@ func (sr *sessionReaper) Name() string { return sr.lggr.Name() }
 
 func (sr *sessionReaper) Work(ctx context.Context) {
 	recordCreationStaleThreshold := sr.config.SessionReaperExpiration().Before(
-		sr.config.SessionTimeout().Before(time.Now()))
+		sr.config.SessionTimeout().Before(time.Now()),
+	)
 	err := sr.deleteStaleSessions(ctx, recordCreationStaleThreshold)
 	if err != nil {
 		sr.lggr.Error("unable to reap stale sessions: ", err)
