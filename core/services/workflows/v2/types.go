@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 )
 
 // EventSink is how trigger events are delivered to an engine for execution.
@@ -51,6 +53,16 @@ type EventSink interface {
 // triggerRegistrationID and calling AckEvent on it.
 type Acknowledger interface {
 	Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error
+}
+
+// Subscriber is how a caller obtains an engine's trigger subscriptions on
+// demand. Subscribe issues the WASM Subscribe call directly (no caching): the
+// engine holds no subscription state of its own, so every call is a fresh
+// WASM round trip and callers are responsible for calling it exactly once
+// per registration. CRE identifies the tenant the subscriptions belong to.
+type Subscriber interface {
+	Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error)
+	CRE() contexts.CRE
 }
 
 // Drainable is the graceful-shutdown contract. The syncer has a structurally

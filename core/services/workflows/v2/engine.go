@@ -106,8 +106,10 @@ func (e *Engine) init(ctx context.Context) {
 		e.cfg.Hooks.OnInitialized(err)
 		return
 	}
-	subscriptions, err := e.initSubscriptions(ctx)
+
+	subscriptions, err := e.Subscribe(ctx)
 	if err != nil {
+		e.logger().Errorw("failed to subscribe to triggers", "err", err)
 		e.cfg.Hooks.OnInitialized(err)
 		return
 	}
@@ -332,7 +334,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 						Event:          event,
 					}
 
-					if err := e.Put(ctx, routed); err != nil {
+					if err := e.put(ctx, routed); err != nil {
 						// Draining is expected during workflow deletion, so it logs at info rather than error level.
 						if errors.Is(err, ErrEngineDraining) {
 							e.logger().Infow("Dropping trigger event: engine draining", "triggerID", triggerID, "eventID", eventID)
@@ -397,9 +399,8 @@ func (e *Engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, e
 	return nil
 }
 
-// Put enqueues a trigger event into the engine's internal queue. It is
-// Engine's transitional admission-and-enqueue path.
-func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // transitional
+// put enqueues a trigger event into the engine's internal queue.
+func (e *Engine) put(ctx context.Context, event RoutedTriggerEvent) error { // transitional
 	triggerID := event.TriggerCapID
 	eventID := event.Event.Event.ID
 	idx := event.TriggerIndex

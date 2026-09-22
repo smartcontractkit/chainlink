@@ -72,7 +72,7 @@ const pinnedWorkflowDonConfigVersion = 1
 // module execution, metering, secrets, labels, the heartbeat, drain state, and
 // DON sync.
 //
-// It is never used directly. Engine (legacy, trigger-owning) and ExecutionEngine
+// It is never used directly. Engine (legacy, trigger-owning) and CoordinatedEngine
 // (execution-only) each embed it and supply their own start/init/close. The
 // single services.Engine for a workflow engine lives here — see attachService.
 type baseEngine struct {
@@ -398,7 +398,7 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 // initialization goroutine. Each engine passes its own init.
 //
 // triggerLoopFn is Engine's queue-draining loop (handleAllTriggerEvents). It is
-// legacy-only: ExecutionEngine has no queue to drain, since its future
+// legacy-only: CoordinatedEngine has no queue to drain, since its future
 // coordinator calls ExecuteTrigger directly instead of going through Put. Pass
 // nil to skip it.
 func (e *baseEngine) startWith(ctx context.Context, initFn func(context.Context), triggerLoopFn func(context.Context)) error {
@@ -415,7 +415,7 @@ func (e *baseEngine) startWith(ctx context.Context, initFn func(context.Context)
 
 	e.metrics = e.metrics.With(platform.KeyOrganizationID, e.orgID)
 
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
+	ctx = contexts.WithCRE(ctx, e.CRE())
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, initFn)
 	if triggerLoopFn != nil {
@@ -452,22 +452,10 @@ func (e *baseEngine) initDONSubscribe(ctx context.Context) error {
 	return nil
 }
 
-// initSubscriptions runs the WASM Subscribe call and hands the validated
-// subscriptions to the OnSubscriptionsReady hook. A returned error has already
-// been logged; the caller passes it to OnInitialized.
-func (e *baseEngine) initSubscriptions(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
-	subscriptions, err := e.Subscribe(ctx)
-	if err != nil {
-		e.logger().Errorw("failed to subscribe to triggers", "err", err)
-		return nil, err
-	}
-
-	cre := contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
-	if err = e.cfg.Hooks.OnSubscriptionsReady(subscriptions, cre); err != nil {
-		e.logger().Errorw("OnSubscriptionsReady hook failed", "err", err)
-		return nil, err
-	}
-	return subscriptions, nil
+// CRE is the engine's tenant identity. Valid once resolveOrgID has run during
+// init; every field it reads is written before OnInitialized fires.
+func (e *baseEngine) CRE() contexts.CRE {
+	return contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
 }
 
 // initDone records a successful initialization and fires OnInitialized(nil).
@@ -481,7 +469,7 @@ func (e *baseEngine) initDone(ctx context.Context) {
 // carrying the workflow's tenant identity.
 func (e *baseEngine) shutdownCtx() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(e.cfg.LocalLimits.ShutdownTimeoutMs))
-	return contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}), cancel
+	return contexts.WithCRE(ctx, e.CRE()), cancel
 }
 
 // closeCommon is the teardown shared by every engine.

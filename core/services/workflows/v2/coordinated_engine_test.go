@@ -16,17 +16,17 @@ type noopAcknowledger struct{}
 
 func (noopAcknowledger) Ack(_ context.Context, _, _, _ string) error { return nil }
 
-func TestNewExecutionEngine_RequiresAcknowledger(t *testing.T) {
+func TestNewCoordinatedEngine_RequiresAcknowledger(t *testing.T) {
 	t.Parallel()
 
 	cfg := defaultTestConfig(t, nil)
 	cfg.TriggerAcknowledger = nil
 
-	_, err := v2.NewExecutionEngine(cfg)
+	_, err := v2.NewCoordinatedEngine(cfg)
 	require.EqualError(t, err, "trigger acknowledger not set")
 }
 
-func TestNewExecutionEngine_Succeeds(t *testing.T) {
+func TestNewCoordinatedEngine_Succeeds(t *testing.T) {
 	t.Parallel()
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -36,10 +36,10 @@ func TestNewExecutionEngine_Succeeds(t *testing.T) {
 	cfg.CapRegistry = capreg
 	cfg.TriggerAcknowledger = noopAcknowledger{}
 
-	engine, err := v2.NewExecutionEngine(cfg)
+	engine, err := v2.NewCoordinatedEngine(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, engine)
-	require.Equal(t, "WorkflowEngine.WorkflowExecutionEngine", engine.Name())
+	require.Equal(t, "WorkflowEngine.WorkflowCoordinatedEngine", engine.Name())
 
 	// Compile-time interface assertions.
 	var _ v2.WorkflowEngine = engine

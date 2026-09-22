@@ -2671,7 +2671,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 			}
 		})
 
-		err := ew.engine.Put(ctx, makeEvent("shard_not_owner_event"))
+		err := ew.engine.TestPut(ctx, makeEvent("shard_not_owner_event"))
 		require.ErrorIs(t, err, v2.ErrShardDeniedNotOwner)
 
 		// The engine ACKs the skipped event before returning.
@@ -2704,7 +2704,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 			}
 		})
 
-		err := ew.engine.Put(ctx, makeEvent("shard_orchestrator_error_event"))
+		err := ew.engine.TestPut(ctx, makeEvent("shard_orchestrator_error_event"))
 		require.ErrorIs(t, err, v2.ErrShardDeniedOrchestrator)
 
 		// The engine ACKs the skipped event before returning.
