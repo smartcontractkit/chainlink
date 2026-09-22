@@ -35,7 +35,6 @@ type Query {
     solanaKeys: SolanaKeysPayload!
     aptosKeys: AptosKeysPayload!
     suiKeys: SuiKeysPayload!
-    cosmosKeys: CosmosKeysPayload!
     starknetKeys: StarkNetKeysPayload!
     tronKeys: TronKeysPayload!
     tonKeys: TONKeysPayload!

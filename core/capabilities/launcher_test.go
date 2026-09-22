@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -18,14 +20,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	regpkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
+	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -94,7 +97,7 @@ func TestLauncher(t *testing.T) {
 	t.Run("start and close", func(t *testing.T) {
 		t.Parallel()
 		lggr := logger.Test(t)
-		registry := NewRegistry(lggr)
+		registry := regpkg.NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
 		sharedPeer := mocks.NewSharedPeer(t)
 		sharedPeer.On("ID").Return(ragetypes.PeerID(RandomUTF8BytesWord()))
@@ -116,7 +119,7 @@ func TestLauncher(t *testing.T) {
 func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	registry := NewRegistry(lggr)
+	registry := regpkg.NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	nodes := newNodes(4)
@@ -160,7 +163,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 
 func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(logger.Test(t))
+	registry := regpkg.NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	var pid, other ragetypes.PeerID
@@ -181,7 +184,7 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	capabilityDonNodes[0] = pid // node belongs to the capability DON
 	triggerCapID := RandomUTF8BytesWord()
 
-	wfDONID, capDONID, mixedDONID := registrysyncer.DonID(7), registrysyncer.DonID(12), registrysyncer.DonID(33)
+	wfDONID, capDONID, mixedDONID := regpkg.DonID(7), regpkg.DonID(12), regpkg.DonID(33)
 	localRegistry := buildLocalRegistry()
 	addDON(localRegistry, uint32(wfDONID), uint32(0), uint8(1), true, true, workflowDonNodes, nil, 1, nil)
 	addDON(localRegistry, uint32(capDONID), uint32(0), uint8(1), true, false, capabilityDonNodes, nil, 1, [][32]byte{triggerCapID})
@@ -234,7 +237,7 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 
 func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(logger.Test(t))
+	registry := regpkg.NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	var pid ragetypes.PeerID
@@ -278,22 +281,22 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	// Node belongs to workflow DON, should only connect to capability DON in same family (zone-a)
 	res := launcher.donPairsToUpdate(pid, localRegistry)
 	require.Len(t, res, 1, "expected only one DON pair (zone-a workflow to zone-a capability)")
-	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON}, res[0])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[regpkg.DonID(wfDONID)].DON, localRegistry.IDsToDONs[regpkg.DonID(capDONZoneAID)].DON}, res[0])
 
 	// Bootstrap node should still respect family boundaries, plus add self-pairs for all DONs
 	sharedPeer.On("IsBootstrap").Return(true).Once()
 	res = launcher.donPairsToUpdate(pid, localRegistry)
 	require.Len(t, res, 4, "bootstrap should also filter based on families but add self-pairs")
-	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON}, res[0])
-	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON}, res[1])
-	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneAID)].DON}, res[2])
-	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneBID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneBID)].DON}, res[3])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[regpkg.DonID(wfDONID)].DON, localRegistry.IDsToDONs[regpkg.DonID(capDONZoneAID)].DON}, res[0])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[regpkg.DonID(wfDONID)].DON, localRegistry.IDsToDONs[regpkg.DonID(wfDONID)].DON}, res[1])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[regpkg.DonID(capDONZoneAID)].DON, localRegistry.IDsToDONs[regpkg.DonID(capDONZoneAID)].DON}, res[2])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[regpkg.DonID(capDONZoneBID)].DON, localRegistry.IDsToDONs[regpkg.DonID(capDONZoneBID)].DON}, res[3])
 }
 
 func TestLauncher_ShardedCapabilityRoutingByFamily(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	registry := NewRegistry(lggr)
+	registry := regpkg.NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	workflowDonNodes := newNodes(4)
@@ -372,7 +375,7 @@ func TestLauncher_ShardedCapabilityRoutingByFamily(t *testing.T) {
 
 func TestLauncher_DonPairsToUpdate_ShardedFamilies(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(logger.Test(t))
+	registry := regpkg.NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	var pid ragetypes.PeerID
@@ -406,13 +409,13 @@ func TestLauncher_DonPairsToUpdate_ShardedFamilies(t *testing.T) {
 	sharedPeer.On("IsBootstrap").Return(false).Once()
 	res := launcher.donPairsToUpdate(pid, localRegistry)
 	require.Len(t, res, 2, "workflow shard connects only to its shard-family capability DON and the shared-family capability DON")
-	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON}, res[0])
-	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(sharedCapDONID)].DON}, res[1])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[regpkg.DonID(wfDONID)].DON, localRegistry.IDsToDONs[regpkg.DonID(capShard0ID)].DON}, res[0])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[regpkg.DonID(wfDONID)].DON, localRegistry.IDsToDONs[regpkg.DonID(sharedCapDONID)].DON}, res[1])
 }
 
 func TestLauncher_DonPairsToUpdate_CapShardPairsOnlyWithWorkflowShard(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(logger.Test(t))
+	registry := regpkg.NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	var capNodePID ragetypes.PeerID
@@ -439,8 +442,8 @@ func TestLauncher_DonPairsToUpdate_CapShardPairsOnlyWithWorkflowShard(t *testing
 	res := launcher.donPairsToUpdate(capNodePID, localRegistry)
 	require.Len(t, res, 1)
 	require.Equal(t, p2ptypes.DonPair{
-		localRegistry.IDsToDONs[registrysyncer.DonID(wfShard0ID)].DON,
-		localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON,
+		localRegistry.IDsToDONs[regpkg.DonID(wfShard0ID)].DON,
+		localRegistry.IDsToDONs[regpkg.DonID(capShard0ID)].DON,
 	}, res[0])
 }
 
@@ -449,7 +452,7 @@ func TestLauncher_DonPairsToUpdate_CapShardPairsOnlyWithWorkflowShard(t *testing
 // it to its paired workflow shard. Bootstrap family membership is irrelevant.
 func TestLauncher_DonPairsToUpdate_BootstrapConnectsIsolatedCapShard(t *testing.T) {
 	t.Parallel()
-	registry := NewRegistry(logger.Test(t))
+	registry := regpkg.NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	var bootstrapPID ragetypes.PeerID
@@ -479,16 +482,16 @@ func TestLauncher_DonPairsToUpdate_BootstrapConnectsIsolatedCapShard(t *testing.
 	res := launcher.donPairsToUpdate(bootstrapPID, localRegistry)
 
 	capShard0Self := p2ptypes.DonPair{
-		localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON,
-		localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON,
+		localRegistry.IDsToDONs[regpkg.DonID(capShard0ID)].DON,
+		localRegistry.IDsToDONs[regpkg.DonID(capShard0ID)].DON,
 	}
 	shard0Cross := p2ptypes.DonPair{
-		localRegistry.IDsToDONs[registrysyncer.DonID(wfShard0ID)].DON,
-		localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON,
+		localRegistry.IDsToDONs[regpkg.DonID(wfShard0ID)].DON,
+		localRegistry.IDsToDONs[regpkg.DonID(capShard0ID)].DON,
 	}
 	crossShard := p2ptypes.DonPair{
-		localRegistry.IDsToDONs[registrysyncer.DonID(wfShard1ID)].DON,
-		localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON,
+		localRegistry.IDsToDONs[regpkg.DonID(wfShard1ID)].DON,
+		localRegistry.IDsToDONs[regpkg.DonID(capShard0ID)].DON,
 	}
 
 	require.Contains(t, res, capShard0Self, "isolated cap shard must get a self-pair for member discovery via bootstrap")
@@ -502,7 +505,7 @@ func TestLauncher_DonPairsToUpdate_BootstrapConnectsIsolatedCapShard(t *testing.
 func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	registry := NewRegistry(lggr)
+	registry := regpkg.NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	workflowDonNodes, capabilityDonNodes, zoneBDonNodes := newNodes(4), newNodes(4), newNodes(4)
@@ -625,9 +628,9 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	require.NotNil(t, execCC.GetExecutableClient("Write"))
 
 	// Now update config for one capability and verify it's propagated correctly (DON size)
-	capDon := localRegistry.IDsToDONs[registrysyncer.DonID(capDonID)]
+	capDon := localRegistry.IDsToDONs[regpkg.DonID(capDonID)]
 	capDon.Members = append(capDon.Members, ragetypes.PeerID(RandomUTF8BytesWord()))
-	localRegistry.IDsToDONs[registrysyncer.DonID(capDonID)] = capDon
+	localRegistry.IDsToDONs[regpkg.DonID(capDonID)] = capDon
 	err = launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
 
@@ -640,7 +643,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	registry := NewRegistry(lggr)
+	registry := regpkg.NewRegistry(lggr)
 	fullTriggerCapID := "streams-trigger@1.0.0"
 	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
 		fullTriggerCapID,
@@ -760,16 +763,16 @@ func newNodes(count int) []ragetypes.PeerID {
 	return nodes
 }
 
-func buildLocalRegistry() *registrysyncer.LocalRegistry {
-	return &registrysyncer.LocalRegistry{
-		IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
-		IDsToCapabilities: make(map[string]registrysyncer.Capability),
-		IDsToNodes:        make(map[ragetypes.PeerID]registrysyncer.NodeInfo),
+func buildLocalRegistry() *regpkg.RegistryMetadata {
+	return &regpkg.RegistryMetadata{
+		IDsToDONs:         make(map[regpkg.DonID]regpkg.DON),
+		IDsToCapabilities: make(map[string]regpkg.Capability),
+		IDsToNodes:        make(map[ragetypes.PeerID]regpkg.NodeInfo),
 	}
 }
 
-func addDON(registry *registrysyncer.LocalRegistry, donID uint32, configVersion uint32, f uint8, isPublic bool, acceptsWorkflows bool, members []ragetypes.PeerID, families []string, operatorID uint32, hashedCapabilityIDs [][32]byte) {
-	registry.IDsToDONs[registrysyncer.DonID(donID)] = registrysyncer.DON{
+func addDON(registry *regpkg.RegistryMetadata, donID uint32, configVersion uint32, f uint8, isPublic bool, acceptsWorkflows bool, members []ragetypes.PeerID, families []string, operatorID uint32, hashedCapabilityIDs [][32]byte) {
+	registry.IDsToDONs[regpkg.DonID(donID)] = regpkg.DON{
 		DON: capabilities.DON{
 			ID:               donID,
 			ConfigVersion:    configVersion,
@@ -779,12 +782,12 @@ func addDON(registry *registrysyncer.LocalRegistry, donID uint32, configVersion 
 			Members:          members,
 			Families:         families,
 		},
-		CapabilityConfigurations: make(map[string]registrysyncer.CapabilityConfiguration),
+		CapabilityConfigurations: make(map[string]regpkg.CapabilityConfiguration),
 	}
 
 	// Add each member node to the registry
 	for _, peerID := range members {
-		registry.IDsToNodes[peerID] = registrysyncer.NodeInfo{
+		registry.IDsToNodes[peerID] = regpkg.NodeInfo{
 			NodeOperatorID:      operatorID,
 			Signer:              RandomUTF8BytesWord(),
 			P2pID:               peerID,
@@ -794,14 +797,14 @@ func addDON(registry *registrysyncer.LocalRegistry, donID uint32, configVersion 
 	}
 }
 
-func addCapabilityToDON(registry *registrysyncer.LocalRegistry, donID uint32, capabilityID string, capabilityType capabilities.CapabilityType, config []byte) {
-	don := registry.IDsToDONs[registrysyncer.DonID(donID)]
-	don.CapabilityConfigurations[capabilityID] = registrysyncer.CapabilityConfiguration{
+func addCapabilityToDON(registry *regpkg.RegistryMetadata, donID uint32, capabilityID string, capabilityType capabilities.CapabilityType, config []byte) {
+	don := registry.IDsToDONs[regpkg.DonID(donID)]
+	don.CapabilityConfigurations[capabilityID] = regpkg.CapabilityConfiguration{
 		Config: config,
 	}
-	registry.IDsToDONs[registrysyncer.DonID(donID)] = don
+	registry.IDsToDONs[regpkg.DonID(donID)] = don
 
-	registry.IDsToCapabilities[capabilityID] = registrysyncer.Capability{
+	registry.IDsToCapabilities[capabilityID] = regpkg.Capability{
 		ID:             capabilityID,
 		CapabilityType: capabilityType,
 	}
@@ -810,7 +813,7 @@ func addCapabilityToDON(registry *registrysyncer.LocalRegistry, donID uint32, ca
 func TestLauncher_OnNewRegistry_CallsLocalCapabilityManagerReconcile(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	registry := NewRegistry(lggr)
+	registry := regpkg.NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	capabilityDonNodes := newNodes(4)
@@ -849,7 +852,7 @@ func TestLauncher_OnNewRegistry_CallsLocalCapabilityManagerReconcile(t *testing.
 
 	reconcileCalled := make(chan struct{}, 1)
 	mockLCM := &mockLocalCapabilityManager{
-		reconcileFn: func(ctx context.Context, dons []registrysyncer.DON) error {
+		reconcileFn: func(ctx context.Context, dons []regpkg.DON) error {
 			assert.Len(t, dons, 1, "should pass all DONs")
 			assert.Equal(t, capDonID, dons[0].ID)
 			reconcileCalled <- struct{}{}
@@ -887,7 +890,7 @@ func TestLauncher_OnNewRegistry_CallsLocalCapabilityManagerReconcile(t *testing.
 func TestLauncher_OnNewRegistry_NilLocalCapabilityManager(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	registry := NewRegistry(lggr)
+	registry := regpkg.NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	nodes := newNodes(4)
@@ -917,9 +920,229 @@ func TestLauncher_OnNewRegistry_NilLocalCapabilityManager(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// Unlike TestLauncher_ShardedCapabilityRoutingByFamily, this test has two capability DONs hosting
+// *different* capability IDs. That makes the negative case directly observable in the registry
+// rather than relying on the dispatcher mock rejecting an unexpected call.
+func TestLauncher_OnNewRegistry_FiltersRemoteCapabilityDONsByFamily(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	registry := regpkg.NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes, capZoneANodes, capZoneBNodes := newNodes(4), newNodes(4), newNodes(4)
+
+	inFamilyCapID := "write-chain_evm_1@1.0.0"
+	outOfFamilyCapID := "write-chain_evm_2@1.0.0"
+
+	wfDONID := uint32(1)
+	capZoneAID := uint32(2)
+	capZoneBID := uint32(3)
+
+	cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"Write": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+					RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+						RequestTimeout: durationpb.New(30 * time.Second),
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	localRegistry := buildLocalRegistry()
+	// The node under test belongs to the zone-a workflow DON.
+	addDON(localRegistry, wfDONID, uint32(0), uint8(1), true, true, workflowDonNodes, []string{"zone-a"}, 1, nil)
+	addDON(localRegistry, capZoneAID, uint32(0), uint8(1), true, false, capZoneANodes, []string{"zone-a"}, 1, [][32]byte{RandomUTF8BytesWord()})
+	addCapabilityToDON(localRegistry, capZoneAID, inFamilyCapID, capabilities.CapabilityTypeTarget, cfg)
+	addDON(localRegistry, capZoneBID, uint32(0), uint8(1), true, false, capZoneBNodes, []string{"zone-b"}, 1, [][32]byte{RandomUTF8BytesWord()})
+	addCapabilityToDON(localRegistry, capZoneBID, outOfFamilyCapID, capabilities.CapabilityTypeTarget, cfg)
+
+	var capturedPairs []p2ptypes.DonPair
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			pairs, ok := args.Get(1).([]p2ptypes.DonPair)
+			require.True(t, ok, "expected []p2ptypes.DonPair as second argument")
+			capturedPairs = pairs
+		}).Return(nil)
+
+	launcher, err := NewLauncher(
+		lggr,
+		sharedPeer,
+		nil,
+		dispatcher,
+		registry,
+		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
+	)
+	require.NoError(t, err)
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
+
+	dispatcher.On("SetReceiverForMethod", inFamilyCapID, capZoneAID, "Write", mock.AnythingOfType("*executable.client")).Return(nil)
+	// Catch-all so that a regression surfaces through the explicit assertions below rather than
+	// as an "unexpected method call" panic that aborts the test before they run.
+	dispatcher.On("SetReceiverForMethod", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	// addRemoteCapabilities ran for the zone-a DON: the capability is in the local registry and
+	// points at that DON.
+	inFamilyCap, err := registry.Get(t.Context(), inFamilyCapID)
+	require.NoError(t, err, "expected the in-family capability to be added")
+	inFamilyInfo, err := inFamilyCap.Info(t.Context())
+	require.NoError(t, err)
+	require.NotNil(t, inFamilyInfo.DON)
+	assert.Equal(t, capZoneAID, inFamilyInfo.DON.ID)
+
+	// It did not run for the zone-b DON: filterDONsByFamilies dropped it before the loop.
+	_, err = registry.Get(t.Context(), outOfFamilyCapID)
+	require.Error(t, err, "expected the out-of-family capability to never be added to the registry")
+	dispatcher.AssertNotCalled(t, "SetReceiverForMethod", outOfFamilyCapID, mock.Anything, mock.Anything, mock.Anything)
+	dispatcher.AssertNotCalled(t, "SetReceiverForMethod", mock.Anything, capZoneBID, mock.Anything, mock.Anything)
+
+	// The workflow node is only peered with the capability DON in its own family.
+	wfDON := localRegistry.IDsToDONs[regpkg.DonID(wfDONID)].DON
+	capZoneADON := localRegistry.IDsToDONs[regpkg.DonID(capZoneAID)].DON
+	require.Equal(t, []p2ptypes.DonPair{{wfDON, capZoneADON}}, capturedPairs,
+		"workflow node should only be connected to the zone-a capability DON")
+}
+
+// executeMsgFrom builds the smallest Execute message that reaches the executable server's
+// caller-DON check in core/capabilities/remote/executable/server.go.
+func executeMsgFrom(t *testing.T, capID string, capDonID, callerDonID uint32, execID string) *remotetypes.MessageBody {
+	t.Helper()
+	rawRequest, err := capabilitiespb.MarshalCapabilityRequest(capabilities.CapabilityRequest{
+		Metadata: capabilities.RequestMetadata{WorkflowExecutionID: execID},
+	})
+	require.NoError(t, err)
+	return &remotetypes.MessageBody{
+		CapabilityId:    capID,
+		CapabilityDonId: capDonID,
+		CallerDonId:     callerDonID,
+		Method:          remotetypes.MethodExecute,
+		Payload:         rawRequest,
+		MessageId:       []byte(remotetypes.MethodExecute + ":" + execID),
+	}
+}
+
+// rejectedDonIDs returns the DON IDs the served capability turned away as unregistered callers.
+func rejectedDonIDs(observed *observer.ObservedLogs) []uint32 {
+	var out []uint32
+	for _, entry := range observed.FilterMessage("received request from unregistered don").All() {
+		if donID, ok := entry.ContextMap()["donId"].(uint32); ok {
+			out = append(out, donID)
+		}
+	}
+	return out
+}
+
+// TestLauncher_OnNewRegistry_FiltersRemoteWorkflowDONsByFamily is the serve-side mirror of
+// TestLauncher_OnNewRegistry_FiltersRemoteCapabilityDONsByFamily. onNewRegistry runs
+// remoteWorkflowDONs through filterDONsByFamilies before handing them to serveCapabilities, so a
+// capability DON must only expose itself to workflow DONs in its own family, and must only be
+// connected to those workflow DONs' peers.
+func TestLauncher_OnNewRegistry_FiltersRemoteWorkflowDONsByFamily(t *testing.T) {
+	t.Parallel()
+	lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
+	registry := regpkg.NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	capDonNodes, wfZoneANodes, wfZoneBNodes := newNodes(4), newNodes(4), newNodes(4)
+
+	servedCapID := "evm@1.0.0"
+	require.NoError(t, registry.Add(t.Context(), &mockCapability{
+		CapabilityInfo: capabilities.MustNewCapabilityInfo(servedCapID, capabilities.CapabilityTypeTarget, "evm"),
+	}))
+
+	capDonID := uint32(1)
+	wfZoneAID := uint32(2)
+	wfZoneBID := uint32(3)
+
+	execCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"Write": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+					RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+						RequestTimeout: durationpb.New(30 * time.Second),
+						// Required by the real executable server's SetConfig validation.
+						ServerMaxParallelRequests: 10,
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	localRegistry := buildLocalRegistry()
+	// The node under test belongs to the zone-a capability DON, and to no workflow DON.
+	addDON(localRegistry, capDonID, uint32(0), uint8(1), true, false, capDonNodes, []string{"zone-a"}, 1, [][32]byte{RandomUTF8BytesWord()})
+	addCapabilityToDON(localRegistry, capDonID, servedCapID, capabilities.CapabilityTypeTarget, execCfg)
+	addDON(localRegistry, wfZoneAID, uint32(0), uint8(1), true, true, wfZoneANodes, []string{"zone-a"}, 1, nil)
+	addDON(localRegistry, wfZoneBID, uint32(0), uint8(1), true, true, wfZoneBNodes, []string{"zone-b"}, 1, nil)
+
+	var capturedPairs []p2ptypes.DonPair
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(capDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			pairs, ok := args.Get(1).([]p2ptypes.DonPair)
+			require.True(t, ok, "expected []p2ptypes.DonPair as second argument")
+			capturedPairs = pairs
+		}).Return(nil)
+
+	// Grab the real executable server the launcher serves the capability through.
+	var served remotetypes.Receiver
+	dispatcher.On("SetReceiverForMethod", servedCapID, capDonID, "Write", mock.Anything).
+		Run(func(args mock.Arguments) {
+			receiver, ok := args.Get(3).(remotetypes.Receiver)
+			require.True(t, ok, "expected a remotetypes.Receiver as fourth argument")
+			served = receiver
+		}).Return(nil)
+
+	launcher, err := NewLauncher(
+		lggr,
+		sharedPeer,
+		nil,
+		dispatcher,
+		registry,
+		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
+	)
+	require.NoError(t, err)
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+	require.NotNil(t, served, "capability was never served: no receiver was registered")
+
+	served.Receive(t.Context(), executeMsgFrom(t, servedCapID, capDonID, wfZoneBID, "exec-zone-b"))
+	served.Receive(t.Context(), executeMsgFrom(t, servedCapID, capDonID, wfZoneAID, "exec-zone-a"))
+
+	// Both messages were well formed enough to reach the caller-DON check, so the assertions below
+	// cannot pass just because a request was dropped earlier for being malformed.
+	require.Equal(t, 2, observedLogs.FilterMessage("received request").Len(),
+		"expected both Execute requests to reach the caller-DON check")
+
+	// Only the out-of-family caller was turned away.
+	assert.Equal(t, []uint32{wfZoneBID}, rejectedDonIDs(observedLogs),
+		"expected only the zone-b workflow DON to be rejected as an unregistered caller")
+
+	// The capability node is only peered with the workflow DON in its own family.
+	capDON := localRegistry.IDsToDONs[regpkg.DonID(capDonID)].DON
+	wfZoneADON := localRegistry.IDsToDONs[regpkg.DonID(wfZoneAID)].DON
+	require.Equal(t, []p2ptypes.DonPair{{capDON, wfZoneADON}}, capturedPairs,
+		"capability node should only be connected to the zone-a workflow DON")
+}
+
 // mockLocalCapabilityManager is a test mock that records calls to Reconcile.
 type mockLocalCapabilityManager struct {
-	reconcileFn func(ctx context.Context, dons []registrysyncer.DON) error
+	reconcileFn func(ctx context.Context, dons []regpkg.DON) error
 }
 
 func (m *mockLocalCapabilityManager) Start(context.Context) error    { return nil }
@@ -927,7 +1150,7 @@ func (m *mockLocalCapabilityManager) Close() error                   { return ni
 func (m *mockLocalCapabilityManager) Ready() error                   { return nil }
 func (m *mockLocalCapabilityManager) HealthReport() map[string]error { return nil }
 func (m *mockLocalCapabilityManager) Name() string                   { return "mockLocalCapMgr" }
-func (m *mockLocalCapabilityManager) Reconcile(ctx context.Context, dons []registrysyncer.DON) error {
+func (m *mockLocalCapabilityManager) Reconcile(ctx context.Context, dons []regpkg.DON) error {
 	if m.reconcileFn != nil {
 		return m.reconcileFn(ctx, dons)
 	}
@@ -948,7 +1171,7 @@ func TestLauncher_ShardIdentityFromConfig(t *testing.T) {
 			sharedPeer,
 			nil,
 			remoteMocks.NewDispatcher(t),
-			NewRegistry(lggr),
+			regpkg.NewRegistry(lggr),
 			&mockDonNotifier{},
 			limits.Factory{},
 			shardingEnabled,

@@ -31,7 +31,7 @@
 [[nodesets]]
   nodes = 4
   name = "shard0"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow", "shard"]
   shard_index = 0
   override_mode = "each"
@@ -42,7 +42,7 @@
   registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13000
 
   [[nodesets.node_specs]]
@@ -84,7 +84,7 @@
 [[nodesets]]
   nodes = 4
   name = "shard1"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow", "shard"]
   shard_index = 1
   override_mode = "all"
@@ -95,7 +95,7 @@
   registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13400
 
 [[nodesets.node_specs]]
@@ -109,7 +109,7 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
@@ -118,7 +118,7 @@
   supported_evm_chains = [1337, 2337]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13200
 
   [[nodesets.node_specs]]

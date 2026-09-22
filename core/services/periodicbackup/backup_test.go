@@ -32,7 +32,7 @@ func must(t testing.TB, s string) *url.URL {
 
 func TestPeriodicBackup_RunBackup(t *testing.T) {
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeFull)
-	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
+	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
 	result, err := periodicBackup.runBackup("0.9.9")
@@ -51,7 +51,7 @@ func TestPeriodicBackup_RunBackup(t *testing.T) {
 
 func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeLite)
-	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
+	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
 	result, err := periodicBackup.runBackup("0.9.9")
@@ -70,7 +70,7 @@ func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 
 func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeFull)
-	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
+	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
 	result, err := periodicBackup.runBackup(static.Unset)
@@ -87,9 +87,9 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 }
 
 func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
-	altUrl, _ := url.Parse("postgresql://invalid:some-pass@invalid")
-	backupConfig := newTestConfig(time.Minute, altUrl, "", config.DatabaseBackupModeFull)
-	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
+	altURL, _ := url.Parse("postgresql://invalid:some-pass@invalid") // betterleaks:allow
+	backupConfig := newTestConfig(time.Minute, altURL, "", config.DatabaseBackupModeFull)
+	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
 	partialResult, err := periodicBackup.runBackup("")
@@ -99,14 +99,14 @@ func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
 
 func TestPeriodicBackup_FrequencyTooSmall(t *testing.T) {
 	backupConfig := newTestConfig(time.Second, nil, "", config.DatabaseBackupModeFull)
-	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
+	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
 	assert.True(t, periodicBackup.frequencyIsTooSmall())
 }
 
 func TestPeriodicBackup_AlternativeOutputDir(t *testing.T) {
 	backupDir := filepath.Join(os.TempDir(), "alternative")
 	backupConfig := newTestConfig(time.Second, nil, backupDir, config.DatabaseBackupModeFull)
-	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
+	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
 
 	result, err := periodicBackup.runBackup("0.9.9")
 	require.NoError(t, err, "error not nil for backup")

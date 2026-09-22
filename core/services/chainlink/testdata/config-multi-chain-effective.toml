@@ -554,10 +554,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[EVM.OCR2]
-[EVM.OCR2.Automation]
-GasLimit = 10500000
-
 [EVM.Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -682,10 +678,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[EVM.OCR2]
-[EVM.OCR2.Automation]
-GasLimit = 5400000
-
 [EVM.Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -805,10 +797,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[EVM.OCR2]
-[EVM.OCR2.Automation]
-GasLimit = 5400000
 
 [EVM.Workflow]
 GasLimitDefault = 400000

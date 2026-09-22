@@ -17,16 +17,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
 const confidentialWorkflowsCapabilityID = "confidential-workflows@1.0.0-alpha"
@@ -60,7 +61,7 @@ func ParseWorkflowAttributes(data []byte) (WorkflowAttributes, error) {
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
 type ConfidentialModule struct {
-	capRegistry       core.CapabilitiesRegistry
+	capRegistry       registry.CapabilitiesRegistry
 	binaryURL         string
 	binaryHash        []byte
 	workflowID        string
@@ -103,10 +104,25 @@ func newConfidentialModuleMetrics(meter metric.Meter) (*confidentialModuleMetric
 	}, nil
 }
 
+// errorTypeAttribute labels enclave_execution_failures with the failure's root
+// cause, mirroring the enclave-side error_type convention so alerts can page on
+// system failures without firing on user-caused ones.
+const errorTypeAttribute = "error_type"
+
+// errorTypeFor classifies a failed enclave round-trip as "user" or "system".
+// A user-origin caperrors.Error propagating from the capability (e.g. a workflow
+// that exceeds its execution budget) is the user's, everything else is ours.
+func errorTypeFor(err error) string {
+	if events.ClassifyError(err, events.ErrorClassificationSystem) == events.ErrorClassificationUser {
+		return "user"
+	}
+	return "system"
+}
+
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, creSettingsGetter settings.Getter, lggr logger.Logger) (*ConfidentialModule, error) {
+func NewConfidentialModule(capRegistry registry.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, creSettingsGetter settings.Getter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
 	}
@@ -188,7 +204,8 @@ func (m *ConfidentialModule) Execute(
 	err := doRequest(ctx, m, workflowExecutionID, "Execute", capInput, capOutput, orgID)
 	m.metrics.executionDuration.Record(ctx, time.Since(start).Milliseconds(), attrs)
 	if err != nil {
-		m.metrics.executionFailures.Add(ctx, 1, attrs)
+		m.metrics.executionFailures.Add(ctx, 1, attrs,
+			metric.WithAttributes(attribute.String(errorTypeAttribute, errorTypeFor(err))))
 		return nil, err
 	}
 

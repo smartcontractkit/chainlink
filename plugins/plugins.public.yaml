@@ -21,14 +21,6 @@ plugins:
       gitRef: "v0.0.0-20260827120130-362c4a408695"
       installPath: "./relayer/cmd/chainlink-sui"
 
-  cosmos:
-    - moduleURI: "github.com/smartcontractkit/chainlink-cosmos"
-      gitRef: "v0.5.2-0.20260219133256-b46d473fd6f5"
-      installPath: "./pkg/cosmos/cmd/chainlink-cosmos"
-      # These will be copied into /usr/lib in the container.
-      libs:
-        - /go/pkg/mod/github.com/!cosm!wasm/wasmvm@v*/internal/api/libwasmvm.*.so
-
   feeds:
     - moduleURI: "github.com/smartcontractkit/chainlink-feeds"
       gitRef: "v0.1.2-0.20250227211209-7cd000095135"
@@ -66,39 +58,33 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20260810110946-8174b6bb7fc9"
+      gitRef: "v0.3.4-0.20260917132551-2a2b38e8b744"
       installPath: "./pkg/cmd/chainlink-evm"
 
   capability-cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
+      gitRef: "fab9af5ab180a205dbfd5d90a1cd837815019159"
       installPath: "."
       flags: "-tags timetzdata"
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
-      installPath: "."
-
-  capability-workflowevent:
-    - enabled: false
-      moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
-      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
+      gitRef: "fab9af5ab180a205dbfd5d90a1cd837815019159"
       installPath: "."
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
+      gitRef: "fab9af5ab180a205dbfd5d90a1cd837815019159"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "354a84f22c29c3df099ac8879f243b9b2e5a6de6"
+      gitRef: "fab9af5ab180a205dbfd5d90a1cd837815019159"
       installPath: "."
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "2d0679d1fddcce0b27cd604c71ed0d64c0daac3a"
+      gitRef: "4d4c4ec65942cf2732b8bc0594278cd05165aec2"
       installPath: "."
 
   capability-solana:
@@ -108,7 +94,7 @@ plugins:
 
   capability-aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "977e430d6ff4db1fba42a4d8a20bc92c8b2ceaba"
+      gitRef: "4d4c4ec65942cf2732b8bc0594278cd05165aec2"
       installPath: "."
 
   capability-stellar:

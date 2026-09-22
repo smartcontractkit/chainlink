@@ -5,8 +5,8 @@ import (
 
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
@@ -33,7 +33,7 @@ func (r PipelineRunResource) GetName() string {
 }
 
 func NewPipelineRunResource(pr pipeline.Run, lggr logger.Logger) PipelineRunResource {
-	lggr = lggr.Named("PipelineRunResource")
+	lggr = logger.Sugared(lggr).Named("PipelineRunResource")
 	trs := make([]PipelineTaskRunResource, 0, len(pr.PipelineTaskRuns))
 	for i := range pr.PipelineTaskRuns {
 		trs = append(trs, NewPipelineTaskRunResource(pr.PipelineTaskRuns[i]))

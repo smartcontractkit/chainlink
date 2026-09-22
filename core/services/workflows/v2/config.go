@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -18,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -35,7 +36,7 @@ type EngineConfig struct {
 	Lggr                 logger.Logger
 	Module               host.ModuleV2
 	WorkflowConfig       []byte // workflow author provided config
-	CapRegistry          core.CapabilitiesRegistry
+	CapRegistry          registry.CapabilitiesRegistry
 	DonTimeStore         *dontime.Store
 	UseLocalTimeProvider bool // Set true when DON Time Plugin is not running
 	ExecutionsStore      store.Store
@@ -92,7 +93,7 @@ type EngineLimiters struct {
 	TriggerRegistrationsTime limits.TimeLimiter
 	TriggerSubscription      limits.BoundLimiter[int]
 	TriggerEventQueue        limits.QueueLimiter[RoutedTriggerEvent]
-	TriggerEventQueueTime    limits.TimeLimiter
+	TriggerEventQueueTimeout limits.BoundLimiter[time.Duration]
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
 	WASMBinarySize           limits.BoundLimiter[config.Size]
@@ -161,7 +162,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
-	l.TriggerEventQueueTime, err = lf.MakeTimeLimiter(cfg.TriggerEventQueueTimeout)
+	l.TriggerEventQueueTimeout, err = limits.MakeUpperBoundLimiter(lf, cfg.TriggerEventQueueTimeout)
 	if err != nil {
 		return err
 	}
@@ -305,7 +306,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
 		l.TriggerEventQueue,
-		l.TriggerEventQueueTime,
+		l.TriggerEventQueueTimeout,
 		l.ExecutionConcurrency,
 		l.WASMBinarySize,
 		l.WASMMemorySize,
@@ -349,7 +350,7 @@ func (l *EngineLimiters) Close() error {
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
 		l.TriggerEventQueue,
-		l.TriggerEventQueueTime,
+		l.TriggerEventQueueTimeout,
 		l.ExecutionConcurrency,
 		l.WASMBinarySize,
 		l.WASMMemorySize,

@@ -159,6 +159,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 
 			resp, err := client.Do(request)
 			require.NoError(t, err)
+			defer resp.Body.Close()
 
 			_, err = app.AuthenticationProvider().AuthorizedUserWithSession(ctx, test.sessionID)
 			require.Error(t, err)
@@ -199,6 +200,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 
 	resp, err := client.Do(request)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	gomega.NewWithT(t).Eventually(func() []sessions.Session {

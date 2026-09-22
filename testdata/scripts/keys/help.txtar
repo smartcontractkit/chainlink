@@ -14,7 +14,6 @@ COMMANDS:
    csa       Remote commands for administering the node's CSA keys
    ocr       Remote commands for administering the node's legacy off chain reporting keys
    ocr2      Remote commands for administering the node's off chain reporting keys
-   cosmos    Remote commands for administering the node's Cosmos keys
    solana    Remote commands for administering the node's Solana keys
    starknet  Remote commands for administering the node's StarkNet keys
    aptos     Remote commands for administering the node's Aptos keys

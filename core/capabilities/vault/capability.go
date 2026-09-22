@@ -14,21 +14,35 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
 
+// getSecretsUserError wraps a pre-OCR GetSecrets validation failure as a
+// public user-origin caperrors.Error so its classification survives the
+// remote-capability boundary (the server drops non-caperrors messages) and
+// downstream consumers attribute the failure to the user. A limit breach maps
+// to LimitExceeded, other structural rejections to InvalidArgument. The
+// messages are safe to expose: the gateway write path returns identical ones.
+func getSecretsUserError(err error) caperrors.Error {
+	if _, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
+		return caperrors.NewPublicUserError(err, caperrors.LimitExceeded)
+	}
+	return caperrors.NewPublicUserError(err, caperrors.InvalidArgument)
+}
+
 type Capability struct {
 	lggr                 logger.Logger
 	clock                clockwork.Clock
 	expiresAfter         time.Duration
 	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
-	capabilitiesRegistry core.CapabilitiesRegistry
+	capabilitiesRegistry registry.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
 	lifecycle            *RequestLifecycleTracker
 	zoneBRestrictor      *zoneBRestrictor
@@ -114,22 +128,22 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	r := &vaultcommon.GetSecretsRequest{}
 	err := request.Payload.UnmarshalTo(r)
 	if err != nil {
-		return capabilities.CapabilityResponse{}, fmt.Errorf("could not unmarshal payload to GetSecretsRequest: %w", err)
+		return capabilities.CapabilityResponse{}, getSecretsUserError(fmt.Errorf("could not unmarshal payload to GetSecretsRequest: %w", err))
 	}
 
 	err = s.ValidateGetSecretsRequest(ctx, r)
 	if err != nil {
-		return capabilities.CapabilityResponse{}, fmt.Errorf("could not validate get secrets request: %w", err)
+		return capabilities.CapabilityResponse{}, getSecretsUserError(fmt.Errorf("could not validate get secrets request: %w", err))
 	}
 
 	for idx, req := range r.Requests {
 		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
 			s.lggr.Errorw("get secrets request contains nil secret request", "index", idx)
-			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
+			return capabilities.CapabilityResponse{}, getSecretsUserError(fmt.Errorf("nil secret request at index %d", idx))
 		}
 		if req.Id != nil && vaultutils.NormalizeOwner(req.Id.Owner) != vaultutils.NormalizeOwner(request.Metadata.WorkflowOwner) {
 			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", request.Metadata.WorkflowOwner)
-			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
+			return capabilities.CapabilityResponse{}, getSecretsUserError(fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx))
 		}
 	}
 
@@ -204,7 +218,7 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 	s.lggr.Debugw("received get secrets request", "requestID", requestID, "request", request.String())
 	if err := s.ValidateGetSecretsRequest(ctx, request); err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", requestID, "request", request.String(), "err", err)
-		return nil, err
+		return nil, getSecretsUserError(err)
 	}
 
 	// No auth needed, as this method is not exposed externally
@@ -310,7 +324,7 @@ func NewCapability(
 	clock clockwork.Clock,
 	expiresAfter time.Duration,
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
-	capabilitiesRegistry core.CapabilitiesRegistry,
+	capabilitiesRegistry registry.CapabilitiesRegistry,
 	publicKey *LazyPublicKey,
 	limitsFactory limits.Factory,
 	lifecycle *RequestLifecycleTracker,

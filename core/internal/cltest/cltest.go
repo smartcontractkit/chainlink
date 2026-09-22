@@ -41,7 +41,6 @@ import (
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/cosmoskey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
@@ -54,6 +53,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tonkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tronkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -68,7 +68,6 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -78,7 +77,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
-	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -124,7 +122,6 @@ var (
 	DefaultP2PPeerID p2pkey.PeerID
 	FixtureChainID   = *testutils.FixtureChainID
 
-	DefaultCosmosKey   = cosmoskey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultCSAKey      = csakey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultOCRKey      = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 	DefaultOCR2Key     = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed), "evm")
@@ -188,7 +185,7 @@ type TestApplication struct {
 	Started            bool
 	Backend            *simulated.Backend
 	Keys               []ethkey.KeyV2
-	CapabilityRegistry *capabilities.Registry
+	CapabilityRegistry *registry.Registry
 }
 
 // NewApplicationEVMDisabled creates a new application with default config but EVM disabled
@@ -296,10 +293,10 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	var capabilitiesRegistry *capabilities.Registry
-	capabilitiesRegistry = capabilities.NewRegistry(lggr)
+	var capabilitiesRegistry *registry.Registry
+	capabilitiesRegistry = registry.NewRegistry(lggr)
 	for _, dep := range flagsAndDeps {
-		registry, _ := dep.(*capabilities.Registry)
+		registry, _ := dep.(*registry.Registry)
 		if registry != nil {
 			capabilitiesRegistry = registry
 		}
@@ -475,12 +472,6 @@ func logPubKeys(t testing.TB, kr keystore.Master) {
 	for _, P2PKey := range p2ps {
 		p2pIDs = append(p2pIDs, P2PKey.ID())
 	}
-	cosmos, err := kr.Cosmos().GetAll()
-	require.NoError(t, err)
-	cosmosIDs := make([]string, len(cosmos))
-	for _, cosmosKey := range cosmos {
-		cosmosIDs = append(cosmosIDs, cosmosKey.ID())
-	}
 	solanas, err := kr.Solana().GetAll()
 	require.NoError(t, err)
 	solanaIDs := make([]string, len(solanas))
@@ -546,9 +537,6 @@ func logPubKeys(t testing.TB, kr keystore.Master) {
 	}
 	if len(p2pIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d P2P keys", len(p2pIDs)), "keys", p2pIDs)
-	}
-	if len(cosmosIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d Cosmos keys", len(cosmosIDs)), "keys", cosmosIDs)
 	}
 	if len(solanaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Solana keys", len(solanaIDs)), "keys", solanaIDs)

@@ -10,7 +10,6 @@ USAGE:
 
 COMMANDS:
    evm     Commands for handling EVM transactions
-   cosmos  Commands for handling Cosmos transactions
    solana  Commands for handling Solana transactions
 
 OPTIONS:

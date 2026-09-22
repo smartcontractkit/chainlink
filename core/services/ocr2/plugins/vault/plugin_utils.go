@@ -10,26 +10,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-// gateAllows reports whether the given CRE gate allows the gated behavior.
-// When evaluation errors for reasons other than ErrorNotAllowed, it logs an error and returns false.
-func gateAllows(ctx context.Context, lggr logger.Logger, gate limits.GateLimiter, gateName string) bool {
-	err := gate.AllowErr(ctx)
-	if err == nil {
-		return true
-	}
-	if errors.Is(err, limits.ErrorNotAllowed{}) {
-		return false
-	}
-	lggr.Errorw("unexpected error evaluating CRE gate", "gate", gateName, "error", err)
-	return false
-}
 
 // resolveVaultOCRBoundLimitInt builds a short-lived BoundLimiter for an integer-sized CRE setting, reads Limit once, and closes the limiter.
 func resolveVaultOCRBoundLimitInt[I constraints.Integer](
@@ -183,14 +169,25 @@ func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (
 	}, nil
 }
 
-func (r *ReportingPlugin) roundLggr(seqNr uint64) logger.Logger {
+// isForceEmptyOCRRoundsEnabled reports whether the VaultForceEmptyOCRRounds gate is open,
+// treating an unevaluatable gate as closed.
+func (r *ReportingPlugin) isForceEmptyOCRRoundsEnabled(ctx context.Context) bool {
+	open, err := r.cfg.VaultForceEmptyOCRRounds.IsOpen(ctx)
+	if err != nil {
+		r.lggr.Errorw("unexpected error evaluating CRE gate", "gate", "VaultForceEmptyOCRRounds", "error", err)
+		return false
+	}
+	return open
+}
+
+func (r *ReportingPlugin) roundLggr(seqNr uint64) logger.SugaredLogger {
 	return r.lggr.With("seqNr", seqNr)
 }
 
-func (r *ReportingPlugin) requestLggr(seqNr uint64, requestID string) logger.Logger {
+func (r *ReportingPlugin) requestLggr(seqNr uint64, requestID string) logger.SugaredLogger {
 	return r.roundLggr(seqNr).With("requestID", requestID)
 }
 
-func (r *ReportingPlugin) typedRequestLggr(seqNr uint64, requestID, requestType string) logger.Logger {
+func (r *ReportingPlugin) typedRequestLggr(seqNr uint64, requestID, requestType string) logger.SugaredLogger {
 	return r.requestLggr(seqNr, requestID).With("requestType", requestType)
 }

@@ -32,8 +32,6 @@ type Config struct {
 
 	EVM configtoml.EVMConfigs `toml:",omitempty"`
 
-	Cosmos RawConfigs `toml:",omitempty"`
-
 	Solana RawConfigs `toml:",omitempty"`
 
 	Starknet RawConfigs `toml:",omitempty"`
@@ -99,7 +97,7 @@ func (rs RawConfigs) validateKeys() (err error) {
 			}
 		}
 	}
-	return
+	return err
 }
 
 func (rs RawConfigs) ValidateConfig() (err error) {
@@ -253,7 +251,7 @@ func (c *RawConfig) SetFrom(config RawConfig) error {
 
 func (c RawConfig) NodeNames() []string {
 	nodes, _ := c["Nodes"].([]any)
-	nodeNames := []string{}
+	nodeNames := make([]string, 0, len(nodes))
 	for _, node := range nodes {
 		config, _ := node.(map[string]any)
 		nodeName, _ := config["Name"].(string)
@@ -297,7 +295,7 @@ func (c *Config) valueWarnings() (err error) {
 			}
 		}
 	}
-	return
+	return err
 }
 
 // deprecationWarnings returns an error if the Config contains deprecated fields.
@@ -331,8 +329,6 @@ func (c *Config) setDefaults() {
 		}
 	}
 
-	c.Cosmos.SetDefaults()
-
 	c.Solana.SetDefaults()
 
 	c.Starknet.SetDefaults()
@@ -356,7 +352,6 @@ func (c *Config) SetFrom(f *Config) (err error) {
 	}
 
 	appendErr(c.EVM.SetFrom(&f.EVM), "EVM")
-	appendErr(c.Cosmos.SetFrom(f.Cosmos), "Cosmos")
 	appendErr(c.Solana.SetFrom(f.Solana), "Solana")
 	appendErr(c.Starknet.SetFrom(f.Starknet), "Starknet")
 	appendErr(c.Aptos.SetFrom(f.Aptos), "Aptos")
@@ -509,9 +504,9 @@ func (s *Secrets) setEnv() error {
 			return err
 		}
 	}
-	if dbBackupUrl := env.DatabaseBackupURL.Get(); dbBackupUrl != "" {
+	if dbBackupURL := env.DatabaseBackupURL.Get(); dbBackupURL != "" {
 		s.Database.BackupURL = new(models.SecretURL)
-		if err := s.Database.BackupURL.UnmarshalText([]byte(dbBackupUrl)); err != nil {
+		if err := s.Database.BackupURL.UnmarshalText([]byte(dbBackupURL)); err != nil {
 			return err
 		}
 	}

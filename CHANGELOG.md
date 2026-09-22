@@ -1,5 +1,27 @@
 # Changelog Chainlink Core
 
+## 2.66.0
+
+### Minor Changes
+
+- [#23751](https://github.com/smartcontractkit/chainlink/pull/23751) [`5a65b1d`](https://github.com/smartcontractkit/chainlink/commit/5a65b1d26d7dce35596330fb56bc8c70b02a202c) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23734](https://github.com/smartcontractkit/chainlink/pull/23734) [`fa897c3`](https://github.com/smartcontractkit/chainlink/commit/fa897c3d55f584de6ece6255c061b8ef6904d0d5) - Removing deprecated Cosmos support #nops #removed
+
+- [#23695](https://github.com/smartcontractkit/chainlink/pull/23695) [`ea1ed53`](https://github.com/smartcontractkit/chainlink/commit/ea1ed53b9b16645c4a5da40baeaac30760f58292) - #added add bridge-cache fallback for UseConnectionManager bridge tasks
+
+## 2.65.0
+
+### Minor Changes
+
+- [#23682](https://github.com/smartcontractkit/chainlink/pull/23682) [`dc29377`](https://github.com/smartcontractkit/chainlink/commit/dc293777e108c6ab9fca62a4c64544d29fa56507) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23723](https://github.com/smartcontractkit/chainlink/pull/23723) [`174ffeb`](https://github.com/smartcontractkit/chainlink/commit/174ffeb23a2d3c73601767dd4d25131884023fa3) - #internal Label the `enclave_execution_failures` counter with `error_type` ("user" or "system") so alerts on confidential-workflow enclave failures can exclude user-caused ones, such as a workflow that exceeds its enclave execution budget.
+
 ## 2.64.0
 
 ### Minor Changes

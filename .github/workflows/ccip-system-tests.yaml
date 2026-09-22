@@ -330,6 +330,7 @@ jobs:
           if [[ "${{ matrix.tests.mixed_version || false }}" == "true" && "${{ steps.baseline.outputs.skip }}" == "true" ]]; then
             echo "Skipping ${TEST_NAME}: no baseline image available for mixed-version test"
             echo "tests_result=⏭️ Skipped (no baseline)" >> "${GITHUB_OUTPUT}"
+            echo "skipped=true" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
 
@@ -362,7 +363,7 @@ jobs:
           fi
 
       - name: Analyze and upload test results (${{ steps.run-tests.outputs.tests_result }})
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.run-tests.outputs.skipped != 'true' }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:
           junit-file-path: "/tmp/junit.xml"

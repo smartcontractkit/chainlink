@@ -36,7 +36,6 @@ func workflowCmds() *cobra.Command {
 		Long:  `Commands to manage workflows`,
 	}
 
-	workflowCmd.AddCommand(deployAndVerifyExampleWorkflowCmd())
 	workflowCmd.AddCommand(deleteWorkflowCmd())
 	workflowCmd.AddCommand(deleteAllWorkflowsCmd())
 	workflowCmd.AddCommand(compileWorkflowCmd())

@@ -395,7 +395,7 @@ func registerConfidentialWorkflow(
 		common.HexToAddress(wfRegistryRef.Address),
 		wfRegistryRef.Version,
 		0, // donID unused for v2
-		testEnv.Dons.MustWorkflowDON().DonFamily,
+		testEnv.Dons.MustWorkflowDON().DonFamily(),
 		confidentialWorkflowName,
 		workflowTag,
 		artifacts.BinaryURL,

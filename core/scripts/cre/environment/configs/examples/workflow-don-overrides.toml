@@ -29,7 +29,7 @@
 [[nodesets]]
   nodes = 5
   name = "workflow"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow"]
   override_mode = "all"
   http_port_range_start = 10100
@@ -54,7 +54,7 @@
 #       IncomingGlobalBurst = 20
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13000
 
   [[nodesets.node_specs]]
