@@ -43,17 +43,27 @@ func (e DeprecatedError) Error() string {
 	return fmt.Sprintf("%s: is deprecated and will be removed in %s", e.Name, when)
 }
 
+// ErrInvalid is retained for backward compatibility.
+//
 // Deprecated: use InvalidError instead.
 type ErrInvalid = InvalidError //nolint:errname // backward compatibility
 
+// ErrMissing is retained for backward compatibility.
+//
 // Deprecated: use MissingError instead.
 type ErrMissing = MissingError //nolint:errname // backward compatibility
 
+// ErrEmpty is retained for backward compatibility.
+//
 // Deprecated: use EmptyError instead.
 type ErrEmpty = EmptyError //nolint:errname // backward compatibility
 
+// ErrOverride is retained for backward compatibility.
+//
 // Deprecated: use OverrideError instead.
 type ErrOverride = OverrideError //nolint:errname // backward compatibility
 
+// ErrDeprecated is retained for backward compatibility.
+//
 // Deprecated: use DeprecatedError instead.
 type ErrDeprecated = DeprecatedError //nolint:errname // backward compatibility

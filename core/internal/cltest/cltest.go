@@ -179,7 +179,7 @@ func FormatWithPrefixedChainID(chainID, id string) string {
 // TestApplication holds the test application and test servers
 type TestApplication struct {
 	t testing.TB
-	*chainlink.ChainlinkApplication
+	*chainlink.Node
 	Logger             logger.Logger
 	Server             *httptest.Server
 	Started            bool
@@ -230,8 +230,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 
 	chainID := *sqlutil.New(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
-		switch v := dep.(type) {
-		case *sqlutil.Big:
+		if v, ok := dep.(*sqlutil.Big); ok {
 			chainID = *v
 		}
 	}
@@ -271,9 +270,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		lggr = logger.TestLogger(t)
 	}
 
-	var auditLogger audit.AuditLogger
+	var auditLogger audit.Logger
 	for _, dep := range flagsAndDeps {
-		audLgger, is := dep.(audit.AuditLogger)
+		audLgger, is := dep.(audit.Logger)
 		if is {
 			auditLogger = audLgger
 			break
@@ -420,11 +419,11 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	})
 
 	require.NoError(t, err)
-	app := appInstance.(*chainlink.ChainlinkApplication)
+	app := appInstance.(*chainlink.Node)
 	ta := &TestApplication{
-		t:                    t,
-		ChainlinkApplication: app,
-		Logger:               lggr,
+		t:      t,
+		Node:   app,
+		Logger: lggr,
 	}
 	for _, dep := range flagsAndDeps {
 		if k, ok := dep.(ethkey.KeyV2); ok {
@@ -444,73 +443,73 @@ func logPubKeys(t testing.TB, kr keystore.Master) {
 	ctx := t.Context()
 	csas, err := kr.CSA().GetAll()
 	require.NoError(t, err)
-	csaIDs := make([]string, len(csas))
+	csaIDs := make([]string, 0, len(csas))
 	for _, CSAKey := range csas {
 		csaIDs = append(csaIDs, CSAKey.ID())
 	}
 	eths, err := kr.Eth().GetAll(ctx)
 	require.NoError(t, err)
-	ethIDs := make([]string, len(eths))
+	ethIDs := make([]string, 0, len(eths))
 	for _, ETHKey := range eths {
 		ethIDs = append(ethIDs, ETHKey.ID())
 	}
 	ocrs, err := kr.OCR().GetAll()
 	require.NoError(t, err)
-	ocrIDs := make([]string, len(ocrs))
+	ocrIDs := make([]string, 0, len(ocrs))
 	for _, OCRKey := range ocrs {
 		ocrIDs = append(ocrIDs, OCRKey.ID())
 	}
 	ocr2s, err := kr.OCR2().GetAll()
 	require.NoError(t, err)
-	ocr2IDs := make([]string, len(ocr2s))
+	ocr2IDs := make([]string, 0, len(ocr2s))
 	for _, OCR2Key := range ocr2s {
 		ocr2IDs = append(ocr2IDs, OCR2Key.ID())
 	}
 	p2ps, err := kr.P2P().GetAll()
 	require.NoError(t, err)
-	p2pIDs := make([]string, len(p2ps))
+	p2pIDs := make([]string, 0, len(p2ps))
 	for _, P2PKey := range p2ps {
 		p2pIDs = append(p2pIDs, P2PKey.ID())
 	}
 	solanas, err := kr.Solana().GetAll()
 	require.NoError(t, err)
-	solanaIDs := make([]string, len(solanas))
+	solanaIDs := make([]string, 0, len(solanas))
 	for _, solanaKey := range solanas {
 		solanaIDs = append(solanaIDs, solanaKey.ID())
 	}
 	starknets, err := kr.StarkNet().GetAll()
 	require.NoError(t, err)
-	starknetIDs := make([]string, len(starknets))
+	starknetIDs := make([]string, 0, len(starknets))
 	for _, starkkey := range starknets {
 		starknetIDs = append(starknetIDs, starkkey.ID())
 	}
 	aptoses, err := kr.Aptos().GetAll()
 	require.NoError(t, err)
-	aptosIDs := make([]string, len(aptoses))
+	aptosIDs := make([]string, 0, len(aptoses))
 	for _, aptosKey := range aptoses {
 		aptosIDs = append(aptosIDs, aptosKey.ID())
 	}
 	trons, err := kr.Tron().GetAll()
 	require.NoError(t, err)
-	tronIDs := make([]string, len(trons))
+	tronIDs := make([]string, 0, len(trons))
 	for _, tronKey := range trons {
 		tronIDs = append(tronIDs, tronKey.ID())
 	}
 	tons, err := kr.TON().GetAll()
 	require.NoError(t, err)
-	tonIDs := make([]string, len(tons))
+	tonIDs := make([]string, 0, len(tons))
 	for _, tonKey := range tons {
 		tonIDs = append(tonIDs, tonKey.ID())
 	}
 	suies, err := kr.Sui().GetAll()
 	require.NoError(t, err)
-	suiIDs := make([]string, len(suies))
+	suiIDs := make([]string, 0, len(suies))
 	for _, suiKey := range suies {
 		suiIDs = append(suiIDs, suiKey.ID())
 	}
 	vrfs, err := kr.VRF().GetAll()
 	require.NoError(t, err)
-	vrfIDs := make([]string, len(vrfs))
+	vrfIDs := make([]string, 0, len(vrfs))
 	for _, VRFKey := range vrfs {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
 	}
@@ -568,7 +567,7 @@ func NewEthMocksWithDefaultChain(t testing.TB) (c *clienttest.Client) {
 	testutils.SkipShortDB(t)
 	c = NewEthMocks(t)
 	c.On("ConfiguredChainID").Return(&FixtureChainID).Maybe()
-	return
+	return c
 }
 
 func NewEthMocks(t testing.TB) *clienttest.Client {
@@ -653,7 +652,7 @@ func (ta *TestApplication) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = ta.ChainlinkApplication.Start(ctx)
+	err = ta.Node.Start(ctx)
 	if err != nil {
 		return err
 	}
@@ -749,7 +748,7 @@ func (ta *TestApplication) NewShellAndRenderer() (*cmd.Shell, *RendererMock) {
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
-		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
+		AppFactory:                     seededAppFactory{ta.Node},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
 		HTTP:                           hc.HTTPClient,
@@ -768,7 +767,7 @@ func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Sh
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
-		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
+		AppFactory:                     seededAppFactory{ta.Node},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
 		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Logger, ta.NewClientOpts(), cookieAuth, clsessions.SessionRequest{}),
@@ -902,7 +901,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job
 	t.Helper()
 
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request)) //nolint:bodyclose // body closed via deferred cleanup()
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
@@ -915,7 +914,7 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 	t.Helper()
 
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec)) //nolint:bodyclose // body closed via deferred cleanup()
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
@@ -928,7 +927,7 @@ func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 	t.Helper()
 
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID))
+	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID)) //nolint:bodyclose // body closed via deferred cleanup()
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusNoContent)
 }
@@ -951,7 +950,7 @@ func CreateJobRunViaUserByID(
 
 	bodyBuf := bytes.NewBufferString(body)
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post("/v2/jobs/"+strconv.Itoa(int(jobID))+"/runs", bodyBuf)
+	resp, cleanup := client.Post("/v2/jobs/"+strconv.Itoa(int(jobID))+"/runs", bodyBuf) //nolint:bodyclose // body closed via deferred cleanup()
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	var pr webpresenters.PipelineRunResource
@@ -969,7 +968,7 @@ func CreateExternalInitiatorViaWeb(
 	t.Helper()
 
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post("/v2/external_initiators", bytes.NewBufferString(payload))
+	resp, cleanup := client.Post("/v2/external_initiators", bytes.NewBufferString(payload)) //nolint:bodyclose // body closed via deferred cleanup()
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &webpresenters.ExternalInitiatorAuthentication{}
@@ -1003,16 +1002,17 @@ func WaitForSpecErrorV2(t *testing.T, ds sqlutil.DataSource, jobID int32, count 
 	return jse
 }
 
-func WaitForPipelineError(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+func WaitForPipelineError(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusErrored)
 }
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusCompleted)
 }
 
-func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration, state pipeline.RunStatus) []pipeline.Run {
+func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration, state pipeline.RunStatus) []pipeline.Run {
 	t.Helper()
 
 	var pr []pipeline.Run
@@ -1069,13 +1069,13 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db sqlutil.Data
 func AssertEthTxAttemptCountStays(t testing.TB, txStore txmgr.TestEvmTxStore, want int) []int64 {
 	g := gomega.NewWithT(t)
 
-	var txaIds []int64
+	var txaIDs []int64
 	g.Consistently(func() []txmgr.TxAttempt {
 		attempts, err := txStore.GetAllTxAttempts(t.Context())
 		assert.NoError(t, err)
 		return attempts
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	return txaIds
+	return txaIDs
 }
 
 // Head return a new head with the given number.
@@ -1188,7 +1188,7 @@ func UnauthenticatedGet(t testing.TB, url string, headers map[string]string) (*h
 	return unauthenticatedHTTP(t, "GET", url, nil, headers)
 }
 
-func unauthenticatedHTTP(t testing.TB, method string, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
+func unauthenticatedHTTP(t testing.TB, method, url string, body io.Reader, headers map[string]string) (*http.Response, func()) {
 	t.Helper()
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
