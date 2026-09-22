@@ -77,19 +77,26 @@ type eventHandler struct {
 
 	lggr logger.Logger
 
-	workflowStore          store.Store
-	capRegistry            registry.CapabilitiesRegistry
-	executionHandlers      *confidentialrelay.ExecutionHandlers
-	donTimeStore           *dontime.Store
-	useLocalTimeProvider   bool
-	engineRegistry         *EngineRegistry
-	emitter                custmsg.MessageEmitter
-	emitterMu              sync.RWMutex
-	engineFactory          engineFactoryFn
-	engineLimiters         *v2.EngineLimiters
-	featureFlags           *v2.EngineFeatureFlags
-	ratelimiter            *ratelimiter.RateLimiter
-	workflowLimits         limits.ResourceLimiter[int]
+	workflowStore        store.Store
+	capRegistry          registry.CapabilitiesRegistry
+	executionHandlers    *confidentialrelay.ExecutionHandlers
+	donTimeStore         *dontime.Store
+	useLocalTimeProvider bool
+	engineRegistry       *EngineRegistry
+	emitter              custmsg.MessageEmitter
+	emitterMu            sync.RWMutex
+	engineFactory        engineFactoryFn
+	engineLimiters       *v2.EngineLimiters
+	featureFlags         *v2.EngineFeatureFlags
+	ratelimiter          *ratelimiter.RateLimiter
+	workflowLimits       limits.ResourceLimiter[int]
+
+	// triggerCoordinator owns registration/handles/ACK for every workflow
+	// running the execution-only engine. Nil until wired via WithTriggerCoordinator.
+	// engineFactoryFn falls back to the legacy Engine
+	// when nil, regardless of the ExecutionOnlyEngine flag.
+	triggerCoordinator TriggerCoordinator
+
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
 	workflowDonSubscriber  capabilities.DonSubscriber
@@ -160,6 +167,17 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 			}
 			return engine, nil
 		}
+	}
+}
+
+// WithTriggerCoordinator wires the TriggerCoordinator used for every workflow
+// the ExecutionOnlyEngine flag routes to the execution-only engine. Without
+// this option, engineFactoryFn always builds the legacy Engine, regardless of
+// the flag's value — there is no path that can construct ExecutionEngine
+// without a coordinator to hand it as TriggerAcknowledger.
+func WithTriggerCoordinator(tc TriggerCoordinator) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.triggerCoordinator = tc
 	}
 }
 
@@ -905,6 +923,50 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 
 	h.wireInitDoneHook(cfg, initDone)
 
+	// Read the ExecutionOnlyEngine flag exactly once, here, per engine
+	// construction — never again for this engine's lifetime.
+	// Sharding and the execution-only engine are not yet compatible
+	// (ShardFailoverManager only wraps *v2.Engine), so a sharded node always
+	// takes the legacy path regardless of the flag.
+	executionOnly := false
+	if h.triggerCoordinator != nil && h.featureFlags != nil && h.featureFlags.ExecutionOnlyEngine != nil && !(h.shardingEnabled && h.dispatcher != nil) {
+		open, err := h.featureFlags.ExecutionOnlyEngine.IsOpen(ctx)
+		if err != nil {
+			h.lggr.Warnw("Could not evaluate ExecutionOnlyEngine flag, falling back to the legacy engine",
+				"workflowID", workflowID, "err", err)
+		} else {
+			executionOnly = open
+		}
+	}
+
+	if executionOnly {
+		// the syncer acquires the workflow-count limit for the
+		// execution-only path (legacy Engine still self-manages its own via
+		// cfg.GlobalWorkflowLimit, unchanged). Ideally this happens before
+		// module compilation above, to reject faster; it doesn't yet in this
+		// pass, since the flag decision itself is made here, after the module
+		// is already built — a deliberate, documented deviation, not an
+		// oversight. Freed by stopEngine/tryEngineCleanup when Coordinated.
+		limitCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner, Workflow: workflowID})
+		if err := h.workflowLimits.Use(limitCtx, 1); err != nil {
+			return nil, fmt.Errorf("workflow count limit: %w", err)
+		}
+
+		cfg.TriggerAcknowledger = h.triggerCoordinator
+		// The engine retains its own subscriptions; tryEngineCreate reads them
+		// back off the returned *v2.ExecutionEngine after <-initDone and does
+		// the registration, which needs `source`/`reconcileKey` that live
+		// there and not in this function's parameters.
+		engine, err := v2.NewExecutionEngine(cfg)
+		if err != nil {
+			if freeErr := h.workflowLimits.Free(limitCtx, 1); freeErr != nil {
+				h.lggr.Errorw("Failed to free workflow count limit after failed engine construction", "workflowID", workflowID, "err", freeErr)
+			}
+			return nil, err
+		}
+		return engine, nil
+	}
+
 	var manager *ShardFailoverManager
 	if h.shardingEnabled && h.dispatcher != nil {
 		if h.shardFailoverComm == nil {
@@ -973,6 +1035,17 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 	e, ok := h.engineRegistry.Get(workflowID)
 	var drainable DrainableService
 	if ok {
+		// unregister first so ingress stops immediately, but handles are
+		// retained by the coordinator until ReleaseHandles below — an execution
+		// already in flight still needs its handle to ACK. ErrWorkflowNotCoordinated
+		// is expected, not an error, if this workflow's engine type flipped
+		// since it last activated.
+		if e.Coordinated && h.triggerCoordinator != nil {
+			if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
+				h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
+			}
+		}
+
 		var isDrainable bool
 		if drainable, isDrainable = e.Service.(DrainableService); isDrainable {
 			if started := drainable.Drain(); started {
@@ -995,6 +1068,20 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 
 		if innerErr := e.Close(); innerErr != nil && !errors.Is(innerErr, services.ErrAlreadyStopped) {
 			return nil, fmt.Errorf("failed to close workflow engine: %w", innerErr)
+		}
+
+		if e.Coordinated {
+			// free only what the syncer itself acquired for this workflow.
+			// Legacy Engine frees its own limit internally on Close.
+			limitCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: e.Owner, Workflow: workflowID.Hex()})
+			if err := h.workflowLimits.Free(limitCtx, 1); err != nil {
+				h.lggr.Errorw("Failed to free workflow count limit", "workflowID", workflowID.String(), "err", err)
+			}
+			if h.triggerCoordinator != nil {
+				if err := h.triggerCoordinator.ReleaseHandles(workflowID.Hex()); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
+					h.lggr.Errorw("Failed to release trigger handles via coordinator", "workflowID", workflowID.String(), "err", err)
+				}
+			}
 		}
 	}
 	return drainable, nil
@@ -1098,6 +1185,19 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 		return nil
 	}
 
+	ctx := context.Background()
+
+	// unregister before close, same as stopEngine — see that function's comment.
+	// This path (reconcile-to-inactive, replace-draining-engine) must mirror
+	// stopEngine's coordinator handling exactly; missing it here was the historical
+	// bug that left trigger registrations orphaned on this path specifically
+	//  while the other teardown path (stopEngine) had already been fixed.
+	if e.Coordinated && h.triggerCoordinator != nil {
+		if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
+			h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
+		}
+	}
+
 	// Close the engine, then remove it from the registry only once cleanup has succeeded. The
 	// registry entry is what tells us this workflow still needs cleanup, so if a step fails we
 	// leave it in place and return the error, allowing a future attempt to retry in case the
@@ -1111,6 +1211,18 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 
 	if _, err := h.engineRegistry.Pop(workflowID); err != nil {
 		return fmt.Errorf("failed to remove workflow engine: %w", err)
+	}
+
+	if e.Coordinated {
+		limitCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: e.Owner, Workflow: workflowID.Hex()})
+		if err := h.workflowLimits.Free(limitCtx, 1); err != nil {
+			h.lggr.Errorw("Failed to free workflow count limit", "workflowID", workflowID.String(), "err", err)
+		}
+		if h.triggerCoordinator != nil {
+			if err := h.triggerCoordinator.ReleaseHandles(workflowID.Hex()); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
+				h.lggr.Errorw("Failed to release trigger handles via coordinator", "workflowID", workflowID.String(), "err", err)
+			}
+		}
 	}
 	return nil
 }
@@ -1218,7 +1330,16 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	if err != nil {
 		return fmt.Errorf("failed to compute reconcile key: %w", err)
 	}
-	if err := h.engineRegistry.AddWithReconcileKey(wid, source, reconcileKey, engine); err != nil {
+
+	// coordinated is a plain fact about the concrete type engineFactoryFn just
+	// returned — not a second read of the flag. Only NewExecutionEngine can
+	// have produced this type (see engineFactoryFn), so this is equivalent to
+	// "did we take the execution-only branch a moment ago", asked the one way
+	// that needs no extra state threaded through engineFactoryFn's fixed
+	// signature.
+	execEngine, coordinated := engine.(*v2.ExecutionEngine)
+
+	if err := h.engineRegistry.AddCoordinated(wid, source, reconcileKey, coordinated, spec.WorkflowOwner, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}
@@ -1235,10 +1356,51 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 			}
 		}
 
-		// This shouldn't happen because we call the handler serially and
-		// check for running engines above, see the call to engineRegistry.Contains.
+		// Handle runs on a worker pool, so two activations for the same
+		// workflowID could in principle reach this point concurrently; the
+		// registry's per-key uniqueness is what actually prevents a second
+		// engine, and this is the losing racer unwinding itself.
 		return fmt.Errorf("invariant violation: %w", err)
 	}
+
+	if !coordinated {
+		return nil
+	}
+
+	// Execution-only path: the engine registered nothing itself.
+	// Registration happens here, now that the engine is already in the
+	// registry, so the coordinator's readers can resolve it for the first
+	// event. The subscriptions come off the engine itself — state scoped to
+	// the one workflow it describes, which matters because Handle runs on a
+	// worker pool and several workflows reach this point concurrently.
+	subs, cre := execEngine.Subscriptions()
+
+	var donID uint32
+	if localNode, lnErr := h.capRegistry.LocalNode(ctx); lnErr == nil {
+		donID = localNode.WorkflowDON.ID
+	} else {
+		h.lggr.Warnw("Could not resolve local node DON ID for trigger registration metadata", "workflowID", wid.Hex(), "err", lnErr)
+	}
+
+	triggerIDs, err := h.triggerCoordinator.RegisterTriggers(ctx, cre, RegistrationParams{
+		WorkflowOwner: spec.WorkflowOwner,
+		WorkflowName:  workflowName.Hex(),
+		// pinnedWorkflowDonConfigVersion in v2 pins this to 1 to avoid forcing
+		// forwarder updates on config churn; mirrored here since the syncer
+		// can't reference that unexported v2 constant.
+		DecodedWorkflowName:           workflowName.String(),
+		WorkflowTag:                   spec.WorkflowTag,
+		WorkflowDonID:                 donID,
+		WorkflowDonConfigVersion:      1,
+		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
+		WorkflowRegistryAddress:       h.workflowRegistryAddress,
+	}, subs)
+	if err != nil {
+		_, _ = h.engineRegistry.Pop(wid)
+		_ = engine.Close()
+		return fmt.Errorf("failed to register triggers via coordinator: %w", err)
+	}
+	h.lggr.Infow("Registered triggers via coordinator", "workflowID", wid.Hex(), "triggerIDs", triggerIDs)
 	return nil
 }
 

@@ -415,7 +415,7 @@ func (e *baseEngine) startWith(ctx context.Context, initFn func(context.Context)
 
 	e.metrics = e.metrics.With(platform.KeyOrganizationID, e.orgID)
 
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
+	ctx = contexts.WithCRE(ctx, e.cre())
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, initFn)
 	if triggerLoopFn != nil {
@@ -452,19 +452,19 @@ func (e *baseEngine) initDONSubscribe(ctx context.Context) error {
 	return nil
 }
 
-// initSubscriptions runs the WASM Subscribe call and hands the validated
-// subscriptions to the OnSubscriptionsReady hook. A returned error has already
-// been logged; the caller passes it to OnInitialized.
+// cre is the engine's tenant identity. Valid once resolveOrgID has run during
+// init; every field it reads is written before OnInitialized fires.
+func (e *baseEngine) cre() contexts.CRE {
+	return contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
+}
+
+// initSubscriptions runs the WASM Subscribe call and returns the validated
+// subscriptions. A returned error has already been logged; the caller passes
+// it to OnInitialized.
 func (e *baseEngine) initSubscriptions(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
 	subscriptions, err := e.Subscribe(ctx)
 	if err != nil {
 		e.logger().Errorw("failed to subscribe to triggers", "err", err)
-		return nil, err
-	}
-
-	cre := contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
-	if err = e.cfg.Hooks.OnSubscriptionsReady(subscriptions, cre); err != nil {
-		e.logger().Errorw("OnSubscriptionsReady hook failed", "err", err)
 		return nil, err
 	}
 	return subscriptions, nil
@@ -481,7 +481,7 @@ func (e *baseEngine) initDone(ctx context.Context) {
 // carrying the workflow's tenant identity.
 func (e *baseEngine) shutdownCtx() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(e.cfg.LocalLimits.ShutdownTimeoutMs))
-	return contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}), cancel
+	return contexts.WithCRE(ctx, e.cre()), cancel
 }
 
 // closeCommon is the teardown shared by every engine.

@@ -20,6 +20,21 @@ type ServiceWithMetadata struct {
 	// ReconcileKey fingerprints the on-chain record (owner/name) the engine was started for.
 	// Empty when the engine was registered without identity metadata (e.g. via Add).
 	ReconcileKey string
+	// Coordinated is true if the TriggerCoordinator owns this workflow's trigger
+	// registration, handles, and acknowledgement. This is true when the engine
+	// behind this entry is a v2.ExecutionEngine, not the legacy v2.Engine. Set
+	// once at Add and never changed: the flag decision that produced this entry
+	// is fixed for its lifetime, even if the flag itself later flips. This is
+	// the single source of truth cleanup uses to decide whether to call the
+	// coordinator and whether to free the syncer-owned workflow-count limit.
+	Coordinated bool
+	// Owner is the workflow owner, needed at teardown to Free the
+	// syncer-owned workflow-count limit under the same contexts.CRE{Owner: ...}
+	// it was acquired under — the per-owner resource pool keys on that context
+	// value, so a Free with the wrong (or missing) owner leaks the slot rather
+	// than releasing it. Empty when the engine was registered without identity
+	// metadata (e.g. via Add).
+	Owner string
 	services.Service
 }
 
@@ -28,6 +43,8 @@ type engineEntry struct {
 	engine       services.Service
 	source       string
 	reconcileKey string
+	coordinated  bool
+	owner        string
 }
 
 // ReconcileKey fingerprints the workflow record identity that a WorkflowID is expected to map to.
@@ -57,6 +74,15 @@ func (r *EngineRegistry) Add(workflowID types.WorkflowID, source string, engine 
 
 // AddWithReconcileKey adds an engine to the registry with its source and identity fingerprint.
 func (r *EngineRegistry) AddWithReconcileKey(workflowID types.WorkflowID, source, reconcileKey string, engine services.Service) error {
+	return r.AddCoordinated(workflowID, source, reconcileKey, false, "", engine)
+}
+
+// AddCoordinated adds an engine to the registry, recording whether the
+// TriggerCoordinator owns its trigger registration/handles/ACK (CRE-6176) and
+// the workflow owner (needed at teardown to Free the workflow-count limit
+// under the right per-owner context). coordinated and owner are decided once,
+// by the caller, at construction time — stored verbatim, never re-derived.
+func (r *EngineRegistry) AddCoordinated(workflowID types.WorkflowID, source, reconcileKey string, coordinated bool, owner string, engine services.Service) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, found := r.engines[workflowID]; found {
@@ -66,6 +92,8 @@ func (r *EngineRegistry) AddWithReconcileKey(workflowID types.WorkflowID, source
 		engine:       engine,
 		source:       source,
 		reconcileKey: reconcileKey,
+		coordinated:  coordinated,
+		owner:        owner,
 	}
 	return nil
 }
@@ -82,6 +110,8 @@ func (r *EngineRegistry) Get(workflowID types.WorkflowID) (ServiceWithMetadata, 
 		WorkflowID:   workflowID,
 		Source:       entry.source,
 		ReconcileKey: entry.reconcileKey,
+		Coordinated:  entry.coordinated,
+		Owner:        entry.owner,
 		Service:      entry.engine,
 	}, true
 }
@@ -93,9 +123,11 @@ func (r *EngineRegistry) GetAll() []ServiceWithMetadata {
 	engines := make([]ServiceWithMetadata, 0, len(r.engines))
 	for workflowID, entry := range r.engines {
 		engines = append(engines, ServiceWithMetadata{
-			WorkflowID: workflowID,
-			Source:     entry.source,
-			Service:    entry.engine,
+			WorkflowID:  workflowID,
+			Source:      entry.source,
+			Coordinated: entry.coordinated,
+			Owner:       entry.owner,
+			Service:     entry.engine,
 		})
 	}
 	return engines
@@ -109,9 +141,11 @@ func (r *EngineRegistry) GetBySource(source string) []ServiceWithMetadata {
 	for workflowID, entry := range r.engines {
 		if entry.source == source {
 			result = append(result, ServiceWithMetadata{
-				WorkflowID: workflowID,
-				Source:     entry.source,
-				Service:    entry.engine,
+				WorkflowID:  workflowID,
+				Source:      entry.source,
+				Coordinated: entry.coordinated,
+				Owner:       entry.owner,
+				Service:     entry.engine,
 			})
 		}
 	}
@@ -136,9 +170,11 @@ func (r *EngineRegistry) Pop(workflowID types.WorkflowID) (ServiceWithMetadata, 
 	}
 	delete(r.engines, workflowID)
 	return ServiceWithMetadata{
-		WorkflowID: workflowID,
-		Source:     entry.source,
-		Service:    entry.engine,
+		WorkflowID:  workflowID,
+		Source:      entry.source,
+		Coordinated: entry.coordinated,
+		Owner:       entry.owner,
+		Service:     entry.engine,
 	}, nil
 }
 
@@ -149,9 +185,11 @@ func (r *EngineRegistry) PopAll() []ServiceWithMetadata {
 	engines := make([]ServiceWithMetadata, 0, len(r.engines))
 	for workflowID, entry := range r.engines {
 		engines = append(engines, ServiceWithMetadata{
-			WorkflowID: workflowID,
-			Source:     entry.source,
-			Service:    entry.engine,
+			WorkflowID:  workflowID,
+			Source:      entry.source,
+			Coordinated: entry.coordinated,
+			Owner:       entry.owner,
+			Service:     entry.engine,
 		})
 	}
 	r.engines = make(map[[32]byte]engineEntry)

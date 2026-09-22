@@ -12,7 +12,6 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -386,6 +385,14 @@ type EngineFeatureFlags struct {
 	// which lets ops schedule a healing window across the DON via cresettings.
 	// Nil when construction fails; call sites must nil-check.
 	WorkflowTagBackfill limits.RangeLimiter[config.Timestamp]
+
+	// ExecutionOnlyEngine selects ExecutionEngine over the legacy trigger-owning
+	// Engine for newly created workflows (CRE-6176). Global scope: the whole DON
+	// must agree, since ExecutionEngine depends on a TriggerCoordinator owning
+	// registration and ACK. Read once per engine at construction time; never on
+	// the event path — see the syncer's engine-creation path. Nil when
+	// construction fails; call sites must nil-check and fail closed to Engine.
+	ExecutionOnlyEngine limits.GateLimiter
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -397,8 +404,16 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if err != nil {
 		return nil, fmt.Errorf("workflow tag backfill flag: %w", err)
 	}
+	executionOnlyEngineSetting := settings.Bool(false)
+	executionOnlyEngineSetting.Key = "ExecutionOnlyEngineEnabled"
+	executionOnlyEngineSetting.Scope = settings.ScopeGlobal
+	executionOnlyEngine, err := limits.MakeGateLimiter(lf, executionOnlyEngineSetting)
+	if err != nil {
+		return nil, fmt.Errorf("execution only engine flag: %w", err)
+	}
 	return &EngineFeatureFlags{
 		WorkflowTagBackfill: workflowTagBackfill,
+		ExecutionOnlyEngine: executionOnlyEngine,
 	}, nil
 }
 
@@ -419,12 +434,6 @@ type LifecycleHooks struct {
 	// has completed initialization. It is also helpful for testing.
 	OnInitialized func(err error)
 
-	// OnSubscriptionsReady is called after the WASM Subscribe call returns
-	// and the subscriptions have been validated, but before trigger
-	// registration begins. It allows the caller (syncer/dispatcher) to
-	// inspect or modify the subscriptions before they are registered with
-	// the capabilities registry. Returning an error aborts initialization.
-	OnSubscriptionsReady    func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error
 	OnSubscribedToTriggers  func(triggerIDs []string)
 	OnTriggerEventDropped   func(triggerID, eventID, reason string)
 	OnExecutionFinished     func(executionID string, status string)
@@ -513,9 +522,6 @@ func (l *EngineLimits) setDefaultLimits() {
 func (h *LifecycleHooks) setDefaultHooks() {
 	if h.OnInitialized == nil {
 		h.OnInitialized = func(err error) {}
-	}
-	if h.OnSubscriptionsReady == nil {
-		h.OnSubscriptionsReady = func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error { return nil }
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}

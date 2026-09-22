@@ -963,6 +963,9 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 		syncerV2.WithShardResolver(shardResolver),
+		syncerV2.WithTriggerCoordinator(
+			syncerV2.NewTriggerCoordinator(opts.CapabilitiesRegistry, engineRegistry, clockwork.NewRealClock(), lggr),
+		),
 	}
 	if shardingEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,
