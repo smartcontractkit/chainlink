@@ -607,18 +607,6 @@ func (r *Resolver) AptosKeys(ctx context.Context) (*AptosKeysPayloadResolver, er
 	return NewAptosKeysPayload(keys), nil
 }
 
-func (r *Resolver) CosmosKeys(ctx context.Context) (*CosmosKeysPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
-		return nil, err
-	}
-	keys, err := r.App.GetKeyStore().Cosmos().GetAll()
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCosmosKeysPayload(keys), nil
-}
-
 func (r *Resolver) SuiKeys(ctx context.Context) (*SuiKeysPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err

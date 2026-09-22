@@ -6390,7 +6390,6 @@ type OCR2ChainType string
 
 const (
 	OCR2ChainTypeEvm      OCR2ChainType = "EVM"
-	OCR2ChainTypeCosmos   OCR2ChainType = "COSMOS"
 	OCR2ChainTypeSolana   OCR2ChainType = "SOLANA"
 	OCR2ChainTypeStarknet OCR2ChainType = "STARKNET"
 	OCR2ChainTypeAptos    OCR2ChainType = "APTOS"
@@ -6402,7 +6401,6 @@ const (
 
 var AllOCR2ChainType = []OCR2ChainType{
 	OCR2ChainTypeEvm,
-	OCR2ChainTypeCosmos,
 	OCR2ChainTypeSolana,
 	OCR2ChainTypeStarknet,
 	OCR2ChainTypeAptos,

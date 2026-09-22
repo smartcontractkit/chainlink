@@ -275,8 +275,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ets := EVMTransfersController{app}
 		authv2.POST("/transfers", auth.RequiresAdminRole(ets.Create))
 		authv2.POST("/transfers/evm", auth.RequiresAdminRole(ets.Create))
-		tts := CosmosTransfersController{app}
-		authv2.POST("/transfers/cosmos", auth.RequiresAdminRole(tts.Create))
+
 		sts := SolanaTransfersController{app}
 		authv2.POST("/transfers/solana", auth.RequiresAdminRole(sts.Create))
 
@@ -360,7 +359,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			kc   KeysController
 		}{
 			{"solana", NewSolanaKeysController(app)},
-			{"cosmos", NewCosmosKeysController(app)},
 			{"starknet", NewStarkNetKeysController(app)},
 			{"aptos", NewAptosKeysController(app)},
 			{"stellar", NewStellarKeysController(app)},

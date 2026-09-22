@@ -10,7 +10,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -149,7 +149,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					CSAKeystore: &keystore.CSASigner{CSA: keyStore.CSA()},
 				}),
 				chainlink.InitStarknet(factory, keyStore.StarkNet(), keyStore.CSA(), cfg.StarknetConfigs()),
-				chainlink.InitCosmos(factory, keyStore.Cosmos(), keyStore.CSA(), cfg.CosmosConfigs()),
 				chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), cfg.SolanaConfigs()),
 			},
 			expectedEVMChainCnt: 2,
@@ -159,7 +158,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.NetworkEVM, ChainID: evmChainID2.String()},
 			},
 
-			expectedRelayerNetworks: map[string]struct{}{relay.NetworkEVM: {}, relay.NetworkCosmos: {}, relay.NetworkSolana: {}, relay.NetworkStarkNet: {}},
+			expectedRelayerNetworks: map[string]struct{}{relay.NetworkEVM: {}, relay.NetworkSolana: {}, relay.NetworkStarkNet: {}},
 		},
 	}
 	for _, tt := range tests {
@@ -196,8 +195,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				switch relayNetwork {
 				case relay.NetworkEVM:
 					expectedChainCnt, expectedNodeCnt = tt.expectedEVMChainCnt, tt.expectedEVMNodeCnt
-				case relay.NetworkCosmos:
-					expectedChainCnt, expectedNodeCnt = tt.expectedCosmosChainCnt, tt.expectedCosmosNodeCnt
 				case relay.NetworkSolana:
 					expectedChainCnt, expectedNodeCnt = tt.expectedSolanaChainCnt, tt.expectedSolanaNodeCnt
 				case relay.NetworkStarkNet:
@@ -265,7 +262,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				}
 			}
 
-			expectedMissing := types.RelayID{Network: relay.NetworkCosmos, ChainID: "not a chain id"}
+			expectedMissing := types.RelayID{Network: relay.NetworkSolana, ChainID: "not a chain id"}
 			unwanted, err := cr.Get(expectedMissing)
 			assert.Nil(t, unwanted)
 			assert.ErrorIs(t, err, chainlink.ErrNoSuchRelayer)

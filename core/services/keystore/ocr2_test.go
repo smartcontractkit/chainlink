@@ -181,11 +181,6 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		assert.NoError(t, err)
 		require.Len(t, keys, 2)
 
-		cosmosKeys, err := ks.GetAllOfType(corekeys.Cosmos)
-		assert.NoError(t, err)
-		require.Len(t, cosmosKeys, 1)
-		require.Equal(t, corekeys.Cosmos, cosmosKeys[0].ChainType())
-
 		err = ks.EnsureKeys(ctx, corekeys.StarkNet)
 		assert.NoError(t, err)
 

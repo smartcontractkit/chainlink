@@ -330,8 +330,6 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 			keys, err = getKeys(d.keystore.Solana())
 		case relay.NetworkAptos:
 			keys, err = getKeys(d.keystore.Aptos())
-		case relay.NetworkCosmos:
-			keys, err = getKeys(d.keystore.Cosmos())
 		case relay.NetworkStarkNet:
 			keys, err = getKeys(d.keystore.StarkNet())
 		case relay.NetworkTON:
