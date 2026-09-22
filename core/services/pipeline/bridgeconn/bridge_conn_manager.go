@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	stdErrors "errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +23,9 @@ import (
 //nolint:revive // Interface name matches existing project convention.
 type BridgeConnManager interface {
 	GetObservation(bridge bridges.BridgeType, requestData map[string]any) ([]byte, error)
+	// AdapterVersion returns the version the bridge's streams-adapter reported on
+	// its health endpoint, or an empty string if it is not known (yet).
+	AdapterVersion(bridge bridges.BridgeType) string
 }
 
 var (
@@ -31,7 +35,7 @@ var (
 
 // observationTTL bounds how long a cached observation may be served before it is
 // treated as stale. Hardcoded for now; may become configurable later.
-const observationTTL = 60 * time.Second
+const observationTTL = 90 * time.Second
 
 // cacheEntry pairs a cached observation with the time it was stored, so
 // GetObservation can reject entries older than observationTTL.
@@ -51,8 +55,9 @@ type bridgeConnManager struct {
 	conns   map[string]*eaConn // bridge name -> EAConn
 	lggr    logger.Logger      // immutable after singleton creation
 
-	dial  eaStreamDialer
-	clock clockwork.Clock
+	dial         eaStreamDialer
+	clock        clockwork.Clock
+	healthClient *http.Client // nil disables adapter version discovery
 }
 
 var (
@@ -74,6 +79,9 @@ func NewBridgeConnManager(lggr logger.Logger) BridgeConnManager {
 			lggr:  lggr,
 			dial:  dialGRPCStream,
 			clock: clockwork.NewRealClock(),
+			// No client-level Timeout: adapterHealthTimeout is applied per request
+			// in fetchAdapterVersion, so it holds for any injected client too.
+			healthClient: &http.Client{},
 		}
 	})
 	return defaultBridgeConnManager
@@ -108,6 +116,20 @@ func (m *bridgeConnManager) GetObservation(bridge bridges.BridgeType, requestDat
 	payload := make([]byte, len(entry.payload))
 	copy(payload, entry.payload)
 	return payload, nil
+}
+
+// AdapterVersion returns the adapter version last reported by the bridge's EAConn.
+// It never creates a connection: a bridge that has not been used through
+// GetObservation yields an empty string.
+func (m *bridgeConnManager) AdapterVersion(bridge bridges.BridgeType) string {
+	bridgeName := strings.TrimPrefix(bridge.Name.String(), "bridge-")
+	m.connsMu.Lock()
+	conn, ok := m.conns[bridgeName]
+	m.connsMu.Unlock()
+	if !ok {
+		return ""
+	}
+	return conn.AdapterVersion()
 }
 
 // PutObservation stores observation bytes under the given payload hash key.

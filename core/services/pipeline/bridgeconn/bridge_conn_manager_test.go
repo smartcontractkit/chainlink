@@ -3,8 +3,11 @@ package bridgeconn
 import (
 	"context"
 	"encoding/hex"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -240,4 +243,95 @@ func TestBridgeConnManager_GetObservation_MissingDataField(t *testing.T) {
 
 	_, err = m.GetObservation(bridge, map[string]any{"data": map[string]any{}})
 	assert.Error(t, err, "an empty \"data\" field must be rejected")
+}
+
+func TestAdapterHealthURL(t *testing.T) {
+	t.Parallel()
+	for in, want := range map[string]string{
+		"http://ea.example.invalid:8080":           "http://ea.example.invalid:8080/health",
+		"https://ea.example.invalid/base/path":     "https://ea.example.invalid/base/path/health",
+		"http://ea.example.invalid:8080/?x=1#frag": "http://ea.example.invalid:8080/health",
+	} {
+		u, err := url.Parse(in)
+		require.NoError(t, err)
+		assert.Equal(t, want, adapterHealthURL(*u), in)
+	}
+}
+
+func TestEAConn_RefreshAdapterVersion(t *testing.T) {
+	t.Parallel()
+
+	var status atomic.Int32
+	status.Store(http.StatusOK)
+	var body atomic.Value
+	body.Store(`{"status":"healthy","adapterVersion":"1.2.3"}`)
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		assert.Equal(t, "/base/health", r.URL.Path)
+		w.WriteHeader(int(status.Load()))
+		_, _ = w.Write([]byte(body.Load().(string)))
+	}))
+	t.Cleanup(srv.Close)
+
+	m := newTestManager()
+	m.healthClient = srv.Client()
+	u, err := url.Parse(srv.URL + "/base")
+	require.NoError(t, err)
+	c := newEAConn("bridgea", models.WebURL(*u), m)
+	assert.Empty(t, c.AdapterVersion())
+
+	c.refreshAdapterVersion(t.Context())
+	assert.Equal(t, "1.2.3", c.AdapterVersion())
+
+	// Any status other than 200 keeps the previous value, even a 2xx one.
+	for _, code := range []int{http.StatusInternalServerError, http.StatusNoContent, http.StatusAccepted} {
+		status.Store(int32(code)) //nolint:gosec // G115 // fixed small HTTP status codes
+		body.Store(`{"adapterVersion":"9.9.9"}`)
+		c.refreshAdapterVersion(t.Context())
+		assert.Equal(t, "1.2.3", c.AdapterVersion(), code)
+	}
+
+	// A healthy response without a version keeps the previous value.
+	status.Store(http.StatusOK)
+	body.Store(`{"status":"healthy"}`)
+	c.refreshAdapterVersion(t.Context())
+	assert.Equal(t, "1.2.3", c.AdapterVersion())
+
+	// Malformed JSON keeps the previous value.
+	body.Store(`not json`)
+	c.refreshAdapterVersion(t.Context())
+	assert.Equal(t, "1.2.3", c.AdapterVersion())
+
+	// A new version replaces the old one.
+	body.Store(`{"adapterVersion":"2.0.0"}`)
+	c.refreshAdapterVersion(t.Context())
+	assert.Equal(t, "2.0.0", c.AdapterVersion())
+	assert.Equal(t, int32(7), calls.Load())
+
+	// No client disables discovery entirely: no request is made.
+	c.healthClient = nil
+	c.refreshAdapterVersion(t.Context())
+	assert.Equal(t, "2.0.0", c.AdapterVersion())
+	assert.Equal(t, int32(7), calls.Load())
+}
+
+func TestBridgeConnManager_AdapterVersion(t *testing.T) {
+	t.Parallel()
+	m := newTestManager()
+	bridge := testBridge(t, "bridgea")
+	prefixed := bridge
+	prefixed.Name = bridges.BridgeName("bridge-bridgea")
+
+	// Unknown bridge: no connection is created and the version is empty.
+	assert.Empty(t, m.AdapterVersion(bridge))
+	m.connsMu.Lock()
+	assert.Empty(t, m.conns)
+	m.connsMu.Unlock()
+
+	m.getOrCreateConn(bridge.Name.String(), bridge.URL).setAdapterVersion("3.4.5")
+	assert.Equal(t, "3.4.5", m.AdapterVersion(bridge))
+	// The "bridge-" prefix is normalized away, matching GetObservation.
+	assert.Equal(t, "3.4.5", m.AdapterVersion(prefixed))
+	assert.Empty(t, m.AdapterVersion(testBridge(t, "bridgeb")))
 }

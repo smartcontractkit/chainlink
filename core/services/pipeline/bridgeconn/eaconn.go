@@ -3,7 +3,11 @@ package bridgeconn
 import (
 	"context"
 	"encoding/hex"
+	stdErrors "errors"
+	"fmt"
+	"net/http"
 	"net/url"
+	"path"
 	"sync"
 	"time"
 
@@ -26,6 +30,9 @@ const (
 	reconnectBackoffInitial    = time.Second
 	reconnectBackoffMultiplier = 2.0
 	reconnectBackoffMax        = time.Minute
+	// adapterHealthTimeout bounds the GET /health request EAConn issues after each
+	// successful stream dial to learn the adapter's version.
+	adapterHealthTimeout = 1 * time.Second
 )
 
 // promEAConnObservationsTotal counts accepted gRPC observation messages per bridge
@@ -82,6 +89,12 @@ type observationTimestamps struct {
 	} `json:"timestamps"`
 }
 
+// adapterHealth is the subset of the streams-adapter GET /health response EAConn
+// reads. The runtime reports the JS adapter's version under adapterVersion.
+type adapterHealth struct {
+	AdapterVersion string `json:"adapterVersion"`
+}
+
 // eaStreamClient is the protobuf-independent contract EAConn depends on for its
 // bidirectional observation stream, implemented by grpcStreamClient in production
 // and by fakes in tests.
@@ -116,8 +129,17 @@ type eaConn struct {
 	manager    *bridgeConnManager
 	clock      clockwork.Clock
 
+	// healthURL is the adapter's GET /health endpoint, served on the same
+	// authority as the gRPC stream. healthClient may be nil, which disables
+	// version discovery (used by white-box tests that build the manager directly).
+	healthURL    string
+	healthClient *http.Client
+
 	mu     sync.Mutex
 	assets map[[32]byte]*eaAsset
+
+	versionMu      sync.RWMutex
+	adapterVersion string
 
 	startOnce sync.Once
 }
@@ -125,15 +147,27 @@ type eaConn struct {
 func newEAConn(bridgeName string, bridgeURL models.WebURL, manager *bridgeConnManager) *eaConn {
 	u := url.URL(bridgeURL)
 	return &eaConn{
-		bridgeName: bridgeName,
-		target:     u.Host,
-		useTLS:     u.Scheme == "https",
-		dial:       manager.dial,
-		lggr:       logger.With(logger.Named(manager.lggr, "EAConn"), "bridgeName", bridgeName),
-		manager:    manager,
-		clock:      manager.clock,
-		assets:     make(map[[32]byte]*eaAsset),
+		bridgeName:   bridgeName,
+		target:       u.Host,
+		useTLS:       u.Scheme == "https",
+		dial:         manager.dial,
+		lggr:         logger.With(logger.Named(manager.lggr, "EAConn"), "bridgeName", bridgeName),
+		manager:      manager,
+		clock:        manager.clock,
+		healthURL:    adapterHealthURL(u),
+		healthClient: manager.healthClient,
+		assets:       make(map[[32]byte]*eaAsset),
 	}
+}
+
+// adapterHealthURL derives the streams-adapter health endpoint from the bridge URL:
+// same scheme and authority, with "health" appended to the bridge's base path.
+func adapterHealthURL(u url.URL) string {
+	u.Path = path.Join("/", u.Path, "health")
+	u.RawPath = ""
+	u.RawQuery = ""
+	u.Fragment = ""
+	return u.String()
 }
 
 func (c *eaConn) start() {
@@ -182,12 +216,20 @@ func (c *eaConn) run(ctx context.Context) {
 	for {
 		stream, err := c.dial(ctx, c.target, c.useTLS)
 		if err != nil {
+			if stdErrors.Is(err, errStreamDialingDisabledForTest) {
+				return
+			}
 			c.lggr.Errorw("EAConn: dial failed", "target", c.target, "err", err)
 			backoff = c.sleepBackoff(backoff)
 			continue
 		}
 		c.lggr.Infow("EAConn: stream opened", "target", c.target)
 		backoff = reconnectBackoffInitial
+
+		// Refresh the adapter version on every (re)connect: an adapter redeploy
+		// drops the stream, so the next dial observes the new build. Runs off the
+		// stream goroutines so a slow health endpoint never delays observations.
+		go c.refreshAdapterVersion(ctx)
 
 		streamErr := c.serve(stream)
 		_ = stream.Close()
@@ -286,6 +328,67 @@ func (c *eaConn) observeTransmitDuration(observationJSON []byte) {
 		return
 	}
 	promEAConnTransmitDuration.WithLabelValues(c.bridgeName).Observe(d.Seconds())
+}
+
+// AdapterVersion returns the adapter version last reported by GET /health, or an
+// empty string if none has been fetched successfully yet.
+func (c *eaConn) AdapterVersion() string {
+	c.versionMu.RLock()
+	defer c.versionMu.RUnlock()
+	return c.adapterVersion
+}
+
+func (c *eaConn) setAdapterVersion(version string) {
+	c.versionMu.Lock()
+	defer c.versionMu.Unlock()
+	c.adapterVersion = version
+}
+
+// refreshAdapterVersion fetches the adapter version from healthURL and records it.
+// Failures are logged at debug level and leave the previous value in place, since
+// version discovery is best-effort telemetry enrichment and must never affect the
+// stream.
+func (c *eaConn) refreshAdapterVersion(ctx context.Context) {
+	if c.healthClient == nil || c.healthURL == "" {
+		return
+	}
+	version, err := fetchAdapterVersion(ctx, c.healthClient, c.healthURL)
+	if err != nil {
+		c.lggr.Debugw("EAConn: failed to fetch adapter version", "url", c.healthURL, "err", err)
+		return
+	}
+	if version == "" {
+		c.lggr.Debugw("EAConn: adapter health response has no adapterVersion", "url", c.healthURL)
+		return
+	}
+	if prev := c.AdapterVersion(); prev != version {
+		c.lggr.Infow("EAConn: adapter version updated", "adapterVersion", version, "previous", prev)
+	}
+	c.setAdapterVersion(version)
+}
+
+// fetchAdapterVersion issues GET healthURL and returns the adapterVersion field of
+// the JSON response. Any status other than 200 is an error.
+func fetchAdapterVersion(ctx context.Context, client *http.Client, healthURL string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, adapterHealthTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+	var health adapterHealth
+	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
+		return "", err
+	}
+	return health.AdapterVersion, nil
 }
 
 func (c *eaConn) sleepBackoff(current time.Duration) time.Duration {

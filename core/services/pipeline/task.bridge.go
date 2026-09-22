@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -204,10 +205,17 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 			if jsonErr != nil {
 				lggr.Warnw("Bridge task: failed to marshal request data for telemetry", "err", jsonErr)
 			}
+			// Stamp the adapter version into the telemetry copy of the body only. A
+			// cache-fallback body was produced by an earlier adapter build, so it is
+			// left untouched; local_cache_hit already marks those rows downstream.
+			responseForTelemetry := out.body
+			if !out.cachedResponse {
+				responseForTelemetry = adapterMetaForTelemetry(out.body, bridgeConnManager.AdapterVersion(bridge))
+			}
 			bt := &BridgeTelemetry{
 				Name:                   t.Name,
 				RequestData:            requestDataJSON,
-				ResponseData:           out.body,
+				ResponseData:           responseForTelemetry,
 				ResponseStatusCode:     out.statusCode,
 				LocalCacheHit:          out.cachedResponse,
 				RequestStartTimestamp:  start,
@@ -353,6 +361,23 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		"cached", cachedResponse,
 	)
 	return result, runInfo
+}
+
+// adapterMetaForTelemetry returns a copy of body with meta.adapterVersion set to
+// version, for the telemetry copy of a bridge response. It never fails: an empty
+// version, an empty body, or a body that is not a JSON object returns body
+// unchanged. The body is cloned first because jsonparser.Set appends into the
+// input's backing array, and the original bytes are also the task result and the
+// value persisted to the bridge cache.
+func adapterMetaForTelemetry(body []byte, version string) []byte {
+	if version == "" || len(body) == 0 {
+		return body
+	}
+	out, err := jsonparser.Set(slices.Clone(body), []byte(strconv.Quote(version)), "meta", "adapterVersion")
+	if err != nil {
+		return body
+	}
+	return out
 }
 
 // finalizeAndMarshalBridgeRequestData merges job meta, upstream inputs, and async resume URL into requestData,

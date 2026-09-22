@@ -363,6 +363,7 @@ func TestBridgeTask_UsesBridgeConnManagerCacheFallback(t *testing.T) {
 
 	manager := bridgeconn.NewBridgeConnManager(logger.TestLogger(t))
 	seedable, ok := manager.(interface {
+		SeedObservation(bridge bridges.BridgeType, requestData map[string]any, observation []byte) error
 		DisableEAConnDialingForTest()
 	})
 	require.True(t, ok)
@@ -381,25 +382,106 @@ func TestBridgeTask_UsesBridgeConnManagerCacheFallback(t *testing.T) {
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 	task.HelperSetBridgeConnManager(manager)
 
-	telemCh := make(chan any, 1)
+	telemCh := make(chan any, 2)
 	ctx := pipeline.WithTelemetryCh(t.Context(), telemCh)
 
-	// No observation in the connection manager, so the live lookup will fail.
-	// Seed the bridge cache directly so the task can fall back to it.
-	require.NoError(t, orm.UpsertBridgeResponse(ctx, task.DotID(), specID, []byte(`{"data":{"result":"9700"}}`)))
+	cachedResponse := []byte(`{"data":{"result":"9700"}}`)
+
+	// Prime the connection manager so the first live lookup succeeds and the
+	// response is persisted to the bridge cache.
+	require.NoError(t, seedable.SeedObservation(*bridge, utils.MustUnmarshalToMap(btcUSDPairing), cachedResponse))
 
 	result, runInfo := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
-
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
-	assert.JSONEq(t, `{"data":{"result":"9700"}}`, result.Value.(string))
+	assert.JSONEq(t, string(cachedResponse), result.Value.(string))
 	assert.Equal(t, int32(0), httpCalls.Load())
 
 	telem := <-telemCh
 	require.IsType(t, &pipeline.BridgeTelemetry{}, telem)
 	btelem := telem.(*pipeline.BridgeTelemetry)
-	assert.True(t, btelem.LocalCacheHit)
+	assert.False(t, btelem.LocalCacheHit)
+	// The telemetry body carries the live observation untouched.
+	assert.JSONEq(t, string(cachedResponse), string(btelem.ResponseData))
+
+	// Point the task at a different request payload. The connection manager only
+	// holds an observation for the original payload, so this second lookup misses
+	// and falls back to the bridge cache persisted by the first run.
+	task.RequestData = ethUSDPairing
+
+	result2, runInfo2 := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo2.IsPending)
+	assert.False(t, runInfo2.IsRetryable)
+	require.NoError(t, result2.Error)
+	assert.JSONEq(t, string(cachedResponse), result2.Value.(string))
+	assert.Equal(t, int32(0), httpCalls.Load())
+
+	telem2 := <-telemCh
+	require.IsType(t, &pipeline.BridgeTelemetry{}, telem2)
+	btelem2 := telem2.(*pipeline.BridgeTelemetry)
+	assert.True(t, btelem2.LocalCacheHit)
+	// Cache-fallback bodies come from an earlier adapter build and are not stamped.
+	assert.JSONEq(t, string(cachedResponse), string(btelem2.ResponseData))
+}
+
+func TestAdapterMetaForTelemetry(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty version returns body unchanged", func(t *testing.T) {
+		t.Parallel()
+		body := []byte(`{"data":{"result":1}}`)
+		assert.Equal(t, body, pipeline.AdapterMetaForTelemetry(body, ""))
+	})
+
+	t.Run("empty body returns body unchanged", func(t *testing.T) {
+		t.Parallel()
+		assert.Empty(t, pipeline.AdapterMetaForTelemetry(nil, "1.2.3"))
+		assert.Equal(t, []byte{}, pipeline.AdapterMetaForTelemetry([]byte{}, "1.2.3"))
+	})
+
+	t.Run("non-object body returns body unchanged", func(t *testing.T) {
+		t.Parallel()
+		for _, body := range []string{`[1,2]`, `"str"`, `42`, `not json`} {
+			assert.Equal(t, []byte(body), pipeline.AdapterMetaForTelemetry([]byte(body), "1.2.3"), body)
+		}
+	})
+
+	t.Run("adds meta object when missing", func(t *testing.T) {
+		t.Parallel()
+		got := pipeline.AdapterMetaForTelemetry([]byte(`{"data":{"result":1},"statusCode":200}`), "1.2.3")
+		assert.JSONEq(t, `{"data":{"result":1},"statusCode":200,"meta":{"adapterVersion":"1.2.3"}}`, string(got))
+	})
+
+	t.Run("adds key to existing meta object", func(t *testing.T) {
+		t.Parallel()
+		got := pipeline.AdapterMetaForTelemetry([]byte(`{"data":{"result":1},"meta":{"foo":"bar"}}`), "1.2.3")
+		assert.JSONEq(t, `{"data":{"result":1},"meta":{"foo":"bar","adapterVersion":"1.2.3"}}`, string(got))
+	})
+
+	t.Run("overwrites existing adapterVersion", func(t *testing.T) {
+		t.Parallel()
+		got := pipeline.AdapterMetaForTelemetry([]byte(`{"meta":{"adapterVersion":"0.0.1"}}`), "1.2.3")
+		assert.JSONEq(t, `{"meta":{"adapterVersion":"1.2.3"}}`, string(got))
+	})
+
+	t.Run("escapes version and works on empty object", func(t *testing.T) {
+		t.Parallel()
+		got := pipeline.AdapterMetaForTelemetry([]byte(`{}`), `1.0"x`)
+		assert.JSONEq(t, `{"meta":{"adapterVersion":"1.0\"x"}}`, string(got))
+	})
+
+	t.Run("does not mutate the input body", func(t *testing.T) {
+		t.Parallel()
+		// Extra capacity is exactly the case where an in-place append would corrupt
+		// the original bytes.
+		orig := `{"data":{"result":"9700"}}`
+		body := make([]byte, len(orig), len(orig)+64)
+		copy(body, orig)
+		got := pipeline.AdapterMetaForTelemetry(body, "1.2.3")
+		assert.Equal(t, orig, string(body))
+		assert.JSONEq(t, `{"data":{"result":"9700"},"meta":{"adapterVersion":"1.2.3"}}`, string(got))
+	})
 }
 
 func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {

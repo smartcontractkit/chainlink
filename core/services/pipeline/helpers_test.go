@@ -51,6 +51,9 @@ func (t *BridgeTask) HelperSetBridgeConnManager(bridgeConnManager bridgeconn.Bri
 	t.bridgeConnManager = bridgeConnManager
 }
 
+// AdapterMetaForTelemetry exposes adapterMetaForTelemetry to external tests.
+var AdapterMetaForTelemetry = adapterMetaForTelemetry
+
 func (t *HTTPTask) HelperSetDependencies(config Config, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) {
 	t.config = config
 	t.httpClient = restrictedHTTPClient
