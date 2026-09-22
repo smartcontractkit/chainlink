@@ -59,7 +59,8 @@ type cachedEvent struct {
 
 type ShardFailoverManagerConfig struct {
 	ShardingEnabled bool
-	MyShardID       uint32
+	MyDONID         uint32
+	MyShardIndex    uint32
 	WorkflowID      string
 	WorkflowOwner   string
 
@@ -67,9 +68,13 @@ type ShardFailoverManagerConfig struct {
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardRoutingSteady      *shardownership.SteadySignal
 
-	FailoverGate   limits.GateLimiter
-	Communicator   *sharding.ShardFailoverCommunicator
-	ShardDonLookup func(ctx context.Context, shardID uint32) *commoncap.DON
+	FailoverGate limits.GateLimiter
+	Communicator *sharding.ShardFailoverCommunicator
+	// ShardDonLookup resolves a DON ID to the current DON, e.g. via
+	// capRegistry.DONByID. ResolveAllShards always returns real DON IDs
+	// (shardownership.manualShardResolver translates any configured shard
+	// index to a DON ID internally), so no shard-index remapping happens here.
+	ShardDonLookup func(ctx context.Context, donID uint32) *commoncap.DON
 	DonSubscriber  capabilities.DonSubscriber
 
 	Logger logger.Logger
@@ -170,10 +175,12 @@ func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executi
 	if !m.isPrimaryShard(context.Background(), m.cfg.WorkflowID, m.cfg.WorkflowOwner) {
 		return
 	}
+	// Position 1 in ResolveAllShards' result is the secondary DON ID for this
+	// workflow; ShardDonLookup resolves it to the current DON.
 	secondaryDon := m.resolveDon(context.Background(), m.cfg.WorkflowID, m.cfg.WorkflowOwner, 1)
 	if secondaryDon == nil {
 		m.cfg.Logger.Warnw("failover: primary cannot resolve secondary DON, skipping status update",
-			"workflowID", workflowID, "myShardID", m.cfg.MyShardID)
+			"workflowID", workflowID, "myShardIndex", m.cfg.MyShardIndex)
 		return
 	}
 	execStatus := mapExecutionStatus(status, errClass)
@@ -183,7 +190,7 @@ func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executi
 		TriggerEventId: triggerEventID,
 		TriggerIndex:   uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
 		Status:         execStatus,
-		PrimaryDonId:   m.cfg.MyShardID,
+		PrimaryDonId:   m.cfg.MyDONID,
 	}, *secondaryDon)
 }
 
@@ -229,16 +236,16 @@ func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardown
 
 	switch {
 	case m.cfg.ShardResolver != nil:
-		shardID, found, err := m.cfg.ShardResolver.ResolveShard(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner)
+		donID, found, err := m.cfg.ShardResolver.ResolveShard(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner)
 		if err != nil {
 			return shardownership.DenyOrchestratorError
 		}
-		if !found || shardID != m.cfg.MyShardID {
+		if !found || donID != m.cfg.MyDONID {
 			return shardownership.DenyNotOwner
 		}
 		return shardownership.Allow
 	case m.cfg.ShardOrchestratorClient != nil:
-		verdict, _, _ := shardownership.CheckCommittedOwner(ctx, m.cfg.ShardOrchestratorClient, m.cfg.WorkflowID, m.cfg.MyShardID)
+		verdict, _, _ := shardownership.CheckCommittedOwner(ctx, m.cfg.ShardOrchestratorClient, m.cfg.WorkflowID, m.cfg.MyDONID)
 		return verdict
 	default:
 		return shardownership.Allow
@@ -252,7 +259,7 @@ func (m *ShardFailoverManager) cacheEvent(event v2.RoutedTriggerEvent) {
 	m.mu.Unlock()
 	m.cfg.Logger.Infow("secondary shard: cached trigger event for failover",
 		"eventID", eventID,
-		"myShardID", m.cfg.MyShardID,
+		"myShardIndex", m.cfg.MyShardIndex,
 		"workflowID", m.cfg.WorkflowID,
 		"triggerIndex", event.TriggerIndex)
 }
@@ -327,7 +334,7 @@ func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 
 	m.cfg.Communicator.RegisterHandler(m.cfg.WorkflowID, primaryDonVal, m.HandleExecutionStatusUpdate)
 	m.cfg.Logger.Infow("shard failover: wired communicator",
-		"myShardID", m.cfg.MyShardID,
+		"myShardIndex", m.cfg.MyShardIndex,
 		"workflowID", m.cfg.WorkflowID,
 		"primaryDonID", primaryDonIDOrZero(primaryDon))
 
@@ -346,19 +353,19 @@ func primaryDonIDOrZero(d *commoncap.DON) uint32 {
 
 func (m *ShardFailoverManager) isPrimaryShard(ctx context.Context, workflowID, owner string) bool {
 	if m.cfg.ShardResolver == nil {
-		return m.cfg.MyShardID == 0
+		return m.cfg.MyShardIndex == 0
 	}
 	allResolver, ok := m.cfg.ShardResolver.(shardownership.AllShardsResolver)
 	if !ok {
-		return m.cfg.MyShardID == 0
+		return m.cfg.MyShardIndex == 0
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	shards, found, err := allResolver.ResolveAllShards(ctx, workflowID, owner)
 	if err != nil || !found || len(shards) == 0 {
-		return m.cfg.MyShardID == 0
+		return m.cfg.MyShardIndex == 0
 	}
-	return shards[0] == m.cfg.MyShardID
+	return shards[0] == m.cfg.MyDONID
 }
 
 func (m *ShardFailoverManager) resolveDon(ctx context.Context, workflowID, owner string, shardIndex int) *commoncap.DON {

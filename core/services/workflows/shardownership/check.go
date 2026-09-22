@@ -20,11 +20,11 @@ func CheckCommittedOwner(ctx context.Context, client shardorchestrator.ClientInt
 	if err != nil {
 		return DenyOrchestratorError, nil, err
 	}
-	shard, ok := resp.Mappings[workflowID]
+	donID, ok := resp.Mappings[workflowID]
 	if !ok {
 		return DenyNotOwner, resp, nil
 	}
-	if shard != myDonID {
+	if donID != myDonID {
 		return DenyNotOwner, resp, nil
 	}
 	return Allow, resp, nil

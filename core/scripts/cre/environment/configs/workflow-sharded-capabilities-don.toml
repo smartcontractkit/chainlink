@@ -9,15 +9,16 @@
 # launcher would serve evm-1337 locally and family routing would never be exercised.
 #
 # Family layout (see don_families):
-#   workflow-shard-0 : don_families=["zone-a", "zone-a_shard-0"]
-#   workflow-shard-1 : don_families=["zone-a", "zone-a_shard-1"]
-#   cap-shard-0      : don_families=["zone-a_shard-0"]
-#   cap-shard-1      : don_families=["zone-a_shard-1"]
-#   shared-cap       : don_families=["zone-a"]                    (hosts vault; reachable by all shards)
-#   bootstrap-gateway: don_families=["zone-a"]
+#   workflow-1-zone-a               : don_families=["zone-a", "zone-a_shard-0", "zone-a_workflow"]
+#   workflow-1-zone-a-shard-1       : don_families=["zone-a", "zone-a_shard-1", "zone-a_workflow"]
+#   chain-capabilities-zone-a-shard-0 : don_families=["zone-a_shard-0"]
+#   chain-capabilities-zone-a-shard-1 : don_families=["zone-a_shard-1"]
+#   chain-capabilities-zone-a       : don_families=["zone-a"]     (hosts vault; reachable by all shards)
+#   bootstrap-gateway               : don_families=["zone-a"]
 #
-# The launcher's family-overlap filter therefore routes workflow-shard-0 -> cap-shard-0 and
-# workflow-shard-1 -> cap-shard-1 for evm-1337, while both shards reach shared-cap via "zone-a".
+# The launcher's family-overlap filter therefore routes workflow-1-zone-a -> chain-capabilities-zone-a-shard-0
+# and workflow-1-zone-a-shard-1 -> chain-capabilities-zone-a-shard-1 for evm-1337, while both shards reach
+# chain-capabilities-zone-a via "zone-a".
 # Gateway pairing uses the primary (first) don_families entry ("zone-a") only.
 
 [chip_router]
@@ -52,8 +53,8 @@
 # --- Workflow shard 0 -------------------------------------------------------
 [[nodesets]]
   nodes = 4
-  name = "workflow-shard-0"
-  don_families = ["zone-a", "zone-a_shard-0"]
+  name = "workflow-1-zone-a"
+  don_families = ["zone-a", "zone-a_shard-0", "zone-a_workflow"]
   don_types = ["workflow", "shard"]
   shard_index = 0
   override_mode = "each"
@@ -107,8 +108,8 @@
 # --- Workflow shard 1 -------------------------------------------------------
 [[nodesets]]
   nodes = 4
-  name = "workflow-shard-1"
-  don_families = ["zone-a", "zone-a_shard-1"]
+  name = "workflow-1-zone-a-shard-1"
+  don_families = ["zone-a", "zone-a_shard-1", "zone-a_workflow"]
   don_types = ["workflow", "shard"]
   shard_index = 1
   override_mode = "all"
@@ -134,7 +135,7 @@
 # --- Capability shard 0 (hosts the sharded capability) ----------------------
 [[nodesets]]
   nodes = 4
-  name = "cap-shard-0"
+  name = "chain-capabilities-zone-a-shard-0"
   don_families = ["zone-a_shard-0"]
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
@@ -160,7 +161,7 @@
 # --- Capability shard 1 (hosts the same sharded capability) -----------------
 [[nodesets]]
   nodes = 4
-  name = "cap-shard-1"
+  name = "chain-capabilities-zone-a-shard-1"
   don_families = ["zone-a_shard-1"]
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
@@ -186,7 +187,7 @@
 # --- Shared (non-sharded) capability DON, reachable by every workflow shard --
 [[nodesets]]
   nodes = 4
-  name = "shared-cap"
+  name = "chain-capabilities-zone-a"
   don_families = ["zone-a"]
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
