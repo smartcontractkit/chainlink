@@ -180,8 +180,9 @@ func (s *SolKeys) SetFrom(f *SolKeys) error {
 	if f == nil || len(f.Keys) == 0 {
 		return nil
 	}
-	s.Keys = make([]*SolKey, len(f.Keys))
-	copy(s.Keys, f.Keys)
+	// Replacing would discard the keys contributed by earlier -s files;
+	// validateMerge has already rejected any duplicated across them.
+	s.Keys = append(s.Keys, f.Keys...)
 	return nil
 }
 
@@ -189,9 +190,15 @@ func (s *SolKeys) validateMerge(f *SolKeys) (err error) {
 	have := make(map[string]struct{})
 	if s != nil && f != nil {
 		for _, solKey := range s.Keys {
+			if solKey.ID == nil {
+				continue
+			}
 			have[*solKey.ID] = struct{}{}
 		}
 		for _, solKey := range f.Keys {
+			if solKey.ID == nil {
+				continue // a missing ID is a validation error, not a merge conflict
+			}
 			if _, ok := have[*solKey.ID]; ok {
 				err = errors.Join(err, configutils.ErrOverride{Name: "SolKeys: " + *solKey.ID})
 			}
@@ -240,7 +247,7 @@ func (e *SolKey) validateMerge(f *SolKey) (err error) {
 }
 
 func (e *SolKey) ValidateConfig() (err error) {
-	if (e.JSON != nil) != (e.Password != nil) && (e.Password != nil) != (e.ID != nil) {
+	if (e.JSON != nil) != (e.Password != nil) || (e.Password != nil) != (e.ID != nil) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "SolKey", Value: e.JSON, Msg: "all fields must be nil or non-nil"})
 	}
 	// require valid id
@@ -271,8 +278,9 @@ func (a *AptosKeys) SetFrom(f *AptosKeys) error {
 	if f == nil || len(f.Keys) == 0 {
 		return nil
 	}
-	a.Keys = make([]*AptosKey, len(f.Keys))
-	copy(a.Keys, f.Keys)
+	// Replacing would discard the keys contributed by earlier -s files;
+	// validateMerge has already rejected any duplicated across them.
+	a.Keys = append(a.Keys, f.Keys...)
 	return nil
 }
 
@@ -280,9 +288,15 @@ func (a *AptosKeys) validateMerge(f *AptosKeys) (err error) {
 	have := make(map[uint64]struct{})
 	if a != nil && f != nil {
 		for _, aptosKey := range a.Keys {
+			if aptosKey.ID == nil {
+				continue
+			}
 			have[*aptosKey.ID] = struct{}{}
 		}
 		for _, aptosKey := range f.Keys {
+			if aptosKey.ID == nil {
+				continue // a missing ID is a validation error, not a merge conflict
+			}
 			if _, ok := have[*aptosKey.ID]; ok {
 				err = errors.Join(err, configutils.ErrOverride{Name: fmt.Sprintf("AptosKeys: %d", *aptosKey.ID)})
 			}
@@ -360,8 +374,9 @@ func (s *StellarKeys) SetFrom(f *StellarKeys) error {
 	if f == nil || len(f.Keys) == 0 {
 		return nil
 	}
-	s.Keys = make([]*StellarKey, len(f.Keys))
-	copy(s.Keys, f.Keys)
+	// Replacing would discard the keys contributed by earlier -s files;
+	// validateMerge has already rejected any duplicated across them.
+	s.Keys = append(s.Keys, f.Keys...)
 	return nil
 }
 
@@ -369,9 +384,15 @@ func (s *StellarKeys) validateMerge(f *StellarKeys) (err error) {
 	have := make(map[string]struct{})
 	if s != nil && f != nil {
 		for _, stellarKey := range s.Keys {
+			if stellarKey.ID == nil {
+				continue
+			}
 			have[*stellarKey.ID] = struct{}{}
 		}
 		for _, stellarKey := range f.Keys {
+			if stellarKey.ID == nil {
+				continue // a missing ID is a validation error, not a merge conflict
+			}
 			if _, ok := have[*stellarKey.ID]; ok {
 				err = errors.Join(err, configutils.ErrOverride{Name: "StellarKeys: " + *stellarKey.ID})
 			}
@@ -443,8 +464,9 @@ func (e *EthKeys) SetFrom(f *EthKeys) error {
 	if f == nil || len(f.Keys) == 0 {
 		return nil
 	}
-	e.Keys = make([]*EthKey, len(f.Keys))
-	copy(e.Keys, f.Keys)
+	// Replacing would discard the keys contributed by earlier -s files;
+	// validateMerge has already rejected any duplicated across them.
+	e.Keys = append(e.Keys, f.Keys...)
 	return nil
 }
 
@@ -452,9 +474,15 @@ func (e *EthKeys) validateMerge(f *EthKeys) (err error) {
 	have := make(map[int]struct{})
 	if e != nil && f != nil {
 		for _, ethKey := range e.Keys {
+			if ethKey.ID == nil {
+				continue
+			}
 			have[*ethKey.ID] = struct{}{}
 		}
 		for _, ethKey := range f.Keys {
+			if ethKey.ID == nil {
+				continue // a missing ID is a validation error, not a merge conflict
+			}
 			if _, ok := have[*ethKey.ID]; ok {
 				err = errors.Join(err, configutils.ErrOverride{Name: fmt.Sprintf("EthKeys: %d", *ethKey.ID)})
 			}
@@ -612,7 +640,7 @@ func (e *EthKey) validateMerge(f *EthKey) (err error) {
 }
 
 func (e *EthKey) ValidateConfig() (err error) {
-	if (e.JSON != nil) != (e.Password != nil) && (e.Password != nil) != (e.ID != nil) {
+	if (e.JSON != nil) != (e.Password != nil) || (e.Password != nil) != (e.ID != nil) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "EthKey", Value: e.JSON, Msg: "all fields must be nil or non-nil"})
 	}
 	// require valid id
