@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -17,14 +16,14 @@ type ORM interface {
 	FindBridge(ctx context.Context, name BridgeName) (bt BridgeType, err error)
 	FindBridges(ctx context.Context, name []BridgeName) (bts []BridgeType, err error)
 	DeleteBridgeType(ctx context.Context, bt *BridgeType) error
-	BridgeTypes(ctx context.Context, offset int, limit int) ([]BridgeType, int, error)
+	BridgeTypes(ctx context.Context, offset, limit int) ([]BridgeType, int, error)
 	CreateBridgeType(ctx context.Context, bt *BridgeType) error
 	UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error
 
 	GetCachedResponse(ctx context.Context, dotID string, specID int32, maxElapsed time.Duration) ([]byte, error)
 	UpsertBridgeResponse(ctx context.Context, dotID string, specID int32, response []byte) error
 
-	ExternalInitiators(ctx context.Context, offset int, limit int) ([]ExternalInitiator, int, error)
+	ExternalInitiators(ctx context.Context, offset, limit int) ([]ExternalInitiator, int, error)
 	CreateExternalInitiator(ctx context.Context, externalInitiator *ExternalInitiator) error
 	DeleteExternalInitiator(ctx context.Context, name string) error
 	FindExternalInitiator(ctx context.Context, eia *auth.Token) (*ExternalInitiator, error)
@@ -59,7 +58,7 @@ func (o *orm) FindBridge(ctx context.Context, name BridgeName) (bt BridgeType, e
 	stmt := "SELECT * FROM bridge_types WHERE name = $1"
 	err = o.ds.GetContext(ctx, &bt, stmt, name.String())
 
-	return
+	return bt, err
 }
 
 // FindBridges looks up multiple bridges in a single query.
@@ -79,7 +78,7 @@ func (o *orm) FindBridges(ctx context.Context, names []BridgeName) ([]BridgeType
 	}
 
 	if len(bts) != len(names) {
-		return nil, pkgerrors.Errorf("not all bridges exist, asked for %v, exists %v", names, bts)
+		return nil, fmt.Errorf("not all bridges exist, asked for %v, exists %v", names, bts)
 	}
 
 	return bts, nil
@@ -107,19 +106,19 @@ func (o *orm) DeleteBridgeType(ctx context.Context, bt *BridgeType) error {
 
 // BridgeTypes returns bridge types ordered by name filtered limited by the
 // passed params.
-func (o *orm) BridgeTypes(ctx context.Context, offset int, limit int) (bridges []BridgeType, count int, err error) {
+func (o *orm) BridgeTypes(ctx context.Context, offset, limit int) (bridges []BridgeType, count int, err error) {
 	err = o.transact(ctx, true, func(tx *orm) error {
 		if err = tx.ds.GetContext(ctx, &count, "SELECT COUNT(*) FROM bridge_types"); err != nil {
-			return pkgerrors.Wrap(err, "BridgeTypes failed to get count")
+			return fmt.Errorf("BridgeTypes failed to get count: %w", err)
 		}
 		sql := `SELECT * FROM bridge_types ORDER BY name asc LIMIT $1 OFFSET $2;`
 		if err = tx.ds.SelectContext(ctx, &bridges, sql, limit, offset); err != nil {
-			return pkgerrors.Wrap(err, "BridgeTypes failed to load bridge_types")
+			return fmt.Errorf("BridgeTypes failed to load bridge_types: %w", err)
 		}
 		return nil
 	})
 
-	return
+	return bridges, count, err
 }
 
 // CreateBridgeType saves the bridge type.
@@ -136,7 +135,7 @@ func (o *orm) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
 		return stmt.GetContext(ctx, bt, bt)
 	})
 
-	return pkgerrors.Wrap(err, "CreateBridgeType failed")
+	return fmt.Errorf("CreateBridgeType failed: %w", err)
 }
 
 // UpdateBridgeType updates the bridge type.
@@ -172,11 +171,8 @@ func (o *orm) GetCachedResponseWithFinished(ctx context.Context, dotID string, s
 
 	var result responseType
 
-	if err := pkgerrors.Wrap(
-		o.ds.GetContext(ctx, &result, sql, dotID, specID, stalenessThreshold),
-		fmt.Sprintf("failed to fetch last good value for task %s spec %d", dotID, specID),
-	); err != nil {
-		return nil, time.Now(), err
+	if err := o.ds.GetContext(ctx, &result, sql, dotID, specID, stalenessThreshold); err != nil {
+		return nil, time.Now(), fmt.Errorf("failed to fetch last good value for task %s spec %d: %w", dotID, specID, err)
 	}
 
 	return result.Value, result.FinishedAt, nil
@@ -209,19 +205,19 @@ func (o *orm) BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeRe
 // --- External Initiator
 
 // ExternalInitiators returns a list of external initiators sorted by name
-func (o *orm) ExternalInitiators(ctx context.Context, offset int, limit int) (initiators []ExternalInitiator, count int, err error) {
+func (o *orm) ExternalInitiators(ctx context.Context, offset, limit int) (initiators []ExternalInitiator, count int, err error) {
 	err = o.transact(ctx, true, func(tx *orm) error {
 		if err = tx.ds.GetContext(ctx, &count, "SELECT COUNT(*) FROM external_initiators"); err != nil {
-			return pkgerrors.Wrap(err, "ExternalInitiators failed to get count")
+			return fmt.Errorf("ExternalInitiators failed to get count: %w", err)
 		}
 
 		sql := `SELECT * FROM external_initiators ORDER BY name asc LIMIT $1 OFFSET $2;`
 		if err = tx.ds.SelectContext(ctx, &initiators, sql, limit, offset); err != nil {
-			return pkgerrors.Wrap(err, "ExternalInitiators failed to load external_initiators")
+			return fmt.Errorf("ExternalInitiators failed to load external_initiators: %w", err)
 		}
 		return nil
 	})
-	return
+	return initiators, count, err
 }
 
 // CreateExternalInitiator inserts a new external initiator
@@ -234,12 +230,12 @@ func (o *orm) CreateExternalInitiator(ctx context.Context, externalInitiator *Ex
 		var stmt *sqlx.NamedStmt
 		stmt, err = tx.ds.PrepareNamedContext(ctx, query)
 		if err != nil {
-			return pkgerrors.Wrap(err, "failed to prepare named stmt")
+			return fmt.Errorf("failed to prepare named stmt: %w", err)
 		}
 		defer stmt.Close()
-		return pkgerrors.Wrap(stmt.GetContext(ctx, externalInitiator, externalInitiator), "failed to load external_initiator")
+		return fmt.Errorf("failed to load external_initiator: %w", stmt.GetContext(ctx, externalInitiator, externalInitiator))
 	})
-	return pkgerrors.Wrap(err, "CreateExternalInitiator failed")
+	return fmt.Errorf("CreateExternalInitiator failed: %w", err)
 }
 
 // DeleteExternalInitiator removes an external initiator
@@ -269,5 +265,5 @@ func (o *orm) FindExternalInitiator(ctx context.Context, eia *auth.Token) (*Exte
 // FindExternalInitiatorByName finds an external initiator given an authentication request
 func (o *orm) FindExternalInitiatorByName(ctx context.Context, iname string) (exi ExternalInitiator, err error) {
 	err = o.ds.GetContext(ctx, &exi, `SELECT * FROM external_initiators WHERE lower(name) = lower($1)`, iname)
-	return
+	return exi, err
 }

@@ -3,14 +3,13 @@ package pipeline
 import (
 	"database/sql/driver"
 	"encoding/json"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"gopkg.in/guregu/null.v4"
 
@@ -211,7 +210,7 @@ func (re *RunErrors) Scan(value any) error {
 	}
 	bytes, ok := value.([]byte)
 	if !ok {
-		return errors.Errorf("RunErrors#Scan received unsupported value %v of type %T", value, value)
+		return fmt.Errorf("RunErrors#Scan received unsupported value %v of type %T", value, value)
 	}
 	if len(bytes) == 0 {
 		*re = nil
@@ -247,7 +246,7 @@ func (re RunErrors) ToError() error {
 	for _, e := range re {
 		errs = append(errs, toErr(e))
 	}
-	return stderrors.Join(errs...)
+	return errors.Join(errs...)
 }
 
 type ResumeRequest struct {

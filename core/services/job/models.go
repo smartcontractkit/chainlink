@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
@@ -325,7 +325,7 @@ func (r JSONConfig) Value() (driver.Value, error) {
 func (r *JSONConfig) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
-		return errors.Errorf("expected bytes got %T", b)
+		return fmt.Errorf("expected bytes got %T", b)
 	}
 	return json.Unmarshal(b, &r)
 }
@@ -880,7 +880,7 @@ func (ofc *OracleFactoryConfig) Scan(value any) error {
 
 	b, ok := value.([]byte)
 	if !ok {
-		return errors.Errorf("expected bytes got %T", value)
+		return fmt.Errorf("expected bytes got %T", value)
 	}
 	return json.Unmarshal(b, &ofc)
 }

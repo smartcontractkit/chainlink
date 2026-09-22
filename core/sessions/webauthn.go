@@ -3,6 +3,7 @@ package sessions
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	sqlxTypes "github.com/jmoiron/sqlx/types"
-	pkgerrors "github.com/pkg/errors"
 )
 
 // WebAuthn holds the credentials for API user.
@@ -92,7 +92,7 @@ func (store *WebAuthnSessionStore) FinishWebAuthnRegistration(user User, uwas []
 
 	credential, err := webAuthn.FinishRegistration(waUser, sessionData, response)
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to FinishRegistration")
+		return nil, fmt.Errorf("failed to FinishRegistration: %w", err)
 	}
 
 	return credential, nil
@@ -134,7 +134,7 @@ func FinishWebAuthnLogin(user User, uwas []WebAuthn, sr SessionRequest) error {
 		RPOrigin:      sr.WebAuthnConfig.RPOrigin, // The origin URL for WebAuthn requests
 	})
 	if err != nil {
-		return pkgerrors.Wrapf(err, "failed to create webAuthn structure with RPID: %s and RPOrigin: %s", sr.WebAuthnConfig.RPID, sr.WebAuthnConfig.RPOrigin)
+		return fmt.Errorf("failed to create webAuthn structure with RPID: %s and RPOrigin: %s: %w", sr.WebAuthnConfig.RPID, sr.WebAuthnConfig.RPOrigin, err)
 	}
 
 	credential, err := protocol.ParseCredentialRequestResponseBody(strings.NewReader(sr.WebAuthnData))
@@ -269,7 +269,7 @@ func (store *WebAuthnSessionStore) take(key string) (val string, ok bool) {
 func (store *WebAuthnSessionStore) GetWebauthnSession(key string) (data webauthn.SessionData, err error) {
 	assertion, ok := store.take(key)
 	if !ok {
-		err = pkgerrors.New("assertion not in challenge store")
+		err = errors.New("assertion not in challenge store")
 		return data, err
 	}
 	err = json.Unmarshal([]byte(assertion), &data)

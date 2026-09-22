@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/graph-gophers/graphql-go"
-	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
@@ -780,7 +780,7 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 
 	key, err := r.App.GetKeyStore().VRF().Delete(ctx, string(args.ID))
 	if err != nil {
-		if errors.Is(errors.Cause(err), keystore.ErrMissingVRFKey) {
+		if errors.Is(err, keystore.ErrMissingVRFKey) {
 			return NewDeleteVRFKeyPayloadResolver(vrfkey.KeyV2{}, err), nil
 		}
 		return nil, err
@@ -1090,7 +1090,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	jbt, err := job.ValidateSpec(args.Input.TOML)
 	if err != nil {
 		return NewCreateJobPayload(r.App, nil, map[string]string{
-			"TOML spec": errors.Wrap(err, "failed to parse TOML").Error(),
+			"TOML spec": fmt.Errorf("failed to parse TOML: %w", err).Error(),
 		}), nil
 	}
 

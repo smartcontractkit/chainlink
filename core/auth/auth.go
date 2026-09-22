@@ -3,10 +3,9 @@ package auth
 import (
 	"crypto/sha3"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"hash"
-
-	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -15,7 +14,7 @@ var (
 	// ErrAuthFailed is a generic authentication failed - but not because of
 	// some system failure on our behalf (i.e. HTTP 5xx), more detail is not
 	// given
-	ErrAuthFailed = pkgerrors.New("Authentication failed")
+	ErrAuthFailed = errors.New("authentication failed")
 
 	// ErrorAuthFailed is retained for backward compatibility.
 	//
@@ -63,7 +62,7 @@ func HashedSecret(ta *Token, salt string) (string, error) {
 	hasher := hash.Hash(sha3.New256())
 	_, err := hasher.Write(hashInput(ta, salt))
 	if err != nil {
-		return "", pkgerrors.Wrap(err, "error writing external initiator authentication to hasher")
+		return "", fmt.Errorf("error writing external initiator authentication to hasher: %w", err)
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }

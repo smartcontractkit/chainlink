@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"strconv"
 	"strings"
 
-	pkgerrors "github.com/pkg/errors"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/database"
 	"gopkg.in/guregu/null.v4"
@@ -90,8 +91,12 @@ func ensureMigrated(ctx context.Context, db *sql.DB, p *goose.Provider, provider
 	var names []string
 	err = sqlxDB.SelectContext(ctx, &names, `SELECT id FROM migrations`)
 	if err != nil {
-		// already migrated
-		return nil //nolint:nilerr // legacy migrations table absent means already migrated (or fresh DB)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+			// legacy migrations table absent: already migrated (or fresh DB)
+			return nil
+		}
+		return fmt.Errorf("failed to read legacy migrations table: %w", err)
 	}
 	// ensure that no legacy job specs are present: we _must_ bail out early if
 	// so because otherwise we run the risk of dropping working jobs if the
@@ -109,7 +114,7 @@ func ensureMigrated(ctx context.Context, db *sql.DB, p *goose.Provider, provider
 		}
 	}
 	if !found {
-		return pkgerrors.New("database state is too old. Need to migrate to chainlink version 0.9.10 first before upgrading to this version. This upgrade is NOT REVERSIBLE, so it is STRONGLY RECOMMENDED that you take a database backup before continuing")
+		return errors.New("database state is too old. Need to migrate to chainlink version 0.9.10 first before upgrading to this version. This upgrade is NOT REVERSIBLE, so it is STRONGLY RECOMMENDED that you take a database backup before continuing")
 	}
 
 	// ensure a goose migrations table exists with it's initial v0
@@ -134,7 +139,7 @@ func ensureMigrated(ctx context.Context, db *sql.DB, p *goose.Provider, provider
 
 				id, err = strconv.ParseInt(before, 10, 64)
 				if err == nil && id <= 0 {
-					return pkgerrors.New("migration IDs must be greater than zero")
+					return errors.New("migration IDs must be greater than zero")
 				}
 			}
 
@@ -202,7 +207,7 @@ func SetMigrationENVVars(generalConfig toml.EVMConfigs) error {
 	if generalConfig.Enabled() {
 		err := os.Setenv(env.EVMChainIDNotNullMigration0195, generalConfig[0].ChainID.String())
 		if err != nil {
-			panic(pkgerrors.Wrap(err, "failed to set migrations env variables"))
+			panic(fmt.Errorf("failed to set migrations env variables: %w", err))
 		}
 	}
 	return nil

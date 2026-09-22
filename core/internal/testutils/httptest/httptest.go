@@ -2,11 +2,10 @@ package httptest
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
-
-	pkgerrors "github.com/pkg/errors"
 )
 
 // NewTestHTTPClient returns a real HTTP client that may only make requests to
@@ -31,7 +30,7 @@ func testDialContext(ctx context.Context, network, address string) (net.Conn, er
 	}
 	a := con.RemoteAddr().(*net.TCPAddr)
 	if a != nil && !a.IP.IsLoopback() {
-		return nil, pkgerrors.Errorf("Test HTTP client may only dial localhost, got address: %v", a.String())
+		return nil, fmt.Errorf("test HTTP client may only dial localhost, got address: %v", a.String())
 	}
 	return con, err
 }
