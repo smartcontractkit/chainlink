@@ -134,8 +134,10 @@ func (o *orm) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
 		defer stmt.Close()
 		return stmt.GetContext(ctx, bt, bt)
 	})
-
-	return fmt.Errorf("CreateBridgeType failed: %w", err)
+	if err != nil {
+		return fmt.Errorf("CreateBridgeType failed: %w", err)
+	}
+	return nil
 }
 
 // UpdateBridgeType updates the bridge type.
@@ -233,9 +235,15 @@ func (o *orm) CreateExternalInitiator(ctx context.Context, externalInitiator *Ex
 			return fmt.Errorf("failed to prepare named stmt: %w", err)
 		}
 		defer stmt.Close()
-		return fmt.Errorf("failed to load external_initiator: %w", stmt.GetContext(ctx, externalInitiator, externalInitiator))
+		if gerr := stmt.GetContext(ctx, externalInitiator, externalInitiator); gerr != nil {
+			return fmt.Errorf("failed to load external_initiator: %w", gerr)
+		}
+		return nil
 	})
-	return fmt.Errorf("CreateExternalInitiator failed: %w", err)
+	if err != nil {
+		return fmt.Errorf("CreateExternalInitiator failed: %w", err)
+	}
+	return nil
 }
 
 // DeleteExternalInitiator removes an external initiator
