@@ -371,6 +371,15 @@ func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
 	ExecuteManualShardAssignmentTest(t, testEnv)
 }
 
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-sharded-capabilities-don.toml"),
+	)
+	ExecuteManualShardAssignmentWithEVMLogTriggerTest(t, testEnv)
+}
+
 //nolint:paralleltest // subtests share the same sharding config
 func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
