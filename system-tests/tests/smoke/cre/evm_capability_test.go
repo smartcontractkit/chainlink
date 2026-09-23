@@ -67,7 +67,6 @@ func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, t
 			// Each case uses a fresh per-test execution context to avoid shared-signer nonce collisions,
 			// while still reusing the shared environment cache (sync.Once) for admin sessions.
 			perCaseEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
-
 			enabledChains := t_helpers.GetEVMEnabledChains(t, perCaseEnv)
 			t_helpers.StartLoggingOnlyChipTestSink(t, evmReadLogFilePath(t, perCaseEnv))
 
@@ -80,7 +79,6 @@ func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, t
 
 				t.Run("on chain "+chainID, func(t *testing.T) {
 					workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
-
 					lggr.Info().
 						Str("workflow_name", workflowName).
 						Str("chain_id", chainID).
@@ -90,16 +88,10 @@ func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, t
 					evmChain := bcOutput.(*evm.Blockchain)
 					workflowConfig := configureEVMReadWorkflow(t, lggr, evmChain, tc, workflowName)
 					t_helpers.CompileAndDeployWorkflow(t, perCaseEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
-					// h := t_helpers.ApplyCRESettings(t, perCaseEnv,
-					// 	// t_helpers.Global("\nMissingRequestRecoveryEnabled = 'true'"),
-					// 	t_helpers.Workflow(workflowID, "\nMissingRequestRecoveryEnabled = 'true'"),
-					// )
 
 					validateWorkflowExecution(t, lggr, perCaseEnv, evmChain, workflowName, common.BytesToAddress(workflowConfig.ContractAddress), workflowConfig.ExpectedReceipt.BlockNumber.Uint64())
-					// h.Reset(t)
 				})
 			}
-
 		})
 	}
 }
