@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync/atomic"
+	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -51,6 +52,7 @@ type wsConnectionWrapper struct {
 	readCh     chan ReadItem
 	shutdownCh chan struct{}
 	wg         services.WaitGroup
+	metrics    WSConnectionObserver
 }
 
 func (c *wsConnectionWrapper) HealthReport() map[string]error {
@@ -78,11 +80,22 @@ var (
 )
 
 func NewWSConnectionWrapper(lggr logger.Logger) WSConnectionWrapper {
+	return NewWSConnectionWrapperWithObserver(lggr, nil)
+}
+
+// NewWSConnectionWrapperWithObserver is NewWSConnectionWrapper with a metrics
+// observer for the wrapper's blocking operations. A nil observer discards all
+// observations.
+func NewWSConnectionWrapperWithObserver(lggr logger.Logger, observer WSConnectionObserver) WSConnectionWrapper {
+	if observer == nil {
+		observer = noopWSConnectionObserver{}
+	}
 	cw := &wsConnectionWrapper{
 		lggr:       logger.Named(lggr, "WSConnectionWrapper"),
 		writeCh:    make(chan writeItem),
 		readCh:     make(chan ReadItem),
 		shutdownCh: make(chan struct{}),
+		metrics:    observer,
 	}
 	return cw
 }
@@ -123,12 +136,19 @@ func (c *wsConnectionWrapper) Reset(newConn *websocket.Conn) <-chan error {
 func (c *wsConnectionWrapper) Write(ctx context.Context, msgType int, data []byte) error {
 	errCh := make(chan error, 1)
 	// push to write channel
+	c.metrics.AddPendingWriters(ctx, 1)
+	queueStart := time.Now()
 	select {
 	case c.writeCh <- writeItem{msgType, data, errCh}:
-		break
+		c.metrics.AddPendingWriters(ctx, -1)
+		// The queue wait ends when the write pump accepts the item; the second
+		// select below (waiting for the write result) is intentionally excluded.
+		c.metrics.RecordWriteQueueWait(ctx, time.Since(queueStart))
 	case <-c.shutdownCh:
+		c.metrics.AddPendingWriters(ctx, -1)
 		return ErrWrapperShutdown
 	case <-ctx.Done():
+		c.metrics.AddPendingWriters(ctx, -1)
 		return ctx.Err()
 	}
 	// wait for write result
@@ -171,7 +191,10 @@ func (c *wsConnectionWrapper) writePump() {
 				close(wsMsg.ErrCh)
 				break
 			}
+			// Time exactly the socket write, recording on return (including
+			writeStart := time.Now()
 			err := conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
+			c.metrics.RecordSocketWrite(context.Background(), time.Since(writeStart))
 			if err != nil {
 				c.lggr.Errorw("failed to write message", "msgType", wsMsg.MsgType, "dataLen", len(wsMsg.Data), "error", err)
 				// A write failure (e.g. i/o timeout on a half-open TCP session) does not
@@ -211,8 +234,12 @@ func (c *wsConnectionWrapper) readPump(conn *websocket.Conn, closeCh chan<- erro
 			close(closeCh)
 			return
 		}
+		// Time only the handoff to the read channel consumer; ReadMessage above
+		// is excluded because it blocks for normal idle time between messages.
+		dispatchStart := time.Now()
 		select {
 		case c.readCh <- ReadItem{msgType, data}:
+			c.metrics.RecordReadDispatchWait(context.Background(), time.Since(dispatchStart))
 		case <-c.shutdownCh:
 			var closeErr error
 			if c.conn.CompareAndSwap(conn, nil) {

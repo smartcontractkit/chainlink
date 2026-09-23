@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/attribute"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -117,6 +118,10 @@ func NewGatewayConnector(config *Config, signer Signer, clock clockwork.Clock, l
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gateway connector metrics: %w", err)
 	}
+	wsMetrics, err := network.NewWSConnectionMetrics()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create websocket connection metrics: %w", err)
+	}
 	connector := &gatewayConnector{
 		config:      config,
 		clock:       clock,
@@ -143,7 +148,7 @@ func NewGatewayConnector(config *Config, signer Signer, clock clockwork.Clock, l
 		}
 		l := logger.With(lggr, "URL", parsedURL)
 		gateway := &gatewayState{
-			conn:     network.NewWSConnectionWrapper(l),
+			conn:     network.NewWSConnectionWrapperWithObserver(l, wsMetrics.Observer(attribute.String("gateway_id", gw.ID))),
 			config:   gw,
 			url:      parsedURL,
 			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),

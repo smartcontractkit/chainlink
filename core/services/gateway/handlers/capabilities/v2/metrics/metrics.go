@@ -43,6 +43,7 @@ type ActionMetrics struct {
 	requestCount                   metric.Int64Counter
 	requestFailures                metric.Int64Counter
 	requestLatency                 metric.Int64Histogram
+	responseSendLatency            metric.Int64Histogram
 	customerEndpointRequestLatency metric.Int64Histogram
 	customerEndpointResponseCount  metric.Int64Counter
 	cacheReadCount                 metric.Int64Counter
@@ -167,15 +168,23 @@ func newActionMetrics(meter metric.Meter) (*ActionMetrics, error) {
 
 	m.requestLatency, err = meter.Int64Histogram(
 		"http_action_gateway_request_latency_ms",
-		metric.WithDescription("HTTP action request latency in milliseconds in the gateway"),
+		metric.WithDescription("HTTP action request latency in milliseconds in the gateway, measured inside the async worker: cache/HTTP processing plus response send for each admitted request. Parsing, admission, and goroutine scheduling are excluded; synchronously rejected requests appear in failure counters, not here"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP action gateway request latency metric: %w", err)
 	}
 
+	m.responseSendLatency, err = meter.Int64Histogram(
+		"http_action_gateway_response_send_latency_ms",
+		metric.WithDescription("Time in milliseconds for the gateway to send an HTTP action response to the node (sendResponseToNode), including send failures. Separates response-write contention from cache/HTTP processing"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP action gateway response send latency metric: %w", err)
+	}
+
 	m.customerEndpointRequestLatency, err = meter.Int64Histogram(
 		"http_action_customer_endpoint_request_latency_ms",
-		metric.WithDescription("Request latency while calling customer endpoint in milliseconds"),
+		metric.WithDescription("Request latency while calling customer endpoint in milliseconds, including failed calls. Cache hits make no outbound call and emit no observation"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP action customer endpoint request latency metric: %w", err)
@@ -463,12 +472,31 @@ func (m *Metrics) IncrementOutboundConcurrencyThrottled(ctx context.Context, nod
 	))
 }
 
-func (m *Metrics) RecordActionRequestLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
-	m.action.requestLatency.Record(ctx, latencyMs)
+// RecordActionRequestLatency records the async work duration of one admitted
+// HTTP action request: from callback construction (inside the makeOutgoingRequest
+// goroutine) until sendResponseToNode returns. Synchronously rejected requests
+// produce no sample here.
+func (m *Metrics) RecordActionRequestLatency(ctx context.Context, nodeAddress string, latencyMs int64, lggr logger.Logger) {
+	m.action.requestLatency.Record(ctx, latencyMs, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+	))
 }
 
-func (m *Metrics) RecordCustomerEndpointRequestLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
-	m.action.customerEndpointRequestLatency.Record(ctx, latencyMs)
+// RecordActionResponseSendLatency records the duration of sendResponseToNode,
+// including send failures.
+func (m *Metrics) RecordActionResponseSendLatency(ctx context.Context, nodeAddress string, latencyMs int64, lggr logger.Logger) {
+	m.action.responseSendLatency.Record(ctx, latencyMs, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+	))
+}
+
+// RecordCustomerEndpointRequestLatency records the duration of an actual
+// outbound call to the customer endpoint, including failures. Cache hits make
+// no outbound call and emit no observation.
+func (m *Metrics) RecordCustomerEndpointRequestLatency(ctx context.Context, nodeAddress string, latencyMs int64, lggr logger.Logger) {
+	m.action.customerEndpointRequestLatency.Record(ctx, latencyMs, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+	))
 }
 
 func (m *Metrics) IncrementCustomerEndpointResponseCount(ctx context.Context, statusCode string, lggr logger.Logger) {
@@ -620,13 +648,19 @@ func (m *Metrics) RecordLoadedMetadataSize(ctx context.Context, size int64, lggr
 // MetricViews returns histogram bucket definitions for this package's metrics.
 // Due to the OTEL specification, all histogram buckets must be defined when the beholder client is created.
 func MetricViews() []sdkmetric.View {
-	return []sdkmetric.View{
-		sdkmetric.NewView(
-			sdkmetric.Instrument{Name: "http_trigger_gateway_capability_request_latency_ms"},
+	latencyBoundaries := []float64{10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 90000}
+	histogramView := func(name string) sdkmetric.View {
+		return sdkmetric.NewView(
+			sdkmetric.Instrument{Name: name},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				// 10ms up to 90s (max trigger request duration is on this order), with finer granularity at the lower end
-				Boundaries: []float64{10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 90000},
+				Boundaries: latencyBoundaries,
 			}},
-		),
+		)
+	}
+	return []sdkmetric.View{
+		histogramView("http_trigger_gateway_capability_request_latency_ms"),
+		histogramView("http_action_gateway_request_latency_ms"),
+		histogramView("http_action_gateway_response_send_latency_ms"),
+		histogramView("http_action_customer_endpoint_request_latency_ms"),
 	}
 }
