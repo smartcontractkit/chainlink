@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -27,6 +28,7 @@ type DonTimeProvider struct {
 	lggr                logger.Logger
 	metrics             *monitoring.WorkflowsMetricLabeler
 	clock               clockwork.Clock
+	warnNoDonTimeOnce   sync.Once
 }
 
 func NewDonTimeProvider(
@@ -52,7 +54,20 @@ func NewDonTimeProvider(
 }
 
 func (tp *DonTimeProvider) GetNodeTime() time.Time {
-	return fromUnixMilli(tp.donTimeStore.GetLastObservedDonTime())
+	if last := tp.donTimeStore.GetLastObservedDonTime(); last != 0 {
+		return fromUnixMilli(last)
+	}
+	// DON time was never observed: the DON Time plugin is not running, or has not
+	// reached consensus yet. Returning the zero time silently stamps workflow data
+	// with the Unix epoch — which truncates to bogus far-future timestamps in
+	// uint32 fields downstream — so fall back to the local node clock instead and
+	// surface the degraded mode loudly. This matches donTimeFromResponse's
+	// existing fallback philosophy (local time on DON-time errors, with a
+	// non-determinism warning).
+	tp.warnNoDonTimeOnce.Do(func() {
+		tp.lggr.Warnf("no DON time has ever been observed (workflowExecutionID %s); falling back to the local node clock. This may result in non-deterministic behavior across nodes for this workflow step", tp.workflowExecutionID)
+	})
+	return tp.clock.Now()
 }
 
 // GetDONTime makes a request to the WorkflowLib plugin store for DON Time
