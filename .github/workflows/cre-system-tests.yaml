@@ -126,6 +126,9 @@ jobs:
             "Test_CRE_V2_ShardManualAssignment": [
                {"topology":"workflow-gateway-sharded-manual","configs":"configs/workflow-gateway-sharded-manual.toml"}
              ],
+            "Test_CRE_V2_ShardManualAssignmentBothSpecs": [
+               {"topology":"workflow-gateway-sharded-manual","configs":"configs/workflow-gateway-sharded-manual.toml"}
+             ],
             "Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger": [
                {"topology":"workflow-sharded-capabilities","configs":"configs/workflow-sharded-capabilities-don.toml"}
              ],
