@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/test_token"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
@@ -259,7 +260,7 @@ func SendRequestAptos(
 func DeployTransferableTokenAptos(
 	t *testing.T,
 	lggr logger.Logger,
-	e cldf.Environment,
+	e *cldf.Environment,
 	evmChainSel, aptosChainSel uint64,
 	tokenName string,
 	mintAmount *config.TokenMint,
@@ -279,15 +280,17 @@ func DeployTransferableTokenAptos(
 
 	// EVM
 	evmDeployerKey := e.BlockChains.EVMChains()[evmChainSel].DeployerKey
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(*e)
 	require.NoError(t, err)
-	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployerKey, e.ExistingAddresses, tokenName)
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployerKey, e.ExistingAddresses, ds, tokenName)
+	require.NoError(t, mergeDataStoreIntoEnv(e, ds))
 	require.NoError(t, err)
 	err = attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployerKey, evmToken.Address(), evmPool.Address())
 	require.NoError(t, err)
 
 	// Aptos
-	e, err = commoncs.Apply(t, e,
+	*e, err = commoncs.Apply(t, *e,
 		commoncs.Configure(aptoscs.AddTokenPool{},
 			config.AddTokenPoolConfig{
 				ChainSelector:                       aptosChainSel,
@@ -363,7 +366,7 @@ func DeployTransferableTokenAptos(
 func DeployRegulatedTransferableTokenAptos(
 	t *testing.T,
 	lggr logger.Logger,
-	e cldf.Environment,
+	e *cldf.Environment,
 	evmChainSel,
 	aptosChainSel uint64,
 	tokenName string,
@@ -384,16 +387,18 @@ func DeployRegulatedTransferableTokenAptos(
 
 	// EVM
 	evmDeployerKey := e.BlockChains.EVMChains()[evmChainSel].DeployerKey
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(*e)
 	require.NoError(t, err)
-	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployerKey, e.ExistingAddresses, tokenName)
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployerKey, e.ExistingAddresses, ds, tokenName)
+	require.NoError(t, mergeDataStoreIntoEnv(e, ds))
 	require.NoError(t, err)
 	err = attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployerKey, evmToken.Address(), evmPool.Address())
 	require.NoError(t, err)
 
 	// Deploy + initialize regulated token, transfer ownership/admin to mcms via the changeset.
 	const tokenSymbol shared.TokenSymbol = "TKN"
-	e, err = commoncs.Apply(t, e,
+	*e, err = commoncs.Apply(t, *e,
 		commoncs.Configure(aptoscs.DeployRegulatedToken{},
 			config.DeployRegulatedTokenConfig{
 				ChainSelector: aptosChainSel,
@@ -433,7 +438,7 @@ func DeployRegulatedTransferableTokenAptos(
 	require.NotEqualf(t, aptos.AccountAddress{}, tokenMetadata, "regulated token metadata address not found")
 
 	// Deploy lane (also finalizes the 3-step ownership handoff via FinalizeRegulatedTokenOwnershipSequence).
-	e, err = commoncs.Apply(t, e,
+	*e, err = commoncs.Apply(t, *e,
 		commoncs.Configure(aptoscs.AddTokenPool{},
 			config.AddTokenPoolConfig{
 				ChainSelector:                       aptosChainSel,
@@ -485,10 +490,11 @@ func DeployRegulatedTransferableTokenAptos(
 	return evmToken, evmPool, tokenMetadata, aptosTokenPool, nil
 }
 
-// DeployAptosCCIPReceiver deploys the ccip_dummy_receiver package to all Aptos chains, saving the resulting address in the address book for future use
-func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
-	state, err := aptosstate.LoadOnchainState(e)
+// DeployAptosCCIPReceiver deploys the ccip_dummy_receiver package to all Aptos chains.
+func DeployAptosCCIPReceiver(t *testing.T, e *cldf.Environment) {
+	state, err := aptosstate.LoadOnchainState(*e)
 	require.NoError(t, err)
+	ds := datastore.NewMemoryDataStore()
 	for selector, onchainState := range state {
 		// ccip_dummy_receiver includes ptt_dummy_receiver, which requires resource-account deployment.
 		seed := fmt.Sprintf("%s_%d", ccip_dummy_receiver.DefaultSeed, selector)
@@ -502,9 +508,10 @@ func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
 		require.NoError(t, err)
 		t.Logf("(Aptos) CCIPDummyReceiver(ccip: %s, mcms: %s) deployed to %s in tx %s", onchainState.CCIPAddress.StringLong(), onchainState.MCMSAddress.StringLong(), addr.StringLong(), tx.Hash)
 		require.NoError(t, e.BlockChains.AptosChains()[selector].Confirm(tx.Hash))
-		err = e.ExistingAddresses.Save(selector, addr.StringLong(), cldf.NewTypeAndVersion(shared.AptosReceiverType, deployment.Version1_0_0))
+		err = shared.RecordAddress(e.ExistingAddresses, ds, selector, addr.StringLong(), cldf.NewTypeAndVersion(shared.AptosReceiverType, deployment.Version1_0_0), "")
 		require.NoError(t, err)
 	}
+	require.NoError(t, mergeDataStoreIntoEnv(e, ds))
 }
 
 // DeployBnMTokenAptos deploys two tokens on to the EVM and Aptos chain and sets up a lane between them.
@@ -512,7 +519,7 @@ func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
 func DeployBnMTokenAptos(
 	t *testing.T,
 	lggr logger.Logger,
-	e cldf.Environment,
+	e *cldf.Environment,
 	evmChainSel, aptosChainSel uint64,
 	tokenName string,
 	mintAmount *config.TokenMint,
@@ -532,9 +539,11 @@ func DeployBnMTokenAptos(
 
 	// EVM
 	evmDeployerKey := e.BlockChains.EVMChains()[evmChainSel].DeployerKey
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(*e)
 	require.NoError(t, err)
-	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployerKey, e.ExistingAddresses, tokenName)
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployerKey, e.ExistingAddresses, ds, tokenName)
+	require.NoError(t, mergeDataStoreIntoEnv(e, ds))
 	require.NoError(t, err)
 	err = attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployerKey, evmToken.Address(), evmPool.Address())
 	require.NoError(t, err)
@@ -659,7 +668,7 @@ func DeployBnMTokenAptos(
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to initiate ownership transfer of BnM token pool to %v: %v", tokenPoolOwnerAddress, data.VmStatus)
 
-	_, err = commoncs.Apply(t, e,
+	*e, err = commoncs.Apply(t, *e,
 		commoncs.Configure(aptoscs.AcceptTokenPoolOwnership{},
 			config.AcceptTokenPoolOwnershipInput{
 				ChainSelector: aptosChainSel,
@@ -683,7 +692,7 @@ func DeployBnMTokenAptos(
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to execute ownership transfer of BnM token pool to %v: %", tokenPoolOwnerAddress, data.VmStatus)
 
-	e, err = commoncs.Apply(t, e,
+	*e, err = commoncs.Apply(t, *e,
 		commoncs.Configure(aptoscs.AddTokenPool{},
 			config.AddTokenPoolConfig{
 				ChainSelector:                       aptosChainSel,
@@ -756,7 +765,7 @@ func DeployBnMTokenAptos(
 func DeployLnRTokenAptos(
 	t *testing.T,
 	lggr logger.Logger,
-	e cldf.Environment,
+	e *cldf.Environment,
 	evmChainSel, aptosChainSel uint64,
 	tokenName string,
 	mintAmount *config.TokenMint,
@@ -777,9 +786,11 @@ func DeployLnRTokenAptos(
 
 	// EVM
 	evmDeployerKey := e.BlockChains.EVMChains()[evmChainSel].DeployerKey
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(*e)
 	require.NoError(t, err)
-	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployerKey, e.ExistingAddresses, tokenName)
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployerKey, e.ExistingAddresses, ds, tokenName)
+	require.NoError(t, mergeDataStoreIntoEnv(e, ds))
 	require.NoError(t, err)
 	err = attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployerKey, evmToken.Address(), evmPool.Address())
 	require.NoError(t, err)
@@ -912,7 +923,7 @@ func DeployLnRTokenAptos(
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to initiate ownership transfer of BnM token pool to %v: %v", tokenPoolOwnerAddress, data.VmStatus)
 
-	_, err = commoncs.Apply(t, e,
+	*e, err = commoncs.Apply(t, *e,
 		commoncs.Configure(aptoscs.AcceptTokenPoolOwnership{},
 			config.AcceptTokenPoolOwnershipInput{
 				ChainSelector: aptosChainSel,
@@ -936,7 +947,7 @@ func DeployLnRTokenAptos(
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to execute ownership transfer of LnR token pool to %v: %", tokenPoolOwnerAddress, data.VmStatus)
 
-	e, err = commoncs.Apply(t, e,
+	*e, err = commoncs.Apply(t, *e,
 		commoncs.Configure(aptoscs.AddTokenPool{},
 			config.AddTokenPoolConfig{
 				ChainSelector:                       aptosChainSel,

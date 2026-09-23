@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -29,6 +31,7 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -69,6 +72,59 @@ type CCIPChainState struct {
 	OffRampStatePDA      solana.PublicKey
 	RMNRemoteConfigPDA   solana.PublicKey
 	RMNRemoteCursesPDA   solana.PublicKey
+}
+
+// canonicalSolanaType maps contract-type aliases that populate the same state slot.
+func canonicalSolanaType(contractType cldf.ContractType) cldf.ContractType {
+	if contractType == shared.TestReceiver {
+		return shared.Receiver
+	}
+	return contractType
+}
+
+type solanaRefKey struct {
+	contractType cldf.ContractType
+	qualifier    string
+}
+
+func solanaRefKeyFor(ref datastore.AddressRef) solanaRefKey {
+	return solanaRefKey{
+		contractType: canonicalSolanaType(cldf.ContractType(ref.Type)),
+		qualifier:    ref.Qualifier,
+	}
+}
+
+func selectSolanaRefs(refs []datastore.AddressRef) ([]datastore.AddressRef, error) {
+	selected := make(map[solanaRefKey]datastore.AddressRef)
+	for _, ref := range refs {
+		if ref.Version == nil || ref.Labels.Contains(shared.SupersededLabel) {
+			continue
+		}
+		key := solanaRefKeyFor(ref)
+		previous, exists := selected[key]
+		if !exists || ref.Version.GreaterThan(previous.Version) {
+			selected[key] = ref
+			continue
+		}
+		if ref.Version.Equal(previous.Version) && ref.Address != previous.Address {
+			return nil, fmt.Errorf("ambiguous %s %s: found at both %s and %s", ref.Type, ref.Version, previous.Address, ref.Address)
+		}
+	}
+	result := make([]datastore.AddressRef, 0, len(selected))
+	for _, ref := range selected {
+		result = append(result, ref)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Address != result[j].Address {
+			return result[i].Address < result[j].Address
+		}
+		a, b := solanaRefKeyFor(result[i]), solanaRefKeyFor(result[j])
+		if a.contractType != b.contractType {
+			return a.contractType < b.contractType
+		}
+		return a.qualifier < b.qualifier
+	})
+	return result, nil
 }
 
 func (s CCIPChainState) GetTokenPoolLookupTableAddress(tokenPubKey solana.PublicKey, poolType cldf.ContractType, metadata string) (solana.PublicKey, error) {
@@ -346,16 +402,37 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 		}
 		chainView.TokenPool[s.CCTPTokenPool.String()] = tokenPoolView
 	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(selector)
-	if err != nil {
-		return chainView, fmt.Errorf("failed to get existing addresses: %w", err)
-	}
-	chainView.MCMSWithTimelock, err = solanaview.GenerateMCMSWithTimelockView(e.BlockChains.SolanaChains()[selector], addresses)
+	mcmView, err := generateMCMSWithTimelockViewFromDataStore(e, selector)
+	chainView.MCMSWithTimelock = mcmView
 	if err != nil {
 		e.Logger.Error("failed to generate MCMS with timelock view: %w", err)
 		return chainView, nil
 	}
 	return chainView, nil
+}
+
+// generateMCMSWithTimelockViewFromDataStore resolves the chain's MCMS bundle from the
+// environment datastore and builds its view.
+func generateMCMSWithTimelockViewFromDataStore(e *cldf.Environment, selector uint64) (solanaview.MCMSWithTimelockView, error) {
+	if e.DataStore == nil {
+		return solanaview.MCMSWithTimelockView{}, fmt.Errorf("datastore not available for chain %d", selector)
+	}
+	refs, err := e.DataStore.Addresses().Fetch()
+	if err != nil {
+		return solanaview.MCMSWithTimelockView{}, fmt.Errorf("failed to fetch address refs: %w", err)
+	}
+	bundle, err := shared.MCMSBundleRefs(refs, selector, shared.DefaultMCMSQualifier)
+	if err != nil {
+		return solanaview.MCMSWithTimelockView{}, fmt.Errorf("failed to resolve mcms bundle: %w", err)
+	}
+	if len(bundle) == 0 {
+		return solanaview.MCMSWithTimelockView{}, fmt.Errorf("no mcms refs for chain %d", selector)
+	}
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainStateV2(bundle)
+	if err != nil {
+		return solanaview.MCMSWithTimelockView{}, fmt.Errorf("failed to load mcms with timelock solana chain state: %w", err)
+	}
+	return solanaview.GenerateMCMSWithTimelockViewFromState(e.BlockChains.SolanaChains()[selector], mcmState)
 }
 
 func (s CCIPChainState) GetFeeAggregator(chain cldf_solana.Chain) solana.PublicKey {
@@ -378,8 +455,8 @@ func FetchOfframpLookupTable(ctx context.Context, chain cldf_solana.Chain, offRa
 	return referenceAddressesAccount.OfframpLookupTable, nil
 }
 
-// LoadChainStateSolana Loads all state for a SolChain into state
-func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
+// LoadChainStateSolana loads state from datastore refs.
+func LoadChainStateSolana(chain cldf_solana.Chain, refs []datastore.AddressRef) (CCIPChainState, error) {
 	ccipChainState := CCIPChainState{
 		SourceChainStatePDAs:  make(map[uint64]solana.PublicKey),
 		DestChainStatePDAs:    make(map[uint64]solana.PublicKey),
@@ -390,10 +467,16 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 		WSOL:                  solana.WrappedSol,
 		TokenPoolLookupTable:  make(map[solana.PublicKey]map[cldf.ContractType]map[string]solana.PublicKey),
 	}
-	// Most programs upgraded in place, but some are not so we always want to
-	// load the latest version
+	selectedRefs, err := selectSolanaRefs(refs)
+	if err != nil {
+		return ccipChainState, err
+	}
+	// Most programs upgrade in place, but some do not; keep the latest active ref for each
+	// (type, qualifier) identity.
 	versions := make(map[cldf.ContractType]semver.Version)
-	for address, tvStr := range addresses {
+	for _, ref := range selectedRefs {
+		address := ref.Address
+		tvStr := cldf.TypeAndVersion{Type: cldf.ContractType(ref.Type), Version: *ref.Version}
 		switch tvStr.Type {
 		case types.LinkToken:
 			pub := solana.MustPublicKeyFromBase58(address)
@@ -406,7 +489,7 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 				return ccipChainState, err
 			}
 			ccipChainState.RouterConfigPDA = routerConfigPDA
-		case shared.Receiver:
+		case shared.Receiver, shared.TestReceiver:
 			receiverVersion, ok := versions[shared.OffRamp]
 			// if we have an receiver version, we need to make sure it's a newer version
 			if ok {
@@ -426,8 +509,7 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 			ccipChainState.SPLTokens = append(ccipChainState.SPLTokens, pub)
 		case shared.RemoteSource:
 			pub := solana.MustPublicKeyFromBase58(address)
-			// Labels should only have one entry
-			for selStr := range tvStr.Labels {
+			for _, selStr := range solanaRefParts(ref) {
 				selector, err := strconv.ParseUint(selStr, 10, 64)
 				if err != nil {
 					return ccipChainState, err
@@ -436,8 +518,7 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 			}
 		case shared.RemoteDest:
 			pub := solana.MustPublicKeyFromBase58(address)
-			// Labels should only have one entry
-			for selStr := range tvStr.Labels {
+			for _, selStr := range solanaRefParts(ref) {
 				selector, err := strconv.ParseUint(selStr, 10, 64)
 				if err != nil {
 					return ccipChainState, err
@@ -449,12 +530,17 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 			var poolType cldf.ContractType
 			var tokenPubKey solana.PublicKey
 			var poolMetadata string
-			for label := range tvStr.Labels {
-				maybeTokenPubKey, err := solana.PublicKeyFromBase58(label)
+			parts := solanaRefParts(ref)
+			if ref.Qualifier != "" {
+				// Datastore qualifiers join the parts with "/": token[/poolType/metadata].
+				parts = strings.Split(ref.Qualifier, "/")
+			}
+			for _, part := range parts {
+				maybeTokenPubKey, err := solana.PublicKeyFromBase58(part)
 				if err == nil {
 					tokenPubKey = maybeTokenPubKey
 				} else {
-					switch label {
+					switch part {
 					case solTestTokenPool.BurnAndMint_PoolType.String(), shared.BurnMintTokenPool.String():
 						poolType = shared.BurnMintTokenPool
 					case solTestTokenPool.LockAndRelease_PoolType.String(), shared.LockReleaseTokenPool.String():
@@ -462,7 +548,7 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 					case shared.CCTPTokenPool.String():
 						poolType = shared.CCTPTokenPool
 					default:
-						poolMetadata = label
+						poolMetadata = part
 					}
 				}
 			}
@@ -512,21 +598,13 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 			ccipChainState.OffRampStatePDA = offRampStatePDA
 		case shared.BurnMintTokenPool:
 			pub := solana.MustPublicKeyFromBase58(address)
-			if len(tvStr.Labels) == 0 {
-				ccipChainState.BurnMintTokenPools[shared.CLLMetadata] = pub
-			}
-			// Labels should only have one entry
-			for metadataStr := range tvStr.Labels {
-				ccipChainState.BurnMintTokenPools[metadataStr] = pub
+			for _, metadata := range poolMetadata(ref) {
+				ccipChainState.BurnMintTokenPools[metadata] = pub
 			}
 		case shared.LockReleaseTokenPool:
 			pub := solana.MustPublicKeyFromBase58(address)
-			if len(tvStr.Labels) == 0 {
-				ccipChainState.LockReleaseTokenPools[shared.CLLMetadata] = pub
-			}
-			// Labels should only have one entry
-			for metadataStr := range tvStr.Labels {
-				ccipChainState.LockReleaseTokenPools[metadataStr] = pub
+			for _, metadata := range poolMetadata(ref) {
+				ccipChainState.LockReleaseTokenPools[metadata] = pub
 			}
 		case shared.RMNRemote:
 			pub := solana.MustPublicKeyFromBase58(address)
@@ -555,6 +633,41 @@ func LoadChainStateSolana(chain cldf_solana.Chain, addresses map[string]cldf.Typ
 	return ccipChainState, nil
 }
 
+func solanaRefParts(ref datastore.AddressRef) []string {
+	if ref.Qualifier == "" {
+		return nil
+	}
+	return []string{ref.Qualifier}
+}
+
+func poolMetadata(ref datastore.AddressRef) []string {
+	metas := solanaRefParts(ref)
+	if len(metas) == 0 {
+		return []string{shared.CLLMetadata}
+	}
+	return metas
+}
+
+// LoadMCMSWithTimelockFromDataStore resolves a qualified MCMS bundle from the environment
+// datastore.
+func LoadMCMSWithTimelockFromDataStore(e *cldf.Environment, chain cldf_solana.Chain, qualifier string) (*solstate.MCMSWithTimelockState, error) {
+	if e.DataStore == nil {
+		return nil, fmt.Errorf("datastore not available for chain %d", chain.Selector)
+	}
+	refs, err := e.DataStore.Addresses().Fetch()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch address refs: %w", err)
+	}
+	bundle, err := shared.MCMSBundleRefs(refs, chain.Selector, qualifier)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve mcms bundle: %w", err)
+	}
+	if len(bundle) == 0 {
+		return nil, fmt.Errorf("no mcms refs for chain %d", chain.Selector)
+	}
+	return solstate.MaybeLoadMCMSWithTimelockChainStateV2(bundle)
+}
+
 func FindSolanaAddress(tv cldf.TypeAndVersion, addresses map[string]cldf.TypeAndVersion) solana.PublicKey {
 	for address, tvStr := range addresses {
 		if tv.String() == tvStr.String() {
@@ -573,11 +686,7 @@ func ValidateOwnershipSolana(
 	contractType cldf.ContractType,
 	tokenAddress solana.PublicKey, // for token pools only
 ) error {
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
-	if err != nil {
-		return fmt.Errorf("failed to get existing addresses: %w", err)
-	}
-	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmState, err := LoadMCMSWithTimelockFromDataStore(e, chain, shared.DefaultMCMSQualifier)
 	if err != nil {
 		return fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
@@ -683,11 +792,7 @@ func IsSolanaProgramOwnedByTimelock(
 	tokenAddress solana.PublicKey, // for token pools only
 	tokenPoolMetadata string,
 ) bool {
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
-	if err != nil {
-		return false
-	}
-	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmState, err := LoadMCMSWithTimelockFromDataStore(e, chain, shared.DefaultMCMSQualifier)
 	if err != nil {
 		return false
 	}

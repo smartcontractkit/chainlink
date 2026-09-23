@@ -66,7 +66,7 @@ func TestLBTCTokenTransfer(t *testing.T) {
 		ownerChainA,
 		ownerChainC,
 		state,
-		e.ExistingAddresses, //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+		&tenv.Env,
 		"MY_TOKEN",
 	)
 	require.NoError(t, err)

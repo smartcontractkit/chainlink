@@ -1494,37 +1494,43 @@ func deploySingleFeed(
 	return mockTokenFeed.Address, desc, nil
 }
 
+// DeployTransferableToken deploys and configures token/pool pairs on both EVM chains.
 func DeployTransferableToken(
 	lggr logger.Logger,
 	chains map[uint64]cldf_evm.Chain,
 	src, dst uint64,
 	srcActor, dstActor *bind.TransactOpts,
 	state stateview.CCIPOnChainState,
-	addresses cldf.AddressBook,
+	e *cldf.Environment,
 	token string,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	// Deploy token and pools
-	srcToken, srcPool, dstToken, dstPool, err := deployTokenPoolsInParallel(lggr, chains, src, dst, srcActor, dstActor, state, addresses, token)
+	srcDS := datastore.NewMemoryDataStore()
+	dstDS := datastore.NewMemoryDataStore()
+	srcToken, srcPool, dstToken, dstPool, err := deployTokenPoolsInParallel(lggr, chains, src, dst, srcActor, dstActor, state, e.ExistingAddresses, srcDS, dstDS, token)
 	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := mergeDataStoreIntoEnv(e, srcDS); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := mergeDataStoreIntoEnv(e, dstDS); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	// Configure pools in parallel
 	configurePoolGrp := errgroup.Group{}
 	configurePoolGrp.Go(func() error {
-		err := setTokenPoolCounterPart(chains[src], srcPool, srcActor, dst, dstToken.Address().Bytes(), dstPool.Address().Bytes())
-		if err != nil {
+		if err := setTokenPoolCounterPart(chains[src], srcPool, srcActor, dst, dstToken.Address().Bytes(), dstPool.Address().Bytes()); err != nil {
 			return fmt.Errorf("failed to set token pool counter part chain %d: %w", src, err)
 		}
-		err = grantMintBurnPermissions(lggr, chains[src], srcToken, srcActor, srcPool.Address())
-		if err != nil {
+		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcActor, srcPool.Address()); err != nil {
 			return fmt.Errorf("failed to grant mint burn permissions chain %d: %w", src, err)
 		}
 		return nil
 	})
 	configurePoolGrp.Go(func() error {
-		err := setTokenPoolCounterPart(chains[dst], dstPool, dstActor, src, srcToken.Address().Bytes(), srcPool.Address().Bytes())
-		if err != nil {
+		if err := setTokenPoolCounterPart(chains[dst], dstPool, dstActor, src, srcToken.Address().Bytes(), srcPool.Address().Bytes()); err != nil {
 			return fmt.Errorf("failed to set token pool counter part chain %d: %w", dst, err)
 		}
 		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstActor, dstPool.Address()); err != nil {
@@ -1545,16 +1551,11 @@ func deployTokenPoolsInParallel(
 	srcActor, dstActor *bind.TransactOpts,
 	state stateview.CCIPOnChainState,
 	addresses cldf.AddressBook,
+	srcDS, dstDS datastore.MutableDataStore,
 	token string,
-) (
-	*burn_mint_erc677.BurnMintERC677,
-	*burn_mint_token_pool.BurnMintTokenPool,
-	*burn_mint_erc677.BurnMintERC677,
-	*burn_mint_token_pool.BurnMintTokenPool,
-	error,
-) {
-	deployGrp := errgroup.Group{}
+) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	// Deploy token and pools
+	deployGrp := errgroup.Group{}
 	var srcToken *burn_mint_erc677.BurnMintERC677
 	var srcPool *burn_mint_token_pool.BurnMintTokenPool
 	var dstToken *burn_mint_erc677.BurnMintERC677
@@ -1562,21 +1563,19 @@ func deployTokenPoolsInParallel(
 
 	deployGrp.Go(func() error {
 		var err error
-		srcToken, srcPool, err = deployTransferTokenOneEnd(lggr, chains[src], srcActor, addresses, token)
+		srcToken, srcPool, err = deployTransferTokenOneEnd(lggr, chains[src], srcActor, addresses, srcDS, token)
 		if err != nil {
 			return err
 		}
-		err = attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
-		return err
+		return attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
 	})
 	deployGrp.Go(func() error {
 		var err error
-		dstToken, dstPool, err = deployTransferTokenOneEnd(lggr, chains[dst], dstActor, addresses, token)
+		dstToken, dstPool, err = deployTransferTokenOneEnd(lggr, chains[dst], dstActor, addresses, dstDS, token)
 		if err != nil {
 			return err
 		}
-		err = attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
-		return err
+		return attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
 	})
 	if err := deployGrp.Wait(); err != nil {
 		return nil, nil, nil, nil, err
@@ -1726,6 +1725,7 @@ func deployTransferTokenOneEnd(
 	chain cldf_evm.Chain,
 	deployer *bind.TransactOpts,
 	addressBook cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	tokenSymbol string,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	var rmnAddress, routerAddress string
@@ -1747,7 +1747,8 @@ func deployTransferTokenOneEnd(
 
 	tokenDecimals := uint8(18)
 
-	tokenContract, err := cldf.DeployContract(lggr, chain, addressBook,
+	tokenContract, err := shared.DeployContractAndRecord(lggr, chain, addressBook, ds,
+		cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0), tokenSymbol,
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				deployer,
@@ -1775,7 +1776,8 @@ func deployTransferTokenOneEnd(
 		return nil, nil, err
 	}
 
-	tokenPool, err := cldf.DeployContract(lggr, chain, addressBook,
+	tokenPool, err := shared.DeployContractAndRecord(lggr, chain, addressBook, ds,
+		cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_5_1), tokenSymbol,
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
 			tokenPoolAddress, tx, tokenPoolContract, err2 := burn_mint_token_pool.DeployBurnMintTokenPool(
 				deployer,

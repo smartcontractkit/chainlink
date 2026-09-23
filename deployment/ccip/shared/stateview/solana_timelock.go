@@ -64,9 +64,8 @@ func ValidateSolanaTimelockConfig(e cldf.Environment, chainSelector uint64, tc *
 	return nil
 }
 
-// dataStoreSolanaContractAddress resolves one Solana contract account of the given type from
-// the environment datastore. A configured qualifier is strict (no fallback); the default
-// qualifier falls back to the empty qualifier (test deployments). Never guesses.
+// dataStoreSolanaContractAddress resolves one Solana contract account of the given type and
+// qualifier from the environment datastore.
 func dataStoreSolanaContractAddress(e cldf.Environment, chainSelector uint64, contractType cldf.ContractType, qualifier string) (string, error) {
 	if e.DataStore == nil {
 		return "", fmt.Errorf("datastore not available for chain %d", chainSelector)
@@ -85,25 +84,18 @@ func dataStoreSolanaContractAddress(e cldf.Environment, chainSelector uint64, co
 	if len(refs) == 0 {
 		return "", fmt.Errorf("no %s ref for chain %d", contractType, chainSelector)
 	}
-	qualifiers := []string{qualifier}
-	if qualifier == DefaultMCMSQualifier {
-		qualifiers = append(qualifiers, "")
+	var matching []datastore.AddressRef
+	for _, ref := range refs {
+		if ref.Qualifier == qualifier {
+			matching = append(matching, ref)
+		}
 	}
-	for _, q := range qualifiers {
-		var matching []datastore.AddressRef
-		for _, ref := range refs {
-			if ref.Qualifier == q {
-				matching = append(matching, ref)
-			}
-		}
-		if len(matching) == 0 {
-			continue
-		}
-		if len(matching) > 1 {
-			sortAddressRefs(matching)
-			return "", fmt.Errorf("ambiguous %s on chain %d: %d refs share qualifier %q", contractType, chainSelector, len(matching), q)
-		}
-		return matching[0].Address, nil
+	if len(matching) == 0 {
+		return "", fmt.Errorf("no %s ref for chain %d with qualifier %q", contractType, chainSelector, qualifier)
 	}
-	return "", fmt.Errorf("%s on chain %d is only held under other qualifiers; refusing to guess", contractType, chainSelector)
+	if len(matching) > 1 {
+		sortAddressRefs(matching)
+		return "", fmt.Errorf("ambiguous %s on chain %d: %d refs share qualifier %q", contractType, chainSelector, len(matching), qualifier)
+	}
+	return matching[0].Address, nil
 }
