@@ -59,10 +59,10 @@ type Acknowledger interface {
 // demand. Subscribe issues the WASM Subscribe call directly (no caching): the
 // engine holds no subscription state of its own, so every call is a fresh
 // WASM round trip and callers are responsible for calling it exactly once
-// per registration. CRE identifies the tenant the subscriptions belong to.
+// per registration. Tenant identifies the tenant the subscriptions belong to.
 type Subscriber interface {
 	Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error)
-	CRE() contexts.CRE
+	Tenant() contexts.CRE
 }
 
 // Drainable is the graceful-shutdown contract. The syncer has a structurally

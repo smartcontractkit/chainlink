@@ -415,7 +415,7 @@ func (e *baseEngine) startWith(ctx context.Context, initFn func(context.Context)
 
 	e.metrics = e.metrics.With(platform.KeyOrganizationID, e.orgID)
 
-	ctx = contexts.WithCRE(ctx, e.CRE())
+	ctx = contexts.WithCRE(ctx, e.Tenant())
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, initFn)
 	if triggerLoopFn != nil {
@@ -452,9 +452,9 @@ func (e *baseEngine) initDONSubscribe(ctx context.Context) error {
 	return nil
 }
 
-// CRE is the engine's tenant identity. Valid once resolveOrgID has run during
-// init; every field it reads is written before OnInitialized fires.
-func (e *baseEngine) CRE() contexts.CRE {
+// Tenant is the engine's tenant identity. Valid once resolveOrgID has run during
+// init. Every field it reads is written before OnInitialized fires.
+func (e *baseEngine) Tenant() contexts.CRE {
 	return contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
 }
 
@@ -469,7 +469,7 @@ func (e *baseEngine) initDone(ctx context.Context) {
 // carrying the workflow's tenant identity.
 func (e *baseEngine) shutdownCtx() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(e.cfg.LocalLimits.ShutdownTimeoutMs))
-	return contexts.WithCRE(ctx, e.CRE()), cancel
+	return contexts.WithCRE(ctx, e.Tenant()), cancel
 }
 
 // closeCommon is the teardown shared by every engine.
