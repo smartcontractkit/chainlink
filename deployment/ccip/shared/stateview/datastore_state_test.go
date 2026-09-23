@@ -8,15 +8,17 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
+	mcmsolana "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	mcmscontracts "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/contracts/mcms"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	mcmsolana "github.com/smartcontractkit/mcms/sdk/solana"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -121,14 +123,15 @@ func TestMCMSBundleRefs_Isolation(t *testing.T) {
 	bundle, err = ccipshared.MCMSBundleRefs(emptyOnly, 1, DefaultMCMSQualifier)
 	require.NoError(t, err)
 	require.Len(t, bundle, 1)
-	require.Equal(t, "", bundle[0].Qualifier)
+	require.Empty(t, bundle[0].Qualifier)
 
 	// the fallback never fires for a custom qualifier
 	_, err = ccipshared.MCMSBundleRefs(emptyOnly, 1, "RMNMCMS")
 	require.ErrorContains(t, err, "no mcms refs for chain 1")
 
 	// two active refs, one identity
-	dup := append(refs, testRef(1, "0xQualifiedTimelock2", mcmscontracts.RBACTimelock, &v10, DefaultMCMSQualifier))
+	dup := append([]datastore.AddressRef(nil), refs...)
+	dup = append(dup, testRef(1, "0xQualifiedTimelock2", mcmscontracts.RBACTimelock, &v10, DefaultMCMSQualifier))
 	_, err = ccipshared.MCMSBundleRefs(dup, 1, DefaultMCMSQualifier)
 	require.ErrorContains(t, err, "both")
 }
@@ -248,6 +251,16 @@ func TestValidateSolanaTimelockConfig(t *testing.T) {
 	tcDefault := &cldfproposalutils.TimelockConfig{}
 	require.NoError(t, ValidateSolanaTimelockConfig(cldf.Environment{DataStore: ds2.Seal()}, 1, tcDefault))
 	require.Equal(t, mcmstypes.TimelockActionSchedule, tcDefault.MCMSAction)
+
+	// The default bundle may be stored without a qualifier by legacy deployments.
+	dsEmptyDefault := datastore.NewMemoryDataStore()
+	require.NoError(t, dsEmptyDefault.Addresses().Add(testRef(1, valid, mcmscontracts.RBACTimelock, &v16, "")))
+	require.NoError(t, dsEmptyDefault.Addresses().Add(testRef(1, valid, mcmscontracts.ProposerManyChainMultisig, &v16, "")))
+	require.NoError(t, ValidateSolanaTimelockConfig(cldf.Environment{DataStore: dsEmptyDefault.Seal()}, 1, &cldfproposalutils.TimelockConfig{}))
+
+	// Custom qualifiers remain strict and do not fall back to the unqualified bundle.
+	tcEmptyCustom := &cldfproposalutils.TimelockConfig{TimelockQualifierPerChain: map[uint64]string{1: "RMNMCMS"}}
+	require.Error(t, ValidateSolanaTimelockConfig(cldf.Environment{DataStore: dsEmptyDefault.Seal()}, 1, tcEmptyCustom))
 
 	// missing contract
 	_, err := dataStoreSolanaContractAddress(cldf.Environment{DataStore: ds2.Seal()}, 1, mcmscontracts.CancellerManyChainMultisig, DefaultMCMSQualifier)

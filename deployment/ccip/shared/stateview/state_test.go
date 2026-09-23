@@ -310,6 +310,17 @@ func TestMCMSState(t *testing.T) {
 	addr := utils.RandomAddress()
 	require.NoError(t, addressbook.Save(tenv.HomeChainSel, addr.String(), newTv))
 	require.NoError(t, tenv.Env.ExistingAddresses.Merge(addressbook))
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(tenv.Env.DataStore))
+	version := newTv.Version
+	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: tenv.HomeChainSel,
+		Address:       addr.String(),
+		Type:          datastore.ContractType(newTv.Type),
+		Version:       &version,
+		Labels:        datastore.NewLabelSet(newTv.Labels.List()...),
+	}))
+	tenv.Env.DataStore = ds.Seal()
 	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].BypasserMcm.Address().String())

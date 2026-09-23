@@ -391,7 +391,7 @@ func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.Ad
 	offRamp, offRampExists := destChainState.EVM2EVMOffRamp[cfg.SourceChainSelector]
 	if !offRampExists {
 		offRampC, err := shared.DeployContractAndRecord(e.Logger, destChain, ab, ds,
-			cldf.NewTypeAndVersion(shared.EVM2EVMOffRamp, deployment.Version1_5_0), strconv.FormatUint(cfg.SourceChainSelector, 10),
+			cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_5_0), strconv.FormatUint(cfg.SourceChainSelector, 10),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
 				offRampAddress, tx2, offRampC, err2 := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
 					destChain.DeployerKey,
