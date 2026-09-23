@@ -3,6 +3,7 @@ package cre
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -1143,6 +1145,36 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 	framework.L.Info().Msg("All identifier validation checks passed")
 }
 
+// calibrateVaultCiphertextHex returns the hex-encoded TDH2 ciphertext of a plaintext
+// sized so the decoded ciphertext sits at the per-secret ingress cap
+// (VaultCiphertextSizeLimit, 2KB decoded). The TDH2+base64 overhead is measured with a
+// probe rather than assumed: it is large (~1.1KB) and non-obvious, so a fixed-size
+// plaintext silently overflows the per-secret cap and the wrong limiter rejects.
+func calibrateVaultCiphertextHex(t *testing.T, vaultParsedPublicKey *tdh2easy.PublicKey, owner common.Address) string {
+	t.Helper()
+	limit := int(cresettings.Default.PerOwner.VaultCiphertextSizeLimit.DefaultValue)
+
+	probe, err := vaultutils.EncryptSecretWithWorkflowOwner(strings.Repeat("x", limit), vaultParsedPublicKey, owner)
+	require.NoError(t, err)
+	probeRaw, err := hex.DecodeString(probe)
+	require.NoError(t, err)
+	plaintextLen := limit - (len(probeRaw) - limit)
+	require.Greater(t, plaintextLen, 0)
+
+	for {
+		out, err := vaultutils.EncryptSecretWithWorkflowOwner(strings.Repeat("s", plaintextLen), vaultParsedPublicKey, owner)
+		require.NoError(t, err)
+		raw, err := hex.DecodeString(out)
+		require.NoError(t, err)
+		if len(raw) <= limit {
+			framework.L.Info().Msgf("calibrated vault ciphertext: %d decoded bytes, %d hex wire bytes per secret", len(raw), len(out))
+			return out
+		}
+		plaintextLen -= len(raw) - limit
+		require.Greater(t, plaintextLen, 0, "could not size plaintext under ciphertext limit")
+	}
+}
+
 // executeVaultSecretsCreateOversizedBlobCapTest verifies the oversized-blob ingress
 // rejection end to end: a create batch whose queued representation (StoredPendingQueueItem
 // blob payload) exceeds VaultMaxBlobPayloadSizeLimit is rejected deterministically by the
@@ -1155,12 +1187,10 @@ func executeVaultSecretsCreateOversizedBlobCapTest(t *testing.T, vaultParsedPubl
 	testLogger := framework.L
 	testLogger.Info().Msg("Verifying oversized create batch is rejected and the DON stays healthy...")
 
-	// Plaintext sized so each ciphertext's decoded size sits under the per-secret cap
-	// (VaultCiphertextSizeLimit 2KB decoded; TDH2 adds fixed overhead), while the hex
-	// wire format (2x decoded) pushes the batch well over the 25.6KB blob cap.
-	oversizedValue := strings.Repeat("s", 1400)
-	oversizedEnc, err := vaultutils.EncryptSecretWithWorkflowOwner(oversizedValue, vaultParsedPublicKey, common.HexToAddress(owner))
-	require.NoError(t, err)
+	// Each ciphertext's decoded size is calibrated to sit under the per-secret cap
+	// (VaultCiphertextSizeLimit 2KB decoded); the hex wire format (2x decoded) across a
+	// full batch of 10 pushes the queued representation over the 25.6KB blob cap.
+	oversizedEnc := calibrateVaultCiphertextHex(t, vaultParsedPublicKey, common.HexToAddress(owner))
 
 	uniqueRequestID := uuid.New().String()
 	secrets := make([]*vault_helpers.EncryptedSecret, vaulttypes.MaxBatchSize)
