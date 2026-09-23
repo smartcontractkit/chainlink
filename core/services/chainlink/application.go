@@ -490,7 +490,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			StorageClient:           opts.StorageClient,
 			DonTimeStore:            opts.DonTimeStore,
 			LimitsFactory:           limitsFactory,
-			UseLocalTimeProvider:    opts.UseLocalTimeProvider,
+			UseLocalTimeProvider:    cfg.CRE().UseLocalTimeProvider(),
 			WorkflowKey:             workflowKey,
 			JWTGenerator:            jwtGenerator,
 			ShardOrchestratorClient: shardOrchestratorClient,
