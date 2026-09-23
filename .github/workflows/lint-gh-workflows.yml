@@ -32,8 +32,8 @@ jobs:
       - name: Install actionlint and reviewdog
         shell: bash
         run: |
-          go install actionlint.kjanat.dev/cmd/actionlint@latest
-          go install github.com/reviewdog/reviewdog/cmd/reviewdog@latest
+          go install actionlint.kjanat.dev/cmd/actionlint@v1.17.0
+          go install github.com/reviewdog/reviewdog/cmd/reviewdog@v0.21.2
 
       - name: Run actionlint with reviewdog
         shell: bash
