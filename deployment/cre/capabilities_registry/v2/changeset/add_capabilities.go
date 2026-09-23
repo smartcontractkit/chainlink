@@ -43,7 +43,7 @@ type AddCapabilitiesInput struct {
 
 type AddCapabilities struct{}
 
-func (u AddCapabilities) VerifyPreconditions(_ cldf.Environment, config AddCapabilitiesInput) error {
+func (u AddCapabilities) VerifyPreconditions(e cldf.Environment, config AddCapabilitiesInput) error {
 	if len(config.DonCapabilityConfigs) == 0 {
 		return errors.New("donCapabilityConfigs must contain at least one DON entry")
 	}
@@ -55,6 +55,16 @@ func (u AddCapabilities) VerifyPreconditions(_ cldf.Environment, config AddCapab
 			return fmt.Errorf("donCapabilityConfigs[%q] must contain at least one capability config", donName)
 		}
 	}
+
+	existingDONs, err := getExistingDONsForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
+	if err != nil {
+		return err
+	}
+
+	if err := sequences.ValidateNoDuplicateCapabilitiesAcrossDONs(config.DonCapabilityConfigs, existingDONs, ""); err != nil {
+		return err
+	}
+
 	return nil
 }
 

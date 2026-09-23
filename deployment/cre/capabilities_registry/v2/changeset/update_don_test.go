@@ -365,6 +365,57 @@ func TestUpdateDONChangeset_VerifyPreconditions_EmptyName(t *testing.T) {
 	require.ErrorContains(t, err, "must provide a non-empty DONName")
 }
 
+// A capability already assigned to a different on-chain DON cannot be assigned to another DON.
+// This is the exact misconfiguration from the DF CRE incident: the same chain capability was
+// assigned to both a testnet DON and a mainnet DON.
+func TestUpdateDONChangeset_VerifyPreconditions_RejectsCapabilityAlreadyOnAnotherDON(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	otherDONName := fx.donName + "-other"
+	err := fx.rt.Exec(
+		runtime.ChangesetTask(changeset.ConfigureCapabilitiesRegistry{}, changeset.ConfigureCapabilitiesRegistryInput{
+			ChainSelector:               fx.selector,
+			CapabilitiesRegistryAddress: fx.address,
+			DONs: []changeset.CapabilitiesRegistryNewDONParams{
+				{
+					Name:        otherDONName,
+					DonFamilies: []string{"other-family"},
+					Config:      map[string]any{"defaultConfig": map[string]any{}},
+					Nodes:       []string{p2pID1, p2pID2},
+					F:           1,
+					IsPublic:    true,
+				},
+			},
+		}),
+	)
+	require.NoError(t, err)
+
+	var cs changeset.UpdateDON
+	err = cs.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           otherDONName,
+		CapabilityConfigs: []contracts.CapabilityConfig{
+			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}}, // already assigned to fx.donName
+		},
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "already assigned to on-chain DON")
+	require.ErrorContains(t, err, fx.donName)
+
+	// Re-applying to the DON that already has the capability is not a conflict.
+	err = cs.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           fx.donName,
+		CapabilityConfigs: []contracts.CapabilityConfig{
+			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}},
+		},
+	})
+	require.NoError(t, err)
+}
+
 // Chain not found: Apply should fail early with a clear message.
 func TestUpdateDONChangeset_ByName_ChainNotFound(t *testing.T) {
 	t.Parallel()

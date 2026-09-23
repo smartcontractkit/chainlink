@@ -78,6 +78,7 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	chainSelector := h.RegistrySelector
 
 	capCfg := []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}}
+	anotherCapCfg := []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "another-cap@1.0.0"}, Config: map[string]any{"k": "v"}}}
 
 	// Empty map
 	err := cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
@@ -113,23 +114,47 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	// Valid (single DON)
 	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
-		RegistryQualifier: "qual",
+		RegistryQualifier: test.RegistryQualifier,
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
 			"don-1": capCfg,
 		},
 	})
 	require.NoError(t, err)
 
-	// Valid (multiple DONs)
+	// Valid (multiple DONs, disjoint capabilities)
 	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
-		RegistryQualifier: "qual",
+		RegistryQualifier: test.RegistryQualifier,
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			"don-1": capCfg,
+			"don-2": anotherCapCfg,
+		},
+	})
+	require.NoError(t, err)
+
+	// Invalid: same capability ID assigned to two different DONs in the input itself
+	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: test.RegistryQualifier,
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
 			"don-1": capCfg,
 			"don-2": capCfg,
 		},
 	})
-	require.NoError(t, err)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "is assigned to both DON")
+
+	// Invalid: capability already assigned to an existing on-chain DON, being assigned to a new DON
+	existingCapCfg := []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: test.TestCapabilityID}, Config: map[string]any{"k": "v"}}}
+	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: test.RegistryQualifier,
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			"don-1": existingCapCfg,
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already assigned to on-chain DON")
 }
 
 func addNewCapability(t *testing.T, h *test.Harness, capID string) {

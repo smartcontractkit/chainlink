@@ -67,9 +67,19 @@ type UpdateDONInput struct {
 
 type UpdateDON struct{}
 
-func (u UpdateDON) VerifyPreconditions(_ cldf.Environment, config UpdateDONInput) error {
+func (u UpdateDON) VerifyPreconditions(e cldf.Environment, config UpdateDONInput) error {
 	if config.DONName == "" {
 		return errors.New("must provide a non-empty DONName")
+	}
+
+	existingDONs, err := getExistingDONsForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
+	if err != nil {
+		return err
+	}
+
+	donCapabilityConfigs := map[string][]contracts.CapabilityConfig{config.DONName: config.CapabilityConfigs}
+	if err := sequences.ValidateNoDuplicateCapabilitiesAcrossDONs(donCapabilityConfigs, existingDONs, config.DONName); err != nil {
+		return err
 	}
 
 	return nil
