@@ -1772,6 +1772,7 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 // full batch of 2KB-cap ciphertexts overflows the 25.6KB blob cap despite every
 // per-secret limit passing.
 func TestCapability_CreateSecrets_RejectsOversizedBlobPayload(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -1798,7 +1799,7 @@ func TestCapability_CreateSecrets_RejectsOversizedBlobPayload(t *testing.T) {
 	probeRaw, err := probe.Marshal()
 	require.NoError(t, err)
 	plaintextLen := limit - (len(probeRaw) - limit)
-	require.Greater(t, plaintextLen, 0)
+	require.Positive(t, plaintextLen)
 	cipher, err := tdh2easy.EncryptWithLabel(pk, make([]byte, plaintextLen), label)
 	require.NoError(t, err)
 	cipherBytes, err := cipher.Marshal()

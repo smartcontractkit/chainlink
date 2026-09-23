@@ -1113,6 +1113,7 @@ func TestRequestValidator_Close(t *testing.T) {
 // on the wire, 2x their decoded size) must be rejected at ingress even though every
 // per-secret limit passes.
 func TestRequestValidator_BlobSizeLimit(t *testing.T) {
+	t.Parallel()
 	pk, _ := generateTestKeys(t)
 	owner := "0x0001020304050607080900010203040506070809"
 	id := &vaultcommon.SecretIdentifier{Key: "key", Namespace: "namespace", Owner: owner}
@@ -1124,6 +1125,7 @@ func TestRequestValidator_BlobSizeLimit(t *testing.T) {
 	}
 
 	t.Run("rejects create batch over the blob cap", func(t *testing.T) {
+		t.Parallel()
 		validator := NewRequestValidator(
 			limits.NewUpperBoundLimiter(10),
 			limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // per-secret cap not under test
@@ -1140,6 +1142,7 @@ func TestRequestValidator_BlobSizeLimit(t *testing.T) {
 	})
 
 	t.Run("rejects update batch over the blob cap", func(t *testing.T) {
+		t.Parallel()
 		validator := NewRequestValidator(
 			limits.NewUpperBoundLimiter(10),
 			limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte),
@@ -1156,6 +1159,7 @@ func TestRequestValidator_BlobSizeLimit(t *testing.T) {
 	})
 
 	t.Run("accepts batch within the blob cap", func(t *testing.T) {
+		t.Parallel()
 		validator := NewRequestValidator(
 			limits.NewUpperBoundLimiter(10),
 			limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte),

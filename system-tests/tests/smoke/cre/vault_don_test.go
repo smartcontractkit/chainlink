@@ -15,39 +15,35 @@ import (
 	"testing"
 	"time"
 
+	retry "github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	retry "github.com/avast/retry-go/v4"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
+	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
+	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
-
-	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
-	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
-	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
-	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 )
 
 // ExecuteVaultAllowListBasedTests covers vault gateway + workflows with allow-listed JSON-RPC auth
@@ -1159,7 +1155,7 @@ func calibrateVaultCiphertextHex(t *testing.T, vaultParsedPublicKey *tdh2easy.Pu
 	probeRaw, err := hex.DecodeString(probe)
 	require.NoError(t, err)
 	plaintextLen := limit - (len(probeRaw) - limit)
-	require.Greater(t, plaintextLen, 0)
+	require.Positive(t, plaintextLen)
 
 	for {
 		out, err := vaultutils.EncryptSecretWithWorkflowOwner(strings.Repeat("s", plaintextLen), vaultParsedPublicKey, owner)
@@ -1171,7 +1167,7 @@ func calibrateVaultCiphertextHex(t *testing.T, vaultParsedPublicKey *tdh2easy.Pu
 			return out
 		}
 		plaintextLen -= len(raw) - limit
-		require.Greater(t, plaintextLen, 0, "could not size plaintext under ciphertext limit")
+		require.Positive(t, plaintextLen, "could not size plaintext under ciphertext limit")
 	}
 }
 

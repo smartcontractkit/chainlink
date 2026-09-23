@@ -737,6 +737,7 @@ func TestPrepareObservationPendingQueueBlobs_truncatesWhenHandleCountExceeded(t 
 }
 
 func TestPrepareObservationPendingQueueBlobs_shedsSingleItemTooLarge(t *testing.T) {
+	t.Parallel()
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := newTestReportingPlugin(t, withStore(store))
 
@@ -8579,6 +8580,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 }
 
 func TestProperty_broadcastBlobPayloads_MaxSizeRequestBlobCapBoundaries(t *testing.T) {
+	t.Parallel()
 	maxRequestBatchSize := cresettings.Default.VaultRequestBatchSizeLimit.DefaultValue
 	maxCiphertextBytes := cresettings.Default.PerOwner.VaultCiphertextSizeLimit.DefaultValue
 	maxIDKeySize := cresettings.Default.VaultIdentifierKeySizeLimit.DefaultValue
@@ -8728,7 +8730,7 @@ func crit1MaxCiphertextHex(t *testing.T, pk *tdh2easy.PublicKey, owner common.Ad
 	probeRaw, err := hex.DecodeString(probe)
 	require.NoError(t, err)
 	plaintextLen := limit - (len(probeRaw) - limit)
-	require.Greater(t, plaintextLen, 0)
+	require.Positive(t, plaintextLen)
 
 	for {
 		out, err := vaultutils.EncryptSecretWithWorkflowOwner(strings.Repeat("s", plaintextLen), pk, owner)
@@ -8739,7 +8741,7 @@ func crit1MaxCiphertextHex(t *testing.T, pk *tdh2easy.PublicKey, owner common.Ad
 			return out
 		}
 		plaintextLen -= len(raw) - limit
-		require.Greater(t, plaintextLen, 0, "could not size plaintext under ciphertext limit")
+		require.Positive(t, plaintextLen, "could not size plaintext under ciphertext limit")
 	}
 }
 
@@ -8778,13 +8780,14 @@ func crit1BlobPayloadLen(t *testing.T, req *vaultcommon.CreateSecretsRequest) in
 // node holding the request would previously have errored Observation every round,
 // stalling request processing DON-wide until the request expired.
 func TestCRIT1_PluginSkipsOversizedItemWithoutFailingObservation(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	owner := common.HexToAddress("0xA07D569a8EbF58c09bFae64b2Fa85b0e0Dcb1dFb")
 	cipherHex := crit1MaxCiphertextHex(t, pk, owner)
 
 	maxBlob := int(cresettings.Default.VaultMaxBlobPayloadSizeLimit.DefaultValue)
-	batchLimit := int(cresettings.Default.VaultRequestBatchSizeLimit.DefaultValue)
+	batchLimit := cresettings.Default.VaultRequestBatchSizeLimit.DefaultValue
 
 	// Find the minimal ingress-valid batch size whose blob payload exceeds the cap.
 	triggerCount := 0
@@ -8794,7 +8797,7 @@ func TestCRIT1_PluginSkipsOversizedItemWithoutFailingObservation(t *testing.T) {
 			break
 		}
 	}
-	require.Greater(t, triggerCount, 0, "no batch size <= %d exceeds the blob cap; test premise no longer holds", batchLimit)
+	require.Positive(t, triggerCount, "no batch size <= %d exceeds the blob cap; test premise no longer holds", batchLimit)
 	t.Logf("oversized request: %d max-size secrets (%d wire bytes/cipher) exceed the %d-byte blob cap",
 		triggerCount, len(cipherHex), maxBlob)
 
@@ -8830,6 +8833,7 @@ func TestCRIT1_PluginSkipsOversizedItemWithoutFailingObservation(t *testing.T) {
 // fewer secrets passes ingress and observes cleanly, isolating the shed behavior to the
 // blob-cap boundary rather than the request shape itself.
 func TestCRIT1_Control_SubCapRequestObservesCleanly(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	owner := common.HexToAddress("0xA07D569a8EbF58c09bFae64b2Fa85b0e0Dcb1dFb")

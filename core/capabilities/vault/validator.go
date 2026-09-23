@@ -8,9 +8,10 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"

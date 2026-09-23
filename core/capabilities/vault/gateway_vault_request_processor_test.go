@@ -176,6 +176,7 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_RejectsOversizedBlobPayload
 		{name: "node mode", stripOwnerPrefix: true},
 	} {
 		t.Run(mode.name, func(t *testing.T) {
+			t.Parallel()
 			// No authorizer expectation: the blob-size check runs pre-auth, so an
 			// AuthorizeRequest call here fails the mock.
 			authorizer := vaultcapmocks.NewAuthorizer(t)
