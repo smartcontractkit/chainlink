@@ -115,90 +115,6 @@ type baseEngine struct {
 	drainStartedAtNs atomic.Int64
 }
 
-func TriggerRegistrationID(workflowID string, triggerIndex int) string {
-	return fmt.Sprintf("trigger_reg_%s_%d", workflowID, triggerIndex)
-}
-
-// buildLabels creates the label slice for the beholder logger based on config and localNode state.
-// This is used both during engine creation and when updating labels after a DON configuration change.
-func (e *baseEngine) buildLabels(localNode *capabilities.Node) []any {
-	return []any{
-		platform.KeyWorkflowID, e.cfg.WorkflowID,
-		platform.KeyWorkflowOwner, e.cfg.WorkflowOwner,
-		platform.KeyWorkflowName, e.cfg.WorkflowName.String(),
-		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
-		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
-		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
-		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
-		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(
-			len(localNode.WorkflowDON.Members),
-			int(localNode.WorkflowDON.F),
-		)),
-		platform.KeyP2PID, localNode.PeerID.String(),
-		platform.WorkflowRegistryAddress, e.cfg.WorkflowRegistryAddress,
-		platform.WorkflowRegistryChainSelector, e.cfg.WorkflowRegistryChainSelector,
-		platform.EngineVersion, platform.ValueWorkflowVersionV2,
-		platform.DonVersion, strconv.FormatUint(uint64(pinnedWorkflowDonConfigVersion), 10),
-		platform.KeySDK, e.cfg.SdkName,
-	}
-}
-
-// eventLabels returns a copy of the current label map with org ID applied.
-func (e *baseEngine) eventLabels() map[string]string {
-	return maps.Clone(*e.loggerLabels.Load())
-}
-
-// storeLoggerLabels persists base labels and always merges in the resolved org ID.
-func (e *baseEngine) storeLoggerLabels(base map[string]string) {
-	labels := maps.Clone(base)
-	if e.orgID != "" {
-		labels[platform.KeyOrganizationID] = e.orgID
-	}
-	e.loggerLabels.Store(&labels)
-}
-
-// logger returns the current logger in a thread-safe manner.
-// This method should be used instead of accessing e.lggr directly to avoid race conditions
-// when the logger is dynamically updated (e.g., when DON configuration changes).
-func (e *baseEngine) logger() logger.SugaredLogger {
-	e.lggrMu.RLock()
-	defer e.lggrMu.RUnlock()
-	return e.lggr
-}
-
-// setLogger updates the logger in a thread-safe manner.
-// This is called when the DON configuration changes and we need to update the platform.DonVersion label.
-func (e *baseEngine) setLogger(lggr logger.SugaredLogger) {
-	e.lggrMu.Lock()
-	defer e.lggrMu.Unlock()
-	e.lggr = lggr
-}
-
-// Drain marks the engine as draining and prevents new executions from starting.
-// In-flight executions continue to run to completion.
-// It returns true only on the first transition to draining.
-func (e *baseEngine) Drain() bool {
-	started := e.draining.CompareAndSwap(false, true)
-	if started {
-		e.drainStartedAtNs.CompareAndSwap(0, time.Now().UnixNano())
-	}
-	e.srvcEng.SetHealthCond("draining", errors.New("engine is draining, pending deletion"))
-	return started
-}
-
-func (e *baseEngine) ActiveExecutions() int32 {
-	return e.activeExecutions.Load()
-}
-
-func (e *baseEngine) DrainStartedAt() (time.Time, bool) {
-	ns := e.drainStartedAtNs.Load()
-	if ns == 0 {
-		return time.Time{}, false
-	}
-
-	return time.Unix(0, ns), true
-}
-
 // newBaseEngine builds the execution machinery shared by every workflow engine.
 // It installs no service: the caller must call attachService before the engine
 // is started.
@@ -271,19 +187,6 @@ func (e *baseEngine) attachService(lggr logger.SugaredLogger, engineName string,
 		Start: start,
 		Close: closeFn,
 	}.NewServiceEngine(lggr)
-}
-
-// resolvedOrg holds the result of an organization ID resolution attempt.
-type resolvedOrg struct {
-	// ID is the resolved organization ID, or empty if resolution failed.
-	ID string
-	// Err is the error returned by the OrgResolver, or nil if resolution
-	// succeeded or the resolver was not configured.
-	Err error
-	// Reason explains why ID is empty: "resolver_nil" (OrgResolver not
-	// configured), "resolver_error" (Get returned an error), or
-	// "empty_response" (Get returned an empty string). Empty on success.
-	Reason string
 }
 
 // ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
@@ -370,28 +273,40 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 	return subs.Subscriptions, nil
 }
 
+// Tenant is the engine's tenant identity. Valid once resolveOrgID has run during
+// init. Every field it reads is written before OnInitialized fires.
+func (e *baseEngine) Tenant() contexts.CRE {
+	return contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
+}
+
+// Drain marks the engine as draining and prevents new executions from starting.
+// In-flight executions continue to run to completion.
+// It returns true only on the first transition to draining.
+func (e *baseEngine) Drain() bool {
+	started := e.draining.CompareAndSwap(false, true)
+	if started {
+		e.drainStartedAtNs.CompareAndSwap(0, time.Now().UnixNano())
+	}
+	e.srvcEng.SetHealthCond("draining", errors.New("engine is draining, pending deletion"))
+	return started
+}
+
 // Draining returns true if the engine has been marked for deletion and is no longer accepting new trigger events.
 func (e *baseEngine) Draining() bool {
 	return e.draining.Load()
 }
 
-// resolveOrgID resolves the organization ID for the given workflow owner.
-// If resolution fails, the returned ID is empty and Reason explains why.
-// The original error from the resolver (if any) is preserved in Err and
-// logged via the provided logger.
-func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflowOwner string, lggr logger.SugaredLogger) resolvedOrg {
-	if resolver == nil {
-		return resolvedOrg{Reason: "resolver_nil"}
+func (e *baseEngine) ActiveExecutions() int32 {
+	return e.activeExecutions.Load()
+}
+
+func (e *baseEngine) DrainStartedAt() (time.Time, bool) {
+	ns := e.drainStartedAtNs.Load()
+	if ns == 0 {
+		return time.Time{}, false
 	}
-	orgID, err := resolver.Get(ctx, workflowOwner)
-	if err != nil {
-		lggr.Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", workflowOwner, "err", err)
-		return resolvedOrg{Err: err, Reason: "resolver_error"}
-	}
-	if orgID == "" {
-		return resolvedOrg{Reason: "empty_response"}
-	}
-	return resolvedOrg{ID: orgID}
+
+	return time.Unix(0, ns), true
 }
 
 // startWith performs the startup shared by every engine and spawns initFn as the
@@ -452,49 +367,11 @@ func (e *baseEngine) initDONSubscribe(ctx context.Context) error {
 	return nil
 }
 
-// Tenant is the engine's tenant identity. Valid once resolveOrgID has run during
-// init. Every field it reads is written before OnInitialized fires.
-func (e *baseEngine) Tenant() contexts.CRE {
-	return contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
-}
-
 // initDone records a successful initialization and fires OnInitialized(nil).
 func (e *baseEngine) initDone(ctx context.Context) {
 	e.logger().Info("Workflow Engine initialized")
 	e.metrics.IncrementWorkflowInitializationCounter(ctx)
 	e.cfg.Hooks.OnInitialized(nil)
-}
-
-// shutdownCtx builds the close context: bounded by the shutdown timeout and
-// carrying the workflow's tenant identity.
-func (e *baseEngine) shutdownCtx() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(e.cfg.LocalLimits.ShutdownTimeoutMs))
-	return contexts.WithCRE(ctx, e.Tenant()), cancel
-}
-
-// closeCommon is the teardown shared by every engine.
-func (e *baseEngine) closeCommon(ctx context.Context) {
-	if err := e.cfg.ExecutionsStore.DeleteByWorkflowID(ctx, e.cfg.WorkflowID); err != nil {
-		e.logger().Errorw("Failed to purge executions on close", "err", err)
-	}
-
-	e.cfg.Module.Close()
-
-	if e.cfg.LocalLimiters != nil {
-		if err := e.cfg.LocalLimiters.EvictWorkflow(e.cfg.WorkflowID); err != nil {
-			e.logger().Errorw("Failed to evict workflow from scoped limiters", "err", err)
-		}
-	}
-
-	// Encourage the Go runtime to release memory back to the OS after tearing
-	// down the WASM module and execution state.  Without this, freed heap pages
-	// stay resident (MADV_FREE) and CGo/wasmtime freed pages remain in the C
-	// allocator's free-list, so RSS never drops even though the memory is unused.
-	runtime.GC()
-	debug.FreeOSMemory()
-
-	// reset metering mode metric so that a positive value does not persist
-	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)
 }
 
 func (e *baseEngine) localNodeSync(ctx context.Context) {
@@ -1058,4 +935,127 @@ func (e *baseEngine) donTimeRequestTimeout(ctx context.Context, limiter limits.T
 		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.DONTime.RequestTimeout.Key)
 	}
 	return limit
+}
+
+// shutdownCtx builds the close context: bounded by the shutdown timeout and
+// carrying the workflow's tenant identity.
+func (e *baseEngine) shutdownCtx() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(e.cfg.LocalLimits.ShutdownTimeoutMs))
+	return contexts.WithCRE(ctx, e.Tenant()), cancel
+}
+
+// closeCommon is the teardown shared by every engine.
+func (e *baseEngine) closeCommon(ctx context.Context) {
+	if err := e.cfg.ExecutionsStore.DeleteByWorkflowID(ctx, e.cfg.WorkflowID); err != nil {
+		e.logger().Errorw("Failed to purge executions on close", "err", err)
+	}
+
+	e.cfg.Module.Close()
+
+	if e.cfg.LocalLimiters != nil {
+		if err := e.cfg.LocalLimiters.EvictWorkflow(e.cfg.WorkflowID); err != nil {
+			e.logger().Errorw("Failed to evict workflow from scoped limiters", "err", err)
+		}
+	}
+
+	// Encourage the Go runtime to release memory back to the OS after tearing
+	// down the WASM module and execution state.  Without this, freed heap pages
+	// stay resident (MADV_FREE) and CGo/wasmtime freed pages remain in the C
+	// allocator's free-list, so RSS never drops even though the memory is unused.
+	runtime.GC()
+	debug.FreeOSMemory()
+
+	// reset metering mode metric so that a positive value does not persist
+	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)
+}
+
+// buildLabels creates the label slice for the beholder logger based on config and localNode state.
+// This is used both during engine creation and when updating labels after a DON configuration change.
+func (e *baseEngine) buildLabels(localNode *capabilities.Node) []any {
+	return []any{
+		platform.KeyWorkflowID, e.cfg.WorkflowID,
+		platform.KeyWorkflowOwner, e.cfg.WorkflowOwner,
+		platform.KeyWorkflowName, e.cfg.WorkflowName.String(),
+		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
+		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
+		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
+		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(
+			len(localNode.WorkflowDON.Members),
+			int(localNode.WorkflowDON.F),
+		)),
+		platform.KeyP2PID, localNode.PeerID.String(),
+		platform.WorkflowRegistryAddress, e.cfg.WorkflowRegistryAddress,
+		platform.WorkflowRegistryChainSelector, e.cfg.WorkflowRegistryChainSelector,
+		platform.EngineVersion, platform.ValueWorkflowVersionV2,
+		platform.DonVersion, strconv.FormatUint(uint64(pinnedWorkflowDonConfigVersion), 10),
+		platform.KeySDK, e.cfg.SdkName,
+	}
+}
+
+// eventLabels returns a copy of the current label map with org ID applied.
+func (e *baseEngine) eventLabels() map[string]string {
+	return maps.Clone(*e.loggerLabels.Load())
+}
+
+// storeLoggerLabels persists base labels and always merges in the resolved org ID.
+func (e *baseEngine) storeLoggerLabels(base map[string]string) {
+	labels := maps.Clone(base)
+	if e.orgID != "" {
+		labels[platform.KeyOrganizationID] = e.orgID
+	}
+	e.loggerLabels.Store(&labels)
+}
+
+// logger returns the current logger in a thread-safe manner.
+// This method should be used instead of accessing e.lggr directly to avoid race conditions
+// when the logger is dynamically updated (e.g., when DON configuration changes).
+func (e *baseEngine) logger() logger.SugaredLogger {
+	e.lggrMu.RLock()
+	defer e.lggrMu.RUnlock()
+	return e.lggr
+}
+
+// setLogger updates the logger in a thread-safe manner.
+// This is called when the DON configuration changes and we need to update the platform.DonVersion label.
+func (e *baseEngine) setLogger(lggr logger.SugaredLogger) {
+	e.lggrMu.Lock()
+	defer e.lggrMu.Unlock()
+	e.lggr = lggr
+}
+
+// resolvedOrg holds the result of an organization ID resolution attempt.
+type resolvedOrg struct {
+	// ID is the resolved organization ID, or empty if resolution failed.
+	ID string
+	// Err is the error returned by the OrgResolver, or nil if resolution
+	// succeeded or the resolver was not configured.
+	Err error
+	// Reason explains why ID is empty: "resolver_nil" (OrgResolver not
+	// configured), "resolver_error" (Get returned an error), or
+	// "empty_response" (Get returned an empty string). Empty on success.
+	Reason string
+}
+
+// resolveOrgID resolves the organization ID for the given workflow owner.
+// If resolution fails, the returned ID is empty and Reason explains why.
+// The original error from the resolver (if any) is preserved in Err and
+// logged via the provided logger.
+func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflowOwner string, lggr logger.SugaredLogger) resolvedOrg {
+	if resolver == nil {
+		return resolvedOrg{Reason: "resolver_nil"}
+	}
+	orgID, err := resolver.Get(ctx, workflowOwner)
+	if err != nil {
+		lggr.Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", workflowOwner, "err", err)
+		return resolvedOrg{Err: err, Reason: "resolver_error"}
+	}
+	if orgID == "" {
+		return resolvedOrg{Reason: "empty_response"}
+	}
+	return resolvedOrg{ID: orgID}
+}
+
+func TriggerRegistrationID(workflowID string, triggerIndex int) string {
+	return fmt.Sprintf("trigger_reg_%s_%d", workflowID, triggerIndex)
 }
