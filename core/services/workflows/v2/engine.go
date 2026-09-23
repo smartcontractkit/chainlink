@@ -124,29 +124,28 @@ func (e *Engine) init(ctx context.Context) {
 // returned error is the one that must reach OnInitialized: the scope-specific
 // sentinel for a limit breach, the raw error otherwise.
 func (e *Engine) useWorkflowLimit(ctx context.Context) error {
-	err := e.cfg.GlobalWorkflowLimit.Use(ctx, 1)
-	if err == nil {
-		e.workflowLimitUsed.Store(true)
-		return nil
+	if err := e.cfg.GlobalWorkflowLimit.Use(ctx, 1); err != nil {
+		errLimited, ok := errors.AsType[limits.ErrorResourceLimited[int]](err)
+		if !ok {
+			return err
+		}
+		switch errLimited.Scope {
+		case settings.ScopeOwner:
+			e.logger().Infow("Per owner workflow count limit reached", "err", err)
+			e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
+			return types.ErrPerOwnerWorkflowCountLimitReached
+		case settings.ScopeGlobal:
+			e.logger().Infow("Global workflow count limit reached", "err", err)
+			e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
+			return types.ErrGlobalWorkflowCountLimitReached
+		default:
+			e.logger().Errorw("Workflow count limit reached for unexpected scope", "scope", errLimited.Scope, "err", err)
+			return err
+		}
 	}
 
-	errLimited, ok := errors.AsType[limits.ErrorResourceLimited[int]](err)
-	if !ok {
-		return err
-	}
-	switch errLimited.Scope {
-	case settings.ScopeOwner:
-		e.logger().Infow("Per owner workflow count limit reached", "err", err)
-		e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
-		return types.ErrPerOwnerWorkflowCountLimitReached
-	case settings.ScopeGlobal:
-		e.logger().Infow("Global workflow count limit reached", "err", err)
-		e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
-		return types.ErrGlobalWorkflowCountLimitReached
-	default:
-		e.logger().Errorw("Workflow count limit reached for unexpected scope", "scope", errLimited.Scope, "err", err)
-		return err
-	}
+	e.workflowLimitUsed.Store(true)
+	return nil
 }
 
 func (e *Engine) close() error {
