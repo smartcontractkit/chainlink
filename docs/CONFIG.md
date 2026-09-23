@@ -2622,7 +2622,7 @@ MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 d
 ```toml
 MetricExportBatchSize = 0 # Default
 ```
-MetricExportBatchSize is the maximum number of metric data points in each OTLP export request. A positive value enables experimental SDK-side batching; 0 disables it. This is a count, not a byte limit, and does not replace the collector receive limit.
+MetricExportBatchSize limits metric data points per OTLP export request. 0 disables SDK-side batching.
 
 ## Telemetry.ResourceAttributes
 ```toml
@@ -18329,3 +18329,4 @@ URL is the base HTTP(S) endpoint for this node.
 APIKey = 'key' # Example
 ```
 APIKey Header is optional and only required for Nethermind RPCs
+

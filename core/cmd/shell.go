@@ -177,7 +177,17 @@ func newBeholderClient(
 		MetricViews:               metricViews(),
 		MetricViewsDenyAttributes: cfgTelemetry.MetricViewsDenyAttributes(),
 		MetricCardinalityLimit:    cfgTelemetry.MetricCardinalityLimit(),
-		MetricExportBatchSize:     cfgTelemetry.MetricExportBatchSize(),
+	}
+
+	// Metric export batching is controlled by the OTel SDK's experimental
+	// OTEL_GO_X_METRIC_EXPORT_BATCH_SIZE environment variable, which is read
+	// when each PeriodicReader is constructed. Set it before creating the
+	// client so the node's own readers pick it up; LOOP plugin subprocesses
+	// inherit it from this process.
+	if batchSize := cfgTelemetry.MetricExportBatchSize(); batchSize > 0 {
+		if err := os.Setenv("OTEL_GO_X_METRIC_EXPORT_BATCH_SIZE", strconv.Itoa(batchSize)); err != nil {
+			lggr.Errorw("Failed to set OTel metric export batch size", "err", err, "batchSize", batchSize)
+		}
 	}
 
 	if cfgTracing.Enabled() {
