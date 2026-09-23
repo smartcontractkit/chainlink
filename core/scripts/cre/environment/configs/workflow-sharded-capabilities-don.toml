@@ -1,9 +1,12 @@
 # Sharded capability routing via DON families.
 #
-# The same capability (evm-2337 write target) is hosted on multiple capability DON shards.
-# Each workflow shard is routed to exactly one capability shard by sharing a per-shard DON
-# family, while a common family ("zone-a") keeps every workflow shard connected to the
-# gateway and to shared (non-sharded) capability DONs.
+# The same capability (evm-1337) is hosted on multiple capability DON shards. Each workflow
+# shard is routed to exactly one capability shard by sharing a per-shard DON family, while a
+# common family ("zone-a") keeps every workflow shard connected to the gateway and to shared
+# (non-sharded) capability DONs.
+#
+# The workflow shards deliberately host no EVM capability of their own: if they did, the
+# launcher would serve evm-1337 locally and family routing would never be exercised.
 #
 # Family layout (see don_families):
 #   workflow-shard-0 : don_families=["zone-a", "zone-a_shard-0"]
@@ -14,7 +17,7 @@
 #   bootstrap-gateway: don_families=["zone-a"]
 #
 # The launcher's family-overlap filter therefore routes workflow-shard-0 -> cap-shard-0 and
-# workflow-shard-1 -> cap-shard-1 for evm-2337, while both shards reach shared-cap via "zone-a".
+# workflow-shard-1 -> cap-shard-1 for evm-1337, while both shards reach shared-cap via "zone-a".
 # Gateway pairing uses the primary (first) don_families entry ("zone-a") only.
 
 [chip_router]
@@ -58,7 +61,7 @@
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
-  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   [nodesets.db]
@@ -113,7 +116,7 @@
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
-  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   [nodesets.db]
@@ -140,7 +143,7 @@
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
-  capabilities = ["evm-2337"]
+  capabilities = ["evm-1337"]
 
   [nodesets.db]
     image = "postgres:15.0"
@@ -166,7 +169,7 @@
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
-  capabilities = ["evm-2337"]
+  capabilities = ["evm-1337"]
 
   [nodesets.db]
     image = "postgres:15.0"

@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
@@ -62,8 +63,9 @@ func nodesetContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment, nodese
 	return names
 }
 
-// assertContainerLogs scans stdout/stderr of containerNames and checks whether needle appears.
-func assertContainerLogs(t *testing.T, containerNames []string, needle string, wantFound bool) {
+// containerLogsContain reports whether needle appears in the logs of any of containerNames,
+// as they stand at the moment of the call.
+func containerLogsContain(t *testing.T, containerNames []string, needle string) bool {
 	t.Helper()
 
 	targetNames := make(map[string]struct{}, len(containerNames))
@@ -90,10 +92,17 @@ func assertContainerLogs(t *testing.T, containerNames []string, needle string, w
 		}
 		if strings.Contains(content, needle) {
 			found = true
-			framework.L.Info().Str("container", containerName).Str("needle", needle).Bool("want_found", wantFound).Msg("container log match")
+			framework.L.Info().Str("container", containerName).Str("needle", needle).Msg("container log match")
 		}
 	}
+	return found
+}
 
+// assertContainerLogs scans stdout/stderr of containerNames and checks whether needle appears.
+func assertContainerLogs(t *testing.T, containerNames []string, needle string, wantFound bool) {
+	t.Helper()
+
+	found := containerLogsContain(t, containerNames, needle)
 	if wantFound {
 		assert.True(t, found, "expected at least one of %v to contain %q", containerNames, needle)
 		return
@@ -117,6 +126,18 @@ func AssertContainerLogsForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment
 func AssertContainerLogsAbsentForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string) {
 	t.Helper()
 	assertContainerLogs(t, nodesetContainerNames(t, testEnv, nodesetName), needle, false)
+}
+
+// RequireContainerLogsForNodesetEventually waits for needle to appear in at least one container
+// log of nodesetName, rescanning until timeout. Use it instead of AssertContainerLogsForNodeset
+// when the line is written asynchronously and may still be in flight when the test reaches it.
+func RequireContainerLogsForNodesetEventually(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string, timeout, interval time.Duration) {
+	t.Helper()
+
+	containerNames := nodesetContainerNames(t, testEnv, nodesetName)
+	require.Eventually(t, func() bool {
+		return containerLogsContain(t, containerNames, needle)
+	}, timeout, interval, "expected at least one of %v to contain %q within %s", containerNames, needle, timeout)
 }
 
 // readContainerLogs decodes a Docker multiplexed log stream into plain text.

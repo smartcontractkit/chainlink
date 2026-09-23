@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/json"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"maps"
 	"net/url"
@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
 
@@ -307,7 +306,7 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 		for header := range headerLines {
 			keyValue := strings.Split(header, "||")
 			if len(keyValue) != 2 {
-				return errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
+				return fmt.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
 			}
 			h := ServiceHeader{
 				Header: keyValue[0],
@@ -356,13 +355,13 @@ var (
 	headerValueRegex = regexp.MustCompile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
 )
 
-func (h ServiceHeader) Validate() (err error) {
+func (h *ServiceHeader) Validate() (err error) {
 	if !headerNameRegex.MatchString(h.Header) {
-		err = stderrors.Join(err, errors.Errorf("invalid header name: %s", h.Header))
+		err = errors.Join(err, fmt.Errorf("invalid header name: %s", h.Header))
 	}
 
 	if !headerValueRegex.MatchString(h.Value) {
-		err = stderrors.Join(err, errors.Errorf("invalid header value: %s", h.Value))
+		err = errors.Join(err, fmt.Errorf("invalid header value: %s", h.Value))
 	}
-	return
+	return err
 }

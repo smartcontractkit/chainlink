@@ -28,6 +28,3 @@ OracleType = 'arbitrum'
 
 [NodePool]
 SyncThreshold = 10
-
-[OCR2.Automation]
-GasLimit = 14500000

@@ -44,7 +44,7 @@ func TestWebAuthnSessionStore(t *testing.T) {
 	require.False(t, ok)
 
 	_, err = s.GetWebauthnSession(key)
-	assert.ErrorContains(t, err, "assertion not in challenge store")
+	require.ErrorContains(t, err, "assertion not in challenge store")
 
 	user := mustRandomUser(t)
 	cred := webauthn.Credential{
@@ -70,6 +70,20 @@ func TestWebAuthnSessionStore(t *testing.T) {
 
 	_, err = s.FinishWebAuthnRegistration(user, uwas, nil, wcfg)
 	require.Error(t, err)
+}
+
+func TestBeginWebAuthnRegistration_EmptyRPOrigin(t *testing.T) {
+	t.Parallel()
+
+	s := NewWebAuthnSessionStore()
+	user := mustRandomUser(t)
+
+	// An empty RPOrigin must still fail at construction time, matching
+	// go-webauthn's own validation, rather than silently producing a
+	// RelyingParty with no allowed origins.
+	wcfg := WebAuthnConfiguration{RPID: "test-rpid", RPOrigin: ""}
+	_, err := s.BeginWebAuthnRegistration(user, nil, wcfg)
+	require.ErrorContains(t, err, "RPOrigins")
 }
 
 func mustRandomUser(t testing.TB) User {
