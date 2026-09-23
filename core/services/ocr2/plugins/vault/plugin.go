@@ -297,27 +297,27 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
 	return &ReportingPlugin{
-		lggr:                         r.lggr.Named("VaultReportingPlugin"),
-		store:                        r.store,
-		cfg:                          cfg,
-		metrics:                      metrics,
-		onchainCfg:                   config,
-		validator:                    validator,
-		lifecycle:                    r.lifecycle,
-		maxObservationBytes:          pluginLimits.MaxObservationBytes,
-		maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
-		unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
-			handle := ocr3_1types.BlobHandle{}
-			err := handle.UnmarshalBinary(data)
-			return handle, err
-		},
-		marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
-			return handle.MarshalBinary()
-		},
-	}, ocr3_1types.ReportingPluginInfo1{
-		Name:   "VaultReportingPlugin",
-		Limits: pluginLimits,
-	}, nil
+			lggr:                         r.lggr.Named("VaultReportingPlugin"),
+			store:                        r.store,
+			cfg:                          cfg,
+			metrics:                      metrics,
+			onchainCfg:                   config,
+			validator:                    validator,
+			lifecycle:                    r.lifecycle,
+			maxObservationBytes:          pluginLimits.MaxObservationBytes,
+			maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
+			unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
+				handle := ocr3_1types.BlobHandle{}
+				err := handle.UnmarshalBinary(data)
+				return handle, err
+			},
+			marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
+				return handle.MarshalBinary()
+			},
+		}, ocr3_1types.ReportingPluginInfo1{
+			Name:   "VaultReportingPlugin",
+			Limits: pluginLimits,
+		}, nil
 }
 
 type ReportingPlugin struct {
@@ -556,7 +556,15 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 
 		if len(payload) > maxBlobBytes {
 			if len(currentBatch) == 0 {
-				return pendingQueueBlobPack{}, fmt.Errorf("single pending queue item exceeds max blob payload size (%d > %d)", len(payload), maxBlobBytes)
+				// The item can never be advertised so skip it
+				r.lggr.Warnw("single pending queue item exceeds max blob payload size; skipping",
+					"seqNr", seqNr,
+					"requestID", queueItem.ID(),
+					"payloadBytes", len(payload),
+					"maxBlobBytes", maxBlobBytes,
+				)
+				r.metrics.trackPendingQueueItemOversized(ctx, len(payload), maxBlobBytes)
+				continue
 			}
 			// Current batch is full; flush it and retry the same item on the next iteration.
 			var ferr error

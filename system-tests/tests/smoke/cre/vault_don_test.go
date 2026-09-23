@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -237,6 +238,7 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
 		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
 		executeVaultSecretsGetBatchTooBigViaWorkflowTest(t, subEnv, "vget2", ulCh, bmCh)
+		executeVaultSecretsCreateOversizedBlobCapTest(t, vaultParsedPublicKey, owner, gwURL, sc, wfReg)
 	})
 
 	t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
@@ -1139,4 +1141,76 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 	framework.L.Info().Msgf("[list] %s correctly rejected: %s", "invalid namespace", string(respBody))
 
 	framework.L.Info().Msg("All identifier validation checks passed")
+}
+
+// executeVaultSecretsCreateOversizedBlobCapTest verifies the oversized-blob ingress
+// rejection end to end: a create batch whose queued representation (StoredPendingQueueItem
+// blob payload) exceeds VaultMaxBlobPayloadSizeLimit is rejected deterministically by the
+// gateway before fanning out to the vault DON, and the DON keeps processing subsequent
+// requests (no observation-phase wedge). EncryptedValue is hex-encoded on the wire (2x its
+// decoded size), which is what pushes a full batch of cap-size ciphertexts over the limit
+// while every per-secret limit still passes.
+func executeVaultSecretsCreateOversizedBlobCapTest(t *testing.T, vaultParsedPublicKey *tdh2easy.PublicKey, owner, gatewayURL string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
+	t.Helper()
+	testLogger := framework.L
+	testLogger.Info().Msg("Verifying oversized create batch is rejected and the DON stays healthy...")
+
+	// Plaintext sized so each ciphertext's decoded size sits under the per-secret cap
+	// (VaultCiphertextSizeLimit 2KB decoded; TDH2 adds fixed overhead), while the hex
+	// wire format (2x decoded) pushes the batch well over the 25.6KB blob cap.
+	oversizedValue := strings.Repeat("s", 1400)
+	oversizedEnc, err := vaultutils.EncryptSecretWithWorkflowOwner(oversizedValue, vaultParsedPublicKey, common.HexToAddress(owner))
+	require.NoError(t, err)
+
+	uniqueRequestID := uuid.New().String()
+	secrets := make([]*vault_helpers.EncryptedSecret, vaulttypes.MaxBatchSize)
+	for i := range secrets {
+		secrets[i] = &vault_helpers.EncryptedSecret{
+			Id:             &vault_helpers.SecretIdentifier{Key: fmt.Sprintf("oversizedblobcap%d", i), Namespace: "main", Owner: owner},
+			EncryptedValue: oversizedEnc,
+		}
+	}
+	oversizedBody, err := json.Marshal(vault_helpers.CreateSecretsRequest{RequestId: uniqueRequestID, EncryptedSecrets: secrets})
+	require.NoError(t, err)
+	oversizedBodyJSON := json.RawMessage(oversizedBody)
+	oversizedReq := jsonrpc.Request[json.RawMessage]{Version: jsonrpc.JsonRpcVersion, ID: uniqueRequestID, Method: vaulttypes.MethodSecretsCreate, Params: &oversizedBodyJSON}
+	allowlistRequest(t, owner, oversizedReq, sethClient, wfRegistryContract)
+	oversizedReqBody, err := json.Marshal(oversizedReq)
+	require.NoError(t, err)
+	_, oversizedRespBody := sendVaultRequestToGateway(t, gatewayURL, oversizedReqBody)
+	require.Contains(t, string(oversizedRespBody), "request exceeds maximum pending queue blob payload size",
+		"expected oversized batch rejection for create")
+	testLogger.Info().Msgf("[create] oversized batch correctly rejected: %s", string(oversizedRespBody))
+
+	// The DON is un-wedged: a normal create still processes end to end.
+	normalEnc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-after-oversized-rejection", vaultParsedPublicKey, common.HexToAddress(owner))
+	require.NoError(t, err)
+	normalID := uniqueVaultSecretID("afteroversized")
+	normalBody, err := json.Marshal(vault_helpers.CreateSecretsRequest{
+		RequestId: uuid.New().String(),
+		EncryptedSecrets: []*vault_helpers.EncryptedSecret{
+			{Id: &vault_helpers.SecretIdentifier{Key: normalID, Namespace: "main", Owner: owner}, EncryptedValue: normalEnc},
+		},
+	})
+	require.NoError(t, err)
+	normalBodyJSON := json.RawMessage(normalBody)
+	normalReq := jsonrpc.Request[json.RawMessage]{Version: jsonrpc.JsonRpcVersion, ID: uuid.New().String(), Method: vaulttypes.MethodSecretsCreate, Params: &normalBodyJSON}
+	allowlistRequest(t, owner, normalReq, sethClient, wfRegistryContract)
+	normalReqBody, err := json.Marshal(normalReq)
+	require.NoError(t, err)
+	var normalRespBody []byte
+	_ = retry.Do(func() error {
+		_, normalRespBody = sendVaultRequestToGateway(t, gatewayURL, normalReqBody)
+		if bytes.Contains(normalRespBody, []byte("Request timed out")) {
+			return errors.New("gateway auth timeout")
+		}
+		return nil
+	}, retry.Attempts(8), retry.Delay(3*time.Second), retry.DelayType(retry.FixedDelay),
+		retry.OnRetry(func(n uint, err error) {
+			framework.L.Warn().Uint("attempt", n+1).Msgf("[create] normal request after oversized rejection: %s, retrying...", err)
+		}))
+	require.NotContains(t, string(normalRespBody), "exceeds maximum pending queue blob payload size")
+	require.NotContains(t, string(normalRespBody), "Request timed out",
+		"DON must keep processing requests after an oversized batch rejection")
+	testLogger.Info().Msg("Oversized blob cap test completed: rejection deterministic, DON healthy")
 }

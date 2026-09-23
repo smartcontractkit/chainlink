@@ -736,7 +736,7 @@ func TestPrepareObservationPendingQueueBlobs_truncatesWhenHandleCountExceeded(t 
 	require.Equal(t, maxBlobHandleCount, pack.packedItemCount)
 }
 
-func TestPrepareObservationPendingQueueBlobs_errorWhenSingleItemTooLarge(t *testing.T) {
+func TestPrepareObservationPendingQueueBlobs_shedsSingleItemTooLarge(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := newTestReportingPlugin(t, withStore(store))
 
@@ -752,9 +752,12 @@ func TestPrepareObservationPendingQueueBlobs_errorWhenSingleItemTooLarge(t *test
 	localQueueItems, err := store.All()
 	require.NoError(t, err)
 
-	_, err = r.prepareObservationPendingQueueBlobs(t.Context(), 1, localQueueItems, map[string]bool{}, 1, 10)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "single pending queue item exceeds max blob payload size")
+	// A single item over the blob cap is shed (log + metric), not an error: failing the
+	// whole Observation would wedge request processing on every node holding the item.
+	out, err := r.prepareObservationPendingQueueBlobs(t.Context(), 1, localQueueItems, map[string]bool{}, 1, 10)
+	require.NoError(t, err)
+	require.Empty(t, out.blobPayloads)
+	require.Zero(t, out.packedItemCount)
 }
 
 type blockingBlobBroadcastFetcher struct {
@@ -8575,7 +8578,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 }
 
-func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testing.T) {
+func TestProperty_broadcastBlobPayloads_MaxSizeRequestBlobCapBoundaries(t *testing.T) {
 	maxRequestBatchSize := cresettings.Default.VaultRequestBatchSizeLimit.DefaultValue
 	maxCiphertextBytes := cresettings.Default.PerOwner.VaultCiphertextSizeLimit.DefaultValue
 	maxIDKeySize := cresettings.Default.VaultIdentifierKeySizeLimit.DefaultValue
@@ -8591,7 +8594,10 @@ func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testin
 	maxIDKeyField := strings.Repeat("a", int(maxIDKeySize))
 	maxIDOwnerField := strings.Repeat("a", int(maxIDOwnerSize))
 	maxIDNamespaceField := strings.Repeat("a", int(maxIDNamespaceSize))
-	maxCiphertext := strings.Repeat("a", int(maxCiphertextBytes))
+	// EncryptedValue is hex-encoded on the wire (2 chars per decoded byte) while ingress
+	// validates the DECODED size, so a ciphertext at VaultCiphertextSizeLimit occupies
+	// 2x that many wire bytes inside the marshaled pending-queue item.
+	maxCiphertext := strings.Repeat("a", 2*int(maxCiphertextBytes))
 
 	maxIdentifier := func() *vaultcommon.SecretIdentifier {
 		return &vaultcommon.SecretIdentifier{
@@ -8636,8 +8642,9 @@ func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testin
 	}
 
 	requestTypes := []struct {
-		name    string
-		payload proto.Message
+		name             string
+		payload          proto.Message
+		exceedsBlobLimit bool
 	}{
 		{
 			name: "GetSecretsRequest",
@@ -8646,11 +8653,17 @@ func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testin
 			},
 		},
 		{
+			// Max create/update shapes exceed the blob cap: EncryptedValue is hex-encoded
+			// on the wire, so a full batch of cap-size ciphertexts overflows
+			// VaultMaxBlobPayloadSizeLimit. These shapes are rejected at ingress
+			// (capability handleRequest blob-size check) and shed by the reporting plugin
+			// (prepareObservationPendingQueueBlobs) instead of failing the Observation.
 			name: "CreateSecretsRequest",
 			payload: &vaultcommon.CreateSecretsRequest{
 				RequestId:        "req",
 				EncryptedSecrets: buildMaxEncryptedSecrets(),
 			},
+			exceedsBlobLimit: true,
 		},
 		{
 			name: "UpdateSecretsRequest",
@@ -8658,6 +8671,7 @@ func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testin
 				RequestId:        "req",
 				EncryptedSecrets: buildMaxEncryptedSecrets(),
 			},
+			exceedsBlobLimit: true,
 		},
 		{
 			name: "DeleteSecretsRequest",
@@ -8687,9 +8701,153 @@ func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testin
 			}
 			itemBytes := protoMarshal(t, item)
 
+			if rt.exceedsBlobLimit {
+				assert.Greaterf(t, len(itemBytes), maxBlobPayloadBytes,
+					"marshaled %s StoredPendingQueueItem (%d bytes) no longer exceeds VaultMaxBlobPayloadSizeLimit (%d bytes); update the wire-size expectations",
+					rt.name, len(itemBytes), maxBlobPayloadBytes)
+				return
+			}
 			assert.LessOrEqualf(t, len(itemBytes), maxBlobPayloadBytes,
 				"marshaled %s StoredPendingQueueItem (%d bytes) exceeds VaultMaxBlobPayloadSizeLimit (%d bytes)",
 				rt.name, len(itemBytes), maxBlobPayloadBytes)
 		})
 	}
+}
+
+// crit1MaxCiphertextHex returns the hex-encoded TDH2 ciphertext of a plaintext sized so
+// the decoded ciphertext sits at the ingress cap (VaultCiphertextSizeLimit, 2KB decoded).
+// Ingress checks the decoded size; the wire format is the hex string (2x decoded).
+func crit1MaxCiphertextHex(t *testing.T, pk *tdh2easy.PublicKey, owner common.Address) string {
+	t.Helper()
+	limit := int(cresettings.Default.PerOwner.VaultCiphertextSizeLimit.DefaultValue)
+
+	// Measure fixed TDH2+proto overhead with a probe, then shrink the plaintext so the
+	// marshaled ciphertext lands at or under the limit.
+	probe, err := vaultutils.EncryptSecretWithWorkflowOwner(strings.Repeat("x", limit), pk, owner)
+	require.NoError(t, err)
+	probeRaw, err := hex.DecodeString(probe)
+	require.NoError(t, err)
+	plaintextLen := limit - (len(probeRaw) - limit)
+	require.Greater(t, plaintextLen, 0)
+
+	for {
+		out, err := vaultutils.EncryptSecretWithWorkflowOwner(strings.Repeat("s", plaintextLen), pk, owner)
+		require.NoError(t, err)
+		raw, err := hex.DecodeString(out)
+		require.NoError(t, err)
+		if len(raw) <= limit {
+			return out
+		}
+		plaintextLen -= len(raw) - limit
+		require.Greater(t, plaintextLen, 0, "could not size plaintext under ciphertext limit")
+	}
+}
+
+func crit1BuildRequest(requestID string, n int, cipherHex string, owner common.Address) *vaultcommon.CreateSecretsRequest {
+	secrets := make([]*vaultcommon.EncryptedSecret, n)
+	for i := range secrets {
+		secrets[i] = &vaultcommon.EncryptedSecret{
+			Id: &vaultcommon.SecretIdentifier{
+				Owner:     owner.Hex(),
+				Namespace: "main",
+				Key:       fmt.Sprintf("secret_%d", i),
+			},
+			EncryptedValue: cipherHex,
+		}
+	}
+	return &vaultcommon.CreateSecretsRequest{RequestId: requestID, EncryptedSecrets: secrets}
+}
+
+// crit1BlobPayloadLen returns the size of the blob payload the plugin would broadcast
+// for a single local-queue item, using the production marshal path.
+func crit1BlobPayloadLen(t *testing.T, req *vaultcommon.CreateSecretsRequest) int {
+	t.Helper()
+	anyMsg, err := anypb.New(req)
+	require.NoError(t, err)
+	payload, err := marshalPendingQueueBlobPayload([]*vaultcommon.StoredPendingQueueItem{
+		{Id: req.RequestId, Item: anyMsg},
+	})
+	require.NoError(t, err)
+	return len(payload)
+}
+
+// TestCRIT1_PluginSkipsOversizedItemWithoutFailingObservation confirms the CRIT-1 fix:
+// a local-queue request whose marshaled blob payload exceeds VaultMaxBlobPayloadSizeLimit
+// (25.6KB) — despite passing ingress limits (batch <= 10, per-secret ciphertext <= 2KB
+// decoded) — is shed with a log+metric instead of failing the whole Observation. Every
+// node holding the request would previously have errored Observation every round,
+// stalling request processing DON-wide until the request expired.
+func TestCRIT1_PluginSkipsOversizedItemWithoutFailingObservation(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	owner := common.HexToAddress("0xA07D569a8EbF58c09bFae64b2Fa85b0e0Dcb1dFb")
+	cipherHex := crit1MaxCiphertextHex(t, pk, owner)
+
+	maxBlob := int(cresettings.Default.VaultMaxBlobPayloadSizeLimit.DefaultValue)
+	batchLimit := int(cresettings.Default.VaultRequestBatchSizeLimit.DefaultValue)
+
+	// Find the minimal ingress-valid batch size whose blob payload exceeds the cap.
+	triggerCount := 0
+	for n := 1; n <= batchLimit; n++ {
+		if crit1BlobPayloadLen(t, crit1BuildRequest("request-big", n, cipherHex, owner)) > maxBlob {
+			triggerCount = n
+			break
+		}
+	}
+	require.Greater(t, triggerCount, 0, "no batch size <= %d exceeds the blob cap; test premise no longer holds", batchLimit)
+	t.Logf("oversized request: %d max-size secrets (%d wire bytes/cipher) exceed the %d-byte blob cap",
+		triggerCount, len(cipherHex), maxBlob)
+
+	// The oversized request passes every per-item ingress limit, but the validator's
+	// blob payload size check rejects it: the queued representation of the batch exceeds
+	// VaultMaxBlobPayloadSizeLimit because EncryptedValue is hex-encoded on the wire
+	// (2x its decoded size).
+	validator, err := vaultcap.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+	oversized := crit1BuildRequest("request-big", triggerCount, cipherHex, owner)
+	require.ErrorContains(t, validator.ValidateCreateSecretsRequest(t.Context(), pk, oversized, false),
+		"request exceeds maximum pending queue blob payload size")
+
+	// The plugin independently sheds such an item if one ever reaches a local store
+	// (defense in depth: version skew, direct store writes).
+	// Inject the oversized item plus a well-formed sibling into the local queue.
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := newTestReportingPlugin(t, withStore(store), withKeys(pk, shares[0]))
+	require.NoError(t, store.Add(&vaulttypes.Request{Payload: oversized, IDVal: "request-big"}))
+	sibling := crit1BuildRequest("request-small", 1, cipherHex, owner)
+	require.NoError(t, store.Add(&vaulttypes.Request{Payload: sibling, IDVal: "request-small"}))
+
+	rdr := &kv{m: make(map[string]response)}
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err, "Observation must not fail on an oversized local-queue item")
+
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	require.Len(t, obs.PendingQueueItems, 1, "expected only the sibling item to be broadcast; the oversized item must be shed, not wedge the round")
+}
+
+// TestCRIT1_Control_SubCapRequestObservesCleanly verifies the same request shape with
+// fewer secrets passes ingress and observes cleanly, isolating the shed behavior to the
+// blob-cap boundary rather than the request shape itself.
+func TestCRIT1_Control_SubCapRequestObservesCleanly(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	owner := common.HexToAddress("0xA07D569a8EbF58c09bFae64b2Fa85b0e0Dcb1dFb")
+	cipherHex := crit1MaxCiphertextHex(t, pk, owner)
+
+	maxBlob := int(cresettings.Default.VaultMaxBlobPayloadSizeLimit.DefaultValue)
+	req := crit1BuildRequest("request-1", 4, cipherHex, owner)
+	require.LessOrEqual(t, crit1BlobPayloadLen(t, req), maxBlob)
+
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := newTestReportingPlugin(t, withStore(store), withKeys(pk, shares[0]))
+	require.NoError(t, store.Add(&vaulttypes.Request{Payload: req, IDVal: req.RequestId}))
+
+	rdr := &kv{m: make(map[string]response)}
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	require.Len(t, obs.PendingQueueItems, 1, "expected one broadcast blob for the local item")
 }
