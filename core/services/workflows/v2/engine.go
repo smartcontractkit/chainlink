@@ -393,6 +393,11 @@ func (e *Engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, e
 	return nil
 }
 
+// errObservedAtMissing guards put's deadline derivation: put computes the queue
+// deadline from ObservedAt, so an unstamped event is rejected rather than given
+// a garbage deadline.
+var errObservedAtMissing = errors.New("trigger event ObservedAt not set")
+
 // put enqueues a trigger event into the engine's internal queue.
 func (e *Engine) put(ctx context.Context, event RoutedTriggerEvent) error {
 	triggerID := event.TriggerCapID
@@ -424,13 +429,12 @@ func (e *Engine) put(ctx context.Context, event RoutedTriggerEvent) error {
 		return err
 	}
 
-	// The producer must stamp ObservedAt at dispatch; the deadline below is
-	// derived from it. Reject events that arrive without it so the contract is
-	// enforced on both sides of the interface rather than silently backfilled.
+	// The deadline below is derived from ObservedAt, so reject events that
+	// arrive without it rather than silently backfill a garbage deadline.
 	if event.ObservedAt.IsZero() {
 		e.logger().Errorw("Trigger event missing ObservedAt, dropping", "triggerID", triggerID, "eventID", eventID)
 		e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "observed_at_missing")
-		return ErrObservedAtMissing
+		return errObservedAtMissing
 	}
 	queueTimeout, err := e.cfg.LocalLimiters.TriggerEventQueueTimeout.Limit(ctx)
 	if err != nil {
