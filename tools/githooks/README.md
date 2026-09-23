@@ -123,6 +123,9 @@ go -C tools/githooks run . actionlint .github/workflows/auto-update.yml
 go -C tools/githooks run . actionlint --rev=origin/develop
 ```
 
+> [!NOTE]
+> `--rev` only applies when no file arguments are given — if files are passed explicitly (as the lefthook hook does with `{staged_files}`), `--rev` is ignored and only those files are linted.
+
 ### `test` (aliases: `only-changed`, `short-test`)
 
 Runs unit tests (`tools/test`) in `-short` mode only on affected packages.

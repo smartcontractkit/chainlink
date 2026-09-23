@@ -45,8 +45,6 @@ pre-commit:
                   glob:
                     - ".github/**/*.yml"
                     - ".github/**/*.yaml"
-                    - ".github/*.yml"
-                    - ".github/*.yaml"
                   run: tools/githooks/.bin/githooks actionlint {staged_files}
                   fail_text: "actionlint failed or missing. Install maintained fork: https://github.com/kjanat/actionlint#installation"
 
