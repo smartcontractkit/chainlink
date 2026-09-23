@@ -2659,71 +2659,6 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 
-	t.Run("shard denial not owner returns ErrShardDeniedNotOwner", func(t *testing.T) {
-		t.Parallel()
-		ack := &recordingAcknowledger{}
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
-			// No Module.Execute expectation: the execution must never reach WASM.
-		}, func(cfg *v2.EngineConfig) {
-			cfg.TriggerAcknowledger = ack
-			cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ v2.RoutedTriggerEvent) error {
-				return v2.ErrShardDeniedNotOwner
-			}
-		})
-
-		err := ew.engine.TestPut(ctx, makeEvent("shard_not_owner_event"))
-		require.ErrorIs(t, err, v2.ErrShardDeniedNotOwner)
-
-		// The engine ACKs the skipped event before returning.
-		registrationID := v2.TriggerRegistrationID(baseCfg.WorkflowID, 0)
-		require.Equal(t, []string{registrationID + "/shard_not_owner_event"}, ack.ackCalls())
-
-		// No execution lifecycle hooks should have fired.
-		select {
-		case status := <-ew.executionFinishedCh:
-			t.Fatalf("unexpected OnExecutionFinished: %s", status)
-		default:
-		}
-		select {
-		case msg := <-ew.executionErrorCh:
-			t.Fatalf("unexpected OnExecutionError: %s", msg)
-		default:
-		}
-		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
-	})
-
-	t.Run("shard resolver error returns ErrShardDeniedOrchestrator", func(t *testing.T) {
-		t.Parallel()
-		ack := &recordingAcknowledger{}
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
-			// No Module.execute expectation: the execution must never reach WASM.
-		}, func(cfg *v2.EngineConfig) {
-			cfg.TriggerAcknowledger = ack
-			cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ v2.RoutedTriggerEvent) error {
-				return v2.ErrShardDeniedOrchestrator
-			}
-		})
-
-		err := ew.engine.TestPut(ctx, makeEvent("shard_orchestrator_error_event"))
-		require.ErrorIs(t, err, v2.ErrShardDeniedOrchestrator)
-
-		// The engine ACKs the skipped event before returning.
-		registrationID := v2.TriggerRegistrationID(baseCfg.WorkflowID, 0)
-		require.Equal(t, []string{registrationID + "/shard_orchestrator_error_event"}, ack.ackCalls())
-
-		select {
-		case status := <-ew.executionFinishedCh:
-			t.Fatalf("unexpected OnExecutionFinished: %s", status)
-		default:
-		}
-		select {
-		case msg := <-ew.executionErrorCh:
-			t.Fatalf("unexpected OnExecutionError: %s", msg)
-		default:
-		}
-		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
-	})
-
 	t.Run("metering reserve failure returns ErrMeteringReserveFailed", func(t *testing.T) {
 		t.Parallel()
 		ack := &recordingAcknowledger{}
@@ -2752,6 +2687,112 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		}
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
+}
+
+// TestEngine_ShardDenial drives a real trigger event through the engine's
+// actual subscription path (Subscribe -> RegisterTrigger -> eventCh -> put),
+// so the admission-to-ack wiring itself is under test, verifying that when
+// admission denies, the engine ack-and-drop correctly.
+func TestEngine_ShardDenial(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		wantErr error
+	}{
+		{name: "not owner", wantErr: v2.ErrShardDeniedNotOwner},
+		{name: "orchestrator error", wantErr: v2.ErrShardDeniedOrchestrator},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			module := modulemocks.NewModuleV2(t)
+			module.EXPECT().Start()
+			module.EXPECT().Close()
+			capreg := regmocks.NewCapabilitiesRegistry(t)
+			capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+
+			initDoneCh := make(chan error, 1)
+			subscribedToTriggersCh := make(chan []string, 1)
+			executionFinishedCh := make(chan string, 1)
+			executionErrorCh := make(chan string, 1)
+
+			cfg := defaultTestConfig(t, nil)
+			cfg.Module = module
+			cfg.CapRegistry = capreg
+			cfg.Hooks = v2.LifecycleHooks{
+				OnInitialized: func(err error) {
+					initDoneCh <- err
+				},
+				OnSubscribedToTriggers: func(triggerIDs []string) {
+					subscribedToTriggersCh <- triggerIDs
+				},
+				OnExecutionFinished: func(_ string, status string) {
+					executionFinishedCh <- status
+				},
+				OnExecutionError: func(msg string) {
+					executionErrorCh <- msg
+				},
+				OnTriggerAdmission: func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+					return tc.wantErr
+				},
+			}
+
+			engine, err := v2.NewEngine(cfg)
+			require.NoError(t, err)
+
+			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+			trigger := capmocks.NewTriggerCapability(t)
+			capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+			eventCh := make(chan capabilities.TriggerResponse)
+			trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+			trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+			// The engine must ACK the denied event exactly once to confirm the admission-to-ack wiring works correctly.
+			registrationID := v2.TriggerRegistrationID(cfg.WorkflowID, 0)
+			ackedCh := make(chan struct{}, 1)
+			trigger.EXPECT().
+				AckEvent(matches.AnyContext, registrationID, "shard_denial_event", mock.Anything).
+				Run(func(context.Context, string, string, string) { ackedCh <- struct{}{} }).
+				Return(nil).
+				Once()
+
+			require.NoError(t, engine.Start(t.Context()))
+			require.NoError(t, <-initDoneCh)
+			require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+
+			eventCh <- capabilities.TriggerResponse{
+				Event: capabilities.TriggerEvent{
+					TriggerType: "basic-trigger@1.0.0",
+					ID:          "shard_denial_event",
+				},
+			}
+
+			select {
+			case <-ackedCh:
+			case <-time.After(5 * time.Second):
+				t.Fatal("expected the denied event to be ACKed")
+			}
+
+			// No execution lifecycle hooks should have fired: denial happens
+			// before the event is ever enqueued for execution.
+			select {
+			case status := <-executionFinishedCh:
+				t.Fatalf("unexpected OnExecutionFinished: %s", status)
+			case <-time.After(100 * time.Millisecond):
+			}
+			select {
+			case msg := <-executionErrorCh:
+				t.Fatalf("unexpected OnExecutionError: %s", msg)
+			default:
+			}
+			require.Equal(t, int32(0), engine.ActiveExecutions())
+
+			require.NoError(t, engine.Close())
+		})
+	}
 }
 
 // setupMockBillingClient creates a mock billing client with default expectations.
