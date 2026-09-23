@@ -100,12 +100,14 @@ func ResolveFeeQuoterAddressAndVersion(
 		if ref.Type != datastore.ContractType(fqv2ops.ContractType) {
 			continue
 		}
-		if ref.Version == nil {
+		if ref.Version == nil || ref.Labels.Contains(SupersededLabel) {
 			continue
 		}
 		if bestVersion == nil || ref.Version.GreaterThan(bestVersion) {
 			bestVersion = ref.Version
 			bestRef = ref
+		} else if ref.Version.Equal(bestVersion) && ref.Address != bestRef.Address {
+			return common.Address{}, semver.Version{}, fmt.Errorf("ambiguous fee quoter %s on chain %d: found at %s and %s", ref.Version, chainSel, bestRef.Address, ref.Address)
 		}
 	}
 
@@ -118,6 +120,19 @@ func ResolveFeeQuoterAddressAndVersion(
 	}
 
 	return common.HexToAddress(bestRef.Address), *bestVersion, nil
+}
+
+// CollectDataStoreRefs returns the environment datastore's refs unkeyed, like
+// CollectAddressRefs but without the address book leg.
+func CollectDataStoreRefs(e deployment.Environment) ([]datastore.AddressRef, error) {
+	if e.DataStore == nil {
+		return nil, fmt.Errorf("datastore not available")
+	}
+	refs, err := e.DataStore.Addresses().Fetch()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch address refs from environment datastore: %w", err)
+	}
+	return refs, nil
 }
 
 // CollectAddressRefs returns a plain (unkeyed) slice of address refs drawn from both the

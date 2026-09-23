@@ -64,7 +64,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		ownerChainA,
 		ownerChainC,
 		state,
-		e.ExistingAddresses,
+		&tenv.Env,
 		"MY_TOKEN",
 	)
 	require.NoError(t, err)

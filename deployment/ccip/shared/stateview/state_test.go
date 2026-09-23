@@ -24,6 +24,7 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
@@ -436,7 +437,9 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			evmChains := rt.Environment().BlockChains.EVMChains()
 
 			if test.DeployCCIPHome {
-				_, err = cldf.DeployContract(lggr, evmChains[homeChainSelector], rt.State().AddressBook,
+				ds := datastore.NewMemoryDataStore()
+				_, err = shared.DeployContractAndRecord(lggr, evmChains[homeChainSelector], rt.State().AddressBook, ds,
+					cldf.NewTypeAndVersion(shared.CCIPHome, deployment.Version1_6_0), "",
 					func(chain cldf_evm.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
 						address, tx2, contract, err2 := ccip_home.DeployCCIPHome(
 							chain.DeployerKey,
@@ -448,10 +451,13 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 						}
 					})
 				require.NoError(t, err, "failed to deploy CCIP home")
+				require.NoError(t, rt.State().MergeChangesetOutput("test-deploy-ccip-home", cldf.ChangesetOutput{DataStore: ds}))
 			}
 
 			if test.DeployCapReg {
-				_, err = cldf.DeployContract(lggr, evmChains[homeChainSelector], rt.State().AddressBook,
+				ds := datastore.NewMemoryDataStore()
+				_, err = shared.DeployContractAndRecord(lggr, evmChains[homeChainSelector], rt.State().AddressBook, ds,
+					cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0), "",
 					func(chain cldf_evm.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 						address, tx2, contract, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 							chain.DeployerKey,
@@ -462,6 +468,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 						}
 					})
 				require.NoError(t, err, "failed to deploy capability registry")
+				require.NoError(t, rt.State().MergeChangesetOutput("test-deploy-cap-reg", cldf.ChangesetOutput{DataStore: ds}))
 			}
 
 			if test.DeployMCMS {

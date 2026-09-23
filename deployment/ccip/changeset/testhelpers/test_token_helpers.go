@@ -21,6 +21,7 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
@@ -96,7 +97,9 @@ func SetupTwoChainEnvironmentWithTokens(
 	for _, selector := range selectors {
 		chain := rt.Environment().BlockChains.EVMChains()[selector]
 
-		token, err := cldf.DeployContract(lggr, chain, rt.State().AddressBook,
+		ds := datastore.NewMemoryDataStore()
+		token, err := shared.DeployContractAndRecord(lggr, chain, rt.State().AddressBook, ds,
+			cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0), string(TestTokenSymbol),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 				tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 					chain.DeployerKey,
@@ -116,6 +119,7 @@ func SetupTwoChainEnvironmentWithTokens(
 			},
 		)
 		require.NoError(t, err)
+		require.NoError(t, rt.State().MergeChangesetOutput("test-deploy-token", cldf.ChangesetOutput{DataStore: ds}))
 		tokens[selector] = token
 	}
 

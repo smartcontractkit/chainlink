@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -70,7 +71,7 @@ func TestDataStoreTypeVersionsForChain_FiltersAndUniqueness(t *testing.T) {
 
 	// two active refs claiming one (type, version, qualifier) identity with different
 	// addresses — unreachable through this store's Add, possible in hand-loaded stores
-	err = checkRefUniqueness([]datastore.AddressRef{
+	err = ccipshared.CheckRefUniqueness([]datastore.AddressRef{
 		testRef(1, "0xA", "Router", &v16, ""),
 		testRef(1, "0xB", "Router", &v16, ""),
 	})
@@ -97,7 +98,7 @@ func TestMCMSBundleRefs_Isolation(t *testing.T) {
 		testRef(1, "0xSuperseded", mcmscontracts.CallProxy, &v10, DefaultMCMSQualifier, SupersededLabel),
 	}
 
-	bundle, err := mcmsBundleRefs(refs, 1, DefaultMCMSQualifier)
+	bundle, err := ccipshared.MCMSBundleRefs(refs, 1, DefaultMCMSQualifier)
 	require.NoError(t, err)
 	require.Len(t, bundle, 2) // qualified rows only; versionless and superseded dropped
 	for _, ref := range bundle {
@@ -105,17 +106,30 @@ func TestMCMSBundleRefs_Isolation(t *testing.T) {
 	}
 
 	// custom qualifier with no rows fails closed — no empty-qualifier fallback
-	_, err = mcmsBundleRefs(refs, 1, "RMNMCMS")
+	_, err = ccipshared.MCMSBundleRefs(refs, 1, "RMNMCMS")
 	require.ErrorContains(t, err, "no mcms refs for chain 1")
 
 	// default qualifier with no rows yields an empty bundle (MaybeLoad semantics)
-	bundle, err = mcmsBundleRefs(refs, 7, DefaultMCMSQualifier)
+	bundle, err = ccipshared.MCMSBundleRefs(refs, 7, DefaultMCMSQualifier)
 	require.NoError(t, err)
 	require.Empty(t, bundle)
 
+	// An unqualified bundle IS the legacy fallback for the default qualifier
+	// (singletons and DeployMCMSWithTimelockV2 test deployments are empty-qualified);
+	// dedicated bundles (RMNMCMS etc.) never fall back.
+	emptyOnly := []datastore.AddressRef{testRef(1, "0xEmptyOnly", mcmscontracts.RBACTimelock, &v10, "")}
+	bundle, err = ccipshared.MCMSBundleRefs(emptyOnly, 1, DefaultMCMSQualifier)
+	require.NoError(t, err)
+	require.Len(t, bundle, 1)
+	require.Equal(t, "", bundle[0].Qualifier)
+
+	// the fallback never fires for a custom qualifier
+	_, err = ccipshared.MCMSBundleRefs(emptyOnly, 1, "RMNMCMS")
+	require.ErrorContains(t, err, "no mcms refs for chain 1")
+
 	// two active refs, one identity
 	dup := append(refs, testRef(1, "0xQualifiedTimelock2", mcmscontracts.RBACTimelock, &v10, DefaultMCMSQualifier))
-	_, err = mcmsBundleRefs(dup, 1, DefaultMCMSQualifier)
+	_, err = ccipshared.MCMSBundleRefs(dup, 1, DefaultMCMSQualifier)
 	require.ErrorContains(t, err, "both")
 }
 
@@ -136,13 +150,12 @@ func TestLoadChainState_LabeledRefDispatch(t *testing.T) {
 func TestLoadChainState_SingularAmbiguity(t *testing.T) {
 	chain := cldf_evm.Chain{Selector: 1}
 	v12 := deployment.Version1_2_0
-	// labels must not let a duplicate evade the guard
-	addresses := map[string][]cldf.TypeAndVersion{
-		"0x00000000000000000000000000000000000000A1": {{Type: "Router", Version: v12}},
-		"0x00000000000000000000000000000000000000B2": {{Type: "Router", Version: v12, Labels: cldf.NewLabelSet("other")}},
+	refs := []datastore.AddressRef{
+		{Address: "0x00000000000000000000000000000000000000A1", ChainSelector: 1, Type: datastore.ContractType("Router"), Version: &v12},
+		{Address: "0x00000000000000000000000000000000000000B2", ChainSelector: 1, Type: datastore.ContractType("Router"), Version: &v12, Labels: datastore.NewLabelSet("other")},
 	}
-	_, err := LoadChainState(t.Context(), chain, addresses, WithMCMSQualifier(DefaultMCMSQualifier))
-	require.ErrorContains(t, err, "ambiguous Router 1.2.0")
+	_, err := loadChainStateFromDataStore(t.Context(), chain, refs, WithMCMSQualifier(DefaultMCMSQualifier))
+	require.ErrorContains(t, err, "datastore is ambiguous")
 }
 
 func TestLoadChainState_UnmodeledDuplicatesSkipped(t *testing.T) {
@@ -223,12 +236,12 @@ func TestValidateSolanaTimelockConfig(t *testing.T) {
 	tc := &cldfproposalutils.TimelockConfig{TimelockQualifierPerChain: map[uint64]string{1: "RMNMCMS"}}
 	require.NoError(t, ValidateSolanaTimelockConfig(cldf.Environment{DataStore: ds.Seal()}, 1, tc))
 
-	// default qualifier, empty fallback, action-specific contract; empty action defaults
-	// in place (framework validateCommon contract)
+	// default qualifier, action-specific contract; empty action defaults in place
+	// (framework validateCommon contract)
 	ds2 := datastore.NewMemoryDataStore()
-	require.NoError(t, ds2.Addresses().Add(testRef(1, valid, mcmscontracts.RBACTimelock, &v16, "")))
-	require.NoError(t, ds2.Addresses().Add(testRef(1, valid, mcmscontracts.BypasserManyChainMultisig, &v16, "")))
-	require.NoError(t, ds2.Addresses().Add(testRef(1, valid, mcmscontracts.ProposerManyChainMultisig, &v16, "")))
+	require.NoError(t, ds2.Addresses().Add(testRef(1, valid, mcmscontracts.RBACTimelock, &v16, DefaultMCMSQualifier)))
+	require.NoError(t, ds2.Addresses().Add(testRef(1, valid, mcmscontracts.BypasserManyChainMultisig, &v16, DefaultMCMSQualifier)))
+	require.NoError(t, ds2.Addresses().Add(testRef(1, valid, mcmscontracts.ProposerManyChainMultisig, &v16, DefaultMCMSQualifier)))
 	tc2 := &cldfproposalutils.TimelockConfig{MCMSAction: mcmstypes.TimelockActionBypass}
 	require.NoError(t, ValidateSolanaTimelockConfig(cldf.Environment{DataStore: ds2.Seal()}, 1, tc2))
 
@@ -242,7 +255,7 @@ func TestValidateSolanaTimelockConfig(t *testing.T) {
 
 	// superseded refs are invisible
 	ds3 := datastore.NewMemoryDataStore()
-	require.NoError(t, ds3.Addresses().Add(testRef(1, valid, mcmscontracts.RBACTimelock, &v16, "", SupersededLabel)))
+	require.NoError(t, ds3.Addresses().Add(testRef(1, valid, mcmscontracts.RBACTimelock, &v16, DefaultMCMSQualifier, SupersededLabel)))
 	_, err = dataStoreSolanaContractAddress(cldf.Environment{DataStore: ds3.Seal()}, 1, mcmscontracts.RBACTimelock, DefaultMCMSQualifier)
 	require.ErrorContains(t, err, "no RBACTimelock ref")
 

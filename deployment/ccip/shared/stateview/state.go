@@ -34,6 +34,7 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
@@ -114,9 +115,7 @@ import (
 
 const chainNotSupportedErr = "chain not supported"
 
-// CCIPOnChainState state always derivable from an address book.
-// Offchain state always derivable from a list of nodeIds.
-// Note can translate this into Go struct needed for MCMS/Docs/UI.
+// CCIPOnChainState is the datastore-backed loaded on-chain view used by MCMS, docs, and UI flows.
 type CCIPOnChainState struct {
 	// Populated go bindings for the appropriate version for all contracts.
 	// We would hold 2 versions of each contract here. Once we upgrade we can phase out the old one.
@@ -176,21 +175,34 @@ func (c CCIPOnChainState) ValidatePostDeploymentStateWithoutMCMSOwnership(e cldf
 	return c.runPostDeploymentValidation(e, validateHomeChain, false, nil)
 }
 
-func (c CCIPOnChainState) resolveOnRampAddress(e cldf.Environment, chainSelector uint64) (common.Address, bool) {
+func (c CCIPOnChainState) resolveOnRampAddress(e cldf.Environment, chainSelector uint64) (common.Address, bool, error) {
 	if cs, ok := c.EVMChainState(chainSelector); ok && cs.OnRamp != nil {
-		return cs.OnRamp.Address(), true
+		return cs.OnRamp.Address(), true, nil
 	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+	if e.DataStore == nil {
+		return common.Address{}, false, fmt.Errorf("datastore not available")
+	}
+	refs, err := e.DataStore.Addresses().Fetch()
 	if err != nil {
-		return common.Address{}, false
+		return common.Address{}, false, fmt.Errorf("failed to fetch datastore address refs: %w", err)
 	}
-	onRampTV := cldf.NewTypeAndVersion(ccipshared.OnRamp, deployment.Version1_6_0).String()
-	for addr, tv := range addresses {
-		if tv.String() == onRampTV {
-			return common.HexToAddress(addr), true
+	onRampTV := dispatchKey(cldf.NewTypeAndVersion(ccipshared.OnRamp, deployment.Version1_6_0))
+	var address string
+	for _, ref := range refs {
+		if ref.ChainSelector == chainSelector &&
+			ref.Version != nil &&
+			!ref.Labels.Contains(ccipshared.SupersededLabel) &&
+			fmt.Sprintf("%s %s", ref.Type, ref.Version) == onRampTV {
+			if address != "" && address != ref.Address {
+				return common.Address{}, false, fmt.Errorf("ambiguous OnRamp %s on chain %d: found at %s and %s", onRampTV, chainSelector, address, ref.Address)
+			}
+			address = ref.Address
 		}
 	}
-	return common.Address{}, false
+	if address == "" {
+		return common.Address{}, false, nil
+	}
+	return common.HexToAddress(address), true, nil
 }
 
 func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, validateHomeChain bool, validateOwnership bool, chainsToValidate map[uint64]bool) map[uint64][]error {
@@ -299,16 +311,13 @@ func (c CCIPOnChainState) runSingleChainValidation(
 			chainState.RMNRemote.Address().Hex(), isRMNEnabledInRMNHomeBySourceChain[sel], isRMNEnabledInRmnRemote))
 	}
 	var fqV2 *fqv2ops.FeeQuoterContract
-	// Resolve FeeQuoter candidates from a plain ref slice drawn from both the environment
-	// DataStore (qualified refs) and the existing address book (chain-singleton refs). Using a
-	// slice rather than a keyed datastore avoids collisions among multi-instance refs and works
-	// even when the environment DataStore is nil/empty.
-	candidates, err := ccipshared.CollectAddressRefs(e)
+	// Resolve FeeQuoter from active environment datastore refs. Keep the refs in slice form so
+	// qualified instances remain distinct, and fail fast if the datastore cannot be read.
+	candidates, err := ccipshared.CollectDataStoreRefs(e)
 	if err != nil {
-		// Return here rather than continuing with nil candidates: on a chain that does have a v2
-		// FeeQuoter, falling through would silently take the v1-only path and bury the real cause
-		// under a cascade of unrelated v1-vs-v2 mismatch errors.
-		return append(errs, fmt.Errorf("failed to collect address refs: %w", err))
+		// Do not continue with nil candidates: that could silently select the v1-only validation
+		// path and hide the datastore failure behind unrelated validation errors.
+		return append(errs, fmt.Errorf("failed to collect datastore refs: %w", err))
 	}
 	if fqAddr, fqVer, fqErr := ccipshared.ResolveFeeQuoterAddressAndVersion(candidates, sel); fqErr == nil && fqVer.Major() >= 2 {
 		if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
@@ -332,7 +341,9 @@ func (c CCIPOnChainState) runSingleChainValidation(
 			if connectedChain == sel {
 				continue
 			}
-			if addr, ok := c.resolveOnRampAddress(e, connectedChain); ok {
+			if addr, ok, resolveErr := c.resolveOnRampAddress(e, connectedChain); resolveErr != nil {
+				errs = append(errs, fmt.Errorf("onramp resolution for connected chain %d: %w", connectedChain, resolveErr))
+			} else if ok {
 				otherOnRamps[connectedChain] = addr
 			}
 		}
@@ -413,11 +424,18 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]evmstate.MCMSWithTime
 func (c CCIPOnChainState) SolanaMCMSStateByChain(e cldf.Environment) map[uint64]solstate.MCMSWithTimelockState {
 	mcmsStateByChain := make(map[uint64]solstate.MCMSWithTimelockState)
 	for chainSelector := range e.BlockChains.SolanaChains() {
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		if e.DataStore == nil {
+			return mcmsStateByChain
+		}
+		refs, err := e.DataStore.Addresses().Fetch()
 		if err != nil {
 			return mcmsStateByChain
 		}
-		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[chainSelector], addresses)
+		bundle, err := ccipshared.MCMSBundleRefs(refs, chainSelector, DefaultMCMSQualifier)
+		if err != nil || len(bundle) == 0 {
+			return mcmsStateByChain
+		}
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainStateV2(bundle)
 		if err != nil {
 			return mcmsStateByChain
 		}
@@ -1037,10 +1055,7 @@ func WithLoadLegacyContracts(load bool) LoadOption {
 	}
 }
 
-// WithMCMSQualifier routes MCMS bundle resolution to the environment datastore, filtered by
-// the given qualifier, instead of the address-book-shaped input map. Use DefaultMCMSQualifier
-// for the default CCIP bundle; the datastore may hold further bundles (RMN, ultra-fast-curse)
-// that other flows resolve by their own qualifier.
+// WithMCMSQualifier selects the MCMS bundle qualifier used by the datastore-backed loader.
 func WithMCMSQualifier(qualifier string) LoadOption {
 	return func(c *loadStateOpts) {
 		c.mcmsQualifier = qualifier
@@ -1056,31 +1071,13 @@ func WithTolerateUnknownContractTypes() LoadOption {
 	}
 }
 
-// addressSource selects where LoadChainState's address input is drawn from.
-type addressSource int
-
-const (
-	addressBookSource addressSource = iota
-	dataStoreSource
-)
-
+// LoadOnchainState loads CCIP on-chain state resolving contract addresses from the
+// environment datastore.
 func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState, error) {
-	return loadOnchainState(e, addressBookSource, opts...)
+	return loadOnchainState(e, opts...)
 }
 
-// LoadOnchainStateFromAddressBook is the address-book-backed load kept for the Phase-2 parity
-// harness and as the per-family revert target once the default load reads the datastore.
-func LoadOnchainStateFromAddressBook(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState, error) {
-	return loadOnchainState(e, addressBookSource, opts...)
-}
-
-// LoadOnchainStateFromDataStore is the datastore-backed load used by the Phase-2 parity
-// harness to build the datastore side of the comparison.
-func LoadOnchainStateFromDataStore(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState, error) {
-	return loadOnchainState(e, dataStoreSource, opts...)
-}
-
-func loadOnchainState(e cldf.Environment, source addressSource, opts ...LoadOption) (CCIPOnChainState, error) {
+func loadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState, error) {
 	solanaState, err := LoadOnchainStateSolana(e)
 	if err != nil {
 		return CCIPOnChainState{}, err
@@ -1118,30 +1115,17 @@ func loadOnchainState(e cldf.Environment, source addressSource, opts ...LoadOpti
 		chainOpts := make([]LoadOption, len(opts))
 		copy(chainOpts, opts)
 		mcmsQualifier := config.mcmsQualifier
-		if source == dataStoreSource {
-			chainOpts = append(chainOpts, WithTolerateUnknownContractTypes())
-			if mcmsQualifier == "" {
-				mcmsQualifier = DefaultMCMSQualifier
-				chainOpts = append(chainOpts, WithMCMSQualifier(mcmsQualifier))
-			}
+		chainOpts = append(chainOpts, WithTolerateUnknownContractTypes())
+		if mcmsQualifier == "" {
+			mcmsQualifier = DefaultMCMSQualifier
+			chainOpts = append(chainOpts, WithMCMSQualifier(mcmsQualifier))
 		}
 		grp.Go(func() error {
-			var (
-				addresses map[string][]cldf.TypeAndVersion
-				err       error
-			)
-			if source == dataStoreSource {
-				// load all addresses for chain from the datastore; the slice-per-address form
-				// preserves multiple contracts of the same type and version, and the MCMS
-				// bundles are resolved per qualifier after the main load
-				addresses, err = DataStoreTypeVersionsForChain(e, sel)
-			} else {
-				addresses, err = AddressBookTypeVersionsForChain(e, sel)
-			}
+			refs, err := dataStoreRefsForChain(e, sel)
 			if err != nil {
 				return err
 			}
-			chainState, err := LoadChainState(ctx, ch, addresses, chainOpts...)
+			chainState, err := loadChainStateFromDataStore(ctx, ch, refs, chainOpts...)
 			if err != nil {
 				return err
 			}
@@ -1165,19 +1149,52 @@ func loadOnchainState(e cldf.Environment, source addressSource, opts ...LoadOpti
 	return state, nil
 }
 
-// dispatchKey is the loader's dispatch identity: type and version. Labels are metadata, never
-// identity — TypeAndVersion.String() would fold them in and break labeled refs.
+// dispatchKey is the loader's dispatch identity: type and version.
 func dispatchKey(tv cldf.TypeAndVersion) string {
 	return fmt.Sprintf("%s %s", tv.Type, tv.Version.String())
 }
 
-// LoadChainState loads all state for a chain into state. The addresses argument is the
-// slice-per-address form produced by AddressBookTypeVersionsForChain / DataStoreTypeVersionsForChain:
-// one address may carry several refs (e.g. an implementation and a proxy), and dropping any of
-// them would silently narrow the loaded state. A (type, version) that appears at more than one
-// address and is not resolvable by symbol, label, or remote selector is an unrecoverable
-// ambiguity and errors loudly instead of last-writer-wins over map iteration order.
+type loadStateRef struct {
+	address   string
+	tv        cldf.TypeAndVersion
+	qualifier string
+}
+
+// LoadChainState loads state from the legacy address-to-type map. Datastore-backed loads retain
+// qualifiers through loadChainStateFromDataStore.
 func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[string][]cldf.TypeAndVersion, opts ...LoadOption) (evm.CCIPChainState, error) {
+	entries := make([]loadStateRef, 0, len(addresses))
+	for address, tvs := range addresses {
+		for _, tv := range tvs {
+			entries = append(entries, loadStateRef{address: address, tv: tv, qualifier: tv.Labels.String()})
+		}
+	}
+	return loadChainState(ctx, chain, addresses, entries, opts...)
+}
+
+func loadChainStateFromDataStore(ctx context.Context, chain cldf_evm.Chain, refs []datastore.AddressRef, opts ...LoadOption) (evm.CCIPChainState, error) {
+	addresses := AddressRefsToTypeVersions(refs)
+	entries := make([]loadStateRef, 0, len(refs))
+	for _, ref := range refs {
+		if ref.Version == nil {
+			continue
+		}
+		tv := cldf.TypeAndVersion{
+			Type:    cldf.ContractType(ref.Type),
+			Version: *ref.Version,
+		}
+		if !ref.Labels.IsEmpty() {
+			tv.Labels = cldf.NewLabelSet(ref.Labels.List()...)
+		}
+		entries = append(entries, loadStateRef{address: ref.Address, tv: tv, qualifier: ref.Qualifier})
+	}
+	if err := ccipshared.CheckRefUniqueness(refs); err != nil {
+		return evm.CCIPChainState{}, fmt.Errorf("datastore is ambiguous: %w", err)
+	}
+	return loadChainState(ctx, chain, addresses, entries, opts...)
+}
+
+func loadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[string][]cldf.TypeAndVersion, entries []loadStateRef, opts ...LoadOption) (evm.CCIPChainState, error) {
 	config := &loadStateOpts{}
 	for _, opt := range opts {
 		opt(config)
@@ -1207,36 +1224,20 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 	var mu sync.Mutex
 	var work []func(context.Context) error
 
-	// deterministic dispatch order: same-version instances of fixed-map types and slice
-	// appends (RegistryModules) must not depend on Go map iteration
-	type refEntry struct {
-		address string
-		tv      cldf.TypeAndVersion
-	}
-	entries := make([]refEntry, 0, len(addresses))
-	for address, tvs := range addresses {
-		for _, tv := range tvs {
-			entries = append(entries, refEntry{address, tv})
-		}
-	}
+	// Keep dispatch deterministic; datastore qualifiers remain available for identity checks.
 	sort.Slice(entries, func(i, j int) bool {
 		if entries[i].address != entries[j].address {
 			return entries[i].address < entries[j].address
 		}
-		return dispatchKey(entries[i].tv) < dispatchKey(entries[j].tv)
+		if dispatchKey(entries[i].tv) != dispatchKey(entries[j].tv) {
+			return dispatchKey(entries[i].tv) < dispatchKey(entries[j].tv)
+		}
+		return entries[i].qualifier < entries[j].qualifier
 	})
 
-	singulars := make(map[string]string)
 	feeQuoterSelections := make(map[string]string)
 	for _, entry := range entries {
 		address, tvStr := entry.address, entry.tv
-		if singularTypeVersions[dispatchKey(tvStr)] {
-			key := dispatchKey(tvStr)
-			if prevAddr, ambiguous := singulars[key]; ambiguous && prevAddr != address {
-				return state, fmt.Errorf("ambiguous %s: found at both %s and %s", key, prevAddr, address)
-			}
-			singulars[key] = address
-		}
 		switch dispatchKey(tvStr) {
 		case cldf.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.RBACTimelockABI
@@ -2132,16 +2133,21 @@ func LoadOnchainStateSolana(e cldf.Environment) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
 		SolChains: make(map[uint64]solana.CCIPChainState),
 	}
+	if e.DataStore == nil {
+		return state, fmt.Errorf("datastore not available for solana state loading")
+	}
+	allRefs, err := e.DataStore.Addresses().Fetch()
+	if err != nil {
+		return state, fmt.Errorf("failed to fetch address refs from datastore: %w", err)
+	}
 	for chainSelector, chain := range e.BlockChains.SolanaChains() {
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			// Chain not found in address book, initialize empty
-			if !errors.Is(err, cldf.ErrChainNotFound) {
-				return state, err
+		var chainRefs []datastore.AddressRef
+		for _, ref := range allRefs {
+			if ref.ChainSelector == chainSelector {
+				chainRefs = append(chainRefs, ref)
 			}
-			addresses = make(map[string]cldf.TypeAndVersion)
 		}
-		chainState, err := solana.LoadChainStateSolana(chain, addresses)
+		chainState, err := solana.LoadChainStateSolana(chain, chainRefs)
 		if err != nil {
 			return state, err
 		}
