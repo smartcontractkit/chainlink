@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/montanaflynn/stats"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
@@ -56,17 +57,20 @@ func DeployCoordinator(
 		_, tx, _, err = vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
 			e.Owner,
 			e.Ec,
-			common.HexToAddress(bhsAddress))
+			common.HexToAddress(bhsAddress),
+		)
 	case "arbitrum":
 		_, tx, _, err = vrf_coordinator_v2_5_arbitrum.DeployVRFCoordinatorV25Arbitrum(
 			e.Owner,
 			e.Ec,
-			common.HexToAddress(bhsAddress))
+			common.HexToAddress(bhsAddress),
+		)
 	case "optimism":
 		_, tx, _, err = vrf_coordinator_v2_5_optimism.DeployVRFCoordinatorV25Optimism(
 			e.Owner,
 			e.Ec,
-			common.HexToAddress(bhsAddress))
+			common.HexToAddress(bhsAddress),
+		)
 	default:
 		panic(fmt.Sprintf("Coordinator type not supported '%s'", coordinatorType))
 	}
@@ -127,12 +131,14 @@ func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2_5.VRFCoo
 func EoaDeployConsumer(e helpers.Environment,
 	coordinatorAddress string,
 	linkAddress string) (
-	consumerAddress common.Address) {
+	consumerAddress common.Address,
+) {
 	_, tx, _, err := vrf_v2plus_sub_owner.DeployVRFV2PlusExternalSubOwnerExample(
 		e.Owner,
 		e.Ec,
 		common.HexToAddress(coordinatorAddress),
-		common.HexToAddress(linkAddress))
+		common.HexToAddress(linkAddress),
+	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -155,7 +161,7 @@ func EoaFundSubWithLink(
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("sub ID: %d", subID))
 }
 
-func EoaFundSubWithNative(e helpers.Environment, coordinatorAddress common.Address, subID *big.Int, amount *big.Int) {
+func EoaFundSubWithNative(e helpers.Environment, coordinatorAddress common.Address, subID, amount *big.Int) {
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 	e.Owner.Value = amount
@@ -220,13 +226,14 @@ func SetCoordinatorL1FeeCalculation(
 }
 
 func RegisterCoordinatorProvingKey(e helpers.Environment,
-	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, gasLaneMaxGas uint64) {
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, gasLaneMaxGas uint64,
+) {
 	pubBytes, err := hex.DecodeString(uncompressed)
 	helpers.PanicErr(err)
-	x := new(big.Int).SetBytes(pubBytes[1:33])
-	y := new(big.Int).SetBytes(pubBytes[33:65])
+	pk, err := crypto.UnmarshalPubkey(pubBytes)
+	helpers.PanicErr(err)
 	tx, err := coordinator.RegisterProvingKey(e.Owner,
-		[2]*big.Int{x, y}, gasLaneMaxGas)
+		[2]*big.Int{pk.X, pk.Y}, gasLaneMaxGas)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(
 		context.Background(),

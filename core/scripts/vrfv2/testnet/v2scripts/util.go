@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
@@ -47,7 +48,8 @@ func DeployCoordinator(
 		e.Ec,
 		common.HexToAddress(linkAddress),
 		common.HexToAddress(bhsAddress),
-		common.HexToAddress(linkEthAddress))
+		common.HexToAddress(linkEthAddress),
+	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -63,7 +65,8 @@ func DeployTestCoordinator(
 		e.Ec,
 		common.HexToAddress(linkAddress),
 		common.HexToAddress(bhsAddress),
-		common.HexToAddress(linkEthAddress))
+		common.HexToAddress(linkEthAddress),
+	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -86,12 +89,13 @@ func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoord
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func EoaDeployConsumer(e helpers.Environment, coordinatorAddress string, linkAddress string) (consumerAddress common.Address) {
+func EoaDeployConsumer(e helpers.Environment, coordinatorAddress, linkAddress string) (consumerAddress common.Address) {
 	_, tx, _, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
 		e.Owner,
 		e.Ec,
 		common.HexToAddress(coordinatorAddress),
-		common.HexToAddress(linkAddress))
+		common.HexToAddress(linkAddress),
+	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -143,14 +147,14 @@ func SetCoordinatorConfig(
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func RegisterCoordinatorProvingKey(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2, uncompressed string, oracleAddress string) {
+func RegisterCoordinatorProvingKey(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2, uncompressed, oracleAddress string) {
 	pubBytes, err := hex.DecodeString(uncompressed)
 	helpers.PanicErr(err)
-	x := new(big.Int).SetBytes(pubBytes[1:33])
-	y := new(big.Int).SetBytes(pubBytes[33:65])
+	pk, err := crypto.UnmarshalPubkey(pubBytes)
+	helpers.PanicErr(err)
 	tx, err := coordinator.RegisterProvingKey(e.Owner,
 		common.HexToAddress(oracleAddress),
-		[2]*big.Int{x, y})
+		[2]*big.Int{pk.X, pk.Y})
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(
 		context.Background(),
@@ -201,7 +205,8 @@ func WrapperConfigure(
 		uint32(coordinatorGasOverhead), //nolint:gosec // coordinator overhead fits in uint32
 		uint8(premiumPercentage),       //nolint:gosec // premium percentage fits in uint8
 		common.HexToHash(keyHash),
-		uint8(maxNumWords)) //nolint:gosec // maxNumWords fits in uint8
+		uint8(maxNumWords), //nolint:gosec // maxNumWords fits in uint8
+	)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -237,7 +242,7 @@ func EoaLoadTestConsumerWithMetricsDeploy(e helpers.Environment, consumerCoordin
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func ClosestBlock(e helpers.Environment, batchBHSAddress common.Address, blockMissingBlockhash uint64, batchSize uint64) (uint64, error) {
+func ClosestBlock(e helpers.Environment, batchBHSAddress common.Address, blockMissingBlockhash, batchSize uint64) (uint64, error) {
 	batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(batchBHSAddress, e.Ec)
 	if err != nil {
 		return 0, err

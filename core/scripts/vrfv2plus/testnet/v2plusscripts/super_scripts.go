@@ -164,9 +164,13 @@ func SmokeTestVRF(e helpers.Environment) {
 	}
 	pubBytes, err := hex.DecodeString(uncompressed)
 	helpers.PanicErr(err)
-	pk, err := crypto.UnmarshalPubkey(pubBytes)
+	_, err = crypto.UnmarshalPubkey(pubBytes)
 	helpers.PanicErr(err)
-	pkBytes := crypto.CompressPubkey(pk)
+	pkBytes := make([]byte, 33)
+	copy(pkBytes[:32], pubBytes[1:33])
+	if pubBytes[64]&1 != 0 {
+		pkBytes[32] = 1
+	}
 	var newPK secp256k1.PublicKey
 	copy(newPK[:], pkBytes)
 
@@ -674,9 +678,13 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		// Generate compressed public key and key hash
 		pubBytes, err := hex.DecodeString(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey)
 		helpers.PanicErr(err)
-		pk, err := crypto.UnmarshalPubkey(pubBytes)
+		_, err = crypto.UnmarshalPubkey(pubBytes)
 		helpers.PanicErr(err)
-		pkBytes := crypto.CompressPubkey(pk)
+		pkBytes := make([]byte, 33)
+		copy(pkBytes[:32], pubBytes[1:33])
+		if pubBytes[64]&1 != 0 {
+			pkBytes[32] = 1
+		}
 		var newPK secp256k1.PublicKey
 		copy(newPK[:], pkBytes)
 

@@ -16,10 +16,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jmoiron/sqlx"
 	"github.com/shopspring/decimal"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
@@ -38,7 +40,6 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/v2scripts"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
@@ -195,7 +196,7 @@ func main() {
 		helpers.PanicErr(err)
 
 		db := sqlx.MustOpen("postgres", *dbURL)
-		lggr, _ := logger.NewLogger()
+		lggr, _ := logger.New()
 		keyStore := keystore.New(db, commonkeystore.DefaultScryptParams, lggr.Infof)
 		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
@@ -286,7 +287,7 @@ func main() {
 		helpers.PanicErr(err)
 
 		db := sqlx.MustOpen("postgres", *dbURL)
-		lggr, _ := logger.NewLogger()
+		lggr, _ := logger.New()
 		keyStore := keystore.New(db, commonkeystore.DefaultScryptParams, lggr.Infof)
 		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
@@ -555,9 +556,9 @@ func main() {
 		}
 		pubBytes, err := hex.DecodeString(*deregisterKeyUncompressedPubKey)
 		helpers.PanicErr(err)
-		x := new(big.Int).SetBytes(pubBytes[1:33])
-		y := new(big.Int).SetBytes(pubBytes[33:65])
-		tx, err := coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{x, y})
+		pk, err := crypto.UnmarshalPubkey(pubBytes)
+		helpers.PanicErr(err)
+		tx, err := coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y})
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "coordinator-subscription":
@@ -1197,12 +1198,12 @@ func main() {
 		}
 		pubBytes, err := hex.DecodeString(*uncompressedPubKey)
 		helpers.PanicErr(err)
-		x := new(big.Int).SetBytes(pubBytes[1:33])
-		y := new(big.Int).SetBytes(pubBytes[33:65])
+		pk, err := crypto.UnmarshalPubkey(pubBytes)
+		helpers.PanicErr(err)
 
 		var deregisterTx *types.Transaction
 		if !*skipDeregister {
-			deregisterTx, err = coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{x, y})
+			deregisterTx, err = coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y})
 			helpers.PanicErr(err)
 			fmt.Println("Deregister transaction", helpers.ExplorerLink(e.ChainID, deregisterTx.Hash()))
 		}
@@ -1211,7 +1212,7 @@ func main() {
 		e.Owner.GasPrice.Mul(e.Owner.GasPrice, big.NewInt(2))
 		registerTx, err := coordinator.RegisterProvingKey(e.Owner,
 			common.HexToAddress(*newOracleAddress),
-			[2]*big.Int{x, y})
+			[2]*big.Int{pk.X, pk.Y})
 		helpers.PanicErr(err)
 		fmt.Println("Register transaction", helpers.ExplorerLink(e.ChainID, registerTx.Hash()))
 

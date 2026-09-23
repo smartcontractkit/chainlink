@@ -2,21 +2,23 @@ package shared
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 )
 
-const RetryTiming = 5 * time.Second
-const CrossChainTimeout = 5 * time.Minute
-const TxInclusionTimeout = 3 * time.Minute
+const (
+	RetryTiming        = 5 * time.Second
+	CrossChainTimeout  = 5 * time.Minute
+	TxInclusionTimeout = 3 * time.Minute
+)
 
 // WaitForMined wait for a tx to be included on chain. It will panic when
 // the tx is reverted/successful based on the shouldSucceed parameter.
