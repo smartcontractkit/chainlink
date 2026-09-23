@@ -180,7 +180,7 @@ func (c CCIPOnChainState) resolveOnRampAddress(e cldf.Environment, chainSelector
 		return cs.OnRamp.Address(), true, nil
 	}
 	if e.DataStore == nil {
-		return common.Address{}, false, fmt.Errorf("datastore not available")
+		return common.Address{}, false, errors.New("datastore not available")
 	}
 	refs, err := e.DataStore.Addresses().Fetch()
 	if err != nil {
@@ -1074,10 +1074,10 @@ func WithTolerateUnknownContractTypes() LoadOption {
 // LoadOnchainState loads CCIP on-chain state resolving contract addresses from the
 // environment datastore.
 func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState, error) {
-	return loadOnchainState(e, opts...)
+	return loadOnchainStateFromDataStore(e, opts...)
 }
 
-func loadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState, error) {
+func loadOnchainStateFromDataStore(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState, error) {
 	solanaState, err := LoadOnchainStateSolana(e)
 	if err != nil {
 		return CCIPOnChainState{}, err
@@ -1169,7 +1169,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			entries = append(entries, loadStateRef{address: address, tv: tv, qualifier: tv.Labels.String()})
 		}
 	}
-	return loadChainState(ctx, chain, addresses, entries, opts...)
+	return loadChainStateWithEntries(ctx, chain, addresses, entries, opts...)
 }
 
 func loadChainStateFromDataStore(ctx context.Context, chain cldf_evm.Chain, refs []datastore.AddressRef, opts ...LoadOption) (evm.CCIPChainState, error) {
@@ -1191,10 +1191,10 @@ func loadChainStateFromDataStore(ctx context.Context, chain cldf_evm.Chain, refs
 	if err := ccipshared.CheckRefUniqueness(refs); err != nil {
 		return evm.CCIPChainState{}, fmt.Errorf("datastore is ambiguous: %w", err)
 	}
-	return loadChainState(ctx, chain, addresses, entries, opts...)
+	return loadChainStateWithEntries(ctx, chain, addresses, entries, opts...)
 }
 
-func loadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[string][]cldf.TypeAndVersion, entries []loadStateRef, opts ...LoadOption) (evm.CCIPChainState, error) {
+func loadChainStateWithEntries(ctx context.Context, chain cldf_evm.Chain, addresses map[string][]cldf.TypeAndVersion, entries []loadStateRef, opts ...LoadOption) (evm.CCIPChainState, error) {
 	config := &loadStateOpts{}
 	for _, opt := range opts {
 		opt(config)
@@ -2134,7 +2134,7 @@ func LoadOnchainStateSolana(e cldf.Environment) (CCIPOnChainState, error) {
 		SolChains: make(map[uint64]solana.CCIPChainState),
 	}
 	if e.DataStore == nil {
-		return state, fmt.Errorf("datastore not available for solana state loading")
+		return state, errors.New("datastore not available for solana state loading")
 	}
 	allRefs, err := e.DataStore.Addresses().Fetch()
 	if err != nil {

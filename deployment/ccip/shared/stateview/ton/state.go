@@ -1,6 +1,7 @@
 package ton
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -74,7 +75,7 @@ func SaveOnchainState(chainSelector uint64, state CCIPChainState, e cldf.Environ
 func LoadOnchainState(e cldf.Environment) (map[uint64]CCIPChainState, error) {
 	chains := make(map[uint64]CCIPChainState)
 	if e.DataStore == nil {
-		return chains, fmt.Errorf("TON state loading requires an environment datastore")
+		return chains, errors.New("TON state loading requires an environment datastore")
 	}
 	for chainSelector, chain := range e.BlockChains.TonChains() {
 		refs := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))

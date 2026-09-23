@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
@@ -57,6 +58,10 @@ func TestDeployHomeChain(t *testing.T) {
 	output, err := v1_6.DeployHomeChainChangeset(e, homeChainCfg)
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(e.DataStore))
+	require.NoError(t, ds.Merge(output.DataStore.Seal()))
+	e.DataStore = ds.Seal()
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
@@ -95,7 +100,10 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 	// apply the changeset once again to ensure idempotency
 	output, err := v1_6.DeployHomeChainChangeset(e.Env, homeChainCfg)
 	require.NoError(t, err)
-	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // will be addressed when we migrate to data store
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(e.Env.DataStore))
+	require.NoError(t, ds.Merge(output.DataStore.Seal()))
+	e.Env.DataStore = ds.Seal()
 	_, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 }

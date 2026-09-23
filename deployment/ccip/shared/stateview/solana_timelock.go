@@ -1,14 +1,16 @@
 package stateview
 
 import (
+	"errors"
 	"fmt"
+
+	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	mcmscontracts "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/contracts/mcms"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // ValidateSolanaTimelockConfig validates a Solana timelock config against the environment
@@ -20,7 +22,7 @@ import (
 // based); the framework is not patched.
 func ValidateSolanaTimelockConfig(e cldf.Environment, chainSelector uint64, tc *cldfproposalutils.TimelockConfig) error {
 	if tc == nil {
-		return fmt.Errorf("timelock config is nil")
+		return errors.New("timelock config is nil")
 	}
 	// default in place, mirroring the framework's validateCommon: callers observe the config
 	if tc.MCMSAction == "" {
@@ -84,10 +86,19 @@ func dataStoreSolanaContractAddress(e cldf.Environment, chainSelector uint64, co
 	if len(refs) == 0 {
 		return "", fmt.Errorf("no %s ref for chain %d", contractType, chainSelector)
 	}
+	qualifiers := []string{qualifier}
+	if qualifier == DefaultMCMSQualifier {
+		qualifiers = append(qualifiers, "")
+	}
 	var matching []datastore.AddressRef
-	for _, ref := range refs {
-		if ref.Qualifier == qualifier {
-			matching = append(matching, ref)
+	for _, candidate := range qualifiers {
+		for _, ref := range refs {
+			if ref.Qualifier == candidate {
+				matching = append(matching, ref)
+			}
+		}
+		if len(matching) > 0 {
+			break
 		}
 	}
 	if len(matching) == 0 {

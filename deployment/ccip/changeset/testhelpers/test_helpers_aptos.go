@@ -447,6 +447,9 @@ func DeployRegulatedTransferableTokenAptos(
 				TokenPoolAddress:                    aptos.AccountAddress{},             // Will be deployed
 				PoolType:                            shared.AptosRegulatedTokenPoolType, // Use regulated token pool type
 				TokenTransferFeeByRemoteChainConfig: nil,
+				TokenParams: config.TokenParams{
+					Symbol: tokenSymbol,
+				},
 				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
 					evmChainSel: {
 						TokenAddress:     evmToken.Address(),
@@ -530,6 +533,8 @@ func DeployBnMTokenAptos(
 	aptos_burn_mint_token_pool.BurnMintTokenPool,
 	error,
 ) {
+	const aptosTokenSymbol shared.TokenSymbol = "TKN"
+
 	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
 	require.NoError(t, err)
 	require.Equal(t, chainsel.FamilyEVM, selectorFamily)
@@ -554,6 +559,7 @@ func DeployBnMTokenAptos(
 	signerAddress := signer.AccountAddress()
 	client := e.BlockChains.AptosChains()[aptosChainSel].Client
 	opts := &aptosBind.TransactOpts{Signer: signer}
+	aptosDS := datastore.NewMemoryDataStore()
 	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
 	require.NoError(t, err)
 	mcmsAddress := aptosstate.FindAptosAddress(
@@ -580,7 +586,7 @@ func DeployBnMTokenAptos(
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to deploy test_token: %v", data.VmStatus)
 
-	tx, err = testToken.TestToken().Initialize(opts, nil, "Test Token", "TKN", 8, "", "", true)
+	tx, err = testToken.TestToken().Initialize(opts, nil, "Test Token", aptosTokenSymbol.String(), 8, "", "", true)
 	require.NoError(t, err)
 	data, err = client.WaitForTransaction(tx.Hash)
 	require.NoError(t, err)
@@ -598,13 +604,14 @@ func DeployBnMTokenAptos(
 	tokenAddress, err := testToken.TestToken().TokenMetadata(nil)
 	require.NoError(t, err)
 
-	// Save addresses in address book
+	// Record manually deployed addresses in both stores; AddTokenPool does not re-record
+	// addresses supplied as pre-existing.
 	typeAndVersion := cldf.NewTypeAndVersion(shared.AptosTestTokenType, deployment.Version1_6_0)
-	typeAndVersion.AddLabel("TKN")
-	err = e.ExistingAddresses.Save(aptosChainSel, tokenObjectAddress.StringLong(), typeAndVersion)
+	typeAndVersion.AddLabel(aptosTokenSymbol.String())
+	err = shared.RecordAddress(e.ExistingAddresses, aptosDS, aptosChainSel, tokenObjectAddress.StringLong(), typeAndVersion, shared.TokenQualifier(aptosTokenSymbol.String()))
 	require.NoError(t, err)
-	typeAndVersion = cldf.NewTypeAndVersion(cldf.ContractType("TKN"), deployment.Version1_6_0)
-	err = e.ExistingAddresses.Save(aptosChainSel, tokenAddress.StringLong(), typeAndVersion)
+	typeAndVersion = cldf.NewTypeAndVersion(cldf.ContractType(aptosTokenSymbol), deployment.Version1_6_0)
+	err = shared.RecordAddress(e.ExistingAddresses, aptosDS, aptosChainSel, tokenAddress.StringLong(), typeAndVersion, shared.TokenQualifier(aptosTokenSymbol.String()))
 	require.NoError(t, err)
 
 	// Deploy BnM Token Pool
@@ -622,8 +629,9 @@ func DeployBnMTokenAptos(
 
 	typeAndVersion = cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_6_0)
 	typeAndVersion.AddLabel(tokenAddress.StringLong())
-	err = e.ExistingAddresses.Save(aptosChainSel, tokenPoolAddress.StringLong(), typeAndVersion)
+	err = shared.RecordAddress(e.ExistingAddresses, aptosDS, aptosChainSel, tokenPoolAddress.StringLong(), typeAndVersion, shared.TokenQualifier(aptosTokenSymbol.String()))
 	require.NoError(t, err)
+	require.NoError(t, mergeDataStoreIntoEnv(e, aptosDS))
 
 	// Deploy BnM registrar
 	tx, bnmRegistrar, err := bnm_registrar.DeployToExistingObject(signer, client, tokenObjectAddress, tokenPoolAddress, ccipAddress, tokenPoolAddress, mcmsAddress, tokenAddress)
@@ -701,6 +709,9 @@ func DeployBnMTokenAptos(
 				TokenPoolAddress:                    tokenPoolAddress,
 				PoolType:                            shared.BurnMintTokenPool,
 				TokenTransferFeeByRemoteChainConfig: nil,
+				TokenParams: config.TokenParams{
+					Symbol: aptosTokenSymbol,
+				},
 				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
 					evmChainSel: {
 						TokenAddress:     evmToken.Address(),
@@ -777,6 +788,8 @@ func DeployLnRTokenAptos(
 	lock_release_token_pool.LockReleaseTokenPool,
 	error,
 ) {
+	const aptosTokenSymbol shared.TokenSymbol = "TKN"
+
 	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
 	require.NoError(t, err)
 	require.Equal(t, chainsel.FamilyEVM, selectorFamily)
@@ -801,6 +814,7 @@ func DeployLnRTokenAptos(
 	signerAddress := signer.AccountAddress()
 	client := e.BlockChains.AptosChains()[aptosChainSel].Client
 	opts := &aptosBind.TransactOpts{Signer: signer}
+	aptosDS := datastore.NewMemoryDataStore()
 	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
 	require.NoError(t, err)
 	mcmsAddress := aptosstate.FindAptosAddress(
@@ -827,7 +841,7 @@ func DeployLnRTokenAptos(
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to deploy test_token: %v", data.VmStatus)
 
-	tx, err = testToken.TestToken().Initialize(opts, nil, "Test Token", "TKN", 8, "", "", withDispatchHooks)
+	tx, err = testToken.TestToken().Initialize(opts, nil, "Test Token", aptosTokenSymbol.String(), 8, "", "", withDispatchHooks)
 	require.NoError(t, err)
 	data, err = client.WaitForTransaction(tx.Hash)
 	require.NoError(t, err)
@@ -845,13 +859,14 @@ func DeployLnRTokenAptos(
 	tokenAddress, err := testToken.TestToken().TokenMetadata(nil)
 	require.NoError(t, err)
 
-	// Save addresses in address book
+	// Record manually deployed addresses in both stores; AddTokenPool does not re-record
+	// addresses supplied as pre-existing.
 	typeAndVersion := cldf.NewTypeAndVersion(shared.AptosTestTokenType, deployment.Version1_6_0)
-	typeAndVersion.AddLabel("TKN")
-	err = e.ExistingAddresses.Save(aptosChainSel, tokenObjectAddress.StringLong(), typeAndVersion)
+	typeAndVersion.AddLabel(aptosTokenSymbol.String())
+	err = shared.RecordAddress(e.ExistingAddresses, aptosDS, aptosChainSel, tokenObjectAddress.StringLong(), typeAndVersion, shared.TokenQualifier(aptosTokenSymbol.String()))
 	require.NoError(t, err)
-	typeAndVersion = cldf.NewTypeAndVersion(cldf.ContractType("TKN"), deployment.Version1_6_0)
-	err = e.ExistingAddresses.Save(aptosChainSel, tokenAddress.StringLong(), typeAndVersion)
+	typeAndVersion = cldf.NewTypeAndVersion(cldf.ContractType(aptosTokenSymbol), deployment.Version1_6_0)
+	err = shared.RecordAddress(e.ExistingAddresses, aptosDS, aptosChainSel, tokenAddress.StringLong(), typeAndVersion, shared.TokenQualifier(aptosTokenSymbol.String()))
 	require.NoError(t, err)
 
 	// Deploy LnR Token Pool
@@ -869,8 +884,9 @@ func DeployLnRTokenAptos(
 
 	typeAndVersion = cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_6_0)
 	typeAndVersion.AddLabel(tokenAddress.StringLong())
-	err = e.ExistingAddresses.Save(aptosChainSel, tokenPoolAddress.StringLong(), typeAndVersion)
+	err = shared.RecordAddress(e.ExistingAddresses, aptosDS, aptosChainSel, tokenPoolAddress.StringLong(), typeAndVersion, shared.TokenQualifier(aptosTokenSymbol.String()))
 	require.NoError(t, err)
+	require.NoError(t, mergeDataStoreIntoEnv(e, aptosDS))
 
 	// Deploy LnR registrar
 	tx, lnrRegistrar, err := lnr_registrar.DeployToExistingObject(signer, client, tokenObjectAddress, tokenPoolAddress, ccipAddress, tokenPoolAddress, mcmsAddress, tokenAddress)
@@ -956,6 +972,9 @@ func DeployLnRTokenAptos(
 				TokenPoolAddress:                    tokenPoolAddress,
 				PoolType:                            shared.LockReleaseTokenPool,
 				TokenTransferFeeByRemoteChainConfig: nil,
+				TokenParams: config.TokenParams{
+					Symbol: aptosTokenSymbol,
+				},
 				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
 					evmChainSel: {
 						TokenAddress:     evmToken.Address(),

@@ -419,7 +419,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		)
 
 		lggr.Info("Starting changeset deployment, this will take long on first run due to anchor build for solana programs")
-		solCs, err := testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[0], false, &buildConfig)
+		solCs, err := testhelpers.DeployChainContractsToSolChainCS(&deployedEnv, solChainSelectors[0], false, &buildConfig)
 		if err != nil {
 			return *e, err
 		}

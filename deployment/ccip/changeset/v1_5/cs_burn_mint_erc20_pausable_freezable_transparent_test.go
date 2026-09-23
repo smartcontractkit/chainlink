@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -94,6 +95,17 @@ func TestBurnMintERC20PausableFreezableTransparentValidate(t *testing.T) {
 
 					err = e.Env.ExistingAddresses.Save(chainSelector, implementation.Address().String(), cldf.NewTypeAndVersion(shared.BurnMintERC20PausableFreezableTransparentToken, deployment.Version1_5_0))
 					require.NoError(t, err)
+					ds := datastore.NewMemoryDataStore()
+					require.NoError(t, ds.Merge(e.Env.DataStore))
+					version := deployment.Version1_5_0
+					require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+						ChainSelector: chainSelector,
+						Address:       implementation.Address().String(),
+						Type:          datastore.ContractType(shared.BurnMintERC20PausableFreezableTransparentToken),
+						Version:       &version,
+						Qualifier:     token,
+					}))
+					e.Env.DataStore = ds.Seal()
 
 					initData, err := parsedABI.Pack(
 						"initialize",

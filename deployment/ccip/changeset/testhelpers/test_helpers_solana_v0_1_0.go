@@ -1390,7 +1390,7 @@ func AddLanesForAll(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainSta
 	for _, source := range chains {
 		for _, dest := range chains {
 			if source != dest {
-				AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false)
+				require.NoError(t, AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false))
 			}
 		}
 	}
@@ -2285,62 +2285,36 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 }
 
 // TODO: this should be linked to the solChain function
-func SavePreloadedSolAddresses(e cldf.Environment, solChainSelector uint64) error {
-	tv := cldf.NewTypeAndVersion(shared.Router, deployment.Version1_0_0)
-	err := e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCIPRouter), tv)
-	if err != nil {
-		return err
+func SavePreloadedSolAddresses(e *cldf.Environment, solChainSelector uint64) error {
+	ds := datastore.NewMemoryDataStore()
+	if e.DataStore != nil {
+		if err := ds.Merge(e.DataStore); err != nil {
+			return fmt.Errorf("merge environment datastore: %w", err)
+		}
 	}
-	tv = cldf.NewTypeAndVersion(shared.Receiver, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgTestCCIPReceiver), tv)
-	if err != nil {
-		return err
+
+	preloaded := []struct {
+		tv      cldf.TypeAndVersion
+		address string
+	}{
+		{cldf.NewTypeAndVersion(shared.Router, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgCCIPRouter)},
+		{cldf.NewTypeAndVersion(shared.Receiver, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgTestCCIPReceiver)},
+		{cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgFeeQuoter)},
+		{cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgCCIPOfframp)},
+		{cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgBurnMintTokenPool)},
+		{cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgLockReleaseTokenPool)},
+		{cldf.NewTypeAndVersion(shared.CCTPTokenPool, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgCCTPTokenPool)},
+		{cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgMCM)},
+		{cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgAccessController)},
+		{cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgTimelock)},
+		{cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgRMNRemote)},
 	}
-	tv = cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgFeeQuoter), tv)
-	if err != nil {
-		return err
+	for _, item := range preloaded {
+		if err := shared.RecordAddress(e.ExistingAddresses, ds, solChainSelector, item.address, item.tv, ""); err != nil {
+			return err
+		}
 	}
-	tv = cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCIPOfframp), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgBurnMintTokenPool), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgLockReleaseTokenPool), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.CCTPTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCTPTokenPool), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgMCM), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgAccessController), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgTimelock), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgRMNRemote), tv)
-	if err != nil {
-		return err
-	}
+	e.DataStore = ds.Seal()
 	return nil
 }
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -532,8 +531,11 @@ func LoadChainStateSolana(chain cldf_solana.Chain, refs []datastore.AddressRef) 
 			var poolMetadata string
 			parts := solanaRefParts(ref)
 			if ref.Qualifier != "" {
-				// Datastore qualifiers join the parts with "/": token[/poolType/metadata].
-				parts = strings.Split(ref.Qualifier, "/")
+				var err error
+				parts, err = shared.ParseQualifierParts(ref.Qualifier)
+				if err != nil {
+					return ccipChainState, fmt.Errorf("invalid token pool lookup table qualifier %q: %w", ref.Qualifier, err)
+				}
 			}
 			for _, part := range parts {
 				maybeTokenPubKey, err := solana.PublicKeyFromBase58(part)
