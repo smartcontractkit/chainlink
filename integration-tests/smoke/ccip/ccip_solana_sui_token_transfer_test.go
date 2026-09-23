@@ -81,7 +81,7 @@ func prepareSolana2SuiTokenTransferTest(t *testing.T) solana2SuiTokenFixtures {
 	rpcClient := solChains[sourceChain].Client
 	ctx := testcontext.Get(t)
 
-	wSOL := solana.SolMint
+	wSOL := solana.WrappedSol
 	ixAtaUser, deployerWSOL, err := soltokens.CreateAssociatedTokenAccount(solana.TokenProgramID, wSOL, deployer.PublicKey(), deployer.PublicKey())
 	require.NoError(t, err)
 
