@@ -80,6 +80,7 @@ type WorkflowEngine interface {
 	services.Service
 	EventSink
 	Drainable
+	Subscriber
 }
 
 // RoutedTriggerEvent is the canonical trigger event type that flows

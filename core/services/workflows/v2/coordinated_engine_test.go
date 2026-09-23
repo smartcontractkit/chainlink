@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
-// noopAcknowledger satisfies v2.Acknowledger without doing anything.
 type noopAcknowledger struct{}
 
 func (noopAcknowledger) Ack(_ context.Context, _, _, _ string) error { return nil }

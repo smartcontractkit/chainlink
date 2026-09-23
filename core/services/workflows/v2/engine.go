@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
-// TODO: remove acknowledger check after CRE-6002 is implemented.
 var _ Acknowledger = (*Engine)(nil)
 var _ EventSink = (*Engine)(nil)
 var _ WorkflowEngine = (*Engine)(nil)
@@ -154,8 +153,6 @@ func (e *Engine) close() error {
 	ctx, cancel := e.shutdownCtx()
 	defer cancel()
 
-	// The legacy engine owns its trigger registrations, so it unregisters them
-	// before tearing down execution state.
 	e.triggersRegMu.Lock()
 	e.unregisterAllTriggers(ctx)
 	e.triggersRegMu.Unlock()
@@ -163,7 +160,7 @@ func (e *Engine) close() error {
 
 	e.closeCommon(ctx)
 
-	if e.workflowLimitUsed.Load() { // init called Use
+	if e.workflowLimitUsed.Load() {
 		return e.cfg.GlobalWorkflowLimit.Free(ctx, 1)
 	}
 	return nil
@@ -374,9 +371,6 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 	e.triggers = make(map[string]*triggerCapability)
 }
 
-// Ack acknowledges a trigger event via the injected TriggerAcknowledger.
-// In M1 this is the existing engine's internal acknowledger logic. In M2 the
-// OCR reporting plugin implements this to ACK.
 func (e *Engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
 	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
 
@@ -400,7 +394,7 @@ func (e *Engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, e
 }
 
 // put enqueues a trigger event into the engine's internal queue.
-func (e *Engine) put(ctx context.Context, event RoutedTriggerEvent) error { // transitional
+func (e *Engine) put(ctx context.Context, event RoutedTriggerEvent) error {
 	triggerID := event.TriggerCapID
 	eventID := event.Event.Event.ID
 	idx := event.TriggerIndex
@@ -477,7 +471,8 @@ func (e *Engine) put(ctx context.Context, event RoutedTriggerEvent) error { // t
 	return nil
 }
 
-// handleAllTriggerEvents drains Put's queue and executes each event.
+// handleAllTriggerEvents drains the engine's trigger-event queue (populated by put method)
+// and executes each event in turn.
 func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 	for {
 		queueHead, err := e.allTriggerEventsQueueCh.Wait(ctx)

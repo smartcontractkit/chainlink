@@ -12,12 +12,12 @@ var _ EventSink = (*CoordinatedEngine)(nil)
 var _ WorkflowEngine = (*CoordinatedEngine)(nil)
 var _ Subscriber = (*CoordinatedEngine)(nil)
 
-// CoordinatedEngine is the execution-only workflow engine: it registers no
-// triggers itself and instead relies on a TriggerCoordinator to Subscribe,
-// register, and deliver events to it.
+// CoordinatedEngine is an execution-only workflow engine: it registers no
+// triggers itself and instead relies on an external manager to Subscribe,
+// register triggers and call its ExecuteTrigger method
 //
 // All execution machinery lives on the embedded baseEngine, including the single
-// services.Engine. CoordinatedEngine adds only its own lifecycle.
+// services.Engine.
 type CoordinatedEngine struct {
 	*baseEngine
 }
@@ -43,7 +43,6 @@ func (e *CoordinatedEngine) start(ctx context.Context) error {
 	return e.startWith(ctx, e.init, nil)
 }
 
-// init is the execution-only initialization: DON sync -> OnInitialized.
 func (e *CoordinatedEngine) init(ctx context.Context) {
 	// Tracer is no-op if DebugMode is false
 	ctx, span := e.tracer.Start(ctx, "workflow_engine_init",
