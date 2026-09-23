@@ -89,7 +89,7 @@ func TestMatrixInMemory_CLI(t *testing.T) {
 	assert.Equal(t, "ubuntu-latest", res[0].RunsOn)
 }
 
-func TestMatrixCCIP_CLI(t *testing.T) {
+func TestMatrixCCIP_CLI_DefaultQuarantine(t *testing.T) {
 	t.Parallel()
 
 	rootCmd := cmd.NewRootCmd()
@@ -98,6 +98,34 @@ func TestMatrixCCIP_CLI(t *testing.T) {
 	rootCmd.SetErr(&out)
 	rootCmd.SetArgs([]string{
 		"matrix", "ccip",
+		"--run-id", "789",
+		"--run-attempt", "2",
+		"--spot-flag", "spot=co",
+		"--json",
+	})
+
+	err := rootCmd.ExecuteContext(context.Background())
+	require.NoError(t, err)
+
+	var res []matrix.CCIPSystemEntry
+	err = json.Unmarshal(out.Bytes(), &res)
+	require.NoError(t, err)
+	require.Len(t, res, 3)
+	assert.Equal(t, "Test_CCIPGasPriceUpdatesWriteFrequency", res[0].TestName)
+	assert.Equal(t, "TestRMN_GlobalCurseTwoMessagesOnTwoLanes", res[1].TestName)
+	assert.Equal(t, "TestDeleteCCIPJobs-TestRevokeJobs", res[2].TestName)
+}
+
+func TestMatrixCCIP_CLI_RunMixedVersionTests(t *testing.T) {
+	t.Parallel()
+
+	rootCmd := cmd.NewRootCmd()
+	var out bytes.Buffer
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+	rootCmd.SetArgs([]string{
+		"matrix", "ccip",
+		"--run-mixed-version-tests",
 		"--run-id", "789",
 		"--run-attempt", "2",
 		"--spot-flag", "spot=co",
@@ -145,6 +173,31 @@ func TestMatrixCCIP_CLI_MixedVersionOnly(t *testing.T) {
 	require.Len(t, res, 2)
 	assert.Equal(t, "Test_CCIPMixedVersionDON", res[0].TestName)
 	assert.Equal(t, "Test_CCIPRollingUpgrade", res[1].TestName)
+}
+
+func TestMatrixCCIP_CLI_EnvResolution(t *testing.T) {
+	t.Setenv("GITHUB_RUN_ID", "555")
+	t.Setenv("GITHUB_RUN_ATTEMPT", "1")
+	t.Setenv("RUNNER_SPOT_FLAG", "spot=co")
+	t.Setenv("RUN_MIXED_VERSION_TESTS", "true")
+
+	rootCmd := cmd.NewRootCmd()
+	var out bytes.Buffer
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
+	rootCmd.SetArgs([]string{
+		"matrix", "ccip",
+		"--json",
+	})
+
+	err := rootCmd.ExecuteContext(context.Background())
+	require.NoError(t, err)
+
+	var res []matrix.CCIPSystemEntry
+	err = json.Unmarshal(out.Bytes(), &res)
+	require.NoError(t, err)
+	require.Len(t, res, 5)
+	assert.Equal(t, "runs-on=555-0-1/cpu=8/ram=64/family=r6i+r7i+r8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", res[0].RunsOn)
 }
 
 func TestMatrixMixedEnv_CLI(t *testing.T) {

@@ -206,11 +206,12 @@ func newMatrixInMemoryCmd() *cobra.Command {
 
 func newMatrixCCIPCmd() *cobra.Command {
 	var (
-		runID            string
-		runAttempt       string
-		spotFlag         string
-		mixedVersionOnly bool
-		jsonOutput       bool
+		runID                string
+		runAttempt           string
+		spotFlag             string
+		mixedVersionOnly     bool
+		runMixedVersionTests bool
+		jsonOutput           bool
 	)
 
 	cmd := &cobra.Command{
@@ -220,11 +221,28 @@ func newMatrixCCIPCmd() *cobra.Command {
 			act := ghaction.NewAction(cmd.OutOrStdout())
 			resolveMatrixCommon(act, &runID, &runAttempt, &spotFlag)
 
+			if !mixedVersionOnly {
+				if v := act.GetInput("mixed_version_only"); v == "true" || v == "1" {
+					mixedVersionOnly = true
+				} else if v := act.Getenv("MIXED_VERSION_ONLY"); v == "true" || v == "1" {
+					mixedVersionOnly = true
+				}
+			}
+
+			if !runMixedVersionTests {
+				if v := act.GetInput("run_mixed_version_tests"); v == "true" || v == "1" {
+					runMixedVersionTests = true
+				} else if v := act.Getenv("RUN_MIXED_VERSION_TESTS"); v == "true" || v == "1" {
+					runMixedVersionTests = true
+				}
+			}
+
 			res, err := matrix.BuildCCIPSystemMatrix(cmd.Context(), matrix.CCIPSystemOptions{
-				RunID:            runID,
-				RunAttempt:       runAttempt,
-				SpotFlag:         spotFlag,
-				MixedVersionOnly: mixedVersionOnly,
+				RunID:                runID,
+				RunAttempt:           runAttempt,
+				SpotFlag:             spotFlag,
+				MixedVersionOnly:     mixedVersionOnly,
+				RunMixedVersionTests: runMixedVersionTests,
 			})
 			if err != nil {
 				return err
@@ -237,7 +255,8 @@ func newMatrixCCIPCmd() *cobra.Command {
 	cmd.Flags().StringVar(&runID, "run-id", "", "GitHub run ID (env: GITHUB_RUN_ID)")
 	cmd.Flags().StringVar(&runAttempt, "run-attempt", "", "GitHub run attempt (env: GITHUB_RUN_ATTEMPT)")
 	cmd.Flags().StringVar(&spotFlag, "spot-flag", "", "RunsOn spot flag (e.g. 'spot=co', 'spot=false')")
-	cmd.Flags().BoolVar(&mixedVersionOnly, "mixed-version-only", false, "Restrict matrix to mixed-version tests (release rollout)")
+	cmd.Flags().BoolVar(&mixedVersionOnly, "mixed-version-only", false, "Restrict matrix to mixed-version tests (release rollout) (env: MIXED_VERSION_ONLY)")
+	cmd.Flags().BoolVar(&runMixedVersionTests, "run-mixed-version-tests", false, "Include mixed-version tests in test matrix (env: RUN_MIXED_VERSION_TESTS)")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output formatted JSON to stdout")
 
 	return cmd

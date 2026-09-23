@@ -7,10 +7,11 @@ import (
 
 // CCIPSystemOptions contains parameters for generating CCIP system test matrix.
 type CCIPSystemOptions struct {
-	RunID            string
-	RunAttempt       string
-	SpotFlag         string
-	MixedVersionOnly bool
+	RunID                string
+	RunAttempt           string
+	SpotFlag             string
+	MixedVersionOnly     bool
+	RunMixedVersionTests bool
 }
 
 // CCIPSystemEntry is a single test entry in the CCIP system matrix.
@@ -92,15 +93,16 @@ func BuildCCIPSystemMatrix(ctx context.Context, opts CCIPSystemOptions) ([]CCIPS
 		}
 	}
 
-	if opts.MixedVersionOnly {
-		filtered := make([]CCIPSystemEntry, 0, len(entries))
-		for _, e := range entries {
+	var filtered []CCIPSystemEntry
+	for _, e := range entries {
+		if opts.MixedVersionOnly {
 			if e.MixedVersion {
 				filtered = append(filtered, e)
 			}
+		} else if opts.RunMixedVersionTests || !e.MixedVersion {
+			filtered = append(filtered, e)
 		}
-		entries = filtered
 	}
 
-	return entries, nil
+	return filtered, nil
 }
