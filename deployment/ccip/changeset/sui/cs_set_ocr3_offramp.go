@@ -219,7 +219,7 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook:           ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook:           ab,
 		DataStore:             ds,
 		MCMSTimelockProposals: mcmsProposals,
 	}, nil

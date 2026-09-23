@@ -216,13 +216,13 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook:           newAddresses,
 			DataStore:             ds,
 		}, nil
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: newAddresses,
 		DataStore:   ds,
 	}, nil
 }
@@ -368,7 +368,8 @@ func deployChainContractsSolana(
 
 	// FEE QUOTER DEPLOY
 	feeQuoterAddress, fqJustDeployed, batches, err := resolveProgram(
-		e, chain, ab, ds, config, batches, shared.FeeQuoter, chainState.FeeQuoter, config.UpgradeConfig.NewFeeQuoterVersion)
+		e, chain, ab, ds, config, batches, shared.FeeQuoter, chainState.FeeQuoter, config.UpgradeConfig.NewFeeQuoterVersion,
+	)
 	if err != nil {
 		return batches, err
 	}
@@ -378,7 +379,8 @@ func deployChainContractsSolana(
 
 	// ROUTER DEPLOY
 	ccipRouterProgram, routerJustDeployed, batches, err := resolveProgram(
-		e, chain, ab, ds, config, batches, shared.Router, chainState.Router, config.UpgradeConfig.NewRouterVersion)
+		e, chain, ab, ds, config, batches, shared.Router, chainState.Router, config.UpgradeConfig.NewRouterVersion,
+	)
 	if err != nil {
 		return batches, err
 	}
@@ -456,7 +458,8 @@ func deployChainContractsSolana(
 
 	// RMN REMOTE DEPLOY
 	rmnRemoteAddress, rmnJustDeployed, batches, err := resolveProgram(
-		e, chain, ab, ds, config, batches, shared.RMNRemote, chainState.RMNRemote, config.UpgradeConfig.NewRMNRemoteVersion)
+		e, chain, ab, ds, config, batches, shared.RMNRemote, chainState.RMNRemote, config.UpgradeConfig.NewRMNRemoteVersion,
+	)
 	if err != nil {
 		return batches, err
 	}
@@ -517,7 +520,8 @@ func deployChainContractsSolana(
 				solana.Token2022ProgramID,
 				solana.TokenProgramID,
 				solana.SPLAssociatedTokenAccountProgramID,
-			})
+			},
+		)
 		if err != nil {
 			return batches, fmt.Errorf("failed to create address lookup table: %w", err)
 		}
@@ -1325,7 +1329,8 @@ func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.Cha
 	}
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to close existing programs", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to close existing programs", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

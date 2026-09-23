@@ -109,12 +109,12 @@ type RMNNopConfig struct {
 	NodeIndex           uint64
 	OffchainPublicKey   [32]byte
 	EVMOnChainPublicKey common.Address
-	PeerId              p2pkey.PeerID //nolint:revive // var-naming: match gethwrapper ABI field name
+	PeerID              p2pkey.PeerID `json:"PeerId"`
 }
 
 func (c RMNNopConfig) ToRMNHomeNode() rmn_home.RMNHomeNode {
 	return rmn_home.RMNHomeNode{
-		PeerId:            c.PeerId,
+		PeerId:            c.PeerID,
 		OffchainPublicKey: c.OffchainPublicKey,
 	}
 }
@@ -529,7 +529,6 @@ func SetRMNHomeDynamicConfigChangeset(e cldf.Environment, cfg SetRMNHomeDynamicC
 	}
 
 	_, err = rmnHome.SetDynamicConfig(deployer, cfg.RMNDynamicConfig, cfg.ActiveDigest)
-
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set RMNHome dynamic config for chain %s: %w", chain.String(), err)
 	}

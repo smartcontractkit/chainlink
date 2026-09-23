@@ -40,11 +40,11 @@ type E2ETokenPoolConfig struct {
 
 func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {
 	finalOutput := cldf.ChangesetOutput{}
-	finalOutput.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+	finalOutput.AddressBook = cldf.NewMemoryAddressBook()
 	addressBookToRemove := cldf.NewMemoryAddressBook()
 	defer func(e cldf.Environment) {
 		e.Logger.Info("SolanaE2ETokenPool changeset completed")
-		e.Logger.Info("Final output: ", finalOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+		e.Logger.Info("Final output: ", finalOutput.AddressBook)
 	}(e)
 	// if mcms config is not provided, use the mcms config from one of the other configs
 	if cfg.MCMS == nil {
@@ -110,7 +110,7 @@ func ProcessConfig[T any](
 			return fmt.Errorf("failed to merge changeset output: %w", err)
 		}
 
-		if ab := output.AddressBook; ab != nil { //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+		if ab := output.AddressBook; ab != nil {
 			if err := tempRemoveBook.Merge(ab); err != nil {
 				return fmt.Errorf("failed to merge into temp: %w", err)
 			}
@@ -188,7 +188,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 	// it will try to add addresses from the cs output which already exist in the env
 	e := env.Clone()
 	finalCSOut := &cldf.ChangesetOutput{
-		AddressBook: cldf.NewMemoryAddressBook(), //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: cldf.NewMemoryAddressBook(),
 	}
 
 	// token pool and lookup table

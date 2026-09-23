@@ -51,7 +51,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 
 	output, err := commonchangeset.SaveExistingContractsChangeset(*e, cfg)
 	require.NoError(t, err)
-	err = e.ExistingAddresses.Merge(output.AddressBook) //nolint:staticcheck // AddressBook is deprecated but still in use for this changeset
+	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)
 	ds := datastore.NewMemoryDataStore()
 	require.NoError(t, ds.Merge(e.DataStore))
@@ -90,7 +90,7 @@ func TestSaveExisting(t *testing.T) {
 
 	output, err := commonchangeset.SaveExistingContractsChangeset(*e, ExistingContracts)
 	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // AddressBook is deprecated but still in use for this changeset
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 	addresses, err := e.ExistingAddresses.Addresses()
 	require.NoError(t, err)
 	require.Len(t, addresses, 1)

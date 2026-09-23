@@ -55,7 +55,7 @@ func DeployChainContractsChangeset(env cldf.Environment, c ccipseq.DeployChainCo
 	}
 	return cldf.ChangesetOutput{
 		Reports:     report.ExecutionReports,
-		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: addressBook,
 		DataStore:   ds,
 	}, nil
 }
@@ -67,7 +67,8 @@ func ValidateHomeChainState(e cldf.Environment, homeChainSel uint64, existingSta
 		return errors.New("capability registry not found")
 	}
 	cr, err := capReg.GetHashedCapabilityId(
-		&bind.CallOpts{}, shared.CapabilityLabelledName, shared.CapabilityVersion)
+		&bind.CallOpts{}, shared.CapabilityLabelledName, shared.CapabilityVersion,
+	)
 	if err != nil {
 		e.Logger.Errorw("Failed to get hashed capability id", "err", err)
 		return err

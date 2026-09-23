@@ -113,7 +113,7 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 	txns, err := doAddRemoteChainToRouter(e, s, cfg, ab, ds)
 	if err != nil {
 		return cldf.ChangesetOutput{
-			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook: ab,
 			DataStore:   ds,
 		}, err
 	}
@@ -121,19 +121,20 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 	// create proposals for ixns
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook:           ab,
 			DataStore:             ds,
 		}, nil
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: ab,
 		DataStore:   ds,
 	}, nil
 }
@@ -357,7 +358,7 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 		// skipped: doAddRemoteChainToFeeQuoter does not save any lane/multi-instance refs,
 		// so the datastore needs no additional qualifier pass.
 		return cldf.ChangesetOutput{
-			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook: ab,
 			DataStore:   ds,
 		}, err
 	}
@@ -365,7 +366,8 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 	// create proposals for ixns
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -373,7 +375,7 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 		// so the datastore needs no additional qualifier pass.
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook:           ab,
 			DataStore:             ds,
 		}, nil
 	}
@@ -381,7 +383,7 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 	// skipped: doAddRemoteChainToFeeQuoter does not save any lane/multi-instance refs,
 	// so the datastore needs no additional qualifier pass.
 	return cldf.ChangesetOutput{
-		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: ab,
 		DataStore:   ds,
 	}, nil
 }
@@ -405,7 +407,8 @@ func doAddRemoteChainToFeeQuoter(
 		chainState,
 		shared.FeeQuoter,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	lookUpTableEntries := make([]solana.PublicKey, 0)
 	authority := GetAuthorityForIxn(
 		&e,
@@ -552,7 +555,7 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 	txns, err := doAddRemoteChainToOffRamp(e, s, cfg, ab, ds)
 	if err != nil {
 		return cldf.ChangesetOutput{
-			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook: ab,
 			DataStore:   ds,
 		}, err
 	}
@@ -560,19 +563,20 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 	// create proposals for ixns
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook:           ab,
 			DataStore:             ds,
 		}, nil
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: ab,
 		DataStore:   ds,
 	}, nil
 }
@@ -596,7 +600,8 @@ func doAddRemoteChainToOffRamp(
 		chainState,
 		shared.OffRamp,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	lookUpTableEntries := make([]solana.PublicKey, 0)
 	authority := GetAuthorityForIxn(
 		&e,
@@ -718,7 +723,8 @@ func extendLookupTable(e cldf.Environment, chain cldf_solana.Chain, offRampID so
 	addresses, err := solCommonUtil.GetAddressLookupTable(
 		e.GetContext(),
 		chain.Client,
-		addressLookupTable)
+		addressLookupTable,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get address lookup table: %w", err)
 	}

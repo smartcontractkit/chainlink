@@ -209,7 +209,7 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: newAddresses,
 		DataStore:   ds,
 	}, nil
 }
@@ -388,7 +388,8 @@ func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.Ch
 
 	if len(mcmsTxs) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to SetTokenAuthority in Solana", cfg.MCMS, mcmsTxs)
+			e, cfg.ChainSelector, "proposal to SetTokenAuthority in Solana", cfg.MCMS, mcmsTxs,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -514,7 +515,8 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 		}
 		e.Logger.Infow("Updating token metadata authority", "metadataPDA", metadataPDA, "authority", mintMetadata.UpdateAuthority, "data", newData)
 		instruction, err := modifyTokenMetadataIx(
-			metadataPDA, mintMetadata.UpdateAuthority, &newUpdateAuthority, &newData)
+			metadataPDA, mintMetadata.UpdateAuthority, &newUpdateAuthority, &newData,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating modify metadata ix: %w", err)
 		}
@@ -548,7 +550,8 @@ func modifyTokenMetadataIx(
 	ix := tokenMetadata.NewUpdateMetadataAccountV2Instruction(
 		args,
 		metadataPDA,
-		authority).Build()
+		authority,
+	).Build()
 	data, err := ix.Data()
 	if err != nil {
 		return solana.GenericInstruction{}, fmt.Errorf("error building update metadata account data: %w", err)

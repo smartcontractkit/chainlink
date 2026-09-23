@@ -121,7 +121,7 @@ func deployTokenPoolFactoryLogic(e cldf.Environment, config DeployTokenPoolFacto
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: addressBook,
 		DataStore:   ds,
 	}, nil
 }

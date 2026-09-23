@@ -111,7 +111,7 @@ func validateExecOffchainConfig(e cldf.Environment, c *pluginconfig.ExecuteOffch
 	return nil
 }
 
-func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector uint64, feedChainSel uint64, state stateview.CCIPOnChainState) error {
+func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector, feedChainSel uint64, state stateview.CCIPOnChainState) error {
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("invalid commit off-chain config: %w", err)
 	}
@@ -330,7 +330,7 @@ func (c CCIPOCRParams) Copy() CCIPOCRParams {
 	return newC
 }
 
-func (c CCIPOCRParams) Validate(e cldf.Environment, selector uint64, feedChainSel uint64, state stateview.CCIPOnChainState) error {
+func (c CCIPOCRParams) Validate(e cldf.Environment, selector, feedChainSel uint64, state stateview.CCIPOnChainState) error {
 	if err := c.OCRParameters.Validate(); err != nil {
 		return fmt.Errorf("invalid OCR parameters: %w", err)
 	}
@@ -534,7 +534,7 @@ func (p SetCandidatePluginInfo) String() string {
 	return fmt.Sprintf("PluginType: %s, Chains: %v", p.PluginType.String(), allchains)
 }
 
-func (p SetCandidatePluginInfo) Validate(e cldf.Environment, state stateview.CCIPOnChainState, homeChain uint64, feedChain uint64) error {
+func (p SetCandidatePluginInfo) Validate(e cldf.Environment, state stateview.CCIPOnChainState, homeChain, feedChain uint64) error {
 	if p.PluginType != types.PluginTypeCCIPCommit &&
 		p.PluginType != types.PluginTypeCCIPExec {
 		return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
@@ -1074,7 +1074,8 @@ func revokeCandidateOps(
 	if !mcmsEnabled {
 		_, err = cldf.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx,
-			capabilities_registry.CapabilitiesRegistryABI, err)
+			capabilities_registry.CapabilitiesRegistryABI, err,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("error confirming UpdateDON call in revoke candidate (don: %d; ptype: %s): %w",
 				donID, types.PluginType(pluginType).String(), err)
@@ -1251,13 +1252,13 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 		e.Logger.Errorw("Failed to deploy donIDClaimer contract", "err", err, "addressBook", ab)
 
 		return cldf.ChangesetOutput{
-			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook: ab,
 			DataStore:   ds,
 		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: ab,
 		DataStore:   ds,
 	}, nil
 }

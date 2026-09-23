@@ -64,13 +64,13 @@ func DeployPrerequisitesChangeset(env cldf.Environment, cfg DeployPrerequisiteCo
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
 
 		return cldf.ChangesetOutput{
-			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook: ab,
 			DataStore:   ds,
 		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: ab,
 		DataStore:   ds,
 	}, nil
 }
@@ -329,7 +329,8 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, ds dat
 				lggr.Warnw(
 					"RMNProxy is not owned by the deployer and RMNProxy is not pointing to the correct RMN contract, "+
 						"run SetRMNRemoteOnRMNProxyChangeset to update RMN with a proposal",
-					"chain", chain.String(), "owner", rmnOwner, "currentRMN", currentRMNAddr, "expectedRMN", rmnAddr)
+					"chain", chain.String(), "owner", rmnOwner, "currentRMN", currentRMNAddr, "expectedRMN", rmnAddr,
+				)
 			} else {
 				tx, err := rmnProxy.SetARM(chain.DeployerKey, rmnAddr)
 				if err != nil {
@@ -355,7 +356,8 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, ds dat
 				)
 				tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 = token_admin_registry.DeployTokenAdminRegistry(
 					chain.DeployerKey,
-					chain.Client)
+					chain.Client,
+				)
 
 				return cldf.ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
 					Address: tokenAdminRegistryAddr, Contract: tokenAdminRegistry, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.TokenAdminRegistry, deployment.Version1_5_0), Err: err2,
@@ -389,7 +391,8 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, ds dat
 				regModAddr, tx2, regMod, err2 = registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
 					chain.DeployerKey,
 					chain.Client,
-					tokenAdminReg.Address())
+					tokenAdminReg.Address(),
+				)
 
 				return cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
 					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0), Err: err2,

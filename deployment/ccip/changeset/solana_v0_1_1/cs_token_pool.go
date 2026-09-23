@@ -87,7 +87,7 @@ func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, po
 }
 
 // get diff of pool addresses
-func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAddresses []solBaseTokenPool.RemoteAddress) []solBaseTokenPool.RemoteAddress {
+func poolDiff(existingPoolAddresses, newPoolAddresses []solBaseTokenPool.RemoteAddress) []solBaseTokenPool.RemoteAddress {
 	var result []solBaseTokenPool.RemoteAddress
 	// for every new address, check if it exists in the existing pool addresses
 	for _, newAddr := range newPoolAddresses {
@@ -107,8 +107,8 @@ func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAdd
 
 // get pool pdas
 func getPoolPDAs(
-	solTokenPubKey solana.PublicKey, poolAddress solana.PublicKey, remoteChainSelector uint64,
-) (poolConfigPDA solana.PublicKey, remoteChainConfigPDA solana.PublicKey) {
+	solTokenPubKey, poolAddress solana.PublicKey, remoteChainSelector uint64,
+) (poolConfigPDA, remoteChainConfigPDA solana.PublicKey) {
 	poolConfigPDA, _ = solTokenUtil.TokenPoolConfigAddress(solTokenPubKey, poolAddress)
 	remoteChainConfigPDA, _, _ = solTokenUtil.TokenPoolChainConfigPDA(remoteChainSelector, solTokenPubKey, poolAddress)
 	return poolConfigPDA, remoteChainConfigPDA
@@ -432,7 +432,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
 		}
-		err = addressBook.Merge(csOutput.AddressBook) //nolint:staticcheck // SA1019: AddressBook is deprecated, migration to DataStore pending
+		err = addressBook.Merge(csOutput.AddressBook)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
 		}
@@ -446,19 +446,20 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to initialize token pools", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to initialize token pools", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
 		return cldf.ChangesetOutput{
-			AddressBook:           addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook:           addressBook,
 			DataStore:             ds,
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: addressBook,
 		DataStore:   ds,
 	}, nil
 }
@@ -722,7 +723,8 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -837,7 +839,8 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -929,7 +932,7 @@ func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cld
 	}
 	e.Logger.Infow("Created multisig", "TokenMultisigAddress", newMultisig, "TokenMint", cfg.TokenMint)
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: newAddresses,
 		DataStore:   ds,
 	}, nil
 }
@@ -1114,7 +1117,8 @@ func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthor
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 	}
 	proposal, err := BuildProposalsForTxnsWithConfig(
-		e, cfg.ChainSelector, "proposal to transfer mint authority to signer PDA", cfg.MCMS, txns)
+		e, cfg.ChainSelector, "proposal to transfer mint authority to signer PDA", cfg.MCMS, txns,
+	)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
@@ -1186,7 +1190,8 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			timelockSigner,
 			newMintAuthority,
 			tokenPool,
-			programData.Address)
+			programData.Address,
+		)
 		// Old mint authority is required only if the current mint authority is a multisig
 		if (cfg.OldMintAuthority != solana.PublicKey{}) {
 			builder.AccountMetaSlice = append(builder.AccountMetaSlice, solana.Meta(cfg.OldMintAuthority))
@@ -1208,7 +1213,8 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			chain.DeployerKey.PublicKey(),
 			newMintAuthority,
 			tokenPool,
-			programData.Address)
+			programData.Address,
+		)
 		// Old mint authority is required only if the current mint authority is a multisig
 		if (cfg.OldMintAuthority != solana.PublicKey{}) {
 			builder.AccountMetaSlice = append(builder.AccountMetaSlice, solana.Meta(cfg.OldMintAuthority))
@@ -1224,7 +1230,8 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -1331,7 +1338,8 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to edit token pools in Solana", cfg.MCMS, txns)
+			e, cfg.SolChainSelector, "proposal to edit token pools in Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -1344,7 +1352,7 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 }
 
 // checks if the evmChainSelector is supported for the given token and pool type
-func isSupportedChain(chain cldf_solana.Chain, solTokenPubKey solana.PublicKey, solPoolAddress solana.PublicKey, poolType cldf.ContractType, evmChainSelector uint64) (bool, solBaseTokenPool.BaseChain, error) {
+func isSupportedChain(chain cldf_solana.Chain, solTokenPubKey, solPoolAddress solana.PublicKey, poolType cldf.ContractType, evmChainSelector uint64) (bool, solBaseTokenPool.BaseChain, error) {
 	// check if this remote chain is already configured for this token
 	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(evmChainSelector, solTokenPubKey, solPoolAddress)
 	if err != nil {
@@ -2139,7 +2147,7 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 
 	// the token pool lookup table is qualified by its full identity (token mint, pool type, metadata)
 	return cldf.ChangesetOutput{
-		AddressBook: newAddressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: newAddressBook,
 		DataStore:   ds,
 	}, nil
 }
@@ -2261,7 +2269,8 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to ConfigureTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
+			e, cfg.SolChainSelector, "proposal to ConfigureTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx},
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -2387,7 +2396,8 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to RemoveFromTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
+			e, cfg.SolChainSelector, "proposal to RemoveFromTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx},
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -2509,7 +2519,8 @@ func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConf
 				e.GetContext(),
 				chain.Client,
 				cfg.LiquidityCfg.RemoteTokenAccount,
-				cldf_solana.SolDefaultCommitment)
+				cldf_solana.SolDefaultCommitment,
+			)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token balance: %w", err)
 			}
@@ -2584,7 +2595,8 @@ func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConf
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 		}
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to RemoveFromTokenPoolAllowList in Solana", cfg.MCMS, txns)
+			e, cfg.SolChainSelector, "proposal to RemoveFromTokenPoolAllowList in Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -2809,7 +2821,8 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to ConfigureTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
+			e, cfg.SolChainSelector, "proposal to ConfigureTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx},
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -2855,14 +2868,16 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 			})
 			initializeStateVersionIx, err = solBurnMintTokenPool.NewInitializeStateVersionInstruction(
 				tokenPubKey,
-				poolConfig).ValidateAndBuild()
+				poolConfig,
+			).ValidateAndBuild()
 		case shared.LockReleaseTokenPool:
 			runSafely(func() {
 				solLockReleaseTokenPool.SetProgramID(tokenPool)
 			})
 			initializeStateVersionIx, err = solLockReleaseTokenPool.NewInitializeStateVersionInstruction(
 				tokenPubKey,
-				poolConfig).ValidateAndBuild()
+				poolConfig,
+			).ValidateAndBuild()
 		default:
 			return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
 		}
@@ -2895,7 +2910,8 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -3032,7 +3048,8 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to edit USDC token pool CCTP config in Solana", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to edit USDC token pool CCTP config in Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -3336,7 +3353,8 @@ func SetRateLimitAdmin(e cldf.Environment, cfg SetRateLimitAdminConfig) (cldf.Ch
 
 	if len(mcmsTxs) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to SetRateLimitAdmin in Solana", cfg.MCMS, mcmsTxs)
+			e, cfg.SolChainSelector, "proposal to SetRateLimitAdmin in Solana", cfg.MCMS, mcmsTxs,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

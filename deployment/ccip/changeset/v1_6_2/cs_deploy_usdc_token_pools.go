@@ -213,7 +213,7 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: newAddresses,
 		DataStore:   ds,
 	}, nil
 }

@@ -77,7 +77,7 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: newAddresses,
 		DataStore:   ds,
 	}, nil
 }

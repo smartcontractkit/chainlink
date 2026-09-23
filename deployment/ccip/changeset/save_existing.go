@@ -15,9 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
-var (
-	_ cldf.ChangeSet[ExistingContractsConfig] = SaveExistingContractsChangeset
-)
+var _ cldf.ChangeSet[ExistingContractsConfig] = SaveExistingContractsChangeset
 
 type Contract struct {
 	Address        string
@@ -155,7 +153,7 @@ func SaveExistingContractsChangeset(env cldf.Environment, cfg ExistingContractsC
 		}
 	}
 	return cldf.ChangesetOutput{
-		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: ab,
 		DataStore:   ds,
 	}, nil
 }

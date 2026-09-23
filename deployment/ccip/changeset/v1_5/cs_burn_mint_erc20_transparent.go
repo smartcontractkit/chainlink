@@ -85,7 +85,6 @@ func DeployBurnMintERC20Transparent(e cldf.Environment, c BurnMintERC20Transpare
 					}
 				},
 			)
-
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy BurnMintERC20Transparent for %s token on %s: %w", token, chain, err)
 			}
@@ -93,7 +92,7 @@ func DeployBurnMintERC20Transparent(e cldf.Environment, c BurnMintERC20Transpare
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: addressBook,
 		DataStore:   ds,
 	}, nil
 }

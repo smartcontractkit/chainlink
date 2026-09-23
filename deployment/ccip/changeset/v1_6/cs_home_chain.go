@@ -82,13 +82,13 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 		// appear in the datastore without a matching address-book entry on a partial output.
 
 		return cldf.ChangesetOutput{
-			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook: ab,
 			DataStore:   ds,
 		}, err
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: ab,
 		DataStore:   ds,
 	}, nil
 }
@@ -341,7 +341,8 @@ func deployHomeChain(
 
 	if setCandidate {
 		tx, err := rmnHome.SetCandidate(
-			chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, configs.CandidateConfig.ConfigDigest)
+			chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, configs.CandidateConfig.ConfigDigest,
+		)
 		if _, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, rmn_home.RMNHomeABI, err); err != nil {
 			lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
 			return nil, err
@@ -401,7 +402,8 @@ func deployHomeChain(
 		tx, err := capReg.Contract.AddCapabilities(
 			chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
 				capabilityToAdd,
-			})
+			},
+		)
 		if _, err := cldf.ConfirmIfNoErrorWithABI(chain, tx, capabilities_registry.CapabilitiesRegistryABI, err); err != nil {
 			lggr.Errorw("Failed to add capabilities", "chain", chain.String(), "err", err)
 			return nil, err

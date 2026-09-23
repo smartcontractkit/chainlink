@@ -39,7 +39,7 @@ func (DeployLinkTokenChangeset) Apply(e cldf.Environment, input linkchangesets.D
 				return out, fmt.Errorf("failed to save address to address book: %w", addErr)
 			}
 		}
-		out.AddressBook = ab //nolint:staticcheck // intentional use of deprecated AddressBook for backward compat
+		out.AddressBook = ab
 	}
 
 	return out, nil

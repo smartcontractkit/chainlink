@@ -180,7 +180,7 @@ var (
 					}
 					return OpsOutput{
 						Proposals:   output.MCMSTimelockProposals,
-						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
+						AddressBook: output.AddressBook,
 						DataStore:   output.DataStore,
 					}, nil
 				},
@@ -205,7 +205,7 @@ var (
 					}
 					return OpsOutput{
 						Proposals:   output.MCMSTimelockProposals,
-						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
+						AddressBook: output.AddressBook,
 						DataStore:   output.DataStore,
 					}, nil
 				},
@@ -230,7 +230,7 @@ var (
 					}
 					return OpsOutput{
 						Proposals:   output.MCMSTimelockProposals,
-						AddressBook: output.AddressBook, //nolint:staticcheck //SA1019 ignoring deprecated
+						AddressBook: output.AddressBook,
 						DataStore:   output.DataStore,
 					}, nil
 				},
@@ -610,7 +610,7 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 	// re-derived from the address book, which could not carry the qualifiers.
 	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: report.Output.Proposals,
-		AddressBook:           report.Output.AddressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook:           report.Output.AddressBook,
 		DataStore:             report.Output.DataStore,
 	}, nil
 }

@@ -141,20 +141,23 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 				inputs = append(inputs, MCMSTxParams{
 					Ix:           proposeTokenAdminRegistryAdminIx,
 					ProgramID:    routerState.routerProgramID.String(),
-					ContractType: shared.Router})
+					ContractType: shared.Router,
+				})
 			}
 			if initializeTokenPoolIx != nil {
 				inputs = append(inputs,
 					MCMSTxParams{
 						Ix:           initializeTokenPoolIx,
 						ProgramID:    currentTokenPoolSolanaState.tokenPoolProgramID.String(),
-						ContractType: registerTokenConfig.PoolType})
+						ContractType: registerTokenConfig.PoolType,
+					})
 			}
 			inputs = append(inputs,
 				MCMSTxParams{
 					Ix:           transferTokenPoolOwnershipIx,
 					ProgramID:    currentTokenPoolSolanaState.tokenPoolProgramID.String(),
-					ContractType: registerTokenConfig.PoolType})
+					ContractType: registerTokenConfig.PoolType,
+				})
 			moreTx, err := BuildManyMCMSTxsFrom(inputs)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -179,7 +182,7 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	out.AddressBook = newAddresses //nolint:staticcheck // AddressBook remains required for backward compatibility during the migration.
+	out.AddressBook = newAddresses
 	out.DataStore = ds
 	return out, nil
 }

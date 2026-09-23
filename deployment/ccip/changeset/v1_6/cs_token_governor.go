@@ -355,7 +355,7 @@ func DeployTokenGovernor(env cldf.Environment, c TokenGovernorChangesetConfig) (
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: newAddresses,
 		DataStore:   ds,
 	}, nil
 }

@@ -214,13 +214,13 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook:           newAddresses,
 			DataStore:             ds,
 		}, nil
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: newAddresses,
 		DataStore:   ds,
 	}, nil
 }
@@ -491,7 +491,8 @@ func deployChainContractsSolana(
 				solana.Token2022ProgramID,
 				solana.TokenProgramID,
 				solana.SPLAssociatedTokenAccountProgramID,
-			})
+			},
+		)
 		if err2 != nil {
 			return batches, fmt.Errorf("failed to create address lookup table: %w", err)
 		}
