@@ -3,6 +3,8 @@ package vault_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -141,4 +143,49 @@ func mustListNamespace(t *testing.T, params *json.RawMessage) string {
 	var parsed vaultcommon.ListSecretIdentifiersRequest
 	require.NoError(t, json.Unmarshal(*params, &parsed))
 	return parsed.Namespace
+}
+
+// TestGatewayVaultRequestProcessor_ProcessRequest_RejectsOversizedBlobPayload confirms
+// the CRIT-1 ingress fix at the earliest gate: a create batch whose queued representation
+// (StoredPendingQueueItem blob payload) exceeds VaultMaxBlobPayloadSizeLimit is rejected
+// before authorization and before fanning out to the vault DON. EncryptedValue is
+// hex-encoded on the wire (2x its decoded size), which is what pushes a full batch of
+// cap-size ciphertexts over the limit.
+func TestGatewayVaultRequestProcessor_ProcessRequest_RejectsOversizedBlobPayload(t *testing.T) {
+	t.Parallel()
+
+	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+
+	// 10 secrets, each 2KB decoded = 4KB hex on the wire: ~40KB queued representation,
+	// over the 25.6KB blob cap, while every per-secret limit (2KB decoded) passes.
+	oversizedValue := strings.Repeat("ab", 2048)
+	secrets := make([]*vaultcommon.EncryptedSecret, 10)
+	for i := range secrets {
+		secrets[i] = &vaultcommon.EncryptedSecret{
+			Id:             &vaultcommon.SecretIdentifier{Owner: "0xabc", Key: fmt.Sprintf("k%d", i)},
+			EncryptedValue: oversizedValue,
+		}
+	}
+
+	for _, mode := range []struct {
+		name             string
+		stripOwnerPrefix bool
+	}{
+		{name: "gateway mode", stripOwnerPrefix: false},
+		{name: "node mode", stripOwnerPrefix: true},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			// No authorizer expectation: the blob-size check runs pre-auth, so an
+			// AuthorizeRequest call here fails the mock.
+			authorizer := vaultcapmocks.NewAuthorizer(t)
+			processor := mustNewGatewayVaultRequestProcessor(t, validator, authorizer, mode.stripOwnerPrefix)
+
+			req := mustWriteRequest(t, vaulttypes.MethodSecretsCreate, secrets)
+			_, err := processor.ProcessRequest(t.Context(), &req, nil)
+			require.Error(t, err)
+			require.True(t, vault.IsInvalidVaultParamsError(err))
+			require.ErrorContains(t, err, "request exceeds maximum pending queue blob payload size")
+		})
+	}
 }
