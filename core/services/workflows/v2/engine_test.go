@@ -10,6 +10,7 @@ import (
 	"maps"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2718,6 +2719,7 @@ func TestEngine_ShardDenial(t *testing.T) {
 			subscribedToTriggersCh := make(chan []string, 1)
 			executionFinishedCh := make(chan string, 1)
 			executionErrorCh := make(chan string, 1)
+			var admissionCalls atomic.Int32
 
 			cfg := defaultTestConfig(t, nil)
 			cfg.Module = module
@@ -2736,6 +2738,7 @@ func TestEngine_ShardDenial(t *testing.T) {
 					executionErrorCh <- msg
 				},
 				OnTriggerAdmission: func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+					admissionCalls.Add(1)
 					return tc.wantErr
 				},
 			}
@@ -2776,12 +2779,14 @@ func TestEngine_ShardDenial(t *testing.T) {
 				t.Fatal("expected the denied event to be ACKed")
 			}
 
-			// No execution lifecycle hooks should have fired: denial happens
-			// before the event is ever enqueued for execution.
+			// The admission hook is the wiring under test: it must have been
+			// consulted exactly once for the denied event.
+			require.Equal(t, int32(1), admissionCalls.Load())
+
 			select {
 			case status := <-executionFinishedCh:
 				t.Fatalf("unexpected OnExecutionFinished: %s", status)
-			case <-time.After(100 * time.Millisecond):
+			default:
 			}
 			select {
 			case msg := <-executionErrorCh:
