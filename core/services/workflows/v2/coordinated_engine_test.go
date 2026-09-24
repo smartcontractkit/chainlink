@@ -37,43 +37,29 @@ func TestNewCoordinatedEngine_RequiresAcknowledger(t *testing.T) {
 func TestCoordinatedEngine_ExecuteTrigger(t *testing.T) {
 	t.Parallel()
 
-	module := modulemocks.NewModuleV2(t)
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
 
-	executionFinishedCh := make(chan string, 1)
-	executionErrorCh := make(chan string, 1)
-
-	cfg := defaultTestConfig(t, nil)
-	cfg.Module = module
-	cfg.CapRegistry = capreg
-	cfg.BillingClient = setupMockBillingClient(t)
-	cfg.TriggerAcknowledger = noopAcknowledger{}
-	cfg.Hooks = v2.LifecycleHooks{
-		OnExecutionFinished: func(_ string, status string) {
-			executionFinishedCh <- status
-		},
-		OnExecutionError: func(msg string) {
-			executionErrorCh <- msg
-		},
-	}
-
-	engine, err := v2.NewCoordinatedEngine(cfg)
-	require.NoError(t, err)
+	baseCfg := defaultTestConfig(t, nil)
+	baseCfg.CapRegistry = capreg
+	baseCfg.BillingClient = setupMockBillingClient(t)
+	baseCfg.TriggerAcknowledger = noopAcknowledger{}
 
 	// The execution must reach WASM and return a value.
-	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
-		Return(&sdkpb.ExecutionResult{
-			Result: &sdkpb.ExecutionResult_Value{},
-		}, nil).
-		Once()
+	re := newTestEngine(t, baseCfg, v2.NewCoordinatedEngine, func(module *modulemocks.ModuleV2) {
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+			Return(&sdkpb.ExecutionResult{
+				Result: &sdkpb.ExecutionResult_Value{},
+			}, nil).
+			Once()
+	})
 
 	ctx := contexts.WithCRE(t.Context(), contexts.CRE{
-		Owner:    cfg.WorkflowOwner,
-		Workflow: cfg.WorkflowID,
+		Owner:    baseCfg.WorkflowOwner,
+		Workflow: baseCfg.WorkflowID,
 	})
 	event := v2.RoutedTriggerEvent{
-		WorkflowID:   cfg.WorkflowID,
+		WorkflowID:   baseCfg.WorkflowID,
 		TriggerCapID: "id_0",
 		TriggerIndex: 0,
 		ObservedAt:   time.Now(),
@@ -85,13 +71,9 @@ func TestCoordinatedEngine_ExecuteTrigger(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, engine.ExecuteTrigger(ctx, event))
+	require.NoError(t, re.engine.ExecuteTrigger(ctx, event))
 
-	require.Equal(t, "completed", <-executionFinishedCh)
-	select {
-	case msg := <-executionErrorCh:
-		t.Fatalf("unexpected OnExecutionError: %s", msg)
-	default:
-	}
-	require.Equal(t, int32(0), engine.ActiveExecutions())
+	require.Equal(t, "completed", <-re.executionFinishedCh)
+	require.Equal(t, int32(0), re.errorCalls.Load(), "OnExecutionError should not fire on the happy path")
+	require.Equal(t, int32(0), re.engine.ActiveExecutions())
 }

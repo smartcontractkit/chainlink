@@ -2515,63 +2515,9 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 			},
 		}
 	}
-
-	// newTestEngine creates a fresh engine + hooks for each subtest.
-	// setupModule is called to set module expectations BEFORE NewEngine.
-	// Optional cfgFn overrides are applied to the per-subtest config copy
-	// (e.g. sharding, billing) before the engine is constructed.
-	//
-	// The hooks record into counters as well as the defined channels.
-	// Use a counter read instead of a blocking channel read to assert the call state of an engine lifecycle hook.
-	type engineWithChans struct {
-		engine              v2.WorkflowEngine
-		executionFinishedCh chan string // receives status
-		executionErrorCh    chan string // receives error message
-		resultReceivedCh    chan *sdkpb.ExecutionResult
-		finishedCalls       *atomic.Int32
-		errorCalls          *atomic.Int32
-		resultCalls         *atomic.Int32
-	}
-	newTestEngine := func(t *testing.T, setupModule func(module *modulemocks.ModuleV2), cfgFn ...func(*v2.EngineConfig)) engineWithChans {
-		t.Helper()
-		module := modulemocks.NewModuleV2(t)
-		setupModule(module)
-
-		executionFinishedCh := make(chan string, 1)
-		executionErrorCh := make(chan string, 1)
-		resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
-		finishedCalls := &atomic.Int32{}
-		errorCalls := &atomic.Int32{}
-		resultCalls := &atomic.Int32{}
-
-		testCfg := *baseCfg
-		testCfg.Module = module
-		testCfg.Hooks = v2.LifecycleHooks{
-			OnExecutionFinished: func(_ string, status string) {
-				finishedCalls.Add(1)
-				executionFinishedCh <- status
-			},
-			OnExecutionError: func(msg string) {
-				errorCalls.Add(1)
-				executionErrorCh <- msg
-			},
-			OnResultReceived: func(res *sdkpb.ExecutionResult) {
-				resultCalls.Add(1)
-				resultReceivedCh <- res
-			},
-		}
-		for _, fn := range cfgFn {
-			fn(&testCfg)
-		}
-
-		engine, err := v2.NewEngine(&testCfg)
-		require.NoError(t, err)
-		return engineWithChans{engine, executionFinishedCh, executionErrorCh, resultReceivedCh, finishedCalls, errorCalls, resultCalls}
-	}
-
 	t.Run("happy path completes with status completed", func(t *testing.T) {
 		t.Parallel()
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(&sdkpb.ExecutionResult{
 					Result: &sdkpb.ExecutionResult_Value{},
@@ -2590,7 +2536,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 	t.Run("module execution error returns errored status", func(t *testing.T) {
 		t.Parallel()
 		execErr := errors.New("wasm panic: out of memory")
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(nil, execErr).
 				Once()
@@ -2609,7 +2555,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 
 	t.Run("module result error returns errored status", func(t *testing.T) {
 		t.Parallel()
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(&sdkpb.ExecutionResult{
 					Result: &sdkpb.ExecutionResult_Error{
@@ -2630,7 +2576,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 
 	t.Run("duplicate event ID is rejected with ErrDuplicateExecution", func(t *testing.T) {
 		t.Parallel()
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			// Only ONE execution should reach Module.Execute.
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(&sdkpb.ExecutionResult{
@@ -2659,7 +2605,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 	t.Run("metering reserve failure returns ErrMeteringReserveFailed", func(t *testing.T) {
 		t.Parallel()
 		ack := &recordingAcknowledger{}
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			// No Module.Execute expectation: the execution must never reach WASM.
 		}, func(cfg *v2.EngineConfig) {
 			cfg.BillingClient = setupFailingReserveBillingClient(t)
@@ -2888,6 +2834,64 @@ func (a *recordingAcknowledger) ackCalls() []string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return append([]string(nil), a.calls...)
+}
+
+// testEngine wraps a WorkflowEngine with lifecycle hooks that record how
+// many times each fired, alongside channels carrying their payloads.
+type testEngine struct {
+	engine              v2.WorkflowEngine
+	executionFinishedCh chan string // receives status
+	executionErrorCh    chan string // receives error message
+	resultReceivedCh    chan *sdkpb.ExecutionResult
+	finishedCalls       *atomic.Int32
+	errorCalls          *atomic.Int32
+	resultCalls         *atomic.Int32
+}
+
+func newTestEngine(
+	t *testing.T,
+	baseCfg *v2.EngineConfig,
+	newEngine func(*v2.EngineConfig) (v2.WorkflowEngine, error),
+	setupModule func(module *modulemocks.ModuleV2),
+	cfgFn ...func(*v2.EngineConfig),
+) *testEngine {
+	t.Helper()
+	module := modulemocks.NewModuleV2(t)
+	setupModule(module)
+
+	re := &testEngine{
+		executionFinishedCh: make(chan string, 1),
+		executionErrorCh:    make(chan string, 1),
+		resultReceivedCh:    make(chan *sdkpb.ExecutionResult, 1),
+		finishedCalls:       &atomic.Int32{},
+		errorCalls:          &atomic.Int32{},
+		resultCalls:         &atomic.Int32{},
+	}
+
+	testCfg := *baseCfg
+	testCfg.Module = module
+	testCfg.Hooks = v2.LifecycleHooks{
+		OnExecutionFinished: func(_ string, status string) {
+			re.finishedCalls.Add(1)
+			re.executionFinishedCh <- status
+		},
+		OnExecutionError: func(msg string) {
+			re.errorCalls.Add(1)
+			re.executionErrorCh <- msg
+		},
+		OnResultReceived: func(res *sdkpb.ExecutionResult) {
+			re.resultCalls.Add(1)
+			re.resultReceivedCh <- res
+		},
+	}
+	for _, fn := range cfgFn {
+		fn(&testCfg)
+	}
+
+	engine, err := newEngine(&testCfg)
+	require.NoError(t, err)
+	re.engine = engine
+	return re
 }
 
 type observedBaseMessage struct {
