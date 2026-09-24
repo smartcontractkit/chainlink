@@ -454,10 +454,10 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 	_, err = evmChain.Confirm(tx)
 	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
 
-	// AddressBook does NOT contain FeeQuoter v2
-	// Add FeeQuoter v2 only to the DataStore. The existing chain singletons (incl. the v1
-	// FeeQuoter) are read from e.ExistingAddresses by CollectAddressRefs at runtime.
+	// AddressBook does NOT contain FeeQuoter v2. Preserve the environment datastore and add
+	// the extra qualified FeeQuoter ref to it.
 	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(e.DataStore))
 
 	err = ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: v2FQChainSel,
@@ -593,10 +593,10 @@ func TestUpdateBidirectionalLanesIdempotentWithV2FeeQuoter(t *testing.T) {
 	_, err = evmChain.Confirm(tx)
 	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
 
-	// AddressBook does NOT contain FeeQuoter v2; add it to the DataStore only. The existing
-	// chain singletons (incl. the v1 FeeQuoter) are read from e.ExistingAddresses by
-	// CollectAddressRefs at runtime.
+	// AddressBook does NOT contain FeeQuoter v2. Preserve the environment datastore and add
+	// the extra qualified FeeQuoter ref to it.
 	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(e.DataStore))
 
 	err = ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: v2FQChainSel,
@@ -837,10 +837,10 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 	_, err = evmChain.Confirm(tx)
 	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
 
-	// AddressBook does NOT contain FeeQuoter v2
-	// Add FeeQuoter v2 only to the DataStore. The existing chain singletons (incl. the v1
-	// FeeQuoter) are read from e.ExistingAddresses by CollectAddressRefs at runtime.
+	// AddressBook does NOT contain FeeQuoter v2. Preserve the environment datastore and add
+	// the extra qualified FeeQuoter ref to it.
 	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(e.DataStore))
 
 	err = ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: v2FQChainSel,

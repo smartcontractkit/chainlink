@@ -716,6 +716,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 	t.Parallel()
 	var err error
+	const redeployedTokenSymbol = "TEST_2"
 
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
 		testCfg.Chains = 2
@@ -898,7 +899,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 					ChainSelector:    selector,
 					TokenProgramName: shared.SPL2022Tokens,
 					TokenDecimals:    testhelpers.LocalTokenDecimals,
-					TokenSymbol:      string(testhelpers.TestTokenSymbol),
+					TokenSymbol:      redeployedTokenSymbol,
 				},
 			),
 		)
