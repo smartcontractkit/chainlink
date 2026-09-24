@@ -155,6 +155,90 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already assigned to on-chain DON")
+
+	// Valid: re-assigning a capability to the on-chain DON that already holds it
+	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: test.RegistryQualifier,
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			test.DONName: existingCapCfg,
+		},
+	})
+	require.NoError(t, err)
+}
+
+// The same capability may live on DONs in different families (e.g. zone-a and zone-b),
+// but not on two DONs within the same family.
+func TestAddCapabilities_VerifyPreconditions_DONFamilyScoping(t *testing.T) {
+	cs := changeset.AddCapabilities{}
+
+	h := test.NewTestHarness(t)
+
+	// Register a DON in a different family holding the same capability as test.DONName.
+	otherZoneDON := "test-don-zone-b"
+	err := h.Runtime.Exec(
+		runtime.ChangesetTask(changeset.ConfigureCapabilitiesRegistry{}, changeset.ConfigureCapabilitiesRegistryInput{
+			ChainSelector:               h.RegistrySelector,
+			CapabilitiesRegistryAddress: h.RegistryAddress.Hex(),
+			DONs: []changeset.CapabilitiesRegistryNewDONParams{
+				{
+					Name:        otherZoneDON,
+					DonFamilies: []string{"zone-b"}, // harness DON is in "test-family"
+					Config:      map[string]any{"defaultConfig": map[string]any{}},
+					CapabilityConfigurations: []changeset.CapabilitiesRegistryCapabilityConfiguration{
+						{CapabilityID: test.TestCapabilityID},
+					},
+					Nodes:    h.Don.GetP2PIDs().Strings(),
+					F:        1,
+					IsPublic: true,
+				},
+			},
+		}),
+	)
+	require.NoError(t, err)
+
+	existingCapCfg := []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: test.TestCapabilityID}, Config: map[string]any{"k": "v"}}}
+
+	// Valid: the zone-b DON shares no family with the harness DON that already holds the capability.
+	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
+		RegistryChainSel:  h.RegistrySelector,
+		RegistryQualifier: test.RegistryQualifier,
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			otherZoneDON: existingCapCfg,
+		},
+	})
+	require.NoError(t, err)
+
+	// Invalid: a DON in the same family as the harness DON cannot also hold the capability.
+	sameFamilyDON := "test-don-same-family"
+	err = h.Runtime.Exec(
+		runtime.ChangesetTask(changeset.ConfigureCapabilitiesRegistry{}, changeset.ConfigureCapabilitiesRegistryInput{
+			ChainSelector:               h.RegistrySelector,
+			CapabilitiesRegistryAddress: h.RegistryAddress.Hex(),
+			DONs: []changeset.CapabilitiesRegistryNewDONParams{
+				{
+					Name:        sameFamilyDON,
+					DonFamilies: []string{"test-family"}, // same family as the harness DON
+					Config:      map[string]any{"defaultConfig": map[string]any{}},
+					Nodes:       h.Don.GetP2PIDs().Strings(),
+					F:           1,
+					IsPublic:    true,
+				},
+			},
+		}),
+	)
+	require.NoError(t, err)
+
+	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
+		RegistryChainSel:  h.RegistrySelector,
+		RegistryQualifier: test.RegistryQualifier,
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			sameFamilyDON: existingCapCfg,
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already assigned to on-chain DON")
+	assert.Contains(t, err.Error(), test.DONName)
 }
 
 func addNewCapability(t *testing.T, h *test.Harness, capID string) {
