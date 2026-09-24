@@ -5,11 +5,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )

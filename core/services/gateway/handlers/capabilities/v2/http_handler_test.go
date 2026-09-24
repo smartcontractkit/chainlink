@@ -796,7 +796,10 @@ func newHTTPActionNodeMessage(t *testing.T) *jsonrpc.Response[json.RawMessage] {
 }
 
 func TestHTTPActionLatencyMetrics(t *testing.T) {
+	t.Parallel()
+
 	t.Run("async timer covers HTTP work plus response send; send has its own timer", func(t *testing.T) {
+		t.Parallel()
 		handler, reader := createTestHandler(t)
 		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
@@ -838,6 +841,7 @@ func TestHTTPActionLatencyMetrics(t *testing.T) {
 	})
 
 	t.Run("failed outbound call still records endpoint latency", func(t *testing.T) {
+		t.Parallel()
 		handler, reader := createTestHandler(t)
 		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
@@ -863,6 +867,7 @@ func TestHTTPActionLatencyMetrics(t *testing.T) {
 	})
 
 	t.Run("cache hit emits no outbound-call observation", func(t *testing.T) {
+		t.Parallel()
 		handler, reader := createTestHandler(t)
 		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 

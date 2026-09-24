@@ -37,8 +37,8 @@ func (m *mockConnection) ReadMessage() (messageType int, p []byte, err error) {
 	select {
 	case <-m.closed:
 		return 0, nil, errConnClosed
-	case msg := <-m.readChan:
-		return msg.messageType, msg.p, m.readErr
+	case message := <-m.readChan:
+		return message.messageType, message.p, m.readErr
 	}
 }
 
@@ -63,11 +63,11 @@ func (m *mockConnection) WriteMessage(messageType int, data []byte) error {
 	default:
 	}
 
-	msg := msg{messageType: messageType, p: data}
+	message := msg{messageType: messageType, p: data}
 	select {
 	case <-m.closed:
 		return errConnClosed
-	case m.writeChan <- msg:
+	case m.writeChan <- message:
 		return nil
 	}
 }

@@ -119,9 +119,9 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 			if _, ok := dons[donID]; ok {
 				return nil, fmt.Errorf("duplicate DON ID %s", donID)
 			}
-			nodes, err := buildNodeStates(shard.Nodes, donID, lggr, wsMetrics)
-			if err != nil {
-				return nil, err
+			nodes, ierr := buildNodeStates(shard.Nodes, donID, lggr, wsMetrics)
+			if ierr != nil {
+				return nil, ierr
 			}
 			dons[donID] = &donConnectionManager{
 				donConfig: &config.DONConfig{
@@ -321,9 +321,9 @@ func (m *connectionManager) FinalizeHandshake(attemptID string, response []byte,
 		// milliseconds on a healthy connection) rather than waiting up to one
 		// full heartbeat interval for the keepalive ticker to fire.
 		ctx := context.Background()
-		if err := attempt.nodeState.sendPing(ctx); err != nil {
+		if ierr := attempt.nodeState.sendPing(ctx); ierr != nil {
 			m.lggr.Debugw("unable to send post-handshake ping to node",
-				"nodeAddress", attempt.nodeAddress, "name", attempt.nodeState.name, "err", err)
+				"nodeAddress", attempt.nodeAddress, "name", attempt.nodeState.name, "err", ierr)
 		}
 	}
 	m.lggr.Infof("node %s connected", attempt.nodeAddress)
