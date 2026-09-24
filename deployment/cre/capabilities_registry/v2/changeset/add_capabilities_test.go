@@ -134,8 +134,9 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 
 	// Invalid: same capability ID assigned to two different DONs in the input itself
 	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
-		RegistryChainSel:  chainSelector,
-		RegistryQualifier: test.RegistryQualifier,
+		RegistryChainSel:                chainSelector,
+		RegistryQualifier:               test.RegistryQualifier,
+		ValidateNoDuplicateCapabilities: true,
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
 			"don-1": capCfg,
 			"don-2": capCfg,
@@ -147,8 +148,9 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	// Invalid: capability already assigned to an existing on-chain DON, being assigned to a new DON
 	existingCapCfg := []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: test.TestCapabilityID}, Config: map[string]any{"k": "v"}}}
 	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
-		RegistryChainSel:  chainSelector,
-		RegistryQualifier: test.RegistryQualifier,
+		RegistryChainSel:                chainSelector,
+		RegistryQualifier:               test.RegistryQualifier,
+		ValidateNoDuplicateCapabilities: true,
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
 			"don-1": existingCapCfg,
 		},
@@ -158,10 +160,23 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 
 	// Valid: re-assigning a capability to the on-chain DON that already holds it
 	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
+		RegistryChainSel:                chainSelector,
+		RegistryQualifier:               test.RegistryQualifier,
+		ValidateNoDuplicateCapabilities: true,
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			test.DONName: existingCapCfg,
+		},
+	})
+	require.NoError(t, err)
+
+	// Valid: duplicate checks are skipped when the flag is off (mainline default)
+	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: test.RegistryQualifier,
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
-			test.DONName: existingCapCfg,
+			"don-1": capCfg,
+			"don-2": capCfg,
+			"don-3": existingCapCfg,
 		},
 	})
 	require.NoError(t, err)
@@ -201,8 +216,9 @@ func TestAddCapabilities_VerifyPreconditions_DONFamilyScoping(t *testing.T) {
 
 	// Valid: the zone-b DON shares no family with the harness DON that already holds the capability.
 	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
-		RegistryChainSel:  h.RegistrySelector,
-		RegistryQualifier: test.RegistryQualifier,
+		RegistryChainSel:                h.RegistrySelector,
+		RegistryQualifier:               test.RegistryQualifier,
+		ValidateNoDuplicateCapabilities: true,
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
 			otherZoneDON: existingCapCfg,
 		},
@@ -230,8 +246,9 @@ func TestAddCapabilities_VerifyPreconditions_DONFamilyScoping(t *testing.T) {
 	require.NoError(t, err)
 
 	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
-		RegistryChainSel:  h.RegistrySelector,
-		RegistryQualifier: test.RegistryQualifier,
+		RegistryChainSel:                h.RegistrySelector,
+		RegistryQualifier:               test.RegistryQualifier,
+		ValidateNoDuplicateCapabilities: true,
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
 			sameFamilyDON: existingCapCfg,
 		},
