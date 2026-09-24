@@ -11,11 +11,10 @@ import (
 
 // ValidateNoDuplicateCapabilitiesAcrossDONs ensures a capability is not assigned to two
 // different DONs within the same DON family. DONs in disjoint families (e.g. zone-a and
-// zone-b) may hold the same capability. excludeDONName skips the named on-chain DON.
+// zone-b) may hold the same capability.
 func ValidateNoDuplicateCapabilitiesAcrossDONs(
 	donCapabilityConfigs map[string][]contracts.CapabilityConfig,
 	existingDONs []capabilities_registry_v2.CapabilitiesRegistryDONInfo,
-	excludeDONName string,
 ) error {
 	existingByName := make(map[string]capabilities_registry_v2.CapabilitiesRegistryDONInfo, len(existingDONs))
 	for _, don := range existingDONs {
@@ -46,9 +45,6 @@ func ValidateNoDuplicateCapabilitiesAcrossDONs(
 	}
 
 	for _, don := range existingDONs {
-		if don.Name == excludeDONName {
-			continue
-		}
 		for _, cfg := range don.CapabilityConfigurations {
 			donName, ok := claimedByInput[cfg.CapabilityId]
 			if !ok {

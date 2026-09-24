@@ -66,7 +66,7 @@ func (u AddCapabilities) VerifyPreconditions(e cldf.Environment, config AddCapab
 			return err
 		}
 
-		if err := sequences.ValidateNoDuplicateCapabilitiesAcrossDONs(config.DonCapabilityConfigs, existingDONs, ""); err != nil {
+		if err := sequences.ValidateNoDuplicateCapabilitiesAcrossDONs(config.DonCapabilityConfigs, existingDONs); err != nil {
 			return fmt.Errorf("AddCapabilities precondition failed: %w", err)
 		}
 	}

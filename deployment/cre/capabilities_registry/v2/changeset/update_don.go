@@ -83,7 +83,7 @@ func (u UpdateDON) VerifyPreconditions(e cldf.Environment, config UpdateDONInput
 		}
 
 		donCapabilityConfigs := map[string][]contracts.CapabilityConfig{config.DONName: config.CapabilityConfigs}
-		if err := sequences.ValidateNoDuplicateCapabilitiesAcrossDONs(donCapabilityConfigs, existingDONs, config.DONName); err != nil {
+		if err := sequences.ValidateNoDuplicateCapabilitiesAcrossDONs(donCapabilityConfigs, existingDONs); err != nil {
 			return fmt.Errorf("UpdateDON precondition failed: %w", err)
 		}
 	}
