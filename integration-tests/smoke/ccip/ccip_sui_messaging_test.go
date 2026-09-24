@@ -148,7 +148,7 @@ func Test_CCIP_Messaging_Sui2EVM_Success(t *testing.T) {
 				ExtraArgs:              nil,
 				Replayed:               true,
 				FeeToken:               fx.suiLinkFeeToken,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})
@@ -168,7 +168,7 @@ func Test_CCIP_Messaging_Sui2EVM_Success(t *testing.T) {
 	// 			Receiver:               fx.state.Chains[fx.destChain].Receiver.Address().Bytes(),
 	// 			MsgData:                message,
 	// 			ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
-	// 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+	// 			ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 	// 			ExtraAssertions: []func(t *testing.T){
 	// 				func(t *testing.T) {
 	// 					assertEvmMessageReceived(testhelpers.Context(t), t, fx.state, fx.destChain, latestHead, message)
@@ -192,7 +192,7 @@ func Test_CCIP_Messaging_Sui2EVM_Success(t *testing.T) {
 	// 			Receiver:               fx.state.Chains[fx.destChain].Receiver.Address().Bytes(),
 	// 			MsgData:                fx.standardMessage,
 	// 			ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(fx.suiFQDestConfig.MaxPerMsgGasLimit)), false),
-	// 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+	// 			ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 	// 			ExtraAssertions: []func(t *testing.T){
 	// 				func(t *testing.T) {
 	// 					assertEvmMessageReceived(testhelpers.Context(t), t, fx.state, fx.destChain, latestHead, fx.standardMessage)
@@ -476,7 +476,7 @@ func Test_CCIP_Messaging_EVM2Sui_Success(t *testing.T) {
 				Receiver:               fx.receiverByte,
 				MsgData:                message,
 				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, fx.receiverObjectIDs, [32]byte{}),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})
@@ -553,7 +553,7 @@ func Test_CCIP_ReceiverReverts_EVM2Sui(t *testing.T) {
 			Receiver:               fx.receiverByte,
 			MsgData:                []byte("control: receiver works"),
 			ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, fx.receiverObjectIDs, [32]byte{}),
-			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 		},
 	)
 
@@ -602,7 +602,7 @@ func Test_CCIP_ReceiverReverts_EVM2Sui(t *testing.T) {
 	}
 
 	_, err = offrampContract.DevInspect().GetExecutionState(ctx, devInspectOpts, offRampStateObj, fx.sourceChain, seqBogus)
-	require.Error(t, err, "reverting receiver leg must not persist EXECUTION_STATE_SUCCESS (execute PTB must roll back atomically)")
+	require.Error(t, err, "reverting receiver leg must not persist ExecutionStateSuccess (execute PTB must roll back atomically)")
 
 	// Recovery: a subsequent message to the same receiver still succeeds, proving the reverted
 	// leg did not corrupt receiver or lane state.
@@ -614,7 +614,7 @@ func Test_CCIP_ReceiverReverts_EVM2Sui(t *testing.T) {
 			Receiver:               fx.receiverByte,
 			MsgData:                []byte("recovery: receiver still works after revert"),
 			ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, fx.receiverObjectIDs, [32]byte{}),
-			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 		},
 	)
 }
@@ -767,7 +767,7 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 				Receiver:               []byte{},
 				MsgData:                message,
 				ExtraArgs:              testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{}, [32]byte{}),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})
@@ -950,7 +950,7 @@ func suiExecTransmitterAddress(t *testing.T, e testhelpers.DeployedEnv, destChai
 // transmitter-ownership guard end-to-end. A malicious Sui receiver declares &mut over a
 // transmitter-owned SUI gas coin handed in as a receiverObjectIds tail. The guard rejects that
 // tail object, the receiver leg is skipped, the execute PTB reverts on-chain, and the optimistic
-// EXECUTION_STATE_SUCCESS rolls back atomically (get_execution_state aborts EUnknownSequenceNumber)
+// ExecutionStateSuccess rolls back atomically (get_execution_state aborts EUnknownSequenceNumber)
 // with the transmitter's SUI balance unchanged (no drain). Mirrors Test_CCIP_ReceiverReverts_EVM2Sui.
 func Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected(t *testing.T) {
 	fx := prepareEVM2SuiMaliciousReceiverTest(t)
@@ -994,7 +994,7 @@ func Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected(t *testing.T) {
 	// Let the DON attempt execution of the exploit message (it reverts atomically).
 	messagingtest.SleepReplayAndSettle(t, fx.e.Env, 30*time.Second, fx.sourceChain)
 
-	// The reverted execute PTB rolls back the optimistic EXECUTION_STATE_SUCCESS, so the sequence
+	// The reverted execute PTB rolls back the optimistic ExecutionStateSuccess, so the sequence
 	// is absent and get_execution_state aborts EUnknownSequenceNumber (atomic-rollback guarantee).
 	ctx := testhelpers.Context(t)
 	suiState, err := sui_deployment.LoadOnchainStatesui(fx.e.Env)
@@ -1039,7 +1039,7 @@ func Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected(t *testing.T) {
 			Receiver:               fx.legitReceiverByte,
 			MsgData:                []byte("lane not stuck"),
 			ExtraArgs:              testhelpers.MakeSuiExtraArgs(1_000_000, true, fx.legitReceiverObjectIDs, [32]byte{}),
-			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 		},
 	)
 }

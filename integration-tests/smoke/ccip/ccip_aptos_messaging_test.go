@@ -144,7 +144,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				MsgData:        message,
 				// true for out of order execution, which is necessary and enforced for Aptos
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, true),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				FeeToken:               nativeFeeToken,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 0) },
@@ -164,7 +164,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				MsgData:        message,
 				// true for out of order execution, which is necessary and enforced for Aptos
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, true),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				FeeToken:               nativeFeeToken,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 1) },
@@ -185,7 +185,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				MsgData:        message,
 				// true for out of order execution, which is necessary and enforced for Aptos
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(uint64(srcFeeQuoterDestChainConfig.MaxPerMsgGasLimit), true),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				FeeToken:               nativeFeeToken,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 2) },
@@ -208,7 +208,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				MsgData:        message,
 				// true for out of order execution, which is necessary and enforced for Aptos
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(gasLimit, true),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,
+				ExpectedExecutionState: testhelpers.ExecutionStateFailure,
 				FeeToken:               nativeFeeToken,
 			},
 		)
@@ -225,7 +225,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				MsgData:        message,
 				// true for out of order execution, which is necessary and enforced for Aptos
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, true),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				FeeToken:               evmLinkToken.Address().String(),
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 2) },
@@ -246,7 +246,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 				MsgData:        message,
 				// true for out of order execution, which is necessary and enforced for Aptos
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, true),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				FeeToken:               wethToken.Address().String(),
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertAptosMessageReceivedMatchesSource(t, e, destChain, receiver, message, 2) },
@@ -422,7 +422,8 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 
 	aptosFeeQuoter := aptos_feequoter.NewFeeQuoter(
 		state.AptosChains[sourceChain].CCIPAddress,
-		e.Env.BlockChains.AptosChains()[sourceChain].Client)
+		e.Env.BlockChains.AptosChains()[sourceChain].Client,
+	)
 
 	aptosFeeQuoterDestChainConfig, err := aptosFeeQuoter.GetDestChainConfig(aptosCallOpts, destChain)
 	require.NoError(t, err, "Failed to get destination chain config")
@@ -492,7 +493,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				Receiver:               ccipReceiverAddress,
 				MsgData:                message,
 				ExtraArgs:              nil,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertEvmMessageReceived(ctx, t, state, destChain, latestHead, message) },
 				},
@@ -513,7 +514,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				MsgData:        message,
 				// Just ensuring enough gas is provided to execute the message, doesn't matter if it's way too much
 				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertEvmMessageReceived(ctx, t, state, destChain, latestHead, message) },
 				},
@@ -533,7 +534,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 				Receiver:               ccipReceiverAddress,
 				MsgData:                message,
 				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(aptosFeeQuoterDestChainConfig.MaxPerMsgGasLimit)), false),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) { assertEvmMessageReceived(ctx, t, state, destChain, latestHead, message) },
 				},
@@ -632,7 +633,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 	})
 }
 
-func assertEvmMessageReceived(ctx context.Context, t *testing.T, state stateview.CCIPOnChainState, destChain uint64, latestHead uint64, message []byte) {
+func assertEvmMessageReceived(ctx context.Context, t *testing.T, state stateview.CCIPOnChainState, destChain, latestHead uint64, message []byte) {
 	iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
 		Context: ctx,
 		Start:   latestHead + 1,

@@ -117,7 +117,7 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 		}()
 	}
 
-	var i = 0
+	i := 0
 	for i < len(transactors) {
 		select {
 		case err := <-errs:
@@ -300,7 +300,7 @@ func ccipBatchingMultiSource(t *testing.T, opts ...testhelpers.TestOps) {
 	// assert that all states are successful
 	for _, states := range execStates {
 		for _, state := range states {
-			require.Equal(t, testhelpers.EXECUTION_STATE_SUCCESS, state)
+			require.Equal(t, testhelpers.ExecutionStateSuccess, state)
 		}
 	}
 }
@@ -312,16 +312,12 @@ func ccipBatchingSingleSource(t *testing.T, opts ...testhelpers.TestOps) {
 	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
 	evmChains := e.Env.BlockChains.EVMChains()
 
-	var (
-		startSeqNum = map[uint64]ccipocr3.SeqNum{
-			sourceChain1: 1,
-			sourceChain2: 1,
-		}
-	)
+	startSeqNum := map[uint64]ccipocr3.SeqNum{
+		sourceChain1: 1,
+		sourceChain2: 1,
+	}
 
-	var (
-		sourceChain = sourceChain1
-	)
+	sourceChain := sourceChain1
 	err := sendMessages(
 		ctx,
 		t,
@@ -358,7 +354,7 @@ func ccipBatchingSingleSource(t *testing.T, opts ...testhelpers.TestOps) {
 	require.NoError(t, err)
 	// assert that all states are successful
 	for _, state := range states {
-		require.Equal(t, testhelpers.EXECUTION_STATE_SUCCESS, state)
+		require.Equal(t, testhelpers.ExecutionStateSuccess, state)
 	}
 }
 
