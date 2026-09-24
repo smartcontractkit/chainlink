@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -431,7 +432,7 @@ func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handlermocks.Han
 	handlersObj := map[string]handlers.Handler{
 		"testDON": handler,
 	}
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 	gw := gateway.NewGateway(&api.JSONRPCCodec{}, httpServer, handlersObj, map[string]string{"testDON": "testDON"}, nil, nil, gMetrics, logger.Test(t))
 	return gw, handler
@@ -644,7 +645,7 @@ func TestGateway_NewStyleConfig_UserMessageRouting(t *testing.T) {
 	// Set up gateway with serviceToMultiHandler (new-style config)
 	httpServer := netmocks.NewHTTPServer(t)
 	httpServer.On("SetHTTPRequestHandler", mock.Anything).Return(nil)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 
 	// Map services to their handlers (as would be created by setupFromNewConfig)
@@ -715,7 +716,7 @@ func TestGateway_NewStyleConfig_NodeResponseRouting(t *testing.T) {
 
 	httpServer := netmocks.NewHTTPServer(t)
 	httpServer.On("SetHTTPRequestHandler", mock.Anything).Return(nil)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 
 	// Map services to their handlers

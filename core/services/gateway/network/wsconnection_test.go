@@ -1,14 +1,13 @@
 package network_test
 
 import (
-	"net/http"
-	"net/http/httptest"
-	"strings"
+	"context"
+	"errors"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -16,48 +15,77 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
-var upgrader = websocket.Upgrader{}
+var errConnClosed = errors.New("connection closed")
 
-func newWebSocketPair(t *testing.T) (*websocket.Conn, *websocket.Conn) {
+type mockConnection struct {
+	readChan  chan msg
+	writeChan chan msg
+	closed    chan struct{}
+	closeOnce *sync.Once
+	readErr   error
+	writeErr  error
+	// when non-nil, WriteMessage blocks until it is closed
+	writeGate chan struct{}
+}
+
+type msg struct {
+	messageType int
+	p           []byte
+}
+
+func (m *mockConnection) ReadMessage() (messageType int, p []byte, err error) {
+	select {
+	case <-m.closed:
+		return 0, nil, errConnClosed
+	case message := <-m.readChan:
+		return message.messageType, message.p, m.readErr
+	}
+}
+
+func (m *mockConnection) WriteMessage(messageType int, data []byte) error {
+	if m.writeGate != nil {
+		select {
+		case <-m.closed:
+			return errConnClosed
+		case <-m.writeGate:
+		}
+	}
+
+	if m.writeErr != nil {
+		return m.writeErr
+	}
+
+	// Checked first because a select would pick randomly between a closed
+	// conn and a writeChan with buffer space.
+	select {
+	case <-m.closed:
+		return errConnClosed
+	default:
+	}
+
+	message := msg{messageType: messageType, p: data}
+	select {
+	case <-m.closed:
+		return errConnClosed
+	case m.writeChan <- message:
+		return nil
+	}
+}
+
+func (m *mockConnection) Close() error {
+	m.closeOnce.Do(func() { close(m.closed) })
+	return nil
+}
+
+// newWebSocketPair returns two connected ends that share a close signal, so
+// closing either end unblocks reads on both, like a real socket.
+func newWebSocketPair(t *testing.T) (*mockConnection, *mockConnection) {
 	t.Helper()
+	chAtoB, chBtoA := make(chan msg, 10), make(chan msg, 10)
+	closed, closeOnce := make(chan struct{}), &sync.Once{}
 
-	type upgradeResult struct {
-		conn *websocket.Conn
-		err  error
-	}
-	serverConnCh := make(chan upgradeResult, 1)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		serverConnCh <- upgradeResult{conn: conn, err: err}
-	}))
-	t.Cleanup(server.Close)
-
-	clientConn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
-	if resp != nil {
-		defer resp.Body.Close()
-	}
-	require.NoError(t, err)
-	result := <-serverConnCh
-	require.NoError(t, result.err)
-	serverConn := result.conn
-	t.Cleanup(func() {
-		_ = clientConn.Close()
-		_ = serverConn.Close()
-	})
-	return serverConn, clientConn
-}
-
-type serverSideLogic struct {
-	connWrapper network.WSConnectionWrapper
-}
-
-func (ssl *serverSideLogic) wsHandler(w http.ResponseWriter, r *http.Request) {
-	c, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return
-	}
-	// one wsConnWrapper per client
-	ssl.connWrapper.Reset(c)
+	return &mockConnection{closed: closed, closeOnce: closeOnce, readChan: chBtoA, writeChan: chAtoB},
+		&mockConnection{closed: closed, closeOnce: closeOnce, readChan: chAtoB, writeChan: chBtoA}
 }
 
 // TestWSConnectionWrapper_WriteError_TriggersClose verifies that a write error
@@ -67,28 +95,14 @@ func TestWSConnectionWrapper_WriteError_TriggersClose(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 
-	// server — accepts one connection
-	serverConn := network.NewWSConnectionWrapper(lggr)
-	servicetest.Run(t, serverConn)
-	ssl := &serverSideLogic{connWrapper: serverConn}
-	s := httptest.NewServer(http.HandlerFunc(ssl.wsHandler))
-	serverURL := "ws" + strings.TrimPrefix(s.URL, "http")
-	defer s.Close()
+	_, clientConn := newWebSocketPair(t)
 
 	// client
 	clientConnWrapper := network.NewWSConnectionWrapper(lggr)
 	servicetest.Run(t, clientConnWrapper)
+	closeCh := clientConnWrapper.Reset(clientConn)
 
-	conn, resp, err := websocket.DefaultDialer.Dial(serverURL, nil)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	closeCh := clientConnWrapper.Reset(conn)
-
-	// Set the write deadline to the past to simulate a write i/o timeout without
-	// affecting the read side — this mimics a half-open / zombie TCP connection
-	// where writes time out but the kernel hasn't detected a read error yet.
-	require.NoError(t, conn.SetWriteDeadline(time.Now().Add(-time.Second)))
+	clientConn.writeErr = errors.New("write error")
 
 	// The write must fail (write deadline already expired).
 	writeErr := clientConnWrapper.Write(t.Context(), websocket.BinaryMessage, []byte("data"))
@@ -153,42 +167,209 @@ func TestWSConnectionWrapper_OldReadPumpCannotClearReplacement(t *testing.T) {
 
 func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
-	// server
-	wsConn := network.NewWSConnectionWrapper(lggr)
-	servicetest.Run(t, wsConn)
-	ssl := &serverSideLogic{connWrapper: wsConn}
-	s := httptest.NewServer(http.HandlerFunc(ssl.wsHandler))
-	serverURL := "ws" + strings.TrimPrefix(s.URL, "http")
-	defer s.Close()
 
-	// client
-	clientConnWrapper := network.NewWSConnectionWrapper(lggr)
+	clientConnWrapper := network.NewWSConnectionWrapper(logger.Test(t))
 	servicetest.Run(t, clientConnWrapper)
 
 	// connect, write a message, disconnect
-	conn, resp, err := websocket.DefaultDialer.Dial(serverURL, nil)
+	serverConn, clientConn := newWebSocketPair(t)
+	clientConnWrapper.Reset(clientConn)
+	require.NoError(t, clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("hello")))
+	_, got, err := serverConn.ReadMessage()
 	require.NoError(t, err)
-	defer resp.Body.Close()
-	func() {
-		defer func() { assert.NoError(t, conn.Close()) }()
-		clientConnWrapper.Reset(conn)
-		writeErr := clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("hello"))
-		require.NoError(t, writeErr)
-		<-ssl.connWrapper.ReadChannel() // consumed by server
-	}()
+	require.Equal(t, []byte("hello"), got)
+	require.NoError(t, clientConn.Close())
 
 	// try to write without a connection
 	writeErr := clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("failed send"))
 	require.Error(t, writeErr)
 
-	// re-connect, write another message, disconnect
-	conn, resp, err = websocket.DefaultDialer.Dial(serverURL, nil)
+	// re-connect, write another message
+	serverConn, clientConn = newWebSocketPair(t)
+	clientConnWrapper.Reset(clientConn)
+	require.NoError(t, clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("hello again")))
+	_, got, err = serverConn.ReadMessage()
 	require.NoError(t, err)
-	defer resp.Body.Close()
-	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
-	clientConnWrapper.Reset(conn)
-	writeErr = clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("hello again"))
-	require.NoError(t, writeErr)
-	<-ssl.connWrapper.ReadChannel() // consumed by server
+	require.Equal(t, []byte("hello again"), got)
+}
+
+// recordingObserver is a WSConnectionObserver that captures every observation
+// for assertions.
+type recordingObserver struct {
+	mu            sync.Mutex
+	queueWaits    []time.Duration
+	socketWrites  []time.Duration
+	dispatchWaits []time.Duration
+	pending       int64
+}
+
+func (o *recordingObserver) RecordWriteQueueWait(_ context.Context, d time.Duration) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.queueWaits = append(o.queueWaits, d)
+}
+
+func (o *recordingObserver) RecordSocketWrite(_ context.Context, d time.Duration) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.socketWrites = append(o.socketWrites, d)
+}
+
+func (o *recordingObserver) RecordReadDispatchWait(_ context.Context, d time.Duration) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.dispatchWaits = append(o.dispatchWaits, d)
+}
+
+func (o *recordingObserver) AddPendingWriters(_ context.Context, delta int64) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.pending += delta
+}
+
+func (o *recordingObserver) queueWaitSamples() []time.Duration {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return append([]time.Duration(nil), o.queueWaits...)
+}
+
+func (o *recordingObserver) socketWriteSamples() []time.Duration {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return append([]time.Duration(nil), o.socketWrites...)
+}
+
+func (o *recordingObserver) dispatchWaitSamples() []time.Duration {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return append([]time.Duration(nil), o.dispatchWaits...)
+}
+
+func (o *recordingObserver) pendingWriters() int64 {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.pending
+}
+
+// newGatedWebSocketPair is newWebSocketPair with the server end's writes
+// blocked until the returned unblock func is called.
+func newGatedWebSocketPair(t *testing.T) (serverConn *mockConnection, unblock func()) {
+	t.Helper()
+	serverConn, _ = newWebSocketPair(t)
+	gate := make(chan struct{})
+	serverConn.writeGate = gate
+	unblock = sync.OnceFunc(func() { close(gate) })
+	t.Cleanup(unblock)
+	return serverConn, unblock
+}
+
+// TestWSConnectionWrapper_Metrics_WriteQueueWaitAndSocketWrite blocks the write
+// pump inside the socket write and verifies that a queued writer's queue wait
+// grows by the blocked time, that the blocked socket write records its full
+// duration once it returns, and that each operation records exactly once.
+func TestWSConnectionWrapper_Metrics_WriteQueueWaitAndSocketWrite(t *testing.T) {
+	t.Parallel()
+
+	obs := &recordingObserver{}
+	connWrapper := network.NewWSConnectionWrapperWithObserver(logger.Test(t), obs)
+	servicetest.Run(t, connWrapper)
+
+	serverConn, unblock := newGatedWebSocketPair(t)
+	connWrapper.Reset(serverConn)
+
+	// The pump accepts the first write, then blocks in WriteMessage.
+	firstErr := make(chan error, 1)
+	go func() { firstErr <- connWrapper.Write(t.Context(), websocket.BinaryMessage, []byte("first")) }()
+	require.Eventually(t, func() bool { return len(obs.queueWaitSamples()) == 1 },
+		5*time.Second, time.Millisecond, "write pump should accept the first write and block in the socket write")
+
+	// The second write cannot be accepted while the pump is blocked, so it
+	// waits in Write's first select and is counted as a pending writer.
+	secondErr := make(chan error, 1)
+	go func() { secondErr <- connWrapper.Write(t.Context(), websocket.BinaryMessage, []byte("second")) }()
+	require.Eventually(t, func() bool { return obs.pendingWriters() == 1 },
+		5*time.Second, time.Millisecond, "queued writer should be counted as pending")
+
+	const blockFor = 250 * time.Millisecond
+	time.Sleep(blockFor)
+	unblock()
+
+	require.NoError(t, <-firstErr)
+	require.NoError(t, <-secondErr)
+
+	// One queue-wait sample per write; the blocked writer's wait includes the delay.
+	queueWaits := obs.queueWaitSamples()
+	require.Len(t, queueWaits, 2, "each completed write must record its queue wait exactly once")
+	require.Less(t, queueWaits[0], queueWaits[1])
+	require.GreaterOrEqual(t, queueWaits[1], 200*time.Millisecond, "blocked writer's queue wait must include the pump blockage")
+
+	// One socket-write sample per message; the blocked write includes the delay.
+	socketWrites := obs.socketWriteSamples()
+	require.Len(t, socketWrites, 2, "each WriteMessage must record its duration exactly once")
+	require.GreaterOrEqual(t, socketWrites[0], 200*time.Millisecond, "blocked socket write must record its full duration")
+
+	require.Zero(t, obs.pendingWriters(), "pending writers must return to zero")
+}
+
+// TestWSConnectionWrapper_Metrics_PendingWritersCanceled verifies that a writer
+// leaving the first select via context cancellation decrements the pending
+// writer count, records no queue-wait sample, and still returns the context error.
+func TestWSConnectionWrapper_Metrics_PendingWritersCanceled(t *testing.T) {
+	t.Parallel()
+
+	obs := &recordingObserver{}
+	connWrapper := network.NewWSConnectionWrapperWithObserver(logger.Test(t), obs)
+	servicetest.Run(t, connWrapper)
+
+	serverConn, unblock := newGatedWebSocketPair(t)
+	connWrapper.Reset(serverConn)
+
+	firstErr := make(chan error, 1)
+	go func() { firstErr <- connWrapper.Write(t.Context(), websocket.BinaryMessage, []byte("first")) }()
+	require.Eventually(t, func() bool { return len(obs.queueWaitSamples()) == 1 },
+		5*time.Second, time.Millisecond, "write pump should accept the first write and block in the socket write")
+
+	ctx, cancel := context.WithCancel(t.Context())
+	writeErr := make(chan error, 1)
+	go func() { writeErr <- connWrapper.Write(ctx, websocket.BinaryMessage, []byte("canceled")) }()
+	require.Eventually(t, func() bool { return obs.pendingWriters() == 1 },
+		5*time.Second, time.Millisecond, "queued writer should be counted as pending")
+
+	cancel()
+	require.ErrorIs(t, <-writeErr, context.Canceled)
+	require.Eventually(t, func() bool { return obs.pendingWriters() == 0 },
+		5*time.Second, time.Millisecond, "cancellation must decrement the pending writer count")
+	require.Len(t, obs.queueWaitSamples(), 1, "a canceled writer must not record a queue-wait sample")
+
+	unblock()
+	require.NoError(t, <-firstErr)
+}
+
+// TestWSConnectionWrapper_Metrics_ReadDispatchWait verifies that a message that
+// was read successfully but not consumed promptly records a dispatch wait equal
+// to the consumer blockage, exactly once.
+func TestWSConnectionWrapper_Metrics_ReadDispatchWait(t *testing.T) {
+	t.Parallel()
+
+	obs := &recordingObserver{}
+	connWrapper := network.NewWSConnectionWrapperWithObserver(logger.Test(t), obs)
+	servicetest.Run(t, connWrapper)
+
+	serverConn, clientConn := newWebSocketPair(t)
+	connWrapper.Reset(serverConn)
+
+	require.NoError(t, clientConn.WriteMessage(websocket.TextMessage, []byte("hello")))
+
+	// Do not consume from ReadChannel for a controlled delay: the read pump is
+	// blocked handing the item to readCh.
+	const holdFor = 250 * time.Millisecond
+	time.Sleep(holdFor)
+	item := <-connWrapper.ReadChannel()
+	require.Equal(t, websocket.TextMessage, item.MsgType)
+	require.Equal(t, []byte("hello"), item.Data)
+
+	require.Eventually(t, func() bool {
+		waits := obs.dispatchWaitSamples()
+		return len(waits) == 1 && waits[0] >= 200*time.Millisecond
+	}, 5*time.Second, time.Millisecond, "blocked read consumer must produce one dispatch-wait sample covering the delay")
 }
