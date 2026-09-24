@@ -45,12 +45,14 @@ jobs:
             echo "::error::old_ref and new_ref are required"
             exit 1
           fi
-          echo "old_ref=$old" >> "$GITHUB_OUTPUT"
-          echo "new_ref=$new" >> "$GITHUB_OUTPUT"
-          echo "slack_thread_url=$thread" >> "$GITHUB_OUTPUT"
-          # Artifact names may not contain / : " < > | * ? etc.
-          echo "safe_old=${old//[^a-zA-Z0-9._-]/-}" >> "$GITHUB_OUTPUT"
-          echo "safe_new=${new//[^a-zA-Z0-9._-]/-}" >> "$GITHUB_OUTPUT"
+          {
+            echo "old_ref=$old"
+            echo "new_ref=$new"
+            echo "slack_thread_url=$thread"
+            # Artifact names may not contain / : " < > | * ? etc.
+            echo "safe_old=${old//[^a-zA-Z0-9._-]/-}"
+            echo "safe_new=${new//[^a-zA-Z0-9._-]/-}"
+          } | tee -a "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
         with:
