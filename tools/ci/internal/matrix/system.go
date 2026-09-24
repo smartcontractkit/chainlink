@@ -79,6 +79,9 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	"Test_CRE_V2_ShardManualAssignment": {
 		{Topology: "workflow-gateway-sharded-manual", Configs: "configs/workflow-gateway-sharded-manual.toml"},
 	},
+	"Test_CRE_V2_ShardManualAssignmentBothSpecs": {
+		{Topology: "workflow-gateway-sharded-manual", Configs: "configs/workflow-gateway-sharded-manual.toml"},
+	},
 	"Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger": {
 		{Topology: "workflow-sharded-capabilities", Configs: "configs/workflow-sharded-capabilities-don.toml"},
 	},
