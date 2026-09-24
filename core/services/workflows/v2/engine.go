@@ -77,7 +77,7 @@ func NewEngine(cfg *EngineConfig) (WorkflowEngine, error) {
 		cfg.TriggerAcknowledger = e
 	}
 
-	base.attachService(lggr, "WorkflowEngineV2", e.start, e.close)
+	base.initServiceEngine(lggr, "WorkflowEngineV2", e.start, e.close)
 	return e, nil
 }
 

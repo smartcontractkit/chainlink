@@ -69,7 +69,7 @@ const pinnedWorkflowDonConfigVersion = 1
 //
 // It is never used directly. engine (legacy, trigger-owning) and coordinatedEngine
 // (execution-only) each embed it and supply their own start/init/close. The
-// single services.Engine for a workflow engine lives here — see attachService.
+// single services.Engine for a workflow engine lives here — see initServiceEngine.
 type baseEngine struct {
 	services.Service
 	srvcEng *services.Engine
@@ -111,7 +111,7 @@ type baseEngine struct {
 }
 
 // newBaseEngine builds the execution machinery shared by every workflow engine.
-// It installs no service: the caller must call attachService before the engine
+// It installs no service: the caller must call initServiceEngine before the engine
 // is started.
 //
 // Start and Close are supplied by the outer type, because the lifecycle differs
@@ -174,11 +174,11 @@ func newBaseEngine(cfg *EngineConfig) (*baseEngine, logger.SugaredLogger, error)
 	return engine, beholderLogger, nil
 }
 
-// attachService installs the single services.Engine for this workflow engine.
+// initServiceEngine installs the single services.Engine for this workflow engine.
 // start and close belong to the outer type that owns the lifecycle.
-func (e *baseEngine) attachService(lggr logger.SugaredLogger, engineName string, start func(context.Context) error, closeFn func() error) {
+func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, start func(context.Context) error, closeFn func() error) {
 	e.Service, e.srvcEng = services.Config{
-		Name:  engineName,
+		Name:  name,
 		Start: start,
 		Close: closeFn,
 	}.NewServiceEngine(lggr)

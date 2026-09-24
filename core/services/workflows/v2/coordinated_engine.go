@@ -38,7 +38,7 @@ func NewCoordinatedEngine(cfg *EngineConfig) (WorkflowEngine, error) {
 	}
 
 	e := &coordinatedEngine{base: base}
-	base.attachService(lggr, "WorkflowCoordinatedEngine", e.start, e.close)
+	base.initServiceEngine(lggr, "WorkflowCoordinatedEngine", e.start, e.close)
 	return e, nil
 }
 
