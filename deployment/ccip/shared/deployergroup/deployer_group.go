@@ -122,6 +122,12 @@ type WithContext interface {
 	WithDeploymentContext(description string) *DeployerGroup
 }
 
+// DeployerGroupWithContext is a deprecated alias for WithContext, retained so
+// existing external consumers keep compiling.
+//
+// Deprecated: use WithContext.
+type DeployerGroupWithContext = WithContext //nolint:revive // stutter accepted to preserve the pre-rename API
+
 type deployerGroupBuilder struct {
 	e               cldf.Environment
 	state           stateview.CCIPOnChainState
