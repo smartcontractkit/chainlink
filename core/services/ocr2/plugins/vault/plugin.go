@@ -557,7 +557,15 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 
 		if len(payload) > maxBlobBytes {
 			if len(currentBatch) == 0 {
-				return pendingQueueBlobPack{}, fmt.Errorf("single pending queue item exceeds max blob payload size (%d > %d)", len(payload), maxBlobBytes)
+				// The item can never be advertised so skip it
+				r.lggr.Warnw("single pending queue item exceeds max blob payload size; skipping",
+					"seqNr", seqNr,
+					"requestID", queueItem.ID(),
+					"payloadBytes", len(payload),
+					"maxBlobBytes", maxBlobBytes,
+				)
+				r.metrics.trackPendingQueueItemOversized(ctx, len(payload), maxBlobBytes)
+				continue
 			}
 			// Current batch is full; flush it and retry the same item on the next iteration.
 			var ferr error
