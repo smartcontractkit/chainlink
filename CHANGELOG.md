@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.65.1
+
+### Patch Changes
+
+- [#23820](https://github.com/smartcontractkit/chainlink/pull/23820) [`60461d1`](https://github.com/smartcontractkit/chainlink/commit/60461d1a7bbfbac4172a1518330e11e9b7cac985) - #internal bump pinned curl to 8.5.0-2ubuntu10.15 and pin libcurl4t64 alongside it, so a curl security update no longer breaks the image build
+
 ## 2.65.0
 
 ### Minor Changes
