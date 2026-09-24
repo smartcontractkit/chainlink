@@ -2520,11 +2520,19 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 	// setupModule is called to set module expectations BEFORE NewEngine.
 	// Optional cfgFn overrides are applied to the per-subtest config copy
 	// (e.g. sharding, billing) before the engine is constructed.
+	//
+	// The hooks record into counters as well as the channels. ExecuteTrigger is
+	// synchronous — it returns only after the deferred hooks have fired — so after
+	// it returns the counts are final and a subtest can assert "this hook never
+	// ran" with a counter read instead of a blocking channel read.
 	type engineWithChans struct {
 		engine              v2.WorkflowEngine
 		executionFinishedCh chan string // receives status
 		executionErrorCh    chan string // receives error message
 		resultReceivedCh    chan *sdkpb.ExecutionResult
+		finishedCalls       *atomic.Int32
+		errorCalls          *atomic.Int32
+		resultCalls         *atomic.Int32
 	}
 	newTestEngine := func(t *testing.T, setupModule func(module *modulemocks.ModuleV2), cfgFn ...func(*v2.EngineConfig)) engineWithChans {
 		t.Helper()
@@ -2534,17 +2542,23 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		executionFinishedCh := make(chan string, 1)
 		executionErrorCh := make(chan string, 1)
 		resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
+		finishedCalls := &atomic.Int32{}
+		errorCalls := &atomic.Int32{}
+		resultCalls := &atomic.Int32{}
 
 		testCfg := *baseCfg
 		testCfg.Module = module
 		testCfg.Hooks = v2.LifecycleHooks{
 			OnExecutionFinished: func(_ string, status string) {
+				finishedCalls.Add(1)
 				executionFinishedCh <- status
 			},
 			OnExecutionError: func(msg string) {
+				errorCalls.Add(1)
 				executionErrorCh <- msg
 			},
 			OnResultReceived: func(res *sdkpb.ExecutionResult) {
+				resultCalls.Add(1)
 				resultReceivedCh <- res
 			},
 		}
@@ -2554,7 +2568,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 
 		engine, err := v2.NewEngine(&testCfg)
 		require.NoError(t, err)
-		return engineWithChans{engine, executionFinishedCh, executionErrorCh, resultReceivedCh}
+		return engineWithChans{engine, executionFinishedCh, executionErrorCh, resultReceivedCh, finishedCalls, errorCalls, resultCalls}
 	}
 
 	t.Run("happy path completes with status completed", func(t *testing.T) {
@@ -2571,11 +2585,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, "completed", <-ew.executionFinishedCh)
-		select {
-		case msg := <-ew.executionErrorCh:
-			t.Fatalf("unexpected OnExecutionError: %s", msg)
-		default:
-		}
+		require.Equal(t, int32(0), ew.errorCalls.Load(), "OnExecutionError should not fire on the happy path")
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 
@@ -2595,11 +2605,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 
 		require.Equal(t, "errored", <-ew.executionFinishedCh)
 		require.Contains(t, <-ew.executionErrorCh, "out of memory")
-		select {
-		case res := <-ew.resultReceivedCh:
-			t.Fatalf("OnResultReceived should not fire on error, got: %v", res)
-		default:
-		}
+		require.Equal(t, int32(0), ew.resultCalls.Load(), "OnResultReceived should not fire on error")
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 
@@ -2620,11 +2626,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 
 		require.Equal(t, "errored", <-ew.executionFinishedCh)
 		require.Contains(t, <-ew.executionErrorCh, "assertion failed")
-		select {
-		case res := <-ew.resultReceivedCh:
-			t.Fatalf("OnResultReceived should not fire on result error, got: %v", res)
-		default:
-		}
+		require.Equal(t, int32(0), ew.resultCalls.Load(), "OnResultReceived should not fire on result error")
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 
@@ -2650,13 +2652,9 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		err = ew.engine.ExecuteTrigger(ctx, event)
 		require.ErrorIs(t, err, v2.ErrDuplicateExecution)
 
-		// No second execution should have fired.
-		select {
-		case status := <-ew.executionFinishedCh:
-			t.Fatalf("unexpected second execution with status: %s", status)
-		case <-time.After(200 * time.Millisecond):
-			// expected — no second execution
-		}
+		// ExecuteTrigger is synchronous, so after it returns the hook counts are
+		// final: the duplicate must not have produced a second execution.
+		require.Equal(t, int32(1), ew.finishedCalls.Load(), "duplicate event must not run a second execution")
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 
@@ -2676,16 +2674,9 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		// No ACK is sent on metering reserve failure; the caller may retry.
 		require.Empty(t, ack.ackCalls())
 
-		select {
-		case status := <-ew.executionFinishedCh:
-			t.Fatalf("unexpected OnExecutionFinished: %s", status)
-		default:
-		}
-		select {
-		case msg := <-ew.executionErrorCh:
-			t.Fatalf("unexpected OnExecutionError: %s", msg)
-		default:
-		}
+		// The execution never started, so neither execution hook fired.
+		require.Equal(t, int32(0), ew.finishedCalls.Load(), "OnExecutionFinished should not fire when reserve fails")
+		require.Equal(t, int32(0), ew.errorCalls.Load(), "OnExecutionError should not fire when reserve fails")
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 }
