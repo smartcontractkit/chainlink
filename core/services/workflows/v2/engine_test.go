@@ -249,7 +249,7 @@ WorkflowLimit = "1"
 	cfg.CapRegistry = capreg
 	cfg.GlobalWorkflowLimit = sLimiter
 	cfg.Hooks = hooks
-	var engine1, engine2, engine3, engine4 *v2.Engine
+	var engine1, engine2, engine3, engine4 v2.WorkflowEngine
 
 	t.Run("engine 1 inits successfully", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		engine1, err = v2.NewEngine(cfg)
@@ -2521,7 +2521,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 	// Optional cfgFn overrides are applied to the per-subtest config copy
 	// (e.g. sharding, billing) before the engine is constructed.
 	type engineWithChans struct {
-		engine              *v2.Engine
+		engine              v2.WorkflowEngine
 		executionFinishedCh chan string // receives status
 		executionErrorCh    chan string // receives error message
 		resultReceivedCh    chan *sdkpb.ExecutionResult
@@ -3274,7 +3274,7 @@ func createTestEngineForDonVersionTest(
 	registry *capreg.Registry,
 	donNotifier coreCap.DonNotifyWaitSubscriber,
 	emitter custmsg.MessageEmitter,
-) (*v2.Engine, *v2.EngineConfig) {
+) (v2.WorkflowEngine, *v2.EngineConfig) {
 	lf := limits.Factory{Logger: lggr}
 
 	name, err := types.NewWorkflowName("test-don-update-workflow")

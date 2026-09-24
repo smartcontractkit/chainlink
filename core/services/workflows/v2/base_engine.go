@@ -67,7 +67,7 @@ const pinnedWorkflowDonConfigVersion = 1
 // module execution, metering, secrets, labels, the heartbeat, drain state, and
 // DON sync.
 //
-// It is never used directly. Engine (legacy, trigger-owning) and coordinatedEngine
+// It is never used directly. engine (legacy, trigger-owning) and coordinatedEngine
 // (execution-only) each embed it and supply their own start/init/close. The
 // single services.Engine for a workflow engine lives here — see attachService.
 type baseEngine struct {

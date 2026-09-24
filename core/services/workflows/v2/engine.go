@@ -24,18 +24,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
-var _ Acknowledger = (*Engine)(nil)
-var _ EventSink = (*Engine)(nil)
-var _ WorkflowEngine = (*Engine)(nil)
+var _ Acknowledger = (*engine)(nil)
+var _ EventSink = (*engine)(nil)
+var _ WorkflowEngine = (*engine)(nil)
 
-// Engine is the legacy trigger-owning workflow engine: it embeds the shared
+// engine is the legacy trigger-owning workflow engine: it embeds the shared
 // execution machinery and adds the extra responsibilities of trigger registration,
 // handle ownership, acknowledgement, and the node's workflow-count limit.
 //
 // Fields declared here must not duplicate baseEngine's: a shadowed field would
 // leave these methods reading a zero value while the execution path reads the
 // real one, and the compiler will not catch it.
-type Engine struct {
+type engine struct {
 	*baseEngine
 
 	workflowLimitUsed atomic.Bool // true if GlobalWorkflowLimit must be freed
@@ -58,13 +58,13 @@ type triggerCapability struct {
 // NewEngine constructs the legacy trigger-owning engine: it registers its own
 // triggers, holds the handles, acknowledges through itself, and owns the
 // workflow-count limit.
-func NewEngine(cfg *EngineConfig) (*Engine, error) {
+func NewEngine(cfg *EngineConfig) (WorkflowEngine, error) {
 	base, lggr, err := newBaseEngine(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	e := &Engine{
+	e := &engine{
 		baseEngine:              base,
 		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
@@ -82,13 +82,13 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	return e, nil
 }
 
-func (e *Engine) start(ctx context.Context) error {
+func (e *engine) start(ctx context.Context) error {
 	return e.startWith(ctx, e.init, e.handleAllTriggerEvents)
 }
 
 // init is the legacy initialization: it acquires the workflow-count limit before
 // anything else and registers the workflow's triggers before reporting success.
-func (e *Engine) init(ctx context.Context) {
+func (e *engine) init(ctx context.Context) {
 	// Tracer is no-op if DebugMode is false
 	ctx, span := e.tracer.Start(ctx, "workflow_engine_init",
 		trace.WithAttributes(
@@ -123,7 +123,7 @@ func (e *Engine) init(ctx context.Context) {
 // useWorkflowLimit acquires one slot of the node's workflow-count limit. The
 // returned error is the one that must reach OnInitialized: the scope-specific
 // sentinel for a limit breach, the raw error otherwise.
-func (e *Engine) useWorkflowLimit(ctx context.Context) error {
+func (e *engine) useWorkflowLimit(ctx context.Context) error {
 	if err := e.cfg.GlobalWorkflowLimit.Use(ctx, 1); err != nil {
 		errLimited, ok := errors.AsType[limits.ErrorResourceLimited[int]](err)
 		if !ok {
@@ -148,7 +148,7 @@ func (e *Engine) useWorkflowLimit(ctx context.Context) error {
 	return nil
 }
 
-func (e *Engine) close() error {
+func (e *engine) close() error {
 	ctx, cancel := e.shutdownCtx()
 	defer cancel()
 
@@ -165,7 +165,7 @@ func (e *Engine) close() error {
 	return nil
 }
 
-func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions []*sdkpb.TriggerSubscription) error {
+func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions []*sdkpb.TriggerSubscription) error {
 	// check if all requested triggers exist in the registry
 	triggers := make([]capabilities.TriggerCapability, 0, len(subscriptions))
 	for _, sub := range subscriptions {
@@ -349,7 +349,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 }
 
 // NOTE: needs to be called under the triggersRegMu lock
-func (e *Engine) unregisterAllTriggers(ctx context.Context) {
+func (e *engine) unregisterAllTriggers(ctx context.Context) {
 	failCount := 0
 	for registrationID, trigger := range e.triggers {
 		err := trigger.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
@@ -370,7 +370,7 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 	e.triggers = make(map[string]*triggerCapability)
 }
 
-func (e *Engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
+func (e *engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
 	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
 
 	tm := e.metrics.With(platform.KeyTriggerID, triggerCapID)
@@ -398,7 +398,7 @@ func (e *Engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, e
 var errObservedAtMissing = errors.New("trigger event ObservedAt not set")
 
 // put enqueues a trigger event into the engine's internal queue.
-func (e *Engine) put(ctx context.Context, event RoutedTriggerEvent) error {
+func (e *engine) put(ctx context.Context, event RoutedTriggerEvent) error {
 	triggerID := event.TriggerCapID
 	eventID := event.Event.Event.ID
 	idx := event.TriggerIndex
@@ -476,7 +476,7 @@ func (e *Engine) put(ctx context.Context, event RoutedTriggerEvent) error {
 
 // handleAllTriggerEvents drains the engine's trigger-event queue (populated by put method)
 // and executes each event in turn.
-func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
+func (e *engine) handleAllTriggerEvents(ctx context.Context) {
 	for {
 		queueHead, err := e.allTriggerEventsQueueCh.Wait(ctx)
 		if err != nil {
@@ -527,7 +527,6 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 	}
 }
 
-// IsCoordinated indicates whether the engine needs an external trigger coordinator or if like this engine everything its managed internally.
-func (e *Engine) IsCoordinated() bool {
+func (e *engine) IsCoordinated() bool {
 	return false
 }

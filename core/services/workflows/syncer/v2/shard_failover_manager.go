@@ -45,7 +45,7 @@ type ShardFailoverManager struct {
 	services.Service
 	eng *services.Engine
 
-	engine *v2.Engine
+	engine v2.WorkflowEngine
 	cfg    ShardFailoverManagerConfig
 
 	mu    sync.RWMutex
@@ -99,8 +99,13 @@ func (m *ShardFailoverManager) WireHooks(cfg *v2.EngineConfig) {
 }
 
 // SetEngine injects the engine after it has been created. Required before Start.
-func (m *ShardFailoverManager) SetEngine(engine *v2.Engine) {
+// It currently only supports the legacy trigger-owning engine.
+func (m *ShardFailoverManager) SetEngine(engine v2.WorkflowEngine) error {
+	if engine.IsCoordinated() {
+		return errors.New("ShardFailoverManager only supports the legacy trigger-owning engine")
+	}
 	m.engine = engine
+	return nil
 }
 
 func (m *ShardFailoverManager) start(ctx context.Context) error {

@@ -68,7 +68,6 @@ func (e *coordinatedEngine) close() error {
 	return nil
 }
 
-// IsCoordinated indicates whether the engine needs an external trigger coordinator.
 func (e *coordinatedEngine) IsCoordinated() bool {
 	return true
 }
