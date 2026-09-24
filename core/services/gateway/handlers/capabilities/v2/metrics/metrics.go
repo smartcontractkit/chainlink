@@ -91,8 +91,10 @@ type Metrics struct {
 // NewMetrics creates a new instance of Metrics with all metrics initialized.
 // members is the union of node configs across all DON shards.
 func NewMetrics(members []config.NodeConfig) (*Metrics, error) {
-	meter := beholder.GetMeter()
+	return NewMetricsWithMeter(members, beholder.GetMeter())
+}
 
+func NewMetricsWithMeter(members []config.NodeConfig, meter metric.Meter) (*Metrics, error) {
 	common, err := newCommonMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create common metrics: %w", err)
