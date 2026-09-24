@@ -31,6 +31,9 @@ type WSConnectionWrapper interface {
 
 	// Update underlying connection object. Return a channel that gets an error on connection close.
 	// Cannot be called after Close().
+	// To disconnect, pass an untyped nil. A nil pointer wrapped in the interface
+	// (e.g. a nil *websocket.Conn) is non-nil, so it is treated as a live
+	// connection and the read pump will panic when it reads from it.
 	Reset(newConn WSConnection) <-chan error
 
 	Write(ctx context.Context, msgType int, data []byte) error
@@ -205,6 +208,7 @@ func (c *wsConnectionWrapper) writePump() {
 				break
 			}
 			// Time exactly the socket write, recording on return (including
+			// on error) so a stalled write still reports its full duration.
 			writeStart := time.Now()
 			err := conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
 			c.metrics.RecordSocketWrite(context.Background(), time.Since(writeStart))

@@ -230,6 +230,7 @@ func MetricViews() []sdkmetric.View {
 			sdkmetric.Instrument{Name: "platform_gateway_ws_ping_round_trip_ms"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
 				// 1ms up to ~32s: healthy pongs return in milliseconds, but the
+				// read deadline lets a slow round trip stretch to tens of seconds.
 				Boundaries: prometheus.ExponentialBuckets(1, 2, 16),
 			}},
 		),

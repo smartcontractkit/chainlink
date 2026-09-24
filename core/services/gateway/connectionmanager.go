@@ -309,7 +309,13 @@ func (m *connectionManager) FinalizeHandshake(attemptID string, response []byte,
 			return nil
 		})
 	}
-	attempt.nodeState.conn.Reset(conn)
+	// A nil *websocket.Conn must not be passed as a WSConnection: the interface
+	// would be non-nil and Reset would start a readPump on a nil conn.
+	if conn != nil {
+		attempt.nodeState.conn.Reset(conn)
+	} else {
+		attempt.nodeState.conn.Reset(nil)
+	}
 	if conn != nil && pongWait > 0 {
 		// Send an immediate ping so the first pong arrives quickly (within
 		// milliseconds on a healthy connection) rather than waiting up to one

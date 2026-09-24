@@ -26,14 +26,14 @@ type mockPingConn struct {
 	unblock   chan struct{} // if non-nil, Write blocks until closed
 }
 
-func (m *mockPingConn) Start(context.Context) error          { return nil }
-func (m *mockPingConn) HealthReport() map[string]error       { return nil }
-func (m *mockPingConn) Name() string                         { return "mockPingConn" }
-func (m *mockPingConn) Ready() error                         { return nil }
-func (m *mockPingConn) Reset(*websocket.Conn) <-chan error   { return nil }
-func (m *mockPingConn) ReadChannel() <-chan network.ReadItem { return nil }
-func (m *mockPingConn) IsConnected() bool                    { return true }
-func (m *mockPingConn) Close() error                         { return nil }
+func (m *mockPingConn) Start(context.Context) error             { return nil }
+func (m *mockPingConn) HealthReport() map[string]error          { return nil }
+func (m *mockPingConn) Name() string                            { return "mockPingConn" }
+func (m *mockPingConn) Ready() error                            { return nil }
+func (m *mockPingConn) Reset(network.WSConnection) <-chan error { return nil }
+func (m *mockPingConn) ReadChannel() <-chan network.ReadItem    { return nil }
+func (m *mockPingConn) IsConnected() bool                       { return true }
+func (m *mockPingConn) Close() error                            { return nil }
 
 func (m *mockPingConn) Write(ctx context.Context, msgType int, _ []byte) error {
 	if msgType == websocket.PingMessage {
