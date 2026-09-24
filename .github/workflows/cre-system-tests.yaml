@@ -199,7 +199,7 @@ jobs:
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        uses: runs-on/action@efac073ea2507ec18797de3a81704201ade11d9d # v2.3.1
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -222,7 +222,7 @@ jobs:
 
       # Required to pull Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) private images
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
@@ -231,7 +231,7 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
         with:
           registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER,
             secrets.AWS_ACCOUNT_ID_PROD) }}
@@ -241,7 +241,7 @@ jobs:
       # Required to allow pulling public images
       - name: Authenticate to ECR (public)
         id: login-ecr-public
-        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
         with:
           registry-type: public
         env:

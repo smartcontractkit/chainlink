@@ -149,7 +149,7 @@ jobs:
 
       - name: SonarQube Scan
         if: ${{ steps.report-paths.outputs.has-reports == 'true' }}
-        uses: sonarsource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
+        uses: sonarsource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8.2.2
         with:
           args: ${{ env.SONARQUBE_ARGS }}
         env:

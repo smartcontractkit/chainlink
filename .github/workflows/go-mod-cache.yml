@@ -43,7 +43,7 @@ jobs:
       - name: Resolve Spot Setting
         id: spot
         uses: $/.github/actions/setup-runner-spot
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         if: github.event_name == 'pull_request'
         id: changes
         with:
@@ -94,7 +94,7 @@ jobs:
       pull-requests: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        uses: runs-on/action@efac073ea2507ec18797de3a81704201ade11d9d # v2.3.1
 
       - name: Checkout the repo
         uses: actions/checkout@v7
