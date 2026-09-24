@@ -2650,9 +2650,7 @@ func TestEngine_ShardDenial(t *testing.T) {
 
 			initDoneCh := make(chan error, 1)
 			subscribedToTriggersCh := make(chan []string, 1)
-			executionFinishedCh := make(chan string, 1)
-			executionErrorCh := make(chan string, 1)
-			var admissionCalls atomic.Int32
+			var admissionCalls, finishedCalls, errorCalls atomic.Int32
 
 			cfg := defaultTestConfig(t, nil)
 			cfg.Module = module
@@ -2665,10 +2663,10 @@ func TestEngine_ShardDenial(t *testing.T) {
 					subscribedToTriggersCh <- triggerIDs
 				},
 				OnExecutionFinished: func(_ string, status string) {
-					executionFinishedCh <- status
+					finishedCalls.Add(1)
 				},
 				OnExecutionError: func(msg string) {
-					executionErrorCh <- msg
+					errorCalls.Add(1)
 				},
 				OnTriggerAdmission: func(_ context.Context, _ v2.RoutedTriggerEvent) error {
 					admissionCalls.Add(1)
@@ -2716,16 +2714,8 @@ func TestEngine_ShardDenial(t *testing.T) {
 			// consulted exactly once for the denied event.
 			require.Equal(t, int32(1), admissionCalls.Load())
 
-			select {
-			case status := <-executionFinishedCh:
-				t.Fatalf("unexpected OnExecutionFinished: %s", status)
-			default:
-			}
-			select {
-			case msg := <-executionErrorCh:
-				t.Fatalf("unexpected OnExecutionError: %s", msg)
-			default:
-			}
+			require.Equal(t, int32(0), finishedCalls.Load(), "OnExecutionFinished should not fire for a denied event")
+			require.Equal(t, int32(0), errorCalls.Load(), "OnExecutionError should not fire for a denied event")
 			require.Equal(t, int32(0), engine.ActiveExecutions())
 
 			require.NoError(t, engine.Close())
@@ -2859,7 +2849,7 @@ func newTestEngine(
 	module := modulemocks.NewModuleV2(t)
 	setupModule(module)
 
-	re := &testEngine{
+	e := &testEngine{
 		executionFinishedCh: make(chan string, 1),
 		executionErrorCh:    make(chan string, 1),
 		resultReceivedCh:    make(chan *sdkpb.ExecutionResult, 1),
@@ -2872,16 +2862,16 @@ func newTestEngine(
 	testCfg.Module = module
 	testCfg.Hooks = v2.LifecycleHooks{
 		OnExecutionFinished: func(_ string, status string) {
-			re.finishedCalls.Add(1)
-			re.executionFinishedCh <- status
+			e.finishedCalls.Add(1)
+			e.executionFinishedCh <- status
 		},
 		OnExecutionError: func(msg string) {
-			re.errorCalls.Add(1)
-			re.executionErrorCh <- msg
+			e.errorCalls.Add(1)
+			e.executionErrorCh <- msg
 		},
 		OnResultReceived: func(res *sdkpb.ExecutionResult) {
-			re.resultCalls.Add(1)
-			re.resultReceivedCh <- res
+			e.resultCalls.Add(1)
+			e.resultReceivedCh <- res
 		},
 	}
 	for _, fn := range cfgFn {
@@ -2890,8 +2880,8 @@ func newTestEngine(
 
 	engine, err := newEngine(&testCfg)
 	require.NoError(t, err)
-	re.engine = engine
-	return re
+	e.engine = engine
+	return e
 }
 
 type observedBaseMessage struct {
