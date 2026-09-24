@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -28,15 +29,14 @@ var _ Acknowledger = (*engine)(nil)
 var _ EventSink = (*engine)(nil)
 var _ WorkflowEngine = (*engine)(nil)
 
-// engine is the legacy trigger-owning workflow engine: it embeds the shared
+// engine is the legacy trigger-owning workflow engine: it wraps the shared
 // execution machinery and adds the extra responsibilities of trigger registration,
 // handle ownership, acknowledgement, and the node's workflow-count limit.
 //
-// Fields declared here must not duplicate baseEngine's: a shadowed field would
-// leave these methods reading a zero value while the execution path reads the
-// real one, and the compiler will not catch it.
+// base is a named field rather than embedded so engine's own method set only
+// contains what it explicitly delegates below.
 type engine struct {
-	*baseEngine
+	base *baseEngine
 
 	workflowLimitUsed atomic.Bool // true if GlobalWorkflowLimit must be freed
 
@@ -65,7 +65,7 @@ func NewEngine(cfg *EngineConfig) (WorkflowEngine, error) {
 	}
 
 	e := &engine{
-		baseEngine:              base,
+		base:                    base,
 		triggers:                make(map[string]*triggerCapability),
 		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
 		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
@@ -82,15 +82,75 @@ func NewEngine(cfg *EngineConfig) (WorkflowEngine, error) {
 	return e, nil
 }
 
+// Start starts the engine.
+func (e *engine) Start(ctx context.Context) error {
+	return e.base.Start(ctx)
+}
+
+// Close stops the engine.
+func (e *engine) Close() error {
+	return e.base.Close()
+}
+
+// Ready reports readiness.
+func (e *engine) Ready() error {
+	return e.base.Ready()
+}
+
+// HealthReport reports health.
+func (e *engine) HealthReport() map[string]error {
+	return e.base.HealthReport()
+}
+
+// Name returns the service name.
+func (e *engine) Name() string {
+	return e.base.Name()
+}
+
+// ExecuteTrigger runs the workflow for a routed trigger event.
+func (e *engine) ExecuteTrigger(ctx context.Context, event RoutedTriggerEvent) error {
+	return e.base.ExecuteTrigger(ctx, event)
+}
+
+// Drain marks the engine as draining.
+func (e *engine) Drain() bool {
+	return e.base.Drain()
+}
+
+// ActiveExecutions returns the number of in-flight executions.
+func (e *engine) ActiveExecutions() int32 {
+	return e.base.ActiveExecutions()
+}
+
+// DrainStartedAt returns when draining began, if it has.
+func (e *engine) DrainStartedAt() (time.Time, bool) {
+	return e.base.DrainStartedAt()
+}
+
+// Subscribe issues the WASM Subscribe call.
+func (e *engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
+	return e.base.Subscribe(ctx)
+}
+
+// Tenant is the engine's tenant identity.
+func (e *engine) Tenant() contexts.CRE {
+	return e.base.Tenant()
+}
+
+// IsCoordinated reports that this engine manages its own trigger registration and acknowledgement.
+func (e *engine) IsCoordinated() bool {
+	return false
+}
+
 func (e *engine) start(ctx context.Context) error {
-	return e.startWith(ctx, e.init, e.handleAllTriggerEvents)
+	return e.base.startWith(ctx, e.init, e.handleAllTriggerEvents)
 }
 
 // init is the legacy initialization: it acquires the workflow-count limit before
 // anything else and registers the workflow's triggers before reporting success.
 func (e *engine) init(ctx context.Context) {
 	// Tracer is no-op if DebugMode is false
-	ctx, span := e.tracer.Start(ctx, "workflow_engine_init",
+	ctx, span := e.base.tracer.Start(ctx, "workflow_engine_init",
 		trace.WithAttributes(
 			attribute.String("version", "v2"),
 			attribute.String("component", "workflow_engine"),
@@ -98,48 +158,48 @@ func (e *engine) init(ctx context.Context) {
 	defer span.End()
 
 	if err := e.useWorkflowLimit(ctx); err != nil {
-		e.cfg.Hooks.OnInitialized(err)
+		e.base.cfg.Hooks.OnInitialized(err)
 		return
 	}
-	if err := e.initDONSubscribe(ctx); err != nil {
-		e.cfg.Hooks.OnInitialized(err)
+	if err := e.base.initDONSubscribe(ctx); err != nil {
+		e.base.cfg.Hooks.OnInitialized(err)
 		return
 	}
 
-	subscriptions, err := e.Subscribe(ctx)
+	subscriptions, err := e.base.Subscribe(ctx)
 	if err != nil {
-		e.logger().Errorw("failed to subscribe to triggers", "err", err)
-		e.cfg.Hooks.OnInitialized(err)
+		e.base.logger().Errorw("failed to subscribe to triggers", "err", err)
+		e.base.cfg.Hooks.OnInitialized(err)
 		return
 	}
 	if err := e.runTriggerSubscriptionPhase(ctx, subscriptions); err != nil {
-		e.logger().Errorw("Workflow Engine initialization failed", "err", err)
-		e.cfg.Hooks.OnInitialized(err)
+		e.base.logger().Errorw("Workflow Engine initialization failed", "err", err)
+		e.base.cfg.Hooks.OnInitialized(err)
 		return
 	}
-	e.initDone(ctx)
+	e.base.initDone(ctx)
 }
 
 // useWorkflowLimit acquires one slot of the node's workflow-count limit. The
 // returned error is the one that must reach OnInitialized: the scope-specific
 // sentinel for a limit breach, the raw error otherwise.
 func (e *engine) useWorkflowLimit(ctx context.Context) error {
-	if err := e.cfg.GlobalWorkflowLimit.Use(ctx, 1); err != nil {
+	if err := e.base.cfg.GlobalWorkflowLimit.Use(ctx, 1); err != nil {
 		errLimited, ok := errors.AsType[limits.ErrorResourceLimited[int]](err)
 		if !ok {
 			return err
 		}
 		switch errLimited.Scope {
 		case settings.ScopeOwner:
-			e.logger().Infow("Per owner workflow count limit reached", "err", err)
-			e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
+			e.base.logger().Infow("Per owner workflow count limit reached", "err", err)
+			e.base.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
 			return types.ErrPerOwnerWorkflowCountLimitReached
 		case settings.ScopeGlobal:
-			e.logger().Infow("Global workflow count limit reached", "err", err)
-			e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
+			e.base.logger().Infow("Global workflow count limit reached", "err", err)
+			e.base.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
 			return types.ErrGlobalWorkflowCountLimitReached
 		default:
-			e.logger().Errorw("Workflow count limit reached for unexpected scope", "scope", errLimited.Scope, "err", err)
+			e.base.logger().Errorw("Workflow count limit reached for unexpected scope", "scope", errLimited.Scope, "err", err)
 			return err
 		}
 	}
@@ -149,18 +209,18 @@ func (e *engine) useWorkflowLimit(ctx context.Context) error {
 }
 
 func (e *engine) close() error {
-	ctx, cancel := e.shutdownCtx()
+	ctx, cancel := e.base.shutdownCtx()
 	defer cancel()
 
 	e.triggersRegMu.Lock()
 	e.unregisterAllTriggers(ctx)
 	e.triggersRegMu.Unlock()
-	e.metrics.IncrementWorkflowUnregisteredCounter(ctx)
+	e.base.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 
-	e.closeCommon(ctx)
+	e.base.closeCommon(ctx)
 
 	if e.workflowLimitUsed.Load() {
-		return e.cfg.GlobalWorkflowLimit.Free(ctx, 1)
+		return e.base.cfg.GlobalWorkflowLimit.Free(ctx, 1)
 	}
 	return nil
 }
@@ -175,7 +235,7 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 			return fmt.Errorf("invalid chain selector for ID %s: %w", sub.Id, err2)
 		}
 		if chainSelector != nil {
-			err2 := e.cfg.LocalLimiters.ChainAllowed.AllowErr(contexts.WithChainSelector(ctx, *chainSelector))
+			err2 := e.base.cfg.LocalLimiters.ChainAllowed.AllowErr(contexts.WithChainSelector(ctx, *chainSelector))
 			if err2 != nil {
 				if errors.Is(err2, limits.ErrorNotAllowed{}) {
 					return fmt.Errorf("unable to subscribe to capability %s: ChainSelector %d: %w", sub.Id, *chainSelector, err2)
@@ -183,7 +243,7 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 				return fmt.Errorf("failed to check access for ChainSelector %d: %w", *chainSelector, err2)
 			}
 		}
-		triggerCap, triggerErr := e.cfg.CapRegistry.GetTrigger(ctx, sub.Id)
+		triggerCap, triggerErr := e.base.cfg.CapRegistry.GetTrigger(ctx, sub.Id)
 		if triggerErr != nil {
 			return fmt.Errorf("trigger capability not found: %w", triggerErr)
 		}
@@ -191,7 +251,7 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 	}
 
 	// register to all triggers concurrently
-	regCtx, regCancel, err := e.cfg.LocalLimiters.TriggerRegistrationsTime.WithTimeout(ctx)
+	regCtx, regCancel, err := e.base.cfg.LocalLimiters.TriggerRegistrationsTime.WithTimeout(ctx)
 	if err != nil {
 		return err
 	}
@@ -215,33 +275,33 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 	for i, sub := range subscriptions {
 		triggerCap := triggers[i]
 		g.Go(func() error {
-			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, i)
+			registrationID := TriggerRegistrationID(e.base.cfg.WorkflowID, i)
 			args := []any{"triggerID", sub.Id, "method", sub.Method}
 			if sub.Payload != nil {
 				args = append(args, "payload", protojson.Format(sub.Payload))
 			}
-			e.logger().Infow("Registering trigger", args...)
+			e.base.logger().Infow("Registering trigger", args...)
 			metadata := capabilities.RequestMetadata{
-				WorkflowID:                    e.cfg.WorkflowID,
-				WorkflowOwner:                 e.cfg.WorkflowOwner,
-				WorkflowName:                  e.cfg.WorkflowName.Hex(),
-				WorkflowTag:                   e.cfg.WorkflowTag,
-				DecodedWorkflowName:           e.cfg.WorkflowName.String(),
-				WorkflowDonID:                 e.localNode.Load().WorkflowDON.ID,
+				WorkflowID:                    e.base.cfg.WorkflowID,
+				WorkflowOwner:                 e.base.cfg.WorkflowOwner,
+				WorkflowName:                  e.base.cfg.WorkflowName.Hex(),
+				WorkflowTag:                   e.base.cfg.WorkflowTag,
+				DecodedWorkflowName:           e.base.cfg.WorkflowName.String(),
+				WorkflowDonID:                 e.base.localNode.Load().WorkflowDON.ID,
 				WorkflowDonConfigVersion:      pinnedWorkflowDonConfigVersion,
 				ReferenceID:                   fmt.Sprintf("trigger_%d", i),
-				WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
-				WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
+				WorkflowRegistryChainSelector: e.base.cfg.WorkflowRegistryChainSelector,
+				WorkflowRegistryAddress:       e.base.cfg.WorkflowRegistryAddress,
 				EngineVersion:                 platform.ValueWorkflowVersionV2,
 				// no WorkflowExecutionID needed (or available at this stage)
 			}
 			var creGetter settings.Getter
-			if e.cfg.LocalLimiters != nil {
-				creGetter = e.cfg.LocalLimiters.Settings
+			if e.base.cfg.LocalLimiters != nil {
+				creGetter = e.base.cfg.LocalLimiters.Settings
 			}
 			propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(gCtx, creGetter)
-			if propagateOrgIDMeta && e.orgID != "" {
-				metadata.OrgID = e.orgID
+			if propagateOrgIDMeta && e.base.orgID != "" {
+				metadata.OrgID = e.base.orgID
 			}
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
@@ -251,8 +311,8 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 				// no Config needed - NoDAG uses Payload
 			})
 			if regErr != nil {
-				e.logger().Errorw("Trigger registration failed", "triggerID", sub.Id, "err", regErr)
-				e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(gCtx)
+				e.base.logger().Errorw("Trigger registration failed", "triggerID", sub.Id, "err", regErr)
+				e.base.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(gCtx)
 				return fmt.Errorf("failed to register trigger %s: %w", sub.Id, regErr)
 			}
 			// Send successful result
@@ -293,14 +353,14 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 
 	// If any registration failed, unregister successful ones and return error
 	if registrationErr != nil {
-		e.logger().Errorw("One or more trigger registrations failed - reverting all", "err", registrationErr)
+		e.base.logger().Errorw("One or more trigger registrations failed - reverting all", "err", registrationErr)
 		e.unregisterAllTriggers(ctx) // needs to be called under e.triggersRegMu lock
 		return registrationErr
 	}
 
 	// start listening for trigger events only if all registrations succeeded
 	for idx, triggerEventCh := range eventChans {
-		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
+		e.base.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			for {
 				select {
 				case <-ctx.Done():
@@ -311,21 +371,21 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 					}
 					triggerID := subscriptions[idx].Id
 					eventID := event.Event.ID
-					e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventReceivedCounter(ctx)
-					e.logger().Debugw("Processing trigger event", "triggerID", triggerID, "eventID", eventID)
+					e.base.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventReceivedCounter(ctx)
+					e.base.logger().Debugw("Processing trigger event", "triggerID", triggerID, "eventID", eventID)
 					if event.Err != nil {
-						e.logger().Errorw("Received a trigger event with error, dropping", "triggerID", triggerID, "err", event.Err)
-						tm := e.metrics.With(platform.KeyTriggerID, triggerID)
+						e.base.logger().Errorw("Received a trigger event with error, dropping", "triggerID", triggerID, "err", event.Err)
+						tm := e.base.metrics.With(platform.KeyTriggerID, triggerID)
 						tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
 						tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonTriggerResponseError)
 						continue
 					}
 
 					routed := RoutedTriggerEvent{
-						WorkflowID:     e.cfg.WorkflowID,
+						WorkflowID:     e.base.cfg.WorkflowID,
 						TriggerCapID:   triggerID,
 						TriggerIndex:   idx,
-						ObservedAt:     e.cfg.Clock.Now(),
+						ObservedAt:     e.base.cfg.Clock.Now(),
 						SequenceNumber: 0,
 						Event:          event,
 					}
@@ -333,18 +393,18 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 					if err := e.put(ctx, routed); err != nil {
 						// Draining is expected during workflow deletion, so it logs at info rather than error level.
 						if errors.Is(err, ErrEngineDraining) {
-							e.logger().Infow("Dropping trigger event: engine draining", "triggerID", triggerID, "eventID", eventID)
+							e.base.logger().Infow("Dropping trigger event: engine draining", "triggerID", triggerID, "eventID", eventID)
 						} else {
-							e.logger().Errorw("Failed to put routed trigger event", "triggerID", triggerID, "eventID", eventID, "err", err)
+							e.base.logger().Errorw("Failed to put routed trigger event", "triggerID", triggerID, "eventID", eventID, "err", err)
 						}
 					}
 				}
 			}
 		})
 	}
-	e.logger().Infow("All triggers registered successfully", "numTriggers", len(subscriptions), "triggerIDs", triggerCapIDs)
-	e.metrics.IncrementWorkflowRegisteredCounter(ctx)
-	e.cfg.Hooks.OnSubscribedToTriggers(triggerCapIDs)
+	e.base.logger().Infow("All triggers registered successfully", "numTriggers", len(subscriptions), "triggerIDs", triggerCapIDs)
+	e.base.metrics.IncrementWorkflowRegisteredCounter(ctx)
+	e.base.cfg.Hooks.OnSubscribedToTriggers(triggerCapIDs)
 	return nil
 }
 
@@ -355,25 +415,25 @@ func (e *engine) unregisterAllTriggers(ctx context.Context) {
 		err := trigger.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
 			Metadata: capabilities.RequestMetadata{
-				WorkflowID:    e.cfg.WorkflowID,
-				WorkflowDonID: e.localNode.Load().WorkflowDON.ID,
+				WorkflowID:    e.base.cfg.WorkflowID,
+				WorkflowDonID: e.base.localNode.Load().WorkflowDON.ID,
 			},
 			Payload: trigger.payload,
 			Method:  trigger.method,
 		})
 		if err != nil {
-			e.logger().Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
+			e.base.logger().Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
 			failCount++
 		}
 	}
-	e.logger().Infow("All triggers unregistered", "numTriggers", len(e.triggers), "failed", failCount)
+	e.base.logger().Infow("All triggers unregistered", "numTriggers", len(e.triggers), "failed", failCount)
 	e.triggers = make(map[string]*triggerCapability)
 }
 
 func (e *engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
-	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
+	e.base.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
 
-	tm := e.metrics.With(platform.KeyTriggerID, triggerCapID)
+	tm := e.base.metrics.With(platform.KeyTriggerID, triggerCapID)
 
 	e.triggersRegMu.Lock()
 	trigger, ok := e.triggers[triggerRegistrationID]
@@ -403,73 +463,73 @@ func (e *engine) put(ctx context.Context, event RoutedTriggerEvent) error {
 	eventID := event.Event.Event.ID
 	idx := event.TriggerIndex
 
-	if e.Draining() {
-		e.logger().Infow("Engine is draining, dropping trigger event before enqueue", "triggerID", triggerID, "eventID", eventID)
-		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
+	if e.base.Draining() {
+		e.base.logger().Infow("Engine is draining, dropping trigger event before enqueue", "triggerID", triggerID, "eventID", eventID)
+		tm := e.base.metrics.With(platform.KeyTriggerID, triggerID)
 		tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
 		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueDraining)
-		e.cfg.Hooks.OnTriggerEventDropped(triggerID, eventID, "draining")
+		e.base.cfg.Hooks.OnTriggerEventDropped(triggerID, eventID, "draining")
 		return ErrEngineDraining
 	}
 
 	// Admission check: an external management layer (e.g. ShardFailoverManager)
 	// decides whether this event should be processed by the engine.
-	if err := e.cfg.Hooks.OnTriggerAdmission(ctx, event); err != nil {
+	if err := e.base.cfg.Hooks.OnTriggerAdmission(ctx, event); err != nil {
 		if errors.Is(err, ErrAdmissionCache) {
-			e.logger().Infow("Trigger event cached for failover, not enqueuing", "triggerID", triggerID, "eventID", eventID)
+			e.base.logger().Infow("Trigger event cached for failover, not enqueuing", "triggerID", triggerID, "eventID", eventID)
 			return err
 		}
 		// Denied: ACK and drop
-		registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-		if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
-			e.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
+		registrationID := TriggerRegistrationID(e.base.cfg.WorkflowID, event.TriggerIndex)
+		if ackErr := e.base.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
+			e.base.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
 		}
-		e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "admission_denied")
+		e.base.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "admission_denied")
 		return err
 	}
 
 	// The deadline below is derived from ObservedAt, so reject events that
 	// arrive without it rather than silently backfill a garbage deadline.
 	if event.ObservedAt.IsZero() {
-		e.logger().Errorw("Trigger event missing ObservedAt, dropping", "triggerID", triggerID, "eventID", eventID)
-		e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "observed_at_missing")
+		e.base.logger().Errorw("Trigger event missing ObservedAt, dropping", "triggerID", triggerID, "eventID", eventID)
+		e.base.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "observed_at_missing")
 		return errObservedAtMissing
 	}
-	queueTimeout, err := e.cfg.LocalLimiters.TriggerEventQueueTimeout.Limit(ctx)
+	queueTimeout, err := e.base.cfg.LocalLimiters.TriggerEventQueueTimeout.Limit(ctx)
 	if err != nil {
 		if !limits.IsErrRecoverable(err) {
 			// No value was resolved, so the deadline below would already be expired.
-			e.logger().Errorw("Failed to get trigger event queue time limit with no usable value", "err", err)
-			e.metrics.With(platform.KeyTriggerID, triggerID).
+			e.base.logger().Errorw("Failed to get trigger event queue time limit with no usable value", "err", err)
+			e.base.metrics.With(platform.KeyTriggerID, triggerID).
 				IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonQueueAgeLimitReadFailed)
 			return ErrEnqueueFailed
 		}
 		// A settings read failure is not a reason to drop a customer's trigger event:
 		// the limiter still returns a usable timeout, so stamp the deadline and continue.
-		e.logger().Errorw("Failed to get trigger event queue time limit; continuing with the value the limiter returned", "err", err)
-		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.Key)
+		e.base.logger().Errorw("Failed to get trigger event queue time limit; continuing with the value the limiter returned", "err", err)
+		e.base.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.Key)
 	}
 	event.Deadline = event.ObservedAt.Add(queueTimeout)
 
 	if err := e.allTriggerEventsQueueCh.Put(ctx, event); err != nil {
-		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
+		tm := e.base.metrics.With(platform.KeyTriggerID, triggerID)
 		tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
 		retErr := ErrEnqueueFailed
 		if _, ok := errors.AsType[limits.ErrorQueueFull](err); ok {
 			// queue full, drop the event
-			e.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
+			e.base.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
 			tm.IncrementWorkflowTriggerEventQueueFullCounter(ctx)
 			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueQueueFull)
 			retErr = ErrQueueFull
 		} else {
 			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueFailed)
 		}
-		e.logger().Errorw("Failed to enqueue trigger event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
+		e.base.logger().Errorw("Failed to enqueue trigger event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
 		tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
 		return retErr
 	}
-	e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueuedCounter(ctx)
-	e.logger().Debugw("Enqueued trigger event", "triggerID", triggerID, "eventID", eventID)
+	e.base.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueuedCounter(ctx)
+	e.base.logger().Debugw("Enqueued trigger event", "triggerID", triggerID, "eventID", eventID)
 
 	return nil
 }
@@ -483,50 +543,46 @@ func (e *engine) handleAllTriggerEvents(ctx context.Context) {
 			return
 		}
 		eventID := queueHead.Event.Event.ID
-		triggerMetricLabels := e.metrics.With(platform.KeyTriggerID, queueHead.TriggerCapID)
-		if e.Draining() {
+		triggerMetricLabels := e.base.metrics.With(platform.KeyTriggerID, queueHead.TriggerCapID)
+		if e.base.Draining() {
 			triggerMetricLabels.IncrementTriggerEventDequeueDroppedCounter(ctx)
 			triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonDequeueDraining)
-			e.cfg.Hooks.OnTriggerEventDropped(queueHead.TriggerCapID, eventID, "draining")
-			e.logger().Infow("Engine is draining, stopping trigger handling loop", "eventID", eventID, "triggerID", queueHead.TriggerCapID)
+			e.base.cfg.Hooks.OnTriggerEventDropped(queueHead.TriggerCapID, eventID, "draining")
+			e.base.logger().Infow("Engine is draining, stopping trigger handling loop", "eventID", eventID, "triggerID", queueHead.TriggerCapID)
 			return
 		}
 
-		now := e.cfg.Clock.Now()
+		now := e.base.cfg.Clock.Now()
 		eventAge := now.Sub(queueHead.ObservedAt)
-		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+		e.base.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 		triggerMetricLabels.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
 		if now.After(queueHead.Deadline) {
-			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.TriggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+			e.base.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.TriggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 			triggerMetricLabels.IncrementTriggerEventExpiredCounter(ctx)
 			triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExpired)
 			continue
 		}
 
-		semWaitStart := e.cfg.Clock.Now()
+		semWaitStart := e.base.cfg.Clock.Now()
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
-		triggerMetricLabels.RecordExecutionSemaphoreWaitSeconds(ctx, e.cfg.Clock.Now().Sub(semWaitStart).Seconds())
+		triggerMetricLabels.RecordExecutionSemaphoreWaitSeconds(ctx, e.base.cfg.Clock.Now().Sub(semWaitStart).Seconds())
 		if err != nil {
-			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
+			e.base.logger().Errorw("Failed to acquire executions semaphore", "err", err)
 			triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExecutionSemaphoreWaitFailed)
 			continue
 		}
 
-		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
+		e.base.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
 
 			if err := e.ExecuteTrigger(ctx, queueHead); err != nil {
 				// Dedup is an expected outcome (the event is handled, just not executed here), so it's logged at info rather than error level.
 				if errors.Is(err, ErrDuplicateExecution) {
-					e.logger().Infow("Skipping trigger event execution", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
+					e.base.logger().Infow("Skipping trigger event execution", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
 				} else {
-					e.logger().Errorw("Failed to execute trigger event", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
+					e.base.logger().Errorw("Failed to execute trigger event", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
 				}
 			}
 		})
 	}
-}
-
-func (e *engine) IsCoordinated() bool {
-	return false
 }

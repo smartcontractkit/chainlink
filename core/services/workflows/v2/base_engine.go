@@ -660,7 +660,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event RoutedTriggerEven
 		return execErr
 	}
 	execHelper = &ExecutionHelper{
-		baseEngine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
+		base: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 		executionProfile: newExecutionProfileCollector(),
 		suspension:       suspension,
