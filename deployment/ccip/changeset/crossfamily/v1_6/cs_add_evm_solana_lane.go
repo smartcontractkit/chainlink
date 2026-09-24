@@ -38,7 +38,7 @@ var (
 			if input.MCMSConfig == nil || len(allProposals) == 0 {
 				return input.Proposals, nil
 			}
-			proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck //SA1019 ignoring deprecated
+			proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: AggregateProposalsV2 migration is tracked separately
 				deps.Env,
 				deps.EVMMCMSState,
 				deps.SolanaMCMSState,

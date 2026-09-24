@@ -547,10 +547,8 @@ func TestUpdateFeeQuoterDestsConfig_Validate_MultipleReportsEnabled(t *testing.T
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 			v1_6.SetCandidateChangesetConfig{
-				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-					HomeChainSelector: homeChainSelector,
-					FeedChainSelector: tenv.FeedChainSel,
-				},
+				HomeChainSelector: homeChainSelector,
+				FeedChainSelector: tenv.FeedChainSel,
 				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
 						OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
@@ -946,7 +944,8 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 func TestSetOCR3ConfigValidations(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(
 		t,
-		testhelpers.WithPrerequisiteDeploymentOnly(nil))
+		testhelpers.WithPrerequisiteDeploymentOnly(nil),
+	)
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
@@ -1022,8 +1021,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 		// set wrong chain config with incorrect value of FChain
 		wrongChainConfigs[chain] = v1_6.ChainConfig{
 			Readers: envNodes.NonBootstraps().PeerIDs(),
-			//nolint:gosec // disable G115
-			FChain: uint8(len(envNodes.NonBootstraps().PeerIDs())),
+			FChain:  uint8(len(envNodes.NonBootstraps().PeerIDs())), //nolint:gosec // G115: node count in tests is always far below MaxUint8
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
@@ -1046,10 +1044,8 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 			// Add the DONs and candidate commit OCR instances for the chain.
 			cldf.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
 			v1_6.AddDonAndSetCandidateChangesetConfig{
-				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-					HomeChainSelector: e.HomeChainSel,
-					FeedChainSelector: e.FeedChainSel,
-				},
+				HomeChainSelector: e.HomeChainSel,
+				FeedChainSelector: e.FeedChainSel,
 				PluginInfo: v1_6.SetCandidatePluginInfo{
 					OCRConfigPerRemoteChainSelector: commitOCRConfigs,
 					PluginType:                      types.PluginTypeCCIPCommit,
@@ -1197,7 +1193,8 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "token TEST not found in state for chain")
@@ -1260,7 +1257,8 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.NoError(t, err)
 			tokenAddress, err := state.Chains[source].TokenAddressBySymbol()
@@ -1350,7 +1348,8 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 						},
 						FeedChainSelector: tenv.FeedChainSel,
 						MCMS:              mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "price feed for token TEST not found in state for chain")
@@ -1375,7 +1374,8 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 						},
 						FeedChainSelector: tenv.FeedChainSel,
 						MCMS:              mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.NoError(t, err)
 			tokenAddress, err := state.Chains[source].TokenAddressBySymbol()
@@ -1460,7 +1460,8 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "min fee must be less than max fee for token")
@@ -1496,7 +1497,8 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.NoError(t, err)
 		})
@@ -1569,7 +1571,8 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "min fee must be less than max fee")
@@ -1613,7 +1616,8 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.NoError(t, err)
 

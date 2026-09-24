@@ -124,7 +124,7 @@ func resolvePartialRateLimiterConfig(
 	tokenPool *token_pool.TokenPool,
 	remoteChainSelector uint64,
 	chainUpdate RateLimiterConfig,
-) (inbound token_pool.RateLimiterConfig, outbound token_pool.RateLimiterConfig, err error) {
+) (inbound, outbound token_pool.RateLimiterConfig, err error) {
 	if chainUpdate.Inbound == nil && chainUpdate.Outbound == nil {
 		return token_pool.RateLimiterConfig{}, token_pool.RateLimiterConfig{}, errors.New("at least one of inbound or outbound rate limiter config must be set")
 	}
@@ -204,10 +204,10 @@ type SolChainUpdate struct {
 	Metadata string `json:"metadata"`
 }
 
-func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
+func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPChainState) (token, tokenPool solana.PublicKey, err error) {
 	if c.Metadata == "" {
 		err = errors.New("metadata must be defined for solana token pool in SolChainUpdate")
-		return
+		return token, tokenPool, err
 	}
 
 	var tokenPoolProgram solana.PublicKey
@@ -220,15 +220,15 @@ func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPCha
 		tokenPoolProgram = state.CCTPTokenPool
 	default:
 		err = fmt.Errorf("unknown solana token pool type %s", c.Type)
-		return
+		return token, tokenPool, err
 	}
 	if c.TokenAddress == "" {
 		err = errors.New("token address must be defined")
-		return
+		return token, tokenPool, err
 	}
 	if tokenPoolProgram.IsZero() {
 		err = fmt.Errorf("token pool program %s is not defined for metadata %s", tokenPoolProgram, c.Metadata)
-		return
+		return token, tokenPool, err
 	}
 	token = solana.MustPublicKeyFromBase58(c.TokenAddress)
 	tokenPool, err = solTokenUtil.TokenPoolConfigAddress(token, tokenPoolProgram)
@@ -236,9 +236,9 @@ func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPCha
 		token = solana.PublicKey{}
 		tokenPool = solana.PublicKey{}
 		err = fmt.Errorf("failed to get token pool address for token %s on solana chain: %w", c.TokenAddress, err)
-		return
+		return token, tokenPool, err
 	}
-	return
+	return token, tokenPool, err
 }
 
 func (c SolChainUpdate) Validate(state solanastateview.CCIPChainState) error {
@@ -261,7 +261,7 @@ type AptosChainUpdate struct {
 	Type              cldf.ContractType
 }
 
-func (c AptosChainUpdate) GetAptosTokenAndTokenPool(state aptosstate.CCIPChainState) (token aptos.AccountAddress, tokenPoolAddress aptos.AccountAddress, err error) {
+func (c AptosChainUpdate) GetAptosTokenAndTokenPool(state aptosstate.CCIPChainState) (token, tokenPoolAddress aptos.AccountAddress, err error) {
 	if c.TokenAddress == "" {
 		return aptos.AccountAddress{}, aptos.AccountAddress{}, errors.New("token address must be defined")
 	}
@@ -307,7 +307,7 @@ type SuiChainUpdate struct {
 	Type              cldf.ContractType
 }
 
-func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (tokenAddress string, tokenPoolAddress string, err error) {
+func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (tokenAddress, tokenPoolAddress string, err error) {
 	var tpAddress string
 	if c.TokenAddress == "" {
 		return "", "", errors.New("token address must be defined")
@@ -1043,7 +1043,7 @@ func ConfigureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPo
 	}
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
 	if len(finalOutput.MCMSTimelockProposals) > 1 {
-		aggregatedProposals, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
+		aggregatedProposals, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: AggregateProposalsV2 migration is tracked separately
 			env,
 			state.EVMMCMSStateByChain(),
 			nil,

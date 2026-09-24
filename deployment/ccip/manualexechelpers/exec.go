@@ -570,7 +570,7 @@ func ManuallyExecuteAll(
 			env,
 			srcChainSel,
 			destChainSel,
-			uint64(seqNr), //nolint:gosec // seqNr is never <= 0.
+			uint64(seqNr), //nolint:gosec // G115: sequence numbers are always positive
 			lookbackDurationMsgs,
 			lookbackDurationCommitReport,
 			stepDuration,
@@ -600,7 +600,7 @@ func CheckAlreadyExecuted(
 		execState, err := state.Chains[destChainSel].OffRamp.GetExecutionState(
 			&bind.CallOpts{Context: ctx},
 			srcChainSel,
-			uint64(seqNr), //nolint:gosec // seqNr is never <= 0.
+			uint64(seqNr), //nolint:gosec // G115: sequence numbers are always positive
 		)
 		if err != nil {
 			return fmt.Errorf("failed to get execution state: %w", err)

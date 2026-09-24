@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -789,10 +790,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	solChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	aptosChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))
 	suiChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySui))
-	//nolint:gocritic // we need to segregate EVM and Solana chains
-	allChains := append(evmChains, solChains...)
-	allChains = append(allChains, aptosChains...)
-	allChains = append(allChains, suiChains...)
+	allChains := slices.Concat(evmChains, solChains, aptosChains, suiChains)
 
 	mcmsCfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 
@@ -1108,12 +1106,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Type:    pluginconfig.USDCCCTPHandlerType,
 			Version: "1.0",
 			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-				AttestationConfig: pluginconfig.AttestationConfig{
-					AttestationAPI:         endpoint,
-					AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
-					AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
-				},
-				Tokens: cctpContracts,
+				AttestationAPI:         endpoint,
+				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
+				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+				Tokens:                 cctpContracts,
 			},
 		})
 	}
@@ -1129,11 +1125,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Type:    pluginconfig.LBTCHandlerType,
 			Version: "1.0",
 			LBTCObserverConfig: &pluginconfig.LBTCObserverConfig{
-				AttestationConfig: pluginconfig.AttestationConfig{
-					AttestationAPI:         endpoint,
-					AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
-					AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
-				},
+				AttestationAPI:           endpoint,
+				AttestationAPITimeout:    commonconfig.MustNewDuration(time.Second),
+				AttestationAPIInterval:   commonconfig.MustNewDuration(500 * time.Millisecond),
 				SourcePoolAddressByChain: lbtcPools,
 			},
 		})
@@ -1338,12 +1332,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			// Add the DONs and candidate commit OCR instances for the chain.
 			cldf.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
 			v1_6.AddDonAndSetCandidateChangesetConfig{
-				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-					HomeChainSelector: e.HomeChainSel,
-					// TODO: we dont know what this means for solana
-					FeedChainSelector: e.FeedChainSel,
-					MCMS:              mcmsConfig,
-				},
+				HomeChainSelector: e.HomeChainSel,
+				// TODO: we dont know what this means for solana
+				FeedChainSelector: e.FeedChainSel,
+				MCMS:              mcmsConfig,
 				PluginInfo: v1_6.SetCandidatePluginInfo{
 					OCRConfigPerRemoteChainSelector: commitOCRConfigs,
 					PluginType:                      types.PluginTypeCCIPCommit,
@@ -1354,12 +1346,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			// Add the exec OCR instances for the new chains.
 			cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 			v1_6.SetCandidateChangesetConfig{
-				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-					HomeChainSelector: e.HomeChainSel,
-					// TODO: we dont know what this means for solana
-					FeedChainSelector: e.FeedChainSel,
-					MCMS:              mcmsConfig,
-				},
+				HomeChainSelector: e.HomeChainSel,
+				// TODO: we dont know what this means for solana
+				FeedChainSelector: e.FeedChainSel,
+				MCMS:              mcmsConfig,
 				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
 						OCRConfigPerRemoteChainSelector: execOCRConfigs,

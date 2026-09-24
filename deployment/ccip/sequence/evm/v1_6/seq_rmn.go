@@ -40,7 +40,8 @@ var (
 			}
 
 			return out, nil
-		})
+		},
+	)
 
 	SetRMNRemoteOnRMNProxySequence = operations.NewSequence(
 		"SetRMNRemoteOnRMNProxySequece",
@@ -61,7 +62,8 @@ var (
 				opOutputs[chainSel] = []opsutils.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
-		})
+		},
+	)
 )
 
 type SetRMNRemoteOnRMNProxySequenceInput struct {
@@ -97,8 +99,7 @@ func (c SetRMNRemoteConfig) Validate(env cldf.Environment, state stateview.CCIPO
 			}
 		}
 
-		//nolint:gosec // G115
-		if len(config.Signers) < 2*int(config.F)+1 {
+		if uint64(len(config.Signers)) < 2*config.F+1 {
 			return fmt.Errorf("signers count (%d) must be greater than or equal to %d", len(config.Signers), 2*config.F+1)
 		}
 	}

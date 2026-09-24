@@ -38,9 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
-var (
-	CCIPHomeABI *abi.ABI
-)
+var CCIPHomeABI *abi.ABI
 
 func init() {
 	var err error
@@ -638,7 +636,7 @@ func BuildOCR3ConfigForCCIPHome(
 					return nil, fmt.Errorf("failed to parse TON address '%s'", transmitter)
 				}
 				// TODO: this reimplements addrCodec's ToRawAddr helper
-				parsed = binary.BigEndian.AppendUint32(nil, uint32(pk.Workchain())) //nolint:gosec // G115
+				parsed = binary.BigEndian.AppendUint32(nil, uint32(pk.Workchain())) //nolint:gosec // G115: TON workchain -1 intentionally wraps to 0xFFFFFFFF in raw address serialization
 				parsed = append(parsed, pk.Data()...)
 			case chain_selectors.FamilyAptos:
 				parsed, err = hex.DecodeString(strings.TrimPrefix(string(transmitter), "0x"))

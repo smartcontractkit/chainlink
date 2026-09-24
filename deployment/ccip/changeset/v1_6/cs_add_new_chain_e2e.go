@@ -411,11 +411,9 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 
 	// Add the DON to the registry and set candidate for the commit plugin
 	out, err = AddDonAndSetCandidateChangeset(e, AddDonAndSetCandidateChangesetConfig{
-		SetCandidateConfigBase: SetCandidateConfigBase{
-			HomeChainSelector: c.HomeChainSelector,
-			FeedChainSelector: c.FeedChainSelector,
-			MCMS:              c.MCMSConfig,
-		},
+		HomeChainSelector: c.HomeChainSelector,
+		FeedChainSelector: c.FeedChainSelector,
+		MCMS:              c.MCMSConfig,
 		PluginInfo: SetCandidatePluginInfo{
 			PluginType: types.PluginTypeCCIPCommit,
 			OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
@@ -433,11 +431,9 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 
 	// Set the candidate for the exec plugin
 	out, err = SetCandidateChangeset(e, SetCandidateChangesetConfig{
-		SetCandidateConfigBase: SetCandidateConfigBase{
-			HomeChainSelector: c.HomeChainSelector,
-			FeedChainSelector: c.FeedChainSelector,
-			MCMS:              c.MCMSConfig,
-		},
+		HomeChainSelector: c.HomeChainSelector,
+		FeedChainSelector: c.FeedChainSelector,
+		MCMS:              c.MCMSConfig,
 		PluginInfo: []SetCandidatePluginInfo{
 			{
 				PluginType: types.PluginTypeCCIPExec,
@@ -474,7 +470,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 
 	var proposal *mcmslib.TimelockProposal
 	if c.MCMSConfig != nil && len(allProposals) > 0 {
-		proposal, err = proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 yet
+		proposal, err = proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: AggregateProposalsV2 migration is tracked separately
 			e,
 			state.EVMMCMSStateByChain(),
 			nil,
@@ -495,12 +491,12 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 
 	if proposal == nil {
 		return cldf.ChangesetOutput{
-			AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			AddressBook: newAddresses,
 			DataStore:   ds,
 		}, nil
 	}
 	return cldf.ChangesetOutput{
-		AddressBook:           newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook:           newAddresses,
 		DataStore:             ds,
 		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 	}, nil
@@ -670,7 +666,7 @@ func promoteNewChainForConfigLogic(e cldf.Environment, c PromoteNewChainForConfi
 	if c.MCMSConfig == nil || len(allProposals) == 0 {
 		return cldf.ChangesetOutput{}, nil
 	}
-	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
+	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: AggregateProposalsV2 migration is tracked separately
 		e,
 		state.EVMMCMSStateByChain(),
 		nil,
@@ -893,7 +889,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 	if c.MCMSConfig == nil || len(allProposals) == 0 {
 		return cldf.ChangesetOutput{}, nil
 	}
-	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
+	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: AggregateProposalsV2 migration is tracked separately
 		env,
 		state.EVMMCMSStateByChain(),
 		nil,
@@ -1009,11 +1005,11 @@ func runAndSaveAddresses(
 	if err != nil {
 		return fmt.Errorf("failed to run changeset: %w", err)
 	}
-	err = newAddresses.Merge(output.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
+	err = newAddresses.Merge(output.AddressBook)
 	if err != nil {
 		return fmt.Errorf("failed to update new address book: %w", err)
 	}
-	err = existingAddresses.Merge(output.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
+	err = existingAddresses.Merge(output.AddressBook)
 	if err != nil {
 		return fmt.Errorf("failed to update existing address book: %w", err)
 	}

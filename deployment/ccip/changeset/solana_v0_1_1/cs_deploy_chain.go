@@ -394,15 +394,15 @@ func deployChainContractsSolana(
 	// track that in offRampJustDeployed so the initialize pass below knows whether it needs setup.
 	var offRampAddress solana.PublicKey
 	offRampJustDeployed := false
-	//nolint:gocritic // this is a false positive, we need to check if the address is zero
-	if chainState.OffRamp.IsZero() {
+	switch {
+	case chainState.OffRamp.IsZero():
 		// deploy offramp
 		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.OffRamp, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 		offRampJustDeployed = true
-	} else if config.UpgradeConfig.NewOffRampVersion != nil {
+	case config.UpgradeConfig.NewOffRampVersion != nil:
 		tv := cldf.NewTypeAndVersion(shared.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
 		existingAddresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 		if err != nil {
@@ -448,7 +448,7 @@ func deployChainContractsSolana(
 			}
 			batches = appendBatchOperation(batches, chain.Selector, newTxns)
 		}
-	} else {
+	default:
 		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
 		offRampAddress = chainState.OffRamp
 	}
@@ -551,8 +551,8 @@ func deployChainContractsSolana(
 		config.BurnMintTokenPoolMetadata = []string{shared.CLLMetadata}
 	}
 	for _, metadata := range config.BurnMintTokenPoolMetadata {
-		//nolint:gocritic // this is a false positive, we need to check if the address is zero
-		if chainState.BurnMintTokenPools[metadata].IsZero() {
+		switch {
+		case chainState.BurnMintTokenPools[metadata].IsZero():
 			e.Logger.Infow("Deploying new burn mint token pool", "metadata", metadata)
 			burnMintTokenPool, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.BurnMintTokenPool, deployment.Version1_0_0, false, metadata)
 			if err != nil {
@@ -561,7 +561,7 @@ func deployChainContractsSolana(
 			burnMintTokenPools = append(burnMintTokenPools, burnMintTokenPool)
 			// Solana pool programs are keyed by pool-set metadata (not token), so that is their
 			// datastore qualifier.
-		} else if config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil {
+		case config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil:
 			e.Logger.Infow("Upgrading existing burn mint token pool", "addr", chainState.BurnMintTokenPools[metadata].String())
 			burnMintTokenPool := chainState.BurnMintTokenPools[metadata]
 			if metadata != shared.CLLMetadata {
@@ -587,7 +587,7 @@ func deployChainContractsSolana(
 			}
 			batches = appendBatchOperation(batches, chain.Selector, newTxns)
 			burnMintTokenPools = append(burnMintTokenPools, burnMintTokenPool)
-		} else {
+		default:
 			e.Logger.Infow("Using existing burn mint token pool", "addr", chainState.BurnMintTokenPools[metadata].String())
 			burnMintTokenPools = append(burnMintTokenPools, chainState.BurnMintTokenPools[metadata])
 		}
@@ -598,8 +598,8 @@ func deployChainContractsSolana(
 		config.LockReleaseTokenPoolMetadata = []string{shared.CLLMetadata}
 	}
 	for _, metadata := range config.LockReleaseTokenPoolMetadata {
-		//nolint:gocritic // this is a false positive, we need to check if the address is zero
-		if chainState.LockReleaseTokenPools[metadata].IsZero() {
+		switch {
+		case chainState.LockReleaseTokenPools[metadata].IsZero():
 			e.Logger.Infow("Deploying new lock release token pool", "metadata", metadata)
 			lockReleaseTokenPool, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.LockReleaseTokenPool, deployment.Version1_0_0, false, metadata)
 			if err != nil {
@@ -608,7 +608,7 @@ func deployChainContractsSolana(
 			lockReleaseTokenPools = append(lockReleaseTokenPools, lockReleaseTokenPool)
 			// Solana pool programs are keyed by pool-set metadata (not token), so that is their
 			// datastore qualifier.
-		} else if config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil {
+		case config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil:
 			e.Logger.Infow("Upgrading existing lock release token pool", "addr", chainState.LockReleaseTokenPools[metadata].String())
 			lockReleaseTokenPool := chainState.LockReleaseTokenPools[metadata]
 			if metadata != shared.CLLMetadata {
@@ -634,7 +634,7 @@ func deployChainContractsSolana(
 			}
 			lockReleaseTokenPools = append(lockReleaseTokenPools, lockReleaseTokenPool)
 			batches = appendBatchOperation(batches, chain.Selector, newTxns)
-		} else {
+		default:
 			e.Logger.Infow("Using existing lock release token pool", "addr", chainState.LockReleaseTokenPools[metadata].String())
 			lockReleaseTokenPools = append(lockReleaseTokenPools, chainState.LockReleaseTokenPools[metadata])
 		}
@@ -1161,13 +1161,12 @@ func generateExtendIxn(
 		return nil, nil
 	}
 	extraBytes := newProgramSize - programDataSize
-	if extraBytes > math.MaxUint32 {
-		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32)
+	if extraBytes > math.MaxUint32-1024 {
+		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32-1024)
 	}
 	// https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
-	data := binary.LittleEndian.AppendUint32([]byte{}, 6) // 4-byte Extend instruction identifier
-	//nolint:gosec // G115 we check for overflow above
-	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes+1024)) // add some padding
+	data := binary.LittleEndian.AppendUint32([]byte{}, 6)                  // 4-byte Extend instruction identifier
+	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes+1024)) //nolint:gosec // G115: guard above covers the 1024 bytes of padding
 
 	keys := solana.AccountMetaSlice{
 		solana.NewAccountMeta(programDataAccount, true, false),      // Program data account (writable)

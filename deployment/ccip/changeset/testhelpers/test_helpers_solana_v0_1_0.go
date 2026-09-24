@@ -857,7 +857,7 @@ func SendRequestSol(
 		if idx > math.MaxUint8 {
 			return nil, fmt.Errorf("too many token accounts, overflows uint8: %d", idx)
 		}
-		tokenIndexes = append(tokenIndexes, byte(idx)) //nolint:gosec // G115
+		tokenIndexes = append(tokenIndexes, byte(idx)) //nolint:gosec // G115: guarded above
 		base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
 		maps.Copy(addressTables, tokenAddressTables)
 	}
@@ -2246,7 +2246,7 @@ func WaitForTheTokenBalanceSol(
 			"token", token,
 			"receiver", receiver,
 		)
-		return uint64(balance) == expected //nolint:gosec // value is always unsigned
+		return uint64(balance) == expected //nolint:gosec // G115: token balances are always non-negative
 	}, tests.WaitTimeout(t), 100*time.Millisecond)
 }
 

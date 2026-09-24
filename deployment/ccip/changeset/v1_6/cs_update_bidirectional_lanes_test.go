@@ -171,10 +171,8 @@ func TestBuildConfigs(t *testing.T) {
 	chains := make([]v1_6.ChainDefinition, len(selectors))
 	for i, selector := range selectors {
 		chains[i] = v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
+			RMNVerificationDisabled:  true,
+			AllowListEnabled:         false,
 			Selector:                 selector,
 			GasPrice:                 big.NewInt(1e17),
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
@@ -362,10 +360,8 @@ func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
 			chains := make([]v1_6.ChainDefinition, len(selectors))
 			for i, selector := range selectors {
 				chains[i] = v1_6.ChainDefinition{
-					ConnectionConfig: v1_6.ConnectionConfig{
-						RMNVerificationDisabled: true,
-						AllowListEnabled:        false,
-					},
+					RMNVerificationDisabled:  true,
+					AllowListEnabled:         false,
 					Selector:                 selector,
 					GasPrice:                 big.NewInt(1e17),
 					FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
@@ -473,10 +469,8 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 	chains := make([]v1_6.ChainDefinition, len(selectors))
 	for i, selector := range selectors {
 		chains[i] = v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
+			RMNVerificationDisabled:  true,
+			AllowListEnabled:         false,
 			Selector:                 selector,
 			GasPrice:                 big.NewInt(1e17),
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
@@ -612,10 +606,8 @@ func TestUpdateBidirectionalLanesIdempotentWithV2FeeQuoter(t *testing.T) {
 	chains := make([]v1_6.ChainDefinition, len(selectors))
 	for i, selector := range selectors {
 		chains[i] = v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
+			RMNVerificationDisabled:  true,
+			AllowListEnabled:         false,
 			Selector:                 selector,
 			GasPrice:                 big.NewInt(1e17),
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
@@ -892,10 +884,8 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 	chains := make([]v1_6.ChainDefinition, len(selectors))
 	for i, selector := range selectors {
 		chains[i] = v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
+			RMNVerificationDisabled:  true,
+			AllowListEnabled:         false,
 			Selector:                 selector,
 			GasPrice:                 big.NewInt(1e17),
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),

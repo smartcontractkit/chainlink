@@ -188,7 +188,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		sender := tc.Env.BlockChains.EVMChains()[tc.SourceChain].DeployerKey
 		currBalance, err := tc.Env.BlockChains.EVMChains()[tc.SourceChain].Client.BalanceAt(tc.T.Context(), sender.From, nil)
 		require.NoError(tc.T, err)
-		//nolint:testifylint // incorrect lint, GreaterOrEqual can't be used with *big.Int.
+		//nolint:testifylint // invalid suggestion: require.GreaterOrEqual does not support *big.Int
 		require.True(tc.T, currBalance.Cmp(totalValue) >= 0, "sender balance should be greater than or equal to total value")
 
 		tx, err := tc.OnchainState.MustGetEVMChainState(tc.SourceChain).Multicall3.Aggregate3Value(
@@ -344,7 +344,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	case ValidationTypeNone:
 		tc.T.Logf("skipping validation of sent message")
 	}
-	return
+	return out
 }
 
 // SleepReplayAndSettle sleeps, replays logs, then sleeps again. EVM replay uses ReplayAsync and

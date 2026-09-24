@@ -58,7 +58,7 @@ func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, po
 }
 
 // get diff of pool addresses
-func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAddresses []solBaseTokenPool.RemoteAddress) []solBaseTokenPool.RemoteAddress {
+func poolDiff(existingPoolAddresses, newPoolAddresses []solBaseTokenPool.RemoteAddress) []solBaseTokenPool.RemoteAddress {
 	var result []solBaseTokenPool.RemoteAddress
 	// for every new address, check if it exists in the existing pool addresses
 	for _, newAddr := range newPoolAddresses {
@@ -78,8 +78,8 @@ func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAdd
 
 // get pool pdas
 func getPoolPDAs(
-	solTokenPubKey solana.PublicKey, poolAddress solana.PublicKey, remoteChainSelector uint64,
-) (poolConfigPDA solana.PublicKey, remoteChainConfigPDA solana.PublicKey) {
+	solTokenPubKey, poolAddress solana.PublicKey, remoteChainSelector uint64,
+) (poolConfigPDA, remoteChainConfigPDA solana.PublicKey) {
 	poolConfigPDA, _ = solTokenUtil.TokenPoolConfigAddress(solTokenPubKey, poolAddress)
 	remoteChainConfigPDA, _, _ = solTokenUtil.TokenPoolChainConfigPDA(remoteChainSelector, solTokenPubKey, poolAddress)
 	return poolConfigPDA, remoteChainConfigPDA
@@ -280,7 +280,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
 		}
-		err = addressBook.Merge(csOutput.AddressBook) //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+		err = addressBook.Merge(csOutput.AddressBook)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
 		}
@@ -293,7 +293,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: addressBook,
 		DataStore:   ds,
 	}, nil
 }
@@ -527,7 +527,8 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.SolChainSelector, "proposal to edit token pools in Solana", cfg.MCMS.MinDelay, txns)
+			e, cfg.SolChainSelector, "proposal to edit token pools in Solana", cfg.MCMS.MinDelay, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -540,7 +541,7 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 }
 
 // checks if the evmChainSelector is supported for the given token and pool type
-func isSupportedChain(chain cldf_solana.Chain, solTokenPubKey solana.PublicKey, solPoolAddress solana.PublicKey, evmChainSelector uint64) (bool, solTestTokenPool.ChainConfig, error) {
+func isSupportedChain(chain cldf_solana.Chain, solTokenPubKey, solPoolAddress solana.PublicKey, evmChainSelector uint64) (bool, solTestTokenPool.ChainConfig, error) {
 	var remoteChainConfigAccount solTestTokenPool.ChainConfig
 	// check if this remote chain is already configured for this token
 	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(evmChainSelector, solTokenPubKey, solPoolAddress)
@@ -1060,7 +1061,7 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 
 	// the token pool lookup table is qualified by its full identity (token mint, pool type, metadata)
 	return cldf.ChangesetOutput{
-		AddressBook: newAddressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: newAddressBook,
 		DataStore:   ds,
 	}, nil
 }

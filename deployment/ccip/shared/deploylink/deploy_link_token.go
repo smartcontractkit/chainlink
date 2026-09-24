@@ -10,7 +10,7 @@ import (
 
 // DeployLinkTokenChangeset wraps the upstream DeployLinkTokenChangeset and
 // additionally writes deployed addresses to AddressBook for backward compatibility.
-type DeployLinkTokenChangeset struct{} //nolint:revive // intentional name match with upstream
+type DeployLinkTokenChangeset struct{} //nolint:revive // intentional: name mirrors the upstream changeset
 
 var _ cldf.ChangeSetV2[linkchangesets.DeployLinkTokenInput] = DeployLinkTokenChangeset{}
 

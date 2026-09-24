@@ -23,8 +23,9 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -117,7 +118,7 @@ func (d *DeploymentContext) Fork(description string) *DeploymentContext {
 	}
 }
 
-type DeployerGroupWithContext interface {
+type WithContext interface {
 	WithDeploymentContext(description string) *DeployerGroup
 }
 
@@ -152,7 +153,7 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 //	state.Chains[selector].RMNRemote.Curse()
 //	# Execute the transaction or create the proposal
 //	deployerGroup.Enact("Curse RMNRemote")
-func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmConfig *cldfproposalutils.TimelockConfig) DeployerGroupWithContext {
+func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmConfig *cldfproposalutils.TimelockConfig) WithContext {
 	addresses, _ := e.ExistingAddresses.Addresses()
 	d := &deployerGroupBuilder{
 		e:               e,
@@ -268,7 +269,7 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 type DeployerForSVM func(solana.PublicKey) (solana.Instruction, string, cldf.ContractType, error)
 
 func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (solana.Instruction, error), error) {
-	var authority = d.e.BlockChains.SolanaChains()[chain].DeployerKey.PublicKey()
+	authority := d.e.BlockChains.SolanaChains()[chain].DeployerKey.PublicKey()
 	if d.mcmConfig != nil {
 		qualifier := shared.DefaultMCMSQualifier
 		if d.mcmConfig.TimelockQualifierPerChain != nil && d.mcmConfig.TimelockQualifierPerChain[chain] != "" {

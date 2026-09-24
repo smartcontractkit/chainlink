@@ -451,19 +451,19 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 
 	var receiverAddress solana.PublicKey
 	if !cfg.IsUpgrade {
-		//nolint:gocritic // this is a false positive, we need to check if the address is zero
-		if chainState.Receiver.IsZero() {
+		switch {
+		case chainState.Receiver.IsZero():
 			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.Receiver, deployment.Version1_0_0, false, "")
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
-		} else if cfg.ReceiverVersion != nil {
+		case cfg.ReceiverVersion != nil:
 			// this block is for re-deploying with a new version
 			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.Receiver, *cfg.ReceiverVersion, false, "")
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
-		} else {
+		default:
 			e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
 			receiverAddress = chainState.Receiver
 		}
