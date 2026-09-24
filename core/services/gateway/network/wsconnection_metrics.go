@@ -9,8 +9,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 // WSConnectionObserver observes the blocking operations of a single
@@ -50,9 +48,7 @@ type WSConnectionMetrics struct {
 	pendingWriters   metric.Int64UpDownCounter
 }
 
-func NewWSConnectionMetrics() (*WSConnectionMetrics, error) {
-	meter := beholder.GetMeter()
-
+func NewWSConnectionMetrics(meter metric.Meter) (*WSConnectionMetrics, error) {
 	writeQueueWait, err := meter.Int64Histogram(
 		"platform_gateway_ws_write_queue_wait_ms",
 		metric.WithUnit("ms"),

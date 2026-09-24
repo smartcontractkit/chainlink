@@ -21,6 +21,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -114,7 +115,7 @@ Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 [nodeServerConfig]
 Path = "/node"` + config
 			lggr := logger.Test(t)
-			gMetrics, err := monitoring.NewGatewayMetrics()
+			gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 			require.NoError(t, err)
 			_, err = gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
 			require.Error(t, err)
@@ -375,7 +376,7 @@ Address = "0x0001020304050607080900010203040506070809"
 
 	cfg := parseTOMLConfig(t, tomlConfig)
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 	_, err = gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
 	require.Error(t, err)
@@ -551,7 +552,7 @@ func TestConnectionManager_ReadyForTrafficLogsDisconnectedNodes(t *testing.T) {
 	cfg, nodes := newTestConfig(t, 4)
 	cfg.ShardedDONs[0].F = 1
 	lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 	mgr, err := gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
@@ -580,7 +581,7 @@ func TestConnectionManager_ReadyForTrafficFailsClosedAndSortsErrors(t *testing.T
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 	lf := limits.Factory{Logger: lggr}
 
@@ -721,7 +722,7 @@ func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
 
 func newConnectionManager(t *testing.T, gwConfig *config.GatewayConfig, clock clockwork.Clock) gateway.ConnectionManager {
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 	mgr, err := gateway.NewConnectionManager(gwConfig, clock, gMetrics, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
@@ -776,7 +777,7 @@ func TestConnectionManager_PingRoundTripMetric(t *testing.T) { //nolint:parallel
 	cfg.ConnectionManagerConfig.PongTimeoutSec = 5
 	clock := clockwork.NewRealClock()
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetricsWithMeter(meter)
+	gMetrics, err := monitoring.NewGatewayMetrics(meter)
 	require.NoError(t, err)
 	mgr, err := gateway.NewConnectionManager(cfg, clock, gMetrics, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)

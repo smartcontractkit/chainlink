@@ -112,11 +112,7 @@ func (m *GatewayMetrics) RecordUserReady(ctx context.Context, ready bool) {
 	m.userReady.Record(ctx, value)
 }
 
-func NewGatewayMetrics() (*GatewayMetrics, error) {
-	return NewGatewayMetricsWithMeter(beholder.GetMeter())
-}
-
-func NewGatewayMetricsWithMeter(meter metric.Meter) (*GatewayMetrics, error) {
+func NewGatewayMetrics(meter metric.Meter) (*GatewayMetrics, error) {
 	nodeMsgHandleDuration, err := meter.Int64Histogram("platform_gateway_node_msg_handler_duration_ms")
 	if err != nil {
 		return nil, err

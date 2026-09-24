@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -65,7 +66,7 @@ func TestKeepAliveLoop_StuckNodeBlocksAll(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 
 	unblock := make(chan struct{})
