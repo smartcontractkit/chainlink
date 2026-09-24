@@ -99,13 +99,8 @@ func (m *ShardFailoverManager) WireHooks(cfg *v2.EngineConfig) {
 }
 
 // SetEngine injects the engine after it has been created. Required before Start.
-// It currently only supports the legacy trigger-owning engine.
-func (m *ShardFailoverManager) SetEngine(engine v2.WorkflowEngine) error {
-	if engine.IsCoordinated() {
-		return errors.New("ShardFailoverManager only supports the legacy trigger-owning engine")
-	}
+func (m *ShardFailoverManager) SetEngine(engine v2.WorkflowEngine) {
 	m.engine = engine
-	return nil
 }
 
 func (m *ShardFailoverManager) start(ctx context.Context) error {

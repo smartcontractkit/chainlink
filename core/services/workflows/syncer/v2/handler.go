@@ -933,9 +933,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 	}
 
 	if manager != nil {
-		if err := manager.SetEngine(engine); err != nil {
-			return nil, err
-		}
+		manager.SetEngine(engine)
 		return manager, nil
 	}
 
