@@ -2,11 +2,13 @@ package ton
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/rs/zerolog/log"
 
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 
@@ -72,16 +74,12 @@ func SaveOnchainState(chainSelector uint64, state CCIPChainState, e cldf.Environ
 
 func LoadOnchainState(e cldf.Environment) (map[uint64]CCIPChainState, error) {
 	chains := make(map[uint64]CCIPChainState)
+	if e.DataStore == nil {
+		return chains, errors.New("TON state loading requires an environment datastore")
+	}
 	for chainSelector, chain := range e.BlockChains.TonChains() {
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			// Chain not found in address book, initialize empty
-			if !errors.Is(err, cldf.ErrChainNotFound) {
-				return chains, err
-			}
-			addresses = make(map[string]cldf.TypeAndVersion)
-		}
-		chainState, err := loadChainState(chain, addresses)
+		refs := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
+		chainState, err := loadChainState(chain, refs)
 		if err != nil {
 			return chains, err
 		}
@@ -90,21 +88,25 @@ func LoadOnchainState(e cldf.Environment) (map[uint64]CCIPChainState, error) {
 	return chains, nil
 }
 
-// loadChainState Loads all state for a TonChain into state
-func loadChainState(chain cldf_ton.Chain, addressTypes map[string]cldf.TypeAndVersion) (CCIPChainState, error) {
+// loadChainState loads all state for a TON chain from datastore refs.
+func loadChainState(chain cldf_ton.Chain, refs []datastore.AddressRef) (CCIPChainState, error) {
 	_ = chain // TODO: Use chain to access the client if needed
 	state := CCIPChainState{}
 
 	// Most programs upgraded in place, but some are not so we always want to
 	// load the latest version
 	versions := make(map[cldf.ContractType]semver.Version)
-	for addressStr, tvStr := range addressTypes {
-		address, err := address.ParseAddr(addressStr)
+	for _, ref := range refs {
+		if ref.Version == nil {
+			return state, fmt.Errorf("datastore ref for %s has no version", ref.Address)
+		}
+		address, err := address.ParseAddr(ref.Address)
 		if err != nil {
 			return state, err
 		}
+		contractType := cldf.ContractType(ref.Type)
 
-		switch tvStr.Type {
+		switch contractType {
 		case commontypes.LinkToken:
 			state.LinkTokenAddress = *address
 		case shared.TonReceiver:
@@ -118,15 +120,15 @@ func loadChainState(chain cldf_ton.Chain, addressTypes map[string]cldf.TypeAndVe
 		case shared.FeeQuoter:
 			state.FeeQuoter = *address
 		default:
-			log.Warn().Str("address", addressStr).Str("type", string(tvStr.Type)).Msg("Unknown TON address type")
+			log.Warn().Str("address", ref.Address).Str("type", string(contractType)).Msg("Unknown TON address type")
 			continue
 		}
 
-		existingVersion, ok := versions[tvStr.Type]
+		existingVersion, ok := versions[contractType]
 		if ok {
-			log.Warn().Str("existingVersion", existingVersion.String()).Str("type", string(tvStr.Type)).Msg("Duplicate address type found")
+			log.Warn().Str("existingVersion", existingVersion.String()).Str("type", string(contractType)).Msg("Duplicate address type found")
 		}
-		versions[tvStr.Type] = tvStr.Version
+		versions[contractType] = *ref.Version
 	}
 
 	return state, nil

@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -1079,8 +1080,11 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			// deploy a new token
 			ab := cldf.NewMemoryAddressBook()
+			ds := datastore.NewMemoryDataStore()
+			require.NoError(t, ds.Merge(tenv.Env.DataStore))
 			for _, selector := range allChains {
-				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.BlockChains.EVMChains()[selector], ab,
+				_, err := shared.DeployContractAndRecord(tenv.Env.Logger, tenv.Env.BlockChains.EVMChains()[selector], ab, ds,
+					cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0), string(testhelpers.TestTokenSymbol),
 					func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 							tenv.Env.BlockChains.EVMChains()[selector].DeployerKey,
@@ -1102,6 +1106,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
+			tenv.Env.DataStore = ds.Seal()
 			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 			source := allChains[0]
@@ -1198,7 +1203,10 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			require.Contains(t, err.Error(), "token TEST not found in state for chain")
 			// deploy test new token
 			ab := cldf.NewMemoryAddressBook()
+			ds := datastore.NewMemoryDataStore()
+			require.NoError(t, ds.Merge(tenv.Env.DataStore))
 			for _, selector := range allChains {
+				var deployedToken common.Address
 				_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.BlockChains.EVMChains()[selector], ab,
 					func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
@@ -1209,6 +1217,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 							testhelpers.LocalTokenDecimals,
 							big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 						)
+						deployedToken = tokenAddress
 						return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 							Address:  tokenAddress,
 							Contract: token,
@@ -1219,8 +1228,16 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 					},
 				)
 				require.NoError(t, err)
+				version := deployment.Version1_0_0
+				require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+					ChainSelector: selector,
+					Address:       deployedToken.Hex(),
+					Type:          datastore.ContractType(shared.BurnMintToken),
+					Version:       &version,
+				}))
 			}
 			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
+			tenv.Env.DataStore = ds.Seal()
 			state, err = stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 			// now try to apply the changeset for TEST token
@@ -1278,7 +1295,10 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 			dest := allChains[1]
 			// deploy a new token
 			ab := cldf.NewMemoryAddressBook()
-			_, err := cldf.DeployContract(tenv.Env.Logger, tenv.Env.BlockChains.EVMChains()[source], ab,
+			ds := datastore.NewMemoryDataStore()
+			require.NoError(t, ds.Merge(tenv.Env.DataStore))
+			_, err := shared.DeployContractAndRecord(tenv.Env.Logger, tenv.Env.BlockChains.EVMChains()[source], ab, ds,
+				cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0), string(testhelpers.TestTokenSymbol),
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
 						tenv.Env.BlockChains.EVMChains()[source].DeployerKey,
@@ -1299,6 +1319,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 			)
 			require.NoError(t, err)
 			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
+			tenv.Env.DataStore = ds.Seal()
 			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 

@@ -26,6 +26,7 @@ import (
 	solLatestFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
@@ -766,7 +767,11 @@ func HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e cldf.Environment, suiChai
 	linkTokenTreasuryCapID := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
 
 	// Deploy transferrable token on EVM
-	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, ds, "TOKEN")
+	if err := mergeDataStoreIntoEnv(&e, ds); err != nil {
+		return cldf.Environment{}, nil, nil, err
+	}
 	if err != nil {
 		return cldf.Environment{}, nil, nil, errors.New("failed to deploy transfer token for evm chain " + err.Error())
 	}
@@ -902,9 +907,13 @@ func HandleMaliciousBurnMintTokenPoolDeploymentForSUI(
 	linkTokenTreasuryCapID := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
 
 	// EVM: deploy transferrable token + burn-mint pool, attach to the registry.
-	evmToken, evmPool, err = deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err = deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, ds, "TOKEN")
 	if err != nil {
 		return cldf.Environment{}, nil, nil, "", "", errors.New("failed to deploy transfer token for evm chain " + err.Error())
+	}
+	if err := mergeDataStoreIntoEnv(&e, ds); err != nil {
+		return cldf.Environment{}, nil, nil, "", "", err
 	}
 
 	err = attachTokenToTheRegistry(evmChain, state.MustGetEVMChainState(evmChain.Selector), evmDeployerKey, evmToken.Address(), evmPool.Address())
@@ -1002,7 +1011,11 @@ func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChain
 	}
 
 	// Deploy transferrable token on EVM
-	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, ds, "TOKEN")
+	if err := mergeDataStoreIntoEnv(&e, ds); err != nil {
+		return cldf.Environment{}, nil, nil, err
+	}
 	if err != nil {
 		return cldf.Environment{}, nil, nil, errors.New("failed to deploy transfer token for evm chain " + err.Error())
 	}
@@ -1106,7 +1119,11 @@ func HandleTokenAndLockReleaseTokenPoolDeploymentForSUI(e cldf.Environment, suiC
 	linkTokenTreasuryCapID := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
 
 	// Deploy transferrable token on EVM
-	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, ds, "TOKEN")
+	if err := mergeDataStoreIntoEnv(&e, ds); err != nil {
+		return cldf.Environment{}, nil, nil, err
+	}
 	if err != nil {
 		return cldf.Environment{}, nil, nil, errors.New("failed to deploy transfer token for evm chain " + err.Error())
 	}
@@ -1336,4 +1353,20 @@ func extractFields[T any](configs []TokenPoolRateLimiterConfig, selector func(To
 		result[i] = selector(config)
 	}
 	return result
+}
+
+// mergeDataStoreIntoEnv merges ds into the environment's datastore (the env's datastore is
+// sealed, so rebuild and reassign).
+func mergeDataStoreIntoEnv(e *cldf.Environment, ds datastore.MutableDataStore) error {
+	merged := datastore.NewMemoryDataStore()
+	if e.DataStore != nil {
+		if err := merged.Merge(e.DataStore); err != nil {
+			return err
+		}
+	}
+	if err := merged.Merge(ds.Seal()); err != nil {
+		return err
+	}
+	e.DataStore = merged.Seal()
+	return nil
 }

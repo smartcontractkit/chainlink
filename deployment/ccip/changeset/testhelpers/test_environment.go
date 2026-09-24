@@ -823,11 +823,11 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	return e
 }
 
-func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolanaV0_1_1.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
+func DeployChainContractsToSolChainCSV0_1_1(e *DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolanaV0_1_1.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
 	var mcmsCfg *cldfproposalutils.MCMSWithTimelockConfig
 	if preload {
 		// Pre load default programs
-		err := SavePreloadedSolAddresses(e.Env, solChainSelector)
+		err := SavePreloadedSolAddresses(&e.Env, solChainSelector)
 		if err != nil {
 			return nil, err
 		}
@@ -896,11 +896,11 @@ func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint
 	}, nil
 }
 
-func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolanaV0_1_1.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
+func DeployChainContractsToSolChainCS(e *DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolanaV0_1_1.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
 	var mcmsCfg *cldfproposalutils.MCMSWithTimelockConfig
 	if preload {
 		// Pre load default programs
-		err := SavePreloadedSolAddresses(e.Env, solChainSelector)
+		err := SavePreloadedSolAddresses(&e.Env, solChainSelector)
 		if err != nil {
 			return nil, err
 		}
@@ -1034,13 +1034,13 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				SolanaContractVersion: ccipChangeSetSolanaV0_1_1.VersionSolanaV0_1_1,
 				DestinationDir:        programsPath,
 			}
-			solCs, err := DeployChainContractsToSolChainCSV0_1_1(e, solChains[0], true, buildSolConfig)
+			solCs, err := DeployChainContractsToSolChainCSV0_1_1(&e, solChains[0], true, buildSolConfig)
 
 			require.NoError(t, err)
 			apps = append(apps, solCs...)
 		} else {
 			// If no version is specified, we will use the default one
-			solCs, err := DeployChainContractsToSolChainCS(e, solChains[0], true, nil)
+			solCs, err := DeployChainContractsToSolChainCS(&e, solChains[0], true, nil)
 			require.NoError(t, err)
 			apps = append(apps, solCs...)
 		}

@@ -338,7 +338,7 @@ func (cfg SetFeeAggregatorConfig) Validate(e cldf.Environment, state stateview.C
 }
 
 func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -420,7 +420,7 @@ func (cfg DeployForTestConfig) Validate(e cldf.Environment, state stateview.CCIP
 }
 
 func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -512,7 +512,7 @@ func (cfg SetLinkTokenConfig) Validate(e cldf.Environment, state stateview.CCIPO
 }
 
 func SetLinkToken(e cldf.Environment, cfg SetLinkTokenConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -578,7 +578,7 @@ func (cfg SetDefaultCodeVersionConfig) Validate(e cldf.Environment, state statev
 
 func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Setting default code version", "chain_selector", cfg.ChainSelector, "new_code_version", cfg.VersionEnum)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -738,7 +738,7 @@ func (cfg UpdateSvmChainSelectorConfig) Validate(e cldf.Environment, state state
 
 func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Updating SVM chain selector", "old_chain_selector", cfg.OldChainSelector, "new_chain_selector", cfg.NewChainSelector)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -862,7 +862,7 @@ func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e cldf.Environment, s
 
 func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManualExecutionAfterConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Updating enable manual execution after", "chain_selector", cfg.ChainSelector, "enable_manual_execution_after", cfg.EnableManualExecution)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -962,7 +962,7 @@ func (cfg ConfigureCCIPVersionConfig) Validate(e cldf.Environment, state statevi
 }
 
 func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -1064,7 +1064,7 @@ func (cfg RemoveOffRampConfig) Validate(e cldf.Environment, state stateview.CCIP
 }
 
 func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
