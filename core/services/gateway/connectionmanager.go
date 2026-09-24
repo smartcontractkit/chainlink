@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -89,14 +90,15 @@ type nodeState struct {
 // the write because the matching pong can arrive before Write returns. The
 // token is internal state and is never used as a metric label.
 func (ns *nodeState) sendPing(ctx context.Context) error {
-	token := make([]byte, pingTokenLen)
-	if _, err := rand.Read(token); err != nil {
+	raw := make([]byte, pingTokenLen)
+	if _, err := rand.Read(raw); err != nil {
 		return fmt.Errorf("failed to generate ping correlation token: %w", err)
 	}
+	token := base64.StdEncoding.EncodeToString(raw)
 	if tracker := ns.pingTracker.Load(); tracker != nil {
-		tracker.register(string(token), time.Now())
+		tracker.register(token, time.Now())
 	}
-	return ns.conn.Write(ctx, websocket.PingMessage, token)
+	return ns.conn.Write(ctx, websocket.PingMessage, []byte(token))
 }
 
 // immutable
