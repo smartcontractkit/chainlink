@@ -117,7 +117,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates=20260601~24.04.1 \
     gnupg=2.4.4-2ubuntu17.6 \
     lsb-release=12.0-2 \
-    curl=8.5.0-2ubuntu10.13 \
+    curl=8.5.0-2ubuntu10.15 \
+    libcurl4t64=8.5.0-2ubuntu10.15 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Postgres for CLI tools, needed specifically for DB backups
