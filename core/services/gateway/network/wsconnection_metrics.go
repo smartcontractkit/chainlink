@@ -44,7 +44,6 @@ func (noopWSConnectionObserver) RecordSocketWrite(context.Context, time.Duration
 func (noopWSConnectionObserver) RecordReadDispatchWait(context.Context, time.Duration) {}
 func (noopWSConnectionObserver) AddPendingWriters(context.Context, int64)              {}
 
-
 type WSConnectionMetrics struct {
 	writeQueueWait   metric.Int64Histogram
 	socketWrite      metric.Int64Histogram
