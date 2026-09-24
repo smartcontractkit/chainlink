@@ -166,6 +166,15 @@ COPY --from=build-remote-plugins /tmp/lib /usr/lib/
 
 WORKDIR /home/${CHAINLINK_USER}
 
+# TEST HACK (branch: empty-query-leader-node-2): write an env file that the core node
+# forwards to the capabilities LOOPP subprocess (plugins do NOT inherit container env).
+# CRE_CHAIN_CONSENSUS_EMPTY_QUERY makes this node return EMPTY queries whenever it is
+# the OCR round leader, simulating a leader that never proposes requests. Any node
+# running this image has the hack active; remove these lines to disable it.
+RUN mkdir -p /home/${CHAINLINK_USER}/extra-config && \
+    echo 'CRE_CHAIN_CONSENSUS_EMPTY_QUERY="1"' > /home/${CHAINLINK_USER}/extra-config/capabilities.env
+ENV CL_CAPABILITIES_ENV=/home/${CHAINLINK_USER}/extra-config/capabilities.env
+
 # Explicitly set the cache dir. Needed so both root and non-root user has an explicit location.
 ENV XDG_CACHE_HOME=/home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
