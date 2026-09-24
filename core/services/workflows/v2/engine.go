@@ -526,3 +526,8 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		})
 	}
 }
+
+// IsCoordinated indicates whether the engine needs an external trigger coordinator or if like this engine everything its managed internally.
+func (e *Engine) IsCoordinated() bool {
+	return false
+}

@@ -33,7 +33,7 @@ func TestNewCoordinatedEngine_RequiresAcknowledger(t *testing.T) {
 
 // TestCoordinatedEngine_ExecuteTrigger drives an external trigger event straight
 // into ExecuteTrigger and asserts the execution runs to completion. Unlike the legacy Engine,
-// a CoordinatedEngine registers no triggers of its own, so this is the only way an event reaches it.
+// a coordinatedEngine registers no triggers of its own, so this is the only way an event reaches it.
 func TestCoordinatedEngine_ExecuteTrigger(t *testing.T) {
 	t.Parallel()
 

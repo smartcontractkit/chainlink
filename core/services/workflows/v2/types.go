@@ -81,6 +81,12 @@ type WorkflowEngine interface {
 	EventSink
 	Drainable
 	Subscriber
+
+	// IsCoordinated reports whether an external TriggerCoordinator owns this
+	// engine's trigger registration and acknowledgement (true), or the engine
+	// manages them itself (false). Fixed at construction; it does not change
+	// over the engine's lifetime.
+	IsCoordinated() bool
 }
 
 // RoutedTriggerEvent is the canonical trigger event type that flows

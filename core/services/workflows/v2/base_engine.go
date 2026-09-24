@@ -67,7 +67,7 @@ const pinnedWorkflowDonConfigVersion = 1
 // module execution, metering, secrets, labels, the heartbeat, drain state, and
 // DON sync.
 //
-// It is never used directly. Engine (legacy, trigger-owning) and CoordinatedEngine
+// It is never used directly. Engine (legacy, trigger-owning) and coordinatedEngine
 // (execution-only) each embed it and supply their own start/init/close. The
 // single services.Engine for a workflow engine lives here — see attachService.
 type baseEngine struct {
@@ -308,7 +308,7 @@ func (e *baseEngine) DrainStartedAt() (time.Time, bool) {
 // initialization goroutine. Each engine passes its own init.
 //
 // triggerLoopFn is Engine's queue-draining loop (handleAllTriggerEvents). It is
-// legacy-only: CoordinatedEngine has no queue to drain, since its future
+// legacy-only: coordinatedEngine has no queue to drain, since its future
 // coordinator calls ExecuteTrigger directly instead of going through Put. Pass
 // nil to skip it.
 func (e *baseEngine) startWith(ctx context.Context, initFn func(context.Context), triggerLoopFn func(context.Context)) error {
