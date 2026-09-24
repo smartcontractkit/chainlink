@@ -144,7 +144,6 @@ func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	validValue := hex.EncodeToString(make([]byte, 10))
@@ -270,7 +269,6 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	id := &vaultcommon.SecretIdentifier{
@@ -359,7 +357,6 @@ func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerFor
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	workflowOwner := "0x0001020304050607080900010203040506070809"
@@ -394,7 +391,6 @@ func TestValidateSecretIdentifier(t *testing.T) {
 		limits.NewUpperBoundLimiter(keyLimit),
 		limits.NewUpperBoundLimiter(ownerLimit),
 		limits.NewUpperBoundLimiter(nsLimit),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	tests := []struct {
@@ -521,7 +517,6 @@ func TestValidateSecretIdentifier_OwnerSpecificKeyLimit(t *testing.T) {
 		},
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	longKey := "averylongkeyname" // 16 bytes: exceeds default (5) but within privileged (20)
@@ -548,7 +543,6 @@ func TestRequestValidator_IdentifierLengths(t *testing.T) {
 		limits.NewUpperBoundLimiter(keyLimit),
 		limits.NewUpperBoundLimiter(ownerLimit),
 		limits.NewUpperBoundLimiter(nsLimit),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	validValue := hex.EncodeToString(make([]byte, 10))
@@ -632,7 +626,6 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	validID := func(key, owner, ns string) *vaultcommon.SecretIdentifier {
@@ -796,7 +789,6 @@ func TestRequestValidator_CheckRequestBatchSize_UserErrorClassification(t *testi
 			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 		)
 	}
 
@@ -831,7 +823,6 @@ func TestValidateGetSecretsRequest_OwnerLengthPerBatchItem(t *testing.T) {
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(ownerLimit),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	// First item is within the owner length limit; second item exceeds it.
@@ -854,7 +845,6 @@ func TestValidateGetSecretsRequest_KeyLengthPerBatchItem(t *testing.T) {
 		limits.NewUpperBoundLimiter(keyLimit),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	// First item is within the key length limit; second item exceeds it.
@@ -885,7 +875,6 @@ func TestValidateGetSecretsRequest_OwnerSpecificKeyLimit(t *testing.T) {
 		},
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	longKey := "averylongkeyname" // 16 bytes: exceeds default (5) but within privileged (20)
@@ -924,7 +913,6 @@ func TestValidateGetSecretsRequest_OwnerSpecificNamespaceLimit(t *testing.T) {
 			defaultBound: defaultNsLimit,
 			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
 		},
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	longNamespace := "averylongnamespace" // 18 bytes: exceeds default (5) but within privileged (20)
@@ -963,7 +951,6 @@ func TestRequestValidator_OwnerSpecificCiphertextLimit(t *testing.T) {
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	// 15 raw bytes: exceeds default (10) but within privileged (20)
@@ -1003,7 +990,6 @@ func TestRequestValidator_ValidateCreateSecretsRequest_SkipsLabelValidationWithB
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	ownerA := "0x0001020304050607080900010203040506070809"
@@ -1038,7 +1024,6 @@ func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 	)
 
 	t.Run("GetSecretsRequest", func(t *testing.T) {
@@ -1099,86 +1084,9 @@ func TestRequestValidator_Close(t *testing.T) {
 			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // generous: blob cap not under test here
 		)
 
 		require.NoError(t, validator.Close())
 		require.Error(t, batchLimiter.Check(t.Context(), 1))
-	})
-}
-
-// TestRequestValidator_BlobSizeLimit covers the queued-representation size check: the
-// reporting plugin packs every write request into a StoredPendingQueueItem blob payload
-// capped by VaultMaxBlobPayloadSizeLimit, so a batch of cap-size ciphertexts (hex-encoded
-// on the wire, 2x their decoded size) must be rejected at ingress even though every
-// per-secret limit passes.
-func TestRequestValidator_BlobSizeLimit(t *testing.T) {
-	t.Parallel()
-	pk, _ := generateTestKeys(t)
-	owner := "0x0001020304050607080900010203040506070809"
-	id := &vaultcommon.SecretIdentifier{Key: "key", Namespace: "namespace", Owner: owner}
-	secret := encryptWithEthAddressLabel(t, pk, owner)
-
-	secrets := make([]*vaultcommon.EncryptedSecret, 8)
-	for i := range secrets {
-		secrets[i] = &vaultcommon.EncryptedSecret{Id: id, EncryptedValue: secret}
-	}
-
-	t.Run("rejects create batch over the blob cap", func(t *testing.T) {
-		t.Parallel()
-		validator := NewRequestValidator(
-			limits.NewUpperBoundLimiter(10),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte), // per-secret cap not under test
-			limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](2048*pkgconfig.Byte),
-		)
-		err := validator.ValidateCreateSecretsRequest(t.Context(), pk, &vaultcommon.CreateSecretsRequest{
-			RequestId:        "req-1",
-			EncryptedSecrets: secrets,
-		}, false)
-		require.ErrorContains(t, err, "request exceeds maximum pending queue blob payload size")
-	})
-
-	t.Run("rejects update batch over the blob cap", func(t *testing.T) {
-		t.Parallel()
-		validator := NewRequestValidator(
-			limits.NewUpperBoundLimiter(10),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](2048*pkgconfig.Byte),
-		)
-		err := validator.ValidateUpdateSecretsRequest(t.Context(), pk, &vaultcommon.UpdateSecretsRequest{
-			RequestId:        "req-1",
-			EncryptedSecrets: secrets,
-		}, false)
-		require.ErrorContains(t, err, "request exceeds maximum pending queue blob payload size")
-	})
-
-	t.Run("accepts batch within the blob cap", func(t *testing.T) {
-		t.Parallel()
-		validator := NewRequestValidator(
-			limits.NewUpperBoundLimiter(10),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte),
-		)
-		uniqueSecrets := make([]*vaultcommon.EncryptedSecret, 4)
-		for i := range uniqueSecrets {
-			uniqueSecrets[i] = &vaultcommon.EncryptedSecret{
-				Id:             &vaultcommon.SecretIdentifier{Key: fmt.Sprintf("key%d", i), Namespace: "namespace", Owner: owner},
-				EncryptedValue: secret,
-			}
-		}
-		err := validator.ValidateCreateSecretsRequest(t.Context(), pk, &vaultcommon.CreateSecretsRequest{
-			RequestId:        "req-1",
-			EncryptedSecrets: uniqueSecrets,
-		}, false)
-		require.NoError(t, err)
 	})
 }

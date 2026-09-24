@@ -8801,15 +8801,16 @@ func TestCRIT1_PluginSkipsOversizedItemWithoutFailingObservation(t *testing.T) {
 	t.Logf("oversized request: %d max-size secrets (%d wire bytes/cipher) exceed the %d-byte blob cap",
 		triggerCount, len(cipherHex), maxBlob)
 
-	// The oversized request passes every per-item ingress limit, but the validator's
-	// blob payload size check rejects it: the queued representation of the batch exceeds
+	// The oversized request passes every ingress limit on this branch (the gateway-side
+	// blob payload size check lives on the vault_ingress_blob_cap branch), so the plugin
+	// shed below is the only protection: the queued representation of the batch exceeds
 	// VaultMaxBlobPayloadSizeLimit because EncryptedValue is hex-encoded on the wire
 	// (2x its decoded size).
 	validator, err := vaultcap.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 	oversized := crit1BuildRequest("request-big", triggerCount, cipherHex, owner)
-	require.ErrorContains(t, validator.ValidateCreateSecretsRequest(t.Context(), pk, oversized, false),
-		"request exceeds maximum pending queue blob payload size")
+	require.NoError(t, validator.ValidateCreateSecretsRequest(t.Context(), pk, oversized, false),
+		"ingress rejected the request; the plugin-level shed is unreachable via the normal path")
 
 	// The plugin independently sheds such an item if one ever reaches a local store
 	// (defense in depth: version skew, direct store writes).
