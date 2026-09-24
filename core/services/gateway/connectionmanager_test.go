@@ -1,7 +1,6 @@
 package gateway_test
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
@@ -22,7 +21,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -770,20 +768,15 @@ func TestConnectionManager_PingRoundTripMetric(t *testing.T) { //nolint:parallel
 
 	reader := sdkmetric.NewManualReader()
 	meterProvider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-	t.Cleanup(func() { require.NoError(t, meterProvider.Shutdown(context.Background())) })
-	previousClient := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(previousClient) })
-	client := beholder.NoopClientConfig{Lggr: logger.Test(t)}.New()
-	client.Meter = meterProvider.Meter("gateway-test")
-	client.MeterProvider = meterProvider
-	beholder.SetClient(client)
+	meter := meterProvider.Meter("connection-manager-test")
+	t.Cleanup(func() { require.NoError(t, meterProvider.Shutdown(t.Context())) })
 
 	cfg, nodes := newTestConfig(t, 1)
 	cfg.ConnectionManagerConfig.HeartbeatIntervalSec = 1
 	cfg.ConnectionManagerConfig.PongTimeoutSec = 5
 	clock := clockwork.NewRealClock()
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetricsWithMeter(meter)
 	require.NoError(t, err)
 	mgr, err := gateway.NewConnectionManager(cfg, clock, gMetrics, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)

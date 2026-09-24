@@ -6,8 +6,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gorilla/websocket"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -33,7 +31,7 @@ type WSConnectionWrapper interface {
 
 	// Update underlying connection object. Return a channel that gets an error on connection close.
 	// Cannot be called after Close().
-	Reset(newConn *websocket.Conn) <-chan error
+	Reset(newConn WSConnection) <-chan error
 
 	Write(ctx context.Context, msgType int, data []byte) error
 
@@ -42,11 +40,21 @@ type WSConnectionWrapper interface {
 	IsConnected() bool
 }
 
+type WSConnection interface {
+	ReadMessage() (messageType int, p []byte, err error)
+	WriteMessage(messageType int, data []byte) error
+	Close() error
+}
+
+type wsConnectionHolder struct {
+	WSConnection
+}
+
 type wsConnectionWrapper struct {
 	services.StateMachine
 	lggr logger.Logger
 
-	conn atomic.Pointer[websocket.Conn]
+	conn atomic.Pointer[wsConnectionHolder]
 
 	writeCh    chan writeItem
 	readCh     chan ReadItem
@@ -115,8 +123,13 @@ func (c *wsConnectionWrapper) Start(_ context.Context) error {
 //  1. replaces the underlying connection and shuts the old one down
 //  2. starts a new read goroutine that pushes received messages to readCh
 //  3. returns channel that closes when connection closes, or nil if closed or newConn is nil.
-func (c *wsConnectionWrapper) Reset(newConn *websocket.Conn) <-chan error {
-	oldConn := c.conn.Swap(newConn)
+func (c *wsConnectionWrapper) Reset(newConn WSConnection) <-chan error {
+	var conn *wsConnectionHolder
+	if newConn != nil {
+		conn = &wsConnectionHolder{newConn}
+	}
+
+	oldConn := c.conn.Swap(conn)
 
 	if oldConn != nil {
 		oldConn.Close()
@@ -129,7 +142,7 @@ func (c *wsConnectionWrapper) Reset(newConn *websocket.Conn) <-chan error {
 	}
 	closeCh := make(chan error, 1)
 	// readPump goroutine is tied to the lifecycle of the underlying conn object
-	go c.readPump(newConn, closeCh)
+	go c.readPump(conn, closeCh)
 	return closeCh
 }
 
@@ -217,7 +230,7 @@ func (c *wsConnectionWrapper) writePump() {
 	}
 }
 
-func (c *wsConnectionWrapper) readPump(conn *websocket.Conn, closeCh chan<- error) {
+func (c *wsConnectionWrapper) readPump(conn *wsConnectionHolder, closeCh chan<- error) {
 	defer c.wg.Done()
 	for {
 		msgType, data, err := conn.ReadMessage()

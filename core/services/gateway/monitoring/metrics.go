@@ -114,42 +114,46 @@ func (m *GatewayMetrics) RecordUserReady(ctx context.Context, ready bool) {
 }
 
 func NewGatewayMetrics() (*GatewayMetrics, error) {
-	nodeMsgHandleDuration, err := beholder.GetMeter().Int64Histogram("platform_gateway_node_msg_handler_duration_ms")
+	return NewGatewayMetricsWithMeter(beholder.GetMeter())
+}
+
+func NewGatewayMetricsWithMeter(meter metric.Meter) (*GatewayMetrics, error) {
+	nodeMsgHandleDuration, err := meter.Int64Histogram("platform_gateway_node_msg_handler_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	nodeMsgHandleCount, err := beholder.GetMeter().Int64Counter("platform_gateway_node_msgs_handled_total")
+	nodeMsgHandleCount, err := meter.Int64Counter("platform_gateway_node_msgs_handled_total")
 	if err != nil {
 		return nil, err
 	}
 
-	userMsgHandleDuration, err := beholder.GetMeter().Int64Histogram("platform_gateway_user_msg_handler_duration_ms")
+	userMsgHandleDuration, err := meter.Int64Histogram("platform_gateway_user_msg_handler_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	userMsgHandleCount, err := beholder.GetMeter().Int64Counter("platform_gateway_user_msgs_handled_total")
+	userMsgHandleCount, err := meter.Int64Counter("platform_gateway_user_msgs_handled_total")
 	if err != nil {
 		return nil, err
 	}
 
-	nodeConnectedEvents, err := beholder.GetMeter().Int64Counter("platform_gateway_node_connected_events_total")
+	nodeConnectedEvents, err := meter.Int64Counter("platform_gateway_node_connected_events_total")
 	if err != nil {
 		return nil, err
 	}
 
-	keepalivePingsSent, err := beholder.GetMeter().Int64Counter("platform_gateway_keepalive_pings_sent_total")
+	keepalivePingsSent, err := meter.Int64Counter("platform_gateway_keepalive_pings_sent_total")
 	if err != nil {
 		return nil, err
 	}
 
-	keepalivePongsReceived, err := beholder.GetMeter().Int64Counter("platform_gateway_keepalive_pongs_received_total")
+	keepalivePongsReceived, err := meter.Int64Counter("platform_gateway_keepalive_pongs_received_total")
 	if err != nil {
 		return nil, err
 	}
 
-	wsPingRoundTrip, err := beholder.GetMeter().Int64Histogram("platform_gateway_ws_ping_round_trip_ms",
+	wsPingRoundTrip, err := meter.Int64Histogram("platform_gateway_ws_ping_round_trip_ms",
 		metric.WithUnit("ms"),
 		metric.WithDescription("Observed websocket ping round trip in milliseconds, from ping enqueue to receipt of the pong echoing its correlation token. Includes local write-pump queue wait, transport, and peer control-frame processing; it is not a pure network RTT. Only the connection's latest probe yields a sample"),
 	)
@@ -157,22 +161,22 @@ func NewGatewayMetrics() (*GatewayMetrics, error) {
 		return nil, err
 	}
 
-	donConnectedNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_connected_nodes")
+	donConnectedNodes, err := meter.Int64Gauge("platform_gateway_don_connected_nodes")
 	if err != nil {
 		return nil, err
 	}
 
-	donRequiredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_required_nodes")
+	donRequiredNodes, err := meter.Int64Gauge("platform_gateway_don_required_nodes")
 	if err != nil {
 		return nil, err
 	}
 
-	donConfiguredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_configured_nodes")
+	donConfiguredNodes, err := meter.Int64Gauge("platform_gateway_don_configured_nodes")
 	if err != nil {
 		return nil, err
 	}
 
-	userReady, err := beholder.GetMeter().Int64Gauge("platform_gateway_user_ready")
+	userReady, err := meter.Int64Gauge("platform_gateway_user_ready")
 	if err != nil {
 		return nil, err
 	}
