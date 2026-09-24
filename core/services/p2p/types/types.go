@@ -50,4 +50,8 @@ type StreamConfig struct {
 	MaxMessageLenBytes        int
 	MessageRateLimiter        ragep2p.TokenBucketParams
 	BytesRateLimiter          ragep2p.TokenBucketParams
+	// StubStreamDONIDs is a TEST-ONLY knob: DON IDs whose members this node will not
+	// create DON-to-DON messaging streams to (used by e2e tests to simulate a node that
+	// never receives workflow requests). Empty for normal operation.
+	StubStreamDONIDs []uint32
 }

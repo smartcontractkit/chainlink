@@ -105,11 +105,21 @@ func (s *sharedPeering) Bootstrappers() (locators []commontypes.BootstrapperLoca
 }
 
 func (s *sharedPeering) StreamConfig() config.StreamConfig {
-	return &streamConfig{c: s.s.StreamConfig}
+	return &streamConfig{c: s.s.StreamConfig, stubStreamDONIDs: s.StubStreamDONIDs()}
+}
+
+func (s *sharedPeering) StubStreamDONIDs() []uint32 {
+	if d := s.s.StubStreamDONIDs; d != nil {
+		return *d
+	}
+	return nil
 }
 
 type streamConfig struct {
 	c toml.StreamConfig
+	// stubStreamDONIDs is carried from the parent SharedPeering config (the TOML field
+	// lives on SharedPeering, not on StreamConfig).
+	stubStreamDONIDs []uint32
 }
 
 func (c *streamConfig) IncomingMessageBufferSize() int {
@@ -138,6 +148,10 @@ func (c *streamConfig) BytesRateLimiterRate() float64 {
 
 func (c *streamConfig) BytesRateLimiterCapacity() uint32 {
 	return *c.c.BytesRateLimiterCapacity
+}
+
+func (c *streamConfig) StubStreamDONIDs() []uint32 {
+	return c.stubStreamDONIDs
 }
 
 type dispatcherRateLimit struct {

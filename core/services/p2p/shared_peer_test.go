@@ -116,6 +116,51 @@ func TestDon2DonSharedPeer_UpdateConnectionsByDONs(t *testing.T) {
 	require.Equal(t, 2+2+3, mockPGFactory.closedGroupCounter) // closed 2 DON groups and 3 node groups
 }
 
+// TestDon2DonSharedPeer_StubStreamDONIDs verifies the TEST-ONLY stub: peers of DONs listed
+// in StreamConfig.StubStreamDONIDs get no messaging streams (and no peer groups), while
+// peers of other DONs are unaffected. Discovery groups are still created for all pairs.
+func TestDon2DonSharedPeer_StubStreamDONIDs(t *testing.T) {
+	pw := ocrcommon.NewSingletonPeerWrapper(nil, nil, nil, nil, logger.TestLogger(t)) // nils are ok, we won't Start() it
+	_, myPeerID := newKeyPair(t)
+	_, wfPeer1 := newKeyPair(t)
+	_, wfPeer2 := newKeyPair(t)
+	_, otherPeer := newKeyPair(t)
+	mockPGFactory := mockPeerGroupFactory{}
+	pw.PeerGroupFactory = &mockPGFactory
+	pw.PeerID = p2pkey.PeerID(myPeerID)
+
+	sp := p2p.NewDon2DonSharedPeer(pw, nil, logger.TestLogger(t))
+	require.NoError(t, sp.Start(t.Context()))
+
+	donPairs := []p2ptypes.DonPair{{
+		{ID: 1, Members: []ragetypes.PeerID{myPeerID, wfPeer1}}, // my DON (workflow)
+		{ID: 2, Members: []ragetypes.PeerID{wfPeer1, wfPeer2}},  // stubbed capability DON
+	}, {
+		{ID: 1, Members: []ragetypes.PeerID{myPeerID, wfPeer1}},
+		{ID: 3, Members: []ragetypes.PeerID{otherPeer}}, // non-stubbed DON
+	}}
+
+	// Stub DON 2: no streams to wfPeer1/wfPeer2, but streams to otherPeer still created.
+	stubCfg := p2ptypes.StreamConfig{StubStreamDONIDs: []uint32{2}}
+	require.NoError(t, sp.UpdateConnectionsByDONs(t.Context(), donPairs, stubCfg))
+	require.Equal(t, 2, mockPGFactory.newDonGroupCounter)  // discovery groups for BOTH pairs still created
+	require.Equal(t, 1, mockPGFactory.newNodeGroupCounter) // only the non-stubbed peer group
+	require.Equal(t, 1, mockPGFactory.newStreamCounter)    // only the non-stubbed stream
+
+	// Removing the stub creates the missing streams (config change is picked up).
+	require.NoError(t, sp.UpdateConnectionsByDONs(t.Context(), donPairs, p2ptypes.StreamConfig{}))
+	require.Equal(t, 3, mockPGFactory.newNodeGroupCounter) // peer groups for wfPeer1 + wfPeer2 created now
+	require.Equal(t, 3, mockPGFactory.newStreamCounter)
+
+	// Re-stubbing closes the streams to the stubbed DON's peers.
+	require.NoError(t, sp.UpdateConnectionsByDONs(t.Context(), donPairs, stubCfg))
+	require.Equal(t, 3, mockPGFactory.newNodeGroupCounter) // no new groups
+	require.Equal(t, 3, mockPGFactory.newStreamCounter)    // no new streams
+	require.Equal(t, 2, mockPGFactory.closedGroupCounter)  // closed the 2 peer groups to stubbed DON
+
+	require.NoError(t, sp.Close())
+}
+
 // TestDon2DonSharedPeer_DONMembershipChange reproduces the failure
 // seen in production when a DON's on-chain membership changes:
 //

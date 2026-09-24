@@ -116,6 +116,9 @@ type SharedPeering interface {
 	Enabled() bool
 	Bootstrappers() (locators []ocrcommontypes.BootstrapperLocator)
 	StreamConfig() StreamConfig
+	// StubStreamDONIDs returns TEST-ONLY DON IDs whose members this node will not create
+	// DON-to-DON messaging streams to. Empty for normal operation.
+	StubStreamDONIDs() []uint32
 }
 
 type StreamConfig interface {
@@ -126,4 +129,7 @@ type StreamConfig interface {
 	MessageRateLimiterCapacity() uint32
 	BytesRateLimiterRate() float64
 	BytesRateLimiterCapacity() uint32
+	// StubStreamDONIDs returns TEST-ONLY DON IDs whose members this node will not create
+	// DON-to-DON messaging streams to. Empty for normal operation.
+	StubStreamDONIDs() []uint32
 }

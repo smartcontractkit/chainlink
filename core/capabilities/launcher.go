@@ -117,6 +117,7 @@ func NewLauncher(
 			Rate:     streamConfig.BytesRateLimiterRate(),
 			Capacity: streamConfig.BytesRateLimiterCapacity(),
 		}
+		p2pStreamConfig.StubStreamDONIDs = streamConfig.StubStreamDONIDs()
 	}
 	metrics, err := newLauncherMetrics()
 	if err != nil {

@@ -2755,6 +2755,10 @@ type SharedPeering struct {
 	Enabled       *bool
 	Bootstrappers *[]ocrcommontypes.BootstrapperLocator
 	StreamConfig  StreamConfig
+	// StubStreamDONIDs is a TEST-ONLY knob: DONs whose members this node will NOT create
+	// DON-to-DON messaging streams to. Used by e2e tests to simulate a capability node
+	// that never receives workflow requests (its OCR participation is unaffected).
+	StubStreamDONIDs *[]uint32
 }
 
 func (c *SharedPeering) setFrom(f *SharedPeering) {
@@ -2763,6 +2767,9 @@ func (c *SharedPeering) setFrom(f *SharedPeering) {
 	}
 	if f.Bootstrappers != nil {
 		c.Bootstrappers = f.Bootstrappers
+	}
+	if f.StubStreamDONIDs != nil {
+		c.StubStreamDONIDs = f.StubStreamDONIDs
 	}
 	c.StreamConfig.setFrom(&f.StreamConfig)
 }

@@ -165,6 +165,18 @@ func (sp *don2DonSharedPeer) UpdateConnectionsByDONs(ctx context.Context, donPai
 	sp.lggr.Infow("UpdateConnectionsByDONs", "numDonPairs", len(donPairs))
 	startTs := time.Now().UnixMilli()
 
+	// TEST-ONLY stub: DON IDs whose members this node must NOT create messaging streams
+	// to. Used by e2e tests to simulate a capability node that never receives workflow
+	// requests (OCR participation is unaffected). Discovery groups are still created.
+	stubbedDONIDs := make(map[uint32]struct{}, len(streamConfig.StubStreamDONIDs))
+	for _, id := range streamConfig.StubStreamDONIDs {
+		stubbedDONIDs[id] = struct{}{}
+	}
+	stubPeer := func(don capabilities.DON) bool {
+		_, ok := stubbedDONIDs[don.ID]
+		return ok
+	}
+
 	desiredDONPairsIDs := make(map[string]struct{})
 	for _, dp := range donPairs {
 		pairID := pairID(dp[0], dp[1])
@@ -173,11 +185,21 @@ func (sp *don2DonSharedPeer) UpdateConnectionsByDONs(ctx context.Context, donPai
 	desiredRemotePeers := make(map[ragetypes.PeerID]struct{})
 	for _, dp := range donPairs {
 		if slices.Contains(dp[0].Members, sp.myID) {
+			if stubPeer(dp[1]) {
+				sp.lggr.Infow("Stubbing DON-to-DON messaging streams: skipping remote peers (TEST-ONLY stub)",
+					"remoteDonID", dp[1].ID, "numPeers", len(dp[1].Members))
+				continue
+			}
 			for _, pid := range dp[1].Members {
 				desiredRemotePeers[pid] = struct{}{}
 			}
 		}
 		if slices.Contains(dp[1].Members, sp.myID) {
+			if stubPeer(dp[0]) {
+				sp.lggr.Infow("Stubbing DON-to-DON messaging streams: skipping remote peers (TEST-ONLY stub)",
+					"remoteDonID", dp[0].ID, "numPeers", len(dp[0].Members))
+				continue
+			}
 			for _, pid := range dp[0].Members {
 				desiredRemotePeers[pid] = struct{}{}
 			}

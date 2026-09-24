@@ -682,6 +682,11 @@ URL = 'wss://localhost:8081/node' # Example
 Enabled = false # Default
 # Bootstrappers overrides bootstrap nodes for SharedPeer peer groups. If empty, default bootstrappers from P2P.V2 will be used.
 Bootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+# StubStreamDONIDs is TEST-ONLY: DON IDs whose members this node will NOT create
+# DON-to-DON messaging streams to. Used by e2e tests to simulate a capability node
+# that never receives workflow requests (OCR participation is unaffected). Leave
+# empty in production.
+StubStreamDONIDs = [1] # Example
 
 [Capabilities.SharedPeering.StreamConfig]
 # IncomingMessageBufferSize is the max number of enqueued incoming messages awaiting processing.
