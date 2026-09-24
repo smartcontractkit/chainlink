@@ -71,68 +71,56 @@ func NewEngine(cfg *EngineConfig) (WorkflowEngine, error) {
 		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
 	}
 
-	// Self-inject: the engine is its own acknowledger in M1, because it holds the
-	// trigger handles. In M2 the OCR reporting plugin implements the Acknowledger.
+	// Self-inject: the engine is its own acknowledger because it holds the
+	// trigger handles.
 	if cfg.TriggerAcknowledger == nil {
 		cfg.TriggerAcknowledger = e
 	}
 
-	// The lifecycle is Engine's; the single services.Engine lives on the base.
 	base.attachService(lggr, "WorkflowEngineV2", e.start, e.close)
 	return e, nil
 }
 
-// Start starts the engine.
 func (e *engine) Start(ctx context.Context) error {
 	return e.base.Start(ctx)
 }
 
-// Close stops the engine.
 func (e *engine) Close() error {
 	return e.base.Close()
 }
 
-// Ready reports readiness.
 func (e *engine) Ready() error {
 	return e.base.Ready()
 }
 
-// HealthReport reports health.
 func (e *engine) HealthReport() map[string]error {
 	return e.base.HealthReport()
 }
 
-// Name returns the service name.
 func (e *engine) Name() string {
 	return e.base.Name()
 }
 
-// ExecuteTrigger runs the workflow for a routed trigger event.
 func (e *engine) ExecuteTrigger(ctx context.Context, event RoutedTriggerEvent) error {
 	return e.base.ExecuteTrigger(ctx, event)
 }
 
-// Drain marks the engine as draining.
 func (e *engine) Drain() bool {
 	return e.base.Drain()
 }
 
-// ActiveExecutions returns the number of in-flight executions.
 func (e *engine) ActiveExecutions() int32 {
 	return e.base.ActiveExecutions()
 }
 
-// DrainStartedAt returns when draining began, if it has.
 func (e *engine) DrainStartedAt() (time.Time, bool) {
 	return e.base.DrainStartedAt()
 }
 
-// Subscribe issues the WASM Subscribe call.
 func (e *engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
 	return e.base.Subscribe(ctx)
 }
 
-// Tenant is the engine's tenant identity.
 func (e *engine) Tenant() contexts.CRE {
 	return e.base.Tenant()
 }

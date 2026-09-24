@@ -2521,10 +2521,8 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 	// Optional cfgFn overrides are applied to the per-subtest config copy
 	// (e.g. sharding, billing) before the engine is constructed.
 	//
-	// The hooks record into counters as well as the channels. ExecuteTrigger is
-	// synchronous — it returns only after the deferred hooks have fired — so after
-	// it returns the counts are final and a subtest can assert "this hook never
-	// ran" with a counter read instead of a blocking channel read.
+	// The hooks record into counters as well as the defined channels.
+	// Use a counter read instead of a blocking channel read to assert the call state of an engine lifecycle hook.
 	type engineWithChans struct {
 		engine              v2.WorkflowEngine
 		executionFinishedCh chan string // receives status
@@ -2681,10 +2679,8 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 	})
 }
 
-// TestEngine_ShardDenial drives a real trigger event through the engine's
-// actual subscription path (Subscribe -> RegisterTrigger -> eventCh -> put),
-// so the admission-to-ack wiring itself is under test, verifying that when
-// admission denies, the engine ack-and-drop correctly.
+// TestEngine_ShardDenial verifies that when the OnTriggerAdmission lifecycle hook
+// denies admission of a trigger, the engine correctly acknowledges and drops the trigger.
 func TestEngine_ShardDenial(t *testing.T) {
 	t.Parallel()
 
