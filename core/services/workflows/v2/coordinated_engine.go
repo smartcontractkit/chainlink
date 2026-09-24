@@ -12,9 +12,7 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 )
 
-var _ EventSink = (*coordinatedEngine)(nil)
 var _ WorkflowEngine = (*coordinatedEngine)(nil)
-var _ Subscriber = (*coordinatedEngine)(nil)
 
 // coordinatedEngine is an execution-only workflow engine: it registers no
 // triggers itself and instead relies on an external manager to Subscribe,
