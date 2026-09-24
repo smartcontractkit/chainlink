@@ -2642,66 +2642,51 @@ func TestEngine_ShardDenial(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			module := modulemocks.NewModuleV2(t)
-			module.EXPECT().Start()
-			module.EXPECT().Close()
 			capreg := regmocks.NewCapabilitiesRegistry(t)
 			capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
 
-			initDoneCh := make(chan error, 1)
-			subscribedToTriggersCh := make(chan []string, 1)
-			var admissionCalls, finishedCalls, errorCalls atomic.Int32
-
-			cfg := defaultTestConfig(t, nil)
-			cfg.Module = module
-			cfg.CapRegistry = capreg
-			cfg.Hooks = v2.LifecycleHooks{
-				OnInitialized: func(err error) {
-					initDoneCh <- err
-				},
-				OnSubscribedToTriggers: func(triggerIDs []string) {
-					subscribedToTriggersCh <- triggerIDs
-				},
-				OnExecutionFinished: func(_ string, status string) {
-					finishedCalls.Add(1)
-				},
-				OnExecutionError: func(msg string) {
-					errorCalls.Add(1)
-				},
-				OnTriggerAdmission: func(_ context.Context, _ v2.RoutedTriggerEvent) error {
-					admissionCalls.Add(1)
-					return tc.wantErr
-				},
-			}
-
-			engine, err := v2.NewEngine(cfg)
-			require.NoError(t, err)
-
-			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
 			trigger := capmocks.NewTriggerCapability(t)
 			capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
 			eventCh := make(chan capabilities.TriggerResponse)
 			trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
 			trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 
-			// The engine must ACK the denied event exactly once to confirm the admission-to-ack wiring works correctly.
-			registrationID := v2.TriggerRegistrationID(cfg.WorkflowID, 0)
+			baseCfg := defaultTestConfig(t, nil)
+			baseCfg.CapRegistry = capreg
+
+			var admissionCalls atomic.Int32
+
+			ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+				module.EXPECT().Start()
+				module.EXPECT().Close()
+				module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+			}, func(cfg *v2.EngineConfig) {
+				cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+					admissionCalls.Add(1)
+					return tc.wantErr
+				}
+			})
+
+			registrationID := v2.TriggerRegistrationID(baseCfg.WorkflowID, 0)
 			ackedCh := make(chan struct{}, 1)
+			event := capabilities.TriggerEvent{
+				TriggerType: "basic-trigger@1.0.0",
+				ID:          "shard_denial_event",
+			}
 			trigger.EXPECT().
-				AckEvent(matches.AnyContext, registrationID, "shard_denial_event", mock.Anything).
-				Run(func(context.Context, string, string, string) { ackedCh <- struct{}{} }).
+				AckEvent(matches.AnyContext, registrationID, event.ID, mock.Anything).
+				Run(func(context.Context, string, string, string) { close(ackedCh) }).
 				Return(nil).
 				Once()
 
-			require.NoError(t, engine.Start(t.Context()))
-			require.NoError(t, <-initDoneCh)
-			require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+			require.NoError(t, ew.engine.Start(t.Context()))
+			require.NoError(t, <-ew.initializedCh)
+			require.Equal(t, []string{"id_0"}, <-ew.subscribedToTriggersCh)
 
+			// fire the trigger by writing to the channel returned by the mock
+			// trigger registration
 			eventCh <- capabilities.TriggerResponse{
-				Event: capabilities.TriggerEvent{
-					TriggerType: "basic-trigger@1.0.0",
-					ID:          "shard_denial_event",
-				},
+				Event: event,
 			}
 
 			select {
@@ -2710,15 +2695,18 @@ func TestEngine_ShardDenial(t *testing.T) {
 				t.Fatal("expected the denied event to be ACKed")
 			}
 
+			// shutdown the engine after acknowledgement
+			require.NoError(t, ew.engine.Close())
+
 			// The admission hook is the wiring under test: it must have been
 			// consulted exactly once for the denied event.
 			require.Equal(t, int32(1), admissionCalls.Load())
 
-			require.Equal(t, int32(0), finishedCalls.Load(), "OnExecutionFinished should not fire for a denied event")
-			require.Equal(t, int32(0), errorCalls.Load(), "OnExecutionError should not fire for a denied event")
-			require.Equal(t, int32(0), engine.ActiveExecutions())
-
-			require.NoError(t, engine.Close())
+			// Assert that no other hooks were called and no active executions
+			// remain
+			require.Equal(t, int32(0), ew.finishedCalls.Load(), "OnExecutionFinished should not fire for a denied event")
+			require.Equal(t, int32(0), ew.errorCalls.Load(), "OnExecutionError should not fire for a denied event")
+			require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 		})
 	}
 }
@@ -2826,16 +2814,27 @@ func (a *recordingAcknowledger) ackCalls() []string {
 	return append([]string(nil), a.calls...)
 }
 
-// testEngine wraps a WorkflowEngine with lifecycle hooks that record how
-// many times each fired, alongside channels carrying their payloads.
+// testEngine wraps a WorkflowEngine with a default implementation of every
+// lifecycle hook, recording how many times each fired, alongside channels
+// carrying the payloads of the ones tests commonly need to wait on.
 type testEngine struct {
-	engine              v2.WorkflowEngine
-	executionFinishedCh chan string // receives status
-	executionErrorCh    chan string // receives error message
-	resultReceivedCh    chan *sdkpb.ExecutionResult
-	finishedCalls       *atomic.Int32
-	errorCalls          *atomic.Int32
-	resultCalls         *atomic.Int32
+	engine v2.WorkflowEngine
+
+	initializedCh              chan error
+	subscribedToTriggersCh     chan []string
+	executionFinishedCh        chan string // receives status
+	executionErrorCh           chan string // receives error message
+	resultReceivedCh           chan *sdkpb.ExecutionResult
+	subscriptionsReadyCalls    atomic.Int32
+	triggerEventDroppedCalls   atomic.Int32
+	finishedCalls              atomic.Int32
+	errorCalls                 atomic.Int32
+	executionStatusUpdateCalls atomic.Int32
+	resultCalls                atomic.Int32
+	rateLimitedCalls           atomic.Int32
+	nodeSyncedCalls            atomic.Int32
+	triggerAdmissionCalls      atomic.Int32
+	requirementsSetCalls       atomic.Int32
 }
 
 func newTestEngine(
@@ -2850,17 +2849,29 @@ func newTestEngine(
 	setupModule(module)
 
 	e := &testEngine{
-		executionFinishedCh: make(chan string, 1),
-		executionErrorCh:    make(chan string, 1),
-		resultReceivedCh:    make(chan *sdkpb.ExecutionResult, 1),
-		finishedCalls:       &atomic.Int32{},
-		errorCalls:          &atomic.Int32{},
-		resultCalls:         &atomic.Int32{},
+		initializedCh:          make(chan error, 1),
+		subscribedToTriggersCh: make(chan []string, 1),
+		executionFinishedCh:    make(chan string, 1),
+		executionErrorCh:       make(chan string, 1),
+		resultReceivedCh:       make(chan *sdkpb.ExecutionResult, 1),
 	}
 
 	testCfg := *baseCfg
 	testCfg.Module = module
 	testCfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			e.initializedCh <- err
+		},
+		OnSubscriptionsReady: func(_ []*sdkpb.TriggerSubscription, _ contexts.CRE) error {
+			e.subscriptionsReadyCalls.Add(1)
+			return nil
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			e.subscribedToTriggersCh <- triggerIDs
+		},
+		OnTriggerEventDropped: func(_, _, _ string) {
+			e.triggerEventDroppedCalls.Add(1)
+		},
 		OnExecutionFinished: func(_ string, status string) {
 			e.finishedCalls.Add(1)
 			e.executionFinishedCh <- status
@@ -2869,9 +2880,25 @@ func newTestEngine(
 			e.errorCalls.Add(1)
 			e.executionErrorCh <- msg
 		},
+		OnExecutionStatusUpdate: func(_ string, _ string, _ string, _ int, _ string, _ workflowEvents.ErrorClassification) {
+			e.executionStatusUpdateCalls.Add(1)
+		},
 		OnResultReceived: func(res *sdkpb.ExecutionResult) {
 			e.resultCalls.Add(1)
 			e.resultReceivedCh <- res
+		},
+		OnRateLimited: func(_ string) {
+			e.rateLimitedCalls.Add(1)
+		},
+		OnNodeSynced: func(_ capabilities.Node, _ error) {
+			e.nodeSyncedCalls.Add(1)
+		},
+		OnTriggerAdmission: func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+			e.triggerAdmissionCalls.Add(1)
+			return nil
+		},
+		OnRequirementsSet: func(_ string, _ *sdkpb.Requirements) {
+			e.requirementsSetCalls.Add(1)
 		},
 	}
 	for _, fn := range cfgFn {
