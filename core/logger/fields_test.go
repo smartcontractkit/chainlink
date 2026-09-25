@@ -76,7 +76,7 @@ func TestFields_With(t *testing.T) {
 		t.Parallel()
 
 		assert.Panics(t, func() {
-			//lint:ignore SA5012 we expect panic here
+			//nolint:staticcheck // intentional: odd number of key/value args triggers panic
 			_ = f.With("xyz")
 		}, "expected even number of arguments")
 	})

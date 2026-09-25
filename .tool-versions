@@ -1,5 +1,5 @@
-golang        1.26.7
-mockery       2.53.6
+golang        1.27.1
+mockery       2.53.7
 nodejs        20.13.1
 pnpm          10.6.5
 postgres      18.6

@@ -344,7 +344,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 			if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 			}
-			newAddresses, err := output.AddressBook.Addresses() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+			newAddresses, err := output.AddressBook.Addresses()
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses from address book: %w", err)
 			}
@@ -460,7 +460,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 	}
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
 	if len(finalCSOut.MCMSTimelockProposals) > 1 {
-		aggregatedProposals, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
+		aggregatedProposals, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: AggregateProposalsV2 migration is tracked separately
 			e,
 			state.EVMMCMSStateByChain(),
 			nil,
@@ -721,12 +721,12 @@ func addMinterAndMintTokenHelper(env cldf.Environment, selector uint64, token *b
 }
 
 // addMinterAndBurnerForBurnMintERC20Token adds the burner and minter role to the specified address.
-func addMinterAndBurnerForBurnMintERC20Token(env cldf.Environment, selector uint64, tokenAddress common.Address, poolAddress common.Address) error {
+func addMinterAndBurnerForBurnMintERC20Token(env cldf.Environment, selector uint64, tokenAddress, poolAddress common.Address) error {
 	return addMinterAndBurnerForBurnMintERC20TokenHelper(env, selector, tokenAddress, poolAddress)
 }
 
 // addMinterAndBurnerForBurnMintERC20TokenHelper is a helper function that adds the minter and burner role to the specified address for BurnMintERC20 token.
-func addMinterAndBurnerForBurnMintERC20TokenHelper(env cldf.Environment, selector uint64, tokenAddress common.Address, poolAddress common.Address) error {
+func addMinterAndBurnerForBurnMintERC20TokenHelper(env cldf.Environment, selector uint64, tokenAddress, poolAddress common.Address) error {
 	deployerKey := env.BlockChains.EVMChains()[selector].DeployerKey
 	ctx := env.GetContext()
 
@@ -825,7 +825,7 @@ func grantDefaultAdminRoleForBurnMintERC20Token(env cldf.Environment, selector u
 	return nil
 }
 
-func addMinterForERC677Token(env cldf.Environment, chain cldf_evm.Chain, tokenAddress common.Address, poolAddress common.Address) error {
+func addMinterForERC677Token(env cldf.Environment, chain cldf_evm.Chain, tokenAddress, poolAddress common.Address) error {
 	_, err := operations.ExecuteOperation(env.OperationsBundle, ccipops.GrantMintAndBurnRolesERC677Op, chain, opsutils.EVMCallInput[common.Address]{
 		Address:       tokenAddress,
 		ChainSelector: chain.Selector,

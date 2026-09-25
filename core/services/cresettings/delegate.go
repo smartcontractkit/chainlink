@@ -34,9 +34,9 @@ type delegate struct {
 	shardAssignmentSettings *loop.AtomicSettings
 	globalConfig            *globalconfig.GlobalConfig
 
-	// activeJobs tracks the active job ID per config_type, so one job of each config_type
+	// activeJobIDs tracks the active job ID per config_type, so one job of each config_type
 	// can run concurrently while rejecting a second job of the same config_type.
-	activeJobs sync.Map // configType(string) -> jobID(int32)
+	activeJobIDs sync.Map // configType(string) -> jobID(int32)
 }
 
 func (d *delegate) JobType() job.Type {
@@ -47,10 +47,15 @@ func (d *delegate) BeforeJobCreated(j job.Job) {}
 
 func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.ServiceCtx, error) {
 	spec := j.CRESettingsSpec
-	configType := resolveConfigType(*spec)
+	configType := d.configType(spec)
+	switch configType {
+	case ConfigTypeSettings, ConfigTypeShardAssignment, ConfigTypeCapRegistry:
+	default:
+		return nil, fmt.Errorf("unknown config_type %q", configType)
+	}
 
-	if existing, ok := d.activeJobs.Load(configType); ok && existing.(int32) != j.ID {
-		return nil, fmt.Errorf("another %s job with config_type %q is already active: %d", job.CRESettings, configType, existing)
+	if activeJobID, loaded := d.activeJobIDs.LoadOrStore(configType, j.ID); loaded {
+		return nil, fmt.Errorf("another %s job with config_type %q is already active: %d", job.CRESettings, configType, activeJobID.(int32))
 	}
 
 	switch configType {
@@ -83,12 +88,9 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 			return nil, fmt.Errorf("failed to update settings: %w", err)
 		}
 		d.lggr.Infow("Updated settings", "hash", spec.Hash, "settings", spec.Settings)
-
-	default:
-		return nil, fmt.Errorf("unknown config_type %q", configType)
 	}
 
-	d.activeJobs.Store(configType, j.ID)
+	d.activeJobIDs.Store(configType, j.ID)
 	return nil, nil
 }
 
@@ -97,12 +99,20 @@ func (d *delegate) AfterJobCreated(j job.Job) {}
 func (d *delegate) BeforeJobDeleted(j job.Job) {}
 
 func (d *delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
-	d.activeJobs.Range(func(k, v any) bool {
-		if v.(int32) == jb.ID {
-			d.activeJobs.Delete(k)
-			return false
-		}
-		return true
-	})
+	configType := d.configType(jb.CRESettingsSpec)
+	if !d.activeJobIDs.CompareAndDelete(configType, jb.ID) {
+		d.lggr.Errorf("job %d was not the active %s job for config_type %q", jb.ID, job.CRESettings, configType)
+	}
 	return nil
+}
+
+func (d *delegate) configType(spec *job.CRESettingsSpec) string {
+	if spec == nil || spec.Settings == "" {
+		return ConfigTypeSettings
+	}
+	if ct, ok := extractConfigType(spec.Settings); ok {
+		return ct
+	}
+	d.lggr.Infow("No config_type specified, defaulting to settings")
+	return ConfigTypeSettings
 }

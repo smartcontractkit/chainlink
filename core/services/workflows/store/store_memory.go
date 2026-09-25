@@ -13,11 +13,15 @@ import (
 )
 
 const (
-	// defaultPruneInterval is the default interval between pruning completed executions
+	// defaultPruneInterval is the default interval between pruning sweeps
 	defaultPruneInterval = 30 * time.Second
 
-	// maximumExecutionAge is the default maximum age of an execution before it is considered expired and eligible for pruning
-	// regardless of its status
+	// defaultCompletedExecutionRetention is the default minimum time a completed execution is
+	// kept in the store after finishing before a sweep is allowed to prune it.
+	defaultCompletedExecutionRetention = 20 * time.Minute
+
+	// maximumExecutionAge is the default maximum age of a non-completed execution before it is
+	// considered stuck/expired and eligible for pruning regardless of its status
 	maximumExecutionAge = 24 * time.Hour
 )
 
@@ -36,22 +40,26 @@ type InMemoryStore struct {
 
 	clock clockwork.Clock
 
-	// pruneInterval is the interval between pruning completed (and expired) executions
+	// pruneInterval is the interval between pruning sweeps
 	pruneInterval time.Duration
 
-	// maximumExecutionAge is the maximum age of an execution before it is considered expired and eligible for pruning
-	// regardless of its status
+	// completedExecutionRetention is the minimum time a completed execution is kept in the
+	// store after finishing before a sweep is allowed to prune it
+	completedExecutionRetention time.Duration
+
+	// maximumExecutionAge is the maximum age of a non-completed execution before it is
+	// considered expired and eligible for pruning regardless of its status
 	maximumExecutionAge time.Duration
 }
 
 func NewInMemoryStore(lggr logger.Logger, clock clockwork.Clock) *InMemoryStore {
-	return NewInMemoryStoreWithPruneConfiguration(lggr, clock, defaultPruneInterval, maximumExecutionAge)
+	return NewInMemoryStoreWithPruneConfiguration(lggr, clock, defaultPruneInterval, defaultCompletedExecutionRetention, maximumExecutionAge)
 }
 
 func NewInMemoryStoreWithPruneConfiguration(lggr logger.Logger, clock clockwork.Clock, pruneFrequency time.Duration,
-	maximumExecutionAge time.Duration) *InMemoryStore {
+	completedExecutionRetention time.Duration, maximumExecutionAge time.Duration) *InMemoryStore {
 	return &InMemoryStore{lggr: lggr, idToExecution: map[string]*WorkflowExecution{}, clock: clock, chStop: make(chan struct{}),
-		pruneInterval: pruneFrequency, maximumExecutionAge: maximumExecutionAge}
+		pruneInterval: pruneFrequency, completedExecutionRetention: completedExecutionRetention, maximumExecutionAge: maximumExecutionAge}
 }
 
 // Add adds a new execution state under the given executionID
@@ -194,13 +202,16 @@ func (s *InMemoryStore) pruneExpiredExecutionEntries() {
 	}
 }
 
-// pruneCompletedAndExpiredExecutions removes completed executions and non-completed executions
-// older than maximumExecutionAge. When it prunes anything it rebuilds the map rather than
-// deleting in place, so the old bucket storage becomes eligible for GC: Go maps never shrink
-// after deletes, which strands memory once the store has churned through many executions.
+// pruneCompletedAndExpiredExecutions removes completed executions that finished more than
+// completedExecutionRetention ago, and non-completed executions older than maximumExecutionAge.
+// When it prunes anything it rebuilds the map rather than deleting
+// in place, so the old bucket storage becomes eligible for GC: Go maps never shrink after
+// deletes, which strands memory once the store has churned through many executions.
 // See https://100go.co/28-maps-memory-leaks/
 func (s *InMemoryStore) pruneCompletedAndExpiredExecutions() {
-	expirationTime := s.clock.Now().Add(-s.maximumExecutionAge)
+	now := s.clock.Now()
+	completedCutoff := now.Add(-s.completedExecutionRetention)
+	expirationTime := now.Add(-s.maximumExecutionAge)
 
 	s.mu.Lock()
 	remaining := make(map[string]*WorkflowExecution, len(s.idToExecution))
@@ -211,7 +222,11 @@ func (s *InMemoryStore) pruneCompletedAndExpiredExecutions() {
 	for id, state := range s.idToExecution {
 		switch {
 		case isCompletedStatus(state.Status):
-			prunedCompletedCount++
+			if state.FinishedAt.Before(completedCutoff) {
+				prunedCompletedCount++
+			} else {
+				remaining[id] = state
+			}
 		case state.UpdatedAt.Before(expirationTime):
 			prunedExpiredIDs = append(prunedExpiredIDs, id)
 		default:

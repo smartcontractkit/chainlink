@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -233,8 +234,6 @@ func TestTransparentUpgradeableProxyDeploy(t *testing.T) {
 }
 
 func TestTransparentUpgradeableProxyGrantRoleChangesetConfig(t *testing.T) {
-	t.Parallel()
-
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	evmSelectors := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	chain1, chain2 := evmSelectors[0], evmSelectors[1]
@@ -294,8 +293,6 @@ func TestTransparentUpgradeableProxyGrantRoleChangesetConfig(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			for chainSelector := range tc.cfg.Tokens {
 				chain := e.Env.BlockChains.EVMChains()[chainSelector]
 
@@ -345,6 +342,18 @@ func TestTransparentUpgradeableProxyGrantRoleChangesetConfig(t *testing.T) {
 
 				err = e.Env.ExistingAddresses.Save(chainSelector, proxy.Address().String(), cldf.NewTypeAndVersion(shared.TransparentUpgradeableProxy, deployment.Version1_6_1))
 				require.NoError(t, err)
+
+				ds := datastore.NewMemoryDataStore()
+				require.NoError(t, ds.Merge(e.Env.DataStore))
+				version := deployment.Version1_6_1
+				require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+					ChainSelector: chainSelector,
+					Address:       proxy.Address().String(),
+					Type:          datastore.ContractType(shared.TransparentUpgradeableProxy),
+					Version:       &version,
+					Qualifier:     tc.token,
+				}))
+				e.Env.DataStore = ds.Seal()
 			}
 
 			err := tc.cfg.Validate(e.Env)

@@ -277,7 +277,7 @@ func TestValidateFeeQuoter_CrossVersionValidation(t *testing.T) {
 			DefaultTokenDestGasOverhead:       v15Cfg.DefaultTokenDestGasOverhead,
 			DefaultTokenFeeUSDCents:           25, // topology: non-ETH EVM→EVM
 			EnforceOutOfOrder:                 v15Cfg.EnforceOutOfOrder,
-			DestGasPerPayloadByteBase:         uint8(v15Cfg.DestGasPerPayloadByte), //nolint:gosec // match v1.5 truncation
+			DestGasPerPayloadByteBase:         uint8(v15Cfg.DestGasPerPayloadByte), //nolint:gosec // G115: intentional v1.5 uint16->uint8 truncation
 			DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
 			DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
 			DefaultTxGasLimit:                 200_000,

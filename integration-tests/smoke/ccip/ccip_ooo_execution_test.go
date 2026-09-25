@@ -64,7 +64,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		ownerSourceChain,
 		ownerDestChain,
 		state,
-		e.ExistingAddresses,
+		&tenv.Env,
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
@@ -132,7 +132,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		testhelpers.MakeEVMExtraArgsV2(0, true),
 		"",
 	)
-	expectedStatuses[firstMessage.SequenceNumber] = testhelpers.EXECUTION_STATE_SUCCESS
+	expectedStatuses[firstMessage.SequenceNumber] = testhelpers.ExecutionStateSuccess
 	t.Logf("Out of order messages sent from chain %d to chain %d with sequence number %d",
 		sourceChain, destChain, firstMessage.SequenceNumber,
 	)
@@ -193,7 +193,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		testhelpers.MakeEVMExtraArgsV2(300_000, true),
 		"",
 	)
-	expectedStatuses[fourthMessage.SequenceNumber] = testhelpers.EXECUTION_STATE_SUCCESS
+	expectedStatuses[fourthMessage.SequenceNumber] = testhelpers.ExecutionStateSuccess
 	t.Logf("Out of order programmable token transfer from chain %d to chain %d with sequence number %d",
 		sourceChain, destChain, fourthMessage.SequenceNumber,
 	)
@@ -212,7 +212,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 			ExtraArgs:    testhelpers.MakeEVMExtraArgsV2(0, false),
 		}))
 	require.NoError(t, err)
-	expectedStatuses[fifthMessage.SequenceNumber] = testhelpers.EXECUTION_STATE_SUCCESS
+	expectedStatuses[fifthMessage.SequenceNumber] = testhelpers.ExecutionStateSuccess
 	t.Logf("Ordered message send by %v from chain %d to chain %d with sequence number %d",
 		anotherSender.From, sourceChain, destChain, fifthMessage.SequenceNumber,
 	)
@@ -250,11 +250,11 @@ func Test_OutOfOrderExecution(t *testing.T) {
 
 	secondMsgState, err := state.MustGetEVMChainState(destChain).OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, secondMsg.SequenceNumber)
 	require.NoError(t, err)
-	require.Equal(t, uint8(testhelpers.EXECUTION_STATE_UNTOUCHED), secondMsgState)
+	require.Equal(t, uint8(testhelpers.ExecutionStateUntouched), secondMsgState)
 
 	thirdMsgState, err := state.MustGetEVMChainState(destChain).OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, thirdMessage.SequenceNumber)
 	require.NoError(t, err)
-	require.Equal(t, uint8(testhelpers.EXECUTION_STATE_UNTOUCHED), thirdMsgState)
+	require.Equal(t, uint8(testhelpers.ExecutionStateUntouched), thirdMsgState)
 
 	testhelpers.WaitForTheTokenBalance(ctx, t, destToken.Address(), firstReceiver, evmChains[destChain], oneE18)
 	testhelpers.WaitForTheTokenBalance(ctx, t, destUSDC.Address(), secondReceiver, evmChains[destChain], big.NewInt(0))

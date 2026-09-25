@@ -15,12 +15,12 @@ func Test_RevertReasonFromTx(t *testing.T) {
 	type args struct {
 		txHash string
 	}
-	var tests []struct {
+	tests := []struct {
 		name     string
 		fields   fields
 		args     args
 		expected string
-	} // TODO: Add test cases.
+	}{} // TODO: Add test cases.
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &BaseHandler{

@@ -53,9 +53,9 @@ import (
 	ccipsolstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
@@ -112,8 +112,7 @@ var (
 func Context(tb testing.TB) context.Context {
 	ctx := context.Background()
 	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
+	if t, ok := tb.(*testing.T); ok {
 		if d, ok := t.Deadline(); ok {
 			ctx, cancel = context.WithDeadline(ctx, d)
 		}
@@ -858,7 +857,7 @@ func SendRequestSol(
 		if idx > math.MaxUint8 {
 			return nil, fmt.Errorf("too many token accounts, overflows uint8: %d", idx)
 		}
-		tokenIndexes = append(tokenIndexes, byte(idx)) //nolint:gosec // G115
+		tokenIndexes = append(tokenIndexes, byte(idx)) //nolint:gosec // G115: guarded above
 		base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
 		maps.Copy(addressTables, tokenAddressTables)
 	}
@@ -1390,7 +1389,7 @@ func AddLanesForAll(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainSta
 	for _, source := range chains {
 		for _, dest := range chains {
 			if source != dest {
-				AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false)
+				require.NoError(t, AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false))
 			}
 		}
 	}
@@ -1494,37 +1493,43 @@ func deploySingleFeed(
 	return mockTokenFeed.Address, desc, nil
 }
 
+// DeployTransferableToken deploys and configures token/pool pairs on both EVM chains.
 func DeployTransferableToken(
 	lggr logger.Logger,
 	chains map[uint64]cldf_evm.Chain,
 	src, dst uint64,
 	srcActor, dstActor *bind.TransactOpts,
 	state stateview.CCIPOnChainState,
-	addresses cldf.AddressBook,
+	e *cldf.Environment,
 	token string,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	// Deploy token and pools
-	srcToken, srcPool, dstToken, dstPool, err := deployTokenPoolsInParallel(lggr, chains, src, dst, srcActor, dstActor, state, addresses, token)
+	srcDS := datastore.NewMemoryDataStore()
+	dstDS := datastore.NewMemoryDataStore()
+	srcToken, srcPool, dstToken, dstPool, err := deployTokenPoolsInParallel(lggr, chains, src, dst, srcActor, dstActor, state, e.ExistingAddresses, srcDS, dstDS, token)
 	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := mergeDataStoreIntoEnv(e, srcDS); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := mergeDataStoreIntoEnv(e, dstDS); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	// Configure pools in parallel
 	configurePoolGrp := errgroup.Group{}
 	configurePoolGrp.Go(func() error {
-		err := setTokenPoolCounterPart(chains[src], srcPool, srcActor, dst, dstToken.Address().Bytes(), dstPool.Address().Bytes())
-		if err != nil {
+		if err := setTokenPoolCounterPart(chains[src], srcPool, srcActor, dst, dstToken.Address().Bytes(), dstPool.Address().Bytes()); err != nil {
 			return fmt.Errorf("failed to set token pool counter part chain %d: %w", src, err)
 		}
-		err = grantMintBurnPermissions(lggr, chains[src], srcToken, srcActor, srcPool.Address())
-		if err != nil {
+		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcActor, srcPool.Address()); err != nil {
 			return fmt.Errorf("failed to grant mint burn permissions chain %d: %w", src, err)
 		}
 		return nil
 	})
 	configurePoolGrp.Go(func() error {
-		err := setTokenPoolCounterPart(chains[dst], dstPool, dstActor, src, srcToken.Address().Bytes(), srcPool.Address().Bytes())
-		if err != nil {
+		if err := setTokenPoolCounterPart(chains[dst], dstPool, dstActor, src, srcToken.Address().Bytes(), srcPool.Address().Bytes()); err != nil {
 			return fmt.Errorf("failed to set token pool counter part chain %d: %w", dst, err)
 		}
 		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstActor, dstPool.Address()); err != nil {
@@ -1545,16 +1550,11 @@ func deployTokenPoolsInParallel(
 	srcActor, dstActor *bind.TransactOpts,
 	state stateview.CCIPOnChainState,
 	addresses cldf.AddressBook,
+	srcDS, dstDS datastore.MutableDataStore,
 	token string,
-) (
-	*burn_mint_erc677.BurnMintERC677,
-	*burn_mint_token_pool.BurnMintTokenPool,
-	*burn_mint_erc677.BurnMintERC677,
-	*burn_mint_token_pool.BurnMintTokenPool,
-	error,
-) {
-	deployGrp := errgroup.Group{}
+) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	// Deploy token and pools
+	deployGrp := errgroup.Group{}
 	var srcToken *burn_mint_erc677.BurnMintERC677
 	var srcPool *burn_mint_token_pool.BurnMintTokenPool
 	var dstToken *burn_mint_erc677.BurnMintERC677
@@ -1562,21 +1562,19 @@ func deployTokenPoolsInParallel(
 
 	deployGrp.Go(func() error {
 		var err error
-		srcToken, srcPool, err = deployTransferTokenOneEnd(lggr, chains[src], srcActor, addresses, token)
+		srcToken, srcPool, err = deployTransferTokenOneEnd(lggr, chains[src], srcActor, addresses, srcDS, token)
 		if err != nil {
 			return err
 		}
-		err = attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
-		return err
+		return attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
 	})
 	deployGrp.Go(func() error {
 		var err error
-		dstToken, dstPool, err = deployTransferTokenOneEnd(lggr, chains[dst], dstActor, addresses, token)
+		dstToken, dstPool, err = deployTransferTokenOneEnd(lggr, chains[dst], dstActor, addresses, dstDS, token)
 		if err != nil {
 			return err
 		}
-		err = attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
-		return err
+		return attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
 	})
 	if err := deployGrp.Wait(); err != nil {
 		return nil, nil, nil, nil, err
@@ -1726,6 +1724,7 @@ func deployTransferTokenOneEnd(
 	chain cldf_evm.Chain,
 	deployer *bind.TransactOpts,
 	addressBook cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	tokenSymbol string,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	var rmnAddress, routerAddress string
@@ -1747,7 +1746,8 @@ func deployTransferTokenOneEnd(
 
 	tokenDecimals := uint8(18)
 
-	tokenContract, err := cldf.DeployContract(lggr, chain, addressBook,
+	tokenContract, err := shared.DeployContractAndRecord(lggr, chain, addressBook, ds,
+		cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0), tokenSymbol,
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				deployer,
@@ -1775,7 +1775,8 @@ func deployTransferTokenOneEnd(
 		return nil, nil, err
 	}
 
-	tokenPool, err := cldf.DeployContract(lggr, chain, addressBook,
+	tokenPool, err := shared.DeployContractAndRecord(lggr, chain, addressBook, ds,
+		cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_5_1), tokenSymbol,
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
 			tokenPoolAddress, tx, tokenPoolContract, err2 := burn_mint_token_pool.DeployBurnMintTokenPool(
 				deployer,
@@ -2023,7 +2024,7 @@ func TransferMultiple(
 
 	for _, tt := range requests {
 		t.Run(tt.Name, func(t *testing.T) {
-			pairId := SourceDestPair{
+			pairID := SourceDestPair{
 				SourceChainSelector: tt.SourceChain,
 				DestChainSelector:   tt.DestChain,
 			}
@@ -2070,22 +2071,22 @@ func TransferMultiple(
 			msg, blocks := Transfer(
 				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs, tt.FeeToken,
 			)
-			if _, ok := expectedExecutionStates[pairId]; !ok {
-				expectedExecutionStates[pairId] = make(map[uint64]int)
+			if _, ok := expectedExecutionStates[pairID]; !ok {
+				expectedExecutionStates[pairID] = make(map[uint64]int)
 			}
-			expectedExecutionStates[pairId][msg.SequenceNumber] = tt.ExpectedStatus
+			expectedExecutionStates[pairID][msg.SequenceNumber] = tt.ExpectedStatus
 
 			if prev, ok := startBlocks[tt.DestChain]; !ok || *blocks[tt.DestChain] < *prev {
 				startBlocks[tt.DestChain] = blocks[tt.DestChain]
 			}
 
-			seqNr, ok := expectedSeqNums[pairId]
+			seqNr, ok := expectedSeqNums[pairID]
 			if ok {
-				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+				expectedSeqNums[pairID] = cciptypes.NewSeqNumRange(
 					seqNr.Start(), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			} else {
-				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+				expectedSeqNums[pairID] = cciptypes.NewSeqNumRange(
 					cciptypes.SeqNum(msg.SequenceNumber), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			}
@@ -2245,7 +2246,7 @@ func WaitForTheTokenBalanceSol(
 			"token", token,
 			"receiver", receiver,
 		)
-		return uint64(balance) == expected //nolint:gosec // value is always unsigned
+		return uint64(balance) == expected //nolint:gosec // G115: token balances are always non-negative
 	}, tests.WaitTimeout(t), 100*time.Millisecond)
 }
 
@@ -2283,62 +2284,36 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 }
 
 // TODO: this should be linked to the solChain function
-func SavePreloadedSolAddresses(e cldf.Environment, solChainSelector uint64) error {
-	tv := cldf.NewTypeAndVersion(shared.Router, deployment.Version1_0_0)
-	err := e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCIPRouter), tv)
-	if err != nil {
-		return err
+func SavePreloadedSolAddresses(e *cldf.Environment, solChainSelector uint64) error {
+	ds := datastore.NewMemoryDataStore()
+	if e.DataStore != nil {
+		if err := ds.Merge(e.DataStore); err != nil {
+			return fmt.Errorf("merge environment datastore: %w", err)
+		}
 	}
-	tv = cldf.NewTypeAndVersion(shared.Receiver, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgTestCCIPReceiver), tv)
-	if err != nil {
-		return err
+
+	preloaded := []struct {
+		tv      cldf.TypeAndVersion
+		address string
+	}{
+		{cldf.NewTypeAndVersion(shared.Router, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgCCIPRouter)},
+		{cldf.NewTypeAndVersion(shared.Receiver, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgTestCCIPReceiver)},
+		{cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgFeeQuoter)},
+		{cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgCCIPOfframp)},
+		{cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgBurnMintTokenPool)},
+		{cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgLockReleaseTokenPool)},
+		{cldf.NewTypeAndVersion(shared.CCTPTokenPool, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgCCTPTokenPool)},
+		{cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgMCM)},
+		{cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgAccessController)},
+		{cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgTimelock)},
+		{cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgRMNRemote)},
 	}
-	tv = cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgFeeQuoter), tv)
-	if err != nil {
-		return err
+	for _, item := range preloaded {
+		if err := shared.RecordAddress(e.ExistingAddresses, ds, solChainSelector, item.address, item.tv, ""); err != nil {
+			return err
+		}
 	}
-	tv = cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCIPOfframp), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgBurnMintTokenPool), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgLockReleaseTokenPool), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.CCTPTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCTPTokenPool), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgMCM), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgAccessController), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgTimelock), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgRMNRemote), tv)
-	if err != nil {
-		return err
-	}
+	e.DataStore = ds.Seal()
 	return nil
 }
 

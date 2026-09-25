@@ -166,37 +166,40 @@ func Test_EVMChainsController_Index(t *testing.T) {
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	// the difference in index value here seems to be due to the fact
-	// that cltest always has a default EVM chain, which is the off-by-one
-	// in the indices
-	var chainFound bool
-	var gotChain presenters.ChainResource
-	for _, chain := range gotChains {
-		if chain.ID == configuredChains[1].ChainID.String() {
-			chainFound = true
-			gotChain = chain
-		}
-	}
-	assert.True(t, chainFound)
-	toml, err := configuredChains[1].TOMLString()
-	require.NoError(t, err)
-	assert.Equal(t, toml, gotChain.Config)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	gotChains = []presenters.ChainResource{}
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &gotChains, &links)
+	var gotChainsPage2 []presenters.ChainResource
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &gotChainsPage2, &links)
 	require.NoError(t, err)
 	assert.Empty(t, links["next"].Href)
 	assert.NotEmpty(t, links["prev"].Href)
-
 	assert.Len(t, links, 1)
-	assert.Equal(t, gotChains[0].ID, configuredChains[2].ChainID.String())
-	toml, err = configuredChains[2].TOMLString()
-	require.NoError(t, err)
-	assert.Equal(t, toml, gotChains[0].Config)
+
+	// cltest always adds a default EVM chain in addition to the ones configured above,
+	// and chains are sorted lexicographically by chain ID, so a configured chain can end
+	// up on either page depending on where its (randomly generated) ID sorts relative to
+	// the default chain's ID. Search across both pages instead of assuming a fixed page.
+	allChains := make([]presenters.ChainResource, 0, len(gotChains)+len(gotChainsPage2))
+	allChains = append(allChains, gotChains...)
+	allChains = append(allChains, gotChainsPage2...)
+	require.Len(t, allChains, 1+len(configuredChains))
+
+	for _, configuredChain := range []*toml.EVMConfig{configuredChains[1], configuredChains[2]} {
+		var gotChain *presenters.ChainResource
+		for i := range allChains {
+			if allChains[i].ID == configuredChain.ChainID.String() {
+				gotChain = &allChains[i]
+				break
+			}
+		}
+		require.NotNil(t, gotChain, "expected to find configured chain %s in response", configuredChain.ChainID.String())
+		wantTOML, err := configuredChain.TOMLString()
+		require.NoError(t, err)
+		assert.Equal(t, wantTOML, gotChain.Config)
+	}
 }
 
 type TestEVMChainsController struct {

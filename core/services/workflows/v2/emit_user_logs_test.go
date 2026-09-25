@@ -30,7 +30,7 @@ func TestEngine_emitUserLogs_ProcessesLogsWhenContextCancelled(t *testing.T) {
 			LogLine:  &mockLimiter[config.Size]{limit: 1000},
 		}
 
-		e := &Engine{
+		e := &baseEngine{
 			cfg: &EngineConfig{
 				DebugMode:     true,
 				LocalLimiters: limiters,
@@ -85,7 +85,7 @@ func TestEngine_emitUserLogs_DrainsUntilTimeout(t *testing.T) {
 			LogLine:  &mockLimiter[config.Size]{limit: 1000},
 		}
 
-		e := &Engine{
+		e := &baseEngine{
 			cfg: &EngineConfig{
 				DebugMode:     true,
 				LocalLimiters: limiters,
@@ -139,7 +139,7 @@ func TestEngine_emitUserLogs_TeardownOnChannelClose(t *testing.T) {
 			LogLine:  &mockLimiter[config.Size]{limit: 1000},
 		}
 
-		e := &Engine{
+		e := &baseEngine{
 			cfg: &EngineConfig{
 				DebugMode:     true,
 				LocalLimiters: limiters,
