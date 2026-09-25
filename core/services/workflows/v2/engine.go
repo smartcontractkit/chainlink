@@ -48,7 +48,7 @@ type engine struct {
 	// used to separate registration and unregistration phases
 	triggersRegMu sync.Mutex
 
-	allTriggerEventsQueueCh limits.QueueLimiter[RoutedTriggerEvent]
+	allTriggerEventsQueueCh limits.QueueLimiter[triggers.CoordinatedEvent]
 	executionsSemaphore     limits.ResourcePoolLimiter[int]
 }
 
@@ -98,7 +98,7 @@ func (e *engine) Name() string {
 	return e.base.Name()
 }
 
-func (e *engine) ExecuteTrigger(ctx context.Context, event RoutedTriggerEvent) error {
+func (e *engine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
 	return e.base.ExecuteTrigger(ctx, event)
 }
 
@@ -345,46 +345,20 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 
 	// start listening for trigger events only if all registrations succeeded
 	for idx, triggerEventCh := range eventChans {
-		e.base.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case event, isOpen := <-triggerEventCh:
-					if !isOpen {
-						return
-					}
-					triggerID := subscriptions[idx].Id
-					eventID := event.Event.ID
-					e.base.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventReceivedCounter(ctx)
-					e.base.logger().Debugw("Processing trigger event", "triggerID", triggerID, "eventID", eventID)
-					if event.Err != nil {
-						e.base.logger().Errorw("Received a trigger event with error, dropping", "triggerID", triggerID, "err", event.Err)
-						tm := e.base.metrics.With(platform.KeyTriggerID, triggerID)
-						tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
-						tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonTriggerResponseError)
-						continue
-					}
-
-					routed := RoutedTriggerEvent{
-						WorkflowID:     e.base.cfg.WorkflowID,
-						TriggerCapID:   triggerID,
-						TriggerIndex:   idx,
-						ObservedAt:     e.base.cfg.Clock.Now(),
-						SequenceNumber: 0,
-						Event:          event,
-					}
-
-					if err := e.put(ctx, routed); err != nil {
-						// Draining is expected during workflow deletion, so it logs at info rather than error level.
-						if errors.Is(err, ErrEngineDraining) {
-							e.base.logger().Infow("Dropping trigger event: engine draining", "triggerID", triggerID, "eventID", eventID)
-						} else {
-							e.base.logger().Errorw("Failed to put routed trigger event", "triggerID", triggerID, "eventID", eventID, "err", err)
-						}
-					}
+		triggerID := subscriptions[idx].Id
+		deliver := func(ctx context.Context, routed triggers.CoordinatedEvent) {
+			eventID := routed.Event.Event.ID
+			if err := e.put(ctx, routed); err != nil {
+				// Draining is expected during workflow deletion, so it logs at info rather than error level.
+				if errors.Is(err, ErrEngineDraining) {
+					e.base.logger().Infow("Dropping trigger event: engine draining", "triggerID", triggerID, "eventID", eventID)
+				} else {
+					e.base.logger().Errorw("Failed to put routed trigger event", "triggerID", triggerID, "eventID", eventID, "err", err)
 				}
 			}
+		}
+		e.base.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
+			triggers.ReadLoop(ctx, e.base.logger(), e.base.metrics, e.base.cfg.Clock, e.base.cfg.WorkflowID, triggerID, idx, triggerEventCh, deliver)
 		})
 	}
 	e.base.logger().Infow("All triggers registered successfully", "numTriggers", len(subscriptions), "triggerIDs", triggerCapIDs)
@@ -429,7 +403,7 @@ func (e *engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, e
 var errObservedAtMissing = errors.New("trigger event ObservedAt not set")
 
 // put enqueues a trigger event into the engine's internal queue.
-func (e *engine) put(ctx context.Context, event RoutedTriggerEvent) error {
+func (e *engine) put(ctx context.Context, event triggers.CoordinatedEvent) error {
 	triggerID := event.TriggerCapID
 	eventID := event.Event.Event.ID
 	idx := event.TriggerIndex

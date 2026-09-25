@@ -186,7 +186,7 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 }
 
 // ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
-func (e *baseEngine) ExecuteTrigger(ctx context.Context, event RoutedTriggerEvent) error {
+func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
 	e.activeExecutions.Add(1)
 	defer e.activeExecutions.Add(-1)
 
@@ -415,7 +415,7 @@ func (e *baseEngine) localNodeSync(ctx context.Context) {
 }
 
 // startExecution initiates a new workflow execution, blocking until completed
-func (e *baseEngine) startExecution(ctx context.Context, event RoutedTriggerEvent) error {
+func (e *baseEngine) startExecution(ctx context.Context, event triggers.CoordinatedEvent) error {
 	triggerDrop := func(reason string) {
 		e.metrics.With(platform.KeyTriggerID, event.TriggerCapID).IncrementTriggerEventDroppedTotal(ctx, reason)
 	}

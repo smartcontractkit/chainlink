@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // cachedExpiry is how long a cached trigger event is kept for potential failover replay.
@@ -53,7 +54,7 @@ type ShardFailoverManager struct {
 }
 
 type cachedEvent struct {
-	event    v2.RoutedTriggerEvent
+	event    triggers.CoordinatedEvent
 	cachedAt time.Time
 }
 
@@ -135,7 +136,7 @@ func (m *ShardFailoverManager) close() error {
 // admissionCheck is wired as the engine's OnTriggerAdmission hook. It
 // checks shard ownership dynamically per-trigger and decides whether the
 // engine should process the event.
-func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event v2.RoutedTriggerEvent) error {
+func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event triggers.CoordinatedEvent) error {
 	if !m.cfg.ShardingEnabled {
 		return nil
 	}
@@ -245,7 +246,7 @@ func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardown
 	}
 }
 
-func (m *ShardFailoverManager) cacheEvent(event v2.RoutedTriggerEvent) {
+func (m *ShardFailoverManager) cacheEvent(event triggers.CoordinatedEvent) {
 	eventID := event.Event.Event.ID
 	m.mu.Lock()
 	m.cache[eventID] = cachedEvent{event: event, cachedAt: time.Now()}
@@ -257,12 +258,12 @@ func (m *ShardFailoverManager) cacheEvent(event v2.RoutedTriggerEvent) {
 		"triggerIndex", event.TriggerIndex)
 }
 
-func (m *ShardFailoverManager) popCachedEvent(eventID string) (v2.RoutedTriggerEvent, bool) {
+func (m *ShardFailoverManager) popCachedEvent(eventID string) (triggers.CoordinatedEvent, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ce, ok := m.cache[eventID]
 	if !ok {
-		return v2.RoutedTriggerEvent{}, false
+		return triggers.CoordinatedEvent{}, false
 	}
 	delete(m.cache, eventID)
 	return ce.event, true

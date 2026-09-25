@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -167,139 +166,106 @@ func TestReadLoop(t *testing.T) {
 		workflowID   = "wf-id"
 		triggerCapID = "trigger-cap-id"
 		triggerIndex = 3
+		chanBuf      = 4
 	)
 
-	waitOrFail := func(t *testing.T, ch <-chan struct{}, msg string) {
-		t.Helper()
-		select {
-		case <-ch:
-		case <-time.After(5 * time.Second):
-			t.Fatal(msg)
-		}
+	tests := []struct {
+		name string
+		// wantDelivered are the event IDs ReadLoop is expected to hand to
+		// deliver, in order. Nil means deliver must not be called at all.
+		wantDelivered []string
+		// run drives the scenario: it sends/closes on triggerEventCh and/or
+		// cancels the reader's context.
+		run func(triggerEventCh chan<- capabilities.TriggerResponse, cancel context.CancelFunc)
+	}{
+		{
+			name:          "delivers a routed event built from the response and the clock",
+			wantDelivered: []string{"event-1"},
+			run: func(triggerEventCh chan<- capabilities.TriggerResponse, _ context.CancelFunc) {
+				triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "event-1"}}
+			},
+		},
+		{
+			name:          "skips delivery when the response carries an error, but keeps consuming",
+			wantDelivered: []string{"event-2"},
+			run: func(triggerEventCh chan<- capabilities.TriggerResponse, _ context.CancelFunc) {
+				triggerEventCh <- capabilities.TriggerResponse{Err: errors.New("boom")}
+				triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "event-2"}}
+			},
+		},
+		{
+			name:          "delivers multiple events in order",
+			wantDelivered: []string{"a", "b"},
+			run: func(triggerEventCh chan<- capabilities.TriggerResponse, _ context.CancelFunc) {
+				triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "a"}}
+				triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "b"}}
+			},
+		},
+		{
+			name: "returns when the trigger channel closes",
+			run: func(triggerEventCh chan<- capabilities.TriggerResponse, _ context.CancelFunc) {
+				close(triggerEventCh)
+			},
+		},
+		{
+			name: "returns when ctx is canceled",
+			run: func(_ chan<- capabilities.TriggerResponse, cancel context.CancelFunc) {
+				cancel()
+			},
+		},
 	}
 
-	t.Run("delivers a routed event built from the response and the clock", func(t *testing.T) {
-		triggerEventCh := make(chan capabilities.TriggerResponse, 1)
-		deliverCh := make(chan CoordinatedEvent, 1)
-		deliver := func(_ context.Context, event CoordinatedEvent) {
-			deliverCh <- event
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// A single deadline governs the whole subtest: every wait below
+			// (deliveries, then ReadLoop's return) races against this one
+			// timer instead of each getting its own fresh timeout.
+			deadline, cancelDeadline := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelDeadline()
 
-		clock := clockwork.NewFakeClock()
-		ctx, cancel := context.WithCancel(context.Background())
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			ReadLoop(ctx, logger.Test(t), newTestMetrics(t), clock, workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
-		}()
+			sutCtx, sutCancel := context.WithCancel(deadline)
+			defer sutCancel()
 
-		triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "event-1"}}
+			triggerEventCh := make(chan capabilities.TriggerResponse, chanBuf)
+			deliverCh := make(chan CoordinatedEvent, chanBuf)
+			deliver := func(_ context.Context, event CoordinatedEvent) {
+				deliverCh <- event
+			}
 
-		select {
-		case event := <-deliverCh:
-			assert.Equal(t, workflowID, event.WorkflowID)
-			assert.Equal(t, triggerCapID, event.TriggerCapID)
-			assert.Equal(t, triggerIndex, event.TriggerIndex)
-			assert.Equal(t, clock.Now(), event.ObservedAt)
-			assert.Equal(t, "event-1", event.Event.Event.ID)
-		case <-time.After(5 * time.Second):
-			t.Fatal("timed out waiting for delivery")
-		}
+			clock := clockwork.NewFakeClock()
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				ReadLoop(sutCtx, logger.Test(t), newTestMetrics(t), clock, workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
+			}()
 
-		cancel()
-		waitOrFail(t, done, "ReadLoop did not return after ctx cancel")
-	})
+			tt.run(triggerEventCh, sutCancel)
 
-	t.Run("skips delivery when the response carries an error, but keeps consuming", func(t *testing.T) {
-		triggerEventCh := make(chan capabilities.TriggerResponse, 2)
-		deliverCh := make(chan CoordinatedEvent, 1)
-		deliver := func(_ context.Context, event CoordinatedEvent) {
-			deliverCh <- event
-		}
+			var gotDelivered []string
+			for range tt.wantDelivered {
+				select {
+				case event := <-deliverCh:
+					assert.Equal(t, workflowID, event.WorkflowID)
+					assert.Equal(t, triggerCapID, event.TriggerCapID)
+					assert.Equal(t, triggerIndex, event.TriggerIndex)
+					assert.Equal(t, clock.Now(), event.ObservedAt)
+					gotDelivered = append(gotDelivered, event.Event.Event.ID)
+				case <-deadline.Done():
+					t.Fatal("timed out waiting for delivery")
+				}
+			}
+			assert.Equal(t, tt.wantDelivered, gotDelivered)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			ReadLoop(ctx, logger.Test(t), newTestMetrics(t), clockwork.NewFakeClock(), workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
-		}()
-
-		triggerEventCh <- capabilities.TriggerResponse{Err: errors.New("boom")}
-		triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "event-2"}}
-
-		select {
-		case event := <-deliverCh:
-			assert.Equal(t, "event-2", event.Event.Event.ID)
-		case <-time.After(5 * time.Second):
-			t.Fatal("timed out waiting for delivery")
-		}
-
-		cancel()
-		waitOrFail(t, done, "ReadLoop did not return after ctx cancel")
-	})
-
-	t.Run("delivers multiple events in order", func(t *testing.T) {
-		triggerEventCh := make(chan capabilities.TriggerResponse, 2)
-		delivered := make(chan struct{}, 2)
-
-		var mu sync.Mutex
-		var calls []string
-		deliver := func(_ context.Context, event CoordinatedEvent) {
-			mu.Lock()
-			calls = append(calls, event.Event.Event.ID)
-			mu.Unlock()
-			delivered <- struct{}{}
-		}
-
-		ctx, cancel := context.WithCancel(context.Background())
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			ReadLoop(ctx, logger.Test(t), newTestMetrics(t), clockwork.NewFakeClock(), workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
-		}()
-
-		triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "a"}}
-		triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "b"}}
-
-		waitOrFail(t, delivered, "timed out waiting for first delivery")
-		waitOrFail(t, delivered, "timed out waiting for second delivery")
-
-		mu.Lock()
-		assert.Equal(t, []string{"a", "b"}, calls)
-		mu.Unlock()
-
-		cancel()
-		waitOrFail(t, done, "ReadLoop did not return after ctx cancel")
-	})
-
-	t.Run("returns when the trigger channel closes", func(t *testing.T) {
-		triggerEventCh := make(chan capabilities.TriggerResponse)
-		deliver := func(_ context.Context, _ CoordinatedEvent) {}
-
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			ReadLoop(context.Background(), logger.Test(t), newTestMetrics(t), clockwork.NewFakeClock(), workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
-		}()
-
-		close(triggerEventCh)
-		waitOrFail(t, done, "ReadLoop did not return after channel close")
-	})
-
-	t.Run("returns when ctx is canceled", func(t *testing.T) {
-		triggerEventCh := make(chan capabilities.TriggerResponse)
-		deliver := func(_ context.Context, _ CoordinatedEvent) {}
-
-		ctx, cancel := context.WithCancel(context.Background())
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			ReadLoop(ctx, logger.Test(t), newTestMetrics(t), clockwork.NewFakeClock(), workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
-		}()
-
-		cancel()
-		waitOrFail(t, done, "ReadLoop did not return after ctx cancel")
-	})
+			// Whatever the scenario did to end ReadLoop (close/cancel), make
+			// sure it actually returns before the shared deadline.
+			sutCancel()
+			select {
+			case <-done:
+			case <-deadline.Done():
+				t.Fatal("ReadLoop did not return before the test deadline")
+			}
+		})
+	}
 }
 
 func TestRegistrationID_ParseWorkflowID_RoundTrip(t *testing.T) {

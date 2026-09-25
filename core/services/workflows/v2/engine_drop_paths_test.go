@@ -29,6 +29,7 @@ import (
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
@@ -343,7 +344,7 @@ func TestEngine_AdmissionDenial_StaysSilent(t *testing.T) { //nolint:paralleltes
 	billingClient := metmocks.NewBillingClient(t) // no billing calls expected: admission runs before metering
 
 	harness := newDropPathHarness(t, billingClient, func(cfg *v2.EngineConfig) {
-		cfg.Hooks.OnTriggerAdmission = func(context.Context, v2.RoutedTriggerEvent) error {
+		cfg.Hooks.OnTriggerAdmission = func(context.Context, triggers.CoordinatedEvent) error {
 			return errors.New("not owned by this node")
 		}
 	})

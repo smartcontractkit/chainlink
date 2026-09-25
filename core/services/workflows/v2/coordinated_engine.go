@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 var _ WorkflowEngine = (*coordinatedEngine)(nil)
@@ -62,7 +63,7 @@ func (e *coordinatedEngine) Name() string {
 	return e.base.Name()
 }
 
-func (e *coordinatedEngine) ExecuteTrigger(ctx context.Context, event RoutedTriggerEvent) error {
+func (e *coordinatedEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
 	return e.base.ExecuteTrigger(ctx, event)
 }
 

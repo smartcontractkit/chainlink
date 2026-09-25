@@ -2502,8 +2502,8 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		Workflow: baseCfg.WorkflowID,
 	})
 
-	makeEvent := func(eventID string) v2.RoutedTriggerEvent {
-		return v2.RoutedTriggerEvent{
+	makeEvent := func(eventID string) triggers.CoordinatedEvent {
+		return triggers.CoordinatedEvent{
 			WorkflowID:   baseCfg.WorkflowID,
 			TriggerCapID: "id_0",
 			TriggerIndex: 0,
@@ -2662,7 +2662,7 @@ func TestEngine_ShardDenial(t *testing.T) {
 				module.EXPECT().Close()
 				module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
 			}, func(cfg *v2.EngineConfig) {
-				cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+				cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ triggers.CoordinatedEvent) error {
 					admissionCalls.Add(1)
 					return tc.wantErr
 				}
@@ -2894,7 +2894,7 @@ func newTestEngine(
 		OnNodeSynced: func(_ capabilities.Node, _ error) {
 			e.nodeSyncedCalls.Add(1)
 		},
-		OnTriggerAdmission: func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+		OnTriggerAdmission: func(_ context.Context, _ triggers.CoordinatedEvent) error {
 			e.triggerAdmissionCalls.Add(1)
 			return nil
 		},
