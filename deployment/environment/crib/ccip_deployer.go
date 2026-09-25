@@ -1047,10 +1047,8 @@ func mustOCR(e *cldf.Environment, homeChainSel, feedChainSel uint64, newDons, rm
 			// Add the DONs and candidate commit OCR instances for the chain
 			cldf.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
 			v1_6.AddDonAndSetCandidateChangesetConfig{
-				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-					HomeChainSelector: homeChainSel,
-					FeedChainSelector: feedChainSel,
-				},
+				HomeChainSelector: homeChainSel,
+				FeedChainSelector: feedChainSel,
 				PluginInfo: v1_6.SetCandidatePluginInfo{
 					OCRConfigPerRemoteChainSelector: commitOCRConfigPerSelector,
 					PluginType:                      types.PluginTypeCCIPCommit,
@@ -1062,10 +1060,8 @@ func mustOCR(e *cldf.Environment, homeChainSel, feedChainSel uint64, newDons, rm
 			// Update commit OCR instances for existing chains
 			cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 			v1_6.SetCandidateChangesetConfig{
-				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-					HomeChainSelector: homeChainSel,
-					FeedChainSelector: feedChainSel,
-				},
+				HomeChainSelector: homeChainSel,
+				FeedChainSelector: feedChainSel,
 				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
 						OCRConfigPerRemoteChainSelector: commitOCRConfigPerSelector,
@@ -1080,10 +1076,8 @@ func mustOCR(e *cldf.Environment, homeChainSel, feedChainSel uint64, newDons, rm
 		// Add the exec OCR instances for the new chains
 		cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 		v1_6.SetCandidateChangesetConfig{
-			SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-				HomeChainSelector: homeChainSel,
-				FeedChainSelector: feedChainSel,
-			},
+			HomeChainSelector: homeChainSel,
+			FeedChainSelector: feedChainSel,
 			PluginInfo: []v1_6.SetCandidatePluginInfo{
 				{
 					OCRConfigPerRemoteChainSelector: execOCRConfigPerSelector,
@@ -1288,15 +1282,13 @@ func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyIm
 		}
 
 		rmnNodeConfigs[i] = RMNNodeConfig{
-			RMNNopConfig: v1_6.RMNNopConfig{
-				NodeIndex:           uint64(i),
-				OffchainPublicKey:   [32]byte(keys.OffchainPublicKey),
-				EVMOnChainPublicKey: keys.EVMOnchainPublicKey,
-				PeerID:              newPeerID,
-			},
-			RageProxyKeystore: rawKeystore,
-			RMNKeystore:       rawRMNKeystore,
-			Passphrase:        afnPassphrase,
+			NodeIndex:           uint64(i),
+			OffchainPublicKey:   [32]byte(keys.OffchainPublicKey),
+			EVMOnChainPublicKey: keys.EVMOnchainPublicKey,
+			PeerID:              newPeerID,
+			RageProxyKeystore:   rawKeystore,
+			RMNKeystore:         rawRMNKeystore,
+			Passphrase:          afnPassphrase,
 		}
 	}
 	return rmnNodeConfigs, nil
