@@ -66,7 +66,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 		ownerSourceChain,
 		ownerDestChain,
 		state,
-		e.ExistingAddresses,
+		&tenv.Env,
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
@@ -80,7 +80,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 		selfServeSrcTokenPoolDeployer,
 		selfServeDestTokenPoolDeployer,
 		state,
-		e.ExistingAddresses,
+		&tenv.Env,
 		"SELF_SERVE_TOKEN",
 	)
 	require.NoError(t, err)
@@ -266,7 +266,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolanaV0_1_1(
 		lggr,
-		e,
+		&e,
 		sourceChain,
 		destChain,
 		ownerSourceChain,
@@ -378,7 +378,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	// Deploy tokens and pool by CCIP Owner
 	destToken, _, srcToken, err := testhelpers.DeployTransferableTokenSolanaV0_1_1(
 		lggr,
-		e,
+		&e,
 		destChain,
 		sourceChain,
 		ownerDestChain,

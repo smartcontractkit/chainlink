@@ -64,7 +64,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 		ownerSourceChain,
 		ownerDestChain,
 		state,
-		e.ExistingAddresses,
+		&tenv.Env,
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)

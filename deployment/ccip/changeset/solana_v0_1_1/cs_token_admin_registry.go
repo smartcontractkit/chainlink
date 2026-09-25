@@ -109,7 +109,7 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment, chainSt
 // you can register using the token mint authority which can be the deployer key only
 func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("RegisterTokenAdminRegistry", "cfg", cfg)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -329,7 +329,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment
 
 func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRoleTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("TransferAdminRoleTokenAdminRegistry", "cfg", cfg)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -466,7 +466,7 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, 
 
 func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("AcceptAdminRoleTokenAdminRegistry", "cfg", cfg)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -566,7 +566,7 @@ func (cfg UpgradeTokenAdminRegistryConfig) Validate(e cldf.Environment, chainSta
 
 func UpgradeTokenAdminRegistry(e cldf.Environment, cfg UpgradeTokenAdminRegistryConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("UpgradeTokenAdminRegistry", "cfg", cfg)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -679,7 +679,7 @@ func (cfg SetPoolConfig) Validate(e cldf.Environment, chainState solanastateview
 // this sets the writable indexes of the token pool lookup table
 func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Setting pool config", "cfg", cfg)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -814,7 +814,7 @@ func (cfg RemovePoolConfig) Validate(e cldf.Environment, chainState solanastatev
 // RemovePool sets the token pool lookup table to the zero address, effectively removing the pool association.
 func RemovePool(e cldf.Environment, cfg RemovePoolConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Removing pool config", "cfg", cfg)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -910,7 +910,7 @@ func (cfg SetTokenPoolSupportAutoDerivationConfig) Validate(e cldf.Environment, 
 
 func SetTokenPoolSupportAutoDerivation(e cldf.Environment, cfg SetTokenPoolSupportAutoDerivationConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Setting auto derivation in token admin registry for token", "autoDerivation", cfg.SupportsAutoDerivation, "tokenPubkey", cfg.TokenPubKey.String())
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

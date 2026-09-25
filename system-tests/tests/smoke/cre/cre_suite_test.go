@@ -371,6 +371,15 @@ func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
 	ExecuteManualShardAssignmentTest(t, testEnv)
 }
 
+//nolint:paralleltest // mutates CRE settings and shard assignment on the shared environment
+func Test_CRE_V2_ShardManualAssignmentBothSpecs(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
+	)
+	ExecuteManualShardAssignmentBothSpecs(t, testEnv)
+}
+
 //nolint:paralleltest // the test owns the sharded topology it runs on
 func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(

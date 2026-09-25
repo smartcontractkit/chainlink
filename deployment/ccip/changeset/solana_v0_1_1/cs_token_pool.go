@@ -235,7 +235,7 @@ func (cfg AddTokenPoolAndLookupTableConfig) Validate(e cldf.Environment, chainSt
 }
 
 func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTableConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -625,7 +625,7 @@ func getOnChainEVMPoolConfig(e cldf.Environment, state stateview.CCIPOnChainStat
 func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Setting up token pool global config", "cfg", cfg)
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -747,7 +747,7 @@ func DisableSelfServedInTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfig
 }
 
 func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enabled bool) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -890,7 +890,7 @@ func (cfg CreateTokenMultisigConfig) Validate(e cldf.Environment, chainState sol
 func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Create Token Multisig with", "cfg", cfg)
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -951,7 +951,12 @@ func recordTokenMultisig(
 		return fmt.Errorf("failed to save new token multisig to address book: %w", err)
 	}
 
-	datastoreTV := cldf.NewTypeAndVersion("TOKEN_MULTISIG", deployment.Version1_6_0)
+	// PascalCase, matching every other Solana contract type in the datastore. 374 of the
+	// 380 existing Solana rows already use it; SCREAMING_SNAKE was the outlier here and in
+	// the 2.0 writer, and two spellings for one concept means a lookup by type resolves
+	// only half the population. The address-book identity above keeps its own legacy
+	// spelling -- that store is being retired, and changing it would rewrite history.
+	datastoreTV := cldf.NewTypeAndVersion("TokenMultisig", deployment.Version1_6_0)
 	datastoreTV.AddLabel(mint.String())
 	return shared.RecordAddress(nil, ds, chainSelector, address, datastoreTV, qualifier)
 }
@@ -1024,7 +1029,7 @@ func (cfg TransferMintAuthorityToSignerPDAConfig) Validate(e cldf.Environment, c
 func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthorityToSignerPDAConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Transfer mint authority to signer PDA", "cfg", cfg)
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -1121,7 +1126,7 @@ func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthor
 func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Use multisig as mint authority", "cfg", cfg)
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2019,7 +2024,7 @@ func (cfg TokenPoolLookupTableConfig) Validate(e cldf.Environment, chainState so
 // AddTokenPoolAndLookupTable should be called instead
 func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Adding token pool lookup table", "cfg", cfg)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2170,7 +2175,7 @@ func (cfg ConfigureTokenPoolAllowListConfig) Validate(e cldf.Environment, chainS
 
 func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllowListConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infof("Configuring token pool allowlist for token %s", cfg.SolTokenPubKey)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2302,7 +2307,7 @@ func (cfg RemoveFromAllowListConfig) Validate(e cldf.Environment, chainState sol
 
 func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infof("Removing from token pool allowlist for token %s", cfg.SolTokenPubKey)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2449,7 +2454,7 @@ func (cfg LockReleaseLiquidityOpsConfig) Validate(e cldf.Environment, chainState
 
 func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infof("Locking/Unlocking liquidity for token %s", cfg.SolTokenPubKey)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2668,7 +2673,7 @@ func (cfg TokenPoolOpsCfg) Validate(e cldf.Environment, state stateview.CCIPOnCh
 // set router address on token pool config pda
 func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput, error) {
 	e.Logger.Infof("Setting pool config for token %s", cfg.SolTokenPubKey)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2827,7 +2832,7 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Init state version for old tp", "cfg", cfg)
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2952,7 +2957,7 @@ func (cfg SyncDomainConfig) Validate(e cldf.Environment, chainState solanastatev
 // SyncDomain adds or removes CCTP domain configs from the Solana CCTP token pool
 func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Syncing USDC domains", "cfg", cfg)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -3137,7 +3142,7 @@ func ExtendTokenPoolLookupTable(e cldf.Environment, cfg ExtendTokenPoolLookupTab
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	chainState, err := stateview.LoadOnchainState(e)
+	chainState, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -3243,7 +3248,7 @@ func (cfg SetRateLimitAdminConfig) Validate(e cldf.Environment, chainState solan
 }
 
 func SetRateLimitAdmin(e cldf.Environment, cfg SetRateLimitAdminConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

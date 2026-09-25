@@ -120,7 +120,7 @@ func TestDeployChainContractsChangesetPreload(t *testing.T) {
 	require.NoError(t, err)
 	testhelpers.RegisterNodes(t, env, 4, homeChainSel)
 
-	err = testhelpers.SavePreloadedSolAddresses(*env, solSelector)
+	err = testhelpers.SavePreloadedSolAddresses(env, solSelector)
 	require.NoError(t, err)
 
 	e := *env

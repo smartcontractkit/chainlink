@@ -288,13 +288,11 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 		methodName := parts[0]
 		switch methodName {
 		case gateway_common.MethodHTTPAction:
-			start := time.Now()
 			h.metrics.IncrementActionRequestCount(ctx, nodeAddr, h.lggr)
 			err := h.makeOutgoingRequest(ctx, resp, nodeAddr)
 			if err != nil {
 				h.metrics.IncrementActionRequestFailures(ctx, nodeAddr, h.lggr)
 			}
-			h.metrics.RecordActionRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 			return err
 		case gateway_common.MethodPushWorkflowMetadata:
 			h.metrics.IncrementMetadataRequestCount(ctx, nodeAddr, gateway_common.MethodPushWorkflowMetadata, h.lggr)
@@ -360,13 +358,16 @@ func (h *gatewayHandler) send(ctx context.Context, httpReq network.HTTPRequest, 
 }
 
 // createHTTPRequestCallback creates a callback function that makes the actual HTTP request
-func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestID string, httpReq network.HTTPRequest, req gateway_common.OutboundHTTPRequest) func() gateway_common.OutboundHTTPResponse {
+func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestID string, httpReq network.HTTPRequest, req gateway_common.OutboundHTTPRequest, nodeAddr string) func() gateway_common.OutboundHTTPResponse {
 	return func() gateway_common.OutboundHTTPResponse {
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
 		l.Debugw("Sending request to client", "requestBodySize", len(httpReq.Body), "numHeaders", len(httpReq.Headers))
 		start := time.Now()
 		resp, err := h.send(ctx, httpReq, req)
 		externalEndpointLatency := time.Since(start)
+		// Record the actual outbound-call duration for both success and failure.
+		// Cache hits never invoke this callback, so they emit no observation here.
+		h.metrics.RecordCustomerEndpointRequestLatency(ctx, nodeAddr, externalEndpointLatency.Milliseconds(), h.lggr)
 		if err != nil {
 			isBlockedRequest := errors.Is(err, network.ErrBlockedRequest)
 			isHTTPSendError := errors.Is(err, network.ErrHTTPSend)
@@ -396,7 +397,6 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 		}
 		l.Debugw("Received HTTP response", "responseBodySize", len(resp.Body), "statusCode", resp.StatusCode, "numHeaders", len(resp.Headers))
 		h.metrics.IncrementCustomerEndpointResponseCount(ctx, strconv.Itoa(resp.StatusCode), h.lggr)
-		h.metrics.RecordCustomerEndpointRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 		return gateway_common.OutboundHTTPResponse{
 			StatusCode:              resp.StatusCode,
 			Headers:                 resp.Headers, //nolint:staticcheck // Headers is deprecated in OutboundHTTPResponse, but populated for backwards compatibility
@@ -459,7 +459,14 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		defer httpCancel()
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
 		var outboundResp gateway_common.OutboundHTTPResponse
-		callback := h.createHTTPRequestCallback(httpCtx, requestID, httpReq, req)
+		// The gateway-side request timer starts here, immediately before the
+		// callback is created: it covers cache/HTTP processing plus the response
+		// send for each admitted request. Parsing, admission, and goroutine
+		// scheduling happen earlier and are intentionally excluded. Requests
+		// rejected synchronously (before this goroutine runs) are represented by
+		// the failure counters, not by request-duration samples.
+		requestStart := time.Now()
+		callback := h.createHTTPRequestCallback(httpCtx, requestID, httpReq, req, nodeAddr)
 		if req.CacheSettings.MaxAgeMs > 0 {
 			h.metrics.IncrementCacheReadCount(ctx, h.lggr)
 			outboundResp = h.responseCache.Fetch(httpCtx, req, callback, req.CacheSettings.Store)
@@ -474,7 +481,10 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		// expired HTTP request timeout does not prevent delivering the result.
 		sendCtx, sendCancel := context.WithTimeout(baseCtx, sendResponseTimeout)
 		defer sendCancel()
+		sendStart := time.Now()
 		err := h.sendResponseToNode(sendCtx, requestID, outboundResp, nodeAddr)
+		h.metrics.RecordActionResponseSendLatency(ctx, nodeAddr, time.Since(sendStart).Milliseconds(), h.lggr)
+		h.metrics.RecordActionRequestLatency(ctx, nodeAddr, time.Since(requestStart).Milliseconds(), h.lggr)
 		if err != nil {
 			l.Errorw("error sending response to node", "err", err, "nodeAddr", nodeAddr, "requestID", requestID)
 			h.metrics.IncrementActionCapabilityFailures(ctx, nodeAddr, h.lggr)

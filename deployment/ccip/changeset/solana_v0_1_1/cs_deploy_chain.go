@@ -123,7 +123,7 @@ func (cfg UpgradeConfig) Validate(e cldf.Environment, chainSelector uint64) erro
 		return errors.New("upgrade authority must be set for fee quoter and router upgrades")
 	}
 	if cfg.MCMS != nil {
-		return cfg.MCMS.ValidateSolana(e, chainSelector)
+		return stateview.ValidateSolanaTimelockConfig(e, chainSelector, cfg.MCMS)
 	}
 	return nil
 }
@@ -1348,7 +1348,7 @@ func ExtendGlobalLookupTableChangeset(e cldf.Environment, cfg ExtendGlobalLookup
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("chain not found for selector %d", cfg.ChainSelector)
 	}
-	existingState, err := stateview.LoadOnchainState(e)
+	existingState, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}

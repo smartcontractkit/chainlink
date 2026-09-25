@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -10,11 +11,14 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/attribute"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -76,6 +80,26 @@ type donConnectionManager struct {
 type nodeState struct {
 	name string
 	conn network.WSConnectionWrapper
+	// pingTracker correlates the latest keepalive ping probe with its pong so a
+	// round-trip duration can be recorded. Replaced on every handshake so pongs
+	// from a replaced connection can never match the new connection's probes.
+	pingTracker atomic.Pointer[pingProbeTracker]
+}
+
+// sendPing writes a keepalive ping carrying a fresh random correlation token,
+// registering the probe on the current connection's tracker immediately before
+// the write because the matching pong can arrive before Write returns. The
+// token is internal state and is never used as a metric label.
+func (ns *nodeState) sendPing(ctx context.Context) error {
+	raw := make([]byte, pingTokenLen)
+	if _, err := rand.Read(raw); err != nil {
+		return fmt.Errorf("failed to generate ping correlation token: %w", err)
+	}
+	token := base64.StdEncoding.EncodeToString(raw)
+	if tracker := ns.pingTracker.Load(); tracker != nil {
+		tracker.register(token, time.Now())
+	}
+	return ns.conn.Write(ctx, websocket.PingMessage, []byte(token))
 }
 
 // immutable
@@ -87,6 +111,10 @@ type connAttempt struct {
 }
 
 func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock, gMetrics *monitoring.GatewayMetrics, lggr logger.Logger, lf limits.Factory) (ConnectionManager, error) {
+	wsMetrics, err := network.NewWSConnectionMetrics(beholder.GetMeter())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create websocket connection metrics: %w", err)
+	}
 	dons := make(map[string]*donConnectionManager)
 	for _, shardedDON := range gwConfig.ShardedDONs {
 		for shardIdx, shard := range shardedDON.Shards {
@@ -94,9 +122,9 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 			if _, ok := dons[donID]; ok {
 				return nil, fmt.Errorf("duplicate DON ID %s", donID)
 			}
-			nodes, err := buildNodeStates(shard.Nodes, donID, lggr)
-			if err != nil {
-				return nil, err
+			nodes, ierr := buildNodeStates(shard.Nodes, donID, lggr, wsMetrics)
+			if ierr != nil {
+				return nil, ierr
 			}
 			dons[donID] = &donConnectionManager{
 				donConfig: &config.DONConfig{
@@ -128,18 +156,23 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 	return connMgr, nil
 }
 
-func buildNodeStates(members []config.NodeConfig, donID string, lggr logger.Logger) (map[string]*nodeState, error) {
+func buildNodeStates(members []config.NodeConfig, donID string, lggr logger.Logger, wsMetrics *network.WSConnectionMetrics) (map[string]*nodeState, error) {
 	nodes := make(map[string]*nodeState)
 	for _, nodeConfig := range members {
 		nodeAddress := strings.ToLower(nodeConfig.Address)
 		if _, ok := nodes[nodeAddress]; ok {
 			return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeAddress, donID)
 		}
-		connWrapper := network.NewWSConnectionWrapper(lggr)
-		nodes[nodeAddress] = &nodeState{
+		connWrapper := network.NewWSConnectionWrapperWithObserver(lggr, wsMetrics.Observer(
+			attribute.String("nodeAddress", nodeAddress),
+			attribute.String("nodeName", nodeConfig.Name),
+		))
+		ns := &nodeState{
 			name: nodeConfig.Name,
 			conn: connWrapper,
 		}
+		ns.pingTracker.Store(&pingProbeTracker{})
+		nodes[nodeAddress] = ns
 	}
 	return nodes, nil
 }
@@ -247,6 +280,11 @@ func (m *connectionManager) FinalizeHandshake(attemptID string, response []byte,
 	// The deadline is reset every time a pong is received. If PongTimeoutSec is
 	// 0, deadline enforcement is disabled.
 	pongWait := time.Duration(m.config.PongTimeoutSec) * time.Second
+	// Install a fresh probe tracker scoped to this connection. The pong handler
+	// below closes over it, so pongs arriving on a replaced connection are matched
+	// against its own stale tracker and can never record against this one.
+	tracker := &pingProbeTracker{}
+	attempt.nodeState.pingTracker.Store(tracker)
 	if conn != nil {
 		if pongWait > 0 {
 			if err := conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
@@ -263,18 +301,32 @@ func (m *connectionManager) FinalizeHandshake(attemptID string, response []byte,
 			}
 			m.lggr.Debugw("received keepalive pong from node", "nodeAddress", attempt.nodeAddress)
 			m.gMetrics.RecordKeepalivePongsReceived(context.Background(), attempt.nodeAddress, attempt.nodeState.name)
+			// Only a pong echoing this connection's latest probe token yields a
+			// round-trip observation. Superseded, duplicate, or old-connection
+			// pongs produce no sample but still refresh the deadline above.
+			// The node's default ping handler echoes the ping payload, so the
+			// pong carries our token unchanged.
+			if start, ok := tracker.consume(data); ok {
+				m.gMetrics.RecordWSPingRoundTrip(context.Background(), attempt.nodeAddress, attempt.nodeState.name, time.Since(start))
+			}
 			return nil
 		})
 	}
-	attempt.nodeState.conn.Reset(conn)
+	// A nil *websocket.Conn must not be passed as a WSConnection: the interface
+	// would be non-nil and Reset would start a readPump on a nil conn.
+	if conn != nil {
+		attempt.nodeState.conn.Reset(conn)
+	} else {
+		attempt.nodeState.conn.Reset(nil)
+	}
 	if conn != nil && pongWait > 0 {
 		// Send an immediate ping so the first pong arrives quickly (within
 		// milliseconds on a healthy connection) rather than waiting up to one
 		// full heartbeat interval for the keepalive ticker to fire.
 		ctx := context.Background()
-		if err := attempt.nodeState.conn.Write(ctx, websocket.PingMessage, []byte{}); err != nil {
+		if ierr := attempt.nodeState.sendPing(ctx); ierr != nil {
 			m.lggr.Debugw("unable to send post-handshake ping to node",
-				"nodeAddress", attempt.nodeAddress, "name", attempt.nodeState.name, "err", err)
+				"nodeAddress", attempt.nodeAddress, "name", attempt.nodeState.name, "err", ierr)
 		}
 	}
 	m.lggr.Infof("node %s connected", attempt.nodeAddress)
@@ -431,7 +483,7 @@ func (m *donConnectionManager) nodeKeepalive(addr string, ns *nodeState, interva
 		case <-ticker.C:
 			// Per-node write with a timeout context
 			pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
-			err := ns.conn.Write(pingCtx, websocket.PingMessage, []byte{})
+			err := ns.sendPing(pingCtx)
 			pingCancel()
 			m.gMetrics.RecordKeepalivePingsSent(ctx, addr, ns.name, err == nil)
 			if err != nil {

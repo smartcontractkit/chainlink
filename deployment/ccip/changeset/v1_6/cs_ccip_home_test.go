@@ -567,6 +567,7 @@ func Test_SetCandidateAcceptsUSDCTokenPoolProxyFromDataStore(t *testing.T) {
 	proxyAddress := common.HexToAddress("0x1000000000000000000000000000000000000001")
 
 	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(tenv.Env.DataStore))
 	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: dest,
 		Address:       proxyAddress.Hex(),
@@ -597,6 +598,7 @@ func Test_SetCandidateErrorsOnDuplicateUSDCTokenPoolProxyInDataStore(t *testing.
 	)
 
 	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(tenv.Env.DataStore))
 	for i, ref := range []struct {
 		address   string
 		qualifier string

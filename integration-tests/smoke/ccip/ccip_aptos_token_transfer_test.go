@@ -44,7 +44,7 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
 	// Deploy the dummy receiver contract
-	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
+	testhelpers.DeployAptosCCIPReceiver(t, &e.Env)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	evmToken, _, aptosToken, _, err := testhelpers.DeployTransferableTokenAptos(t, lggr, e.Env, sourceChain, destChain, "TOKEN", nil)
+	evmToken, _, aptosToken, _, err := testhelpers.DeployTransferableTokenAptos(t, lggr, &e.Env, sourceChain, destChain, "TOKEN", nil)
 	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
@@ -296,7 +296,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	evmToken, _, aptosToken, _, err := testhelpers.DeployTransferableTokenAptos(t, lggr, e.Env, destChain, sourceChain, "TOKEN", &config.TokenMint{
+	evmToken, _, aptosToken, _, err := testhelpers.DeployTransferableTokenAptos(t, lggr, &e.Env, destChain, sourceChain, "TOKEN", &config.TokenMint{
 		To:     deployerSourceChain,
 		Amount: 10e8,
 	})
@@ -547,7 +547,7 @@ func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
 	// Deploy the dummy receiver contract
-	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
+	testhelpers.DeployAptosCCIPReceiver(t, &e.Env)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -563,7 +563,7 @@ func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	evmToken, _, aptosToken, _, err := testhelpers.DeployBnMTokenAptos(t, lggr, e.Env, sourceChain, destChain, "TOKEN", nil)
+	evmToken, _, aptosToken, _, err := testhelpers.DeployBnMTokenAptos(t, lggr, &e.Env, sourceChain, destChain, "TOKEN", nil)
 	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
@@ -799,7 +799,7 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	evmToken, _, aptosToken, _, err := testhelpers.DeployBnMTokenAptos(t, lggr, e.Env, destChain, sourceChain, "TOKEN", &config.TokenMint{
+	evmToken, _, aptosToken, _, err := testhelpers.DeployBnMTokenAptos(t, lggr, &e.Env, destChain, sourceChain, "TOKEN", &config.TokenMint{
 		To:     deployerSourceChain,
 		Amount: 10e8,
 	})
@@ -1050,7 +1050,7 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
 	// Deploy the dummy receiver contract
-	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
+	testhelpers.DeployAptosCCIPReceiver(t, &e.Env)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -1068,7 +1068,7 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	evmToken, _, aptosToken, aptosTokenPool, err := testhelpers.DeployLnRTokenAptos(t, lggr, e.Env, sourceChain, destChain, "TOKEN", &config.TokenMint{
+	evmToken, _, aptosToken, aptosTokenPool, err := testhelpers.DeployLnRTokenAptos(t, lggr, &e.Env, sourceChain, destChain, "TOKEN", &config.TokenMint{
 		To:     deployerAddressDestChain,
 		Amount: 100e8,
 	},
@@ -1326,7 +1326,7 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	evmToken, _, aptosToken, _, err := testhelpers.DeployLnRTokenAptos(t, lggr, e.Env, destChain, sourceChain, "TOKEN", &config.TokenMint{
+	evmToken, _, aptosToken, _, err := testhelpers.DeployLnRTokenAptos(t, lggr, &e.Env, destChain, sourceChain, "TOKEN", &config.TokenMint{
 		To:     deployerSourceChain,
 		Amount: 110e8,
 	},
@@ -1580,7 +1580,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
 	// Deploy the dummy receiver contract
-	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
+	testhelpers.DeployAptosCCIPReceiver(t, &e.Env)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -1598,7 +1598,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	evmToken, _, aptosToken, aptosTokenPool, err := testhelpers.DeployLnRTokenAptos(t, lggr, e.Env, sourceChain, destChain, "TOKEN", &config.TokenMint{
+	evmToken, _, aptosToken, aptosTokenPool, err := testhelpers.DeployLnRTokenAptos(t, lggr, &e.Env, sourceChain, destChain, "TOKEN", &config.TokenMint{
 		To:     deployerAddressDestChain,
 		Amount: 100e8,
 	},
@@ -1856,7 +1856,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	evmToken, _, aptosToken, _, err := testhelpers.DeployLnRTokenAptos(t, lggr, e.Env, destChain, sourceChain, "TOKEN", &config.TokenMint{
+	evmToken, _, aptosToken, _, err := testhelpers.DeployLnRTokenAptos(t, lggr, &e.Env, destChain, sourceChain, "TOKEN", &config.TokenMint{
 		To:     deployerSourceChain,
 		Amount: 110e8,
 	},

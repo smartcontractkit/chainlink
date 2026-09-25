@@ -317,6 +317,13 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 					}
 				}
 			}
+			linkVersion := deployment.Version1_0_0
+			require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+				ChainSelector: newChainSelector,
+				Address:       linkAddress.Hex(),
+				Type:          datastore.ContractType(types.LinkToken),
+				Version:       &linkVersion,
+			}))
 			e.ExistingAddresses = cldf.NewMemoryAddressBookFromMap(addressesByChain)
 			e.DataStore = ds.Seal()
 			state, err = stateview.LoadOnchainState(e)
