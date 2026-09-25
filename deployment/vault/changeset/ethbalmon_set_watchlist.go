@@ -102,7 +102,6 @@ var EthBalMonSetWatchListSequence = operations.NewSequence(
 		}
 
 		proposal, err := proposeutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon SetWatchList", ethBalMonProposalTimelockConfig(input.MCMSConfig))
-
 		if err != nil {
 			return EthBalMonSetWatchListSeqOutput{}, fmt.Errorf("failed to build timelock proposal: %w", err)
 		}
@@ -192,11 +191,9 @@ var EthBalMonSetWatchListOperation = operations.NewOperation(
 			ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
 			Transactions: []mcmstypes.Transaction{
 				{
-					OperationMetadata: mcmstypes.OperationMetadata{
-						ContractType: vaulttypes.EthBalMonContractType,
-						Tags: []string{
-							"setWatchList",
-						},
+					ContractType: vaulttypes.EthBalMonContractType,
+					Tags: []string{
+						"setWatchList",
 					},
 					To:               ethBalMonAddr,
 					Data:             setWatchListTx.Data(),

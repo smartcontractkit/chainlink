@@ -45,13 +45,11 @@ type ContractSet struct {
 
 func (cs ContractSet) Convert() internal.ContractSet {
 	return internal.ContractSet{
-		MCMSWithTimelockState: internal.MCMSWithTimelockState{ //nolint:staticcheck // SA1019 MCMSWithTimelockState is deprecated
-			MCMSWithTimelockContracts: cs.MCMSWithTimelockContracts,
-		},
-		Forwarder:            cs.Forwarder,
-		WorkflowRegistry:     cs.WorkflowRegistry,
-		OCR3:                 cs.OCR3,
-		CapabilitiesRegistry: cs.CapabilitiesRegistry,
+		MCMSWithTimelockContracts: cs.MCMSWithTimelockContracts,
+		Forwarder:                 cs.Forwarder,
+		WorkflowRegistry:          cs.WorkflowRegistry,
+		OCR3:                      cs.OCR3,
+		CapabilitiesRegistry:      cs.CapabilitiesRegistry,
 	}
 }
 

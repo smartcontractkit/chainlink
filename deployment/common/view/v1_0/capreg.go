@@ -310,13 +310,11 @@ type DonUniversalMetadata struct {
 // NewDonView creates a DonView from a CapabilitiesRegistryDONInfo.
 func NewDonView(d capabilities_registry.CapabilitiesRegistryDONInfo) DonView {
 	return DonView{
-		DonUniversalMetadata: DonUniversalMetadata{
-			ID:               d.Id,
-			ConfigCount:      d.ConfigCount,
-			F:                d.F,
-			IsPublic:         d.IsPublic,
-			AcceptsWorkflows: d.AcceptsWorkflows,
-		},
+		ID:                       d.Id,
+		ConfigCount:              d.ConfigCount,
+		F:                        d.F,
+		IsPublic:                 d.IsPublic,
+		AcceptsWorkflows:         d.AcceptsWorkflows,
 		NodeP2PIds:               p2pIDs(d.NodeP2PIds),
 		CapabilityConfigurations: NewCapabilityConfigurations(d.CapabilityConfigurations),
 	}
@@ -384,16 +382,14 @@ type NodeUniversalMetadata struct {
 // NewNodeView creates a NodeView from a CapabilitiesRegistryNodeInfoProviderNodeInfo.
 func NewNodeView(n capabilities_registry.INodeInfoProviderNodeInfo) NodeView {
 	return NodeView{
-		NodeUniversalMetadata: NodeUniversalMetadata{
-			ConfigCount:         n.ConfigCount,
-			WorkflowDONID:       n.WorkflowDONId,
-			Signer:              hex.EncodeToString(n.Signer[:]),
-			P2pID:               n.P2pId,
-			EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
-		},
-		NodeOperatorID:   n.NodeOperatorId,
-		CapabilityIDs:    hexIDs(n.HashedCapabilityIds),
-		CapabilityDONIDs: n.CapabilitiesDONIds,
+		ConfigCount:         n.ConfigCount,
+		WorkflowDONID:       n.WorkflowDONId,
+		Signer:              hex.EncodeToString(n.Signer[:]),
+		P2pID:               n.P2pId,
+		EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
+		NodeOperatorID:      n.NodeOperatorId,
+		CapabilityIDs:       hexIDs(n.HashedCapabilityIds),
+		CapabilityDONIDs:    n.CapabilitiesDONIds,
 	}
 }
 

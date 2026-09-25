@@ -246,11 +246,9 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = internal.ConfigureRegistry(t.Context(), env.Env.Logger, &internal.ConfigureRegistryRequest{
-				ConfigureContractsRequest: internal.ConfigureContractsRequest{
-					RegistryChainSel: env.RegistrySelector,
-					Env:              &env.Env,
-					Dons:             allDons,
-				},
+				RegistryChainSel:     env.RegistrySelector,
+				Env:                  &env.Env,
+				Dons:                 allDons,
 				CapabilitiesRegistry: cr.Contract,
 			}, nil)
 			require.NoError(t, err)

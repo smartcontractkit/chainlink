@@ -231,19 +231,15 @@ var SetExpectedWorkflowIdentityProposalOperation = operations.NewOperation(
 			ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
 			Transactions: []mcmstypes.Transaction{
 				{
-					OperationMetadata: mcmstypes.OperationMetadata{
-						ContractType: vaulttypes.AutomationReceiverContractType,
-						Tags:         []string{"setExpectedAuthor"},
-					},
+					ContractType:     vaulttypes.AutomationReceiverContractType,
+					Tags:             []string{"setExpectedAuthor"},
 					To:               automationReceiverAddr,
 					Data:             authorTx.Data(),
 					AdditionalFields: json.RawMessage(`{"value": 0}`),
 				},
 				{
-					OperationMetadata: mcmstypes.OperationMetadata{
-						ContractType: vaulttypes.AutomationReceiverContractType,
-						Tags:         []string{"setExpectedWorkflowName"},
-					},
+					ContractType:     vaulttypes.AutomationReceiverContractType,
+					Tags:             []string{"setExpectedWorkflowName"},
 					To:               automationReceiverAddr,
 					Data:             nameTx.Data(),
 					AdditionalFields: json.RawMessage(`{"value": 0}`),
