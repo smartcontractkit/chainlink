@@ -846,7 +846,6 @@ type WorkflowSpec struct {
 	StorageBytes int64 `toml:"-" db:"storage_bytes"`
 	// TriggerSubscriptions caches the marshaled sdkpb.TriggerSubscriptionRequest
 	// values, so future engine starts can skip re-executing the binary to get them.
-	// invalidating in place.
 	TriggerSubscriptions []byte `toml:"-" db:"trigger_subscriptions"`
 }
 

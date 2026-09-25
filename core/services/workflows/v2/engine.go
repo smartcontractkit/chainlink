@@ -318,9 +318,12 @@ func (e *Engine) ExecuteTrigger(ctx context.Context, event RoutedTriggerEvent) e
 // Subscribe issues the WASM Subscribe request and returns the validated trigger subscriptions.
 // If a cached result is available (see EngineConfig.CachedTriggerSubscriptions) and the
 // CachedTriggerSubscriptionsEnabled gate is on, it's returned directly without executing the
-// WASM binary.
+// WASM binary. The per-workflow TriggerSubscription limit check applies to both paths.
 func (e *Engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
 	if e.cfg.CachedTriggerSubscriptions != nil && e.cfg.CachedTriggerSubscriptionsEnabled {
+		if err := e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(e.cfg.CachedTriggerSubscriptions)); err != nil {
+			return nil, err
+		}
 		return e.cfg.CachedTriggerSubscriptions, nil
 	}
 

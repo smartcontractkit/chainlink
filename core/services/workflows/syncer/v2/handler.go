@@ -920,14 +920,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 	)
 	cfg := h.newV2EngineConfig(ctx, selectingModule, workflowID, owner, tag, sdkName, name, config)
 
-	if len(cachedTriggerSubs) > 0 {
-		var req sdkpb.TriggerSubscriptionRequest
-		if unmarshalErr := proto.Unmarshal(cachedTriggerSubs, &req); unmarshalErr != nil {
-			h.lggr.Warnw("failed to unmarshal cached trigger subscriptions; falling back to WASM Subscribe", "workflowID", workflowID, "err", unmarshalErr)
-		} else {
-			cfg.CachedTriggerSubscriptions = req.Subscriptions
-		}
-	}
+	cfg.CachedTriggerSubscriptions = h.parseCachedTriggerSubscriptions(workflowID, cachedTriggerSubs)
 	h.wireTriggerSubscriptionCacheHook(cfg, workflowID)
 
 	h.wireInitDoneHook(cfg, initDone)
@@ -1357,12 +1350,29 @@ func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- er
 	}
 }
 
+// parseCachedTriggerSubscriptions unmarshals a previously persisted trigger
+// subscription payload (workflow_specs_v2.trigger_subscriptions) so engine
+// starts can skip the WASM Subscribe() call. Returns nil unless trigger
+// subscription caching is enabled and the payload is present and valid; a nil
+// result means the engine must fall back to executing WASM Subscribe().
+func (h *eventHandler) parseCachedTriggerSubscriptions(workflowID string, payload []byte) []*sdkpb.TriggerSubscription {
+	if !h.cachedTriggerSubscriptionsEnabled || len(payload) == 0 {
+		return nil
+	}
+	var req sdkpb.TriggerSubscriptionRequest
+	if err := proto.Unmarshal(payload, &req); err != nil {
+		h.lggr.Warnw("failed to unmarshal cached trigger subscriptions; falling back to WASM Subscribe", "workflowID", workflowID, "err", err)
+		return nil
+	}
+	return req.Subscriptions
+}
+
 // wireTriggerSubscriptionCacheHook persists a freshly WASM-computed trigger
 // subscription set back to workflow_specs_v2 so future engine starts for this
-// workflow ID can skip WASM execution. No-op when cfg.CachedTriggerSubscriptions
-// is already set.
+// workflow ID can skip WASM execution. No-op unless trigger subscription
+// caching is enabled, or when cfg.CachedTriggerSubscriptions is already set.
 func (h *eventHandler) wireTriggerSubscriptionCacheHook(cfg *v2.EngineConfig, workflowID string) {
-	if cfg.CachedTriggerSubscriptions != nil {
+	if !h.cachedTriggerSubscriptionsEnabled || cfg.CachedTriggerSubscriptions != nil {
 		return
 	}
 	existingHook := cfg.Hooks.OnSubscriptionsReady

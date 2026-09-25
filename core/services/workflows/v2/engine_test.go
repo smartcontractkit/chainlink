@@ -581,6 +581,39 @@ func TestEngine_Subscribe_CachedTriggerSubscriptions(t *testing.T) {
 		servicetest.Run(t, engine)
 		require.NoError(t, <-initDoneCh)
 	})
+
+	t.Run("gate enabled but subscription count exceeds the limit: init fails, WASM never executed", func(t *testing.T) {
+		t.Parallel()
+
+		module := modulemocks.NewModuleV2(t)
+		module.EXPECT().Start()
+		module.EXPECT().Close()
+		// No module.EXPECT().Execute(...): the mock fails the test if the limit
+		// check is bypassed and Subscribe() falls through to WASM.
+		capreg := regmocks.NewCapabilitiesRegistry(t)
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+
+		cfg := defaultTestConfig(t, func(cfg *cresettings.Workflows) {
+			cfg.TriggerSubscriptionLimit.DefaultValue = 1
+		})
+		cfg.Module = module
+		cfg.CapRegistry = capreg
+		cfg.CachedTriggerSubscriptions = cachedSubs // len(cachedSubs) == 2, above the limit of 1
+		cfg.CachedTriggerSubscriptionsEnabled = true
+		initDoneCh := make(chan error, 1)
+		cfg.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) { initDoneCh <- err },
+		}
+
+		engine, err := v2.NewEngine(cfg)
+		require.NoError(t, err)
+		servicetest.Run(t, engine)
+		var errLimited limits.ErrorBoundLimited[int]
+		if assert.ErrorAs(t, <-initDoneCh, &errLimited) {
+			assert.Equal(t, 1, errLimited.Limit)
+			assert.Equal(t, 2, errLimited.Amount)
+		}
+	})
 }
 
 func newTriggerSubs(n int) *sdkpb.ExecutionResult {

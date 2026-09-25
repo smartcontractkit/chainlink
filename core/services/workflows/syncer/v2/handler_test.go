@@ -243,6 +243,11 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	workflowTag := "workflow-tag"
 	signedURLParameter := "?auth=abc123"
 
+	cachedSubsPayload, err := proto.Marshal(&sdk.TriggerSubscriptionRequest{
+		Subscriptions: []*sdk.TriggerSubscription{{Id: "id_0", Method: "method"}},
+	})
+	require.NoError(t, err)
+
 	defaultValidationFn := func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, _ *mockFetcher) {
 		err := h.workflowRegisteredEvent(ctx, event)
 		require.NoError(t, err)
@@ -728,6 +733,78 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 			},
 		},
+		{
+			// A trigger subscription payload persisted by a previous engine
+			// start (workflow_specs_v2.trigger_subscriptions) must reach the
+			// engine factory when a registration event recreates the engine.
+			Name:                              "passes persisted trigger subscriptions to the engine factory",
+			cachedTriggerSubscriptionsEnabled: true,
+			GiveConfig:                        config,
+			ConfigURLFactory:                  configURLFactory,
+			BinaryURLFactory:                  binaryURLFactory,
+			GiveBinary:                        binary,
+			WFOwner:                           wfOwner,
+			fetcherFactory: func(wfID []byte) *mockFetcher {
+				wfIDString := hex.EncodeToString(wfID)
+				signedBinaryURL := binaryURLFactory(wfIDString) + signedURLParameter
+				signedConfigURL := configURLFactory(wfIDString) + signedURLParameter
+				return newMockFetcher(map[string]mockFetchResp{
+					wfIDString + "-ARTIFACT_TYPE_BINARY": {Body: []byte(signedBinaryURL), Err: nil},
+					wfIDString + "-ARTIFACT_TYPE_CONFIG": {Body: []byte(signedConfigURL), Err: nil},
+					signedBinaryURL:                      {Body: encodedBinary, Err: nil},
+					signedConfigURL:                      {Body: config, Err: nil},
+				})
+			},
+			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (services.Service, error) {
+				require.Equal(t, cachedSubsPayload, cachedTriggerSubs, "engine factory must receive the persisted trigger subscription payload")
+				if initDone != nil {
+					initDone <- nil
+				}
+				return &mockEngine{}, nil
+			},
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
+				// Pre-populate the spec row (matching the event) plus a cached
+				// trigger subscription payload, simulating a node restart after
+				// a previous engine start cached this workflow's subs.
+				entry := &job.WorkflowSpec{
+					Workflow:      hex.EncodeToString(binary),
+					Config:        string(config),
+					WorkflowID:    wfID.Hex(),
+					Status:        job.WorkflowSpecStatusActive,
+					WorkflowOwner: hex.EncodeToString(wfOwner),
+					WorkflowName:  wfName,
+					WorkflowTag:   workflowTag,
+					SpecType:      job.WASMFile,
+					BinaryURL:     binaryURL,
+					ConfigURL:     configURL,
+				}
+				_, err := s.UpsertWorkflowSpec(ctx, entry)
+				require.NoError(t, err)
+				require.NoError(t, s.SaveTriggerSubscriptions(ctx, wfID.Hex(), cachedSubsPayload))
+
+				require.NoError(t, h.workflowRegisteredEvent(ctx, event))
+
+				engine, ok := h.engineRegistry.Get(wfID)
+				require.True(t, ok)
+				require.NoError(t, engine.Ready())
+
+				// The pre-populated spec row matched the event, so no artifact fetch was needed.
+				require.Equal(t, 0, fetcher.Calls(binaryURL+signedURLParameter))
+				require.Equal(t, 0, fetcher.Calls(configURL+signedURLParameter))
+			},
+			Event: func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent {
+				wfIDString := hex.EncodeToString(wfID)
+				return WorkflowRegisteredEvent{
+					Status:        WorkflowStatusActive,
+					WorkflowID:    [32]byte(wfID),
+					WorkflowOwner: wfOwner,
+					WorkflowName:  wfName,
+					WorkflowTag:   workflowTag,
+					BinaryURL:     binaryURLFactory(wfIDString),
+					ConfigURL:     configURLFactory(wfIDString),
+				}
+			},
+		},
 	}
 
 	for _, tc := range tt {
@@ -957,10 +1034,13 @@ type testCase struct {
 	GiveConfig       []byte
 	ConfigURLFactory func(string) string
 	WFOwner          []byte
-	fetcherFactory   func(wfID []byte) *mockFetcher
-	Event            func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent
-	validationFn     func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string)
-	engineFactoryFn  func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (services.Service, error)
+	// cachedTriggerSubscriptionsEnabled enables the CRE.CachedTriggerSubscriptionsEnabled
+	// gate on the handler under test.
+	cachedTriggerSubscriptionsEnabled bool
+	fetcherFactory                    func(wfID []byte) *mockFetcher
+	Event                             func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent
+	validationFn                      func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string)
+	engineFactoryFn                   func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (services.Service, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -993,6 +1073,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		opts := []func(*eventHandler){
 			WithEngineRegistry(er),
 			withTestOrgResolver(),
+			WithCachedTriggerSubscriptionsEnabled(tc.cachedTriggerSubscriptionsEnabled),
 		}
 		if tc.engineFactoryFn != nil {
 			opts = append(opts, WithEngineFactoryFn(tc.engineFactoryFn))
@@ -1372,16 +1453,19 @@ func Test_workflowDeletedHandler(t *testing.T) {
 }
 
 type stubWorkflowArtifactsStore struct {
-	spec           *job.WorkflowSpec
-	specs          []*job.WorkflowSpec
-	persistUpserts bool
-	upsertErr      error
-	deleteErr      error
-	listErr        error
-	getSpecErr     error
-	deleteCalls    atomic.Int32
-	pauseCalls     atomic.Int32
-	fetchCalls     atomic.Int32
+	spec             *job.WorkflowSpec
+	specs            []*job.WorkflowSpec
+	persistUpserts   bool
+	upsertErr        error
+	deleteErr        error
+	listErr          error
+	getSpecErr       error
+	deleteCalls      atomic.Int32
+	pauseCalls       atomic.Int32
+	fetchCalls       atomic.Int32
+	saveSubsCalls    atomic.Int32
+	savedSubsID      string
+	savedSubsPayload []byte
 }
 
 func (s *stubWorkflowArtifactsStore) FetchWorkflowArtifacts(context.Context, string, string, string) ([]byte, []byte, error) {
@@ -1444,7 +1528,10 @@ func (s *stubWorkflowArtifactsStore) DeleteWorkflowArtifactsBatch(context.Contex
 	return nil
 }
 
-func (s *stubWorkflowArtifactsStore) SaveTriggerSubscriptions(context.Context, string, []byte) error {
+func (s *stubWorkflowArtifactsStore) SaveTriggerSubscriptions(_ context.Context, workflowID string, payload []byte) error {
+	s.saveSubsCalls.Add(1)
+	s.savedSubsID = workflowID
+	s.savedSubsPayload = payload
 	return nil
 }
 
@@ -1496,6 +1583,110 @@ func Test_workflowDeletedEvent_IgnoresErrAlreadyStopped(t *testing.T) {
 	assert.Equal(t, int32(1), artifactStore.deleteCalls.Load())
 	_, ok := registry.Get(workflowID)
 	assert.False(t, ok)
+}
+
+func Test_parseCachedTriggerSubscriptions(t *testing.T) {
+	t.Parallel()
+
+	subs := []*sdk.TriggerSubscription{{Id: "id_0", Method: "method"}}
+	payload, err := proto.Marshal(&sdk.TriggerSubscriptionRequest{Subscriptions: subs})
+	require.NoError(t, err)
+
+	newHandler := func(enabled bool) *eventHandler {
+		return &eventHandler{
+			lggr:                              logger.TestLogger(t),
+			cachedTriggerSubscriptionsEnabled: enabled,
+		}
+	}
+
+	t.Run("caching enabled with a valid payload: returns the cached subscriptions", func(t *testing.T) {
+		t.Parallel()
+		got := newHandler(true).parseCachedTriggerSubscriptions("wf-id", payload)
+		require.NotNil(t, got)
+		require.Len(t, got, len(subs))
+		for i := range subs {
+			assert.True(t, proto.Equal(subs[i], got[i]))
+		}
+	})
+
+	t.Run("caching disabled: payload is ignored", func(t *testing.T) {
+		t.Parallel()
+		assert.Nil(t, newHandler(false).parseCachedTriggerSubscriptions("wf-id", payload))
+	})
+
+	t.Run("empty payload: returns nil", func(t *testing.T) {
+		t.Parallel()
+		assert.Nil(t, newHandler(true).parseCachedTriggerSubscriptions("wf-id", nil))
+	})
+
+	t.Run("invalid payload: returns nil so the engine falls back to WASM", func(t *testing.T) {
+		t.Parallel()
+		assert.Nil(t, newHandler(true).parseCachedTriggerSubscriptions("wf-id", []byte("not-a-protobuf-payload")))
+	})
+}
+
+func Test_wireTriggerSubscriptionCacheHook(t *testing.T) {
+	t.Parallel()
+
+	subs := []*sdk.TriggerSubscription{{Id: "id_0", Method: "method"}, {Id: "id_1", Method: "method"}}
+	wantPayload, err := proto.Marshal(&sdk.TriggerSubscriptionRequest{Subscriptions: subs})
+	require.NoError(t, err)
+
+	t.Run("caching enabled: hook saves the marshaled payload and chains any existing hook", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{}
+		h := &eventHandler{
+			lggr:                              logger.TestLogger(t),
+			workflowArtifactsStore:            store,
+			cachedTriggerSubscriptionsEnabled: true,
+		}
+		cfg := &v2.EngineConfig{}
+		chained := false
+		cfg.Hooks.OnSubscriptionsReady = func(_ []*sdk.TriggerSubscription, _ contexts.CRE) error {
+			chained = true
+			return nil
+		}
+
+		h.wireTriggerSubscriptionCacheHook(cfg, "wf-id")
+		require.NotNil(t, cfg.Hooks.OnSubscriptionsReady)
+		require.NoError(t, cfg.Hooks.OnSubscriptionsReady(subs, contexts.CRE{}))
+
+		assert.Equal(t, int32(1), store.saveSubsCalls.Load())
+		assert.Equal(t, "wf-id", store.savedSubsID)
+		assert.Equal(t, wantPayload, store.savedSubsPayload)
+		assert.True(t, chained)
+	})
+
+	t.Run("caching disabled: no hook is wired", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{}
+		h := &eventHandler{
+			lggr:                   logger.TestLogger(t),
+			workflowArtifactsStore: store,
+		}
+		cfg := &v2.EngineConfig{}
+
+		h.wireTriggerSubscriptionCacheHook(cfg, "wf-id")
+
+		assert.Nil(t, cfg.Hooks.OnSubscriptionsReady)
+		assert.Equal(t, int32(0), store.saveSubsCalls.Load())
+	})
+
+	t.Run("cached subscriptions already set: no hook is wired", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{}
+		h := &eventHandler{
+			lggr:                              logger.TestLogger(t),
+			workflowArtifactsStore:            store,
+			cachedTriggerSubscriptionsEnabled: true,
+		}
+		cfg := &v2.EngineConfig{CachedTriggerSubscriptions: subs}
+
+		h.wireTriggerSubscriptionCacheHook(cfg, "wf-id")
+
+		assert.Nil(t, cfg.Hooks.OnSubscriptionsReady)
+		assert.Equal(t, int32(0), store.saveSubsCalls.Load())
+	})
 }
 
 func Test_eventHandler_StartsAndStopsWorkflowStore(t *testing.T) {
