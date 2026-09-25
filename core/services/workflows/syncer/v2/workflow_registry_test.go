@@ -2041,7 +2041,7 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 			Settings: manualConfigTOML,
 			Hash:     "test",
 		}))
-		manual := shardownership.NewManualShardResolver(settings, nil, logger.TestLogger(t))
+		manual := shardownership.NewManualShardResolver(settings, nil, nil, logger.TestLogger(t))
 		wr := newReg(t,
 			WithShardEnabled(true),
 			WithShardOrchestratorClient(nil),
@@ -2067,7 +2067,7 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 			wf1.Hex(): 0,
 			wf2.Hex(): 1,
 		}}
-		override := shardownership.NewOverrideShardResolver(settings, nil,
+		override := shardownership.NewOverrideShardResolver(settings, nil, nil,
 			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
 			logger.TestLogger(t))
 		wr := newReg(t,
@@ -2095,7 +2095,7 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 		ringClient := &mockShardMappingClient{mappings: map[string]uint32{
 			wf1.Hex(): 0,
 		}}
-		override := shardownership.NewOverrideShardResolver(settings, nil,
+		override := shardownership.NewOverrideShardResolver(settings, nil, nil,
 			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
 			logger.TestLogger(t))
 		wr := newReg(t,

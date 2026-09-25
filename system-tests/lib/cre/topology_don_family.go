@@ -75,6 +75,10 @@ func (t *Topology) ensureGatewayConnectorIndex() {
 }
 
 // buildDonFamilyPairingState validates and materializes the pairing graph.
+//
+// A workflow DON is paired with a gateway DON if they share ANY don_family, not
+// just their primary (first) one. Both maps are keyed by every family a DON
+// belongs to, so a DON with N families can be discovered/paired via any of them.
 func (t *Topology) buildDonFamilyPairingState() (*gatewayDonFamilyPairingState, error) {
 	wfDONs, err := t.DonsMetadata.WorkflowDONs()
 	if err != nil {
@@ -90,26 +94,36 @@ func (t *Topology) buildDonFamilyPairingState() (*gatewayDonFamilyPairingState, 
 		if _, hasGateway := d.Gateway(); !hasGateway {
 			continue
 		}
-		if d.DonFamily() == "" {
+		if len(d.DonFamilies) == 0 {
 			return nil, fmt.Errorf("gateway DON %q has no don_family; set nodesets.don_families on every nodeset", d.Name)
 		}
-		state.gatewayDONNamesByFamily[d.DonFamily()] = append(state.gatewayDONNamesByFamily[d.DonFamily()], d.Name)
+		for _, family := range d.DonFamilies {
+			state.gatewayDONNamesByFamily[family] = append(state.gatewayDONNamesByFamily[family], d.Name)
+		}
 	}
 
 	for _, wf := range wfDONs {
-		if wf.DonFamily() == "" {
+		if len(wf.DonFamilies) == 0 {
 			return nil, fmt.Errorf("workflow DON %q has no don_family; set nodesets.don_families on every nodeset", wf.Name)
 		}
-		if len(state.gatewayDONNamesByFamily[wf.DonFamily()]) == 0 {
-			return nil, fmt.Errorf("workflow DON %q is in don_family %q but no gateway DON is defined for that family", wf.Name, wf.DonFamily())
+
+		pairedGateways := make(map[string]struct{})
+		for _, family := range wf.DonFamilies {
+			state.workflowDONNamesByFamily[family] = append(state.workflowDONNamesByFamily[family], wf.Name)
+			for _, gwName := range state.gatewayDONNamesByFamily[family] {
+				if _, ok := pairedGateways[gwName]; ok {
+					continue
+				}
+				pairedGateways[gwName] = struct{}{}
+				state.pairs = append(state.pairs, DonFamilyGatewayPair{
+					DonFamily:       family,
+					WorkflowDONName: wf.Name,
+					GatewayDONName:  gwName,
+				})
+			}
 		}
-		state.workflowDONNamesByFamily[wf.DonFamily()] = append(state.workflowDONNamesByFamily[wf.DonFamily()], wf.Name)
-		for _, gwName := range state.gatewayDONNamesByFamily[wf.DonFamily()] {
-			state.pairs = append(state.pairs, DonFamilyGatewayPair{
-				DonFamily:       wf.DonFamily(),
-				WorkflowDONName: wf.Name,
-				GatewayDONName:  gwName,
-			})
+		if len(pairedGateways) == 0 {
+			return nil, fmt.Errorf("workflow DON %q is in don_families %v but no gateway DON shares any of them", wf.Name, wf.DonFamilies)
 		}
 	}
 
@@ -175,14 +189,49 @@ func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnec
 	return GatewayConnectors{Configurations: configs}
 }
 
-// GatewayServiceConfigsForGateway scopes gateway worker service configs to DONs in the
-// gateway nodeset's don_family (workflow and capabilities DONs, e.g. vault handler routing).
+// GatewayServiceConfigsForGateway scopes gateway worker service configs to DONs reachable
+// from the gateway (workflow and capabilities DONs, e.g. vault handler routing).
+//
+// "Reachable" is the gateway nodeset's own don_families plus every don_family of any
+// workflow DON already paired with it — not just the gateway's own families — so a
+// capabilities DON that only shares a shard-specific family with the paired workflow DONs
+// (not the gateway's own family) is still scoped in. This mirrors buildDonFamilyPairingState,
+// which pairs gateways and workflow DONs by ANY shared family, not just the primary one. See
+// the family layout in workflow-sharded-capabilities-don.toml for a worked example: a shared
+// vault DON belongs only to per-shard families, while the gateway belongs to the common one.
 func (t *Topology) GatewayServiceConfigsForGateway(gatewayDONName string, services []GatewayServiceConfig) []GatewayServiceConfig {
-	return t.gatewayServiceConfigsForDonFamily(t.DonFamilyForDON(gatewayDONName), services)
+	return t.gatewayServiceConfigsForFamilies(t.reachableFamiliesForGateway(gatewayDONName), services)
 }
 
-func (t *Topology) gatewayServiceConfigsForDonFamily(donFamily string, services []GatewayServiceConfig) []GatewayServiceConfig {
-	if t.gatewayDonFamilyPairing == nil || donFamily == "" {
+// reachableFamiliesForGateway returns gatewayDONName's own don_families union the
+// don_families of every workflow DON paired with it.
+func (t *Topology) reachableFamiliesForGateway(gatewayDONName string) map[string]struct{} {
+	families := make(map[string]struct{})
+	if d := t.donByName(gatewayDONName); d != nil {
+		for _, family := range d.DonFamilies {
+			families[family] = struct{}{}
+		}
+	}
+	if t.gatewayDonFamilyPairing == nil {
+		return families
+	}
+	for _, pair := range t.gatewayDonFamilyPairing.pairs {
+		if pair.GatewayDONName != gatewayDONName {
+			continue
+		}
+		wf := t.donByName(pair.WorkflowDONName)
+		if wf == nil {
+			continue
+		}
+		for _, family := range wf.DonFamilies {
+			families[family] = struct{}{}
+		}
+	}
+	return families
+}
+
+func (t *Topology) gatewayServiceConfigsForFamilies(families map[string]struct{}, services []GatewayServiceConfig) []GatewayServiceConfig {
+	if t.gatewayDonFamilyPairing == nil || len(families) == 0 {
 		return services
 	}
 
@@ -191,7 +240,14 @@ func (t *Topology) gatewayServiceConfigsForDonFamily(donFamily string, services 
 		out[i] = svc
 		filtered := make([]string, 0, len(svc.DONs))
 		for _, donName := range svc.DONs {
-			if t.DonFamilyForDON(donName) == donFamily {
+			d := t.donByName(donName)
+			if d == nil {
+				continue
+			}
+			if slices.ContainsFunc(d.DonFamilies, func(family string) bool {
+				_, ok := families[family]
+				return ok
+			}) {
 				filtered = append(filtered, donName)
 			}
 		}

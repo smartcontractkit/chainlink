@@ -25,7 +25,7 @@ func ExecuteFailoverManualSwapTest(t *testing.T, testEnv *ttypes.TestEnvironment
 	require.GreaterOrEqual(t, len(shardDONs), 2, "Expected at least 2 shard DONs for failover test")
 
 	shardLeaderDON := getShardZeroDon(t, testEnv)
-	primaryDonID := uint32(shardLeaderDON.ID) //nolint:gosec // G115: overflow is unrealistic
+	primaryShardIndex := uint32(shardLeaderDON.Metadata().ShardIndex) //nolint:gosec // G115: overflow is unrealistic
 
 	var secondaryDON *cre.Don
 	for _, don := range shardDONs {
@@ -35,7 +35,7 @@ func ExecuteFailoverManualSwapTest(t *testing.T, testEnv *ttypes.TestEnvironment
 		}
 	}
 	require.NotNil(t, secondaryDON, "Expected to find a second shard DON")
-	secondaryDonID := uint32(secondaryDON.ID) //nolint:gosec // G115: overflow is unrealistic
+	secondaryShardIndex := uint32(secondaryDON.Metadata().ShardIndex) //nolint:gosec // G115: overflow is unrealistic
 
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 	workflowConfig := crontypes.WorkflowConfig{
@@ -55,7 +55,7 @@ hashed_default_assignment = false
 
 [per_org_assignment]
   org_test_failover = [%d,%d]
-`, primaryDonID, secondaryDonID, primaryDonID, secondaryDonID)
+`, primaryShardIndex, secondaryShardIndex, primaryShardIndex, secondaryShardIndex)
 
 	proposeAndApproveShardAssignmentJob(t, testEnv, shardLeaderDON, primaryAssignmentTOML, testLogger)
 
@@ -68,9 +68,12 @@ hashed_default_assignment = false
 	}
 	testLogger.Info().Strs("workflowIDs", workflowIDs).Msg("Deployed workflows for failover test")
 
+	// nodeP2PIDToShardIndex (built below) reports each node's real DON ID, so
+	// the "expected" side of the comparison must be DON IDs too, even though
+	// the shard-assignment TOML above is authored in shard-index terms.
 	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {
-		workflowToShardIndex[wfID] = primaryDonID
+		workflowToShardIndex[wfID] = uint32(shardLeaderDON.ID) //nolint:gosec // G115: overflow is unrealistic
 	}
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
@@ -109,7 +112,7 @@ hashed_default_assignment = false
 		workflowName := fmt.Sprintf("failover_swap%d", i)
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 		workflowIDs[i] = workflowID
-		workflowToShardIndex[workflowID] = secondaryDonID
+		workflowToShardIndex[workflowID] = uint32(secondaryDON.ID) //nolint:gosec // G115: overflow is unrealistic
 	}
 	testLogger.Info().Strs("workflowIDs", workflowIDs).Msg("Deployed fresh workflows for swap phase")
 
@@ -119,7 +122,7 @@ hashed_default_assignment = false
 
 [per_org_assignment]
   org_test_failover = [%d,%d]
-`, secondaryDonID, primaryDonID, secondaryDonID, primaryDonID)
+`, secondaryShardIndex, primaryShardIndex, secondaryShardIndex, primaryShardIndex)
 
 	for _, don := range shardDONs {
 		proposeAndApproveShardAssignmentJob(t, testEnv, don, secondaryAssignmentTOML, testLogger)
@@ -130,7 +133,7 @@ hashed_default_assignment = false
 	swappedWorkflowIDs := workflowIDs
 	swappedWorkflowToShardIndex := make(map[string]uint32, len(swappedWorkflowIDs))
 	for _, wfID := range swappedWorkflowIDs {
-		swappedWorkflowToShardIndex[wfID] = secondaryDonID
+		swappedWorkflowToShardIndex[wfID] = uint32(secondaryDON.ID) //nolint:gosec // G115: overflow is unrealistic
 	}
 
 	swapTimeout := 5 * time.Minute
