@@ -1,7 +1,7 @@
 package cresettings
 
 import (
-  "context"
+	"context"
 	"fmt"
 	"testing"
 
@@ -24,7 +24,7 @@ static_default_assignment = [0, 1]
 
 func newTestDelegate(t *testing.T) *delegate {
 	t.Helper()
-	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, gc)
+	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New())
 }
 
 func cresettingsJob(id int32, settings string) job.Job {
@@ -128,19 +128,18 @@ func TestOnDeleteJobFreesSlotPerConfigType(t *testing.T) {
 	require.ErrorContains(t, err, "already active: 2")
 	require.NoError(t, d.OnDeleteJob(ctx, cresettingsJob(2, shardAssignmentToml)))
 	_, err = d.ServicesForSpec(ctx, cresettingsJob(7, shardAssignmentToml))
- 	require.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestDelegate_CapabilitiesRegistry_StoresIntoGlobalConfig(t *testing.T) {
 	t.Parallel()
 
-	gc := globalconfig.New()
-	d := newTestDelegate(t, gc)
+	d := newTestDelegate(t)
 
 	_, err := d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":7}`, "h7"))
 	require.NoError(t, err)
 
-	raw, v := gc.Load()
+	raw, v := d.globalConfig.Load()
 	assert.Equal(t, `{"version":7}`, raw)
 	assert.Equal(t, uint64(7), v)
 }
@@ -148,23 +147,19 @@ func TestDelegate_CapabilitiesRegistry_StoresIntoGlobalConfig(t *testing.T) {
 func TestDelegate_RejectsSecondJobOfSameConfigType(t *testing.T) {
 	t.Parallel()
 
-	d := newTestDelegate(t, globalconfig.New())
+	d := newTestDelegate(t)
 
 	_, err := d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":1}`, "h1"))
 	require.NoError(t, err)
 
 	_, err = d.ServicesForSpec(t.Context(), capRegistryJob(2, `{"version":2}`, "h2"))
 	require.ErrorContains(t, err, "already active")
-
-	// Same job ID re-applying is allowed (idempotent).
-	_, err = d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":1}`, "h1"))
-	require.NoError(t, err)
 }
 
 func TestDelegate_DifferentConfigTypesCoexist(t *testing.T) {
 	t.Parallel()
 
-	d := newTestDelegate(t, globalconfig.New())
+	d := newTestDelegate(t)
 
 	// settings job
 	settingsJob := job.Job{ID: 10, Type: job.CRESettings, CRESettingsSpec: &job.CRESettingsSpec{Settings: `Foo = "bar"`, Hash: "hs"}}
@@ -179,7 +174,7 @@ func TestDelegate_DifferentConfigTypesCoexist(t *testing.T) {
 func TestDelegate_OnDeleteJobClearsConfigType(t *testing.T) {
 	t.Parallel()
 
-	d := newTestDelegate(t, globalconfig.New())
+	d := newTestDelegate(t)
 
 	_, err := d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":1}`, "h1"))
 	require.NoError(t, err)

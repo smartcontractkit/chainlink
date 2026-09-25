@@ -107,12 +107,11 @@ func (d *delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 }
 
 func (d *delegate) configType(spec *job.CRESettingsSpec) string {
-	if spec == nil || spec.Settings == "" {
+	if spec == nil {
 		return ConfigTypeSettings
 	}
-	if ct, ok := extractConfigType(spec.Settings); ok {
-		return ct
-	}
-	d.lggr.Infow("No config_type specified, defaulting to settings")
-	return ConfigTypeSettings
+	// Must match validate.go's resolveConfigType: the top-level ConfigType field wins (used by
+	// capabilities_registry, whose payload lives in OffchainConfig with empty Settings), then a
+	// config_type key embedded in Settings (shard_assignment), else the default settings.
+	return resolveConfigType(*spec)
 }
