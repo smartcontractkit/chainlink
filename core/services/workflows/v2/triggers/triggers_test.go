@@ -28,6 +28,7 @@ import (
 var validWorkflowID = strings.Repeat("ab", 32)
 
 func TestRegistrationID(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		workflowID   string
@@ -56,6 +57,7 @@ func TestRegistrationID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := RegistrationID(tt.workflowID, tt.triggerIndex)
 			assert.Equal(t, tt.want, got)
 		})
@@ -63,6 +65,7 @@ func TestRegistrationID(t *testing.T) {
 }
 
 func TestParseWorkflowID(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name             string
 		registrationID   string
@@ -113,6 +116,7 @@ func TestParseWorkflowID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := ParseWorkflowID(tt.registrationID)
 			if tt.wantErrSubstring != "" {
 				require.Error(t, err)
@@ -133,6 +137,7 @@ func newTestMetrics(t *testing.T) *monitoring.WorkflowsMetricLabeler {
 }
 
 func TestAck(t *testing.T) {
+	t.Parallel()
 	const (
 		triggerCapID          = "trigger-cap-id"
 		triggerRegistrationID = "trigger-reg-id"
@@ -141,12 +146,14 @@ func TestAck(t *testing.T) {
 	)
 
 	t.Run("returns an error when the handle is not found", func(t *testing.T) {
+		t.Parallel()
 		err := Ack(t.Context(), logger.Test(t), newTestMetrics(t), triggerCapID, triggerRegistrationID, eventID, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), triggerRegistrationID)
 	})
 
 	t.Run("delegates to the handle's AckEvent using its stored method", func(t *testing.T) {
+		t.Parallel()
 		trigger := capmocks.NewTriggerCapability(t)
 		trigger.EXPECT().AckEvent(mock.Anything, triggerRegistrationID, eventID, method).Return(nil).Once()
 		handle := &Handle{TriggerCapability: trigger, Method: method}
@@ -156,6 +163,7 @@ func TestAck(t *testing.T) {
 	})
 
 	t.Run("propagates the handle's AckEvent error", func(t *testing.T) {
+		t.Parallel()
 		wantErr := errors.New("boom")
 		trigger := capmocks.NewTriggerCapability(t)
 		trigger.EXPECT().AckEvent(mock.Anything, triggerRegistrationID, eventID, method).Return(wantErr).Once()
@@ -167,6 +175,7 @@ func TestAck(t *testing.T) {
 }
 
 func TestReadLoop(t *testing.T) {
+	t.Parallel()
 	const (
 		workflowID   = "wf-id"
 		triggerCapID = "trigger-cap-id"
@@ -222,6 +231,7 @@ func TestReadLoop(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			// A single deadline governs the whole subtest: every wait below
 			// (deliveries, then ReadLoop's return) races against this one
 			// timer instead of each getting its own fresh timeout.
@@ -238,10 +248,12 @@ func TestReadLoop(t *testing.T) {
 			}
 
 			clock := clockwork.NewFakeClock()
+			lggr := logger.Test(t)
+			testMetrics := newTestMetrics(t)
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				ReadLoop(sutCtx, logger.Test(t), newTestMetrics(t), clock, workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
+				ReadLoop(sutCtx, lggr, testMetrics, clock, workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
 			}()
 
 			tt.run(triggerEventCh, sutCancel)
@@ -298,6 +310,7 @@ func (erroringTimeLimiter) WithTimeout(context.Context) (context.Context, func()
 }
 
 func TestRegister(t *testing.T) {
+	t.Parallel()
 	const (
 		workflowID    = "wf-id"
 		workflowOwner = "wf-owner"
@@ -313,6 +326,7 @@ func TestRegister(t *testing.T) {
 	}
 
 	t.Run("registers all subscriptions and returns handles, capability IDs, and event channels in subscription order", func(t *testing.T) {
+		t.Parallel()
 		sub0 := &sdkpb.TriggerSubscription{Id: "trigger-a@1.0.0", Method: "method-a"}
 		sub1 := &sdkpb.TriggerSubscription{Id: "trigger-b@1.0.0", Method: "method-b"}
 
@@ -369,6 +383,7 @@ func TestRegister(t *testing.T) {
 	})
 
 	t.Run("returns an error without registering when the chain gate is closed", func(t *testing.T) {
+		t.Parallel()
 		sub := &sdkpb.TriggerSubscription{Id: "trigger-a:ChainSelector_12345@1.0.0", Method: "method-a"}
 		// No GetTrigger expectation: the gate must deny before the registry is consulted.
 		capReg := regmocks.NewCapabilitiesRegistry(t)
@@ -380,6 +395,7 @@ func TestRegister(t *testing.T) {
 	})
 
 	t.Run("returns an error when a trigger capability isn't found in the registry", func(t *testing.T) {
+		t.Parallel()
 		sub := &sdkpb.TriggerSubscription{Id: "trigger-a@1.0.0", Method: "method-a"}
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		capReg.EXPECT().GetTrigger(mock.Anything, sub.Id).Return(nil, errors.New("not found")).Once()
@@ -391,6 +407,7 @@ func TestRegister(t *testing.T) {
 	})
 
 	t.Run("unregisters already-succeeded handles when one registration fails", func(t *testing.T) {
+		t.Parallel()
 		sub0 := &sdkpb.TriggerSubscription{Id: "trigger-a@1.0.0", Method: "method-a"}
 		sub1 := &sdkpb.TriggerSubscription{Id: "trigger-b@1.0.0", Method: "method-b"}
 
@@ -421,6 +438,7 @@ func TestRegister(t *testing.T) {
 	})
 
 	t.Run("returns an error when the registration timeout limiter fails", func(t *testing.T) {
+		t.Parallel()
 		sub := &sdkpb.TriggerSubscription{Id: "trigger-a@1.0.0", Method: "method-a"}
 		trigger0 := capmocks.NewTriggerCapability(t)
 		capReg := regmocks.NewCapabilitiesRegistry(t)
@@ -436,12 +454,14 @@ func TestRegister(t *testing.T) {
 }
 
 func TestUnregister(t *testing.T) {
+	t.Parallel()
 	const (
 		workflowID    = "wf-id"
 		workflowDonID = uint32(9)
 	)
 
 	t.Run("unregisters every handle and returns zero failures on success", func(t *testing.T) {
+		t.Parallel()
 		trigger0 := capmocks.NewTriggerCapability(t)
 		trigger0.EXPECT().UnregisterTrigger(mock.Anything, mock.MatchedBy(func(req capabilities.TriggerRegistrationRequest) bool {
 			return req.TriggerID == "reg-0" && req.Metadata.WorkflowID == workflowID && req.Metadata.WorkflowDonID == workflowDonID
@@ -459,6 +479,7 @@ func TestUnregister(t *testing.T) {
 	})
 
 	t.Run("counts and logs individual unregister failures", func(t *testing.T) {
+		t.Parallel()
 		trigger0 := capmocks.NewTriggerCapability(t)
 		trigger0.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(errors.New("boom")).Once()
 
@@ -469,12 +490,14 @@ func TestUnregister(t *testing.T) {
 	})
 
 	t.Run("returns zero for an empty handle map", func(t *testing.T) {
+		t.Parallel()
 		failCount := Unregister(t.Context(), logger.Test(t), workflowID, workflowDonID, map[string]*Handle{})
 		assert.Equal(t, 0, failCount)
 	})
 }
 
 func TestRegistrationID_ParseWorkflowID_RoundTrip(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		workflowID   string
@@ -486,6 +509,7 @@ func TestRegistrationID_ParseWorkflowID_RoundTrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			registrationID := RegistrationID(tt.workflowID, tt.triggerIndex)
 
 			got, err := ParseWorkflowID(registrationID)

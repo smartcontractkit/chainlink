@@ -190,11 +190,11 @@ func Register(
 			return nil, nil, nil, fmt.Errorf("invalid chain selector for ID %s: %w", sub.Id, err)
 		}
 		if chainSelector != nil {
-			if err := deps.ChainAllowed.AllowErr(contexts.WithChainSelector(ctx, *chainSelector)); err != nil {
-				if errors.Is(err, limits.ErrorNotAllowed{}) {
-					return nil, nil, nil, fmt.Errorf("unable to subscribe to capability %s: ChainSelector %d: %w", sub.Id, *chainSelector, err)
+			if allowErr := deps.ChainAllowed.AllowErr(contexts.WithChainSelector(ctx, *chainSelector)); allowErr != nil {
+				if errors.Is(allowErr, limits.ErrorNotAllowed{}) {
+					return nil, nil, nil, fmt.Errorf("unable to subscribe to capability %s: ChainSelector %d: %w", sub.Id, *chainSelector, allowErr)
 				}
-				return nil, nil, nil, fmt.Errorf("failed to check access for ChainSelector %d: %w", *chainSelector, err)
+				return nil, nil, nil, fmt.Errorf("failed to check access for ChainSelector %d: %w", *chainSelector, allowErr)
 			}
 		}
 		triggerCap, err := deps.CapRegistry.GetTrigger(ctx, sub.Id)
