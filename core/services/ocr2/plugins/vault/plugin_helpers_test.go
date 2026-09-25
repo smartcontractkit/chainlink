@@ -175,12 +175,12 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 			o.maxIdentifierKeyLengthBytes,
 			o.maxRequestBatchSize,
 		),
-		lifecycle:                    lc,
-		marshalBlob:                  o.marshalBlob,
-		unmarshalBlob:                o.unmarshalBlob,
-		maxObservationBytes:                   maxObs,
-		maxReportsPlusPrecursorBytes:          maxPrec,
-		maxKeyValueModifiedKeys:               maxKVKeys,
+		lifecycle:                              lc,
+		marshalBlob:                            o.marshalBlob,
+		unmarshalBlob:                          o.unmarshalBlob,
+		maxObservationBytes:                    maxObs,
+		maxReportsPlusPrecursorBytes:           maxPrec,
+		maxKeyValueModifiedKeys:                maxKVKeys,
 		maxKeyValueModifiedKeysPlusValuesBytes: maxKVBytes,
 	}
 }

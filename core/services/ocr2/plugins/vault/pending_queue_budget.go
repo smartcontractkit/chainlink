@@ -299,7 +299,8 @@ func storedSecretWireSize(n int) int {
 	if n == 0 {
 		return 0
 	}
-	return 1 + protowire.SizeVarint(uint64(n)) + n
+	// n is a ciphertext byte length and is never negative.
+	return 1 + protowire.SizeVarint(uint64(n)) + n //nolint:gosec // safe conversion: n >= 0
 }
 
 // mandatoryPendingQueueRewriteFloor returns the exact minimum write-set cost

@@ -1371,7 +1371,7 @@ func requireVaultListedKeysEventually(t *testing.T, auth vaultRequestAuth, reque
 			return listed
 		}
 		if time.Now().After(deadline) {
-			require.Fail(t, "timed out waiting for a complete vault list response for owner %s (namespace %s)", requestOwner, namespace)
+			require.Fail(t, "timed out waiting for a complete vault list response", "owner: %s (namespace %s)", requestOwner, namespace)
 			return nil
 		}
 		time.Sleep(interval)
