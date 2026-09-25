@@ -245,11 +245,15 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		return nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 	}
+	subscribeHelper := NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID))
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
+	}, subscribeHelper)
+	if subscribeHelper.SecretsCalled() {
+		e.metrics.IncrementSubscribeSecretsCallCounter(ctx)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute subscribe: %w", err)
 	}

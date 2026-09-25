@@ -87,6 +87,8 @@ type EngineMetrics struct {
 
 	limitReadFallbackTotal    metric.Int64Counter
 	limitCheckUnenforcedTotal metric.Int64Counter
+
+	subscribeSecretsCallCounter metric.Int64Counter
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -466,6 +468,14 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register limit check unenforced counter: %w", err)
+	}
+
+	em.subscribeSecretsCallCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_subscribe_secrets_calls_total",
+		metric.WithDescription("Count of Subscribe executions of a WASM workflow that made at least one secrets call"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register subscribe secrets call counter: %w", err)
 	}
 
 	return em, nil
@@ -862,4 +872,14 @@ func (c WorkflowsMetricLabeler) IncrementLimitCheckUnenforcedCounter(ctx context
 	lc := c.With(platform.KeyLimitKey, limitKey)
 	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()
 	lc.em.limitCheckUnenforcedTotal.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementSubscribeSecretsCallCounter records one Subscribe execution (WASM
+// workflow trigger subscription) that made at least one secrets call. Secrets
+// calls are not blocked during Subscribe like capability calls and user
+// metrics are, so this tracks how often workflows rely on that behavior.
+// Labeled with workflowID via the caller's WorkflowsMetricLabeler.
+func (c WorkflowsMetricLabeler) IncrementSubscribeSecretsCallCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.subscribeSecretsCallCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

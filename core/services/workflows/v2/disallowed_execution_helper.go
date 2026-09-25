@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -17,15 +18,39 @@ type disallowedExecutionHelper struct {
 	UserLogChan chan<- *protoevents.LogLine
 	TimeProvider
 	SecretsFetcher
+
+	// secretsCalled records whether GetSecrets was invoked at least once
+	// through this helper, so callers (e.g. Subscribe) can report a metric.
+	secretsCalled *atomic.Bool
 }
 
 func NewDisallowedExecutionHelper(lggr logger.Logger, userLogChan chan<- *protoevents.LogLine, timeProvider TimeProvider, secretsFetcher SecretsFetcher) *disallowedExecutionHelper {
+	secretsCalled := &atomic.Bool{}
 	return &disallowedExecutionHelper{
 		lggr:           lggr,
 		UserLogChan:    userLogChan,
 		TimeProvider:   timeProvider,
-		SecretsFetcher: secretsFetcher,
+		SecretsFetcher: &secretsCallTrackingFetcher{SecretsFetcher: secretsFetcher, called: secretsCalled},
+		secretsCalled:  secretsCalled,
 	}
+}
+
+// SecretsCalled reports whether GetSecrets was invoked at least once through
+// this helper.
+func (d disallowedExecutionHelper) SecretsCalled() bool {
+	return d.secretsCalled.Load()
+}
+
+// secretsCallTrackingFetcher wraps a SecretsFetcher to record whether it was
+// ever called, without altering its behavior.
+type secretsCallTrackingFetcher struct {
+	SecretsFetcher
+	called *atomic.Bool
+}
+
+func (f *secretsCallTrackingFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	f.called.Store(true)
+	return f.SecretsFetcher.GetSecrets(ctx, request)
 }
 
 var _ host.ExecutionHelper = &disallowedExecutionHelper{}
