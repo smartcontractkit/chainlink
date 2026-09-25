@@ -21,6 +21,7 @@ type ShardAssignmentConfig struct {
 const (
 	ConfigTypeSettings        = "settings"
 	ConfigTypeShardAssignment = "shard_assignment"
+	ConfigTypeCapRegistry     = "capabilities_registry"
 )
 
 func ParseShardAssignmentConfig(raw string) (*ShardAssignmentConfig, error) {

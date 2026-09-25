@@ -988,4 +988,11 @@ type CRESettingsSpec struct {
 
 	Hash     string `toml:"hash"`
 	Settings string `toml:"settings"`
+
+	// ConfigType selects how the payload is interpreted: "settings" (default),
+	// "shard_assignment", or "capabilities_registry". When empty it falls back to a
+	// config_type key embedded in Settings, then to "settings".
+	ConfigType string `toml:"config_type"`
+	// OffchainConfig carries the proto-JSON payload for config_type=capabilities_registry.
+	OffchainConfig string `toml:"offchain_config"`
 }

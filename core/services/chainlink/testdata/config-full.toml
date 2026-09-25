@@ -357,6 +357,7 @@ URL = 'wss://localhost:8081/node'
 
 [Capabilities.Local]
 RegistryBasedLaunchAllowlist = ['^cron@1\.0\.0$', '^http-action@.*$']
+UseOffchainRegistry = true
 
 [Capabilities.Local.Capabilities]
 [Capabilities.Local.Capabilities.'cron@1.0.0']

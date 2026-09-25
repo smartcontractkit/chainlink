@@ -1,6 +1,8 @@
 // cresettings jobs are used to distribute updates for CRE settings overrides.
 // See: https://pkg.go.dev/github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings
-// Only one Job of type CRESettings may run at a time per config type. Attempts to create a second job of the same config type will fail.
+// At most one CRESettings job per config_type may run at a time; a second job of the same
+// config_type will fail. Different config_types (settings, shard_assignment,
+// capabilities_registry) coexist.
 package cresettings
 
 import (
@@ -11,14 +13,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings) *delegate {
+func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings, globalConfig *globalconfig.GlobalConfig) *delegate {
 	return &delegate{
 		lggr:                    lggr,
 		atomicSettings:          atomicSettings,
 		shardAssignmentSettings: shardAssignmentSettings,
+		globalConfig:            globalConfig,
 	}
 }
 
@@ -28,9 +32,11 @@ type delegate struct {
 	lggr                    logger.Logger
 	atomicSettings          *loop.AtomicSettings
 	shardAssignmentSettings *loop.AtomicSettings
+	globalConfig            *globalconfig.GlobalConfig
 
-	// activeJobIDs maps config type to the active job ID.
-	activeJobIDs sync.Map
+	// activeJobIDs tracks the active job ID per config_type, so one job of each config_type
+	// can run concurrently while rejecting a second job of the same config_type.
+	activeJobIDs sync.Map // configType(string) -> jobID(int32)
 }
 
 func (d *delegate) JobType() job.Type {
@@ -43,7 +49,7 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 	spec := j.CRESettingsSpec
 	configType := d.configType(spec)
 	switch configType {
-	case ConfigTypeSettings, ConfigTypeShardAssignment:
+	case ConfigTypeSettings, ConfigTypeShardAssignment, ConfigTypeCapRegistry:
 	default:
 		return nil, fmt.Errorf("unknown config_type %q", configType)
 	}
@@ -62,6 +68,18 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 		}
 		d.lggr.Infow("Updated shard assignment config", "hash", spec.Hash)
 
+	case ConfigTypeCapRegistry:
+		if d.globalConfig == nil {
+			return nil, fmt.Errorf("no global config store configured for config_type %q", configType)
+		}
+		if err := d.globalConfig.Store(globalconfig.Update{
+			Raw:  spec.OffchainConfig,
+			Hash: spec.Hash,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to store offchain capabilities registry config: %w", err)
+		}
+		d.lggr.Infow("Updated offchain capabilities registry config", "hash", spec.Hash)
+
 	case ConfigTypeSettings:
 		if err := d.atomicSettings.Store(core.SettingsUpdate{
 			Settings: spec.Settings,
@@ -72,6 +90,7 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 		d.lggr.Infow("Updated settings", "hash", spec.Hash, "settings", spec.Settings)
 	}
 
+	d.activeJobIDs.Store(configType, j.ID)
 	return nil, nil
 }
 
@@ -88,12 +107,11 @@ func (d *delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 }
 
 func (d *delegate) configType(spec *job.CRESettingsSpec) string {
-	if spec == nil || spec.Settings == "" {
+	if spec == nil {
 		return ConfigTypeSettings
 	}
-	if ct, ok := extractConfigType(spec.Settings); ok {
-		return ct
-	}
-	d.lggr.Infow("No config_type specified, defaulting to settings")
-	return ConfigTypeSettings
+	// Must match validate.go's resolveConfigType: the top-level ConfigType field wins (used by
+	// capabilities_registry, whose payload lives in OffchainConfig with empty Settings), then a
+	// config_type key embedded in Settings (shard_assignment), else the default settings.
+	return resolveConfigType(*spec)
 }

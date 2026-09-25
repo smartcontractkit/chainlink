@@ -422,6 +422,10 @@ func (l *localCapabilities) RegistryBasedLaunchAllowlist() []string {
 	return l.c.RegistryBasedLaunchAllowlist
 }
 
+func (l *localCapabilities) UseOffchainRegistry() bool {
+	return l.c.UseOffchainRegistry != nil && *l.c.UseOffchainRegistry
+}
+
 func (l *localCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
 	if l.c.Capabilities == nil {
 		return nil

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -108,4 +109,34 @@ Foo = "bar"
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestValidatedCRESettingsSpec_CapabilitiesRegistry(t *testing.T) {
+	t.Parallel()
+
+	specFn := func(offchain string) string {
+		return fmt.Sprintf(`type = "cresettings"
+schemaVersion = 1
+externalJobID = "7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"
+config_type = "capabilities_registry"
+offchain_config = '''%s'''`, offchain)
+	}
+
+	t.Run("valid", func(t *testing.T) {
+		t.Parallel()
+		got, err := ValidatedCRESettingsSpec(specFn(`{"version":1,"dons":{}}`))
+		require.NoError(t, err)
+		require.NotNil(t, got.CRESettingsSpec)
+		assert.Equal(t, ConfigTypeCapRegistry, got.CRESettingsSpec.ConfigType)
+		assert.Equal(t, `{"version":1,"dons":{}}`, got.CRESettingsSpec.OffchainConfig)
+		// Hash is computed over OffchainConfig (not Settings).
+		assert.NotEmpty(t, got.CRESettingsSpec.Hash)
+		assert.Empty(t, got.CRESettingsSpec.Settings)
+	})
+
+	t.Run("invalid payload", func(t *testing.T) {
+		t.Parallel()
+		_, err := ValidatedCRESettingsSpec(specFn(`not json`))
+		require.ErrorContains(t, err, "invalid capabilities_registry config")
+	})
 }
