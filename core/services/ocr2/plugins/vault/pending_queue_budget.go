@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
@@ -97,7 +98,7 @@ func (t *kvWriteBudgetTracker) consumed() kvWriteCost {
 // bound on the realized cost: contributions carrying errors, undecodable
 // ciphertext, duplicate or already-present identifiers, and owners over
 // capacity all fail during processing before any write.
-func projectedProcessedWriteCost(ctx context.Context, store ReadKVStore, item *vaultcommon.StoredPendingQueueItem, maxSecretsPerOwner int) kvWriteCost {
+func (r *ReportingPlugin) projectedProcessedWriteCost(ctx context.Context, store ReadKVStore, item *vaultcommon.StoredPendingQueueItem) kvWriteCost {
 	if item == nil || item.Item == nil {
 		return kvWriteCost{}
 	}
@@ -107,7 +108,7 @@ func projectedProcessedWriteCost(ctx context.Context, store ReadKVStore, item *v
 	}
 	switch p := payload.(type) {
 	case *vaultcommon.CreateSecretsRequest:
-		return createSecretsProjectedWriteCost(ctx, store, p, maxSecretsPerOwner)
+		return r.createSecretsProjectedWriteCost(ctx, store, p)
 	case *vaultcommon.UpdateSecretsRequest:
 		return updateSecretsProjectedWriteCost(p)
 	case *vaultcommon.DeleteSecretsRequest:
@@ -122,7 +123,7 @@ func projectedProcessedWriteCost(ctx context.Context, store ReadKVStore, item *v
 // createSecretsProjectedWriteCost projects the writes of a create request:
 // one secret record per capacity-admitted new identifier plus one owner
 // metadata rewrite per owner that gains an identifier.
-func createSecretsProjectedWriteCost(ctx context.Context, store ReadKVStore, req *vaultcommon.CreateSecretsRequest, maxSecretsPerOwner int) kvWriteCost {
+func (r *ReportingPlugin) createSecretsProjectedWriteCost(ctx context.Context, store ReadKVStore, req *vaultcommon.CreateSecretsRequest) kvWriteCost {
 	// TODO: Remove secretsByOwner once we change EncryptedSecrets to inherit the owner from
 	// the top level request instead of defining their own owner field
 	secretsByOwner := map[string][]*vaultcommon.EncryptedSecret{}
@@ -135,7 +136,7 @@ func createSecretsProjectedWriteCost(ctx context.Context, store ReadKVStore, req
 
 	cost := kvWriteCost{}
 	for owner, secrets := range secretsByOwner {
-		cost = cost.add(createOwnerProjectedWriteCost(ctx, store, owner, secrets, maxSecretsPerOwner))
+		cost = cost.add(r.createOwnerProjectedWriteCost(ctx, store, owner, secrets))
 	}
 	return cost
 }
@@ -146,7 +147,16 @@ func createSecretsProjectedWriteCost(ctx context.Context, store ReadKVStore, req
 // they cost nothing; admitted identifiers each write a secret record, and the
 // metadata record's intermediate rewrites collapse in the write set to the
 // final projected content.
-func createOwnerProjectedWriteCost(ctx context.Context, store ReadKVStore, owner string, secrets []*vaultcommon.EncryptedSecret, maxSecretsPerOwner int) kvWriteCost {
+func (r *ReportingPlugin) createOwnerProjectedWriteCost(ctx context.Context, store ReadKVStore, owner string, secrets []*vaultcommon.EncryptedSecret) kvWriteCost {
+	// MaxSecretsPerOwner is a PerOwner (tenant-scoped) setting: the limit lookup,
+	// like the capacity check during processing, requires the owner scope.
+	maxSecretsPerOwner, err := r.cfg.MaxSecretsPerOwner.Limit(contexts.WithCRE(ctx, contexts.CRE{Owner: owner}))
+	if err != nil {
+		// The same scoped limit lookup fails the capacity check during
+		// processing before any write.
+		return kvWriteCost{}
+	}
+
 	md, err := store.GetMetadata(ctx, owner)
 	if err != nil {
 		return kvWriteCost{}

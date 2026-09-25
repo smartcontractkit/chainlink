@@ -187,24 +187,27 @@ func TestProjectedProcessedWriteCost(t *testing.T) {
 
 	t.Run("nil and unprocessable items cost nothing", func(t *testing.T) {
 		t.Parallel()
+		r := newTestReportingPlugin(t, withMaxSecretsPerOwner(maxSecretsPerOwner))
 		store := mdStore(t, nil)
-		assert.Equal(t, kvWriteCost{}, projectedProcessedWriteCost(t.Context(), store, nil, maxSecretsPerOwner))
-		assert.Equal(t, kvWriteCost{}, projectedProcessedWriteCost(t.Context(), store, &vaultcommon.StoredPendingQueueItem{Id: "x"}, maxSecretsPerOwner))
+		assert.Equal(t, kvWriteCost{}, r.projectedProcessedWriteCost(t.Context(), store, nil))
+		assert.Equal(t, kvWriteCost{}, r.projectedProcessedWriteCost(t.Context(), store, &vaultcommon.StoredPendingQueueItem{Id: "x"}))
 		bogus := &vaultcommon.StoredPendingQueueItem{Id: "x", Item: &anypb.Any{TypeUrl: "bogus"}}
-		assert.Equal(t, kvWriteCost{}, projectedProcessedWriteCost(t.Context(), store, bogus, maxSecretsPerOwner))
+		assert.Equal(t, kvWriteCost{}, r.projectedProcessedWriteCost(t.Context(), store, bogus))
 	})
 
 	t.Run("read-only request types cost nothing", func(t *testing.T) {
 		t.Parallel()
+		r := newTestReportingPlugin(t, withMaxSecretsPerOwner(maxSecretsPerOwner))
 		store := mdStore(t, nil)
 		get := newItem(&vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id("o", "k")}}})
-		assert.Equal(t, kvWriteCost{}, projectedProcessedWriteCost(t.Context(), store, get, maxSecretsPerOwner))
+		assert.Equal(t, kvWriteCost{}, r.projectedProcessedWriteCost(t.Context(), store, get))
 		list := newItem(&vaultcommon.ListSecretIdentifiersRequest{RequestId: "r", Owner: "o"})
-		assert.Equal(t, kvWriteCost{}, projectedProcessedWriteCost(t.Context(), store, list, maxSecretsPerOwner))
+		assert.Equal(t, kvWriteCost{}, r.projectedProcessedWriteCost(t.Context(), store, list))
 	})
 
 	t.Run("create projects admitted adds plus the metadata rewrite", func(t *testing.T) {
 		t.Parallel()
+		r := newTestReportingPlugin(t, withMaxSecretsPerOwner(maxSecretsPerOwner))
 		store := mdStore(t, nil)
 		create := newItem(&vaultcommon.CreateSecretsRequest{
 			RequestId: "r",
@@ -217,11 +220,12 @@ func TestProjectedProcessedWriteCost(t *testing.T) {
 			add(secretRecordCost(id("o2", "k1"))).
 			add(metadataCost("o1", id("o1", "k1"), id("o1", "k2"))).
 			add(metadataCost("o2", id("o2", "k1")))
-		assert.Equal(t, want, projectedProcessedWriteCost(t.Context(), store, create, maxSecretsPerOwner))
+		assert.Equal(t, want, r.projectedProcessedWriteCost(t.Context(), store, create))
 	})
 
 	t.Run("create skips already-present identifiers and capacity", func(t *testing.T) {
 		t.Parallel()
+		r := newTestReportingPlugin(t, withMaxSecretsPerOwner(2))
 		existing := id("o1", "k0")
 		store := mdStore(t, map[string]*vaultcommon.StoredMetadata{
 			"o1": {SecretIdentifiers: []*vaultcommon.SecretIdentifier{existing}},
@@ -236,11 +240,12 @@ func TestProjectedProcessedWriteCost(t *testing.T) {
 		})
 		want := secretRecordCost(id("o1", "k1")).
 			add(metadataCost("o1", existing, id("o1", "k1")))
-		assert.Equal(t, want, projectedProcessedWriteCost(t.Context(), store, create, 2))
+		assert.Equal(t, want, r.projectedProcessedWriteCost(t.Context(), store, create))
 	})
 
 	t.Run("create at capacity writes nothing", func(t *testing.T) {
 		t.Parallel()
+		r := newTestReportingPlugin(t, withMaxSecretsPerOwner(1))
 		store := mdStore(t, map[string]*vaultcommon.StoredMetadata{
 			"o1": {SecretIdentifiers: []*vaultcommon.SecretIdentifier{id("o1", "k0")}},
 		})
@@ -248,22 +253,24 @@ func TestProjectedProcessedWriteCost(t *testing.T) {
 			RequestId:        "r",
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{encSecret("o1", "k1")},
 		})
-		assert.Equal(t, kvWriteCost{}, projectedProcessedWriteCost(t.Context(), store, create, 1))
+		assert.Equal(t, kvWriteCost{}, r.projectedProcessedWriteCost(t.Context(), store, create))
 	})
 
 	t.Run("update projects secret records only", func(t *testing.T) {
 		t.Parallel()
+		r := newTestReportingPlugin(t, withMaxSecretsPerOwner(maxSecretsPerOwner))
 		store := mdStore(t, nil)
 		update := newItem(&vaultcommon.UpdateSecretsRequest{
 			RequestId:        "r",
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{encSecret("o1", "k1"), encSecret("o2", "k1")},
 		})
 		want := secretRecordCost(id("o1", "k1")).add(secretRecordCost(id("o2", "k1")))
-		assert.Equal(t, want, projectedProcessedWriteCost(t.Context(), store, update, maxSecretsPerOwner))
+		assert.Equal(t, want, r.projectedProcessedWriteCost(t.Context(), store, update))
 	})
 
 	t.Run("delete projects key deletes plus the metadata rewrite", func(t *testing.T) {
 		t.Parallel()
+		r := newTestReportingPlugin(t, withMaxSecretsPerOwner(maxSecretsPerOwner))
 		k1, k2, k3 := id("o1", "k1"), id("o1", "k2"), id("o2", "k3")
 		store := mdStore(t, map[string]*vaultcommon.StoredMetadata{
 			"o1": {SecretIdentifiers: []*vaultcommon.SecretIdentifier{k1, k2}},
@@ -278,11 +285,12 @@ func TestProjectedProcessedWriteCost(t *testing.T) {
 			add(metadataCost("o2")).
 			add(kvWriteCost{keys: 1, bytes: len(keyPrefix + vaulttypes.KeyFor(k1))}).
 			add(kvWriteCost{keys: 1, bytes: len(keyPrefix + vaulttypes.KeyFor(k3))})
-		assert.Equal(t, want, projectedProcessedWriteCost(t.Context(), store, del, maxSecretsPerOwner))
+		assert.Equal(t, want, r.projectedProcessedWriteCost(t.Context(), store, del))
 	})
 
 	t.Run("delete of absent ids costs nothing", func(t *testing.T) {
 		t.Parallel()
+		r := newTestReportingPlugin(t, withMaxSecretsPerOwner(maxSecretsPerOwner))
 		store := mdStore(t, map[string]*vaultcommon.StoredMetadata{
 			"o1": {SecretIdentifiers: []*vaultcommon.SecretIdentifier{id("o1", "k0")}},
 		})
@@ -290,11 +298,12 @@ func TestProjectedProcessedWriteCost(t *testing.T) {
 			RequestId: "r",
 			Ids:       []*vaultcommon.SecretIdentifier{id("ghost", "k")},
 		})
-		assert.Equal(t, kvWriteCost{}, projectedProcessedWriteCost(t.Context(), store, del, maxSecretsPerOwner))
+		assert.Equal(t, kvWriteCost{}, r.projectedProcessedWriteCost(t.Context(), store, del))
 	})
 
 	t.Run("metadata read errors cost nothing", func(t *testing.T) {
 		t.Parallel()
+		r := newTestReportingPlugin(t, withMaxSecretsPerOwner(maxSecretsPerOwner))
 		store := newTestReadStore(t, &failingReadWriter{err: errors.New("boom")})
 		create := newItem(&vaultcommon.CreateSecretsRequest{
 			RequestId:        "r",
@@ -304,8 +313,8 @@ func TestProjectedProcessedWriteCost(t *testing.T) {
 			RequestId: "r",
 			Ids:       []*vaultcommon.SecretIdentifier{id("o1", "k1")},
 		})
-		assert.Equal(t, kvWriteCost{}, projectedProcessedWriteCost(t.Context(), store, create, maxSecretsPerOwner))
-		assert.Equal(t, kvWriteCost{}, projectedProcessedWriteCost(t.Context(), store, del, maxSecretsPerOwner))
+		assert.Equal(t, kvWriteCost{}, r.projectedProcessedWriteCost(t.Context(), store, create))
+		assert.Equal(t, kvWriteCost{}, r.projectedProcessedWriteCost(t.Context(), store, del))
 	})
 }
 
@@ -863,7 +872,10 @@ func newBudgetDeleteFixture(t *testing.T, maxSecretsPerOwner int) budgetDeleteFi
 	item := &vaultcommon.StoredPendingQueueItem{Id: vaulttypes.KeyFor(ids[0]), Item: anyReq}
 	require.NoError(t, seed.WritePendingQueue(t.Context(), []*vaultcommon.StoredPendingQueueItem{item}))
 
-	wc := projectedProcessedWriteCost(t.Context(), newTestReadStore(t, underlying), item, maxSecretsPerOwner)
+	// A throwaway plugin supplies the config (its MaxSecretsPerOwner limit is
+	// read owner-scoped during the projection); deletes themselves ignore it.
+	projectionR := newTestReportingPlugin(t, withMaxSecretsPerOwner(maxSecretsPerOwner))
+	wc := projectionR.projectedProcessedWriteCost(t.Context(), newTestReadStore(t, underlying), item)
 	require.Positive(t, wc.bytes)
 	return budgetDeleteFixture{
 		pk:        pk,

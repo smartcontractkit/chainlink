@@ -60,6 +60,7 @@ const (
 	vaultDefaultConfigPath                   = "/configs/workflow-gateway-capabilities-don.toml"
 	vaultWorkflowDONBindingEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-workflow-don-binding-enabled.toml"
 	vaultStallPurgeConfigPath                = "/configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"
+	vaultKVBudgetConfigPath                  = "/configs/workflow-gateway-capabilities-don-vault-kv-budget.toml"
 	vaultJWTIssuerListenAddr                 = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
@@ -298,6 +299,12 @@ func getVaultStallPurgeTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultStallPurgeConfigPath)
 }
 
+func getVaultKVBudgetTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultKVBudgetConfigPath)
+}
+
 func getVaultWorkflowDONBindingEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
@@ -306,6 +313,10 @@ func getVaultWorkflowDONBindingEnabledTestConfig(t *testing.T) *ttypes.TestConfi
 
 func isVaultStallPurgeTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-stall-purge")
+}
+
+func isVaultKVBudgetTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-kv-budget")
 }
 
 func isVaultWorkflowDONBindingEnabledTopology(topologyName string) bool {

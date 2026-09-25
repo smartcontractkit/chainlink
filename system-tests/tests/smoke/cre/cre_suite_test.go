@@ -93,6 +93,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			if isVaultStallPurgeTopology(topology) {
 				vaultConfig = getVaultStallPurgeTestConfig(t)
 				allowlistSubtestName = "pending_queue_stall_purge"
+			} else if isVaultKVBudgetTopology(topology) {
+				vaultConfig = getVaultKVBudgetTestConfig(t)
+				allowlistSubtestName = "pending_queue_kv_write_budget"
 			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
 				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
@@ -111,9 +114,13 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 					ExecuteVaultPendingQueueStallPurgeSmokeTest(t, fixture, allowlistEnv)
 					return
 				}
+				if isVaultKVBudgetTopology(topology) {
+					ExecuteVaultKVBudgetSmokeTest(t, fixture, allowlistEnv)
+					return
+				}
 				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
 			})
-			if isVaultStallPurgeTopology(topology) {
+			if isVaultStallPurgeTopology(topology) || isVaultKVBudgetTopology(topology) {
 				return
 			}
 			t.Run("jwt_auth", func(t *testing.T) {

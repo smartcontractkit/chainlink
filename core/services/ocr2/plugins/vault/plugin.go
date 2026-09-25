@@ -1583,11 +1583,6 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		return r.purgeStalledPendingQueue(ctx, l, writeKV, stallSignalCount)
 	}
 
-	maxSecretsPerOwner, mspErr := r.cfg.MaxSecretsPerOwner.Limit(ctx)
-	if mspErr != nil {
-		return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not fetch max secrets per owner limit: %w", mspErr)
-	}
-
 	// ---
 	// Phase 1: Process requests from the pending queue by aggregating observations.
 	// ---
@@ -1754,7 +1749,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// the mandatory pending-queue rewrite floor. Deferred items are
 		// dropped from the committed queue in Phase 2 and re-broadcast from
 		// node-local queues next round.
-		if cost := projectedProcessedWriteCost(ctx, writeKV, pendingQueueByID[id], maxSecretsPerOwner); cost.keys > 0 || cost.bytes > 0 {
+		if cost := r.projectedProcessedWriteCost(ctx, writeKV, pendingQueueByID[id]); cost.keys > 0 || cost.bytes > 0 {
 			projected := budget.consumed().add(cost).add(mandatoryPendingQueueRewriteFloor(len(pendingQueueItems)))
 			if projected.keys > r.maxKeyValueModifiedKeys || projected.bytes > r.maxKeyValueModifiedKeysPlusValuesBytes {
 				// The gate trips before this item is processed, so the item

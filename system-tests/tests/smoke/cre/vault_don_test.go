@@ -933,6 +933,34 @@ func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {
 	}
 }
 
+// TestVaultKVBudgetTopology_LoadExpectedConfig pins the vault-kv-budget topology's premise:
+// every nodeset (the vault plugin runs on the capabilities DON) must lower
+// VaultMaxKeyValueModifiedKeys to 12 via CL_CRE_SETTINGS_DEFAULT so the smoke test's
+// create batches deterministically straddle the per-round write-set budget boundary
+// (9 secrets + metadata + queue rewrite floor = 12 keys fit exactly; 10 secrets = 13
+// defer), and must raise VaultMaxBlobPayloadSizeLimit so the blob-cap limiter can
+// never preempt the budget gate for those batches. The vault plugin resolves its
+// limits once at startup, so the overrides must be baked into the node env —
+// runtime CRE settings overrides never reach the running plugin.
+func TestVaultKVBudgetTopology_LoadExpectedConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := &envconfig.Config{}
+	require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, vaultKVBudgetConfigPath).EnvironmentConfigPath))
+
+	require.NotEmpty(t, cfg.NodeSets)
+	for _, nodeSet := range cfg.NodeSets {
+		settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
+		require.NotEmpty(t, settingsRaw, "nodeset %s must carry CRE settings defaults", nodeSet.Name)
+		var configuredSettings map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal([]byte(settingsRaw), &configuredSettings))
+		require.JSONEq(t, `"12"`, string(configuredSettings["VaultMaxKeyValueModifiedKeys"]),
+			"nodeset %s must lower VaultMaxKeyValueModifiedKeys to 12", nodeSet.Name)
+		require.JSONEq(t, `"64kb"`, string(configuredSettings["VaultMaxBlobPayloadSizeLimit"]),
+			"nodeset %s must raise VaultMaxBlobPayloadSizeLimit to 64kb", nodeSet.Name)
+	}
+}
+
 // TestMustMintVaultJWTForRequest_UsesRawRequestDigest ensures the bearer token binds the digest of
 // the exact JSON-RPC params wire body (canonical json.Marshal / jsonrpc.Request), matching what
 // the gateway verifies—without relying on deprecated top-level identity fields inside params.
@@ -1139,4 +1167,322 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 	framework.L.Info().Msgf("[list] %s correctly rejected: %s", "invalid namespace", string(respBody))
 
 	framework.L.Info().Msg("All identifier validation checks passed")
+}
+
+// ExecuteVaultKVBudgetSmokeTest exercises the StateTransition KV write-budget gates
+// end to end on a vault DON configured with a small VaultMaxKeyValueModifiedKeys
+// budget (the vault-kv-budget topology). The design is deterministic per-request
+// boundary arithmetic rather than a concurrent flood: the gateway connector's
+// readLoop delivers a node's vault requests strictly sequentially (each request
+// blocks through its full OCR round trip), so gateway traffic can never deepen the
+// pending queue — a flood only adds wall-clock time. With
+// VaultMaxKeyValueModifiedKeys=12 and a single queue item (mandatory rewrite floor
+// of 2 keys), a 9-secret create projects exactly 12 modified keys (9 secret
+// records + 1 owner metadata record + floor) and must process, while a 10-secret
+// create projects 13 and must defer every round — logging the deferral — without
+// failing rounds or wedging the DON.
+func ExecuteVaultKVBudgetSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+	t.Helper()
+
+	gwURL := fixture.GatewayURL.String()
+	vaultParsedPublicKey := mustVaultPublicKey(t, fixture.VaultPublicKey)
+
+	sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+	workflowOwnerAddress := sc.MustGetRootKeyAddress()
+	owner := workflowOwnerAddress.Hex()
+
+	wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+	require.NoError(t, err)
+	requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+
+	auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
+
+	createEnc, err := vaultutils.EncryptSecretWithWorkflowOwner("kv-budget-smoke-value", vaultParsedPublicKey, workflowOwnerAddress)
+	require.NoError(t, err)
+	namespace := "main"
+
+	secretIDs := func(prefix string, n int) []string {
+		ids := make([]string, n)
+		for i := range n {
+			ids[i] = uniqueVaultSecretID(fmt.Sprintf("%s%d", prefix, i))
+		}
+		return ids
+	}
+
+	t.Run("exact_fit_batch_create_processes", func(t *testing.T) {
+		// 9 secret records + 1 owner metadata record + the mandatory queue rewrite
+		// floor (2 keys) = 12 modified keys: exactly the configured budget, so the
+		// gate must admit and process the whole batch in one round.
+		ids := secretIDs("kvbudgetfit", 9)
+		requireVaultBatchCreateEventually(t, auth, owner, createEnc, ids, gwURL, namespace, 120*time.Second, 2*time.Second)
+		listed := requireVaultListedKeysEventually(t, auth, owner, gwURL, namespace, 120*time.Second, 2*time.Second)
+		for _, id := range ids {
+			require.Contains(t, listed, id, "exact-fit batch secret should exist after processing")
+		}
+	})
+
+	t.Run("over_budget_batch_create_defers", func(t *testing.T) {
+		// 10 secret records + 1 owner metadata record + floor = 13 modified keys
+		// > 12: the batch can never fit a single round's write set, so it must
+		// defer every round (re-broadcast until request TTL) instead of failing
+		// rounds. The gateway gives up relaying after its request timeout; the
+		// proof of deferral is the secrets never existing plus the deferral logs
+		// asserted below.
+		ids := secretIDs("kvbudgetover", 10)
+		submitVaultKVBudgetOverBudgetCreate(t, auth, owner, createEnc, ids, gwURL, namespace)
+		listed := requireVaultListedKeysEventually(t, auth, owner, gwURL, namespace, 120*time.Second, 2*time.Second)
+		for _, id := range ids {
+			require.NotContains(t, listed, id, "over-budget batch secret must never be created")
+		}
+	})
+
+	t.Run("kv_budget_deferral_observed_in_docker_logs", func(t *testing.T) {
+		assertVaultKVBudgetDeferralObservedInDockerLogs(t)
+	})
+
+	// The DON is un-wedged while the over-budget batch sits deferred in the queue:
+	// a normal single-secret create (2 records + floor = 4 keys) still succeeds.
+	t.Run("valid_request_succeeds_after_over_budget_deferral", func(t *testing.T) {
+		recoverySecretID := uniqueVaultSecretID("afterkvbudget")
+		recoveryEnc, err := encryptVaultSecretForOwner(t, "secret-after-kv-budget-drain", vaultParsedPublicKey, workflowOwnerAddress)
+		require.NoError(t, err)
+		executeVaultAllowListSecretsCreateTest(t, recoveryEnc, recoverySecretID, owner, owner, gwURL, []string{"main"}, sc, wfReg)
+		executeVaultSecretsListTest(t, recoverySecretID, owner, owner, gwURL, "main", sc, wfReg)
+	})
+}
+
+// buildVaultKVBudgetBatchSecrets builds one encrypted secret per secret ID in the
+// namespace, all sharing the same ciphertext.
+func buildVaultKVBudgetBatchSecrets(secretIDs []string, owner, encryptedValue, namespace string) []*vault_helpers.EncryptedSecret {
+	secrets := make([]*vault_helpers.EncryptedSecret, len(secretIDs))
+	for i, id := range secretIDs {
+		secrets[i] = &vault_helpers.EncryptedSecret{
+			Id:             &vault_helpers.SecretIdentifier{Key: id, Namespace: namespace, Owner: owner},
+			EncryptedValue: encryptedValue,
+		}
+	}
+	return secrets
+}
+
+// requireVaultBatchCreateEventually submits an n-secret create batch (one request)
+// until it processes successfully. Each attempt uses a fresh, freshly-allowlisted
+// request; a gateway-to-DON timeout or transient error is retried, and per-secret
+// "key already exists" responses from a prior attempt count as processed.
+func requireVaultBatchCreateEventually(t *testing.T, auth vaultRequestAuth, owner, encryptedValue string, secretIDs []string, gatewayURL, namespace string, timeout, interval time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for {
+		if tryVaultBatchCreate(t, auth, owner, encryptedValue, secretIDs, gatewayURL, namespace) {
+			return
+		}
+		if time.Now().After(deadline) {
+			require.Fail(t, "timed out waiting for create batch to process",
+				"expected %d secrets for owner %s to be created", len(secretIDs), owner)
+			return
+		}
+		time.Sleep(interval)
+	}
+}
+
+func tryVaultBatchCreate(t *testing.T, auth vaultRequestAuth, owner, encryptedValue string, secretIDs []string, gatewayURL, namespace string) bool {
+	t.Helper()
+
+	requestID := uuid.New().String()
+	secretsCreateRequest := vault_helpers.CreateSecretsRequest{
+		RequestId:        requestID,
+		EncryptedSecrets: buildVaultKVBudgetBatchSecrets(secretIDs, owner, encryptedValue, namespace),
+	}
+	jsonRequest := newVaultJSONRequest(t, requestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse, err := trySendVaultSignedOCRRequestToGateway(gatewayURL, jsonRequest)
+	if err != nil {
+		framework.L.Info().Str("requestID", requestID).Err(err).Msg("vault create batch attempt failed; retrying with a fresh request")
+		return false
+	}
+	if jsonResponse.ID == "" {
+		// Gateway-to-DON timeout; retry with a fresh request.
+		return false
+	}
+
+	createResp := vault_helpers.CreateSecretsResponse{}
+	if err := protojson.Unmarshal(jsonResponse.Result.Payload, &createResp); err != nil {
+		return false
+	}
+	if len(createResp.Responses) != len(secretIDs) {
+		return false
+	}
+	processed := true
+	for _, r := range createResp.Responses {
+		if !r.Success && !strings.Contains(r.Error, "already exists") {
+			processed = false
+		}
+	}
+	if processed {
+		framework.L.Info().Int("secrets", len(secretIDs)).Msg("create batch processed within the KV write budget")
+	}
+	return processed
+}
+
+// submitVaultKVBudgetOverBudgetCreate submits an n-secret create batch that can
+// never fit the configured per-round KV write budget. The gateway stops relaying
+// after its request timeout (or returns the node's error response); neither
+// outcome is a failure here — the assertions that matter are that the secrets are
+// never created and that the deferral logs fire.
+func submitVaultKVBudgetOverBudgetCreate(t *testing.T, auth vaultRequestAuth, owner, encryptedValue string, secretIDs []string, gatewayURL, namespace string) {
+	t.Helper()
+
+	requestID := uuid.New().String()
+	secretsCreateRequest := vault_helpers.CreateSecretsRequest{
+		RequestId:        requestID,
+		EncryptedSecrets: buildVaultKVBudgetBatchSecrets(secretIDs, owner, encryptedValue, namespace),
+	}
+	jsonRequest := newVaultJSONRequest(t, requestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse, err := trySendVaultSignedOCRRequestToGateway(gatewayURL, jsonRequest)
+	switch {
+	case err != nil:
+		framework.L.Info().Str("requestID", requestID).Err(err).Msg("over-budget create returned gateway error; expected, the batch can never fit the round budget")
+	case jsonResponse.ID == "":
+		framework.L.Info().Str("requestID", requestID).Msg("over-budget create timed out at the gateway; expected, the batch defers every round")
+	default:
+		createResp := vault_helpers.CreateSecretsResponse{}
+		if err := protojson.Unmarshal(jsonResponse.Result.Payload, &createResp); err == nil {
+			for _, r := range createResp.Responses {
+				require.False(t, r.Success, "an over-budget create batch must never process: %+v", r)
+			}
+		}
+	}
+}
+
+// requireVaultListedKeysEventually polls the vault gateway's ListSecretIdentifiers
+// until it returns a complete (non-timeout) response, and returns the set of listed
+// keys. List requests themselves travel through the pending queue, so on a
+// budget-constrained DON an attempt can time out at the gateway; each retry uses a
+// fresh, freshly-allowlisted request.
+func requireVaultListedKeysEventually(t *testing.T, auth vaultRequestAuth, requestOwner, gatewayURL, namespace string, timeout, interval time.Duration) map[string]bool {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for {
+		listed := tryVaultListedKeys(t, auth, requestOwner, gatewayURL, namespace)
+		if listed != nil {
+			return listed
+		}
+		if time.Now().After(deadline) {
+			require.Fail(t, "timed out waiting for a complete vault list response for owner %s (namespace %s)", requestOwner, namespace)
+			return nil
+		}
+		time.Sleep(interval)
+	}
+}
+
+func tryVaultListedKeys(t *testing.T, auth vaultRequestAuth, requestOwner, gatewayURL, namespace string) map[string]bool {
+	t.Helper()
+
+	uniqueRequestID := uuid.New().String()
+	secretsListRequest := vault_helpers.ListSecretIdentifiersRequest{
+		RequestId: uniqueRequestID,
+		Owner:     auth.requestOwner,
+		Namespace: namespace,
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse, err := trySendVaultSignedOCRRequestToGateway(gatewayURL, jsonRequest)
+	if err != nil {
+		framework.L.Info().Str("requestID", uniqueRequestID).Err(err).Msg("vault list attempt failed; retrying with a fresh request")
+		return nil
+	}
+	if jsonResponse.ID == "" {
+		// Gateway-to-DON timeout; retry with a fresh request.
+		return nil
+	}
+
+	listSecretsResponse := vault_helpers.ListSecretIdentifiersResponse{}
+	if err := protojson.Unmarshal(jsonResponse.Result.Payload, &listSecretsResponse); err != nil {
+		return nil
+	}
+	if !listSecretsResponse.Success {
+		return nil
+	}
+
+	listedKeys := make(map[string]bool, len(listSecretsResponse.Identifiers))
+	for _, identifier := range listSecretsResponse.Identifiers {
+		listedKeys[identifier.Key] = true
+	}
+	return listedKeys
+}
+
+var vaultKVBudgetDeferralDockerLogRE = regexp.MustCompile(`deferredCount[^\d]*(\d+)`)
+
+// assertVaultKVBudgetDeferralObservedInDockerLogs polls chainlink-related container logs
+// until it observes a KV write-budget deferral log line emitted by the StateTransition
+// budget gates — either 'state transition: deferring pending queue item to stay within
+// KV write budget' (Phase 1 processing gate) or 'pending queue ingest deferred to stay
+// within KV write budget' (Phase 2 packer) — with a non-zero deferredCount. This proves
+// the deferral path ran on a live DON rather than the flood simply fitting under the
+// configured budget.
+func assertVaultKVBudgetDeferralObservedInDockerLogs(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("docker log scan skipped in -short mode")
+	}
+	dockerBin, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("docker not in PATH; skipping KV write-budget deferral log assertion")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				require.Fail(t, "timed out waiting for docker while scanning for KV write-budget deferral logs")
+			case <-ticker.C:
+			}
+			continue
+		}
+		names := strings.SplitSeq(strings.TrimSpace(string(psOut)), "\n")
+		for name := range names {
+			if name == "" {
+				continue
+			}
+			ln := strings.ToLower(name)
+			if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
+				continue
+			}
+			logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
+			if err != nil {
+				continue
+			}
+			for line := range strings.SplitSeq(string(logs), "\n") {
+				if !strings.Contains(line, "state transition: deferring pending queue item to stay within KV write budget") &&
+					!strings.Contains(line, "pending queue ingest deferred to stay within KV write budget") {
+					continue
+				}
+				dm := vaultKVBudgetDeferralDockerLogRE.FindStringSubmatch(line)
+				if len(dm) < 2 {
+					continue
+				}
+				deferred, err := strconv.Atoi(dm[1])
+				if err != nil {
+					continue
+				}
+				if deferred >= 1 {
+					framework.L.Info().Str("container", name).Int("deferredCount", deferred).Msg("observed vault KV write-budget deferral log from state transition budget gates")
+					return
+				}
+			}
+		}
+		select {
+		case <-ctx.Done():
+			require.Fail(t, "timed out waiting for KV write-budget deferral line with deferredCount>=1 in docker logs (is the local CRE stack running the vault-kv-budget topology with a lowered VaultMaxKeyValueModifiedKeys?)")
+		case <-ticker.C:
+		}
+	}
 }
