@@ -63,6 +63,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
@@ -917,7 +918,7 @@ func TestEngine_Execution(t *testing.T) {
 		require.NoError(t, <-initDoneCh) // successful trigger registration
 		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 
-		require.Equal(t, v2.TriggerRegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
+		require.Equal(t, triggers.RegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
 		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
 		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
 		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
@@ -2501,8 +2502,8 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		Workflow: baseCfg.WorkflowID,
 	})
 
-	makeEvent := func(eventID string) v2.RoutedTriggerEvent {
-		return v2.RoutedTriggerEvent{
+	makeEvent := func(eventID string) triggers.CoordinatedEvent {
+		return triggers.CoordinatedEvent{
 			WorkflowID:   baseCfg.WorkflowID,
 			TriggerCapID: "id_0",
 			TriggerIndex: 0,
@@ -2661,13 +2662,13 @@ func TestEngine_ShardDenial(t *testing.T) {
 				module.EXPECT().Close()
 				module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
 			}, func(cfg *v2.EngineConfig) {
-				cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+				cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ triggers.CoordinatedEvent) error {
 					admissionCalls.Add(1)
 					return tc.wantErr
 				}
 			})
 
-			registrationID := v2.TriggerRegistrationID(baseCfg.WorkflowID, 0)
+			registrationID := triggers.RegistrationID(baseCfg.WorkflowID, 0)
 			ackedCh := make(chan struct{}, 1)
 			event := capabilities.TriggerEvent{
 				TriggerType: "basic-trigger@1.0.0",
@@ -2893,7 +2894,7 @@ func newTestEngine(
 		OnNodeSynced: func(_ capabilities.Node, _ error) {
 			e.nodeSyncedCalls.Add(1)
 		},
-		OnTriggerAdmission: func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+		OnTriggerAdmission: func(_ context.Context, _ triggers.CoordinatedEvent) error {
 			e.triggerAdmissionCalls.Add(1)
 			return nil
 		},

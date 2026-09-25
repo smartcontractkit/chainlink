@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 type EngineConfig struct {
@@ -92,7 +93,7 @@ type EngineLimiters struct {
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
 	TriggerSubscription      limits.BoundLimiter[int]
-	TriggerEventQueue        limits.QueueLimiter[RoutedTriggerEvent]
+	TriggerEventQueue        limits.QueueLimiter[triggers.CoordinatedEvent]
 	TriggerEventQueueTimeout limits.BoundLimiter[time.Duration]
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
@@ -158,7 +159,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
-	l.TriggerEventQueue, err = limits.MakeQueueLimiter[RoutedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+	l.TriggerEventQueue, err = limits.MakeQueueLimiter[triggers.CoordinatedEvent](lf, cfg.TriggerEventQueueLimit)
 	if err != nil {
 		return err
 	}
@@ -442,7 +443,7 @@ type LifecycleHooks struct {
 	//   - ErrAdmissionCache: the event was cached by the admission layer;
 	//     the engine drops it without ACKing.
 	//   - any other error: the event is denied; the engine ACKs and drops it.
-	OnTriggerAdmission func(ctx context.Context, event RoutedTriggerEvent) error
+	OnTriggerAdmission func(ctx context.Context, event triggers.CoordinatedEvent) error
 
 	// Used by the standalone engine
 	OnRequirementsSet func(executionId string, requirements *sdkpb.Requirements)
@@ -537,7 +538,7 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		}
 	}
 	if h.OnTriggerAdmission == nil {
-		h.OnTriggerAdmission = func(_ context.Context, _ RoutedTriggerEvent) error { return nil }
+		h.OnTriggerAdmission = func(_ context.Context, _ triggers.CoordinatedEvent) error { return nil }
 	}
 	if h.OnRateLimited == nil {
 		h.OnRateLimited = func(executionID string) {}
