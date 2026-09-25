@@ -82,16 +82,32 @@ type localCapabilityManager struct {
 type NewServicesFn func(ctx context.Context, capID string, donID uint32, command string, configJSON string, ocr3Config *ocrtypes.ContractConfig) ([]job.ServiceCtx, error)
 
 // offchainRegistry may be nil, in which case the offchain cross-validation pass is skipped.
-func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabilities, newServicesFn NewServicesFn, offchainRegistry *globalconfig.GlobalConfig) (LocalCapabilityManager, error) {
+//
+// useOffchainRegistry is the cutover gate. When false (default), capability config is sourced
+// from TOML alone and the offchain registry is used for cross-validation telemetry only. When
+// true (and offchainRegistry is non-nil), the offchain config is layered over TOML
+// (offchain-wins) via the config provider. The gate makes the cutover per-node and reversible.
+func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabilities, newServicesFn NewServicesFn, offchainRegistry *globalconfig.GlobalConfig, useOffchainRegistry bool) (LocalCapabilityManager, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local capability manager metrics: %w", err)
 	}
+	named := logger.Named(lggr, "LocalCapabilityManager")
+
+	var configProvider CapabilityConfigProvider = tomlCapabilityConfigProvider{localCfg: localCfg}
+	if useOffchainRegistry && offchainRegistry != nil {
+		configProvider = layeredCapabilityConfigProvider{
+			toml:     tomlCapabilityConfigProvider{localCfg: localCfg},
+			offchain: offchainCapabilityConfigProvider{registry: offchainRegistry, lggr: named},
+		}
+		named.Info("Offchain capabilities registry cutover ENABLED: offchain config wins over TOML")
+	}
+
 	return &localCapabilityManager{
-		lggr:                logger.Named(lggr, "LocalCapabilityManager"),
+		lggr:                named,
 		localCfg:            localCfg,
 		newServicesFn:       newServicesFn,
-		configProvider:      tomlCapabilityConfigProvider{localCfg: localCfg},
+		configProvider:      configProvider,
 		offchainRegistry:    offchainRegistry,
 		runningCapabilities: make(map[string]*runningCapability),
 		metrics:             metrics,
@@ -262,18 +278,19 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	}, nil
 }
 
-// overridesFor returns node-local capability config overrides via the config provider.
-// It falls back to reading TOML directly when no provider is set (e.g. managers built as
-// struct literals in tests); the constructor always installs a provider in production.
-func (m *localCapabilityManager) overridesFor(capID string) map[string]string {
+// overridesFor returns capability config overrides via the config provider (TOML, or
+// TOML+offchain layered when the cutover is enabled). It falls back to reading TOML directly
+// when no provider is set (e.g. managers built as struct literals in tests); the constructor
+// always installs a provider in production.
+func (m *localCapabilityManager) overridesFor(capID string, donID uint32) map[string]any {
 	if m.configProvider != nil {
-		return m.configProvider.LocalConfigOverrides(capID)
+		return m.configProvider.LocalConfigOverrides(capID, donID)
 	}
 	if m.localCfg == nil {
 		return nil
 	}
 	if capCfg := m.localCfg.GetCapabilityConfig(capID); capCfg != nil {
-		return capCfg.Config()
+		return toAnyMap(capCfg.Config())
 	}
 	return nil
 }
@@ -296,7 +313,7 @@ func (m *localCapabilityManager) resolveCapabilityBinary(capID string) string {
 func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, error) {
 	merged := make(map[string]any)
 
-	for k, v := range m.overridesFor(info.capID) {
+	for k, v := range m.overridesFor(info.capID, info.donID) {
 		merged[k] = v
 	}
 

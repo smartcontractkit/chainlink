@@ -403,7 +403,10 @@ func (m *mockService) Close() error                { m.closed = true; return nil
 type testLocalCapabilities struct {
 	allowlisted map[string]bool
 	configs     map[string]*testCapabilityNodeConfig
+	useOffchain bool
 }
+
+func (t *testLocalCapabilities) UseOffchainRegistry() bool { return t.useOffchain }
 
 func (t *testLocalCapabilities) RegistryBasedLaunchAllowlist() []string {
 	result := make([]string, 0, len(t.allowlisted))

@@ -1,28 +1,37 @@
 package localcapmgr
 
-import "github.com/smartcontractkit/chainlink/v2/core/config"
+import (
+	"maps"
 
-// CapabilityConfigProvider supplies node-local capability config overrides, keyed by
-// capability ID. Today it is backed by node TOML ([Capabilities.Local]); it is the seam
-// through which the offchain capabilities registry (GlobalConfig) will later be layered
-// (offchain-wins) without changing the LocalCapabilityManager. See the Offchain
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+)
+
+// CapabilityConfigProvider supplies capability config overrides to merge into the config a
+// capability is started with, keyed by capability ID and on-chain DON ID. It is the seam
+// through which the offchain capabilities registry (GlobalConfig) is layered over node TOML
+// ([Capabilities.Local]) without changing the LocalCapabilityManager. See the Offchain
 // Capabilities Registry design.
 //
-// Only the capability config map moves offchain. Node-local infra (binary path override)
-// and node role (registry-based launch allowlist) remain sourced from TOML and are read
-// directly from config.LocalCapabilities, not through this provider.
+// Only the capability config map flows through this seam. Node-local infra (binary path
+// override) and node role (registry-based launch allowlist) remain sourced from TOML and are
+// read directly from config.LocalCapabilities, not through this provider.
 type CapabilityConfigProvider interface {
-	// LocalConfigOverrides returns config key/values to merge for the given capability,
-	// or nil when there is no override.
-	LocalConfigOverrides(capID string) map[string]string
+	// LocalConfigOverrides returns config key/values to merge for the given capability on the
+	// given DON, or nil when there is no override. The DON ID is honored by the offchain
+	// provider (whose config is DON-scoped); the TOML provider ignores it.
+	LocalConfigOverrides(capID string, donID uint32) map[string]any
 }
 
-// tomlCapabilityConfigProvider is the default provider, backed by node TOML config.
+// tomlCapabilityConfigProvider is the default provider, backed by node TOML config. TOML
+// config is not DON-scoped, so donID is ignored.
 type tomlCapabilityConfigProvider struct {
 	localCfg config.LocalCapabilities
 }
 
-func (p tomlCapabilityConfigProvider) LocalConfigOverrides(capID string) map[string]string {
+func (p tomlCapabilityConfigProvider) LocalConfigOverrides(capID string, _ uint32) map[string]any {
 	if p.localCfg == nil {
 		return nil
 	}
@@ -30,5 +39,84 @@ func (p tomlCapabilityConfigProvider) LocalConfigOverrides(capID string) map[str
 	if capCfg == nil {
 		return nil
 	}
-	return capCfg.Config()
+	return toAnyMap(capCfg.Config())
+}
+
+// offchainCapabilityConfigProvider is backed by the offchain capabilities registry. It returns
+// the offchain spec_config for a (capID, donID), matching the shape the TOML provider yields.
+type offchainCapabilityConfigProvider struct {
+	registry *globalconfig.GlobalConfig
+	lggr     logger.Logger
+}
+
+func (p offchainCapabilityConfigProvider) LocalConfigOverrides(capID string, donID uint32) map[string]any {
+	if p.registry == nil {
+		return nil
+	}
+	reg, _ := p.registry.LoadParsed()
+	if reg == nil {
+		return nil
+	}
+	don := reg.GetDons()[donID]
+	if don == nil {
+		return nil
+	}
+	capCfg := don.GetCapabilityConfigs()[capID]
+	if capCfg == nil {
+		return nil
+	}
+	sc := capCfg.GetSpecConfig()
+	if sc == nil {
+		return nil
+	}
+	m, err := values.FromMapValueProto(sc)
+	if err != nil || m == nil {
+		if p.lggr != nil {
+			p.lggr.Warnw("Failed to convert offchain spec_config, ignoring offchain override",
+				"capID", capID, "donID", donID, "error", err)
+		}
+		return nil
+	}
+	unwrapped, err := m.Unwrap()
+	if err != nil {
+		if p.lggr != nil {
+			p.lggr.Warnw("Failed to unwrap offchain spec_config, ignoring offchain override",
+				"capID", capID, "donID", donID, "error", err)
+		}
+		return nil
+	}
+	out, ok := unwrapped.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return out
+}
+
+// layeredCapabilityConfigProvider merges the offchain override over the TOML override
+// (offchain-wins). It is installed only when the offchain-registry cutover is enabled; with it
+// off, the manager uses the TOML provider alone and behavior is unchanged.
+type layeredCapabilityConfigProvider struct {
+	toml     CapabilityConfigProvider
+	offchain CapabilityConfigProvider
+}
+
+func (p layeredCapabilityConfigProvider) LocalConfigOverrides(capID string, donID uint32) map[string]any {
+	merged := map[string]any{}
+	maps.Copy(merged, p.toml.LocalConfigOverrides(capID, donID))
+	maps.Copy(merged, p.offchain.LocalConfigOverrides(capID, donID)) // offchain wins
+	if len(merged) == 0 {
+		return nil
+	}
+	return merged
+}
+
+func toAnyMap(m map[string]string) map[string]any {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }

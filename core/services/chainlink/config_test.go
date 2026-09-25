@@ -509,6 +509,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 		Local: toml.LocalCapabilities{
 			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-action@.*$`},
+			UseOffchainRegistry:          new(true),
 			Capabilities: map[string]toml.CapabilityNodeConfig{
 				"http-action@1.0.0": {
 					BinaryPathOverride: new("/opt/chainlink/binaries/http_action"),

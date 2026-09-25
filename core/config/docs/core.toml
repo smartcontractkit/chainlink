@@ -713,6 +713,13 @@ BytesRateLimiterCapacity = 10000000 # Default
 #   - '.*' matches all capabilities
 RegistryBasedLaunchAllowlist = [] # Default
 
+# UseOffchainRegistry gates the offchain capabilities registry cutover. When false (default),
+# capability config is sourced from TOML/on-chain and the offchain registry (delivered via the
+# cresettings job) is used for cross-validation telemetry only. When true, the offchain registry
+# config is layered over TOML (offchain-wins) when a capability is started. The gate is per-node
+# and reversible.
+UseOffchainRegistry = false # Default
+
 # Per-capability configuration. Each capability ID can have its own configuration section.
 # Capability IDs must be in the format "name@version".
 # [Capabilities.Local.Capabilities."http-action@1.0.0"]
