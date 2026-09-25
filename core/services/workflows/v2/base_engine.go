@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
 
@@ -458,7 +459,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event RoutedTriggerEven
 			tm.IncrementTriggerExecutionDeduplicatedCounter(ctx)
 			tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
 			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonDuplicateExecution)
-			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
+			registrationID := triggers.RegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
 			ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID)
 			if ackErr != nil {
 				e.lggr.Errorw("failed to re-ACK trigger event", "eventID", triggerEvent.ID, "err", ackErr)
@@ -574,7 +575,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event RoutedTriggerEven
 	}
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
-	registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
+	registrationID := triggers.RegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
 	err = e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID)
 	if err != nil {
 		e.lggr.Errorf("failed to ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
@@ -1047,8 +1048,4 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 		return resolvedOrg{Reason: "empty_response"}
 	}
 	return resolvedOrg{ID: orgID}
-}
-
-func TriggerRegistrationID(workflowID string, triggerIndex int) string {
-	return fmt.Sprintf("trigger_reg_%s_%d", workflowID, triggerIndex)
 }

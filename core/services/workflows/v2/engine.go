@@ -23,11 +23,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
-var _ Acknowledger = (*engine)(nil)
-var _ EventSink = (*engine)(nil)
-var _ WorkflowEngine = (*engine)(nil)
+var (
+	_ Acknowledger   = (*engine)(nil)
+	_ EventSink      = (*engine)(nil)
+	_ WorkflowEngine = (*engine)(nil)
+)
 
 // engine is the legacy trigger-owning workflow engine: it wraps the shared
 // execution machinery and adds the extra responsibilities of trigger registration,
@@ -214,8 +217,8 @@ func (e *engine) close() error {
 }
 
 func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions []*sdkpb.TriggerSubscription) error {
-	// check if all requested triggers exist in the registry
-	triggers := make([]capabilities.TriggerCapability, 0, len(subscriptions))
+	// check if all requested trigger capabilities exist in the registry
+	tcs := make([]capabilities.TriggerCapability, 0, len(subscriptions))
 	for _, sub := range subscriptions {
 		_, labels, _ := capabilities.ParseID(sub.Id)
 		chainSelector, err2 := capabilities.ChainSelectorLabel(labels)
@@ -235,7 +238,7 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 		if triggerErr != nil {
 			return fmt.Errorf("trigger capability not found: %w", triggerErr)
 		}
-		triggers = append(triggers, triggerCap)
+		tcs = append(tcs, triggerCap)
 	}
 
 	// register to all triggers concurrently
@@ -261,9 +264,9 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 
 	// Launch concurrent trigger registrations
 	for i, sub := range subscriptions {
-		triggerCap := triggers[i]
+		triggerCap := tcs[i]
 		g.Go(func() error {
-			registrationID := TriggerRegistrationID(e.base.cfg.WorkflowID, i)
+			registrationID := triggers.RegistrationID(e.base.cfg.WorkflowID, i)
 			args := []any{"triggerID", sub.Id, "method", sub.Method}
 			if sub.Payload != nil {
 				args = append(args, "payload", protojson.Format(sub.Payload))
@@ -468,7 +471,7 @@ func (e *engine) put(ctx context.Context, event RoutedTriggerEvent) error {
 			return err
 		}
 		// Denied: ACK and drop
-		registrationID := TriggerRegistrationID(e.base.cfg.WorkflowID, event.TriggerIndex)
+		registrationID := triggers.RegistrationID(e.base.cfg.WorkflowID, event.TriggerIndex)
 		if ackErr := e.base.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
 			e.base.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
 		}
