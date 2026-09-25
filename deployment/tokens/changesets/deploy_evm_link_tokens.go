@@ -77,7 +77,7 @@ func (deployEVMLinkTokens) Apply(
 
 		seqDeps = seqs.SeqDeployEVMTokensDeps{
 			EVMChains: e.BlockChains.EVMChains(),
-			AddrBook:  out.AddressBook, //nolint:staticcheck // Will be removed once the address book is no longer required.
+			AddrBook:  out.AddressBook,
 			Datastore: out.DataStore,
 		}
 		seqInput = seqs.SeqDeployEVMTokensInput{

@@ -30,7 +30,7 @@ type DeployForwarderRequest struct {
 func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
 	out.DataStore = datastore.NewMemoryDataStore()
-	out.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // keeping the address book since not everything has been migrated to datastore
+	out.AddressBook = cldf.NewMemoryAddressBook()
 
 	selectors := cfg.ChainSelectors
 	if len(selectors) == 0 {
@@ -44,7 +44,8 @@ func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.Cha
 			creforwarder.DeployOpDeps{Env: &env}, creforwarder.DeployOpInput{
 				ChainSelector: sel,
 				Qualifier:     cfg.Qualifier,
-			})
+			},
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", sel, err)
 		}
@@ -54,7 +55,7 @@ func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.Cha
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge datastore for chain selector %d: %w", sel, err)
 		}
 		// merge the address book outputs
-		if err := out.AddressBook.Merge(report.Output.AddressBook); err != nil { //nolint:staticcheck // keeping the address book since not everything has been migrated to datastore
+		if err := out.AddressBook.Merge(report.Output.AddressBook); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for chain selector %d: %w", sel, err)
 		}
 	}
@@ -71,7 +72,8 @@ func DeployForwarderV2(env cldf.Environment, req *DeployRequestV2) (cldf.Changes
 			creforwarder.DeployOpDeps{Env: &env}, creforwarder.DeployOpInput{
 				ChainSelector: req.ChainSel,
 				Qualifier:     req.Qualifier,
-			})
+			},
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", req.ChainSel, err)
 		}
@@ -127,6 +129,9 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 		Name:             req.WFDonName,
 		RegistryChainSel: req.RegistryChainSel,
 	})
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get registered don: %w", err)
+	}
 	cfg := creforwarder.DonConfiguration{
 		Name: req.WFDonName,
 		ID:   wfDon.Info.Id,

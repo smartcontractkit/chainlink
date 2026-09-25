@@ -98,7 +98,6 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 		}
 
 		proposal, err := proposeutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon Withdraw", ethBalMonProposalTimelockConfig(input.MCMSConfig))
-
 		if err != nil {
 			return EthBalMonWithdrawSeqOutput{}, fmt.Errorf("failed to build timelock proposal: %w", err)
 		}
@@ -183,11 +182,9 @@ var EthBalMonWithdrawOperation = operations.NewOperation(
 			ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
 			Transactions: []mcmstypes.Transaction{
 				{
-					OperationMetadata: mcmstypes.OperationMetadata{
-						ContractType: vaulttypes.EthBalMonContractType,
-						Tags: []string{
-							"withdraw",
-						},
+					ContractType: vaulttypes.EthBalMonContractType,
+					Tags: []string{
+						"withdraw",
 					},
 					To:               ethBalMonAddr,
 					Data:             withdrawTx.Data(),

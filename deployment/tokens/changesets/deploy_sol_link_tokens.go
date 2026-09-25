@@ -53,7 +53,7 @@ func (deploySolLinkTokens) Apply(
 
 		seqDeps = seqs.SeqDeploySolTokensDeps{
 			SolChains: e.BlockChains.SolanaChains(),
-			AddrBook:  out.AddressBook, //nolint:staticcheck // Will be removed once the address book is no longer required.
+			AddrBook:  out.AddressBook,
 			Datastore: out.DataStore,
 		}
 		seqInput = seqs.SeqDeploySolTokensInput{

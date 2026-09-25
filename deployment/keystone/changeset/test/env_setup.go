@@ -81,9 +81,11 @@ type testEnvIface interface {
 }
 
 // TODO: separate the config into different types; wf should expand to types of ocr keybundles; writer to target chains; ...
-type WFDonConfig = DonConfig
-type AssetDonConfig = DonConfig
-type WriterDonConfig = DonConfig
+type (
+	WFDonConfig     = DonConfig
+	AssetDonConfig  = DonConfig
+	WriterDonConfig = DonConfig
+)
 
 type EnvWrapperConfig struct {
 	WFDonConfig
@@ -345,11 +347,11 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 		},
 	}
 
-	var ocr3Config = ocr3.OracleConfig{
+	ocr3Config := ocr3.OracleConfig{
 		MaxFaultyOracles:     dons.Get(c.WFDonConfig.Name).F(),
 		TransmissionSchedule: []int{dons.Get(c.WFDonConfig.Name).N()},
 	}
-	var allDons = []internal.DonCapabilities{wfDonCapabilities, cwDonCapabilities, assetDonCapabilities}
+	allDons := []internal.DonCapabilities{wfDonCapabilities, cwDonCapabilities, assetDonCapabilities}
 
 	csOut, err := changeset.ConfigureInitialContractsChangeset(env, changeset.InitialContractsCfg{
 		RegistryChainSel: registryChainSel,
