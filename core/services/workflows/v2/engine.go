@@ -43,19 +43,13 @@ type engine struct {
 
 	workflowLimitUsed atomic.Bool // true if GlobalWorkflowLimit must be freed
 
-	// registration ID -> trigger capability
-	triggers map[string]*triggerCapability
+	// registration ID -> trigger handle
+	triggers map[string]*triggers.Handle
 	// used to separate registration and unregistration phases
 	triggersRegMu sync.Mutex
 
 	allTriggerEventsQueueCh limits.QueueLimiter[RoutedTriggerEvent]
 	executionsSemaphore     limits.ResourcePoolLimiter[int]
-}
-
-type triggerCapability struct {
-	capabilities.TriggerCapability
-	payload *anypb.Any
-	method  string
 }
 
 // NewEngine constructs the legacy trigger-owning engine: it registers its own
@@ -69,7 +63,7 @@ func NewEngine(cfg *EngineConfig) (WorkflowEngine, error) {
 
 	e := &engine{
 		base:                    base,
-		triggers:                make(map[string]*triggerCapability),
+		triggers:                make(map[string]*triggers.Handle),
 		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
 		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
 	}
@@ -333,10 +327,10 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 	triggerCapIDs := make([]string, len(subscriptions))
 
 	for result := range resultsCh {
-		e.triggers[result.registrationID] = &triggerCapability{
+		e.triggers[result.registrationID] = &triggers.Handle{
 			TriggerCapability: result.triggerCap,
-			payload:           result.payload,
-			method:            result.method,
+			Payload:           result.payload,
+			Method:            result.method,
 		}
 		eventChans[result.index] = result.eventCh
 		triggerCapIDs[result.index] = result.triggerCapID
@@ -409,8 +403,8 @@ func (e *engine) unregisterAllTriggers(ctx context.Context) {
 				WorkflowID:    e.base.cfg.WorkflowID,
 				WorkflowDonID: e.base.localNode.Load().WorkflowDON.ID,
 			},
-			Payload: trigger.payload,
-			Method:  trigger.method,
+			Payload: trigger.Payload,
+			Method:  trigger.Method,
 		})
 		if err != nil {
 			e.base.logger().Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
@@ -418,29 +412,15 @@ func (e *engine) unregisterAllTriggers(ctx context.Context) {
 		}
 	}
 	e.base.logger().Infow("All triggers unregistered", "numTriggers", len(e.triggers), "failed", failCount)
-	e.triggers = make(map[string]*triggerCapability)
+	e.triggers = make(map[string]*triggers.Handle)
 }
 
 func (e *engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
-	e.base.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
-
-	tm := e.base.metrics.With(platform.KeyTriggerID, triggerCapID)
-
 	e.triggersRegMu.Lock()
-	trigger, ok := e.triggers[triggerRegistrationID]
+	handle := e.triggers[triggerRegistrationID]
 	e.triggersRegMu.Unlock()
 
-	if !ok {
-		tm.IncrementTriggerEventAckFailureCounter(ctx)
-		return fmt.Errorf("failed to find trigger %s", triggerRegistrationID)
-	}
-	err := trigger.AckEvent(ctx, triggerRegistrationID, eventID, trigger.method)
-	if err != nil {
-		tm.IncrementTriggerEventAckFailureCounter(ctx)
-		return err
-	}
-	tm.IncrementTriggerEventAckSuccessCounter(ctx)
-	return nil
+	return triggers.Ack(ctx, e.base.logger(), e.base.metrics, triggerCapID, triggerRegistrationID, eventID, handle)
 }
 
 // errObservedAtMissing guards put's deadline derivation: put computes the queue
