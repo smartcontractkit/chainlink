@@ -82,7 +82,9 @@ var DefaultChainlinkNodeLogScannerSettings = ChainlinkNodeLogScannerSettings{
 }
 
 func GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(extraAllowedMessages ...testreporters.AllowedLogMessage) ChainlinkNodeLogScannerSettings {
-	allowedMessages := append(DefaultAllowedMessages, extraAllowedMessages...)
+	allowedMessages := make([]testreporters.AllowedLogMessage, 0, len(DefaultAllowedMessages)+len(extraAllowedMessages))
+	allowedMessages = append(allowedMessages, DefaultAllowedMessages...)
+	allowedMessages = append(allowedMessages, extraAllowedMessages...)
 	return ChainlinkNodeLogScannerSettings{
 		FailingLogLevel: DefaultChainlinkNodeLogScannerSettings.FailingLogLevel,
 		Threshold:       DefaultChainlinkNodeLogScannerSettings.Threshold,
@@ -529,12 +531,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			for _, en := range b.te.EVMNetworks {
 				network := *en
 				if en.Simulated {
-					if rpcs, ok := b.te.rpcProviders[network.ChainID]; ok {
-						network.HTTPURLs = rpcs.PrivateHttpUrls()
-						network.URLs = rpcs.PrivateWsUrsl()
-					} else {
+					rpcs, ok := b.te.rpcProviders[network.ChainID]
+					if !ok {
 						return nil, fmt.Errorf("rpc provider for chain %d not found", network.ChainID)
 					}
+					network.HTTPURLs = rpcs.PrivateHttpUrls()
+					network.URLs = rpcs.PrivateWsUrsl()
 				}
 				dereferrencedEvms = append(dereferrencedEvms, network)
 			}
