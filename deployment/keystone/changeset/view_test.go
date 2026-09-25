@@ -145,7 +145,6 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
-			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
 			localAddrsBook = resp.AddressBook
 			env.Env.DataStore = resp.DataStore.Seal()
 
@@ -154,7 +153,6 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
-			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
 			require.NoError(t, localAddrsBook.Merge(resp.AddressBook))
 			env.Env.DataStore = resp.DataStore.Seal()
 
@@ -163,7 +161,6 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
-			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
 			require.NoError(t, localAddrsBook.Merge(resp.AddressBook))
 			env.Env.DataStore = resp.DataStore.Seal()
 
@@ -172,7 +169,6 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
-			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
 			require.NoError(t, localAddrsBook.Merge(resp.AddressBook))
 
 			env.Env.DataStore = resp.DataStore.Seal()
@@ -243,7 +239,7 @@ func TestKeystoneView(t *testing.T) {
 					{Capability: internal.OCR3Cap, Config: ocr3CapCfg},
 				},
 			}
-			var allDons = []internal.DonCapabilities{wfDonCapabilities}
+			allDons := []internal.DonCapabilities{wfDonCapabilities}
 			cr, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](
 				env.Env.DataStore.Addresses(), env.Env.BlockChains.EVMChains()[env.RegistrySelector], capabilityRegistryAddr, "",
 			)
@@ -308,7 +304,7 @@ func TestKeystoneView(t *testing.T) {
 		resp, err := changeset.DeployOCR3V2(env.Env, &changeset.DeployRequestV2{ChainSel: env.RegistrySelector})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook)) //nolint:staticcheck // SA1019 AddressBook is deprecated
+		require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
 
 		var prevView json.RawMessage = []byte("{}")
 		a, err := changeset.ViewKeystone(env.Env, prevView)

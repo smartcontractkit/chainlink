@@ -97,7 +97,7 @@ func TestConfigureForwarders(t *testing.T) {
 				return nil, iterator.Error()
 			}
 		}
-		return
+		return result, err
 	}
 
 	requireConfigUpdate := func(t *testing.T, forwarder *forwarder.KeystoneForwarder, skippedConfigSet bool) {
@@ -141,7 +141,7 @@ func TestConfigureForwarders(t *testing.T) {
 
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)
-				require.Nil(t, csOut.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
+				require.Nil(t, csOut.AddressBook)
 				require.Empty(t, csOut.MCMSTimelockProposals)
 				// check that forwarder
 				// TODO set up a listener to check that the forwarder is configured
@@ -204,7 +204,7 @@ func TestConfigureForwarders(t *testing.T) {
 				}
 
 				require.Len(t, csOut.MCMSTimelockProposals, expectedProposals)
-				require.Nil(t, csOut.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
+				require.Nil(t, csOut.AddressBook)
 
 				x := te.OwnedForwarders()
 				for _, forwardersByChain := range x {

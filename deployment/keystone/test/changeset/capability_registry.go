@@ -35,7 +35,7 @@ func HydrateCapabilityRegistry(t *testing.T, v v1_0.CapabilityRegistryView, env 
 
 	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
 		Chains:      evmChains,
-		AddressBook: changesetOutput.AddressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		AddressBook: changesetOutput.AddressBook,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)

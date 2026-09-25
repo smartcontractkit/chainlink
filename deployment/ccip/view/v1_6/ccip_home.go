@@ -11,13 +11,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	ccipocr3 "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/internal/view"
@@ -202,12 +201,12 @@ func toCCIPHomeVersionedConfig(cfg ccip_home.CCIPHomeVersionedConfig, pluginType
 		peerID := p2pkey.PeerID(n.P2pId)
 		nodes = append(nodes, CCIPHomeOCR3Node{
 			P2pID:          peerID.String(),
-			SignerKey:      ccipocr3common.UnknownAddress(n.SignerKey).String(),
-			TransmitterKey: ccipocr3common.UnknownAddress(n.TransmitterKey).String(),
+			SignerKey:      ccipocr3.UnknownAddress(n.SignerKey).String(),
+			TransmitterKey: ccipocr3.UnknownAddress(n.TransmitterKey).String(),
 		})
 	}
-	offRampAddr := ccipocr3common.UnknownAddress(cfg.Config.OfframpAddress).String()
-	rmnAddr := ccipocr3common.UnknownAddress(cfg.Config.RmnHomeAddress).String()
+	offRampAddr := ccipocr3.UnknownAddress(cfg.Config.OfframpAddress).String()
+	rmnAddr := ccipocr3.UnknownAddress(cfg.Config.RmnHomeAddress).String()
 	c := CCIPHomeVersionedConfig{
 		Version:      cfg.Version,
 		ConfigDigest: cfg.ConfigDigest[:],
@@ -239,10 +238,10 @@ func populateDecodedOCRParams(config *CCIPHomeOCR3Config, ccipHomeCfg ccip_home.
 	identities := make([]OracleIdentity, 0, len(publicConfig.OracleIdentities))
 	for _, o := range publicConfig.OracleIdentities {
 		identities = append(identities, OracleIdentity{
-			OffchainPublicKey: ccipocr3common.UnknownAddress(o.OffchainPublicKey[:]).String(),
-			OnchainPublicKey:  ccipocr3common.UnknownAddress(o.OnchainPublicKey[:]).String(),
+			OffchainPublicKey: ccipocr3.UnknownAddress(o.OffchainPublicKey[:]).String(),
+			OnchainPublicKey:  ccipocr3.UnknownAddress(o.OnchainPublicKey[:]).String(),
 			PeerID:            o.PeerID,
-			TransmitAccount:   ccipocr3common.UnknownAddress(o.TransmitAccount[:]).String(),
+			TransmitAccount:   ccipocr3.UnknownAddress(o.TransmitAccount[:]).String(),
 		})
 	}
 	if pluginType == cciptypes.PluginTypeCCIPCommit {

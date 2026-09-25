@@ -72,7 +72,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			csOut, err := changeset.UpdateNodeCapabilities(te.Env, &cfg)
 			require.NoError(t, err)
 			require.Empty(t, csOut.MCMSTimelockProposals)
-			require.Nil(t, csOut.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
+			require.Nil(t, csOut.AddressBook)
 
 			validateCapabilityUpdates(t, te, capabilitiesToSet)
 		})
@@ -112,7 +112,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		require.Len(t, csOut.MCMSTimelockProposals, 1)
 		require.Len(t, csOut.MCMSTimelockProposals[0].Operations, 1)
 		require.Len(t, csOut.MCMSTimelockProposals[0].Operations[0].Transactions, 2) // add capabilities, update nodes
-		require.Nil(t, csOut.AddressBook)                                            //nolint:staticcheck // SA1019 AddressBook is deprecated
+		require.Nil(t, csOut.AddressBook)
 
 		err = applyProposal(t, te, commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.UpdateNodeCapabilities),
@@ -154,7 +154,7 @@ func getNodeCapabilities(registry *kcr.CapabilitiesRegistry, p2pIDs []p2pkey.Pee
 	if err != nil {
 		panic(err)
 	}
-	var capMap = make(map[[32]byte]kcr.CapabilitiesRegistryCapability)
+	capMap := make(map[[32]byte]kcr.CapabilitiesRegistryCapability)
 	for _, c := range caps {
 		capMap[c.HashedId] = kcr.CapabilitiesRegistryCapability{
 			LabelledName:          c.LabelledName,

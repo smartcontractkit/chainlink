@@ -28,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -300,8 +300,8 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 			//nolint:gosec // this should always be less than max uint8
 			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
+				GasPriceDeviationPPB:    ccipocr3.BigInt{Int: big.NewInt(1000)},
+				DAGasPriceDeviationPPB:  ccipocr3.BigInt{Int: big.NewInt(1_000_000)},
 				OptimisticConfirmations: 1,
 			},
 		}
@@ -321,8 +321,8 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 				// #nosec G115 - Overflow is not a concern in this test scenario
 				FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 				EncodableChainConfig: chainconfig.ChainConfig{
-					GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
-					DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+					GasPriceDeviationPPB:    ccipocr3.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+					DAGasPriceDeviationPPB:  ccipocr3.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
 					OptimisticConfirmations: globals.OptimisticConfirmations,
 				},
 			}
@@ -1012,10 +1012,10 @@ func mustOCR(e *cldf.Environment, homeChainSel, feedChainSel uint64, newDons, rm
 
 	for _, selector := range solSelectors {
 		// TODO: this is a workaround for tokenConfig.GetTokenInfo
-		tokenInfo := map[cciptypes.UnknownEncodedAddress]cciptypes.TokenInfo{}
-		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[selector].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
+		tokenInfo := map[ccipocr3.UnknownEncodedAddress]ccipocr3.TokenInfo{}
+		tokenInfo[ccipocr3.UnknownEncodedAddress(state.SolChains[selector].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 		// TODO: point this to proper SOL feed, apparently 0 signified SOL
-		tokenInfo[cciptypes.UnknownEncodedAddress(solana.WrappedSol.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
+		tokenInfo[ccipocr3.UnknownEncodedAddress(solana.WrappedSol.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, tokenInfo,
 			func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 				params.OCRParameters.MaxDurationQuery = 100 * time.Millisecond

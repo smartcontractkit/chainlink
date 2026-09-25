@@ -55,7 +55,7 @@ func deployCacheLogic(env cldf.Environment, c types.DeployTronConfig) (cldf.Chan
 		}
 	}
 
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil //nolint:staticcheck // SA1019 AddressBook is deprecated
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil
 }
 
 func deployCachePrecondition(env cldf.Environment, c types.DeployTronConfig) error {
