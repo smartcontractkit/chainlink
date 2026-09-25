@@ -229,13 +229,6 @@ linters:
           - gosec
         path: test
         text: "^G404:"
-      # AddressBook on ChangesetOutput/Environment is deprecated in favor of
-      # DataStore, but the migration is still pending. Suppress centrally instead
-      # of scattering inline //nolint:staticcheck directives across every changeset
-      # return site. Mirrors deployment/.golangci.yml.
-      - linters:
-          - staticcheck
-        text: "SA1019: (.*).AddressBook is deprecated"
     paths:
       - "core/scripts/cre/environment/examples/workflows"
 issues:
