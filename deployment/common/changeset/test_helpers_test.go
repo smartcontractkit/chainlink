@@ -25,7 +25,7 @@ func TestChangeSetLegacyFunction_PassingCase(t *testing.T) {
 	csv2 := cldf.CreateChangeSet(
 		func(e cldf.Environment, config uint32) (cldf.ChangesetOutput, error) {
 			executedCs = true
-			return cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil //nolint:staticcheck // SA1019 AddressBook is deprecated
+			return cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
 		},
 		func(e cldf.Environment, config uint32) error {
 			executedValidator = true
@@ -50,7 +50,7 @@ func TestChangeSetLegacyFunction_ErrorCase(t *testing.T) {
 	csv2 := cldf.CreateChangeSet(
 		func(e cldf.Environment, config uint32) (cldf.ChangesetOutput, error) {
 			executedCs = true
-			return cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil //nolint:staticcheck // SA1019 AddressBook is deprecated
+			return cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}, nil
 		},
 		func(e cldf.Environment, config uint32) error {
 			executedValidator = true
@@ -111,7 +111,7 @@ func TestApplyChangesetsHelpers(t *testing.T) {
 				}
 
 				return cldf.ChangesetOutput{
-					AddressBook: cldf.NewMemoryAddressBook(), //nolint:staticcheck // SA1019 AddressBook is deprecated
+					AddressBook: cldf.NewMemoryAddressBook(),
 					DataStore:   ds,
 				}, nil
 			},

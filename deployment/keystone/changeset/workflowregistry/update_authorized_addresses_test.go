@@ -39,7 +39,8 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 		BlockChains: cldf_chain.NewBlockChains(
 			map[uint64]cldf_chain.BlockChain{
 				chainSel: resp.Chain,
-			}),
+			},
+		),
 	}
 
 	addr := "0xc0ffee254729296a45a3885639AC7E10F9d54979"
@@ -95,7 +96,7 @@ func Test_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {
 	out, err := workflowregistry.UpdateAuthorizedAddresses(te.Env, req)
 	require.NoError(t, err)
 	require.Len(t, out.MCMSTimelockProposals, 1)
-	require.Nil(t, out.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
+	require.Nil(t, out.AddressBook)
 
 	_, err = commonchangeset.Apply(t, te.Env,
 		commonchangeset.Configure(
