@@ -1,14 +1,19 @@
 package triggers
 
 import (
+	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
@@ -154,6 +159,146 @@ func TestAck(t *testing.T) {
 
 		err := Ack(t.Context(), logger.Test(t), newTestMetrics(t), triggerCapID, triggerRegistrationID, eventID, handle)
 		require.ErrorIs(t, err, wantErr)
+	})
+}
+
+func TestReadLoop(t *testing.T) {
+	const (
+		workflowID   = "wf-id"
+		triggerCapID = "trigger-cap-id"
+		triggerIndex = 3
+	)
+
+	waitOrFail := func(t *testing.T, ch <-chan struct{}, msg string) {
+		t.Helper()
+		select {
+		case <-ch:
+		case <-time.After(5 * time.Second):
+			t.Fatal(msg)
+		}
+	}
+
+	t.Run("delivers a routed event built from the response and the clock", func(t *testing.T) {
+		triggerEventCh := make(chan capabilities.TriggerResponse, 1)
+		deliverCh := make(chan CoordinatedEvent, 1)
+		deliver := func(_ context.Context, event CoordinatedEvent) {
+			deliverCh <- event
+		}
+
+		clock := clockwork.NewFakeClock()
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			ReadLoop(ctx, logger.Test(t), newTestMetrics(t), clock, workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
+		}()
+
+		triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "event-1"}}
+
+		select {
+		case event := <-deliverCh:
+			assert.Equal(t, workflowID, event.WorkflowID)
+			assert.Equal(t, triggerCapID, event.TriggerCapID)
+			assert.Equal(t, triggerIndex, event.TriggerIndex)
+			assert.Equal(t, clock.Now(), event.ObservedAt)
+			assert.Equal(t, "event-1", event.Event.Event.ID)
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for delivery")
+		}
+
+		cancel()
+		waitOrFail(t, done, "ReadLoop did not return after ctx cancel")
+	})
+
+	t.Run("skips delivery when the response carries an error, but keeps consuming", func(t *testing.T) {
+		triggerEventCh := make(chan capabilities.TriggerResponse, 2)
+		deliverCh := make(chan CoordinatedEvent, 1)
+		deliver := func(_ context.Context, event CoordinatedEvent) {
+			deliverCh <- event
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			ReadLoop(ctx, logger.Test(t), newTestMetrics(t), clockwork.NewFakeClock(), workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
+		}()
+
+		triggerEventCh <- capabilities.TriggerResponse{Err: errors.New("boom")}
+		triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "event-2"}}
+
+		select {
+		case event := <-deliverCh:
+			assert.Equal(t, "event-2", event.Event.Event.ID)
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for delivery")
+		}
+
+		cancel()
+		waitOrFail(t, done, "ReadLoop did not return after ctx cancel")
+	})
+
+	t.Run("delivers multiple events in order", func(t *testing.T) {
+		triggerEventCh := make(chan capabilities.TriggerResponse, 2)
+		delivered := make(chan struct{}, 2)
+
+		var mu sync.Mutex
+		var calls []string
+		deliver := func(_ context.Context, event CoordinatedEvent) {
+			mu.Lock()
+			calls = append(calls, event.Event.Event.ID)
+			mu.Unlock()
+			delivered <- struct{}{}
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			ReadLoop(ctx, logger.Test(t), newTestMetrics(t), clockwork.NewFakeClock(), workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
+		}()
+
+		triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "a"}}
+		triggerEventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "b"}}
+
+		waitOrFail(t, delivered, "timed out waiting for first delivery")
+		waitOrFail(t, delivered, "timed out waiting for second delivery")
+
+		mu.Lock()
+		assert.Equal(t, []string{"a", "b"}, calls)
+		mu.Unlock()
+
+		cancel()
+		waitOrFail(t, done, "ReadLoop did not return after ctx cancel")
+	})
+
+	t.Run("returns when the trigger channel closes", func(t *testing.T) {
+		triggerEventCh := make(chan capabilities.TriggerResponse)
+		deliver := func(_ context.Context, _ CoordinatedEvent) {}
+
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			ReadLoop(context.Background(), logger.Test(t), newTestMetrics(t), clockwork.NewFakeClock(), workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
+		}()
+
+		close(triggerEventCh)
+		waitOrFail(t, done, "ReadLoop did not return after channel close")
+	})
+
+	t.Run("returns when ctx is canceled", func(t *testing.T) {
+		triggerEventCh := make(chan capabilities.TriggerResponse)
+		deliver := func(_ context.Context, _ CoordinatedEvent) {}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			ReadLoop(ctx, logger.Test(t), newTestMetrics(t), clockwork.NewFakeClock(), workflowID, triggerCapID, triggerIndex, triggerEventCh, deliver)
+		}()
+
+		cancel()
+		waitOrFail(t, done, "ReadLoop did not return after ctx cancel")
 	})
 }
 
