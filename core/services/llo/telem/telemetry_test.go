@@ -824,7 +824,7 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 	// second transmits — mimicking a DON where DeltaRound << report interval.
 	const (
 		secondsCovered      = 3
-		outcomesPerSecond   = 5
+		outcomesPerSecond   = 3 // secondsCovered*outcomesPerSecond must stay <= maxBufferedSeqNrsPerDigest
 		baseObservationUnix = int64(1737936858)
 		baseSeqNr           = uint64(1000)
 	)
@@ -981,7 +981,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 
 	const (
 		secondsCovered      = 3
-		seqNrsPerSecond     = 5
+		seqNrsPerSecond     = 3 // secondsCovered*seqNrsPerSecond must stay <= maxBufferedSeqNrsPerDigest
 		baseObservationUnix = int64(1737936858)
 		baseSeqNr           = uint64(2000)
 	)
@@ -1191,5 +1191,69 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 		}
 		assert.Equal(t, map[uint32]struct{}{10: {}, 20: {}, 30: {}}, received,
 			"each per-channel report should be admitted (distinct sampler fingerprints)")
+	})
+}
+
+// Test_Telemeter_telemetryBuffer_boundedWithoutTransmit guards against a
+// digest that never (or rarely) transmits accumulating an unbounded number of
+// buffered seqNrs. Previously telemetryBuffer entries were only evicted by
+// sendBufferedTelemetry on TrackSeqNr, so a stuck/inactive digest would grow
+// the buffer forever.
+func Test_Telemeter_telemetryBuffer_boundedWithoutTransmit(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	donID := uint32(1)
+	cd := (&mockOpts{}).ConfigDigest()
+
+	t.Run("outcome telemetry", func(t *testing.T) {
+		t.Parallel()
+		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
+		tm := newTelemeter(TelemeterParams{
+			Logger:                  lggr,
+			MonitoringEndpoint:      m,
+			DonID:                   donID,
+			CaptureOutcomeTelemetry: true,
+		})
+
+		const rounds = maxBufferedSeqNrsPerDigest * 5
+		for i := range rounds {
+			seqNr := uint64(i)
+			tm.enqueueTelemetry(cd.Hex(), seqNr, synchronization.LLOOutcome, &lloprotocol.LLOOutcomeTelemetry{
+				SeqNr:        seqNr,
+				ConfigDigest: cd[:],
+			})
+		}
+
+		tm.telemetryBufferMu.Lock()
+		defer tm.telemetryBufferMu.Unlock()
+		assert.LessOrEqual(t, len(tm.telemetryBuffer[cd.Hex()]), maxBufferedSeqNrsPerDigest)
+		// the most recent seqNr must always survive eviction
+		assert.Contains(t, tm.telemetryBuffer[cd.Hex()], uint64(rounds-1))
+	})
+
+	t.Run("report telemetry", func(t *testing.T) {
+		t.Parallel()
+		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
+		tm := newTelemeter(TelemeterParams{
+			Logger:                 lggr,
+			MonitoringEndpoint:     m,
+			DonID:                  donID,
+			CaptureReportTelemetry: true,
+		})
+
+		const rounds = maxBufferedSeqNrsPerDigest * 5
+		for i := range rounds {
+			seqNr := uint64(i)
+			tm.enqueueTelemetry(cd.Hex(), seqNr, synchronization.LLOReport, &lloprotocol.LLOReportTelemetry{
+				SeqNr:        seqNr,
+				ConfigDigest: cd[:],
+			})
+		}
+
+		tm.telemetryBufferMu.Lock()
+		defer tm.telemetryBufferMu.Unlock()
+		assert.LessOrEqual(t, len(tm.telemetryBuffer[cd.Hex()]), maxBufferedSeqNrsPerDigest)
+		assert.Contains(t, tm.telemetryBuffer[cd.Hex()], uint64(rounds-1))
 	})
 }
