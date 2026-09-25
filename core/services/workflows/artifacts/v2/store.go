@@ -244,6 +244,12 @@ func (h *Store) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 	return h.orm.UpsertWorkflowSpec(ctx, spec)
 }
 
+// SaveTriggerSubscriptions persists the marshaled trigger subscription payload
+// so future engine starts for this workflow ID can skip WASM execution.
+func (h *Store) SaveTriggerSubscriptions(ctx context.Context, workflowID string, payload []byte) error {
+	return h.orm.SaveTriggerSubscriptions(ctx, workflowID, payload)
+}
+
 // DeleteWorkflowArtifacts removes the workflow spec from the database. If not
 // found, returns (nil, nil).
 func (h *Store) DeleteWorkflowArtifacts(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {

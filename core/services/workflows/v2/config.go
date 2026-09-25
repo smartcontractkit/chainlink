@@ -82,6 +82,9 @@ type EngineConfig struct {
 	ShardResolver           shardownership.ShardResolver
 
 	TriggerAcknowledger Acknowledger
+
+	CachedTriggerSubscriptions        []*sdkpb.TriggerSubscription
+	CachedTriggerSubscriptionsEnabled bool
 }
 
 type EngineLimiters struct {

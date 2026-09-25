@@ -844,6 +844,9 @@ type WorkflowSpec struct {
 	// StorageBytes is the workflow + config size in bytes. Set at registration
 	// and not cleared by pausing the workflow
 	StorageBytes int64 `toml:"-" db:"storage_bytes"`
+	// TriggerSubscriptions caches the marshaled sdkpb.TriggerSubscriptionRequest
+	// values, so future engine starts can skip re-executing the binary to get them.
+	TriggerSubscriptions []byte `toml:"-" db:"trigger_subscriptions"`
 }
 
 type StandardCapabilitiesConfig struct {

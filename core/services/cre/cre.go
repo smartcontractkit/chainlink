@@ -959,6 +959,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
+		syncerV2.WithCachedTriggerSubscriptionsEnabled(cfg.CRE().CachedTriggerSubscriptionsEnabled()),
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
 		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),

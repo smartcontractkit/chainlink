@@ -604,9 +604,10 @@ func TestConfig_Marshal(t *testing.T) {
 		NodeID:                new("clp-cre-wf-zone-a-1"),
 	}
 	full.CRE = toml.CreConfig{
-		UseLocalTimeProvider: new(true),
-		EnableDKGRecipient:   new(false),
-		DebugMode:            new(false),
+		UseLocalTimeProvider:              new(true),
+		EnableDKGRecipient:                new(false),
+		DebugMode:                         new(false),
+		CachedTriggerSubscriptionsEnabled: new(false),
 		Streams: &toml.StreamsConfig{
 			WsURL:   new("streams.url"),
 			RestURL: new("streams.url"),
