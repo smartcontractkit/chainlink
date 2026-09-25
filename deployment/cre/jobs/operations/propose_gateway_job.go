@@ -68,8 +68,8 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 )
 
 // proposeGatewayJob builds a gateway job spec and then proposes it to the nodes of a DON.
-// When ServiceCentricFormatEnabled is true, it derives the set of unique DON names from
-// input.Services; otherwise it uses the don-centric input.DONs list.
+// It requires ServiceCentricFormatEnabled to be true and derives the set of unique DON
+// names from input.Services; the legacy don-centric input.DONs format is no longer supported.
 func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
 	requestTimeoutSec := int(input.GatewayRequestTimeoutSec)
 	if requestTimeoutSec == 0 {
