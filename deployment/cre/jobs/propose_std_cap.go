@@ -18,9 +18,11 @@ type ProposeStandardCapabilityJobInput struct {
 	Domain      string `json:"domain" yaml:"domain"`
 	Environment string `json:"environment" yaml:"environment"`
 	DONName     string `json:"donName" yaml:"donName"`
-	JobName     string `json:"jobName" yaml:"jobName"`
-	Command     string `json:"command" yaml:"command"`
-	Config      string `json:"config" yaml:"config"`
+	// JDDONName overrides the DON name used for JD node lookup. Defaults to DONName.
+	JDDONName string `json:"jdDonName,omitempty" yaml:"jdDonName,omitempty"`
+	JobName   string `json:"jobName" yaml:"jobName"`
+	Command   string `json:"command" yaml:"command"`
+	Config    string `json:"config" yaml:"config"`
 
 	ExternalJobID string             `json:"externalJobID" yaml:"externalJobID"` // Optional
 	OracleFactory *pkg.OracleFactory `json:"oracleFactory" yaml:"oracleFactory"` // Optional
@@ -63,6 +65,7 @@ func (u ProposeStandardCapabilityJob) Apply(e cldf.Environment, input ProposeSta
 			Domain:      input.Domain,
 			Environment: input.Environment,
 			DONName:     input.DONName,
+			JDDONName:   input.JDDONName,
 			Job: pkg.StandardCapabilityJob{
 				JobName:               input.JobName,
 				Command:               input.Command,
