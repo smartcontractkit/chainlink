@@ -117,7 +117,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: destToken.Address().Bytes(), Amount: oneE18},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "Send token to contract",
@@ -133,7 +133,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: destToken.Address().Bytes(), Amount: oneE18},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "Send N tokens to contract",
@@ -159,7 +159,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 				{Token: selfServeSrcToken.Address().Bytes(), Amount: new(big.Int).Add(oneE18, oneE18)},
 				{Token: srcToken.Address().Bytes(), Amount: oneE18},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "Sending token transfer with custom gasLimits to the EOA is successful",
@@ -181,7 +181,7 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 				{Token: selfServeSrcToken.Address().Bytes(), Amount: oneE18},
 				{Token: srcToken.Address().Bytes(), Amount: new(big.Int).Add(oneE18, oneE18)},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "Sending PTT with too low gas limit leads to the revert when receiver is a contract",
@@ -204,15 +204,14 @@ func TestTokenTransfer_EVM2EVM(t *testing.T) {
 				{Token: selfServeSrcToken.Address().Bytes(), Amount: big.NewInt(0)},
 				{Token: srcToken.Address().Bytes(), Amount: big.NewInt(0)},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_FAILURE,
+			ExpectedStatus: testhelpers.ExecutionStateFailure,
 		},
 	}
 
 	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
 	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Offchain, sourceChain, destChain)
 
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
-		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -318,15 +317,14 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 				{Token: destToken.Bytes(), Amount: new(big.Int).Mul(big.NewInt(20), oneE9)},
 			},
 			ExtraArgs:      extraArgs,
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 	}
 
 	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
 	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Offchain, sourceChain, destChain)
 
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
-		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -469,7 +467,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 				{Token: common.LeftPadBytes(destToken.Address().Bytes(), 32), Amount: new(big.Int).SetUint64(oneE9)},
 			},
 			ExtraArgs:      extraArgs,
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		// {
 		// 	Name:        "Send N tokens to contract",
@@ -495,15 +493,14 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 		// 		{selfServeSrcToken.Address().Bytes(), new(big.Int).Add(oneE18, oneE18)},
 		// 		{srcToken.Address().Bytes(), oneE18},
 		// 	},
-		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		// 	ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		// },
 	}
 
 	// Wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
 	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Offchain, sourceChain, destChain)
 
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
-		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,

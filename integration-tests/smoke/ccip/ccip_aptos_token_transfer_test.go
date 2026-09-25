@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func assertAptosSourceRevertExpectedError(t *testing.T, err error, execRevertErrorMsg string, execRevertCauseErrorMsg string) {
+func assertAptosSourceRevertExpectedError(t *testing.T, err error, execRevertErrorMsg, execRevertCauseErrorMsg string) {
 	require.Error(t, err)
 	fmt.Println("Error: ", err.Error())
 	require.Contains(t, err.Error(), execRevertErrorMsg)
@@ -80,7 +80,7 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -100,7 +100,7 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -120,7 +120,7 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipChainState.ReceiverAddress[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -141,7 +141,7 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 			DestChain:      destChain,
 			Receiver:       deployerDestChain[:],
 			Data:           []byte("Hello, World!"),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -196,7 +196,8 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -222,7 +223,8 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(0),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -248,7 +250,8 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 					Token:  common.HexToAddress("0x0000000000000000000000000000000000000000"), // Invalid token
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -303,7 +306,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 	require.NoError(t, err)
 
 	// Fee Tokens
-	var NativeFeeToken = "0xa" // coin
+	NativeFeeToken := "0xa" // coin
 
 	// Invalid Fee Token
 	var aptosInvalidToken aptos.AccountAddress
@@ -314,7 +317,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -335,7 +338,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -356,7 +359,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Data:           []byte("Hello, World!"),
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
@@ -378,7 +381,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Data:           []byte("Hello, World!"),
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
@@ -399,7 +402,7 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipReceiverAddress.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -449,7 +452,8 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 
 	aptosFeeQuoter := aptos_feequoter.NewFeeQuoter(
 		state.AptosChains[sourceChain].CCIPAddress,
-		e.Env.BlockChains.AptosChains()[sourceChain].Client)
+		e.Env.BlockChains.AptosChains()[sourceChain].Client,
+	)
 
 	aptosFeeQuoterDestChainConfig, err := aptosFeeQuoter.GetDestChainConfig(aptosCallOpts, destChain)
 	require.NoError(t, err, "Failed to get destination chain fee quoter config")
@@ -465,7 +469,8 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 					Token:  aptosToken,
 					Amount: 1e8,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -490,7 +495,8 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 					Token:  aptosToken,
 					Amount: 0,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -515,7 +521,8 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 					Token:  aptosInvalidToken,
 					Amount: 1e8,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -583,7 +590,7 @@ func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -603,7 +610,7 @@ func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -623,7 +630,7 @@ func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipChainState.ReceiverAddress[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -644,7 +651,7 @@ func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
 			DestChain:      destChain,
 			Receiver:       deployerDestChain[:],
 			Data:           []byte("Hello, World!"),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -699,7 +706,8 @@ func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -725,7 +733,8 @@ func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(0),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -751,7 +760,8 @@ func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
 					Token:  common.HexToAddress("0x0000000000000000000000000000000000000000"), // Invalid token
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -806,7 +816,7 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 	require.NoError(t, err)
 
 	// Fee Tokens
-	var NativeFeeToken = "0xa" // coin
+	NativeFeeToken := "0xa" // coin
 
 	// Invalid Fee Token
 	var aptosInvalidToken aptos.AccountAddress
@@ -817,7 +827,7 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -838,7 +848,7 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -859,7 +869,7 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Data:           []byte("Hello, World!"),
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
@@ -881,7 +891,7 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Data:           []byte("Hello, World!"),
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
@@ -902,7 +912,7 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipReceiverAddress.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -952,7 +962,8 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 
 	aptosFeeQuoter := aptos_feequoter.NewFeeQuoter(
 		state.AptosChains[sourceChain].CCIPAddress,
-		e.Env.BlockChains.AptosChains()[sourceChain].Client)
+		e.Env.BlockChains.AptosChains()[sourceChain].Client,
+	)
 
 	aptosFeeQuoterDestChainConfig, err := aptosFeeQuoter.GetDestChainConfig(aptosCallOpts, destChain)
 	require.NoError(t, err, "Failed to get destination chain fee quoter config")
@@ -968,7 +979,8 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 					Token:  aptosToken,
 					Amount: 1e8,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -993,7 +1005,8 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 					Token:  aptosToken,
 					Amount: 0,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1018,7 +1031,8 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 					Token:  aptosInvalidToken,
 					Amount: 1e8,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1110,7 +1124,7 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerAddressDestChain[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1130,7 +1144,7 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerAddressDestChain[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1150,7 +1164,7 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipChainState.ReceiverAddress[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1171,7 +1185,7 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 			DestChain:      destChain,
 			Receiver:       deployerAddressDestChain[:],
 			Data:           []byte("Hello, World!"),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1226,7 +1240,8 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1252,7 +1267,8 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(0),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1278,7 +1294,8 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 					Token:  common.HexToAddress("0x0000000000000000000000000000000000000000"), // Invalid token
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1336,7 +1353,7 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 	require.NoError(t, err)
 
 	// Fee Tokens
-	var NativeFeeToken = "0xa" // coin
+	NativeFeeToken := "0xa" // coin
 
 	// Invalid Fee Token
 	var aptosInvalidToken aptos.AccountAddress
@@ -1347,7 +1364,7 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -1368,7 +1385,7 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -1389,7 +1406,7 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Data:           []byte("Hello, World!"),
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
@@ -1411,7 +1428,7 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Data:           []byte("Hello, World!"),
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
@@ -1432,7 +1449,7 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipReceiverAddress.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -1482,7 +1499,8 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 
 	aptosFeeQuoter := aptos_feequoter.NewFeeQuoter(
 		state.AptosChains[sourceChain].CCIPAddress,
-		e.Env.BlockChains.AptosChains()[sourceChain].Client)
+		e.Env.BlockChains.AptosChains()[sourceChain].Client,
+	)
 
 	aptosFeeQuoterDestChainConfig, err := aptosFeeQuoter.GetDestChainConfig(aptosCallOpts, destChain)
 	require.NoError(t, err, "Failed to get destination chain fee quoter config")
@@ -1498,7 +1516,8 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 					Token:  aptosToken,
 					Amount: 1e8,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1523,7 +1542,8 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 					Token:  aptosToken,
 					Amount: 0,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1548,7 +1568,8 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 					Token:  aptosInvalidToken,
 					Amount: 1e8,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1640,7 +1661,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerAddressDestChain[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1660,7 +1681,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerAddressDestChain[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1680,7 +1701,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipChainState.ReceiverAddress[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1701,7 +1722,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 			DestChain:      destChain,
 			Receiver:       deployerAddressDestChain[:],
 			Data:           []byte("Hello, World!"),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1756,7 +1777,8 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1782,7 +1804,8 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(0),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1808,7 +1831,8 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 					Token:  common.HexToAddress("0x0000000000000000000000000000000000000000"), // Invalid token
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1866,7 +1890,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 	require.NoError(t, err)
 
 	// Fee Tokens
-	var NativeFeeToken = "0xa" // coin
+	NativeFeeToken := "0xa" // coin
 
 	// Invalid Fee Token
 	var aptosInvalidToken aptos.AccountAddress
@@ -1877,7 +1901,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -1898,7 +1922,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -1919,7 +1943,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Data:           []byte("Hello, World!"),
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
@@ -1941,7 +1965,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Data:           []byte("Hello, World!"),
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
@@ -1962,7 +1986,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipReceiverAddress.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -2012,7 +2036,8 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 
 	aptosFeeQuoter := aptos_feequoter.NewFeeQuoter(
 		state.AptosChains[sourceChain].CCIPAddress,
-		e.Env.BlockChains.AptosChains()[sourceChain].Client)
+		e.Env.BlockChains.AptosChains()[sourceChain].Client,
+	)
 
 	aptosFeeQuoterDestChainConfig, err := aptosFeeQuoter.GetDestChainConfig(aptosCallOpts, destChain)
 	require.NoError(t, err, "Failed to get destination chain fee quoter config")
@@ -2028,7 +2053,8 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 					Token:  aptosToken,
 					Amount: 1e8,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -2053,7 +2079,8 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 					Token:  aptosToken,
 					Amount: 0,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -2078,7 +2105,8 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 					Token:  aptosInvalidToken,
 					Amount: 1e8,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),

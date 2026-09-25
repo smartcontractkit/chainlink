@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
+	suicodec "github.com/smartcontractkit/chainlink-sui/codec"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
@@ -39,7 +40,6 @@ import (
 	burnminttokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_burn_mint_token_pool"
 	lockreleasetokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_lock_release_token_pool"
 	managedtokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_managed_token_pool"
-	managedtokenops "github.com/smartcontractkit/chainlink-sui/deployment/ops/managed_token"
 	suiofframp_helper "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter/ptb/offramp"
 	cslclient "github.com/smartcontractkit/chainlink-sui/relayer/client"
 
@@ -398,32 +398,32 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		switch msg.TokenAmounts[0].TokenPoolType {
 		case sui_deployment.TokenPoolTypeBurnMint:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID}, // ref
-				createTokenTransferParamsResult,     // token_params
-				splitCoinArg,                        // exact-amount coin to send to EVM
+				suicodec.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,      // token_params
+				splitCoinArg,                         // exact-amount coin to send to EVM
 				cfg.DestChain,
-				suiBind.Object{Id: "0x6"},                  // clock
-				suiBind.Object{Id: tokenPoolStateObjectID}, // BM TP state object id
+				suicodec.Object{Id: "0x6"},                  // clock
+				suicodec.Object{Id: tokenPoolStateObjectID}, // BM TP state object id
 			}
 		case sui_deployment.TokenPoolTypeManaged:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID}, // ref
-				createTokenTransferParamsResult,     // token_params
-				splitCoinArg,                        // exact-amount coin to send to EVM
+				suicodec.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,      // token_params
+				splitCoinArg,                         // exact-amount coin to send to EVM
 				cfg.DestChain,
-				suiBind.Object{Id: "0x6"},   // clock
-				suiBind.Object{Id: "0x403"}, // deny list
-				suiBind.Object{Id: state.SuiChains[cfg.SourceChain].ManagedTokens[TokenSymbolLINK].StateObjectId}, // Managed token state object id
-				suiBind.Object{Id: tokenPoolStateObjectID},                                                        // Managed TP state object id
+				suicodec.Object{Id: "0x6"},   // clock
+				suicodec.Object{Id: "0x403"}, // deny list
+				suicodec.Object{Id: state.SuiChains[cfg.SourceChain].ManagedTokens[TokenSymbolLINK].StateObjectId}, // Managed token state object id
+				suicodec.Object{Id: tokenPoolStateObjectID},                                                        // Managed TP state object id
 			}
 		case sui_deployment.TokenPoolTypeLockRelease:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID}, // ref
-				createTokenTransferParamsResult,     // token_params
-				splitCoinArg,                        // exact-amount coin to lock for EVM
+				suicodec.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,      // token_params
+				splitCoinArg,                         // exact-amount coin to lock for EVM
 				cfg.DestChain,
-				suiBind.Object{Id: "0x6"},                  // clock
-				suiBind.Object{Id: tokenPoolStateObjectID}, // LnR TP state object id
+				suicodec.Object{Id: "0x6"},                  // clock
+				suicodec.Object{Id: tokenPoolStateObjectID}, // LnR TP state object id
 			}
 		default:
 			return nil, fmt.Errorf("unsupported token pool type: %s", msg.TokenAmounts[0].TokenPoolType)
@@ -464,15 +464,15 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		}
 
 		paramValuesCCIPSend := []any{
-			suiBind.Object{Id: ccipObjectRefID},
-			suiBind.Object{Id: onRampStateObjectID},
-			suiBind.Object{Id: "0x6"},
+			suicodec.Object{Id: ccipObjectRefID},
+			suicodec.Object{Id: onRampStateObjectID},
+			suicodec.Object{Id: "0x6"},
 			cfg.DestChain,
 			msg.Receiver, // receiver
 			msg.Data,
-			createTokenTransferParamsResult,               // tokenParams from the original create_token_transfer_params
-			suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
-			suiBind.Object{Id: msg.FeeToken},
+			createTokenTransferParamsResult,                // tokenParams from the original create_token_transfer_params
+			suicodec.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
+			suicodec.Object{Id: msg.FeeToken},
 			msg.ExtraArgs, // extraArgs
 		}
 
@@ -602,15 +602,15 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	typeArgsList = []string{linkTokenPkgID + "::link::LINK"}
 	typeParamsList = []string{}
 	paramValues = []any{
-		suiBind.Object{Id: ccipObjectRefID},
-		suiBind.Object{Id: onRampStateObjectID},
-		suiBind.Object{Id: "0x6"},
+		suicodec.Object{Id: ccipObjectRefID},
+		suicodec.Object{Id: onRampStateObjectID},
+		suicodec.Object{Id: "0x6"},
 		cfg.DestChain,
 		msg.Receiver, // receiver (TODO: replace this with sender Address use environment.NormalizeTo32Bytes(ethereumAddress) from sui repo)
 		msg.Data,
-		extractedAny2SuiMessageResult,                 // tokenParams
-		suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
-		suiBind.Object{Id: msg.FeeToken},
+		extractedAny2SuiMessageResult,                  // tokenParams
+		suicodec.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
+		suicodec.Object{Id: msg.FeeToken},
 		msg.ExtraArgs, // extraArgs
 	}
 
@@ -711,8 +711,8 @@ func MakeSuiSourceSVMExtraArgsV1(computeUnits uint32, writableBitmap uint64, all
 	s.U64(writableBitmap)
 	s.Bool(allowOOO)
 	s.WriteBytes(tokenReceiver[:]) // vector<u8>: ULEB128(32) + 32 bytes
-	bcs.SerializeSequenceWithFunction(accounts, s, func(ser *bcs.Serializer, acct [32]byte) {
-		ser.WriteBytes(acct[:]) // each account: vector<u8> of length 32
+	bcs.SerializeSequenceWithFunction(accounts, s, func(serial *bcs.Serializer, acct [32]byte) {
+		serial.WriteBytes(acct[:]) // each account: vector<u8> of length 32
 	})
 	if err := s.Error(); err != nil {
 		panic(fmt.Errorf("encode Sui-source SVMExtraArgsV1: %w", err))
@@ -996,14 +996,12 @@ func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChain
 	// Deploy & Configure Managed Token on SUI
 	e, _, err = commoncs.ApplyChangesets(&testing.T{}, e, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.DeployManagedToken{}, sui_cs.DeployManagedTokenConfig{
-			DeployAndInitManagedTokenInput: managedtokenops.DeployAndInitManagedTokenInput{
-				CoinObjectTypeArg:   linkTokenPkgID + "::link::LINK",
-				TreasuryCapObjectId: linkTokenTreasuryCapID,
-				MinterAddress:       deployerAddr,
-				Allowance:           0,
-				IsUnlimited:         true,
-			},
-			ChainSelector: suiChainSel,
+			CoinObjectTypeArg:   linkTokenPkgID + "::link::LINK",
+			TreasuryCapObjectId: linkTokenTreasuryCapID,
+			MinterAddress:       deployerAddr,
+			Allowance:           0,
+			IsUnlimited:         true,
+			ChainSelector:       suiChainSel,
 		}),
 	})
 	if err != nil {
@@ -1270,7 +1268,7 @@ func UpgradeContractDirect(
 	}
 
 	paramValues := []any{
-		suiBind.Object{Id: upgradeCapID},
+		suicodec.Object{Id: upgradeCapID},
 		policy,
 		digest,
 	}
@@ -1316,7 +1314,7 @@ func UpgradeContractDirect(
 	}
 
 	paramValuesCommit := []any{
-		suiBind.Object{Id: upgradeCapID},
+		suicodec.Object{Id: upgradeCapID},
 		upgradeReceiptArg,
 	}
 

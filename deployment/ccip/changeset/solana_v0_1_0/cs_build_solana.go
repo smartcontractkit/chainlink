@@ -3,6 +3,7 @@ package solana
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -68,7 +69,7 @@ type BuildSolanaConfig struct {
 
 // Run a command in a specific directory
 func runCommand(command string, args []string, workDir string) (string, error) {
-	cmd := exec.Command(command, args...)
+	cmd := exec.CommandContext(context.Background(), command, args...)
 	cmd.Dir = workDir
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -149,7 +150,7 @@ func replaceKeysForUpgrade(e cldf.Environment, keys map[cldf.ContractType]string
 
 		// Replace declare_id!("..."); with the new key
 		updatedContent := regexp.MustCompile(`declare_id!\(".*?"\);`).ReplaceAllString(string(content), fmt.Sprintf(`declare_id!("%s");`, key))
-		err = os.WriteFile(fullPath, []byte(updatedContent), 0600) //nolint:gosec // G703
+		err = os.WriteFile(fullPath, []byte(updatedContent), 0o600) //nolint:gosec // G703: false positive, path is within the freshly cloned repo dir
 		if err != nil {
 			return fmt.Errorf("failed to write updated keys to file %s: %w", fullPath, err)
 		}
@@ -192,7 +193,7 @@ func syncRouterAndCommon() error {
 
 	updatedContent := declareRegex.ReplaceAllString(string(commonContent), declareID)
 
-	return os.WriteFile(commonFile, []byte(updatedContent), 0600) //nolint:gosec // G703
+	return os.WriteFile(commonFile, []byte(updatedContent), 0o600) //nolint:gosec // G703: false positive, path is within the freshly cloned repo dir
 }
 
 func generateVanityKeys(e cldf.Environment, keys map[cldf.ContractType]string) error {
@@ -250,7 +251,7 @@ func generateVanityKeys(e cldf.Environment, keys map[cldf.ContractType]string) e
 	return nil
 }
 
-func copyFile(srcFile string, destDir string) error {
+func copyFile(srcFile, destDir string) error {
 	output, err := runCommand("cp", []string{srcFile, destDir}, ".")
 	if err != nil {
 		return fmt.Errorf("failed to copy file: %s %w", output, err)

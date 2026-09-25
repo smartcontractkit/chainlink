@@ -53,7 +53,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 		chainsel.GETH_TESTNET,  // source
 		chainsel.TEST_90000001, // dest
 	}
-	var chainIDs = []uint64{
+	chainIDs := []uint64{
 		chains[0].Selector,
 		chains[1].Selector,
 	}
@@ -120,8 +120,8 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				Nonce:                  &nonce,
 				Receiver:               common.HexToAddress("0xdead").Bytes(),
 				MsgData:                []byte("hello eoa"),
-				ExtraArgs:              nil,                                 // default extraArgs
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+				ExtraArgs:              nil,                               // default extraArgs
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess, // success because offRamp won't call an EOA
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
 					},
@@ -139,8 +139,8 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				Nonce:                  &out.Nonce,
 				Receiver:               state.MustGetEVMChainState(destChain).FeeQuoter.Address().Bytes(),
 				MsgData:                []byte("hello FeeQuoter"),
-				ExtraArgs:              nil,                                 // default extraArgs
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
+				ExtraArgs:              nil,                               // default extraArgs
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess, // success because offRamp won't call a contract not implementing CCIPReceiver
 			},
 		)
 	})
@@ -157,7 +157,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              nil, // default extraArgs
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
 						iter, err := state.MustGetEVMChainState(destChain).Receiver.FilterMessageReceived(&bind.FilterOpts{
@@ -183,7 +183,7 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver with low exec gas"),
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
+				ExpectedExecutionState: testhelpers.ExecutionStateFailure,        // state would be failed onchain due to low gas
 			},
 		)
 		msgSentEvent := out.MsgSentEvent.RawEvent.(*onramp.OnRampCCIPMessageSent)
@@ -305,7 +305,7 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 			Receiver:               receiver,
 			MsgData:                []byte("hello CCIPReceiver"),
 			ExtraArgs:              extraArgs,
-			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			NumberOfMessages:       numMessages,
 		},
 	)
@@ -444,7 +444,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              extraArgs,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
 						var receiverCounterAccount soltesthelpers.ReceiverCounter
@@ -522,7 +522,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver that should succeed"),
 				ExtraArgs:              extraArgsSuccess,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
 						// Check counter is now 2
@@ -561,7 +561,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				Receiver:               receiver,
 				MsgData:                make([]byte, 1233), // set large payload that cannot fit in single transaction but does not overflow memory allocation
 				ExtraArgs:              extraArgs,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
 						var receiverCounterAccount soltesthelpers.ReceiverCounter
@@ -601,7 +601,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				ExtraArgs:              extraArgs,
 				NumberOfMessages:       3,
 				UseMulticall3:          true,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})
@@ -666,7 +666,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 				MsgData:                []byte("hello CCIPReceiver"),
 				FeeToken:               "",        // use native SOL - internally this will be converted to wSOL via Sync Native
 				ExtraArgs:              extraArgs, // default extraArgs
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
 						iter, err := state.MustGetEVMChainState(destChain).Receiver.FilterMessageReceived(&bind.FilterOpts{

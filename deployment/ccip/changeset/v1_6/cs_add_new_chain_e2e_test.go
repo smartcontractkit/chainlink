@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
-	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -395,10 +394,8 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			remoteChains := make([]v1_6.ChainDefinition, len(remoteChainSelectors))
 			for i, selector := range remoteChainSelectors {
 				remoteChains[i] = v1_6.ChainDefinition{
-					ConnectionConfig: v1_6.ConnectionConfig{
-						RMNVerificationDisabled: true,
-						AllowListEnabled:        false,
-					},
+					RMNVerificationDisabled:  true,
+					AllowListEnabled:         false,
 					Selector:                 selector,
 					GasPrice:                 big.NewInt(1e17),
 					TokenPrices:              map[common.Address]*big.Int{},
@@ -644,10 +641,8 @@ func TestValidateTransmitterAddresses(t *testing.T) {
 		remoteChains := make([]v1_6.ChainDefinition, 1)
 		// test
 		remoteChains[0] = v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
+			RMNVerificationDisabled:  true,
+			AllowListEnabled:         false,
 			Selector:                 chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 			GasPrice:                 big.NewInt(1e17),
 			TokenPrices:              map[common.Address]*big.Int{},
@@ -683,20 +678,14 @@ func TestValidateTransmitterAddresses(t *testing.T) {
 
 func newChainConfigHelper(newChainSel, feedChainSel uint64, linkTokenAddr common.Address, nodeInfo *deployment.Nodes, noOfPeers int) v1_6.NewChainDefinition {
 	return v1_6.NewChainDefinition{
-		ChainDefinition: v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
-			Selector:                 newChainSel,
-			GasPrice:                 big.NewInt(1e17),
-			TokenPrices:              map[common.Address]*big.Int{},
-			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
-		},
-		ChainContractParams: ccipseq.ChainContractParams{
-			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
-			OffRampParams:   ccipops.DefaultOffRampParams(),
-		},
+		RMNVerificationDisabled:  true,
+		AllowListEnabled:         false,
+		Selector:                 newChainSel,
+		GasPrice:                 big.NewInt(1e17),
+		TokenPrices:              map[common.Address]*big.Int{},
+		FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
+		FeeQuoterParams:          ccipops.DefaultFeeQuoterParams(),
+		OffRampParams:            ccipops.DefaultOffRampParams(),
 		ExistingContracts: changeset.ExistingContractsConfig{
 			ExistingContracts: []changeset.Contract{
 				{

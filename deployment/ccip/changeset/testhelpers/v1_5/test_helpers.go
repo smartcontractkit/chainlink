@@ -693,7 +693,8 @@ func SetOCR2ConfigForTestChangeset(env cldf.Environment, c OCR2Config) (cldf.Cha
 	for _, exec := range c.ExecConfigs {
 		if err := exec.PopulateOffChainAndOnChainCfg(
 			state.MustGetEVMChainState(exec.DestinationChainSelector).Router.Address(),
-			state.MustGetEVMChainState(exec.DestinationChainSelector).PriceRegistry.Address()); err != nil {
+			state.MustGetEVMChainState(exec.DestinationChainSelector).PriceRegistry.Address(),
+		); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate offchain and onchain config for offramp: %w", err)
 		}
 		finalCfg, err := deriveOCR2Config(env, exec.DestinationChainSelector, exec.OCR2ConfigParams)
@@ -744,12 +745,10 @@ func deriveOCR2Config(
 			return FinalOCR2Config{}, fmt.Errorf("no OCR config for chain %d", chainSel)
 		}
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  cfg.OnchainPublicKey,
-				TransmitAccount:   cfg.TransmitAccount,
-				OffchainPublicKey: cfg.OffchainPublicKey,
-				PeerID:            cfg.PeerID.Raw(),
-			},
+			OnchainPublicKey:          cfg.OnchainPublicKey,
+			TransmitAccount:           cfg.TransmitAccount,
+			OffchainPublicKey:         cfg.OffchainPublicKey,
+			PeerID:                    cfg.PeerID.Raw(),
 			ConfigEncryptionPublicKey: cfg.ConfigEncryptionPublicKey,
 		})
 	}
@@ -1126,7 +1125,8 @@ func WaitForExecute(
 			it, err := offRamp.FilterExecutionStateChanged(
 				&bind.FilterOpts{
 					Start: blockNum,
-				}, seqNrs, [][32]byte{})
+				}, seqNrs, [][32]byte{},
+			)
 			require.NoError(t, err)
 			for it.Next() {
 				t.Logf("Execution state changed for sequence number=%d current state=%d", it.Event.SequenceNumber, it.Event.State)

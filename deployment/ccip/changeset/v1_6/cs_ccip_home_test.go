@@ -19,7 +19,6 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -256,11 +255,9 @@ func Test_SetCandidate(t *testing.T) {
 			_, err = commonchangeset.Apply(t, tenv.Env, commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 				v1_6.SetCandidateChangesetConfig{
-					SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-						HomeChainSelector: tenv.HomeChainSel,
-						FeedChainSelector: tenv.FeedChainSel,
-						MCMS:              mcmsConfig,
-					},
+					HomeChainSelector: tenv.HomeChainSel,
+					FeedChainSelector: tenv.FeedChainSel,
+					MCMS:              mcmsConfig,
 					PluginInfo: []v1_6.SetCandidatePluginInfo{
 						{
 							OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
@@ -281,11 +278,9 @@ func Test_SetCandidate(t *testing.T) {
 			), commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 				v1_6.SetCandidateChangesetConfig{
-					SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-						HomeChainSelector: tenv.HomeChainSel,
-						FeedChainSelector: tenv.FeedChainSel,
-						MCMS:              mcmsConfig,
-					},
+					HomeChainSelector: tenv.HomeChainSel,
+					FeedChainSelector: tenv.FeedChainSel,
+					MCMS:              mcmsConfig,
 					PluginInfo: []v1_6.SetCandidatePluginInfo{
 						{
 							OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
@@ -385,11 +380,9 @@ func Test_RevokeCandidate(t *testing.T) {
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 					v1_6.SetCandidateChangesetConfig{
-						SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-							HomeChainSelector: tenv.HomeChainSel,
-							FeedChainSelector: tenv.FeedChainSel,
-							MCMS:              mcmsConfig,
-						},
+						HomeChainSelector: tenv.HomeChainSel,
+						FeedChainSelector: tenv.FeedChainSel,
+						MCMS:              mcmsConfig,
 						PluginInfo: []v1_6.SetCandidatePluginInfo{
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
@@ -531,8 +524,8 @@ func Test_UpdateChainConfigs(t *testing.T) {
 						RemoteChainAdds: map[uint64]v1_6.ChainConfig{
 							otherChain: {
 								EncodableChainConfig: chainconfig.ChainConfig{
-									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
-									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+									GasPriceDeviationPPB:    ccipocr3.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+									DAGasPriceDeviationPPB:  ccipocr3.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
 									OptimisticConfirmations: globals.OptimisticConfirmations,
 								},
 								FChain:  otherChainConfig.FChain,
@@ -628,10 +621,8 @@ func Test_SetCandidateErrorsOnDuplicateUSDCTokenPoolProxyInDataStore(t *testing.
 
 func setCandidateExecConfig(homeChainSel, feedChainSel, dest uint64, sourcePoolAddress string) v1_6.SetCandidateChangesetConfig {
 	return v1_6.SetCandidateChangesetConfig{
-		SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-			HomeChainSelector: homeChainSel,
-			FeedChainSelector: feedChainSel,
-		},
+		HomeChainSelector: homeChainSel,
+		FeedChainSelector: feedChainSel,
 		PluginInfo: []v1_6.SetCandidatePluginInfo{
 			{
 				PluginType: types.PluginTypeCCIPExec,
@@ -641,9 +632,7 @@ func setCandidateExecConfig(homeChainSel, feedChainSel, dest uint64, sourcePoolA
 							Type:    pluginconfig.USDCCCTPHandlerType,
 							Version: "1.0",
 							USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-								AttestationConfig: pluginconfig.AttestationConfig{
-									AttestationAPI: "http://example.com",
-								},
+								AttestationAPI: "http://example.com",
 								Tokens: map[ccipocr3.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 									ccipocr3.ChainSelector(dest): {
 										SourcePoolAddress:            sourcePoolAddress,

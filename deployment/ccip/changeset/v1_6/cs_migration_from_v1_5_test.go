@@ -35,7 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
-	ccipocr3types "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -411,10 +411,8 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 				// #nosec G115 - Overflow is not a concern in this test scenario
 				FChain: uint8(len(readers) / 3),
 				EncodableChainConfig: chainconfig.ChainConfig{
-					//nolint:staticcheck // SA1019: Type required by ChainConfig
-					GasPriceDeviationPPB: ccipocr3types.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
-					//nolint:staticcheck // SA1019: Type required by ChainConfig
-					DAGasPriceDeviationPPB:    ccipocr3types.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+					GasPriceDeviationPPB:      ccipocr3common.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+					DAGasPriceDeviationPPB:    ccipocr3common.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
 					OptimisticConfirmations:   globals.OptimisticConfirmations,
 					ChainFeeDeviationDisabled: true,
 				},

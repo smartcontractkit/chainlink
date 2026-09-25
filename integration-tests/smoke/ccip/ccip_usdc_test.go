@@ -119,11 +119,12 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				{
 					Token:  cChainUSDC.Address(),
 					Amount: tinyOneCoin,
-				}},
+				},
+			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: aChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "multiple USDC tokens within the same message",
@@ -144,7 +145,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				// 2 coins because of the same Receiver
 				{Token: aChainUSDC.Address().Bytes(), Amount: new(big.Int).Add(tinyOneCoin, tinyOneCoin)},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "USDC token together with another token transferred to EOA",
@@ -165,7 +166,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 				{Token: cChainToken.Address().Bytes(), Amount: new(big.Int).Mul(tinyOneCoin, big.NewInt(10))},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "USDC programmable token transfer to valid contract receiver",
@@ -182,7 +183,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "USDC programmable token transfer with too little gas",
@@ -200,7 +201,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				{Token: bChainUSDC.Address().Bytes(), Amount: new(big.Int).SetUint64(0)},
 			},
 			ExtraArgs:      testhelpers.MakeEVMExtraArgsV2(1, false),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_FAILURE,
+			ExpectedStatus: testhelpers.ExecutionStateFailure,
 		},
 		{
 			Name:        "USDC token transfer from a different source chain",
@@ -217,12 +218,11 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 	}
 
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
-		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
