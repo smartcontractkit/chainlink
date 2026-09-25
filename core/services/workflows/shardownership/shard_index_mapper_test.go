@@ -62,11 +62,11 @@ func TestShardIndexMapper_DonByShardIndex(t *testing.T) {
 
 	me := makePeerID(1)
 	reg := newTestRegistry(t, me,
-		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a", "zone-a_workflow"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
-		testDON{id: 30, name: "workflow-1-zone-a-shard-2", families: []string{"zone-a", "zone-a_workflow"}, acceptsWorkflows: true},
-		testDON{id: 20, name: "workflow-1-zone-a-shard-1", families: []string{"zone-a", "zone-a_workflow"}, acceptsWorkflows: true},
+		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		testDON{id: 30, name: "workflow-1-zone-a-shard-2", families: []string{"zone-a_shard-2", "zone-a"}, acceptsWorkflows: true},
+		testDON{id: 20, name: "workflow-1-zone-a-shard-1", families: []string{"zone-a_shard-1", "zone-a"}, acceptsWorkflows: true},
 		// Different family entirely: must be excluded even though it accepts workflows.
-		testDON{id: 40, name: "workflow-2-zone-b", families: []string{"zone-b", "zone-b_workflow"}, acceptsWorkflows: true},
+		testDON{id: 40, name: "workflow-2-zone-b", families: []string{"zone-b_shard-0", "zone-b"}, acceptsWorkflows: true},
 		// Capability-only DON in the same family: must be excluded.
 		testDON{id: 99, name: "chain-capabilities-zone-a", families: []string{"zone-a"}, acceptsWorkflows: false},
 	)
@@ -80,12 +80,67 @@ func TestShardIndexMapper_DonByShardIndex(t *testing.T) {
 	assert.Nil(t, idx.DonByShardIndex(t.Context(), 3))
 }
 
+func TestShardIndexMapper_ExcludesSameFamilyDifferentNamePrefix(t *testing.T) {
+	t.Parallel()
+
+	me := makePeerID(1)
+	reg := newTestRegistry(t, me,
+		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		testDON{id: 20, name: "workflow-1-zone-a-shard-1", families: []string{"zone-a_shard-1", "zone-a"}, acceptsWorkflows: true},
+		// Same family as me, but a different name prefix: a distinct shard group that happens to share the family. Must be excluded.
+		testDON{id: 40, name: "workflow-2-zone-a-shard-1", families: []string{"zone-a_shard-1", "zone-a"}, acceptsWorkflows: true},
+	)
+
+	idx := NewShardIndexMapper(logger.Test(t))
+	require.NoError(t, idx.OnNewRegistry(t.Context(), reg))
+
+	assert.Equal(t, uint32(10), idx.DonByShardIndex(t.Context(), 0).ID)
+	assert.Equal(t, uint32(20), idx.DonByShardIndex(t.Context(), 1).ID)
+	assert.Nil(t, idx.DonByShardIndex(t.Context(), 2))
+}
+
+func TestShardIndexMapper_MatchesOnPartiallyOverlappingFamilies(t *testing.T) {
+	t.Parallel()
+
+	me := makePeerID(1)
+	reg := newTestRegistry(t, me,
+		// Local DON and its shard peer share only "zone-a"; each also has its own
+		// shard-specific family that the other doesn't have. A single shared
+		// family is enough to match.
+		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a", "extra-family"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		testDON{id: 20, name: "workflow-1-zone-a-shard-1", families: []string{"zone-a_shard-1", "zone-a"}, acceptsWorkflows: true},
+	)
+
+	idx := NewShardIndexMapper(logger.Test(t))
+	require.NoError(t, idx.OnNewRegistry(t.Context(), reg))
+
+	assert.Equal(t, uint32(10), idx.DonByShardIndex(t.Context(), 0).ID)
+	assert.Equal(t, uint32(20), idx.DonByShardIndex(t.Context(), 1).ID)
+}
+
+func TestShardIndexMapper_ExcludesSameNamePrefixNoSharedFamily(t *testing.T) {
+	t.Parallel()
+
+	me := makePeerID(1)
+	reg := newTestRegistry(t, me,
+		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		// Same name prefix, but no family in common with the local DON: must be excluded.
+		testDON{id: 20, name: "workflow-1-zone-a-shard-1", families: []string{"zone-b"}, acceptsWorkflows: true},
+	)
+
+	idx := NewShardIndexMapper(logger.Test(t))
+	require.NoError(t, idx.OnNewRegistry(t.Context(), reg))
+
+	assert.Equal(t, uint32(10), idx.DonByShardIndex(t.Context(), 0).ID)
+	assert.Nil(t, idx.DonByShardIndex(t.Context(), 1))
+}
+
 func TestShardIndexMapper_NoShardSuffixMeansIndexZero(t *testing.T) {
 	t.Parallel()
 
 	me := makePeerID(1)
 	reg := newTestRegistry(t, me,
-		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_workflow"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
 	)
 
 	idx := NewShardIndexMapper(logger.Test(t))
@@ -101,46 +156,32 @@ func TestShardIndexMapper_RefreshesOnNewRegistry(t *testing.T) {
 	idx := NewShardIndexMapper(logger.Test(t))
 
 	require.NoError(t, idx.OnNewRegistry(t.Context(), newTestRegistry(t, me,
-		testDON{id: 5, name: "workflow-1-zone-a", families: []string{"zone-a_workflow"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		testDON{id: 5, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
 	)))
 	require.NotNil(t, idx.DonByShardIndex(t.Context(), 0))
 	assert.Nil(t, idx.DonByShardIndex(t.Context(), 1))
 
 	// A later registry snapshot with a different shard layout replaces the stale entry.
 	require.NoError(t, idx.OnNewRegistry(t.Context(), newTestRegistry(t, me,
-		testDON{id: 7, name: "workflow-1-zone-a", families: []string{"zone-a_workflow"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
-		testDON{id: 8, name: "workflow-1-zone-a-shard-1", families: []string{"zone-a_workflow"}, acceptsWorkflows: true},
+		testDON{id: 7, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		testDON{id: 8, name: "workflow-1-zone-a-shard-1", families: []string{"zone-a_shard-1", "zone-a"}, acceptsWorkflows: true},
 	)))
 	assert.Equal(t, uint32(7), idx.DonByShardIndex(t.Context(), 0).ID)
 	assert.Equal(t, uint32(8), idx.DonByShardIndex(t.Context(), 1).ID)
 }
 
-func TestShardIndexMapper_ErrorsWhenLocalDonHasNoWorkflowFamily(t *testing.T) {
+func TestShardIndexMapper_ErrorsWhenLocalDonHasNoFamilies(t *testing.T) {
 	t.Parallel()
 
 	me := makePeerID(1)
 	reg := newTestRegistry(t, me,
-		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		testDON{id: 10, name: "workflow-1-zone-a", families: nil, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
 	)
 
 	idx := NewShardIndexMapper(logger.Test(t))
 	err := idx.OnNewRegistry(t.Context(), reg)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "_workflow")
-}
-
-func TestShardIndexMapper_ErrorsWhenLocalDonHasMultipleWorkflowFamilies(t *testing.T) {
-	t.Parallel()
-
-	me := makePeerID(1)
-	reg := newTestRegistry(t, me,
-		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_workflow", "zone-b_workflow"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
-	)
-
-	idx := NewShardIndexMapper(logger.Test(t))
-	err := idx.OnNewRegistry(t.Context(), reg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "more than one")
+	assert.Contains(t, err.Error(), "no workflow DONs found")
 }
 
 func TestShardIndexMapper_ErrorsWhenLocalNodeNotInAnyWorkflowDon(t *testing.T) {
@@ -149,7 +190,7 @@ func TestShardIndexMapper_ErrorsWhenLocalNodeNotInAnyWorkflowDon(t *testing.T) {
 	me := makePeerID(1)
 	other := makePeerID(2)
 	reg := newTestRegistry(t, me,
-		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_workflow"}, acceptsWorkflows: true, members: []ragetypes.PeerID{other}},
+		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{other}},
 	)
 
 	idx := NewShardIndexMapper(logger.Test(t))
@@ -163,8 +204,8 @@ func TestShardIndexMapper_ErrorsOnMultiDigitShardSuffix(t *testing.T) {
 
 	me := makePeerID(1)
 	reg := newTestRegistry(t, me,
-		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_workflow"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
-		testDON{id: 11, name: "workflow-1-zone-a-shard-12", families: []string{"zone-a_workflow"}, acceptsWorkflows: true},
+		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		testDON{id: 11, name: "workflow-1-zone-a-shard-12", families: []string{"zone-a"}, acceptsWorkflows: true},
 	)
 
 	idx := NewShardIndexMapper(logger.Test(t))
@@ -178,8 +219,8 @@ func TestShardIndexMapper_ErrorsOnDuplicateShardIndex(t *testing.T) {
 
 	me := makePeerID(1)
 	reg := newTestRegistry(t, me,
-		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_workflow"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
-		testDON{id: 11, name: "workflow-2-zone-a", families: []string{"zone-a_workflow"}, acceptsWorkflows: true},
+		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		testDON{id: 11, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true},
 	)
 
 	idx := NewShardIndexMapper(logger.Test(t))
@@ -207,7 +248,7 @@ func TestShardIndexMapper_WaitReady(t *testing.T) {
 	}()
 
 	require.NoError(t, idx.OnNewRegistry(t.Context(), newTestRegistry(t, me,
-		testDON{id: 1, name: "workflow-1-zone-a", families: []string{"zone-a_workflow"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		testDON{id: 1, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
 	)))
 
 	select {
@@ -246,6 +287,28 @@ func TestShardIndexFromName(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantIndex, got)
+		})
+	}
+}
+
+func TestShardGroupNamePrefix(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		donName    string
+		wantPrefix string
+	}{
+		{name: "no suffix", donName: "workflow-1-zone-a", wantPrefix: "workflow-1-zone-a"},
+		{name: "hyphen shard 1", donName: "workflow-1-zone-a-shard-1", wantPrefix: "workflow-1-zone-a"},
+		{name: "hyphen shard 9", donName: "workflow-1-zone-a-shard-9", wantPrefix: "workflow-1-zone-a"},
+		{name: "underscore shard 1", donName: "workflow-1-zone-a_shard-1", wantPrefix: "workflow-1-zone-a"},
+		{name: "malformed suffix still stripped", donName: "workflow-1-zone-a-shard-12", wantPrefix: "workflow-1-zone-a"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.wantPrefix, shardGroupNamePrefix(tc.donName))
 		})
 	}
 }

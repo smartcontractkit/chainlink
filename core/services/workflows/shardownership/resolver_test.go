@@ -137,8 +137,8 @@ static_default_assignment = [1]
 	me := makePeerID(1)
 	donIndex := NewShardIndexMapper(nopLogger)
 	require.NoError(t, donIndex.OnNewRegistry(t.Context(), newTestRegistry(t, me,
-		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_workflow"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
-		testDON{id: 20, name: "workflow-1-zone-a-shard-1", families: []string{"zone-a_workflow"}, acceptsWorkflows: true},
+		testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+		testDON{id: 20, name: "workflow-1-zone-a-shard-1", families: []string{"zone-a_shard-1", "zone-a"}, acceptsWorkflows: true},
 	)))
 
 	r := NewManualShardResolver(settings, nil, donIndex, nopLogger)
@@ -168,8 +168,8 @@ static_default_assignment = [1]
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		_ = donIndex.OnNewRegistry(context.Background(), newTestRegistry(t, me,
-			testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_workflow"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
-			testDON{id: 20, name: "workflow-1-zone-a-shard-1", families: []string{"zone-a_workflow"}, acceptsWorkflows: true},
+			testDON{id: 10, name: "workflow-1-zone-a", families: []string{"zone-a_shard-0", "zone-a"}, acceptsWorkflows: true, members: []ragetypes.PeerID{me}},
+			testDON{id: 20, name: "workflow-1-zone-a-shard-1", families: []string{"zone-a_shard-1", "zone-a"}, acceptsWorkflows: true},
 		))
 	}()
 

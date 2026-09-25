@@ -13,10 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-// workflowFamilySuffix identifies a special DON family shared by every
-// workflow DON in a zone (e.g. "zone-a_workflow").
-const workflowFamilySuffix = "_workflow"
-
 // shardNameMarker is the marker a workflow DON's name is suffixed with to
 // encode its shard index (e.g. "workflow-1-zone-a-shard-1" -> shard 1). A
 // name with no such suffix (e.g. "workflow-1-zone-a") is shard index 0.
@@ -43,9 +39,10 @@ func NewShardIndexMapper(lggr logger.Logger) *ShardIndexMapper {
 }
 
 // OnNewRegistry implements registrysyncer/v2.Listener. It determines this
-// node's shard-group family (the single DON family suffixed "_workflow" that
-// its own workflow DON belongs to), then indexes every workflow DON sharing
-// that family by the shard index encoded in its name.
+// node's shard-group name prefix (its own DON name with any "shard-X" suffix
+// stripped), then indexes every other workflow DON that shares at least one
+// family with its own workflow DON and shares that name prefix, by the shard
+// index encoded in its name.
 func (s *ShardIndexMapper) OnNewRegistry(ctx context.Context, reg *registry.RegistryMetadata) error {
 	localNode, err := reg.LocalNode(ctx)
 	if err != nil {
@@ -55,12 +52,9 @@ func (s *ShardIndexMapper) OnNewRegistry(ctx context.Context, reg *registry.Regi
 		return errors.New("local node does not belong to a workflow DON")
 	}
 
-	family, err := workflowFamilyOf(localNode.WorkflowDON)
-	if err != nil {
-		return err
-	}
+	namePrefix := shardGroupNamePrefix(localNode.WorkflowDON.Name)
 
-	byIndex, err := shardDONsByIndex(reg, family)
+	byIndex, err := shardDONsByIndex(reg, localNode.WorkflowDON, namePrefix)
 	if err != nil {
 		return err
 	}
@@ -70,46 +64,38 @@ func (s *ShardIndexMapper) OnNewRegistry(ctx context.Context, reg *registry.Regi
 	s.mu.Unlock()
 	s.readyOnce.Do(func() { close(s.ready) })
 
-	s.lggr.Debugw("refreshed shard DON index", "family", family, "workflowDONs", len(byIndex))
+	s.lggr.Debugw("refreshed shard DON index", "namePrefix", namePrefix, "workflowDONs", len(byIndex))
 	return nil
 }
 
-// workflowFamilyOf returns the single DON family suffixed "_workflow" that
-// don belongs to. It errors if don belongs to zero or more than one such
-// family, since that leaves the shard group ambiguous.
-func workflowFamilyOf(don commoncap.DON) (string, error) {
-	var found string
-	for _, family := range don.Families {
-		if !strings.HasSuffix(family, workflowFamilySuffix) {
-			continue
+// sharesFamily reports whether a and b have at least one family in common.
+func sharesFamily(a, b []string) bool {
+	for _, family := range a {
+		if slices.Contains(b, family) {
+			return true
 		}
-		if found != "" {
-			return "", fmt.Errorf("DON %q belongs to more than one %q family: %q and %q", don.Name, workflowFamilySuffix, found, family)
-		}
-		found = family
 	}
-	if found == "" {
-		return "", fmt.Errorf("DON %q does not belong to any family suffixed %q", don.Name, workflowFamilySuffix)
-	}
-	return found, nil
+	return false
 }
 
-// shardDONsByIndex finds every workflow DON in the registry that belongs to
-// family (the local node's own shard group), and returns them indexed by the
-// shard index encoded in their name (see shardIndexFromName).
-func shardDONsByIndex(reg *registry.RegistryMetadata, family string) ([]commoncap.DON, error) {
+// shardDONsByIndex finds every workflow DON in the registry that shares at
+// least one family with localDON (the local node's own shard group) and
+// shares namePrefix (the local node's own DON name with any shard suffix
+// stripped), and returns them indexed by the shard index encoded in their
+// name (see shardIndexFromName).
+func shardDONsByIndex(reg *registry.RegistryMetadata, localDON commoncap.DON, namePrefix string) ([]commoncap.DON, error) {
 	byIndex := make(map[uint32]commoncap.DON)
 	maxIndex := uint32(0)
 	for _, don := range reg.IDsToDONs {
-		if !don.AcceptsWorkflows || !slices.Contains(don.Families, family) {
+		if !don.AcceptsWorkflows || !sharesFamily(don.Families, localDON.Families) || shardGroupNamePrefix(don.Name) != namePrefix {
 			continue
 		}
 		idx, err := shardIndexFromName(don.Name)
 		if err != nil {
-			return nil, fmt.Errorf("DON %q in family %q: %w", don.Name, family, err)
+			return nil, fmt.Errorf("DON %q: %w", don.Name, err)
 		}
 		if existing, ok := byIndex[idx]; ok {
-			return nil, fmt.Errorf("family %q has two DONs at shard index %d: %q and %q", family, idx, existing.Name, don.Name)
+			return nil, fmt.Errorf("name prefix %q has two DONs at shard index %d: %q and %q", namePrefix, idx, existing.Name, don.Name)
 		}
 		byIndex[idx] = don.DON
 		if idx > maxIndex {
@@ -117,7 +103,7 @@ func shardDONsByIndex(reg *registry.RegistryMetadata, family string) ([]commonca
 		}
 	}
 	if len(byIndex) == 0 {
-		return nil, fmt.Errorf("no workflow DONs found in family %q", family)
+		return nil, fmt.Errorf("no workflow DONs found sharing a family with local DON %q and name prefix %q", localDON.Name, namePrefix)
 	}
 
 	result := make([]commoncap.DON, maxIndex+1)
@@ -140,6 +126,23 @@ func shardIndexFromName(name string) (uint32, error) {
 		return 0, fmt.Errorf("expected DON name %q to end with %q followed by a single digit, got suffix %q", name, shardNameMarker, suffix)
 	}
 	return uint32(suffix[0] - '0'), nil
+}
+
+// shardGroupNamePrefix strips the "_shard-X" or "-shard-X" suffix (and its
+// separating underscore or hyphen) from a workflow DON's name, leaving the
+// base name shared by every DON in its shard group (e.g.
+// "workflow-1-zone-a-shard-1" -> "workflow-1-zone-a"). A name with no such
+// suffix is returned unchanged.
+func shardGroupNamePrefix(name string) string {
+	idx := strings.LastIndex(name, shardNameMarker)
+	if idx == -1 {
+		return name
+	}
+	prefix := name[:idx]
+	if strings.HasSuffix(prefix, "_") || strings.HasSuffix(prefix, "-") {
+		prefix = prefix[:len(prefix)-1]
+	}
+	return prefix
 }
 
 // WaitReady blocks until the first registry snapshot has been processed (so
