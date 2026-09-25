@@ -3,6 +3,7 @@ package cre
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,37 +15,35 @@ import (
 	"testing"
 	"time"
 
+	retry "github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	retry "github.com/avast/retry-go/v4"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
+	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
+	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
-
-	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
-	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
-	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
-	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 )
 
 // ExecuteVaultAllowListBasedTests covers vault gateway + workflows with allow-listed JSON-RPC auth
@@ -237,6 +236,7 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
 		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
 		executeVaultSecretsGetBatchTooBigViaWorkflowTest(t, subEnv, "vget2", ulCh, bmCh)
+		executeVaultSecretsCreateOversizedBlobCapTest(t, vaultParsedPublicKey, owner, gwURL, sc, wfReg)
 	})
 
 	t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
@@ -1139,4 +1139,104 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 	framework.L.Info().Msgf("[list] %s correctly rejected: %s", "invalid namespace", string(respBody))
 
 	framework.L.Info().Msg("All identifier validation checks passed")
+}
+
+// calibrateVaultCiphertextHex returns the hex-encoded TDH2 ciphertext of a plaintext
+// sized so the decoded ciphertext sits at the per-secret ingress cap
+// (VaultCiphertextSizeLimit, 2KB decoded). The TDH2+base64 overhead is measured with a
+// probe rather than assumed: it is large (~1.1KB) and non-obvious, so a fixed-size
+// plaintext silently overflows the per-secret cap and the wrong limiter rejects.
+func calibrateVaultCiphertextHex(t *testing.T, vaultParsedPublicKey *tdh2easy.PublicKey, owner common.Address) string {
+	t.Helper()
+	limit := int(cresettings.Default.PerOwner.VaultCiphertextSizeLimit.DefaultValue)
+
+	probe, err := vaultutils.EncryptSecretWithWorkflowOwner(strings.Repeat("x", limit), vaultParsedPublicKey, owner)
+	require.NoError(t, err)
+	probeRaw, err := hex.DecodeString(probe)
+	require.NoError(t, err)
+	plaintextLen := limit - (len(probeRaw) - limit)
+	require.Positive(t, plaintextLen)
+
+	for {
+		out, err := vaultutils.EncryptSecretWithWorkflowOwner(strings.Repeat("s", plaintextLen), vaultParsedPublicKey, owner)
+		require.NoError(t, err)
+		raw, err := hex.DecodeString(out)
+		require.NoError(t, err)
+		if len(raw) <= limit {
+			framework.L.Info().Msgf("calibrated vault ciphertext: %d decoded bytes, %d hex wire bytes per secret", len(raw), len(out))
+			return out
+		}
+		plaintextLen -= len(raw) - limit
+		require.Positive(t, plaintextLen, "could not size plaintext under ciphertext limit")
+	}
+}
+
+// executeVaultSecretsCreateOversizedBlobCapTest verifies the oversized-blob ingress
+// rejection end to end: a create batch whose queued representation (StoredPendingQueueItem
+// blob payload) exceeds VaultMaxBlobPayloadSizeLimit is rejected deterministically by the
+// gateway before fanning out to the vault DON, and the DON keeps processing subsequent
+// requests (no observation-phase wedge). EncryptedValue is hex-encoded on the wire (2x its
+// decoded size), which is what pushes a full batch of cap-size ciphertexts over the limit
+// while every per-secret limit still passes.
+func executeVaultSecretsCreateOversizedBlobCapTest(t *testing.T, vaultParsedPublicKey *tdh2easy.PublicKey, owner, gatewayURL string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
+	t.Helper()
+	testLogger := framework.L
+	testLogger.Info().Msg("Verifying oversized create batch is rejected and the DON stays healthy...")
+
+	// Each ciphertext's decoded size is calibrated to sit under the per-secret cap
+	// (VaultCiphertextSizeLimit 2KB decoded); the hex wire format (2x decoded) across a
+	// full batch of 10 pushes the queued representation over the 25.6KB blob cap.
+	oversizedEnc := calibrateVaultCiphertextHex(t, vaultParsedPublicKey, common.HexToAddress(owner))
+
+	uniqueRequestID := uuid.New().String()
+	secrets := make([]*vault_helpers.EncryptedSecret, vaulttypes.MaxBatchSize)
+	for i := range secrets {
+		secrets[i] = &vault_helpers.EncryptedSecret{
+			Id:             &vault_helpers.SecretIdentifier{Key: fmt.Sprintf("oversizedblobcap%d", i), Namespace: "main", Owner: owner},
+			EncryptedValue: oversizedEnc,
+		}
+	}
+	oversizedBody, err := json.Marshal(vault_helpers.CreateSecretsRequest{RequestId: uniqueRequestID, EncryptedSecrets: secrets})
+	require.NoError(t, err)
+	oversizedBodyJSON := json.RawMessage(oversizedBody)
+	oversizedReq := jsonrpc.Request[json.RawMessage]{Version: jsonrpc.JsonRpcVersion, ID: uniqueRequestID, Method: vaulttypes.MethodSecretsCreate, Params: &oversizedBodyJSON}
+	allowlistRequest(t, owner, oversizedReq, sethClient, wfRegistryContract)
+	oversizedReqBody, err := json.Marshal(oversizedReq)
+	require.NoError(t, err)
+	_, oversizedRespBody := sendVaultRequestToGateway(t, gatewayURL, oversizedReqBody)
+	require.Contains(t, string(oversizedRespBody), "request exceeds maximum pending queue blob payload size",
+		"expected oversized batch rejection for create")
+	testLogger.Info().Msgf("[create] oversized batch correctly rejected: %s", string(oversizedRespBody))
+
+	// The DON is un-wedged: a normal create still processes end to end.
+	normalEnc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-after-oversized-rejection", vaultParsedPublicKey, common.HexToAddress(owner))
+	require.NoError(t, err)
+	normalID := uniqueVaultSecretID("afteroversized")
+	normalBody, err := json.Marshal(vault_helpers.CreateSecretsRequest{
+		RequestId: uuid.New().String(),
+		EncryptedSecrets: []*vault_helpers.EncryptedSecret{
+			{Id: &vault_helpers.SecretIdentifier{Key: normalID, Namespace: "main", Owner: owner}, EncryptedValue: normalEnc},
+		},
+	})
+	require.NoError(t, err)
+	normalBodyJSON := json.RawMessage(normalBody)
+	normalReq := jsonrpc.Request[json.RawMessage]{Version: jsonrpc.JsonRpcVersion, ID: uuid.New().String(), Method: vaulttypes.MethodSecretsCreate, Params: &normalBodyJSON}
+	allowlistRequest(t, owner, normalReq, sethClient, wfRegistryContract)
+	normalReqBody, err := json.Marshal(normalReq)
+	require.NoError(t, err)
+	var normalRespBody []byte
+	_ = retry.Do(func() error {
+		_, normalRespBody = sendVaultRequestToGateway(t, gatewayURL, normalReqBody)
+		if bytes.Contains(normalRespBody, []byte("Request timed out")) {
+			return errors.New("gateway auth timeout")
+		}
+		return nil
+	}, retry.Attempts(8), retry.Delay(3*time.Second), retry.DelayType(retry.FixedDelay),
+		retry.OnRetry(func(n uint, err error) {
+			framework.L.Warn().Uint("attempt", n+1).Msgf("[create] normal request after oversized rejection: %s, retrying...", err)
+		}))
+	require.NotContains(t, string(normalRespBody), "exceeds maximum pending queue blob payload size")
+	require.NotContains(t, string(normalRespBody), "Request timed out",
+		"DON must keep processing requests after an oversized batch rejection")
+	testLogger.Info().Msg("Oversized blob cap test completed: rejection deterministic, DON healthy")
 }

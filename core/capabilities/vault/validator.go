@@ -8,6 +8,9 @@ import (
 	"regexp"
 	"strconv"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -23,35 +26,46 @@ var (
 	isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
 )
 
+// createOrUpdateRequest is the shared shape of CreateSecretsRequest and
+// UpdateSecretsRequest, the two write requests that are queued as pending-queue items.
+type createOrUpdateRequest interface {
+	proto.Message
+	GetRequestId() string
+	GetEncryptedSecrets() []*vaultcommon.EncryptedSecret
+}
+
 type RequestValidator struct {
 	MaxRequestBatchSizeLimiter          limits.BoundLimiter[int]
 	MaxCiphertextLengthLimiter          limits.BoundLimiter[pkgconfig.Size]
 	MaxIdentifierKeyLengthLimiter       limits.BoundLimiter[pkgconfig.Size]
 	MaxIdentifierOwnerLengthLimiter     limits.BoundLimiter[pkgconfig.Size]
 	MaxIdentifierNamespaceLengthLimiter limits.BoundLimiter[pkgconfig.Size]
+	MaxBlobPayloadSizeLimiter           limits.BoundLimiter[pkgconfig.Size]
 }
 
 func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest, skipLabelValidation bool) error {
-	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets, skipLabelValidation, true)
+	return r.validateWriteRequest(ctx, publicKey, request, skipLabelValidation, true)
 }
 
 func (r *RequestValidator) ValidateUpdateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.UpdateSecretsRequest, skipLabelValidation bool) error {
-	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets, skipLabelValidation, true)
+	return r.validateWriteRequest(ctx, publicKey, request, skipLabelValidation, true)
 }
 
 // ValidateEncryptedSecretsStructure calls validateWriteRequest without the
 // owner-scoped ciphertext-size limit, which must be checked separately after
 // authorization via ValidateCiphertextSizes.
-func (r *RequestValidator) ValidateEncryptedSecretsStructure(ctx context.Context, publicKey *tdh2easy.PublicKey, requestID string, encryptedSecrets []*vaultcommon.EncryptedSecret, skipLabelValidation bool) error {
-	return r.validateWriteRequest(ctx, publicKey, requestID, encryptedSecrets, skipLabelValidation, false)
+func (r *RequestValidator) ValidateEncryptedSecretsStructure(ctx context.Context, publicKey *tdh2easy.PublicKey, request createOrUpdateRequest, skipLabelValidation bool) error {
+	return r.validateWriteRequest(ctx, publicKey, request, skipLabelValidation, false)
 }
 
 // validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests.
 // It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet.
 // includeCiphertextSize controls the owner-scoped ciphertext-size check, which must be
 // skipped before authorization (see ValidateEncryptedSecretsStructure).
-func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret, skipLabelValidation bool, includeCiphertextSize bool) error {
-	if id == "" {
+func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request createOrUpdateRequest, skipLabelValidation bool, includeCiphertextSize bool) error {
+	requestID := request.GetRequestId()
+	encryptedSecrets := request.GetEncryptedSecrets()
+	if requestID == "" {
 		return errors.New("request ID must not be empty")
 	}
 	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, len(encryptedSecrets)); err != nil {
@@ -59,6 +73,9 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 			return fmt.Errorf("request batch size exceeds maximum of %d: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check request batch size limit: %w", err)
+	}
+	if err := r.ValidateRequestBlobSize(ctx, request); err != nil {
+		return err
 	}
 	if len(encryptedSecrets) == 0 {
 		return errors.New("request batch must contain at least 1 item")
@@ -103,6 +120,27 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 		uniqueIDs[vaulttypes.KeyFor(req.Id)] = true
 	}
 
+	return nil
+}
+
+// ValidateRequestBlobSize rejects requests whose queued representation — a
+// StoredPendingQueueItem carrying the request ID — would exceed
+// VaultMaxBlobPayloadSizeLimit.
+func (r *RequestValidator) ValidateRequestBlobSize(ctx context.Context, request createOrUpdateRequest) error {
+	anyMsg, err := anypb.New(request)
+	if err != nil {
+		return fmt.Errorf("could not marshal request payload: %w", err)
+	}
+	itemBytes, err := proto.Marshal(&vaultcommon.StoredPendingQueueItem{Id: request.GetRequestId(), Item: anyMsg})
+	if err != nil {
+		return fmt.Errorf("could not marshal pending queue item: %w", err)
+	}
+	if err := r.MaxBlobPayloadSizeLimiter.Check(ctx, pkgconfig.Size(len(itemBytes))*pkgconfig.Byte); err != nil {
+		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[pkgconfig.Size]](err); ok {
+			return vaulttypes.NewUserError(fmt.Sprintf("request exceeds maximum pending queue blob payload size: %d > %d", len(itemBytes), errBoundLimited.Limit))
+		}
+		return fmt.Errorf("failed to check blob payload size limit: %w", err)
+	}
 	return nil
 }
 
@@ -272,6 +310,7 @@ func NewRequestValidator(
 	maxIdentifierKeyLengthLimiter limits.BoundLimiter[pkgconfig.Size],
 	maxIdentifierOwnerLengthLimiter limits.BoundLimiter[pkgconfig.Size],
 	maxIdentifierNamespaceLengthLimiter limits.BoundLimiter[pkgconfig.Size],
+	maxBlobPayloadSizeLimiter limits.BoundLimiter[pkgconfig.Size],
 ) *RequestValidator {
 	return &RequestValidator{
 		MaxRequestBatchSizeLimiter:          maxRequestBatchSizeLimiter,
@@ -279,6 +318,7 @@ func NewRequestValidator(
 		MaxIdentifierKeyLengthLimiter:       maxIdentifierKeyLengthLimiter,
 		MaxIdentifierOwnerLengthLimiter:     maxIdentifierOwnerLengthLimiter,
 		MaxIdentifierNamespaceLengthLimiter: maxIdentifierNamespaceLengthLimiter,
+		MaxBlobPayloadSizeLimiter:           maxBlobPayloadSizeLimiter,
 	}
 }
 
@@ -290,6 +330,7 @@ func (r *RequestValidator) Close() error {
 		r.MaxIdentifierKeyLengthLimiter.Close(),
 		r.MaxIdentifierOwnerLengthLimiter.Close(),
 		r.MaxIdentifierNamespaceLengthLimiter.Close(),
+		r.MaxBlobPayloadSizeLimiter.Close(),
 	)
 }
 
@@ -315,7 +356,11 @@ func NewRequestValidatorFromLimitsFactory(limitsFactory limits.Factory) (*Reques
 	if err != nil {
 		return nil, fmt.Errorf("could not create identifier namespace size limiter: %w", err)
 	}
-	validator := NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter)
+	blobPayloadSizeLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create blob payload size limiter: %w", err)
+	}
+	validator := NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter, blobPayloadSizeLimiter)
 	return validator, nil
 }
 

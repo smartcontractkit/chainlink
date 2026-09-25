@@ -8773,12 +8773,16 @@ func pendingQueueBlobPayloadLen(t *testing.T, req *vaultcommon.CreateSecretsRequ
 	return len(payload)
 }
 
-// TestPlugin_Observation_ShedsOversizedLocalQueueItem verifies that a local-queue
-// request whose marshaled blob payload exceeds VaultMaxBlobPayloadSizeLimit (25.6KB) —
-// despite passing ingress limits (batch <= 10, per-secret ciphertext <= 2KB decoded) —
-// is shed with a log+metric instead of failing the whole Observation. Erroring here
-// would stall request processing DON-wide on every node holding the request, until the
-// request expired.
+// TestPlugin_Observation_ShedsOversizedLocalQueueItem verifies both layers of
+// oversized-blob protection for a full batch of cap-size ciphertexts whose
+// marshaled blob payload exceeds VaultMaxBlobPayloadSizeLimit (25.6KB) even
+// though every per-secret ingress limit passes (batch <= 10, per-secret
+// ciphertext <= 2KB decoded): ingress validation rejects the request, and the
+// plugin-level Observation shed drops any copy that still reaches a local
+// queue instead of failing the whole round. Erroring in Observation would
+// stall request processing DON-wide on every node holding the request, until
+// the request expired, so the shed is defense in depth for version skew and
+// direct store writes.
 func TestPlugin_Observation_ShedsOversizedLocalQueueItem(t *testing.T) {
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -8786,31 +8790,22 @@ func TestPlugin_Observation_ShedsOversizedLocalQueueItem(t *testing.T) {
 	owner := common.HexToAddress("0xA07D569a8EbF58c09bFae64b2Fa85b0e0Dcb1dFb")
 	cipherHex := calibratedCiphertextHex(t, pk, owner)
 
-	maxBlob := int(cresettings.Default.VaultMaxBlobPayloadSizeLimit.DefaultValue)
 	batchLimit := cresettings.Default.VaultRequestBatchSizeLimit.DefaultValue
+	maxBlob := int(cresettings.Default.VaultMaxBlobPayloadSizeLimit.DefaultValue)
 
-	// Find the minimal ingress-valid batch size whose blob payload exceeds the cap.
-	triggerCount := 0
-	for n := 1; n <= batchLimit; n++ {
-		if pendingQueueBlobPayloadLen(t, buildBatchedCreateRequest("request-big", n, cipherHex, owner)) > maxBlob {
-			triggerCount = n
-			break
-		}
-	}
-	require.Positive(t, triggerCount, "no batch size <= %d exceeds the blob cap; test premise no longer holds", batchLimit)
-	t.Logf("oversized request: %d max-size secrets (%d wire bytes/cipher) exceed the %d-byte blob cap",
-		triggerCount, len(cipherHex), maxBlob)
+	// A full batch of cap-size ciphertexts exceeds the blob cap because
+	// EncryptedValue is hex-encoded on the wire (2x its decoded size), so the
+	// blob cap is the only limit this batch can trip.
+	oversized := buildBatchedCreateRequest("request-big", batchLimit, cipherHex, owner)
+	require.Greaterf(t, pendingQueueBlobPayloadLen(t, oversized), maxBlob,
+		"a full batch of %d cap-size ciphertexts no longer exceeds the blob cap; test premise no longer holds", batchLimit)
 
-	// The oversized request passes every ingress limit on this branch (the gateway-side
-	// blob payload size check lives on the vault_ingress_blob_cap branch), so the plugin
-	// shed below is the only protection: the queued representation of the batch exceeds
-	// VaultMaxBlobPayloadSizeLimit because EncryptedValue is hex-encoded on the wire
-	// (2x its decoded size).
+	// Ingress is the primary protection: the validator rejects the oversized
+	// batch before it can reach a local queue.
 	validator, err := vaultcap.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
-	oversized := buildBatchedCreateRequest("request-big", triggerCount, cipherHex, owner)
-	require.NoError(t, validator.ValidateCreateSecretsRequest(t.Context(), pk, oversized, false),
-		"ingress rejected the request; the plugin-level shed is unreachable via the normal path")
+	require.ErrorContains(t, validator.ValidateCreateSecretsRequest(t.Context(), pk, oversized, false),
+		"request exceeds maximum pending queue blob payload size")
 
 	// The plugin independently sheds such an item if one ever reaches a local store
 	// (defense in depth: version skew, direct store writes).
