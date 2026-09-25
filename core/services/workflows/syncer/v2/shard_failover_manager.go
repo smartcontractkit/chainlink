@@ -45,7 +45,7 @@ type ShardFailoverManager struct {
 	services.Service
 	eng *services.Engine
 
-	engine *v2.Engine
+	engine v2.WorkflowEngine
 	cfg    ShardFailoverManagerConfig
 
 	mu    sync.RWMutex
@@ -99,7 +99,7 @@ func (m *ShardFailoverManager) WireHooks(cfg *v2.EngineConfig) {
 }
 
 // SetEngine injects the engine after it has been created. Required before Start.
-func (m *ShardFailoverManager) SetEngine(engine *v2.Engine) {
+func (m *ShardFailoverManager) SetEngine(engine v2.WorkflowEngine) {
 	m.engine = engine
 }
 
