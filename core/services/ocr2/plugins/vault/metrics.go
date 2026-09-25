@@ -13,16 +13,17 @@ import (
 type pluginMetrics struct {
 	configDigest string
 
-	queueOverflow                   metric.Int64Counter
-	kvOperationDuration             metric.Int64Histogram
-	localQueueSize                  metric.Int64Histogram
-	observationPendingPackedItems   metric.Int64Histogram
-	pendingQueueWrittenSize         metric.Int64Histogram
-	observationPrefixCoverage       metric.Int64Histogram
-	observationPrefixCoverageSpread metric.Int64Histogram
-	pendingQueueStallSignals        metric.Int64Counter
-	pendingQueuePurges              metric.Int64Counter
-	pendingQueueItemOversized       metric.Int64Counter
+	queueOverflow                       metric.Int64Counter
+	kvOperationDuration                 metric.Int64Histogram
+	localQueueSize                      metric.Int64Histogram
+	observationPendingPackedItems       metric.Int64Histogram
+	pendingQueueWrittenSize             metric.Int64Histogram
+	observationPrefixCoverage           metric.Int64Histogram
+	observationPrefixCoverageSpread     metric.Int64Histogram
+	pendingQueueStallSignals            metric.Int64Counter
+	pendingQueuePurges                  metric.Int64Counter
+	pendingQueueItemOversized           metric.Int64Counter
+	pendingQueueItemsDeferredByKVBudget metric.Int64Counter
 }
 
 func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
@@ -111,18 +112,28 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create pending queue item oversized counter: %w", err)
 	}
 
+	pendingQueueItemsDeferredByKVBudget, err := beholder.GetMeter().Int64Counter(
+		"platform_vault_plugin_pending_queue_items_deferred_by_kv_budget",
+		metric.WithUnit("{request}"),
+		metric.WithDescription("Count of pending-queue requests deferred (phase=processing or ingest) so the round's write set stays within VaultMaxKeyValueModifiedKeys and VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit. Deferred items re-enter via local-queue re-broadcast next round; sustained nonzero values indicate sustained overload, not round failures."),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pending queue items deferred by kv budget counter: %w", err)
+	}
+
 	return &pluginMetrics{
-		configDigest:                    configDigest,
-		queueOverflow:                   queueOverflow,
-		kvOperationDuration:             kvOperationDuration,
-		localQueueSize:                  localQueueSize,
-		observationPendingPackedItems:   observationPendingPackedItems,
-		pendingQueueWrittenSize:         pendingQueueWrittenSize,
-		observationPrefixCoverage:       observationPrefixCoverage,
-		observationPrefixCoverageSpread: observationPrefixCoverageSpread,
-		pendingQueueStallSignals:        pendingQueueStallSignals,
-		pendingQueuePurges:              pendingQueuePurges,
-		pendingQueueItemOversized:       pendingQueueItemOversized,
+		configDigest:                        configDigest,
+		queueOverflow:                       queueOverflow,
+		kvOperationDuration:                 kvOperationDuration,
+		localQueueSize:                      localQueueSize,
+		observationPendingPackedItems:       observationPendingPackedItems,
+		pendingQueueWrittenSize:             pendingQueueWrittenSize,
+		observationPrefixCoverage:           observationPrefixCoverage,
+		observationPrefixCoverageSpread:     observationPrefixCoverageSpread,
+		pendingQueueStallSignals:            pendingQueueStallSignals,
+		pendingQueuePurges:                  pendingQueuePurges,
+		pendingQueueItemOversized:           pendingQueueItemOversized,
+		pendingQueueItemsDeferredByKVBudget: pendingQueueItemsDeferredByKVBudget,
 	}, nil
 }
 
@@ -220,5 +231,17 @@ func (m *pluginMetrics) trackPendingQueueItemOversized(ctx context.Context, payl
 		attribute.String("configDigest", m.configDigest),
 		attribute.Int("payloadBytes", payloadBytes),
 		attribute.Int("maxBlobBytes", maxBlobBytes),
+	))
+}
+
+func (m *pluginMetrics) trackPendingQueueDeferredByBudget(ctx context.Context, phase string, deferredCount, keyLimit, byteLimit int) {
+	if m == nil {
+		return
+	}
+	m.pendingQueueItemsDeferredByKVBudget.Add(ctx, int64(deferredCount), metric.WithAttributes(
+		attribute.String("configDigest", m.configDigest),
+		attribute.String("phase", phase),
+		attribute.Int("keyLimit", keyLimit),
+		attribute.Int("byteLimit", byteLimit),
 	))
 }

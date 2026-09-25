@@ -297,15 +297,17 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
 	return &ReportingPlugin{
-		lggr:                         r.lggr.Named("VaultReportingPlugin"),
-		store:                        r.store,
-		cfg:                          cfg,
-		metrics:                      metrics,
-		onchainCfg:                   config,
-		validator:                    validator,
-		lifecycle:                    r.lifecycle,
-		maxObservationBytes:          pluginLimits.MaxObservationBytes,
-		maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
+		lggr:                                   r.lggr.Named("VaultReportingPlugin"),
+		store:                                  r.store,
+		cfg:                                    cfg,
+		metrics:                                metrics,
+		onchainCfg:                             config,
+		validator:                              validator,
+		lifecycle:                              r.lifecycle,
+		maxObservationBytes:                    pluginLimits.MaxObservationBytes,
+		maxReportsPlusPrecursorBytes:           pluginLimits.MaxReportsPlusPrecursorBytes,
+		maxKeyValueModifiedKeys:                pluginLimits.MaxKeyValueModifiedKeys,
+		maxKeyValueModifiedKeysPlusValuesBytes: pluginLimits.MaxKeyValueModifiedKeysPlusValuesBytes,
 		unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
 			handle := ocr3_1types.BlobHandle{}
 			err := handle.UnmarshalBinary(data)
@@ -331,6 +333,9 @@ type ReportingPlugin struct {
 
 	maxObservationBytes          int
 	maxReportsPlusPrecursorBytes int
+
+	maxKeyValueModifiedKeys                int
+	maxKeyValueModifiedKeysPlusValuesBytes int
 
 	// For testing: functions to mock out marshaling/unmarshaling blob handles.
 	// The Blob API isn't very test friendly because it uses sum types that belong
@@ -1557,7 +1562,11 @@ func (r *ReportingPlugin) chooseGetSecretsObservations(totalForID int, shaToObs 
 
 func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReadWriter ocr3_1types.KeyValueStateReadWriter, blobFetcher ocr3_1types.BlobFetcher) (ocr3_1types.ReportsPlusPrecursor, error) {
 	l := r.roundLggr(seqNr)
-	writeKV := NewWriteStore(keyValueReadWriter, r.metrics)
+	// The tracker counts the round's write set exactly (mirroring libocr's
+	// limitCheckWriteSet) so the budget gates below can defer work instead of
+	// letting the transaction error and fail the whole round.
+	budget := newKVWriteBudgetTracker(keyValueReadWriter)
+	writeKV := NewWriteStore(budget, r.metrics)
 
 	marshalledObs := map[uint8]*vaultcommon.Observations{}
 	for _, ao := range aos {
@@ -1619,7 +1628,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	for _, item := range pendingQueueItems {
 		idsToProcess = append(idsToProcess, item.Id)
 	}
-	for _, id := range idsToProcess {
+	for i, id := range idsToProcess {
 		obs, ok := obsMap[id]
 		// This can only happen if the pending queue item is not in the obsMap
 		// at which point we know any other requests in the pending queue can't be processed so we can break.
@@ -1734,6 +1743,32 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			continue
 		}
 
+		// KV write-budget gate: processing this item adds at most
+		// projectedProcessedWriteCost to the round's write set. Defer the item when that
+		// could push the round past libocr's write-set limits, after reserving
+		// the mandatory pending-queue rewrite floor. Deferred items are
+		// dropped from the committed queue in Phase 2 and re-broadcast from
+		// node-local queues next round.
+		if cost := r.projectedProcessedWriteCost(ctx, writeKV, pendingQueueByID[id]); cost.keys > 0 || cost.bytes > 0 {
+			projected := budget.consumed().add(cost).add(mandatoryPendingQueueRewriteFloor(len(pendingQueueItems)))
+			if projected.keys > r.maxKeyValueModifiedKeys || projected.bytes > r.maxKeyValueModifiedKeysPlusValuesBytes {
+				// The gate trips before this item is processed, so the item
+				// itself and every item after it is deferred.
+				deferred := len(idsToProcess) - i
+				l.Warnw("state transition: deferring pending queue item to stay within KV write budget",
+					"seqNr", seqNr,
+					"requestID", id,
+					"deferredCount", deferred,
+					"consumedKeys", budget.consumed().keys,
+					"consumedBytes", budget.consumed().bytes,
+					"keyLimit", r.maxKeyValueModifiedKeys,
+					"byteLimit", r.maxKeyValueModifiedKeysPlusValuesBytes,
+				)
+				r.metrics.trackPendingQueueDeferredByBudget(ctx, deferredByBudgetPhaseProcessing, deferred, r.maxKeyValueModifiedKeys, r.maxKeyValueModifiedKeysPlusValuesBytes)
+				break
+			}
+		}
+
 		// The shas are the same so the requests will have
 		// the same Id and Type.
 		first := chosen[0]
@@ -1773,7 +1808,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	// ---
 	// Phase 2: Process the pending queue.
 	// ---
-	err := r.stateTransitionPendingQueue(ctx, seqNr, writeKV, marshalledObs, blobFetcher)
+	err := r.stateTransitionPendingQueue(ctx, seqNr, writeKV, marshalledObs, blobFetcher, pendingQueueItems, budget)
 	if err != nil {
 		return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not process pending queue during state transition: %w", err)
 	}
@@ -1794,7 +1829,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	return ocr3_1types.ReportsPlusPrecursor(ospb), nil
 }
 
-func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr uint64, store pendingQueueStore, obs map[uint8]*vaultcommon.Observations, blobFetcher ocr3_1types.BlobFetcher) error {
+func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr uint64, store pendingQueueStore, obs map[uint8]*vaultcommon.Observations, blobFetcher ocr3_1types.BlobFetcher, oldItems []*vaultcommon.StoredPendingQueueItem, budget *kvWriteBudgetTracker) error {
 	// Step 1: Create a map of id -> sha -> count.
 	idToShaToCount := map[string]map[string]int{}
 	oidsToIDs := map[uint8][]string{} // for debugging only
@@ -1894,6 +1929,25 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 			return fmt.Errorf("failed to check pending queue write size limit: %w", err)
 		}
 		keptItems = keptItems[:errBoundLimited.Limit]
+	}
+
+	// Pack the kept prefix into the remaining KV write budget so the round's
+	// write set can never exceed libocr's write-set limits. Trimmed items are
+	// deferred; they remain in node-local queues and are re-broadcast next
+	// round.
+	if packed := packPendingQueueWithinKVBudget(len(oldItems), keptItems, budget.consumed(), r.maxKeyValueModifiedKeys, r.maxKeyValueModifiedKeysPlusValuesBytes); packed < len(keptItems) {
+		deferred := len(keptItems) - packed
+		r.lggr.Warnw("pending queue ingest deferred to stay within KV write budget",
+			"seqNr", seqNr,
+			"deferredCount", deferred,
+			"keptCount", packed,
+			"consumedKeys", budget.consumed().keys,
+			"consumedBytes", budget.consumed().bytes,
+			"keyLimit", r.maxKeyValueModifiedKeys,
+			"byteLimit", r.maxKeyValueModifiedKeysPlusValuesBytes,
+		)
+		r.metrics.trackPendingQueueDeferredByBudget(ctx, deferredByBudgetPhaseIngest, deferred, r.maxKeyValueModifiedKeys, r.maxKeyValueModifiedKeysPlusValuesBytes)
+		keptItems = keptItems[:packed]
 	}
 
 	r.metrics.trackPendingQueueWrittenSize(ctx, len(keptItems))
