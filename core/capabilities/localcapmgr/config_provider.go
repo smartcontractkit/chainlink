@@ -1,8 +1,6 @@
 package localcapmgr
 
 import (
-	"maps"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
@@ -90,24 +88,6 @@ func (p offchainCapabilityConfigProvider) LocalConfigOverrides(capID string, don
 		return nil
 	}
 	return out
-}
-
-// layeredCapabilityConfigProvider merges the offchain override over the TOML override
-// (offchain-wins). It is installed only when the offchain-registry cutover is enabled; with it
-// off, the manager uses the TOML provider alone and behavior is unchanged.
-type layeredCapabilityConfigProvider struct {
-	toml     CapabilityConfigProvider
-	offchain CapabilityConfigProvider
-}
-
-func (p layeredCapabilityConfigProvider) LocalConfigOverrides(capID string, donID uint32) map[string]any {
-	merged := map[string]any{}
-	maps.Copy(merged, p.toml.LocalConfigOverrides(capID, donID))
-	maps.Copy(merged, p.offchain.LocalConfigOverrides(capID, donID)) // offchain wins
-	if len(merged) == 0 {
-		return nil
-	}
-	return merged
 }
 
 func toAnyMap(m map[string]string) map[string]any {

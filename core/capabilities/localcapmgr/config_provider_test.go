@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -100,66 +101,61 @@ func TestOffchainCapabilityConfigProvider(t *testing.T) {
 	})
 }
 
-func TestLayeredCapabilityConfigProvider_OffchainWins(t *testing.T) {
-	t.Parallel()
-
-	toml := tomlCapabilityConfigProvider{localCfg: &testLocalCapabilities{
-		configs: map[string]*testCapabilityNodeConfig{
-			"cron@1.0.0": {cfg: map[string]string{"interval": "60", "tomlOnly": "keep"}},
-		},
-	}}
-	offchain := offchainCapabilityConfigProvider{registry: storedRegistry(t, 1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-		7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30", "offchainOnly": "add"})},
-	})}
-
-	layered := layeredCapabilityConfigProvider{toml: toml, offchain: offchain}
-
-	got := layered.LocalConfigOverrides("cron@1.0.0", 7)
-	assert.Equal(t, map[string]any{
-		"interval":     "30",   // offchain wins over TOML's "60"
-		"tomlOnly":     "keep", // TOML-only key preserved
-		"offchainOnly": "add",  // offchain-only key added
-	}, got)
-
-	// With no offchain entry for the DON, TOML is returned unchanged.
-	assert.Equal(t, map[string]any{"interval": "60", "tomlOnly": "keep"}, layered.LocalConfigOverrides("cron@1.0.0", 99))
+// onchainSpecConfig builds a registry.CapabilityConfiguration whose SpecConfig unwraps to kv,
+// for exercising buildConfigJSON's on-chain layer.
+func onchainSpecConfig(t *testing.T, kv map[string]any) registry.CapabilityConfiguration {
+	t.Helper()
+	vm, err := values.NewMap(kv)
+	require.NoError(t, err)
+	cc := &capabilitiespb.CapabilityConfig{SpecConfig: values.ProtoMap(vm)}
+	b, err := proto.Marshal(cc)
+	require.NoError(t, err)
+	return registry.CapabilityConfiguration{Config: b}
 }
 
-func TestNewLocalCapabilityManager_CutoverGate(t *testing.T) {
+// TestBuildConfigJSON_Precedence verifies the backwards-compatible cutover layering:
+// TOML (base) < on-chain SpecConfig < offchain SpecConfig (only when the gate is on).
+func TestBuildConfigJSON_Precedence(t *testing.T) {
 	t.Parallel()
 
 	localCfg := &testLocalCapabilities{configs: map[string]*testCapabilityNodeConfig{
-		"cron@1.0.0": {cfg: map[string]string{"interval": "60"}},
+		"cron@1.0.0": {cfg: map[string]string{"interval": "10", "tomlOnly": "keep"}},
 	}}
+	onchain := onchainSpecConfig(t, map[string]any{"interval": "20", "onchainOnly": "oc"})
 	gc := storedRegistry(t, 1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-		7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30"})},
+		7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30", "offchainOnly": "add"})},
 	})
 	noop := func(_ context.Context, _ string, _ uint32, _ string, _ string, _ *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
 		return nil, nil
 	}
+	info := &capabilityInfo{capID: "cron@1.0.0", donID: 7, config: onchain}
 
-	t.Run("gate off uses TOML only", func(t *testing.T) {
+	t.Run("gate off: on-chain wins over TOML, offchain ignored", func(t *testing.T) {
 		t.Parallel()
 		m, err := NewLocalCapabilityManager(testLogger(t), localCfg, noop, gc, false)
 		require.NoError(t, err)
-		lcm := m.(*localCapabilityManager)
-		assert.Equal(t, map[string]any{"interval": "60"}, lcm.overridesFor("cron@1.0.0", 7))
+		got, err := m.(*localCapabilityManager).buildConfigJSON(info)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"interval":"20","tomlOnly":"keep","onchainOnly":"oc"}`, got)
 	})
 
-	t.Run("gate on layers offchain over TOML", func(t *testing.T) {
+	t.Run("gate on: offchain wins, absent keys fall back to on-chain/TOML", func(t *testing.T) {
 		t.Parallel()
 		m, err := NewLocalCapabilityManager(testLogger(t), localCfg, noop, gc, true)
 		require.NoError(t, err)
-		lcm := m.(*localCapabilityManager)
-		assert.Equal(t, map[string]any{"interval": "30"}, lcm.overridesFor("cron@1.0.0", 7))
+		got, err := m.(*localCapabilityManager).buildConfigJSON(info)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"interval":"30","offchainOnly":"add","onchainOnly":"oc","tomlOnly":"keep"}`, got)
 	})
 
-	t.Run("gate on but nil registry falls back to TOML", func(t *testing.T) {
+	t.Run("gate on but offchain has no entry for this DON: falls back to on-chain/TOML", func(t *testing.T) {
 		t.Parallel()
-		m, err := NewLocalCapabilityManager(testLogger(t), localCfg, noop, nil, true)
+		m, err := NewLocalCapabilityManager(testLogger(t), localCfg, noop, gc, true)
 		require.NoError(t, err)
-		lcm := m.(*localCapabilityManager)
-		assert.Equal(t, map[string]any{"interval": "60"}, lcm.overridesFor("cron@1.0.0", 7))
+		info99 := &capabilityInfo{capID: "cron@1.0.0", donID: 99, config: onchain}
+		got, err := m.(*localCapabilityManager).buildConfigJSON(info99)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"interval":"20","tomlOnly":"keep","onchainOnly":"oc"}`, got)
 	})
 }
 

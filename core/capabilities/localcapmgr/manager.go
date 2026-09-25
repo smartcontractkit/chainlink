@@ -59,13 +59,18 @@ type localCapabilityManager struct {
 
 	localCfg      config.LocalCapabilities
 	newServicesFn NewServicesFn
-	// configProvider yields node-local capability config overrides. It is the seam through
-	// which the offchain capabilities registry will later be layered. Binary-path/allowlist
-	// still read directly from localCfg.
+	// configProvider yields node-local (TOML) capability config overrides. It is the base layer
+	// in buildConfigJSON, below the on-chain SpecConfig. Binary-path/allowlist still read
+	// directly from localCfg.
 	configProvider CapabilityConfigProvider
-	// offchainRegistry is the offchain capabilities registry delivered via the cresettings
-	// job. Phase 2 cross-validates it against the on-chain registry and emits telemetry only;
-	// it does not yet affect running capabilities. Nil when the feature is not wired.
+	// offchainProvider yields offchain capability config overrides. It is applied LAST in
+	// buildConfigJSON (offchain-wins over both TOML and on-chain), and only when the cutover is
+	// enabled. Nil when the cutover is off, so a value absent offchain falls back to the on-chain
+	// or TOML value — the cutover is backwards compatible by construction.
+	offchainProvider CapabilityConfigProvider
+	// offchainRegistry is the offchain capabilities registry delivered via the cresettings job.
+	// It is cross-validated against the on-chain registry every Reconcile (telemetry), regardless
+	// of the cutover gate. Nil when the feature is not wired.
 	offchainRegistry *globalconfig.GlobalConfig
 
 	runningCapabilities map[string]*runningCapability
@@ -84,9 +89,10 @@ type NewServicesFn func(ctx context.Context, capID string, donID uint32, command
 // offchainRegistry may be nil, in which case the offchain cross-validation pass is skipped.
 //
 // useOffchainRegistry is the cutover gate. When false (default), capability config is sourced
-// from TOML alone and the offchain registry is used for cross-validation telemetry only. When
-// true (and offchainRegistry is non-nil), the offchain config is layered over TOML
-// (offchain-wins) via the config provider. The gate makes the cutover per-node and reversible.
+// from TOML/on-chain and the offchain registry is used for cross-validation telemetry only. When
+// true (and offchainRegistry is non-nil), the offchain config is applied on top of the on-chain
+// SpecConfig (offchain-wins), falling back to on-chain/TOML for any value the offchain payload
+// does not carry. The gate makes the cutover per-node, reversible, and backwards compatible.
 func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabilities, newServicesFn NewServicesFn, offchainRegistry *globalconfig.GlobalConfig, useOffchainRegistry bool) (LocalCapabilityManager, error) {
 	metrics, err := newMetrics()
 	if err != nil {
@@ -94,20 +100,18 @@ func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabili
 	}
 	named := logger.Named(lggr, "LocalCapabilityManager")
 
-	var configProvider CapabilityConfigProvider = tomlCapabilityConfigProvider{localCfg: localCfg}
+	var offchainProvider CapabilityConfigProvider
 	if useOffchainRegistry && offchainRegistry != nil {
-		configProvider = layeredCapabilityConfigProvider{
-			toml:     tomlCapabilityConfigProvider{localCfg: localCfg},
-			offchain: offchainCapabilityConfigProvider{registry: offchainRegistry, lggr: named},
-		}
-		named.Info("Offchain capabilities registry cutover ENABLED: offchain config wins over TOML")
+		offchainProvider = offchainCapabilityConfigProvider{registry: offchainRegistry, lggr: named}
+		named.Info("Offchain capabilities registry cutover ENABLED: offchain config wins over on-chain and TOML")
 	}
 
 	return &localCapabilityManager{
 		lggr:                named,
 		localCfg:            localCfg,
 		newServicesFn:       newServicesFn,
-		configProvider:      configProvider,
+		configProvider:      tomlCapabilityConfigProvider{localCfg: localCfg},
+		offchainProvider:    offchainProvider,
 		offchainRegistry:    offchainRegistry,
 		runningCapabilities: make(map[string]*runningCapability),
 		metrics:             metrics,
@@ -278,10 +282,10 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	}, nil
 }
 
-// overridesFor returns capability config overrides via the config provider (TOML, or
-// TOML+offchain layered when the cutover is enabled). It falls back to reading TOML directly
-// when no provider is set (e.g. managers built as struct literals in tests); the constructor
-// always installs a provider in production.
+// overridesFor returns the node-local (TOML) capability config base via the config provider.
+// It falls back to reading TOML directly when no provider is set (e.g. managers built as struct
+// literals in tests); the constructor always installs a provider in production. The offchain
+// layer is applied separately (and last) in buildConfigJSON.
 func (m *localCapabilityManager) overridesFor(capID string, donID uint32) map[string]any {
 	if m.configProvider != nil {
 		return m.configProvider.LocalConfigOverrides(capID, donID)
@@ -308,15 +312,24 @@ func (m *localCapabilityManager) resolveCapabilityBinary(capID string) string {
 	return conversions.GetCommandFromCapabilityID(capID)
 }
 
-// buildConfigJSON merges the node-local TOML config with the onchain SpecConfig
-// into a flat JSON object. Onchain values take precedence over local ones.
+// buildConfigJSON merges capability config into a flat JSON object, in increasing order of
+// precedence:
+//  1. node-local TOML overrides (base),
+//  2. on-chain SpecConfig,
+//  3. offchain SpecConfig (only when the cutover is enabled).
+//
+// The offchain layer is applied last so it wins over on-chain, which is what makes it a real
+// cutover; because it is skipped entirely when the cutover is off, and any key the offchain
+// payload omits keeps its on-chain/TOML value, the layering is backwards compatible.
 func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, error) {
 	merged := make(map[string]any)
 
+	// 1. node-local TOML base.
 	for k, v := range m.overridesFor(info.capID, info.donID) {
 		merged[k] = v
 	}
 
+	// 2. on-chain SpecConfig.
 	if len(info.config.Config) > 0 {
 		capCfg, err := info.config.Unmarshal()
 		if err != nil {
@@ -331,6 +344,12 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 				maps.Copy(merged, onchain)
 			}
 		}
+	}
+
+	// 3. offchain SpecConfig wins (cutover on only). Applied last, keys absent offchain retain
+	// their on-chain/TOML value.
+	if m.offchainProvider != nil {
+		maps.Copy(merged, m.offchainProvider.LocalConfigOverrides(info.capID, info.donID))
 	}
 
 	if len(merged) == 0 {
