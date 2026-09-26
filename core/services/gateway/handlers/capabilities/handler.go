@@ -35,8 +35,7 @@ const (
 type handler struct {
 	services.StateMachine
 	config          HandlerConfig
-	don             handlers.DON
-	donConfig       *config.DONConfig
+	router          *handlers.NodeRouter
 	lggr            logger.Logger
 	httpClient      network.HTTPClient
 	nodeRateLimiter *ratelimit.RateLimiter
@@ -50,11 +49,20 @@ type HandlerConfig struct {
 
 var _ handlers.Handler = (*handler)(nil)
 
-func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger) (*handler, error) {
+func NewHandler(handlerConfig json.RawMessage, shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]handlers.DON, httpClient network.HTTPClient, lggr logger.Logger) (*handler, error) {
 	var cfg HandlerConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
 		return nil, err
+	}
+
+	router, err := handlers.BuildNodeRouter(shardedDONs, shardsConnMgrs)
+	if err != nil {
+		return nil, err
+	}
+	defaultDonID := ""
+	if len(shardedDONs) > 0 {
+		defaultDonID = shardedDONs[0].DonName
 	}
 
 	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
@@ -69,9 +77,8 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 
 	return &handler{
 		config:          cfg,
-		don:             don,
-		donConfig:       donConfig,
-		lggr:            logger.Named(lggr, "WebAPIHandler."+donConfig.DonID),
+		router:          router,
+		lggr:            logger.Named(lggr, "WebAPIHandler."+defaultDonID),
 		httpClient:      httpClient,
 		nodeRateLimiter: nodeRateLimiter,
 		metrics:         metrics,
@@ -181,7 +188,12 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 			l.Errorw(ErrTransformingMessageToRequest, "err", err)
 			return
 		}
-		err = h.don.SendToNode(newCtx, nodeAddr, req)
+		nodeDON, ok := h.router.DONFor(nodeAddr)
+		if !ok {
+			l.Errorw("no connection manager found for node", "to", nodeAddr)
+			return
+		}
+		err = nodeDON.SendToNode(newCtx, nodeAddr, req)
 		h.metrics.recordArtifactFetchResponseDelivery(newCtx, err == nil)
 		if err != nil {
 			l.Errorw("failed to send to node", "err", err, "to", nodeAddr)
