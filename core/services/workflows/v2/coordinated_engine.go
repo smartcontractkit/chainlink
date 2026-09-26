@@ -106,6 +106,7 @@ func (e *coordinatedEngine) init(ctx context.Context) {
 	defer span.End()
 
 	if err := e.base.initDONSubscribe(ctx); err != nil {
+		e.base.metrics.IncrementWorkflowInitializationFailureCounter(ctx, initFailureDONSubscribe)
 		e.base.cfg.Hooks.OnInitialized(err)
 		return
 	}

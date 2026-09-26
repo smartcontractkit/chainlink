@@ -431,6 +431,42 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	})
 }
 
+func TestEngine_TriggerSubscriptionPhase_DisallowsSecretsCalls(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+
+	initDoneCh := make(chan error)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Start().Once()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, _ *sdkpb.ExecuteRequest, helper host.ExecutionHelper) {
+			_, err := helper.GetSecrets(context.Background(), &sdkpb.GetSecretsRequest{})
+			assert.ErrorContains(t, err, "secrets calls cannot be made during trigger subscription")
+		}).
+		Return(newTriggerSubs(0), nil).Once()
+	require.NoError(t, engine.Start(t.Context()))
+
+	require.NoError(t, <-initDoneCh)
+
+	module.EXPECT().Close().Once()
+	require.NoError(t, engine.Close())
+}
+
 func TestEngine_TriggerRegistrationLogging(t *testing.T) {
 	t.Parallel()
 

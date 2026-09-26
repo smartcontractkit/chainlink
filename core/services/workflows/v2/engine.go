@@ -146,10 +146,12 @@ func (e *engine) init(ctx context.Context) {
 	defer span.End()
 
 	if err := e.useWorkflowLimit(ctx); err != nil {
+		e.base.metrics.IncrementWorkflowInitializationFailureCounter(ctx, initFailureWorkflowLimit)
 		e.base.cfg.Hooks.OnInitialized(err)
 		return
 	}
 	if err := e.base.initDONSubscribe(ctx); err != nil {
+		e.base.metrics.IncrementWorkflowInitializationFailureCounter(ctx, initFailureDONSubscribe)
 		e.base.cfg.Hooks.OnInitialized(err)
 		return
 	}
@@ -157,11 +159,13 @@ func (e *engine) init(ctx context.Context) {
 	subscriptions, err := e.base.Subscribe(ctx)
 	if err != nil {
 		e.base.logger().Errorw("failed to subscribe to triggers", "err", err)
+		e.base.metrics.IncrementWorkflowInitializationFailureCounter(ctx, initFailureReasonForSubscribe(err))
 		e.base.cfg.Hooks.OnInitialized(err)
 		return
 	}
 	if err := e.runTriggerSubscriptionPhase(ctx, subscriptions); err != nil {
 		e.base.logger().Errorw("Workflow Engine initialization failed", "err", err)
+		e.base.metrics.IncrementWorkflowInitializationFailureCounter(ctx, initFailureTriggerRegistration)
 		e.base.cfg.Hooks.OnInitialized(err)
 		return
 	}
