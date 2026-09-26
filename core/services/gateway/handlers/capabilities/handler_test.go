@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -38,18 +39,21 @@ func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON,
 
 	cfgBytes, err := json.Marshal(handlerConfig)
 	require.NoError(t, err)
-	donConfig := &config.DONConfig{
-		Members: []config.NodeConfig{},
-		F:       1,
-	}
 	nodes := gwcommon.NewTestNodes(t, 2)
+	members := make([]config.NodeConfig, 0, len(nodes))
 	for id, n := range nodes {
-		donConfig.Members = append(donConfig.Members, config.NodeConfig{
+		members = append(members, config.NodeConfig{
 			Name:    fmt.Sprintf("node_%d", id),
 			Address: n.Address,
 		})
 	}
-	handler, err := NewHandler(json.RawMessage(cfgBytes), donConfig, don, httpClient, lggr)
+	shardedDONs := []config.ShardedDONConfig{
+		{
+			F:      1,
+			Shards: []config.Shard{{Nodes: members}},
+		},
+	}
+	handler, err := NewHandler(json.RawMessage(cfgBytes), shardedDONs, [][]handlers.DON{{don}}, httpClient, lggr)
 	require.NoError(t, err)
 	return handler, httpClient, don, nodes
 }

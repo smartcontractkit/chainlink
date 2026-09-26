@@ -37,15 +37,22 @@ func (m *testConnManager) SendToNode(ctx context.Context, nodeAddress string, re
 func TestDummyHandler_BasicFlow(t *testing.T) {
 	t.Parallel()
 
-	config := config.DONConfig{
-		Members: []config.NodeConfig{
-			{Name: "node one", Address: "addr_1"},
-			{Name: "node two", Address: "addr_2"},
+	shardedDONs := []config.ShardedDONConfig{
+		{
+			DonName: "test_don",
+			Shards: []config.Shard{
+				{
+					Nodes: []config.NodeConfig{
+						{Name: "node one", Address: "addr_1"},
+						{Name: "node two", Address: "addr_2"},
+					},
+				},
+			},
 		},
 	}
 
 	connMgr := testConnManager{}
-	handler, err := handlers.NewDummyHandler(&config, &connMgr, logger.Test(t))
+	handler, err := handlers.NewDummyHandler(shardedDONs, [][]handlers.DON{{&connMgr}}, logger.Test(t))
 	require.NoError(t, err)
 	connMgr.SetHandler("", handler)
 

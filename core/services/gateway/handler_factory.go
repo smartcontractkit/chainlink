@@ -72,22 +72,21 @@ func (hf *handlerFactory) NewHandler(
 		return nil, errors.New("at least one shard connection manager required")
 	}
 
-	// For backward compatibility, convert sharded config to legacy DONConfig
-	// using the first DON's first shard. Handlers that support sharding can
-	// use the full shardedDONs and shardsConnMgrs directly.
-	donConfig := shardedDONsToLegacy(shardedDONs[0])
-	don := shardsConnMgrs[0][0]
-
 	switch handlerType {
 	case DummyHandlerType:
-		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
+		return handlers.NewDummyHandler(shardedDONs, shardsConnMgrs, hf.lggr)
 	case WebAPICapabilitiesType:
-		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
+		return capabilities.NewHandler(handlerConfig, shardedDONs, shardsConnMgrs, hf.httpClient, hf.lggr)
 	case HTTPCapabilityType:
 		return v2.NewGatewayHandler(handlerConfig, shardedDONs, shardsConnMgrs, hf.httpClient, hf.lggr, hf.lf, hf.httpClientFactory, hf.orgResolver)
 	case VaultHandlerType:
-		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr, clockwork.NewRealClock(), hf.lf)
+		return vault.NewHandler(handlerConfig, shardedDONs, shardsConnMgrs, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	case ConfidentialRelayHandlerType:
+		// For backward compatibility, convert sharded config to legacy DONConfig
+		// using the first DON's first shard. TODO(CRE-1640): migrate to full
+		// shardedDONs/shardsConnMgrs support.
+		donConfig := shardedDONsToLegacy(shardedDONs[0])
+		don := shardsConnMgrs[0][0]
 		return confidentialrelay.NewHandler(handlerConfig, donConfig, don, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
