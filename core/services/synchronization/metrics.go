@@ -30,4 +30,9 @@ var (
 		Name: "telemetry_client_workers",
 		Help: "Number of telemetry workers",
 	}, []string{"endpoint", "telemetry_type"})
+
+	ChipIngressPartialDeliveryDropped = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "chip_ingress_partial_delivery_dropped",
+		Help: "Number of chip ingress events dropped due to per-event server rejection (partial delivery)",
+	}, []string{"telemetry_type", "error_code"})
 )

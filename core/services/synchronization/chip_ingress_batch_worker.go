@@ -70,11 +70,26 @@ func (cw *chipIngressBatchWorker) Send(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, cw.sendTimeout)
 	defer cancel()
 
-	_, err := cw.chipClient.PublishBatch(ctx, batch)
+	resp, err := cw.chipClient.PublishBatch(ctx, batch)
 	if err != nil {
 		cw.lggr.Warnf("Could not send telemetry via ChIP ingress: %v", err)
 		TelemetryClientMessagesSendErrors.WithLabelValues(chipIngress, string(cw.telemType)).Inc()
 		return
+	}
+
+	// Inspect per-event results for partial delivery errors. When transaction_enabled=false
+	// (the default), the server can accept some events while rejecting others.
+	//
+	// This is intentionally not logged: it's a per-event, often persistent server-side
+	// condition (e.g. missing schema) that would otherwise WARN on every send interval
+	// (as low as 500ms) for as long as it lasts. ChipIngressPartialDeliveryDropped
+	// (telemetry_type, error_code) is the intended signal for alerting/investigation.
+	for _, result := range resp.GetResults() {
+		if e := result.GetError(); e != nil {
+			code := e.GetErrorCode().String()
+			TelemetryClientMessagesDropped.WithLabelValues(chipIngress, string(cw.telemType)).Inc()
+			ChipIngressPartialDeliveryDropped.WithLabelValues(string(cw.telemType), code).Inc()
+		}
 	}
 
 	TelemetryClientMessagesSent.WithLabelValues(chipIngress, string(cw.telemType)).Inc()
