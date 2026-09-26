@@ -42,9 +42,9 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.8
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20260126202327-6be9a05f0caf
-	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/chainlink/v2 v2.32.0
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20260925232509-1f64936e50d7
+	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-20260925232509-1f64936e50d7
+	github.com/smartcontractkit/chainlink/v2 v2.29.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
