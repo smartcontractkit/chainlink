@@ -19,7 +19,7 @@ func TestDisallowedExecutionHelper_GetSecretsReturnsError(t *testing.T) {
 	h := NewDisallowedExecutionHelper(logger.Test(t), make(chan<- *protoevents.LogLine), &types.LocalTimeProvider{})
 
 	_, err := h.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrSecretsCallDuringSubscription)
 	require.ErrorContains(t, err, "secrets calls cannot be made during trigger subscription")
 }
 
@@ -29,8 +29,8 @@ func TestDisallowedExecutionHelper_CallCapabilityReturnsError(t *testing.T) {
 	h := NewDisallowedExecutionHelper(logger.Test(t), make(chan<- *protoevents.LogLine), &types.LocalTimeProvider{})
 
 	_, err := h.CallCapability(context.Background(), &sdkpb.CapabilityRequest{})
-	require.Error(t, err)
-	require.ErrorContains(t, err, "capability calls cannot be made during this execution")
+	require.ErrorIs(t, err, ErrCapabilityCallDuringSubscription)
+	require.ErrorContains(t, err, "capability calls cannot be made during trigger subscription")
 }
 
 func TestDisallowedExecutionHelper_OtherHelpers(t *testing.T) {
