@@ -40,7 +40,7 @@ func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON,
 	cfgBytes, err := json.Marshal(handlerConfig)
 	require.NoError(t, err)
 	nodes := gwcommon.NewTestNodes(t, 2)
-	var members []config.NodeConfig
+	members := make([]config.NodeConfig, 0, len(nodes))
 	for id, n := range nodes {
 		members = append(members, config.NodeConfig{
 			Name:    fmt.Sprintf("node_%d", id),
