@@ -15,8 +15,8 @@ import (
 
 // DummyHandler forwards each request/response without doing any checks.
 type dummyHandler struct {
-	donConfig      *config.DONConfig
-	don            DON
+	router         *NodeRouter
+	defaultDonID   string
 	savedCallbacks map[string]*savedCallback
 	mu             sync.Mutex
 	lggr           logger.Logger
@@ -29,12 +29,23 @@ type savedCallback struct {
 
 var _ Handler = (*dummyHandler)(nil)
 
-func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (Handler, error) {
+// NewDummyHandler builds a handler that forwards each request to every node across
+// every DON and shard it is given, and relays the first node response back to the
+// caller.
+func NewDummyHandler(shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]DON, lggr logger.Logger) (Handler, error) {
+	router, err := BuildNodeRouter(shardedDONs, shardsConnMgrs)
+	if err != nil {
+		return nil, err
+	}
+	defaultDonID := ""
+	if len(shardedDONs) > 0 {
+		defaultDonID = shardedDONs[0].DonName
+	}
 	return &dummyHandler{
-		donConfig:      donConfig,
-		don:            don,
+		router:         router,
+		defaultDonID:   defaultDonID,
 		savedCallbacks: make(map[string]*savedCallback),
-		lggr:           logger.Named(lggr, "DummyHandler."+donConfig.DonID),
+		lggr:           logger.Named(lggr, "DummyHandler."+defaultDonID),
 	}, nil
 }
 
@@ -54,7 +65,7 @@ func (d *dummyHandler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest
 		msg.Body.Method = jsonRequest.Method
 	}
 	if msg.Body.DonID == "" {
-		msg.Body.DonID = d.donConfig.DonID
+		msg.Body.DonID = d.defaultDonID
 	}
 	return d.HandleLegacyUserMessage(ctx, &msg, callback)
 }
@@ -62,7 +73,6 @@ func (d *dummyHandler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest
 func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback Callback) error {
 	d.mu.Lock()
 	d.savedCallbacks[msg.Body.MessageID] = &savedCallback{msg.Body.MessageID, callback}
-	don := d.don
 	d.mu.Unlock()
 	params, err := json.Marshal(msg)
 	if err != nil {
@@ -75,8 +85,13 @@ func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Mes
 		Method:  msg.Body.Method,
 		Params:  &rawParams,
 	}
-	for _, member := range d.donConfig.Members {
-		err = errors.Join(err, don.SendToNode(ctx, member.Address, req))
+	for _, member := range d.router.Members() {
+		memberDON, ok := d.router.DONFor(member.Address)
+		if !ok {
+			err = errors.Join(err, fmt.Errorf("no connection manager found for node %s", member.Address))
+			continue
+		}
+		err = errors.Join(err, memberDON.SendToNode(ctx, member.Address, req))
 	}
 	return err
 }
