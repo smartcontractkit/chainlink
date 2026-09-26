@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	wfv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 func Test_classifyActivationError(t *testing.T) {
@@ -58,6 +59,20 @@ func Test_classifyActivationError(t *testing.T) {
 			name: "cron schedule faster than the allowed minimum",
 			err: fmt.Errorf("failed to register trigger %s: %w", "trigger_0",
 				errors.New("[3]InvalidArgument: maximum fastest cron schedule is 30s")),
+			want: ActivationNonRetryable,
+		},
+		{
+			// mirrors the engine's wrapping of the guest error string: the
+			// host rejects the secrets call, the guest reports it back and
+			// Subscribe fails
+			name: "secrets call during trigger subscription is non-retryable",
+			err: fmt.Errorf("failed to execute subscribe: failed to get secrets for call 1: %s",
+				wfv2.ErrSecretsCallDuringSubscription.Error()),
+			want: ActivationNonRetryable,
+		},
+		{
+			name: "capability call during trigger subscription is non-retryable",
+			err:  fmt.Errorf("failed to execute subscribe: %s", wfv2.ErrCapabilityCallDuringSubscription.Error()),
 			want: ActivationNonRetryable,
 		},
 		{

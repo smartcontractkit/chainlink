@@ -249,7 +249,7 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
+	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider))
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -765,7 +765,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event RoutedTriggerEven
 	return nil
 }
 
-func (e *baseEngine) secretsFetcher(phaseID string) SecretsFetcher {
+func (e *baseEngine) secretsFetcher(executionID string) SecretsFetcher {
 	if e.cfg.SecretsFetcher != nil {
 		return e.cfg.SecretsFetcher
 	}
@@ -781,9 +781,7 @@ func (e *baseEngine) secretsFetcher(phaseID string) SecretsFetcher {
 		e.cfg.WorkflowOwner,
 		e.cfg.WorkflowName.String(),
 		e.cfg.WorkflowID,
-		// phaseID is the executionID if called during an execution,
-		// or the workflowID if called during trigger subscription
-		phaseID,
+		executionID,
 		e.cfg.WorkflowEncryptionKey,
 		e.cfg.OverrideFetcher,
 	)

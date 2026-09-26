@@ -7,6 +7,7 @@ import (
 
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	wfv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 // ActivationRetryPolicy controls how failed workflow activations are retried.
@@ -96,7 +97,12 @@ func isPermanentEngineInitError(err error) bool {
 			// cron failure when it can't parse the schedule
 			strings.Contains(msg, "failed to initialize job"),
 			// cron rejection when the schedule fires faster than the allowed minimum
-			strings.Contains(msg, "maximum fastest cron schedule"):
+			strings.Contains(msg, "maximum fastest cron schedule"),
+			// guest attempted a disallowed host call (capability or secrets) during
+			// the trigger subscription phase; a deterministic user error that can
+			// never succeed on retry
+			strings.Contains(msg, wfv2.ErrCapabilityCallDuringSubscription.Error()),
+			strings.Contains(msg, wfv2.ErrSecretsCallDuringSubscription.Error()):
 			return true
 		}
 		err = errors.Unwrap(err)

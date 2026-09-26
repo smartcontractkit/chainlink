@@ -16,22 +16,35 @@ type disallowedExecutionHelper struct {
 	lggr        logger.Logger
 	UserLogChan chan<- *protoevents.LogLine
 	TimeProvider
-	SecretsFetcher
 }
 
-func NewDisallowedExecutionHelper(lggr logger.Logger, userLogChan chan<- *protoevents.LogLine, timeProvider TimeProvider, secretsFetcher SecretsFetcher) *disallowedExecutionHelper {
+func NewDisallowedExecutionHelper(lggr logger.Logger, userLogChan chan<- *protoevents.LogLine, timeProvider TimeProvider) *disallowedExecutionHelper {
 	return &disallowedExecutionHelper{
-		lggr:           lggr,
-		UserLogChan:    userLogChan,
-		TimeProvider:   timeProvider,
-		SecretsFetcher: secretsFetcher,
+		lggr:         lggr,
+		UserLogChan:  userLogChan,
+		TimeProvider: timeProvider,
 	}
 }
 
 var _ host.ExecutionHelper = &disallowedExecutionHelper{}
 
+var (
+	// ErrCapabilityCallDuringSubscription is returned to a guest that attempts
+	// a capability call during the trigger subscription phase. Capability
+	// calls are only allowed during workflow executions.
+	ErrCapabilityCallDuringSubscription = errors.New("capability calls cannot be made during trigger subscription")
+	// ErrSecretsCallDuringSubscription is returned to a guest that attempts a
+	// secrets call during the trigger subscription phase. Secrets calls are
+	// only allowed during workflow executions.
+	ErrSecretsCallDuringSubscription = errors.New("secrets calls cannot be made during trigger subscription")
+)
+
 func (d disallowedExecutionHelper) CallCapability(_ context.Context, _ *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
-	return nil, errors.New("capability calls cannot be made during this execution")
+	return nil, ErrCapabilityCallDuringSubscription
+}
+
+func (d disallowedExecutionHelper) GetSecrets(_ context.Context, _ *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	return nil, ErrSecretsCallDuringSubscription
 }
 
 func (d disallowedExecutionHelper) GetWorkflowExecutionID() string {

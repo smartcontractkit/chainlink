@@ -31,6 +31,7 @@ type EngineMetrics struct {
 	workflowExecutionLatencyGauge            metric.Int64Gauge // ms
 	workflowStepErrorCounter                 metric.Int64Counter
 	workflowInitializationCounter            metric.Int64Counter
+	workflowInitializationFailureCounter     metric.Int64Counter
 	workflowTriggerEventErrorCounter         metric.Int64Counter
 	workflowTriggerEventQueueFullCounter     metric.Int64Counter
 
@@ -162,6 +163,13 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowInitializationCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_initializations")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow initialization counter: %w", err)
+	}
+
+	em.workflowInitializationFailureCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_workflow_initialization_failures_total",
+		metric.WithDescription("Count of failed engine initializations by failure reason"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow initialization failure counter: %w", err)
 	}
 
 	em.workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_errors")
@@ -631,6 +639,18 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowUnregisteredCounter(ctx context
 func (c WorkflowsMetricLabeler) IncrementWorkflowInitializationCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowInitializationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementWorkflowInitializationFailureCounter records one failed engine
+// initialization. reason must be a low-cardinality value identifying the
+// failing phase; see the initFailure* constants in the engine package.
+func (c WorkflowsMetricLabeler) IncrementWorkflowInitializationFailureCounter(ctx context.Context, reason string) {
+	if reason == "" {
+		reason = "unknown"
+	}
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	otelLabels = append(otelLabels, attribute.String("reason", reason))
+	c.em.workflowInitializationFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementWorkflowTriggerEventErrorCounter(ctx context.Context) {
