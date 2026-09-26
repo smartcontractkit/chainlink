@@ -16,15 +16,13 @@ type disallowedExecutionHelper struct {
 	lggr        logger.Logger
 	UserLogChan chan<- *protoevents.LogLine
 	TimeProvider
-	SecretsFetcher
 }
 
-func NewDisallowedExecutionHelper(lggr logger.Logger, userLogChan chan<- *protoevents.LogLine, timeProvider TimeProvider, secretsFetcher SecretsFetcher) *disallowedExecutionHelper {
+func NewDisallowedExecutionHelper(lggr logger.Logger, userLogChan chan<- *protoevents.LogLine, timeProvider TimeProvider) *disallowedExecutionHelper {
 	return &disallowedExecutionHelper{
-		lggr:           lggr,
-		UserLogChan:    userLogChan,
-		TimeProvider:   timeProvider,
-		SecretsFetcher: secretsFetcher,
+		lggr:         lggr,
+		UserLogChan:  userLogChan,
+		TimeProvider: timeProvider,
 	}
 }
 
@@ -32,6 +30,10 @@ var _ host.ExecutionHelper = &disallowedExecutionHelper{}
 
 func (d disallowedExecutionHelper) CallCapability(_ context.Context, _ *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
 	return nil, errors.New("capability calls cannot be made during this execution")
+}
+
+func (d disallowedExecutionHelper) GetSecrets(_ context.Context, _ *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	return nil, errors.New("secrets calls cannot be made during trigger subscription")
 }
 
 func (d disallowedExecutionHelper) GetWorkflowExecutionID() string {
