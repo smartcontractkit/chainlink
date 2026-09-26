@@ -39,11 +39,15 @@ type AddCapabilitiesInput struct {
 	// capability here, the changeset will fail if it cannot read the current config
 	// count from the registry, preventing accidental config count collisions.
 	FirstOCR3ConfigCapabilities map[string][]string `json:"firstOCR3ConfigCapabilities" yaml:"firstOCR3ConfigCapabilities"`
+
+	// ValidateNoDuplicateCapabilities enables the precondition check that rejects assigning
+	// the same capability to multiple DONs within a DON family.
+	ValidateNoDuplicateCapabilities bool `json:"validateNoDuplicateCapabilities,omitempty" yaml:"validateNoDuplicateCapabilities,omitempty"`
 }
 
 type AddCapabilities struct{}
 
-func (u AddCapabilities) VerifyPreconditions(_ cldf.Environment, config AddCapabilitiesInput) error {
+func (u AddCapabilities) VerifyPreconditions(e cldf.Environment, config AddCapabilitiesInput) error {
 	if len(config.DonCapabilityConfigs) == 0 {
 		return errors.New("donCapabilityConfigs must contain at least one DON entry")
 	}
@@ -55,6 +59,18 @@ func (u AddCapabilities) VerifyPreconditions(_ cldf.Environment, config AddCapab
 			return fmt.Errorf("donCapabilityConfigs[%q] must contain at least one capability config", donName)
 		}
 	}
+
+	if config.ValidateNoDuplicateCapabilities {
+		existingDONs, err := getExistingDONsForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
+		if err != nil {
+			return err
+		}
+
+		if err := sequences.ValidateNoDuplicateCapabilitiesAcrossDONs(config.DonCapabilityConfigs, existingDONs); err != nil {
+			return fmt.Errorf("AddCapabilities precondition failed: %w", err)
+		}
+	}
+
 	return nil
 }
 
