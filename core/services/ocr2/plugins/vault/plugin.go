@@ -62,6 +62,7 @@ type ReportingPluginConfig struct {
 	MaxPendingQueueWriteSize        limits.BoundLimiter[int]
 	MaxBlobPayloadBytes             limits.BoundLimiter[pkgconfig.Size]
 	VaultForceEmptyOCRRounds        limits.GateLimiter
+	VaultGetSecretsIncludePublicKey limits.GateLimiter
 	VaultPendingQueueStallThreshold limits.BoundLimiter[int]
 }
 
@@ -182,6 +183,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultForceEmptyOCRRounds: %w", err)
 	}
 
+	vaultGetSecretsIncludePublicKey, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultGetSecretsIncludePublicKeyEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("VaultGetSecretsIncludePublicKeyEnabled: %w", err)
+	}
+
 	vaultPendingQueueStallThreshold, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultPendingQueueStallThreshold)
 	if err != nil {
 		return nil, fmt.Errorf("VaultPendingQueueStallThreshold: %w", err)
@@ -202,6 +208,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxBlobPayloadBytes:             maxBlobPayloadBytesLimiter,
 		MaxPendingQueueWriteSize:        maxPendingQueueWriteSizeLimiter,
 		VaultForceEmptyOCRRounds:        vaultForceEmptyOCRRounds,
+		VaultGetSecretsIncludePublicKey: vaultGetSecretsIncludePublicKey,
 		VaultPendingQueueStallThreshold: vaultPendingQueueStallThreshold,
 	}, nil
 }
@@ -1743,7 +1750,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 		switch first.RequestType {
 		case vaultcommon.RequestType_GET_SECRETS:
-			r.stateTransitionGetSecrets(chosen, o)
+			r.stateTransitionGetSecrets(ctx, chosen, o)
 		case vaultcommon.RequestType_CREATE_SECRETS:
 			r.stateTransitionCreateSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_UPDATE_SECRETS:
@@ -1914,7 +1921,7 @@ func sortKey(id string, nonce []byte) []byte {
 	return h.Sum(nil)
 }
 
-func (r *ReportingPlugin) stateTransitionGetSecrets(chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
+func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
 	// Next, we deal with the responses.
 	// For each request, we take the Id of the first observation
 	// then aggregate the encrypted shares across all observations.
@@ -1944,10 +1951,26 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(chosen []*vaultcommon.Observ
 		sortedResponses = append(sortedResponses, idToAggResponse[k])
 	}
 
+	resp := &vaultcommon.GetSecretsResponse{
+		Responses: sortedResponses,
+	}
+
+	// When the gate is open, attach the vault public key of the DKG instance that
+	// produced these shares so decrypt-side callers read the matching key live from
+	// the response instead of from CapReg / static config. Deterministic across
+	// nodes: the gate is config-sourced and PublicKey is the shared instance key.
+	if open, err := r.cfg.VaultGetSecretsIncludePublicKey.IsOpen(ctx); err != nil {
+		r.lggr.Errorw("unexpected error evaluating CRE gate", "gate", "VaultGetSecretsIncludePublicKey", "error", err)
+	} else if open && r.cfg.PublicKey != nil {
+		if pkb, mErr := r.cfg.PublicKey.Marshal(); mErr != nil {
+			r.lggr.Errorw("could not marshal vault public key for GetSecrets response", "error", mErr)
+		} else {
+			resp.RawVaultPublicKey = hex.EncodeToString(pkb)
+		}
+	}
+
 	o.Response = &vaultcommon.Outcome_GetSecretsResponse{
-		GetSecretsResponse: &vaultcommon.GetSecretsResponse{
-			Responses: sortedResponses,
-		},
+		GetSecretsResponse: resp,
 	}
 }
 
