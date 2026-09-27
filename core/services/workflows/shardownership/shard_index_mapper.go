@@ -11,12 +11,8 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership/types"
 )
-
-// shardNameMarker is the marker a workflow DON's name is suffixed with to
-// encode its shard index (e.g. "workflow-1-zone-a-shard-1" -> shard 1). A
-// name with no such suffix (e.g. "workflow-1-zone-a") is shard index 0.
-const shardNameMarker = "shard-"
 
 // ShardIndexMapper tracks the workflow DONs currently known to the Capabilities
 // Registry and detects their shard indices (0, 1, 2, ...).
@@ -117,13 +113,13 @@ func shardDONsByIndex(reg *registry.RegistryMetadata, localDON commoncap.DON, na
 // workflow DON's name (e.g. "workflow-1-zone-a-shard-1" -> 1). A name with no
 // "shard-" suffix is shard index 0.
 func shardIndexFromName(name string) (uint32, error) {
-	idx := strings.LastIndex(name, shardNameMarker)
+	idx := strings.LastIndex(name, types.ShardNameMarker)
 	if idx == -1 {
 		return 0, nil
 	}
-	suffix := name[idx+len(shardNameMarker):]
+	suffix := name[idx+len(types.ShardNameMarker):]
 	if len(suffix) != 1 || suffix[0] < '0' || suffix[0] > '9' {
-		return 0, fmt.Errorf("expected DON name %q to end with %q followed by a single digit, got suffix %q", name, shardNameMarker, suffix)
+		return 0, fmt.Errorf("expected DON name %q to end with %q followed by a single digit, got suffix %q", name, types.ShardNameMarker, suffix)
 	}
 	return uint32(suffix[0] - '0'), nil
 }
@@ -134,7 +130,7 @@ func shardIndexFromName(name string) (uint32, error) {
 // "workflow-1-zone-a-shard-1" -> "workflow-1-zone-a"). A name with no such
 // suffix is returned unchanged.
 func shardGroupNamePrefix(name string) string {
-	idx := strings.LastIndex(name, shardNameMarker)
+	idx := strings.LastIndex(name, types.ShardNameMarker)
 	if idx == -1 {
 		return name
 	}
