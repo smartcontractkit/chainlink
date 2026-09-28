@@ -497,6 +497,67 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	})
 }
 
+// ExecuteVaultReadSecretsWithReshareFlagsTest runs the regular vault read-secret flow with the
+// reshare zero-downtime flags enabled for the whole environment:
+//   - VaultGetSecretsIncludePublicKeyEnabled: the Vault plugin includes the DKG instance's public
+//     key inline in the GetSecrets OCR response, and the workflow secrets reader (secrets.go) uses it.
+//   - VaultPublicKeyEncryptOnlyEnabled: the capability's GetPublicKey returns the stable encrypt-only
+//     key.
+//
+// A workflow secret read must still succeed with both gates on (proving the response-carried key path
+// works), which is the reshare-safe read path.
+func ExecuteVaultReadSecretsWithReshareFlagsTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+	testLogger := framework.L
+
+	// Enable both reshare zero-downtime gates env-wide (top-level / global scope). Reverted on cleanup.
+	handle := t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(`
+VaultGetSecretsIncludePublicKeyEnabled = 'true'
+VaultPublicKeyEncryptOnlyEnabled = 'true'`))
+	t.Cleanup(func() { handle.Reset(t) })
+
+	gwURL := fixture.GatewayURL.String()
+	vaultParsedPublicKey := mustVaultPublicKey(t, fixture.VaultPublicKey)
+
+	sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+	owner := sc.MustGetRootKeyAddress().Hex()
+	wfRegAddr := crecontracts.MustGetAddressFromDataStore(
+		testEnv.CreEnvironment.CldfEnvironment.DataStore,
+		testEnv.CreEnvironment.Blockchains[0].ChainSelector(),
+		keystone_changeset.WorkflowRegistry.String(),
+		testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
+		"",
+	)
+	wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+	require.NoError(t, err)
+	requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+	auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
+
+	ulCh := make(chan *workflowevents.UserLogs, 1000)
+	bmCh := make(chan *commonevents.BaseMessage, 1000)
+	sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
+	})
+
+	secretID := uniqueVaultSecretID("reshareflags")
+	secretValue := "secret-reshare-flags-on"
+	enc, err := vaultutils.EncryptSecretWithWorkflowOwner(secretValue, vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+	require.NoError(t, err)
+	executeVaultSecretsCreateWithAuth(t, auth, enc, secretID, owner, gwURL, []string{"main"})
+
+	workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "reshare-flags-read", []vaultWorkflowPhase{
+		{
+			Name: "reshare-flags-created",
+			Checks: []vaultWorkflowCheck{
+				{Name: "reshare-flags-get-main", SecretKey: secretID, SecretNamespace: "main", ExpectedValue: secretValue},
+			},
+		},
+	})
+	waitForVaultWorkflowPhase(t, workflowID, "reshare-flags-created", ulCh, bmCh)
+}
+
 // ExecuteVaultIncludeInvalidLivenessSmokeTest verifies that an erroring workflow GetSecrets for a
 // deleted secret does not stall concurrent valid gateway creates while include-invalid is enabled.
 func ExecuteVaultIncludeInvalidLivenessSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
