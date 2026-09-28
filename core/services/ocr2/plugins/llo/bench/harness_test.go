@@ -183,10 +183,14 @@ func reportCodecs() map[llotypes.ReportFormat]lloprotocol.ReportCodec {
 // to whole seconds, which would prevent reporting within a single wall-clock
 // second and diverge from v31). The 1ns interval effectively reports every
 // round while keeping both plugins on identical reportability rules.
-func benchOffchainConfig() []byte {
+// aggregationFaultTolerance is set to consensus F, the maximum the v31 factory
+// accepts, so both plugins aggregate over the same observation set.
+func benchOffchainConfig(f int) []byte {
+	aft := uint32(f) //nolint:gosec // bench F is a small positive constant
 	b, err := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: 1,
+		AggregationFaultTolerance:           &aft,
 	}.Encode()
 	if err != nil {
 		panic(err)
@@ -200,7 +204,7 @@ func pluginConfig(n, f int) ocr3types.ReportingPluginConfig {
 		N:                      n,
 		F:                      f,
 		MaxDurationObservation: maxDurationObservation,
-		OffchainConfig:         benchOffchainConfig(),
+		OffchainConfig:         benchOffchainConfig(f),
 	}
 }
 

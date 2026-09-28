@@ -73,6 +73,10 @@ var (
 	fNodes        = uint8(1)
 	nNodes        = 4 // number of nodes (not including bootstrap)
 	reportTimeout = time.Second * 60
+
+	// v31 requires the contribution floor to be set explicitly. Match consensus
+	// F so aggregation uses the full observation set.
+	aggregationFaultTolerance = func() *uint32 { v := uint32(fNodes); return &v }()
 )
 
 func setupBlockchain(t *testing.T, adders ...*bind.TransactOpts) (
@@ -489,10 +493,12 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 		{
 			ProtocolVersion:                     0,
 			DefaultMinReportIntervalNanoseconds: 0,
+			AggregationFaultTolerance:           aggregationFaultTolerance,
 		},
 		{
 			ProtocolVersion:                     1,
 			DefaultMinReportIntervalNanoseconds: 1,
+			AggregationFaultTolerance:           aggregationFaultTolerance,
 		},
 	}
 	for _, offchainConfig := range offchainConfigs {
@@ -729,10 +735,12 @@ func TestIntegration_LLO_multi_formats(t *testing.T) {
 		{
 			ProtocolVersion:                     0,
 			DefaultMinReportIntervalNanoseconds: 0,
+			AggregationFaultTolerance:           aggregationFaultTolerance,
 		},
 		{
 			ProtocolVersion:                     1,
 			DefaultMinReportIntervalNanoseconds: 1,
+			AggregationFaultTolerance:           aggregationFaultTolerance,
 		},
 	}
 	ocrVersions := []struct {
@@ -1523,6 +1531,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 		WithOffchainConfig(lloprotocol.OffchainConfig{
 			ProtocolVersion:                     1,
 			DefaultMinReportIntervalNanoseconds: uint64(defaultMinReportInterval),
+			AggregationFaultTolerance:           aggregationFaultTolerance,
 			EnableObservationCompression:        true,
 		}),
 		func(cfg *OCRConfig) {
@@ -1759,6 +1768,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(50 * time.Millisecond),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 	}
 
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
@@ -1915,6 +1925,7 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     0,
 		DefaultMinReportIntervalNanoseconds: 0,
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 		EnableObservationCompression:        false,
 	}
 	for _, ocr31 := range []bool{false, true} {
@@ -2309,6 +2320,7 @@ func testIntegrationLLOChannelMerging(t *testing.T, ocr31 bool) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 		EnableObservationCompression:        true,
 	}
 
@@ -2841,6 +2853,7 @@ func testIntegrationLLOTombstone(t *testing.T, ocr31 bool) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 		EnableObservationCompression:        true,
 	}
 
@@ -3047,6 +3060,7 @@ func TestIntegration_LLO_bridgeConnManagerHappyPath(t *testing.T) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 	}
 
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)

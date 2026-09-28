@@ -134,6 +134,7 @@ func testIntegrationLLOHistoryBackfill(t *testing.T, ocr31 bool) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 		EnableObservationCompression:        true,
 	}
 
