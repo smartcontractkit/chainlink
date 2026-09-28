@@ -136,12 +136,13 @@ func (node *Node) DeleteJob(t *testing.T, id int32) {
 	require.NoError(t, err)
 }
 
-func (node *Node) AddLLOJob(t *testing.T, spec string) {
+func (node *Node) AddLLOJob(t *testing.T, spec string) (id int32) {
 	c := node.App.GetConfig()
 	job, err := validate.ValidatedOracleSpecToml(t.Context(), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(t.Context(), &job)
 	require.NoError(t, err)
+	return job.ID
 }
 
 func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
@@ -368,8 +369,8 @@ func addLLOJob(
 	pluginConfig,
 	relayType,
 	relayConfig string,
-) {
-	node.AddLLOJob(t, fmt.Sprintf(`
+) (id int32) {
+	return node.AddLLOJob(t, fmt.Sprintf(`
 type = "offchainreporting2"
 schemaVersion = 1
 name = "%s"

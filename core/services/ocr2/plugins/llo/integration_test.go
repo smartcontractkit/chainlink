@@ -3432,3 +3432,214 @@ ocrVersion = "3.1"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlo
 			"under-observed channel should not report when it cannot meet the contribution floor")
 	}
 }
+
+// TestIntegration_LLO_v31_blob_catchup covers the v31 blob path for an oracle
+// that is not present for the earlier rounds. v31 disseminates stream values
+// through blobs, so such an oracle can only contribute once it has fetched the
+// blobs and state the running DON produced without it.
+//
+// Two ways in: an oracle whose LLO job is created after the DON is already
+// reporting, and an oracle whose job is deleted mid-run and re-created after
+// the DON has advanced many rounds without it. In both cases the remaining
+// 3 oracles (2F+1) keep the DON reporting throughout.
+func TestIntegration_LLO_v31_blob_catchup(t *testing.T) {
+	t.Parallel()
+	tcs := []struct {
+		name string
+		// rejoin starts the lagging oracle with an LLO job and deletes it
+		// mid-run, instead of never creating it until catch-up time.
+		rejoin bool
+		salt   int64
+		donID  uint32
+	}{
+		{name: "oracle joining after the DON is reporting catches up", rejoin: false, salt: 800, donID: uint32(555333)},
+		{name: "oracle rejoining after its job is deleted catches up", rejoin: true, salt: 850, donID: uint32(555444)},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOV31BlobCatchup(t, tc.rejoin, tc.salt, tc.donID)
+		})
+	}
+}
+
+func testIntegrationLLOV31BlobCatchup(t *testing.T, rejoin bool, salt int64, donID uint32) {
+	const (
+		streamID  = uint32(790)
+		channelID = uint32(1)
+	)
+	// laggingNode is the index of the oracle that misses rounds.
+	laggingNode := nNodes - 1
+
+	offchainConfig := lloprotocol.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
+		EnableObservationCompression:        true,
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := range nNodes {
+		k := big.NewInt(salt + int64(i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_catchup", backend, bootstrapCSAKey, nil)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	packetCh := make(chan *packet, 100000)
+	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+	serverPubKey := serverKey.PublicKey
+	srv := NewMercuryServer(t, serverKey, packetCh)
+	serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
+	})
+
+	chainID := testutils.SimulatedChainID
+	relayType := "evm"
+	relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+	addBootstrapJob(t, bootstrapNode, configuratorAddress, fmt.Sprintf("job-catchup-%d", donID), relayType, relayConfig)
+
+	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d
+ocrVersion = "3.1"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+	// One counter per node so the lagging oracle's observations can be told
+	// apart from the rest of the DON's.
+	bridgeCalls := make([]*atomic.Uint64, nNodes)
+	price := decimal.NewFromFloat(123.4)
+	addLaggingLLOJob := func() int32 {
+		return addLLOJob(
+			t,
+			nodes[laggingNode],
+			configuratorAddress,
+			bootstrapPeerID,
+			bootstrapNodePort,
+			clientPubKeys[laggingNode],
+			"blob-catchup-test",
+			pluginConfig,
+			relayType,
+			relayConfig,
+		)
+	}
+
+	var laggingJobID int32
+	for i, node := range nodes {
+		bridgeCalls[i] = new(atomic.Uint64)
+		bridge := createSingleDecimalCountingBridge(t, "catchup", i, price, node.App.BridgeORM(), bridgeCalls[i])
+		addSingleDecimalStreamJob(t, node, streamID, bridge)
+		if i == laggingNode {
+			// The late joiner gets no LLO job yet; the rejoining oracle gets one
+			// that is deleted below.
+			if rejoin {
+				laggingJobID = addLaggingLLOJob()
+			}
+			continue
+		}
+		addLLOJob(
+			t,
+			node,
+			configuratorAddress,
+			bootstrapPeerID,
+			bootstrapNodePort,
+			clientPubKeys[i],
+			"blob-catchup-test",
+			pluginConfig,
+			relayType,
+			relayConfig,
+		)
+	}
+
+	channelDefinitions := llotypes.ChannelDefinitions{
+		channelID: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamID, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+	}
+	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+	require.NoError(t, err)
+	backend.Commit()
+
+	setProductionConfig(
+		t, donID, steve, backend, configurator, configuratorAddress, nodes,
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithOCR31(),
+	)
+
+	// reportsFlowing drains transmitted reports for the channel under test until
+	// it sees one or the deadline passes.
+	reportsFlowing := func(d time.Duration) bool {
+		deadline := time.Now().Add(d)
+		for time.Now().Before(deadline) {
+			pckt, errReceive := receiveWithTimeout(t, packetCh, time.Until(deadline))
+			if errReceive != nil {
+				return false
+			}
+			req := pckt.req
+			if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+				continue
+			}
+			_, _, r, _, errDecode := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
+			if errDecode == nil && r.ChannelID == channelID {
+				return true
+			}
+		}
+		return false
+	}
+
+	require.Eventually(t, func() bool {
+		return reportsFlowing(2 * time.Second)
+	}, reportTimeout, 100*time.Millisecond, "DON should report before the lagging oracle joins")
+
+	if rejoin {
+		nodes[laggingNode].DeleteJob(t, laggingJobID)
+		// Wait for the deleted oracle to stop observing, so the rounds that
+		// follow genuinely advance without it.
+		var last uint64
+		var stableSince time.Time
+		require.Eventually(t, func() bool {
+			c := bridgeCalls[laggingNode].Load()
+			if c != last {
+				last = c
+				stableSince = time.Now()
+				return false
+			}
+			return time.Since(stableSince) > 2*time.Second
+		}, 30*time.Second, 100*time.Millisecond, "deleted oracle should stop observing")
+		// Let the remaining oracles advance a good number of rounds alone.
+		require.True(t, reportsFlowing(10*time.Second), "DON should keep reporting without the deleted oracle")
+	}
+
+	callsBeforeCatchup := bridgeCalls[laggingNode].Load()
+	if !rejoin {
+		require.Zero(t, callsBeforeCatchup, "oracle without an LLO job should not observe")
+	}
+
+	laggingJobID = addLaggingLLOJob()
+	require.NotZero(t, laggingJobID)
+
+	require.Eventually(t, func() bool {
+		return bridgeCalls[laggingNode].Load() > callsBeforeCatchup
+	}, reportTimeout, 100*time.Millisecond, "the lagging oracle should observe once it has caught up")
+
+	require.True(t, reportsFlowing(10*time.Second), "DON should keep reporting after the lagging oracle catches up")
+}
