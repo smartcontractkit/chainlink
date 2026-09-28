@@ -3248,3 +3248,187 @@ func newSingleABIEncoder(typ string, multiplier *sqlutil.Big) (enc lloevm.ABIEnc
 	}
 	return enc
 }
+
+// TestIntegration_LLO_aggregation_fault_tolerance exercises the v31 contribution
+// floor. aggregationFaultTolerance sets the fewest contributions an aggregate may
+// be built from (2*aft+1), so a stream observed by too few oracles must not
+// produce an aggregate and its channel must not report, while a stream observed
+// by the whole DON keeps reporting.
+//
+// With nNodes=4 and F=1: aft=1 sets a floor of 3 contributions, aft=0 a floor of
+// 1. A stream whose job exists on only 2 nodes therefore reports under aft=0 and
+// is withheld under aft=1.
+func TestIntegration_LLO_aggregation_fault_tolerance(t *testing.T) {
+	t.Parallel()
+	tcs := []struct {
+		name string
+		// aft is the aggregationFaultTolerance set in the offchain config.
+		aft uint32
+		// partialReports is whether the channel whose stream only 2 of the 4
+		// oracles observe is expected to produce reports.
+		partialReports bool
+		salt           int64
+		donID          uint32
+	}{
+		{name: "floor of 3 withholds an under-observed stream", aft: 1, partialReports: false, salt: 700, donID: uint32(555111)},
+		{name: "floor of 1 admits an under-observed stream", aft: 0, partialReports: true, salt: 750, donID: uint32(555222)},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOAggregationFaultTolerance(t, tc.aft, tc.partialReports, tc.salt, tc.donID)
+		})
+	}
+}
+
+func testIntegrationLLOAggregationFaultTolerance(t *testing.T, aft uint32, expectPartialReports bool, salt int64, donID uint32) {
+	const (
+		// streamIDFull has a stream job on every oracle.
+		streamIDFull = uint32(690)
+		// streamIDPartial has a stream job on only the first two oracles, so it
+		// gathers 2 contributions per round.
+		streamIDPartial = uint32(691)
+		// nPartialObservers is how many oracles observe streamIDPartial.
+		nPartialObservers = 2
+
+		channelFull    = uint32(1)
+		channelPartial = uint32(2)
+	)
+
+	offchainConfig := lloprotocol.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           &aft,
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := range nNodes {
+		k := big.NewInt(salt + int64(i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_aft", backend, bootstrapCSAKey, nil)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	packetCh := make(chan *packet, 100000)
+	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+	serverPubKey := serverKey.PublicKey
+	srv := NewMercuryServer(t, serverKey, packetCh)
+	serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
+	})
+
+	chainID := testutils.SimulatedChainID
+	relayType := "evm"
+	relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+	addBootstrapJob(t, bootstrapNode, configuratorAddress, fmt.Sprintf("job-aft-%d", donID), relayType, relayConfig)
+
+	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d
+ocrVersion = "3.1"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+	priceFull := decimal.NewFromFloat(111.1)
+	pricePartial := decimal.NewFromFloat(222.2)
+	for i, node := range nodes {
+		bridgeFull := createSingleDecimalBridge(t, "aft-full", i, priceFull, node.App.BridgeORM())
+		addSingleDecimalStreamJob(t, node, streamIDFull, bridgeFull)
+		if i < nPartialObservers {
+			bridgePartial := createSingleDecimalBridge(t, "aft-partial", i, pricePartial, node.App.BridgeORM())
+			addSingleDecimalStreamJob(t, node, streamIDPartial, bridgePartial)
+		}
+		addLLOJob(
+			t,
+			node,
+			configuratorAddress,
+			bootstrapPeerID,
+			bootstrapNodePort,
+			clientPubKeys[i],
+			"aggregation-fault-tolerance-test",
+			pluginConfig,
+			relayType,
+			relayConfig,
+		)
+	}
+
+	channelDefinitions := llotypes.ChannelDefinitions{
+		channelFull: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamIDFull, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+		channelPartial: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamIDPartial, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+	}
+	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+	require.NoError(t, err)
+	backend.Commit()
+
+	setProductionConfig(
+		t, donID, steve, backend, configurator, configuratorAddress, nodes,
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithOCR31(),
+	)
+
+	// collectChannels drains transmitted JSON reports for the given duration and
+	// returns the set of channel IDs seen.
+	collectChannels := func(d time.Duration) map[uint32]bool {
+		seen := make(map[uint32]bool)
+		deadline := time.Now().Add(d)
+		for time.Now().Before(deadline) {
+			pckt, errReceive := receiveWithTimeout(t, packetCh, time.Until(deadline))
+			if errReceive != nil {
+				break
+			}
+			req := pckt.req
+			if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+				continue
+			}
+			_, _, r, _, errDecode := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
+			if errDecode != nil {
+				continue
+			}
+			seen[r.ChannelID] = true
+		}
+		return seen
+	}
+
+	// The fully observed channel must report regardless of the floor. This also
+	// establishes that the DON has reached a reporting steady state before
+	// judging the under-observed channel.
+	require.Eventually(t, func() bool {
+		return collectChannels(2 * time.Second)[channelFull]
+	}, reportTimeout, 100*time.Millisecond, "fully observed channel should produce reports")
+
+	// Now judge the under-observed channel over a window that spans many rounds.
+	seen := collectChannels(15 * time.Second)
+	require.True(t, seen[channelFull], "fully observed channel should keep reporting")
+	if expectPartialReports {
+		require.True(t, seen[channelPartial],
+			"under-observed channel should report when the contribution floor is met")
+	} else {
+		require.False(t, seen[channelPartial],
+			"under-observed channel should not report when it cannot meet the contribution floor")
+	}
+}
