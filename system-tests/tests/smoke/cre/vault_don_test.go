@@ -1235,6 +1235,7 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 //
 // Skipped when CRE_TEST_PARALLEL_ENABLED is set: restarting the gateway would
 // disturb vault suites running in parallel against the shared environment.
+//nolint:paralleltest // restarts the gateway container; must not run in parallel
 func TestVaultDONNodeSignaturesQuorumEnforced(t *testing.T) {
 	if t_helpers.ParallelEnabled() {
 		t.Skip("skipping gateway-restart test in parallel mode (restarting the gateway would disturb parallel vault suites)")
