@@ -487,24 +487,54 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 	backend.Commit()
 }
 
-func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
-	t.Parallel()
-	offchainConfigs := []lloprotocol.OffchainConfig{
+// offchainConfigCase is a named offchain config for a test matrix. The name is
+// spelled out rather than derived from the struct so subtest names stay stable
+// (the struct holds a pointer, whose formatted address changes per run).
+type offchainConfigCase struct {
+	name string
+	cfg  lloprotocol.OffchainConfig
+}
+
+// offchainConfigCases is the offchain config matrix shared by the tests that
+// cover every report format: both protocol versions, plus observation
+// compression. Compression is a v30 codec setting; v31 always frames its blobs
+// with zstd and ignores the flag.
+func offchainConfigCases() []offchainConfigCase {
+	return []offchainConfigCase{
 		{
-			ProtocolVersion:                     0,
-			DefaultMinReportIntervalNanoseconds: 0,
-			AggregationFaultTolerance:           aggregationFaultTolerance,
+			name: "protocolVersion=0",
+			cfg: lloprotocol.OffchainConfig{
+				ProtocolVersion:                     0,
+				DefaultMinReportIntervalNanoseconds: 0,
+				AggregationFaultTolerance:           aggregationFaultTolerance,
+			},
 		},
 		{
-			ProtocolVersion:                     1,
-			DefaultMinReportIntervalNanoseconds: 1,
-			AggregationFaultTolerance:           aggregationFaultTolerance,
+			name: "protocolVersion=1",
+			cfg: lloprotocol.OffchainConfig{
+				ProtocolVersion:                     1,
+				DefaultMinReportIntervalNanoseconds: 1,
+				AggregationFaultTolerance:           aggregationFaultTolerance,
+			},
+		},
+		{
+			name: "protocolVersion=1/compressedObservations",
+			cfg: lloprotocol.OffchainConfig{
+				ProtocolVersion:                     1,
+				DefaultMinReportIntervalNanoseconds: 1,
+				AggregationFaultTolerance:           aggregationFaultTolerance,
+				EnableObservationCompression:        true,
+			},
 		},
 	}
-	for _, offchainConfig := range offchainConfigs {
-		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
+}
+
+func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
+	t.Parallel()
+	for _, oc := range offchainConfigCases() {
+		t.Run(oc.name, func(t *testing.T) {
 			t.Parallel()
-			testIntegrationLLOEVMPremiumLegacy(t, offchainConfig)
+			testIntegrationLLOEVMPremiumLegacy(t, oc.cfg)
 		})
 	}
 }
@@ -731,18 +761,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_multi_formats(t *testing.T) {
 	t.Parallel()
-	offchainConfigs := []lloprotocol.OffchainConfig{
-		{
-			ProtocolVersion:                     0,
-			DefaultMinReportIntervalNanoseconds: 0,
-			AggregationFaultTolerance:           aggregationFaultTolerance,
-		},
-		{
-			ProtocolVersion:                     1,
-			DefaultMinReportIntervalNanoseconds: 1,
-			AggregationFaultTolerance:           aggregationFaultTolerance,
-		},
-	}
 	ocrVersions := []struct {
 		name  string
 		ocr31 bool
@@ -750,11 +768,11 @@ func TestIntegration_LLO_multi_formats(t *testing.T) {
 		{"OCR3.0/v30", false},
 		{"OCR3.1/v31", true},
 	}
-	for _, offchainConfig := range offchainConfigs {
+	for _, oc := range offchainConfigCases() {
 		for _, ov := range ocrVersions {
-			t.Run(fmt.Sprintf("%s/offchainConfig=%+v", ov.name, offchainConfig), func(t *testing.T) {
+			t.Run(fmt.Sprintf("%s/%s", ov.name, oc.name), func(t *testing.T) {
 				t.Parallel()
-				testIntegrationLLOMultiFormats(t, offchainConfig, ov.ocr31)
+				testIntegrationLLOMultiFormats(t, oc.cfg, ov.ocr31)
 			})
 		}
 	}
