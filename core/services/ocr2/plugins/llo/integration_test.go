@@ -1935,6 +1935,47 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 	})
 }
 
+// assertRetirementReport checks the attested retirement report every oracle
+// persisted for a retired config. The successor instance reads this report to
+// learn where the predecessor stopped, so its contents are what make the
+// handover gapless: a wrong ValidAfterNanoseconds either replays or skips a
+// window of time that no report covers.
+//
+// truncateToSecond covers protocol version 0, whose timestamps carry only
+// second resolution.
+func assertRetirementReport(t *testing.T, nodes []Node, digest ocr2types.ConfigDigest, wantProtocolVersion uint32, wantValidAfterNanoseconds map[llotypes.ChannelID]uint64, truncateToSecond bool) {
+	t.Helper()
+
+	toSecond := func(m map[llotypes.ChannelID]uint64) map[llotypes.ChannelID]uint64 {
+		if !truncateToSecond {
+			return m
+		}
+		out := make(map[llotypes.ChannelID]uint64, len(m))
+		for k, v := range m {
+			out[k] = v / 1e9 * 1e9
+		}
+		return out
+	}
+
+	for i, node := range nodes {
+		var raw []byte
+		require.Eventually(t, func() bool {
+			return node.App.GetDB().GetContext(t.Context(), &raw,
+				`SELECT attested_retirement_report FROM llo_retirement_report_cache WHERE config_digest = $1`, digest[:]) == nil
+		}, reportTimeout, 100*time.Millisecond, "oracle %d should persist an attested retirement report for the retired config", i)
+
+		var attested lloprotocol.AttestedRetirementReport
+		require.NoError(t, proto.Unmarshal(raw, &attested))
+		assert.NotZero(t, attested.SeqNr, "oracle %d: retirement report should name the sequence number it retired at", i)
+		assert.GreaterOrEqual(t, len(attested.Sigs), int(fNodes)+1, "oracle %d: an attested retirement report needs at least f+1 signatures", i)
+
+		rr, err := (lloprotocol.StandardRetirementReportCodec{}).Decode(attested.RetirementReport)
+		require.NoError(t, err)
+		assert.Equal(t, wantProtocolVersion, rr.ProtocolVersion, "oracle %d", i)
+		assert.Equal(t, toSecond(wantValidAfterNanoseconds), toSecond(rr.ValidAfterNanoseconds), "oracle %d", i)
+	}
+}
+
 func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 	t.Parallel()
 
@@ -2190,6 +2231,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			}
 
 			assert.Less(t, initialPromotedGreenReport.ValidAfterNanoseconds, initialPromotedGreenReport.ObservationTimestampNanoseconds)
+
+			// The retired instance's report is what green handed over from.
+			assertRetirementReport(t, nodes, blueDigest, offchainConfig.ProtocolVersion,
+				map[llotypes.ChannelID]uint64{1: finalBlueReport.ObservationTimestampNanoseconds},
+				offchainConfig.ProtocolVersion == 0)
 		}
 		// retired instance does not produce reports
 		{
@@ -2266,6 +2312,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			finalGreenReport := allReports[greenDigest][len(allReports[greenDigest])-1]
 			assert.Less(t, finalGreenReport.ValidAfterNanoseconds, finalGreenReport.ObservationTimestampNanoseconds)
 			assert.Less(t, initialPromotedBlueReport.ValidAfterNanoseconds, initialPromotedBlueReport.ObservationTimestampNanoseconds)
+
+			// Green ran on the config it was staged with, which is the one blue
+			// retired under; blue's new staging config is not yet in effect.
+			assertRetirementReport(t, nodes, greenDigest, 0,
+				map[llotypes.ChannelID]uint64{1: finalGreenReport.ObservationTimestampNanoseconds}, true)
 		}
 		// adding a new channel definition is picked up on the fly
 		{
