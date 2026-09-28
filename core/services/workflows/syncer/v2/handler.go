@@ -1291,11 +1291,11 @@ func (h *eventHandler) tryLegacyEngineCreate(ctx context.Context, spec *job.Work
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
 
-	if err := h.startEngine(ctx, spec.WorkflowID, engine, initDone); err != nil {
+	if err = h.startEngine(ctx, spec.WorkflowID, engine, initDone); err != nil {
 		return err
 	}
 
-	if err := h.engineRegistry.AddWithReconcileKey(in.wid, source, in.reconcileKey, engine); err != nil {
+	if err = h.engineRegistry.AddWithReconcileKey(in.wid, source, in.reconcileKey, engine); err != nil {
 		return h.registryAddFailed(in.wid, source, engine, err)
 	}
 	return nil
@@ -1310,11 +1310,11 @@ func (h *eventHandler) tryCoordinatedEngineCreate(ctx context.Context, spec *job
 		return fmt.Errorf("failed to create coordinated workflow engine: %w", err)
 	}
 
-	if err := h.startEngine(ctx, spec.WorkflowID, engine, initDone); err != nil {
+	if err = h.startEngine(ctx, spec.WorkflowID, engine, initDone); err != nil {
 		return err
 	}
 
-	if err := h.engineRegistry.AddCoordinated(in.wid, source, in.reconcileKey, engine); err != nil {
+	if err = h.engineRegistry.AddCoordinated(in.wid, source, in.reconcileKey, engine); err != nil {
 		return h.registryAddFailed(in.wid, source, engine, err)
 	}
 
