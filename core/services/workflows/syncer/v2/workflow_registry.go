@@ -1095,7 +1095,7 @@ type engineCounts struct {
 func countEngines(engines []ServiceWithMetadata) engineCounts {
 	var c engineCounts
 	for _, e := range engines {
-		if _, ok := asCoordinatedEngine(e.Service); ok {
+		if e.Coordinated {
 			c.coordinated++
 		} else {
 			c.legacy++

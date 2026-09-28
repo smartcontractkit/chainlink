@@ -21,6 +21,10 @@ type ServiceWithMetadata struct {
 	// ReconcileKey fingerprints the on-chain record (owner/name) the engine was started for.
 	// Empty when the engine was registered without identity metadata (e.g. via Add).
 	ReconcileKey string
+	// Coordinated is true for an engine that leaves trigger registration,
+	// dequeuing and acknowledgement to the TriggerCoordinator. Fixed when the
+	// engine is added to the registry.
+	Coordinated bool
 	services.Service
 }
 
@@ -29,17 +33,7 @@ type engineEntry struct {
 	engine       services.Service
 	source       string
 	reconcileKey string
-}
-
-// asCoordinatedEngine returns svc as a v2.WorkflowEngine when it is an engine
-// that leaves trigger registration, dequeuing and acknowledgement to the
-// TriggerCoordinator.
-func asCoordinatedEngine(svc services.Service) (v2.WorkflowEngine, bool) {
-	engine, ok := svc.(v2.WorkflowEngine)
-	if !ok || !engine.IsCoordinated() {
-		return nil, false
-	}
-	return engine, true
+	coordinated  bool
 }
 
 // ReconcileKey fingerprints the workflow record identity that a WorkflowID is expected to map to.
@@ -67,18 +61,34 @@ func (r *EngineRegistry) Add(workflowID types.WorkflowID, source string, engine 
 	return r.AddWithReconcileKey(workflowID, source, "", engine)
 }
 
-// AddWithReconcileKey adds an engine to the registry with its source and identity fingerprint.
+// AddWithReconcileKey adds a legacy engine to the registry with its source and identity fingerprint.
 func (r *EngineRegistry) AddWithReconcileKey(workflowID types.WorkflowID, source, reconcileKey string, engine services.Service) error {
+	return r.add(workflowID, engineEntry{
+		engine:       engine,
+		source:       source,
+		reconcileKey: reconcileKey,
+	})
+}
+
+// AddCoordinated adds a coordinated engine to the registry, marking the entry
+// as Coordinated. The typed parameter keeps a legacy engine from being
+// registered as coordinated by mistake.
+func (r *EngineRegistry) AddCoordinated(workflowID types.WorkflowID, source, reconcileKey string, engine v2.WorkflowEngine) error {
+	return r.add(workflowID, engineEntry{
+		engine:       engine,
+		source:       source,
+		reconcileKey: reconcileKey,
+		coordinated:  true,
+	})
+}
+
+func (r *EngineRegistry) add(workflowID types.WorkflowID, entry engineEntry) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, found := r.engines[workflowID]; found {
 		return ErrAlreadyExists
 	}
-	r.engines[workflowID] = engineEntry{
-		engine:       engine,
-		source:       source,
-		reconcileKey: reconcileKey,
-	}
+	r.engines[workflowID] = entry
 	return nil
 }
 
@@ -94,6 +104,7 @@ func (r *EngineRegistry) Get(workflowID types.WorkflowID) (ServiceWithMetadata, 
 		WorkflowID:   workflowID,
 		Source:       entry.source,
 		ReconcileKey: entry.reconcileKey,
+		Coordinated:  entry.coordinated,
 		Service:      entry.engine,
 	}, true
 }
@@ -105,9 +116,10 @@ func (r *EngineRegistry) GetAll() []ServiceWithMetadata {
 	engines := make([]ServiceWithMetadata, 0, len(r.engines))
 	for workflowID, entry := range r.engines {
 		engines = append(engines, ServiceWithMetadata{
-			WorkflowID: workflowID,
-			Source:     entry.source,
-			Service:    entry.engine,
+			WorkflowID:  workflowID,
+			Source:      entry.source,
+			Coordinated: entry.coordinated,
+			Service:     entry.engine,
 		})
 	}
 	return engines
@@ -121,9 +133,10 @@ func (r *EngineRegistry) GetBySource(source string) []ServiceWithMetadata {
 	for workflowID, entry := range r.engines {
 		if entry.source == source {
 			result = append(result, ServiceWithMetadata{
-				WorkflowID: workflowID,
-				Source:     entry.source,
-				Service:    entry.engine,
+				WorkflowID:  workflowID,
+				Source:      entry.source,
+				Coordinated: entry.coordinated,
+				Service:     entry.engine,
 			})
 		}
 	}
@@ -148,9 +161,10 @@ func (r *EngineRegistry) Pop(workflowID types.WorkflowID) (ServiceWithMetadata, 
 	}
 	delete(r.engines, workflowID)
 	return ServiceWithMetadata{
-		WorkflowID: workflowID,
-		Source:     entry.source,
-		Service:    entry.engine,
+		WorkflowID:  workflowID,
+		Source:      entry.source,
+		Coordinated: entry.coordinated,
+		Service:     entry.engine,
 	}, nil
 }
 
@@ -161,9 +175,10 @@ func (r *EngineRegistry) PopAll() []ServiceWithMetadata {
 	engines := make([]ServiceWithMetadata, 0, len(r.engines))
 	for workflowID, entry := range r.engines {
 		engines = append(engines, ServiceWithMetadata{
-			WorkflowID: workflowID,
-			Source:     entry.source,
-			Service:    entry.engine,
+			WorkflowID:  workflowID,
+			Source:      entry.source,
+			Coordinated: entry.coordinated,
+			Service:     entry.engine,
 		})
 	}
 	r.engines = make(map[[32]byte]engineEntry)
