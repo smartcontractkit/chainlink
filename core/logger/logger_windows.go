@@ -14,7 +14,7 @@ import (
 // directory, with a custom scheme winfile:/// specifically tailored for
 // Windows to get around their handling of the file:// schema in uber.org/zap.
 // https://github.com/uber-go/zap/issues/621
-func (c Config) logFileURI() string {
+func (c *Config) logFileURI() string {
 	return "winfile:///" + filepath.ToSlash(c.LogsFile())
 }
 

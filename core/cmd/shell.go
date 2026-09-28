@@ -56,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	gatewayv2metrics "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
+	gatewaymonitoring "github.com/smartcontractkit/chainlink/v2/core/services/gateway/monitoring"
 	gatewaynetwork "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -85,6 +86,8 @@ func metricViews() []sdkmetric.View {
 		ocr3beholderwrapper.MetricViews(),
 		ocr3_1beholderwrapper.MetricViews(),
 		gatewaynetwork.HTTPClientMetricViews(),
+		gatewaynetwork.WSConnectionMetricViews(),
+		gatewaymonitoring.MetricViews(),
 		gatewayv2metrics.MetricViews(),
 	)
 }
@@ -290,7 +293,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
 	if err != nil {
-		return nil, err
+		appLggr.Criticalf("Failed to initialize audit logger: %v. In a future release, this error will prevent node startup.", err)
+		auditLogger = audit.NoopLogger
 	}
 
 	creOpts := cre.Opts{

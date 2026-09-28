@@ -125,6 +125,7 @@ type eventHandler struct {
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardingEnabled         bool
 	myDonID                 uint32
+	myShardIndex            uint32
 	shardRoutingSteady      *shardownership.SteadySignal
 	shardResolver           shardownership.ShardResolver
 	dispatcher              remotetypes.Dispatcher
@@ -196,6 +197,12 @@ func WithShardRoutingSteady(signal *shardownership.SteadySignal) func(*eventHand
 func WithShardResolver(resolver shardownership.ShardResolver) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardResolver = resolver
+	}
+}
+
+func WithShardIndex(shardIndex uint32) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.myShardIndex = shardIndex
 	}
 }
 
@@ -912,7 +919,8 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 		}
 		manager = NewShardFailoverManager(ShardFailoverManagerConfig{
 			ShardingEnabled:         h.shardingEnabled,
-			MyShardID:               h.myDonID,
+			MyDONID:                 h.myDonID,
+			MyShardIndex:            h.myShardIndex,
 			WorkflowID:              workflowID,
 			WorkflowOwner:           owner,
 			ShardResolver:           h.shardResolver,

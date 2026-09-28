@@ -69,6 +69,9 @@ import (
 	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
 	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
+	sollogtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/sollogtrigger-negative/config"
+	solread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/solread-negative/config"
+	solwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/solwrite-negative/config"
 	aptoswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite/config"
 	aptoswriteroundtrip_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
@@ -333,6 +336,9 @@ type WorkflowConfig interface {
 		httpaction_smoke_config.Config |
 		httpaction_negative_config.Config |
 		solwrite_config.Config |
+		solwrite_negative_config.Config |
+		solread_negative_config.Config |
+		sollogtrigger_negative_config.Config |
 		sollogtrigger_config.Config |
 		vaultsecret_config.Config |
 		solread_config.Config
@@ -598,6 +604,21 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create solwrite workflow config file")
 			testLogger.Info().Msg("Solana write workflow config file created.")
+		case *solwrite_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create solwrite-negative workflow config file")
+			testLogger.Info().Msg("Solana write negative workflow config file created.")
+		case *solread_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create solread-negative workflow config file")
+			testLogger.Info().Msg("Solana read negative workflow config file created.")
+		case *sollogtrigger_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create sollogtrigger-negative workflow config file")
+			testLogger.Info().Msg("Solana log trigger negative workflow config file created.")
 		case *sollogtrigger_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath

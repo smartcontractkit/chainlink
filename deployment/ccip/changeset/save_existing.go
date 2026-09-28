@@ -15,9 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
-var (
-	_ cldf.ChangeSet[ExistingContractsConfig] = SaveExistingContractsChangeset
-)
+var _ cldf.ChangeSet[ExistingContractsConfig] = SaveExistingContractsChangeset
 
 type Contract struct {
 	Address        string

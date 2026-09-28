@@ -1,14 +1,22 @@
-# See https://github.com/rhysd/actionlint/blob/main/docs/config.md
+# See https://github.com/kjanat/actionlint/blob/main/docs/config.md
+
+# Self-hosted / runs-on.com runner labels.
+# Runs-on selectors (https://runs-on.com/) are `key=value` pairs; GitHub-hosted
+# runners are matched exactly. Glob patterns are supported.
+self-hosted-runner:
+  labels:
+    - ubuntu24.04-16cores-64GB
+    - runs-on=*
+    - cpu=*
+    - ram=*
+    - family=*
+    - image=*
+    - spot=*
+    - volume=*
+    - extras=*
 
 paths:
   .github/workflows/**/*.{yml,yaml}:
     ignore:
-      # ignore unknown runner labels, as we have fully custom runners
-      - 'label ".*" is unknown. available labels are .*'
-      # https://www.shellcheck.net/wiki/SC2129
-      - '.*SC2129:style:.*'
-      # https://www.shellcheck.net/wiki/SC2002
-      - '.*SC2002:style:.*'
       # ignore if: false, as it's a common pattern to temporarily disable a job or step
       - 'constant expression "false" in condition.*'
-

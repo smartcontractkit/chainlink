@@ -452,9 +452,11 @@ jobs:
         # Increase timeouts for scheduled runs only
         if: ${{ github.event.schedule != '' && matrix.type.should-run == 'true' }}
         run: |
-          echo "TIMEOUT=10m" >> "$GITHUB_ENV"
-          echo "COUNT=50" >> "$GITHUB_ENV"
-          echo "FUZZ_TIMEOUT_MINUTES=10" >> "$GITHUB_ENV"
+          {
+            echo "TIMEOUT=10m"
+            echo "COUNT=50"
+            echo "FUZZ_TIMEOUT_MINUTES=10"
+          } | tee -a "$GITHUB_ENV"
 
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}

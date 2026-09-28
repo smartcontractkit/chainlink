@@ -120,7 +120,7 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 				ExtraArgs:              nil,
 				Replayed:               true,
 				FeeToken:               outputMap.Objects.MintedLinkTokenObjectId,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})
@@ -268,7 +268,7 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 				Receiver:               receiverByte,
 				MsgData:                message,
 				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})
@@ -384,7 +384,7 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 				Receiver:               receiverByte,
 				MsgData:                message,
 				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})
@@ -527,7 +527,7 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 				Receiver:               receiverByte,
 				MsgData:                message,
 				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})

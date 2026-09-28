@@ -169,7 +169,7 @@ func Test_CCIP_Messaging_Solana2Sui_Success(t *testing.T) {
 				MsgData:                message,
 				FeeToken:               "", // native SOL, converted to wSOL via Sync Native
 				ExtraArgs:              testhelpers.MakeSolanaSuiExtraArgsV1(1_000_000, true, fx.receiverObjectIDs, [32]byte{}),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})
@@ -344,7 +344,7 @@ func Test_CCIP_Messaging_Sui2Solana_Success(t *testing.T) {
 				MsgData:                message,
 				FeeToken:               fx.suiLinkFeeToken,
 				ExtraArgs:              extraArgs,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
 						var after soltesthelpers.ReceiverCounter

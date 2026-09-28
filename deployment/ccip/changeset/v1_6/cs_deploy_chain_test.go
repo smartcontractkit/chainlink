@@ -51,7 +51,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	p2pIds := nodes.NonBootstraps().PeerIDs()
+	p2pIDs := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	contractParams := make(map[uint64]ccipseq.ChainContractParams)
 	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
@@ -80,7 +80,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 			RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 			NodeOperators:    testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From),
 			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-				"NodeOperator": p2pIds,
+				"NodeOperator": p2pIDs,
 			},
 		},
 	), commonchangeset.Configure(

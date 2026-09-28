@@ -32,17 +32,15 @@ func startNewWSServer(t *testing.T, readTimeoutMillis uint32) (server network.We
 
 func startNewWSServerWithPath(t *testing.T, readTimeoutMillis uint32, path string) (server network.WebSocketServer, acceptor *mocks.ConnectionAcceptor, url string) {
 	config := &network.WebSocketServerConfig{
-		HTTPServerConfig: network.HTTPServerConfig{
-			Host:                 WSTestHost,
-			Port:                 0,
-			Path:                 path,
-			TLSEnabled:           false,
-			ContentTypeHeader:    "application/jsonrpc",
-			ReadTimeoutMillis:    readTimeoutMillis,
-			WriteTimeoutMillis:   10_000,
-			RequestTimeoutMillis: 10_000,
-			MaxRequestBytes:      10_000,
-		},
+		Host:                   WSTestHost,
+		Port:                   0,
+		Path:                   path,
+		TLSEnabled:             false,
+		ContentTypeHeader:      "application/jsonrpc",
+		ReadTimeoutMillis:      readTimeoutMillis,
+		WriteTimeoutMillis:     10_000,
+		RequestTimeoutMillis:   10_000,
+		MaxRequestBytes:        10_000,
 		HandshakeTimeoutMillis: 10_000,
 	}
 
@@ -103,7 +101,7 @@ func TestWSServer_RejectsHealthCheckRequestPath(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	config := &network.WebSocketServerConfig{HTTPServerConfig: network.HTTPServerConfig{Path: network.HealthCheckPath}}
+	config := &network.WebSocketServerConfig{Path: network.HealthCheckPath}
 	_, err := network.NewWebSocketServer(config, mocks.NewConnectionAcceptor(t), lggr, limits.Factory{Logger: lggr})
 	require.EqualError(t, err, `WebSocket request path "/health" conflicts with health check path`)
 }

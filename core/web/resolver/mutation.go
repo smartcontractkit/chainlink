@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/graph-gophers/graphql-go"
-	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
@@ -135,7 +135,8 @@ func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolv
 
 func (r *Resolver) DeleteCSAKey(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*DeleteCSAKeyPayloadResolver, error) {
+},
+) (*DeleteCSAKeyPayloadResolver, error) {
 	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
@@ -178,7 +179,8 @@ type createFeedsManagerChainConfigInput struct {
 
 func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struct {
 	Input *createFeedsManagerChainConfigInput
-}) (*CreateFeedsManagerChainConfigPayloadResolver, error) {
+},
+) (*CreateFeedsManagerChainConfigPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -263,7 +265,8 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 
 func (r *Resolver) DeleteFeedsManagerChainConfig(ctx context.Context, args struct {
 	ID string
-}) (*DeleteFeedsManagerChainConfigPayloadResolver, error) {
+},
+) (*DeleteFeedsManagerChainConfigPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -319,7 +322,8 @@ type updateFeedsManagerChainConfigInput struct {
 func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struct {
 	ID    string
 	Input *updateFeedsManagerChainConfigInput
-}) (*UpdateFeedsManagerChainConfigPayloadResolver, error) {
+},
+) (*UpdateFeedsManagerChainConfigPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -403,14 +407,15 @@ type createFeedsManagerInput struct {
 
 func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 	Input *createFeedsManagerInput
-}) (*CreateFeedsManagerPayloadResolver, error) {
+},
+) (*CreateFeedsManagerPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
 
 	publicKey, err := crypto.PublicKeyFromHex(args.Input.PublicKey)
 	if err != nil {
-		return NewCreateFeedsManagerPayload(nil, nil, map[string]string{
+		return NewCreateFeedsManagerPayload(nil, nil, map[string]string{ //nolint:nilerr // validation error surfaced via inputErrs map, not the resolver error return
 			"input/publicKey": "invalid hex value",
 		}), nil
 	}
@@ -457,7 +462,8 @@ type updateBridgeInput struct {
 func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 	ID    graphql.ID
 	Input updateBridgeInput
-}) (*UpdateBridgePayloadResolver, error) {
+},
+) (*UpdateBridgePayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -526,7 +532,8 @@ type updateFeedsManagerInput struct {
 func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 	ID    graphql.ID
 	Input *updateFeedsManagerInput
-}) (*UpdateFeedsManagerPayloadResolver, error) {
+},
+) (*UpdateFeedsManagerPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -538,12 +545,12 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 
 	publicKey, err := crypto.PublicKeyFromHex(args.Input.PublicKey)
 	if err != nil {
-		return NewUpdateFeedsManagerPayload(nil, nil, map[string]string{
+		return NewUpdateFeedsManagerPayload(nil, nil, map[string]string{ //nolint:nilerr // validation error surfaced via inputErrs map, not the resolver error return
 			"input/publicKey": "invalid hex value",
 		}), nil
 	}
 
-	mgr := &feeds.FeedsManager{
+	mgr := &feeds.Manager{
 		ID:        id,
 		URI:       args.Input.URI,
 		Name:      args.Input.Name,
@@ -635,7 +642,8 @@ func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*CreateOCRKeyBundleP
 
 func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
 	ID string
-}) (*DeleteOCRKeyBundlePayloadResolver, error) {
+},
+) (*DeleteOCRKeyBundlePayloadResolver, error) {
 	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
@@ -654,7 +662,8 @@ func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
 
 func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*DeleteBridgePayloadResolver, error) {
+},
+) (*DeleteBridgePayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -714,7 +723,8 @@ func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolv
 
 func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*DeleteP2PKeyPayloadResolver, error) {
+},
+) (*DeleteP2PKeyPayloadResolver, error) {
 	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
@@ -762,14 +772,15 @@ func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolv
 
 func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*DeleteVRFKeyPayloadResolver, error) {
+},
+) (*DeleteVRFKeyPayloadResolver, error) {
 	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
 
 	key, err := r.App.GetKeyStore().VRF().Delete(ctx, string(args.ID))
 	if err != nil {
-		if errors.Is(errors.Cause(err), keystore.ErrMissingVRFKey) {
+		if errors.Is(err, keystore.ErrMissingVRFKey) {
 			return NewDeleteVRFKeyPayloadResolver(vrfkey.KeyV2{}, err), nil
 		}
 		return nil, err
@@ -787,7 +798,8 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
 	ID    graphql.ID
 	Force *bool
-}) (*ApproveJobProposalSpecPayloadResolver, error) {
+},
+) (*ApproveJobProposalSpecPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -826,7 +838,8 @@ func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
 // CancelJobProposalSpec cancels the job proposal spec.
 func (r *Resolver) CancelJobProposalSpec(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*CancelJobProposalSpecPayloadResolver, error) {
+},
+) (*CancelJobProposalSpecPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -861,7 +874,8 @@ func (r *Resolver) CancelJobProposalSpec(ctx context.Context, args struct {
 // RejectJobProposalSpec rejects the job proposal spec.
 func (r *Resolver) RejectJobProposalSpec(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*RejectJobProposalSpecPayloadResolver, error) {
+},
+) (*RejectJobProposalSpecPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -897,7 +911,8 @@ func (r *Resolver) RejectJobProposalSpec(ctx context.Context, args struct {
 func (r *Resolver) UpdateJobProposalSpecDefinition(ctx context.Context, args struct {
 	ID    graphql.ID
 	Input *struct{ Definition string }
-}) (*UpdateJobProposalSpecDefinitionPayloadResolver, error) {
+},
+) (*UpdateJobProposalSpecDefinitionPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -933,7 +948,8 @@ func (r *Resolver) UpdateJobProposalSpecDefinition(ctx context.Context, args str
 
 func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 	Input UpdatePasswordInput
-}) (*UpdatePasswordPayloadResolver, error) {
+},
+) (*UpdatePasswordPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -971,7 +987,8 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 
 func (r *Resolver) SetSQLLogging(ctx context.Context, args struct {
 	Input struct{ Enabled bool }
-}) (*SetSQLLoggingPayloadResolver, error) {
+},
+) (*SetSQLLoggingPayloadResolver, error) {
 	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
@@ -979,9 +996,9 @@ func (r *Resolver) SetSQLLogging(ctx context.Context, args struct {
 	r.App.GetConfig().SetLogSQL(args.Input.Enabled)
 
 	if args.Input.Enabled {
-		r.App.GetAuditLogger().Audit(audit.ConfigSqlLoggingEnabled, map[string]any{})
+		r.App.GetAuditLogger().Audit(audit.ConfigSQLLoggingEnabled, map[string]any{})
 	} else {
-		r.App.GetAuditLogger().Audit(audit.ConfigSqlLoggingDisabled, map[string]any{})
+		r.App.GetAuditLogger().Audit(audit.ConfigSQLLoggingDisabled, map[string]any{})
 	}
 
 	return NewSetSQLLoggingPayload(args.Input.Enabled), nil
@@ -989,7 +1006,8 @@ func (r *Resolver) SetSQLLogging(ctx context.Context, args struct {
 
 func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 	Input struct{ Password string }
-}) (*CreateAPITokenPayloadResolver, error) {
+},
+) (*CreateAPITokenPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -1007,7 +1025,7 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 	if err != nil {
 		r.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]any{"user": dbUser.Email})
 
-		return NewCreateAPITokenPayload(nil, map[string]string{
+		return NewCreateAPITokenPayload(nil, map[string]string{ //nolint:nilerr // validation error surfaced via inputErrs map, not the resolver error return
 			"password": "incorrect password",
 		}), nil
 	}
@@ -1023,7 +1041,8 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 
 func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 	Input struct{ Password string }
-}) (*DeleteAPITokenPayloadResolver, error) {
+},
+) (*DeleteAPITokenPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -1041,7 +1060,7 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 	if err != nil {
 		r.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]any{"user": dbUser.Email})
 
-		return NewDeleteAPITokenPayload(nil, map[string]string{
+		return NewDeleteAPITokenPayload(nil, map[string]string{ //nolint:nilerr // validation error surfaced via inputErrs map, not the resolver error return
 			"password": "incorrect password",
 		}), nil
 	}
@@ -1062,7 +1081,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	Input struct {
 		TOML string
 	}
-}) (*CreateJobPayloadResolver, error) {
+},
+) (*CreateJobPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -1070,7 +1090,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	jbt, err := job.ValidateSpec(args.Input.TOML)
 	if err != nil {
 		return NewCreateJobPayload(r.App, nil, map[string]string{
-			"TOML spec": errors.Wrap(err, "failed to parse TOML").Error(),
+			"TOML spec": fmt.Errorf("failed to parse TOML: %w", err).Error(),
 		}), nil
 	}
 
@@ -1144,7 +1164,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 
 func (r *Resolver) DeleteJob(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*DeleteJobPayloadResolver, error) {
+},
+) (*DeleteJobPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -1178,7 +1199,8 @@ func (r *Resolver) DeleteJob(ctx context.Context, args struct {
 
 func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*DismissJobErrorPayloadResolver, error) {
+},
+) (*DismissJobErrorPayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -1212,7 +1234,8 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 
 func (r *Resolver) RunJob(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*RunJobPayloadResolver, error) {
+},
+) (*RunJobPayloadResolver, error) {
 	if err := authenticateUserCanRun(ctx); err != nil {
 		return nil, err
 	}
@@ -1238,7 +1261,8 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 
 func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
 	Level LogLevel
-}) (*SetGlobalLogLevelPayloadResolver, error) {
+},
+) (*SetGlobalLogLevelPayloadResolver, error) {
 	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}
@@ -1248,7 +1272,7 @@ func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
 
 	err := lvl.UnmarshalText([]byte(logLvl))
 	if err != nil {
-		return NewSetGlobalLogLevelPayload("", map[string]string{
+		return NewSetGlobalLogLevelPayload("", map[string]string{ //nolint:nilerr // validation error surfaced via inputErrs map, not the resolver error return
 			"level": "invalid log level",
 		}), nil
 	}
@@ -1264,7 +1288,8 @@ func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
 // CreateOCR2KeyBundle resolves a create OCR2 Key bundle mutation
 func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 	ChainType OCR2ChainType
-}) (*CreateOCR2KeyBundlePayloadResolver, error) {
+},
+) (*CreateOCR2KeyBundlePayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
 	}
@@ -1292,7 +1317,8 @@ func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 // DeleteOCR2KeyBundle resolves a create OCR2 Key bundle mutation
 func (r *Resolver) DeleteOCR2KeyBundle(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*DeleteOCR2KeyBundlePayloadResolver, error) {
+},
+) (*DeleteOCR2KeyBundlePayloadResolver, error) {
 	if err := authenticateUserIsAdmin(ctx); err != nil {
 		return nil, err
 	}

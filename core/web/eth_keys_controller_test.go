@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -409,7 +409,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	txStore := txmgr.NewTxStore(app.GetDB(), logger.TestLogger(t))
+	txStore := txmgr.NewTxStore(app.GetDB(), logger.Test(t))
 
 	txes, err := txStore.FindTxesByFromAddressAndState(t.Context(), addr, "fatal_error")
 	require.NoError(t, err)

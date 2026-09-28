@@ -193,3 +193,5 @@ ot = "ot"
 ba = "ba"
 BA = "BA"
 unparseable = "unparseable"
+# ExternalInitiators common var name
+eis = "eis"

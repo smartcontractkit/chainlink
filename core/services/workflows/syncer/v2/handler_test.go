@@ -1509,7 +1509,7 @@ func Test_eventHandler_StartsAndStopsWorkflowStore(t *testing.T) {
 	// Short prune interval on a fake clock so pruning is only observable once the store has been
 	// started as a sub-service of the handler.
 	fakeClock := clockwork.NewFakeClock()
-	wfStore := store.NewInMemoryStoreWithPruneConfiguration(lggr, fakeClock, 100*time.Millisecond, time.Hour)
+	wfStore := store.NewInMemoryStoreWithPruneConfiguration(lggr, fakeClock, 100*time.Millisecond, 100*time.Millisecond, time.Hour)
 
 	h, err := NewEventHandler(lggr, wfStore, nil, true, registry, &confidentialrelay.ExecutionHandlers{},
 		NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, &stubWorkflowArtifactsStore{},

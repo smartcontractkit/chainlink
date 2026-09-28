@@ -101,7 +101,6 @@ func DeployBurnMintERC20PausableFreezableTransparent(e cldf.Environment, c BurnM
 					}
 				},
 			)
-
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy BurnMintERC20PausableFreezableTransparent for %s token on %s: %w", token, chain, err)
 			}

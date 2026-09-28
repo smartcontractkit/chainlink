@@ -207,7 +207,7 @@ func TestShardFailoverManager_MultipleWorkflowsSharedDispatcher(t *testing.T) {
 	makeManager := func(workflowID string) *ShardFailoverManager {
 		return NewShardFailoverManager(ShardFailoverManagerConfig{
 			ShardingEnabled: true,
-			MyShardID:       2,
+			MyShardIndex:    2,
 			WorkflowID:      workflowID,
 			WorkflowOwner:   "0xowner",
 			ShardResolver:   resolver,

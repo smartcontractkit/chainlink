@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
@@ -308,7 +308,7 @@ func (s *OCROracleSpec) SetID(value string) error {
 
 // JSONConfig is a map for config properties which are encoded as JSON in the database by implementing
 // sql.Scanner and driver.Valuer.
-type JSONConfig map[string]any //nolint:recvcheck // Scan requires pointer receiver to unmarshal into map, Value requires value receiver for driver.Valuer
+type JSONConfig map[string]any
 
 // Bytes returns the raw bytes
 func (r JSONConfig) Bytes() []byte {
@@ -325,7 +325,7 @@ func (r JSONConfig) Value() (driver.Value, error) {
 func (r *JSONConfig) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
-		return errors.Errorf("expected bytes got %T", b)
+		return fmt.Errorf("expected bytes got %T", b)
 	}
 	return json.Unmarshal(b, &r)
 }
@@ -857,7 +857,7 @@ type StandardCapabilitiesConfig struct {
 	OracleFactory     OracleFactoryConfig `toml:"oracle_factory"`
 }
 
-type OracleFactoryConfig struct { //nolint:recvcheck // Scan requires pointer receiver to unmarshal into struct, Value requires value receiver for driver.Valuer
+type OracleFactoryConfig struct {
 	Enabled            bool                   `toml:"enabled"`
 	BootstrapPeers     []string               `toml:"bootstrap_peers"`
 	OCRContractAddress string                 `toml:"ocr_contract_address"`
@@ -880,7 +880,7 @@ func (ofc *OracleFactoryConfig) Scan(value any) error {
 
 	b, ok := value.([]byte)
 	if !ok {
-		return errors.Errorf("expected bytes got %T", value)
+		return fmt.Errorf("expected bytes got %T", value)
 	}
 	return json.Unmarshal(b, &ofc)
 }

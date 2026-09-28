@@ -30,6 +30,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -56,6 +58,17 @@ const (
 
 	// how long to wait (best effort) for every targeted node to log the applied hash.
 	creSettingsConvergenceTimeout = 60 * time.Second
+
+	// the log scan reads only the DON's own node containers, only their last
+	// creSettingsLogScanTail lines, and only lines written since delivery started (minus
+	// creSettingsLogScanSkew for host/docker clock skew). A long-running environment has
+	// hundreds of MB of logs per node and docker reads the whole file unless tail is set,
+	// which makes a full scan of every container take minutes per poll.
+	creSettingsLogScanTail = "50000"
+	creSettingsLogScanSkew = time.Minute
+
+	// how long reverting to the baseline may take across all targeted DONs.
+	creSettingsRevertTimeout = 5 * time.Minute
 )
 
 // Only one CRE settings override may be active at a time. Overrides mutate settings on
@@ -248,6 +261,7 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option)
 	// a delivery below fails partway through.
 	t.Cleanup(func() { h.restore(t, false /* not fatal: the test already finished */) })
 
+	deliveredSince := time.Now()
 	for _, don := range targets {
 		baselineJSON := bootSettingsForDON(env, don.Name)
 		baselineTOML, baselineHash := renderSettings(t, baselineJSON, nil)
@@ -256,7 +270,7 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option)
 		t.Logf("[cresettings] DON %q: applying override (hash %s) over baseline (hash %s)",
 			don.Name, shortHash(appliedHash), shortHash(baselineHash))
 
-		err := deliverCRESettings(env, don, appliedTOML, false)
+		err := deliverCRESettings(t.Context(), env, don, appliedTOML)
 		require.NoErrorf(t, err, "failed to deliver CRE settings override to DON %q", don.Name)
 
 		h.targets = append(h.targets, creSettingsTarget{
@@ -270,7 +284,7 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option)
 
 	// Best-effort confirmation that every node actually logged the applied settings.
 	for _, tg := range h.targets {
-		logSettingsConvergence(t, tg.don, tg.appliedHash, creSettingsConvergenceTimeout)
+		logSettingsConvergence(t, tg.don, tg.appliedHash, deliveredSince, creSettingsConvergenceTimeout)
 	}
 
 	return h
@@ -291,6 +305,17 @@ func (h *CRESettingsHandle) AppliedTOML(donName string) string {
 	for _, tg := range h.targets {
 		if tg.don.Name == donName {
 			return tg.appliedTOML
+		}
+	}
+	return ""
+}
+
+// AppliedHash returns the sha256 hash of AppliedTOML for the named DON. It is the hash the
+// settings job spec carries and the node logs on apply. Empty if the DON was not targeted.
+func (h *CRESettingsHandle) AppliedHash(donName string) string {
+	for _, tg := range h.targets {
+		if tg.don.Name == donName {
+			return tg.appliedHash
 		}
 	}
 	return ""
@@ -317,9 +342,14 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 	// claim it. Runs exactly once (guarded by h.reverted above).
 	defer releaseCRESettingsOverride(h.owner)
 
+	// Not t.Context(): restore usually runs from t.Cleanup, after t.Context() is canceled.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), creSettingsRevertTimeout)
+	defer cancel()
+
+	deliveredSince := time.Now()
 	for _, tg := range h.targets {
 		t.Logf("[cresettings] DON %q: reverting to baseline (hash %s)", tg.don.Name, shortHash(tg.baselineHash))
-		err := deliverCRESettings(h.env, tg.don, tg.baselineTOML, true)
+		err := deliverCRESettings(ctx, h.env, tg.don, tg.baselineTOML)
 		if err != nil {
 			if fatal {
 				require.NoErrorf(t, err, "failed to revert CRE settings on DON %q", tg.don.Name)
@@ -328,7 +358,7 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 			}
 			continue
 		}
-		logSettingsConvergence(t, tg.don, tg.baselineHash, creSettingsConvergenceTimeout)
+		logSettingsConvergence(t, tg.don, tg.baselineHash, deliveredSince, creSettingsConvergenceTimeout)
 	}
 }
 
@@ -339,31 +369,14 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 // JD proposal history on repeated deliveries (e.g. reverting to the same baseline twice,
 // which failed with "no job proposal found"). Application is confirmed best-effort via
 // the nodes' "Updated settings" logs (see logSettingsConvergence).
-// detachFromCallerContext must be true when called from a t.Cleanup (i.e. during revert):
-// every JD call here runs through CldfEnvironment.GetContext() or the OperationsBundle's
-// GetContext (the changeset/operation layer uses b.GetContext(), not the env's), both of
-// which close over the context the environment was built with — ultimately a t.Context().
-// testing.T.Context() is documented to be canceled just before the test's Cleanup
-// functions run, so without this, a revert-on-cleanup always fails with "context
-// canceled", not because anything is actually wrong. context.WithoutCancel keeps any
-// context values while dropping that already-fired cancellation.
-func deliverCRESettings(env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string, detachFromCallerContext bool) error {
+//
+// The CLDF environment is used with ctx in place of its own context, which is bound to
+// t.Context() of the test that built the environment.
+func deliverCRESettings(ctx context.Context, env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string) error {
 	cldfEnv := *env.CreEnvironment.CldfEnvironment
-	if detachFromCallerContext {
-		baseGetContext := cldfEnv.GetContext
-		cldfEnv.GetContext = func() context.Context {
-			return context.WithoutCancel(baseGetContext())
-		}
-		// The operations layer (ExecuteOperation -> b.GetContext()) sources its context
-		// from the OperationsBundle, which holds its own copy of the closure. Detach it
-		// too, or node lookups during revert still fail with "context canceled".
-		bundle := cldfEnv.OperationsBundle
-		baseBundleGetContext := bundle.GetContext
-		bundle.GetContext = func() context.Context {
-			return context.WithoutCancel(baseBundleGetContext())
-		}
-		cldfEnv.OperationsBundle = bundle
-	}
+	cldfEnv.GetContext = func() context.Context { return ctx }
+	cldfEnv.OperationsBundle.GetContext = cldfEnv.GetContext
+
 	input := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
 		Environment: cldfEnv.Name,
@@ -436,14 +449,19 @@ func bootSettingsForDON(env *ttypes.TestEnvironment, donName string) string {
 }
 
 // logSettingsConvergence polls container logs (best effort) and reports how many nodes
-// of the DON have logged the given settings hash. It never fails the test — the
-// authoritative signal that the settings were delivered is that Approve succeeded.
-func logSettingsConvergence(t *testing.T, don *cre.Don, hash string, timeout time.Duration) {
+// of the DON have logged the given settings hash since the given time. It never fails the
+// test — the authoritative signal that the settings were delivered is that Approve succeeded.
+func logSettingsConvergence(t *testing.T, don *cre.Don, hash string, since time.Time, timeout time.Duration) {
 	t.Helper()
-	want := len(don.Nodes)
+	workers, err := don.Workers()
+	if err != nil {
+		t.Logf("[cresettings] DON %q: skipping log scan: %v", don.Name, err)
+		return
+	}
+	want := len(workers)
 	deadline := time.Now().Add(timeout)
 	for {
-		got := countContainersWithSettingsHash(hash)
+		got := countContainersWithSettingsHash(workers, hash, since)
 		if got >= want {
 			t.Logf("[cresettings] DON %q: %d/%d nodes logged settings hash %s", don.Name, got, want, shortHash(hash))
 			return
@@ -458,12 +476,22 @@ func logSettingsConvergence(t *testing.T, don *cre.Don, hash string, timeout tim
 	}
 }
 
-// countContainersWithSettingsHash returns the number of containers whose logs contain
-// the settings-update marker together with the given hash.
-func countContainersWithSettingsHash(hash string) int {
+// countContainersWithSettingsHash returns the number of the given nodes' containers whose
+// recent logs (see creSettingsLogScanTail) contain the settings-update marker together with
+// the given hash.
+func countContainersWithSettingsHash(nodes []*cre.Node, hash string, since time.Time) int {
+	nameFilters := client.Filters{}
+	for _, node := range nodes {
+		nameFilters.Add("name", "^/?"+regexp.QuoteMeta(node.Name)+"$")
+	}
 	logStreams, err := framework.StreamContainerLogs(
-		client.ContainerListOptions{All: true},
-		client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true},
+		client.ContainerListOptions{All: true, Filters: nameFilters},
+		client.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Tail:       creSettingsLogScanTail,
+			Since:      strconv.FormatInt(since.Add(-creSettingsLogScanSkew).Unix(), 10),
+		},
 	)
 	if err != nil {
 		framework.L.Warn().Err(err).Msg("[cresettings] could not stream container logs")

@@ -73,7 +73,7 @@ const (
 
 // DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
 // Afterward, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
-func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, cldf.AddressBook, error) {
+func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64) (deployment.CapabilityRegistryConfig, cldf.AddressBook, error) {
 	lggr.Info("Deploying home chain contracts...")
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -419,7 +419,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		)
 
 		lggr.Info("Starting changeset deployment, this will take long on first run due to anchor build for solana programs")
-		solCs, err := testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[0], false, &buildConfig)
+		solCs, err := testhelpers.DeployChainContractsToSolChainCS(&deployedEnv, solChainSelectors[0], false, &buildConfig)
 		if err != nil {
 			return *e, err
 		}
@@ -644,7 +644,8 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 			link,
 			billingSignerPDA,
 			sourceAccount.PublicKey(),
-			[]solana.PublicKey{})
+			[]solana.PublicKey{},
+		)
 		if err != nil {
 			return *e, fmt.Errorf("failed to create approve instruction: %w", err)
 		}
@@ -980,7 +981,7 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 	return *e, err
 }
 
-func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (cldf.Environment, error) {
+func mustOCR(e *cldf.Environment, homeChainSel, feedChainSel uint64, newDons, rmnEnabled bool) (cldf.Environment, error) {
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	solSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
 	// need to have extra definition here for golint
@@ -1171,7 +1172,7 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	bitmap := new(big.Int)
 	for i, node := range nodes {
 		rmnNodes[i] = rmn_home.RMNHomeNode{
-			PeerId:            node.PeerId,
+			PeerId:            node.PeerID,
 			OffchainPublicKey: node.OffchainPublicKey,
 		}
 		bitmap.SetBit(bitmap, i, 1)
@@ -1292,7 +1293,7 @@ func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyIm
 				NodeIndex:           uint64(i),
 				OffchainPublicKey:   [32]byte(keys.OffchainPublicKey),
 				EVMOnChainPublicKey: keys.EVMOnchainPublicKey,
-				PeerId:              newPeerID,
+				PeerID:              newPeerID,
 			},
 			RageProxyKeystore: rawKeystore,
 			RMNKeystore:       rawRMNKeystore,

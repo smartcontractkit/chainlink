@@ -63,7 +63,7 @@ func TestMercurySecrets_duplicateURLs(t *testing.T) {
 	}
 
 	err := ms.ValidateConfig()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, "URL: invalid value (https://GOOGLE.COM): duplicate - must be unique", err.Error())
 }
 
@@ -79,7 +79,7 @@ func TestMercurySecrets_emptyURL(t *testing.T) {
 	}
 
 	err := ms.ValidateConfig()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, "URL: missing: must be provided and non-empty", err.Error())
 }
 
@@ -116,11 +116,11 @@ func Test_validateDBURL(t *testing.T) {
 }
 
 func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
-	validUrl := commonconfig.URL(url.URL{Scheme: "https", Host: "localhost"})
-	validSecretURL := *models.NewSecretURL(&validUrl)
+	validURL := commonconfig.URL(url.URL{Scheme: "https", Host: "localhost"})
+	validSecretURL := *models.NewSecretURL(&validURL)
 
-	invalidEmptyUrl := commonconfig.URL(url.URL{})
-	invalidEmptySecretURL := *models.NewSecretURL(&invalidEmptyUrl)
+	invalidEmptyURL := commonconfig.URL(url.URL{})
+	invalidEmptySecretURL := *models.NewSecretURL(&invalidEmptyURL)
 
 	invalidBackupURL := commonconfig.URL(url.URL{Scheme: "http", Host: "localhost"})
 	invalidBackupSecretURL := *models.NewSecretURL(&invalidBackupURL)
@@ -188,6 +188,7 @@ func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
 		})
 	}
 }
+
 func TestTracing_ValidateCollectorTarget(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -307,7 +308,7 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 			err := tracing.ValidateConfig()
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Equal(t, tt.errMsg, err.Error())
 			} else {
 				assert.NoError(t, err)
@@ -342,13 +343,13 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 			name:          "invalid negative value",
 			samplingRatio: new(-0.1),
 			wantErr:       true,
-			errMsg:        configutils.ErrInvalid{Name: "SamplingRatio", Value: -0.1, Msg: "must be between 0 and 1"}.Error(),
+			errMsg:        configutils.InvalidError{Name: "SamplingRatio", Value: -0.1, Msg: "must be between 0 and 1"}.Error(),
 		},
 		{
 			name:          "invalid value greater than 1",
 			samplingRatio: new(1.1),
 			wantErr:       true,
-			errMsg:        configutils.ErrInvalid{Name: "SamplingRatio", Value: 1.1, Msg: "must be between 0 and 1"}.Error(),
+			errMsg:        configutils.InvalidError{Name: "SamplingRatio", Value: 1.1, Msg: "must be between 0 and 1"}.Error(),
 		},
 		{
 			name:          "nil SamplingRatio",
@@ -367,7 +368,7 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 			err := tracing.ValidateConfig()
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Equal(t, tt.errMsg, err.Error())
 			} else {
 				assert.NoError(t, err)
@@ -378,7 +379,7 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 
 func TestTracing_ValidateTLSCertPath(t *testing.T) {
 	// tests for Tracing.Mode = 'tls'
-	tls_tests := []struct {
+	tlsTests := []struct {
 		name        string
 		tlsCertPath *string
 		wantErr     bool
@@ -409,7 +410,7 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 	}
 
 	// tests for Tracing.Mode = 'unencrypted'
-	unencrypted_tests := []struct {
+	unencryptedTests := []struct {
 		name        string
 		tlsCertPath *string
 		wantErr     bool
@@ -437,7 +438,7 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tls_tests {
+	for _, tt := range tlsTests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracing := &Tracing{
 				Mode:        new("tls"),
@@ -448,7 +449,7 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 			err := tracing.ValidateConfig()
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Equal(t, tt.errMsg, err.Error())
 			} else {
 				assert.NoError(t, err)
@@ -456,7 +457,8 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 		})
 	}
 
-	for _, tt := range unencrypted_tests {
+	//nolint:paralleltest // TODO: Fix these in upcoming refactoring
+	for _, tt := range unencryptedTests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracing := &Tracing{
 				Mode:        new("unencrypted"),
@@ -467,7 +469,7 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 			err := tracing.ValidateConfig()
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Equal(t, tt.errMsg, err.Error())
 			} else {
 				assert.NoError(t, err)
@@ -529,7 +531,7 @@ func TestTracing_ValidateMode(t *testing.T) {
 			err := tracing.ValidateConfig()
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Equal(t, tt.errMsg, err.Error())
 			} else {
 				assert.NoError(t, err)
@@ -574,7 +576,7 @@ func TestMercuryTLS_ValidateTLSCertPath(t *testing.T) {
 			err := mercury.ValidateConfig()
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Equal(t, tt.errMsg, err.Error())
 			} else {
 				assert.NoError(t, err)
@@ -696,6 +698,165 @@ func TestEthKeys_SetFrom(t *testing.T) {
 	err := ethKeysWrapper1.SetFrom(&ethKeysWrapper2)
 	require.NoError(t, err)
 	assert.Equal(t, ethKeysWrapper2, *ethKeysWrapper1)
+}
+
+func TestEthKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
+	t.Parallel()
+	// Secrets files are applied in order and must union: a key from an earlier
+	// -s file has to survive a later file that only carries other chains' keys.
+	base := &EthKeys{Keys: []*EthKey{
+		{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new(1)},
+	}}
+	disjoint := &EthKeys{Keys: []*EthKey{
+		{JSON: new(models.Secret("key56")), Password: new(models.Secret("pass56")), ID: new(56)},
+	}}
+
+	require.NoError(t, base.SetFrom(disjoint))
+
+	ids := make([]int, 0, len(base.Keys))
+	for _, k := range base.Keys {
+		ids = append(ids, *k.ID)
+	}
+	assert.Equal(t, []int{1, 56}, ids, "keys from earlier secrets files must not be discarded")
+
+	// Union must not weaken the no-overrides guarantee the -s flag documents.
+	dupe := &EthKeys{Keys: []*EthKey{
+		{JSON: new(models.Secret("other")), Password: new(models.Secret("otherpass")), ID: new(1)},
+	}}
+	require.Error(t, base.SetFrom(dupe))
+	assert.Len(t, base.Keys, 2)
+}
+
+func TestEthKeys_validateMerge_nilID(t *testing.T) {
+	t.Parallel()
+	// A secrets file may omit ID, and merging must survive it: a missing field
+	// is a validation error, not a crash.
+	base := &EthKeys{}
+	noID := &EthKeys{Keys: []*EthKey{
+		{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1"))},
+	}}
+	require.NotPanics(t, func() {
+		require.NoError(t, base.SetFrom(noID))
+	})
+}
+
+func TestSolKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
+	t.Parallel()
+	base := &SolKeys{Keys: []*SolKey{
+		{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new("devnet")},
+	}}
+	disjoint := &SolKeys{Keys: []*SolKey{
+		{JSON: new(models.Secret("key2")), Password: new(models.Secret("pass2")), ID: new("mainnet")},
+	}}
+
+	require.NoError(t, base.SetFrom(disjoint))
+
+	ids := make([]string, 0, len(base.Keys))
+	for _, k := range base.Keys {
+		ids = append(ids, *k.ID)
+	}
+	assert.Equal(t, []string{"devnet", "mainnet"}, ids, "keys from earlier secrets files must not be discarded")
+
+	dupe := &SolKeys{Keys: []*SolKey{
+		{JSON: new(models.Secret("other")), Password: new(models.Secret("otherpass")), ID: new("devnet")},
+	}}
+	require.Error(t, base.SetFrom(dupe))
+	assert.Len(t, base.Keys, 2)
+
+	require.NotPanics(t, func() {
+		noID := &SolKeys{Keys: []*SolKey{{JSON: new(models.Secret("k"))}}}
+		require.NoError(t, (&SolKeys{}).SetFrom(noID))
+	})
+}
+
+func TestAptosKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
+	t.Parallel()
+	base := &AptosKeys{Keys: []*AptosKey{
+		{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new(uint64(1))},
+	}}
+	disjoint := &AptosKeys{Keys: []*AptosKey{
+		{JSON: new(models.Secret("key2")), Password: new(models.Secret("pass2")), ID: new(uint64(2))},
+	}}
+
+	require.NoError(t, base.SetFrom(disjoint))
+
+	ids := make([]uint64, 0, len(base.Keys))
+	for _, k := range base.Keys {
+		ids = append(ids, *k.ID)
+	}
+	assert.Equal(t, []uint64{1, 2}, ids, "keys from earlier secrets files must not be discarded")
+
+	dupe := &AptosKeys{Keys: []*AptosKey{
+		{JSON: new(models.Secret("other")), Password: new(models.Secret("otherpass")), ID: new(uint64(1))},
+	}}
+	require.Error(t, base.SetFrom(dupe))
+	assert.Len(t, base.Keys, 2)
+
+	require.NotPanics(t, func() {
+		noID := &AptosKeys{Keys: []*AptosKey{{JSON: new(models.Secret("k"))}}}
+		require.NoError(t, (&AptosKeys{}).SetFrom(noID))
+	})
+}
+
+func TestStellarKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
+	t.Parallel()
+	base := &StellarKeys{Keys: []*StellarKey{
+		{JSON: new(commonconfig.SecretString("key1")), Password: new(commonconfig.SecretString("pass1")), ID: new("testnet")},
+	}}
+	disjoint := &StellarKeys{Keys: []*StellarKey{
+		{JSON: new(commonconfig.SecretString("key2")), Password: new(commonconfig.SecretString("pass2")), ID: new("pubnet")},
+	}}
+
+	require.NoError(t, base.SetFrom(disjoint))
+
+	ids := make([]string, 0, len(base.Keys))
+	for _, k := range base.Keys {
+		ids = append(ids, *k.ID)
+	}
+	assert.Equal(t, []string{"testnet", "pubnet"}, ids, "keys from earlier secrets files must not be discarded")
+
+	dupe := &StellarKeys{Keys: []*StellarKey{
+		{JSON: new(commonconfig.SecretString("other")), Password: new(commonconfig.SecretString("otherpass")), ID: new("testnet")},
+	}}
+	require.Error(t, base.SetFrom(dupe))
+	assert.Len(t, base.Keys, 2)
+
+	require.NotPanics(t, func() {
+		noID := &StellarKeys{Keys: []*StellarKey{{JSON: new(commonconfig.SecretString("k"))}}}
+		require.NoError(t, (&StellarKeys{}).SetFrom(noID))
+	})
+}
+
+// A key with only some of JSON/Password/ID set must be rejected, not silently
+// accepted. All four key types share the "all fields must be nil or non-nil"
+// rule.
+func TestKeys_ValidateConfig_partialFields(t *testing.T) {
+	t.Parallel()
+	secret := new(models.Secret("s"))
+	stellarSecret := new(commonconfig.SecretString("s"))
+
+	for _, tt := range []struct {
+		name string
+		cfg  interface{ ValidateConfig() error }
+	}{
+		{"EthKey missing ID", &EthKey{JSON: secret, Password: secret}},
+		{"EthKey missing Password", &EthKey{JSON: secret, ID: new(1)}},
+		{"SolKey missing ID", &SolKey{JSON: secret, Password: secret}},
+		{"SolKey missing Password", &SolKey{JSON: secret, ID: new("devnet")}},
+		{"AptosKey missing ID", &AptosKey{JSON: secret, Password: secret}},
+		{"StellarKey missing ID", &StellarKey{JSON: stellarSecret, Password: stellarSecret}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Error(t, tt.cfg.ValidateConfig())
+		})
+	}
+
+	// All-nil remains valid: an absent key section is not an error.
+	require.NoError(t, (&EthKey{}).ValidateConfig())
+	require.NoError(t, (&SolKey{}).ValidateConfig())
+	require.NoError(t, (&AptosKey{}).ValidateConfig())
+	require.NoError(t, (&StellarKey{}).ValidateConfig())
 }
 
 func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {

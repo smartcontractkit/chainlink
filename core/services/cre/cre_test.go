@@ -118,10 +118,11 @@ func TestWireRegistrySyncerV2(t *testing.T) {
 	ocrConfigService := registrysyncerV2Mocks.NewRegistrySyncer(t)
 	ocrConfigListener := &registryListenerStub{name: "OCR config service"}
 	wfLauncher := &registryListenerStub{name: "workflow launcher"}
+	shardIndexMapper := &registryListenerStub{name: "shard index mapper"}
 
-	registrySyncer.EXPECT().AddListener(ocrConfigListener, wfLauncher)
+	registrySyncer.EXPECT().AddListener(ocrConfigListener, wfLauncher, shardIndexMapper)
 
-	services := wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigListener, wfLauncher)
+	services := wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigListener, wfLauncher, shardIndexMapper)
 	require.Len(t, services, 2)
 	require.Same(t, ocrConfigService, services[0])
 	require.Same(t, registrySyncer, services[1])
