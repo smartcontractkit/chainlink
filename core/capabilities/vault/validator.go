@@ -137,7 +137,7 @@ func (r *RequestValidator) ValidateRequestBlobSize(ctx context.Context, request 
 	}
 	if err := r.MaxBlobPayloadSizeLimiter.Check(ctx, pkgconfig.Size(len(itemBytes))*pkgconfig.Byte); err != nil {
 		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[pkgconfig.Size]](err); ok {
-			return vaulttypes.NewUserError(fmt.Sprintf("request exceeds maximum pending queue blob payload size: %d > %d", len(itemBytes), errBoundLimited.Limit))
+			return vaulttypes.NewUserError(fmt.Sprintf("request is too large to process: total size %d bytes exceeds the maximum of %d bytes; please retry with a smaller batch size", len(itemBytes), errBoundLimited.Limit))
 		}
 		return fmt.Errorf("failed to check blob payload size limit: %w", err)
 	}

@@ -8805,7 +8805,7 @@ func TestPlugin_Observation_ShedsOversizedLocalQueueItem(t *testing.T) {
 	validator, err := vaultcap.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 	require.ErrorContains(t, validator.ValidateCreateSecretsRequest(t.Context(), pk, oversized, false),
-		"request exceeds maximum pending queue blob payload size")
+		"request is too large to process")
 
 	// The plugin independently sheds such an item if one ever reaches a local store
 	// (defense in depth: version skew, direct store writes).

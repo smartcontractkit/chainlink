@@ -1822,5 +1822,5 @@ func TestCapability_CreateSecrets_RejectsOversizedBlobPayload(t *testing.T) {
 	req := &vault.CreateSecretsRequest{RequestId: requestID, EncryptedSecrets: secrets}
 
 	_, err = capability.CreateSecrets(t.Context(), req)
-	require.ErrorContains(t, err, "request exceeds maximum pending queue blob payload size")
+	require.ErrorContains(t, err, "request is too large to process")
 }

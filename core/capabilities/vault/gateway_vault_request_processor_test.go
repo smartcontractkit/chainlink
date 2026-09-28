@@ -186,7 +186,7 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_RejectsOversizedBlobPayload
 			_, err := processor.ProcessRequest(t.Context(), &req, nil)
 			require.Error(t, err)
 			require.True(t, vault.IsInvalidVaultParamsError(err))
-			require.ErrorContains(t, err, "request exceeds maximum pending queue blob payload size")
+			require.ErrorContains(t, err, "request is too large to process")
 		})
 	}
 }

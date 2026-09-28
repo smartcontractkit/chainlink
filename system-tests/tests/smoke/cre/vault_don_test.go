@@ -1204,7 +1204,7 @@ func executeVaultSecretsCreateOversizedBlobCapTest(t *testing.T, vaultParsedPubl
 	oversizedReqBody, err := json.Marshal(oversizedReq)
 	require.NoError(t, err)
 	_, oversizedRespBody := sendVaultRequestToGateway(t, gatewayURL, oversizedReqBody)
-	require.Contains(t, string(oversizedRespBody), "request exceeds maximum pending queue blob payload size",
+	require.Contains(t, string(oversizedRespBody), "request is too large to process",
 		"expected oversized batch rejection for create")
 	testLogger.Info().Msgf("[create] oversized batch correctly rejected: %s", string(oversizedRespBody))
 
@@ -1235,7 +1235,7 @@ func executeVaultSecretsCreateOversizedBlobCapTest(t *testing.T, vaultParsedPubl
 		retry.OnRetry(func(n uint, err error) {
 			framework.L.Warn().Uint("attempt", n+1).Msgf("[create] normal request after oversized rejection: %s, retrying...", err)
 		}))
-	require.NotContains(t, string(normalRespBody), "exceeds maximum pending queue blob payload size")
+	require.NotContains(t, string(normalRespBody), "too large to process")
 	require.NotContains(t, string(normalRespBody), "Request timed out",
 		"DON must keep processing requests after an oversized batch rejection")
 	testLogger.Info().Msg("Oversized blob cap test completed: rejection deterministic, DON healthy")

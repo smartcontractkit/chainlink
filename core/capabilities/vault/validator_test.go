@@ -1138,7 +1138,7 @@ func TestRequestValidator_BlobSizeLimit(t *testing.T) {
 			RequestId:        "req-1",
 			EncryptedSecrets: secrets,
 		}, false)
-		require.ErrorContains(t, err, "request exceeds maximum pending queue blob payload size")
+		require.ErrorContains(t, err, "request is too large to process")
 	})
 
 	t.Run("rejects update batch over the blob cap", func(t *testing.T) {
@@ -1155,7 +1155,7 @@ func TestRequestValidator_BlobSizeLimit(t *testing.T) {
 			RequestId:        "req-1",
 			EncryptedSecrets: secrets,
 		}, false)
-		require.ErrorContains(t, err, "request exceeds maximum pending queue blob payload size")
+		require.ErrorContains(t, err, "request is too large to process")
 	})
 
 	t.Run("accepts batch within the blob cap", func(t *testing.T) {
