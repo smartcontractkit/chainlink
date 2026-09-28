@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // EventSink is how trigger events are delivered to an engine for execution.
@@ -33,7 +33,7 @@ import (
 // NOT returned as errors. They are captured by OnExecutionError and
 // OnExecutionFinished hooks. ExecuteTrigger returns nil in these cases.
 type EventSink interface {
-	ExecuteTrigger(ctx context.Context, event RoutedTriggerEvent) error
+	ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error
 }
 
 // Acknowledger acknowledges a trigger event without the engine owning the
@@ -86,26 +86,4 @@ type WorkflowEngine interface {
 	// trigger registration, trigger dequeuing, execution or acknowledgement.
 	// Fixed at construction.
 	IsCoordinated() bool
-}
-
-// RoutedTriggerEvent is the canonical trigger event type that flows
-// through the coordinator path into the engine.
-type RoutedTriggerEvent struct {
-	WorkflowID   string
-	TriggerCapID string
-	TriggerIndex int
-
-	// ObservedAt is the time the RoutedTriggerEvent was constructed by the
-	// coordinator. It is used for skew metrics (queue wait time)
-	// and deadline enforcement.
-	ObservedAt time.Time
-
-	// Deadline is the expiry of this event in the coordinator queue,
-	// stamped once at dispatch as ObservedAt + TriggerEventQueueTimeout.
-	// A settings change after dispatch does not affect already-queued events
-	Deadline time.Time
-
-	// SequenceNumber determines the execution order of trigger events across the DON. In M1 it is always 0 (no consensus ordering).
-	SequenceNumber uint64
-	Event          capabilities.TriggerResponse
 }
