@@ -3,11 +3,13 @@ package v2
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 func TestEngineRegistry(t *testing.T) {
@@ -168,3 +170,60 @@ func (f fakeService) Ready() error { return nil }
 func (f fakeService) HealthReport() map[string]error { return map[string]error{} }
 
 func (f fakeService) Name() string { return "" }
+
+// fakeWorkflowEngine satisfies v2.WorkflowEngine through the embedded nil
+// interface; only the methods the engine-type checks call are implemented.
+type fakeWorkflowEngine struct {
+	v2.WorkflowEngine
+	coordinated bool
+	draining    bool
+}
+
+func (f *fakeWorkflowEngine) IsCoordinated() bool { return f.coordinated }
+
+func (f *fakeWorkflowEngine) DrainStartedAt() (time.Time, bool) {
+	if !f.draining {
+		return time.Time{}, false
+	}
+	return time.Unix(1, 0), true
+}
+
+func TestAsCoordinatedEngine(t *testing.T) {
+	t.Parallel()
+
+	coordinated := &fakeWorkflowEngine{coordinated: true}
+	engine, ok := asCoordinatedEngine(coordinated)
+	require.True(t, ok)
+	require.Same(t, coordinated, engine)
+
+	engine, ok = asCoordinatedEngine(&fakeWorkflowEngine{coordinated: false})
+	require.False(t, ok)
+	require.Nil(t, engine)
+
+	// Services that are not a v2.WorkflowEngine (e.g. the sharded
+	// ShardFailoverManager wrapper) are legacy.
+	engine, ok = asCoordinatedEngine(&fakeService{})
+	require.False(t, ok)
+	require.Nil(t, engine)
+}
+
+func TestCountEngines(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty registry", func(t *testing.T) {
+		t.Parallel()
+		require.Equal(t, engineCounts{}, countEngines(nil))
+	})
+
+	t.Run("mixed engine types", func(t *testing.T) {
+		t.Parallel()
+		engines := []ServiceWithMetadata{
+			{Service: &fakeWorkflowEngine{coordinated: true}},
+			{Service: &fakeWorkflowEngine{coordinated: true, draining: true}},
+			{Service: &fakeWorkflowEngine{coordinated: false}},
+			{Service: &fakeWorkflowEngine{coordinated: false, draining: true}},
+			{Service: &fakeService{}},
+		}
+		require.Equal(t, engineCounts{draining: 2, coordinated: 2, legacy: 3}, countEngines(engines))
+	})
+}

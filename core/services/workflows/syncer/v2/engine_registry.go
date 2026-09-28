@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 var ErrNotFound = errors.New("engine not found")
@@ -28,6 +29,17 @@ type engineEntry struct {
 	engine       services.Service
 	source       string
 	reconcileKey string
+}
+
+// asCoordinatedEngine returns svc as a v2.WorkflowEngine when it is an engine
+// that leaves trigger registration, dequeuing and acknowledgement to the
+// TriggerCoordinator.
+func asCoordinatedEngine(svc services.Service) (v2.WorkflowEngine, bool) {
+	engine, ok := svc.(v2.WorkflowEngine)
+	if !ok || !engine.IsCoordinated() {
+		return nil, false
+	}
+	return engine, true
 }
 
 // ReconcileKey fingerprints the workflow record identity that a WorkflowID is expected to map to.

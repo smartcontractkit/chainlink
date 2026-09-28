@@ -948,6 +948,11 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 	h.wireInitDoneHook(cfg, initDone)
 
 	if coordinatedEngine {
+		// The trigger coordinator is not implemented yet, so a workflow routed here
+		// will never receive triggers. Warn once per engine creation with the workflowID
+		h.lggr.Warnw("Routing workflow to the coordinated engine; trigger delivery is not implemented yet",
+			"workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+
 		cfg.TriggerAcknowledger = h.triggerCoordinator
 		// The coordinated engine registers no triggers itself. tryEngineCreate
 		// hands it to the coordinator once it is in the registry, and the
@@ -1288,12 +1293,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("failed to compute reconcile key: %w", err)
 	}
 
-	// Not every engine in the registry implements v2.WorkflowEngine: the sharded
-	// legacy path returns a *ShardFailoverManager wrapper, and tests can inject
-	// an arbitrary service via WithStaticEngine. Both are legacy by definition,
-	// so failing the assertion means "not coordinated", not an error.
-	workflowEngine, isWorkflowEngine := engine.(v2.WorkflowEngine)
-	coordinated := isWorkflowEngine && workflowEngine.IsCoordinated()
+	coordinatedEngine, coordinated := asCoordinatedEngine(engine)
 
 	if err := h.engineRegistry.AddWithReconcileKey(wid, source, reconcileKey, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
@@ -1336,7 +1336,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		h.lggr.Warnw("Could not resolve local node DON ID for trigger registration metadata", "workflowID", wid.Hex(), "err", lnErr)
 	}
 
-	triggerIDs, err := h.triggerCoordinator.RegisterTriggers(ctx, workflowEngine, RegistrationParams{
+	triggerIDs, err := h.triggerCoordinator.RegisterTriggers(ctx, coordinatedEngine, RegistrationParams{
 		WorkflowOwner: spec.WorkflowOwner,
 		WorkflowName:  workflowName.Hex(),
 		// pinnedWorkflowDonConfigVersion in v2 pins this to 1 to avoid forcing
