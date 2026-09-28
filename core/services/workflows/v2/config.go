@@ -403,6 +403,9 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 }
 
 func (e *EngineFeatureFlags) Close() error {
+	if e == nil || e.WorkflowTagBackfill == nil {
+		return nil
+	}
 	return e.WorkflowTagBackfill.Close()
 }
 
