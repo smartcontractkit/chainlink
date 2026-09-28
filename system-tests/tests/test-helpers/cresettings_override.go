@@ -42,8 +42,11 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	cre_jobs_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -235,19 +238,19 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option)
 	require.NoError(t, toml.Unmarshal(combined, &overrideDoc), "combined CRE settings is not valid TOML")
 	require.NotEmpty(t, overrideDoc, "no settings provided")
 
-	// CRE settings are enforced on worker (plugin) nodes, and the delivery changeset filters
-	// proposals to type=plugin — so bootstrap-only DONs (e.g. bootstrap-gateway) have no
-	// matching nodes. Deliver only to DONs that have worker nodes.
+	// Deliver to every DON with worker (plugin) nodes, plus bootstrap-only DONs
+	// (e.g. bootstrap-gateway): their node runs the gateway handlers and enforces
+	// gateway-side settings (e.g. GatewayVaultNodeSignaturesEnabled).
 	require.NotEmpty(t, env.Dons.List(), "no DONs found in the environment")
 	targets := make([]*cre.Don, 0)
 	for _, don := range env.Dons.List() {
-		if don.WorkersCount() > 0 {
+		if len(settingsTargetNodes(don)) > 0 {
 			targets = append(targets, don)
 		} else {
-			t.Logf("[cresettings] skipping DON %q (no worker nodes)", don.Name)
+			t.Logf("[cresettings] skipping DON %q (no worker or bootstrap nodes)", don.Name)
 		}
 	}
-	require.NotEmpty(t, targets, "no DONs with worker nodes found in the environment")
+	require.NotEmpty(t, targets, "no DONs with worker or bootstrap nodes found in the environment")
 
 	// Claim the single-active-override slot before touching anything. Fails fast (with an
 	// actionable message) if another test's override is still active on the shared env.
@@ -372,7 +375,57 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 //
 // The CLDF environment is used with ctx in place of its own context, which is bound to
 // t.Context() of the test that built the environment.
+// settingsTargetNodes returns the nodes a settings override must reach for don:
+// its worker (plugin) nodes when present, otherwise its bootstrap node
+// (bootstrap-only DONs such as bootstrap-gateway, whose node runs the gateway
+// handlers and enforces gateway-side settings).
+func settingsTargetNodes(don *cre.Don) []*cre.Node {
+	if workers, err := don.Workers(); err == nil && len(workers) > 0 {
+		return workers
+	}
+	if boot, ok := don.Bootstrap(); ok {
+		return []*cre.Node{boot}
+	}
+	return nil
+}
+
+// deliverCRESettingsToBootstrap proposes the settings job to the DON's bootstrap
+// node (JD node type "bootstrap"). The worker delivery path hard-filters JD
+// proposals to type=plugin, which excludes bootstrap-only DONs such as
+// bootstrap-gateway; runtime settings overrides must reach the gateway node too,
+// since the gateway process enforces gateway-side settings (e.g.
+// GatewayVaultNodeSignaturesEnabled).
+func deliverCRESettingsToBootstrap(ctx context.Context, env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string) error {
+	cldfEnv := *env.CreEnvironment.CldfEnvironment
+	cldfEnv.GetContext = func() context.Context { return ctx }
+	cldfEnv.OperationsBundle.GetContext = cldfEnv.GetContext
+
+	jobSpec, err := cre_jobs_pkg.CRESettingsJob{Settings: settingsTOML}.ResolveJob()
+	if err != nil {
+		return fmt.Errorf("failed to resolve cre settings job spec: %w", err)
+	}
+
+	_, err = operations.ExecuteOperation(cldfEnv.OperationsBundle, cre_jobs_ops.ProposeJobSpec, cre_jobs_ops.ProposeJobSpecDeps{Env: cldfEnv}, cre_jobs_ops.ProposeJobSpecInput{
+		Domain:      offchain.ProductLabel,
+		Environment: cldfEnv.Name,
+		DONName:     don.Name,
+		Spec:        jobSpec,
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: don.Name},
+		},
+		JobLabels:   map[string]string{cre.CapabilityLabelKey: "cre-settings-override"},
+		IsBootstrap: true,
+	})
+	if err != nil {
+		return fmt.Errorf("propose settings job: %w", err)
+	}
+	return nil
+}
+
 func deliverCRESettings(ctx context.Context, env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string) error {
+	if don.WorkersCount() == 0 {
+		return deliverCRESettingsToBootstrap(ctx, env, don, settingsTOML)
+	}
 	cldfEnv := *env.CreEnvironment.CldfEnvironment
 	cldfEnv.GetContext = func() context.Context { return ctx }
 	cldfEnv.OperationsBundle.GetContext = cldfEnv.GetContext
@@ -453,15 +506,15 @@ func bootSettingsForDON(env *ttypes.TestEnvironment, donName string) string {
 // test — the authoritative signal that the settings were delivered is that Approve succeeded.
 func logSettingsConvergence(t *testing.T, don *cre.Don, hash string, since time.Time, timeout time.Duration) {
 	t.Helper()
-	workers, err := don.Workers()
-	if err != nil {
-		t.Logf("[cresettings] DON %q: skipping log scan: %v", don.Name, err)
+	nodes := settingsTargetNodes(don)
+	if len(nodes) == 0 {
+		t.Logf("[cresettings] DON %q: skipping log scan: no worker or bootstrap nodes", don.Name)
 		return
 	}
-	want := len(workers)
+	want := len(nodes)
 	deadline := time.Now().Add(timeout)
 	for {
-		got := countContainersWithSettingsHash(workers, hash, since)
+		got := countContainersWithSettingsHash(nodes, hash, since)
 		if got >= want {
 			t.Logf("[cresettings] DON %q: %d/%d nodes logged settings hash %s", don.Name, got, want, shortHash(hash))
 			return

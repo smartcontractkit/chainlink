@@ -168,7 +168,7 @@ func (a *baseAggregator) validateUsingQuorum(ctx context.Context, don capabiliti
 
 	requireNodeSigs := false
 	if a.nodeSignaturesEnabled != nil {
-		open, err := a.nodeSignaturesEnabled.Open(ctx)
+		open, err := a.nodeSignaturesEnabled.IsOpen(ctx)
 		requireNodeSigs = err == nil && open
 	}
 

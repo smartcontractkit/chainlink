@@ -58,3 +58,36 @@ func newDockerClient(t *testing.T) *dc.Client {
 	t.Cleanup(func() { _ = client.Close() })
 	return client
 }
+
+// RestartGatewayContainers restarts the gateway node containers. Used by tests that
+// need the gateway process restarted (e.g. to reset in-process caches like the vault
+// public key cache): jobs persisted in the gateway node's DB — including cresettings
+// jobs — re-run on boot, so runtime CRE settings overrides survive the restart.
+func RestartGatewayContainers(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	t.Helper()
+
+	gatewayNames := make(map[string]struct{})
+	for _, don := range testEnv.Dons.List() {
+		if node, ok := don.Gateway(); ok {
+			gatewayNames[node.Name] = struct{}{}
+		}
+	}
+	require.NotEmpty(t, gatewayNames, "no gateway nodes found in the environment")
+
+	names := make([]string, 0, len(gatewayNames))
+	for _, name := range clNodeContainerNames(t, testEnv) {
+		if _, ok := gatewayNames[name]; ok {
+			names = append(names, name)
+		}
+	}
+	require.NotEmpty(t, names, "no gateway node containers found in the environment")
+
+	client := newDockerClient(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	for _, name := range names {
+		_, err := client.ContainerRestart(ctx, name, dc.ContainerRestartOptions{})
+		require.NoErrorf(t, err, "failed to restart gateway container %q", name)
+	}
+}

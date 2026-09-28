@@ -138,6 +138,128 @@ func mustVaultPublicKey(t *testing.T, publicKey string) *tdh2easy.PublicKey {
 	return parsed
 }
 
+// fetchVaultPublicKeyResponse sends vault.publicKey.get through the gateway and
+// returns the full response (including NodeSignatures). Public key requests
+// require no authorization. Each retry uses a fresh JSON-RPC request ID: the
+// gateway deduplicates by ID.
+func fetchVaultPublicKeyResponse(t *testing.T, gatewayURL string) jsonrpc.Response[vault_helpers.GetPublicKeyResponse] {
+	t.Helper()
+
+	var resp jsonrpc.Response[vault_helpers.GetPublicKeyResponse]
+	require.Eventually(t, func() bool {
+		getPublicKeyRequest := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      uuid.New().String(),
+			Method:  vaulttypes.MethodPublicKeyGet,
+			Params:  &vault_helpers.GetPublicKeyRequest{},
+		}
+		requestBody, err := json.Marshal(getPublicKeyRequest)
+		require.NoError(t, err, "failed to marshal public key request")
+		statusCode, body := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+		if statusCode != http.StatusOK {
+			return false
+		}
+		require.NoError(t, json.Unmarshal(body, &resp), "failed to unmarshal public key response")
+		return resp.Error == nil
+	}, time.Second*120, time.Second*5)
+	return resp
+}
+
+// vaultDONMemberSigners describes the vault DON as registered on-chain.
+type vaultDONMemberSigners struct {
+	F     uint8
+	Addrs []common.Address
+}
+
+// vaultDONMemberSignerAddrs reads the vault DON's member signer addresses from the
+// capabilities registry. Each node's Signer is its zero-padded OCR2 onchain
+// (report) signing address — the key domain both OCR report signatures and
+// envelope-level node signatures verify against.
+func vaultDONMemberSignerAddrs(t *testing.T, testEnv *ttypes.TestEnvironment) vaultDONMemberSigners {
+	t.Helper()
+
+	capRegAddr := crecontracts.MustGetAddressFromDataStore(
+		testEnv.CreEnvironment.CldfEnvironment.DataStore,
+		testEnv.CreEnvironment.RegistryChainSelector,
+		keystone_changeset.CapabilitiesRegistry.String(),
+		testEnv.CreEnvironment.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
+		"",
+	)
+
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0])
+	sethClient := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+
+	deployerClient, err := seth.NewClientBuilder().
+		WithRpcUrl(sethClient.URL).
+		WithPrivateKeys([]string{ctfblockchain.DefaultAnvilPrivateKey}).
+		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+		Build()
+	require.NoError(t, err, "failed to create deployer seth client")
+
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		common.HexToAddress(capRegAddr), deployerClient.Client,
+	)
+	require.NoError(t, err, "failed to create capabilities registry wrapper")
+
+	allDONs, err := capReg.GetDONs(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
+	require.NoError(t, err, "failed to get DONs from registry")
+
+	var don *capabilities_registry_v2.CapabilitiesRegistryDONInfo
+	for i := range allDONs {
+		for _, cc := range allDONs[i].CapabilityConfigurations {
+			if cc.CapabilityId == "vault@1.0.0" {
+				don = &allDONs[i]
+				break
+			}
+		}
+		if don != nil {
+			break
+		}
+	}
+	require.NotNil(t, don, "could not find a DON with vault@1.0.0 capability in the registry")
+
+	nodeInfos, err := capReg.GetNodesByP2PIds(&bind.CallOpts{}, don.NodeP2PIds)
+	require.NoError(t, err, "failed to get vault DON nodes from registry")
+	require.Len(t, nodeInfos, len(don.NodeP2PIds), "expected one node info per vault DON member")
+
+	addrs := make([]common.Address, 0, len(nodeInfos))
+	for _, ni := range nodeInfos {
+		addrs = append(addrs, common.BytesToAddress(ni.Signer[:20]))
+	}
+	return vaultDONMemberSigners{F: don.F, Addrs: addrs}
+}
+
+// waitForGatewayHTTPUp waits until the gateway HTTP endpoint accepts requests
+// again (e.g. after a gateway container restart). Unlike
+// sendVaultRequestToGateway, connection errors are tolerated while the gateway
+// boots rather than failing the test. Each probe uses a fresh JSON-RPC request
+// ID: the gateway deduplicates by ID.
+func waitForGatewayHTTPUp(t *testing.T, gatewayURL string, timeout time.Duration) {
+	t.Helper()
+
+	require.Eventually(t, func() bool {
+		probe := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      uuid.New().String(),
+			Method:  vaulttypes.MethodPublicKeyGet,
+			Params:  &vault_helpers.GetPublicKeyRequest{},
+		}
+		requestBody, err := json.Marshal(probe)
+		require.NoError(t, err, "failed to marshal gateway probe request")
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, gatewayURL, bytes.NewBuffer(requestBody))
+		if err != nil {
+			return false
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+		if err != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		return true // any HTTP response means the endpoint is back up
+	}, timeout, 3*time.Second, "gateway HTTP endpoint did not come back up within %s", timeout)
+}
+
 func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) (statusCode int, body []byte) {
 	return sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, nil)
 }

@@ -230,7 +230,7 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 					nodes = append(nodes, contracts.NodesInput{
 						NOP:                 nopName,
 						P2pID:               n.PeerID,
-						Signer:              ocrCfg.OffchainPublicKey,
+						Signer:              nodeSigner(ocrCfg.OnchainPublicKey),
 						EncryptionPublicKey: [32]byte(wfKey),
 						CsaKey:              [32]byte(csKey),
 						CapabilityIDs:       capIDs,
@@ -331,6 +331,17 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		Capabilities:     capabilities,
 		DONs:             donParams,
 	}
+}
+
+// nodeSigner pads the node's OCR2 onchain (report) signing address into the
+// registry's bytes32 Signer field the way production does: the EVM address
+// occupies the first 20 bytes and the rest is zero padding. Consumers (e.g.
+// the vault gateway) use Signer[0:20] to verify both OCR report signatures and
+// envelope-level node signatures.
+func nodeSigner(onchainPublicKey []byte) [32]byte {
+	var s [32]byte
+	copy(s[:], common.BytesToAddress(onchainPublicKey).Bytes())
+	return s
 }
 
 func generateAdminAddresses(count int) ([]common.Address, error) {

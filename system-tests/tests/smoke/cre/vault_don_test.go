@@ -51,6 +51,34 @@ func uniqueVaultSecretID(prefix string) string {
 	return prefix + strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
+// requireValidVaultNodeSignatures asserts that resp carries node signatures that
+// (a) are present, (b) recover against the response digest, (c) come from
+// distinct vault DON member signer addresses (the registry Signer domain — the
+// OCR2 onchain/report-signing key domain), and (d) number at least minCount.
+func requireValidVaultNodeSignatures[T any](t *testing.T, resp *jsonrpc.Response[T], members vaultDONMemberSigners, minCount int) {
+	t.Helper()
+	require.NotEmpty(t, resp.NodeSignatures,
+		"vault response must carry node signatures over the response digest")
+
+	digest, err := resp.Digest()
+	require.NoError(t, err, "failed to compute response digest")
+
+	recovered := make(map[common.Address]struct{}, len(resp.NodeSignatures))
+	for _, sig := range resp.NodeSignatures {
+		addr, sigErr := utils.GetSignersEthAddress([]byte(digest), sig)
+		require.NoErrorf(t, sigErr, "node signature must recover against the response digest (digest=%s)", digest)
+		recovered[addr] = struct{}{}
+	}
+	require.Len(t, recovered, len(resp.NodeSignatures),
+		"node signatures must come from distinct DON nodes")
+	require.GreaterOrEqualf(t, len(recovered), minCount,
+		"expected at least %d distinct valid node signatures, got %d", minCount, len(recovered))
+	for addr := range recovered {
+		require.Containsf(t, members.Addrs, addr,
+			"node signature recovered to a non-member address %s; vault DON member signers: %v", addr, members.Addrs)
+	}
+}
+
 func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
 	var testLogger = framework.L
 	linkingService := fixture.LinkingService
@@ -313,8 +341,12 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	t.Run("node_signatures_enforced", func(t *testing.T) {
 		// Flip GatewayVaultNodeSignaturesEnabled on at runtime so the gateway
 		// requires valid node signatures before counting responses toward
-		// quorum. The override is reverted automatically on test cleanup.
+		// quorum. ApplyCRESettings delivers the override to the gateway DON too
+		// (its node runs the gateway vault handler that enforces the flag) and
+		// waits for it to log the applied settings. Reverted on test cleanup.
 		t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global("GatewayVaultNodeSignaturesEnabled = 'true'"))
+
+		members := vaultDONMemberSignerAddrs(t, testEnv)
 
 		auth := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, false)
 
@@ -332,28 +364,40 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 			t.Fatal("vault node-signature enforcement test cannot tolerate a gateway-to-DON timeout sentinel response")
 		}
 
-		// With enforcement on, the gateway only forwards responses whose node
-		// signatures verify against the sending node's address. The OCR fast
-		// path may legitimately carry a single node signature (the response is
-		// already client-verifiable via its F+1 OCR report signatures); the
-		// quorum path accumulates one signature per responding node.
-		require.NotEmpty(t, jsonResponse.NodeSignatures,
-			"vault response must carry node signatures when GatewayVaultNodeSignaturesEnabled is on")
-
-		// Every node signature must recover against the response digest. The
+		// Every node signature must recover against the response digest to a
+		// distinct vault DON member signer (the registry Signer domain). The
 		// digest excludes the envelope ID and NodeSignatures, so this also
 		// proves signatures survive the gateway's owner-prefix ID rewrite on
 		// the wire.
-		digest, err := jsonResponse.Digest()
-		require.NoError(t, err, "failed to compute response digest")
-		recovered := make(map[common.Address]struct{}, len(jsonResponse.NodeSignatures))
-		for _, sig := range jsonResponse.NodeSignatures {
-			addr, sigErr := utils.GetSignersEthAddress([]byte(digest), sig)
-			require.NoError(t, sigErr, "node signature must recover against the response digest")
-			recovered[addr] = struct{}{}
-		}
-		require.Len(t, recovered, len(jsonResponse.NodeSignatures),
-			"node signatures must come from distinct DON nodes")
+		requireValidVaultNodeSignatures(t, &jsonResponse, members, 1)
+
+		// vault.secrets.list is a signed-OCR method: the gateway returns early
+		// once the first node response's report signature set validates against
+		// the DON's registry signers. The response therefore carries exactly
+		// the responding node's single envelope signature — proof the fast path
+		// validates. (Before the registry Signer carried the OCR2 onchain
+		// address, the fast path always failed silently and fell back to
+		// quorum, which attaches one signature per responding member instead.)
+		require.Len(t, jsonResponse.NodeSignatures, 1,
+			"vault.secrets.list must return via the signed-OCR fast path (a single envelope signature)")
+	})
+
+	t.Run("public_key_get_node_signatures", func(t *testing.T) {
+		// Flip GatewayVaultNodeSignaturesEnabled on at runtime, like the
+		// node_signatures_enforced subtest. Reverted on test cleanup.
+		t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global("GatewayVaultNodeSignaturesEnabled = 'true'"))
+
+		members := vaultDONMemberSignerAddrs(t, testEnv)
+
+		// vault.publicKey.get is aggregated via quorum (no signed-OCR fast
+		// path) and its result is cached for the gateway process lifetime, so
+		// this request usually exercises the cached-signature replay path:
+		// the cached response must still carry node signatures that recover to
+		// distinct member signers. On a cold cache it exercises the enforced
+		// quorum aggregation instead, which attaches one signature per
+		// responding member.
+		publicKeyResponse := fetchVaultPublicKeyResponse(t, gwURL)
+		requireValidVaultNodeSignatures(t, &publicKeyResponse, members, 1)
 	})
 
 	t.Run("jwt_digest_verified_after_prepare_user_jsonrpc_request", func(t *testing.T) {
@@ -1175,4 +1219,51 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 	framework.L.Info().Msgf("[list] %s correctly rejected: %s", "invalid namespace", string(respBody))
 
 	framework.L.Info().Msg("All identifier validation checks passed")
+}
+
+// TestVaultDONNodeSignaturesQuorumEnforced proves the gateway's enforced quorum
+// path end-to-end: with GatewayVaultNodeSignaturesEnabled on, the gateway only
+// counts node responses whose envelope signature recovers to a vault DON member
+// signer, and the aggregated response carries one signature per responding
+// member (at least quorum, 2F+1, of them).
+//
+// vault.publicKey.get is the one gateway method aggregated via quorum (it has no
+// signed-OCR fast path), but the gateway caches its result for the process
+// lifetime. To force a fresh, enforced aggregation the test restarts the gateway
+// container: the in-process cache resets, and the cresettings job persisted in
+// the gateway node's DB re-applies the runtime flag override on boot.
+//
+// Skipped when CRE_TEST_PARALLEL_ENABLED is set: restarting the gateway would
+// disturb vault suites running in parallel against the shared environment.
+func TestVaultDONNodeSignaturesQuorumEnforced(t *testing.T) {
+	if t_helpers.ParallelEnabled() {
+		t.Skip("skipping gateway-restart test in parallel mode (restarting the gateway would disturb parallel vault suites)")
+	}
+
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, getVaultDefaultTestConfig(t))
+
+	// Flip GatewayVaultNodeSignaturesEnabled on at runtime. ApplyCRESettings
+	// delivers the override to the gateway DON as well (its node runs the
+	// gateway vault handler that enforces the flag) and waits for the gateway
+	// node to log the applied settings. Reverted automatically on cleanup.
+	t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global("GatewayVaultNodeSignaturesEnabled = 'true'"))
+
+	// Restart the gateway process: cold public key cache, and the persisted
+	// cresettings job re-applies the flag on boot. The node containers serving
+	// vault requests reconnect on their own (heartbeat interval). The gateway
+	// needs a couple of minutes to boot, so wait for its HTTP endpoint before
+	// sending requests.
+	t_helpers.RestartGatewayContainers(t, testEnv)
+
+	gwURL := mustVaultGatewayURL(t, testEnv)
+	waitForGatewayHTTPUp(t, gwURL.String(), 5*time.Minute)
+	publicKeyResponse := fetchVaultPublicKeyResponse(t, gwURL.String())
+
+	members := vaultDONMemberSignerAddrs(t, testEnv)
+	// The enforced quorum path attaches one signature per responding member and
+	// requires 2F+1 members to agree, so the response must carry at least
+	// quorum distinct member signatures. (Unenforced, or dropped-by-enforcement,
+	// aggregation would attach at most the single winning response's envelope
+	// signature.)
+	requireValidVaultNodeSignatures(t, &publicKeyResponse, members, int(2*members.F+1))
 }
