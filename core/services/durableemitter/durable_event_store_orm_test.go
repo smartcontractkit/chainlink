@@ -157,3 +157,50 @@ func TestPgDurableEventStore_BatchDelete(t *testing.T) {
 	require.NoError(t, db.GetContext(ctx, &cnt, `SELECT count(*) FROM cre.chip_durable_events`))
 	require.Equal(t, int64(0), cnt, "row is deleted on delivery, not tombstoned")
 }
+
+// DeleteExpiredBatch (chainlink-common ExpiredPurger) must expire oldest-first,
+// honour the limit, hand back the deleted payloads for attribution, and leave
+// rows younger than the TTL alone.
+func TestPgDurableEventStore_DeleteExpiredBatch(t *testing.T) {
+	t.Parallel()
+	db := pgtest.NewSqlxDB(t)
+	truncateChipDurableEvents(t, db)
+	ctx := t.Context()
+	store := durableemitter.NewPgDurableEventStore(db)
+
+	// Five rows, backdated 5m..1m so oldest-first is observable, plus one fresh row.
+	for i := 5; i >= 1; i-- {
+		_, err := db.ExecContext(ctx,
+			`INSERT INTO cre.chip_durable_events (payload, created_at) VALUES ($1, now() - ($2 || ' minutes')::interval)`,
+			[]byte(fmt.Sprintf("old-%d", i)), fmt.Sprint(i))
+		require.NoError(t, err)
+	}
+	_, err := store.Insert(ctx, []byte("fresh"))
+	require.NoError(t, err)
+
+	// First slice: the two oldest.
+	got, err := store.DeleteExpiredBatch(ctx, 30*time.Second, 2)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, []byte("old-5"), got[0])
+	assert.Equal(t, []byte("old-4"), got[1])
+
+	// Second slice drains the rest of the expired rows and stops short of the limit.
+	got, err = store.DeleteExpiredBatch(ctx, 30*time.Second, 10)
+	require.NoError(t, err)
+	require.Len(t, got, 3)
+	assert.Equal(t, [][]byte{[]byte("old-3"), []byte("old-2"), []byte("old-1")}, got)
+
+	// Nothing expired remains; the fresh row survives.
+	got, err = store.DeleteExpiredBatch(ctx, 30*time.Second, 10)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+	events, err := store.ListPending(ctx, time.Now().Add(time.Second), time.Time{}, 0, 10)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	assert.Equal(t, []byte("fresh"), events[0].Payload)
+
+	// A non-positive limit is rejected rather than silently deleting everything.
+	_, err = store.DeleteExpiredBatch(ctx, 0, 0)
+	require.Error(t, err)
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -356,6 +357,13 @@ func addBootstrapNodeConfig(
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
+		// Local-only test hook: shrink the DurableEmitter TTL so expiry can be
+		// exercised in minutes (e.g. LOCAL_CRE_DURABLE_EMITTER_TTL=2m).
+		if ttl := os.Getenv("LOCAL_CRE_DURABLE_EMITTER_TTL"); ttl != "" {
+			if d, perr := time.ParseDuration(ttl); perr == nil {
+				existingConfig.Telemetry.DurableEmitterEventTTL = commonconfig.MustNewDuration(d)
+			}
+		}
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        new("billing-platform-service:2223"),
@@ -450,6 +458,13 @@ func addWorkerNodeConfig(
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
+		// Local-only test hook: shrink the DurableEmitter TTL so expiry can be
+		// exercised in minutes (e.g. LOCAL_CRE_DURABLE_EMITTER_TTL=2m).
+		if ttl := os.Getenv("LOCAL_CRE_DURABLE_EMITTER_TTL"); ttl != "" {
+			if d, perr := time.ParseDuration(ttl); perr == nil {
+				existingConfig.Telemetry.DurableEmitterEventTTL = commonconfig.MustNewDuration(d)
+			}
+		}
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        new("billing-platform-service:2223"),
