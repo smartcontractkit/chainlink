@@ -5,8 +5,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
@@ -21,6 +23,7 @@ type GatewayMetrics struct {
 	nodeConnectedEvents    metric.Int64Counter
 	keepalivePingsSent     metric.Int64Counter
 	keepalivePongsReceived metric.Int64Counter
+	wsPingRoundTrip        metric.Int64Histogram
 	donConnectedNodes      metric.Int64Gauge
 	donRequiredNodes       metric.Int64Gauge
 	donConfiguredNodes     metric.Int64Gauge
@@ -84,6 +87,16 @@ func (m *GatewayMetrics) RecordKeepalivePongsReceived(ctx context.Context, nodeA
 	))
 }
 
+// RecordWSPingRoundTrip records the observed round trip of a keepalive ping:
+// the time from registering the probe (immediately before the ping write) until
+// the pong echoing its correlation token arrives
+func (m *GatewayMetrics) RecordWSPingRoundTrip(ctx context.Context, nodeAddress string, nodeName string, duration time.Duration) {
+	m.wsPingRoundTrip.Record(ctx, duration.Milliseconds(), metric.WithAttributes(
+		attribute.String("nodeAddress", nodeAddress),
+		attribute.String("nodeName", nodeName),
+	))
+}
+
 func (m *GatewayMetrics) RecordDONConnectionState(ctx context.Context, donID string, connected, required, configured int) {
 	attrs := metric.WithAttributes(attribute.String("donID", donID))
 	m.donConnectedNodes.Record(ctx, int64(connected), attrs)
@@ -99,58 +112,66 @@ func (m *GatewayMetrics) RecordUserReady(ctx context.Context, ready bool) {
 	m.userReady.Record(ctx, value)
 }
 
-func NewGatewayMetrics() (*GatewayMetrics, error) {
-	nodeMsgHandleDuration, err := beholder.GetMeter().Int64Histogram("platform_gateway_node_msg_handler_duration_ms")
+func NewGatewayMetrics(meter metric.Meter) (*GatewayMetrics, error) {
+	nodeMsgHandleDuration, err := meter.Int64Histogram("platform_gateway_node_msg_handler_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	nodeMsgHandleCount, err := beholder.GetMeter().Int64Counter("platform_gateway_node_msgs_handled_total")
+	nodeMsgHandleCount, err := meter.Int64Counter("platform_gateway_node_msgs_handled_total")
 	if err != nil {
 		return nil, err
 	}
 
-	userMsgHandleDuration, err := beholder.GetMeter().Int64Histogram("platform_gateway_user_msg_handler_duration_ms")
+	userMsgHandleDuration, err := meter.Int64Histogram("platform_gateway_user_msg_handler_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	userMsgHandleCount, err := beholder.GetMeter().Int64Counter("platform_gateway_user_msgs_handled_total")
+	userMsgHandleCount, err := meter.Int64Counter("platform_gateway_user_msgs_handled_total")
 	if err != nil {
 		return nil, err
 	}
 
-	nodeConnectedEvents, err := beholder.GetMeter().Int64Counter("platform_gateway_node_connected_events_total")
+	nodeConnectedEvents, err := meter.Int64Counter("platform_gateway_node_connected_events_total")
 	if err != nil {
 		return nil, err
 	}
 
-	keepalivePingsSent, err := beholder.GetMeter().Int64Counter("platform_gateway_keepalive_pings_sent_total")
+	keepalivePingsSent, err := meter.Int64Counter("platform_gateway_keepalive_pings_sent_total")
 	if err != nil {
 		return nil, err
 	}
 
-	keepalivePongsReceived, err := beholder.GetMeter().Int64Counter("platform_gateway_keepalive_pongs_received_total")
+	keepalivePongsReceived, err := meter.Int64Counter("platform_gateway_keepalive_pongs_received_total")
 	if err != nil {
 		return nil, err
 	}
 
-	donConnectedNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_connected_nodes")
+	wsPingRoundTrip, err := meter.Int64Histogram("platform_gateway_ws_ping_round_trip_ms",
+		metric.WithUnit("ms"),
+		metric.WithDescription("Observed websocket ping round trip in milliseconds, from ping enqueue to receipt of the pong echoing its correlation token. Includes local write-pump queue wait, transport, and peer control-frame processing; it is not a pure network RTT. Only the connection's latest probe yields a sample"),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	donRequiredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_required_nodes")
+	donConnectedNodes, err := meter.Int64Gauge("platform_gateway_don_connected_nodes")
 	if err != nil {
 		return nil, err
 	}
 
-	donConfiguredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_configured_nodes")
+	donRequiredNodes, err := meter.Int64Gauge("platform_gateway_don_required_nodes")
 	if err != nil {
 		return nil, err
 	}
 
-	userReady, err := beholder.GetMeter().Int64Gauge("platform_gateway_user_ready")
+	donConfiguredNodes, err := meter.Int64Gauge("platform_gateway_don_configured_nodes")
+	if err != nil {
+		return nil, err
+	}
+
+	userReady, err := meter.Int64Gauge("platform_gateway_user_ready")
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +184,7 @@ func NewGatewayMetrics() (*GatewayMetrics, error) {
 		nodeConnectedEvents:    nodeConnectedEvents,
 		keepalivePingsSent:     keepalivePingsSent,
 		keepalivePongsReceived: keepalivePongsReceived,
+		wsPingRoundTrip:        wsPingRoundTrip,
 		donConnectedNodes:      donConnectedNodes,
 		donRequiredNodes:       donRequiredNodes,
 		donConfiguredNodes:     donConfiguredNodes,
@@ -193,4 +215,19 @@ func NewHTTPServerMetrics() (*HTTPServerMetrics, error) {
 		return nil, err
 	}
 	return &HTTPServerMetrics{requestDuration: requestDuration, requestCount: requestCount}, nil
+}
+
+// MetricViews returns histogram bucket definitions for this package's metrics.
+// Due to the OTEL specification, all histogram buckets must be defined when the beholder client is created.
+func MetricViews() []sdkmetric.View {
+	return []sdkmetric.View{
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_gateway_ws_ping_round_trip_ms"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				// 1ms up to ~32s: healthy pongs return in milliseconds, but the
+				// read deadline lets a slow round trip stretch to tens of seconds.
+				Boundaries: prometheus.ExponentialBuckets(1, 2, 16),
+			}},
+		),
+	}
 }

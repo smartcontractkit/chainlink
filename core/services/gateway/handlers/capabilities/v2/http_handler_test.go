@@ -13,6 +13,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -20,6 +24,7 @@ import (
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	triggermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/mocks"
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -82,7 +87,7 @@ func TestNewGatewayHandler(t *testing.T) {
 }
 
 func TestHandleNodeMessage(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 
 	t.Run("successful node message handling", func(t *testing.T) {
 		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
@@ -322,7 +327,7 @@ func TestHandleNodeMessage(t *testing.T) {
 }
 
 func TestServiceLifecycle(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 
 	t.Run("start and stop", func(t *testing.T) {
 		ctx := t.Context()
@@ -344,7 +349,7 @@ func TestHandleNodeMessage_RoutesToTriggerHandler(t *testing.T) {
 	// This test covers the case where the response ID does not contain a "/"
 	// and should be routed to the triggerHandler.HandleNodeTriggerResponse.
 	mockTriggerHandler := triggermocks.NewHTTPTriggerHandler(t)
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	handler.triggerHandler = mockTriggerHandler
 
 	rawRes := json.RawMessage([]byte(`{}`))
@@ -365,7 +370,7 @@ func TestHandleNodeMessage_RoutesToTriggerHandler(t *testing.T) {
 }
 
 func TestHandleNodeMessage_UnsupportedMethod(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	rawRes := json.RawMessage([]byte(`{}`))
 	resp := &jsonrpc.Response[json.RawMessage]{
 		ID:     "unsupportedMethod/123",
@@ -379,7 +384,7 @@ func TestHandleNodeMessage_UnsupportedMethod(t *testing.T) {
 }
 
 func TestHandleNodeMessage_EmptyID(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	rawRes := json.RawMessage([]byte(`{}`))
 	resp := &jsonrpc.Response[json.RawMessage]{
 		ID:     "",
@@ -396,6 +401,9 @@ type mockResponseCache struct {
 	deleteExpiredCh chan struct{}
 	setCallCount    int
 	fetchCallCount  int
+	// fetchResp, when non-nil, is returned by Fetch without calling fetchFn,
+	// simulating a cache hit.
+	fetchResp *gateway_common.OutboundHTTPResponse
 }
 
 func newMockResponseCache() *mockResponseCache {
@@ -412,6 +420,9 @@ func (m *mockResponseCache) Set(req gateway_common.OutboundHTTPRequest, response
 
 func (m *mockResponseCache) Fetch(ctx context.Context, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse {
 	m.fetchCallCount++
+	if m.fetchResp != nil {
+		return *m.fetchResp
+	}
 	return fetchFn()
 }
 
@@ -470,7 +481,7 @@ func shardedArgs(donConfig *config.DONConfig, mockDon *handlermocks.DON) ([]conf
 	}, [][]handlers.DON{{mockDon}}
 }
 
-func createTestHandler(t *testing.T) *gatewayHandler {
+func createTestHandler(t *testing.T) (*gatewayHandler, *sdkmetric.ManualReader) {
 	cfg := serviceCfg()
 	return createTestHandlerWithConfig(t, cfg)
 }
@@ -483,7 +494,7 @@ func verifyBackwardCompatibility(t *testing.T, headers map[string]string, multiH
 	}
 }
 
-func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandler {
+func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*gatewayHandler, *sdkmetric.ManualReader) {
 	configBytes, err := json.Marshal(cfg)
 	require.NoError(t, err)
 
@@ -501,9 +512,12 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandle
 	shardedDONs, connMgrs := shardedArgs(donConfig, mockDon)
 	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
 	require.NoError(t, err)
+	meter, reader := newBeholderReader(t)
+	handler.metrics, err = metrics.NewMetricsWithMeter(allMembers(handler.shards), meter)
+	require.NoError(t, err)
 	require.NotNil(t, handler)
 
-	return handler
+	return handler, reader
 }
 
 func TestCreateHTTPRequestCallback(t *testing.T) {
@@ -526,7 +540,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	}
 
 	t.Run("successful HTTP request with latency measurement", func(t *testing.T) {
-		handler := createTestHandler(t)
+		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 		expectedResp := &network.HTTPResponse{
@@ -537,7 +551,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(expectedResp, nil)
 
-		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq)
+		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq, "node1")
 		response := callback()
 
 		require.Equal(t, expectedResp.StatusCode, response.StatusCode)
@@ -549,12 +563,12 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	})
 
 	t.Run("HTTP send error sets IsExternalEndpointError to true", func(t *testing.T) {
-		handler := createTestHandler(t)
+		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, network.ErrHTTPSend)
 
-		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq)
+		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq, "node1")
 
 		response := callback()
 
@@ -568,7 +582,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	})
 
 	t.Run("response with MultiHeaders is passed through correctly", func(t *testing.T) {
-		handler := createTestHandler(t)
+		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 		expectedResp := &network.HTTPResponse{
@@ -592,7 +606,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(expectedResp, nil)
 
-		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq)
+		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq, "node1")
 		response := callback()
 
 		require.Equal(t, expectedResp.StatusCode, response.StatusCode)
@@ -618,7 +632,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	})
 
 	t.Run("response with empty MultiHeaders still sets Headers", func(t *testing.T) {
-		handler := createTestHandler(t)
+		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 		expectedResp := &network.HTTPResponse{
@@ -632,7 +646,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(expectedResp, nil)
 
-		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq)
+		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq, "node1")
 		response := callback()
 
 		require.Equal(t, expectedResp.StatusCode, response.StatusCode)
@@ -645,12 +659,12 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	})
 
 	t.Run("HTTP read error sets IsExternalEndpointError to true", func(t *testing.T) {
-		handler := createTestHandler(t)
+		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, network.ErrHTTPRead)
 
-		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq)
+		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq, "node1")
 
 		response := callback()
 
@@ -664,13 +678,13 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	})
 
 	t.Run("other errors set IsExternalEndpointError to false", func(t *testing.T) {
-		handler := createTestHandler(t)
+		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 		genericError := errors.New("some other network error")
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, genericError)
 
-		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq)
+		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq, "node1")
 
 		response := callback()
 
@@ -685,7 +699,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 }
 
 func TestMakeOutgoingRequest_SendResponseUsesIndependentContext(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
@@ -725,10 +739,176 @@ func TestMakeOutgoingRequest_SendResponseUsesIndependentContext(t *testing.T) {
 	handler.wg.Wait()
 }
 
+// setupBeholderReader swaps the process-global Beholder client for one backed
+// by a ManualReader so emitted metrics can be asserted, and returns the reader.
+func newBeholderReader(t *testing.T) (metric.Meter, *sdkmetric.ManualReader) {
+	t.Helper()
+	reader := sdkmetric.NewManualReader()
+	meterProvider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { require.NoError(t, meterProvider.Shutdown(t.Context())) })
+	return meterProvider.Meter("http-handler-test"), reader
+}
+
+// findInt64HistogramDataPoint returns the histogram data point for the metric
+// with the given name whose attributes match all of the given key/value pairs.
+func findInt64HistogramDataPoint(rm metricdata.ResourceMetrics, name string, attrs map[string]string) (metricdata.HistogramDataPoint[int64], bool) {
+	for _, scopeMetrics := range rm.ScopeMetrics {
+		for _, m := range scopeMetrics.Metrics {
+			if m.Name != name {
+				continue
+			}
+			histogram, ok := m.Data.(metricdata.Histogram[int64])
+			if !ok {
+				continue
+			}
+			for _, dp := range histogram.DataPoints {
+				matches := true
+				for k, v := range attrs {
+					attributeValue, ok := dp.Attributes.Value(attribute.Key(k))
+					if !ok || attributeValue.AsString() != v {
+						matches = false
+						break
+					}
+				}
+				if matches {
+					return dp, true
+				}
+			}
+		}
+	}
+	return metricdata.HistogramDataPoint[int64]{}, false
+}
+
+func newHTTPActionNodeMessage(t *testing.T) *jsonrpc.Response[json.RawMessage] {
+	t.Helper()
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method:    "GET",
+		URL:       "https://example.com/api",
+		TimeoutMs: 5000,
+	}
+	reqBytes, err := json.Marshal(outboundReq)
+	require.NoError(t, err)
+	rawRequest := json.RawMessage(reqBytes)
+	return &jsonrpc.Response[json.RawMessage]{
+		ID:     fmt.Sprintf("%s/%s", gateway_common.MethodHTTPAction, uuid.New().String()),
+		Result: &rawRequest,
+	}
+}
+
+func TestHTTPActionLatencyMetrics(t *testing.T) {
+	t.Parallel()
+
+	t.Run("async timer covers HTTP work plus response send; send has its own timer", func(t *testing.T) {
+		t.Parallel()
+		handler, reader := createTestHandler(t)
+		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
+		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
+
+		const httpDelay = 120 * time.Millisecond
+		const sendDelay = 60 * time.Millisecond
+		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).RunAndReturn(
+			func(ctx context.Context, req network.HTTPRequest) (*network.HTTPResponse, error) {
+				time.Sleep(httpDelay)
+				return &network.HTTPResponse{StatusCode: 200, Body: []byte("ok")}, nil
+			})
+		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).RunAndReturn(
+			func(ctx context.Context, nodeAddress string, req *jsonrpc.Request[json.RawMessage]) error {
+				time.Sleep(sendDelay)
+				return nil
+			})
+
+		require.NoError(t, handler.HandleNodeMessage(t.Context(), newHTTPActionNodeMessage(t), "node1"))
+		handler.wg.Wait()
+
+		var rm metricdata.ResourceMetrics
+		require.NoError(t, reader.Collect(t.Context(), &rm))
+
+		reqLatency, ok := findInt64HistogramDataPoint(rm, "http_action_gateway_request_latency_ms", map[string]string{"node_address": "node1"})
+		require.True(t, ok, "async request latency must be recorded")
+		require.Equal(t, uint64(1), reqLatency.Count, "async request latency must record exactly once per admitted request")
+		require.GreaterOrEqual(t, reqLatency.Sum, int64(150), "request latency must cover HTTP work plus response send")
+
+		sendLatency, ok := findInt64HistogramDataPoint(rm, "http_action_gateway_response_send_latency_ms", map[string]string{"node_address": "node1"})
+		require.True(t, ok, "response send latency must be recorded")
+		require.Equal(t, uint64(1), sendLatency.Count, "response send latency must record exactly once")
+		require.GreaterOrEqual(t, sendLatency.Sum, int64(50), "response send timer must include the delayed send")
+		require.Less(t, sendLatency.Sum, reqLatency.Sum, "send timer is nested inside the request timer")
+
+		endpointLatency, ok := findInt64HistogramDataPoint(rm, "http_action_customer_endpoint_request_latency_ms", map[string]string{"node_address": "node1"})
+		require.True(t, ok, "customer endpoint latency must be recorded")
+		require.Equal(t, uint64(1), endpointLatency.Count, "customer endpoint latency must record exactly once")
+		require.GreaterOrEqual(t, endpointLatency.Sum, int64(100), "endpoint latency must include the delayed HTTP call")
+	})
+
+	t.Run("failed outbound call still records endpoint latency", func(t *testing.T) {
+		t.Parallel()
+		handler, reader := createTestHandler(t)
+		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
+		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
+
+		const httpDelay = 100 * time.Millisecond
+		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).RunAndReturn(
+			func(ctx context.Context, req network.HTTPRequest) (*network.HTTPResponse, error) {
+				time.Sleep(httpDelay)
+				return nil, network.ErrHTTPSend
+			})
+		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
+
+		require.NoError(t, handler.HandleNodeMessage(t.Context(), newHTTPActionNodeMessage(t), "node1"))
+		handler.wg.Wait()
+
+		var rm metricdata.ResourceMetrics
+		require.NoError(t, reader.Collect(t.Context(), &rm))
+
+		endpointLatency, ok := findInt64HistogramDataPoint(rm, "http_action_customer_endpoint_request_latency_ms", map[string]string{"node_address": "node1"})
+		require.True(t, ok, "failed outbound calls must still record endpoint latency")
+		require.Equal(t, uint64(1), endpointLatency.Count)
+		require.GreaterOrEqual(t, endpointLatency.Sum, int64(80))
+	})
+
+	t.Run("cache hit emits no outbound-call observation", func(t *testing.T) {
+		t.Parallel()
+		handler, reader := createTestHandler(t)
+		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
+
+		mockCache := newMockResponseCache()
+		mockCache.fetchResp = &gateway_common.OutboundHTTPResponse{StatusCode: 200}
+		handler.responseCache = mockCache
+
+		outboundReq := gateway_common.OutboundHTTPRequest{
+			Method:    "GET",
+			URL:       "https://example.com/cached",
+			TimeoutMs: 5000,
+			CacheSettings: gateway_common.CacheSettings{
+				MaxAgeMs: 60000,
+				Store:    true,
+			},
+		}
+		reqBytes, err := json.Marshal(outboundReq)
+		require.NoError(t, err)
+		rawRequest := json.RawMessage(reqBytes)
+		resp := &jsonrpc.Response[json.RawMessage]{
+			ID:     fmt.Sprintf("%s/%s", gateway_common.MethodHTTPAction, uuid.New().String()),
+			Result: &rawRequest,
+		}
+
+		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
+
+		require.NoError(t, handler.HandleNodeMessage(t.Context(), resp, "node1"))
+		handler.wg.Wait()
+
+		var rm metricdata.ResourceMetrics
+		require.NoError(t, reader.Collect(t.Context(), &rm))
+
+		_, ok := findInt64HistogramDataPoint(rm, "http_action_customer_endpoint_request_latency_ms", map[string]string{"node_address": "node1"})
+		require.False(t, ok, "cache hits make no outbound call and must not record endpoint latency")
+	})
+}
+
 // TestMakeOutgoingRequestCachingBehavior tests the specific caching logic in makeOutgoingRequest
 func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 	t.Run("MaxAgeMs=0 and Store=true calls Set", func(t *testing.T) {
-		handler := createTestHandler(t)
+		handler, _ := createTestHandler(t)
 		mockCache := newMockResponseCache()
 		handler.responseCache = mockCache
 
@@ -772,7 +952,7 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 	})
 
 	t.Run("MaxAgeMs=0 and Store=false does not call Set", func(t *testing.T) {
-		handler := createTestHandler(t)
+		handler, _ := createTestHandler(t)
 		mockCache := newMockResponseCache()
 		handler.responseCache = mockCache
 
@@ -816,7 +996,7 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 	})
 
 	t.Run("MaxAgeMs>0 calls CachedFetch", func(t *testing.T) {
-		handler := createTestHandler(t)
+		handler, _ := createTestHandler(t)
 		mockCache := newMockResponseCache()
 		handler.responseCache = mockCache
 
@@ -862,7 +1042,7 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 
 // setupRateLimitingTest creates common test setup for rate limiting tests
 func setupRateLimitingTest(t *testing.T, cfg ServiceConfig) (*gatewayHandler, *jsonrpc.Response[json.RawMessage], *httpmocks.HTTPClient, *handlermocks.DON) {
-	handler := createTestHandlerWithConfig(t, cfg)
+	handler, _ := createTestHandlerWithConfig(t, cfg)
 
 	outboundReq := gateway_common.OutboundHTTPRequest{
 		Method:    "GET",
@@ -945,7 +1125,7 @@ var defaultTestHTTPClientFactory network.HTTPClientFactory = func(config network
 }
 
 func TestGatewayHandler_Send_NoMtls_UsesDefaultClient(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
@@ -960,7 +1140,7 @@ func TestGatewayHandler_Send_NoMtls_UsesDefaultClient(t *testing.T) {
 }
 
 func TestGatewayHandler_Send_MtlsBlockedByRateLimit(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(0, 0)
 	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
 		return httpmocks.NewHTTPClient(t), nil
@@ -988,7 +1168,7 @@ func TestGatewayHandler_Send_MtlsBlockedByRateLimit(t *testing.T) {
 // limiter is enforced inside the HTTP client (on the request's capped-timeout
 // context); that enforcement is covered by the network package tests.
 func TestGatewayHandler_Send_MtlsPassesConcurrencyLimiterToFactory(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
@@ -1019,7 +1199,7 @@ func TestGatewayHandler_Send_MtlsPassesConcurrencyLimiterToFactory(t *testing.T)
 }
 
 func TestGatewayHandler_Send_MtlsUsesFactory(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
@@ -1058,7 +1238,7 @@ func TestGatewayHandler_Send_MtlsUsesFactory(t *testing.T) {
 }
 
 func TestGatewayHandler_Send_MtlsFactoryError(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
@@ -1085,7 +1265,7 @@ func TestGatewayHandler_Send_MtlsFactoryError(t *testing.T) {
 // requests with bogus certificates. It uses the real HTTP client factory so that the
 // production code path is what rejects the certificate as invalid.
 func TestGatewayHandler_Send_InvalidMtlsCertDoesNotConsumeGlobalTokens(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	// Burst of exactly 1: only a single mtls request may pass the rate limiter.
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(1, 1)
 	handler.httpClientFactory = network.NewHTTPClientFactory(network.HTTPClientConfig{}, logger.Test(t))
@@ -1116,7 +1296,7 @@ func TestGatewayHandler_Send_InvalidMtlsCertDoesNotConsumeGlobalTokens(t *testin
 // client. This is the core property that prevents auth'd connections from
 // leaking between users.
 func TestGatewayHandler_Send_MtlsRoutesThroughCallbackOnly_DefaultClientUntouched(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api", Timeout: 5 * time.Second}
@@ -1133,7 +1313,7 @@ func TestGatewayHandler_Send_MtlsRoutesThroughCallbackOnly_DefaultClientUntouche
 		return mtlsClient, nil
 	}
 
-	callback := handler.createHTTPRequestCallback(t.Context(), "req-id", httpReq, outboundReq)
+	callback := handler.createHTTPRequestCallback(t.Context(), "req-id", httpReq, outboundReq, "node1")
 	resp := callback()
 	require.Empty(t, resp.ErrorMessage)
 	require.Equal(t, 200, resp.StatusCode)
@@ -1144,7 +1324,7 @@ func TestGatewayHandler_Send_MtlsRoutesThroughCallbackOnly_DefaultClientUntouche
 }
 
 func TestGatewayHandler_Send_MtlsBlockedRequestIsValidationError(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(0, 0)
 	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
 		return httpmocks.NewHTTPClient(t), nil
@@ -1157,7 +1337,7 @@ func TestGatewayHandler_Send_MtlsBlockedRequestIsValidationError(t *testing.T) {
 		Mtls:   &gateway_common.MtlsAuth{PrivateKey: []byte("k"), Certificate: []byte("c")},
 	}
 
-	callback := handler.createHTTPRequestCallback(t.Context(), "req-id", httpReq, outboundReq)
+	callback := handler.createHTTPRequestCallback(t.Context(), "req-id", httpReq, outboundReq, "node1")
 	resp := callback()
 	require.NotEmpty(t, resp.ErrorMessage)
 	require.True(t, resp.IsValidationError, "blocked mtls should be reported as a validation error")
@@ -1171,7 +1351,7 @@ func TestGatewayHandler_Send_MtlsBlockedRequestIsValidationError(t *testing.T) {
 // rate (cresettings.Default.GatewayHTTPActionMtlsRequestRate) has a zero burst,
 // meaning mtls is blocked out of the box.
 func TestGatewayHandler_Send_MtlsRateLimitEnabledByDefault(t *testing.T) {
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
 		return httpmocks.NewHTTPClient(t), nil
 	}
@@ -1316,7 +1496,7 @@ func TestGatewayHandler_SendResponseToNode_MultiShardRouting(t *testing.T) {
 func TestGatewayHandler_HandleNodeMessage_UnknownNodeRejected(t *testing.T) {
 	t.Parallel()
 
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 
 	rawRes := json.RawMessage([]byte(`{}`))
 	resp := &jsonrpc.Response[json.RawMessage]{

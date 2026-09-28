@@ -24,7 +24,7 @@ func TestGatewayMetrics_RecordReadiness(t *testing.T) { //nolint:paralleltest //
 	client.MeterProvider = meterProvider
 	beholder.SetClient(client)
 
-	metrics, err := NewGatewayMetrics()
+	metrics, err := NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 	metrics.RecordDONConnectionState(t.Context(), "workflow_1_zone-a", 5, 7, 10)
 	metrics.RecordUserReady(t.Context(), true)
