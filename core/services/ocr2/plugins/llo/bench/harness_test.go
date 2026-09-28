@@ -225,9 +225,10 @@ func buildV30(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) ocr3typ
 	return p
 }
 
-func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1types.ReportingPlugin[llotypes.ReportInfo], ocr3_1types.KeyValueDatabase, *llotest.BlobBroadcastFetcher) {
-	tb.Helper()
-	factory := llov31.NewPluginFactory(llov31.PluginFactoryParams{
+// newV31Factory builds the v31 plugin factory over the given definitions. opts
+// mutate the factory params, e.g. to override the blob pump knobs.
+func newV31Factory(defs llotypes.ChannelDefinitions, opts ...func(*llov31.PluginFactoryParams)) *llov31.PluginFactory {
+	params := llov31.PluginFactoryParams{
 		Config:                 llov31.Config{VerboseLogging: false},
 		ShouldRetireCache:      mockShouldRetireCache{},
 		RetirementReportCodec:  lloprotocol.StandardRetirementReportCodec{},
@@ -236,26 +237,38 @@ func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1
 		Logger:                 logger.Nop(),
 		OnchainConfigCodec:     mockOnchainConfigCodec{},
 		ReportCodecs:           reportCodecs(),
-	})
+	}
+	for _, opt := range opts {
+		opt(&params)
+	}
+	return llov31.NewPluginFactory(params)
+}
+
+// newKVDB returns libocr's in-memory KeyValueDatabase (the same helper v31's
+// integration tests use): a btree behind the production KeyValueDatabaseFactory
+// interface, whose Commit applies to memory with no WAL/fsync. This isolates
+// the plugin's CPU/allocation cost from storage-engine cost, so the v31 numbers
+// are directly comparable to v30's in-memory Outcome blob.
+func newKVDB(tb testing.TB) ocr3_1types.KeyValueDatabase {
+	tb.Helper()
+	dbFactory := memkvdb.NewStatelessInMemoryKeyValueDatabaseFactory()
+	db, err := dbFactory.NewKeyValueDatabase(benchConfigDigest)
+	require.NoError(tb, err)
+	tb.Cleanup(func() { _ = db.Close() })
+	return db
+}
+
+func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1types.ReportingPlugin[llotypes.ReportInfo], ocr3_1types.KeyValueDatabase, *llotest.BlobBroadcastFetcher) {
+	tb.Helper()
 	// v31 disseminates stream values exclusively through blobs, so the plugin
 	// needs a BlobBroadcastFetcher both at construction (the blob pump
 	// broadcasts through it) and on every Observation/StateTransition call (the
 	// round decodes observations by fetching the blobs they reference). A nil
 	// fetcher yields a plugin whose observations never carry stream values.
 	bbf := llotest.NewBlobBroadcastFetcher()
-	p, _, err := factory.NewReportingPlugin(context.Background(), pluginConfig(n, f), bbf)
+	p, _, err := newV31Factory(defs).NewReportingPlugin(context.Background(), pluginConfig(n, f), bbf)
 	require.NoError(tb, err)
-
-	// libocr's in-memory KeyValueDatabase (the same helper v31's integration
-	// tests use): a btree behind the production KeyValueDatabaseFactory
-	// interface, whose Commit applies to memory with no WAL/fsync. This isolates
-	// the plugin's CPU/allocation cost from storage-engine cost, so the v31
-	// numbers are directly comparable to v30's in-memory Outcome blob.
-	dbFactory := memkvdb.NewStatelessInMemoryKeyValueDatabaseFactory()
-	db, err := dbFactory.NewKeyValueDatabase(benchConfigDigest)
-	require.NoError(tb, err)
-	tb.Cleanup(func() { _ = db.Close() })
-	return p, db, bbf
+	return p, newKVDB(tb), bbf
 }
 
 // ---------------------------------------------------------------------------
