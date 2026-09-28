@@ -36,7 +36,7 @@ func nonDeterminismCheckEnabled() bool {
 	if strings.EqualFold(os.Getenv("CRE_NONDETERMINISM_CHECK"), "true") {
 		return true
 	}
-	return strings.Contains(strings.ToLower(os.Getenv("TOPOLOGY_NAME")), "mixed-env")
+	return t_helpers.IsMixedEnvTopology()
 }
 
 // reportNonDeterminism scans all container logs for the markers and prints any
