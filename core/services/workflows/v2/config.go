@@ -387,6 +387,10 @@ type EngineFeatureFlags struct {
 	// which lets ops schedule a healing window across the DON via cresettings.
 	// Nil when construction fails; call sites must nil-check.
 	WorkflowTagBackfill limits.RangeLimiter[config.Timestamp]
+
+	// CoordinatedEngine selects the coordinatedEngine over the legacy trigger-owning
+	// Engine for newly created workflows. Nil when construction fails; call sites must nil-check.
+	CoordinatedEngine limits.GateLimiter
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -398,8 +402,16 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if err != nil {
 		return nil, fmt.Errorf("workflow tag backfill flag: %w", err)
 	}
+	coordinatedEngineSetting := settings.Bool(false)
+	coordinatedEngineSetting.Key = "CoordinatedEngineEnabled"
+	coordinatedEngineSetting.Scope = settings.ScopeGlobal
+	coordinatedEngine, err := limits.MakeGateLimiter(lf, coordinatedEngineSetting)
+	if err != nil {
+		return nil, fmt.Errorf("execution only engine flag: %w", err)
+	}
 	return &EngineFeatureFlags{
 		WorkflowTagBackfill: workflowTagBackfill,
+		CoordinatedEngine:   coordinatedEngine,
 	}, nil
 }
 
