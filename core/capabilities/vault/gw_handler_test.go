@@ -1,6 +1,8 @@
 package vault_test
 
 import (
+	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -28,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	connector_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func testMasterPublicKey(t *testing.T) (*tdh2easy.PublicKey, string) {
@@ -672,6 +676,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				secretsService,
 				gwConnector,
 				nil,
+				nil,
 				lggr,
 				limits.Factory{Settings: cresettings.DefaultGetter},
 				vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
@@ -763,6 +768,7 @@ func TestGatewayHandler_DeleteListWithoutPublicKeyFetch(t *testing.T) {
 				secretsService,
 				gwConnector,
 				nil,
+				nil,
 				lggr,
 				limits.Factory{Settings: cresettings.DefaultGetter},
 				vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
@@ -798,6 +804,7 @@ func TestGatewayHandler_CreateUpdateReusesCachedPublicKey(t *testing.T) {
 	handler, err := vaultcap.NewGatewayHandler(
 		secretsService,
 		gwConnector,
+		nil,
 		nil,
 		lggr,
 		limits.Factory{Settings: cresettings.DefaultGetter},
@@ -849,6 +856,7 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 		secretsService,
 		gwConnector,
 		nil,
+		nil,
 		lggr,
 		limits.Factory{Settings: cresettings.DefaultGetter},
 		vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
@@ -886,6 +894,7 @@ func TestGatewayHandler_Lifecycle_DefaultAuthorizer_NoJWTConfig(t *testing.T) {
 		secretsService,
 		gwConnector,
 		nil,
+		nil,
 		lggr,
 		limits.Factory{Settings: cresettings.DefaultGetter},
 		nil,
@@ -898,4 +907,114 @@ func TestGatewayHandler_Lifecycle_DefaultAuthorizer_NoJWTConfig(t *testing.T) {
 
 	gwConnector.On("RemoveHandler", mock.Anything, vaulttypes.Methods).Return(nil).Once()
 	require.NoError(t, handler.Close())
+}
+
+type stubNodeSigner struct {
+	key *ecdsa.PrivateKey
+}
+
+func (s stubNodeSigner) Sign(_ context.Context, data ...[]byte) ([]byte, error) {
+	return utils.GenerateEthSignature(s.key, data[0])
+}
+
+func TestGatewayHandler_SignsAllResponsePaths(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	ctx := t.Context()
+
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	signerAddr := crypto.PubkeyToAddress(key.PublicKey)
+	signer := stubNodeSigner{key: key}
+
+	authRes := vaultcap.NewAuthResult("", "0xabc", "digest-0xabc", time.Now().Add(time.Minute).Unix())
+
+	tests := []struct {
+		name         string
+		method       string
+		params       json.RawMessage
+		setupService func(*vaulttypesmocks.SecretsService)
+		setupAuth    func(*vaultcapmocks.Authorizer)
+	}{
+		{
+			name:   "success - secrets delete",
+			method: vaulttypes.MethodSecretsDelete,
+			params: func() json.RawMessage {
+				params, err := json.Marshal(vaultcommon.DeleteSecretsRequest{
+					Ids: []*vaultcommon.SecretIdentifier{{Key: "Foo", Namespace: "Bar", Owner: "0xAbC"}},
+				})
+				require.NoError(t, err)
+				return params
+			}(),
+			setupService: func(secretsService *vaulttypesmocks.SecretsService) {
+				secretsService.EXPECT().DeleteSecrets(mock.Anything, mock.Anything).
+					Return(&vaulttypes.Response{ID: "test_secret"}, nil)
+			},
+			setupAuth: func(auth *vaultcapmocks.Authorizer) {
+				auth.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(authRes, nil).Once()
+			},
+		},
+		{
+			name:   "error - invalid params",
+			method: vaulttypes.MethodSecretsDelete,
+			params: json.RawMessage(`{"request_id":"req-1","ids":[]}`),
+		},
+		{
+			name:   "error - unsupported method",
+			method: "vault.unsupported",
+			params: json.RawMessage(`{}`),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			secretsService := vaulttypesmocks.NewSecretsService(t)
+			gwConnector := connector_mocks.NewGatewayConnector(t)
+			allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
+
+			if tt.setupService != nil {
+				tt.setupService(secretsService)
+			}
+			if tt.setupAuth != nil {
+				tt.setupAuth(allowListBasedAuth)
+			}
+
+			var captured *jsonrpc.Response[json.RawMessage]
+			gwConnector.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+				captured = resp
+				return true
+			})).Return(nil).Once()
+
+			handler, err := vaultcap.NewGatewayHandler(
+				secretsService,
+				gwConnector,
+				signer,
+				nil,
+				lggr,
+				limits.Factory{Settings: cresettings.DefaultGetter},
+				vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
+				nil,
+			)
+			require.NoError(t, err)
+
+			raw := tt.params
+			req := &jsonrpc.Request[json.RawMessage]{
+				Method: tt.method,
+				ID:     "0xDef" + vaulttypes.RequestIDSeparator + "1",
+				Params: &raw,
+			}
+			require.NoError(t, handler.HandleGatewayMessage(ctx, "gateway-1", req))
+
+			require.NotNil(t, captured)
+			require.Len(t, captured.NodeSignatures, 1)
+
+			digest, err := captured.Digest()
+			require.NoError(t, err)
+			assert.NoError(t, vaulttypes.ValidateNodeSignatures(digest, captured.NodeSignatures, []common.Address{signerAddr}, 1),
+				"outgoing response must carry a node signature valid for its digest")
+		})
+	}
 }

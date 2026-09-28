@@ -20,8 +20,10 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
+	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 )
 
 var errSignedPayloadRequestIDMismatch = errors.New("signed payload request id mismatch")
@@ -30,6 +32,9 @@ type baseAggregator struct {
 	capabilitiesRegistry capabilitiesRegistry
 	metrics              *metrics
 	donID                string
+	// nodeSignaturesEnabled gates enforcement of per-node response signatures.
+	// When nil (tests) or closed, quorum validation behaves as before.
+	nodeSignaturesEnabled limits.GateLimiter
 	// vaultHandlerDonID scopes registry lookup when several vault DONs exist.
 	//
 	// Source: gateway job TOML [[gatewayConfig.ShardedDONs]] DonName (see deployment/cre/jobs/pkg/gateway_job.go),
@@ -67,7 +72,7 @@ func (a *baseAggregator) Aggregate(ctx context.Context, l logger.Logger, request
 		l.Debugw("failed to validate signatures, falling back to quorum aggregation", "error", err)
 	}
 
-	currResp, err = a.validateUsingQuorum(don.DON, resps, l)
+	currResp, err = a.validateUsingQuorum(ctx, don.DON, don.Nodes, resps, l)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate using quorum: %w", err)
 	}
@@ -133,21 +138,67 @@ func summarizeVaultRegistryDONs(dons []capabilities.DONWithNodes) string {
 	return b.String()
 }
 
-func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
+// verifyNodeSignature checks that resp carries a node signature over digest
+// that recovers to a member of the vault DON signer set. Nodes sign envelope
+// digests with their OCR2 onchain (report-signing) key, whose address is the
+// node's registry Signer entry, so a valid member signature both proves the
+// response originated from a DON node and authenticates its contents.
+func verifyNodeSignature(resp *jsonrpc.Response[json.RawMessage], memberAddrs map[common.Address]struct{}, digest string) ([]byte, bool) {
+	if len(resp.NodeSignatures) == 0 {
+		return nil, false
+	}
+	sig := resp.NodeSignatures[0]
+	signer, err := gwcommon.ExtractSigner(sig, []byte(digest))
+	if err != nil {
+		return nil, false
+	}
+	signerAddr := common.BytesToAddress(signer)
+	if _, ok := memberAddrs[signerAddr]; !ok {
+		return nil, false
+	}
+	return sig, true
+}
+
+func (a *baseAggregator) validateUsingQuorum(ctx context.Context, don capabilities.DON, nodes []capabilities.Node, resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
 	requiredQuorum := int(2*don.F + 1)
 
 	if len(resps) < requiredQuorum {
 		return nil, errInsufficientResponsesForQuorum
 	}
 
+	requireNodeSigs := false
+	if a.nodeSignaturesEnabled != nil {
+		open, err := a.nodeSignaturesEnabled.Open(ctx)
+		requireNodeSigs = err == nil && open
+	}
+
+	var memberAddrs map[common.Address]struct{}
+	if requireNodeSigs {
+		memberAddrs = make(map[common.Address]struct{}, len(nodes))
+		for _, n := range nodes {
+			memberAddrs[common.BytesToAddress(n.Signer[0:20])] = struct{}{}
+		}
+	}
+
 	shaToCount := map[string]int{}
+	sigsBySha := map[string][][]byte{}
 	maxShaToCount := 0
-	for _, r := range resps {
+	for nodeAddr, r := range resps {
 		sha, err := a.sha(&r)
 		if err != nil {
 			l.Errorw("failed to compute digest of response during quorum validation, skipping...", "error", err)
 			continue
 		}
+
+		if requireNodeSigs {
+			sig, ok := verifyNodeSignature(&r, memberAddrs, sha)
+			if !ok {
+				l.Warnw("dropping response with missing or invalid node signature", "nodeAddr", nodeAddr, "sha", sha)
+				continue
+			}
+			sigsBySha[sha] = append(sigsBySha[sha], sig)
+		}
+
 		shaToCount[sha]++
 		if shaToCount[sha] > maxShaToCount {
 			maxShaToCount = shaToCount[sha]
@@ -171,6 +222,9 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[str
 			}
 			if sha == want {
 				out := r
+				if requireNodeSigs {
+					out.NodeSignatures = sigsBySha[want]
+				}
 				return &out, nil
 			}
 		}

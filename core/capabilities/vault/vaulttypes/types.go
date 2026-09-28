@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var DefaultNamespace = "main"
@@ -217,6 +218,34 @@ func ValidateSignatures(resp *SignedOCRResponse, allowedSigners []common.Address
 	}
 
 	return fmt.Errorf("only %d valid signatures, need at least %d", len(validSigners), minRequired)
+}
+
+// ValidateNodeSignatures verifies envelope-level node signatures (jsonrpc2
+// Response.NodeSignatures) over the response digest against the allowed DON
+// node signer addresses. Nodes sign the digest with their OCR2 onchain
+// (report-signing) key, whose address is the node's registry Signer entry;
+// signatures that are malformed or from non-members are not counted.
+func ValidateNodeSignatures(digest string, nodeSignatures [][]byte, allowedSigners []common.Address, minRequired int) error {
+	if len(nodeSignatures) < minRequired {
+		return fmt.Errorf("not enough node signatures: expected min %d, got %d", minRequired, len(nodeSignatures))
+	}
+
+	validSigners := map[common.Address]bool{}
+	for _, s := range nodeSignatures {
+		signerAddr, err := utils.GetSignersEthAddress([]byte(digest), s)
+		if err != nil {
+			continue
+		}
+		if slices.Contains(allowedSigners, signerAddr) {
+			validSigners[signerAddr] = true
+		}
+
+		if len(validSigners) >= minRequired {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("only %d valid node signatures, need at least %d", len(validSigners), minRequired)
 }
 
 // UserError is a vault error caused by the caller (e.g. requesting a secret

@@ -832,7 +832,11 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, vaultCapability)
 
-	handler, err := vaultcap.NewGatewayHandler(vaultCapability, gwconnector, syncer, d.lggr, limitsFactory, nil, cfg.Auth0)
+	envelopeSigner, err := vaultcap.NewOCR2KeySigner(kb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault envelope signer: %w", err)
+	}
+	handler, err := vaultcap.NewGatewayHandler(vaultCapability, gwconnector, envelopeSigner, syncer, d.lggr, limitsFactory, nil, cfg.Auth0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
 	}

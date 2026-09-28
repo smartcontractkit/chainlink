@@ -604,6 +604,8 @@ func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonReq
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
 
 	requireSignedPayloadRequestID(t, jsonRequest.Method, jsonRequest.ID, authorizedOwner, jsonResponse.Result.Payload)
+	require.NotEmpty(t, jsonResponse.NodeSignatures,
+		"vault consensus response must carry node signatures over the response digest")
 
 	return jsonResponse
 }

@@ -67,6 +67,7 @@ type GatewayHandler struct {
 
 	secretsService   vaulttypes.SecretsService
 	gatewayConnector gatewayConnector
+	signer           connector.Signer
 	requestProcessor *GatewayVaultRequestProcessor
 	jwtAuthService   services.Service
 	lggr             logger.Logger
@@ -84,6 +85,7 @@ type GatewayHandler struct {
 func NewGatewayHandler(
 	secretsService vaulttypes.SecretsService,
 	connector gatewayConnector,
+	signer connector.Signer,
 	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer,
 	lggr logger.Logger,
 	limitsFactory limits.Factory,
@@ -128,6 +130,7 @@ func NewGatewayHandler(
 	gh := &GatewayHandler{
 		secretsService:   secretsService,
 		gatewayConnector: connector,
+		signer:           signer,
 		requestProcessor: requestProcessor,
 		jwtAuthService:   jwtAuthService,
 		lggr:             logger.Named(lggr, HandlerName),
@@ -142,6 +145,9 @@ func NewGatewayHandler(
 }
 
 func (h *GatewayHandler) start(ctx context.Context) error {
+	if h.signer == nil {
+		h.lggr.Warn("node signer not configured; vault responses will not be signed")
+	}
 	if h.jwtAuthService != nil {
 		if err := h.jwtAuthService.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start JWTBasedAuth: %w", err)
@@ -223,6 +229,10 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 		}
 	}
 
+	if sigErr := h.signResponse(ctx, response); sigErr != nil {
+		reqLggr.Errorw("Failed to sign vault response", "error", sigErr)
+	}
+
 	if err = h.gatewayConnector.SendToGateway(ctx, gatewayID, response); err != nil {
 		reqLggr.Errorw("Failed to send message to gateway", "error", err)
 		return err
@@ -232,6 +242,29 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 	h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("gateway_id", gatewayID),
 	))
+	return nil
+}
+
+// signResponse signs the response digest with the node's OCR2 onchain
+// (report-signing) key so the gateway (and ultimately the client) can verify
+// the response originated from this DON node; the signing address matches the
+// node's registry Signer entry. ID and NodeSignatures are excluded from the digest.
+func (h *GatewayHandler) signResponse(ctx context.Context, response *jsonrpc.Response[json.RawMessage]) error {
+	if h.signer == nil {
+		return nil
+	}
+
+	digest, err := response.Digest()
+	if err != nil {
+		return fmt.Errorf("failed to compute response digest: %w", err)
+	}
+
+	sig, err := h.signer.Sign(ctx, []byte(digest))
+	if err != nil {
+		return fmt.Errorf("failed to sign response digest: %w", err)
+	}
+
+	response.NodeSignatures = [][]byte{sig}
 	return nil
 }
 

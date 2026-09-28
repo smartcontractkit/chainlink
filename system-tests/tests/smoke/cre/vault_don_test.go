@@ -40,6 +40,7 @@ import (
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // ExecuteVaultAllowListBasedTests covers vault gateway + workflows with allow-listed JSON-RPC auth
@@ -307,6 +308,52 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		executeVaultJWTSecretsDeleteTest(t, issuer, vaultParsedPublicKey, secretID, orgID, derivedJWTWorkflowOwner, gwURL, []string{"main", "alt"})
 		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, vaultParsedPublicKey, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "main")
 		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, vaultParsedPublicKey, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "alt")
+	})
+
+	t.Run("node_signatures_enforced", func(t *testing.T) {
+		// Flip GatewayVaultNodeSignaturesEnabled on at runtime so the gateway
+		// requires valid node signatures before counting responses toward
+		// quorum. The override is reverted automatically on test cleanup.
+		t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global("GatewayVaultNodeSignaturesEnabled = 'true'"))
+
+		auth := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, false)
+
+		uniqueRequestID := uuid.New().String()
+		secretsListRequest := vault_helpers.ListSecretIdentifiersRequest{
+			RequestId: uniqueRequestID,
+			Owner:     auth.requestOwner,
+			Namespace: "main",
+		}
+		jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
+		auth.apply(t, &jsonRequest)
+
+		jsonResponse := sendVaultSignedOCRRequestToGateway(t, gwURL, jsonRequest, auth.requestOwner)
+		if jsonResponse.ID == "" {
+			t.Fatal("vault node-signature enforcement test cannot tolerate a gateway-to-DON timeout sentinel response")
+		}
+
+		// With enforcement on, the gateway only forwards responses whose node
+		// signatures verify against the sending node's address. The OCR fast
+		// path may legitimately carry a single node signature (the response is
+		// already client-verifiable via its F+1 OCR report signatures); the
+		// quorum path accumulates one signature per responding node.
+		require.NotEmpty(t, jsonResponse.NodeSignatures,
+			"vault response must carry node signatures when GatewayVaultNodeSignaturesEnabled is on")
+
+		// Every node signature must recover against the response digest. The
+		// digest excludes the envelope ID and NodeSignatures, so this also
+		// proves signatures survive the gateway's owner-prefix ID rewrite on
+		// the wire.
+		digest, err := jsonResponse.Digest()
+		require.NoError(t, err, "failed to compute response digest")
+		recovered := make(map[common.Address]struct{}, len(jsonResponse.NodeSignatures))
+		for _, sig := range jsonResponse.NodeSignatures {
+			addr, sigErr := utils.GetSignersEthAddress([]byte(digest), sig)
+			require.NoError(t, sigErr, "node signature must recover against the response digest")
+			recovered[addr] = struct{}{}
+		}
+		require.Len(t, recovered, len(jsonResponse.NodeSignatures),
+			"node signatures must come from distinct DON nodes")
 	})
 
 	t.Run("jwt_digest_verified_after_prepare_user_jsonrpc_request", func(t *testing.T) {

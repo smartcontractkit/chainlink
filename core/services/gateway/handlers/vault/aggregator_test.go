@@ -1,11 +1,15 @@
 package vault
 
 import (
+	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -14,7 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func testAggregator(t *testing.T, mcr *mockCapabilitiesRegistry) *baseAggregator {
@@ -242,7 +248,7 @@ func TestValidateUsingQuorum_tiedMajoritiesPickDigestDeterministically(t *testin
 			"n0": ra, "n1": ra, "n2": ra,
 			"n3": rb, "n4": rb, "n5": rb,
 		}
-		got, err := a.validateUsingQuorum(don, m, lggr)
+		got, err := a.validateUsingQuorum(t.Context(), don, nil, m, lggr)
 		require.NoError(t, err)
 		require.NotNil(t, got)
 		gotDigest, derr := a.sha(got)
@@ -426,4 +432,124 @@ func TestAggregator_MultipleRegistryDONs_AmbiguousMatchingVaultHandlerDonId(t *t
 	responses := map[string]jsonrpc.Response[json.RawMessage]{"a": currResp}
 	_, err := agg.Aggregate(t.Context(), logger.Test(t), currResp.ID, responses, &currResp)
 	require.ErrorContains(t, err, "2 DONs match vault handler DonId")
+}
+
+func makeQuorumTestNode(t *testing.T, idx int) (*ecdsa.PrivateKey, capabilities.Node, common.Address) {
+	t.Helper()
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	signer := [32]byte{}
+	copy(signer[:20], addr.Bytes())
+	node := capabilities.Node{Signer: signer}
+	return key, node, addr
+}
+
+func makeQuorumErrorResponse() jsonrpc.Response[json.RawMessage] {
+	return jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      "1",
+		Method:  vaulttypes.MethodSecretsDelete,
+		Error:   &jsonrpc.WireError{Code: -32000, Message: "boom"},
+	}
+}
+
+func signEnvelope(t *testing.T, key *ecdsa.PrivateKey, resp *jsonrpc.Response[json.RawMessage]) {
+	t.Helper()
+	digest, err := resp.Digest()
+	require.NoError(t, err)
+	sig, err := utils.GenerateEthSignature(key, []byte(digest))
+	require.NoError(t, err)
+	resp.NodeSignatures = [][]byte{sig}
+}
+
+func TestValidateUsingQuorum_NodeSignaturesEnforced(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	a := &baseAggregator{nodeSignaturesEnabled: limits.NewGateLimiter(true)}
+	don := capabilities.DON{F: 1, Members: make([]p2ptypes.PeerID, 4)}
+
+	keys := make([]*ecdsa.PrivateKey, 4)
+	nodes := make([]capabilities.Node, 4)
+	addrs := make([]common.Address, 4)
+	for i := range keys {
+		keys[i], nodes[i], addrs[i] = makeQuorumTestNode(t, i)
+	}
+
+	resps := map[string]jsonrpc.Response[json.RawMessage]{}
+	for i := range 3 {
+		r := makeQuorumErrorResponse()
+		signEnvelope(t, keys[i], &r)
+		resps[strings.ToLower(addrs[i].Hex())] = r
+	}
+	// Fourth node replies unsigned; it must not count toward quorum.
+	resps[strings.ToLower(addrs[3].Hex())] = makeQuorumErrorResponse()
+
+	got, err := a.validateUsingQuorum(t.Context(), don, nodes, resps, lggr)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	digest, err := got.Digest()
+	require.NoError(t, err)
+	require.Len(t, got.NodeSignatures, 3)
+	assert.NoError(t, vaulttypes.ValidateNodeSignatures(digest, got.NodeSignatures, addrs[:3], 3))
+}
+
+func TestValidateUsingQuorum_NodeSignaturesEnforced_NonMemberSignerDropped(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	a := &baseAggregator{nodeSignaturesEnabled: limits.NewGateLimiter(true)}
+	don := capabilities.DON{F: 1, Members: make([]p2ptypes.PeerID, 4)}
+
+	keys := make([]*ecdsa.PrivateKey, 4)
+	nodes := make([]capabilities.Node, 4)
+	addrs := make([]common.Address, 4)
+	for i := range keys {
+		keys[i], nodes[i], addrs[i] = makeQuorumTestNode(t, i)
+	}
+
+	outsider, _, _ := makeQuorumTestNode(t, 4)
+
+	resps := map[string]jsonrpc.Response[json.RawMessage]{}
+	for i := range 2 {
+		r := makeQuorumErrorResponse()
+		signEnvelope(t, keys[i], &r)
+		resps[strings.ToLower(addrs[i].Hex())] = r
+	}
+	// Third node's response is signed by a key outside the DON signer set:
+	// the signature recovers to a non-member address and must be dropped.
+	rSignedByOutsider := makeQuorumErrorResponse()
+	signEnvelope(t, outsider, &rSignedByOutsider)
+	resps[strings.ToLower(addrs[2].Hex())] = rSignedByOutsider
+
+	_, err := a.validateUsingQuorum(t.Context(), don, nodes, resps, lggr)
+	require.ErrorIs(t, err, errInsufficientResponsesForQuorum)
+}
+
+func TestValidateUsingQuorum_NodeSignaturesDisabled(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	a := &baseAggregator{nodeSignaturesEnabled: limits.NewGateLimiter(false)}
+	don := capabilities.DON{F: 1, Members: make([]p2ptypes.PeerID, 4)}
+
+	keys := make([]*ecdsa.PrivateKey, 4)
+	nodes := make([]capabilities.Node, 4)
+	addrs := make([]common.Address, 4)
+	for i := range keys {
+		keys[i], nodes[i], addrs[i] = makeQuorumTestNode(t, i)
+	}
+
+	// Unsigned responses still reach quorum when enforcement is off.
+	resps := map[string]jsonrpc.Response[json.RawMessage]{}
+	for i := range 3 {
+		resps[strings.ToLower(addrs[i].Hex())] = makeQuorumErrorResponse()
+	}
+
+	got, err := a.validateUsingQuorum(t.Context(), don, nodes, resps, lggr)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Empty(t, got.NodeSignatures)
 }
