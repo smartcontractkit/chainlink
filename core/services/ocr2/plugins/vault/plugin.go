@@ -2447,6 +2447,7 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxPendingQueueWriteSize.Close(),
 		r.cfg.MaxBlobPayloadBytes.Close(),
 		r.cfg.VaultForceEmptyOCRRounds.Close(),
+		r.cfg.VaultGetSecretsIncludePublicKey.Close(),
 		r.cfg.VaultPendingQueueStallThreshold.Close(),
 	)
 }

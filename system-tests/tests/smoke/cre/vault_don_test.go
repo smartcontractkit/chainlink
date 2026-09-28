@@ -507,6 +507,13 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 // A workflow secret read must still succeed with both gates on (proving the response-carried key path
 // works), which is the reshare-safe read path.
 func ExecuteVaultReadSecretsWithReshareFlagsTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+	// VaultGetSecretsIncludePublicKey changes the OCR GetSecrets outcome (it adds
+	// RawVaultPublicKey to the response). That code path does not exist in baseline
+	// images, so in a mixed-version environment nodes would produce divergent outcomes
+	// (non-determinism). Skip until this PR is merged and baseline images carry it, then
+	// remove this SkipIfMixedEnv call.
+	t_helpers.SkipIfMixedEnv(t, "VaultGetSecretsIncludePublicKey changes OCR GetSecrets behavior absent in baseline images; causes non-determinism in mixed-version envs")
+
 	testLogger := framework.L
 
 	// Enable both reshare zero-downtime gates env-wide (top-level / global scope). Reverted on cleanup.

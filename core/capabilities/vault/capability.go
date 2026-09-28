@@ -96,6 +96,10 @@ func (s *Capability) Close() error {
 		err = errors.Join(err, lerr)
 	}
 
+	if lerr := s.encryptOnlyEnabled.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing encrypt-only gate limiter: %w", lerr))
+	}
+
 	return err
 }
 
