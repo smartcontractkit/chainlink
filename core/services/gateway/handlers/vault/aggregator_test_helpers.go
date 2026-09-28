@@ -76,9 +76,11 @@ func makeSignedVaultResponse(t *testing.T, method, requestID string, payload jso
 	round := ctx[63]
 
 	fullHash := ocr2key.ReportToSigData(ocr2types.ReportContext{
-		ConfigDigest: configDigest,
-		Epoch:        epoch,
-		Round:        round,
+		ReportTimestamp: ocr2types.ReportTimestamp{
+			ConfigDigest: configDigest,
+			Epoch:        epoch,
+			Round:        round,
+		},
 	}, []byte(payload))
 
 	signatures := make([][]byte, numSigners)
