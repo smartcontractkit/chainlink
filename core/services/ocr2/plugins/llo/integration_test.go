@@ -3188,9 +3188,17 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+	oracles, nodes, _ = setupNodesWithRestart(t, nNodes, backend, clientCSAKeys, f)
+	return oracles, nodes
+}
+
+// setupNodesWithRestart is setupNodes plus a per-node restart hook. See
+// setupRestartableNode.
+func setupNodesWithRestart(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node, restarts []func(t *testing.T, whileDown func()) chainlink.Application) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f)
+		app, peerID, transmitter, kb, observedLogs, restart := setupRestartableNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f)
+		restarts = append(restarts, restart)
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb, observedLogs,
@@ -3207,7 +3215,7 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
 		})
 	}
-	return oracles, nodes
+	return oracles, nodes, restarts
 }
 
 func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.ChannelDefinitions) (url string, sha [32]byte) {
@@ -3660,4 +3668,169 @@ ocrVersion = "3.1"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlo
 	}, reportTimeout, 100*time.Millisecond, "the lagging oracle should observe once it has caught up")
 
 	require.True(t, reportsFlowing(10*time.Second), "DON should keep reporting after the lagging oracle catches up")
+}
+
+// TestIntegration_LLO_v31_restart_resumes restarts one oracle of a reporting
+// v31 DON. v31 keeps its protocol state in a pebble key-value store on disk
+// rather than in an outcome carried between rounds, so a restarted oracle has
+// to reopen that store, recover its LLO job from the database, and rejoin a
+// protocol that advanced without it.
+//
+// The remaining 3 oracles (2F+1) keep the DON reporting throughout, so a
+// restart that failed to recover would show up as an oracle that never resumes
+// observing rather than as a stalled DON.
+func TestIntegration_LLO_v31_restart_resumes(t *testing.T) {
+	t.Parallel()
+
+	const (
+		salt      = int64(900)
+		donID     = uint32(555555)
+		streamID  = uint32(890)
+		channelID = uint32(1)
+	)
+	// restartedNode is the index of the oracle that is stopped and started again.
+	restartedNode := nNodes - 1
+
+	offchainConfig := lloprotocol.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
+		EnableObservationCompression:        true,
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := range nNodes {
+		k := big.NewInt(salt + int64(i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_restart", backend, bootstrapCSAKey, nil)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	packetCh := make(chan *packet, 100000)
+	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+	serverPubKey := serverKey.PublicKey
+	srv := NewMercuryServer(t, serverKey, packetCh)
+	serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+	oracles, nodes, restarts := setupNodesWithRestart(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
+	})
+
+	chainID := testutils.SimulatedChainID
+	relayType := "evm"
+	relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+	addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-restart", relayType, relayConfig)
+
+	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d
+ocrVersion = "3.1"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+	// One counter per node, so the restarted oracle's observations can be told
+	// apart from the rest of the DON's.
+	bridgeCalls := make([]*atomic.Uint64, nNodes)
+	price := decimal.NewFromFloat(456.7)
+	for i, node := range nodes {
+		bridgeCalls[i] = new(atomic.Uint64)
+		bridge := createSingleDecimalCountingBridge(t, "restart", i, price, node.App.BridgeORM(), bridgeCalls[i])
+		addSingleDecimalStreamJob(t, node, streamID, bridge)
+		addLLOJob(
+			t,
+			node,
+			configuratorAddress,
+			bootstrapPeerID,
+			bootstrapNodePort,
+			clientPubKeys[i],
+			"restart-test",
+			pluginConfig,
+			relayType,
+			relayConfig,
+		)
+	}
+
+	channelDefinitions := llotypes.ChannelDefinitions{
+		channelID: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamID, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+	}
+	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+	require.NoError(t, err)
+	backend.Commit()
+
+	setProductionConfig(
+		t, donID, steve, backend, configurator, configuratorAddress, nodes,
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithOCR31(),
+	)
+
+	reportsFlowing := func(d time.Duration) bool {
+		deadline := time.Now().Add(d)
+		for time.Now().Before(deadline) {
+			pckt, errReceive := receiveWithTimeout(t, packetCh, time.Until(deadline))
+			if errReceive != nil {
+				return false
+			}
+			req := pckt.req
+			if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+				continue
+			}
+			_, _, r, _, errDecode := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
+			if errDecode == nil && r.ChannelID == channelID {
+				return true
+			}
+		}
+		return false
+	}
+
+	require.Eventually(t, func() bool {
+		return reportsFlowing(2 * time.Second)
+	}, reportTimeout, 100*time.Millisecond, "DON should report before the restart")
+	require.Positive(t, bridgeCalls[restartedNode].Load(), "the oracle to restart should be observing first")
+
+	// Restart. The new application reopens the same database and key-value
+	// store root, so nothing below re-creates the jobs.
+	var callsWhileDown uint64
+	app := restarts[restartedNode](t, func() {
+		// While the oracle is down it must not observe, which is what makes the
+		// resumption below evidence of a real restart.
+		settled := bridgeCalls[restartedNode].Load()
+		require.Eventually(t, func() bool {
+			c := bridgeCalls[restartedNode].Load()
+			if c != settled {
+				settled = c
+				return false
+			}
+			return true
+		}, 15*time.Second, 500*time.Millisecond, "a stopped oracle should stop observing")
+		callsWhileDown = settled
+		require.True(t, reportsFlowing(10*time.Second), "DON should keep reporting while the oracle is down")
+		require.Equal(t, callsWhileDown, bridgeCalls[restartedNode].Load(), "a stopped oracle should not observe")
+	})
+	nodes[restartedNode].App = app
+
+	callsAfterRestart := bridgeCalls[restartedNode].Load()
+	require.Equal(t, callsWhileDown, callsAfterRestart, "no observations should have happened while the oracle was down")
+	require.Eventually(t, func() bool {
+		return bridgeCalls[restartedNode].Load() > callsAfterRestart
+	}, reportTimeout, 100*time.Millisecond, "the restarted oracle should resume observing without its jobs being re-created")
+
+	require.True(t, reportsFlowing(10*time.Second), "DON should keep reporting after the restarted oracle rejoins")
 }

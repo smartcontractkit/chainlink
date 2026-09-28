@@ -160,6 +160,23 @@ func setupNode(
 	csaKey csakey.KeyV2,
 	f func(*chainlink.Config),
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
+	app, peerID, clientPubKey, ocr2kb, observedLogs, _ = setupRestartableNode(t, port, dbName, backend, csaKey, f)
+	return app, peerID, clientPubKey, ocr2kb, observedLogs
+}
+
+// setupRestartableNode is setupNode plus a restart hook. restart stops the
+// application, runs whileDown (if any), then starts a new one on the same
+// config, database, keys and key-value store root, which is a process restart
+// with every piece of persisted state left in place: jobs, and the OCR3.1
+// (llo/v31) pebble store.
+func setupRestartableNode(
+	t *testing.T,
+	port int,
+	dbName string,
+	backend evmtypes.Backend,
+	csaKey csakey.KeyV2,
+	f func(*chainlink.Config),
+) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs, restart func(t *testing.T, whileDown func()) chainlink.Application) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
 	rdr := keystest.NewRandReaderFromSeed(int64(port))
@@ -222,19 +239,32 @@ func setupNode(
 	})
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, config.Log().Level())
-	if backend != nil {
-		app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
-	} else {
-		app = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+	// newApp builds and starts an application over the config above. Start
+	// registers its own cleanup, which tolerates an application this test
+	// already stopped.
+	newApp := func(t *testing.T) chainlink.Application {
+		var a chainlink.Application
+		if backend != nil {
+			a = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+		} else {
+			a = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+		}
+		require.NoError(t, a.Start(t.Context()))
+		return a
 	}
-	err := app.Start(t.Context())
-	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		assert.NoError(t, app.Stop())
-	})
+	app = newApp(t)
+	current := app
+	restart = func(t *testing.T, whileDown func()) chainlink.Application {
+		require.NoError(t, current.Stop())
+		if whileDown != nil {
+			whileDown()
+		}
+		current = newApp(t)
+		return current
+	}
 
-	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb, observedLogs
+	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb, observedLogs, restart
 }
 
 // receiveWithTimeout receives from the packet channel with a timeout.
