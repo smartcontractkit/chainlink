@@ -403,6 +403,13 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	}, nil
 }
 
+func (e *EngineFeatureFlags) Close() error {
+	if e == nil || e.WorkflowTagBackfill == nil {
+		return nil
+	}
+	return e.WorkflowTagBackfill.Close()
+}
+
 const (
 	defaultHeartbeatFrequencyMs = 1000 * 60 // 1 minute
 	defaultShutdownTimeoutMs    = 5000

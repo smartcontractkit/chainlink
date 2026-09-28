@@ -231,6 +231,7 @@ WorkflowLimit = "1"
 		PerOwner: 0,
 	}, limits.Factory{Settings: getter})
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, sLimiter.Close()) })
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -3291,6 +3292,7 @@ func createTestEngineForDonVersionTest(
 
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, lf)
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, sLimiter.Close()) })
 
 	// Use a mock WASM module (only mock we need!)
 	wasmModule := modulemocks.NewModuleV2(t)
