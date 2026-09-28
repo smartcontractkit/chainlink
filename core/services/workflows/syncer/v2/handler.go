@@ -422,7 +422,7 @@ func (h *eventHandler) close() error {
 	// untouched. A spec that is genuinely released stops being snapshotted
 	// (the spec meter sub-service unregisters itself after this hook runs).
 	cs := make([]io.Closer, 0, len(es)+1)
-	cs = append(cs, h.engineLimiters)
+	cs = append(cs, h.engineLimiters, h.featureFlags)
 	for _, e := range es {
 		cs = append(cs, e)
 	}
