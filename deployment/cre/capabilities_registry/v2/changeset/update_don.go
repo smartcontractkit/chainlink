@@ -62,9 +62,9 @@ type UpdateDONInput struct {
 	// Safe to combine with MergeCapabilityConfigsWithOnChain=true when CapabilityConfigs is empty.
 	Nodes []string `json:"nodes,omitempty" yaml:"nodes,omitempty"`
 
-	// ValidateNoDuplicateCapabilities enables the precondition check that rejects assigning
+	// SkipDuplicateCapabilityValidation disables the precondition check that rejects assigning
 	// the same capability to multiple DONs within a DON family.
-	ValidateNoDuplicateCapabilities bool `json:"validateNoDuplicateCapabilities,omitempty" yaml:"validateNoDuplicateCapabilities,omitempty"`
+	SkipDuplicateCapabilityValidation bool `json:"skipDuplicateCapabilityValidation,omitempty" yaml:"skipDuplicateCapabilityValidation,omitempty"`
 
 	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
@@ -76,7 +76,7 @@ func (u UpdateDON) VerifyPreconditions(e cldf.Environment, config UpdateDONInput
 		return errors.New("must provide a non-empty DONName")
 	}
 
-	if config.ValidateNoDuplicateCapabilities {
+	if !config.SkipDuplicateCapabilityValidation {
 		existingDONs, err := getExistingDONsForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
 		if err != nil {
 			return err

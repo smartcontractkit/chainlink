@@ -392,10 +392,9 @@ func TestUpdateDONChangeset_VerifyPreconditions_RejectsCapabilityAlreadyOnAnothe
 
 	var cs changeset.UpdateDON
 	err = cs.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
-		RegistryQualifier:               fx.qualifier,
-		RegistryChainSel:                fx.selector,
-		DONName:                         otherDONName,
-		ValidateNoDuplicateCapabilities: true,
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           otherDONName,
 		CapabilityConfigs: []contracts.CapabilityConfig{
 			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}}, // already assigned to fx.donName
 		},
@@ -406,21 +405,21 @@ func TestUpdateDONChangeset_VerifyPreconditions_RejectsCapabilityAlreadyOnAnothe
 
 	// Re-applying to the DON that already has the capability is not a conflict.
 	err = cs.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
-		RegistryQualifier:               fx.qualifier,
-		RegistryChainSel:                fx.selector,
-		DONName:                         fx.donName,
-		ValidateNoDuplicateCapabilities: true,
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           fx.donName,
 		CapabilityConfigs: []contracts.CapabilityConfig{
 			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}},
 		},
 	})
 	require.NoError(t, err)
 
-	// With the flag off (mainline default), the same assignment is allowed.
+	// With validation explicitly skipped (e.g. mainline tiering migrations), the same assignment is allowed.
 	err = cs.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
-		RegistryQualifier: fx.qualifier,
-		RegistryChainSel:  fx.selector,
-		DONName:           otherDONName,
+		RegistryQualifier:                 fx.qualifier,
+		RegistryChainSel:                  fx.selector,
+		DONName:                           otherDONName,
+		SkipDuplicateCapabilityValidation: true,
 		CapabilityConfigs: []contracts.CapabilityConfig{
 			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}},
 		},
@@ -454,10 +453,9 @@ func TestUpdateDONChangeset_VerifyPreconditions_AllowsCapabilityOnDONInDifferent
 
 	var cs changeset.UpdateDON
 	err = cs.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
-		RegistryQualifier:               fx.qualifier,
-		RegistryChainSel:                fx.selector,
-		DONName:                         otherDONName,
-		ValidateNoDuplicateCapabilities: true,
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           otherDONName,
 		CapabilityConfigs: []contracts.CapabilityConfig{
 			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}}, // already assigned to fx.donName, but in another family
 		},

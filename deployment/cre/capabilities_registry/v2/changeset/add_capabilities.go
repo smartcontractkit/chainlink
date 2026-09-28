@@ -40,9 +40,9 @@ type AddCapabilitiesInput struct {
 	// count from the registry, preventing accidental config count collisions.
 	FirstOCR3ConfigCapabilities map[string][]string `json:"firstOCR3ConfigCapabilities" yaml:"firstOCR3ConfigCapabilities"`
 
-	// ValidateNoDuplicateCapabilities enables the precondition check that rejects assigning
+	// SkipDuplicateCapabilityValidation disables the precondition check that rejects assigning
 	// the same capability to multiple DONs within a DON family.
-	ValidateNoDuplicateCapabilities bool `json:"validateNoDuplicateCapabilities,omitempty" yaml:"validateNoDuplicateCapabilities,omitempty"`
+	SkipDuplicateCapabilityValidation bool `json:"skipDuplicateCapabilityValidation,omitempty" yaml:"skipDuplicateCapabilityValidation,omitempty"`
 }
 
 type AddCapabilities struct{}
@@ -60,7 +60,7 @@ func (u AddCapabilities) VerifyPreconditions(e cldf.Environment, config AddCapab
 		}
 	}
 
-	if config.ValidateNoDuplicateCapabilities {
+	if !config.SkipDuplicateCapabilityValidation {
 		existingDONs, err := getExistingDONsForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
 		if err != nil {
 			return err
