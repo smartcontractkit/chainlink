@@ -52,7 +52,9 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	}
 
 	connMgr := testConnManager{}
-	handler, err := handlers.NewDummyHandler(shardedDONs, [][]handlers.DON{{&connMgr}}, logger.Test(t))
+	dons, err := handlers.NewShardedDONs(shardedDONs, [][]handlers.DON{{&connMgr}})
+	require.NoError(t, err)
+	handler, err := handlers.NewDummyHandler(dons, logger.Test(t))
 	require.NoError(t, err)
 	connMgr.SetHandler("", handler)
 

@@ -53,7 +53,9 @@ func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON,
 			Shards: []config.Shard{{Nodes: members}},
 		},
 	}
-	handler, err := NewHandler(json.RawMessage(cfgBytes), shardedDONs, [][]handlers.DON{{don}}, httpClient, lggr)
+	dons, err := handlers.NewShardedDONs(shardedDONs, [][]handlers.DON{{don}})
+	require.NoError(t, err)
+	handler, err := NewHandler(json.RawMessage(cfgBytes), dons, httpClient, lggr)
 	require.NoError(t, err)
 	return handler, httpClient, don, nodes
 }

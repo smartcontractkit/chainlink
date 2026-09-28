@@ -545,7 +545,7 @@ func registerWorkflow(_ *testing.T, handler *httpTriggerHandler, workflowID stri
 func assignWorkflowToAllShards(mh *WorkflowMetadataHandler, workflowID string) {
 	mh.mu.Lock()
 	defer mh.mu.Unlock()
-	mh.workflowShards[workflowID] = append([]*shardEndpoint(nil), mh.shards...)
+	mh.workflowShards[workflowID] = append([]*handlers.ShardEndpoint(nil), mh.shards...)
 }
 
 // registerWorkflowOnShards is the sharding-aware variant of registerWorkflow.
@@ -553,13 +553,13 @@ func assignWorkflowToAllShards(mh *WorkflowMetadataHandler, workflowID string) {
 // workflow to the given shard endpoints so that WorkflowShards(workflowID)
 // returns them and the trigger handler fans the request out only to those
 // shards. The metadata handler's map is written directly under its mutex.
-func registerWorkflowOnShards(t *testing.T, handler *httpTriggerHandler, workflowID string, privateKey *ecdsa.PrivateKey, assignedShards ...*shardEndpoint) {
+func registerWorkflowOnShards(t *testing.T, handler *httpTriggerHandler, workflowID string, privateKey *ecdsa.PrivateKey, assignedShards ...*handlers.ShardEndpoint) {
 	t.Helper()
 	registerWorkflow(t, handler, workflowID, privateKey)
 
 	handler.workflowMetadataHandler.mu.Lock()
 	defer handler.workflowMetadataHandler.mu.Unlock()
-	assigned := make([]*shardEndpoint, len(assignedShards))
+	assigned := make([]*handlers.ShardEndpoint, len(assignedShards))
 	copy(assigned, assignedShards)
 	handler.workflowMetadataHandler.workflowShards[workflowID] = assigned
 }
@@ -933,15 +933,17 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_DeliversOnlyToRegisteredSha
 	shard2Don := handlermocks.NewDON(t)
 	connMgrs := [][]handlers.DON{{shard0Don, shard1Don, shard2Don}}
 
-	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, connMgrs)
+	dons, err := handlers.NewShardedDONs(shardedDONs, connMgrs)
+	require.NoError(t, err)
+	shards, nodeAddrToShard, err := dons.BuildShardEndpoints()
 	require.NoError(t, err)
 	require.Len(t, shards, 3)
 	// Sanity-check donID derivation used by the metadata/trigger handlers.
-	require.Equal(t, "don", shards[0].donID)
-	require.Equal(t, "don_1", shards[1].donID)
-	require.Equal(t, "don_2", shards[2].donID)
+	require.Equal(t, "don", shards[0].DonID)
+	require.Equal(t, "don_1", shards[1].DonID)
+	require.Equal(t, "don_2", shards[2].DonID)
 
-	allMembersSlice := allMembers(shards)
+	allMembersSlice := handlers.AllMembers(shards)
 	testMetrics, err := metrics.NewMetrics(allMembersSlice)
 	require.NoError(t, err)
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
@@ -1005,9 +1007,9 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 	ctx := t.Context()
 
 	// Setup metadata handler with test data
-	err := handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].donID].Start(ctx)
+	err := handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].DonID].Start(ctx)
 	require.NoError(t, err)
-	defer handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].donID].Close()
+	defer handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].DonID].Close()
 
 	// Create test keys
 	privateKey := createTestPrivateKey(t)
@@ -1153,9 +1155,9 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	handler, mockDon := createTestTriggerHandler(t)
 	ctx := t.Context()
 
-	err := handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].donID].Start(ctx)
+	err := handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].DonID].Start(ctx)
 	require.NoError(t, err)
-	defer handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].donID].Close()
+	defer handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].DonID].Close()
 
 	privateKey := createTestPrivateKey(t)
 	signerAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -1838,7 +1840,9 @@ func createTestMetadataHandler(t *testing.T) *WorkflowMetadataHandler {
 	shardedDONs := []config.ShardedDONConfig{
 		{DonName: donConfig.DonID, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
 	}
-	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{{mockDon}})
+	dons, err := handlers.NewShardedDONs(shardedDONs, [][]handlers.DON{{mockDon}})
+	require.NoError(t, err)
+	shards, nodeAddrToShard, err := dons.BuildShardEndpoints()
 	require.NoError(t, err)
 	return NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
 }
@@ -1851,7 +1855,9 @@ func newTestTriggerHandler(t *testing.T, lggr logger.Logger, cfg ServiceConfig, 
 	shardedDONs := []config.ShardedDONConfig{
 		{DonName: donConfig.DonID, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
 	}
-	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{{mockDon}})
+	dons, err := handlers.NewShardedDONs(shardedDONs, [][]handlers.DON{{mockDon}})
+	require.NoError(t, err)
+	shards, nodeAddrToShard, err := dons.BuildShardEndpoints()
 	require.NoError(t, err)
 	// Repoint the metadata handler at THIS handler's shard set so that the
 	// workflowShards populated by registerWorkflow route sends to mockDon. The
@@ -1863,8 +1869,8 @@ func newTestTriggerHandler(t *testing.T, lggr logger.Logger, cfg ServiceConfig, 
 	metadataHandler.nodeAddrToShard = nodeAddrToShard
 	metadataHandler.aggs = make(map[string]*aggregation.WorkflowMetadataAggregator, len(shards))
 	for _, shard := range shards {
-		threshold := shard.f + 1
-		metadataHandler.aggs[shard.donID] = aggregation.NewWorkflowMetadataAggregator(metadataHandler.lggr, threshold, time.Duration(cfg.CleanUpPeriodMs)*time.Millisecond, testMetrics)
+		threshold := shard.F + 1
+		metadataHandler.aggs[shard.DonID] = aggregation.NewWorkflowMetadataAggregator(metadataHandler.lggr, threshold, time.Duration(cfg.CleanUpPeriodMs)*time.Millisecond, testMetrics)
 	}
 	return NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics, nil)
 }
@@ -1892,14 +1898,16 @@ func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpT
 	testMetrics := createTestMetrics(t, donConfig)
 
 	// Build ONE shared shard set so the metadata handler and the trigger handler
-	// reference the SAME shardEndpoint instances (and the same mockDon). This is
+	// reference the SAME ShardEndpoint instances (and the same mockDon). This is
 	// required because registerWorkflow writes workflowShards to the metadata
 	// handler's .shards, and sendWithRetries reads them back and sends via
-	// shard.connMgr — both must hit mockDon, which the test sets expectations on.
+	// shard.ConnMgr — both must hit mockDon, which the test sets expectations on.
 	shardedDONs := []config.ShardedDONConfig{
 		{DonName: donConfig.DonID, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
 	}
-	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{{mockDon}})
+	dons, err := handlers.NewShardedDONs(shardedDONs, [][]handlers.DON{{mockDon}})
+	require.NoError(t, err)
+	shards, nodeAddrToShard, err := dons.BuildShardEndpoints()
 	require.NoError(t, err)
 
 	metadataHandler := NewWorkflowMetadataHandler(lggr, WithDefaults(cfg), shards, nodeAddrToShard, testMetrics)
@@ -2223,7 +2231,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 // createMultiShardTriggerHandler builds a trigger handler over multiple shards
 // of a single DON. Each shard gets its own mock DON connection manager. Returns
 // the handler, the mock DONs (one per shard), and the shard endpoints.
-func createMultiShardTriggerHandler(t *testing.T, donName string, shardNodeSets [][]string, f int) (*httpTriggerHandler, []*handlermocks.DON, []*shardEndpoint) {
+func createMultiShardTriggerHandler(t *testing.T, donName string, shardNodeSets [][]string, f int) (*httpTriggerHandler, []*handlermocks.DON, []*handlers.ShardEndpoint) {
 	t.Helper()
 	lggr := logger.Test(t)
 	cfg := WithDefaults(ServiceConfig{
@@ -2247,10 +2255,12 @@ func createMultiShardTriggerHandler(t *testing.T, donName string, shardNodeSets 
 	shardedDONs := []config.ShardedDONConfig{
 		{DonName: donName, F: f, Shards: shardsCfg},
 	}
-	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{connMgrs})
+	dons, err := handlers.NewShardedDONs(shardedDONs, [][]handlers.DON{connMgrs})
+	require.NoError(t, err)
+	shards, nodeAddrToShard, err := dons.BuildShardEndpoints()
 	require.NoError(t, err)
 
-	allMembersSlice := allMembers(shards)
+	allMembersSlice := handlers.AllMembers(shards)
 	testMetrics, err := metrics.NewMetrics(allMembersSlice)
 	require.NoError(t, err)
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
@@ -2460,10 +2470,12 @@ func TestHttpTriggerHandler_MultiShardSendFailureResilience(t *testing.T) {
 	shard0Don := handlermocks.NewDON(t)
 	shard1Don := handlermocks.NewDON(t)
 	connMgrs := [][]handlers.DON{{shard0Don, shard1Don}}
-	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, connMgrs)
+	dons, err := handlers.NewShardedDONs(shardedDONs, connMgrs)
+	require.NoError(t, err)
+	shards, nodeAddrToShard, err := dons.BuildShardEndpoints()
 	require.NoError(t, err)
 
-	allMembersSlice := allMembers(shards)
+	allMembersSlice := handlers.AllMembers(shards)
 	testMetrics, err := metrics.NewMetrics(allMembersSlice)
 	require.NoError(t, err)
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)

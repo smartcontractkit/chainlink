@@ -10,12 +10,11 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 // DummyHandler forwards each request/response without doing any checks.
 type dummyHandler struct {
-	router         *NodeRouter
+	shards         []*ShardEndpoint
 	defaultDonID   string
 	savedCallbacks map[string]*savedCallback
 	mu             sync.Mutex
@@ -32,17 +31,17 @@ var _ Handler = (*dummyHandler)(nil)
 // NewDummyHandler builds a handler that forwards each request to every node across
 // every DON and shard it is given, and relays the first node response back to the
 // caller.
-func NewDummyHandler(shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]DON, lggr logger.Logger) (Handler, error) {
-	router, err := BuildNodeRouter(shardedDONs, shardsConnMgrs)
+func NewDummyHandler(dons *ShardedDONs, lggr logger.Logger) (Handler, error) {
+	shards, _, err := dons.BuildShardEndpoints()
 	if err != nil {
 		return nil, err
 	}
 	defaultDonID := ""
-	if len(shardedDONs) > 0 {
-		defaultDonID = shardedDONs[0].DonName
+	if len(dons.DONs) > 0 {
+		defaultDonID = dons.DONs[0].DonName
 	}
 	return &dummyHandler{
-		router:         router,
+		shards:         shards,
 		defaultDonID:   defaultDonID,
 		savedCallbacks: make(map[string]*savedCallback),
 		lggr:           logger.Named(lggr, "DummyHandler."+defaultDonID),
@@ -85,13 +84,10 @@ func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Mes
 		Method:  msg.Body.Method,
 		Params:  &rawParams,
 	}
-	for _, member := range d.router.Members() {
-		memberDON, ok := d.router.DONFor(member.Address)
-		if !ok {
-			err = errors.Join(err, fmt.Errorf("no connection manager found for node %s", member.Address))
-			continue
+	for _, shard := range d.shards {
+		for _, member := range shard.Members {
+			err = errors.Join(err, shard.ConnMgr.SendToNode(ctx, member.Address, req))
 		}
-		err = errors.Join(err, memberDON.SendToNode(ctx, member.Address, req))
 	}
 	return err
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -35,7 +34,7 @@ const (
 type handler struct {
 	services.StateMachine
 	config          HandlerConfig
-	router          *handlers.NodeRouter
+	nodeAddrToShard map[string]*handlers.ShardEndpoint
 	lggr            logger.Logger
 	httpClient      network.HTTPClient
 	nodeRateLimiter *ratelimit.RateLimiter
@@ -49,20 +48,20 @@ type HandlerConfig struct {
 
 var _ handlers.Handler = (*handler)(nil)
 
-func NewHandler(handlerConfig json.RawMessage, shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]handlers.DON, httpClient network.HTTPClient, lggr logger.Logger) (*handler, error) {
+func NewHandler(handlerConfig json.RawMessage, dons *handlers.ShardedDONs, httpClient network.HTTPClient, lggr logger.Logger) (*handler, error) {
 	var cfg HandlerConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	router, err := handlers.BuildNodeRouter(shardedDONs, shardsConnMgrs)
+	_, nodeAddrToShard, err := dons.BuildShardEndpoints()
 	if err != nil {
 		return nil, err
 	}
 	defaultDonID := ""
-	if len(shardedDONs) > 0 {
-		defaultDonID = shardedDONs[0].DonName
+	if len(dons.DONs) > 0 {
+		defaultDonID = dons.DONs[0].DonName
 	}
 
 	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
@@ -77,7 +76,7 @@ func NewHandler(handlerConfig json.RawMessage, shardedDONs []config.ShardedDONCo
 
 	return &handler{
 		config:          cfg,
-		router:          router,
+		nodeAddrToShard: nodeAddrToShard,
 		lggr:            logger.Named(lggr, "WebAPIHandler."+defaultDonID),
 		httpClient:      httpClient,
 		nodeRateLimiter: nodeRateLimiter,
@@ -188,12 +187,12 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 			l.Errorw(ErrTransformingMessageToRequest, "err", err)
 			return
 		}
-		nodeDON, ok := h.router.DONFor(nodeAddr)
+		shard, ok := h.nodeAddrToShard[nodeAddr]
 		if !ok {
 			l.Errorw("no connection manager found for node", "to", nodeAddr)
 			return
 		}
-		err = nodeDON.SendToNode(newCtx, nodeAddr, req)
+		err = shard.ConnMgr.SendToNode(newCtx, nodeAddr, req)
 		h.metrics.recordArtifactFetchResponseDelivery(newCtx, err == nil)
 		if err != nil {
 			l.Errorw("failed to send to node", "err", err, "to", nodeAddr)
