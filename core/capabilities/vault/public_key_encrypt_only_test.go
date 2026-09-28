@@ -87,6 +87,7 @@ func TestCapability_GetPublicKey_EncryptOnlyGate(t *testing.T) {
 	}
 
 	t.Run("gate closed returns full key with HArray", func(t *testing.T) {
+		t.Parallel()
 		c := newCap(t, cresettings.DefaultGetter)
 		resp, gerr := c.GetPublicKey(t.Context(), &vault.GetPublicKeyRequest{})
 		require.NoError(t, gerr)
@@ -94,6 +95,7 @@ func TestCapability_GetPublicKey_EncryptOnlyGate(t *testing.T) {
 	})
 
 	t.Run("gate open returns encrypt-only key without HArray", func(t *testing.T) {
+		t.Parallel()
 		getter, gerr := settings.NewJSONGetter([]byte(`{"global":{"VaultPublicKeyEncryptOnlyEnabled":"true"}}`))
 		require.NoError(t, gerr)
 		c := newCap(t, getter)

@@ -39,22 +39,23 @@ func TestStateTransitionGetSecrets_IncludesPublicKey(t *testing.T) {
 		},
 	}
 
-	t.Run("gate closed omits public key", func(t *testing.T) {
-		r.cfg.VaultGetSecretsIncludePublicKey = limits.NewGateLimiter(false)
-		o := &vaultcommon.Outcome{}
-		r.stateTransitionGetSecrets(t.Context(), chosen, o)
-		require.Len(t, o.GetGetSecretsResponse().GetResponses(), 1)
-		require.Empty(t, o.GetGetSecretsResponse().GetRawVaultPublicKey())
-	})
+	// Sequential (not subtests): both cases mutate the shared plugin config gate, so
+	// they must not run in parallel.
 
-	t.Run("gate open includes the instance public key", func(t *testing.T) {
-		r.cfg.VaultGetSecretsIncludePublicKey = limits.NewGateLimiter(true)
-		o := &vaultcommon.Outcome{}
-		r.stateTransitionGetSecrets(t.Context(), chosen, o)
-		require.Len(t, o.GetGetSecretsResponse().GetResponses(), 1)
+	// Gate closed: no public key attached to the response.
+	r.cfg.VaultGetSecretsIncludePublicKey = limits.NewGateLimiter(false)
+	oClosed := &vaultcommon.Outcome{}
+	r.stateTransitionGetSecrets(t.Context(), chosen, oClosed)
+	require.Len(t, oClosed.GetGetSecretsResponse().GetResponses(), 1)
+	require.Empty(t, oClosed.GetGetSecretsResponse().GetRawVaultPublicKey())
 
-		pkb, merr := pk.Marshal()
-		require.NoError(t, merr)
-		require.Equal(t, hex.EncodeToString(pkb), o.GetGetSecretsResponse().GetRawVaultPublicKey())
-	})
+	// Gate open: the instance public key is attached, matching pk.
+	r.cfg.VaultGetSecretsIncludePublicKey = limits.NewGateLimiter(true)
+	oOpen := &vaultcommon.Outcome{}
+	r.stateTransitionGetSecrets(t.Context(), chosen, oOpen)
+	require.Len(t, oOpen.GetGetSecretsResponse().GetResponses(), 1)
+
+	pkb, merr := pk.Marshal()
+	require.NoError(t, merr)
+	require.Equal(t, hex.EncodeToString(pkb), oOpen.GetGetSecretsResponse().GetRawVaultPublicKey())
 }

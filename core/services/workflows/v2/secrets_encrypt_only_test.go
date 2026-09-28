@@ -30,12 +30,14 @@ func TestParseVaultPublicKeyHex(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("parses a full key", func(t *testing.T) {
+		t.Parallel()
 		got, perr := parseVaultPublicKeyHex(hex.EncodeToString(full))
 		require.NoError(t, perr)
 		require.NotNil(t, got)
 	})
 
 	t.Run("parses an encrypt-only key (no HArray)", func(t *testing.T) {
+		t.Parallel()
 		var m map[string]json.RawMessage
 		require.NoError(t, json.Unmarshal(full, &m))
 		delete(m, "HArray")
@@ -47,6 +49,7 @@ func TestParseVaultPublicKeyHex(t *testing.T) {
 	})
 
 	t.Run("errors on invalid hex", func(t *testing.T) {
+		t.Parallel()
 		_, perr := parseVaultPublicKeyHex("nothex")
 		require.Error(t, perr)
 	})
