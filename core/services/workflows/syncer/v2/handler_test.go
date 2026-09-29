@@ -48,7 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
@@ -129,7 +128,7 @@ func (m *mockEngine) Name() string { return "mockEngine" }
 
 func (m *mockEngine) ExecuteTrigger(context.Context, triggers.CoordinatedEvent) error { return nil }
 
-func (m *mockEngine) Subscribe(context.Context) ([]*sdkpb.TriggerSubscription, error) {
+func (m *mockEngine) Subscribe(context.Context) ([]*sdk.TriggerSubscription, error) {
 	return nil, nil
 }
 
