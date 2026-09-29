@@ -1077,7 +1077,7 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 	if ok {
 		// on coordinated engines, stop coordinator ingress before draining,
 		// so the drain can actually reach zero active executions.
-		if h.triggerCoordinator != nil {
+		if e.Coordinated && h.triggerCoordinator != nil {
 			if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
 				h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
 			}
@@ -1212,7 +1212,7 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 	// This path (reconcile-to-inactive, replace-draining-engine) must mirror
 	// stopEngine's coordinator handling, or trigger registrations are left
 	// orphaned on this path alone.
-	if h.triggerCoordinator != nil {
+	if e.Coordinated && h.triggerCoordinator != nil {
 		if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
 			h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
 		}
