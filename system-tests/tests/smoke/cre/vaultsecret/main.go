@@ -27,11 +27,8 @@ func main() {
 	}).Run(RunVaultSecretWorkflow)
 }
 
-// RunVaultSecretWorkflow exposes an HTTP-triggered vault secret verification workflow.
-// Verification parameters arrive per invocation in the trigger input (see
-// config.TriggerInput), so tests request verification exactly when a state
-// change is expected instead of waiting for the next cron tick (the previous
-// cron-trigger variant was gated on its 30s minimum schedule).
+// RunVaultSecretWorkflow is an HTTP-triggered verifier; checks arrive per
+// invocation in config.TriggerInput.
 func RunVaultSecretWorkflow(cfg config.Config, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	return cre.Workflow[config.Config]{
 		cre.Handler(

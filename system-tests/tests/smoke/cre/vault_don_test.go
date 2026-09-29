@@ -57,10 +57,8 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	gwURL := fixture.GatewayURL.String()
 	vaultPublicKey := fixture.VaultPublicKey
 
-	// One verifier deployment serves the whole suite (phases are supplied per
-	// HTTP trigger invocation); identifier_validation shares it too because its
-	// workflow checks are negative-only and it is the suite's only t.Parallel
-	// subtest, so it resumes after every sequential sibling has completed.
+	// Shared by all subtests; checks are passed per HTTP trigger. Safe for the
+	// parallel identifier_validation subtest since its checks are negative-only.
 	verifier := deployVaultVerifierWorkflow(t, testEnv, fixture.TriggerAuth, "allowlist-verifier")
 
 	t.Run("allowlist_delete_batch_at_limit", func(t *testing.T) {
@@ -238,12 +236,6 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 			t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
 		})
 		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
-		// The workflow checks reuse the suite verifier (deployed under the
-		// suite env): identifier validation is negative-only (GetSecret is
-		// rejected before reading any owner's secrets), so the verifier's
-		// registered owner does not matter. subEnv remains in use for the
-		// gateway identifier-validation loop above, which needs its own
-		// on-chain owner to avoid nonce conflicts with parallel siblings.
 		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, verifier, ulCh, bmCh)
 		executeVaultSecretsGetBatchTooBigViaWorkflowTest(t, verifier, ulCh, bmCh)
 	})
@@ -298,7 +290,7 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	jwtAuth := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, false)
 	workflowOwnerAddress := common.HexToAddress(workflowOwner)
 
-	// One verifier deployment serves all mixed-auth phase verifications below.
+	// Shared by all mixed-auth phase checks below.
 	verifier := deployVaultVerifierWorkflow(t, testEnv, fixture.TriggerAuth, "mixed-auth-verifier")
 
 	t.Run("jwt_crud_with_workflow_owner", func(t *testing.T) {
@@ -554,9 +546,8 @@ func ExecuteVaultIncludeInvalidLivenessSmokeTest(t *testing.T, fixture *vaultSce
 	require.NoError(t, <-createErrCh)
 }
 
-// waitForDeletedSecretNotFoundPhase triggers the verifier workflow to fetch a
-// deleted secret, asserting the workflow observes the deletion (GetSecret
-// fails with "key does not exist") while include-invalid is enabled.
+// waitForDeletedSecretNotFoundPhase asserts the verifier workflow sees
+// deletedSecretID as not found.
 func waitForDeletedSecretNotFoundPhase(
 	t *testing.T,
 	verifier *vaultVerifierHandle,
@@ -1008,8 +999,7 @@ func executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(
 	testLogger := framework.L
 	testLogger.Info().Msg("Verifying get secret is rejected for invalid identifier via workflow...")
 
-	// Both invalid-key and invalid-namespace checks run in the same trigger invocation; a single
-	// success log is emitted only after both GetSecret calls are correctly rejected.
+	// Success is logged only after both the invalid key and invalid namespace are rejected.
 	triggerAndAwaitVaultVerifierLog(t, verifier, vaultsecret_config.TriggerInput{
 		ExpectInvalidIdentifier: true,
 		SecretKey:               "invalid-key-with-hyphens", // hyphen not in [a-zA-Z0-9_]; tests invalid key

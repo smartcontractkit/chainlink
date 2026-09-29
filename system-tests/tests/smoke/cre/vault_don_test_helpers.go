@@ -270,15 +270,12 @@ type vaultScenarioFixture struct {
 	LinkingService *stvault.TestLinkingService
 	GatewayURL     *url.URL
 	VaultPublicKey string
-	// TriggerAuth authorizes and signs HTTP trigger requests for verifier
-	// workflows deployed from this fixture (see deployVaultVerifierWorkflow).
+	// TriggerAuth signs HTTP trigger requests to verifier workflows.
 	TriggerAuth *vaultTriggerAuth
 }
 
-// vaultTriggerAuth holds the ECDSA key pair used to authorize and sign HTTP
-// trigger requests against vault verifier workflows. Address is embedded in
-// each workflow's http-trigger AuthorizedKeys deploy-time config; PrivateKey
-// signs the trigger request JWT.
+// vaultTriggerAuth is the HTTP trigger key pair: Address is the workflow's
+// authorized key, PrivateKey signs the request JWT.
 type vaultTriggerAuth struct {
 	Address    common.Address
 	PrivateKey *ecdsa.PrivateKey
@@ -1342,8 +1339,8 @@ func executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(
 	require.Contains(t, jsonResponse.Error.Error(), expectedAuthError)
 }
 
-// vaultVerifierHandle identifies a deployed vault verifier workflow together
-// with everything needed to trigger it over the gateway on demand.
+// vaultVerifierHandle is a deployed verifier workflow and what's needed to
+// trigger it via the gateway.
 type vaultVerifierHandle struct {
 	WorkflowName  string
 	WorkflowID    string
@@ -1353,22 +1350,13 @@ type vaultVerifierHandle struct {
 }
 
 const (
-	// vaultVerifierTriggerRetryInterval paces re-trigger attempts while the
-	// workflow is still being loaded or the phase is not yet satisfied.
 	vaultVerifierTriggerRetryInterval = 2 * time.Second
-	// vaultVerifierTriggerAttemptWindow bounds how long a single accepted
-	// trigger execution may take to emit the expected user log.
 	vaultVerifierTriggerAttemptWindow = 30 * time.Second
-	// vaultVerifierTriggerDeadline bounds the whole trigger-and-await loop
-	// (workflow load, trigger execution, and phase satisfaction retries).
-	vaultVerifierTriggerDeadline = 3 * time.Minute
+	vaultVerifierTriggerDeadline      = 3 * time.Minute
 )
 
-// deployVaultVerifierWorkflow compiles and registers the vaultsecret workflow
-// under the given test environment. What the workflow verifies is supplied per
-// invocation through the HTTP trigger input, so a single deployment can serve
-// every verification scenario; the deploy-time config only carries the
-// http-trigger authorized signing key.
+// deployVaultVerifierWorkflow deploys the vaultsecret workflow. Checks are
+// passed per trigger, so one deployment serves every scenario.
 func deployVaultVerifierWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, triggerAuth *vaultTriggerAuth, workflowBaseName string) *vaultVerifierHandle {
 	t.Helper()
 
@@ -1390,10 +1378,9 @@ func deployVaultVerifierWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, 
 	}
 }
 
-// sendVaultVerifierTriggerRequest sends one signed HTTP trigger request
-// carrying input to the deployed verifier workflow. It returns an error while
-// the workflow is still being loaded (syncer pickup + engine init) or when the
-// gateway rejects the request, so callers can retry.
+// sendVaultVerifierTriggerRequest sends one signed HTTP trigger request. It
+// returns a retryable error while the workflow is still loading or if the
+// gateway rejects the request.
 func sendVaultVerifierTriggerRequest(t *testing.T, handle *vaultVerifierHandle, input vaultsecret_config.TriggerInput) error {
 	t.Helper()
 
@@ -1413,9 +1400,7 @@ func sendVaultVerifierTriggerRequest(t *testing.T, handle *vaultVerifierHandle, 
 	require.NoError(t, err, "failed to marshal vault verifier trigger request")
 	rawParams := json.RawMessage(params)
 
-	// A fresh request ID per attempt: the node-side trigger request cache
-	// returns the cached ACCEPTED response for duplicate IDs without
-	// re-executing the workflow.
+	// Fresh ID per attempt: duplicate IDs get a cached response without re-executing.
 	req := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uuid.New().String(),
@@ -1470,11 +1455,8 @@ func sendVaultVerifierTriggerRequest(t *testing.T, handle *vaultVerifierHandle, 
 	return nil
 }
 
-// triggerAndAwaitVaultVerifierLog triggers the verifier workflow on demand and
-// waits for the expected user log, re-triggering while the request is not yet
-// accepted (workflow still loading) or the phase is not yet satisfied. This
-// replaces the former cron-trigger waits that were gated on the trigger's 30s
-// minimum schedule.
+// triggerAndAwaitVaultVerifierLog triggers the verifier and waits for
+// expectedUserLog, re-triggering until the workflow is loaded and checks pass.
 func triggerAndAwaitVaultVerifierLog(
 	t *testing.T,
 	handle *vaultVerifierHandle,
@@ -1492,7 +1474,7 @@ func triggerAndAwaitVaultVerifierLog(
 	cancelCtx, cancelCauseFn := context.WithCancelCause(ctx)
 	defer cancelCauseFn(nil)
 
-	// Fail fast on engine init errors for this workflow, mirroring WatchWorkflowLogs.
+	// Fail fast on engine init errors, as WatchWorkflowLogs does.
 	go func() {
 		t_helpers.FailOnBaseMessage(cancelCtx, cancelCauseFn, t, testLogger, baseMessageCh,
 			t_helpers.WorkflowEngineInitErrorLog, t_helpers.WithBaseMessageWorkflowID(handle.WorkflowID))
@@ -1525,8 +1507,7 @@ func triggerAndAwaitVaultVerifierLog(
 	}
 }
 
-// triggerAndAwaitVaultWorkflowPhase triggers the verifier workflow with a
-// single phase and waits for its completion log.
+// triggerAndAwaitVaultWorkflowPhase runs a single phase and waits for its completion log.
 func triggerAndAwaitVaultWorkflowPhase(
 	t *testing.T,
 	handle *vaultVerifierHandle,
@@ -1684,9 +1665,8 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 	_, err = deployerClient.Decode(capReg.UpdateDONByName(deployerClient.NewTXOpts(), don.Name, updateParams))
 	require.NoError(t, err, "UpdateDONByName tx failed")
 
-	// No explicit wait for the nodes' registry syncer (12s tick) to pick up the
-	// new capability config
-	testLogger.Info().Msg("Updated vault capability config in capabilities registry (nodes pick it up on their next syncer tick)")
+	// No wait: nodes pick up the config on their next registry syncer tick (12s).
+	testLogger.Info().Msg("Updated vault capability config in capabilities registry")
 }
 
 func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {

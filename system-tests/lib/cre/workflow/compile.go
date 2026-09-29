@@ -28,8 +28,7 @@ const (
 	LanguageTS Language = "typescript"
 )
 
-// CRE_TEST_COMPILE_CACHE_DISABLED bypasses the in-process workflow compile
-// cache (set to "true") when debugging compile-related issues.
+// Set CRE_TEST_COMPILE_CACHE_DISABLED=true to bypass the in-process compile cache.
 const compileCacheDisabledEnv = "CRE_TEST_COMPILE_CACHE_DISABLED"
 
 // CompileWorkflow compiles a workflow from a file path (absolute or relative) and returns the path to the compiled workflow.
@@ -44,12 +43,8 @@ func CompileWorkflow(ctx context.Context, workflowFilePath, workflowName string)
 
 // CompileWorkflowToDir compiles a workflow and stores build artifacts in outputDir.
 // If outputDir is empty, a temporary directory is created automatically.
-//
-// Compiled artifacts are cached in-process by a content hash of the workflow
-// module directory: identical sources compile once per test binary run no
-// matter how many deployments request them, and concurrent callers share a
-// single in-flight compile. Set CRE_TEST_COMPILE_CACHE_DISABLED=true to
-// bypass the cache.
+// Artifacts are cached in-process by a hash of the workflow directory, so
+// identical sources compile once per test run.
 func CompileWorkflowToDir(ctx context.Context, workflowFilePath, workflowName, outputDir string) (string, error) {
 	if len(workflowName) < 10 {
 		return "", errors.New("workflow name must be at least 10 characters long")
@@ -70,15 +65,12 @@ func CompileWorkflowToDir(ctx context.Context, workflowFilePath, workflowName, o
 		if keyErr == nil {
 			return compileWorkflowToDirCached(ctx, key, workflowFilePath, workflowName, outputDir)
 		}
-		// A hash failure never blocks compiling; it only disables the cache for this call.
 		framework.L.Warn().Err(keyErr).Str("workflow_file", workflowFilePath).Msg("failed to hash workflow sources; compiling without the compile cache")
 	}
 
 	return compileWorkflowToDirUncached(ctx, workflowFilePath, workflowName, outputDir)
 }
 
-// compileCacheEntry represents one cached (or in-flight) workflow compile.
-// A single leader compiles; followers wait on done and reuse the artifact.
 type compileCacheEntry struct {
 	done     chan struct{}
 	artifact []byte
@@ -94,9 +86,8 @@ func compileCacheEnabled() bool {
 	return strings.TrimSpace(strings.ToLower(os.Getenv(compileCacheDisabledEnv))) != "true"
 }
 
-// getOrCreateCompileCacheEntry returns the cache entry for key and whether the
-// caller is the leader responsible for compiling. Exactly one leader exists
-// per key at a time.
+// getOrCreateCompileCacheEntry returns the entry for key and whether the
+// caller is the leader that must compile it.
 func getOrCreateCompileCacheEntry(key string) (entry *compileCacheEntry, leader bool) {
 	compileCacheMu.Lock()
 	defer compileCacheMu.Unlock()
@@ -108,9 +99,8 @@ func getOrCreateCompileCacheEntry(key string) (entry *compileCacheEntry, leader 
 	return entry, true
 }
 
-// finalizeCompileCacheEntry publishes the compile result to all waiters.
-// Failed entries are dropped from the map so subsequent callers retry the
-// compile instead of reusing a stale failure.
+// finalizeCompileCacheEntry publishes the result to waiters. Failed entries
+// are evicted so later callers retry instead of reusing the failure.
 func finalizeCompileCacheEntry(key string, entry *compileCacheEntry, artifact []byte, err error) {
 	entry.artifact = artifact
 	entry.err = err
@@ -122,8 +112,6 @@ func finalizeCompileCacheEntry(key string, entry *compileCacheEntry, artifact []
 	close(entry.done)
 }
 
-// compileWorkflowToDirCached serves CompileWorkflowToDir from the compile
-// cache, compiling only on a cache miss.
 func compileWorkflowToDirCached(ctx context.Context, cacheKey, workflowFilePath, workflowName, outputDir string) (string, error) {
 	for {
 		entry, leader := getOrCreateCompileCacheEntry(cacheKey)
@@ -132,11 +120,8 @@ func compileWorkflowToDirCached(ctx context.Context, cacheKey, workflowFilePath,
 		}
 
 		if err := waitForCompileCacheEntry(ctx, entry); err != nil {
-			// Failed entries are dropped from the cache, so retrying makes this
-			// caller the new leader. That covers the case where the previous
-			// leader was merely cancelled (e.g. its test ended) while the
-			// compile itself is fine; deterministic compile failures fail
-			// again on the retry.
+			// The failed entry was evicted, so retrying makes this caller the
+			// leader (covers a previous leader whose context was cancelled).
 			framework.L.Warn().Str("workflow_name", workflowName).Err(err).Msg("in-flight workflow compile failed; retrying as the compile leader")
 			continue
 		}
@@ -156,7 +141,7 @@ func compileAsCompileCacheLeader(ctx context.Context, cacheKey string, entry *co
 	if cacheErr == nil {
 		b, readErr := os.ReadFile(artifactPath)
 		if readErr != nil {
-			// The artifact is valid for this caller; only the cache is degraded.
+			// Artifact is still valid for this caller; only caching is skipped.
 			cacheErr = errors.Wrap(readErr, "failed to read compiled workflow artifact for the compile cache")
 		} else {
 			artifact = b
@@ -167,8 +152,7 @@ func compileAsCompileCacheLeader(ctx context.Context, cacheKey string, entry *co
 	return artifactPath, compileErr
 }
 
-// waitForCompileCacheEntry blocks until the leader's compile finishes. It
-// fails on a leader compile error or once the caller's own context ends.
+// waitForCompileCacheEntry blocks until the leader finishes or ctx ends.
 func waitForCompileCacheEntry(ctx context.Context, entry *compileCacheEntry) error {
 	select {
 	case <-entry.done:
@@ -184,11 +168,8 @@ func waitForCompileCacheEntry(ctx context.Context, entry *compileCacheEntry) err
 	}
 }
 
-// workflowSourceCacheKey hashes every file under the workflow file's module
-// directory (source files, go.mod/go.sum, package.json, etc.), excluding
-// build outputs. The hash covers the complete build inputs, so any source or
-// dependency change produces a new key while rebuilds of unchanged sources
-// hit the cache.
+// workflowSourceCacheKey hashes all build inputs in the workflow's directory
+// (sources, go.mod/go.sum, package.json, ...), excluding build outputs.
 func workflowSourceCacheKey(workflowFilePath string) (string, error) {
 	dir := filepath.Dir(workflowFilePath)
 
@@ -232,9 +213,8 @@ func workflowSourceCacheKey(workflowFilePath string) (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-// writeCompressedArtifact writes a cached compressed workflow artifact under
-// the canonical <workflowName>.br.b64 name in outputDir, matching
-// compressWorkflow's naming that downstream registration and cleanup rely on.
+// writeCompressedArtifact writes a cached artifact to
+// outputDir/<workflowName>.br.b64, matching compressWorkflow's naming.
 func writeCompressedArtifact(outputDir, workflowName string, artifact []byte) (string, error) {
 	if mkErr := os.MkdirAll(outputDir, 0o755); mkErr != nil {
 		return "", errors.Wrap(mkErr, "failed to prepare workflow build dir")
@@ -246,9 +226,8 @@ func writeCompressedArtifact(outputDir, workflowName string, artifact []byte) (s
 	return outputFile, nil
 }
 
-// compileWorkflowToDirUncached performs the actual compile (including go mod
-// tidy for Go workflows) and returns the path to the compressed artifact in
-// outputDir.
+// compileWorkflowToDirUncached compiles the workflow and returns the path to
+// the compressed artifact in outputDir.
 func compileWorkflowToDirUncached(ctx context.Context, workflowFilePath, workflowName, outputDir string) (string, error) {
 	language, lErr := delectLanguage(workflowFilePath)
 	if lErr != nil {
