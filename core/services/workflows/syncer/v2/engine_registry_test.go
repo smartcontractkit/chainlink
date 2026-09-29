@@ -263,7 +263,16 @@ func TestCountEngines(t *testing.T) {
 			{Service: &fakeDrainableService{}},
 			{Service: &fakeDrainableService{draining: true}},
 			{Service: &fakeService{}},
+			{Service: newTestShardFailoverManager(t, &mockEngine{})},
 		}
-		require.Equal(t, engineCounts{draining: 2, coordinated: 2, legacy: 3}, countEngines(engines))
+		require.Equal(t, engineCounts{draining: 2, coordinated: 2, legacy: 4}, countEngines(engines))
+	})
+
+	t.Run("a sharded wrapper follows the engine it wraps", func(t *testing.T) {
+		t.Parallel()
+		engines := []ServiceWithMetadata{
+			{Service: newTestShardFailoverManager(t, &fakeCoordinatedDrainableEngine{})},
+		}
+		require.Equal(t, engineCounts{coordinated: 1}, countEngines(engines))
 	})
 }
