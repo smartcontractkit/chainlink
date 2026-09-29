@@ -48,6 +48,7 @@ type triggerPublisher struct {
 	bqMu             sync.Mutex // protects batchingQueue
 	stopCh           services.StopChan
 	wg               sync.WaitGroup
+	closeOnce        sync.Once
 	ackExecutor      *ParallelExecutor
 	registerExecutor *ParallelExecutor
 	lggr             logger.Logger
@@ -929,22 +930,27 @@ func (p *triggerPublisher) batchingLoop() {
 }
 
 func (p *triggerPublisher) Close() error {
-	close(p.stopCh)
+	var err error
+	p.closeOnce.Do(func() {
+		close(p.stopCh)
 
-	if p.ackExecutor != nil {
-		if err := p.ackExecutor.Close(); err != nil {
-			return fmt.Errorf("failed to close ack executor: %w", err)
+		if p.ackExecutor != nil {
+			if e := p.ackExecutor.Close(); e != nil {
+				err = fmt.Errorf("failed to close ack executor: %w", e)
+				return
+			}
 		}
-	}
-	if p.registerExecutor != nil {
-		if err := p.registerExecutor.Close(); err != nil {
-			return fmt.Errorf("failed to close register executor: %w", err)
+		if p.registerExecutor != nil {
+			if e := p.registerExecutor.Close(); e != nil {
+				err = fmt.Errorf("failed to close register executor: %w", e)
+				return
+			}
 		}
-	}
 
-	p.wg.Wait()
-	p.lggr.Info("TriggerPublisher closed")
-	return nil
+		p.wg.Wait()
+		p.lggr.Info("TriggerPublisher closed")
+	})
+	return err
 }
 
 func (p *triggerPublisher) Ready() error {

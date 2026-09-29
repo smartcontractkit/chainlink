@@ -44,6 +44,7 @@ type triggerSubscriber struct {
 	mu             sync.RWMutex // protects registeredWorkflows, messageCache, and ackReplayCache
 	stopCh         services.StopChan
 	wg             sync.WaitGroup
+	closeOnce      sync.Once
 	lggr           logger.Logger
 }
 
@@ -495,9 +496,11 @@ func (s *triggerSubscriber) eventCleanupLoop() {
 }
 
 func (s *triggerSubscriber) Close() error {
-	close(s.stopCh)
-	s.wg.Wait()
-	s.lggr.Info("TriggerSubscriber closed")
+	s.closeOnce.Do(func() {
+		close(s.stopCh)
+		s.wg.Wait()
+		s.lggr.Info("TriggerSubscriber closed")
+	})
 	return nil
 }
 
