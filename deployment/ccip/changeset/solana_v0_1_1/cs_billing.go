@@ -164,7 +164,7 @@ func AddBillingToken(
 }
 
 func AddBillingTokenChangeset(e cldf.Environment, cfg BillingTokenConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -241,7 +241,7 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment, sta
 }
 
 func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeForRemoteChainConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -363,7 +363,7 @@ func (cfg UpdatePricesConfig) Validate(e cldf.Environment, state stateview.CCIPO
 }
 
 func UpdatePrices(e cldf.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOutput, error) {
-	s, err := stateview.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -468,7 +468,7 @@ func (cfg ModifyPriceUpdaterConfig) Validate(e cldf.Environment, state stateview
 }
 
 func ModifyPriceUpdater(e cldf.Environment, cfg ModifyPriceUpdaterConfig) (cldf.ChangesetOutput, error) {
-	s, err := stateview.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -571,7 +571,7 @@ func (cfg WithdrawBilledFundsConfig) Validate(e cldf.Environment, state statevie
 }
 
 func WithdrawBilledFunds(e cldf.Environment, cfg WithdrawBilledFundsConfig) (cldf.ChangesetOutput, error) {
-	s, err := stateview.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -667,7 +667,7 @@ func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e cldf.Environment, state statevi
 }
 
 func SetMaxFeeJuelsPerMsg(e cldf.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

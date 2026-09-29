@@ -4,7 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // EventSink is how trigger events are delivered to an engine for execution.
@@ -23,10 +26,6 @@ import (
 // Expected errors:
 //   - ErrDuplicateExecution — the event was already executed (dedup gate).
 //     The engine ACKs the duplicate internally before returning.
-//   - ErrShardDeniedNotOwner — this node is not the shard owner.
-//     The engine ACKs the event internally before returning.
-//   - ErrShardDeniedOrchestrator — shard ownership check failed due to
-//     orchestrator error. The engine ACKs the event internally before returning.
 //   - ErrMeteringReserveFailed — metering report reservation failed.
 //     No ACK is sent; the caller may retry.
 //
@@ -34,7 +33,7 @@ import (
 // NOT returned as errors. They are captured by OnExecutionError and
 // OnExecutionFinished hooks. ExecuteTrigger returns nil in these cases.
 type EventSink interface {
-	ExecuteTrigger(ctx context.Context, event RoutedTriggerEvent) error
+	ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error
 }
 
 // Acknowledger acknowledges a trigger event without the engine owning the
@@ -47,7 +46,7 @@ type EventSink interface {
 //   - Shard ownership denial — this node is not the shard owner; the engine
 //     ACKs to signal the event was processed (skipped).
 //   - Normal execution start — the engine ACKs after the execution begins
-//     (not shown in the current code path; reserved for M2 dispatcher).
+//     (not shown in the current code path; reserved for M2 coordinator).
 //
 // Ack is idempotent: calling it multiple times for the same event is safe.
 // The implementation is responsible for looking up the trigger handle by
@@ -56,24 +55,35 @@ type Acknowledger interface {
 	Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error
 }
 
-// RoutedTriggerEvent is the canonical trigger event type that flows
-// through the dispatch path into the engine.
-type RoutedTriggerEvent struct {
-	WorkflowID   string
-	TriggerCapID string
-	TriggerIndex int
+// Subscriber is how a caller obtains an engine's trigger subscriptions on
+// demand. Subscribe issues the WASM Subscribe call directly (no caching): the
+// engine holds no subscription state of its own, so every call is a fresh
+// WASM round trip and callers are responsible for calling it exactly once
+// per registration. Tenant identifies the tenant the subscriptions belong to.
+type Subscriber interface {
+	Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error)
+	Tenant() contexts.CRE
+}
 
-	// ObservedAt is the time the RoutedTriggerEvent was constructed by the
-	// dispatcher. It is used for skew metrics (queue wait time)
-	// and deadline enforcement.
-	ObservedAt time.Time
+// Drainable is the graceful-shutdown contract. The syncer has a structurally
+// identical local interface (syncer/v2.DrainableService); both are satisfied by
+// the same methods, so no cross-package dependency is introduced.
+type Drainable interface {
+	Drain() bool
+	ActiveExecutions() int32
+	DrainStartedAt() (time.Time, bool)
+}
 
-	// Deadline is the expiry of this event in the dispatch queue,
-	// stamped once at dispatch as ObservedAt + TriggerEventQueueTimeout.
-	// A settings change after dispatch does not affect already-queued events
-	Deadline time.Time
+// WorkflowEngine is the contract every workflow engine implementation satisfies,
+// independent of which component owns trigger registration and acknowledgement.
+type WorkflowEngine interface {
+	services.Service
+	EventSink
+	Drainable
+	Subscriber
 
-	// SequenceNumber determines the execution order of trigger events across the DON. In M1 it is always 0 (no consensus ordering).
-	SequenceNumber uint64
-	Event          capabilities.TriggerResponse
+	// IsCoordinated is true if the engine does not manage its own
+	// trigger registration, trigger dequeuing, execution or acknowledgement.
+	// Fixed at construction.
+	IsCoordinated() bool
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
@@ -27,10 +28,13 @@ const (
 )
 
 // Helper to deploy signer registry directly for testing
-func deployTestSignerRegistry(t *testing.T, env cldf.Environment, selector uint64, initialSigners []signer_registry.ISignerRegistrySigner) common.Address {
+func deployTestSignerRegistry(t *testing.T, env cldf.Environment, selector uint64, initialSigners []signer_registry.ISignerRegistrySigner) (common.Address, datastore.MutableDataStore) {
 	chain := env.BlockChains.EVMChains()[selector]
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(env.DataStore))
 
-	signerRegistry, err := cldf.DeployContract(env.Logger, chain, env.ExistingAddresses,
+	signerRegistry, err := shared.DeployContractAndRecord(env.Logger, chain, env.ExistingAddresses, ds,
+		cldf.NewTypeAndVersion(shared.EVMSignerRegistry, deployment.Version1_0_0), "",
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*signer_registry.SignerRegistry] {
 			address, tx, signerRegistry, err := signer_registry.DeploySignerRegistry(
 				chain.DeployerKey,
@@ -48,7 +52,7 @@ func deployTestSignerRegistry(t *testing.T, env cldf.Environment, selector uint6
 		},
 	)
 	require.NoError(t, err)
-	return signerRegistry.Address
+	return signerRegistry.Address, ds
 }
 
 func TestEVMSignerRegistryConfiguration_Preconditions(t *testing.T) {
@@ -139,9 +143,9 @@ func TestEVMSignerRegistryConfiguration_StateValidation(t *testing.T) {
 	t.Parallel()
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
-	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+	e, err := environment.New(t.Context(),
 		environment.WithEVMSimulated(t, []uint64{selector}),
-	))
+	)
 	require.NoError(t, err)
 
 	// Deploy registry with known signers
@@ -151,7 +155,9 @@ func TestEVMSignerRegistryConfiguration_StateValidation(t *testing.T) {
 		{EvmAddress: signer1, NewEVMAddress: utils.ZeroAddress},
 		{EvmAddress: signer2, NewEVMAddress: utils.ZeroAddress},
 	}
-	deployTestSignerRegistry(t, rt.Environment(), selector, initialSigners)
+	_, ds := deployTestSignerRegistry(t, *e, selector, initialSigners)
+	e.DataStore = ds.Seal()
+	rt := runtime.NewFromEnvironment(*e)
 
 	// Test updating non-existent signer
 	nonExistent := utils.RandomAddress()
@@ -188,13 +194,13 @@ func TestEVMSignerRegistryConfiguration_DirectExecution(t *testing.T) {
 	t.Parallel()
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
-	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+	e, err := environment.New(t.Context(),
 		environment.WithEVMSimulated(t, []uint64{selector}),
 		environment.WithLogger(logger.Test(t)),
-	))
+	)
 	require.NoError(t, err)
 
-	chain := rt.Environment().BlockChains.EVMChains()[selector]
+	chain := e.BlockChains.EVMChains()[selector]
 
 	// Deploy registry with signers
 	signer1 := utils.RandomAddress()
@@ -203,7 +209,9 @@ func TestEVMSignerRegistryConfiguration_DirectExecution(t *testing.T) {
 		{EvmAddress: signer1, NewEVMAddress: utils.ZeroAddress},
 		{EvmAddress: signer2, NewEVMAddress: utils.ZeroAddress},
 	}
-	registryAddr := deployTestSignerRegistry(t, rt.Environment(), selector, initialSigners)
+	registryAddr, ds := deployTestSignerRegistry(t, *e, selector, initialSigners)
+	e.DataStore = ds.Seal()
+	rt := runtime.NewFromEnvironment(*e)
 
 	// Configure valid updates
 	config := ccip_attestation.SetNewSignerAddressesConfig{

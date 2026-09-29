@@ -164,9 +164,7 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 		})
 	case suite_config.SuiteScenarioDONTime:
 		t.Run("DON Time - "+topology, func(t *testing.T) {
-			if nonDeterminismCheckEnabled() {
-				t.Skip("DONTime registry launch requires all nodes to support jobless capability startup")
-			}
+			t_helpers.SkipIfMixedEnv(t, "DONTime registry launch requires all nodes to support jobless capability startup")
 			if parallelEnabled {
 				t.Parallel()
 			}
@@ -369,6 +367,15 @@ func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
 	)
 	ExecuteManualShardAssignmentTest(t, testEnv)
+}
+
+//nolint:paralleltest // mutates CRE settings and shard assignment on the shared environment
+func Test_CRE_V2_ShardManualAssignmentBothSpecs(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
+	)
+	ExecuteManualShardAssignmentBothSpecs(t, testEnv)
 }
 
 //nolint:paralleltest // the test owns the sharded topology it runs on

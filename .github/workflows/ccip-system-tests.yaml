@@ -56,6 +56,13 @@ on:
         description:
           "When true, restricts the matrix to tests flagged mixed_version=true
           (used by the release rollout job)."
+      run_mixed_version_tests:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "Whether to run the mixed-version tests. Only used for manual
+          workflow_dispatch runs; these tests are skipped on automatic runs."
   workflow_call:
     inputs:
       chainlink_image_repository_path:
@@ -107,6 +114,13 @@ on:
         description:
           "When true, restricts the matrix to tests flagged mixed_version=true
           (used by the release rollout job)."
+      run_mixed_version_tests:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "Whether to run the mixed-version tests. Only used for manual
+          workflow_dispatch runs; these tests are skipped on automatic runs."
 
 jobs:
   define-test-matrix:
@@ -122,40 +136,14 @@ jobs:
         id: spot
         uses: $/.github/actions/setup-runner-spot
 
-      # TODO(DX-5101): replace this inline jq matrix step with `ci matrix ccip`
       - name: Define test matrix
         id: define-matrix
         shell: bash
         env:
-          RUN_ID: ${{ github.run_id }}
-          RUN_ATTEMPT: ${{ github.run_attempt }}
-          SPOT_FLAG: ${{ steps.spot.outputs.spot_flag }}
-        run: |
-          TESTS_JSON='[
-            {"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2"},
-            {"test_name":"TestRMN_GlobalCurseTwoMessagesOnTwoLanes","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","rmn_rageproxy_version":"master-amd6416f5d86","rmn_afn2proxy_version":"master-amd64-10b42b2"},
-            {"test_name":"TestDeleteCCIPJobs-TestRevokeJobs","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","job_timeout":20},
-            {"test_name":"Test_CCIPMixedVersionDON","timeout":"20m","selected_network":"SIMULATED_1,SIMULATED_2","mixed_version":true},
-            {"test_name":"Test_CCIPRollingUpgrade","timeout":"30m","selected_network":"SIMULATED_1,SIMULATED_2","mixed_version":true}
-          ]'
-
-          tests=$(echo "$TESTS_JSON" | jq -c \
-            --argjson run_id "$RUN_ID" \
-            --arg run_attempt "$RUN_ATTEMPT" \
-            --arg spot_flag "$SPOT_FLAG" '
-            to_entries | map(.value + {
-              test_id: .key,
-              runs_on: ("runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=r6i+r7i+r8i/\($spot_flag)/image=ubuntu24-full-x64/extras=s3-cache+tmpfs")
-            })
-          ')
-
-          # Release rollout callers pass mixed_version_only=true to run only the
-          # mixed-version / rolling-upgrade tests instead of the full smoke suite.
-          if [[ "${{ inputs.mixed_version_only }}" == "true" ]]; then
-            tests=$(echo "$tests" | jq -c '[ .[] | select(.mixed_version == true) ]')
-          fi
-
-          echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
+          RUNNER_SPOT_FLAG: ${{ steps.spot.outputs.spot_flag }}
+          RUN_MIXED_VERSION_TESTS: ${{ inputs.run_mixed_version_tests }}
+          MIXED_VERSION_ONLY: ${{ inputs.mixed_version_only }}
+        run: ci matrix ccip
 
   run-ccip-tests:
     name: ${{ matrix.tests.test_name }}

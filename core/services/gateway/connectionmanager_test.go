@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,8 +16,12 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -110,7 +115,7 @@ Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 [nodeServerConfig]
 Path = "/node"` + config
 			lggr := logger.Test(t)
-			gMetrics, err := monitoring.NewGatewayMetrics()
+			gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 			require.NoError(t, err)
 			_, err = gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
 			require.Error(t, err)
@@ -371,7 +376,7 @@ Address = "0x0001020304050607080900010203040506070809"
 
 	cfg := parseTOMLConfig(t, tomlConfig)
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 	_, err = gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
 	require.Error(t, err)
@@ -547,7 +552,7 @@ func TestConnectionManager_ReadyForTrafficLogsDisconnectedNodes(t *testing.T) {
 	cfg, nodes := newTestConfig(t, 4)
 	cfg.ShardedDONs[0].F = 1
 	lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 	mgr, err := gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
@@ -576,7 +581,7 @@ func TestConnectionManager_ReadyForTrafficFailsClosedAndSortsErrors(t *testing.T
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 	lf := limits.Factory{Logger: lggr}
 
@@ -717,9 +722,105 @@ func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
 
 func newConnectionManager(t *testing.T, gwConfig *config.GatewayConfig, clock clockwork.Clock) gateway.ConnectionManager {
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 	mgr, err := gateway.NewConnectionManager(gwConfig, clock, gMetrics, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	return mgr
+}
+
+// findHistogramDataPoint returns the histogram data point for the metric with
+// the given name whose attributes match all of the given key/value pairs.
+func findHistogramDataPoint(rm metricdata.ResourceMetrics, name string, attrs map[string]string) (metricdata.HistogramDataPoint[int64], bool) {
+	for _, scopeMetrics := range rm.ScopeMetrics {
+		for _, metric := range scopeMetrics.Metrics {
+			if metric.Name != name {
+				continue
+			}
+			histogram, ok := metric.Data.(metricdata.Histogram[int64])
+			if !ok {
+				continue
+			}
+			for _, dp := range histogram.DataPoints {
+				matches := true
+				for k, v := range attrs {
+					attributeValue, ok := dp.Attributes.Value(attribute.Key(k))
+					if !ok || attributeValue.AsString() != v {
+						matches = false
+						break
+					}
+				}
+				if matches {
+					return dp, true
+				}
+			}
+		}
+	}
+	return metricdata.HistogramDataPoint[int64]{}, false
+}
+
+// TestConnectionManager_PingRoundTripMetric verifies that a delayed pong yields
+// a correspondingly large observed ping round trip, that the node echoes the
+// correlation token, and that the sample is attributed to the right node.
+func TestConnectionManager_PingRoundTripMetric(t *testing.T) { //nolint:paralleltest // replaces the process-global Beholder client
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
+	reader := sdkmetric.NewManualReader()
+	meterProvider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	meter := meterProvider.Meter("connection-manager-test")
+	t.Cleanup(func() { require.NoError(t, meterProvider.Shutdown(t.Context())) })
+
+	cfg, nodes := newTestConfig(t, 1)
+	cfg.ConnectionManagerConfig.HeartbeatIntervalSec = 1
+	cfg.ConnectionManagerConfig.PongTimeoutSec = 5
+	clock := clockwork.NewRealClock()
+	lggr := logger.Test(t)
+	gMetrics, err := monitoring.NewGatewayMetrics(meter)
+	require.NoError(t, err)
+	mgr, err := gateway.NewConnectionManager(cfg, clock, gMetrics, lggr, limits.Factory{Logger: lggr})
+	require.NoError(t, err)
+	require.NoError(t, mgr.Start(t.Context()))
+	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
+
+	serverConn, clientConn := newWebSocketPair(t)
+
+	// Node side: echo the ping's correlation token after a controlled delay.
+	// The existing default ping handler echoes the payload unchanged; this
+	// custom handler only adds the delay and asserts the token is present.
+	const pongDelay = 200 * time.Millisecond
+	var sawToken atomic.Bool
+	clientConn.SetPingHandler(func(appData string) error {
+		if appData != "" {
+			sawToken.Store(true)
+		}
+		time.Sleep(pongDelay)
+		return clientConn.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(5*time.Second))
+	})
+	// The client must read so that ping control frames are processed.
+	go func() {
+		for {
+			if _, _, err := clientConn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}()
+
+	doHandshake(t, mgr, clock, nodes[0], serverConn)
+
+	require.Eventually(t, func() bool {
+		var rm metricdata.ResourceMetrics
+		if err := reader.Collect(t.Context(), &rm); err != nil {
+			return false
+		}
+		dp, ok := findHistogramDataPoint(rm, "platform_gateway_ws_ping_round_trip_ms", map[string]string{
+			"nodeAddress": strings.ToLower(nodes[0].Address),
+			"nodeName":    "node_0",
+		})
+		return ok && dp.Count >= 1 && dp.Sum >= 150
+	}, 10*time.Second, 100*time.Millisecond,
+		"a pong delayed by %s must produce an observed ping round trip of at least ~150ms", pongDelay)
+
+	require.True(t, sawToken.Load(), "node's ping handler must receive the correlation token and echo it")
 }

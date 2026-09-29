@@ -150,9 +150,8 @@ func NewConfidentialModule(capRegistry registry.CapabilitiesRegistry, executionH
 	}, nil
 }
 
-func (m *ConfidentialModule) Start()            {}
-func (m *ConfidentialModule) Close()            {}
-func (m *ConfidentialModule) IsLegacyDAG() bool { return false }
+func (m *ConfidentialModule) Start() {}
+func (m *ConfidentialModule) Close() {}
 
 func (m *ConfidentialModule) Execute(
 	ctx context.Context,

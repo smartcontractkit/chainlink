@@ -967,6 +967,39 @@ func ParallelEnabled() bool {
 	return v == "1" || v == "true" || v == "yes"
 }
 
+// IsMixedEnvTopology reports whether the suite is running under a mixed-env topology,
+// i.e. each multi-node DON runs 2 nodes on the PR image and 2 on the develop/baseline
+// image. CI sets TOPOLOGY_NAME=mixed-env for these runs. This is the signal that a DON
+// can legitimately behave two ways at once, so it is the correct gate for
+// SkipIfMixedEnv. See core/scripts/cre/environment/docs/mixed-env.md.
+func IsMixedEnvTopology() bool {
+	return strings.Contains(strings.ToLower(os.Getenv("TOPOLOGY_NAME")), "mixed-env")
+}
+
+// SkipIfMixedEnv skips the current test when running under a mixed-env topology (see
+// IsMixedEnvTopology). Call it at the very top of the test/scenario body, BEFORE any
+// deploy/register/ApplyCRESettings, so the skipped test emits no divergent traffic.
+//
+// WARNING: do NOT use this unless you know precisely why THIS test must skip mixed-env.
+// Mixed-env is a required merge gate that catches cross-version consensus/DON2DON
+// divergence between PR and develop nodes; every skip is a hole in that coverage. It is
+// justified ONLY when the test deliberately exercises behavior that exists in the PR
+// image but not the baseline image — e.g. a brand-new CRE settings flag enabled via
+// ApplyCRESettings, or a newly added capability — so a 2-vs-2 split is unavoidable and
+// expected. It is NOT a way to silence a real divergence a reviewer should see. The test
+// still runs in full under the normal single-image suite; only the (impossible)
+// cross-version check is skipped, and mixed-env covers it again automatically once the
+// flag/behavior lands in the baseline image.
+//
+// reason is mandatory: state why the divergence is expected, and note removing this guard
+// once the flag/behavior reaches the baseline image.
+func SkipIfMixedEnv(t *testing.T, reason string) {
+	t.Helper()
+	if IsMixedEnvTopology() {
+		t.Skipf("skipping in mixed-env: %s", reason)
+	}
+}
+
 // ─── Stellar ReadContract test helpers (shared by smoke + regression) ───
 //
 // These are the generic, chain-family-agnostic bits reused by both the smoke

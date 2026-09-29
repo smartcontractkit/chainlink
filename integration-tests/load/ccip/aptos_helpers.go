@@ -531,7 +531,7 @@ func subscribeAptosExecutionEvents(
 			event := eventWithVersion.Event
 
 			// Skip events that are not in the Success state
-			if event.State != testhelpers.EXECUTION_STATE_SUCCESS {
+			if event.State != testhelpers.ExecutionStateSuccess {
 				continue
 			}
 

@@ -16,8 +16,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-const Indent = "    "
-const DoubleIndent = Indent + Indent
+const (
+	Indent       = "    "
+	DoubleIndent = Indent + Indent
+)
 
 var (
 	_                  Analyzer = BytesAndAddressAnalyzer
@@ -291,7 +293,7 @@ func (p *TxCallDecoder) Analyze(address string, abi *abi.ABI, data []byte) (*Dec
 	return p.analyzeMethodCall(address, method, args, outs)
 }
 
-func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, args map[string]any, outs map[string]any) (*DecodedCall, error) {
+func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, args, outs map[string]any) (*DecodedCall, error) {
 	inputs := make([]NamedArgument, len(method.Inputs))
 	for i, input := range method.Inputs {
 		arg, ok := args[input.Name]
@@ -382,7 +384,7 @@ func BytesAndAddressAnalyzer(_ string, argAbi *abi.Type, argVal any, _ []Analyze
 		argArrTyp := reflect.ValueOf(argVal)
 		argArr := make([]byte, argArrTyp.Len())
 		for i := range argArrTyp.Len() {
-			argArr[i] = byte(argArrTyp.Index(i).Uint()) //nolint:gosec // G115
+			argArr[i] = byte(argArrTyp.Index(i).Uint()) //nolint:gosec // G115: elements of a byte array, always fits in a byte
 		}
 		if argAbi.T == abi.AddressTy {
 			return AddressArgument{Value: common.BytesToAddress(argArr).Hex()}
@@ -403,7 +405,7 @@ func indentString(s string) string {
 	return indentStringWith(s, Indent)
 }
 
-func indentStringWith(s string, indent string) string {
+func indentStringWith(s, indent string) string {
 	result := &strings.Builder{}
 	components := strings.Split(s, "\n")
 	for i, component := range components {

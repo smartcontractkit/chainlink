@@ -133,7 +133,8 @@ func UpdateOffRampRefAddresses(
 		chainState,
 		shared.OffRamp,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -164,7 +165,8 @@ func UpdateOffRampRefAddresses(
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, config.ChainSelector, "proposal to UpdateOffRampRefAddresses in Solana", config.MCMS, []mcmsTypes.Transaction{*tx})
+			e, config.ChainSelector, "proposal to UpdateOffRampRefAddresses in Solana", config.MCMS, []mcmsTypes.Transaction{*tx},
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -253,7 +255,8 @@ func SetUpgradeAuthorityChangeset(
 			tx, err := BuildMCMSTxn(
 				ixn,
 				solana.BPFLoaderUpgradeableProgramID.String(),
-				cldf.ContractType(solana.BPFLoaderUpgradeableProgramID.String()))
+				cldf.ContractType(solana.BPFLoaderUpgradeableProgramID.String()),
+			)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 			}
@@ -262,7 +265,8 @@ func SetUpgradeAuthorityChangeset(
 	}
 	if len(mcmsTxns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, config.ChainSelector, "proposal to SetUpgradeAuthority in Solana", config.MCMS, mcmsTxns)
+			e, config.ChainSelector, "proposal to SetUpgradeAuthority in Solana", config.MCMS, mcmsTxns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -274,7 +278,7 @@ func SetUpgradeAuthorityChangeset(
 }
 
 // SetUpgradeAuthority creates a transaction to set the upgrade authority for a program
-func SetUpgradeAuthority(e *cldf.Environment, programID solana.PublicKey, currentUpgradeAuthority solana.PublicKey, newUpgradeAuthority solana.PublicKey, isBuffer bool) solana.Instruction {
+func SetUpgradeAuthority(e *cldf.Environment, programID, currentUpgradeAuthority, newUpgradeAuthority solana.PublicKey, isBuffer bool) solana.Instruction {
 	e.Logger.Infow("Setting upgrade authority", "programID", programID.String(), "currentUpgradeAuthority", currentUpgradeAuthority.String(), "newUpgradeAuthority", newUpgradeAuthority.String())
 	// Buffers use the program account as the program data account
 	programDataSlice := solana.NewAccountMeta(programID, true, false)
@@ -338,7 +342,7 @@ func (cfg SetFeeAggregatorConfig) Validate(e cldf.Environment, state stateview.C
 }
 
 func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -356,7 +360,8 @@ func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.Chan
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 
 	runSafely(func() {
 		solRouter.SetProgramID(chainState.Router)
@@ -385,7 +390,8 @@ func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.Chan
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to SetFeeAggregator in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
+			e, cfg.ChainSelector, "proposal to SetFeeAggregator in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx},
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -420,7 +426,7 @@ func (cfg DeployForTestConfig) Validate(e cldf.Environment, state stateview.CCIP
 }
 
 func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -445,19 +451,19 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 
 	var receiverAddress solana.PublicKey
 	if !cfg.IsUpgrade {
-		//nolint:gocritic // this is a false positive, we need to check if the address is zero
-		if chainState.Receiver.IsZero() {
+		switch {
+		case chainState.Receiver.IsZero():
 			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.Receiver, deployment.Version1_0_0, false, "")
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
-		} else if cfg.ReceiverVersion != nil {
+		case cfg.ReceiverVersion != nil:
 			// this block is for re-deploying with a new version
 			receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.Receiver, *cfg.ReceiverVersion, false, "")
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 			}
-		} else {
+		default:
 			e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
 			receiverAddress = chainState.Receiver
 		}
@@ -512,7 +518,7 @@ func (cfg SetLinkTokenConfig) Validate(e cldf.Environment, state stateview.CCIPO
 }
 
 func SetLinkToken(e cldf.Environment, cfg SetLinkTokenConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -578,7 +584,7 @@ func (cfg SetDefaultCodeVersionConfig) Validate(e cldf.Environment, state statev
 
 func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Setting default code version", "chain_selector", cfg.ChainSelector, "new_code_version", cfg.VersionEnum)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -593,21 +599,24 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
 		shared.OffRamp,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
 		shared.FeeQuoter,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	txns := make([]mcmsTypes.Transaction, 0)
 	ixns := make([]solana.Instruction, 0)
 	authority := GetAuthorityForIxn(
@@ -616,7 +625,8 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	runSafely(func() {
 		solRouter.SetProgramID(chainState.Router)
 	})
@@ -646,7 +656,8 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 		chainState,
 		shared.OffRamp,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	runSafely(func() {
 		solOffRamp.SetProgramID(chainState.OffRamp)
 	})
@@ -675,7 +686,8 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 		chainState,
 		shared.FeeQuoter,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	runSafely(func() {
 		solFeeQuoter.SetProgramID(chainState.FeeQuoter)
 	})
@@ -706,7 +718,8 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to SetDefaultCodeVersion in Solana", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to SetDefaultCodeVersion in Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -738,7 +751,7 @@ func (cfg UpdateSvmChainSelectorConfig) Validate(e cldf.Environment, state state
 
 func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Updating SVM chain selector", "old_chain_selector", cfg.OldChainSelector, "new_chain_selector", cfg.NewChainSelector)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -756,14 +769,16 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	offRampUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
 		chainState,
 		shared.OffRamp,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	txns := make([]mcmsTypes.Transaction, 0)
 	ixns := make([]solana.Instruction, 0)
 	authority := GetAuthorityForIxn(
@@ -772,7 +787,8 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	runSafely(func() {
 		solRouter.SetProgramID(chainState.Router)
 	})
@@ -802,7 +818,8 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 		chainState,
 		shared.OffRamp,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	runSafely(func() {
 		solOffRamp.SetProgramID(chainState.OffRamp)
 	})
@@ -833,7 +850,8 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.OldChainSelector, "proposal to UpdateSvmChainSelector in Solana", cfg.MCMS, txns)
+			e, cfg.OldChainSelector, "proposal to UpdateSvmChainSelector in Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -862,7 +880,7 @@ func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e cldf.Environment, s
 
 func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManualExecutionAfterConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Updating enable manual execution after", "chain_selector", cfg.ChainSelector, "enable_manual_execution_after", cfg.EnableManualExecution)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -877,7 +895,8 @@ func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManual
 		chainState,
 		shared.OffRamp,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	txns := make([]mcmsTypes.Transaction, 0)
 	ixns := make([]solana.Instruction, 0)
 	authority := GetAuthorityForIxn(
@@ -886,7 +905,8 @@ func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManual
 		chainState,
 		shared.OffRamp,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	runSafely(func() {
 		solOffRamp.SetProgramID(chainState.OffRamp)
 	})
@@ -917,7 +937,8 @@ func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManual
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to UpdateEnableManualExecutionAfter in Solana", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to UpdateEnableManualExecutionAfter in Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -962,7 +983,7 @@ func (cfg ConfigureCCIPVersionConfig) Validate(e cldf.Environment, state statevi
 }
 
 func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -979,7 +1000,8 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	txns := make([]mcmsTypes.Transaction, 0)
 	ixns := make([]solana.Instruction, 0)
 	authority := GetAuthorityForIxn(
@@ -988,7 +1010,8 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	runSafely(func() {
 		solRouter.SetProgramID(chainState.Router)
 	})
@@ -1036,7 +1059,8 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to ConfigureCCIPVersion in Solana", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to ConfigureCCIPVersion in Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -1064,7 +1088,7 @@ func (cfg RemoveOffRampConfig) Validate(e cldf.Environment, state stateview.CCIP
 }
 
 func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -1079,7 +1103,8 @@ func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetO
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	txns := make([]mcmsTypes.Transaction, 0)
 	ixns := make([]solana.Instruction, 0)
 	authority := GetAuthorityForIxn(
@@ -1088,7 +1113,8 @@ func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetO
 		chainState,
 		shared.Router,
 		solana.PublicKey{},
-		"")
+		"",
+	)
 	runSafely(func() {
 		solRouter.SetProgramID(chainState.Router)
 	})
@@ -1122,7 +1148,8 @@ func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetO
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to RemoveOffRamp in Solana", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to RemoveOffRamp in Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

@@ -117,7 +117,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates=20260601~24.04.1 \
     gnupg=2.4.4-2ubuntu17.6 \
     lsb-release=12.0-2 \
-    curl=8.5.0-2ubuntu10.13 \
+    curl=8.5.0-2ubuntu10.15 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Postgres for CLI tools, needed specifically for DB backups
@@ -129,7 +129,7 @@ RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
     && echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] \
     https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
         >/etc/apt/sources.list.d/pgdg.list \
-    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-17=17.10-1.pgdg24.04+1 \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-18 \
     && rm -rf /var/lib/apt/lists/*
 
 # Prod images (CHAINLINK_USER=chainlink) run as UID:GID 14933:14933 for deterministic

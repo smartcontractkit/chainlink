@@ -57,17 +57,20 @@ func DeployCoordinator(
 		_, tx, _, err = vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
 			e.Owner,
 			e.Ec,
-			common.HexToAddress(bhsAddress))
+			common.HexToAddress(bhsAddress),
+		)
 	case "arbitrum":
 		_, tx, _, err = vrf_coordinator_v2_5_arbitrum.DeployVRFCoordinatorV25Arbitrum(
 			e.Owner,
 			e.Ec,
-			common.HexToAddress(bhsAddress))
+			common.HexToAddress(bhsAddress),
+		)
 	case "optimism":
 		_, tx, _, err = vrf_coordinator_v2_5_optimism.DeployVRFCoordinatorV25Optimism(
 			e.Owner,
 			e.Ec,
-			common.HexToAddress(bhsAddress))
+			common.HexToAddress(bhsAddress),
+		)
 	default:
 		panic(fmt.Sprintf("Coordinator type not supported '%s'", coordinatorType))
 	}
@@ -128,12 +131,14 @@ func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2_5.VRFCoo
 func EoaDeployConsumer(e helpers.Environment,
 	coordinatorAddress string,
 	linkAddress string) (
-	consumerAddress common.Address) {
+	consumerAddress common.Address,
+) {
 	_, tx, _, err := vrf_v2plus_sub_owner.DeployVRFV2PlusExternalSubOwnerExample(
 		e.Owner,
 		e.Ec,
 		common.HexToAddress(coordinatorAddress),
-		common.HexToAddress(linkAddress))
+		common.HexToAddress(linkAddress),
+	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -156,7 +161,7 @@ func EoaFundSubWithLink(
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("sub ID: %d", subID))
 }
 
-func EoaFundSubWithNative(e helpers.Environment, coordinatorAddress common.Address, subID *big.Int, amount *big.Int) {
+func EoaFundSubWithNative(e helpers.Environment, coordinatorAddress common.Address, subID, amount *big.Int) {
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 	e.Owner.Value = amount
@@ -221,7 +226,8 @@ func SetCoordinatorL1FeeCalculation(
 }
 
 func RegisterCoordinatorProvingKey(e helpers.Environment,
-	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, gasLaneMaxGas uint64) {
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25, uncompressed string, gasLaneMaxGas uint64,
+) {
 	pubBytes, err := hex.DecodeString(uncompressed)
 	helpers.PanicErr(err)
 	pk, err := crypto.UnmarshalPubkey(pubBytes)
@@ -330,14 +336,14 @@ func WrapperConfigure(
 
 	tx, err := wrapper.SetConfig(
 		e.Owner,
-		uint32(wrapperGasOverhead),
-		uint32(coordinatorGasOverheadNative),
-		uint32(coordinatorGasOverheadLink),
-		uint16(coordinatorGasOverheadPerWord),
-		uint8(nativePremiumPercentage),
-		uint8(linkPremiumPercentage),
+		uint32(wrapperGasOverhead),            //nolint:gosec // wrapper overhead fits in uint32
+		uint32(coordinatorGasOverheadNative),  //nolint:gosec // overhead fits in uint32
+		uint32(coordinatorGasOverheadLink),    //nolint:gosec // overhead fits in uint32
+		uint16(coordinatorGasOverheadPerWord), //nolint:gosec // overhead fits in uint16
+		uint8(nativePremiumPercentage),        //nolint:gosec // percentage fits in uint8
+		uint8(linkPremiumPercentage),          //nolint:gosec // percentage fits in uint8
 		common.HexToHash(keyHash),
-		uint8(maxNumWords),
+		uint8(maxNumWords), //nolint:gosec // max words fits in uint8
 		stalenessSeconds,
 		fallbackWeiPerUnitLink,
 		fulfillmentFlatFeeNativePPM,

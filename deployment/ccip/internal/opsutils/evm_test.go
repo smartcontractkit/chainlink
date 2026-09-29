@@ -197,9 +197,7 @@ func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 
 	// Create initial changeset output with existing proposals to test combination logic
 	existingProposal1 := mcmslib.TimelockProposal{
-		BaseProposal: mcmslib.BaseProposal{
-			Description: "First proposal",
-		},
+		Description: "First proposal",
 		Operations: []mcmstypes.BatchOperation{
 			{
 				ChainSelector: mcmstypes.ChainSelector(selector1),
@@ -215,9 +213,7 @@ func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 	}
 
 	existingProposal2 := mcmslib.TimelockProposal{
-		BaseProposal: mcmslib.BaseProposal{
-			Description: "Second proposal",
-		},
+		Description: "Second proposal",
 		Operations: []mcmstypes.BatchOperation{
 			{
 				ChainSelector: mcmstypes.ChainSelector(selector2),
@@ -241,15 +237,13 @@ func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 
 	// Create sequence report with unconfirmed calls to generate a new proposal
 	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{
-		Report: operations.Report[string, map[uint64][]EVMCallOutput]{
-			Output: map[uint64][]EVMCallOutput{
-				selector2: {
-					{
-						To:           common.HexToAddress("0x3333333333333333333333333333333333333333"),
-						Data:         []byte("new_call_data"),
-						ContractType: "TestContract",
-						Confirmed:    false, // This will create a new proposal
-					},
+		Output: map[uint64][]EVMCallOutput{
+			selector2: {
+				{
+					To:           common.HexToAddress("0x3333333333333333333333333333333333333333"),
+					Data:         []byte("new_call_data"),
+					ContractType: "TestContract",
+					Confirmed:    false, // This will create a new proposal
 				},
 			},
 		},

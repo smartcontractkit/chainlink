@@ -6,8 +6,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	ccipocr3 "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -116,7 +116,7 @@ func (c OCRConfigChainType) ExecuteOCRParams() CCIPOCRParams {
 func DeriveOCRParamsForCommit(
 	ocrChainType OCRConfigChainType,
 	feedChain uint64,
-	feeTokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
+	feeTokenInfo map[ccipocr3.UnknownEncodedAddress]ccipocr3.TokenInfo,
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
 	params := ocrChainType.CommitOCRParams()

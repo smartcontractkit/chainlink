@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -50,7 +51,7 @@ func ExecuteManualShardAssignmentTest(t *testing.T, testEnv *ttypes.TestEnvironm
 	linkingService.SetOwnerOrg(defaultOwner, "org_test_manual")
 
 	shardLeaderDON := getShardZeroDon(t, testEnv)
-	shardZeroDonID := uint32(shardLeaderDON.ID) //nolint:gosec // G115: overflow is unrealistic
+	shardZeroIndex := uint32(shardLeaderDON.Metadata().ShardIndex) //nolint:gosec // G115: overflow is unrealistic
 
 	var shardOneDON *cre.Don
 	for _, don := range shardDONs {
@@ -60,7 +61,7 @@ func ExecuteManualShardAssignmentTest(t *testing.T, testEnv *ttypes.TestEnvironm
 		}
 	}
 	require.NotNil(t, shardOneDON, "Expected to find a second shard DON")
-	shardOneDonID := uint32(shardOneDON.ID) //nolint:gosec // G115: overflow is unrealistic
+	shardOneIndex := uint32(shardOneDON.Metadata().ShardIndex) //nolint:gosec // G115: overflow is unrealistic
 
 	shardAssignmentTOML := fmt.Sprintf(`
 static_default_assignment = [%d]
@@ -68,7 +69,7 @@ hashed_default_assignment = false
 
 [per_org_assignment]
   org_test_manual = [%d]
-`, shardOneDonID, shardZeroDonID)
+`, shardOneIndex, shardZeroIndex)
 
 	proposeAndApproveShardAssignmentJob(t, testEnv, shardLeaderDON, shardAssignmentTOML, testLogger)
 
@@ -81,10 +82,100 @@ hashed_default_assignment = false
 	}
 	testLogger.Info().Strs("workflowIDs", workflowIDs).Msg("Deployed workflows for manual shard assignment test")
 
+	// nodeP2PIDToShardIndex (built below) reports each node's real DON ID, so
+	// the "expected" side of the comparison must be DON IDs too, even though
+	// the shard-assignment TOML above is authored in shard-index terms.
 	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {
-		workflowToShardIndex[wfID] = shardZeroDonID
+		workflowToShardIndex[wfID] = uint32(shardLeaderDON.ID) //nolint:gosec // G115: overflow is unrealistic
 	}
+
+	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+	})
+
+	execTimeout := 3 * time.Minute
+	timeoutCtx, cancelTimeout := context.WithTimeout(t.Context(), execTimeout)
+	defer cancelTimeout()
+	execCtx, cancelCause := context.WithCancelCause(timeoutCtx)
+	defer cancelCause(nil)
+	go t_helpers.FailOnBaseMessage(execCtx, cancelCause, t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog)
+
+	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, testLogger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, execTimeout)
+	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed on correct shards")
+	testLogger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards (manual-only mode)")
+}
+
+func ExecuteManualShardAssignmentBothSpecs(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	testLogger := framework.L
+
+	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
+	require.GreaterOrEqual(t, len(shardDONs), 2, "Expected at least 2 shard DONs for manual assignment test")
+
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
+	workflowConfig := crontypes.WorkflowConfig{
+		Schedule: "*/30 * * * * *",
+	}
+	expectedUserLog := "Amazing workflow user log"
+
+	defaultOwner := "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+
+	linkingService, err := stvault.EnsureSharedTestLinkingServiceStarted()
+	require.NoError(t, err, "failed to start linking service")
+	linkingService.SetOwnerOrg(defaultOwner, "test_org_manual")
+
+	shardLeaderDON := getShardZeroDon(t, testEnv)
+	shardZeroDonID := uint32(shardLeaderDON.ID)                    //nolint:gosec // G115: overflow is unrealistic
+	shardZeroIndex := uint32(shardLeaderDON.Metadata().ShardIndex) //nolint:gosec // G115: overflow is unrealistic
+
+	var shardOneDON *cre.Don
+	for _, don := range shardDONs {
+		if don.ID != shardLeaderDON.ID {
+			shardOneDON = don
+			break
+		}
+	}
+	require.NotNil(t, shardOneDON, "Expected to find a second shard DON")
+	shardOneIndex := uint32(shardOneDON.Metadata().ShardIndex) //nolint:gosec // G115: overflow is unrealistic
+
+	// The static default points at shard zero, so the workflow only lands on shard one if the
+	// per-org entry is what routed it. Values here are shard indices (0, 1, ...), not DON IDs:
+	// manualShardResolver translates the configured index to a real DON ID via ShardIndexMapper.
+	shardAssignmentTOML := fmt.Sprintf(`
+static_default_assignment = [%d]
+hashed_default_assignment = false
+
+[per_org_assignment]
+  non_existing_org= [%d]
+`, shardZeroIndex, shardOneIndex)
+
+	// Every shard resolves ownership from its own copy of the spec, so both the shard that must
+	// run the workflow and the shard that must not need it.
+	for _, don := range shardDONs {
+		proposeAndApproveShardAssignmentJob(t, testEnv, don, shardAssignmentTOML, testLogger)
+	}
+
+	// The CRE limits job and the shard assignment job are both cresettings jobs; a node keeps one
+	// slot per config_type, so the two must run side by side. Propose a limits job for the org the
+	// workflows run under and check both are active before relying on the assignment below.
+	limits := t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Org("test_org_manual", `
+[PerOrg]
+WorkflowExecutionConcurrencyLimit = '42'`))
+	for _, don := range shardDONs {
+		requireCRESettingsAndShardAssignmentJobsActive(t, don, limits.AppliedHash(don.Name))
+	}
+
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "manualshard0", &workflowConfig, workflowFileLocation)
+	workflowIDs := []string{workflowID}
+	workflowToShardIndex := map[string]uint32{workflowID: shardZeroDonID}
+	testLogger.Info().Str("workflowID", workflowID).Msg("Deployed workflow for manual shard assignment test")
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 
@@ -132,7 +223,7 @@ func ExecuteManualShardAssignmentWithEVMLogTriggerTest(t *testing.T, testEnv *tt
 	require.GreaterOrEqual(t, len(shardDONs), 2, "Expected at least 2 shard DONs for manual assignment log trigger test")
 
 	shardLeaderDON := getShardZeroDon(t, testEnv)
-	shardLeaderDonID := uint32(shardLeaderDON.ID) //nolint:gosec // G115: overflow is unrealistic
+	shardLeaderIndex := uint32(shardLeaderDON.Metadata().ShardIndex) //nolint:gosec // G115: overflow is unrealistic
 
 	// Pin to a non-leader shard on purpose. The leader is where the static default below sends
 	// anything the per-owner entry does not match, so an assignment that silently did not take
@@ -142,7 +233,7 @@ func ExecuteManualShardAssignmentWithEVMLogTriggerTest(t *testing.T, testEnv *tt
 	})
 	require.NotEmpty(t, nonLeaderDONs, "Expected to find a non-leader shard DON")
 	targetDON := nonLeaderDONs[0]
-	targetDonID := uint32(targetDON.ID) //nolint:gosec // G115: overflow is unrealistic
+	targetShardIndex := uint32(targetDON.Metadata().ShardIndex) //nolint:gosec // G115: overflow is unrealistic
 
 	// Both capability shards host the same EVM chain and the workflow shards host none, so the
 	// only thing that can decide who serves the log trigger is the DON family the workflow shard
@@ -157,9 +248,9 @@ func ExecuteManualShardAssignmentWithEVMLogTriggerTest(t *testing.T, testEnv *tt
 
 	testLogger.Info().
 		Str("shardLeaderDON", shardLeaderDON.Name).
-		Uint32("shardLeaderDonID", shardLeaderDonID).
+		Uint32("shardLeaderShardIndex", shardLeaderIndex).
 		Str("targetDON", targetDON.Name).
-		Uint32("targetDonID", targetDonID).
+		Uint32("targetShardIndex", targetShardIndex).
 		Str("logTriggerChainID", logTriggerChainID).
 		Str("workflowOwner", workflowOwnerAddress).
 		Str("servingCapDON", servingCapDON.Name).
@@ -181,7 +272,7 @@ hashed_default_assignment = false
 
 [per_owner_assignment]
   %q = [%d]
-`, shardLeaderDonID, workflowOwnerAddress, targetDonID)
+`, shardLeaderIndex, workflowOwnerAddress, targetShardIndex)
 
 	// Every shard resolves ownership from its own copy of the spec, so both the shard that must
 	// run the workflow and the shard that must not need it.
@@ -194,7 +285,9 @@ hashed_default_assignment = false
 	// would re-evaluate the same per_owner_assignment branch at the cost of another WASM compile.
 	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "manualshard-evmlogtrigger", &workflowConfig, "./evm/logtrigger/main.go")
 	workflowIDs := []string{workflowID}
-	workflowToShardIndex := map[string]uint32{workflowID: targetDonID}
+	// nodeP2PIDToShardIndex reports each node's real DON ID, so the "expected"
+	// side must be a DON ID too, even though the TOML above is shard-index terms.
+	workflowToShardIndex := map[string]uint32{workflowID: uint32(targetDON.ID)} //nolint:gosec // G115: overflow is unrealistic
 	testLogger.Info().Str("workflowID", workflowID).Msg("Deployed workflow for manual shard assignment log trigger test")
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
@@ -344,8 +437,8 @@ func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 		}
 	}
 	require.NotNil(t, shardOne, "Expected to find a second shard DON")
-	shardZeroDonID := uint32(shardZero.ID) //nolint:gosec // G115: overflow is unrealistic
-	shardOneDonID := uint32(shardOne.ID)   //nolint:gosec // G115: overflow is unrealistic
+	shardZeroIndex := uint32(shardZero.Metadata().ShardIndex) //nolint:gosec // G115: overflow is unrealistic
+	shardOneIndex := uint32(shardOne.Metadata().ShardIndex)   //nolint:gosec // G115: overflow is unrealistic
 
 	topology, tErr := cre.NewTopology(testEnv.Config.NodeSets, *testEnv.Config.Infra, testEnv.Config.CapabilityConfigs)
 	require.NoError(t, tErr, "Failed to recreate topology")
@@ -385,7 +478,7 @@ hashed_default_assignment = true
 
 [per_org_assignment]
   org_test_override = [%d]
-`, shardZeroDonID, shardOneDonID)
+`, shardZeroIndex, shardOneIndex)
 
 	for _, don := range shardDONs {
 		proposeAndApproveShardAssignmentJob(t, testEnv, don, shardAssignmentTOML, testLogger)
@@ -402,7 +495,7 @@ hashed_default_assignment = true
 
 	var rpcHost string
 	for _, nodeSet := range testEnv.Config.NodeSets {
-		if nodeSet.Name == "shard0" && nodeSet.Out != nil && len(nodeSet.Out.CLNodes) > 0 {
+		if nodeSet.Name == "workflow-1-zone-a" && nodeSet.Out != nil && len(nodeSet.Out.CLNodes) > 0 {
 			externalURL := nodeSet.Out.CLNodes[0].Node.ExternalURL
 			parsedURL, parseErr := url.Parse(externalURL)
 			require.NoError(t, parseErr, "Failed to parse ExternalURL")
@@ -435,7 +528,9 @@ hashed_default_assignment = true
 	testLogger.Info().Interface("mappings", resp.Mappings).Msg("Ring OCR workflow mappings")
 	require.Len(t, resp.Mappings, len(workflowIDs), "All deployed workflows should be mapped")
 
-	overrideShard := shardOneDonID
+	// nodeP2PIDToShardIndex reports each node's real DON ID, so the "expected"
+	// side must be a DON ID too, even though the TOML above is shard-index terms.
+	overrideShard := uint32(shardOne.ID) //nolint:gosec // G115: overflow is unrealistic
 
 	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {
@@ -502,4 +597,48 @@ func proposeAndApproveShardAssignmentJob(t *testing.T, testEnv *ttypes.TestEnvir
 	}
 
 	testLogger.Info().Msg("Shard assignment job proposed and approved")
+}
+
+// requireCRESettingsAndShardAssignmentJobsActive asserts that every worker node of don has two
+// distinct cresettings jobs approved and running: the shard assignment job and the CRE limits job
+// whose spec carries settingsHash.
+func requireCRESettingsAndShardAssignmentJobsActive(t *testing.T, don *cre.Don, settingsHash string) {
+	t.Helper()
+	require.NotEmpty(t, settingsHash, "no CRE settings were applied to DON %q", don.Name)
+
+	workers, err := don.Workers()
+	require.NoError(t, err, "failed to get worker nodes of DON %q", don.Name)
+
+	for _, node := range workers {
+		require.EventuallyWithTf(t, func(c *assert.CollectT) {
+			jd, jdErr := node.Clients.GQLClient.GetJobDistributor(t.Context(), node.JobDistributorDetails.JDID)
+			if !assert.NoError(c, jdErr, "failed to get job distributor") {
+				return
+			}
+
+			// The node resolves a proposal's jobID from its jobs table by external job ID, so a
+			// non-empty jobID means the job was actually created. ListJobs can't be used here: the
+			// GQL client can't unmarshal cresettings job specs.
+			var limitsJobID, shardJobID string
+			for _, proposal := range jd.JobProposals {
+				spec := proposal.LatestSpec
+				if !strings.Contains(spec.Definition, `type = "cresettings"`) || string(spec.Status) != "APPROVED" {
+					continue
+				}
+				switch {
+				case strings.Contains(spec.Definition, `config_type = "shard_assignment"`):
+					shardJobID = proposal.JobID
+				case strings.Contains(spec.Definition, fmt.Sprintf("hash = %q", settingsHash)):
+					limitsJobID = proposal.JobID
+				}
+			}
+			if !assert.NotEmpty(c, shardJobID, "no running job for an approved shard assignment proposal") ||
+				!assert.NotEmpty(c, limitsJobID, "no running job for an approved CRE limits proposal with hash %s", settingsHash) {
+				return
+			}
+			assert.NotEqual(c, shardJobID, limitsJobID, "limits and shard assignment jobs must be distinct")
+		}, 2*time.Minute, 3*time.Second, "node %s of DON %q does not run both CRE limits and shard assignment jobs", node.Name, don.Name)
+	}
+
+	framework.L.Info().Str("don", don.Name).Int("nodes", len(workers)).Msg("CRE limits and shard assignment jobs are active on all worker nodes")
 }

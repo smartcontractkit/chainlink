@@ -56,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	gatewayv2metrics "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
+	gatewaymonitoring "github.com/smartcontractkit/chainlink/v2/core/services/gateway/monitoring"
 	gatewaynetwork "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -85,6 +86,8 @@ func metricViews() []sdkmetric.View {
 		ocr3beholderwrapper.MetricViews(),
 		ocr3_1beholderwrapper.MetricViews(),
 		gatewaynetwork.HTTPClientMetricViews(),
+		gatewaynetwork.WSConnectionMetricViews(),
+		gatewaymonitoring.MetricViews(),
 		gatewayv2metrics.MetricViews(),
 	)
 }

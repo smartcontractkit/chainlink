@@ -73,7 +73,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Plain(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
@@ -148,7 +148,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
@@ -300,7 +300,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
@@ -321,7 +321,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipReceiverAddress.Bytes(), // internally left padded to 32byte
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
@@ -546,7 +546,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       evmDeployer.Bytes(), // internally left padded to 32byte
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
@@ -720,7 +720,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_AfterSignerA
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipReceiverAddress.Bytes(), // internally left padded to 32byte
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
@@ -955,7 +955,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       evmDeployer.Bytes(), // internally left padded to 32byte
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
@@ -1049,7 +1049,7 @@ func Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_NoRateLimit(t *testing.T) {
 			DestChain:        destChain,
 			Receiver:         emptyReceiver,
 			TokenReceiverATA: suiAddr[:], // tokenReceiver extracted from extraArgs (the address that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus:   testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1298,7 +1298,7 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 			DestChain:        destChain,
 			Receiver:         receiverByte, // receiver contract pkgId
 			TokenReceiverATA: suiAddr[:],   // tokenReceiver extracted from extraArgs (the address that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus:   testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1520,7 +1520,7 @@ func Test_CCIP_EVM2Sui_DestTokenAmount_ReportsLocalAmount(t *testing.T) {
 			Data:             []byte("Hello Sui from EVM"),
 			Receiver:         receiverByte, // receiver contract pkgId -> ccip_receive runs
 			TokenReceiverATA: suiAddr[:],   // wallet that actually receives the minted token
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus:   testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1677,7 +1677,7 @@ func Test_CCIP_ReceiverNotRegistered_EVM2Sui(t *testing.T) {
 			DestChain:      destChain,
 			Data:           []byte("msg to unregistered receiver"),
 			Receiver:       unregisteredReceiverByte,
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			ExtraArgs:      testhelpers.MakeSuiExtraArgs(1000000, true, emptyReceiverObjectIDs, [32]byte{}),
 		},
 		{
@@ -1687,7 +1687,7 @@ func Test_CCIP_ReceiverNotRegistered_EVM2Sui(t *testing.T) {
 			Data:             []byte("token+msg to unregistered receiver"),
 			Receiver:         unregisteredReceiverByte,
 			TokenReceiverATA: suiAddr[:], // wallet receives the minted token
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus:   testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{Token: evmToken.Address(), Amount: big.NewInt(1e18)},
 			},
@@ -1702,7 +1702,7 @@ func Test_CCIP_ReceiverNotRegistered_EVM2Sui(t *testing.T) {
 			DestChain:      destChain,
 			Data:           []byte("msg to nonexistent receiver"),
 			Receiver:       nonexistentReceiver[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			ExtraArgs:      testhelpers.MakeSuiExtraArgs(1000000, true, emptyReceiverObjectIDs, [32]byte{}),
 		},
 	}
@@ -1795,7 +1795,7 @@ func Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 			Data:             []byte{},
 			Receiver:         emptyReceiver, // empty Receiver
 			TokenReceiverATA: suiAddr[:],    // tokenReceiver extracted from extraArgs (the address that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus:   testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1930,7 +1930,7 @@ func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 			Data:             []byte("Hello Sui From EVM"),
 			Receiver:         receiverByte, // receiver contract pkgId
 			TokenReceiverATA: stateObj[:],  // tokenReceiver extracted from extraArgs (the object that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus:   testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -2054,7 +2054,7 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 			Data:             []byte("Hello Sui From EVM"),
 			Receiver:         receiverByte, // non empty Receiver
 			TokenReceiverATA: suiAddr[:],   // tokenReceiver extracted from extraArgs (the address that actually gets the token)
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus:   testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -2130,7 +2130,7 @@ func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sou
 // EVM->Sui token transfer the production execute PTB builder appends that coin
 // to the pool callback under the transmitter's signature; the guard rejects the
 // transmitter-owned entry during PTB build, so the execute PTB is never
-// submitted, EXECUTION_STATE_SUCCESS is never persisted, and the transmitter's
+// submitted, ExecutionStateSuccess is never persisted, and the transmitter's
 // coin is not drained. Mirrors Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected.
 func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(t *testing.T) {
 	e, sourceChain, destChain, deployerSourceChain, _, suiAddr := testSetupHelperEvm2Sui(t)
@@ -2219,7 +2219,7 @@ func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(
 			// assertion is the explicit GetExecutionState DevInspect below (require.Error).
 			// UNTOUCHED is the honest expected state; TransferMultiple's expected-states
 			// map is discarded here, so this field is documentary only.
-			ExpectedStatus: testhelpers.EXECUTION_STATE_UNTOUCHED,
+			ExpectedStatus: testhelpers.ExecutionStateUntouched,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -2246,7 +2246,7 @@ func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(
 	// Let the DON replay + settle so the source event is OCR-committed and the
 	// dest exec is attempted. The guard rejects the transmitter-owned
 	// release_or_mint_params entry during PTB build, so no execute transaction is
-	// submitted and EXECUTION_STATE_SUCCESS never commits.
+	// submitted and ExecutionStateSuccess never commits.
 	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
 
 	// Confirm the report was committed, so the exec rejection below is meaningful.
@@ -2296,7 +2296,7 @@ func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(
 			DestChain:        destChain,
 			Receiver:         receiverByte,
 			TokenReceiverATA: []byte{},
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus:   testhelpers.ExecutionStateSuccess,
 			Tokens:           []router.ClientEVMTokenAmount{}, // arbitrary data, no token-pool command
 			Data:             []byte("lane not stuck"),
 			// Message-only: token receiver must be zero. The Sui offramp asserts

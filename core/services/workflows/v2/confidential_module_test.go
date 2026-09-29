@@ -823,7 +823,6 @@ func TestConfidentialModule_InterfaceMethods(t *testing.T) {
 	// These are no-ops but should not panic.
 	mod.Start()
 	mod.Close()
-	assert.False(t, mod.IsLegacyDAG())
 }
 
 func mustNewConfidentialModule(t *testing.T, capRegistry *regmocks.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) *ConfidentialModule {

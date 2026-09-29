@@ -190,11 +190,9 @@ func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (To
 	}
 
 	return TokenPoolView{
-		ContractMetaData: view.ContractMetaData{
-			TypeAndVersion: typeAndVersion,
-			Address:        pool.Address(),
-			Owner:          owner,
-		},
+		TypeAndVersion:     typeAndVersion,
+		Address:            pool.Address(),
+		Owner:              owner,
 		Token:              token,
 		TokenPriceFeed:     priceFeed,
 		RemoteChainConfigs: remoteChainConfigs,
