@@ -967,6 +967,10 @@ MeterRecordsEnabled = false # Default
 # MeterSnapshotsEnabled enables durable MeterSnapshot emission for LOOP plugins.
 # Requires MeterRecordsEnabled = true.
 MeterSnapshotsEnabled = false # Default
+# CapabilityUsageEnabled enables per-capability workflow usage MeterRecords (compute duration, gas per chain write)
+# for eventually consistent billing. Off by default; enable per DON once the billing service accepts capability usage records.
+# Independent of MeterRecordsEnabled.
+CapabilityUsageEnabled = false # Default
 # Product is the deployment product identity dimension, e.g. 'cre'.
 Product = 'cre' # Default
 # Tenant is the human-readable tenant name, e.g. 'mainline'.

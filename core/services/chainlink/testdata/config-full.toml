@@ -418,6 +418,7 @@ Prefixes = ['ocr_']
 [Metering]
 MeterRecordsEnabled = true
 MeterSnapshotsEnabled = true
+CapabilityUsageEnabled = true
 Product = 'cre'
 Tenant = 'mainline'
 NumericTenantID = '42'

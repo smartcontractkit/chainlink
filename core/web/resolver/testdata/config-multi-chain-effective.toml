@@ -379,6 +379,7 @@ Prefixes = ['go_']
 [Metering]
 MeterRecordsEnabled = false
 MeterSnapshotsEnabled = false
+CapabilityUsageEnabled = false
 Product = 'cre'
 Tenant = ''
 NumericTenantID = ''

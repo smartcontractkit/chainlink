@@ -7,6 +7,7 @@ package config
 type Metering interface {
 	MeterRecordsEnabled() bool
 	MeterSnapshotsEnabled() bool
+	CapabilityUsageEnabled() bool
 	Product() string
 	Tenant() string
 	NumericTenantID() string

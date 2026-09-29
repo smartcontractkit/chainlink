@@ -123,14 +123,15 @@ func (m mockCfgTelemetry) PrometheusBridge() config.PrometheusBridge {
 
 type mockCfgMetering struct{}
 
-func (m mockCfgMetering) MeterRecordsEnabled() bool   { return true }
-func (m mockCfgMetering) MeterSnapshotsEnabled() bool { return true }
-func (m mockCfgMetering) Product() string             { return "cre" }
-func (m mockCfgMetering) Tenant() string              { return "mainline" }
-func (m mockCfgMetering) NumericTenantID() string     { return "42" }
-func (m mockCfgMetering) Environment() string         { return "production" }
-func (m mockCfgMetering) Zone() string                { return "wf-zone-a" }
-func (m mockCfgMetering) NodeID() string              { return "clp-cre-wf-zone-a-1" }
+func (m mockCfgMetering) MeterRecordsEnabled() bool    { return true }
+func (m mockCfgMetering) MeterSnapshotsEnabled() bool  { return true }
+func (m mockCfgMetering) CapabilityUsageEnabled() bool { return true }
+func (m mockCfgMetering) Product() string              { return "cre" }
+func (m mockCfgMetering) Tenant() string               { return "mainline" }
+func (m mockCfgMetering) NumericTenantID() string      { return "42" }
+func (m mockCfgMetering) Environment() string          { return "production" }
+func (m mockCfgMetering) Zone() string                 { return "wf-zone-a" }
+func (m mockCfgMetering) NodeID() string               { return "clp-cre-wf-zone-a-1" }
 
 type mockPrometheusBridge struct{}
 
@@ -294,6 +295,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 2048, envCfg.TelemetryLogMaxQueueSize)
 	require.True(t, envCfg.MeterRecordsEnabled)
 	require.True(t, envCfg.MeterSnapshotsEnabled)
+	require.True(t, envCfg.CapabilityUsageEnabled)
 	require.Equal(t, "cre", envCfg.MeterProduct)
 	require.Equal(t, "mainline", envCfg.MeterTenant)
 	require.Equal(t, "42", envCfg.MeterNumericTenantID)

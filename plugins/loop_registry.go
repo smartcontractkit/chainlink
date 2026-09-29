@@ -185,6 +185,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	if m.cfgMetering != nil {
 		envCfg.MeterRecordsEnabled = m.cfgMetering.MeterRecordsEnabled()
 		envCfg.MeterSnapshotsEnabled = m.cfgMetering.MeterSnapshotsEnabled()
+		envCfg.CapabilityUsageEnabled = m.cfgMetering.CapabilityUsageEnabled()
 		envCfg.MeterProduct = m.cfgMetering.Product()
 		envCfg.MeterTenant = m.cfgMetering.Tenant()
 		envCfg.MeterNumericTenantID = m.cfgMetering.NumericTenantID()

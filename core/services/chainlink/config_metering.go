@@ -23,6 +23,13 @@ func (b *meteringConfig) MeterSnapshotsEnabled() bool {
 	return *b.s.MeterSnapshotsEnabled
 }
 
+func (b *meteringConfig) CapabilityUsageEnabled() bool {
+	if b.s.CapabilityUsageEnabled == nil {
+		return false
+	}
+	return *b.s.CapabilityUsageEnabled
+}
+
 // Product returns the deployment product identity dimension. The parsed config
 // defaults it to "cre" via docs.CoreDefaults so metering is never enabled with
 // an empty product dimension; a zero-value toml.Metering that has not been run

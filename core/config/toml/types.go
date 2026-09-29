@@ -3208,6 +3208,10 @@ type Metering struct {
 	// MeterSnapshotsEnabled enables durable MeterSnapshot emission. Requires
 	// MeterRecordsEnabled to be true.
 	MeterSnapshotsEnabled *bool
+	// CapabilityUsageEnabled enables per-capability workflow usage MeterRecords
+	// (compute duration, gas) for eventually consistent billing. Independent of
+	// MeterRecordsEnabled.
+	CapabilityUsageEnabled *bool
 	// Product is the deployment product identity dimension, e.g. "cre".
 	Product *string
 	// Tenant is the human-readable tenant name, e.g. "mainline".
@@ -3229,6 +3233,9 @@ func (b *Metering) setFrom(f *Metering) {
 	}
 	if v := f.MeterSnapshotsEnabled; v != nil {
 		b.MeterSnapshotsEnabled = v
+	}
+	if v := f.CapabilityUsageEnabled; v != nil {
+		b.CapabilityUsageEnabled = v
 	}
 	if v := f.Product; v != nil {
 		b.Product = v

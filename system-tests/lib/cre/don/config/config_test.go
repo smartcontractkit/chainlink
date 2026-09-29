@@ -35,6 +35,7 @@ func TestMeteringNodeConfig(t *testing.T) {
 
 	assert.True(t, derefBool(got.MeterRecordsEnabled))
 	assert.True(t, derefBool(got.MeterSnapshotsEnabled))
+	assert.True(t, derefBool(got.CapabilityUsageEnabled))
 	assert.Equal(t, "cre", derefStr(got.Product))
 	assert.Equal(t, "local-cre", derefStr(got.Tenant))
 	assert.Equal(t, "1", derefStr(got.NumericTenantID))

@@ -586,14 +586,15 @@ func addWorkerNodeConfig(
 // Metering.ValidateConfig and per-node snapshot dedup).
 func meteringNodeConfig(donMetadata *cre.DonMetadata, nodeIndex int) coretoml.Metering {
 	return coretoml.Metering{
-		MeterRecordsEnabled:   new(true),
-		MeterSnapshotsEnabled: new(true),
-		Product:               new("cre"),
-		Tenant:                new("local-cre"),
-		NumericTenantID:       new("1"),
-		Environment:           new("local"),
-		Zone:                  new(donMetadata.Name),
-		NodeID:                new(donMetadata.Name + "-node-" + strconv.Itoa(nodeIndex)),
+		MeterRecordsEnabled:    new(true),
+		MeterSnapshotsEnabled:  new(true),
+		CapabilityUsageEnabled: new(true),
+		Product:                new("cre"),
+		Tenant:                 new("local-cre"),
+		NumericTenantID:        new("1"),
+		Environment:            new("local"),
+		Zone:                   new(donMetadata.Name),
+		NodeID:                 new(donMetadata.Name + "-node-" + strconv.Itoa(nodeIndex)),
 	}
 }
 
