@@ -108,6 +108,12 @@ type eventHandler struct {
 	// disabled: its handler-facing methods are nil-receiver safe no-ops.
 	specMeter *SpecMeter
 
+	// usageMeter emits per-capability workflow usage records (compute) from the
+	// engines this handler creates. Nil when [Metering].CapabilityUsageEnabled
+	// is off; engines then emit nothing.
+	usageMeter    *resourcemanager.ResourceManager
+	usageIdentity resourcemanager.ResourceIdentity
+
 	orgResolver    orgresolver.OrgResolver
 	secretsFetcher v2.SecretsFetcher
 	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
@@ -198,6 +204,16 @@ func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 // sub-service and reports storage transitions through EmitSpecDelta; all other
 // metering concerns (ResourceManager lifecycle, identity, snapshots) live on
 // the meter. A nil meter (metering disabled) is a valid no-op.
+// WithUsageMeter supplies the ResourceManager and base identity used by engines
+// to emit cre:workflow:compute usage MeterRecords. The handler owns the
+// ResourceManager lifecycle as a sub-service.
+func WithUsageMeter(rm *resourcemanager.ResourceManager, identity resourcemanager.ResourceIdentity) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.usageMeter = rm
+		e.usageIdentity = identity
+	}
+}
+
 func WithSpecMeter(sm *SpecMeter) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.specMeter = sm
@@ -416,6 +432,9 @@ func NewEventHandler(
 			}
 			if eh.triggerCoordinator != nil {
 				subs = append(subs, eh.triggerCoordinator)
+			}
+			if eh.usageMeter != nil {
+				subs = append(subs, eh.usageMeter)
 			}
 			return subs
 		},
@@ -966,6 +985,7 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 		}},
 	)
 	cfg := h.newV2EngineConfig(ctx, selectingModule, workflowID, owner, tag, sdkName, name, config)
+	cfg.ConfidentialExecutions = confidential
 
 	cfg.CachedTriggerSubscriptions = h.parseCachedTriggerSubscriptions(workflowID, cachedTriggerSubs)
 	h.wireTriggerSubscriptionCacheHook(cfg, workflowID)
@@ -1505,6 +1525,8 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowRegistryAddress:           h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector:     h.workflowRegistryChainSelector,
 		OrgResolver:                       h.orgResolver,
+		UsageMeter:                        h.usageMeter,
+		UsageIdentity:                     h.usageIdentity,
 		SecretsFetcher:                    h.secretsFetcher,
 		OverrideFetcher:                   h.overrideFetcherForOwner(owner),
 		DebugMode:                         h.debugMode,

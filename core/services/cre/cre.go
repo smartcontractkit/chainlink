@@ -1023,6 +1023,20 @@ func newWorkflowRegistrySyncerV2(
 		handlerOpts = append(handlerOpts, syncerV2.WithSpecMeter(specMeter))
 	}
 
+	// Capability usage records (compute now, gas from the chain-write plugins)
+	// are gated separately from durable resource metering so they can be rolled
+	// out per DON. Nil meter means engines emit nothing.
+	if meteringCfg != nil && meteringCfg.CapabilityUsageEnabled() {
+		usageRM := resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
+			MeterRecordsEnabled: true,
+			Emitter:             beholder.GetEmitter(),
+		})
+		usageIdentity := meterIdentity
+		usageIdentity.Service = resourcemanager.EmittingServiceWorkflowEngine
+		usageIdentity.ResourcePool = resourcemanager.WorkflowUsageResourcePool
+		handlerOpts = append(handlerOpts, syncerV2.WithUsageMeter(usageRM, usageIdentity))
+	}
+
 	mc := capCfg.WorkflowRegistry().ModuleCache()
 	cacheEnabled := mc.Enabled()
 	diskMonitorEnabled := mc.DiskMonitorEnabled() || cacheEnabled

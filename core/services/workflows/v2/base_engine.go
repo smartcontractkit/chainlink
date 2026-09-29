@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -737,6 +738,12 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 			"computeMs", computeDuration.Milliseconds())
 	}
 
+	// Capability usage record for ordinary compute. Emitted for successful and
+	// failed executions alike (the compute happened), outside the legacy
+	// metering block so a legacy metering failure cannot suppress it, and
+	// skipped when the enclave ran the execution (metered on that path).
+	e.emitComputeUsage(ctx, executionLogger, executionID, computeDuration)
+
 	if isMetering {
 		computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
 		mrErr := meteringReport.Settle(computeUnit,
@@ -1080,4 +1087,40 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 		return resolvedOrg{Reason: "empty_response"}
 	}
 	return resolvedOrg{ID: orgID}
+}
+
+// emitComputeUsage emits the cre:workflow:compute usage MeterRecord for one
+// execution and logs the emission. The log line is a contract consumed by the
+// billing reconciler (fields: executionID, eventID, resourceType, value, orgID)
+// and must stay stable. Fail-open: never returns an error to the execution.
+func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, executionID string, computeDuration time.Duration) {
+	if e.cfg.UsageMeter == nil {
+		return
+	}
+	if e.cfg.ConfidentialExecutions != nil && e.cfg.ConfidentialExecutions.TookExecution(executionID) {
+		return
+	}
+	resourceID, err := resourcemanager.WorkflowUsageResourceID(e.cfg.WorkflowID, executionID)
+	if err != nil {
+		lggr.Errorw("Compute usage meter record not emitted", "err", err)
+		return
+	}
+	identity := e.cfg.UsageIdentity
+	if node := e.localNode.Load(); node != nil {
+		identity = identity.WithDonID(strconv.FormatUint(uint64(node.WorkflowDON.ID), 10))
+	}
+	valueMs := computeDuration.Milliseconds()
+	// The capability event id for compute is the execution id itself: one
+	// compute record per execution, identical on every node of the DON.
+	e.cfg.UsageMeter.EmitUsage(ctx, identity, executionID, valueMs, resourcemanager.UtilizationFields{
+		ResourceType: resourcemanager.ResourceTypeWorkflowCompute,
+		ResourceID:   resourceID,
+		OrgID:        e.orgID,
+	})
+	lggr.Infow("Emitted capability usage meter record",
+		"eventID", executionID,
+		"resourceType", resourcemanager.ResourceTypeWorkflowCompute,
+		"value", valueMs,
+		"orgID", e.orgID,
+	)
 }
