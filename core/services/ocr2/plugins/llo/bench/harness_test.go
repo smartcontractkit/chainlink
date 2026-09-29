@@ -211,7 +211,7 @@ func pluginConfig(n, f int) ocr3types.ReportingPluginConfig {
 func buildV30(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) ocr3types.ReportingPlugin[llotypes.ReportInfo] {
 	tb.Helper()
 	factory := llov30.NewPluginFactory(llov30.PluginFactoryParams{
-		Config:                 llov30.Config{VerboseLogging: false},
+		VerboseLogging:         false,
 		ShouldRetireCache:      mockShouldRetireCache{},
 		RetirementReportCodec:  lloprotocol.StandardRetirementReportCodec{},
 		ChannelDefinitionCache: &mockChannelDefinitionCache{defs: defs},
@@ -229,7 +229,7 @@ func buildV30(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) ocr3typ
 // mutate the factory params, e.g. to override the blob pump knobs.
 func newV31Factory(defs llotypes.ChannelDefinitions, opts ...func(*llov31.PluginFactoryParams)) *llov31.PluginFactory {
 	params := llov31.PluginFactoryParams{
-		Config:                 llov31.Config{VerboseLogging: false},
+		VerboseLogging:         false,
 		ShouldRetireCache:      mockShouldRetireCache{},
 		RetirementReportCodec:  lloprotocol.StandardRetirementReportCodec{},
 		ChannelDefinitionCache: &mockChannelDefinitionCache{defs: defs},

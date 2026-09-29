@@ -22,6 +22,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	llodatasource "github.com/smartcontractkit/chainlink-data-streams/llo/datasource"
 	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/dev/v31"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
@@ -98,6 +99,9 @@ type DelegateConfig struct {
 	// V31 runs the job on the v31 plugin, on libocr OCR3.1 (see
 	// chainlink-data-streams llo/pluginconfig.PluginConfig.PluginVersion)
 	V31 bool
+	// V31Config carries the v31 plugin knobs from the job's plugin config. Only
+	// read when V31 is true; zero fields fall through to the plugin defaults.
+	V31Config lloconfig.V31Config
 	// BinaryNetworkEndpoint2Factory is the OCR3.1 ("2") network endpoint factory
 	// (peerWrapper.Peer3_1). Required when V31 is true.
 	BinaryNetworkEndpoint2Factory ocr2types.BinaryNetworkEndpoint2Factory
@@ -248,25 +252,38 @@ func (d *delegate) newOracleV30(i int, configTracker ocr2types.ContractConfigTra
 	})
 }
 
+// v31FactoryParams assembles the v31 plugin factory params, mapping the job's
+// V31Config knobs onto it. Knobs left at zero are forwarded as zero, which the
+// factory reads as "apply the plugin default".
+func (d *delegate) v31FactoryParams(lggr logger.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) llov31.PluginFactoryParams {
+	return llov31.PluginFactoryParams{
+		VerboseLogging:                   d.cfg.ReportingPluginConfig.VerboseLogging || d.cfg.V31Config.VerboseLogging,
+		PredecessorRetirementReportCache: psrrc,
+		ShouldRetireCache:                d.src,
+		RetirementReportCodec:            d.cfg.RetirementReportCodec,
+		ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
+		DataSource:                       d.ds,
+		Logger:                           logger.Named(lggr, "ReportingPlugin"),
+		OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
+		ReportCodecs:                     d.reportCodecs,
+		OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
+		ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
+		DonID:                            d.cfg.DonID,
+		MaxSnapshotRounds:                d.cfg.V31Config.MaxSnapshotRounds,
+		BlobLifetimeRounds:               d.cfg.V31Config.BlobLifetimeRounds,
+		MaxDurationBlobObservation:       d.cfg.V31Config.MaxDurationBlobObservation.Duration(),
+		BlobInFlightWaitFactor:           d.cfg.V31Config.BlobInFlightWaitFactor,
+		MaxBlobSnapshotAge:               d.cfg.V31Config.MaxBlobSnapshotAge.Duration(),
+		MaxRoundPeriod:                   d.cfg.V31Config.MaxRoundPeriod.Duration(),
+	}
+}
+
 // newOracleV31 builds an OCR3.1 oracle running the llo/v31 reporting plugin. It
 // differs from v30 by the OCR3.1 oracle args (OCR3_1OracleArgs2), the "2"
 // network endpoint factory, and the required replicated KeyValueDatabaseFactory.
 func (d *delegate) newOracleV31(i int, configTracker ocr2types.ContractConfigTracker, lggr logger.Logger, ocrLogger ocrcommontypes.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) (ocr2plus.Oracle, error) {
 	factory := promwrapper31.NewReportingPluginFactory(
-		llov31.NewPluginFactory(llov31.PluginFactoryParams{
-			Config:                           llov31.Config{VerboseLogging: d.cfg.ReportingPluginConfig.VerboseLogging},
-			PredecessorRetirementReportCache: psrrc,
-			ShouldRetireCache:                d.src,
-			RetirementReportCodec:            d.cfg.RetirementReportCodec,
-			ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
-			DataSource:                       d.ds,
-			Logger:                           logger.Named(lggr, "ReportingPlugin"),
-			OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
-			ReportCodecs:                     d.reportCodecs,
-			OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
-			ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
-			DonID:                            d.cfg.DonID,
-		}),
+		llov31.NewPluginFactory(d.v31FactoryParams(lggr, psrrc)),
 		lggr,
 		"",
 		d.cfg.ChainID,

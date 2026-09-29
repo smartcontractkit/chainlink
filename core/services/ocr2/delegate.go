@@ -1730,7 +1730,8 @@ func (d *Delegate) newServicesLLO(
 			return NewDB(d.ds, spec.ID, pluginID, lggr)
 		},
 
-		V31: pluginCfg.IsV31(),
+		V31:       pluginCfg.IsV31(),
+		V31Config: pluginCfg.V31,
 	}
 
 	// The v31 plugin additionally requires the "2" network endpoint factory and

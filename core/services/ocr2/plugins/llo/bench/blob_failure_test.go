@@ -71,7 +71,7 @@ func newV31(tb testing.TB, defs llotypes.ChannelDefinitions, bbf ocr3_1types.Blo
 func driveRounds(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo], db ocr3_1types.KeyValueDatabase, bbf ocr3_1types.BlobBroadcastFetcher, pump *llotest.BlobBroadcastFetcher, startSeq uint64, rounds int, channels int) (reportingSeq uint64) {
 	tb.Helper()
 	for i := range rounds {
-		seqNr := startSeq + uint64(i) //nolint:gosec // G115: small round index
+		seqNr := startSeq + uint64(i)
 		before := pump.Broadcasts()
 		reports, _ := v31Round(tb, p, db, bbf, seqNr, blobFailureN)
 		if seqNr > 1 {
@@ -105,7 +105,7 @@ func TestBlobBroadcastFailure(t *testing.T) {
 	require.Positive(t, bbf.Broadcasts(), "the pump should have attempted to broadcast")
 
 	bbf.SetBroadcastError(nil)
-	seq = driveRounds(t, p, db, bbf, bbf, uint64(budget+1), budget, blobFailureWorkload.numChannels) //nolint:gosec // G115: small round budget
+	seq = driveRounds(t, p, db, bbf, bbf, uint64(budget+1), budget, blobFailureWorkload.numChannels)
 	require.NotZero(t, seq, "reporting should resume once blobs can be broadcast again")
 }
 
