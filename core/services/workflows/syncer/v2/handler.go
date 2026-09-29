@@ -1304,6 +1304,15 @@ func (h *eventHandler) tryCoordinatedEngineCreate(ctx context.Context, spec *job
 		return h.registryAddFailed(in.wid, source, engine, err)
 	}
 
+	cleanup := func(location string) {
+		if _, innerErr := h.engineRegistry.Pop(in.wid); innerErr != nil {
+			h.lggr.Warnw(fmt.Sprintf("Failed to pop engine from registry after %s failure", location), "workflowID", in.wid.Hex(), "err", innerErr)
+		}
+		if innerErr := engine.Close(); innerErr != nil {
+			h.lggr.Warnw(fmt.Sprintf("Failed to close engine after %s failure", location), "workflowID", in.wid.Hex(), "err", innerErr)
+		}
+	}
+
 	// Registration happens here, now that the engine is already in the
 	// registry, so the coordinator's readers can resolve it for the first
 	// event. RegisterTriggers calls the engine's Subscribe itself — the WASM
@@ -1312,12 +1321,7 @@ func (h *eventHandler) tryCoordinatedEngineCreate(ctx context.Context, spec *job
 	// concurrently.
 	localNode, err := h.capRegistry.LocalNode(ctx)
 	if err != nil {
-		if _, innerErr := h.engineRegistry.Pop(in.wid); innerErr != nil {
-			h.lggr.Warnw("Failed to pop engine from registry after local node resolution failure", "workflowID", in.wid.Hex(), "err", innerErr)
-		}
-		if innerErr := engine.Close(); innerErr != nil {
-			h.lggr.Warnw("Failed to close engine after local node resolution failure", "workflowID", in.wid.Hex(), "err", innerErr)
-		}
+		cleanup("local node resolution")
 		return fmt.Errorf("failed to resolve local node DON ID for trigger registration: %w", err)
 	}
 	donID := localNode.WorkflowDON.ID
@@ -1336,12 +1340,7 @@ func (h *eventHandler) tryCoordinatedEngineCreate(ctx context.Context, spec *job
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 	})
 	if err != nil {
-		if _, innerErr := h.engineRegistry.Pop(in.wid); innerErr != nil {
-			h.lggr.Warnw("Failed to pop engine from registry after trigger registration failure", "workflowID", in.wid.Hex(), "err", innerErr)
-		}
-		if innerErr := engine.Close(); innerErr != nil {
-			h.lggr.Warnw("Failed to close engine after trigger registration failure", "workflowID", in.wid.Hex(), "err", innerErr)
-		}
+		cleanup("trigger registration")
 		return fmt.Errorf("failed to register triggers via coordinator: %w", err)
 	}
 	h.lggr.Infow("Registered triggers via coordinator", "workflowID", in.wid.Hex(), "triggerIDs", triggerIDs)
