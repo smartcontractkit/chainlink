@@ -12,7 +12,6 @@ import (
 
 	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -48,8 +47,9 @@ func (c *recordingCoordinator) RegisterTriggers(_ context.Context, subscriber v2
 	return nil, c.registerErr
 }
 
-// engineCreateFixture is an eventHandler with counting fakes for both engine
-// factories, so a test can tell which creation path tryEngineCreate took.
+// engineCreateFixture is an eventHandler whose engine factory records the
+// coordinated argument it was called with, so a test can tell which creation
+// path tryEngineCreate took.
 type engineCreateFixture struct {
 	h                 *eventHandler
 	legacyEngine      *mockEngine
@@ -75,15 +75,14 @@ func newEngineCreateFixture(t *testing.T, withCoordinator, flagOpen bool) *engin
 		engineRegistry: NewEngineRegistry(),
 		featureFlags:   &v2.EngineFeatureFlags{CoordinatedEngine: limits.NewGateLimiter(flagOpen)},
 		tracer:         noop.NewTracerProvider().Tracer(""),
-		legacyEngineFactory: func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, initDone chan<- error) (services.Service, error) {
+		engineFactory: func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, coordinated bool, initDone chan<- error) (v2.WorkflowEngine, error) {
+			initDone <- nil
+			if coordinated {
+				f.coordinatedCalls.Add(1)
+				return f.coordinatedEngine, nil
+			}
 			f.legacyCalls.Add(1)
-			initDone <- nil
 			return f.legacyEngine, nil
-		},
-		coordinatedEngineFactory: func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, initDone chan<- error) (v2.WorkflowEngine, error) {
-			f.coordinatedCalls.Add(1)
-			initDone <- nil
-			return f.coordinatedEngine, nil
 		},
 	}
 	if withCoordinator {

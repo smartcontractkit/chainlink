@@ -8,9 +8,11 @@ import (
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
@@ -409,4 +411,27 @@ func (m *ShardFailoverManager) ActiveExecutions() int32 { return m.engine.Active
 // DrainStartedAt delegates to the wrapped engine.
 func (m *ShardFailoverManager) DrainStartedAt() (time.Time, bool) { return m.engine.DrainStartedAt() }
 
-var _ DrainableService = (*ShardFailoverManager)(nil)
+// ExecuteTrigger delegates to the wrapped engine. Trigger events that arrive
+// through the sharding hooks go through admissionCheck first; this is the
+// direct EventSink path, which the manager does not gate.
+func (m *ShardFailoverManager) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	return m.engine.ExecuteTrigger(ctx, event)
+}
+
+// Subscribe delegates to the wrapped engine.
+func (m *ShardFailoverManager) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
+	return m.engine.Subscribe(ctx)
+}
+
+// Tenant delegates to the wrapped engine.
+func (m *ShardFailoverManager) Tenant() contexts.CRE { return m.engine.Tenant() }
+
+// IsCoordinated delegates to the wrapped engine. Sharding and the coordinated
+// engine are not yet compatible, so in practice the wrapped engine is always
+// a legacy one and this is always false.
+func (m *ShardFailoverManager) IsCoordinated() bool { return m.engine.IsCoordinated() }
+
+var (
+	_ DrainableService  = (*ShardFailoverManager)(nil)
+	_ v2.WorkflowEngine = (*ShardFailoverManager)(nil)
+)

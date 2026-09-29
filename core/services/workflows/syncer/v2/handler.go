@@ -56,16 +56,18 @@ type ORM interface {
 	artifacts.WorkflowSpecsDS
 }
 
-// engineFactoryFn creates a workflow engine. The initDone channel is used to signal when the engine
-// has completed initialization (including trigger subscriptions). For v2 engines, this is wired to
-// the OnInitialized lifecycle hook. For v1 legacy DAG engines, nil is sent immediately after engine
-// creation since they don't support async initialization hooks.
-type engineFactoryFn func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
-
-// coordinatedEngineFactoryFn builds the engine for a workflow the CoordinatedEngine
-// flag routes to the coordinated path. It takes the same arguments as
-// engineFactoryFn, but returns the typed engine the TriggerCoordinator needs.
-type coordinatedEngineFactoryFn func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (v2.WorkflowEngine, error)
+// engineFactoryFn creates a workflow engine. The initDone channel is used to signal
+// when the engine has completed initialization; it is wired to the OnInitialized
+// lifecycle hook. On the legacy path initialization includes registering the
+// workflow's triggers, so initDone means the workflow is fully deployed. The
+// coordinated engine registers no triggers during init — the coordinator does that
+// afterwards, once the engine is in the registry — so initDone is a weaker signal there.
+//
+// coordinated selects which engine constructor the factory calls. Everything
+// around the constructor — the module stack, the EngineConfig, the sharding
+// wrapper — is shared, so it is built in one place regardless.
+// tryEngineCreate decides the value; the factory builds what it is asked for.
+type engineFactoryFn func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, coordinated bool, initDone chan<- error) (v2.WorkflowEngine, error)
 
 type DrainableService interface {
 	Drain() bool
@@ -95,10 +97,9 @@ type eventHandler struct {
 	ratelimiter          *ratelimiter.RateLimiter
 	workflowLimits       limits.ResourceLimiter[int]
 
-	// legacyEngineFactory and coordinatedEngineFactory build the engine for
-	// each creation path; tryEngineCreate picks the path.
-	legacyEngineFactory      engineFactoryFn
-	coordinatedEngineFactory coordinatedEngineFactoryFn
+	// engineFactory builds the engine for both creation paths; each passes its
+	// own value for the factory's coordinated argument.
+	engineFactory engineFactoryFn
 
 	// triggerCoordinator owns registration/handles/ACK for every workflow
 	// running the coordinated engine. Nil until wired via WithTriggerCoordinator.
@@ -160,26 +161,17 @@ func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	}
 }
 
-// WithEngineFactoryFn allows for overriding the legacy engine factory function.
+// WithEngineFactoryFn allows for overriding the engine factory function.
 // if in doubt, close initDone channel immediately in tests to prevent deadlocks.
 func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.legacyEngineFactory = efn
+		e.engineFactory = efn
 	}
 }
 
-// WithCoordinatedEngineFactoryFn allows for overriding the coordinated engine
-// factory function. It is only used for workflows the CoordinatedEngine flag
-// routes to the coordinated path, which also requires WithTriggerCoordinator.
-func WithCoordinatedEngineFactoryFn(efn coordinatedEngineFactoryFn) func(*eventHandler) {
+func WithStaticEngine(engine v2.WorkflowEngine) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.coordinatedEngineFactory = efn
-	}
-}
-
-func WithStaticEngine(engine services.Service) func(*eventHandler) {
-	return func(e *eventHandler) {
-		e.legacyEngineFactory = func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, initDone chan<- error) (services.Service, error) {
+		e.engineFactory = func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, _ bool, initDone chan<- error) (v2.WorkflowEngine, error) {
 			// For static engines (used in tests), signal immediate initialization success
 			if initDone != nil {
 				initDone <- nil
@@ -402,8 +394,7 @@ func NewEventHandler(
 		return nil, fmt.Errorf("new metrics: %w", metricsErr)
 	}
 	eh.metrics = metricsInst
-	eh.legacyEngineFactory = eh.newLegacyEngine
-	eh.coordinatedEngineFactory = eh.newCoordinatedEngine
+	eh.engineFactory = eh.newEngine
 	for _, o := range opts {
 		o(eh)
 	}
@@ -952,7 +943,6 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 
 	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
 
-	// V2 aka "NoDAG"
 	// Wrap the local WASM module in a RequirementSelectingModule that routes
 	// triggers with a TEE requirement to the ConfidentialModule (which delegates
 	// to the confidential-workflows capability and runs the WASM inside the
@@ -979,28 +969,13 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 	return cfg, nil
 }
 
-// newCoordinatedEngine is the coordinated engine factory. The engine
-// registers no triggers itself: tryCoordinatedEngineCreate hands it to the
-// coordinator once it is in the registry, and the coordinator calls Subscribe
-// to obtain its subscriptions.
-func (h *eventHandler) newCoordinatedEngine(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (v2.WorkflowEngine, error) {
-	cfg, err := h.buildEngineConfig(ctx, workflowID, owner, name, tag, config, binary, binaryURL, initDone)
-	if err != nil {
-		return nil, err
-	}
-
-	// The trigger coordinator is not implemented yet, so a workflow routed here
-	// will never receive triggers. Warn once per engine creation with the workflowID
-	h.lggr.Warnw("Routing workflow to the coordinated engine; trigger delivery is not implemented yet",
-		"workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
-
-	cfg.TriggerAcknowledger = h.triggerCoordinator
-	return v2.NewCoordinatedEngine(cfg)
-}
-
-// newLegacyEngine is the default legacyEngineFactory: an engine that registers
-// its own triggers, wrapped in a ShardFailoverManager when sharding is enabled.
-func (h *eventHandler) newLegacyEngine(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+// newEngine is the default engineFactoryFn: it builds the module stack and
+// EngineConfig, wires sharding, and calls one of the two engine constructors.
+//
+// The coordinated engine registers no triggers itself:
+// tryCoordinatedEngineCreate hands it to the coordinator once it is in the
+// registry, and the coordinator calls Subscribe to obtain its subscriptions.
+func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, coordinated bool, initDone chan<- error) (v2.WorkflowEngine, error) {
 	cfg, err := h.buildEngineConfig(ctx, workflowID, owner, name, tag, config, binary, binaryURL, initDone)
 	if err != nil {
 		return nil, err
@@ -1029,7 +1004,18 @@ func (h *eventHandler) newLegacyEngine(ctx context.Context, workflowID, owner st
 		manager.WireHooks(cfg)
 	}
 
-	engine, err := v2.NewEngine(cfg)
+	construct := v2.NewEngine
+	if coordinated {
+		// The trigger coordinator is not implemented yet, so a workflow routed here
+		// will never receive triggers. Warn once per engine creation with the workflowID
+		h.lggr.Warnw("Routing workflow to the coordinated engine; trigger delivery is not implemented yet",
+			"workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+
+		cfg.TriggerAcknowledger = h.triggerCoordinator
+		construct = v2.NewCoordinatedEngine
+	}
+
+	engine, err := construct(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -1286,7 +1272,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 // while it starts, so it is done once the engine is in the registry.
 func (h *eventHandler) tryLegacyEngineCreate(ctx context.Context, spec *job.WorkflowSpec, source string, in *engineInputs) error {
 	initDone := make(chan error, 1)
-	engine, err := h.legacyEngineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, in.workflowName, spec.WorkflowTag, in.config, in.binary, spec.BinaryURL, initDone)
+	engine, err := h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, in.workflowName, spec.WorkflowTag, in.config, in.binary, spec.BinaryURL, false, initDone)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
@@ -1305,7 +1291,7 @@ func (h *eventHandler) tryLegacyEngineCreate(ctx context.Context, spec *job.Work
 // itself, adds it to the registry, then hands it to the TriggerCoordinator.
 func (h *eventHandler) tryCoordinatedEngineCreate(ctx context.Context, spec *job.WorkflowSpec, source string, in *engineInputs) error {
 	initDone := make(chan error, 1)
-	engine, err := h.coordinatedEngineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, in.workflowName, spec.WorkflowTag, in.config, in.binary, spec.BinaryURL, initDone)
+	engine, err := h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, in.workflowName, spec.WorkflowTag, in.config, in.binary, spec.BinaryURL, true, initDone)
 	if err != nil {
 		return fmt.Errorf("failed to create coordinated workflow engine: %w", err)
 	}
