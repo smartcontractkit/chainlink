@@ -37,8 +37,8 @@ plugins:
       installPath: "./pkg/chainlink/cmd/chainlink-starknet"
 
   stellar:
-    - moduleURI: "github.com/smartcontractkit/chainlink-stellar"
-      gitRef: "2cf745a3c6984f328dac459392d148ca7b6f6079"
+    - moduleURI: "github.com/smartcontractkit/chainlink-stellar/relayer"
+      gitRef: "a2df4fbafbfdeec7a0214805574bf99590560c4e"
       installPath: "./cmd/chainlink-stellar"
 
   streams:
