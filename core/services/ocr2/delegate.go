@@ -96,8 +96,8 @@ const (
 	gaugeVaultDiskUsageBytes     = "platform_vault_disk_usage_bytes"
 	vaultDiskMonitorTickInterval = time.Minute
 
-	centralQueueCapabilityID = "vault@1.0.0"
-	centralQueueOCRConfigKey = "vault"
+	consensusQueueCapabilityID = "consensus-queue@1.0.0"
+	consensusQueueOCRConfigKey = "consensus-queue"
 )
 
 type JobSpecNoRelayerError struct {
@@ -556,8 +556,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.RingPlugin:
 		return d.newServicesRing(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
-	case types.CentralQueue:
-		return d.newServicesCentralQueue(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+	case types.ConsensusQueue:
+		return d.newServicesConsensusQueue(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -793,7 +793,7 @@ func (d *Delegate) getRelayer(spec *job.OCR2OracleSpec) (types.RelayID, loop.Rel
 	return rid, relayer, nil
 }
 
-func (d *Delegate) newServicesCentralQueue(
+func (d *Delegate) newServicesConsensusQueue(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
@@ -857,7 +857,7 @@ func (d *Delegate) newServicesCentralQueue(
 	}
 
 	// Get DKG config tracker and digester, optionally wrapping with OCRConfigService
-	configTracker, configDigester, lc, err := d.maybeWrapConfigService(centralQueueCapabilityID, centralQueueOCRConfigKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
+	configTracker, configDigester, lc, err := d.maybeWrapConfigService(consensusQueueCapabilityID, consensusQueueOCRConfigKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
 	if err != nil {
 		return nil, err
 	}
@@ -878,12 +878,12 @@ func (d *Delegate) newServicesCentralQueue(
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
-	rpf, err := queue.NewCentralQueuePluginFactory(lggr, d.limitsFactory)
+	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, d.limitsFactory)
 	if err != nil {
 		return nil, err
 	}
 
-	wrappedRpf := beholderwrapper.NewReportingPluginFactory(rpf, lggr, string(types.CentralQueue))
+	wrappedRpf := beholderwrapper.NewReportingPluginFactory(rpf, lggr, string(types.ConsensusQueue))
 	oracleArgs.ReportingPluginFactory = wrappedRpf
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
