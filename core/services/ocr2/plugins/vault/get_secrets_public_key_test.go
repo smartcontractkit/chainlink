@@ -89,7 +89,7 @@ func TestAggregateVaultPublicKey(t *testing.T) {
 
 	obsWithKey := func(n int) map[uint8]*vaultcommon.Observations {
 		m := map[uint8]*vaultcommon.Observations{}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			m[uint8(i)] = &vaultcommon.Observations{RawVaultPublicKey: pkb}
 		}
 		return m

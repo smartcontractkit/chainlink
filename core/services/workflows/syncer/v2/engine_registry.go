@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 var ErrNotFound = errors.New("engine not found")
@@ -21,6 +22,13 @@ type ServiceWithMetadata struct {
 	// Empty when the engine was registered without identity metadata (e.g. via Add).
 	ReconcileKey string
 	services.Service
+}
+
+// Coordinated is true for an engine that leaves trigger registration,
+// dequeuing and acknowledgement to the TriggerCoordinator.
+func (e ServiceWithMetadata) Coordinated() bool {
+	engine, ok := e.Service.(v2.WorkflowEngine)
+	return ok && engine.IsCoordinated()
 }
 
 // engineEntry holds the engine and its associated source for internal storage.
