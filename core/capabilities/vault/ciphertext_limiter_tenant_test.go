@@ -74,6 +74,8 @@ func mustNewRecordingValidator(t *testing.T) (*vault.RequestValidator, *recordin
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
+		// Generous: these tests never exercise the blob payload size check.
+		limits.NewUpperBoundLimiter[pkgconfig.Size](pkgconfig.MByte),
 	)
 	return validator, recorder
 }
@@ -212,8 +214,9 @@ func TestRequestValidator_ValidateEncryptedSecretsStructure_SkipsCiphertextSizeC
 	validator, recorder := mustNewRecordingValidator(t)
 
 	oversized := strings.Repeat("00", 4096)
-	err := validator.ValidateEncryptedSecretsStructure(t.Context(), nil, "req-1", []*vaultcommon.EncryptedSecret{
-		{Id: &vaultcommon.SecretIdentifier{Owner: "0xabc", Key: "k"}, EncryptedValue: oversized},
+	err := validator.ValidateEncryptedSecretsStructure(t.Context(), nil, &vaultcommon.CreateSecretsRequest{
+		RequestId:        "req-1",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{{Id: &vaultcommon.SecretIdentifier{Owner: "0xabc", Key: "k"}, EncryptedValue: oversized}},
 	}, true)
 	require.NoError(t, err)
 	require.Empty(t, recorder.recorded())
@@ -227,11 +230,16 @@ func TestRequestValidator_ValidateEncryptedSecretsStructure_StillRejectsInvalidS
 		Id: &vaultcommon.SecretIdentifier{Owner: "0xabc", Key: "k"}, EncryptedValue: "00",
 	}
 
-	err := validator.ValidateEncryptedSecretsStructure(t.Context(), nil, "", []*vaultcommon.EncryptedSecret{validSecret}, true)
+	err := validator.ValidateEncryptedSecretsStructure(t.Context(), nil, &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{validSecret},
+	}, true)
 	require.ErrorContains(t, err, "request ID must not be empty")
 
-	err = validator.ValidateEncryptedSecretsStructure(t.Context(), nil, "req-1", []*vaultcommon.EncryptedSecret{
-		{Id: &vaultcommon.SecretIdentifier{Owner: "", Key: "k"}, EncryptedValue: "00"},
+	err = validator.ValidateEncryptedSecretsStructure(t.Context(), nil, &vaultcommon.CreateSecretsRequest{
+		RequestId: "req-1",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{Id: &vaultcommon.SecretIdentifier{Owner: "", Key: "k"}, EncryptedValue: "00"},
+		},
 	}, true)
 	require.ErrorContains(t, err, "owner cannot be empty")
 

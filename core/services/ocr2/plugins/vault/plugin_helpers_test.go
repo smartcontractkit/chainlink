@@ -191,12 +191,16 @@ func makeTestValidator(
 	requestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxRequestBatchSize))
 	require.NoError(t, err)
 
+	blobPayloadSizeLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
+	require.NoError(t, err)
+
 	return vaultcap.NewRequestValidator(
 		requestBatchSizeLimiter,
 		cipherTextLimiter,
 		keyLimiter,
 		ownerLimiter,
 		namespaceOwnerLimiter,
+		blobPayloadSizeLimiter,
 	)
 }
 

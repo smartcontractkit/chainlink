@@ -130,7 +130,7 @@ func (p *GatewayVaultRequestProcessor) processCreateSecretsRequest(
 	}
 
 	skipLabelValidation := publicKey == nil
-	if err := p.validator.ValidateEncryptedSecretsStructure(ctx, publicKey, createReq.RequestId, createReq.EncryptedSecrets, skipLabelValidation); err != nil {
+	if err := p.validator.ValidateEncryptedSecretsStructure(ctx, publicKey, &createReq, skipLabelValidation); err != nil {
 		return nil, p.validationError(req, err)
 	}
 
@@ -172,7 +172,7 @@ func (p *GatewayVaultRequestProcessor) processUpdateSecretsRequest(
 	}
 
 	skipLabelValidation := publicKey == nil
-	if err := p.validator.ValidateEncryptedSecretsStructure(ctx, publicKey, updateReq.RequestId, updateReq.EncryptedSecrets, skipLabelValidation); err != nil {
+	if err := p.validator.ValidateEncryptedSecretsStructure(ctx, publicKey, &updateReq, skipLabelValidation); err != nil {
 		return nil, p.validationError(req, err)
 	}
 
