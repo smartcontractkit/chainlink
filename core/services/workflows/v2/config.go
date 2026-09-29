@@ -406,7 +406,7 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	coordinatedEngineSetting.Scope = settings.ScopeGlobal
 	coordinatedEngine, err := limits.MakeGateLimiter(lf, coordinatedEngineSetting)
 	if err != nil {
-		return nil, fmt.Errorf("execution only engine flag: %w", err)
+		return nil, fmt.Errorf("coordinated engine flag: %w", err)
 	}
 	return &EngineFeatureFlags{
 		WorkflowTagBackfill: workflowTagBackfill,

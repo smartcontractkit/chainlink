@@ -1324,12 +1324,17 @@ func (h *eventHandler) tryCoordinatedEngineCreate(ctx context.Context, spec *job
 	// call is scoped to the one workflow it describes, which matters because
 	// Handle runs on a worker pool and several workflows reach this point
 	// concurrently.
-	var donID uint32
-	if localNode, lnErr := h.capRegistry.LocalNode(ctx); lnErr == nil {
-		donID = localNode.WorkflowDON.ID
-	} else {
-		h.lggr.Warnw("Could not resolve local node DON ID for trigger registration metadata", "workflowID", in.wid.Hex(), "err", lnErr)
+	localNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		if _, innerErr := h.engineRegistry.Pop(in.wid); innerErr != nil {
+			h.lggr.Warnw("Failed to pop engine from registry after local node resolution failure", "workflowID", in.wid.Hex(), "err", innerErr)
+		}
+		if innerErr := engine.Close(); innerErr != nil {
+			h.lggr.Warnw("Failed to close engine after local node resolution failure", "workflowID", in.wid.Hex(), "err", innerErr)
+		}
+		return fmt.Errorf("failed to resolve local node DON ID for trigger registration: %w", err)
 	}
+	donID := localNode.WorkflowDON.ID
 
 	triggerIDs, err := h.triggerCoordinator.RegisterTriggers(ctx, engine, RegistrationParams{
 		WorkflowOwner:       spec.WorkflowOwner,
@@ -1345,8 +1350,12 @@ func (h *eventHandler) tryCoordinatedEngineCreate(ctx context.Context, spec *job
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 	})
 	if err != nil {
-		_, _ = h.engineRegistry.Pop(in.wid)
-		_ = engine.Close()
+		if _, innerErr := h.engineRegistry.Pop(in.wid); innerErr != nil {
+			h.lggr.Warnw("Failed to pop engine from registry after trigger registration failure", "workflowID", in.wid.Hex(), "err", innerErr)
+		}
+		if innerErr := engine.Close(); innerErr != nil {
+			h.lggr.Warnw("Failed to close engine after trigger registration failure", "workflowID", in.wid.Hex(), "err", innerErr)
+		}
 		return fmt.Errorf("failed to register triggers via coordinator: %w", err)
 	}
 	h.lggr.Infow("Registered triggers via coordinator", "workflowID", in.wid.Hex(), "triggerIDs", triggerIDs)
