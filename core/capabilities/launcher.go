@@ -75,16 +75,16 @@ type launcher struct {
 
 // For V2 capabilities, shims are created once and their config is updated dynamically.
 type cachedShims struct {
-	combinedClients    map[shimKey]remote.CombinedClient
-	triggerSubscribers map[shimKey]remote.TriggerSubscriber
-	triggerPublishers  map[shimKey]remote.TriggerPublisher
-	executableClients  map[shimKey]executable.Client
-	executableServers  map[shimKey]executable.Server
+	combinedClients    map[shimID]remote.CombinedClient
+	triggerSubscribers map[shimID]remote.TriggerSubscriber
+	triggerPublishers  map[shimID]remote.TriggerPublisher
+	executableClients  map[shimID]executable.Client
+	executableServers  map[shimID]executable.Server
 }
 
-// shimKey identifies a single per-method remote shim. combinedClients are keyed with method == "",
+// shimID identifies a single per-method remote shim. combinedClients are keyed with method == "",
 // since a CombinedClient covers every method of a capability.
-type shimKey struct {
+type shimID struct {
 	capID  string
 	donID  uint32
 	method string
@@ -138,11 +138,11 @@ func NewLauncher(
 		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		dispatcher: dispatcher,
 		cachedShims: cachedShims{
-			combinedClients:    make(map[shimKey]remote.CombinedClient),
-			triggerSubscribers: make(map[shimKey]remote.TriggerSubscriber),
-			triggerPublishers:  make(map[shimKey]remote.TriggerPublisher),
-			executableClients:  make(map[shimKey]executable.Client),
-			executableServers:  make(map[shimKey]executable.Server),
+			combinedClients:    make(map[shimID]remote.CombinedClient),
+			triggerSubscribers: make(map[shimID]remote.TriggerSubscriber),
+			triggerPublishers:  make(map[shimID]remote.TriggerPublisher),
+			executableClients:  make(map[shimID]executable.Client),
+			executableServers:  make(map[shimID]executable.Server),
 		},
 		registry:               registry,
 		workflowDonNotifier:    workflowDonNotifier,
@@ -565,7 +565,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 			continue
 		}
 
-		key := shimKey{capID: capID, donID: remoteDON.ID, method: method}
+		key := shimID{capID: capID, donID: remoteDON.ID, method: method}
 		if config.RemoteTriggerConfig != nil { // trigger
 			sub, alreadyExists := w.cachedShims.triggerSubscribers[key]
 			if !alreadyExists {
@@ -662,7 +662,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 			if !ok {
 				return fmt.Errorf("capability %s does not implement TriggerCapability", capID)
 			}
-			key := shimKey{capID: capID, donID: myDON.ID, method: method}
+			key := shimID{capID: capID, donID: myDON.ID, method: method}
 			publisher, alreadyExists := w.cachedShims.triggerPublishers[key]
 			if !alreadyExists {
 				publisher = remote.NewTriggerPublisher(
@@ -692,7 +692,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 				return fmt.Errorf("capability %s does not implement ExecutableCapability", capID)
 			}
 
-			key := shimKey{capID: capID, donID: myDON.ID, method: method}
+			key := shimID{capID: capID, donID: myDON.ID, method: method}
 			server, alreadyExists := w.cachedShims.executableServers[key]
 			if !alreadyExists {
 				server = executable.NewServer(
@@ -745,7 +745,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 
 // retrieve or create a CombinedClient for the given capability
 func (w *launcher) getCombinedClient(info capabilities.CapabilityInfo) (remote.CombinedClient, bool) {
-	key := shimKey{capID: info.ID, donID: info.DON.ID} // empty method name - CombinedClient covers all methods
+	key := shimID{capID: info.ID, donID: info.DON.ID} // empty method name - CombinedClient covers all methods
 	cc, exists := w.cachedShims.combinedClients[key]
 	if !exists { // create a new combined client and cache it
 		cc = remote.NewCombinedClient(info)
@@ -760,11 +760,11 @@ func (w *launcher) getCombinedClient(info capabilities.CapabilityInfo) (remote.C
 
 // wantedShimKeys is the set of shim keys expected to exist after a reconcile pass.
 type wantedShimKeys struct {
-	combinedClients    map[shimKey]struct{}
-	triggerSubscribers map[shimKey]struct{}
-	executableClients  map[shimKey]struct{}
-	triggerPublishers  map[shimKey]struct{}
-	executableServers  map[shimKey]struct{}
+	combinedClients    map[shimID]struct{}
+	triggerSubscribers map[shimID]struct{}
+	executableClients  map[shimID]struct{}
+	triggerPublishers  map[shimID]struct{}
+	executableServers  map[shimID]struct{}
 }
 
 // computeWantedShimKeys determines every shim key this reconcile pass will create or refresh, so
@@ -775,11 +775,11 @@ type wantedShimKeys struct {
 // workflow/capability DON, matching the gating in onNewRegistry.
 func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON) wantedShimKeys {
 	wanted := wantedShimKeys{
-		combinedClients:    map[shimKey]struct{}{},
-		triggerSubscribers: map[shimKey]struct{}{},
-		executableClients:  map[shimKey]struct{}{},
-		triggerPublishers:  map[shimKey]struct{}{},
-		executableServers:  map[shimKey]struct{}{},
+		combinedClients:    map[shimID]struct{}{},
+		triggerSubscribers: map[shimID]struct{}{},
+		executableClients:  map[shimID]struct{}{},
+		triggerPublishers:  map[shimID]struct{}{},
+		executableServers:  map[shimID]struct{}{},
 	}
 	for _, remoteDON := range remoteCapabilityDONs {
 		for cid, c := range remoteDON.CapabilityConfigurations {
@@ -787,9 +787,9 @@ func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON
 			if !ok {
 				continue
 			}
-			wanted.combinedClients[shimKey{capID: cid, donID: remoteDON.ID}] = struct{}{}
+			wanted.combinedClients[shimID{capID: cid, donID: remoteDON.ID}] = struct{}{}
 			for method, cfg := range methodConfig {
-				key := shimKey{capID: cid, donID: remoteDON.ID, method: method}
+				key := shimID{capID: cid, donID: remoteDON.ID, method: method}
 				switch {
 				case cfg.RemoteTriggerConfig != nil:
 					wanted.triggerSubscribers[key] = struct{}{}
@@ -806,7 +806,7 @@ func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON
 				continue
 			}
 			for method, cfg := range methodConfig {
-				key := shimKey{capID: cid, donID: myDON.ID, method: method}
+				key := shimID{capID: cid, donID: myDON.ID, method: method}
 				switch {
 				case cfg.RemoteTriggerConfig != nil:
 					wanted.triggerPublishers[key] = struct{}{}
@@ -874,7 +874,7 @@ func (w *launcher) pruneStaleShims(ctx context.Context, wanted wantedShimKeys) {
 
 // closeStaleShim deregisters a pruned shim from the dispatcher and closes it, removing it from
 // w.subServices so the launcher's own Close() doesn't close it a second time.
-func (w *launcher) closeStaleShim(key shimKey, shim any) {
+func (w *launcher) closeStaleShim(key shimID, shim any) {
 	w.dispatcher.RemoveReceiverForMethod(key.capID, key.donID, key.method)
 	if c, ok := shim.(interface{ Close() error }); ok {
 		if err := c.Close(); err != nil {
@@ -886,7 +886,7 @@ func (w *launcher) closeStaleShim(key shimKey, shim any) {
 	defer w.muSubServices.Unlock()
 	for i, s := range w.subServices {
 		if any(s) == shim {
-			w.subServices = append(w.subServices[:i], w.subServices[i+1:]...)
+			w.subServices = slices.Delete(w.subServices, i, i+1)
 			break
 		}
 	}
