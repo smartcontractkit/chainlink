@@ -20,6 +20,7 @@ import (
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // --- test doubles ---
@@ -374,4 +375,16 @@ func TestShardFailoverManager_DelegatesIsCoordinated(t *testing.T) {
 		m := newTestShardFailoverManager(t, &fakeCoordinatedDrainableEngine{})
 		require.True(t, m.IsCoordinated())
 	})
+}
+
+// TestShardFailoverManager_CoordinatorMethodsUnsupported covers the
+// coordinator-facing methods, which must fail rather than delegate until
+// sharding and the coordinated engine can work together.
+func TestShardFailoverManager_CoordinatorMethodsUnsupported(t *testing.T) {
+	t.Parallel()
+	m := newTestShardFailoverManager(t, &mockEngine{})
+
+	_, err := m.Subscribe(t.Context())
+	require.ErrorIs(t, err, ErrCoordinatedShardingUnsupported)
+	require.ErrorIs(t, m.ExecuteTrigger(t.Context(), triggers.CoordinatedEvent{}), ErrCoordinatedShardingUnsupported)
 }
