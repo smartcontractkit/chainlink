@@ -3,6 +3,7 @@ package cre
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -23,20 +24,21 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -48,12 +50,14 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	stvault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
+	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 	vaultjwt "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -266,6 +270,26 @@ type vaultScenarioFixture struct {
 	LinkingService *stvault.TestLinkingService
 	GatewayURL     *url.URL
 	VaultPublicKey string
+	// TriggerAuth authorizes and signs HTTP trigger requests for verifier
+	// workflows deployed from this fixture (see deployVaultVerifierWorkflow).
+	TriggerAuth *vaultTriggerAuth
+}
+
+// vaultTriggerAuth holds the ECDSA key pair used to authorize and sign HTTP
+// trigger requests against vault verifier workflows. Address is embedded in
+// each workflow's http-trigger AuthorizedKeys deploy-time config; PrivateKey
+// signs the trigger request JWT.
+type vaultTriggerAuth struct {
+	Address    common.Address
+	PrivateKey *ecdsa.PrivateKey
+}
+
+func newVaultTriggerAuth() (*vaultTriggerAuth, error) {
+	addr, privateKey, err := libcrypto.GenerateNewKeyPair()
+	if err != nil {
+		return nil, err
+	}
+	return &vaultTriggerAuth{Address: addr, PrivateKey: privateKey}, nil
 }
 
 type vaultWorkflowCheck struct {
@@ -324,6 +348,9 @@ func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, useP
 	linkingService, err := stvault.EnsureSharedTestLinkingServiceStarted()
 	require.NoError(t, err)
 
+	triggerAuth, err := newVaultTriggerAuth()
+	require.NoError(t, err, "failed to generate vault verifier trigger signing key")
+
 	var testEnv *ttypes.TestEnvironment
 	if usePerTestKeys {
 		testEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, baseConfig)
@@ -342,6 +369,7 @@ func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, useP
 		LinkingService: linkingService,
 		GatewayURL:     gatewayURL,
 		VaultPublicKey: vaultPublicKey,
+		TriggerAuth:    triggerAuth,
 	}
 }
 
@@ -1314,63 +1342,216 @@ func executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(
 	require.Contains(t, jsonResponse.Error.Error(), expectedAuthError)
 }
 
-func startVaultSecretsWorkflowPhasesTest(
-	t *testing.T, testEnv *ttypes.TestEnvironment,
-	workflowBaseName string,
-	phases []vaultWorkflowPhase,
-) string {
+// vaultVerifierHandle identifies a deployed vault verifier workflow together
+// with everything needed to trigger it over the gateway on demand.
+type vaultVerifierHandle struct {
+	WorkflowName  string
+	WorkflowID    string
+	WorkflowOwner string
+	GatewayURL    string
+	TriggerAuth   *vaultTriggerAuth
+}
+
+const (
+	// vaultVerifierTriggerRetryInterval paces re-trigger attempts while the
+	// workflow is still being loaded or the phase is not yet satisfied.
+	vaultVerifierTriggerRetryInterval = 2 * time.Second
+	// vaultVerifierTriggerAttemptWindow bounds how long a single accepted
+	// trigger execution may take to emit the expected user log.
+	vaultVerifierTriggerAttemptWindow = 30 * time.Second
+	// vaultVerifierTriggerDeadline bounds the whole trigger-and-await loop
+	// (workflow load, trigger execution, and phase satisfaction retries).
+	vaultVerifierTriggerDeadline = 3 * time.Minute
+)
+
+// deployVaultVerifierWorkflow compiles and registers the vaultsecret workflow
+// under the given test environment. What the workflow verifies is supplied per
+// invocation through the HTTP trigger input, so a single deployment can serve
+// every verification scenario; the deploy-time config only carries the
+// http-trigger authorized signing key.
+func deployVaultVerifierWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, triggerAuth *vaultTriggerAuth, workflowBaseName string) *vaultVerifierHandle {
 	t.Helper()
 
 	testLogger := framework.L
-	testLogger.Info().
-		Str("workflow_base_name", workflowBaseName).
-		Int("phase_count", len(phases)).
-		Msg("Starting vault workflow phase verification")
-
 	workflowName := t_helpers.UniqueWorkflowName(testEnv, workflowBaseName)
-	cfgPhases := make([]vaultsecret_config.Phase, 0, len(phases))
-	for _, phase := range phases {
-		cfgChecks := make([]vaultsecret_config.Check, 0, len(phase.Checks))
-		for _, check := range phase.Checks {
-			cfgChecks = append(cfgChecks, vaultsecret_config.Check{
-				Name:            check.Name,
-				SecretKey:       check.SecretKey,
-				SecretNamespace: check.SecretNamespace,
-				ExpectedValue:   check.ExpectedValue,
-				ExpectNotFound:  check.ExpectNotFound,
-			})
-		}
-		cfgPhases = append(cfgPhases, vaultsecret_config.Phase{
-			Name:   phase.Name,
-			Checks: cfgChecks,
-		})
-	}
-
-	cfg := &vaultsecret_config.Config{Phases: cfgPhases}
+	cfg := &vaultsecret_config.Config{AuthorizedKey: triggerAuth.Address.Hex()}
 	const workflowFileLocation = "./vaultsecret/main.go"
-	return t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, cfg, workflowFileLocation)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, cfg, workflowFileLocation)
+
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0])
+	sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+	gatewayURL := mustVaultGatewayURL(t, testEnv)
+	return &vaultVerifierHandle{
+		WorkflowName:  workflowName,
+		WorkflowID:    workflowID,
+		WorkflowOwner: strings.ToLower(sc.MustGetRootKeyAddress().Hex()),
+		GatewayURL:    gatewayURL.String(),
+		TriggerAuth:   triggerAuth,
+	}
 }
 
-func waitForVaultWorkflowPhase(
+// sendVaultVerifierTriggerRequest sends one signed HTTP trigger request
+// carrying input to the deployed verifier workflow. It returns an error while
+// the workflow is still being loaded (syncer pickup + engine init) or when the
+// gateway rejects the request, so callers can retry.
+func sendVaultVerifierTriggerRequest(t *testing.T, handle *vaultVerifierHandle, input vaultsecret_config.TriggerInput) error {
+	t.Helper()
+
+	inputJSON, err := json.Marshal(input)
+	require.NoError(t, err, "failed to marshal vault verifier trigger input")
+
+	triggerPayload := gateway_common.HTTPTriggerRequest{
+		Workflow: gateway_common.WorkflowSelector{
+			WorkflowOwner: handle.WorkflowOwner,
+			WorkflowName:  handle.WorkflowName,
+			WorkflowTag:   creworkflow.DefaultWorkflowTag,
+			WorkflowID:    handle.WorkflowID,
+		},
+		Input: json.RawMessage(inputJSON),
+	}
+	params, err := json.Marshal(triggerPayload)
+	require.NoError(t, err, "failed to marshal vault verifier trigger request")
+	rawParams := json.RawMessage(params)
+
+	// A fresh request ID per attempt: the node-side trigger request cache
+	// returns the cached ACCEPTED response for duplicate IDs without
+	// re-executing the workflow.
+	req := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uuid.New().String(),
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawParams,
+	}
+
+	token, err := utils.CreateRequestJWT(req)
+	require.NoError(t, err, "failed to create vault verifier trigger JWT")
+	tokenString, err := token.SignedString(handle.TriggerAuth.PrivateKey)
+	require.NoError(t, err, "failed to sign vault verifier trigger JWT")
+	req.Auth = tokenString
+
+	requestBody, err := json.Marshal(req)
+	require.NoError(t, err, "failed to marshal vault verifier trigger request body")
+
+	httpReq, err := http.NewRequestWithContext(t.Context(), http.MethodPost, handle.GatewayURL, bytes.NewBuffer(requestBody))
+	require.NoError(t, err, "failed to create vault verifier trigger HTTP request")
+	httpReq.Header.Set("Content-Type", "application/jsonrpc")
+	httpReq.Header.Set("Accept", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("failed to execute vault verifier trigger request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read vault verifier trigger response body: %w", err)
+	}
+	framework.L.Info().
+		Str("workflow", handle.WorkflowName).
+		Int("status", resp.StatusCode).
+		Msgf("Vault verifier trigger response: %s", string(body))
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("vault verifier trigger request rejected with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var parsed jsonrpc.Response[json.RawMessage]
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return fmt.Errorf("failed to unmarshal vault verifier trigger response: %w", err)
+	}
+	if parsed.Error != nil {
+		return fmt.Errorf("vault verifier trigger request returned error: %s", parsed.Error.Error())
+	}
+	if parsed.ID != req.ID {
+		return fmt.Errorf("vault verifier trigger response ID mismatch: got %q want %q", parsed.ID, req.ID)
+	}
+	return nil
+}
+
+// triggerAndAwaitVaultVerifierLog triggers the verifier workflow on demand and
+// waits for the expected user log, re-triggering while the request is not yet
+// accepted (workflow still loading) or the phase is not yet satisfied. This
+// replaces the former cron-trigger waits that were gated on the trigger's 30s
+// minimum schedule.
+func triggerAndAwaitVaultVerifierLog(
 	t *testing.T,
-	workflowID, phaseName string,
+	handle *vaultVerifierHandle,
+	input vaultsecret_config.TriggerInput,
+	expectedUserLog string,
 	userLogsCh chan *workflowevents.UserLogs,
 	baseMessageCh chan *commonevents.BaseMessage,
 ) {
 	t.Helper()
 
 	testLogger := framework.L
-	t_helpers.WatchWorkflowLogs(
-		t,
-		testLogger,
-		userLogsCh,
-		baseMessageCh,
-		t_helpers.WorkflowEngineInitErrorLog,
-		"Vault secret workflow phase completed: "+phaseName,
-		1*time.Minute,
-		t_helpers.WithUserLogWorkflowID(workflowID),
-	)
-	testLogger.Info().Str("phase_name", phaseName).Msg("Vault secret workflow phase completed")
+
+	ctx, cancelFn := context.WithTimeoutCause(t.Context(), vaultVerifierTriggerDeadline, errors.New("timed out waiting for vault verifier workflow log"))
+	defer cancelFn()
+	cancelCtx, cancelCauseFn := context.WithCancelCause(ctx)
+	defer cancelCauseFn(nil)
+
+	// Fail fast on engine init errors for this workflow, mirroring WatchWorkflowLogs.
+	go func() {
+		t_helpers.FailOnBaseMessage(cancelCtx, cancelCauseFn, t, testLogger, baseMessageCh,
+			t_helpers.WorkflowEngineInitErrorLog, t_helpers.WithBaseMessageWorkflowID(handle.WorkflowID))
+	}()
+
+	var lastErr error
+	for {
+		if err := sendVaultVerifierTriggerRequest(t, handle, input); err != nil {
+			lastErr = err
+			testLogger.Warn().Str("workflow", handle.WorkflowName).Err(err).Msg("Vault verifier trigger not accepted yet; will retry")
+		} else {
+			attemptCtx, attemptCancel := context.WithTimeoutCause(cancelCtx, vaultVerifierTriggerAttemptWindow, errors.New("vault verifier trigger attempt window expired"))
+			_, waitErr := t_helpers.WaitForUserLog(attemptCtx, testLogger, userLogsCh, expectedUserLog, t_helpers.WithUserLogWorkflowID(handle.WorkflowID))
+			attemptCancel()
+			if waitErr == nil {
+				testLogger.Info().Str("workflow", handle.WorkflowName).Str("expected_log", expectedUserLog).Msg("Vault verifier workflow log observed")
+				return
+			}
+			lastErr = waitErr
+			testLogger.Warn().Str("workflow", handle.WorkflowName).Err(waitErr).Msg("Vault verifier phase not yet satisfied; will re-trigger")
+		}
+
+		select {
+		case <-cancelCtx.Done():
+			require.FailNow(t, "timed out waiting for vault verifier workflow log",
+				"workflow=%s expectedLog=%q lastErr=%v", handle.WorkflowName, expectedUserLog, lastErr)
+			return
+		case <-time.After(vaultVerifierTriggerRetryInterval):
+		}
+	}
+}
+
+// triggerAndAwaitVaultWorkflowPhase triggers the verifier workflow with a
+// single phase and waits for its completion log.
+func triggerAndAwaitVaultWorkflowPhase(
+	t *testing.T,
+	handle *vaultVerifierHandle,
+	phase vaultWorkflowPhase,
+	userLogsCh chan *workflowevents.UserLogs,
+	baseMessageCh chan *commonevents.BaseMessage,
+) {
+	t.Helper()
+
+	input := vaultsecret_config.TriggerInput{Phases: []vaultsecret_config.Phase{vaultWorkflowPhaseToConfig(phase)}}
+	triggerAndAwaitVaultVerifierLog(t, handle, input, "Vault secret workflow phase completed: "+phase.Name, userLogsCh, baseMessageCh)
+}
+
+func vaultWorkflowPhaseToConfig(phase vaultWorkflowPhase) vaultsecret_config.Phase {
+	checks := make([]vaultsecret_config.Check, 0, len(phase.Checks))
+	for _, check := range phase.Checks {
+		checks = append(checks, vaultsecret_config.Check{
+			Name:            check.Name,
+			SecretKey:       check.SecretKey,
+			SecretNamespace: check.SecretNamespace,
+			ExpectedValue:   check.ExpectedValue,
+			ExpectNotFound:  check.ExpectNotFound,
+		})
+	}
+	return vaultsecret_config.Phase{Name: phase.Name, Checks: checks}
 }
 
 func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, requestOwner, expectedResponseOwner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
@@ -1394,7 +1575,7 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, requestOwner, expecte
 // workflow triggers a capability get.
 func executeVaultBinaryEncodedSharesSmokeTest(
 	t *testing.T,
-	testEnv *ttypes.TestEnvironment,
+	handle *vaultVerifierHandle,
 	secretID, namespace, expectedPlaintext string,
 	userLogsCh chan *workflowevents.UserLogs,
 	baseMessageCh chan *commonevents.BaseMessage,
@@ -1403,7 +1584,7 @@ func executeVaultBinaryEncodedSharesSmokeTest(
 
 	framework.L.Info().Msg("Verifying workflow secret fetch and binary share encoding when optimizations are enabled...")
 
-	workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "binary-shares", []vaultWorkflowPhase{{
+	phase := vaultWorkflowPhase{
 		Name: "binary-shares-fetch",
 		Checks: []vaultWorkflowCheck{{
 			Name:            "binary-shares-main",
@@ -1411,8 +1592,8 @@ func executeVaultBinaryEncodedSharesSmokeTest(
 			SecretNamespace: namespace,
 			ExpectedValue:   expectedPlaintext,
 		}},
-	}})
-	waitForVaultWorkflowPhase(t, workflowID, "binary-shares-fetch", userLogsCh, baseMessageCh)
+	}
+	triggerAndAwaitVaultWorkflowPhase(t, handle, phase, userLogsCh, baseMessageCh)
 }
 
 // updateVaultCapabilityConfigInRegistry updates the on-chain capabilities registry

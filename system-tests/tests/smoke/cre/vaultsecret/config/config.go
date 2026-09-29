@@ -1,63 +1,44 @@
 package config
 
+// Check describes a single secret state assertion evaluated inside the workflow.
 type Check struct {
-	Name            string `yaml:"name,omitempty"`
-	SecretKey       string `yaml:"secretKey"`
-	SecretNamespace string `yaml:"secretNamespace"`
-	ExpectedValue   string `yaml:"expectedValue,omitempty"`
-	ExpectNotFound  bool   `yaml:"expectNotFound"`
+	Name            string `yaml:"name,omitempty" json:"name,omitempty"`
+	SecretKey       string `yaml:"secretKey" json:"secretKey"`
+	SecretNamespace string `yaml:"secretNamespace" json:"secretNamespace"`
+	ExpectedValue   string `yaml:"expectedValue,omitempty" json:"expectedValue,omitempty"`
+	ExpectNotFound  bool   `yaml:"expectNotFound" json:"expectNotFound"`
 }
 
 type Phase struct {
-	Name   string  `yaml:"name"`
-	Checks []Check `yaml:"checks"`
+	Name   string  `yaml:"name" json:"name"`
+	Checks []Check `yaml:"checks" json:"checks"`
 }
 
+// Config is the deploy-time workflow configuration. Everything the workflow
+// evaluates is supplied per invocation through the HTTP trigger input (see
+// TriggerInput), so a single deployment can serve every verification scenario.
 type Config struct {
-	Phases []Phase `yaml:"phases"`
-	Checks []Check `yaml:"checks"`
-
-	// Legacy single-check fields kept for compatibility with any older callers.
-	SecretKey               string   `yaml:"secretKey,omitempty"`
-	SecretNamespace         string   `yaml:"secretNamespace,omitempty"`
-	SecretKey2              string   `yaml:"secretKey2"`
-	SecretNamespace2        string   `yaml:"secretNamespace2"`
-	ExpectedValue           string   `yaml:"expectedValue,omitempty"`
-	ExpectNotFound          bool     `yaml:"expectNotFound,omitempty"`
-	ExpectInvalidIdentifier bool     `yaml:"expectInvalidIdentifier"`
-	ExpectBatchTooBig       bool     `yaml:"expectBatchTooBig,omitempty"`
-	BatchSecretKeys         []string `yaml:"batchSecretKeys,omitempty"`
+	// AuthorizedKey is the hex EOA address allowed to sign HTTP trigger
+	// requests for this workflow.
+	AuthorizedKey string `yaml:"authorizedKey" json:"authorizedKey"`
 }
 
-func (c Config) EffectiveChecks() []Check {
-	if len(c.Checks) > 0 {
-		return c.Checks
-	}
+// TriggerInput is the per-invocation payload carried in the HTTP trigger
+// request Input field.
+type TriggerInput struct {
+	// Phase verification mode: phases are evaluated in declaration order and
+	// the first phase whose checks all succeed emits the completion log.
+	Phases []Phase `json:"phases,omitempty"`
 
-	if c.SecretKey == "" && c.SecretNamespace == "" {
-		return nil
-	}
+	// Identifier-validation mode: GetSecret is expected to reject the given
+	// identifiers.
+	ExpectInvalidIdentifier bool   `json:"expectInvalidIdentifier,omitempty"`
+	SecretKey               string `json:"secretKey,omitempty"`
+	SecretNamespace         string `json:"secretNamespace,omitempty"`
+	SecretKey2              string `json:"secretKey2,omitempty"`
+	SecretNamespace2        string `json:"secretNamespace2,omitempty"`
 
-	return []Check{{
-		SecretKey:       c.SecretKey,
-		SecretNamespace: c.SecretNamespace,
-		ExpectedValue:   c.ExpectedValue,
-		ExpectNotFound:  c.ExpectNotFound,
-	}}
-}
-
-func (c Config) EffectivePhases() []Phase {
-	if len(c.Phases) > 0 {
-		return c.Phases
-	}
-
-	checks := c.EffectiveChecks()
-	if len(checks) == 0 {
-		return nil
-	}
-
-	return []Phase{{
-		Name:   "default",
-		Checks: checks,
-	}}
+	// Batch-size mode: GetSecrets is expected to reject the oversized batch.
+	ExpectBatchTooBig bool     `json:"expectBatchTooBig,omitempty"`
+	BatchSecretKeys   []string `json:"batchSecretKeys,omitempty"`
 }
