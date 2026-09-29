@@ -250,12 +250,8 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
       - name: Dispatch release fan-out
-        uses: ./.github/actions/dispatch-release-fanout
+        uses: $/.github/actions/dispatch-release-fanout
         with:
           gati-profile: ${{ secrets.GATI_PROFILE_IMAGE_BUMP_HUB }}
           hub-repo: ${{ secrets.REPO_IMAGE_BUMP_HUB }}
