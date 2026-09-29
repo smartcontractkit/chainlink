@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 func TestEngineRegistry(t *testing.T) {
@@ -187,6 +188,27 @@ func (f *fakeDrainableService) DrainStartedAt() (time.Time, bool) {
 	return time.Unix(1, 0), true
 }
 
+// fakeCoordinatedDrainableEngine is a v2.WorkflowEngine that reports as
+// coordinated and drainable. Only the methods ServiceWithMetadata.Coordinated
+// and the DrainableService assertion touch are implemented.
+type fakeCoordinatedDrainableEngine struct {
+	v2.WorkflowEngine
+	draining bool
+}
+
+func (f *fakeCoordinatedDrainableEngine) IsCoordinated() bool { return true }
+
+func (f *fakeCoordinatedDrainableEngine) Drain() bool { return false }
+
+func (f *fakeCoordinatedDrainableEngine) ActiveExecutions() int32 { return 0 }
+
+func (f *fakeCoordinatedDrainableEngine) DrainStartedAt() (time.Time, bool) {
+	if !f.draining {
+		return time.Time{}, false
+	}
+	return time.Unix(1, 0), true
+}
+
 func TestEngineRegistry_Coordinated(t *testing.T) {
 	t.Parallel()
 	legacyID := types.WorkflowID([32]byte{1})
@@ -194,34 +216,34 @@ func TestEngineRegistry_Coordinated(t *testing.T) {
 
 	er := NewEngineRegistry()
 	require.NoError(t, er.AddWithReconcileKey(legacyID, "TestSource", "legacy-key", &fakeService{}))
-	require.NoError(t, er.AddCoordinated(coordinatedID, "TestSource", "coordinated-key", &fakeCoordinatedEngine{}))
-	require.ErrorIs(t, er.AddCoordinated(coordinatedID, "TestSource", "coordinated-key", &fakeCoordinatedEngine{}), ErrAlreadyExists)
+	require.NoError(t, er.AddWithReconcileKey(coordinatedID, "TestSource", "coordinated-key", &fakeCoordinatedDrainableEngine{}))
+	require.ErrorIs(t, er.AddWithReconcileKey(coordinatedID, "TestSource", "coordinated-key", &fakeCoordinatedDrainableEngine{}), ErrAlreadyExists)
 
 	entry, ok := er.Get(coordinatedID)
 	require.True(t, ok)
-	require.True(t, entry.Coordinated)
+	require.True(t, entry.Coordinated())
 	require.Equal(t, "coordinated-key", entry.ReconcileKey)
 
 	entry, ok = er.Get(legacyID)
 	require.True(t, ok)
-	require.False(t, entry.Coordinated)
+	require.False(t, entry.Coordinated())
 
 	byID := map[types.WorkflowID]bool{}
 	for _, e := range er.GetAll() {
-		byID[e.WorkflowID] = e.Coordinated
+		byID[e.WorkflowID] = e.Coordinated()
 	}
 	require.Equal(t, map[types.WorkflowID]bool{legacyID: false, coordinatedID: true}, byID)
 
 	for _, e := range er.GetBySource("TestSource") {
-		require.Equal(t, e.WorkflowID == coordinatedID, e.Coordinated)
+		require.Equal(t, e.WorkflowID == coordinatedID, e.Coordinated())
 	}
 
 	popped, err := er.Pop(coordinatedID)
 	require.NoError(t, err)
-	require.True(t, popped.Coordinated)
+	require.True(t, popped.Coordinated())
 
 	for _, e := range er.PopAll() {
-		require.False(t, e.Coordinated)
+		require.False(t, e.Coordinated())
 	}
 }
 
@@ -236,11 +258,11 @@ func TestCountEngines(t *testing.T) {
 	t.Run("mixed engine types", func(t *testing.T) {
 		t.Parallel()
 		engines := []ServiceWithMetadata{
-			{Coordinated: true, Service: &fakeDrainableService{}},
-			{Coordinated: true, Service: &fakeDrainableService{draining: true}},
-			{Coordinated: false, Service: &fakeDrainableService{}},
-			{Coordinated: false, Service: &fakeDrainableService{draining: true}},
-			{Coordinated: false, Service: &fakeService{}},
+			{Service: &fakeCoordinatedDrainableEngine{}},
+			{Service: &fakeCoordinatedDrainableEngine{draining: true}},
+			{Service: &fakeDrainableService{}},
+			{Service: &fakeDrainableService{draining: true}},
+			{Service: &fakeService{}},
 		}
 		require.Equal(t, engineCounts{draining: 2, coordinated: 2, legacy: 3}, countEngines(engines))
 	})

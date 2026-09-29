@@ -127,7 +127,7 @@ func Test_tryEngineCreate_routing(t *testing.T) {
 		require.Equal(t, int32(0), f.legacyCalls.Load())
 		entry, ok := f.h.engineRegistry.Get(wid)
 		require.True(t, ok)
-		require.True(t, entry.Coordinated)
+		require.True(t, entry.Coordinated())
 		require.NotEmpty(t, entry.ReconcileKey)
 		require.Equal(t, []v2.Subscriber{f.coordinatedEngine}, f.coordinator.registered)
 	})
@@ -143,7 +143,7 @@ func Test_tryEngineCreate_routing(t *testing.T) {
 		require.Equal(t, int32(1), f.legacyCalls.Load())
 		entry, ok := f.h.engineRegistry.Get(wid)
 		require.True(t, ok)
-		require.False(t, entry.Coordinated)
+		require.False(t, entry.Coordinated())
 		require.Empty(t, f.coordinator.registered)
 	})
 
@@ -158,7 +158,7 @@ func Test_tryEngineCreate_routing(t *testing.T) {
 		require.Equal(t, int32(1), f.legacyCalls.Load())
 		entry, ok := f.h.engineRegistry.Get(wid)
 		require.True(t, ok)
-		require.False(t, entry.Coordinated)
+		require.False(t, entry.Coordinated())
 	})
 
 	t.Run("RegisterTriggers failure removes and closes the coordinated engine", func(t *testing.T) {
