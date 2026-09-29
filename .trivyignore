@@ -1,0 +1,4 @@
+# Accepted Trivy findings for Chainlink images (see .github/workflows/integration-tests.yml).
+# One CVE ID per line, with a comment giving the reason and an expiry/review date.
+# Typical case: Trivy reports a fix that Ubuntu only ships via Pro/ESM (`+esm` versions),
+# which `apt-get upgrade` can't install, so rebuilding won't clear it.

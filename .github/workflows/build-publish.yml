@@ -175,9 +175,81 @@ jobs:
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
+  # The reusable build workflow has no vulnerability scan, so scan the published
+  # manifests (by digest) here and gate the pre-release deploy on the result.
+  # OS packages are unpinned and upgraded at build time, so a fixable OS CVE means
+  # cutting a new RC picks up the fix. Go module CVEs are report-only.
+  scan-images:
+    name: Scan ${{ matrix.image.name }} (${{ matrix.platform }})
+    needs: [checks, docker-core, docker-ccip]
+    if: needs.checks.outputs.is-pre-release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+        image:
+          - name: chainlink
+            ref: public.ecr.aws/chainlink/chainlink@${{ needs.docker-core.outputs.docker-manifest-digest }}
+          - name: ccip
+            ref: public.ecr.aws/chainlink/ccip@${{ needs.docker-ccip.outputs.docker-manifest-digest }}
+    env:
+      TRIVY_PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .trivyignore
+          sparse-checkout-cone-mode: false
+
+      - name: Scan image OS packages (blocking)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.image.ref }}
+          scanners: vuln
+          vuln-type: os
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          exit-code: "1"
+          format: table
+          version: v0.74.0
+
+      - name: Scan image Go dependencies (report-only)
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.image.ref }}
+          scanners: vuln
+          vuln-type: library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          exit-code: "0"
+          format: table
+          output: trivy-library.txt
+          skip-setup-trivy: true
+
+      - name: Summarize Go dependency scan
+        if: always()
+        env:
+          IMAGE_NAME: ${{ matrix.image.name }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          if [[ -s trivy-library.txt ]]; then
+            {
+              echo "### Trivy: Go dependency vulnerabilities (report-only) ${IMAGE_NAME} ${PLATFORM}"
+              echo '```'
+              cat trivy-library.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   deploy:
     name: "Deploy"
-    needs: [checks, docker-ccip, docker-core]
+    needs: [checks, docker-ccip, docker-core, scan-images]
     # Pre-release deploys (CCIP beta/RC, CRE RC). Hotfix deployments skipped for now.
     if: needs.checks.outputs.is-pre-release == 'true' &&
       needs.checks.outputs.is-hotfix == 'false'

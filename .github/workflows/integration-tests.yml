@@ -337,6 +337,13 @@ jobs:
             echo "We will not build the image because either the matrix's any-should-run is false or the image already exists in ECR."
             echo "build-image=false" | tee -a "$GITHUB_OUTPUT"
           fi
+          # Scan whenever the image is built or will be used by tests, even if it already
+          # existed in ECR, so results are always reported for the image under test.
+          if [[ "${EVENT_NAME}" == "push" && "${REF_NAME}" == "develop" ]] || [[ "${ANY_SHOULD_RUN}" == "true" ]]; then
+            echo "scan-image=true" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "scan-image=false" | tee -a "$GITHUB_OUTPUT"
+          fi
 
       - name: Checkout the repo
         if: steps.explain.outputs.build-image == 'true'
@@ -379,6 +386,87 @@ jobs:
           # It also has mysterious failures when trying to upload
           cache-map: |
             {"cache-mount/go-build-cache": {"target": "/var/cache-target", "id": "go-build-cache"}}
+
+      # Scan policy comes from the workflow's own ref, not CHAINLINK_REF, so older refs
+      # (possibly predating .trivyignore) are scanned against the current accept-list.
+      - name: Checkout scan policy
+        if: steps.explain.outputs.scan-image == 'true'
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          path: .scan-policy
+          sparse-checkout: .trivyignore
+          sparse-checkout-cone-mode: false
+
+      - name: Configure AWS Credentials (image scan)
+        if: steps.explain.outputs.scan-image == 'true'
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 900
+          mask-aws-account-id: true
+
+      - name: Login to Amazon ECR (image scan)
+        if: steps.explain.outputs.scan-image == 'true'
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        with:
+          registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+
+      # Report-only: images here reuse the develop layer cache and are immutable per-SHA,
+      # so a failing scan can't be cleared by rerunning. The blocking OS gate lives in
+      # build-publish.yml, where images are built without cache. Go module CVEs are
+      # handled by dependabump.
+      - name: Scan image OS packages (report-only)
+        if: steps.explain.outputs.scan-image == 'true'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.CHAINLINK_IMAGE }}:${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
+          scanners: vuln
+          vuln-type: os
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .scan-policy/.trivyignore
+          exit-code: "0"
+          version: v0.74.0
+          format: table
+          output: trivy-os.txt
+
+      - name: Scan image Go dependencies (report-only)
+        if: always() && steps.explain.outputs.scan-image == 'true'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.CHAINLINK_IMAGE }}:${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
+          scanners: vuln
+          vuln-type: library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .scan-policy/.trivyignore
+          exit-code: "0"
+          format: table
+          output: trivy-library.txt
+          skip-setup-trivy: true
+
+      - name: Summarize image scans
+        if: always() && steps.explain.outputs.scan-image == 'true'
+        env:
+          IMAGE_NAME: ${{ matrix.image.name }}
+        run: |
+          summarize() {
+            local file="$1" title="$2"
+            if [[ -s "$file" ]]; then
+              {
+                echo "### Trivy: ${title} (report-only) ${IMAGE_NAME}"
+                echo '```'
+                cat "$file"
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+          summarize trivy-os.txt "OS package vulnerabilities"
+          summarize trivy-library.txt "Go dependency vulnerabilities"
 
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup
