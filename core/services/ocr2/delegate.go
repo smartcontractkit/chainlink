@@ -1730,13 +1730,13 @@ func (d *Delegate) newServicesLLO(
 			return NewDB(d.ds, spec.ID, pluginID, lggr)
 		},
 
-		OCR31: pluginCfg.IsOCR31(),
+		V31: pluginCfg.IsV31(),
 	}
 
-	// OCR3.1 (llo/v31) additionally requires the "2" network endpoint factory and
+	// The v31 plugin additionally requires the "2" network endpoint factory and
 	// a persistent replicated key-value store, wired here the same way the vault
 	// and DKG OCR3.1 plugins are (pebble under OCR2().KeyValueStoreRootDir()).
-	if pluginCfg.IsOCR31() {
+	if pluginCfg.IsV31() {
 		fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
 		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
 			return nil, fmt.Errorf("failed to create LLO key value store directory: %w", err)

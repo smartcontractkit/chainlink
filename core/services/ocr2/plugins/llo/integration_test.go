@@ -231,11 +231,11 @@ type OCRConfig struct {
 	F                                       int
 	OnchainConfig                           []byte
 
-	// ocr31 selects the OCR3.1 (llo/v31) config format when true. It changes the
+	// v31 selects the OCR3.1 config format the v31 plugin runs on. It changes the
 	// confighelper used by generateConfig (ocr3_1confighelper => offchainConfigVersion
 	// 310) so the on-chain config matches what an OCR3.1 node validates. The
 	// config digest prefix (LLO 0x0009) is identical across OCR3.0/3.1.
-	ocr31 bool
+	v31 bool
 }
 
 func makeDefaultOCRConfig() *OCRConfig {
@@ -296,10 +296,10 @@ func WithOracles(oracles []confighelper.OracleIdentityExtra) OCRConfigOption {
 	}
 }
 
-// WithOCR31 switches config generation to the OCR3.1 (llo/v31) format.
-func WithOCR31() OCRConfigOption {
+// WithV31 switches config generation to the OCR3.1 format the v31 plugin runs on.
+func WithV31() OCRConfigOption {
 	return func(cfg *OCRConfig) {
-		cfg.ocr31 = true
+		cfg.v31 = true
 	}
 }
 
@@ -313,7 +313,7 @@ func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.Onch
 	}
 	t.Logf("Using OCR config: %+v\n", cfg)
 	var err error
-	if cfg.ocr31 {
+	if cfg.v31 {
 		signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = generateOCR31Config(cfg)
 	} else {
 		signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
@@ -761,24 +761,24 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_multi_formats(t *testing.T) {
 	t.Parallel()
-	ocrVersions := []struct {
-		name  string
-		ocr31 bool
+	pluginVersions := []struct {
+		name string
+		v31  bool
 	}{
 		{"OCR3.0/v30", false},
 		{"OCR3.1/v31", true},
 	}
 	for _, oc := range offchainConfigCases() {
-		for _, ov := range ocrVersions {
+		for _, ov := range pluginVersions {
 			t.Run(fmt.Sprintf("%s/%s", ov.name, oc.name), func(t *testing.T) {
 				t.Parallel()
-				testIntegrationLLOMultiFormats(t, oc.cfg, ov.ocr31)
+				testIntegrationLLOMultiFormats(t, oc.cfg, ov.v31)
 			})
 		}
 	}
 }
 
-func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig lloprotocol.OffchainConfig, ocr31 bool) {
+func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig lloprotocol.OffchainConfig, v31 bool) {
 	testStartTimeStamp := time.Now()
 	expirationWindow := uint32(3600)
 
@@ -1114,8 +1114,8 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-		if ocr31 {
-			pluginConfig += "\nocrVersion = \"3.1\""
+		if v31 {
+			pluginConfig += "\npluginVersion = \"v31\""
 		}
 
 		bridgeName := "superbridge"
@@ -1305,8 +1305,8 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 
 		// Set config on configurator
 		productionConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
-		if ocr31 {
-			productionConfigOpts = append(productionConfigOpts, WithOCR31())
+		if v31 {
+			productionConfigOpts = append(productionConfigOpts, WithV31())
 		}
 		digest := setProductionConfig(
 			t, donID, steve, backend, configurator, configuratorAddress, nodes, productionConfigOpts...,
@@ -1987,23 +1987,23 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 		AggregationFaultTolerance:           aggregationFaultTolerance,
 		EnableObservationCompression:        false,
 	}
-	for _, ocr31 := range []bool{false, true} {
+	for _, v31 := range []bool{false, true} {
 		name := "OCR3.0/v30"
-		if ocr31 {
+		if v31 {
 			name = "OCR3.1/v31"
 		}
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig, ocr31)
+			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig, v31)
 		})
 	}
 }
 
-func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig lloprotocol.OffchainConfig, ocr31 bool) {
-	// withVersion appends WithOCR31() to config options when running the v31 variant.
+func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig lloprotocol.OffchainConfig, v31 bool) {
+	// withVersion appends WithV31() to config options when running the v31 variant.
 	withVersion := func(opts ...OCRConfigOption) []OCRConfigOption {
-		if ocr31 {
-			return append(opts, WithOCR31())
+		if v31 {
+			return append(opts, WithV31())
 		}
 		return opts
 	}
@@ -2081,8 +2081,8 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-		if ocr31 {
-			pluginConfig += "\nocrVersion = \"3.1\""
+		if v31 {
+			pluginConfig += "\npluginVersion = \"v31\""
 		}
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, configuratorAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
@@ -2367,19 +2367,19 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 	t.Parallel()
-	for _, ocr31 := range []bool{false, true} {
+	for _, v31 := range []bool{false, true} {
 		name := "OCR3.0/v30"
-		if ocr31 {
+		if v31 {
 			name = "OCR3.1/v31"
 		}
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			testIntegrationLLOChannelMerging(t, ocr31)
+			testIntegrationLLOChannelMerging(t, v31)
 		})
 	}
 }
 
-func testIntegrationLLOChannelMerging(t *testing.T, ocr31 bool) {
+func testIntegrationLLOChannelMerging(t *testing.T, v31 bool) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
@@ -2462,8 +2462,8 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-		if ocr31 {
-			pluginConfig += "\nocrVersion = \"3.1\""
+		if v31 {
+			pluginConfig += "\npluginVersion = \"v31\""
 		}
 
 		// Add stream specs and LLO jobs to all nodes
@@ -2485,8 +2485,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 		// Set initial OCR config
 		mergeConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
-		if ocr31 {
-			mergeConfigOpts = append(mergeConfigOpts, WithOCR31())
+		if v31 {
+			mergeConfigOpts = append(mergeConfigOpts, WithV31())
 		}
 		digest := setProductionConfig(
 			t, donID, steve, backend, configurator, configuratorAddress, nodes, mergeConfigOpts...,
@@ -2893,19 +2893,19 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 // and no longer transmits reports for that channel.
 func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) {
 	t.Parallel()
-	for _, ocr31 := range []bool{false, true} {
+	for _, v31 := range []bool{false, true} {
 		name := "OCR3.0/v30"
-		if ocr31 {
+		if v31 {
 			name = "OCR3.1/v31"
 		}
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			testIntegrationLLOTombstone(t, ocr31)
+			testIntegrationLLOTombstone(t, v31)
 		})
 	}
 }
 
-func testIntegrationLLOTombstone(t *testing.T, ocr31 bool) {
+func testIntegrationLLOTombstone(t *testing.T, v31 bool) {
 	const (
 		salt              = 500
 		donID             = uint32(777666)
@@ -2961,8 +2961,8 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-	if ocr31 {
-		pluginConfig += "\nocrVersion = \"3.1\""
+	if v31 {
+		pluginConfig += "\npluginVersion = \"v31\""
 	}
 
 	var streamACalls, streamBCalls atomic.Uint64
@@ -3007,8 +3007,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	backend.Commit()
 
 	tombstoneConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
-	if ocr31 {
-		tombstoneConfigOpts = append(tombstoneConfigOpts, WithOCR31())
+	if v31 {
+		tombstoneConfigOpts = append(tombstoneConfigOpts, WithV31())
 	}
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
@@ -3413,7 +3413,7 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d
-ocrVersion = "3.1"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
 
 	priceFull := decimal.NewFromFloat(111.1)
 	pricePartial := decimal.NewFromFloat(222.2)
@@ -3459,7 +3459,7 @@ ocrVersion = "3.1"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlo
 
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
-		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithOCR31(),
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(),
 	)
 
 	// collectChannels drains transmitted JSON reports for the given duration and
@@ -3590,7 +3590,7 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d
-ocrVersion = "3.1"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
 
 	// One counter per node so the lagging oracle's observations can be told
 	// apart from the rest of the DON's.
@@ -3653,7 +3653,7 @@ ocrVersion = "3.1"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlo
 
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
-		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithOCR31(),
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(),
 	)
 
 	// reportsFlowing drains transmitted reports for the channel under test until
@@ -3784,7 +3784,7 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d
-ocrVersion = "3.1"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
 
 	// One counter per node, so the restarted oracle's observations can be told
 	// apart from the rest of the DON's.
@@ -3823,7 +3823,7 @@ ocrVersion = "3.1"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlo
 
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
-		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithOCR31(),
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(),
 	)
 
 	reportsFlowing := func(d time.Duration) bool {

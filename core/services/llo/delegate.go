@@ -95,14 +95,14 @@ type DelegateConfig struct {
 	LocalConfig            ocr2types.LocalConfig
 	NewOCR3DB              func(pluginID int32) ocr3types.Database
 
-	// OCR3.1 (only required when OCR31 is true; see chainlink-data-streams
-	// llo/config.PluginConfig.OCRVersion)
-	OCR31 bool
+	// V31 runs the job on the v31 plugin, on libocr OCR3.1 (see
+	// chainlink-data-streams llo/pluginconfig.PluginConfig.PluginVersion)
+	V31 bool
 	// BinaryNetworkEndpoint2Factory is the OCR3.1 ("2") network endpoint factory
-	// (peerWrapper.Peer3_1). Required when OCR31 is true.
+	// (peerWrapper.Peer3_1). Required when V31 is true.
 	BinaryNetworkEndpoint2Factory ocr2types.BinaryNetworkEndpoint2Factory
 	// KeyValueDatabaseFactory provides the replicated per-configDigest key-value
-	// store the OCR3.1 protocol requires. Required when OCR31 is true.
+	// store the OCR3.1 protocol requires. Required when V31 is true.
 	KeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
 }
 
@@ -123,7 +123,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	if cfg.ShouldRetireCache == nil {
 		return nil, errors.New("ShouldRetireCache must not be nil")
 	}
-	if cfg.OCR31 {
+	if cfg.V31 {
 		if cfg.KeyValueDatabaseFactory == nil {
 			return nil, errors.New("KeyValueDatabaseFactory must not be nil when running OCR3.1")
 		}
@@ -190,7 +190,7 @@ func (d *delegate) Start(ctx context.Context) error {
 
 			var oracle ocr2plus.Oracle
 			var err error
-			if d.cfg.OCR31 {
+			if d.cfg.V31 {
 				oracle, err = d.newOracleV31(i, configTracker, lggr, ocrLogger, psrrc)
 			} else {
 				oracle, err = d.newOracleV30(i, configTracker, lggr, ocrLogger, psrrc)
