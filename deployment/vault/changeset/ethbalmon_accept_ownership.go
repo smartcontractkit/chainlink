@@ -178,11 +178,9 @@ var EthBalMonAcceptOwnershipOperation = operations.NewOperation(
 			ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
 			Transactions: []mcmstypes.Transaction{
 				{
-					OperationMetadata: mcmstypes.OperationMetadata{
-						ContractType: vaulttypes.EthBalMonContractType,
-						Tags: []string{
-							"acceptOwnership",
-						},
+					ContractType: vaulttypes.EthBalMonContractType,
+					Tags: []string{
+						"acceptOwnership",
 					},
 					To:               ethBalMonAddr,
 					Data:             acceptOwnershipTx.Data(),

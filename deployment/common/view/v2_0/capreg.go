@@ -394,16 +394,14 @@ func NewDonView(d capabilities_registry.CapabilitiesRegistryDONInfo) (DonView, e
 		return DonView{}, fmt.Errorf("failed to create capability configurations for don %d: %w", d.Id, err)
 	}
 	return DonView{
-		DonUniversalMetadata: DonUniversalMetadata{
-			ID:               d.Id,
-			Name:             d.Name,
-			ConfigCount:      d.ConfigCount,
-			F:                d.F,
-			IsPublic:         d.IsPublic,
-			AcceptsWorkflows: d.AcceptsWorkflows,
-			DONFamilies:      d.DonFamilies,
-			Config:           donCfg,
-		},
+		ID:                       d.Id,
+		Name:                     d.Name,
+		ConfigCount:              d.ConfigCount,
+		F:                        d.F,
+		IsPublic:                 d.IsPublic,
+		AcceptsWorkflows:         d.AcceptsWorkflows,
+		DONFamilies:              d.DonFamilies,
+		Config:                   donCfg,
 		NodeP2PIds:               p2pIDs(d.NodeP2PIds),
 		CapabilityConfigurations: capCgfs,
 	}, nil
@@ -579,23 +577,20 @@ type NodeUniversalMetadata struct {
 	P2pID               p2pkey.PeerID `json:"p2p_id"`
 	CSAKey              string        `json:"csa_key"`               // hex 32 bytes
 	EncryptionPublicKey string        `json:"encryption_public_key"` // hex 32 bytes
-
 }
 
 // NewNodeView creates a NodeView from a CapabilitiesRegistryNodeInfoProviderNodeInfo.
 func NewNodeView(n capabilities_registry.INodeInfoProviderNodeInfo) NodeView {
 	return NodeView{
-		NodeUniversalMetadata: NodeUniversalMetadata{
-			ConfigCount:         n.ConfigCount,
-			WorkflowDONID:       n.WorkflowDONId,
-			Signer:              hex.EncodeToString(n.Signer[:]),
-			P2pID:               n.P2pId,
-			EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
-			CSAKey:              hex.EncodeToString(n.CsaKey[:]),
-		},
-		NodeOperatorID:   n.NodeOperatorId,
-		CapabilityIDs:    n.CapabilityIds,
-		CapabilityDONIDs: n.CapabilitiesDONIds,
+		ConfigCount:         n.ConfigCount,
+		WorkflowDONID:       n.WorkflowDONId,
+		Signer:              hex.EncodeToString(n.Signer[:]),
+		P2pID:               n.P2pId,
+		EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
+		CSAKey:              hex.EncodeToString(n.CsaKey[:]),
+		NodeOperatorID:      n.NodeOperatorId,
+		CapabilityIDs:       n.CapabilityIds,
+		CapabilityDONIDs:    n.CapabilitiesDONIds,
 	}
 }
 
