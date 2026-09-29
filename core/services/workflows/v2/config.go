@@ -12,7 +12,6 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -387,6 +386,10 @@ type EngineFeatureFlags struct {
 	// which lets ops schedule a healing window across the DON via cresettings.
 	// Nil when construction fails; call sites must nil-check.
 	WorkflowTagBackfill limits.RangeLimiter[config.Timestamp]
+
+	// CoordinatedEngine selects the coordinatedEngine over the legacy trigger-owning
+	// Engine for newly created workflows. Nil when construction fails; call sites must nil-check.
+	CoordinatedEngine limits.GateLimiter
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -398,8 +401,14 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if err != nil {
 		return nil, fmt.Errorf("workflow tag backfill flag: %w", err)
 	}
+
+	coordinatedEngine, err := limits.MakeGateLimiter(lf, cresettings.Default.CoordinatedEngineEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("coordinated engine flag: %w", err)
+	}
 	return &EngineFeatureFlags{
 		WorkflowTagBackfill: workflowTagBackfill,
+		CoordinatedEngine:   coordinatedEngine,
 	}, nil
 }
 
@@ -427,12 +436,6 @@ type LifecycleHooks struct {
 	// has completed initialization. It is also helpful for testing.
 	OnInitialized func(err error)
 
-	// OnSubscriptionsReady is called after the WASM Subscribe call returns
-	// and the subscriptions have been validated, but before trigger
-	// registration begins. It allows the caller (syncer/dispatcher) to
-	// inspect or modify the subscriptions before they are registered with
-	// the capabilities registry. Returning an error aborts initialization.
-	OnSubscriptionsReady    func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error
 	OnSubscribedToTriggers  func(triggerIDs []string)
 	OnTriggerEventDropped   func(triggerID, eventID, reason string)
 	OnExecutionFinished     func(executionID string, status string)
@@ -521,9 +524,6 @@ func (l *EngineLimits) setDefaultLimits() {
 func (h *LifecycleHooks) setDefaultHooks() {
 	if h.OnInitialized == nil {
 		h.OnInitialized = func(err error) {}
-	}
-	if h.OnSubscriptionsReady == nil {
-		h.OnSubscriptionsReady = func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error { return nil }
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}

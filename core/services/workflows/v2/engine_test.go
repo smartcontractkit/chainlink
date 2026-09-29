@@ -2900,10 +2900,6 @@ func newTestEngine(
 		OnInitialized: func(err error) {
 			e.initializedCh <- err
 		},
-		OnSubscriptionsReady: func(_ []*sdkpb.TriggerSubscription, _ contexts.CRE) error {
-			e.subscriptionsReadyCalls.Add(1)
-			return nil
-		},
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			e.subscribedToTriggersCh <- triggerIDs
 		},
