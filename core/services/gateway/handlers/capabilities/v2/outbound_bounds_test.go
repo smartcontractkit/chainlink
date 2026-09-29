@@ -83,7 +83,7 @@ func TestMakeOutgoingRequest_NodeLimitIsolatesPeers(t *testing.T) {
 	t.Parallel()
 	handler, _ := createTestHandler(t)
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
-	mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
+	mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 
 	mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(okHTTPResponse(), nil).Once()
 	mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
@@ -106,7 +106,7 @@ func TestMakeOutgoingRequest_ReleasesSlotOnCompletion(t *testing.T) {
 	t.Parallel()
 	handler, _ := createTestHandler(t)
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
-	mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
+	mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 
 	mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(okHTTPResponse(), nil).Times(3)
 	mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
@@ -133,7 +133,7 @@ func TestMakeOutgoingRequest_ReleasesSlotOnFailure(t *testing.T) {
 	t.Parallel()
 	handler, _ := createTestHandler(t)
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
-	mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
+	mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 
 	mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("upstream down")).Once()
 	mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)

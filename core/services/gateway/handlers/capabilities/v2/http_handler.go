@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -46,8 +45,8 @@ const (
 type gatewayHandler struct {
 	services.StateMachine
 	config            ServiceConfig
-	shards            []*shardEndpoint          // all DON shards served by this handler, across the full DON×shard matrix
-	nodeAddrToShard   map[string]*shardEndpoint // node address -> owning shard, for routing responses back to the correct shard conn manager
+	shards            []*handlers.ShardEndpoint          // all DON shards served by this handler, across the full DON×shard matrix
+	nodeAddrToShard   map[string]*handlers.ShardEndpoint // node address -> owning shard, for routing responses back to the correct shard conn manager
 	lggr              logger.Logger
 	httpClient        network.HTTPClient
 	wg                sync.WaitGroup
@@ -122,7 +121,7 @@ type RetryConfig struct {
 	Multiplier float64 `json:"multiplier"`
 }
 
-func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver) (*gatewayHandler, error) {
+func NewGatewayHandler(handlerConfig json.RawMessage, dons *handlers.ShardedDONs, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver) (*gatewayHandler, error) {
 	var cfg ServiceConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -130,11 +129,11 @@ func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.Shard
 	}
 	cfg = WithDefaults(cfg)
 
-	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, shardsConnMgrs)
+	shards, nodeAddrToShard, err := dons.BuildShardEndpoints()
 	if err != nil {
 		return nil, fmt.Errorf("failed to build shard endpoints: %w", err)
 	}
-	members := allMembers(shards)
+	members := handlers.AllMembers(shards)
 
 	globalNodeRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPGlobalRate)
 	if err != nil {
@@ -614,11 +613,11 @@ func (h *gatewayHandler) sendResponseToNode(ctx context.Context, requestID strin
 	if !ok {
 		return fmt.Errorf("cannot route response to unknown node %s (no owning shard)", nodeAddr)
 	}
-	err = shard.connMgr.SendToNode(ctx, nodeAddr, req)
+	err = shard.ConnMgr.SendToNode(ctx, nodeAddr, req)
 	if err != nil {
 		return err
 	}
 
-	h.lggr.Debugw("sent response to node", "to", nodeAddr, "shard", shard.donID)
+	h.lggr.Debugw("sent response to node", "to", nodeAddr, "shard", shard.DonID)
 	return nil
 }

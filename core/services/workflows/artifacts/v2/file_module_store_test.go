@@ -167,6 +167,37 @@ func TestStore_CleanOnStartup(t *testing.T) {
 	assert.Equal(t, []byte("fresh"), got)
 }
 
+func TestStore_CleanOnStartupRemovesAllContents(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	leftovers := []string{
+		filepath.Join(dir, "wf-stale", binaryFileName),
+		filepath.Join(dir, "wf-stale", engineVersionFileName),
+		filepath.Join(dir, "wf-stale", binaryFileName+".tmp"), // interrupted atomic write
+		filepath.Join(dir, "wf-nested", "inner", binaryFileName),
+		filepath.Join(dir, "orphan.txt"),
+		filepath.Join(dir, ".hidden"),
+	}
+	for _, p := range leftovers {
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte("leftover"), 0o600))
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "empty-dir"), 0o755))
+
+	s, err := NewFileModuleStore(dir, true)
+	require.NoError(t, err)
+
+	entries, err := os.ReadDir(s.CacheDir())
+	require.NoError(t, err)
+	assert.Empty(t, entries, "cache rebuild must leave no leftover files behind")
+
+	for _, p := range leftovers {
+		_, err := os.Stat(p)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+	}
+}
+
 func TestStore_ConcurrentAccess(t *testing.T) {
 	t.Parallel()
 	s, err := NewFileModuleStore(t.TempDir(), false)

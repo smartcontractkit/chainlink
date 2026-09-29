@@ -638,6 +638,250 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, fullTriggerCapID, capInfo.ID)
 	assert.Len(t, capInfo.DON.Members, 5)
+
+	// The CombinedClient's own Info() (not just the per-method subscriber's) must also reflect
+	// the updated DON metadata, even though the DON ID - and therefore the cache key - is unchanged.
+	ccInfo, err := trigCC.Info(t.Context())
+	require.NoError(t, err)
+	assert.Len(t, ccInfo.DON.Members, 5)
+}
+
+func TestLauncher_OnNewRegistry_PrunesRemovedRemoteCapability(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	reg := regpkg.NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes, capabilityDonNodes := newNodes(4), newNodes(4)
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	triggerCapIDHash := RandomUTF8BytesWord()
+	wfDonID := uint32(1)
+	capDonID := uint32(2)
+
+	triggerCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"StreamsTrigger": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+						RegistrationRefresh:     durationpb.New(1 * time.Second),
+						MinResponsesToAggregate: 3,
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDonID, 0, 1, true, true, workflowDonNodes, []string{"zone-a"}, 1, nil)
+	addDON(localRegistry, capDonID, 0, 1, true, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{triggerCapIDHash})
+	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
+
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	launcher, err := NewLauncher(
+		lggr,
+		sharedPeer,
+		nil,
+		dispatcher,
+		reg,
+		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
+	)
+	require.NoError(t, err)
+	servicetest.Run(t, launcher)
+
+	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil).Once()
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+	require.Len(t, launcher.cachedShims.triggerSubscribers, 1)
+	require.Len(t, launcher.cachedShims.combinedClients, 1)
+
+	capObj, err := reg.Get(t.Context(), fullTriggerCapID)
+	require.NoError(t, err)
+	_, err = capObj.Info(t.Context())
+	require.NoError(t, err)
+
+	// The capability is removed entirely from the remote capability DON's config.
+	capDon := localRegistry.IDsToDONs[regpkg.DonID(capDonID)]
+	capDon.CapabilityConfigurations = map[string]regpkg.CapabilityConfiguration{}
+	localRegistry.IDsToDONs[regpkg.DonID(capDonID)] = capDon
+	delete(localRegistry.IDsToCapabilities, fullTriggerCapID)
+
+	dispatcher.On("RemoveReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger").Return().Once()
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	assert.Empty(t, launcher.cachedShims.triggerSubscribers)
+	assert.Empty(t, launcher.cachedShims.combinedClients)
+	assert.Empty(t, launcher.subServices)
+
+	// registry.Remove doesn't delete the map entry, it nils out the wrapped capability - so Get
+	// still succeeds, but the capability itself is now unavailable.
+	capObj, err = reg.Get(t.Context(), fullTriggerCapID)
+	require.NoError(t, err)
+	_, err = capObj.Info(t.Context())
+	require.Error(t, err)
+}
+
+func TestLauncher_OnNewRegistry_HandlesCapabilityDONReassignment(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	reg := regpkg.NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes := newNodes(4)
+	capabilityDonNodesA, capabilityDonNodesB := newNodes(4), newNodes(4)
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	triggerCapIDHash := RandomUTF8BytesWord()
+	wfDonID := uint32(1)
+	capDonIDA := uint32(2)
+	capDonIDB := uint32(3)
+
+	triggerCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"StreamsTrigger": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+						RegistrationRefresh:     durationpb.New(1 * time.Second),
+						MinResponsesToAggregate: 3,
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDonID, 0, 1, true, true, workflowDonNodes, []string{"zone-a"}, 1, nil)
+	addDON(localRegistry, capDonIDA, 0, 1, true, false, capabilityDonNodesA, []string{"zone-a"}, 1, [][32]byte{triggerCapIDHash})
+	addCapabilityToDON(localRegistry, capDonIDA, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
+
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	launcher, err := NewLauncher(
+		lggr,
+		sharedPeer,
+		nil,
+		dispatcher,
+		reg,
+		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
+	)
+	require.NoError(t, err)
+	servicetest.Run(t, launcher)
+
+	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonIDA, "StreamsTrigger", mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil).Once()
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+	require.Len(t, launcher.cachedShims.combinedClients, 1)
+
+	// The capability moves from capDonIDA to a brand new capDonIDB, disappearing from A's config
+	// entirely in the same registry snapshot.
+	capDonA := localRegistry.IDsToDONs[regpkg.DonID(capDonIDA)]
+	capDonA.CapabilityConfigurations = map[string]regpkg.CapabilityConfiguration{}
+	localRegistry.IDsToDONs[regpkg.DonID(capDonIDA)] = capDonA
+
+	addDON(localRegistry, capDonIDB, 0, 1, true, false, capabilityDonNodesB, []string{"zone-a"}, 1, [][32]byte{triggerCapIDHash})
+	addCapabilityToDON(localRegistry, capDonIDB, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
+
+	dispatcher.On("RemoveReceiverForMethod", fullTriggerCapID, capDonIDA, "StreamsTrigger").Return().Once()
+	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonIDB, "StreamsTrigger", mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil).Once()
+
+	// Must not fail with ErrCapabilityAlreadyExists: the stale combinedClient under capDonIDA has
+	// to be pruned (and removed from the registry) before the new one under capDonIDB is added.
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	require.Len(t, launcher.cachedShims.combinedClients, 1)
+	for key := range launcher.cachedShims.combinedClients {
+		assert.Equal(t, capDonIDB, key.donID)
+	}
+
+	capObj, err := reg.Get(t.Context(), fullTriggerCapID)
+	require.NoError(t, err)
+	info, err := capObj.Info(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, capDonIDB, info.DON.ID)
+}
+
+func TestLauncher_OnNewRegistry_PrunesRemovedServedCapability(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	reg := regpkg.NewRegistry(lggr)
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
+		fullTriggerCapID,
+		capabilities.CapabilityTypeTrigger,
+		"streams trigger",
+	))
+	require.NoError(t, reg.Add(t.Context(), mt))
+
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes, capabilityDonNodes := newNodes(4), newNodes(4)
+	triggerCapID := RandomUTF8BytesWord()
+	wfDonID := uint32(1)
+	capDonID := uint32(2)
+
+	triggerCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"StreamsTrigger": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+						RegistrationRefresh:     durationpb.New(1 * time.Second),
+						MinResponsesToAggregate: 3,
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDonID, 0, 1, true, true, workflowDonNodes, []string{"zone-a"}, 1, nil)
+	addDON(localRegistry, capDonID, 0, 1, true, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{triggerCapID})
+	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
+
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(capabilityDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	launcher, err := NewLauncher(
+		lggr,
+		sharedPeer,
+		nil,
+		dispatcher,
+		reg,
+		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
+	)
+	require.NoError(t, err)
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
+
+	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerPublisher")).Return(nil).Once()
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+	require.Len(t, launcher.cachedShims.triggerPublishers, 1)
+
+	// The method is removed from the capability DON's config (e.g. the capability no longer hosts it).
+	capDon := localRegistry.IDsToDONs[regpkg.DonID(capDonID)]
+	capDon.CapabilityConfigurations = map[string]regpkg.CapabilityConfiguration{}
+	localRegistry.IDsToDONs[regpkg.DonID(capDonID)] = capDon
+
+	dispatcher.On("RemoveReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger").Return().Once()
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	assert.Empty(t, launcher.cachedShims.triggerPublishers)
+	assert.Empty(t, launcher.subServices)
 }
 
 func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {

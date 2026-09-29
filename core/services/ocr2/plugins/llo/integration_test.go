@@ -73,6 +73,10 @@ var (
 	fNodes        = uint8(1)
 	nNodes        = 4 // number of nodes (not including bootstrap)
 	reportTimeout = time.Second * 60
+
+	// v31 requires the contribution floor to be set explicitly. Match consensus
+	// F so aggregation uses the full observation set.
+	aggregationFaultTolerance = func() *uint32 { v := uint32(fNodes); return &v }()
 )
 
 func setupBlockchain(t *testing.T, adders ...*bind.TransactOpts) (
@@ -227,11 +231,11 @@ type OCRConfig struct {
 	F                                       int
 	OnchainConfig                           []byte
 
-	// ocr31 selects the OCR3.1 (llo/v31) config format when true. It changes the
+	// v31 selects the OCR3.1 config format the v31 plugin runs on. It changes the
 	// confighelper used by generateConfig (ocr3_1confighelper => offchainConfigVersion
 	// 310) so the on-chain config matches what an OCR3.1 node validates. The
 	// config digest prefix (LLO 0x0009) is identical across OCR3.0/3.1.
-	ocr31 bool
+	v31 bool
 }
 
 func makeDefaultOCRConfig() *OCRConfig {
@@ -292,10 +296,10 @@ func WithOracles(oracles []confighelper.OracleIdentityExtra) OCRConfigOption {
 	}
 }
 
-// WithOCR31 switches config generation to the OCR3.1 (llo/v31) format.
-func WithOCR31() OCRConfigOption {
+// WithV31 switches config generation to the OCR3.1 format the v31 plugin runs on.
+func WithV31() OCRConfigOption {
 	return func(cfg *OCRConfig) {
-		cfg.ocr31 = true
+		cfg.v31 = true
 	}
 }
 
@@ -309,7 +313,7 @@ func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.Onch
 	}
 	t.Logf("Using OCR config: %+v\n", cfg)
 	var err error
-	if cfg.ocr31 {
+	if cfg.v31 {
 		signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = generateOCR31Config(cfg)
 	} else {
 		signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
@@ -483,22 +487,54 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 	backend.Commit()
 }
 
-func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
-	t.Parallel()
-	offchainConfigs := []lloprotocol.OffchainConfig{
+// offchainConfigCase is a named offchain config for a test matrix. The name is
+// spelled out rather than derived from the struct so subtest names stay stable
+// (the struct holds a pointer, whose formatted address changes per run).
+type offchainConfigCase struct {
+	name string
+	cfg  lloprotocol.OffchainConfig
+}
+
+// offchainConfigCases is the offchain config matrix shared by the tests that
+// cover every report format: both protocol versions, plus observation
+// compression. Compression is a v30 codec setting; v31 always frames its blobs
+// with zstd and ignores the flag.
+func offchainConfigCases() []offchainConfigCase {
+	return []offchainConfigCase{
 		{
-			ProtocolVersion:                     0,
-			DefaultMinReportIntervalNanoseconds: 0,
+			name: "protocolVersion=0",
+			cfg: lloprotocol.OffchainConfig{
+				ProtocolVersion:                     0,
+				DefaultMinReportIntervalNanoseconds: 0,
+				AggregationFaultTolerance:           aggregationFaultTolerance,
+			},
 		},
 		{
-			ProtocolVersion:                     1,
-			DefaultMinReportIntervalNanoseconds: 1,
+			name: "protocolVersion=1",
+			cfg: lloprotocol.OffchainConfig{
+				ProtocolVersion:                     1,
+				DefaultMinReportIntervalNanoseconds: 1,
+				AggregationFaultTolerance:           aggregationFaultTolerance,
+			},
+		},
+		{
+			name: "protocolVersion=1/compressedObservations",
+			cfg: lloprotocol.OffchainConfig{
+				ProtocolVersion:                     1,
+				DefaultMinReportIntervalNanoseconds: 1,
+				AggregationFaultTolerance:           aggregationFaultTolerance,
+				EnableObservationCompression:        true,
+			},
 		},
 	}
-	for _, offchainConfig := range offchainConfigs {
-		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
+}
+
+func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
+	t.Parallel()
+	for _, oc := range offchainConfigCases() {
+		t.Run(oc.name, func(t *testing.T) {
 			t.Parallel()
-			testIntegrationLLOEVMPremiumLegacy(t, offchainConfig)
+			testIntegrationLLOEVMPremiumLegacy(t, oc.cfg)
 		})
 	}
 }
@@ -725,34 +761,24 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_multi_formats(t *testing.T) {
 	t.Parallel()
-	offchainConfigs := []lloprotocol.OffchainConfig{
-		{
-			ProtocolVersion:                     0,
-			DefaultMinReportIntervalNanoseconds: 0,
-		},
-		{
-			ProtocolVersion:                     1,
-			DefaultMinReportIntervalNanoseconds: 1,
-		},
-	}
-	ocrVersions := []struct {
-		name  string
-		ocr31 bool
+	pluginVersions := []struct {
+		name string
+		v31  bool
 	}{
 		{"OCR3.0/v30", false},
 		{"OCR3.1/v31", true},
 	}
-	for _, offchainConfig := range offchainConfigs {
-		for _, ov := range ocrVersions {
-			t.Run(fmt.Sprintf("%s/offchainConfig=%+v", ov.name, offchainConfig), func(t *testing.T) {
+	for _, oc := range offchainConfigCases() {
+		for _, ov := range pluginVersions {
+			t.Run(fmt.Sprintf("%s/%s", ov.name, oc.name), func(t *testing.T) {
 				t.Parallel()
-				testIntegrationLLOMultiFormats(t, offchainConfig, ov.ocr31)
+				testIntegrationLLOMultiFormats(t, oc.cfg, ov.v31)
 			})
 		}
 	}
 }
 
-func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig lloprotocol.OffchainConfig, ocr31 bool) {
+func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig lloprotocol.OffchainConfig, v31 bool) {
 	testStartTimeStamp := time.Now()
 	expirationWindow := uint32(3600)
 
@@ -1088,8 +1114,8 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-		if ocr31 {
-			pluginConfig += "\nocrVersion = \"3.1\""
+		if v31 {
+			pluginConfig += "\npluginVersion = \"v31\""
 		}
 
 		bridgeName := "superbridge"
@@ -1279,8 +1305,8 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 
 		// Set config on configurator
 		productionConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
-		if ocr31 {
-			productionConfigOpts = append(productionConfigOpts, WithOCR31())
+		if v31 {
+			productionConfigOpts = append(productionConfigOpts, WithV31())
 		}
 		digest := setProductionConfig(
 			t, donID, steve, backend, configurator, configuratorAddress, nodes, productionConfigOpts...,
@@ -1523,6 +1549,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 		WithOffchainConfig(lloprotocol.OffchainConfig{
 			ProtocolVersion:                     1,
 			DefaultMinReportIntervalNanoseconds: uint64(defaultMinReportInterval),
+			AggregationFaultTolerance:           aggregationFaultTolerance,
 			EnableObservationCompression:        true,
 		}),
 		func(cfg *OCRConfig) {
@@ -1759,6 +1786,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(50 * time.Millisecond),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 	}
 
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
@@ -1907,6 +1935,47 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 	})
 }
 
+// assertRetirementReport checks the attested retirement report every oracle
+// persisted for a retired config. The successor instance reads this report to
+// learn where the predecessor stopped, so its contents are what make the
+// handover gapless: a wrong ValidAfterNanoseconds either replays or skips a
+// window of time that no report covers.
+//
+// truncateToSecond covers protocol version 0, whose timestamps carry only
+// second resolution.
+func assertRetirementReport(t *testing.T, nodes []Node, digest ocr2types.ConfigDigest, wantProtocolVersion uint32, wantValidAfterNanoseconds map[llotypes.ChannelID]uint64, truncateToSecond bool) {
+	t.Helper()
+
+	toSecond := func(m map[llotypes.ChannelID]uint64) map[llotypes.ChannelID]uint64 {
+		if !truncateToSecond {
+			return m
+		}
+		out := make(map[llotypes.ChannelID]uint64, len(m))
+		for k, v := range m {
+			out[k] = v / 1e9 * 1e9
+		}
+		return out
+	}
+
+	for i, node := range nodes {
+		var raw []byte
+		require.Eventually(t, func() bool {
+			return node.App.GetDB().GetContext(t.Context(), &raw,
+				`SELECT attested_retirement_report FROM llo_retirement_report_cache WHERE config_digest = $1`, digest[:]) == nil
+		}, reportTimeout, 100*time.Millisecond, "oracle %d should persist an attested retirement report for the retired config", i)
+
+		var attested lloprotocol.AttestedRetirementReport
+		require.NoError(t, proto.Unmarshal(raw, &attested))
+		assert.NotZero(t, attested.SeqNr, "oracle %d: retirement report should name the sequence number it retired at", i)
+		assert.GreaterOrEqual(t, len(attested.Sigs), int(fNodes)+1, "oracle %d: an attested retirement report needs at least f+1 signatures", i)
+
+		rr, err := (lloprotocol.StandardRetirementReportCodec{}).Decode(attested.RetirementReport)
+		require.NoError(t, err)
+		assert.Equal(t, wantProtocolVersion, rr.ProtocolVersion, "oracle %d", i)
+		assert.Equal(t, toSecond(wantValidAfterNanoseconds), toSecond(rr.ValidAfterNanoseconds), "oracle %d", i)
+	}
+}
+
 func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 	t.Parallel()
 
@@ -1915,25 +1984,26 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     0,
 		DefaultMinReportIntervalNanoseconds: 0,
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 		EnableObservationCompression:        false,
 	}
-	for _, ocr31 := range []bool{false, true} {
+	for _, v31 := range []bool{false, true} {
 		name := "OCR3.0/v30"
-		if ocr31 {
+		if v31 {
 			name = "OCR3.1/v31"
 		}
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig, ocr31)
+			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig, v31)
 		})
 	}
 }
 
-func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig lloprotocol.OffchainConfig, ocr31 bool) {
-	// withVersion appends WithOCR31() to config options when running the v31 variant.
+func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig lloprotocol.OffchainConfig, v31 bool) {
+	// withVersion appends WithV31() to config options when running the v31 variant.
 	withVersion := func(opts ...OCRConfigOption) []OCRConfigOption {
-		if ocr31 {
-			return append(opts, WithOCR31())
+		if v31 {
+			return append(opts, WithV31())
 		}
 		return opts
 	}
@@ -2011,8 +2081,8 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-		if ocr31 {
-			pluginConfig += "\nocrVersion = \"3.1\""
+		if v31 {
+			pluginConfig += "\npluginVersion = \"v31\""
 		}
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, configuratorAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
@@ -2161,6 +2231,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			}
 
 			assert.Less(t, initialPromotedGreenReport.ValidAfterNanoseconds, initialPromotedGreenReport.ObservationTimestampNanoseconds)
+
+			// The retired instance's report is what green handed over from.
+			assertRetirementReport(t, nodes, blueDigest, offchainConfig.ProtocolVersion,
+				map[llotypes.ChannelID]uint64{1: finalBlueReport.ObservationTimestampNanoseconds},
+				offchainConfig.ProtocolVersion == 0)
 		}
 		// retired instance does not produce reports
 		{
@@ -2237,6 +2312,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			finalGreenReport := allReports[greenDigest][len(allReports[greenDigest])-1]
 			assert.Less(t, finalGreenReport.ValidAfterNanoseconds, finalGreenReport.ObservationTimestampNanoseconds)
 			assert.Less(t, initialPromotedBlueReport.ValidAfterNanoseconds, initialPromotedBlueReport.ObservationTimestampNanoseconds)
+
+			// Green ran on the config it was staged with, which is the one blue
+			// retired under; blue's new staging config is not yet in effect.
+			assertRetirementReport(t, nodes, greenDigest, 0,
+				map[llotypes.ChannelID]uint64{1: finalGreenReport.ObservationTimestampNanoseconds}, true)
 		}
 		// adding a new channel definition is picked up on the fly
 		{
@@ -2282,33 +2362,28 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				assert.Equal(t, "2976.39", r.Values[0].(*lloprotocol.Decimal).String())
 			}
 		}
-		t.Run("deleting the jobs turns off oracles and cleans up resources", func(t *testing.T) {
-			t.Skip("TODO - MERC-3524")
-		})
-		t.Run("adding new jobs again picks up the correct configs", func(t *testing.T) {
-			t.Skip("TODO - MERC-3524")
-		})
 	})
 }
 
 func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 	t.Parallel()
-	for _, ocr31 := range []bool{false, true} {
+	for _, v31 := range []bool{false, true} {
 		name := "OCR3.0/v30"
-		if ocr31 {
+		if v31 {
 			name = "OCR3.1/v31"
 		}
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			testIntegrationLLOChannelMerging(t, ocr31)
+			testIntegrationLLOChannelMerging(t, v31)
 		})
 	}
 }
 
-func testIntegrationLLOChannelMerging(t *testing.T, ocr31 bool) {
+func testIntegrationLLOChannelMerging(t *testing.T, v31 bool) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 		EnableObservationCompression:        true,
 	}
 
@@ -2387,8 +2462,8 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-		if ocr31 {
-			pluginConfig += "\nocrVersion = \"3.1\""
+		if v31 {
+			pluginConfig += "\npluginVersion = \"v31\""
 		}
 
 		// Add stream specs and LLO jobs to all nodes
@@ -2410,8 +2485,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 		// Set initial OCR config
 		mergeConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
-		if ocr31 {
-			mergeConfigOpts = append(mergeConfigOpts, WithOCR31())
+		if v31 {
+			mergeConfigOpts = append(mergeConfigOpts, WithV31())
 		}
 		digest := setProductionConfig(
 			t, donID, steve, backend, configurator, configuratorAddress, nodes, mergeConfigOpts...,
@@ -2818,19 +2893,19 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 // and no longer transmits reports for that channel.
 func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) {
 	t.Parallel()
-	for _, ocr31 := range []bool{false, true} {
+	for _, v31 := range []bool{false, true} {
 		name := "OCR3.0/v30"
-		if ocr31 {
+		if v31 {
 			name = "OCR3.1/v31"
 		}
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			testIntegrationLLOTombstone(t, ocr31)
+			testIntegrationLLOTombstone(t, v31)
 		})
 	}
 }
 
-func testIntegrationLLOTombstone(t *testing.T, ocr31 bool) {
+func testIntegrationLLOTombstone(t *testing.T, v31 bool) {
 	const (
 		salt              = 500
 		donID             = uint32(777666)
@@ -2841,6 +2916,7 @@ func testIntegrationLLOTombstone(t *testing.T, ocr31 bool) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 		EnableObservationCompression:        true,
 	}
 
@@ -2885,8 +2961,8 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-	if ocr31 {
-		pluginConfig += "\nocrVersion = \"3.1\""
+	if v31 {
+		pluginConfig += "\npluginVersion = \"v31\""
 	}
 
 	var streamACalls, streamBCalls atomic.Uint64
@@ -2931,8 +3007,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	backend.Commit()
 
 	tombstoneConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
-	if ocr31 {
-		tombstoneConfigOpts = append(tombstoneConfigOpts, WithOCR31())
+	if v31 {
+		tombstoneConfigOpts = append(tombstoneConfigOpts, WithV31())
 	}
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
@@ -3047,6 +3123,7 @@ func TestIntegration_LLO_bridgeConnManagerHappyPath(t *testing.T) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 	}
 
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
@@ -3156,9 +3233,17 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+	oracles, nodes, _ = setupNodesWithRestart(t, nNodes, backend, clientCSAKeys, f)
+	return oracles, nodes
+}
+
+// setupNodesWithRestart is setupNodes plus a per-node restart hook. See
+// setupRestartableNode.
+func setupNodesWithRestart(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node, restarts []func(t *testing.T, whileDown func()) chainlink.Application) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f)
+		app, peerID, transmitter, kb, observedLogs, restart := setupRestartableNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f)
+		restarts = append(restarts, restart)
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb, observedLogs,
@@ -3175,7 +3260,7 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
 		})
 	}
-	return oracles, nodes
+	return oracles, nodes, restarts
 }
 
 func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.ChannelDefinitions) (url string, sha [32]byte) {
@@ -3233,4 +3318,564 @@ func newSingleABIEncoder(typ string, multiplier *sqlutil.Big) (enc lloevm.ABIEnc
 		panic(err)
 	}
 	return enc
+}
+
+// TestIntegration_LLO_aggregation_fault_tolerance exercises the v31 contribution
+// floor. aggregationFaultTolerance sets the fewest contributions an aggregate may
+// be built from (2*aft+1), so a stream observed by too few oracles must not
+// produce an aggregate and its channel must not report, while a stream observed
+// by the whole DON keeps reporting.
+//
+// With nNodes=4 and F=1: aft=1 sets a floor of 3 contributions, aft=0 a floor of
+// 1. A stream whose job exists on only 2 nodes therefore reports under aft=0 and
+// is withheld under aft=1.
+func TestIntegration_LLO_aggregation_fault_tolerance(t *testing.T) {
+	t.Parallel()
+	tcs := []struct {
+		name string
+		// aft is the aggregationFaultTolerance set in the offchain config.
+		aft uint32
+		// partialReports is whether the channel whose stream only 2 of the 4
+		// oracles observe is expected to produce reports.
+		partialReports bool
+		salt           int64
+		donID          uint32
+	}{
+		{name: "floor of 3 withholds an under-observed stream", aft: 1, partialReports: false, salt: 700, donID: uint32(555111)},
+		{name: "floor of 1 admits an under-observed stream", aft: 0, partialReports: true, salt: 750, donID: uint32(555222)},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOAggregationFaultTolerance(t, tc.aft, tc.partialReports, tc.salt, tc.donID)
+		})
+	}
+}
+
+func testIntegrationLLOAggregationFaultTolerance(t *testing.T, aft uint32, expectPartialReports bool, salt int64, donID uint32) {
+	const (
+		// streamIDFull has a stream job on every oracle.
+		streamIDFull = uint32(690)
+		// streamIDPartial has a stream job on only the first two oracles, so it
+		// gathers 2 contributions per round.
+		streamIDPartial = uint32(691)
+		// nPartialObservers is how many oracles observe streamIDPartial.
+		nPartialObservers = 2
+
+		channelFull    = uint32(1)
+		channelPartial = uint32(2)
+	)
+
+	offchainConfig := lloprotocol.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           &aft,
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := range nNodes {
+		k := big.NewInt(salt + int64(i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_aft", backend, bootstrapCSAKey, nil)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	packetCh := make(chan *packet, 100000)
+	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+	serverPubKey := serverKey.PublicKey
+	srv := NewMercuryServer(t, serverKey, packetCh)
+	serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
+	})
+
+	chainID := testutils.SimulatedChainID
+	relayType := "evm"
+	relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+	addBootstrapJob(t, bootstrapNode, configuratorAddress, fmt.Sprintf("job-aft-%d", donID), relayType, relayConfig)
+
+	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d
+pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+	priceFull := decimal.NewFromFloat(111.1)
+	pricePartial := decimal.NewFromFloat(222.2)
+	for i, node := range nodes {
+		bridgeFull := createSingleDecimalBridge(t, "aft-full", i, priceFull, node.App.BridgeORM())
+		addSingleDecimalStreamJob(t, node, streamIDFull, bridgeFull)
+		if i < nPartialObservers {
+			bridgePartial := createSingleDecimalBridge(t, "aft-partial", i, pricePartial, node.App.BridgeORM())
+			addSingleDecimalStreamJob(t, node, streamIDPartial, bridgePartial)
+		}
+		addLLOJob(
+			t,
+			node,
+			configuratorAddress,
+			bootstrapPeerID,
+			bootstrapNodePort,
+			clientPubKeys[i],
+			"aggregation-fault-tolerance-test",
+			pluginConfig,
+			relayType,
+			relayConfig,
+		)
+	}
+
+	channelDefinitions := llotypes.ChannelDefinitions{
+		channelFull: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamIDFull, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+		channelPartial: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamIDPartial, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+	}
+	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+	require.NoError(t, err)
+	backend.Commit()
+
+	setProductionConfig(
+		t, donID, steve, backend, configurator, configuratorAddress, nodes,
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(),
+	)
+
+	// collectChannels drains transmitted JSON reports for the given duration and
+	// returns the set of channel IDs seen.
+	collectChannels := func(d time.Duration) map[uint32]bool {
+		seen := make(map[uint32]bool)
+		deadline := time.Now().Add(d)
+		for time.Now().Before(deadline) {
+			pckt, errReceive := receiveWithTimeout(t, packetCh, time.Until(deadline))
+			if errReceive != nil {
+				break
+			}
+			req := pckt.req
+			if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+				continue
+			}
+			_, _, r, _, errDecode := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
+			if errDecode != nil {
+				continue
+			}
+			seen[r.ChannelID] = true
+		}
+		return seen
+	}
+
+	// The fully observed channel must report regardless of the floor. This also
+	// establishes that the DON has reached a reporting steady state before
+	// judging the under-observed channel.
+	require.Eventually(t, func() bool {
+		return collectChannels(2 * time.Second)[channelFull]
+	}, reportTimeout, 100*time.Millisecond, "fully observed channel should produce reports")
+
+	// Now judge the under-observed channel over a window that spans many rounds.
+	seen := collectChannels(15 * time.Second)
+	require.True(t, seen[channelFull], "fully observed channel should keep reporting")
+	if expectPartialReports {
+		require.True(t, seen[channelPartial],
+			"under-observed channel should report when the contribution floor is met")
+	} else {
+		require.False(t, seen[channelPartial],
+			"under-observed channel should not report when it cannot meet the contribution floor")
+	}
+}
+
+// TestIntegration_LLO_v31_blob_catchup covers the v31 blob path for an oracle
+// that is not present for the earlier rounds. v31 disseminates stream values
+// through blobs, so such an oracle can only contribute once it has fetched the
+// blobs and state the running DON produced without it.
+//
+// Two ways in: an oracle whose LLO job is created after the DON is already
+// reporting, and an oracle whose job is deleted mid-run and re-created after
+// the DON has advanced many rounds without it. In both cases the remaining
+// 3 oracles (2F+1) keep the DON reporting throughout.
+func TestIntegration_LLO_v31_blob_catchup(t *testing.T) {
+	t.Parallel()
+	tcs := []struct {
+		name string
+		// rejoin starts the lagging oracle with an LLO job and deletes it
+		// mid-run, instead of never creating it until catch-up time.
+		rejoin bool
+		salt   int64
+		donID  uint32
+	}{
+		{name: "oracle joining after the DON is reporting catches up", rejoin: false, salt: 800, donID: uint32(555333)},
+		{name: "oracle rejoining after its job is deleted catches up", rejoin: true, salt: 850, donID: uint32(555444)},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOV31BlobCatchup(t, tc.rejoin, tc.salt, tc.donID)
+		})
+	}
+}
+
+func testIntegrationLLOV31BlobCatchup(t *testing.T, rejoin bool, salt int64, donID uint32) {
+	const (
+		streamID  = uint32(790)
+		channelID = uint32(1)
+	)
+	// laggingNode is the index of the oracle that misses rounds.
+	laggingNode := nNodes - 1
+
+	offchainConfig := lloprotocol.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
+		EnableObservationCompression:        true,
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := range nNodes {
+		k := big.NewInt(salt + int64(i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_catchup", backend, bootstrapCSAKey, nil)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	packetCh := make(chan *packet, 100000)
+	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+	serverPubKey := serverKey.PublicKey
+	srv := NewMercuryServer(t, serverKey, packetCh)
+	serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
+	})
+
+	chainID := testutils.SimulatedChainID
+	relayType := "evm"
+	relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+	addBootstrapJob(t, bootstrapNode, configuratorAddress, fmt.Sprintf("job-catchup-%d", donID), relayType, relayConfig)
+
+	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d
+pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+	// One counter per node so the lagging oracle's observations can be told
+	// apart from the rest of the DON's.
+	bridgeCalls := make([]*atomic.Uint64, nNodes)
+	price := decimal.NewFromFloat(123.4)
+	addLaggingLLOJob := func() int32 {
+		return addLLOJob(
+			t,
+			nodes[laggingNode],
+			configuratorAddress,
+			bootstrapPeerID,
+			bootstrapNodePort,
+			clientPubKeys[laggingNode],
+			"blob-catchup-test",
+			pluginConfig,
+			relayType,
+			relayConfig,
+		)
+	}
+
+	var laggingJobID int32
+	for i, node := range nodes {
+		bridgeCalls[i] = new(atomic.Uint64)
+		bridge := createSingleDecimalCountingBridge(t, "catchup", i, price, node.App.BridgeORM(), bridgeCalls[i])
+		addSingleDecimalStreamJob(t, node, streamID, bridge)
+		if i == laggingNode {
+			// The late joiner gets no LLO job yet; the rejoining oracle gets one
+			// that is deleted below.
+			if rejoin {
+				laggingJobID = addLaggingLLOJob()
+			}
+			continue
+		}
+		addLLOJob(
+			t,
+			node,
+			configuratorAddress,
+			bootstrapPeerID,
+			bootstrapNodePort,
+			clientPubKeys[i],
+			"blob-catchup-test",
+			pluginConfig,
+			relayType,
+			relayConfig,
+		)
+	}
+
+	channelDefinitions := llotypes.ChannelDefinitions{
+		channelID: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamID, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+	}
+	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+	require.NoError(t, err)
+	backend.Commit()
+
+	setProductionConfig(
+		t, donID, steve, backend, configurator, configuratorAddress, nodes,
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(),
+	)
+
+	// reportsFlowing drains transmitted reports for the channel under test until
+	// it sees one or the deadline passes.
+	reportsFlowing := func(d time.Duration) bool {
+		deadline := time.Now().Add(d)
+		for time.Now().Before(deadline) {
+			pckt, errReceive := receiveWithTimeout(t, packetCh, time.Until(deadline))
+			if errReceive != nil {
+				return false
+			}
+			req := pckt.req
+			if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+				continue
+			}
+			_, _, r, _, errDecode := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
+			if errDecode == nil && r.ChannelID == channelID {
+				return true
+			}
+		}
+		return false
+	}
+
+	require.Eventually(t, func() bool {
+		return reportsFlowing(2 * time.Second)
+	}, reportTimeout, 100*time.Millisecond, "DON should report before the lagging oracle joins")
+
+	if rejoin {
+		nodes[laggingNode].DeleteJob(t, laggingJobID)
+		// Wait for the deleted oracle to stop observing, so the rounds that
+		// follow genuinely advance without it.
+		var last uint64
+		var stableSince time.Time
+		require.Eventually(t, func() bool {
+			c := bridgeCalls[laggingNode].Load()
+			if c != last {
+				last = c
+				stableSince = time.Now()
+				return false
+			}
+			return time.Since(stableSince) > 2*time.Second
+		}, 30*time.Second, 100*time.Millisecond, "deleted oracle should stop observing")
+		// Let the remaining oracles advance a good number of rounds alone.
+		require.True(t, reportsFlowing(10*time.Second), "DON should keep reporting without the deleted oracle")
+	}
+
+	callsBeforeCatchup := bridgeCalls[laggingNode].Load()
+	if !rejoin {
+		require.Zero(t, callsBeforeCatchup, "oracle without an LLO job should not observe")
+	}
+
+	laggingJobID = addLaggingLLOJob()
+	require.NotZero(t, laggingJobID)
+
+	require.Eventually(t, func() bool {
+		return bridgeCalls[laggingNode].Load() > callsBeforeCatchup
+	}, reportTimeout, 100*time.Millisecond, "the lagging oracle should observe once it has caught up")
+
+	require.True(t, reportsFlowing(10*time.Second), "DON should keep reporting after the lagging oracle catches up")
+}
+
+// TestIntegration_LLO_v31_restart_resumes restarts one oracle of a reporting
+// v31 DON. v31 keeps its protocol state in a pebble key-value store on disk
+// rather than in an outcome carried between rounds, so a restarted oracle has
+// to reopen that store, recover its LLO job from the database, and rejoin a
+// protocol that advanced without it.
+//
+// The remaining 3 oracles (2F+1) keep the DON reporting throughout, so a
+// restart that failed to recover would show up as an oracle that never resumes
+// observing rather than as a stalled DON.
+func TestIntegration_LLO_v31_restart_resumes(t *testing.T) {
+	t.Parallel()
+
+	const (
+		salt      = int64(900)
+		donID     = uint32(555555)
+		streamID  = uint32(890)
+		channelID = uint32(1)
+	)
+	// restartedNode is the index of the oracle that is stopped and started again.
+	restartedNode := nNodes - 1
+
+	offchainConfig := lloprotocol.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
+		EnableObservationCompression:        true,
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := range nNodes {
+		k := big.NewInt(salt + int64(i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_restart", backend, bootstrapCSAKey, nil)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	packetCh := make(chan *packet, 100000)
+	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+	serverPubKey := serverKey.PublicKey
+	srv := NewMercuryServer(t, serverKey, packetCh)
+	serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+	oracles, nodes, restarts := setupNodesWithRestart(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
+	})
+
+	chainID := testutils.SimulatedChainID
+	relayType := "evm"
+	relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+	addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-restart", relayType, relayConfig)
+
+	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d
+pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+	// One counter per node, so the restarted oracle's observations can be told
+	// apart from the rest of the DON's.
+	bridgeCalls := make([]*atomic.Uint64, nNodes)
+	price := decimal.NewFromFloat(456.7)
+	for i, node := range nodes {
+		bridgeCalls[i] = new(atomic.Uint64)
+		bridge := createSingleDecimalCountingBridge(t, "restart", i, price, node.App.BridgeORM(), bridgeCalls[i])
+		addSingleDecimalStreamJob(t, node, streamID, bridge)
+		addLLOJob(
+			t,
+			node,
+			configuratorAddress,
+			bootstrapPeerID,
+			bootstrapNodePort,
+			clientPubKeys[i],
+			"restart-test",
+			pluginConfig,
+			relayType,
+			relayConfig,
+		)
+	}
+
+	channelDefinitions := llotypes.ChannelDefinitions{
+		channelID: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamID, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+	}
+	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+	require.NoError(t, err)
+	backend.Commit()
+
+	setProductionConfig(
+		t, donID, steve, backend, configurator, configuratorAddress, nodes,
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(),
+	)
+
+	reportsFlowing := func(d time.Duration) bool {
+		deadline := time.Now().Add(d)
+		for time.Now().Before(deadline) {
+			pckt, errReceive := receiveWithTimeout(t, packetCh, time.Until(deadline))
+			if errReceive != nil {
+				return false
+			}
+			req := pckt.req
+			if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+				continue
+			}
+			_, _, r, _, errDecode := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
+			if errDecode == nil && r.ChannelID == channelID {
+				return true
+			}
+		}
+		return false
+	}
+
+	require.Eventually(t, func() bool {
+		return reportsFlowing(2 * time.Second)
+	}, reportTimeout, 100*time.Millisecond, "DON should report before the restart")
+	require.Positive(t, bridgeCalls[restartedNode].Load(), "the oracle to restart should be observing first")
+
+	// Restart. The new application reopens the same database and key-value
+	// store root, so nothing below re-creates the jobs.
+	var callsWhileDown uint64
+	app := restarts[restartedNode](t, func() {
+		// While the oracle is down it must not observe, which is what makes the
+		// resumption below evidence of a real restart.
+		settled := bridgeCalls[restartedNode].Load()
+		require.Eventually(t, func() bool {
+			c := bridgeCalls[restartedNode].Load()
+			if c != settled {
+				settled = c
+				return false
+			}
+			return true
+		}, 15*time.Second, 500*time.Millisecond, "a stopped oracle should stop observing")
+		callsWhileDown = settled
+		require.True(t, reportsFlowing(10*time.Second), "DON should keep reporting while the oracle is down")
+		require.Equal(t, callsWhileDown, bridgeCalls[restartedNode].Load(), "a stopped oracle should not observe")
+	})
+	nodes[restartedNode].App = app
+
+	callsAfterRestart := bridgeCalls[restartedNode].Load()
+	require.Equal(t, callsWhileDown, callsAfterRestart, "no observations should have happened while the oracle was down")
+	require.Eventually(t, func() bool {
+		return bridgeCalls[restartedNode].Load() > callsAfterRestart
+	}, reportTimeout, 100*time.Millisecond, "the restarted oracle should resume observing without its jobs being re-created")
+
+	require.True(t, reportsFlowing(10*time.Second), "DON should keep reporting after the restarted oracle rejoins")
 }
