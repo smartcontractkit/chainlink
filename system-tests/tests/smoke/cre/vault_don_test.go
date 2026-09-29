@@ -57,9 +57,10 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	gwURL := fixture.GatewayURL.String()
 	vaultPublicKey := fixture.VaultPublicKey
 
-	// One verifier deployment serves every sequential subtest below (phases are
-	// supplied per HTTP trigger invocation); identifier_validation deploys its
-	// own because it runs in parallel under a separate per-test key.
+	// One verifier deployment serves the whole suite (phases are supplied per
+	// HTTP trigger invocation); identifier_validation shares it too because its
+	// workflow checks are negative-only and it is the suite's only t.Parallel
+	// subtest, so it resumes after every sequential sibling has completed.
 	verifier := deployVaultVerifierWorkflow(t, testEnv, fixture.TriggerAuth, "allowlist-verifier")
 
 	t.Run("allowlist_delete_batch_at_limit", func(t *testing.T) {
@@ -237,11 +238,14 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 			t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
 		})
 		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
-		// Deployed under subEnv because this subtest runs in parallel with its
-		// siblings and needs its own on-chain owner to avoid nonce conflicts.
-		identifierVerifier := deployVaultVerifierWorkflow(t, subEnv, fixture.TriggerAuth, "identifier-verifier")
-		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, identifierVerifier, ulCh, bmCh)
-		executeVaultSecretsGetBatchTooBigViaWorkflowTest(t, identifierVerifier, ulCh, bmCh)
+		// The workflow checks reuse the suite verifier (deployed under the
+		// suite env): identifier validation is negative-only (GetSecret is
+		// rejected before reading any owner's secrets), so the verifier's
+		// registered owner does not matter. subEnv remains in use for the
+		// gateway identifier-validation loop above, which needs its own
+		// on-chain owner to avoid nonce conflicts with parallel siblings.
+		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, verifier, ulCh, bmCh)
+		executeVaultSecretsGetBatchTooBigViaWorkflowTest(t, verifier, ulCh, bmCh)
 	})
 
 	t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
