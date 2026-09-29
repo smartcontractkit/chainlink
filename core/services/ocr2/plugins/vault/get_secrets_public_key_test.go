@@ -12,17 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 )
 
-// TestStateTransitionGetSecrets_IncludesPublicKey verifies the RawVaultPublicKey
-// gate: when open, stateTransitionGetSecrets attaches the instance's vault public
-// key to the aggregated GetSecrets response; when closed, it does not.
-func TestStateTransitionGetSecrets_IncludesPublicKey(t *testing.T) {
-	t.Parallel()
-
-	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
-	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
-
-	chosen := []*vaultcommon.Observation{
+func testChosenGetSecretsObservations() []*vaultcommon.Observation {
+	return []*vaultcommon.Observation{
 		{
 			Response: &vaultcommon.Observation_GetSecretsResponse{
 				GetSecretsResponse: &vaultcommon.GetSecretsResponse{
@@ -38,24 +29,81 @@ func TestStateTransitionGetSecrets_IncludesPublicKey(t *testing.T) {
 			},
 		},
 	}
+}
 
-	// Sequential (not subtests): both cases mutate the shared plugin config gate, so
-	// they must not run in parallel.
+// TestStateTransitionGetSecrets_AttachesPublicKey verifies that
+// stateTransitionGetSecrets attaches the caller-supplied (quorum-aggregated)
+// public key to the response, and attaches nothing when it is empty. The key is
+// no longer read from node-local config, so this is a pure function of its args.
+func TestStateTransitionGetSecrets_AttachesPublicKey(t *testing.T) {
+	t.Parallel()
 
-	// Gate closed: no public key attached to the response.
-	r.cfg.VaultGetSecretsIncludePublicKey = limits.NewGateLimiter(false)
-	oClosed := &vaultcommon.Outcome{}
-	r.stateTransitionGetSecrets(t.Context(), chosen, oClosed)
-	require.Len(t, oClosed.GetGetSecretsResponse().GetResponses(), 1)
-	require.Empty(t, oClosed.GetGetSecretsResponse().GetRawVaultPublicKey())
+	r := newTestReportingPlugin(t, withOnchainCfg(4, 1))
+	chosen := testChosenGetSecretsObservations()
 
-	// Gate open: the instance public key is attached, matching pk.
-	r.cfg.VaultGetSecretsIncludePublicKey = limits.NewGateLimiter(true)
-	oOpen := &vaultcommon.Outcome{}
-	r.stateTransitionGetSecrets(t.Context(), chosen, oOpen)
-	require.Len(t, oOpen.GetGetSecretsResponse().GetResponses(), 1)
+	// No aggregated key: nothing attached.
+	oEmpty := &vaultcommon.Outcome{}
+	r.stateTransitionGetSecrets(chosen, oEmpty, "")
+	require.Len(t, oEmpty.GetGetSecretsResponse().GetResponses(), 1)
+	require.Empty(t, oEmpty.GetGetSecretsResponse().GetRawVaultPublicKey())
+
+	// Aggregated key present: attached verbatim.
+	oKey := &vaultcommon.Outcome{}
+	r.stateTransitionGetSecrets(chosen, oKey, "abc123")
+	require.Len(t, oKey.GetGetSecretsResponse().GetResponses(), 1)
+	require.Equal(t, "abc123", oKey.GetGetSecretsResponse().GetRawVaultPublicKey())
+}
+
+// TestObservedVaultPublicKey verifies a node broadcasts its DKG public key only
+// when the include-public-key gate is open.
+func TestObservedVaultPublicKey(t *testing.T) {
+	t.Parallel()
+
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	pkb, merr := pk.Marshal()
 	require.NoError(t, merr)
-	require.Equal(t, hex.EncodeToString(pkb), oOpen.GetGetSecretsResponse().GetRawVaultPublicKey())
+
+	r.cfg.VaultGetSecretsIncludePublicKey = limits.NewGateLimiter(false)
+	require.Empty(t, r.observedVaultPublicKey(t.Context()))
+
+	r.cfg.VaultGetSecretsIncludePublicKey = limits.NewGateLimiter(true)
+	require.Equal(t, pkb, r.observedVaultPublicKey(t.Context()))
+}
+
+// TestAggregateVaultPublicKey verifies StateTransition selects the public key
+// agreed by at least F+1 observations and returns "" below that quorum.
+func TestAggregateVaultPublicKey(t *testing.T) {
+	t.Parallel()
+
+	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	pkb, merr := pk.Marshal()
+	require.NoError(t, merr)
+	wantHex := hex.EncodeToString(pkb)
+
+	// N=13, F=4 => threshold F+1 = 5.
+	r := newTestReportingPlugin(t, withOnchainCfg(13, 4))
+
+	obsWithKey := func(n int) map[uint8]*vaultcommon.Observations {
+		m := map[uint8]*vaultcommon.Observations{}
+		for i := 0; i < n; i++ {
+			m[uint8(i)] = &vaultcommon.Observations{RawVaultPublicKey: pkb}
+		}
+		return m
+	}
+
+	// Below quorum: no key.
+	require.Empty(t, r.aggregateVaultPublicKey(obsWithKey(4)))
+
+	// At quorum (F+1): key selected.
+	require.Equal(t, wantHex, r.aggregateVaultPublicKey(obsWithKey(5)))
+
+	// Nodes that omit the key (gate off) do not count toward the quorum.
+	mixed := obsWithKey(4)
+	mixed[100] = &vaultcommon.Observations{} // no key
+	mixed[101] = &vaultcommon.Observations{} // no key
+	require.Empty(t, r.aggregateVaultPublicKey(mixed))
 }
