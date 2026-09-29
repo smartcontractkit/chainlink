@@ -104,19 +104,19 @@ func quoteBackfillString(benchmark float64) string {
 
 func TestIntegration_LLO_history_backfill(t *testing.T) {
 	t.Parallel()
-	for _, ocr31 := range []bool{false, true} {
+	for _, v31 := range []bool{false, true} {
 		name := "OCR3.0/v30"
-		if ocr31 {
+		if v31 {
 			name = "OCR3.1/v31"
 		}
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			testIntegrationLLOHistoryBackfill(t, ocr31)
+			testIntegrationLLOHistoryBackfill(t, v31)
 		})
 	}
 }
 
-func testIntegrationLLOHistoryBackfill(t *testing.T, ocr31 bool) {
+func testIntegrationLLOHistoryBackfill(t *testing.T, v31 bool) {
 	const (
 		salt              = 600
 		donID             = uint32(776655)
@@ -134,6 +134,7 @@ func testIntegrationLLOHistoryBackfill(t *testing.T, ocr31 bool) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		AggregationFaultTolerance:           aggregationFaultTolerance,
 		EnableObservationCompression:        true,
 	}
 
@@ -178,8 +179,8 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-	if ocr31 {
-		pluginConfig += "\nocrVersion = \"3.1\""
+	if v31 {
+		pluginConfig += "\npluginVersion = \"v31\""
 	}
 
 	nativeStrm := Stream{
@@ -223,8 +224,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	backend.Commit()
 
 	productionConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
-	if ocr31 {
-		productionConfigOpts = append(productionConfigOpts, WithOCR31())
+	if v31 {
+		productionConfigOpts = append(productionConfigOpts, WithV31())
 	}
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
