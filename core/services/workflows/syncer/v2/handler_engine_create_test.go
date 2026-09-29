@@ -47,42 +47,39 @@ func (c *recordingCoordinator) RegisterTriggers(_ context.Context, subscriber v2
 	return nil, c.registerErr
 }
 
-// engineCreateFixture is an eventHandler whose engine factory records the
-// coordinated argument it was called with, so a test can tell which creation
-// path tryEngineCreate took.
+// engineCreateFixture is an eventHandler whose engine factory returns a
+// preset engine. The factory owns the flag read in production, so these tests
+// cover the dispatch.
 type engineCreateFixture struct {
-	h                 *eventHandler
-	legacyEngine      *mockEngine
-	coordinatedEngine *fakeCoordinatedEngine
-	legacyCalls       atomic.Int32
-	coordinatedCalls  atomic.Int32
-	coordinator       *recordingCoordinator
+	h            *eventHandler
+	engine       v2.WorkflowEngine
+	factoryCalls atomic.Int32
+	factoryErr   error
+	coordinator  *recordingCoordinator
 }
 
-func newEngineCreateFixture(t *testing.T, withCoordinator, flagOpen bool) *engineCreateFixture {
+// newEngineCreateFixture wires a handler whose factory hands back engine.
+// Passing a fakeCoordinatedEngine exercises the coordinated path, a mockEngine
+// the legacy one.
+func newEngineCreateFixture(t *testing.T, engine v2.WorkflowEngine, withCoordinator bool) *engineCreateFixture {
 	t.Helper()
 	lggr := logger.Test(t)
 	registry := capreg.NewRegistry(lggr)
 	registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 
-	f := &engineCreateFixture{
-		legacyEngine:      &mockEngine{},
-		coordinatedEngine: &fakeCoordinatedEngine{},
-	}
+	f := &engineCreateFixture{engine: engine}
 	f.h = &eventHandler{
 		lggr:           lggr,
 		capRegistry:    registry,
 		engineRegistry: NewEngineRegistry(),
-		featureFlags:   &v2.EngineFeatureFlags{CoordinatedEngine: limits.NewGateLimiter(flagOpen)},
 		tracer:         noop.NewTracerProvider().Tracer(""),
-		engineFactory: func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, coordinated bool, initDone chan<- error) (v2.WorkflowEngine, error) {
-			initDone <- nil
-			if coordinated {
-				f.coordinatedCalls.Add(1)
-				return f.coordinatedEngine, nil
+		engineFactory: func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, initDone chan<- error) (v2.WorkflowEngine, error) {
+			f.factoryCalls.Add(1)
+			if f.factoryErr != nil {
+				return nil, f.factoryErr
 			}
-			f.legacyCalls.Add(1)
-			return f.legacyEngine, nil
+			initDone <- nil
+			return f.engine, nil
 		},
 	}
 	if withCoordinator {
@@ -115,54 +112,40 @@ func newTestWorkflowSpec(t *testing.T) (*job.WorkflowSpec, types.WorkflowID) {
 func Test_tryEngineCreate_routing(t *testing.T) {
 	t.Parallel()
 
-	t.Run("flag open with a coordinator takes the coordinated path", func(t *testing.T) {
+	t.Run("a coordinated engine is registered and handed to the coordinator", func(t *testing.T) {
 		t.Parallel()
-		f := newEngineCreateFixture(t, true, true)
+		engine := &fakeCoordinatedEngine{}
+		f := newEngineCreateFixture(t, engine, true)
 		spec, wid := newTestWorkflowSpec(t)
 
 		require.NoError(t, f.h.tryEngineCreate(t.Context(), spec, "TestSource"))
 
-		require.Equal(t, int32(1), f.coordinatedCalls.Load())
-		require.Equal(t, int32(0), f.legacyCalls.Load())
+		require.Equal(t, int32(1), f.factoryCalls.Load())
 		entry, ok := f.h.engineRegistry.Get(wid)
 		require.True(t, ok)
 		require.True(t, entry.Coordinated())
 		require.NotEmpty(t, entry.ReconcileKey)
-		require.Equal(t, []v2.Subscriber{f.coordinatedEngine}, f.coordinator.registered)
+		require.Equal(t, []v2.Subscriber{engine}, f.coordinator.registered)
 	})
 
-	t.Run("flag closed takes the legacy path", func(t *testing.T) {
+	t.Run("a legacy engine is registered without touching the coordinator", func(t *testing.T) {
 		t.Parallel()
-		f := newEngineCreateFixture(t, true, false)
+		f := newEngineCreateFixture(t, &mockEngine{}, true)
 		spec, wid := newTestWorkflowSpec(t)
 
 		require.NoError(t, f.h.tryEngineCreate(t.Context(), spec, "TestSource"))
 
-		require.Equal(t, int32(0), f.coordinatedCalls.Load())
-		require.Equal(t, int32(1), f.legacyCalls.Load())
+		require.Equal(t, int32(1), f.factoryCalls.Load())
 		entry, ok := f.h.engineRegistry.Get(wid)
 		require.True(t, ok)
 		require.False(t, entry.Coordinated())
 		require.Empty(t, f.coordinator.registered)
 	})
 
-	t.Run("flag open without a coordinator takes the legacy path", func(t *testing.T) {
-		t.Parallel()
-		f := newEngineCreateFixture(t, false, true)
-		spec, wid := newTestWorkflowSpec(t)
-
-		require.NoError(t, f.h.tryEngineCreate(t.Context(), spec, "TestSource"))
-
-		require.Equal(t, int32(0), f.coordinatedCalls.Load())
-		require.Equal(t, int32(1), f.legacyCalls.Load())
-		entry, ok := f.h.engineRegistry.Get(wid)
-		require.True(t, ok)
-		require.False(t, entry.Coordinated())
-	})
-
 	t.Run("RegisterTriggers failure removes and closes the coordinated engine", func(t *testing.T) {
 		t.Parallel()
-		f := newEngineCreateFixture(t, true, true)
+		engine := &fakeCoordinatedEngine{}
+		f := newEngineCreateFixture(t, engine, true)
 		f.coordinator.registerErr = errors.New("boom")
 		spec, wid := newTestWorkflowSpec(t)
 
@@ -170,19 +153,77 @@ func Test_tryEngineCreate_routing(t *testing.T) {
 
 		require.ErrorContains(t, err, "failed to register triggers via coordinator")
 		require.False(t, f.h.engineRegistry.Contains(wid))
-		require.True(t, f.coordinatedEngine.closed.Load())
+		require.True(t, engine.closed.Load())
+	})
+
+	t.Run("a factory failure is reported and registers nothing", func(t *testing.T) {
+		t.Parallel()
+		f := newEngineCreateFixture(t, &mockEngine{}, true)
+		f.factoryErr = errors.New("boom")
+		spec, wid := newTestWorkflowSpec(t)
+
+		err := f.h.tryEngineCreate(t.Context(), spec, "TestSource")
+
+		require.ErrorContains(t, err, "failed to create workflow engine")
+		require.False(t, f.h.engineRegistry.Contains(wid))
 	})
 
 	t.Run("invalid spec is rejected before any engine is built", func(t *testing.T) {
 		t.Parallel()
-		f := newEngineCreateFixture(t, true, true)
+		f := newEngineCreateFixture(t, &mockEngine{}, true)
 		spec, _ := newTestWorkflowSpec(t)
 		spec.WorkflowID = types.WorkflowID{0xff}.Hex()
 
 		err := f.h.tryEngineCreate(t.Context(), spec, "TestSource")
 
 		require.ErrorContains(t, err, "workflowID mismatch")
-		require.Equal(t, int32(0), f.coordinatedCalls.Load())
-		require.Equal(t, int32(0), f.legacyCalls.Load())
+		require.Equal(t, int32(0), f.factoryCalls.Load())
+	})
+}
+
+// Test_useCoordinatedEngine covers the routing policy the engine factory reads.
+func Test_useCoordinatedEngine(t *testing.T) {
+	t.Parallel()
+
+	newHandler := func(flagOpen, withCoordinator, sharded bool) *eventHandler {
+		h := &eventHandler{
+			lggr:         logger.Test(t),
+			featureFlags: &v2.EngineFeatureFlags{CoordinatedEngine: limits.NewGateLimiter(flagOpen)},
+		}
+		if withCoordinator {
+			h.triggerCoordinator = &recordingCoordinator{}
+		}
+		if sharded {
+			h.shardingEnabled = true
+			h.dispatcher = newFakeDispatcher()
+		}
+		return h
+	}
+
+	t.Run("flag open with a coordinator", func(t *testing.T) {
+		t.Parallel()
+		require.True(t, newHandler(true, true, false).useCoordinatedEngine(t.Context(), "wfid"))
+	})
+
+	t.Run("flag closed", func(t *testing.T) {
+		t.Parallel()
+		require.False(t, newHandler(false, true, false).useCoordinatedEngine(t.Context(), "wfid"))
+	})
+
+	t.Run("no coordinator wired", func(t *testing.T) {
+		t.Parallel()
+		require.False(t, newHandler(true, false, false).useCoordinatedEngine(t.Context(), "wfid"))
+	})
+
+	t.Run("sharded nodes stay on the legacy engine", func(t *testing.T) {
+		t.Parallel()
+		require.False(t, newHandler(true, true, true).useCoordinatedEngine(t.Context(), "wfid"))
+	})
+
+	t.Run("nil feature flags", func(t *testing.T) {
+		t.Parallel()
+		h := newHandler(true, true, false)
+		h.featureFlags = nil
+		require.False(t, h.useCoordinatedEngine(t.Context(), "wfid"))
 	})
 }
