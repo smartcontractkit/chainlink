@@ -69,7 +69,7 @@ plugins:
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "fab9af5ab180a205dbfd5d90a1cd837815019159"
+      gitRef: "2aaae97ddf6900b082391c4756687b7584bfaf8a"
       installPath: "."
 
   capability-httpaction:
