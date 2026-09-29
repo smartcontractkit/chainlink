@@ -593,7 +593,7 @@ flowchart LR
 	chainlink/system-tests/tests/smoke/cre/stellar/stellarwrite --> cre-sdk-go/capabilities/blockchain/stellar
 	chainlink/system-tests/tests/smoke/cre/stellar/stellarwrite --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/stellar/stellarwrite href "https://github.com/smartcontractkit/chainlink"
-	chainlink/system-tests/tests/smoke/cre/vaultsecret --> cre-sdk-go/capabilities/scheduler/cron
+	chainlink/system-tests/tests/smoke/cre/vaultsecret --> cre-sdk-go/capabilities/networking/http
 	click chainlink/system-tests/tests/smoke/cre/vaultsecret href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-aptos/codec
 	chainlink/v2 --> chainlink-ccv
