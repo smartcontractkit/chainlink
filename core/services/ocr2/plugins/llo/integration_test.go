@@ -2362,12 +2362,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				assert.Equal(t, "2976.39", r.Values[0].(*lloprotocol.Decimal).String())
 			}
 		}
-		t.Run("deleting the jobs turns off oracles and cleans up resources", func(t *testing.T) {
-			t.Skip("TODO - MERC-3524")
-		})
-		t.Run("adding new jobs again picks up the correct configs", func(t *testing.T) {
-			t.Skip("TODO - MERC-3524")
-		})
 	})
 }
 
