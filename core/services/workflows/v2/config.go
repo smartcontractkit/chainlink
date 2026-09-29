@@ -401,10 +401,8 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if err != nil {
 		return nil, fmt.Errorf("workflow tag backfill flag: %w", err)
 	}
-	coordinatedEngineSetting := settings.Bool(false)
-	coordinatedEngineSetting.Key = "CoordinatedEngineEnabled"
-	coordinatedEngineSetting.Scope = settings.ScopeGlobal
-	coordinatedEngine, err := limits.MakeGateLimiter(lf, coordinatedEngineSetting)
+
+	coordinatedEngine, err := limits.MakeGateLimiter(lf, cresettings.Default.CoordinatedEngineEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("coordinated engine flag: %w", err)
 	}
