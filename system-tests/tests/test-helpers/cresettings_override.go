@@ -365,16 +365,6 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 	}
 }
 
-// deliverCRESettings proposes a `cresettings` job carrying settingsTOML to the DON's
-// worker nodes. CRE nodes auto-approve the settings job and apply it live, so proposing
-// is sufficient — we deliberately do NOT cancel the previous job or explicitly approve
-// the new one. With the fixed settings-job UUID, an explicit cancel/approve corrupts the
-// JD proposal history on repeated deliveries (e.g. reverting to the same baseline twice,
-// which failed with "no job proposal found"). Application is confirmed best-effort via
-// the nodes' "Updated settings" logs (see logSettingsConvergence).
-//
-// The CLDF environment is used with ctx in place of its own context, which is bound to
-// t.Context() of the test that built the environment.
 // settingsTargetNodes returns the nodes a settings override must reach for don:
 // its worker (plugin) nodes when present, otherwise its bootstrap node
 // (bootstrap-only DONs such as bootstrap-gateway, whose node runs the gateway
@@ -390,11 +380,8 @@ func settingsTargetNodes(don *cre.Don) []*cre.Node {
 }
 
 // deliverCRESettingsToBootstrap proposes the settings job to the DON's bootstrap
-// node (JD node type "bootstrap"). The worker delivery path hard-filters JD
-// proposals to type=plugin, which excludes bootstrap-only DONs such as
-// bootstrap-gateway; runtime settings overrides must reach the gateway node too,
-// since the gateway process enforces gateway-side settings (e.g.
-// GatewayVaultNodeSignaturesEnabled).
+// node. The worker path only targets type=plugin nodes, which misses
+// bootstrap-only DONs such as bootstrap-gateway that enforce gateway-side settings.
 func deliverCRESettingsToBootstrap(ctx context.Context, env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string) error {
 	cldfEnv := *env.CreEnvironment.CldfEnvironment
 	cldfEnv.GetContext = func() context.Context { return ctx }
@@ -422,6 +409,17 @@ func deliverCRESettingsToBootstrap(ctx context.Context, env *ttypes.TestEnvironm
 	return nil
 }
 
+// deliverCRESettings proposes a `cresettings` job carrying settingsTOML to the DON's
+// worker nodes, or to its bootstrap node for bootstrap-only DONs (see
+// deliverCRESettingsToBootstrap). CRE nodes auto-approve the settings job and
+// apply it live, so proposing is sufficient — we deliberately do NOT cancel the previous job or explicitly approve
+// the new one. With the fixed settings-job UUID, an explicit cancel/approve corrupts the
+// JD proposal history on repeated deliveries (e.g. reverting to the same baseline twice,
+// which failed with "no job proposal found"). Application is confirmed best-effort via
+// the nodes' "Updated settings" logs (see logSettingsConvergence).
+//
+// The CLDF environment is used with ctx in place of its own context, which is bound to
+// t.Context() of the test that built the environment.
 func deliverCRESettings(ctx context.Context, env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string) error {
 	if don.WorkersCount() == 0 {
 		return deliverCRESettingsToBootstrap(ctx, env, don, settingsTOML)

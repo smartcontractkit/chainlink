@@ -333,11 +333,8 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 	}
 }
 
-// nodeSigner pads the node's OCR2 onchain (report) signing address into the
-// registry's bytes32 Signer field the way production does: the EVM address
-// occupies the first 20 bytes and the rest is zero padding. Consumers (e.g.
-// the vault gateway) use Signer[0:20] to verify both OCR report signatures and
-// envelope-level node signatures.
+// nodeSigner left-aligns the node's OCR2 onchain address in the registry's
+// bytes32 Signer field, as production does; consumers read Signer[0:20].
 func nodeSigner(onchainPublicKey []byte) [32]byte {
 	var s [32]byte
 	copy(s[:], common.BytesToAddress(onchainPublicKey).Bytes())

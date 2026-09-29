@@ -1013,8 +1013,10 @@ func TestGatewayHandler_SignsAllResponsePaths(t *testing.T) {
 
 			digest, err := captured.Digest()
 			require.NoError(t, err)
-			assert.NoError(t, vaulttypes.ValidateNodeSignatures(digest, captured.NodeSignatures, []common.Address{signerAddr}, 1),
-				"outgoing response must carry a node signature valid for its digest")
+			// Bound to the client-visible request ID (owner prefix stripped).
+			recovered, err := vaulttypes.RecoverNodeSigner("1", digest, captured.NodeSignatures[0])
+			require.NoError(t, err)
+			assert.Equal(t, signerAddr, recovered, "outgoing response must carry a node signature valid for its digest and request ID")
 		})
 	}
 }

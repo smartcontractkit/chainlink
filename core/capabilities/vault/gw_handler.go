@@ -245,10 +245,11 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 	return nil
 }
 
-// signResponse signs the response digest with the node's OCR2 onchain
+// signResponse signs the response digest, bound to the request ID (see
+// vaulttypes.NodeSignaturePayload), with the node's OCR2 onchain
 // (report-signing) key so the gateway (and ultimately the client) can verify
-// the response originated from this DON node; the signing address matches the
-// node's registry Signer entry. ID and NodeSignatures are excluded from the digest.
+// the response originated from this DON node for this request; the signing
+// address matches the node's registry Signer entry.
 func (h *GatewayHandler) signResponse(ctx context.Context, response *jsonrpc.Response[json.RawMessage]) error {
 	if h.signer == nil {
 		return nil
@@ -259,7 +260,8 @@ func (h *GatewayHandler) signResponse(ctx context.Context, response *jsonrpc.Res
 		return fmt.Errorf("failed to compute response digest: %w", err)
 	}
 
-	sig, err := h.signer.Sign(ctx, []byte(digest))
+	payload := vaulttypes.NodeSignaturePayload(vaulttypes.NodeSignatureRequestID(response.Method, response.ID), digest)
+	sig, err := h.signer.Sign(ctx, payload)
 	if err != nil {
 		return fmt.Errorf("failed to sign response digest: %w", err)
 	}

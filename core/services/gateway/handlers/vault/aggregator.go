@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
-	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 )
 
 var errSignedPayloadRequestIDMismatch = errors.New("signed payload request id mismatch")
@@ -138,25 +137,32 @@ func summarizeVaultRegistryDONs(dons []capabilities.DONWithNodes) string {
 	return b.String()
 }
 
-// verifyNodeSignature checks that resp carries a node signature over digest
-// that recovers to a member of the vault DON signer set. Nodes sign envelope
-// digests with their OCR2 onchain (report-signing) key, whose address is the
-// node's registry Signer entry, so a valid member signature both proves the
-// response originated from a DON node and authenticates its contents.
-func verifyNodeSignature(resp *jsonrpc.Response[json.RawMessage], memberAddrs map[common.Address]struct{}, digest string) ([]byte, bool) {
+// verifyNodeSignature checks that resp carries a node signature over its own
+// envelope digest, bound to its request ID (see vaulttypes.NodeSignaturePayload),
+// that recovers to a member of the vault DON signer set. Nodes sign with their
+// OCR2 onchain (report-signing) key, whose address is the node's registry Signer
+// entry, so a valid member signature both proves the response originated from a
+// DON node and authenticates its contents for this request.
+//
+// The full digest is used rather than a.sha: a.sha strips OCR report signatures,
+// which the node signature covers.
+func verifyNodeSignature(resp *jsonrpc.Response[json.RawMessage], memberAddrs map[common.Address]struct{}) (digest string, signer common.Address, sig []byte, ok bool) {
 	if len(resp.NodeSignatures) == 0 {
-		return nil, false
+		return "", common.Address{}, nil, false
 	}
-	sig := resp.NodeSignatures[0]
-	signer, err := gwcommon.ExtractSigner(sig, []byte(digest))
+	digest, err := resp.Digest()
 	if err != nil {
-		return nil, false
+		return "", common.Address{}, nil, false
 	}
-	signerAddr := common.BytesToAddress(signer)
-	if _, ok := memberAddrs[signerAddr]; !ok {
-		return nil, false
+	sig = resp.NodeSignatures[0]
+	signer, err = vaulttypes.RecoverNodeSigner(vaulttypes.NodeSignatureRequestID(resp.Method, resp.ID), digest, sig)
+	if err != nil {
+		return "", common.Address{}, nil, false
 	}
-	return sig, true
+	if _, ok := memberAddrs[signer]; !ok {
+		return "", common.Address{}, nil, false
+	}
+	return digest, signer, sig, true
 }
 
 func (a *baseAggregator) validateUsingQuorum(ctx context.Context, don capabilities.DON, nodes []capabilities.Node, resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
@@ -181,7 +187,14 @@ func (a *baseAggregator) validateUsingQuorum(ctx context.Context, don capabiliti
 	}
 
 	shaToCount := map[string]int{}
-	sigsBySha := map[string][][]byte{}
+	// Node signatures are keyed by full envelope digest: responses in the same
+	// a.sha group can differ in their OCR report signatures, and a node
+	// signature only verifies against the exact envelope it was made over.
+	sigsByDigest := map[string][][]byte{}
+	// Each signer counts once per a.sha group, so a node can't pad quorum by
+	// replaying another member's signature.
+	signersBySha := map[string]map[common.Address]struct{}{}
+	verified := map[string]bool{}
 	maxShaToCount := 0
 	for nodeAddr, r := range resps {
 		sha, err := a.sha(&r)
@@ -191,12 +204,21 @@ func (a *baseAggregator) validateUsingQuorum(ctx context.Context, don capabiliti
 		}
 
 		if requireNodeSigs {
-			sig, ok := verifyNodeSignature(&r, memberAddrs, sha)
+			digest, signer, sig, ok := verifyNodeSignature(&r, memberAddrs)
 			if !ok {
 				l.Warnw("dropping response with missing or invalid node signature", "nodeAddr", nodeAddr, "sha", sha)
 				continue
 			}
-			sigsBySha[sha] = append(sigsBySha[sha], sig)
+			if _, seen := signersBySha[sha][signer]; seen {
+				l.Warnw("dropping response with duplicate node signer", "nodeAddr", nodeAddr, "signer", signer, "sha", sha)
+				continue
+			}
+			if signersBySha[sha] == nil {
+				signersBySha[sha] = map[common.Address]struct{}{}
+			}
+			signersBySha[sha][signer] = struct{}{}
+			sigsByDigest[digest] = append(sigsByDigest[digest], sig)
+			verified[nodeAddr] = true
 		}
 
 		shaToCount[sha]++
@@ -215,18 +237,23 @@ func (a *baseAggregator) validateUsingQuorum(ctx context.Context, don capabiliti
 		slices.Sort(qualifiedDigests)
 		want := qualifiedDigests[0]
 		for _, k := range slices.Sorted(maps.Keys(resps)) {
-			r := resps[k]
-			sha, err := a.sha(&r)
-			if err != nil {
+			if requireNodeSigs && !verified[k] {
 				continue
 			}
-			if sha == want {
-				out := r
-				if requireNodeSigs {
-					out.NodeSignatures = sigsBySha[want]
-				}
-				return &out, nil
+			r := resps[k]
+			sha, err := a.sha(&r)
+			if err != nil || sha != want {
+				continue
 			}
+			out := r
+			if requireNodeSigs {
+				digest, err := r.Digest()
+				if err != nil {
+					continue
+				}
+				out.NodeSignatures = sigsByDigest[digest]
+			}
+			return &out, nil
 		}
 	}
 

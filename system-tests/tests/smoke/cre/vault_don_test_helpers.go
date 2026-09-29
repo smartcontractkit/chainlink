@@ -171,10 +171,8 @@ type vaultDONMemberSigners struct {
 	Addrs []common.Address
 }
 
-// vaultDONMemberSignerAddrs reads the vault DON's member signer addresses from the
-// capabilities registry. Each node's Signer is its zero-padded OCR2 onchain
-// (report) signing address — the key domain both OCR report signatures and
-// envelope-level node signatures verify against.
+// vaultDONMemberSignerAddrs reads the vault DON's member signer addresses
+// (Signer[:20], the OCR2 onchain address) from the capabilities registry.
 func vaultDONMemberSignerAddrs(t *testing.T, testEnv *ttypes.TestEnvironment) vaultDONMemberSigners {
 	t.Helper()
 
@@ -227,37 +225,6 @@ func vaultDONMemberSignerAddrs(t *testing.T, testEnv *ttypes.TestEnvironment) va
 		addrs = append(addrs, common.BytesToAddress(ni.Signer[:20]))
 	}
 	return vaultDONMemberSigners{F: don.F, Addrs: addrs}
-}
-
-// waitForGatewayHTTPUp waits until the gateway HTTP endpoint accepts requests
-// again (e.g. after a gateway container restart). Unlike
-// sendVaultRequestToGateway, connection errors are tolerated while the gateway
-// boots rather than failing the test. Each probe uses a fresh JSON-RPC request
-// ID: the gateway deduplicates by ID.
-func waitForGatewayHTTPUp(t *testing.T, gatewayURL string, timeout time.Duration) {
-	t.Helper()
-
-	require.Eventually(t, func() bool {
-		probe := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
-			Version: jsonrpc.JsonRpcVersion,
-			ID:      uuid.New().String(),
-			Method:  vaulttypes.MethodPublicKeyGet,
-			Params:  &vault_helpers.GetPublicKeyRequest{},
-		}
-		requestBody, err := json.Marshal(probe)
-		require.NoError(t, err, "failed to marshal gateway probe request")
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, gatewayURL, bytes.NewBuffer(requestBody))
-		if err != nil {
-			return false
-		}
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
-		if err != nil {
-			return false
-		}
-		defer resp.Body.Close()
-		return true // any HTTP response means the endpoint is back up
-	}, timeout, 3*time.Second, "gateway HTTP endpoint did not come back up within %s", timeout)
 }
 
 func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) (statusCode int, body []byte) {
