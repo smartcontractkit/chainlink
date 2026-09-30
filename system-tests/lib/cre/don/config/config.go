@@ -267,24 +267,22 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 
 func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, nodeMetadata *cre.NodeMetadata) corechainlink.Config {
 	c := corechainlink.Config{
-		Core: coretoml.Core{
-			Feature: coretoml.Feature{
-				LogPoller: new(true),
-			},
-			Log: coretoml.Log{
-				JSONConsole: new(true),
-				Level:       new(coretoml.LogLevel(zapcore.DebugLevel)),
-			},
-			OCR2: coretoml.OCR2{
-				Enabled:              new(true),
-				DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
-				ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
-			},
-			CRE: coretoml.CreConfig{
-				EnableDKGRecipient:   new(true),
-				UseLocalTimeProvider: new(false),
-				DebugMode:            new(true),
-			},
+		Feature: coretoml.Feature{
+			LogPoller: new(true),
+		},
+		Log: coretoml.Log{
+			JSONConsole: new(true),
+			Level:       new(coretoml.LogLevel(zapcore.DebugLevel)),
+		},
+		OCR2: coretoml.OCR2{
+			Enabled:              new(true),
+			DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+			ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
+		},
+		CRE: coretoml.CreConfig{
+			EnableDKGRecipient:   new(true),
+			UseLocalTimeProvider: new(false),
+			DebugMode:            new(true),
 		},
 	}
 
@@ -888,14 +886,12 @@ func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	tronRPC := strings.Replace(evmChain.HTTPRPC, "jsonrpc", "wallet", 1)
 	return evmconfigtoml.EVMConfig{
-		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-		Chain: evmconfigtoml.Chain{
-			AutoCreateKey:         new(false),
-			ChainType:             chaintype.NewConfig("tron"),
-			LogBroadcasterEnabled: new(false),
-			NodePool: evmconfigtoml.NodePool{
-				NewHeadsPollInterval: commonconfig.MustNewDuration(10 * time.Second),
-			},
+		ChainID:               sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		AutoCreateKey:         new(false),
+		ChainType:             chaintype.NewConfig("tron"),
+		LogBroadcasterEnabled: new(false),
+		NodePool: evmconfigtoml.NodePool{
+			NewHeadsPollInterval: commonconfig.MustNewDuration(10 * time.Second),
 		},
 		Nodes: []*evmconfigtoml.Node{
 			{
@@ -909,10 +905,8 @@ func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 
 func buildEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	return evmconfigtoml.EVMConfig{
-		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-		Chain: evmconfigtoml.Chain{
-			AutoCreateKey: new(false),
-		},
+		ChainID:       sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		AutoCreateKey: new(false),
 		Nodes: []*evmconfigtoml.Node{
 			{
 				Name:    new(evmChain.Name),

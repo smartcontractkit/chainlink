@@ -168,17 +168,13 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 		testLogger.Info().Msgf("Generated WriteTargetName for chain %d (%s): %s", chainID, chainFamily, writeTargetName)
 
 		workflowConfig := portypes.WorkflowConfig{
-			ChainSelector: chainSelector,
-			BalanceReaderConfig: portypes.BalanceReaderConfig{
-				BalanceReaderAddress: readBalancesAddress.Hex(),
-				AddressesToRead:      addressesToRead,
-			},
-			ComputeConfig: portypes.ComputeConfig{
-				FeedID:                feedID,
-				URL:                   priceProvider.URL(),
-				DataFeedsCacheAddress: dataFeedsCacheAddress.Hex(),
-				WriteTargetName:       writeTargetName,
-			},
+			ChainSelector:         chainSelector,
+			BalanceReaderAddress:  readBalancesAddress.Hex(),
+			AddressesToRead:       addressesToRead,
+			FeedID:                feedID,
+			URL:                   priceProvider.URL(),
+			DataFeedsCacheAddress: dataFeedsCacheAddress.Hex(),
+			WriteTargetName:       writeTargetName,
 		}
 		testLogger.Info().Msgf("Workflow config for chain %d: WriteTarget=%s, DataFeedsCache=%s, FeedID: %s", chainID, writeTargetName, dataFeedsCacheAddress.Hex(), feedID)
 		workflowFileLocation := cfg.WorkflowFileLocation
@@ -255,18 +251,14 @@ func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, pric
 		chainID, writeTargetName, dataFeedsCacheAddress.Hex(), feedID, wfConfig.CronSchedule)
 
 	workflowConfig := portypes.WorkflowConfig{
-		ChainSelector: chainSelector,
-		CronSchedule:  wfConfig.CronSchedule,
-		BalanceReaderConfig: portypes.BalanceReaderConfig{
-			BalanceReaderAddress: readBalancesAddress.Hex(),
-			AddressesToRead:      addressesToRead,
-		},
-		ComputeConfig: portypes.ComputeConfig{
-			FeedID:                feedID,
-			URL:                   priceProvider.URL(),
-			DataFeedsCacheAddress: dataFeedsCacheAddress.Hex(),
-			WriteTargetName:       writeTargetName,
-		},
+		ChainSelector:         chainSelector,
+		CronSchedule:          wfConfig.CronSchedule,
+		BalanceReaderAddress:  readBalancesAddress.Hex(),
+		AddressesToRead:       addressesToRead,
+		FeedID:                feedID,
+		URL:                   priceProvider.URL(),
+		DataFeedsCacheAddress: dataFeedsCacheAddress.Hex(),
+		WriteTargetName:       writeTargetName,
 	}
 
 	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, wfConfig.WorkflowName, &workflowConfig, wfConfig.WorkflowFileLocation)
@@ -339,7 +331,7 @@ func deployAndConfigureEVMContracts(
 	return dfAddress, rbAddress
 }
 
-func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
+func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
 	// Use Tron-specific changeset with deploy options
 	deployOptions := cldf_tron.DefaultDeployOptions()
 	deployOptions.FeeLimit = 1_000_000_000
@@ -428,7 +420,7 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 	return dataFeedsCacheAddress, readBalancesAddress
 }
 
-func validateTronPrices(t *testing.T, testEnv *ttypes.TestEnvironment, blockchain blockchains.Blockchain, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
+func validateTronPrices(t *testing.T, testEnv *ttypes.TestEnvironment, blockchain blockchains.Blockchain, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor, tick time.Duration) error {
 	dfAddressRefs := testEnv.CreEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
 		datastore.AddressRefByChainSelector(blockchain.ChainSelector()),
 		datastore.AddressRefByType(df_changeset.DataFeedsCache),
@@ -565,7 +557,7 @@ func validatePoRPrices(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvi
 	testEnv.Logger.Info().Msgf("All prices were found for all feeds")
 }
 
-func validateEVMPrices(t *testing.T, testEnv *ttypes.TestEnvironment, blockchain *evm.Blockchain, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
+func validateEVMPrices(t *testing.T, testEnv *ttypes.TestEnvironment, blockchain *evm.Blockchain, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor, tick time.Duration) error {
 	dataFeedsCacheAddress := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, blockchain.ChainSelector(), "DataFeedsCache", semver.MustParse("1.0.0"), "")
 	dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(common.HexToAddress(dataFeedsCacheAddress), blockchain.SethClient.Client)
 	if instanceErr != nil {

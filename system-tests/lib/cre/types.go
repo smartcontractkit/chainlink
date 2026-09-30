@@ -266,7 +266,7 @@ func (c *WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
 }
 
 func storeLocalArtifact(artifact any, absPath string) error {
-	dErr := os.MkdirAll(filepath.Dir(absPath), 0755)
+	dErr := os.MkdirAll(filepath.Dir(absPath), 0o755)
 	if dErr != nil {
 		return errors.Wrap(dErr, "failed to create directory for the environment artifact")
 	}
@@ -276,7 +276,7 @@ func storeLocalArtifact(artifact any, absPath string) error {
 		return errors.Wrap(mErr, "failed to marshal environment artifact to TOML")
 	}
 
-	return os.WriteFile(absPath, d, 0600)
+	return os.WriteFile(absPath, d, 0o600)
 }
 
 type ConfigureDataFeedsCacheOutput struct {
@@ -604,23 +604,6 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	}
 
 	return out, nil
-}
-
-// trimmedNonEmpty trims whitespace from each string and drops empty results, preserving order.
-func trimmedNonEmpty(in []string) []string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		if t := strings.TrimSpace(s); t != "" {
-			out = append(out, t)
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }
 
 // normalizedDonFamilies trims, drops empty entries and de-duplicates, preserving
@@ -1375,7 +1358,7 @@ func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
 }
 
 func (c *NodeSet) Flags() []string {
-	var stringCaps = make([]string, len(c.Capabilities)+len(c.DONTypes))
+	stringCaps := make([]string, len(c.Capabilities)+len(c.DONTypes))
 	copy(stringCaps, c.Capabilities)
 	for i, donType := range c.DONTypes {
 		stringCaps[len(c.Capabilities)+i] = donType

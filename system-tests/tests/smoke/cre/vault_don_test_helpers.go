@@ -648,7 +648,7 @@ func trySendVaultSignedOCRRequestToGateway(gatewayURL string, jsonRequest jsonrp
 	return jsonResponse, nil
 }
 
-func tryValidateVaultSecretsCreateResponse(gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], uniqueRequestID, secretID string, expectedResponseOwners []string, namespaces []string) error {
+func tryValidateVaultSecretsCreateResponse(gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], uniqueRequestID, secretID string, expectedResponseOwners, namespaces []string) error {
 	if len(expectedResponseOwners) == 0 {
 		return errors.New("expected response owners must not be empty")
 	}
@@ -1288,16 +1288,6 @@ func sendVaultJWTRequestToGatewayExpectError(t *testing.T, gatewayURL string, js
 func outboundRequestWithoutAuth(req jsonrpc.Request[json.RawMessage]) jsonrpc.Request[json.RawMessage] {
 	req.Auth = ""
 	return req
-}
-
-func executeVaultJWTSecretsCreateUnauthorizedTest(
-	t *testing.T,
-	issuer *stvault.TestJWTIssuer,
-	vaultPublicKey, orgID, gatewayURL string,
-	expectedAuthError string,
-) {
-	t.Helper()
-	executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(t, issuer, vaultPublicKey, orgID, gatewayURL, nil, expectedAuthError)
 }
 
 func executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(
