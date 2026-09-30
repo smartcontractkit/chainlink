@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
@@ -177,10 +178,10 @@ func Test_DelegateConfig_validateInstances(t *testing.T) {
 			ContractConfigTrackers: trackers(2),
 			PluginVersions:         []lloconfig.PluginVersion{lloconfig.PluginVersionV30, lloconfig.PluginVersionV31},
 		}
-		assert.ErrorContains(t, cfg.validateInstances(), "KeyValueDatabaseFactory must not be nil")
+		require.ErrorContains(t, cfg.validateInstances(), "KeyValueDatabaseFactory must not be nil")
 
 		cfg.KeyValueDatabaseFactory = stubKeyValueDatabaseFactory{}
-		assert.ErrorContains(t, cfg.validateInstances(), "BinaryNetworkEndpoint2Factory must not be nil")
+		require.ErrorContains(t, cfg.validateInstances(), "BinaryNetworkEndpoint2Factory must not be nil")
 
 		cfg.BinaryNetworkEndpoint2Factory = stubBinaryNetworkEndpoint2Factory{}
 		assert.NoError(t, cfg.validateInstances())

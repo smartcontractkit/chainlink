@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -118,12 +119,7 @@ type DelegateConfig struct {
 // anyV31 reports whether any protocol instance runs the v31 plugin. The
 // OCR3.1-only dependencies are per job, so one v31 instance requires them.
 func (cfg DelegateConfig) anyV31() bool {
-	for _, v := range cfg.PluginVersions {
-		if v == lloconfig.PluginVersionV31 {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(cfg.PluginVersions, lloconfig.PluginVersionV31)
 }
 
 // validateInstances checks the per-instance plugin selection and the
