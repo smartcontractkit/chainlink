@@ -6,6 +6,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
@@ -92,5 +96,103 @@ func Test_delegate_v31FactoryParams(t *testing.T) {
 				assert.Equal(t, tc.want, params.VerboseLogging)
 			})
 		}
+	})
+}
+
+// stubKeyValueDatabaseFactory and stubBinaryNetworkEndpoint2Factory stand in
+// for the OCR3.1-only dependencies; validateInstances only checks that they
+// are present.
+type stubKeyValueDatabaseFactory struct{}
+
+func (stubKeyValueDatabaseFactory) NewKeyValueDatabase(ocr2types.ConfigDigest) (ocr3_1types.KeyValueDatabase, error) {
+	panic("not implemented")
+}
+
+func (stubKeyValueDatabaseFactory) NewKeyValueDatabaseIfExists(ocr2types.ConfigDigest) (ocr3_1types.KeyValueDatabase, error) {
+	panic("not implemented")
+}
+
+type stubBinaryNetworkEndpoint2Factory struct{}
+
+func (stubBinaryNetworkEndpoint2Factory) NewEndpoint(ocr2types.ConfigDigest, []string, []ocrcommontypes.BootstrapperLocator, ocr2types.BinaryNetworkEndpoint2Config, ocr2types.BinaryNetworkEndpoint2Config) (ocr2types.BinaryNetworkEndpoint2, error) {
+	panic("not implemented")
+}
+
+func (stubBinaryNetworkEndpoint2Factory) PeerID() string { return "" }
+
+func Test_DelegateConfig_validateInstances(t *testing.T) {
+	t.Parallel()
+
+	// trackers of length n; their contents are never read here.
+	trackers := func(n int) []ocr2types.ContractConfigTracker {
+		return make([]ocr2types.ContractConfigTracker, n)
+	}
+
+	t.Run("accepts one entry per tracker", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DelegateConfig{
+			ContractConfigTrackers: trackers(2),
+			PluginVersions:         []lloconfig.PluginVersion{lloconfig.PluginVersionV30, lloconfig.PluginVersionV30},
+		}
+		assert.NoError(t, cfg.validateInstances())
+	})
+
+	t.Run("rejects a length mismatch with the trackers", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DelegateConfig{
+			ContractConfigTrackers: trackers(2),
+			PluginVersions:         []lloconfig.PluginVersion{lloconfig.PluginVersionV30},
+		}
+		assert.ErrorContains(t, cfg.validateInstances(), "got 1 entries for 2 trackers")
+	})
+
+	t.Run("rejects an unsupported version", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DelegateConfig{
+			ContractConfigTrackers: trackers(2),
+			PluginVersions:         []lloconfig.PluginVersion{lloconfig.PluginVersionV30, "v32"},
+		}
+		assert.ErrorContains(t, cfg.validateInstances(), `unsupported plugin version for instance 1: "v32"`)
+	})
+
+	t.Run("rejects an empty version, which the config normalizes before it gets here", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DelegateConfig{
+			ContractConfigTrackers: trackers(1),
+			PluginVersions:         []lloconfig.PluginVersion{""},
+		}
+		assert.ErrorContains(t, cfg.validateInstances(), "unsupported plugin version for instance 0")
+	})
+
+	t.Run("requires the OCR3.1 dependencies when any instance is v31", func(t *testing.T) {
+		t.Parallel()
+
+		// A v30 production instance handing over to a v31 staging instance: the
+		// dependencies are per job, so instance 1 alone makes them required.
+		cfg := DelegateConfig{
+			ContractConfigTrackers: trackers(2),
+			PluginVersions:         []lloconfig.PluginVersion{lloconfig.PluginVersionV30, lloconfig.PluginVersionV31},
+		}
+		assert.ErrorContains(t, cfg.validateInstances(), "KeyValueDatabaseFactory must not be nil")
+
+		cfg.KeyValueDatabaseFactory = stubKeyValueDatabaseFactory{}
+		assert.ErrorContains(t, cfg.validateInstances(), "BinaryNetworkEndpoint2Factory must not be nil")
+
+		cfg.BinaryNetworkEndpoint2Factory = stubBinaryNetworkEndpoint2Factory{}
+		assert.NoError(t, cfg.validateInstances())
+	})
+
+	t.Run("does not require them when every instance is v30", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := DelegateConfig{
+			ContractConfigTrackers: trackers(2),
+			PluginVersions:         []lloconfig.PluginVersion{lloconfig.PluginVersionV30, lloconfig.PluginVersionV30},
+		}
+		assert.NoError(t, cfg.validateInstances())
 	})
 }
