@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
@@ -21,12 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
-
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	vaulttypesmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	connector_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
@@ -61,7 +61,8 @@ func TestNodeSignatures_NodeToGatewayContract(t *testing.T) {
 	members := make([]common.Address, 4)
 	nodeResps := make([]*jsonrpc.Response[json.RawMessage], 3)
 	for i := range nodes {
-		kb, err := ocr2key.New(corekeys.EVM)
+		var kb ocr2key.KeyBundle
+		kb, err = ocr2key.New(corekeys.EVM)
 		require.NoError(t, err)
 		members[i] = common.HexToAddress(kb.OnChainPublicKey())
 		var signer [32]byte
@@ -71,7 +72,8 @@ func TestNodeSignatures_NodeToGatewayContract(t *testing.T) {
 			continue // fourth member never responds
 		}
 
-		envelopeSigner, err := vaultcap.NewOCR2KeySigner(kb)
+		var envelopeSigner connector.Signer
+		envelopeSigner, err = vaultcap.NewOCR2KeySigner(kb)
 		require.NoError(t, err)
 		secretsService := vaulttypesmocks.NewSecretsService(t)
 		secretsService.EXPECT().DeleteSecrets(mock.Anything, mock.Anything).Return(&vaulttypes.Response{
@@ -88,7 +90,8 @@ func TestNodeSignatures_NodeToGatewayContract(t *testing.T) {
 			Run(func(args mock.Arguments) { nodeResps[i] = args.Get(2).(*jsonrpc.Response[json.RawMessage]) }).
 			Return(nil).Once()
 
-		nodeHandler, err := vaultcap.NewGatewayHandler(secretsService, gwConnector, envelopeSigner, nil, lggr,
+		var nodeHandler *vaultcap.GatewayHandler
+		nodeHandler, err = vaultcap.NewGatewayHandler(secretsService, gwConnector, envelopeSigner, nil, lggr,
 			limits.Factory{Settings: cresettings.DefaultGetter}, vaultcap.NewAuthorizer(auth, nil, lggr), nil)
 		require.NoError(t, err)
 
