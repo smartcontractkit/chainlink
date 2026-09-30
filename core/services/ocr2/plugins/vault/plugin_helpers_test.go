@@ -41,6 +41,8 @@ type testPluginBuildOpts struct {
 	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
 	maxObservationBytesOverride          int
 	maxReportsPlusPrecursorBytesOverride int
+	kvWriteBudgetKeysOverride            int
+	kvWriteBudgetBytesOverride           int
 }
 
 func withLggr(lggr logger.Logger) testPluginOption {
@@ -104,6 +106,13 @@ func withMaxObservationBytes(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.maxObservationBytesOverride = n }
 }
 
+func withKVWriteBudgetLimits(keys, bytes int) testPluginOption {
+	return func(o *testPluginBuildOpts) {
+		o.kvWriteBudgetKeysOverride = keys
+		o.kvWriteBudgetBytesOverride = bytes
+	}
+}
+
 func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPlugin {
 	t.Helper()
 	o := testPluginBuildOpts{
@@ -143,6 +152,14 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	if o.maxReportsPlusPrecursorBytesOverride > 0 {
 		maxPrec = o.maxReportsPlusPrecursorBytesOverride
 	}
+	maxKVKeys := pl.MaxKeyValueModifiedKeys
+	maxKVBytes := pl.MaxKeyValueModifiedKeysPlusValuesBytes
+	if o.kvWriteBudgetKeysOverride > 0 {
+		maxKVKeys = o.kvWriteBudgetKeysOverride
+	}
+	if o.kvWriteBudgetBytesOverride > 0 {
+		maxKVBytes = o.kvWriteBudgetBytesOverride
+	}
 	lc, err := vaultcap.NewRequestLifecycleTracker(o.lggr)
 	require.NoError(t, err)
 	return &ReportingPlugin{
@@ -158,11 +175,13 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 			o.maxIdentifierKeyLengthBytes,
 			o.maxRequestBatchSize,
 		),
-		lifecycle:                    lc,
-		marshalBlob:                  o.marshalBlob,
-		unmarshalBlob:                o.unmarshalBlob,
-		maxObservationBytes:          maxObs,
-		maxReportsPlusPrecursorBytes: maxPrec,
+		lifecycle:                              lc,
+		marshalBlob:                            o.marshalBlob,
+		unmarshalBlob:                          o.unmarshalBlob,
+		maxObservationBytes:                    maxObs,
+		maxReportsPlusPrecursorBytes:           maxPrec,
+		maxKeyValueModifiedKeys:                maxKVKeys,
+		maxKeyValueModifiedKeysPlusValuesBytes: maxKVBytes,
 	}
 }
 
