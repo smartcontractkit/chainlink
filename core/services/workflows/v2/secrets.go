@@ -38,6 +38,8 @@ type SecretsFetcher interface {
 
 type RawSecretsFetcher interface {
 	SecretsFetcher
+	// GetRawSecrets returns the raw (still-encrypted) vault secret responses.
+	//
 	// Deprecated: use GetRawSecretsResponse, which also returns the top-level
 	// RawVaultPublicKey needed to verify/aggregate shares across DKG reshares.
 	GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error)
@@ -301,6 +303,8 @@ func (s *secretsFetcher) getSecretsForBatchWithLocalFallback(ctx context.Context
 // GetRawSecrets obtains secrets from the Vault DON without decrypting their
 // values. Raw fetches are charged against the same per-execution secrets call
 // budget as GetSecrets.
+// GetRawSecrets returns the raw (still-encrypted) vault secret responses.
+//
 // Deprecated: use GetRawSecretsResponse, which also returns the top-level
 // RawVaultPublicKey needed to verify/aggregate shares across DKG reshares.
 func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
