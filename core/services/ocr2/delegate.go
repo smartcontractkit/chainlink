@@ -806,7 +806,7 @@ func (d *Delegate) newServicesConsensusQueue(
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	//TODO ticket validate job spec
+	// TODO ticket validate job spec
 
 	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
