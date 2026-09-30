@@ -340,7 +340,13 @@ func createEnvironmentIfNotExists(ctx context.Context, testConfig *ttypes.TestCo
 		args := append([]string{"env", "start"}, flags...)
 
 		cmd := resolveCreEnvCommand(ctx, testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, args...)
-		cmd.Env = append(os.Environ(), "CTF_CONFIGS="+configPath)
+		// drop any inherited CTF_CONFIGS entry so the child sees exactly one value
+		cmdEnv := slices.Clone(os.Environ())
+		cmdEnv = slices.DeleteFunc(cmdEnv, func(e string) bool {
+			return strings.HasPrefix(e, "CTF_CONFIGS=")
+		})
+		cmdEnv = append(cmdEnv, "CTF_CONFIGS="+configPath)
+		cmd.Env = cmdEnv
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmdErr := cmd.Run()

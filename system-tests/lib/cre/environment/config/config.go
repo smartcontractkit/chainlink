@@ -155,11 +155,14 @@ func loadViaCTFEnv[T any](absPath string) (*T, error) {
 	ctfEnvMu.Lock()
 	defer ctfEnvMu.Unlock()
 
-	previousCTFconfigs := os.Getenv("CTF_CONFIGS")
+	previousCTFConfigs, hadCTFConfigs := os.LookupEnv("CTF_CONFIGS")
 	defer func() {
-		setErr := os.Setenv("CTF_CONFIGS", previousCTFconfigs)
-		if setErr != nil {
-			framework.L.Warn().Err(setErr).Msg("failed to restore previous CTF_CONFIGS env var")
+		if hadCTFConfigs {
+			if setErr := os.Setenv("CTF_CONFIGS", previousCTFConfigs); setErr != nil {
+				framework.L.Warn().Err(setErr).Msg("failed to restore previous CTF_CONFIGS env var")
+			}
+		} else if unsetErr := os.Unsetenv("CTF_CONFIGS"); unsetErr != nil {
+			framework.L.Warn().Err(unsetErr).Msg("failed to restore previous CTF_CONFIGS env var")
 		}
 	}()
 
