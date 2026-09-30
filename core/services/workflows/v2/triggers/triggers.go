@@ -37,32 +37,23 @@ type Handle struct {
 	Method  string
 }
 
-// Acknowledger acknowledges a trigger event without the engine owning the
-// trigger handle. It is injected into EngineConfig so the engine's ACK
-// call sites are decoupled from who holds the handles.
-//
-// The engine calls Ack in three situations:
-//   - Duplicate execution — the event was already executed; the engine
-//     re-ACKs to prevent redelivery.
-//   - Shard ownership denial — this node is not the shard owner; the engine
-//     ACKs to signal the event was processed (skipped).
-//   - Normal execution start — the engine ACKs after the execution begins
-//     (not shown in the current code path; reserved for M2 coordinator).
-//
-// Ack is idempotent: calling it multiple times for the same event is safe.
-// The implementation is responsible for looking up the trigger handle by
-// triggerRegistrationID and calling AckEvent on it.
+// Acknowledger acknowledges a trigger event.  Enables decoupling ownership of
+// trigger handles from trigger execution.
 type Acknowledger interface {
+	// Ack must be idempotent: calling it multiple times for the same event is safe.
+	// The implementation is responsible for looking up the trigger handle by
+	// triggerRegistrationID and calling AckEvent on it.
+
 	Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error
 }
 
 // Subscriber is how a caller obtains an engine's trigger subscriptions on
-// demand. Subscribe issues the WASM Subscribe call directly (no caching): the
-// engine holds no subscription state of its own, so every call is a fresh
-// WASM round trip and callers are responsible for calling it exactly once
-// per registration. Tenant identifies the tenant the subscriptions belong to.
+// demand.
 type Subscriber interface {
+	// Subscribe issues the WASM Subscribe call directly
 	Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error)
+
+	// Tenant identifies the tenant the subscriptions belong to.
 	Tenant() contexts.CRE
 }
 
@@ -75,10 +66,10 @@ type EventSink interface {
 	//   - ErrDuplicateExecution — the event was already executed.
 	//     The implementation should ACKs the duplicate internally before returning.
 	//   - ErrMeteringReserveFailed — metering report reservation failed.
-	//     Implementaiton should not ACK; the caller may retry.
+	//     Implementation should not ACK; the caller may retry.
 	//
 	// Execution errors are NOT returned as errors.
-	// Implementaitons should expose errors and execution state via lifecycle hooks.
+	// Implementations should expose errors and execution state via lifecycle hooks.
 	ExecuteTrigger(ctx context.Context, event CoordinatedEvent) error
 }
 
