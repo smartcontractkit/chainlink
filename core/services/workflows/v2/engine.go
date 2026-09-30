@@ -21,11 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
-var (
-	_ triggers.Acknowledger = (*engine)(nil)
-	_ EventSink             = (*engine)(nil)
-	_ WorkflowEngine        = (*engine)(nil)
-)
+var _ WorkflowEngine = (*engine)(nil)
 
 // engine is the legacy trigger-owning workflow engine: it wraps the shared
 // execution machinery and adds the extra responsibilities of trigger registration,

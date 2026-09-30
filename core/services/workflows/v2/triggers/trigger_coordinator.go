@@ -28,10 +28,10 @@ type RegistrationParams struct {
 	WorkflowRegistryAddress       string
 }
 
-// TriggerCoordinator owns trigger registration, the trigger handle map, event
+// Coordinator owns trigger registration, the trigger handle map, event
 // delivery, and acknowledgement for every workflow running the coordinated engine.
 // It is a node-level singleton, started and stopped with the syncer.
-type TriggerCoordinator interface {
+type Coordinator interface {
 	services.Service
 	Acknowledger
 
@@ -55,19 +55,17 @@ type TriggerCoordinator interface {
 // TODO: Fill in the necessary methods
 type EngineRegistry interface{}
 
-// the no-op coordinator logs the registration
-// and teardown calls the syncer makes, and does nothing else. No trigger is
-// registered with the capability registry and no event is ever delivered, so a
-// workflow routed to the coordinated engine while this implementation is in
-// place runs but never fires.
-type noopTriggerCoordinator struct {
+// noopCoordinator is a no-op implementation type.  It logs the registration
+// and teardown calls on Register/UnregisterTriggers, and does nothing else. No trigger is
+// registered with the capability registry and no event is ever delivered.
+type noopCoordinator struct {
 	services.Service
 	eng  *services.Engine
 	lggr logger.Logger
 }
 
-func NewTriggerCoordinator(capReg registry.CapabilitiesRegistry, engineRegistry EngineRegistry, clock clockwork.Clock, lggr logger.Logger) TriggerCoordinator {
-	c := &noopTriggerCoordinator{
+func NewCoordinator(capReg registry.CapabilitiesRegistry, engineRegistry EngineRegistry, clock clockwork.Clock, lggr logger.Logger) Coordinator {
+	c := &noopCoordinator{
 		lggr: logger.Named(lggr, "TriggerCoordinator"),
 	}
 
@@ -83,7 +81,7 @@ func NewTriggerCoordinator(capReg registry.CapabilitiesRegistry, engineRegistry 
 	return c
 }
 
-func (c *noopTriggerCoordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) ([]string, error) {
+func (c *noopCoordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) ([]string, error) {
 	c.lggr.Infow("No-op RegisterTriggers",
 		"workflowID", subscriber.Tenant().Workflow,
 		"workflowOwner", params.WorkflowOwner,
@@ -92,11 +90,11 @@ func (c *noopTriggerCoordinator) RegisterTriggers(ctx context.Context, subscribe
 	return []string{}, nil
 }
 
-func (c *noopTriggerCoordinator) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
+func (c *noopCoordinator) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
 	return nil
 }
 
-func (c *noopTriggerCoordinator) UnregisterTriggers(workflowID string) error {
+func (c *noopCoordinator) UnregisterTriggers(workflowID string) error {
 	c.lggr.Infow("No-op UnregisterTriggers", "workflowID", workflowID)
 	return nil
 }

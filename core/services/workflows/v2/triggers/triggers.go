@@ -66,6 +66,22 @@ type Subscriber interface {
 	Tenant() contexts.CRE
 }
 
+// EventSink is how trigger events are delivered to an engine for execution.
+type EventSink interface {
+	// ExecuteTrigger implementations should perform no admission checks.  Calls
+	// should start a workflow execution.
+	//
+	// Expected errors:
+	//   - ErrDuplicateExecution — the event was already executed.
+	//     The implementation should ACKs the duplicate internally before returning.
+	//   - ErrMeteringReserveFailed — metering report reservation failed.
+	//     Implementaiton should not ACK; the caller may retry.
+	//
+	// Execution errors are NOT returned as errors.
+	// Implementaitons should expose errors and execution state via lifecycle hooks.
+	ExecuteTrigger(ctx context.Context, event CoordinatedEvent) error
+}
+
 // Ack acknowledges a trigger event against the given handle, logging and
 // bumping the same success/failure metrics regardless of caller.
 // handle may be nil (i.e., registration not found).

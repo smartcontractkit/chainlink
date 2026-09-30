@@ -38,7 +38,7 @@ func (f *fakeCoordinatedEngine) IsCoordinated() bool { return true }
 
 // recordingCoordinator records the subscribers handed to RegisterTriggers.
 type recordingCoordinator struct {
-	triggers.TriggerCoordinator
+	triggers.Coordinator
 	registerErr error
 	registered  []triggers.Subscriber
 }

@@ -94,7 +94,7 @@ type eventHandler struct {
 	// running the coordinated engine. Nil until wired via WithTriggerCoordinator.
 	// useCoordinatedEngine picks the legacy path when nil, regardless of the
 	// CoordinatedEngine flag.
-	triggerCoordinator triggers.TriggerCoordinator
+	triggerCoordinator triggers.Coordinator
 
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
@@ -174,7 +174,7 @@ func WithStaticEngine(engine v2.WorkflowEngine) func(*eventHandler) {
 // the CoordinatedEngine flag routes to the coordinated engine. Without
 // this option, tryEngineCreate always takes the legacy path, regardless of
 // the flag's value.
-func WithTriggerCoordinator(tc triggers.TriggerCoordinator) func(*eventHandler) {
+func WithTriggerCoordinator(tc triggers.Coordinator) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.triggerCoordinator = tc
 	}
