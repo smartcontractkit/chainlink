@@ -38,7 +38,10 @@ type SecretsFetcher interface {
 
 type RawSecretsFetcher interface {
 	SecretsFetcher
+	// Deprecated: use GetRawSecretsResponse, which also returns the top-level
+	// RawVaultPublicKey needed to verify/aggregate shares across DKG reshares.
 	GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error)
+	GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vault.GetSecretsResponse, error)
 	GetOwner() string
 }
 
@@ -298,7 +301,19 @@ func (s *secretsFetcher) getSecretsForBatchWithLocalFallback(ctx context.Context
 // GetRawSecrets obtains secrets from the Vault DON without decrypting their
 // values. Raw fetches are charged against the same per-execution secrets call
 // budget as GetSecrets.
+// Deprecated: use GetRawSecretsResponse, which also returns the top-level
+// RawVaultPublicKey needed to verify/aggregate shares across DKG reshares.
 func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
+	resp, err := s.GetRawSecretsResponse(ctx, request, fetcher)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Responses, nil
+}
+
+// GetRawSecretsResponse returns the full vault GetSecrets response, including the
+// top-level RawVaultPublicKey, so callers stay correct across DKG reshares.
+func (s *secretsFetcher) GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vault.GetSecretsResponse, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{
 		Org:      s.orgID,
 		Owner:    s.workflowOwner,
@@ -307,11 +322,7 @@ func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSe
 	if err := s.countSecretsCall(ctx); err != nil {
 		return nil, err
 	}
-	resp, err := s.getRawSecrets(ctx, request, fetcher)
-	if err != nil {
-		return nil, err
-	}
-	return resp.Responses, nil
+	return s.getRawSecrets(ctx, request, fetcher)
 }
 
 // getRawSecrets resolves the vault capability, loads this DON's encryption
