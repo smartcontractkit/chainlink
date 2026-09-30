@@ -154,7 +154,7 @@ func getNodeCapabilities(registry *kcr.CapabilitiesRegistry, p2pIDs []p2pkey.Pee
 	if err != nil {
 		panic(err)
 	}
-	var capMap = make(map[[32]byte]kcr.CapabilitiesRegistryCapability)
+	capMap := make(map[[32]byte]kcr.CapabilitiesRegistryCapability)
 	for _, c := range caps {
 		capMap[c.HashedId] = kcr.CapabilitiesRegistryCapability{
 			LabelledName:          c.LabelledName,

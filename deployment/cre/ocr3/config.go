@@ -32,9 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
-var (
-	OCR3Capability cldf.ContractType = "OCR3Capability" // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/OCR3Capability.sol#L12
-)
+var OCR3Capability cldf.ContractType = "OCR3Capability" // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/OCR3Capability.sol#L12
 
 type TopLevelConfigSource struct {
 	OracleConfig OracleConfig
@@ -537,12 +535,10 @@ func MakeIdentities(nca []NodeKeys) ([]confighelper.OracleIdentityExtra, error) 
 	identities := []confighelper.OracleIdentityExtra{}
 	for index := range nca {
 		identities = append(identities, confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  onchainPubKeys[index],
-				OffchainPublicKey: offchainPubKeysBytes[index],
-				PeerID:            nca[index].P2PPeerID,
-				TransmitAccount:   types.Account(nca[index].EthAddress),
-			},
+			OnchainPublicKey:          onchainPubKeys[index],
+			OffchainPublicKey:         offchainPubKeysBytes[index],
+			PeerID:                    nca[index].P2PPeerID,
+			TransmitAccount:           types.Account(nca[index].EthAddress),
 			ConfigEncryptionPublicKey: configPubKeysBytes[index],
 		})
 	}

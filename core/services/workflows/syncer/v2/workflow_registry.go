@@ -1075,20 +1075,40 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 
 			runningWorkflows := w.engineRegistry.GetAll()
 			w.metrics.recordRunningWorkflows(ctx, len(runningWorkflows))
-			drainingWorkflows := 0
-			for _, workflow := range runningWorkflows {
-				drainable, isDrainable := workflow.Service.(DrainableService)
-				if !isDrainable {
-					continue
-				}
-				if _, draining := drainable.DrainStartedAt(); draining {
-					drainingWorkflows++
-				}
-			}
-			w.metrics.recordDrainingWorkflows(ctx, drainingWorkflows)
+			counts := countEngines(runningWorkflows)
+			w.metrics.recordDrainingWorkflows(ctx, counts.draining)
+			w.metrics.recordRunningEngines(ctx, counts.coordinated, counts.legacy)
 			w.metrics.incrementCompletedSyncs(ctx)
 		}
 	}
+}
+
+// engineCounts is the per-tick breakdown of the engines in the registry.
+// coordinated + legacy always equals the number of engines; draining overlaps
+// with both.
+type engineCounts struct {
+	draining    int
+	coordinated int
+	legacy      int
+}
+
+func countEngines(engines []ServiceWithMetadata) engineCounts {
+	var c engineCounts
+	for _, e := range engines {
+		if e.Coordinated() {
+			c.coordinated++
+		} else {
+			c.legacy++
+		}
+		drainable, isDrainable := e.Service.(DrainableService)
+		if !isDrainable {
+			continue
+		}
+		if _, draining := drainable.DrainStartedAt(); draining {
+			c.draining++
+		}
+	}
+	return c
 }
 
 // reconcileOrphanedSpecs releases persisted specs whose workflow ID is absent

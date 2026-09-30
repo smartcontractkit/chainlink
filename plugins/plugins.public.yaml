@@ -43,7 +43,7 @@ plugins:
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v1.1.1"
+      gitRef: "v1.1.2-0.20260929142841-14ba41fe8d23"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
@@ -58,7 +58,7 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20260917132551-2a2b38e8b744"
+      gitRef: "v0.3.4-0.20260929161505-cc645fce4250"
       installPath: "./pkg/cmd/chainlink-evm"
 
   capability-cron:
@@ -69,7 +69,7 @@ plugins:
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "2aaae97ddf6900b082391c4756687b7584bfaf8a"
+      gitRef: "968e708eec352f300465080cbbec49dff36aa488"
       installPath: "."
 
   capability-httpaction:

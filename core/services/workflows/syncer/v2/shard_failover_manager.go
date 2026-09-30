@@ -8,9 +8,11 @@ import (
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
@@ -24,6 +26,11 @@ import (
 
 // cachedExpiry is how long a cached trigger event is kept for potential failover replay.
 const cachedExpiry = 10 * time.Minute
+
+// ErrCoordinatedShardingUnsupported is returned by the coordinator-facing
+// methods of ShardFailoverManager. Sharding and the coordinated engine are
+// currently not compatible, so nothing should reach them.
+var ErrCoordinatedShardingUnsupported = errors.New("coordinated engine is not supported on a sharded node")
 
 // ShardFailoverManager wraps a workflow Engine and handles shard ownership
 // decisions externally, keeping the Engine oblivious to sharding. On the
@@ -409,4 +416,29 @@ func (m *ShardFailoverManager) ActiveExecutions() int32 { return m.engine.Active
 // DrainStartedAt delegates to the wrapped engine.
 func (m *ShardFailoverManager) DrainStartedAt() (time.Time, bool) { return m.engine.DrainStartedAt() }
 
-var _ DrainableService = (*ShardFailoverManager)(nil)
+// ExecuteTrigger is unreachable on a sharded node: the coordinator is the only
+// caller of the EventSink path, and a sharded node never takes the coordinated
+// path. Failover replay calls the wrapped engine directly, not this method.
+func (m *ShardFailoverManager) ExecuteTrigger(context.Context, triggers.CoordinatedEvent) error {
+	return ErrCoordinatedShardingUnsupported
+}
+
+// Subscribe is unreachable on a sharded node: only the coordinator calls it,
+// while registering triggers for a coordinated engine.
+func (m *ShardFailoverManager) Subscribe(context.Context) ([]*sdkpb.TriggerSubscription, error) {
+	return nil, ErrCoordinatedShardingUnsupported
+}
+
+// Tenant delegates to the wrapped engine. It has no error to return, and as a
+// plain getter it cannot half-work, so it stays a passthrough.
+func (m *ShardFailoverManager) Tenant() contexts.CRE { return m.engine.Tenant() }
+
+// IsCoordinated delegates to the wrapped engine. Unlike the methods above this
+// is called on the legacy path — every reconciliation tick reads it to classify
+// the engine — so it must answer rather than fail.
+func (m *ShardFailoverManager) IsCoordinated() bool { return m.engine.IsCoordinated() }
+
+var (
+	_ DrainableService  = (*ShardFailoverManager)(nil)
+	_ v2.WorkflowEngine = (*ShardFailoverManager)(nil)
+)

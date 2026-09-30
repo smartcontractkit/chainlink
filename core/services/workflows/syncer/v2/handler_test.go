@@ -65,6 +65,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 type mockFetchResp struct {
@@ -125,6 +126,22 @@ func (m *mockEngine) HealthReport() map[string]error { return nil }
 
 func (m *mockEngine) Name() string { return "mockEngine" }
 
+func (m *mockEngine) ExecuteTrigger(context.Context, triggers.CoordinatedEvent) error { return nil }
+
+func (m *mockEngine) Subscribe(context.Context) ([]*sdk.TriggerSubscription, error) {
+	return nil, nil
+}
+
+func (m *mockEngine) Tenant() contexts.CRE { return contexts.CRE{} }
+
+func (m *mockEngine) Drain() bool { return false }
+
+func (m *mockEngine) ActiveExecutions() int32 { return 0 }
+
+func (m *mockEngine) DrainStartedAt() (time.Time, bool) { return time.Time{}, false }
+
+func (m *mockEngine) IsCoordinated() bool { return false }
+
 type mockDrainableEngine struct {
 	mockEngine
 	draining         atomic.Bool
@@ -162,7 +179,7 @@ func (m *mockDrainableEngine) Close() error {
 
 // mockEngineFactory returns a standard mock engine factory for tests.
 // It sends nil to initDone to signal successful initialization.
-func mockEngineFactory(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+func mockEngineFactory(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (v2.WorkflowEngine, error) {
 	if initDone != nil {
 		initDone <- nil
 	}
@@ -317,7 +334,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (v2.WorkflowEngine, error) {
 				if _, err := hex.DecodeString(name.Hex()); err != nil {
 					return nil, fmt.Errorf("invalid workflow name: %w", err)
 				}
@@ -361,7 +378,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (v2.WorkflowEngine, error) {
 				if initDone != nil {
 					initDone <- nil
 				}
@@ -960,7 +977,7 @@ type testCase struct {
 	fetcherFactory   func(wfID []byte) *mockFetcher
 	Event            func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent
 	validationFn     func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string)
-	engineFactoryFn  func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
+	engineFactoryFn  func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (v2.WorkflowEngine, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
