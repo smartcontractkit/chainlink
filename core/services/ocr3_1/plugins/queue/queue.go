@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -16,19 +15,34 @@ import (
 var _ ocr3_1types.ReportingPluginFactory[[]byte] = &consensusQueuePluginFactory{}
 
 type consensusQueuePluginFactory struct {
-	lggr  logger.Logger
-	meter metric.Meter
+	lggr logger.Logger
 }
 
 func NewConsensusQueuePluginFactory(lggr logger.Logger, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginFactory[[]byte], error) {
-	//TODO pass CentralTriggerQueue, CapacityReporter, EngineRegistry
-	//TODO construct limiters
+	// TODO pass CentralTriggerQueue, CapacityReporter, EngineRegistry
+	// TODO construct limiters
 	return &consensusQueuePluginFactory{lggr: lggr}, nil
 }
 
 func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
-	//TODO
-	return nil, nil, errors.ErrUnsupported
+	plugin := NewConsensusQueuePlugin(c.lggr)
+	pluginInfo := ocr3_1types.ReportingPluginInfo1{
+		Name: "VaultReportingPlugin",
+		Limits: ocr3_1types.ReportingPluginLimits{
+			// TODO limits
+			MaxQueryBytes:                                   0,
+			MaxObservationBytes:                             0,
+			MaxReportsPlusPrecursorBytes:                    0,
+			MaxReportBytes:                                  0,
+			MaxReportCount:                                  0,
+			MaxKeyValueModifiedKeys:                         0,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          0,
+			MaxBlobPayloadBytes:                             0,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 0,
+			MaxPerOracleUnexpiredBlobCount:                  0,
+		},
+	}
+	return plugin, pluginInfo, nil
 }
 
 var _ ocr3_1types.ReportingPlugin[[]byte] = &consensusQueuePlugin{}
@@ -46,7 +60,7 @@ func (c *consensusQueuePlugin) Query(ctx context.Context, seqNr uint64, keyValue
 }
 
 func (c *consensusQueuePlugin) Observation(ctx context.Context, seqNr uint64, aq ocrtypes.AttributedQuery, keyValueStateReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (ocrtypes.Observation, error) {
-	//TODO observe queue via c.CentralTriggerQueue.TakeForObservation()
+	// TODO observe queue via c.CentralTriggerQueue.TakeForObservation()
 	return nil, errors.ErrUnsupported
 }
 
@@ -59,7 +73,7 @@ func (c *consensusQueuePlugin) ObservationQuorum(ctx context.Context, seqNr uint
 }
 
 func (c *consensusQueuePlugin) StateTransition(ctx context.Context, seqNr uint64, aq ocrtypes.AttributedQuery, aos []ocrtypes.AttributedObservation, keyValueStateReadWriter ocr3_1types.KeyValueStateReadWriter, blobFetcher ocr3_1types.BlobFetcher) (ocr3_1types.ReportsPlusPrecursor, error) {
-	//TODO write to KV store
+	// TODO write to KV store
 	return nil, errors.ErrUnsupported
 }
 

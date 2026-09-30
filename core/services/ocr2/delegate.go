@@ -804,7 +804,7 @@ func (d *Delegate) newServicesConsensusQueue(
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	//TODO validate job spec
+	//TODO ticket validate job spec
 
 	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
@@ -840,7 +840,7 @@ func (d *Delegate) newServicesConsensusQueue(
 	})
 	srvs = append(srvs, ocrLogger)
 
-	//TODO disk monitor?
+	//TODO ticket disk monitor?
 
 	fullPath, err := d.ensureKeyValueStorePath(jb.ExternalJobID.String())
 	if err != nil {
@@ -866,7 +866,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
-		ContractTransmitter:          nil, // TODO
+		ContractTransmitter:          nil, // TODO ticket
 		Database:                     ocrDB,
 		KeyValueDatabaseFactory:      kvFactory,
 		LocalConfig:                  lc,
