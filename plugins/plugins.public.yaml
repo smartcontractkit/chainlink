@@ -77,7 +77,7 @@ plugins:
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "c3eb38a2be75dd16e838dd505acaea8b2fe4bee0"
+      gitRef: "0cfaddbde6fb812c93a5c8af042b9dc5ef2e2ec6"
       installPath: "."
 
   capability-workflowevent:
