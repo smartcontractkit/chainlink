@@ -4,9 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
@@ -36,16 +34,6 @@ type EventSink interface {
 	ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error
 }
 
-// Subscriber is how a caller obtains an engine's trigger subscriptions on
-// demand. Subscribe issues the WASM Subscribe call directly (no caching): the
-// engine holds no subscription state of its own, so every call is a fresh
-// WASM round trip and callers are responsible for calling it exactly once
-// per registration. Tenant identifies the tenant the subscriptions belong to.
-type Subscriber interface {
-	Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error)
-	Tenant() contexts.CRE
-}
-
 // Drainable is the graceful-shutdown contract. The syncer has a structurally
 // identical local interface (syncer/v2.DrainableService); both are satisfied by
 // the same methods, so no cross-package dependency is introduced.
@@ -61,7 +49,7 @@ type WorkflowEngine interface {
 	services.Service
 	EventSink
 	Drainable
-	Subscriber
+	triggers.Subscriber
 
 	// IsCoordinated is true if the engine does not manage its own
 	// trigger registration, trigger dequeuing, execution or acknowledgement.

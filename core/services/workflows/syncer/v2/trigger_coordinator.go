@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
@@ -43,7 +42,7 @@ type TriggerCoordinator interface {
 	// trigger capability IDs. On any failure it unregisters what it already
 	// registered for this call and returns the error.
 	// Partial registration is never left behind.
-	RegisterTriggers(ctx context.Context, subscriber v2.Subscriber, params RegistrationParams) ([]string, error)
+	RegisterTriggers(ctx context.Context, subscriber triggers.Subscriber, params RegistrationParams) ([]string, error)
 
 	// UnregisterTriggers stops ingress for workflowID immediately (unregisters with the capability registry)
 	// and cleans up the handle map once the engine has been drained and closed, so an execution already in flight
@@ -85,7 +84,7 @@ func NewTriggerCoordinator(capReg registry.CapabilitiesRegistry, engineRegistry 
 	return c
 }
 
-func (c *noopTriggerCoordinator) RegisterTriggers(ctx context.Context, subscriber v2.Subscriber, params RegistrationParams) ([]string, error) {
+func (c *noopTriggerCoordinator) RegisterTriggers(ctx context.Context, subscriber triggers.Subscriber, params RegistrationParams) ([]string, error) {
 	c.lggr.Infow("No-op RegisterTriggers",
 		"workflowID", subscriber.Tenant().Workflow,
 		"workflowOwner", params.WorkflowOwner,

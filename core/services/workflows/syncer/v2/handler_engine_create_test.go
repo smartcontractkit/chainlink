@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // fakeCoordinatedEngine is a v2.WorkflowEngine that reports as coordinated.
@@ -39,10 +40,10 @@ func (f *fakeCoordinatedEngine) IsCoordinated() bool { return true }
 type recordingCoordinator struct {
 	TriggerCoordinator
 	registerErr error
-	registered  []v2.Subscriber
+	registered  []triggers.Subscriber
 }
 
-func (c *recordingCoordinator) RegisterTriggers(_ context.Context, subscriber v2.Subscriber, _ RegistrationParams) ([]string, error) {
+func (c *recordingCoordinator) RegisterTriggers(_ context.Context, subscriber triggers.Subscriber, _ RegistrationParams) ([]string, error) {
 	c.registered = append(c.registered, subscriber)
 	return nil, c.registerErr
 }
@@ -146,7 +147,7 @@ func Test_tryEngineCreate_routing(t *testing.T) {
 		require.True(t, ok)
 		require.True(t, entry.Coordinated())
 		require.NotEmpty(t, entry.ReconcileKey)
-		require.Equal(t, []v2.Subscriber{f.coordinatedEngine}, f.coordinator.registered)
+		require.Equal(t, []triggers.Subscriber{f.coordinatedEngine}, f.coordinator.registered)
 	})
 
 	t.Run("flag closed takes the legacy path", func(t *testing.T) {
