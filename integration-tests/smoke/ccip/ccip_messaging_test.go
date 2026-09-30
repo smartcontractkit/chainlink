@@ -802,7 +802,7 @@ func Test_CCIPMessaging_Revert_EVM2Solana(t *testing.T) {
 			},
 		)
 
-		var seqNrs []uint64
+		seqNrs := make([]uint64, 0, len(out.AllMsgSentEvents))
 		for _, msgEvent := range out.AllMsgSentEvents {
 			seqNrs = append(seqNrs, msgEvent.SequenceNumber)
 		}

@@ -43,7 +43,6 @@ import (
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	"github.com/smartcontractkit/chainlink-ccip/plugintypes"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -247,7 +246,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	// Maybe another situation where chain reader doesn't register filters as expected.
 	require.NoError(t, s.lp.Replay(ctx, 1))
 
-	var ccipReaderReports []plugintypes.CommitPluginReportWithMeta
+	var ccipReaderReports []cciptypes.CommitPluginReportWithMeta
 	require.Eventually(t, func() bool {
 		var err2 error
 		ccipReaderReports, err2 = s.reader.CommitReportsGTETimestamp(
@@ -540,8 +539,8 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	var selectors = env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	destChain, srcChain := selectors[0], selectors[1]
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, destChain, srcChain, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, srcChain, destChain, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, destChain, srcChain, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, srcChain, destChain, false))
 
 	reader := testSetupRealContracts(
 		ctx,
@@ -883,8 +882,8 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 	dest, source1, source2 := selectors[0], selectors[1], selectors[2]
 
 	// Setup: Add lanes and default configs (This sets default prices)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, source1, dest, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, source2, dest, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, source1, dest, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, source2, dest, false))
 
 	// Setup: Explicitly change the gas prices for source1 and source2 on dest's FeeQuoter
 	feeQuoterDest := state.MustGetEVMChainState(dest).FeeQuoter
@@ -987,8 +986,8 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 	selectors := env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	chain1, chain2 := selectors[0], selectors[1]
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false))
 
 	reader := testSetupRealContracts(
 		ctx,
@@ -1248,12 +1247,12 @@ func testSetup(
 	params testSetupParams,
 ) *testSetupData {
 	address, _, _, err := ccip_reader_tester.DeployCCIPReaderTester(params.Auth, params.SimulatedBackend.Client())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	params.SimulatedBackend.Commit()
 
 	// Setup contract client
 	contract, err := ccip_reader_tester.NewCCIPReaderTester(address, params.SimulatedBackend.Client())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	lggr := logger.TestLogger(t)
 	// Change that to DebugLevel to enable SQL logs
@@ -1292,10 +1291,10 @@ func testSetup(
 			MinSeqNr:  uint64(seqNum),
 			OnRamp:    utils.RandomAddress().Bytes(),
 		})
-		assert.NoError(t, err1)
+		require.NoError(t, err1)
 		params.SimulatedBackend.Commit()
 		scc, err1 := contract.GetSourceChainConfig(&bind.CallOpts{Context: ctx}, uint64(sourceChain))
-		assert.NoError(t, err1)
+		require.NoError(t, err1)
 		assert.Equal(t, seqNum, cciptypes.SeqNum(scc.MinSeqNr))
 	}
 

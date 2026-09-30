@@ -15,16 +15,16 @@ import (
 )
 
 const (
-	E2E_JD_IMAGE              = "E2E_JD_IMAGE"
-	E2E_JD_VERSION            = "E2E_JD_VERSION"
-	E2E_JD_GRPC               = "E2E_JD_GRPC"
-	E2E_JD_WSRPC              = "E2E_JD_WSRPC"
-	DEFAULT_DB_NAME           = "JD_DB"
-	DEFAULT_DB_VERSION        = "14.1"
-	E2E_RMN_RAGEPROXY_IMAGE   = "E2E_RMN_RAGEPROXY_IMAGE"
-	E2E_RMN_RAGEPROXY_VERSION = "E2E_RMN_RAGEPROXY_VERSION"
-	E2E_RMN_AFN2PROXY_IMAGE   = "E2E_RMN_AFN2PROXY_IMAGE"
-	E2E_RMN_AFN2PROXY_VERSION = "E2E_RMN_AFN2PROXY_VERSION"
+	E2EJDImage             = "E2E_JD_IMAGE"
+	E2EJDVersion           = "E2E_JD_VERSION"
+	E2EJDGRPC              = "E2E_JD_GRPC"
+	E2EJDWSRPC             = "E2E_JD_WSRPC"
+	DefaultDBName          = "JD_DB"
+	DefaultDBVersion       = "14.1"
+	E2ERMNRageproxyImage   = "E2E_RMN_RAGEPROXY_IMAGE"
+	E2ERMNRageproxyVersion = "E2E_RMN_RAGEPROXY_VERSION"
+	E2ERMNAfn2proxyImage   = "E2E_RMN_AFN2PROXY_IMAGE"
+	E2ERMNAfn2proxyVersion = "E2E_RMN_AFN2PROXY_VERSION"
 )
 
 var (
@@ -54,7 +54,7 @@ type RMNConfig struct {
 func (r *RMNConfig) GetProxyImage() string {
 	image := pointer.GetString(r.ProxyImage)
 	if image == "" {
-		return ctfconfig.MustReadEnvVar_String(E2E_RMN_RAGEPROXY_IMAGE)
+		return ctfconfig.MustReadEnvVar_String(E2ERMNRageproxyImage)
 	}
 	return image
 }
@@ -62,7 +62,7 @@ func (r *RMNConfig) GetProxyImage() string {
 func (r *RMNConfig) GetProxyVersion() string {
 	version := pointer.GetString(r.ProxyVersion)
 	if version == "" {
-		return ctfconfig.MustReadEnvVar_String(E2E_RMN_RAGEPROXY_VERSION)
+		return ctfconfig.MustReadEnvVar_String(E2ERMNRageproxyVersion)
 	}
 	return version
 }
@@ -70,7 +70,7 @@ func (r *RMNConfig) GetProxyVersion() string {
 func (r *RMNConfig) GetAFN2ProxyImage() string {
 	image := pointer.GetString(r.AFNImage)
 	if image == "" {
-		return ctfconfig.MustReadEnvVar_String(E2E_RMN_AFN2PROXY_IMAGE)
+		return ctfconfig.MustReadEnvVar_String(E2ERMNAfn2proxyImage)
 	}
 	return image
 }
@@ -78,7 +78,7 @@ func (r *RMNConfig) GetAFN2ProxyImage() string {
 func (r *RMNConfig) GetAFN2ProxyVersion() string {
 	version := pointer.GetString(r.AFNVersion)
 	if version == "" {
-		return ctfconfig.MustReadEnvVar_String(E2E_RMN_AFN2PROXY_VERSION)
+		return ctfconfig.MustReadEnvVar_String(E2ERMNAfn2proxyVersion)
 	}
 	return version
 }
@@ -102,7 +102,7 @@ type JDConfig struct {
 func (o *JDConfig) GetJDGRPC() string {
 	grpc := pointer.GetString(o.JDGRPC)
 	if grpc == "" {
-		return ctfconfig.MustReadEnvVar_String(E2E_JD_GRPC)
+		return ctfconfig.MustReadEnvVar_String(E2EJDGRPC)
 	}
 	return grpc
 }
@@ -110,7 +110,7 @@ func (o *JDConfig) GetJDGRPC() string {
 func (o *JDConfig) GetJDWSRPC() string {
 	wsrpc := pointer.GetString(o.JDWSRPC)
 	if wsrpc == "" {
-		return ctfconfig.MustReadEnvVar_String(E2E_JD_WSRPC)
+		return ctfconfig.MustReadEnvVar_String(E2EJDWSRPC)
 	}
 	return wsrpc
 }
@@ -118,7 +118,7 @@ func (o *JDConfig) GetJDWSRPC() string {
 func (o *JDConfig) GetJDImage() string {
 	image := pointer.GetString(o.Image)
 	if image == "" {
-		return ctfconfig.MustReadEnvVar_String(E2E_JD_IMAGE)
+		return ctfconfig.MustReadEnvVar_String(E2EJDImage)
 	}
 	return image
 }
@@ -126,7 +126,7 @@ func (o *JDConfig) GetJDImage() string {
 func (o *JDConfig) GetJDVersion() string {
 	version := pointer.GetString(o.Version)
 	if version == "" {
-		return ctfconfig.MustReadEnvVar_String(E2E_JD_VERSION)
+		return ctfconfig.MustReadEnvVar_String(E2EJDVersion)
 	}
 	return version
 }
@@ -134,7 +134,7 @@ func (o *JDConfig) GetJDVersion() string {
 func (o *JDConfig) GetJDDBName() string {
 	dbname := pointer.GetString(o.DBName)
 	if dbname == "" {
-		return DEFAULT_DB_NAME
+		return DefaultDBName
 	}
 	return dbname
 }
@@ -142,24 +142,24 @@ func (o *JDConfig) GetJDDBName() string {
 func (o *JDConfig) GetJDDBVersion() string {
 	dbversion := pointer.GetString(o.DBVersion)
 	if dbversion == "" {
-		return DEFAULT_DB_VERSION
+		return DefaultDBVersion
 	}
 	return dbversion
 }
 
 func (o *Config) Validate() error {
-	var chainIds []int64
+	var chainIDs []int64
 	for _, net := range o.PrivateEthereumNetworks {
 		if net.EthereumChainConfig.ChainID < 0 {
 			return fmt.Errorf("negative chain ID found for network %d", net.EthereumChainConfig.ChainID)
 		}
-		chainIds = append(chainIds, int64(net.EthereumChainConfig.ChainID))
+		chainIDs = append(chainIDs, int64(net.EthereumChainConfig.ChainID))
 	}
 	homeChainSelector, err := strconv.ParseUint(pointer.GetString(o.HomeChainSelector), 10, 64)
 	if err != nil {
 		return err
 	}
-	isValid, err := IsSelectorValid(homeChainSelector, chainIds)
+	isValid, err := IsSelectorValid(homeChainSelector, chainIDs)
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func (o *Config) Validate() error {
 	if err != nil {
 		return err
 	}
-	isValid, err = IsSelectorValid(feedChainSelector, chainIds)
+	isValid, err = IsSelectorValid(feedChainSelector, chainIDs)
 	if err != nil {
 		return err
 	}
@@ -190,14 +190,14 @@ func (o *Config) GetFeedChainSelector() uint64 {
 	return selector
 }
 
-func IsSelectorValid(selector uint64, chainIds []int64) (bool, error) {
-	chainId, err := chainselectors.ChainIdFromSelector(selector)
+func IsSelectorValid(selector uint64, chainIDs []int64) (bool, error) {
+	chainID, err := chainselectors.ChainIdFromSelector(selector)
 	if err != nil {
 		return false, err
 	}
 
-	for _, cID := range chainIds {
-		if isEqualUint64AndInt64(chainId, cID) {
+	for _, cID := range chainIDs {
+		if isEqualUint64AndInt64(chainID, cID) {
 			return true, nil
 		}
 	}
