@@ -22,9 +22,9 @@ import (
 )
 
 var (
-	_ Acknowledger   = (*engine)(nil)
-	_ EventSink      = (*engine)(nil)
-	_ WorkflowEngine = (*engine)(nil)
+	_ triggers.Acknowledger = (*engine)(nil)
+	_ EventSink             = (*engine)(nil)
+	_ WorkflowEngine        = (*engine)(nil)
 )
 
 // engine is the legacy trigger-owning workflow engine: it wraps the shared

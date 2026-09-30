@@ -36,25 +36,6 @@ type EventSink interface {
 	ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error
 }
 
-// Acknowledger acknowledges a trigger event without the engine owning the
-// trigger handle. It is injected into EngineConfig so the engine's ACK
-// call sites are decoupled from who holds the handles.
-//
-// The engine calls Ack in three situations:
-//   - Duplicate execution — the event was already executed; the engine
-//     re-ACKs to prevent redelivery.
-//   - Shard ownership denial — this node is not the shard owner; the engine
-//     ACKs to signal the event was processed (skipped).
-//   - Normal execution start — the engine ACKs after the execution begins
-//     (not shown in the current code path; reserved for M2 coordinator).
-//
-// Ack is idempotent: calling it multiple times for the same event is safe.
-// The implementation is responsible for looking up the trigger handle by
-// triggerRegistrationID and calling AckEvent on it.
-type Acknowledger interface {
-	Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error
-}
-
 // Subscriber is how a caller obtains an engine's trigger subscriptions on
 // demand. Subscribe issues the WASM Subscribe call directly (no caching): the
 // engine holds no subscription state of its own, so every call is a fresh

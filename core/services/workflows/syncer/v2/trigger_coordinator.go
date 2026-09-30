@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // ErrWorkflowNotCoordinated is returned by UnregisterTriggers for
@@ -34,7 +35,7 @@ type RegistrationParams struct {
 // It is a node-level singleton, started and stopped with the syncer.
 type TriggerCoordinator interface {
 	services.Service
-	v2.Acknowledger
+	triggers.Acknowledger
 
 	// RegisterTriggers calls subscriber.Subscribe to obtain the engine's trigger
 	// subscriptions, registers them with the capability registry, retains the

@@ -2837,7 +2837,7 @@ type recordingAcknowledger struct {
 	calls []string
 }
 
-var _ v2.Acknowledger = (*recordingAcknowledger)(nil)
+var _ triggers.Acknowledger = (*recordingAcknowledger)(nil)
 
 func (a *recordingAcknowledger) Ack(_ context.Context, _ string, triggerRegistrationID, eventID string) error {
 	a.mu.Lock()
