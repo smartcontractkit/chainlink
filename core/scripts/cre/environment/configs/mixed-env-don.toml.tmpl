@@ -163,12 +163,14 @@
     image = "postgres:15.0"
     port = 13200
 
-  # The bootstrap/gateway node does not run the reporting plugin, so its code
-  # version does not affect the non-determinism signal. Keep it on develop for stability.
+  # The Gateway DON uses only 1 node per request and does not run the reporting
+  # plugin, so running it on the PR image exercises the PR's gateway code without
+  # affecting the non-determinism signal (mirrors #23831 in the confidential-workflows
+  # mixed-env topology).
   [[nodesets.node_specs]]
     roles = ["bootstrap", "gateway"]
     [nodesets.node_specs.node]
-      image = "${CRE_BASELINE_IMAGE}"
+      image = "${CRE_PR_IMAGE}"
       pull_image = ${CRE_PULL_IMAGE}
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
