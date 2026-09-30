@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 // ErrWorkflowNotCoordinated is returned by UnregisterTriggers for
@@ -52,8 +53,24 @@ type Coordinator interface {
 	UnregisterTriggers(workflowID string) error
 }
 
-// TODO: Fill in the necessary methods
-type EngineRegistry interface{}
+// RegisteredEngine is what EngineRegistry.Get returns: a sink the coordinator
+// can deliver events to, plus the flag callers must check before doing so.
+type RegisteredEngine interface {
+	EventSink
+
+	// IsCoordinated is true if the engine does not manage its own
+	// trigger registration, trigger dequeuing, execution or acknowledgement.
+	IsCoordinated() bool
+}
+
+// EngineRegistry is the coordinator's read-only view of running engines. It is
+// how the coordinator resolves a workflow's engine at delivery time; the
+// coordinator keeps no engine map of its own.
+type EngineRegistry interface {
+	// Get returns the engine for workflowID, or false if none is registered
+	// (e.g. the workflow was unregistered while events were still queued).
+	Get(workflowID types.WorkflowID) (RegisteredEngine, bool)
+}
 
 // noopCoordinator is a no-op implementation type.  It logs the registration
 // and teardown calls on Register/UnregisterTriggers, and does nothing else. No trigger is
