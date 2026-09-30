@@ -1,4 +1,4 @@
-package v2
+package triggers
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // ErrWorkflowNotCoordinated is returned by UnregisterTriggers for
@@ -34,7 +33,7 @@ type RegistrationParams struct {
 // It is a node-level singleton, started and stopped with the syncer.
 type TriggerCoordinator interface {
 	services.Service
-	triggers.Acknowledger
+	Acknowledger
 
 	// RegisterTriggers calls subscriber.Subscribe to obtain the engine's trigger
 	// subscriptions, registers them with the capability registry, retains the
@@ -42,7 +41,7 @@ type TriggerCoordinator interface {
 	// trigger capability IDs. On any failure it unregisters what it already
 	// registered for this call and returns the error.
 	// Partial registration is never left behind.
-	RegisterTriggers(ctx context.Context, subscriber triggers.Subscriber, params RegistrationParams) ([]string, error)
+	RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) ([]string, error)
 
 	// UnregisterTriggers stops ingress for workflowID immediately (unregisters with the capability registry)
 	// and cleans up the handle map once the engine has been drained and closed, so an execution already in flight
@@ -53,21 +52,21 @@ type TriggerCoordinator interface {
 	UnregisterTriggers(workflowID string) error
 }
 
+// TODO: Fill in the necessary methods
+type EngineRegistry interface{}
+
+// the no-op coordinator logs the registration
+// and teardown calls the syncer makes, and does nothing else. No trigger is
+// registered with the capability registry and no event is ever delivered, so a
+// workflow routed to the coordinated engine while this implementation is in
+// place runs but never fires.
 type noopTriggerCoordinator struct {
 	services.Service
 	eng  *services.Engine
 	lggr logger.Logger
 }
 
-// NewTriggerCoordinator returns the no-op coordinator: it logs the registration
-// and teardown calls the syncer makes, and does nothing else. No trigger is
-// registered with the capability registry and no event is ever delivered, so a
-// workflow routed to the coordinated engine while this implementation is in
-// place runs but never fires.
-//
-// capReg, engineRegistry and clock are unused here on purpose — the signature is
-// the one the real coordinator needs, so wiring it does not churn call sites.
-func NewTriggerCoordinator(capReg registry.CapabilitiesRegistry, engineRegistry *EngineRegistry, clock clockwork.Clock, lggr logger.Logger) TriggerCoordinator {
+func NewTriggerCoordinator(capReg registry.CapabilitiesRegistry, engineRegistry EngineRegistry, clock clockwork.Clock, lggr logger.Logger) TriggerCoordinator {
 	c := &noopTriggerCoordinator{
 		lggr: logger.Named(lggr, "TriggerCoordinator"),
 	}
@@ -84,7 +83,7 @@ func NewTriggerCoordinator(capReg registry.CapabilitiesRegistry, engineRegistry 
 	return c
 }
 
-func (c *noopTriggerCoordinator) RegisterTriggers(ctx context.Context, subscriber triggers.Subscriber, params RegistrationParams) ([]string, error) {
+func (c *noopTriggerCoordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) ([]string, error) {
 	c.lggr.Infow("No-op RegisterTriggers",
 		"workflowID", subscriber.Tenant().Workflow,
 		"workflowOwner", params.WorkflowOwner,

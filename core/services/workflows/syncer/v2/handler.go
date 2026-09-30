@@ -50,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 type ORM interface {
@@ -93,7 +94,7 @@ type eventHandler struct {
 	// running the coordinated engine. Nil until wired via WithTriggerCoordinator.
 	// useCoordinatedEngine picks the legacy path when nil, regardless of the
 	// CoordinatedEngine flag.
-	triggerCoordinator TriggerCoordinator
+	triggerCoordinator triggers.TriggerCoordinator
 
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
@@ -173,7 +174,7 @@ func WithStaticEngine(engine v2.WorkflowEngine) func(*eventHandler) {
 // the CoordinatedEngine flag routes to the coordinated engine. Without
 // this option, tryEngineCreate always takes the legacy path, regardless of
 // the flag's value.
-func WithTriggerCoordinator(tc TriggerCoordinator) func(*eventHandler) {
+func WithTriggerCoordinator(tc triggers.TriggerCoordinator) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.triggerCoordinator = tc
 	}
@@ -1050,7 +1051,7 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 		// on coordinated engines, stop coordinator ingress before draining,
 		// so the drain can actually reach zero active executions.
 		if e.Coordinated() && h.triggerCoordinator != nil {
-			if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
+			if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, triggers.ErrWorkflowNotCoordinated) {
 				h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
 			}
 		}
@@ -1185,7 +1186,7 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 	// stopEngine's coordinator handling, or trigger registrations are left
 	// orphaned on this path alone.
 	if e.Coordinated() && h.triggerCoordinator != nil {
-		if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
+		if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, triggers.ErrWorkflowNotCoordinated) {
 			h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
 		}
 	}
@@ -1305,7 +1306,7 @@ func (h *eventHandler) tryCoordinatedEngineCreate(ctx context.Context, spec *job
 	}
 	donID := localNode.WorkflowDON.ID
 
-	triggerIDs, err := h.triggerCoordinator.RegisterTriggers(ctx, engine, RegistrationParams{
+	triggerIDs, err := h.triggerCoordinator.RegisterTriggers(ctx, engine, triggers.RegistrationParams{
 		WorkflowOwner:       spec.WorkflowOwner,
 		WorkflowName:        in.workflowName.Hex(),
 		DecodedWorkflowName: in.workflowName.String(),
