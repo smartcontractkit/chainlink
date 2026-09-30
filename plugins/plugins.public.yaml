@@ -37,8 +37,8 @@ plugins:
       installPath: "./pkg/chainlink/cmd/chainlink-starknet"
 
   stellar:
-    - moduleURI: "github.com/smartcontractkit/chainlink-stellar"
-      gitRef: "5bfb2dc9aa339c9bf965c0b93573ae8f3d2bf23b"
+    - moduleURI: "github.com/smartcontractkit/chainlink-stellar/relayer"
+      gitRef: "a2df4fbafbfdeec7a0214805574bf99590560c4e"
       installPath: "./cmd/chainlink-stellar"
 
   streams:
@@ -69,7 +69,7 @@ plugins:
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "2aaae97ddf6900b082391c4756687b7584bfaf8a"
+      gitRef: "dce52357e37f4957ac7d07912f4b2a0ab7cac488"
       installPath: "."
 
   capability-httpaction:
@@ -104,10 +104,10 @@ plugins:
 
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-http/capability"
-      gitRef: "a9b2fdf09d03621b7b1996a60fbf5b1a0b7a42a6"
+      gitRef: "9e5384689581942317d60287d3cfccd99e7cae36"
       installPath: "./cmd/confidential-http"
 
   confidential-workflows:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-workflows/capability"
-      gitRef: "a9b2fdf09d03621b7b1996a60fbf5b1a0b7a42a6"
+      gitRef: "9e5384689581942317d60287d3cfccd99e7cae36"
       installPath: "./cmd/confidential-workflows"

@@ -353,7 +353,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	mcmsCfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	var err error
-	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
+	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0, len(allChains))
 	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
 		mcmsCfg[c] = cldftesthelpers.SingleGroupTimelockConfig(t)
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{

@@ -19,9 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 )
 
-var _ nodev1.NodeServiceClient = (*JDNodeService)(nil)
-var _ jobv1.JobServiceClient = (*JDNodeService)(nil)
-var _ csav1.CSAServiceClient = (*JDNodeService)(nil)
+var (
+	_ nodev1.NodeServiceClient = (*JDNodeService)(nil)
+	_ jobv1.JobServiceClient   = (*JDNodeService)(nil)
+	_ csav1.CSAServiceClient   = (*JDNodeService)(nil)
+)
 
 // JDNodeService is a mock implementation of the JobDistributor that supports
 // the Node methods
@@ -174,12 +176,10 @@ func (s *JDNodeService) ListNodeChainConfigs(ctx context.Context, req *nodev1.Li
 
 func newWrapperFromRegister(req *nodev1.RegisterNodeRequest) (*wrappedNode, error) {
 	return &wrappedNode{
-		Node: deployment.Node{
-			NodeID: uuid.New().String(),
-			Name:   req.Name,
-			CSAKey: req.PublicKey,
-			Labels: req.Labels,
-		},
+		NodeID:  uuid.New().String(),
+		Name:    req.Name,
+		CSAKey:  req.PublicKey,
+		Labels:  req.Labels,
 		enabled: true,
 	}, nil
 }
@@ -241,12 +241,10 @@ func (s *JDNodeService) ListProposedJobRequests() ([]*jobv1.ProposeJobRequest, e
 
 func newWrapperFromUpdate(req *nodev1.UpdateNodeRequest) (*wrappedNode, error) {
 	return &wrappedNode{
-		Node: deployment.Node{
-			NodeID: req.Id,
-			Name:   req.Name,
-			CSAKey: req.PublicKey,
-			Labels: req.Labels,
-		},
+		NodeID:  req.Id,
+		Name:    req.Name,
+		CSAKey:  req.PublicKey,
+		Labels:  req.Labels,
 		enabled: true,
 	}, nil
 }
@@ -302,6 +300,7 @@ type p2pKey string
 func (p p2pKey) String() string {
 	return string(p)
 }
+
 func (p p2pKey) Validate() error {
 	_, err := p2pkey.MakePeerID(p.String())
 	return err
@@ -346,16 +345,6 @@ func (s *store) getNode(id string) (*wrappedNode, error) {
 		return nil, fmt.Errorf("node not found for id %s", id)
 	}
 	return n, nil
-}
-
-func (s *store) getNodeByP2P(p2p p2pKey) (*wrappedNode, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	id, ok := s.p2pToID[p2p]
-	if !ok {
-		return nil, fmt.Errorf("node not found for p2p %s", p2p)
-	}
-	return s.getNode(id)
 }
 
 func (s *store) getNodeByCSA(csa csaKey) (*wrappedNode, error) {

@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -22,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -46,7 +44,7 @@ func NewBaseConfig() *chainlink.Config {
 				AllowOrigins:   new("*"),
 				HTTPPort:       ptr.Ptr[uint16](6688),
 				SecureCookies:  new(false),
-				SessionTimeout: commonconfig.MustNewDuration(time.Hour * 999),
+				SessionTimeout: config.MustNewDuration(time.Hour * 999),
 				TLS: toml.WebServerTLS{
 					HTTPSPort: ptr.Ptr[uint16](0),
 				},
@@ -65,16 +63,16 @@ func NewBaseConfig() *chainlink.Config {
 	}
 }
 
-type NodeConfigOpt = func(c *chainlink.Config)
+type ConfigOpt = func(c *chainlink.Config)
 
-func NewConfig(baseConf *chainlink.Config, opts ...NodeConfigOpt) *chainlink.Config {
+func NewConfig(baseConf *chainlink.Config, opts ...ConfigOpt) *chainlink.Config {
 	for _, opt := range opts {
 		opt(baseConf)
 	}
 	return baseConf
 }
 
-func NewConfigFromToml(tomlConfig []byte, opts ...NodeConfigOpt) (*chainlink.Config, error) {
+func NewConfigFromToml(tomlConfig []byte, opts ...ConfigOpt) (*chainlink.Config, error) {
 	var cfg chainlink.Config
 	err := config.DecodeTOML(bytes.NewReader(tomlConfig), &cfg)
 	if err != nil {
@@ -86,14 +84,13 @@ func NewConfigFromToml(tomlConfig []byte, opts ...NodeConfigOpt) (*chainlink.Con
 	return &cfg, nil
 }
 
-func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg.Chain, chainSpecificConfig map[int64]evmcfg.Chain) NodeConfigOpt {
-	var evmConfigs []*evmcfg.EVMConfig
+func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg.Chain, chainSpecificConfig map[int64]evmcfg.Chain) ConfigOpt {
+	evmConfigs := make([]*evmcfg.EVMConfig, 0, len(networks))
 	for _, network := range networks {
-		var evmNodes []*evmcfg.Node
-
 		// The CL node cannot have missing HTTP urls. If there are more WS URLs it will fail validation.
 		// If len(network.HTTPURLs) == 2 then len(network.URLs) must be 2 or less.
 		urlCount := len(network.HTTPURLs)
+		evmNodes := make([]*evmcfg.Node, 0, urlCount)
 
 		for i := range urlCount {
 			node := &evmcfg.Node{
@@ -130,9 +127,9 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 	}
 }
 
-func WithKeySpecificMaxGasPrice(addresses []string, maxGasPriceGWei int64) NodeConfigOpt {
+func WithKeySpecificMaxGasPrice(addresses []string, maxGasPriceGWei int64) ConfigOpt {
 	est := assets.GWei(maxGasPriceGWei)
-	var keySpecicifArr []evmcfg.KeySpecific
+	keySpecicifArr := make([]evmcfg.KeySpecific, 0, len(addresses))
 	for _, addr := range addresses {
 		keySpecicifArr = append(keySpecicifArr, evmcfg.KeySpecific{
 			Key: new(types.EIP55Address(addr)),
@@ -146,8 +143,8 @@ func WithKeySpecificMaxGasPrice(addresses []string, maxGasPriceGWei int64) NodeC
 	}
 }
 
-func BuildChainlinkNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string, configByChain map[string]string) (*corechainlink.Config, string, error) {
-	var tomlCfg *corechainlink.Config
+func BuildChainlinkNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string, configByChain map[string]string) (*chainlink.Config, string, error) {
+	var tomlCfg *chainlink.Config
 	var err error
 	var commonChainConfig *evmcfg.Chain
 	if commonChain != "" {
@@ -163,11 +160,11 @@ func BuildChainlinkNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonCh
 		if err != nil {
 			return nil, "", err
 		}
-		chainId, err := strconv.ParseInt(k, 10, 64)
+		chainID, err := strconv.ParseInt(k, 10, 64)
 		if err != nil {
 			return nil, "", err
 		}
-		configByChainMap[chainId] = chain
+		configByChainMap[chainID] = chain
 	}
 	if nodeConfig == "" {
 		tomlCfg = NewConfig(

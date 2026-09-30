@@ -138,11 +138,12 @@ func GetConfig(configurationNames []string, product Product, extraFileNames ...s
 
 	configurationNames = append([]string{""}, configurationNamesCopy...)
 
-	fileNames := []string{
+	fileNames := make([]string, 0, 3+len(extraFileNames))
+	fileNames = append(fileNames,
 		"default.toml",
 		fmt.Sprintf("%s.toml", product),
 		"overrides.toml",
-	}
+	)
 	// add extra file names to the list
 	// no-op if nothing is provided.
 	fileNames = append(fileNames, extraFileNames...)

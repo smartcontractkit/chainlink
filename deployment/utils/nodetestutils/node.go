@@ -50,7 +50,6 @@ import (
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -492,12 +491,10 @@ func NewNode(
 	require.NoError(t, master.OCR2().EnsureKeys(ctx, corekeys.EVM, corekeys.Solana, corekeys.Aptos, corekeys.Stellar))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		Opts: cre.Opts{
-			CapabilitiesRegistry: capreg.NewRegistry(lggr),
-		},
-		Config:   cfg,
-		DS:       db,
-		KeyStore: master,
+		CapabilitiesRegistry: capreg.NewRegistry(lggr),
+		Config:               cfg,
+		DS:                   db,
+		KeyStore:             master,
 		// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
 		EVMFactoryConfigFn: func(fc *chainlink.EVMFactoryConfig) {
 			// Create ChainStores that always sign with 1337

@@ -81,7 +81,7 @@ type EngineConfig struct {
 	ShardRoutingSteady      *shardownership.SteadySignal
 	ShardResolver           shardownership.ShardResolver
 
-	TriggerAcknowledger Acknowledger
+	TriggerAcknowledger triggers.Acknowledger
 }
 
 type EngineLimiters struct {
