@@ -96,8 +96,10 @@ const (
 	gaugeVaultDiskUsageBytes     = "platform_vault_disk_usage_bytes"
 	vaultDiskMonitorTickInterval = time.Minute
 
-	consensusQueueCapabilityID = "consensus-queue@1.0.0"
-	consensusQueueOCRConfigKey = "consensus-queue"
+	consensusQueueCapabilityID            = "consensus-queue@1.0.0"
+	consensusQueueOCRConfigKey            = "consensus-queue"
+	gaugeConsensusQueueBytes              = "platform_consensus_queue_usage_bytes"
+	consensusQueueDiskMonitorTickInterval = time.Minute
 )
 
 type JobSpecNoRelayerError struct {
@@ -840,7 +842,16 @@ func (d *Delegate) newServicesConsensusQueue(
 	})
 	srvs = append(srvs, ocrLogger)
 
-	//TODO ticket disk monitor?
+	dm, err := diskmonitor.NewDiskMonitor(
+		lggr,
+		d.cfg.OCR2().KeyValueStoreRootDir(),
+		gaugeConsensusQueueBytes,
+		consensusQueueDiskMonitorTickInterval,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create disk monitor: %w", err)
+	}
+	srvs = append(srvs, dm)
 
 	fullPath, err := d.ensureKeyValueStorePath(jb.ExternalJobID.String())
 	if err != nil {
@@ -866,7 +877,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
-		ContractTransmitter:          nil, // TODO ticket
+		ContractTransmitter:          nil, // TODO ticket transmitter
 		Database:                     ocrDB,
 		KeyValueDatabaseFactory:      kvFactory,
 		LocalConfig:                  lc,

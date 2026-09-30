@@ -25,9 +25,9 @@ func NewConsensusQueuePluginFactory(lggr logger.Logger, limitsFactory limits.Fac
 }
 
 func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
-	plugin := NewConsensusQueuePlugin(c.lggr)
+	plugin := newConsensusQueuePlugin(c.lggr)
 	pluginInfo := ocr3_1types.ReportingPluginInfo1{
-		Name: "VaultReportingPlugin",
+		Name: "ConsensusQueueReportingPlugin",
 		Limits: ocr3_1types.ReportingPluginLimits{
 			// TODO limits
 			MaxQueryBytes:                                   0,
@@ -51,7 +51,7 @@ type consensusQueuePlugin struct {
 	lggr logger.Logger
 }
 
-func NewConsensusQueuePlugin(lggr logger.Logger) ocr3_1types.ReportingPlugin[[]byte] {
+func newConsensusQueuePlugin(lggr logger.Logger) ocr3_1types.ReportingPlugin[[]byte] {
 	return &consensusQueuePlugin{lggr: logger.Named(lggr, "ConsensusQueuePlugin")}
 }
 
