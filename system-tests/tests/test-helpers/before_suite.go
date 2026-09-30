@@ -320,25 +320,27 @@ func getEnvironmentConfig(t *testing.T, testConfig *ttypes.TestConfig) *envconfi
 func createEnvironment(t *testing.T, testConfig *ttypes.TestConfig, flags ...string) {
 	t.Helper()
 
-	confErr := setConfigurationIfMissing(testConfig.EnvironmentConfigPath)
-	require.NoError(t, confErr, "failed to set configuration")
+	keyErr := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
+	require.NoError(t, keyErr, "failed to set default private key")
 
 	createErr := createEnvironmentIfNotExists(t.Context(), testConfig, flags...)
 	require.NoError(t, createErr, "failed to create environment")
 }
 
-func setConfigurationIfMissing(configName string) error {
-	return environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
-}
-
 func createEnvironmentIfNotExists(ctx context.Context, testConfig *ttypes.TestConfig, flags ...string) error {
 	if !envconfig.LocalCREStateFileExists(testConfig.RelativePathToRepoRoot) {
-		framework.L.Info().Str("CTF_CONFIGS", testConfig.EnvironmentConfigPath).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(testConfig.RelativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
+		// a CTF_CONFIGS set by the caller overrides the test's default topology
+		configPath := testConfig.EnvironmentConfigPath
+		if fromEnv := os.Getenv("CTF_CONFIGS"); fromEnv != "" {
+			configPath = fromEnv
+		}
+
+		framework.L.Info().Str("CTF_CONFIGS", configPath).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(testConfig.RelativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
 
 		args := append([]string{"env", "start"}, flags...)
 
 		cmd := resolveCreEnvCommand(ctx, testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, args...)
-		cmd.Env = append(os.Environ(), "CTF_CONFIGS="+testConfig.EnvironmentConfigPath)
+		cmd.Env = append(os.Environ(), "CTF_CONFIGS="+configPath)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmdErr := cmd.Run()

@@ -692,6 +692,14 @@ jobs:
               GOTMPDIR: ${{ github.workspace }}/.gotmp
             run: go build -ldflags="-s -w" -o "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" .
 
+          # Docker-free unit tests for the CRE test harness; gates the CRE E2E jobs, which need this job
+          - name: Run CRE test-helpers unit tests
+            if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+            working-directory: system-tests/tests
+            env:
+              GOTMPDIR: ${{ github.workspace }}/.gotmp
+            run: go test -count=1 ./test-helpers/...
+
           - name: Compile CCIP smoke test
             if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
             working-directory: integration-tests

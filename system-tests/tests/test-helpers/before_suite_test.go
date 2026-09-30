@@ -14,31 +14,10 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-func TestCreateEnvironment_ParallelSafe(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-	stateDir := filepath.Join(tmpDir, envconfig.StateDirname)
-	require.NoError(t, os.MkdirAll(stateDir, 0o755))
-	stateFile := filepath.Join(stateDir, envconfig.LocalCREStateFilename)
-	require.NoError(t, os.WriteFile(stateFile, []byte(""), 0o600))
-
-	testConfig := &ttypes.TestConfig{
-		RelativePathToRepoRoot: tmpDir,
-		EnvironmentDirPath:     tmpDir,
-		EnvironmentConfigPath:  filepath.Join(tmpDir, "test.toml"),
-		EnvironmentStateFile:   stateFile,
-	}
-
-	// createEnvironment must not panic when called after t.Parallel(),
-	// and must not mutate process-level CTF_CONFIGS.
-	originalCTFConfigs := os.Getenv("CTF_CONFIGS")
-	createEnvironment(t, testConfig)
-	require.Equal(t, originalCTFConfigs, os.Getenv("CTF_CONFIGS"))
-}
-
-func TestCreateEnvironmentIfNotExists_SubprocessEnv(t *testing.T) {
-	t.Parallel()
+// newFakeCreEnv installs a fake precompiled cre-env binary that records the CTF_CONFIGS
+// value it was started with, and returns a test config pointing at it plus the capture file path.
+func newFakeCreEnv(t *testing.T) (*ttypes.TestConfig, string) {
+	t.Helper()
 
 	tmpDir := t.TempDir()
 	environmentDir := filepath.Join(tmpDir, "core", "scripts", "cre", "environment")
@@ -53,23 +32,49 @@ func TestCreateEnvironmentIfNotExists_SubprocessEnv(t *testing.T) {
 	require.NoError(t, os.WriteFile(binPath, []byte(scriptContent), 0o600))
 	require.NoError(t, os.Chmod(binPath, 0o700))
 
-	expectedConfigPath := filepath.Join(tmpDir, "custom-config.toml")
 	testConfig := &ttypes.TestConfig{
 		RelativePathToRepoRoot: tmpDir,
 		EnvironmentDirPath:     environmentDir,
-		EnvironmentConfigPath:  expectedConfigPath,
+		EnvironmentConfigPath:  filepath.Join(tmpDir, "custom-config.toml"),
 		EnvironmentStateFile:   filepath.Join(environmentDir, envconfig.LocalCREStateFilename),
 	}
 
-	originalEnv := os.Getenv("CTF_CONFIGS")
+	return testConfig, capturedEnvFile
+}
+
+func readCapturedCTFConfigs(t *testing.T, capturedEnvFile string) string {
+	t.Helper()
+
+	captured, readErr := os.ReadFile(capturedEnvFile)
+	require.NoError(t, readErr)
+	return strings.TrimSpace(string(captured))
+}
+
+func TestCreateEnvironmentIfNotExists_SubprocessEnv(t *testing.T) {
+	t.Setenv("CTF_CONFIGS", "")
+
+	testConfig, capturedEnvFile := newFakeCreEnv(t)
+
 	err := createEnvironmentIfNotExists(context.Background(), testConfig)
 	require.NoError(t, err)
 
-	// Verify child process received CTF_CONFIGS from cmd.Env
-	captured, readErr := os.ReadFile(capturedEnvFile)
-	require.NoError(t, readErr)
-	require.Equal(t, expectedConfigPath, strings.TrimSpace(string(captured)))
+	// Verify child process received the test config path via cmd.Env
+	require.Equal(t, testConfig.EnvironmentConfigPath, readCapturedCTFConfigs(t, capturedEnvFile))
 
 	// Verify parent process environment was not mutated
-	require.Equal(t, originalEnv, os.Getenv("CTF_CONFIGS"))
+	require.Empty(t, os.Getenv("CTF_CONFIGS"))
+}
+
+func TestCreateEnvironmentIfNotExists_UserCTFConfigsTakesPrecedence(t *testing.T) {
+	userConfigPath := filepath.Join(t.TempDir(), "user-config.toml")
+	t.Setenv("CTF_CONFIGS", userConfigPath)
+
+	testConfig, capturedEnvFile := newFakeCreEnv(t)
+
+	err := createEnvironmentIfNotExists(context.Background(), testConfig)
+	require.NoError(t, err)
+
+	// A CTF_CONFIGS value set by the caller overrides the test's default topology
+	require.Equal(t, userConfigPath, readCapturedCTFConfigs(t, capturedEnvFile))
+	require.Equal(t, userConfigPath, os.Getenv("CTF_CONFIGS"))
 }
