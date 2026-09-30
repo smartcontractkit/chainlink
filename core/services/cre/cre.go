@@ -68,6 +68,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // Keystore is the minimal interface needed from keystore for CRE
@@ -974,7 +975,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithShardResolver(shardResolver),
 		syncerV2.WithShardIndex(uint32(cfg.Sharding().ShardIndex())),
 		syncerV2.WithTriggerCoordinator(
-			syncerV2.NewTriggerCoordinator(opts.CapabilitiesRegistry, engineRegistry, clockwork.NewRealClock(), lggr),
+			triggers.NewCoordinator(opts.CapabilitiesRegistry, syncerV2.NewTriggerEngineRegistry(engineRegistry), clockwork.NewRealClock(), lggr),
 		),
 	}
 	if shardingEnabled && dispatcher != nil {

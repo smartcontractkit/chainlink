@@ -276,3 +276,50 @@ func TestCountEngines(t *testing.T) {
 		require.Equal(t, engineCounts{coordinated: 1}, countEngines(engines))
 	})
 }
+
+func TestTriggerEngineRegistry(t *testing.T) {
+	t.Parallel()
+	wfID := types.WorkflowID([32]byte{9})
+
+	tests := []struct {
+		name            string
+		registered      services.Service // nil registers nothing
+		wantOK          bool
+		wantCoordinated bool
+	}{
+		{
+			name:       "unregistered workflow",
+			registered: nil,
+			wantOK:     false,
+		},
+		{
+			name:       "service that is not a RegisteredEngine",
+			registered: &fakeService{},
+			wantOK:     false,
+		},
+		{
+			name:            "coordinated engine",
+			registered:      &fakeCoordinatedDrainableEngine{},
+			wantOK:          true,
+			wantCoordinated: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			er := NewEngineRegistry()
+			if tt.registered != nil {
+				require.NoError(t, er.Add(wfID, "src", tt.registered))
+			}
+
+			got, ok := NewTriggerEngineRegistry(er).Get(wfID)
+			require.Equal(t, tt.wantOK, ok)
+			if !tt.wantOK {
+				require.Nil(t, got)
+				return
+			}
+			require.Equal(t, tt.wantCoordinated, got.IsCoordinated())
+		})
+	}
+}
