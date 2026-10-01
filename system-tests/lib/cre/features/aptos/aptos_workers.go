@@ -11,8 +11,9 @@ import (
 
 	"dario.cat/mergo"
 	pkgerrors "github.com/pkg/errors"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	crejobops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"

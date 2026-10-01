@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	lloreportcodec "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec"
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec/evm"
@@ -1987,22 +1988,42 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 		AggregationFaultTolerance:           aggregationFaultTolerance,
 		EnableObservationCompression:        false,
 	}
-	for _, v31 := range []bool{false, true} {
-		name := "OCR3.0/v30"
-		if v31 {
-			name = "OCR3.1/v31"
-		}
-		t.Run(name, func(t *testing.T) {
+	// The mixed mode is the v30 -> v31 plugin migration: blue runs OCR3.0 and
+	// green OCR3.1, so the handover crosses plugin versions.
+	for _, mode := range []blueGreenVersions{
+		{name: "OCR3.0/v30", blue: lloconfig.PluginVersionV30, green: lloconfig.PluginVersionV30},
+		{name: "OCR3.1/v31", blue: lloconfig.PluginVersionV31, green: lloconfig.PluginVersionV31},
+		{name: "OCR3.0/v30 -> OCR3.1/v31", blue: lloconfig.PluginVersionV30, green: lloconfig.PluginVersionV31},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
 			t.Parallel()
-			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig, v31)
+			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig, mode)
 		})
 	}
 }
 
-func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig lloprotocol.OffchainConfig, v31 bool) {
-	// withVersion appends WithV31() to config options when running the v31 variant.
-	withVersion := func(opts ...OCRConfigOption) []OCRConfigOption {
-		if v31 {
+// blueGreenVersions selects the plugin each protocol instance runs, positionally
+// aligned with the job's pluginVersions.
+type blueGreenVersions struct {
+	name        string
+	blue, green lloconfig.PluginVersion
+}
+
+// pluginVersions renders the job spec setting. It is omitted when both
+// instances run v30, so that variant also covers a spec predating the field.
+func (v blueGreenVersions) pluginVersions() string {
+	if v.blue == lloconfig.PluginVersionV30 && v.green == lloconfig.PluginVersionV30 {
+		return ""
+	}
+	return fmt.Sprintf("\npluginVersions = [%q, %q]", v.blue, v.green)
+}
+
+func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig lloprotocol.OffchainConfig, mode blueGreenVersions) {
+	// withVersion appends WithV31() to the config options of an instance running
+	// the v31 plugin: the onchain config format follows the plugin version, and
+	// in mixed mode the two instances differ.
+	withVersion := func(version lloconfig.PluginVersion, opts ...OCRConfigOption) []OCRConfigOption {
+		if version == lloconfig.PluginVersionV31 {
 			return append(opts, WithV31())
 		}
 		return opts
@@ -2081,9 +2102,7 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-		if v31 {
-			pluginConfig += "\npluginVersion = \"v31\""
-		}
+		pluginConfig += mode.pluginVersions()
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, configuratorAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
 		var blueDigest ocr2types.ConfigDigest
@@ -2094,7 +2113,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		{
 			// Set config on configurator
 			blueDigest = setProductionConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(mode.blue, WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
 			)
 
 			// NOTE: Wait until blue produces a report
@@ -2120,7 +2139,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		{
 			offchainConfig.EnableObservationCompression = true
 			greenDigest = setStagingConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(WithPredecessorConfigDigest(blueDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(mode.green, WithPredecessorConfigDigest(blueDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
 			)
 
 			// NOTE: Wait until green produces the first "specimen" report
@@ -2264,7 +2283,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			offchainConfig.ProtocolVersion = 1
 			offchainConfig.DefaultMinReportIntervalNanoseconds = 1
 			blueDigest = setStagingConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(WithPredecessorConfigDigest(greenDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(mode.blue, WithPredecessorConfigDigest(greenDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
 			)
 
 			// NOTE: Wait until blue produces the first "specimen" report

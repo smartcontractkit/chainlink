@@ -19,12 +19,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
-
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -456,7 +454,7 @@ func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cld
 	allChainsCLDEnvironment := &cldf.Environment{
 		Name:              cre.EnvironmentName,
 		Logger:            singleFileLogger,
-		ExistingAddresses: cldf.NewMemoryAddressBook(), // can't set it to nil, because some changesets save addresses both to the address book and datastore
+		ExistingAddresses: cldf.NewMemoryAddressBook(), //nolint:staticcheck // SA1019 AddressBook is deprecated but can't be nil, because some changesets save addresses both to the address book and datastore
 		DataStore:         datastore.NewMemoryDataStore().Seal(),
 		GetContext: func() context.Context {
 			return ctx

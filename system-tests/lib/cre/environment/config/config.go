@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
-
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -147,6 +146,34 @@ func DefaultContractSet() map[cre.ContractType]*semver.Version {
 	}
 }
 
+// ctfEnvMu serializes the temporary CTF_CONFIGS mutation performed by
+// loadViaCTFEnv, since framework.Load reads its input path from that
+// process-wide env var and concurrent loads could observe each other's paths.
+var ctfEnvMu sync.Mutex
+
+func loadViaCTFEnv[T any](absPath string) (*T, error) {
+	ctfEnvMu.Lock()
+	defer ctfEnvMu.Unlock()
+
+	previousCTFConfigs, hadCTFConfigs := os.LookupEnv("CTF_CONFIGS")
+	defer func() {
+		if hadCTFConfigs {
+			if setErr := os.Setenv("CTF_CONFIGS", previousCTFConfigs); setErr != nil {
+				framework.L.Warn().Err(setErr).Msg("failed to restore previous CTF_CONFIGS env var")
+			}
+		} else if unsetErr := os.Unsetenv("CTF_CONFIGS"); unsetErr != nil {
+			framework.L.Warn().Err(unsetErr).Msg("failed to restore previous CTF_CONFIGS env var")
+		}
+	}()
+
+	setErr := os.Setenv("CTF_CONFIGS", absPath)
+	if setErr != nil {
+		return nil, errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
+	}
+
+	return framework.Load[T](nil)
+}
+
 func (c *Config) Load(absPath string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -155,14 +182,7 @@ func (c *Config) Load(absPath string) error {
 		return nil
 	}
 
-	previousCTFconfigs := os.Getenv("CTF_CONFIGS")
-	defer func() {
-		_ = os.Setenv("CTF_CONFIGS", previousCTFconfigs)
-	}()
-
-	_ = os.Setenv("CTF_CONFIGS", absPath)
-
-	in, loadErr := framework.Load[Config](nil)
+	in, loadErr := loadViaCTFEnv[Config](absPath)
 	if loadErr != nil {
 		return errors.Wrap(loadErr, "failed to load environment configuration")
 	}
@@ -311,20 +331,7 @@ func (c *ChipIngressConfig) Load(absPath string) error {
 		return nil
 	}
 
-	previousCTFconfigs := os.Getenv("CTF_CONFIGS")
-	defer func() {
-		setErr := os.Setenv("CTF_CONFIGS", previousCTFconfigs)
-		if setErr != nil {
-			framework.L.Warn().Err(setErr).Msg("failed to restore previous CTF_CONFIGS env var")
-		}
-	}()
-
-	setErr := os.Setenv("CTF_CONFIGS", absPath)
-	if setErr != nil {
-		return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
-	}
-
-	in, err := framework.Load[ChipIngressConfig](nil)
+	in, err := loadViaCTFEnv[ChipIngressConfig](absPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load chip ingress config")
 	}
@@ -402,7 +409,7 @@ func copyExportedFields(dst, src any) {
 	sv := reflect.ValueOf(src).Elem()
 	dt := dv.Type()
 
-	for i := 0; i < dt.NumField(); i++ {
+	for i := range dt.NumField() {
 		f := dt.Field(i)
 		if f.PkgPath != "" { // unexported
 			continue
@@ -431,20 +438,7 @@ func (c *BillingConfig) Load(absPath string) error {
 		return nil
 	}
 
-	previousCTFconfigs := os.Getenv("CTF_CONFIGS")
-	defer func() {
-		setErr := os.Setenv("CTF_CONFIGS", previousCTFconfigs)
-		if setErr != nil {
-			framework.L.Warn().Err(setErr).Msg("failed to restore previous CTF_CONFIGS env var")
-		}
-	}()
-
-	setErr := os.Setenv("CTF_CONFIGS", absPath)
-	if setErr != nil {
-		return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
-	}
-
-	in, err := framework.Load[BillingConfig](nil)
+	in, err := loadViaCTFEnv[BillingConfig](absPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load billing config")
 	}
