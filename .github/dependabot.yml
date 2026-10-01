@@ -26,3 +26,17 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 0
+  # Base image digests. apt packages are upgraded at build time, so these PRs
+  # are low-urgency: merging refreshes the base layer, ignoring them is safe.
+  - package-ecosystem: docker
+    directories: [ "/core", "/plugins", "/devenv/fakes" ]
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      docker-base-images:
+        patterns: [ "*" ]
+    ignore:
+      # Version bumps stay manual (Go is also pinned in go.mod/CI); digest-only updates still flow.
+      - dependency-name: "*"
+        update-types: [ "version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch" ]
