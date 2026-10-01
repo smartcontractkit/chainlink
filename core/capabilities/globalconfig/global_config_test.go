@@ -115,11 +115,11 @@ func TestGlobalConfig_Versioning(t *testing.T) {
 	t.Run("rejected update keeps the applied payload", func(t *testing.T) {
 		t.Parallel()
 		g := New()
-		require.NoError(t, g.Store(Update{Raw: `{"version":5,"dons":{"1":{}}}`, Hash: "h5"}))
-		require.Error(t, g.Store(Update{Raw: `{"version":6,"dons":{"1":{"donId":2}}}`, Hash: "h6"}))
+		require.NoError(t, g.Store(Update{Raw: `{"version":5,"dons":{"don-1":{}}}`, Hash: "h5"}))
+		require.Error(t, g.Store(Update{Raw: `{"version":6,"dons":{"don-1":{"capabilities":{"":{}}}}}`, Hash: "h6"}))
 		reg, v := g.LoadParsed()
 		assert.Equal(t, uint64(5), v)
-		assert.Contains(t, reg.GetDons(), uint32(1))
+		assert.Contains(t, reg.GetDons(), "don-1")
 	})
 }
 
@@ -164,18 +164,18 @@ func TestGlobalConfig_LoadParsedIsASnapshot(t *testing.T) {
 	t.Parallel()
 
 	g := New()
-	require.NoError(t, g.Store(Update{Raw: `{"version":1,"dons":{"7":{"capabilityConfigs":{"cron@1.0.0":{}}}}}`, Hash: "h1"}))
+	require.NoError(t, g.Store(Update{Raw: `{"version":1,"dons":{"don-7":{"capabilities":{"cron@1.0.0":{}}}}}`, Hash: "h1"}))
 
 	snap, _ := g.LoadParsed()
 	snap.Version = 99
-	snap.Dons[8] = &capabilitiespb.OffchainDONConfig{}
-	snap.Dons[7].CapabilityConfigs["evil@1.0.0"] = &capabilitiespb.CapabilityConfig{}
+	snap.Dons["don-8"] = &capabilitiespb.DONConfig{}
+	snap.Dons["don-7"].Capabilities["evil@1.0.0"] = &capabilitiespb.CapabilityConfig{}
 
 	again, v := g.LoadParsed()
 	assert.Equal(t, uint64(1), v)
 	assert.Equal(t, uint64(1), again.GetVersion())
-	assert.NotContains(t, again.GetDons(), uint32(8))
-	assert.NotContains(t, again.GetDons()[7].GetCapabilityConfigs(), "evil@1.0.0")
+	assert.NotContains(t, again.GetDons(), "don-8")
+	assert.NotContains(t, again.GetDons()["don-7"].GetCapabilities(), "evil@1.0.0")
 
 	empty, v := New().LoadParsed()
 	assert.Nil(t, empty)
@@ -214,7 +214,7 @@ func TestGlobalConfig_ConcurrentStoreAndLoad(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for v := 1; v <= n; v++ {
-			assert.NoError(t, g.Store(Update{Raw: fmt.Sprintf(`{"version":%d,"dons":{"1":{"capabilityConfigs":{"c@1.0.0":{}}}}}`, v)}))
+			assert.NoError(t, g.Store(Update{Raw: fmt.Sprintf(`{"version":%d,"dons":{"don-1":{"capabilities":{"c@1.0.0":{}}}}}`, v)}))
 		}
 	}()
 	for range 2 {
@@ -225,7 +225,7 @@ func TestGlobalConfig_ConcurrentStoreAndLoad(t *testing.T) {
 				if reg != nil {
 					// The snapshot is internally consistent and caller-owned.
 					assert.Equal(t, v, reg.GetVersion())
-					reg.Dons[1].CapabilityConfigs["x"] = nil
+					reg.Dons["don-1"].Capabilities["x"] = nil
 				}
 			}
 		}()
@@ -235,31 +235,48 @@ func TestGlobalConfig_ConcurrentStoreAndLoad(t *testing.T) {
 	assert.Equal(t, uint64(n), v)
 }
 
+// TestValidate_StrictFields: unknown or misspelled fields are rejected instead of silently
+// dropped, so a payload can never be accepted with its capability config quietly missing.
+func TestValidate_StrictFields(t *testing.T) {
+	t.Parallel()
+	for name, raw := range map[string]string{
+		"unknown top-level field":                  `{"version":1,"unknownField":true}`,
+		"old schema field capabilityConfigs":       `{"version":1,"dons":{"don-7":{"capabilityConfigs":{"cron@1.0.0":{}}}}}`,
+		"old schema field donId":                   `{"version":1,"dons":{"don-7":{"donId":7}}}`,
+		"unknown CapabilityConfig field":           `{"version":1,"dons":{"don-7":{"capabilities":{"cron@1.0.0":{"ocrConfig":{"f":3}}}}}}`,
+		"design doc example (illustrative fields)": `{"domain":"cre","env":"prod","version":201,"dons":{"workflow_1_zone-a":{"capabilities":{"streams-trigger@1.0.0":{"ocrConfig":{"f":3,"deltaProgress":"2s"}},"evm@1.0.0":{"methods":{"eth_getLogs":{"gasLimit":"500000"}}}}}}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			require.ErrorContains(t, Validate(raw), "unknown field")
+		})
+	}
+}
+
 func TestValidate(t *testing.T) {
 	t.Parallel()
 	require.NoError(t, Validate(`{"version":1,"dons":{}}`))
 	require.NoError(t, Validate(`{"version":"1"}`))
-	require.NoError(t, Validate(`{"version":1,"dons":{"7":{"donId":7,"capabilityConfigs":{"cron@1.0.0":{}}}}}`))
-	require.NoError(t, Validate(`{"version":1,"unknownField":true}`), "unknown fields are tolerated")
+	require.NoError(t, Validate(`{"domain":"cre","env":"prod","version":201,"dons":{"workflow_1_zone-a":{"capabilities":{"cron@1.0.0":{}}}}}`))
 	require.Error(t, Validate(``))
 	require.Error(t, Validate(`{`))
 	require.ErrorContains(t, Validate(`{"version":0}`), "version must be >= 1")
-	require.ErrorContains(t, Validate(`{"version":1,"dons":{"7":{"donId":8}}}`), "does not match map key")
-	require.ErrorContains(t, Validate(`{"version":1,"dons":{"7":{"capabilityConfigs":{"":{}}}}}`), "empty capability ID")
+	require.ErrorContains(t, Validate(`{"version":1,"dons":{"":{}}}`), "empty DON name")
+	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"":{}}}}}`), "empty capability ID")
 
 	t.Run("malformed spec_config is rejected at ingestion", func(t *testing.T) {
 		t.Parallel()
-		reg := &capabilitiespb.OffchainCapabilitiesRegistry{Version: 1, Dons: map[uint32]*capabilitiespb.OffchainDONConfig{
-			7: {CapabilityConfigs: map[string]*capabilitiespb.CapabilityConfig{
+		reg := &capabilitiespb.OffchainCapabilitiesRegistry{Version: 1, Dons: map[string]*capabilitiespb.DONConfig{
+			"don-7": {Capabilities: map[string]*capabilitiespb.CapabilityConfig{
 				"cron@1.0.0": {SpecConfig: &valuespb.Map{Fields: map[string]*valuespb.Value{"broken": {}}}},
 			}},
 		}}
 		b, err := protojson.Marshal(reg)
 		require.NoError(t, err)
-		require.ErrorContains(t, Validate(string(b)), `capability_configs["cron@1.0.0"]: invalid spec_config: key "broken": value has no type`)
+		require.ErrorContains(t, Validate(string(b)), `capabilities["cron@1.0.0"]: invalid spec_config: key "broken": value has no type`)
 
 		withSpec := func(spec string) string {
-			return `{"version":1,"dons":{"7":{"capabilityConfigs":{"c@1.0.0":{"specConfig":` + spec + `}}}}}`
+			return `{"version":1,"dons":{"don-7":{"capabilities":{"c@1.0.0":{"specConfig":` + spec + `}}}}}`
 		}
 		// Would panic in values.FromProto (decimal.NewFromBigInt(nil, ...)) if not rejected first.
 		require.ErrorContains(t, Validate(withSpec(`{"fields":{"d":{"decimalValue":{}}}}`)), "decimal value has no coefficient")

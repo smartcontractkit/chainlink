@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig/globalconfigtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -24,7 +25,7 @@ import (
 func capRegistrySpec(t *testing.T, offchainConfig string) job.Job {
 	t.Helper()
 	jb, err := cresettings.ValidatedCRESettingsSpec(fmt.Sprintf(`type = "cresettings"
-schemaVersion = 1
+schemaVersion = 2
 externalJobID = "%s"
 config_type = "capabilities_registry"
 offchain_config = '''%s'''`, uuid.New(), offchainConfig))
@@ -63,7 +64,7 @@ func TestSpawner_CRESettingsCapabilitiesRegistry(t *testing.T) {
 		return n
 	}
 
-	const payload = `{"version":3,"dons":{"7":{"capabilityConfigs":{"cron@1.0.0":{"specConfig":{"fields":{"interval":{"stringValue":"30"}}}}}}}}`
+	const payload = `{"domain":"cre","env":"test","version":3,"dons":{"don-7":{"capabilities":{"cron@1.0.0":{"specConfig":{"fields":{"interval":{"stringValue":"30"}}}}}}}}`
 
 	first := boot()
 	capRegJob := capRegistrySpec(t, payload)
@@ -89,7 +90,7 @@ func TestSpawner_CRESettingsCapabilitiesRegistry(t *testing.T) {
 	assert.Equal(t, settingsJob.CRESettingsSpec.Hash, applied.Hash)
 	reg, _ := second.gc.LoadParsed()
 	require.NotNil(t, reg)
-	assert.Equal(t, "30", reg.GetDons()[7].GetCapabilityConfigs()["cron@1.0.0"].GetSpecConfig().GetFields()["interval"].GetStringValue())
+	assert.Equal(t, "30", reg.GetDons()["don-7"].GetCapabilities()["cron@1.0.0"].GetSpecConfig().GetFields()["interval"].GetStringValue())
 
 	// Deleting the job withdraws the payload (revert to on-chain/TOML) once the projector
 	// observes the committed delete.
@@ -114,4 +115,27 @@ func TestSpawner_CRESettingsCapabilitiesRegistry(t *testing.T) {
 	_, v = second.gc.Load()
 	assert.Equal(t, uint64(4), v)
 	require.NoError(t, second.spawner.Close())
+}
+
+// TestORM_CRESettingsStaleSubmissionMetric swaps the package metrics sink, so it does not run
+// in parallel.
+func TestORM_CRESettingsStaleSubmissionMetric(t *testing.T) { //nolint:paralleltest // swaps package state
+	m, reader := globalconfigtest.NewMetrics(t)
+	job.SetCapRegMetricsForTest(t, m)
+
+	ctx := t.Context()
+	config := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+	lggr := logger.TestLogger(t)
+	orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db), cltest.NewKeyStore(t, db))
+
+	v5 := capRegistrySpec(t, `{"domain":"cre","env":"prod","version":5}`)
+	require.NoError(t, orm.CreateJob(ctx, &v5))
+	require.NoError(t, orm.DeleteJob(ctx, v5.ID, v5.Type))
+
+	stale := capRegistrySpec(t, `{"domain":"cre","env":"prod","version":4}`)
+	require.ErrorIs(t, orm.CreateJob(ctx, &stale), job.ErrCRESettingsCapRegistryStale)
+
+	got := globalconfigtest.Collect(t, reader)
+	assert.Equal(t, int64(1), got[globalconfig.MetricValidationErrors][globalconfigtest.Series("cre", "prod")])
 }

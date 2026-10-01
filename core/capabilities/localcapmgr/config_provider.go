@@ -42,26 +42,33 @@ func (p tomlCapabilityConfigProvider) LocalConfigOverrides(capID string, _ uint3
 
 // offchainCapabilityConfigProvider is backed by a snapshot of the offchain capabilities
 // registry taken once per reconcile. It returns the offchain spec_config for a (capID, donID),
-// matching the shape the TOML provider yields.
+// matching the shape the TOML provider yields. The offchain registry is keyed by on-chain DON
+// name, so donID is resolved through donNames (see offchainDONNames).
 //
-// Missing entries are not an error: when the payload has no config for the DON, no entry for the
-// capability, or no spec_config, it returns nil and every key keeps its on-chain/TOML value.
+// Missing entries are not an error: when the DON has no usable name, the payload has no config
+// for the DON, no entry for the capability, or no spec_config, it returns nil and every key
+// keeps its on-chain/TOML value.
 // A spec_config that cannot be converted is rejected at ingestion (globalconfig.Validate), so it
 // cannot reach here from an applied payload; if it ever does, the offchain layer is skipped for
 // that capability (on-chain/TOML values are used) and a warning is logged.
 type offchainCapabilityConfigProvider struct {
-	reg     *capabilitiespb.OffchainCapabilitiesRegistry
-	version uint64
-	lggr    logger.Logger
+	reg      *capabilitiespb.OffchainCapabilitiesRegistry
+	donNames map[uint32]string
+	version  uint64
+	lggr     logger.Logger
 }
 
 func (p offchainCapabilityConfigProvider) LocalConfigOverrides(capID string, donID uint32) map[string]any {
-	capCfg := p.reg.GetDons()[donID].GetCapabilityConfigs()[capID]
+	donName, ok := p.donNames[donID]
+	if !ok {
+		return nil
+	}
+	capCfg := p.reg.GetDons()[donName].GetCapabilities()[capID]
 	out, err := globalconfig.SpecConfigMap(capCfg.GetSpecConfig())
 	if err != nil {
 		if p.lggr != nil {
 			p.lggr.Warnw("Invalid offchain spec_config, ignoring offchain override",
-				"capID", capID, "donID", donID, "offchainVersion", p.version, "error", err)
+				"capID", capID, "donID", donID, "donName", donName, "offchainVersion", p.version, "error", err)
 		}
 		return nil
 	}

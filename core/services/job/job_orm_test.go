@@ -2243,9 +2243,9 @@ func TestORM_CRESettings(t *testing.T) {
 	// capabilities_registry specs carry their payload in config_type/offchain_config rather than
 	// settings; both must survive persistence so the job resolves to the same config_type (and
 	// re-applies the same payload) when it is reloaded on node restart.
-	const offchainConfig = `{"version":3,"dons":{"7":{"capabilityConfigs":{"cron@1.0.0":{}}}}}`
+	const offchainConfig = `{"domain":"cre","env":"test","version":3,"dons":{"don-7":{"capabilities":{"cron@1.0.0":{}}}}}`
 	capRegJob, err := cresettings.ValidatedCRESettingsSpec(fmt.Sprintf(`type = "cresettings"
-schemaVersion = 1
+schemaVersion = 2
 externalJobID = "%s"
 config_type = "capabilities_registry"
 offchain_config = '''%s'''`, uuid.New(), offchainConfig))

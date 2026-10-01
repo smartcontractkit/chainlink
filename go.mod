@@ -409,6 +409,10 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
+// DO NOT MERGE: local chainlink-common with the design-doc OffchainCapabilitiesRegistry proto
+// (CRE-4017). Replace with a published chainlink-common version once that change is merged.
+replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
+
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
 
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall

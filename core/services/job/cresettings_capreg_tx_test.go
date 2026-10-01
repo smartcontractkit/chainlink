@@ -82,7 +82,7 @@ func (e capRegEnv) boot(t *testing.T, startProjector bool) capRegNode {
 }
 
 func capRegPayload(version uint64, interval string) string {
-	return fmt.Sprintf(`{"version":%d,"dons":{"7":{"capabilityConfigs":{"cron@1.0.0":{"specConfig":{"fields":{"interval":{"stringValue":%q}}}}}}}}`, version, interval)
+	return fmt.Sprintf(`{"domain":"cre","env":"test","version":%d,"dons":{"don-7":{"capabilities":{"cron@1.0.0":{"specConfig":{"fields":{"interval":{"stringValue":%q}}}}}}}}`, version, interval)
 }
 
 func appliedVersion(gc *globalconfig.GlobalConfig) uint64 {
@@ -245,6 +245,7 @@ func TestCapRegistry_ConcurrentReconcileDuringReplacement(t *testing.T) {
 	t.Cleanup(func() { assert.NoError(t, mgr.Close()) })
 	dons := []registry.DON{{
 		ID:                       7,
+		Name:                     "don-7",
 		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{"cron@1.0.0": onchainCronConfig(t, "onchain")},
 	}}
 	require.NoError(t, mgr.Reconcile(ctx, dons))

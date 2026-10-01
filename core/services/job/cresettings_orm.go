@@ -19,6 +19,10 @@ import (
 // capabilities registry payload in CRESettingsSpec.OffchainConfig.
 const CRESettingsConfigTypeCapRegistry = "capabilities_registry"
 
+// capRegMetrics is the metrics sink for stale capabilities_registry submissions (a variable so
+// tests can observe it).
+var capRegMetrics = globalconfig.DefaultMetrics
+
 // creSettingsSingleCapRegistryIndex enforces at most one config_type=capabilities_registry job.
 const creSettingsSingleCapRegistryIndex = "idx_cre_settings_specs_single_capabilities_registry"
 
@@ -34,6 +38,10 @@ var (
 func (o *orm) insertCRESettingsSpec(ctx context.Context, spec *CRESettingsSpec) (specID int32, err error) {
 	if spec.ConfigType == CRESettingsConfigTypeCapRegistry {
 		if err = o.advanceCapRegistryHighWater(ctx, spec); err != nil {
+			if errors.Is(err, ErrCRESettingsCapRegistryStale) {
+				domain, env := globalconfig.PayloadLabels(spec.OffchainConfig)
+				capRegMetrics().RecordValidationError(ctx, domain, env)
+			}
 			return 0, err
 		}
 	}

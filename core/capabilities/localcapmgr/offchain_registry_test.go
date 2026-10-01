@@ -1,13 +1,13 @@
 package localcapmgr
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
@@ -18,10 +18,14 @@ func marshalOffchainRegistry(reg *capabilitiespb.OffchainCapabilitiesRegistry) (
 	return string(b), err
 }
 
+// testDONName is the on-chain name test DONs are given; the offchain registry is keyed by it.
+func testDONName(id uint32) string { return fmt.Sprintf("don-%d", id) }
+
+// offchainReg builds an offchain registry keyed by testDONName of each DON ID.
 func offchainReg(version uint64, dons map[uint32]map[string]*capabilitiespb.CapabilityConfig) *capabilitiespb.OffchainCapabilitiesRegistry {
-	reg := &capabilitiespb.OffchainCapabilitiesRegistry{Version: version, Dons: map[uint32]*capabilitiespb.OffchainDONConfig{}}
+	reg := &capabilitiespb.OffchainCapabilitiesRegistry{Domain: "cre", Env: "test", Version: version, Dons: map[string]*capabilitiespb.DONConfig{}}
 	for donID, caps := range dons {
-		reg.Dons[donID] = &capabilitiespb.OffchainDONConfig{DonId: donID, CapabilityConfigs: caps}
+		reg.Dons[testDONName(donID)] = &capabilitiespb.DONConfig{Capabilities: caps}
 	}
 	return reg
 }
@@ -31,7 +35,7 @@ func onchainDON(id uint32, capIDs ...string) registry.DON {
 	for _, c := range capIDs {
 		cfgs[c] = registry.CapabilityConfiguration{}
 	}
-	return registry.DON{DON: capabilities.DON{ID: id}, CapabilityConfigurations: cfgs}
+	return registry.DON{ID: id, Name: testDONName(id), CapabilityConfigurations: cfgs}
 }
 
 func newCrossCheckMgr(t *testing.T, allowlisted ...string) *localCapabilityManager {
@@ -169,7 +173,8 @@ func TestComputeOffchainCrossCheck_ConfigMismatch(t *testing.T) {
 		},
 	}
 	onchain := []registry.DON{{
-		ID: 1,
+		ID:   1,
+		Name: testDONName(1),
 		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
 			"cron@1.0.0": onchainSpecConfig(t, map[string]any{"interval": "20", "onchainOnly": "o"}),
 		},

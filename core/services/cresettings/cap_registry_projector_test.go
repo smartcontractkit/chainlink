@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig/globalconfigtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -58,4 +59,40 @@ func TestCapRegistryProjector_IdlePollingWithoutTrigger(t *testing.T) {
 
 	committed.set(&job.CRESettingsSpec{ConfigType: ConfigTypeCapRegistry, OffchainConfig: `{"version":4}`, Hash: "h4"})
 	require.Eventually(t, func() bool { _, v := gc.Load(); return v == 4 }, 5*time.Second, 10*time.Millisecond)
+}
+
+func TestCapRegistryProjector_Metrics(t *testing.T) {
+	t.Parallel()
+
+	committed := &committedStore{}
+	p := newCapRegistryProjector(logger.TestLogger(t), committed.load, globalconfig.New())
+	m, reader := globalconfigtest.NewMetrics(t)
+	p.metrics = m
+	prod := globalconfigtest.Series("cre", "prod")
+
+	committed.set(&job.CRESettingsSpec{ConfigType: ConfigTypeCapRegistry, OffchainConfig: `{"domain":"cre","env":"prod","version":7}`, Hash: "h7"})
+	require.NoError(t, p.Refresh(t.Context()))
+	assert.Equal(t, int64(7), globalconfigtest.Collect(t, reader)[globalconfig.MetricAppliedVersion][prod])
+
+	// Committed state older than what is applied cannot be applied (the DB prevents this; the
+	// runtime check is a backstop) and counts as an apply error.
+	committed.set(&job.CRESettingsSpec{ConfigType: ConfigTypeCapRegistry, OffchainConfig: `{"domain":"cre","env":"prod","version":6}`, Hash: "h6"})
+	require.Error(t, p.Refresh(t.Context()))
+
+	// Failing to read committed state is an apply error for the last applied series.
+	committed.mu.Lock()
+	committed.err = assert.AnError
+	committed.mu.Unlock()
+	require.ErrorIs(t, p.Refresh(t.Context()), assert.AnError)
+	committed.mu.Lock()
+	committed.err = nil
+	committed.mu.Unlock()
+
+	// Withdrawn: the same series drops to 0.
+	committed.set(nil)
+	require.NoError(t, p.Refresh(t.Context()))
+
+	got := globalconfigtest.Collect(t, reader)
+	assert.Equal(t, int64(0), got[globalconfig.MetricAppliedVersion][prod])
+	assert.Equal(t, int64(2), got[globalconfig.MetricApplyErrors][prod])
 }

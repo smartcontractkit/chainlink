@@ -58,7 +58,7 @@ func ValidateSpec(ts string) (Type, error) {
 	if _, ok := jobTypes[jb.Type]; !ok {
 		return "", ErrInvalidJobType
 	}
-	if jb.Type.SchemaVersion() != jb.SchemaVersion {
+	if !jb.Type.acceptsSchemaVersion(jb.SchemaVersion) {
 		return "", ErrInvalidSchemaVersion
 	}
 	if jb.Type.RequiresPipelineSpec() && (jb.Pipeline.Source == "") {

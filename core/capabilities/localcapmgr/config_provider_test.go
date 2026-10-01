@@ -76,7 +76,7 @@ func TestOffchainCapabilityConfigProvider(t *testing.T) {
 		},
 	})
 	reg, version := gc.LoadParsed()
-	p := offchainCapabilityConfigProvider{reg: reg, version: version}
+	p := offchainCapabilityConfigProvider{reg: reg, donNames: map[uint32]string{7: testDONName(7), 99: testDONName(99)}, version: version}
 
 	t.Run("returns offchain spec_config for the DON", func(t *testing.T) {
 		t.Parallel()
@@ -86,6 +86,12 @@ func TestOffchainCapabilityConfigProvider(t *testing.T) {
 	t.Run("nil for missing DON", func(t *testing.T) {
 		t.Parallel()
 		assert.Nil(t, p.LocalConfigOverrides("cron@1.0.0", 99))
+	})
+
+	t.Run("nil for DON without a usable name", func(t *testing.T) {
+		t.Parallel()
+		unnamed := offchainCapabilityConfigProvider{reg: reg, donNames: map[uint32]string{}, version: version}
+		assert.Nil(t, unnamed.LocalConfigOverrides("cron@1.0.0", 7))
 	})
 
 	t.Run("nil for missing capability", func(t *testing.T) {
@@ -114,7 +120,7 @@ func TestOffchainCapabilityConfigProvider(t *testing.T) {
 				"broken": {}, // a Value with no kind cannot be converted
 			}}}},
 		})
-		p := offchainCapabilityConfigProvider{reg: bad, version: 1, lggr: testLogger(t)}
+		p := offchainCapabilityConfigProvider{reg: bad, donNames: map[uint32]string{7: testDONName(7)}, version: 1, lggr: testLogger(t)}
 		assert.Nil(t, p.LocalConfigOverrides("cron@1.0.0", 7))
 	})
 }

@@ -1,6 +1,7 @@
 package cresettings
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -14,7 +15,38 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
+// SchemaVersionConfigType is the cresettings schemaVersion that introduced the top-level
+// config_type and offchain_config fields. Specs using them must declare it, so that nodes
+// predating those fields (which only accept schemaVersion 1) reject the spec instead of
+// misreading it as a settings spec with empty settings.
+const SchemaVersionConfigType = 2
+
+// ValidatedCRESettingsSpec parses and validates a cresettings job spec. Rejected
+// capabilities_registry submissions are counted in platform_cap_config_validation_errors_total.
 func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
+	jb, err := validatedCRESettingsSpec(tomlString)
+	if err != nil && isCapRegistrySubmission(jb.CRESettingsSpec) {
+		domain, env := globalconfig.PayloadLabels(jb.CRESettingsSpec.OffchainConfig)
+		capRegMetrics().RecordValidationError(context.Background(), domain, env)
+	}
+	return jb, err
+}
+
+// capRegMetrics is the metrics sink for capabilities_registry validation failures (a variable
+// so tests can observe it).
+var capRegMetrics = globalconfig.DefaultMetrics
+
+// isCapRegistrySubmission reports whether spec is (or tries to be) a capabilities_registry
+// spec, including malformed attempts.
+func isCapRegistrySubmission(spec *job.CRESettingsSpec) bool {
+	if spec == nil {
+		return false
+	}
+	return spec.ConfigType == ConfigTypeCapRegistry || spec.OffchainConfig != "" ||
+		resolveConfigType(*spec) == configTypeEmbeddedCapRegistry
+}
+
+func validatedCRESettingsSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{
 		ExternalJobID: uuid.New(),
 	}
@@ -38,6 +70,15 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 	jb.CRESettingsSpec = &spec
 	if jb.Type != job.CRESettings {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
+	}
+
+	switch jb.SchemaVersion {
+	case 1, SchemaVersionConfigType:
+	default:
+		return jb, fmt.Errorf("unsupported schemaVersion %d for %s (supported: 1, %d)", jb.SchemaVersion, job.CRESettings, SchemaVersionConfigType)
+	}
+	if (spec.ConfigType != "" || spec.OffchainConfig != "") && jb.SchemaVersion < SchemaVersionConfigType {
+		return jb, fmt.Errorf("the top-level config_type and offchain_config fields require schemaVersion = %d", SchemaVersionConfigType)
 	}
 
 	configType := resolveConfigType(spec)

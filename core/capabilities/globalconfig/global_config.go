@@ -120,6 +120,17 @@ func (g *GlobalConfig) Load() (raw string, version uint64) {
 	return g.raw, g.version
 }
 
+// Info returns the domain, env and version of the applied payload; all zero values when
+// nothing is applied.
+func (g *GlobalConfig) Info() (domain, env string, version uint64) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	if g.parsed == nil {
+		return "", "", 0
+	}
+	return g.parsed.GetDomain(), g.parsed.GetEnv(), g.version
+}
+
 // LoadParsed returns a snapshot of the current parsed registry and its version. The registry
 // is nil and the version 0 when nothing is applied (never, or since Clear). The snapshot is a deep copy owned by the caller,
 // so mutating it cannot affect the applied config or other readers.
@@ -163,10 +174,10 @@ func (g *GlobalConfig) notify() {
 }
 
 // Validate checks that a payload parses into a well-formed OffchainCapabilitiesRegistry:
+//   - the payload must contain only fields known to this node (see parse),
 //   - version must be >= 1 (0 is the proto default, i.e. "unset", and would defeat the
 //     monotonic version check),
-//   - each DON config's don_id, when set, must match its map key,
-//   - capability IDs must be non-empty,
+//   - DON names (map keys) and capability IDs must be non-empty,
 //   - every spec_config must convert to a config map (the shape the launcher merges).
 //
 // It does not perform on-chain cross-validation, which happens in the LocalCapabilityManager
@@ -253,15 +264,19 @@ func checkValue(v *valuespb.Value) error {
 	return nil
 }
 
-// parse decodes proto-JSON into the registry proto and validates it. Unknown fields are
-// discarded so that a node running an older schema tolerates payloads authored against a
-// newer one.
+// parse decodes proto-JSON into the registry proto and validates it.
+//
+// Parsing is strict: a field this node does not know is an error, not silently dropped. A
+// misspelled or wrong-schema field (e.g. "capabilityConfigs" instead of "capabilities") would
+// otherwise be accepted as a payload with no config, and the node would quietly fall back to
+// legacy config. Payloads using new schema fields must therefore only be rolled out to nodes
+// that understand them; older nodes reject them visibly (job error).
 func parse(raw string) (*capabilitiespb.OffchainCapabilitiesRegistry, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, errors.New("offchain config: empty payload")
 	}
 	var reg capabilitiespb.OffchainCapabilitiesRegistry
-	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal([]byte(raw), &reg); err != nil {
+	if err := protojson.Unmarshal([]byte(raw), &reg); err != nil {
 		return nil, fmt.Errorf("offchain config: invalid payload: %w", err)
 	}
 	if err := validate(&reg); err != nil {
@@ -274,19 +289,16 @@ func validate(reg *capabilitiespb.OffchainCapabilitiesRegistry) error {
 	if reg.GetVersion() == 0 {
 		return errors.New("version must be >= 1")
 	}
-	for donID, don := range reg.GetDons() {
-		if don == nil {
-			continue
+	for donName, don := range reg.GetDons() {
+		if donName == "" {
+			return errors.New("dons: empty DON name")
 		}
-		if don.GetDonId() != 0 && don.GetDonId() != donID {
-			return fmt.Errorf("dons[%d]: don_id %d does not match map key", donID, don.GetDonId())
-		}
-		for capID, capCfg := range don.GetCapabilityConfigs() {
+		for capID, capCfg := range don.GetCapabilities() {
 			if capID == "" {
-				return fmt.Errorf("dons[%d]: empty capability ID", donID)
+				return fmt.Errorf("dons[%q]: empty capability ID", donName)
 			}
 			if _, err := SpecConfigMap(capCfg.GetSpecConfig()); err != nil {
-				return fmt.Errorf("dons[%d].capability_configs[%q]: invalid spec_config: %w", donID, capID, err)
+				return fmt.Errorf("dons[%q].capabilities[%q]: invalid spec_config: %w", donName, capID, err)
 			}
 		}
 	}

@@ -105,7 +105,7 @@ func newCutoverManager(t *testing.T, localCfg *testLocalCapabilities, gc *global
 }
 
 func onchainDONWith(id uint32, caps map[string]registry.CapabilityConfiguration) registry.DON {
-	return registry.DON{ID: id, CapabilityConfigurations: caps}
+	return registry.DON{ID: id, Name: testDONName(id), CapabilityConfigurations: caps}
 }
 
 // TestReconcile_EffectiveSpecConfigPrecedence drives the full launch path (Reconcile ->
@@ -392,4 +392,46 @@ func TestReconcile_ConcurrentOffchainUpdates(t *testing.T) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	require.Len(t, m.runningCapabilities, 1)
+}
+
+// TestReconcile_OffchainMatchesByDONName covers the design's name-keyed DON map: offchain config
+// applies to the on-chain DON with that name, regardless of its ID; DONs without a usable name
+// (unnamed, or a name shared by two of this node's DONs) keep their legacy config.
+func TestReconcile_OffchainMatchesByDONName(t *testing.T) {
+	t.Parallel()
+
+	onchain := onchainSpecConfig(t, map[string]any{"interval": "20"})
+	gc := globalconfig.New()
+	raw, err := marshalOffchainRegistry(&capabilitiespb.OffchainCapabilitiesRegistry{
+		Domain: "cre", Env: "test", Version: 1,
+		Dons: map[string]*capabilitiespb.DONConfig{
+			"workflow_1_zone-a": {Capabilities: map[string]*capabilitiespb.CapabilityConfig{"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30"})}},
+			"shared":            {Capabilities: map[string]*capabilitiespb.CapabilityConfig{"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "99"})}},
+		},
+	})
+	require.NoError(t, err)
+	require.NoError(t, gc.Store(globalconfig.Update{Raw: raw}))
+
+	named := func(id uint32, name string) registry.DON {
+		return registry.DON{ID: id, Name: name, CapabilityConfigurations: map[string]registry.CapabilityConfiguration{"cron@1.0.0": onchain}}
+	}
+	m, rec := newCutoverManager(t, &testLocalCapabilities{allowlisted: map[string]bool{"cron@1.0.0": true}}, gc, true)
+	require.NoError(t, m.Reconcile(t.Context(), []registry.DON{
+		named(42, "workflow_1_zone-a"), // matched by name; the ID is irrelevant
+		named(43, ""),                  // unnamed (e.g. registry without DON names)
+		named(44, "shared"),            // ambiguous: two of this node's DONs share the name
+		named(45, "shared"),
+	}))
+
+	assert.Equal(t, map[string]any{"interval": "30"}, rec.configFor(t, "cron@1.0.0", 42))
+	for _, id := range []uint32{43, 44, 45} {
+		assert.Equal(t, map[string]any{"interval": "20"}, rec.configFor(t, "cron@1.0.0", id), "DON %d must keep legacy config", id)
+	}
+
+	check := m.computeOffchainCrossCheck(func() *capabilitiespb.OffchainCapabilitiesRegistry { r, _ := gc.LoadParsed(); return r }(), 1, []registry.DON{
+		named(42, "workflow_1_zone-a"), named(43, ""), named(44, "shared"), named(45, "shared"),
+	})
+	assert.Equal(t, int64(1), check.matchedCaps)
+	assert.Equal(t, int64(3), check.divergences[divergenceMissingDON], "unnamed and ambiguous DONs cannot be matched")
+	assert.Equal(t, int64(1), check.divergences[divergenceExtraDON], `offchain "shared" matches no unambiguous DON`)
 }

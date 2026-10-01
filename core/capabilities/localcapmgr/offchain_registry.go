@@ -66,10 +66,10 @@ func (m *localCapabilityManager) computeOffchainCrossCheck(reg *capabilitiespb.O
 	}
 
 	offchainDONs := reg.GetDons()
+	donNames := m.offchainDONNames(allMyDONs)
 
 	// on-chain -> offchain: every allowlisted (DON, capability) on-chain should be present
 	// offchain.
-	seenOffchainCap := map[uint32]map[string]bool{}
 	for _, don := range allMyDONs {
 		allowlisted := m.allowlistedCapIDs(don)
 		if len(allowlisted) == 0 {
@@ -77,19 +77,18 @@ func (m *localCapabilityManager) computeOffchainCrossCheck(reg *capabilitiespb.O
 		}
 		check.comparedDONs++
 
-		offDON, ok := offchainDONs[don.ID]
-		if !ok {
+		donName, named := donNames[don.ID]
+		offDON, ok := offchainDONs[donName]
+		if !named || !ok {
 			check.divergences[divergenceMissingDON]++
-			m.lggr.Warnw("Offchain registry missing on-chain DON", "donID", don.ID, "offchainVersion", version)
+			m.lggr.Warnw("Offchain registry missing on-chain DON", "donID", don.ID, "donName", don.Name, "offchainVersion", version)
 			continue
 		}
 
-		offCaps := offDON.GetCapabilityConfigs()
-		seenOffchainCap[don.ID] = map[string]bool{}
+		offCaps := offDON.GetCapabilities()
 		for _, capID := range allowlisted {
 			if offCap, ok := offCaps[capID]; ok {
 				check.matchedCaps++
-				seenOffchainCap[don.ID][capID] = true
 				if m.offchainChangesConfig(don.ID, capID, don.CapabilityConfigurations[capID], offCap) {
 					check.divergences[divergenceConfigMismatch]++
 					m.lggr.Debugw("Offchain spec_config differs from legacy (TOML + on-chain) config",
@@ -98,27 +97,31 @@ func (m *localCapabilityManager) computeOffchainCrossCheck(reg *capabilitiespb.O
 			} else {
 				check.divergences[divergenceMissingCapability]++
 				m.lggr.Warnw("Offchain registry missing on-chain capability",
-					"donID", don.ID, "capID", capID, "offchainVersion", version)
+					"donID", don.ID, "donName", donName, "capID", capID, "offchainVersion", version)
 			}
 		}
 	}
 
 	// offchain -> on-chain: offchain DONs/capabilities not present on-chain for this node.
-	onchainDONs := map[uint32]map[string]struct{}{}
+	onchainDONs := map[string]map[string]struct{}{}
 	for _, don := range allMyDONs {
+		name, ok := donNames[don.ID]
+		if !ok {
+			continue
+		}
 		caps := map[string]struct{}{}
 		for capID := range don.CapabilityConfigurations {
 			caps[capID] = struct{}{}
 		}
-		onchainDONs[don.ID] = caps
+		onchainDONs[name] = caps
 	}
-	for donID, offDON := range offchainDONs {
-		onCaps, ok := onchainDONs[donID]
+	for donName, offDON := range offchainDONs {
+		onCaps, ok := onchainDONs[donName]
 		if !ok {
 			check.divergences[divergenceExtraDON]++
 			continue
 		}
-		for capID := range offDON.GetCapabilityConfigs() {
+		for capID := range offDON.GetCapabilities() {
 			if _, ok := onCaps[capID]; !ok {
 				check.divergences[divergenceExtraCapability]++
 			}
@@ -147,6 +150,32 @@ func (m *localCapabilityManager) offchainChangesConfig(donID uint32, capID strin
 		return false
 	}
 	return legacy != cutover
+}
+
+// offchainDONNames maps this node's on-chain DON IDs to the DON names that key the offchain
+// registry. A DON without a name (e.g. from a registry version that does not record names), or
+// whose name is shared with another of this node's DONs, is left out: its offchain config
+// cannot be attributed unambiguously, so it keeps its legacy (on-chain/TOML) config and is
+// reported as missing_don by the cross-check.
+func (m *localCapabilityManager) offchainDONNames(dons []registry.DON) map[uint32]string {
+	byName := make(map[string][]uint32, len(dons))
+	for _, don := range dons {
+		if don.Name == "" {
+			m.lggr.Debugw("On-chain DON has no name; offchain config cannot apply to it", "donID", don.ID)
+			continue
+		}
+		byName[don.Name] = append(byName[don.Name], don.ID)
+	}
+	out := make(map[uint32]string, len(dons))
+	for name, ids := range byName {
+		if len(ids) > 1 {
+			m.lggr.Warnw("On-chain DON name is not unique among this node's DONs; offchain config cannot apply to them",
+				"donName", name, "donIDs", ids)
+			continue
+		}
+		out[ids[0]] = name
+	}
+	return out
 }
 
 // allowlistedCapIDs returns the capability IDs configured on a DON that this node is

@@ -118,7 +118,7 @@ func TestValidatedCRESettingsSpec_CapabilitiesRegistry(t *testing.T) {
 
 	specFn := func(offchain string) string {
 		return fmt.Sprintf(`type = "cresettings"
-schemaVersion = 1
+schemaVersion = 2
 externalJobID = "7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"
 config_type = "capabilities_registry"
 offchain_config = '''%s'''`, offchain)
@@ -172,7 +172,7 @@ offchain_config = '''%s'''`, offchain)
 	t.Run("offchain_config with another config_type rejected", func(t *testing.T) {
 		t.Parallel()
 		_, err := ValidatedCRESettingsSpec(`type = "cresettings"
-schemaVersion = 1
+schemaVersion = 2
 settings = '''Foo = "bar"'''
 offchain_config = '''{"version":1}'''`)
 		require.ErrorContains(t, err, "offchain_config is only valid")
@@ -193,7 +193,7 @@ offchain_config = '''{"version":1}'''`)
 func TestValidatedCRESettingsSpec_CapRegistryDiscriminatorForms(t *testing.T) {
 	t.Parallel()
 
-	const header = "type = \"cresettings\"\nschemaVersion = 1\n"
+	const header = "type = \"cresettings\"\nschemaVersion = 2\n"
 	for _, tc := range []struct {
 		name    string
 		body    string

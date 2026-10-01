@@ -22,8 +22,8 @@ type metrics struct {
 	launchDuration metric.Float64Histogram
 	runningGauge   metric.Int64Gauge
 
-	// Offchain capabilities registry cross-validation telemetry.
-	offchainVersion     metric.Int64Gauge
+	// Offchain capabilities registry cross-validation telemetry. The applied version is
+	// emitted by the cresettings CapRegistryProjector (platform_cap_config_applied_version).
 	offchainMatchedCaps metric.Int64Gauge
 	offchainDivergences metric.Int64Counter
 }
@@ -61,12 +61,6 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
-	offchainVersion, err := meter.Int64Gauge("platform_offchain_registry_version",
-		metric.WithDescription("Applied offchain capabilities registry version (0 if none applied)"))
-	if err != nil {
-		return nil, err
-	}
-
 	offchainMatchedCaps, err := meter.Int64Gauge("platform_offchain_registry_matched_capabilities",
 		metric.WithDescription("Allowlisted capabilities present in both the offchain and on-chain registries"))
 	if err != nil {
@@ -85,7 +79,6 @@ func newMetrics() (*metrics, error) {
 		configUpdates:       configUpdates,
 		launchDuration:      launchDuration,
 		runningGauge:        runningGauge,
-		offchainVersion:     offchainVersion,
 		offchainMatchedCaps: offchainMatchedCaps,
 		offchainDivergences: offchainDivergences,
 	}, nil
@@ -113,7 +106,6 @@ func (m *metrics) recordRunning(ctx context.Context, count int64) {
 
 // recordOffchainCheck emits the result of an offchain-vs-onchain cross-validation pass.
 func (m *localCapabilityManager) recordOffchainCheck(ctx context.Context, c offchainCrossCheck) {
-	m.metrics.offchainVersion.Record(ctx, int64(c.version))
 	if c.offchainEmpty {
 		m.metrics.offchainMatchedCaps.Record(ctx, 0)
 		return

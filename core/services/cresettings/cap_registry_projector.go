@@ -42,9 +42,13 @@ const (
 // applied.
 type CapRegistryProjector struct {
 	services.StateMachine
-	lggr logger.Logger
-	load func(ctx context.Context) (*job.CRESettingsSpec, error)
-	gc   *globalconfig.GlobalConfig
+	lggr    logger.Logger
+	load    func(ctx context.Context) (*job.CRESettingsSpec, error)
+	gc      *globalconfig.GlobalConfig
+	metrics *globalconfig.Metrics
+	// lastDomain/lastEnv label the applied-version gauge; kept so it can be reset to 0 for the
+	// same series when the payload is withdrawn. Guarded by mu.
+	lastDomain, lastEnv string
 
 	idleInterval, fastInterval, fastWindow time.Duration
 
@@ -67,6 +71,7 @@ func newCapRegistryProjector(lggr logger.Logger, load func(context.Context) (*jo
 		lggr:         logger.Named(lggr, "CapRegistryProjector"),
 		load:         load,
 		gc:           gc,
+		metrics:      globalconfig.DefaultMetrics(),
 		idleInterval: defaultCapRegistryIdleInterval,
 		fastInterval: defaultCapRegistryFastInterval,
 		fastWindow:   defaultCapRegistryFastWindow,
@@ -109,30 +114,49 @@ func (p *CapRegistryProjector) Trigger() {
 }
 
 // Refresh applies the committed capabilities_registry payload (or clears the runtime config
-// when there is none).
+// when there is none). Failures are counted in platform_cap_config_apply_errors_total.
 func (p *CapRegistryProjector) Refresh(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	spec, err := p.load(ctx)
 	if err != nil {
+		p.metrics.RecordApplyError(ctx, p.lastDomain, p.lastEnv)
 		return err
 	}
-	_, before := p.gc.Load()
+	_, _, before := p.gc.Info()
 	if spec == nil {
 		p.gc.Clear()
 		if before != 0 {
 			p.lggr.Infow("Cleared offchain capabilities registry config (no committed capabilities_registry job)", "previousVersion", before)
 		}
+		p.recordApplied(ctx)
 		return nil
 	}
 	if err = p.gc.Store(globalconfig.Update{Raw: spec.OffchainConfig, Hash: spec.Hash}); err != nil {
+		domain, env := globalconfig.PayloadLabels(spec.OffchainConfig)
+		p.metrics.RecordApplyError(ctx, domain, env)
 		return fmt.Errorf("failed to apply committed capabilities_registry config: %w", err)
 	}
-	if _, after := p.gc.Load(); after != before {
+	if _, _, after := p.gc.Info(); after != before {
 		p.lggr.Infow("Applied offchain capabilities registry config", "version", after, "previousVersion", before, "hash", spec.Hash)
 	}
+	p.recordApplied(ctx)
 	return nil
+}
+
+// recordApplied sets platform_cap_config_applied_version for the applied payload's
+// (domain, env), and resets the previous series to 0 when the payload is withdrawn or its
+// labels change. Callers must hold mu.
+func (p *CapRegistryProjector) recordApplied(ctx context.Context) {
+	domain, env, version := p.gc.Info()
+	if version == 0 {
+		domain, env = p.lastDomain, p.lastEnv
+	} else if domain != p.lastDomain || env != p.lastEnv {
+		p.metrics.RecordAppliedVersion(ctx, p.lastDomain, p.lastEnv, 0)
+	}
+	p.metrics.RecordAppliedVersion(ctx, domain, env, version)
+	p.lastDomain, p.lastEnv = domain, env
 }
 
 func (p *CapRegistryProjector) run() {
