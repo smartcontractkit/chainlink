@@ -20,11 +20,9 @@ var ErrWorkflowNotCoordinated = errors.New("workflow not registered with the tri
 // build each capability's RequestMetadata.
 type RegistrationParams struct {
 	WorkflowOwner                 string
-	WorkflowName                  string
-	DecodedWorkflowName           string
+	WorkflowName                  types.WorkflowName
 	WorkflowTag                   string
 	WorkflowDonID                 uint32
-	WorkflowDonConfigVersion      uint32
 	WorkflowRegistryChainSelector string
 	WorkflowRegistryAddress       string
 }
@@ -102,7 +100,7 @@ func (c *noopCoordinator) RegisterTriggers(ctx context.Context, subscriber Subsc
 	c.lggr.Infow("No-op RegisterTriggers",
 		"workflowID", subscriber.Tenant().Workflow,
 		"workflowOwner", params.WorkflowOwner,
-		"workflowName", params.DecodedWorkflowName,
+		"workflowName", params.WorkflowName.String(),
 		"workflowDonID", params.WorkflowDonID)
 	return []string{}, nil
 }
