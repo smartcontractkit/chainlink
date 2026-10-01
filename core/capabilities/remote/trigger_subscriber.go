@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -71,6 +72,11 @@ type ackReplayKey struct {
 type subRegState struct {
 	callback   chan commoncap.TriggerResponse
 	rawRequest []byte
+	// nextSendAt is when this registration is next due to be (re-)sent to the
+	// capability DON. Jittered on creation so that many registrations created
+	// around the same time (e.g. on node startup) don't all resend in lockstep
+	// every RegistrationRefresh, spiking P2P traffic DON-wide. Protected by s.mu.
+	nextSendAt time.Time
 }
 
 type TriggerSubscriber interface {
@@ -87,7 +93,25 @@ const (
 	// Engine reads trigger events without blocking and applies its own limits
 	sendChannelBufferSize = 1000
 	maxBatchedWorkflowIDs = 1000
+
+	// minRegistrationPollInterval is the floor for the registration poll ticker.
+	// It bounds how frequently registrationLoop wakes up to check which
+	// registrations are due for resend, and therefore the worst-case jitter
+	// resolution.
+	minRegistrationPollInterval = 100 * time.Millisecond
 )
+
+// registrationPollInterval returns the interval at which registrationLoop polls
+// for due registrations: RegistrationRefresh/10, floored at
+// minRegistrationPollInterval so that very short refresh values (e.g. in tests)
+// don't cause busy-looping.
+func registrationPollInterval(refresh time.Duration) time.Duration {
+	d := refresh / 10
+	if d < minRegistrationPollInterval {
+		return minRegistrationPollInterval
+	}
+	return d
+}
 
 func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerSubscriber {
 	return &triggerSubscriber{
@@ -198,12 +222,19 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	}
 	regState, ok := triggerMap[request.TriggerID]
 	if !ok {
+		// Stagger the first send across the refresh window so registrations
+		// created around the same time (e.g. many workflows starting at once)
+		// don't all resend in lockstep later and spike P2P traffic DON-wide.
+		jitter := time.Duration(rand.Int64N(int64(cfg.remoteConfig.RegistrationRefresh))) //nolint:gosec // G404: weak random is fine for send-time jitter
 		regState = &subRegState{
 			callback:   make(chan commoncap.TriggerResponse, sendChannelBufferSize),
 			rawRequest: rawRequest,
+			nextSendAt: time.Now().Add(jitter),
 		}
 		triggerMap[request.TriggerID] = regState
 	} else {
+		// Keep the existing nextSendAt schedule; resetting it on every
+		// re-registration would reintroduce a synchronized spike.
 		regState.rawRequest = rawRequest
 		s.lggr.Warnw("RegisterTrigger re-registering trigger", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID)
 	}
@@ -214,8 +245,9 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 func (s *triggerSubscriber) registrationLoop() {
 	defer s.wg.Done()
 	cfg := s.cfg.Load()
-	tickerDuration := cfg.remoteConfig.RegistrationRefresh
-	ticker := time.NewTicker(tickerDuration)
+	currentRefresh := cfg.remoteConfig.RegistrationRefresh
+	pollInterval := registrationPollInterval(currentRefresh)
+	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -223,25 +255,30 @@ func (s *triggerSubscriber) registrationLoop() {
 			return
 		case <-ticker.C:
 			cfg := s.cfg.Load()
-			if cfg.remoteConfig.RegistrationRefresh != tickerDuration {
-				tickerDuration = cfg.remoteConfig.RegistrationRefresh
-				ticker.Reset(tickerDuration)
+			if cfg.remoteConfig.RegistrationRefresh != currentRefresh {
+				currentRefresh = cfg.remoteConfig.RegistrationRefresh
+				pollInterval = registrationPollInterval(currentRefresh)
+				ticker.Reset(pollInterval)
 			}
 
-			s.mu.RLock()
-			s.lggr.Infow("register trigger for remote capability", "donId", cfg.capDonInfo.ID, "nMembers", len(cfg.capDonInfo.Members), "nWorkflows", len(s.registeredWorkflows))
-			var totalRegistrations, totalP2PSends, totalSendErrors int
+			now := time.Now()
+			s.mu.Lock()
+			var totalRegistrations, nDue, totalP2PSends, totalSendErrors int
 			for _, regMap := range s.registeredWorkflows {
 				totalRegistrations += len(regMap)
 			}
-			s.lggr.Infow("registrationLoop tick: sending registrations",
-				"donId", cfg.capDonInfo.ID,
-				"nCapDonMembers", len(cfg.capDonInfo.Members),
-				"nWorkflows", len(s.registeredWorkflows),
-				"nRegistrations", totalRegistrations,
-				"expectedP2PSends", totalRegistrations*len(cfg.capDonInfo.Members))
 			for _, regMap := range s.registeredWorkflows {
 				for _, registration := range regMap {
+					// Only registrations whose jittered schedule has elapsed are
+					// due this poll; this is what spreads sends across the
+					// refresh window instead of bursting them all at once.
+					if now.Before(registration.nextSendAt) {
+						continue
+					}
+					nDue++
+					// Advance the schedule before sending so a slow dispatcher
+					// can't cause a double-fire on the next poll.
+					registration.nextSendAt = now.Add(cfg.remoteConfig.RegistrationRefresh)
 					for _, peerID := range cfg.capDonInfo.Members {
 						m := &types.MessageBody{
 							CapabilityId:     cfg.capInfo.ID,
@@ -261,11 +298,19 @@ func (s *triggerSubscriber) registrationLoop() {
 					}
 				}
 			}
-			s.mu.RUnlock()
-			s.lggr.Infow("registrationLoop tick: completed",
-				"donId", cfg.capDonInfo.ID,
-				"p2pSendsSent", totalP2PSends,
-				"p2pSendErrors", totalSendErrors)
+			s.mu.Unlock()
+			if nDue > 0 {
+				s.lggr.Infow("registrationLoop tick: sent due registrations",
+					"donId", cfg.capDonInfo.ID,
+					"nCapDonMembers", len(cfg.capDonInfo.Members),
+					"nWorkflows", len(s.registeredWorkflows),
+					"nRegistrations", totalRegistrations,
+					"nDue", nDue,
+					"p2pSendsSent", totalP2PSends,
+					"p2pSendErrors", totalSendErrors)
+			} else if totalRegistrations == 0 {
+				s.lggr.Debugw("no workflows to register", "donId", cfg.capDonInfo.ID)
+			}
 		}
 	}
 }
