@@ -179,9 +179,9 @@ func (c *coordinator) close() error {
 func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) ([]string, error) {
 	cre := subscriber.Tenant()
 	workflowID := cre.Workflow
-	wid, err := types.WorkflowIDFromHex(workflowID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid workflow id %q: %w", workflowID, err)
+	wid, idErr := types.WorkflowIDFromHex(workflowID)
+	if idErr != nil {
+		return nil, fmt.Errorf("invalid workflow id %q: %w", workflowID, idErr)
 	}
 	ctx = contexts.WithCRE(ctx, cre)
 
