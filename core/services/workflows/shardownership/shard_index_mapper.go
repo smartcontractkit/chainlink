@@ -113,11 +113,11 @@ func shardDONsByIndex(reg *registry.RegistryMetadata, localDON commoncap.DON, na
 // workflow DON's name (e.g. "workflow-1-zone-a-shard-1" -> 1). A name with no
 // "shard-" suffix is shard index 0.
 func shardIndexFromName(name string) (uint32, error) {
-	idx := strings.LastIndex(name, types.ShardNameMarker)
-	if idx == -1 {
+	_, after, ok := strings.CutLast(name, types.ShardNameMarker)
+	if !ok {
 		return 0, nil
 	}
-	suffix := name[idx+len(types.ShardNameMarker):]
+	suffix := after
 	if len(suffix) != 1 || suffix[0] < '0' || suffix[0] > '9' {
 		return 0, fmt.Errorf("expected DON name %q to end with %q followed by a single digit, got suffix %q", name, types.ShardNameMarker, suffix)
 	}
@@ -130,11 +130,11 @@ func shardIndexFromName(name string) (uint32, error) {
 // "workflow-1-zone-a-shard-1" -> "workflow-1-zone-a"). A name with no such
 // suffix is returned unchanged.
 func shardGroupNamePrefix(name string) string {
-	idx := strings.LastIndex(name, types.ShardNameMarker)
-	if idx == -1 {
+	before, _, ok := strings.CutLast(name, types.ShardNameMarker)
+	if !ok {
 		return name
 	}
-	prefix := name[:idx]
+	prefix := before
 	if strings.HasSuffix(prefix, "_") || strings.HasSuffix(prefix, "-") {
 		prefix = prefix[:len(prefix)-1]
 	}

@@ -472,7 +472,11 @@ func (h *httpTriggerHandler) cleanupCallback(requestID string) {
 }
 
 func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
-	h.lggr.Debugw("handling trigger response", "requestID", resp.ID, "nodeAddr", nodeAddr, "error", resp.Error, "result", resp.Result)
+	result := "nil"
+	if resp.Result != nil {
+		result = string(*resp.Result)
+	}
+	h.lggr.Debugw("handling trigger response", "requestID", resp.ID, "nodeAddr", nodeAddr, "error", resp.Error, "result", result)
 	h.callbacksMu.Lock()
 	defer h.callbacksMu.Unlock()
 	saved, exists := h.callbacks[resp.ID]

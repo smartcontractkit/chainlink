@@ -594,7 +594,7 @@ func TestEngine_OrganizationIdLogger(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -680,7 +680,7 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -790,7 +790,7 @@ func TestEngine_OrganizationIdPreservedAfterLocalNodeSync(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnNodeSynced: func(node capabilities.Node, err error) {
@@ -926,7 +926,7 @@ func TestEngine_Execution(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -1043,7 +1043,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			// Verify the execution status is timeout
 			require.Equal(t, "timeout", status)
 			executionFinishedCh <- executionID
@@ -1134,7 +1134,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -1527,7 +1527,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			// Verify the execution status is errored due to capability timeout
 			require.Equal(t, "errored", status)
 			executionFinishedCh <- executionID
@@ -1655,7 +1655,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnResultReceived: func(er *sdkpb.ExecutionResult) {
@@ -1748,7 +1748,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnResultReceived: func(er *sdkpb.ExecutionResult) {
@@ -1941,7 +1941,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnResultReceived: func(er *sdkpb.ExecutionResult) {
@@ -2038,7 +2038,7 @@ func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -2129,7 +2129,7 @@ func TestEngine_DeduplicatesSameEventID(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -2819,11 +2819,11 @@ type stubShardResolver struct {
 
 var _ shardownership.ShardResolver = (*stubShardResolver)(nil)
 
-func (s *stubShardResolver) ResolveShard(_ context.Context, _ string, _ string) (uint32, bool, error) {
+func (s *stubShardResolver) ResolveShard(_ context.Context, _, _ string) (uint32, bool, error) {
 	return s.shardID, s.found, s.err
 }
 
-func (s *stubShardResolver) ResolveShards(_ context.Context, _ []string, _ []string) (map[string]uint32, error) {
+func (s *stubShardResolver) ResolveShards(_ context.Context, _, _ []string) (map[string]uint32, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -2839,7 +2839,7 @@ type recordingAcknowledger struct {
 
 var _ triggers.Acknowledger = (*recordingAcknowledger)(nil)
 
-func (a *recordingAcknowledger) Ack(_ context.Context, _ string, triggerRegistrationID, eventID string) error {
+func (a *recordingAcknowledger) Ack(_ context.Context, _, triggerRegistrationID, eventID string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.calls = append(a.calls, triggerRegistrationID+"/"+eventID)
@@ -2863,7 +2863,6 @@ type testEngine struct {
 	executionFinishedCh        chan string // receives status
 	executionErrorCh           chan string // receives error message
 	resultReceivedCh           chan *sdkpb.ExecutionResult
-	subscriptionsReadyCalls    atomic.Int32
 	triggerEventDroppedCalls   atomic.Int32
 	finishedCalls              atomic.Int32
 	errorCalls                 atomic.Int32
@@ -2906,7 +2905,7 @@ func newTestEngine(
 		OnTriggerEventDropped: func(_, _, _ string) {
 			e.triggerEventDroppedCalls.Add(1)
 		},
-		OnExecutionFinished: func(_ string, status string) {
+		OnExecutionFinished: func(_, status string) {
 			e.finishedCalls.Add(1)
 			e.executionFinishedCh <- status
 		},
@@ -2914,7 +2913,7 @@ func newTestEngine(
 			e.errorCalls.Add(1)
 			e.executionErrorCh <- msg
 		},
-		OnExecutionStatusUpdate: func(_ string, _ string, _ string, _ int, _ string, _ workflowEvents.ErrorClassification) {
+		OnExecutionStatusUpdate: func(_, _, _ string, _ int, _ string, _ workflowEvents.ErrorClassification) {
 			e.executionStatusUpdateCalls.Add(1)
 		},
 		OnResultReceived: func(res *sdkpb.ExecutionResult) {
@@ -3019,7 +3018,7 @@ func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, w
 
 // eventMessagesMatchStatus returns observed BaseMessage texts and which expected
 // messages are still missing. Order does not matter.
-func eventMessagesMatchStatus(msgs []beholder.Message, expected []string) (observed []string, missing []string) {
+func eventMessagesMatchStatus(msgs []beholder.Message, expected []string) (observed, missing []string) {
 	want := make(map[string]struct{}, len(expected))
 	for _, e := range expected {
 		want[e] = struct{}{}
@@ -3071,7 +3070,7 @@ func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer,
 
 // userLogMatchStatus returns user log lines observed via beholder and which expected
 // substrings (matched in order) are still missing.
-func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (observed []string, missing []string) {
+func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (observed, missing []string) {
 	nextToFind := 0
 	for _, msg := range msgs {
 		if msg.Attrs["beholder_entity"] != "workflows.v1.UserLogs" {
@@ -3197,7 +3196,8 @@ func (c *MockCapabilityWrapper) Execute(ctx context.Context, request capabilitie
 
 func (c *MockCapabilityWrapper) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
 	return capabilities.NewCapabilityInfo(
-		c.ID(), capabilities.CapabilityTypeCombined, "Mock of capability %s"+c.ID())
+		c.ID(), capabilities.CapabilityTypeCombined, "Mock of capability %s"+c.ID(),
+	)
 }
 
 type TriggerCapabilityWrapper struct {
@@ -3207,7 +3207,7 @@ type TriggerCapabilityWrapper struct {
 
 var _ capabilities.TriggerCapability = &TriggerCapabilityWrapper{}
 
-func (c *TriggerCapabilityWrapper) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+func (c *TriggerCapabilityWrapper) AckEvent(ctx context.Context, triggerID, eventID, method string) error {
 	return nil
 }
 

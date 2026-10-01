@@ -384,12 +384,12 @@ func ParseWorkflowID(registrationID string) (string, error) {
 		return "", fmt.Errorf("invalid trigger registration ID %q: missing prefix %q", registrationID, _prefix)
 	}
 
-	idx := strings.LastIndex(rest, "_")
-	if idx == -1 {
+	before, after, ok := strings.CutLast(rest, "_")
+	if !ok {
 		return "", fmt.Errorf("invalid trigger registration ID %q: missing trigger index", registrationID)
 	}
 
-	workflowID, triggerIndexStr := rest[:idx], rest[idx+1:]
+	workflowID, triggerIndexStr := before, after
 	if _, err := strconv.Atoi(triggerIndexStr); err != nil {
 		return "", fmt.Errorf("invalid trigger registration ID %q: invalid trigger index %q: %w", registrationID, triggerIndexStr, err)
 	}
