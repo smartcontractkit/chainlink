@@ -1972,6 +1972,7 @@ BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
 ```toml
 [Capabilities.Local]
 RegistryBasedLaunchAllowlist = [] # Default
+UseOffchainRegistry = false # Default
 ```
 
 
@@ -1990,6 +1991,17 @@ Examples (using single-quoted TOML strings where backslashes are literal):
 - '^cron@1\.0\.0$' matches exactly "cron@1.0.0"
 - '^http-action@.*$' matches any version of http-action
 - '.*' matches all capabilities
+
+### UseOffchainRegistry
+```toml
+UseOffchainRegistry = false # Default
+```
+UseOffchainRegistry gates the offchain capabilities registry cutover. When false (default),
+capability config is sourced from TOML/on-chain and the offchain registry (delivered via the
+cresettings job) is used for cross-validation telemetry only. When true, each capability's
+spec_config is resolved per (DON, capability) as TOML < on-chain < offchain; keys the offchain
+registry omits keep their TOML/on-chain value. Binary paths, the launch allowlist and OCR3
+config are unaffected. The gate is per-node and reversible.
 
 Per-capability configuration. Each capability ID can have its own configuration section.
 Capability IDs must be in the format "name@version".

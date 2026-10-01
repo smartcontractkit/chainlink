@@ -22,7 +22,7 @@ type metrics struct {
 	launchDuration metric.Float64Histogram
 	runningGauge   metric.Int64Gauge
 
-	// Offchain capabilities registry (Phase 2 parallel-run telemetry).
+	// Offchain capabilities registry cross-validation telemetry.
 	offchainVersion     metric.Int64Gauge
 	offchainMatchedCaps metric.Int64Gauge
 	offchainDivergences metric.Int64Counter

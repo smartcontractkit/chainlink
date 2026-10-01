@@ -185,3 +185,39 @@ offchain_config = '''{"version":1}'''`)
 		assert.Equal(t, ConfigTypeCapRegistry, (&delegate{}).configType(got.CRESettingsSpec))
 	})
 }
+
+// TestValidatedCRESettingsSpec_CapRegistryDiscriminatorForms enumerates the ways a spec could
+// try to select capabilities_registry. Only the exact top-level config_type field is accepted,
+// and it is persisted verbatim in cre_settings_specs.config_type, the column covered by the
+// single-job unique index and the high-water check.
+func TestValidatedCRESettingsSpec_CapRegistryDiscriminatorForms(t *testing.T) {
+	t.Parallel()
+
+	const header = "type = \"cresettings\"\nschemaVersion = 1\n"
+	for _, tc := range []struct {
+		name    string
+		body    string
+		wantErr string
+	}{
+		{"top-level field", "config_type = \"capabilities_registry\"\noffchain_config = '''{\"version\":1}'''", ""},
+		{"embedded in settings", "settings = '''config_type = \"capabilities_registry\"'''", "top-level config_type"},
+		{"embedded in settings with offchain_config", "settings = '''config_type = \"capabilities_registry\"'''\noffchain_config = '''{\"version\":1}'''", "top-level config_type"},
+		{"top-level plus embedded settings", "config_type = \"capabilities_registry\"\nsettings = '''config_type = \"capabilities_registry\"'''\noffchain_config = '''{\"version\":1}'''", "settings must be empty"},
+		{"upper case", "config_type = \"Capabilities_Registry\"\noffchain_config = '''{\"version\":1}'''", "unknown config_type"},
+		{"padded", "config_type = \" capabilities_registry\"\noffchain_config = '''{\"version\":1}'''", "unknown config_type"},
+		{"settings type with payload", "config_type = \"settings\"\nsettings = '''Foo = \"bar\"'''\noffchain_config = '''{\"version\":1}'''", "offchain_config is only valid"},
+		{"no type with payload", "offchain_config = '''{\"version\":1}'''", "offchain_config is only valid"},
+		{"top-level without payload", "config_type = \"capabilities_registry\"", "empty payload"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			jb, err := ValidatedCRESettingsSpec(header + tc.body)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, job.CRESettingsConfigTypeCapRegistry, jb.CRESettingsSpec.ConfigType)
+		})
+	}
+}

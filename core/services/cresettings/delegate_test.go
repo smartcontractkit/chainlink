@@ -3,6 +3,7 @@ package cresettings
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,35 @@ static_default_assignment = [0, 1]
 
 func newTestDelegate(t *testing.T) *delegate {
 	t.Helper()
-	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New())
+	d, _ := newTestDelegateWithCommitted(t)
+	return d
+}
+
+// committedStore stands in for the database: it holds the committed capabilities_registry spec
+// the projector reads.
+type committedStore struct {
+	mu   sync.Mutex
+	spec *job.CRESettingsSpec
+	err  error
+}
+
+func (c *committedStore) set(spec *job.CRESettingsSpec) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.spec = spec
+}
+
+func (c *committedStore) load(context.Context) (*job.CRESettingsSpec, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.spec, c.err
+}
+
+func newTestDelegateWithCommitted(t *testing.T) (*delegate, *committedStore) {
+	t.Helper()
+	committed := &committedStore{}
+	p := newCapRegistryProjector(logger.TestLogger(t), committed.load, globalconfig.New())
+	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, p), committed
 }
 
 func cresettingsJob(id int32, settings string) job.Job {
@@ -131,29 +160,92 @@ func TestOnDeleteJobFreesSlotPerConfigType(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDelegate_CapabilitiesRegistry_StoresIntoGlobalConfig(t *testing.T) {
+// TestDelegate_CapRegistry_AppliesOnlyCommittedState: ServicesForSpec may run inside the
+// uncommitted create transaction, so it must not apply the spec it is handed; it applies
+// whatever is committed.
+func TestDelegate_CapRegistry_AppliesOnlyCommittedState(t *testing.T) {
 	t.Parallel()
 
-	d := newTestDelegate(t)
+	d, committed := newTestDelegateWithCommitted(t)
+	gc := d.capRegistry.GlobalConfig()
 
+	// Not committed yet (e.g. inside a feeds approval transaction): nothing is applied.
 	_, err := d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":7}`, "h7"))
 	require.NoError(t, err)
+	reg, v := gc.LoadParsed()
+	assert.Nil(t, reg)
+	assert.Equal(t, uint64(0), v)
 
-	raw, v := d.globalConfig.Load()
+	// Committed (API create, or boot): applied synchronously.
+	committed.set(&job.CRESettingsSpec{ConfigType: ConfigTypeCapRegistry, OffchainConfig: `{"version":7}`, Hash: "h7"})
+	_, err = d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":7}`, "h7"))
+	require.NoError(t, err)
+	raw, v := gc.Load()
 	assert.Equal(t, `{"version":7}`, raw)
 	assert.Equal(t, uint64(7), v)
 }
 
-func TestDelegate_RejectsSecondJobOfSameConfigType(t *testing.T) {
+// TestDelegate_CapRegistry_DeleteDoesNotClearBeforeCommit: OnDeleteJob runs inside the delete
+// transaction. The payload stays applied until the delete is committed (and stays if it rolls
+// back).
+func TestDelegate_CapRegistry_DeleteDoesNotClearBeforeCommit(t *testing.T) {
 	t.Parallel()
 
-	d := newTestDelegate(t)
-
-	_, err := d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":1}`, "h1"))
+	d, committed := newTestDelegateWithCommitted(t)
+	gc := d.capRegistry.GlobalConfig()
+	committed.set(&job.CRESettingsSpec{ConfigType: ConfigTypeCapRegistry, OffchainConfig: `{"version":3}`, Hash: "h3"})
+	_, err := d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":3}`, "h3"))
 	require.NoError(t, err)
 
-	_, err = d.ServicesForSpec(t.Context(), capRegistryJob(2, `{"version":2}`, "h2"))
-	require.ErrorContains(t, err, "already active")
+	require.NoError(t, d.OnDeleteJob(t.Context(), capRegistryJob(1, `{"version":3}`, "h3")))
+	_, v := gc.Load()
+	assert.Equal(t, uint64(3), v, "uncommitted delete must not clear")
+
+	// Rolled back: a refresh still sees the job.
+	require.NoError(t, d.capRegistry.Refresh(t.Context()))
+	_, v = gc.Load()
+	assert.Equal(t, uint64(3), v)
+
+	// Committed: the next refresh clears it.
+	committed.set(nil)
+	require.NoError(t, d.capRegistry.Refresh(t.Context()))
+	reg, v := gc.LoadParsed()
+	assert.Nil(t, reg)
+	assert.Equal(t, uint64(0), v)
+}
+
+// TestDelegate_CapRegistry_NoInMemorySlot: capabilities_registry uniqueness is enforced by the
+// database, so a rolled-back create cannot leave an in-memory reservation behind that would
+// block the next replacement.
+func TestDelegate_CapRegistry_NoInMemorySlot(t *testing.T) {
+	t.Parallel()
+
+	d, _ := newTestDelegateWithCommitted(t)
+	// Job 1 was "created" in a transaction that then rolled back (never deleted).
+	_, err := d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":5}`, "h5"))
+	require.NoError(t, err)
+	_, err = d.ServicesForSpec(t.Context(), capRegistryJob(2, `{"version":6}`, "h6"))
+	require.NoError(t, err)
+	_, loaded := d.activeJobIDs.Load(ConfigTypeCapRegistry)
+	assert.False(t, loaded)
+}
+
+func TestDelegate_CapRegistry_Unconfigured(t *testing.T) {
+	t.Parallel()
+
+	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, nil)
+	_, err := d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":1}`, "h1"))
+	require.ErrorContains(t, err, "no offchain capabilities registry configured")
+	require.NoError(t, d.OnDeleteJob(t.Context(), capRegistryJob(1, `{"version":1}`, "h1")))
+}
+
+func TestDelegate_CapRegistry_RefreshErrorIsNotFatal(t *testing.T) {
+	t.Parallel()
+
+	d, committed := newTestDelegateWithCommitted(t)
+	committed.err = assert.AnError
+	_, err := d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":1}`, "h1"))
+	require.NoError(t, err, "the projector retries in the background")
 }
 
 func TestDelegate_DifferentConfigTypesCoexist(t *testing.T) {
@@ -161,106 +253,38 @@ func TestDelegate_DifferentConfigTypesCoexist(t *testing.T) {
 
 	d := newTestDelegate(t)
 
-	// settings job
 	settingsJob := job.Job{ID: 10, Type: job.CRESettings, CRESettingsSpec: &job.CRESettingsSpec{Settings: `Foo = "bar"`, Hash: "hs"}}
 	_, err := d.ServicesForSpec(t.Context(), settingsJob)
 	require.NoError(t, err)
-
-	// capabilities_registry job coexists
 	_, err = d.ServicesForSpec(t.Context(), capRegistryJob(11, `{"version":1}`, "h1"))
 	require.NoError(t, err)
-}
-
-func TestDelegate_OnDeleteJobClearsConfigType(t *testing.T) {
-	t.Parallel()
-
-	d := newTestDelegate(t)
-
-	_, err := d.ServicesForSpec(t.Context(), capRegistryJob(1, `{"version":1}`, "h1"))
+	_, err = d.ServicesForSpec(t.Context(), cresettingsJob(12, shardAssignmentToml))
 	require.NoError(t, err)
 
-	require.NoError(t, d.OnDeleteJob(t.Context(), capRegistryJob(1, `{"version":1}`, "h1")))
-
-	// A new job of the same config_type is now accepted.
-	_, err = d.ServicesForSpec(t.Context(), capRegistryJob(2, `{"version":2}`, "h2"))
-	require.NoError(t, err)
-}
-
-// TestDelegate_FailedStoreReleasesSlot covers the feeds-manager replacement flow: the old job is
-// deleted, then its replacement is created. If the replacement's payload is rejected, its slot
-// must be released so a later valid job of the same config_type can still be created.
-func TestDelegate_FailedStoreReleasesSlot(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	d := newTestDelegate(t)
-
-	_, err := d.ServicesForSpec(ctx, capRegistryJob(1, `{"version":5}`, "h5"))
-	require.NoError(t, err)
-	require.NoError(t, d.OnDeleteJob(ctx, capRegistryJob(1, `{"version":5}`, "h5")))
-
-	// Stale version: rejected by GlobalConfig.
-	_, err = d.ServicesForSpec(ctx, capRegistryJob(2, `{"version":4}`, "h4"))
-	require.ErrorContains(t, err, "not newer than applied version 5")
-	// Invalid payload: rejected by GlobalConfig.
-	_, err = d.ServicesForSpec(ctx, capRegistryJob(3, `{"version":0}`, "h0"))
-	require.ErrorContains(t, err, "version must be >= 1")
-
-	// Neither rejected job holds the slot.
-	_, err = d.ServicesForSpec(ctx, capRegistryJob(4, `{"version":6}`, "h6"))
-	require.NoError(t, err)
-	_, v := d.globalConfig.Load()
-	assert.Equal(t, uint64(6), v)
-
-	// The active job still owns the slot after a rejected attempt.
-	_, err = d.ServicesForSpec(ctx, capRegistryJob(5, `{"version":7}`, "h7"))
-	require.ErrorContains(t, err, "already active: 4")
+	// Deleting the capabilities_registry job does not free the settings slot.
+	require.NoError(t, d.OnDeleteJob(t.Context(), capRegistryJob(11, `{"version":1}`, "h1")))
+	_, err = d.ServicesForSpec(t.Context(), cresettingsJob(13, settingsToml))
+	require.ErrorContains(t, err, "already active: 10")
 }
 
 func TestDelegate_FailedSettingsStoreReleasesSlot(t *testing.T) {
 	t.Parallel()
 
-	ctx := t.Context()
-	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, nil)
-
-	// No GlobalConfig wired: capabilities_registry fails, and must not hold its slot.
-	_, err := d.ServicesForSpec(ctx, capRegistryJob(1, `{"version":1}`, "h1"))
-	require.ErrorContains(t, err, "no global config store")
-	_, loaded := d.activeJobIDs.Load(ConfigTypeCapRegistry)
-	assert.False(t, loaded)
+	d := newTestDelegate(t)
+	_, err := d.ServicesForSpec(t.Context(), cresettingsJob(1, `not = [valid toml`))
+	require.Error(t, err)
+	_, loaded := d.activeJobIDs.Load(ConfigTypeSettings)
+	assert.False(t, loaded, "a rejected settings job must not hold the slot")
+	_, err = d.ServicesForSpec(t.Context(), cresettingsJob(2, settingsToml))
+	require.NoError(t, err)
 }
 
-// TestDelegate_RestartFromPersistedSpecs simulates node restart: specs as produced by the
-// validator (and round-tripped through the DB) are replayed into a fresh delegate. The
-// capabilities_registry job must route to GlobalConfig, not collide with the settings job or
-// overwrite the CRE settings with its empty Settings field.
-func TestDelegate_RestartFromPersistedSpecs(t *testing.T) {
+func TestDelegate_EmbeddedCapRegistryConfigTypeRejected(t *testing.T) {
 	t.Parallel()
 
-	settingsJob, err := ValidatedCRESettingsSpec(`type = "cresettings"
-schemaVersion = 1
-settings = '''Foo = "bar"'''`)
-	require.NoError(t, err)
-	settingsJob.ID = 1
-	capRegJob, err := ValidatedCRESettingsSpec(`type = "cresettings"
-schemaVersion = 1
-config_type = "capabilities_registry"
-offchain_config = '''{"version":4}'''`)
-	require.NoError(t, err)
-	capRegJob.ID = 2
-
-	atomicSettings := &loop.AtomicSettings{}
-	gc := globalconfig.New()
-	d := NewDelegate(logger.TestLogger(t), atomicSettings, &loop.AtomicSettings{}, gc)
-
-	for _, j := range []job.Job{capRegJob, settingsJob} {
-		_, err = d.ServicesForSpec(t.Context(), j)
-		require.NoError(t, err)
-	}
-
-	_, v := gc.Load()
-	assert.Equal(t, uint64(4), v)
-	applied, err := atomicSettings.Load()
-	require.NoError(t, err)
-	assert.Equal(t, settingsJob.CRESettingsSpec.Hash, applied.Hash)
+	d := newTestDelegate(t)
+	_, err := d.ServicesForSpec(t.Context(), cresettingsJob(1, `config_type = "capabilities_registry"
+`))
+	require.ErrorContains(t, err, "unknown config_type")
+	require.ErrorContains(t, err, "top-level config_type")
 }

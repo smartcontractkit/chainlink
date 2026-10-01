@@ -123,6 +123,43 @@ func TestGlobalConfig_Versioning(t *testing.T) {
 	})
 }
 
+func TestGlobalConfig_Clear(t *testing.T) {
+	t.Parallel()
+
+	g := New()
+	ch, unsubscribe := g.Subscribe()
+	defer unsubscribe()
+
+	require.NoError(t, g.Store(Update{Raw: `{"version":5}`, Hash: "h5"}))
+	<-ch
+
+	g.Clear()
+	raw, v := g.Load()
+	assert.Empty(t, raw)
+	assert.Equal(t, uint64(0), v)
+	reg, v := g.LoadParsed()
+	assert.Nil(t, reg)
+	assert.Equal(t, uint64(0), v)
+	assert.Len(t, ch, 1, "Clear notifies when it withdraws a payload")
+	<-ch
+	g.Clear()
+	assert.Empty(t, ch, "clearing an already cleared config does not notify")
+
+	// The high-water mark survives Clear: older payloads stay rejected...
+	require.ErrorContains(t, g.Store(Update{Raw: `{"version":4}`, Hash: "h4"}), "not newer than applied version 5")
+	require.ErrorContains(t, g.Store(Update{Raw: `{"version":5,"dons":{}}`, Hash: "h5b"}), "not newer")
+	// ...but the last applied payload can be re-applied (delete + recreate of the same job).
+	require.NoError(t, g.Store(Update{Raw: `{"version":5}`, Hash: "h5"}))
+	_, v = g.Load()
+	assert.Equal(t, uint64(5), v)
+	<-ch
+
+	g.Clear()
+	require.NoError(t, g.Store(Update{Raw: `{"version":6}`, Hash: "h6"}))
+	_, v = g.Load()
+	assert.Equal(t, uint64(6), v)
+}
+
 func TestGlobalConfig_LoadParsedIsASnapshot(t *testing.T) {
 	t.Parallel()
 

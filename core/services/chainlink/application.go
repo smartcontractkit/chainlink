@@ -731,7 +731,11 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// surface a visible error in the UI rather than silently doing nothing.
 	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
-	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings, offchainCapRegistry)
+	// The projector keeps offchainCapRegistry equal to the committed capabilities_registry job; it
+	// reads on opts.DS (outside job transactions) so uncommitted changes are never applied.
+	capRegistryProjector := cresettings.NewCapRegistryProjector(globalLogger, opts.DS, offchainCapRegistry)
+	srvcs = append(srvcs, capRegistryProjector)
+	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings, capRegistryProjector)
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,

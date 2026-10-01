@@ -41,6 +41,11 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 	}
 
 	configType := resolveConfigType(spec)
+	switch configType {
+	case ConfigTypeSettings, ConfigTypeShardAssignment, ConfigTypeCapRegistry:
+	default:
+		return jb, fmt.Errorf("unknown config_type %q", configType)
+	}
 
 	// Each config_type has exactly one payload field. Rejecting the other one keeps the hash,
 	// the delegate's routing, and what is persisted unambiguous.
@@ -85,14 +90,25 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 	return jb, nil
 }
 
+// configTypeEmbeddedCapRegistry is what resolveConfigType returns for a config_type key of
+// "capabilities_registry" embedded in Settings. That legacy form is not accepted for
+// capabilities_registry: only the top-level config_type field selects it, which is the
+// discriminator persisted in cre_settings_specs.config_type (and covered by its single-job
+// unique index). Being unknown, it is rejected by validation and by the delegate.
+const configTypeEmbeddedCapRegistry = "capabilities_registry (embedded in settings; use the top-level config_type field)"
+
 // resolveConfigType returns the config_type for a spec: the top-level ConfigType field when
-// set, else a config_type key embedded in Settings (legacy), else the default "settings".
+// set, else a config_type key embedded in Settings (legacy; not valid for
+// capabilities_registry), else the default "settings".
 func resolveConfigType(spec job.CRESettingsSpec) string {
 	if spec.ConfigType != "" {
 		return spec.ConfigType
 	}
 	if spec.Settings != "" {
 		if ct, ok := extractConfigType(spec.Settings); ok {
+			if ct == ConfigTypeCapRegistry {
+				return configTypeEmbeddedCapRegistry
+			}
 			return ct
 		}
 	}

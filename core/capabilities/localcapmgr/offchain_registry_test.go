@@ -155,3 +155,52 @@ func TestCrossValidateOffchain_EndToEndFromStoredPayload(t *testing.T) {
 	require.NotNil(t, reg)
 	assert.Equal(t, uint64(3), version)
 }
+
+func TestComputeOffchainCrossCheck_ConfigMismatch(t *testing.T) {
+	t.Parallel()
+
+	mgr := &localCapabilityManager{
+		lggr: testLogger(t),
+		localCfg: &testLocalCapabilities{
+			allowlisted: map[string]bool{"cron@1.0.0": true},
+			configs: map[string]*testCapabilityNodeConfig{
+				"cron@1.0.0": {cfg: map[string]string{"tomlOnly": "t"}},
+			},
+		},
+	}
+	onchain := []registry.DON{{
+		ID: 1,
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
+			"cron@1.0.0": onchainSpecConfig(t, map[string]any{"interval": "20", "onchainOnly": "o"}),
+		},
+	}}
+	check := func(offchainSpec map[string]any) offchainCrossCheck {
+		cc := &capabilitiespb.CapabilityConfig{}
+		if offchainSpec != nil {
+			cc = specConfigCap(t, offchainSpec)
+		}
+		reg := offchainReg(1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{1: {"cron@1.0.0": cc}})
+		return mgr.computeOffchainCrossCheck(reg, 1, onchain)
+	}
+
+	for _, tc := range []struct {
+		name     string
+		offchain map[string]any
+		mismatch int64
+	}{
+		{"no spec_config", nil, 0},
+		{"same value as on-chain", map[string]any{"interval": "20"}, 0},
+		{"same value as TOML", map[string]any{"tomlOnly": "t"}, 0},
+		{"overrides on-chain value", map[string]any{"interval": "30"}, 1},
+		{"overrides TOML value", map[string]any{"tomlOnly": "x"}, 1},
+		{"adds a key", map[string]any{"interval": "20", "extra": "e"}, 1},
+		{"different type, same text", map[string]any{"interval": int64(20)}, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := check(tc.offchain)
+			assert.Equal(t, int64(1), got.matchedCaps)
+			assert.Equal(t, tc.mismatch, got.divergences[divergenceConfigMismatch])
+		})
+	}
+}

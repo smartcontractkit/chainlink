@@ -6,6 +6,7 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 )
 
 // Divergence kinds recorded when the offchain capabilities registry disagrees with the
@@ -17,6 +18,10 @@ const (
 	divergenceMissingCapability = "missing_capability"
 	divergenceExtraDON          = "extra_don"
 	divergenceExtraCapability   = "extra_capability"
+	// divergenceConfigMismatch means the capability is present in both registries but its
+	// offchain spec_config would change the config the capability is launched with, relative
+	// to the legacy TOML + on-chain config (i.e. turning the gate on changes this capability).
+	divergenceConfigMismatch = "config_mismatch"
 )
 
 // offchainCrossCheck is the outcome of comparing the parsed offchain registry against the
@@ -32,9 +37,10 @@ type offchainCrossCheck struct {
 // crossValidateOffchain compares a snapshot of the applied offchain capabilities registry
 // against the on-chain DON set and emits telemetry.
 //
-// This is detection only, not enforcement: it never mutates desired state, never blocks or
-// gates a capability, and the comparison is presence-only (DON/capability keys), not config
-// values. Whether the offchain spec_config is applied is decided solely by the
+// This is detection only, not enforcement: it never mutates desired state and never blocks or
+// gates a capability. It compares presence (DON/capability keys) and, for capabilities present
+// in both, whether the offchain spec_config changes the effective launch config
+// (config_mismatch). Whether the offchain spec_config is applied is decided solely by the
 // UseOffchainRegistry gate; a divergence recorded here does not prevent it. Malformed payloads
 // are rejected earlier, at ingestion (globalconfig.Validate in the cresettings job).
 //
@@ -81,9 +87,14 @@ func (m *localCapabilityManager) computeOffchainCrossCheck(reg *capabilitiespb.O
 		offCaps := offDON.GetCapabilityConfigs()
 		seenOffchainCap[don.ID] = map[string]bool{}
 		for _, capID := range allowlisted {
-			if _, ok := offCaps[capID]; ok {
+			if offCap, ok := offCaps[capID]; ok {
 				check.matchedCaps++
 				seenOffchainCap[don.ID][capID] = true
+				if m.offchainChangesConfig(don.ID, capID, don.CapabilityConfigurations[capID], offCap) {
+					check.divergences[divergenceConfigMismatch]++
+					m.lggr.Debugw("Offchain spec_config differs from legacy (TOML + on-chain) config",
+						"donID", don.ID, "capID", capID, "offchainVersion", version)
+				}
 			} else {
 				check.divergences[divergenceMissingCapability]++
 				m.lggr.Warnw("Offchain registry missing on-chain capability",
@@ -115,6 +126,27 @@ func (m *localCapabilityManager) computeOffchainCrossCheck(reg *capabilitiespb.O
 	}
 
 	return check
+}
+
+// offchainChangesConfig reports whether applying offCap's spec_config on top of the legacy
+// (TOML + on-chain) config would change the config the capability is launched with. Keys the
+// offchain payload sets to the legacy value, and keys it omits, are not differences.
+func (m *localCapabilityManager) offchainChangesConfig(donID uint32, capID string, onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
+	overrides, err := globalconfig.SpecConfigMap(offCap.GetSpecConfig())
+	if err != nil || len(overrides) == 0 {
+		return false
+	}
+	info := &capabilityInfo{capID: capID, donID: donID, config: onchain}
+	legacy, err := m.buildConfigJSON(info)
+	if err != nil {
+		return false
+	}
+	info.offchainOverrides = overrides
+	cutover, err := m.buildConfigJSON(info)
+	if err != nil {
+		return false
+	}
+	return legacy != cutover
 }
 
 // allowlistedCapIDs returns the capability IDs configured on a DON that this node is

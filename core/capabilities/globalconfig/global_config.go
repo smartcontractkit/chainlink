@@ -35,9 +35,12 @@ type Update struct {
 // GlobalConfig holds the latest applied offchain capabilities registry config.
 // The zero value is ready to use.
 type GlobalConfig struct {
-	mu      sync.RWMutex
-	raw     string
-	parsed  *capabilitiespb.OffchainCapabilitiesRegistry
+	mu     sync.RWMutex
+	raw    string
+	parsed *capabilitiespb.OffchainCapabilitiesRegistry
+	// version and hash describe the last applied payload. They are kept by Clear as a
+	// high-water mark, so a payload older than one already applied stays rejected after the
+	// job that carried it is deleted.
 	version uint64
 	hash    string
 
@@ -51,7 +54,8 @@ func New() *GlobalConfig { return &GlobalConfig{} }
 // Store validates and applies an update.
 //
 //   - The payload must parse and pass Validate (version >= 1, well-formed spec_config, ...).
-//   - Re-applying the currently applied hash is a no-op (idempotent).
+//   - Re-applying the currently applied hash is a no-op (idempotent). After Clear, re-applying
+//     the last applied hash restores it.
 //   - Otherwise the version must be strictly greater than the applied version; a stale or
 //     equal version with different content is rejected and the applied payload is kept.
 //
@@ -70,10 +74,12 @@ func (g *GlobalConfig) Store(u Update) error {
 
 	g.mu.Lock()
 	if g.hash != "" && hash == g.hash {
-		g.mu.Unlock()
-		return nil // idempotent re-apply of the same payload
-	}
-	if version <= g.version {
+		if g.parsed != nil {
+			g.mu.Unlock()
+			return nil // idempotent re-apply of the same payload
+		}
+		// Same payload as the last applied one, re-applied after Clear: restore it.
+	} else if version <= g.version {
 		applied := g.version
 		g.mu.Unlock()
 		return fmt.Errorf("offchain config version %d is not newer than applied version %d", version, applied)
@@ -88,22 +94,40 @@ func (g *GlobalConfig) Store(u Update) error {
 	return nil
 }
 
-// Load returns the current raw payload and its version. version is 0 when nothing has been
-// applied yet.
+// Clear withdraws the applied payload, e.g. after the capabilities_registry job is deleted, so
+// readers fall back to on-chain/TOML config. The version/hash high-water mark is kept, so a
+// later payload must still be newer than the last one applied (or be that same payload).
+// Subscribers are notified when a payload was actually withdrawn.
+func (g *GlobalConfig) Clear() {
+	g.mu.Lock()
+	had := g.parsed != nil
+	g.raw = ""
+	g.parsed = nil
+	g.mu.Unlock()
+	if had {
+		g.notify()
+	}
+}
+
+// Load returns the current raw payload and its version. version is 0 when nothing is applied
+// (never, or since Clear).
 func (g *GlobalConfig) Load() (raw string, version uint64) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+	if g.parsed == nil {
+		return "", 0
+	}
 	return g.raw, g.version
 }
 
 // LoadParsed returns a snapshot of the current parsed registry and its version. The registry
-// is nil when nothing has been applied yet. The snapshot is a deep copy owned by the caller,
+// is nil and the version 0 when nothing is applied (never, or since Clear). The snapshot is a deep copy owned by the caller,
 // so mutating it cannot affect the applied config or other readers.
 func (g *GlobalConfig) LoadParsed() (reg *capabilitiespb.OffchainCapabilitiesRegistry, version uint64) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	if g.parsed == nil {
-		return nil, g.version
+		return nil, 0
 	}
 	return proto.Clone(g.parsed).(*capabilitiespb.OffchainCapabilitiesRegistry), g.version
 }

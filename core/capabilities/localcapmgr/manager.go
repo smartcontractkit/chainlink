@@ -346,6 +346,12 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 		return nil, fmt.Errorf("build config for %s: %w", info.capID, info.configErr)
 	}
 	configJSON := info.configJSON
+	if len(info.config.Config) > 0 {
+		if _, err := info.config.Unmarshal(); err != nil {
+			m.lggr.Warnw("Failed to unmarshal onchain config, launching without on-chain spec config",
+				"capID", info.capID, "donID", info.donID, "error", err)
+		}
+	}
 
 	// TODO(CRE-1775): also derive and pass OracleFactoryConfigs if present onchain.
 	ocr3Config := extractDefaultOCR3Config(info.config)
@@ -430,7 +436,8 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 	if len(info.config.Config) > 0 {
 		capCfg, err := info.config.Unmarshal()
 		if err != nil {
-			m.lggr.Warnw("Failed to unmarshal onchain config, using local config only",
+			// Logged at launch (startCapability); this runs on every reconcile.
+			m.lggr.Debugw("Failed to unmarshal onchain config, using local config only",
 				"capID", info.capID, "error", err)
 		} else if capCfg.SpecConfig != nil {
 			unwrapped, err := capCfg.SpecConfig.Unwrap()
