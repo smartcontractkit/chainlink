@@ -222,7 +222,6 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRe
 		}
 	}
 	_, err = AddCapabilities(lggr, req.CapabilitiesRegistry, req.Env.BlockChains.EVMChains()[req.RegistryChainSel], capabilities, false)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities to registry: %w", err)
 	}
@@ -300,8 +299,9 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRe
 	}, nil
 }
 
-// Depreciated: use changeset.ConfigureOCR3Contract instead
 // ocr3 contract on the registry chain for the wf dons
+//
+// Deprecated: use changeset.ConfigureOCR3Contract instead.
 func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []RegisteredDon, cfg *ocr3.OracleConfig) error {
 	evmChains := env.BlockChains.EVMChains()
 	registryChain, ok := evmChains[chainSel]
@@ -626,7 +626,7 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 // chainSel must be an evm chain; it ought to be the registry chain
 // the signer is the onchain public key
 // the enc is the encryption public key
-func ExtractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer [32]byte, enc [32]byte, err error) {
+func ExtractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer, enc [32]byte, err error) {
 	wfKey, err := hex.DecodeString(n.WorkflowKey)
 	if err != nil {
 		return signer, enc, fmt.Errorf("error decoding workflow key: %w", err)
@@ -818,7 +818,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	// track hash of sorted p2pids to don name because the registry return value does not include the don name
 	// and we need to map it back to the don name to access the other mapping data such as the don's capabilities & nodes
 	p2pIDsToDon := make(map[string]string)
-	var addedDons = 0
+	addedDons := 0
 
 	donInfos, err := registry.GetDONs(&bind.CallOpts{})
 	if err != nil {
@@ -989,9 +989,7 @@ func configureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.Keyst
 	if fwdr == nil {
 		return nil, errors.New("nil forwarder contract")
 	}
-	var (
-		opMap = make(map[uint64]mcmstypes.BatchOperation)
-	)
+	opMap := make(map[uint64]mcmstypes.BatchOperation)
 	cfg := ForwarderConfig{}
 	for _, dn := range dons {
 		if !dn.Info.AcceptsWorkflows {

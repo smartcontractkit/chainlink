@@ -36,9 +36,10 @@ var ErrUnsupported = errors.New("unsupported with config v2")
 // Core holds the core configuration. See chainlink.Config for more information.
 type Core struct {
 	// General/misc
-	AppID               uuid.UUID `toml:"-"` // random or test
-	InsecureFastScrypt  *bool
-	InsecurePPROFHeap   *bool // Deprecated: no effect if set, but field remains to parse old configs
+	AppID              uuid.UUID `toml:"-"` // random or test
+	InsecureFastScrypt *bool
+	// Deprecated: no effect if set, but field remains to parse old configs
+	InsecurePPROFHeap   *bool
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 

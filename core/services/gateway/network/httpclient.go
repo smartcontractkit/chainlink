@@ -180,9 +180,10 @@ func (c *HTTPClientConfig) ApplyDefaults() {
 }
 
 type HTTPRequest struct {
-	Method  string
-	URL     string
-	Headers map[string]string // request headers (deprecated: use MultiHeaders when multiple values per key are needed)
+	Method string
+	URL    string
+	// Deprecated: use MultiHeaders when multiple values per key are needed
+	Headers map[string]string
 	// MultiHeaders holds multiple values per header name; when set, Headers is ignored for the outgoing request.
 	MultiHeaders map[string][]string
 	Body         []byte
@@ -194,8 +195,9 @@ type HTTPRequest struct {
 }
 
 type HTTPResponse struct {
-	StatusCode   int                 // HTTP status code
-	Headers      map[string]string   // HTTP headers (deprecated: use MultiHeaders, contains first value only for backward compatibility)
+	StatusCode int
+	// Deprecated: use MultiHeaders, contains first value only for backward compatibility
+	Headers      map[string]string
 	MultiHeaders map[string][]string // HTTP headers with all values preserved
 	Body         []byte              // HTTP response body
 }
