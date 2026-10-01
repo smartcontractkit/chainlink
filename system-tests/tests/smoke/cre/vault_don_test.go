@@ -548,15 +548,13 @@ VaultPublicKeyEncryptOnlyEnabled = 'true'`))
 	require.NoError(t, err)
 	executeVaultSecretsCreateWithAuth(t, auth, enc, secretID, owner, gwURL, []string{"main"})
 
-	workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "reshare-flags-read", []vaultWorkflowPhase{
-		{
-			Name: "reshare-flags-created",
-			Checks: []vaultWorkflowCheck{
-				{Name: "reshare-flags-get-main", SecretKey: secretID, SecretNamespace: "main", ExpectedValue: secretValue},
-			},
+	verifier := deployVaultVerifierWorkflow(t, testEnv, fixture.TriggerAuth, "reshare-flags-verifier")
+	triggerAndAwaitVaultWorkflowPhase(t, verifier, vaultWorkflowPhase{
+		Name: "reshare-flags-created",
+		Checks: []vaultWorkflowCheck{
+			{Name: "reshare-flags-get-main", SecretKey: secretID, SecretNamespace: "main", ExpectedValue: secretValue},
 		},
-	})
-	waitForVaultWorkflowPhase(t, workflowID, "reshare-flags-created", ulCh, bmCh)
+	}, ulCh, bmCh)
 }
 
 // ExecuteVaultIncludeInvalidLivenessSmokeTest verifies that an erroring workflow GetSecrets for a
