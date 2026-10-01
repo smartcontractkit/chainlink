@@ -29,6 +29,15 @@
     },
     {
       "type": "checks",
+      "id": "CapRegistryProjector",
+      "attributes": {
+        "name": "CapRegistryProjector",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "EVM.1399100",
       "attributes": {
         "name": "EVM.1399100",
