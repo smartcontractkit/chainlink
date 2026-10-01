@@ -1690,6 +1690,13 @@ func (d *Delegate) newServicesLLO(
 
 	telemetryContractID := fmt.Sprintf("%s/%d", spec.ContractID, pluginCfg.DonID)
 
+	// The plugin version is a property of the protocol instance, not of the
+	// job: a v30 -> v31 blue/green handover runs one of each.
+	pluginVersions := make([]lloconfig.PluginVersion, len(provider.ContractConfigTrackers()))
+	for i := range pluginVersions {
+		pluginVersions[i] = pluginCfg.PluginVersionForInstance(i)
+	}
+
 	cfg := llo.DelegateConfig{
 		Logger:     lggr,
 		DataSource: d.ds,
@@ -1730,14 +1737,18 @@ func (d *Delegate) newServicesLLO(
 			return NewDB(d.ds, spec.ID, pluginID, lggr)
 		},
 
-		V31:       pluginCfg.IsV31(),
-		V31Config: pluginCfg.V31,
+		PluginVersions: pluginVersions,
+		V31Config:      pluginCfg.V31,
 	}
 
 	// The v31 plugin additionally requires the "2" network endpoint factory and
 	// a persistent replicated key-value store, wired here the same way the vault
 	// and DKG OCR3.1 plugins are (pebble under OCR2().KeyValueStoreRootDir()).
-	if pluginCfg.IsV31() {
+	// They are built whenever any instance is v31: during a v30 -> v31 handover
+	// only the staging instance needs them, but they are per job. The store
+	// directory stays per job too, since the key-value database is created per
+	// config digest and so the instances cannot collide inside it.
+	if pluginCfg.AnyV31() {
 		fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
 		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
 			return nil, fmt.Errorf("failed to create LLO key value store directory: %w", err)
