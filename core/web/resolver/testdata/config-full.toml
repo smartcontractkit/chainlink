@@ -351,6 +351,9 @@ ID = 'example_gateway'
 DonID = 'example_gateway_don'
 URL = 'wss://localhost:8081/node'
 
+[Capabilities.Local]
+UseOffchainRegistry = false
+
 [Telemetry]
 Enabled = true
 CACertFile = 'cert-file'
