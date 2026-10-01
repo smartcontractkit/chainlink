@@ -993,9 +993,7 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 
 	construct := v2.NewEngine
 	if h.useCoordinatedEngine(ctx, workflowID) {
-		// The trigger coordinator is not implemented yet, so a workflow routed here
-		// will never receive triggers. Warn once per engine creation with the workflowID
-		h.lggr.Warnw("Routing workflow to the coordinated engine; trigger delivery is not implemented yet",
+		h.lggr.Infow("Routing workflow to the coordinated engine",
 			"workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 
 		cfg.TriggerAcknowledger = h.triggerCoordinator
