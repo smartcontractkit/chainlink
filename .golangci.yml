@@ -123,6 +123,9 @@ linters:
             - pkg: github.com/smartcontractkit/chainlink/core/logger
     exhaustive:
       default-signifies-exhaustive: true
+    modernize:
+      disable:
+        - embedlit
     gosec:
       excludes:
         - G101
