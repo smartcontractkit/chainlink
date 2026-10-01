@@ -3,18 +3,31 @@ package triggers
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 // ErrWorkflowNotCoordinated is returned by UnregisterTriggers for
 // a workflowID the coordinator never registered.
 var ErrWorkflowNotCoordinated = errors.New("workflow not registered with the trigger coordinator")
+
+const (
+	defaultDrainTimeout = 10 * time.Minute
+
+	// pinnedWorkflowDonConfigVersion mirrors v2's pin to 1, so config updates on
+	// the registry don't force forwarder contract updates.
+	pinnedWorkflowDonConfigVersion = 1
+)
 
 // RegistrationParams is the per-workflow metadata RegisterTriggers needs to
 // build each capability's RequestMetadata.
@@ -44,10 +57,10 @@ type Coordinator interface {
 
 	// UnregisterTriggers stops ingress for workflowID immediately (unregisters with the capability registry)
 	// and cleans up the handle map once the engine has been drained and closed, so an execution already in flight
-	// can still resolve its handle to ACK. It also ensures that any resources associated with the workflow are properly released.
-	// This includes managing the workflowLimits by calling workflowLimits.Free.
+	// can still resolve its handle to ACK.
 	//
-	// Returns ErrWorkflowNotCoordinated if workflowID was never registered here
+	// Returns ErrWorkflowNotCoordinated if workflowID was never registered here.
+	// A failed capability unregistration is returned and retried on the next call.
 	UnregisterTriggers(workflowID string) error
 }
 
@@ -70,46 +83,249 @@ type EngineRegistry interface {
 	Get(workflowID types.WorkflowID) (RegisteredEngine, bool)
 }
 
-// noopCoordinator is a no-op implementation type.  It logs the registration
-// and teardown calls on Register/UnregisterTriggers, and does nothing else. No trigger is
-// registered with the capability registry and no event is ever delivered.
-type noopCoordinator struct {
+type coordinator struct {
 	services.Service
 	eng  *services.Engine
 	lggr logger.Logger
+
+	// deps carries the node-level logger and metrics; RegisterTriggers
+	// overrides both with the workflow-scoped ones.
+	deps    RegisterDeps
+	engines EngineRegistry
+	clock   clockwork.Clock
+
+	drainTimeout time.Duration
+
+	mu        sync.Mutex
+	workflows map[string]*workflowTriggers // workflowID (hex) -> state
 }
 
-func NewCoordinator(capReg registry.CapabilitiesRegistry, engineRegistry EngineRegistry, clock clockwork.Clock, lggr logger.Logger) Coordinator {
-	c := &noopCoordinator{
-		lggr: logger.Named(lggr, "TriggerCoordinator"),
+type workflowTriggers struct {
+	wid   types.WorkflowID
+	cre   contexts.CRE
+	donID uint32
+	// cancel stops only this registration's readers. A workflow can be
+	// re-registered while its old registration is still draining, so this
+	// must not affect the new one.
+	cancel  context.CancelFunc
+	handles map[string]*Handle
+
+	// readers tracks the reader goroutines for this registration. A reader
+	// only exits once its own delivery has returned, so once Wait() returns,
+	// nothing started by this registration can still ACK.
+	readers sync.WaitGroup
+
+	// guarded by coordinator.mu
+	unregistered bool // capability-side unregistration succeeded
+	releasing    bool // release waiter spawned
+
+	lggr    logger.Logger
+	metrics *monitoring.WorkflowsMetricLabeler
+}
+
+func NewCoordinator(deps RegisterDeps, engineRegistry EngineRegistry, clock clockwork.Clock) Coordinator {
+	c := &coordinator{
+		lggr:         logger.Named(deps.Logger, "TriggerCoordinator"),
+		deps:         deps,
+		engines:      engineRegistry,
+		clock:        clock,
+		drainTimeout: defaultDrainTimeout,
+		workflows:    make(map[string]*workflowTriggers),
 	}
 
 	c.Service, c.eng = services.Config{
-		Name: "TriggerCoordinator",
-		Start: func(context.Context) error {
-			c.lggr.Warnw("No-op trigger coordinator started: workflows on the coordinated engine will register no triggers and receive no events")
-			return nil
-		},
+		Name:  "TriggerCoordinator",
 		Close: func() error { return nil },
 	}.NewServiceEngine(c.lggr)
 
 	return c
 }
 
-func (c *noopCoordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) ([]string, error) {
-	c.lggr.Infow("No-op RegisterTriggers",
-		"workflowID", subscriber.Tenant().Workflow,
-		"workflowOwner", params.WorkflowOwner,
-		"workflowName", params.WorkflowName.String(),
-		"workflowDonID", params.WorkflowDonID)
-	return []string{}, nil
+func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) ([]string, error) {
+	cre := subscriber.Tenant()
+	workflowID := cre.Workflow
+	wid, err := types.WorkflowIDFromHex(workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid workflow id %q: %w", workflowID, err)
+	}
+	ctx = contexts.WithCRE(ctx, cre)
+
+	lggr := logger.With(c.lggr, "workflowID", workflowID)
+	wfMetrics := c.deps.Metrics.With(
+		platform.KeyWorkflowID, workflowID,
+		platform.KeyWorkflowOwner, params.WorkflowOwner,
+		platform.KeyWorkflowName, params.WorkflowName.String(),
+		platform.KeyOrganizationID, cre.Org,
+	)
+
+	// Registration IDs derive from the workflowID, so a leftover registration
+	// must be unregistered first: unregistering it later would remove this one.
+	if err := c.UnregisterTriggers(workflowID); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
+		lggr.Errorw("Failed to unregister previous trigger registration", "err", err)
+	}
+
+	subs, err := subscriber.Subscribe(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to subscribe to triggers: %w", err)
+	}
+
+	deps := c.deps
+	deps.Logger = lggr
+	deps.Metrics = wfMetrics
+	triggerCapIDs, handles, eventChans, err := Register(ctx, deps, RegisterMetadata{
+		WorkflowID:                    workflowID,
+		WorkflowOwner:                 params.WorkflowOwner,
+		WorkflowName:                  params.WorkflowName,
+		WorkflowTag:                   params.WorkflowTag,
+		WorkflowDonID:                 params.WorkflowDonID,
+		WorkflowDonConfigVersion:      pinnedWorkflowDonConfigVersion,
+		WorkflowRegistryChainSelector: params.WorkflowRegistryChainSelector,
+		WorkflowRegistryAddress:       params.WorkflowRegistryAddress,
+		OrgID:                         cre.Org,
+	}, subs)
+	if err != nil {
+		return nil, err
+	}
+
+	readerCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	wt := &workflowTriggers{
+		wid:     wid,
+		cre:     cre,
+		donID:   params.WorkflowDonID,
+		cancel:  cancel,
+		handles: handles,
+		lggr:    lggr,
+		metrics: wfMetrics,
+	}
+
+	// Set before publishing wt: an UnregisterTriggers racing in right after
+	// must not see zero readers and release before they've even started.
+	wt.readers.Add(len(eventChans))
+
+	c.mu.Lock()
+	c.workflows[workflowID] = wt
+	c.mu.Unlock()
+
+	deliver := c.deliver(wt)
+	for idx, eventCh := range eventChans {
+		triggerCapID := triggerCapIDs[idx]
+		c.eng.GoCtx(readerCtx, func(ctx context.Context) {
+			defer wt.readers.Done()
+			ReadLoop(ctx, lggr, wfMetrics, c.clock, workflowID, triggerCapID, idx, eventCh, deliver)
+		})
+	}
+
+	return triggerCapIDs, nil
 }
 
-func (c *noopCoordinator) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
+// deliver looks up the engine fresh on every event instead of caching it,
+// since the engine for a workflow can change while this reader is running.
+func (c *coordinator) deliver(wt *workflowTriggers) func(context.Context, CoordinatedEvent) {
+	return func(ctx context.Context, event CoordinatedEvent) {
+		engine, found := c.engines.Get(wt.wid)
+		if !found {
+			wt.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
+			return
+		}
+		if !engine.IsCoordinated() {
+			wt.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
+			return
+		}
+
+		// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
+		if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
+			wt.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+		}
+	}
+}
+
+func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
+	workflowID, err := ParseWorkflowID(triggerRegistrationID)
+	if err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	var handle *Handle
+	wt, found := c.workflows[workflowID]
+	if found {
+		handle = wt.handles[triggerRegistrationID]
+	}
+	c.mu.Unlock()
+
+	lggr, wfMetrics := c.lggr, c.deps.Metrics
+	if found {
+		lggr, wfMetrics = wt.lggr, wt.metrics
+	}
+	return Ack(ctx, lggr, wfMetrics, triggerCapID, triggerRegistrationID, eventID, handle)
+}
+
+func (c *coordinator) UnregisterTriggers(workflowID string) error {
+	c.mu.Lock()
+	wt, ok := c.workflows[workflowID]
+	if !ok {
+		c.mu.Unlock()
+		return ErrWorkflowNotCoordinated
+	}
+	if wt.unregistered {
+		c.mu.Unlock()
+		return nil
+	}
+	spawnRelease := !wt.releasing
+	wt.releasing = true
+	c.mu.Unlock()
+
+	// Cancel first: not every capability closes its event channel on
+	// Unregister, so this is the only guaranteed way to stop delivery.
+	wt.cancel()
+	if spawnRelease {
+		c.eng.Go(func(ctx context.Context) { c.releaseWhenDrained(ctx, workflowID, wt) })
+	}
+
+	ctx, cancel := c.eng.NewCtx()
+	defer cancel()
+	ctx = contexts.WithCRE(ctx, wt.cre)
+
+	if failCount := Unregister(ctx, wt.lggr, workflowID, wt.donID, wt.handles); failCount > 0 {
+		return fmt.Errorf("failed to unregister %d of %d triggers", failCount, len(wt.handles))
+	}
+
+	c.mu.Lock()
+	wt.unregistered = true
+	c.mu.Unlock()
+
+	wt.lggr.Infow("Unregistered triggers, retaining handles until drained", "numTriggers", len(wt.handles))
+	wt.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 	return nil
 }
 
-func (c *noopCoordinator) UnregisterTriggers(workflowID string) error {
-	c.lggr.Infow("No-op UnregisterTriggers", "workflowID", workflowID)
-	return nil
+// releaseWhenDrained drops the handle map once no execution can still need it
+// to ACK. Waiting for this registration's readers to exit is enough: an ACK
+// only ever happens while a reader is still running its delivery.
+func (c *coordinator) releaseWhenDrained(ctx context.Context, workflowID string, wt *workflowTriggers) {
+	ctx = contexts.WithCRE(ctx, wt.cre)
+
+	drained := make(chan struct{})
+	// Exits with the readers; outlives this waiter only on a timeout.
+	go func() {
+		wt.readers.Wait()
+		close(drained)
+	}()
+
+	select {
+	case <-drained:
+	case <-c.clock.After(c.drainTimeout):
+		wt.lggr.Errorw("Timed out waiting for drain, releasing trigger handles anyway")
+	case <-ctx.Done():
+		return
+	}
+
+	c.mu.Lock()
+	// The workflow may have been re-registered while draining; its state is not ours to drop.
+	if c.workflows[workflowID] == wt {
+		delete(c.workflows, workflowID)
+	}
+	c.mu.Unlock()
+
+	wt.lggr.Infow("Released trigger handles")
 }
