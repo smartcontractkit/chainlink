@@ -480,7 +480,7 @@ func (h *Handler) fetchSecrets(
 		return nil, &relayError{code: jsonrpc.ErrInternal, err: fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID)}
 	}
 
-	vaultResp, err := handler.GetRawSecrets(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
+	vaultResp, err := handler.GetRawSecretsResponse(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
 	if err != nil {
 		// A user-origin caperrors.Error (e.g. an oversized GetSecrets batch
 		// rejected by the vault) keeps its classification across the remote
@@ -521,10 +521,14 @@ func (h *Handler) fetchSecrets(
 // translateVaultResponse converts a vault GetSecretsResponse to the enclave relay protocol format.
 // Encoding conversion: ciphertext hex (vault) -> base64 (enclave relay); encrypted shares may be
 // binary or hex (vault) -> base64 (enclave relay).
-func translateVaultResponse(vaultResp []*vault.SecretResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
-	result := &confidentialrelaytypes.SecretsResponseResult{}
+func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
+	// Forward the DKG instance's public key so the enclave verifies/aggregates these
+	// shares against the live key rather than its (possibly stale) configured key.
+	result := &confidentialrelaytypes.SecretsResponseResult{
+		RawVaultPublicKey: vaultResp.GetRawVaultPublicKey(),
+	}
 
-	for _, sr := range vaultResp {
+	for _, sr := range vaultResp.GetResponses() {
 		if sr.GetError() != "" {
 			return nil, newVaultSecretError(sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
 		}
