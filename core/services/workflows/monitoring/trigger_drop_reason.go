@@ -21,6 +21,5 @@ const (
 	TriggerDropReasonExecutionResponseLimitReadFailed = "execution_response_limit_read_failed"
 	TriggerDropReasonExecutionResponseLimitInvalid    = "execution_response_limit_invalid"
 	TriggerDropReasonCentralQueueFull                 = "central_queue_full"
-	TriggerDropReasonCentralQueueSequenceUnavailable  = "central_queue_sequence_unavailable"
 	TriggerDropReasonUnknown                          = "unknown"
 )
