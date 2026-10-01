@@ -561,3 +561,25 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	newTrigger.EXPECT().AckEvent(mock.Anything, regID, "evt-2", testMethod).Return(nil).Once()
 	require.NoError(t, f.c.Ack(t.Context(), testTriggerCapID, regID, "evt-2"))
 }
+
+func TestCoordinator_CloseUnregistersRemainingWorkflows(t *testing.T) {
+	t.Parallel()
+	capReg := regmocks.NewCapabilitiesRegistry(t)
+	engines := newFakeEngineRegistry()
+	wid, err := types.WorkflowIDFromHex(validWorkflowID)
+	require.NoError(t, err)
+	engines.set(wid, &fakeEngine{coordinated: true})
+
+	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), engines, &fakeWorkflowLimits{}, clockwork.NewFakeClock())
+	require.NoError(t, c.Start(t.Context()))
+
+	trigger := capmocks.NewTriggerCapability(t)
+	trigger.EXPECT().RegisterTrigger(mock.Anything, mock.Anything).
+		Return((<-chan capabilities.TriggerResponse)(make(chan capabilities.TriggerResponse)), nil).Once()
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+	capReg.EXPECT().GetTrigger(mock.Anything, testTriggerCapID).Return(trigger, nil).Once()
+
+	_, err = c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+	require.NoError(t, err)
+	require.NoError(t, c.Close())
+}

@@ -25,6 +25,7 @@ var ErrWorkflowNotCoordinated = errors.New("workflow not registered with the tri
 
 const (
 	defaultDrainTimeout = 10 * time.Minute
+	shutdownTimeout     = 5 * time.Second
 
 	// pinnedWorkflowDonConfigVersion mirrors v2's pin to 1, so config updates on
 	// the registry don't force forwarder contract updates.
@@ -144,10 +145,35 @@ func NewCoordinator(
 
 	c.Service, c.eng = services.Config{
 		Name:  "TriggerCoordinator",
-		Close: func() error { return nil },
+		Close: c.close,
 	}.NewServiceEngine(c.lggr)
 
 	return c
+}
+
+// close runs after the reader and release goroutines have exited, and
+// unregisters whatever the syncer did not tear down before shutdown.
+func (c *coordinator) close() error {
+	c.mu.Lock()
+	pending := make(map[string]*workflowTriggers, len(c.workflows))
+	for workflowID, wt := range c.workflows {
+		if !wt.unregistered {
+			pending[workflowID] = wt
+		}
+	}
+	c.mu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	var errs error
+	for workflowID, wt := range pending {
+		wt.cancel()
+		if failCount := Unregister(contexts.WithCRE(ctx, wt.cre), wt.lggr, workflowID, wt.donID, wt.handles); failCount > 0 {
+			errs = errors.Join(errs, fmt.Errorf("workflow %s: failed to unregister %d of %d triggers", workflowID, failCount, len(wt.handles)))
+		}
+	}
+	return errs
 }
 
 func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) ([]string, error) {
