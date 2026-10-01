@@ -12,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -57,7 +59,7 @@ type Coordinator interface {
 
 	// UnregisterTriggers stops ingress for workflowID immediately (unregisters with the capability registry)
 	// and cleans up the handle map once the engine has been drained and closed, so an execution already in flight
-	// can still resolve its handle to ACK.
+	// can still resolve its handle to ACK. It also frees the workflow-count limit slot acquired at registration.
 	//
 	// Returns ErrWorkflowNotCoordinated if workflowID was never registered here.
 	// A failed capability unregistration is returned and retried on the next call.
@@ -90,9 +92,10 @@ type coordinator struct {
 
 	// deps carries the node-level logger and metrics; RegisterTriggers
 	// overrides both with the workflow-scoped ones.
-	deps    RegisterDeps
-	engines EngineRegistry
-	clock   clockwork.Clock
+	deps           RegisterDeps
+	engines        EngineRegistry
+	workflowLimits limits.ResourceLimiter[int]
+	clock          clockwork.Clock
 
 	drainTimeout time.Duration
 
@@ -123,14 +126,20 @@ type workflowTriggers struct {
 	metrics *monitoring.WorkflowsMetricLabeler
 }
 
-func NewCoordinator(deps RegisterDeps, engineRegistry EngineRegistry, clock clockwork.Clock) Coordinator {
+func NewCoordinator(
+	deps RegisterDeps,
+	engineRegistry EngineRegistry,
+	workflowLimits limits.ResourceLimiter[int],
+	clock clockwork.Clock,
+) Coordinator {
 	c := &coordinator{
-		lggr:         logger.Named(deps.Logger, "TriggerCoordinator"),
-		deps:         deps,
-		engines:      engineRegistry,
-		clock:        clock,
-		drainTimeout: defaultDrainTimeout,
-		workflows:    make(map[string]*workflowTriggers),
+		lggr:           logger.Named(deps.Logger, "TriggerCoordinator"),
+		deps:           deps,
+		engines:        engineRegistry,
+		workflowLimits: workflowLimits,
+		clock:          clock,
+		drainTimeout:   defaultDrainTimeout,
+		workflows:      make(map[string]*workflowTriggers),
 	}
 
 	c.Service, c.eng = services.Config{
@@ -163,6 +172,16 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 	if err := c.UnregisterTriggers(workflowID); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
 		lggr.Errorw("Failed to unregister previous trigger registration", "err", err)
 	}
+
+	if err := c.useWorkflowLimit(ctx, lggr, wfMetrics); err != nil {
+		return nil, err
+	}
+	freeLimit := true
+	defer func() {
+		if freeLimit {
+			c.freeWorkflowLimit(ctx, lggr)
+		}
+	}()
 
 	subs, err := subscriber.Subscribe(ctx)
 	if err != nil {
@@ -215,6 +234,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		})
 	}
 
+	freeLimit = false
 	return triggerCapIDs, nil
 }
 
@@ -299,9 +319,10 @@ func (c *coordinator) UnregisterTriggers(workflowID string) error {
 	return nil
 }
 
-// releaseWhenDrained drops the handle map once no execution can still need it
-// to ACK. Waiting for this registration's readers to exit is enough: an ACK
-// only ever happens while a reader is still running its delivery.
+// releaseWhenDrained drops the handle map and frees the workflow-count limit
+// once no execution can still need it to ACK. Waiting for this registration's
+// readers to exit is enough: an ACK only ever happens while a reader is still
+// running its delivery.
 func (c *coordinator) releaseWhenDrained(ctx context.Context, workflowID string, wt *workflowTriggers) {
 	ctx = contexts.WithCRE(ctx, wt.cre)
 
@@ -327,5 +348,40 @@ func (c *coordinator) releaseWhenDrained(ctx context.Context, workflowID string,
 	}
 	c.mu.Unlock()
 
+	c.freeWorkflowLimit(ctx, wt.lggr)
 	wt.lggr.Infow("Released trigger handles")
+}
+
+// useWorkflowLimit acquires one slot of the node's workflow-count limit,
+// mapping a limit breach to the scope-specific sentinel the syncer expects.
+func (c *coordinator) useWorkflowLimit(ctx context.Context, lggr logger.Logger, wfMetrics *monitoring.WorkflowsMetricLabeler) error {
+	err := c.workflowLimits.Use(ctx, 1)
+	if err == nil {
+		return nil
+	}
+
+	errLimited, ok := errors.AsType[limits.ErrorResourceLimited[int]](err)
+	if !ok {
+		return err
+	}
+	switch errLimited.Scope {
+	case settings.ScopeOwner:
+		lggr.Infow("Per owner workflow count limit reached", "err", err)
+		wfMetrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
+		return types.ErrPerOwnerWorkflowCountLimitReached
+	case settings.ScopeGlobal:
+		lggr.Infow("Global workflow count limit reached", "err", err)
+		wfMetrics.IncrementWorkflowLimitGlobalCounter(ctx)
+		return types.ErrGlobalWorkflowCountLimitReached
+	default:
+		lggr.Errorw("Workflow count limit reached for unexpected scope", "scope", errLimited.Scope, "err", err)
+		return err
+	}
+}
+
+// freeWorkflowLimit expects ctx to carry the workflow's CRE: the limit is keyed on it.
+func (c *coordinator) freeWorkflowLimit(ctx context.Context, lggr logger.Logger) {
+	if err := c.workflowLimits.Free(ctx, 1); err != nil {
+		lggr.Errorw("Failed to free workflow count limit", "err", err)
+	}
 }

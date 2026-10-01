@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -97,10 +98,52 @@ func (r *fakeEngineRegistry) set(wid types.WorkflowID, e RegisteredEngine) {
 	r.engines[wid] = e
 }
 
+// fakeWorkflowLimits counts slots, recording the tenant each call was scoped to.
+type fakeWorkflowLimits struct {
+	mu      sync.Mutex
+	used    int
+	frees   int
+	useErr  error
+	tenants []contexts.CRE
+}
+
+func (l *fakeWorkflowLimits) Close() error                           { return nil }
+func (l *fakeWorkflowLimits) Limit(context.Context) (int, error)     { return 100, nil }
+func (l *fakeWorkflowLimits) Available(context.Context) (int, error) { return 100, nil }
+func (l *fakeWorkflowLimits) Use(ctx context.Context, amount int) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.tenants = append(l.tenants, contexts.CREValue(ctx))
+	if l.useErr != nil {
+		return l.useErr
+	}
+	l.used += amount
+	return nil
+}
+func (l *fakeWorkflowLimits) Free(ctx context.Context, amount int) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.tenants = append(l.tenants, contexts.CREValue(ctx))
+	l.used -= amount
+	l.frees++
+	return nil
+}
+func (l *fakeWorkflowLimits) inUse() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.used
+}
+func (l *fakeWorkflowLimits) freeCount() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.frees
+}
+
 type coordinatorFixture struct {
 	c       *coordinator
 	capReg  *regmocks.CapabilitiesRegistry
 	engines *fakeEngineRegistry
+	limits  *fakeWorkflowLimits
 	clock   *clockwork.FakeClock
 	wid     types.WorkflowID
 	engine  *fakeEngine
@@ -112,6 +155,7 @@ func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
 	t.Helper()
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	engines := newFakeEngineRegistry()
+	wfLimits := &fakeWorkflowLimits{}
 	clock := clockwork.NewFakeClock()
 
 	wid, err := types.WorkflowIDFromHex(validWorkflowID)
@@ -119,11 +163,11 @@ func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
 	engine := &fakeEngine{coordinated: true}
 	engines.set(wid, engine)
 
-	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), engines, clock)
+	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), engines, wfLimits, clock)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{
-		c: c.(*coordinator), capReg: capReg, engines: engines,
+		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
 		clock: clock, wid: wid, engine: engine,
 	}
 }
@@ -193,6 +237,7 @@ func TestCoordinator_RegisterTriggers(t *testing.T) {
 		triggerIDs, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 		require.NoError(t, err)
 		assert.Equal(t, []string{testTriggerCapID}, triggerIDs)
+		assert.Equal(t, 1, f.limits.inUse())
 		assert.True(t, f.registered())
 
 		assert.Equal(t, RegistrationID(validWorkflowID, 0), gotReq.TriggerID)
@@ -225,9 +270,43 @@ func TestCoordinator_RegisterTriggers(t *testing.T) {
 		_, err := f.c.RegisterTriggers(t.Context(), sub, testParams(t))
 		require.ErrorContains(t, err, "invalid workflow id")
 		assert.Equal(t, 0, sub.calls)
+		assert.Equal(t, 0, f.limits.inUse())
 	})
 
-	t.Run("subscribe failure leaves nothing registered", func(t *testing.T) {
+	t.Run("workflow limit reached maps to the scoped sentinel and never subscribes", func(t *testing.T) {
+		t.Parallel()
+		for _, tc := range []struct {
+			scope settings.Scope
+			want  error
+		}{
+			{settings.ScopeOwner, types.ErrPerOwnerWorkflowCountLimitReached},
+			{settings.ScopeGlobal, types.ErrGlobalWorkflowCountLimitReached},
+		} {
+			f := newCoordinatorFixture(t)
+			f.limits.useErr = limits.ErrorResourceLimited[int]{Scope: tc.scope, Limit: 1, Used: 1, Amount: 1}
+			sub := newTestSubscriber()
+
+			_, err := f.c.RegisterTriggers(t.Context(), sub, testParams(t))
+			require.ErrorIs(t, err, tc.want)
+			assert.Equal(t, 0, sub.calls)
+			assert.False(t, f.registered())
+		}
+	})
+
+	t.Run("the limit is acquired under the workflow's tenant", func(t *testing.T) {
+		t.Parallel()
+		f := newCoordinatorFixture(t)
+		f.limits.useErr = errors.New("boom")
+
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.Error(t, err)
+		f.limits.mu.Lock()
+		defer f.limits.mu.Unlock()
+		require.Len(t, f.limits.tenants, 1)
+		assert.Equal(t, testTenant, f.limits.tenants[0])
+	})
+
+	t.Run("subscribe failure frees the limit", func(t *testing.T) {
 		t.Parallel()
 		f := newCoordinatorFixture(t)
 		sub := newTestSubscriber()
@@ -235,16 +314,18 @@ func TestCoordinator_RegisterTriggers(t *testing.T) {
 
 		_, err := f.c.RegisterTriggers(t.Context(), sub, testParams(t))
 		require.ErrorContains(t, err, "failed to subscribe to triggers")
+		assert.Equal(t, 0, f.limits.inUse())
 		assert.False(t, f.registered())
 	})
 
-	t.Run("registration failure leaves nothing registered", func(t *testing.T) {
+	t.Run("registration failure frees the limit and leaves nothing registered", func(t *testing.T) {
 		t.Parallel()
 		f := newCoordinatorFixture(t)
 		f.capReg.EXPECT().GetTrigger(mock.Anything, testTriggerCapID).Return(nil, errors.New("not found")).Once()
 
 		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 		require.ErrorContains(t, err, "trigger capability not found")
+		assert.Equal(t, 0, f.limits.inUse())
 		assert.False(t, f.registered())
 	})
 }
@@ -336,7 +417,11 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, f.c.UnregisterTriggers(validWorkflowID))
 
-		require.Eventually(t, func() bool { return !f.registered() }, 5*time.Second, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return !f.registered() && f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
+		assert.Equal(t, 1, f.limits.freeCount())
+		f.limits.mu.Lock()
+		assert.Equal(t, testTenant, f.limits.tenants[len(f.limits.tenants)-1], "the limit is freed under the workflow's tenant")
+		f.limits.mu.Unlock()
 	})
 
 	t.Run("keeps handles while an execution is in flight so it can still ACK", func(t *testing.T) {
@@ -358,9 +443,10 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		// Ingress is stopped but the in-flight execution still resolves its handle.
 		require.NoError(t, f.c.Ack(t.Context(), testTriggerCapID, regID, "evt-1"))
 		assert.True(t, f.registered())
+		assert.Equal(t, 1, f.limits.inUse())
 
 		close(release)
-		require.Eventually(t, func() bool { return !f.registered() }, 5*time.Second, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return !f.registered() && f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
 	})
 
 	t.Run("repeated calls unregister with the capability once", func(t *testing.T) {
@@ -377,7 +463,8 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		if err != nil {
 			require.ErrorIs(t, err, ErrWorkflowNotCoordinated)
 		}
-		require.Eventually(t, func() bool { return !f.registered() }, 5*time.Second, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
+		assert.Equal(t, 1, f.limits.freeCount())
 	})
 
 	t.Run("a failed unregister is returned and retried on the next call", func(t *testing.T) {
@@ -398,7 +485,8 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		require.NoError(t, f.c.UnregisterTriggers(validWorkflowID))
 
 		close(release)
-		require.Eventually(t, func() bool { return !f.registered() }, 5*time.Second, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
+		assert.Equal(t, 1, f.limits.freeCount(), "only one release waiter may free the slot")
 	})
 
 	t.Run("releases after the drain timeout even if an execution hangs", func(t *testing.T) {
@@ -419,7 +507,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		assert.True(t, f.registered())
 
 		f.clock.Advance(defaultDrainTimeout)
-		require.Eventually(t, func() bool { return !f.registered() }, 5*time.Second, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return !f.registered() && f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
 	})
 }
 
@@ -452,6 +540,7 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	newWT := f.c.workflows[validWorkflowID]
 	f.c.mu.Unlock()
 	require.NotSame(t, oldWT, newWT, "registering again must replace, not reuse, the old state")
+	assert.Equal(t, 2, f.limits.inUse(), "the old slot is held until its drain completes")
 
 	close(release)
 	oldWT.readers.Wait() // the old registration's own readers have now exited
@@ -465,6 +554,8 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 		defer f.c.mu.Unlock()
 		return f.c.workflows[validWorkflowID] != newWT
 	}, 100*time.Millisecond, 2*time.Millisecond, "the old waiter must not drop the new registration")
+	require.Eventually(t, func() bool { return f.limits.inUse() == 1 }, time.Second, time.Millisecond,
+		"the old waiter must still free its own slot")
 
 	regID := RegistrationID(validWorkflowID, 0)
 	newTrigger.EXPECT().AckEvent(mock.Anything, regID, "evt-2", testMethod).Return(nil).Once()

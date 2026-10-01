@@ -979,6 +979,7 @@ func newWorkflowRegistrySyncerV2(
 			Metrics:      wfmonitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), coordinatorMetrics),
 		},
 		syncerV2.NewTriggerEngineRegistry(engineRegistry),
+		workflowLimits,
 		clockwork.NewRealClock(),
 	)
 
