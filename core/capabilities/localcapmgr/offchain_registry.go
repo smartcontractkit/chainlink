@@ -9,9 +9,8 @@ import (
 )
 
 // Divergence kinds recorded when the offchain capabilities registry disagrees with the
-// on-chain registry. They are emitted as telemetry only: Phase 2 observes and cross-validates
-// but does not yet let the offchain payload affect running capabilities (that gated cutover is
-// Phase 4). "missing" means the on-chain registry has something the offchain payload lacks;
+// on-chain registry. They are emitted as telemetry only and never affect which config is
+// applied (that is decided by the UseOffchainRegistry gate). "missing" means the on-chain registry has something the offchain payload lacks;
 // "extra" means the offchain payload describes something not present on-chain for this node.
 const (
 	divergenceMissingDON        = "missing_don"
@@ -30,11 +29,14 @@ type offchainCrossCheck struct {
 	offchainEmpty bool // true when no offchain payload has been applied yet
 }
 
-// crossValidateOffchain compares the applied offchain capabilities registry against the
-// on-chain DON set and emits telemetry. It never mutates desired state or blocks a capability;
-// during the parallel-run (Phase 2) the on-chain registry remains authoritative and the
-// offchain payload is observed only. It fails closed in the sense that a payload that cannot
-// be parsed, or that diverges from on-chain, is never adopted — it is recorded and ignored.
+// crossValidateOffchain compares a snapshot of the applied offchain capabilities registry
+// against the on-chain DON set and emits telemetry.
+//
+// This is detection only, not enforcement: it never mutates desired state, never blocks or
+// gates a capability, and the comparison is presence-only (DON/capability keys), not config
+// values. Whether the offchain spec_config is applied is decided solely by the
+// UseOffchainRegistry gate; a divergence recorded here does not prevent it. Malformed payloads
+// are rejected earlier, at ingestion (globalconfig.Validate in the cresettings job).
 //
 // Only allowlisted capabilities are compared, matching buildDesiredState: those are the only
 // capabilities this node would run, so they are the only ones whose config matters here.

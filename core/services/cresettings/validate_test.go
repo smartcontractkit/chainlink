@@ -1,6 +1,8 @@
 package cresettings
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -138,5 +140,48 @@ offchain_config = '''%s'''`, offchain)
 		t.Parallel()
 		_, err := ValidatedCRESettingsSpec(specFn(`not json`))
 		require.ErrorContains(t, err, "invalid capabilities_registry config")
+	})
+
+	t.Run("zero version rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := ValidatedCRESettingsSpec(specFn(`{"dons":{}}`))
+		require.ErrorContains(t, err, "version must be >= 1")
+	})
+
+	t.Run("hash is over offchain_config and must match when provided", func(t *testing.T) {
+		t.Parallel()
+		payload := `{"version":2}`
+		sum := sha256.Sum256([]byte(payload))
+		want := hex.EncodeToString(sum[:])
+		got, err := ValidatedCRESettingsSpec(specFn(payload))
+		require.NoError(t, err)
+		assert.Equal(t, want, got.CRESettingsSpec.Hash)
+
+		_, err = ValidatedCRESettingsSpec(specFn(payload) + "\nhash = \"" + want + "\"")
+		require.NoError(t, err)
+		_, err = ValidatedCRESettingsSpec(specFn(payload) + "\nhash = \"deadbeef\"")
+		require.ErrorContains(t, err, "invalid sha256 hash")
+	})
+
+	t.Run("settings with capabilities_registry rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := ValidatedCRESettingsSpec(specFn(`{"version":1}`) + "\nsettings = '''Foo = \"bar\"'''")
+		require.ErrorContains(t, err, "settings must be empty")
+	})
+
+	t.Run("offchain_config with another config_type rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := ValidatedCRESettingsSpec(`type = "cresettings"
+schemaVersion = 1
+settings = '''Foo = "bar"'''
+offchain_config = '''{"version":1}'''`)
+		require.ErrorContains(t, err, "offchain_config is only valid")
+	})
+
+	t.Run("routing agrees with delegate", func(t *testing.T) {
+		t.Parallel()
+		got, err := ValidatedCRESettingsSpec(specFn(`{"version":1}`))
+		require.NoError(t, err)
+		assert.Equal(t, ConfigTypeCapRegistry, (&delegate{}).configType(got.CRESettingsSpec))
 	})
 }

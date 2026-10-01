@@ -58,40 +58,52 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 		return nil, fmt.Errorf("another %s job with config_type %q is already active: %d", job.CRESettings, configType, activeJobID.(int32))
 	}
 
+	if err := d.apply(configType, spec); err != nil {
+		// Release the slot claimed above: a job whose payload was rejected (e.g. a stale
+		// capabilities_registry version) is not active, and must not block a later valid job
+		// of the same config_type. The feeds manager deletes the previous job before creating
+		// its replacement, so a reserved slot here would wedge the config_type until restart.
+		d.activeJobIDs.CompareAndDelete(configType, j.ID)
+		return nil, err
+	}
+	return nil, nil
+}
+
+// apply stores the spec's payload into the store for its config_type.
+func (d *delegate) apply(configType string, spec *job.CRESettingsSpec) error {
 	switch configType {
 	case ConfigTypeShardAssignment:
 		if err := d.shardAssignmentSettings.Store(core.SettingsUpdate{
 			Settings: spec.Settings,
 			Hash:     spec.Hash,
 		}); err != nil {
-			return nil, fmt.Errorf("failed to store shard assignment settings: %w", err)
+			return fmt.Errorf("failed to store shard assignment settings: %w", err)
 		}
 		d.lggr.Infow("Updated shard assignment config", "hash", spec.Hash)
 
 	case ConfigTypeCapRegistry:
 		if d.globalConfig == nil {
-			return nil, fmt.Errorf("no global config store configured for config_type %q", configType)
+			return fmt.Errorf("no global config store configured for config_type %q", configType)
 		}
 		if err := d.globalConfig.Store(globalconfig.Update{
 			Raw:  spec.OffchainConfig,
 			Hash: spec.Hash,
 		}); err != nil {
-			return nil, fmt.Errorf("failed to store offchain capabilities registry config: %w", err)
+			return fmt.Errorf("failed to store offchain capabilities registry config: %w", err)
 		}
-		d.lggr.Infow("Updated offchain capabilities registry config", "hash", spec.Hash)
+		_, version := d.globalConfig.Load()
+		d.lggr.Infow("Updated offchain capabilities registry config", "hash", spec.Hash, "version", version)
 
 	case ConfigTypeSettings:
 		if err := d.atomicSettings.Store(core.SettingsUpdate{
 			Settings: spec.Settings,
 			Hash:     spec.Hash,
 		}); err != nil {
-			return nil, fmt.Errorf("failed to update settings: %w", err)
+			return fmt.Errorf("failed to update settings: %w", err)
 		}
 		d.lggr.Infow("Updated settings", "hash", spec.Hash, "settings", spec.Settings)
 	}
-
-	d.activeJobIDs.Store(configType, j.ID)
-	return nil, nil
+	return nil
 }
 
 func (d *delegate) AfterJobCreated(j job.Job) {}

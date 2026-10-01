@@ -540,7 +540,7 @@ func (o *orm) insertOCR2OracleSpec(ctx context.Context, spec *OCR2OracleSpec) (s
 }
 
 func (o *orm) insertCRESettingsSpec(ctx context.Context, spec *CRESettingsSpec) (specID int32, err error) {
-	return o.prepareQuerySpecID(ctx, `INSERT INTO cre_settings_specs (settings, hash, created_at, updated_at) VALUES (:settings, :hash, NOW(), NOW()) RETURNING id;`, spec)
+	return o.prepareQuerySpecID(ctx, `INSERT INTO cre_settings_specs (settings, hash, config_type, offchain_config, created_at, updated_at) VALUES (:settings, :hash, :config_type, :offchain_config, NOW(), NOW()) RETURNING id;`, spec)
 }
 
 func (o *orm) insertCronSpec(ctx context.Context, spec *CronSpec) (specID int32, err error) {

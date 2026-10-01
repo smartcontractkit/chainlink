@@ -1,7 +1,6 @@
 package localcapmgr
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -9,13 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 func specConfigCap(t *testing.T, kv map[string]any) *capabilitiespb.CapabilityConfig {
@@ -73,31 +70,52 @@ func TestOffchainCapabilityConfigProvider(t *testing.T) {
 	t.Parallel()
 
 	gc := storedRegistry(t, 1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-		7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30"})},
+		7: {
+			"cron@1.0.0":      specConfigCap(t, map[string]any{"interval": "30"}),
+			"consensus@1.0.0": {}, // present, but no spec_config
+		},
 	})
+	reg, version := gc.LoadParsed()
+	p := offchainCapabilityConfigProvider{reg: reg, version: version}
 
 	t.Run("returns offchain spec_config for the DON", func(t *testing.T) {
 		t.Parallel()
-		p := offchainCapabilityConfigProvider{registry: gc}
 		assert.Equal(t, map[string]any{"interval": "30"}, p.LocalConfigOverrides("cron@1.0.0", 7))
 	})
 
-	t.Run("nil for wrong DON", func(t *testing.T) {
+	t.Run("nil for missing DON", func(t *testing.T) {
 		t.Parallel()
-		p := offchainCapabilityConfigProvider{registry: gc}
 		assert.Nil(t, p.LocalConfigOverrides("cron@1.0.0", 99))
 	})
 
-	t.Run("nil for unknown capability", func(t *testing.T) {
+	t.Run("nil for missing capability", func(t *testing.T) {
 		t.Parallel()
-		p := offchainCapabilityConfigProvider{registry: gc}
 		assert.Nil(t, p.LocalConfigOverrides("missing@1.0.0", 7))
 	})
 
-	t.Run("nil registry / nothing applied", func(t *testing.T) {
+	t.Run("nil for capability without spec_config", func(t *testing.T) {
 		t.Parallel()
-		assert.Nil(t, offchainCapabilityConfigProvider{registry: nil}.LocalConfigOverrides("cron@1.0.0", 7))
-		assert.Nil(t, offchainCapabilityConfigProvider{registry: globalconfig.New()}.LocalConfigOverrides("cron@1.0.0", 7))
+		assert.Nil(t, p.LocalConfigOverrides("consensus@1.0.0", 7))
+	})
+
+	t.Run("nil snapshot", func(t *testing.T) {
+		t.Parallel()
+		assert.Nil(t, offchainCapabilityConfigProvider{}.LocalConfigOverrides("cron@1.0.0", 7))
+	})
+
+	t.Run("malformed spec_config is skipped, not partially applied", func(t *testing.T) {
+		t.Parallel()
+		// Unreachable from an applied payload (globalconfig.Validate rejects it at ingestion),
+		// but the provider must still degrade to "no offchain override" rather than panic or
+		// apply a partial map.
+		bad := offchainReg(1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
+			7: {"cron@1.0.0": {SpecConfig: &valuespb.Map{Fields: map[string]*valuespb.Value{
+				"ok":     valuespb.NewStringValue("x"),
+				"broken": {}, // a Value with no kind cannot be converted
+			}}}},
+		})
+		p := offchainCapabilityConfigProvider{reg: bad, version: 1, lggr: testLogger(t)}
+		assert.Nil(t, p.LocalConfigOverrides("cron@1.0.0", 7))
 	})
 }
 
@@ -111,52 +129,6 @@ func onchainSpecConfig(t *testing.T, kv map[string]any) registry.CapabilityConfi
 	b, err := proto.Marshal(cc)
 	require.NoError(t, err)
 	return registry.CapabilityConfiguration{Config: b}
-}
-
-// TestBuildConfigJSON_Precedence verifies the backwards-compatible cutover layering:
-// TOML (base) < on-chain SpecConfig < offchain SpecConfig (only when the gate is on).
-func TestBuildConfigJSON_Precedence(t *testing.T) {
-	t.Parallel()
-
-	localCfg := &testLocalCapabilities{configs: map[string]*testCapabilityNodeConfig{
-		"cron@1.0.0": {cfg: map[string]string{"interval": "10", "tomlOnly": "keep"}},
-	}}
-	onchain := onchainSpecConfig(t, map[string]any{"interval": "20", "onchainOnly": "oc"})
-	gc := storedRegistry(t, 1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-		7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30", "offchainOnly": "add"})},
-	})
-	noop := func(_ context.Context, _ string, _ uint32, _ string, _ string, _ *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
-		return nil, nil
-	}
-	info := &capabilityInfo{capID: "cron@1.0.0", donID: 7, config: onchain}
-
-	t.Run("gate off: on-chain wins over TOML, offchain ignored", func(t *testing.T) {
-		t.Parallel()
-		m, err := NewLocalCapabilityManager(testLogger(t), localCfg, noop, gc, false)
-		require.NoError(t, err)
-		got, err := m.(*localCapabilityManager).buildConfigJSON(info)
-		require.NoError(t, err)
-		assert.JSONEq(t, `{"interval":"20","tomlOnly":"keep","onchainOnly":"oc"}`, got)
-	})
-
-	t.Run("gate on: offchain wins, absent keys fall back to on-chain/TOML", func(t *testing.T) {
-		t.Parallel()
-		m, err := NewLocalCapabilityManager(testLogger(t), localCfg, noop, gc, true)
-		require.NoError(t, err)
-		got, err := m.(*localCapabilityManager).buildConfigJSON(info)
-		require.NoError(t, err)
-		assert.JSONEq(t, `{"interval":"30","offchainOnly":"add","onchainOnly":"oc","tomlOnly":"keep"}`, got)
-	})
-
-	t.Run("gate on but offchain has no entry for this DON: falls back to on-chain/TOML", func(t *testing.T) {
-		t.Parallel()
-		m, err := NewLocalCapabilityManager(testLogger(t), localCfg, noop, gc, true)
-		require.NoError(t, err)
-		info99 := &capabilityInfo{capID: "cron@1.0.0", donID: 99, config: onchain}
-		got, err := m.(*localCapabilityManager).buildConfigJSON(info99)
-		require.NoError(t, err)
-		assert.JSONEq(t, `{"interval":"20","tomlOnly":"keep","onchainOnly":"oc"}`, got)
-	})
 }
 
 func TestBuildConfigJSON_UsesConfigProvider(t *testing.T) {

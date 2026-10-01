@@ -1,8 +1,8 @@
 package localcapmgr
 
 import (
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
@@ -40,51 +40,29 @@ func (p tomlCapabilityConfigProvider) LocalConfigOverrides(capID string, _ uint3
 	return toAnyMap(capCfg.Config())
 }
 
-// offchainCapabilityConfigProvider is backed by the offchain capabilities registry. It returns
-// the offchain spec_config for a (capID, donID), matching the shape the TOML provider yields.
+// offchainCapabilityConfigProvider is backed by a snapshot of the offchain capabilities
+// registry taken once per reconcile. It returns the offchain spec_config for a (capID, donID),
+// matching the shape the TOML provider yields.
+//
+// Missing entries are not an error: when the payload has no config for the DON, no entry for the
+// capability, or no spec_config, it returns nil and every key keeps its on-chain/TOML value.
+// A spec_config that cannot be converted is rejected at ingestion (globalconfig.Validate), so it
+// cannot reach here from an applied payload; if it ever does, the offchain layer is skipped for
+// that capability (on-chain/TOML values are used) and a warning is logged.
 type offchainCapabilityConfigProvider struct {
-	registry *globalconfig.GlobalConfig
-	lggr     logger.Logger
+	reg     *capabilitiespb.OffchainCapabilitiesRegistry
+	version uint64
+	lggr    logger.Logger
 }
 
 func (p offchainCapabilityConfigProvider) LocalConfigOverrides(capID string, donID uint32) map[string]any {
-	if p.registry == nil {
-		return nil
-	}
-	reg, _ := p.registry.LoadParsed()
-	if reg == nil {
-		return nil
-	}
-	don := reg.GetDons()[donID]
-	if don == nil {
-		return nil
-	}
-	capCfg := don.GetCapabilityConfigs()[capID]
-	if capCfg == nil {
-		return nil
-	}
-	sc := capCfg.GetSpecConfig()
-	if sc == nil {
-		return nil
-	}
-	m, err := values.FromMapValueProto(sc)
-	if err != nil || m == nil {
-		if p.lggr != nil {
-			p.lggr.Warnw("Failed to convert offchain spec_config, ignoring offchain override",
-				"capID", capID, "donID", donID, "error", err)
-		}
-		return nil
-	}
-	unwrapped, err := m.Unwrap()
+	capCfg := p.reg.GetDons()[donID].GetCapabilityConfigs()[capID]
+	out, err := globalconfig.SpecConfigMap(capCfg.GetSpecConfig())
 	if err != nil {
 		if p.lggr != nil {
-			p.lggr.Warnw("Failed to unwrap offchain spec_config, ignoring offchain override",
-				"capID", capID, "donID", donID, "error", err)
+			p.lggr.Warnw("Invalid offchain spec_config, ignoring offchain override",
+				"capID", capID, "donID", donID, "offchainVersion", p.version, "error", err)
 		}
-		return nil
-	}
-	out, ok := unwrapped.(map[string]any)
-	if !ok {
 		return nil
 	}
 	return out

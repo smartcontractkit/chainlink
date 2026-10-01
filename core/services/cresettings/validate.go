@@ -42,6 +42,16 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 
 	configType := resolveConfigType(spec)
 
+	// Each config_type has exactly one payload field. Rejecting the other one keeps the hash,
+	// the delegate's routing, and what is persisted unambiguous.
+	if configType == ConfigTypeCapRegistry {
+		if spec.Settings != "" {
+			return jb, fmt.Errorf("settings must be empty for config_type %q; use offchain_config", ConfigTypeCapRegistry)
+		}
+	} else if spec.OffchainConfig != "" {
+		return jb, fmt.Errorf("offchain_config is only valid for config_type %q, got %q", ConfigTypeCapRegistry, configType)
+	}
+
 	// payload is the hashed content and varies by config_type: settings-based types hash
 	// the Settings TOML; capabilities_registry hashes the OffchainConfig proto-JSON.
 	payload := spec.Settings

@@ -3,6 +3,7 @@ package localcapmgr
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -43,9 +44,20 @@ type runningCapability struct {
 
 // capabilityInfo describes a capability that should be running.
 type capabilityInfo struct {
-	capID      string
-	donID      uint32
-	config     registry.CapabilityConfiguration
+	capID  string
+	donID  uint32
+	config registry.CapabilityConfiguration
+	// offchainOverrides is the offchain spec_config for (capID, donID), taken from the
+	// registry snapshot of the reconcile that built this info. Nil when the cutover is off or
+	// the offchain payload has no entry for this capability on this DON.
+	offchainOverrides map[string]any
+	// configJSON is the effective config the capability is launched with (see buildConfigJSON)
+	// and configErr the error building it, if any.
+	configJSON string
+	configErr  error
+	// configHash identifies the effective launch inputs (on-chain config bytes + effective
+	// config JSON). A change in either, including an offchain-only change, restarts the
+	// capability.
 	configHash string
 }
 
@@ -63,15 +75,26 @@ type localCapabilityManager struct {
 	// in buildConfigJSON, below the on-chain SpecConfig. Binary-path/allowlist still read
 	// directly from localCfg.
 	configProvider CapabilityConfigProvider
-	// offchainProvider yields offchain capability config overrides. It is applied LAST in
-	// buildConfigJSON (offchain-wins over both TOML and on-chain), and only when the cutover is
-	// enabled. Nil when the cutover is off, so a value absent offchain falls back to the on-chain
+	// useOffchainRegistry is the cutover gate. When true, the offchain spec_config is applied
+	// LAST in buildConfigJSON (offchain-wins over both TOML and on-chain). When false the
+	// offchain layer is skipped entirely, and any key absent offchain falls back to the on-chain
 	// or TOML value — the cutover is backwards compatible by construction.
-	offchainProvider CapabilityConfigProvider
+	useOffchainRegistry bool
 	// offchainRegistry is the offchain capabilities registry delivered via the cresettings job.
 	// It is cross-validated against the on-chain registry every Reconcile (telemetry), regardless
 	// of the cutover gate. Nil when the feature is not wired.
 	offchainRegistry *globalconfig.GlobalConfig
+
+	// reconcileMu serializes whole reconciles (registry-driven and offchain-update-driven), so
+	// each one builds its desired state from a single offchain snapshot and the latest DON set.
+	reconcileMu sync.Mutex
+	// lastDONs is the DON set from the most recent registry-driven Reconcile; an offchain-only
+	// update re-reconciles against it. Guarded by reconcileMu.
+	lastDONs      []registry.DON
+	hasReconciled bool
+
+	stopCh services.StopChan
+	wg     sync.WaitGroup
 
 	runningCapabilities map[string]*runningCapability
 	mu                  sync.RWMutex
@@ -100,10 +123,9 @@ func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabili
 	}
 	named := logger.Named(lggr, "LocalCapabilityManager")
 
-	var offchainProvider CapabilityConfigProvider
-	if useOffchainRegistry && offchainRegistry != nil {
-		offchainProvider = offchainCapabilityConfigProvider{registry: offchainRegistry, lggr: named}
-		named.Info("Offchain capabilities registry cutover ENABLED: offchain config wins over on-chain and TOML")
+	useOffchain := useOffchainRegistry && offchainRegistry != nil
+	if useOffchain {
+		named.Info("Offchain capabilities registry cutover ENABLED: offchain spec_config wins over on-chain and TOML")
 	}
 
 	return &localCapabilityManager{
@@ -111,8 +133,9 @@ func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabili
 		localCfg:            localCfg,
 		newServicesFn:       newServicesFn,
 		configProvider:      tomlCapabilityConfigProvider{localCfg: localCfg},
-		offchainProvider:    offchainProvider,
+		useOffchainRegistry: useOffchain,
 		offchainRegistry:    offchainRegistry,
+		stopCh:              make(services.StopChan),
 		runningCapabilities: make(map[string]*runningCapability),
 		metrics:             metrics,
 	}, nil
@@ -120,13 +143,56 @@ func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabili
 
 func (m *localCapabilityManager) Start(ctx context.Context) error {
 	return m.StartOnce("LocalCapabilityManager", func() error {
+		if m.stopCh == nil {
+			m.stopCh = make(services.StopChan)
+		}
+		if m.useOffchainRegistry && m.offchainRegistry != nil {
+			updates, unsubscribe := m.offchainRegistry.Subscribe()
+			m.wg.Go(func() {
+				defer unsubscribe()
+				m.watchOffchainUpdates(updates)
+			})
+		}
 		m.lggr.Info("LocalCapabilityManager started")
 		return nil
 	})
 }
 
+// watchOffchainUpdates re-reconciles whenever a new offchain payload is applied, so an
+// offchain-only change takes effect without waiting for the next registry sync.
+func (m *localCapabilityManager) watchOffchainUpdates(updates <-chan struct{}) {
+	ctx, cancel := m.stopCh.NewCtx()
+	defer cancel()
+	for {
+		select {
+		case <-m.stopCh:
+			return
+		case <-updates:
+			m.reconcileOnOffchainUpdate(ctx)
+		}
+	}
+}
+
+// reconcileOnOffchainUpdate re-runs the reconcile against the last known on-chain DON set.
+// Before the first registry-driven Reconcile there is no DON set to reconcile against; the
+// first Reconcile reads the latest offchain snapshot anyway.
+func (m *localCapabilityManager) reconcileOnOffchainUpdate(ctx context.Context) {
+	m.reconcileMu.Lock()
+	defer m.reconcileMu.Unlock()
+	if !m.hasReconciled {
+		return
+	}
+	m.lggr.Infow("Offchain capabilities registry updated, reconciling local capabilities")
+	m.reconcileLocked(ctx, m.lastDONs)
+}
+
 func (m *localCapabilityManager) Close() error {
 	return m.StopOnce("LocalCapabilityManager", func() error {
+		if m.stopCh != nil {
+			close(m.stopCh)
+		}
+		m.wg.Wait()
+
 		m.mu.Lock()
 		defer m.mu.Unlock()
 
@@ -162,11 +228,37 @@ func (m *localCapabilityManager) Reconcile(
 	ctx context.Context,
 	allMyDONs []registry.DON,
 ) error {
-	desired := m.buildDesiredState(allMyDONs)
+	m.reconcileMu.Lock()
+	defer m.reconcileMu.Unlock()
+	m.lastDONs = allMyDONs
+	m.hasReconciled = true
+	m.reconcileLocked(ctx, allMyDONs)
+	return nil
+}
 
-	// Phase 2 parallel-run: observe the offchain registry and cross-validate it against the
-	// on-chain DON set. Telemetry only — it does not influence desired state below.
-	m.crossValidateOffchain(ctx, allMyDONs)
+// reconcileLocked performs one reconcile. Callers must hold reconcileMu.
+func (m *localCapabilityManager) reconcileLocked(ctx context.Context, allMyDONs []registry.DON) {
+	// Take ONE snapshot of the offchain registry for the whole pass, so cross-validation and
+	// every capability's effective config are computed from the same payload even if a new one
+	// is stored concurrently. LoadParsed returns a deep copy, so nothing here can mutate the
+	// shared applied config.
+	var offchainReg *capabilitiespb.OffchainCapabilitiesRegistry
+	var offchainVersion uint64
+	if m.offchainRegistry != nil {
+		offchainReg, offchainVersion = m.offchainRegistry.LoadParsed()
+	}
+
+	var offchain CapabilityConfigProvider
+	if m.useOffchainRegistry && offchainReg != nil {
+		offchain = offchainCapabilityConfigProvider{reg: offchainReg, version: offchainVersion, lggr: m.lggr}
+	}
+	desired := m.buildDesiredState(allMyDONs, offchain)
+
+	// Cross-validate the offchain registry against the on-chain DON set. Telemetry only — it
+	// does not influence desired state (and does not gate or block anything).
+	if m.offchainRegistry != nil {
+		m.recordOffchainCheck(ctx, m.computeOffchainCrossCheck(offchainReg, offchainVersion, allMyDONs))
+	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -212,12 +304,13 @@ func (m *localCapabilityManager) Reconcile(
 	}
 
 	m.metrics.recordRunning(ctx, int64(len(m.runningCapabilities)))
-	return nil
 }
 
-// buildDesiredState extracts capabilities that should be running from DON configs.
-// Only includes capabilities that are in the RegistryBasedLaunchAllowlist.
-func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registry.DON) map[string]*capabilityInfo {
+// buildDesiredState extracts capabilities that should be running from DON configs, and
+// computes each one's effective config. Only includes capabilities that are in the
+// RegistryBasedLaunchAllowlist. offchain is the offchain spec_config layer for this reconcile,
+// or nil when the cutover is off or no offchain payload is applied.
+func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registry.DON, offchain CapabilityConfigProvider) map[string]*capabilityInfo {
 	desired := make(map[string]*capabilityInfo)
 	for _, don := range myCapabilityDONs {
 		for capID, capCfg := range don.CapabilityConfigurations {
@@ -225,13 +318,17 @@ func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registry.D
 				continue
 			}
 
-			key := runningKey(capID, don.ID)
-			desired[key] = &capabilityInfo{
-				capID:      capID,
-				donID:      don.ID,
-				config:     capCfg,
-				configHash: configHash(capCfg.Config),
+			info := &capabilityInfo{
+				capID:  capID,
+				donID:  don.ID,
+				config: capCfg,
 			}
+			if offchain != nil {
+				info.offchainOverrides = offchain.LocalConfigOverrides(capID, don.ID)
+			}
+			info.configJSON, info.configErr = m.buildConfigJSON(info)
+			info.configHash = effectiveConfigHash(capCfg.Config, info.configJSON)
+			desired[runningKey(capID, don.ID)] = info
 		}
 	}
 	return desired
@@ -245,10 +342,10 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	// in-process and do not need a binary, so an empty command is allowed there;
 	// the newServicesFn routes on capability ID and ignores it.
 	command := m.resolveCapabilityBinary(info.capID)
-	configJSON, err := m.buildConfigJSON(info)
-	if err != nil {
-		return nil, fmt.Errorf("build config for %s: %w", info.capID, err)
+	if info.configErr != nil {
+		return nil, fmt.Errorf("build config for %s: %w", info.capID, info.configErr)
 	}
+	configJSON := info.configJSON
 
 	// TODO(CRE-1775): also derive and pass OracleFactoryConfigs if present onchain.
 	ocr3Config := extractDefaultOCR3Config(info.config)
@@ -346,11 +443,9 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 		}
 	}
 
-	// 3. offchain SpecConfig wins (cutover on only). Applied last, keys absent offchain retain
-	// their on-chain/TOML value.
-	if m.offchainProvider != nil {
-		maps.Copy(merged, m.offchainProvider.LocalConfigOverrides(info.capID, info.donID))
-	}
+	// 3. offchain SpecConfig wins (cutover on only; nil otherwise). Applied last, keys absent
+	// offchain retain their on-chain/TOML value.
+	maps.Copy(merged, info.offchainOverrides)
 
 	if len(merged) == 0 {
 		return "{}", nil
@@ -393,4 +488,19 @@ func configHash(configBytes []byte) string {
 	}
 	h := sha256.Sum256(configBytes)
 	return hex.EncodeToString(h[:])
+}
+
+// effectiveConfigHash hashes everything a capability is launched with that can change at
+// runtime: the raw on-chain capability config (which also carries OCR3 configs) and the
+// effective merged config JSON (TOML < on-chain < offchain). Hashing the effective JSON rather
+// than only the on-chain bytes is what makes an offchain-only change restart the capability.
+// buildConfigJSON marshals a map, so the JSON has sorted keys and is deterministic.
+func effectiveConfigHash(onchainConfig []byte, configJSON string) string {
+	h := sha256.New()
+	var n [8]byte
+	binary.BigEndian.PutUint64(n[:], uint64(len(onchainConfig)))
+	h.Write(n[:])
+	h.Write(onchainConfig)
+	h.Write([]byte(configJSON))
+	return hex.EncodeToString(h.Sum(nil))
 }

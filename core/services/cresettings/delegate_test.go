@@ -185,3 +185,82 @@ func TestDelegate_OnDeleteJobClearsConfigType(t *testing.T) {
 	_, err = d.ServicesForSpec(t.Context(), capRegistryJob(2, `{"version":2}`, "h2"))
 	require.NoError(t, err)
 }
+
+// TestDelegate_FailedStoreReleasesSlot covers the feeds-manager replacement flow: the old job is
+// deleted, then its replacement is created. If the replacement's payload is rejected, its slot
+// must be released so a later valid job of the same config_type can still be created.
+func TestDelegate_FailedStoreReleasesSlot(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	d := newTestDelegate(t)
+
+	_, err := d.ServicesForSpec(ctx, capRegistryJob(1, `{"version":5}`, "h5"))
+	require.NoError(t, err)
+	require.NoError(t, d.OnDeleteJob(ctx, capRegistryJob(1, `{"version":5}`, "h5")))
+
+	// Stale version: rejected by GlobalConfig.
+	_, err = d.ServicesForSpec(ctx, capRegistryJob(2, `{"version":4}`, "h4"))
+	require.ErrorContains(t, err, "not newer than applied version 5")
+	// Invalid payload: rejected by GlobalConfig.
+	_, err = d.ServicesForSpec(ctx, capRegistryJob(3, `{"version":0}`, "h0"))
+	require.ErrorContains(t, err, "version must be >= 1")
+
+	// Neither rejected job holds the slot.
+	_, err = d.ServicesForSpec(ctx, capRegistryJob(4, `{"version":6}`, "h6"))
+	require.NoError(t, err)
+	_, v := d.globalConfig.Load()
+	assert.Equal(t, uint64(6), v)
+
+	// The active job still owns the slot after a rejected attempt.
+	_, err = d.ServicesForSpec(ctx, capRegistryJob(5, `{"version":7}`, "h7"))
+	require.ErrorContains(t, err, "already active: 4")
+}
+
+func TestDelegate_FailedSettingsStoreReleasesSlot(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, nil)
+
+	// No GlobalConfig wired: capabilities_registry fails, and must not hold its slot.
+	_, err := d.ServicesForSpec(ctx, capRegistryJob(1, `{"version":1}`, "h1"))
+	require.ErrorContains(t, err, "no global config store")
+	_, loaded := d.activeJobIDs.Load(ConfigTypeCapRegistry)
+	assert.False(t, loaded)
+}
+
+// TestDelegate_RestartFromPersistedSpecs simulates node restart: specs as produced by the
+// validator (and round-tripped through the DB) are replayed into a fresh delegate. The
+// capabilities_registry job must route to GlobalConfig, not collide with the settings job or
+// overwrite the CRE settings with its empty Settings field.
+func TestDelegate_RestartFromPersistedSpecs(t *testing.T) {
+	t.Parallel()
+
+	settingsJob, err := ValidatedCRESettingsSpec(`type = "cresettings"
+schemaVersion = 1
+settings = '''Foo = "bar"'''`)
+	require.NoError(t, err)
+	settingsJob.ID = 1
+	capRegJob, err := ValidatedCRESettingsSpec(`type = "cresettings"
+schemaVersion = 1
+config_type = "capabilities_registry"
+offchain_config = '''{"version":4}'''`)
+	require.NoError(t, err)
+	capRegJob.ID = 2
+
+	atomicSettings := &loop.AtomicSettings{}
+	gc := globalconfig.New()
+	d := NewDelegate(logger.TestLogger(t), atomicSettings, &loop.AtomicSettings{}, gc)
+
+	for _, j := range []job.Job{capRegJob, settingsJob} {
+		_, err = d.ServicesForSpec(t.Context(), j)
+		require.NoError(t, err)
+	}
+
+	_, v := gc.Load()
+	assert.Equal(t, uint64(4), v)
+	applied, err := atomicSettings.Load()
+	require.NoError(t, err)
+	assert.Equal(t, settingsJob.CRESettingsSpec.Hash, applied.Hash)
+}
