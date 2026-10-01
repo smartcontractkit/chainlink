@@ -428,9 +428,7 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 	merged := make(map[string]any)
 
 	// 1. node-local TOML base.
-	for k, v := range m.overridesFor(info.capID, info.donID) {
-		merged[k] = v
-	}
+	maps.Copy(merged, m.overridesFor(info.capID, info.donID))
 
 	// 2. on-chain SpecConfig.
 	if len(info.config.Config) > 0 {

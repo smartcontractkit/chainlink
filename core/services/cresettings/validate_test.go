@@ -130,7 +130,7 @@ offchain_config = '''%s'''`, offchain)
 		require.NoError(t, err)
 		require.NotNil(t, got.CRESettingsSpec)
 		assert.Equal(t, ConfigTypeCapRegistry, got.CRESettingsSpec.ConfigType)
-		assert.Equal(t, `{"version":1,"dons":{}}`, got.CRESettingsSpec.OffchainConfig)
+		assert.JSONEq(t, `{"version":1,"dons":{}}`, got.CRESettingsSpec.OffchainConfig)
 		// Hash is computed over OffchainConfig (not Settings).
 		assert.NotEmpty(t, got.CRESettingsSpec.Hash)
 		assert.Empty(t, got.CRESettingsSpec.Settings)
