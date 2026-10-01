@@ -14,6 +14,7 @@ import (
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
@@ -58,7 +59,7 @@ func TestCoordinatedEngine_ExecuteTrigger(t *testing.T) {
 		Owner:    baseCfg.WorkflowOwner,
 		Workflow: baseCfg.WorkflowID,
 	})
-	event := v2.RoutedTriggerEvent{
+	event := triggers.CoordinatedEvent{
 		WorkflowID:   baseCfg.WorkflowID,
 		TriggerCapID: "id_0",
 		TriggerIndex: 0,

@@ -1395,6 +1395,9 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].GasEstimator.SenderAddress == nil {
 			got.EVM[c].GasEstimator.SenderAddress = new(types.EIP55Address)
 		}
+		if got.EVM[c].BalanceMonitor.ERC20TokenAddress == nil {
+			got.EVM[c].BalanceMonitor.ERC20TokenAddress = new(types.EIP55Address)
+		}
 	}
 
 	configtest.AssertFieldsNotNil(t, got)

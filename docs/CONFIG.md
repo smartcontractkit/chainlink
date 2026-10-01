@@ -9240,6 +9240,126 @@ AcceptanceTimeout = '30s'
 
 </p></details>
 
+<details><summary>Tempo Mainnet (4217)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+SafeDepth = 0
+FinalityTagEnabled = true
+SafeTagSupported = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '1s'
+LogPollerSkipEmptyBlocks = false
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = false
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 2
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+ERC20TokenAddress = '0x20C0000000000000000000000000000000000000'
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '1 gwei'
+PriceMax = '1 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 30
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '4s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
+PersistenceEnabled = false
+PersistenceBatchSize = 100
+
+[NodePool]
+PollFailureThreshold = 5
+PollSuccessThreshold = 0
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 15
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '1s'
+VerifyChainID = true
+ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[Workflow]
+GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
+```
+
+</p></details>
+
 <details><summary>Worldchain Testnet (4801)</summary><p>
 
 ```toml
@@ -10821,6 +10941,126 @@ FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
+ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[Workflow]
+GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
+```
+
+</p></details>
+
+<details><summary>Tempo Testnet Moderato (42431)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+SafeDepth = 0
+FinalityTagEnabled = true
+SafeTagSupported = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '1s'
+LogPollerSkipEmptyBlocks = false
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = false
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 2
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+ERC20TokenAddress = '0x20C0000000000000000000000000000000000000'
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '1 gwei'
+PriceMax = '1 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '4'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 30
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '4s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
+PersistenceEnabled = false
+PersistenceBatchSize = 100
+
+[NodePool]
+PollFailureThreshold = 5
+PollSuccessThreshold = 0
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 15
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '1s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
 
@@ -16415,6 +16655,7 @@ FeeBoost enables node to immediately boost txs to the max gas price configured
 ```toml
 [EVM.BalanceMonitor]
 Enabled = true # Default
+ERC20TokenAddress = "0x20C0000000000000000000000000000000000000" # Example
 ```
 
 
@@ -16423,6 +16664,12 @@ Enabled = true # Default
 Enabled = true # Default
 ```
 Enabled balance monitoring for all keys.
+
+### ERC20TokenAddress
+```toml
+ERC20TokenAddress = "0x20C0000000000000000000000000000000000000" # Example
+```
+ERC20TokenAddress is the address of an ERC-20 type token that a chain supports as a fee token.
 
 ## EVM.GasEstimator
 ```toml

@@ -69,6 +69,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // Keystore is the minimal interface needed from keystore for CRE
@@ -276,7 +277,7 @@ func (s *Services) newSubservices(
 		return srvs, nil
 	}
 
-	registrySyncerServices, donNotifier, err := s.newRegistrySyncer(
+	registrySyncerServices, donNotifier, shardIndexMapper, err := s.newRegistrySyncer(
 		lggr,
 		cfg,
 		relayerChainInterops,
@@ -327,6 +328,7 @@ func (s *Services) newSubservices(
 		s.GatewayConnectorWrapper,
 		meterIdentity,
 		dispatcherWrapper.dispatcher,
+		shardIndexMapper,
 	)
 	if err != nil {
 		return nil, err
@@ -412,6 +414,7 @@ func newRegistrySyncerV2(
 	ds sqlutil.DataSource,
 	ocrConfigService capregconfig.OCRConfigService,
 	wfLauncher registrysyncerV2.Listener,
+	shardIndexMapper registrysyncerV2.Listener,
 ) ([]commonsrv.Service, error) {
 	registrySyncer, err := registrysyncerV2.New(
 		lggr,
@@ -424,7 +427,7 @@ func newRegistrySyncerV2(
 		return nil, fmt.Errorf("could not configure syncer: %w", err)
 	}
 
-	return wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigService, wfLauncher), nil
+	return wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigService, wfLauncher, shardIndexMapper), nil
 }
 
 func wireRegistrySyncerV2(
@@ -432,10 +435,11 @@ func wireRegistrySyncerV2(
 	ocrConfigService commonsrv.Service,
 	ocrConfigListener registrysyncerV2.Listener,
 	wfLauncher registrysyncerV2.Listener,
+	shardIndexMapper registrysyncerV2.Listener,
 ) []commonsrv.Service {
 	// The OCR config service must be started and receive each registry snapshot
 	// before capabilities using its dynamic config trackers are launched.
-	registrySyncer.AddListener(ocrConfigListener, wfLauncher)
+	registrySyncer.AddListener(ocrConfigListener, wfLauncher, shardIndexMapper)
 	return []commonsrv.Service{ocrConfigService, registrySyncer}
 }
 
@@ -447,7 +451,7 @@ func (s *Services) newRegistrySyncer(
 	ds sqlutil.DataSource,
 	opts Opts,
 	dispatcherWrapper *dispatcherWrapper,
-) ([]commonsrv.Service, capabilities.DonNotifyWaitSubscriber, error) {
+) ([]commonsrv.Service, capabilities.DonNotifyWaitSubscriber, *shardownership.ShardIndexMapper, error) {
 	var srvcs []commonsrv.Service
 
 	capCfg := cfg.Capabilities()
@@ -456,7 +460,7 @@ func (s *Services) newRegistrySyncer(
 	registryAddress := capCfg.ExternalRegistry().Address()
 	relayer, err := relayerChainInterops.Get(rid)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+		return nil, nil, nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
 	}
 
 	var streamConfig config.StreamConfig
@@ -468,16 +472,20 @@ func (s *Services) newRegistrySyncer(
 
 	ocrConfigService, ocrErr := newOCRConfigService(lggr, rid, registryAddress, dispatcherWrapper)
 	if ocrErr != nil {
-		return nil, nil, ocrErr
+		return nil, nil, nil, ocrErr
 	}
 	s.OCRConfigService = ocrConfigService
 
+	// Tracks workflow DONs from registry updates so shard indices used for
+	// failover ownership decisions can be remapped to their current DON IDs.
+	shardIndexMapper := shardownership.NewShardIndexMapper(lggr)
+
 	externalRegistryVersion, err := semver.NewVersion(capCfg.ExternalRegistry().ContractVersion())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if externalRegistryVersion.Major() != 2 {
-		return nil, nil, fmt.Errorf("unsupported external registry version: %s", externalRegistryVersion.String())
+		return nil, nil, nil, fmt.Errorf("unsupported external registry version: %s", externalRegistryVersion.String())
 	}
 
 	var (
@@ -503,7 +511,7 @@ func (s *Services) newRegistrySyncer(
 		shardIndex,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
+		return nil, nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
 	}
 	srvcs = append(srvcs, wfLauncher)
 
@@ -552,12 +560,13 @@ func (s *Services) newRegistrySyncer(
 		ds,
 		ocrConfigService,
 		wfLauncher,
+		shardIndexMapper,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	srvcs = append(srvcs, srvs...)
-	return srvcs, donNotifier, nil
+	return srvcs, donNotifier, shardIndexMapper, nil
 }
 
 func newOCRConfigService(
@@ -867,6 +876,7 @@ func newWorkflowRegistrySyncerV2(
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	meterIdentity resourcemanager.ResourceIdentity,
 	dispatcher remotetypes.Dispatcher,
+	shardIndexMapper *shardownership.ShardIndexMapper,
 ) (syncerV2.WorkflowRegistrySyncer, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 	wfReg := capCfg.WorkflowRegistry()
@@ -946,11 +956,11 @@ func newWorkflowRegistrySyncerV2(
 	var shardResolver shardownership.ShardResolver
 	switch assignmentMode {
 	case toml.ShardAssignmentModeManualOnly:
-		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentSettings, orgResolver, lggr)
+		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentSettings, orgResolver, shardIndexMapper, lggr)
 		lggr.Infow("Using manual-only shard assignment mode")
 	case toml.ShardAssignmentModeRingOCROverrides:
 		ringOCR := shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
-		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentSettings, orgResolver, ringOCR, lggr)
+		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentSettings, orgResolver, shardIndexMapper, ringOCR, lggr)
 		lggr.Infow("Using ringocr-with-overrides shard assignment mode")
 	default:
 		shardResolver = shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
@@ -969,6 +979,10 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 		syncerV2.WithShardResolver(shardResolver),
+		syncerV2.WithShardIndex(uint32(cfg.Sharding().ShardIndex())),
+		syncerV2.WithTriggerCoordinator(
+			triggers.NewCoordinator(opts.CapabilitiesRegistry, syncerV2.NewTriggerEngineRegistry(engineRegistry), clockwork.NewRealClock(), lggr),
+		),
 	}
 	if shardingEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,
@@ -1146,6 +1160,7 @@ func newWorkflowRegistrySyncer(
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	meterIdentity resourcemanager.ResourceIdentity,
 	dispatcher remotetypes.Dispatcher,
+	shardIndexMapper *shardownership.ShardIndexMapper,
 ) (syncerV2.WorkflowRegistrySyncer, metering.BillingClient, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 
@@ -1181,6 +1196,7 @@ func newWorkflowRegistrySyncer(
 		gatewayConnectorWrapper,
 		meterIdentity,
 		dispatcher,
+		shardIndexMapper,
 	)
 	return syncer, billingClient, srvcs, err
 }

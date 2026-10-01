@@ -145,7 +145,6 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
-			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
 			localAddrsBook = resp.AddressBook
 			env.Env.DataStore = resp.DataStore.Seal()
 
@@ -154,7 +153,6 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
-			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
 			require.NoError(t, localAddrsBook.Merge(resp.AddressBook))
 			env.Env.DataStore = resp.DataStore.Seal()
 
@@ -163,7 +161,6 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
-			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
 			require.NoError(t, localAddrsBook.Merge(resp.AddressBook))
 			env.Env.DataStore = resp.DataStore.Seal()
 
@@ -172,7 +169,6 @@ func TestKeystoneView(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			require.NoError(t, resp.DataStore.Merge(env.Env.DataStore))
-			//nolint:staticcheck // Temporarily using deprecated AddressBook until migration is complete
 			require.NoError(t, localAddrsBook.Merge(resp.AddressBook))
 
 			env.Env.DataStore = resp.DataStore.Seal()
@@ -243,18 +239,16 @@ func TestKeystoneView(t *testing.T) {
 					{Capability: internal.OCR3Cap, Config: ocr3CapCfg},
 				},
 			}
-			var allDons = []internal.DonCapabilities{wfDonCapabilities}
+			allDons := []internal.DonCapabilities{wfDonCapabilities}
 			cr, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](
 				env.Env.DataStore.Addresses(), env.Env.BlockChains.EVMChains()[env.RegistrySelector], capabilityRegistryAddr, "",
 			)
 			require.NoError(t, err)
 
 			_, err = internal.ConfigureRegistry(t.Context(), env.Env.Logger, &internal.ConfigureRegistryRequest{
-				ConfigureContractsRequest: internal.ConfigureContractsRequest{
-					RegistryChainSel: env.RegistrySelector,
-					Env:              &env.Env,
-					Dons:             allDons,
-				},
+				RegistryChainSel:     env.RegistrySelector,
+				Env:                  &env.Env,
+				Dons:                 allDons,
 				CapabilitiesRegistry: cr.Contract,
 			}, nil)
 			require.NoError(t, err)

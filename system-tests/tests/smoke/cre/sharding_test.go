@@ -222,7 +222,7 @@ func ExecuteShardingTemplate[T t_helpers.WorkflowConfig](t *testing.T, testEnv *
 
 	var rpcHost string
 	for _, nodeSet := range testEnv.Config.NodeSets {
-		if nodeSet.Name == "shard0" && nodeSet.Out != nil && len(nodeSet.Out.CLNodes) > 0 {
+		if nodeSet.Name == "workflow-1-zone-a" && nodeSet.Out != nil && len(nodeSet.Out.CLNodes) > 0 {
 			externalURL := nodeSet.Out.CLNodes[0].Node.ExternalURL
 			parsedURL, parseErr := url.Parse(externalURL)
 			require.NoError(t, parseErr, "Failed to parse ExternalURL")

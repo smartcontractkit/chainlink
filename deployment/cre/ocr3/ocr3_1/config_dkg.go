@@ -105,12 +105,10 @@ func GenerateDKGConfig(cfg V3_1OracleConfig, nca []ocr3.NodeKeys, secrets ocr.OC
 	identities := make([]confighelper.OracleIdentityExtra, 0, len(nca))
 	for i := range nca {
 		identities = append(identities, confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  onchainKeys[i],
-				OffchainPublicKey: offchainPubKeysBytes[i],
-				PeerID:            nca[i].P2PPeerID,
-				TransmitAccount:   transmitAccounts[i],
-			},
+			OnchainPublicKey:          onchainKeys[i],
+			OffchainPublicKey:         offchainPubKeysBytes[i],
+			PeerID:                    nca[i].P2PPeerID,
+			TransmitAccount:           transmitAccounts[i],
 			ConfigEncryptionPublicKey: configPubKeysBytes[i],
 		})
 	}

@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // --- test doubles ---
@@ -207,7 +209,7 @@ func TestShardFailoverManager_MultipleWorkflowsSharedDispatcher(t *testing.T) {
 	makeManager := func(workflowID string) *ShardFailoverManager {
 		return NewShardFailoverManager(ShardFailoverManagerConfig{
 			ShardingEnabled: true,
-			MyShardID:       2,
+			MyShardIndex:    2,
 			WorkflowID:      workflowID,
 			WorkflowOwner:   "0xowner",
 			ShardResolver:   resolver,
@@ -340,3 +342,49 @@ func (r *noopReceiver) Receive(context.Context, *remotetypes.MessageBody) {}
 
 // Ensure fakeDonNotifier satisfies the interface.
 var _ capabilities.DonSubscriber = (*fakeDonSubscriber)(nil)
+
+// newTestShardFailoverManager wraps engine in a manager that is never started,
+// so the sharding collaborators are left nil.
+func newTestShardFailoverManager(t *testing.T, engine v2.WorkflowEngine) *ShardFailoverManager {
+	t.Helper()
+	m := NewShardFailoverManager(ShardFailoverManagerConfig{
+		ShardingEnabled: true,
+		WorkflowID:      "wf-1",
+		WorkflowOwner:   "0xowner",
+		Logger:          logger.Test(t),
+	})
+	m.SetEngine(engine)
+	return m
+}
+
+// TestShardFailoverManager_DelegatesIsCoordinated covers the classification of
+// the wrapper a sharded node registers, which must follow the engine it wraps.
+func TestShardFailoverManager_DelegatesIsCoordinated(t *testing.T) {
+	t.Parallel()
+
+	t.Run("wrapping a legacy engine reports legacy", func(t *testing.T) {
+		t.Parallel()
+		m := newTestShardFailoverManager(t, &mockEngine{})
+		require.False(t, m.IsCoordinated())
+	})
+
+	// Unreachable while sharding and the coordinated engine are mutually
+	// exclusive, but asserted so the value stays delegated rather than assumed.
+	t.Run("wrapping a coordinated engine reports coordinated", func(t *testing.T) {
+		t.Parallel()
+		m := newTestShardFailoverManager(t, &fakeCoordinatedDrainableEngine{})
+		require.True(t, m.IsCoordinated())
+	})
+}
+
+// TestShardFailoverManager_CoordinatorMethodsUnsupported covers the
+// coordinator-facing methods, which must fail rather than delegate until
+// sharding and the coordinated engine can work together.
+func TestShardFailoverManager_CoordinatorMethodsUnsupported(t *testing.T) {
+	t.Parallel()
+	m := newTestShardFailoverManager(t, &mockEngine{})
+
+	_, err := m.Subscribe(t.Context())
+	require.ErrorIs(t, err, ErrCoordinatedShardingUnsupported)
+	require.ErrorIs(t, m.ExecuteTrigger(t.Context(), triggers.CoordinatedEvent{}), ErrCoordinatedShardingUnsupported)
+}

@@ -49,7 +49,7 @@ func TestTopology_validateDonFamilyGatewayPairing_missingGateway(t *testing.T) {
 
 	err := topology.initDonFamilyGatewayPairing()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no gateway DON is defined for that family")
+	require.Contains(t, err.Error(), "no gateway DON shares any of them")
 }
 
 func TestTopology_validateDonFamilyGatewayPairing_gatewayMissingDonFamily(t *testing.T) {
@@ -165,6 +165,37 @@ func TestGatewayServiceConfigsForGateway_preservesCapabilitiesDONForVault(t *tes
 
 	scoped := topology.GatewayServiceConfigsForGateway("bootstrap-gateway", services)
 	require.Equal(t, []string{"capabilities"}, scoped[0].DONs)
+}
+
+// TestGatewayServiceConfigsForGateway_reachesCapabilitiesDonViaWorkflowFamily proves a
+// capabilities DON that shares no family with the gateway directly, but shares a
+// shard-specific family with a workflow DON already paired to that gateway, is still
+// scoped in — matching workflow-sharded-capabilities-don.toml, where a shared vault DON
+// belongs only to per-shard families ("zone-a_shard-0", "zone-a_shard-1") while the
+// gateway belongs only to the common family ("zone-a").
+func TestGatewayServiceConfigsForGateway_reachesCapabilitiesDonViaWorkflowFamily(t *testing.T) {
+	t.Parallel()
+
+	topology := &Topology{
+		DonsMetadata: &DonsMetadata{
+			dons: []*DonMetadata{
+				{Name: "workflow-1-zone-a", DonFamilies: []string{"zone-a_shard-0", "zone-a"}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "workflow-1-zone-a-shard-1", DonFamilies: []string{"zone-a_shard-1", "zone-a"}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "chain-capabilities-zone-a", DonFamilies: []string{"zone-a_shard-0", "zone-a_shard-1"}, Flags: []string{CapabilitiesDON, VaultCapability}},
+				{Name: "bootstrap-gateway", DonFamilies: []string{"zone-a"}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+			},
+		},
+	}
+	require.NoError(t, topology.initDonFamilyGatewayPairing())
+
+	services := []GatewayServiceConfig{{
+		ServiceName: "vault",
+		Handlers:    []string{"vault"},
+		DONs:        []string{"chain-capabilities-zone-a"},
+	}}
+
+	scoped := topology.GatewayServiceConfigsForGateway("bootstrap-gateway", services)
+	require.Equal(t, []string{"chain-capabilities-zone-a"}, scoped[0].DONs)
 }
 
 func TestWorkflowDONFamilies(t *testing.T) {

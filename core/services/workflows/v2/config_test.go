@@ -71,13 +71,15 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 	lggr := logger.TestLogger(t)
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, lf)
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, sLimiter.Close()) })
 	limiters, err := v2.NewLimiters(lf, cfgFn)
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, limiters.Close()) })
 	featureFlags, err := v2.NewFeatureFlags(lf, cfgFn)
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, featureFlags.Close()) })
 	subscriberMock := capmocks.NewDonSubscriber(t)
 	subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(make(<-chan commoncaps.DON), func() {}, nil).Maybe()
-	t.Cleanup(func() { assert.NoError(t, limiters.Close()) })
 
 	return &v2.EngineConfig{
 		Lggr:                          lggr,

@@ -63,6 +63,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
@@ -230,6 +231,7 @@ WorkflowLimit = "1"
 		PerOwner: 0,
 	}, limits.Factory{Settings: getter})
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, sLimiter.Close()) })
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -429,6 +431,42 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		servicetest.Run(t, engine)
 		require.ErrorContains(t, <-initDoneCh, "failed to register trigger id_1: failure ABC")
 	})
+}
+
+func TestEngine_TriggerSubscriptionPhase_DisallowsSecretsCalls(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+
+	initDoneCh := make(chan error)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Start().Once()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, _ *sdkpb.ExecuteRequest, helper host.ExecutionHelper) {
+			_, err := helper.GetSecrets(context.Background(), &sdkpb.GetSecretsRequest{})
+			assert.ErrorContains(t, err, "secrets calls cannot be made during trigger subscription")
+		}).
+		Return(newTriggerSubs(0), nil).Once()
+	require.NoError(t, engine.Start(t.Context()))
+
+	require.NoError(t, <-initDoneCh)
+
+	module.EXPECT().Close().Once()
+	require.NoError(t, engine.Close())
 }
 
 func TestEngine_TriggerRegistrationLogging(t *testing.T) {
@@ -917,7 +955,7 @@ func TestEngine_Execution(t *testing.T) {
 		require.NoError(t, <-initDoneCh) // successful trigger registration
 		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 
-		require.Equal(t, v2.TriggerRegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
+		require.Equal(t, triggers.RegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
 		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
 		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
 		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
@@ -2501,8 +2539,8 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		Workflow: baseCfg.WorkflowID,
 	})
 
-	makeEvent := func(eventID string) v2.RoutedTriggerEvent {
-		return v2.RoutedTriggerEvent{
+	makeEvent := func(eventID string) triggers.CoordinatedEvent {
+		return triggers.CoordinatedEvent{
 			WorkflowID:   baseCfg.WorkflowID,
 			TriggerCapID: "id_0",
 			TriggerIndex: 0,
@@ -2661,13 +2699,13 @@ func TestEngine_ShardDenial(t *testing.T) {
 				module.EXPECT().Close()
 				module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
 			}, func(cfg *v2.EngineConfig) {
-				cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+				cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ triggers.CoordinatedEvent) error {
 					admissionCalls.Add(1)
 					return tc.wantErr
 				}
 			})
 
-			registrationID := v2.TriggerRegistrationID(baseCfg.WorkflowID, 0)
+			registrationID := triggers.RegistrationID(baseCfg.WorkflowID, 0)
 			ackedCh := make(chan struct{}, 1)
 			event := capabilities.TriggerEvent{
 				TriggerType: "basic-trigger@1.0.0",
@@ -2799,7 +2837,7 @@ type recordingAcknowledger struct {
 	calls []string
 }
 
-var _ v2.Acknowledger = (*recordingAcknowledger)(nil)
+var _ triggers.Acknowledger = (*recordingAcknowledger)(nil)
 
 func (a *recordingAcknowledger) Ack(_ context.Context, _ string, triggerRegistrationID, eventID string) error {
 	a.mu.Lock()
@@ -2862,10 +2900,6 @@ func newTestEngine(
 		OnInitialized: func(err error) {
 			e.initializedCh <- err
 		},
-		OnSubscriptionsReady: func(_ []*sdkpb.TriggerSubscription, _ contexts.CRE) error {
-			e.subscriptionsReadyCalls.Add(1)
-			return nil
-		},
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			e.subscribedToTriggersCh <- triggerIDs
 		},
@@ -2893,7 +2927,7 @@ func newTestEngine(
 		OnNodeSynced: func(_ capabilities.Node, _ error) {
 			e.nodeSyncedCalls.Add(1)
 		},
-		OnTriggerAdmission: func(_ context.Context, _ v2.RoutedTriggerEvent) error {
+		OnTriggerAdmission: func(_ context.Context, _ triggers.CoordinatedEvent) error {
 			e.triggerAdmissionCalls.Add(1)
 			return nil
 		},
@@ -3290,6 +3324,7 @@ func createTestEngineForDonVersionTest(
 
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, lf)
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, sLimiter.Close()) })
 
 	// Use a mock WASM module (only mock we need!)
 	wasmModule := modulemocks.NewModuleV2(t)

@@ -1,5 +1,19 @@
 # Changelog Chainlink Core
 
+## 2.67.0
+
+### Minor Changes
+
+- [#23854](https://github.com/smartcontractkit/chainlink/pull/23854) [`abf0837`](https://github.com/smartcontractkit/chainlink/commit/abf08375e7630761d012366e2522ca496657f294) - Added feature to the EVM BalanceMonitor to allow tracking balance of ERC-20 type fee tokens #added
+
+- [#23762](https://github.com/smartcontractkit/chainlink/pull/23762) [`5e84e21`](https://github.com/smartcontractkit/chainlink/commit/5e84e21688d668b32e858f945013677a35d6df28) - postgres: adding support for v18, removing support for v14 #nops
+
+- [#23799](https://github.com/smartcontractkit/chainlink/pull/23799) [`5a5156a`](https://github.com/smartcontractkit/chainlink/commit/5a5156a9230f06974e719aa5185515e8b445f6c5) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23797](https://github.com/smartcontractkit/chainlink/pull/23797) [`e33d885`](https://github.com/smartcontractkit/chainlink/commit/e33d885589671852c40999501946b834b886313e) - #updated observation cache TTL and bridge cache-fallback test coverage
+
 ## 2.66.0
 
 ### Minor Changes

@@ -8,9 +8,11 @@ import (
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
@@ -19,10 +21,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // cachedExpiry is how long a cached trigger event is kept for potential failover replay.
 const cachedExpiry = 10 * time.Minute
+
+// ErrCoordinatedShardingUnsupported is returned by the coordinator-facing
+// methods of ShardFailoverManager. Sharding and the coordinated engine are
+// currently not compatible, so nothing should reach them.
+var ErrCoordinatedShardingUnsupported = errors.New("coordinated engine is not supported on a sharded node")
 
 // ShardFailoverManager wraps a workflow Engine and handles shard ownership
 // decisions externally, keeping the Engine oblivious to sharding. On the
@@ -53,13 +61,14 @@ type ShardFailoverManager struct {
 }
 
 type cachedEvent struct {
-	event    v2.RoutedTriggerEvent
+	event    triggers.CoordinatedEvent
 	cachedAt time.Time
 }
 
 type ShardFailoverManagerConfig struct {
 	ShardingEnabled bool
-	MyShardID       uint32
+	MyDONID         uint32
+	MyShardIndex    uint32
 	WorkflowID      string
 	WorkflowOwner   string
 
@@ -67,9 +76,13 @@ type ShardFailoverManagerConfig struct {
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardRoutingSteady      *shardownership.SteadySignal
 
-	FailoverGate   limits.GateLimiter
-	Communicator   *sharding.ShardFailoverCommunicator
-	ShardDonLookup func(ctx context.Context, shardID uint32) *commoncap.DON
+	FailoverGate limits.GateLimiter
+	Communicator *sharding.ShardFailoverCommunicator
+	// ShardDonLookup resolves a DON ID to the current DON, e.g. via
+	// capRegistry.DONByID. ResolveAllShards always returns real DON IDs
+	// (shardownership.manualShardResolver translates any configured shard
+	// index to a DON ID internally), so no shard-index remapping happens here.
+	ShardDonLookup func(ctx context.Context, donID uint32) *commoncap.DON
 	DonSubscriber  capabilities.DonSubscriber
 
 	Logger logger.Logger
@@ -135,7 +148,7 @@ func (m *ShardFailoverManager) close() error {
 // admissionCheck is wired as the engine's OnTriggerAdmission hook. It
 // checks shard ownership dynamically per-trigger and decides whether the
 // engine should process the event.
-func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event v2.RoutedTriggerEvent) error {
+func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event triggers.CoordinatedEvent) error {
 	if !m.cfg.ShardingEnabled {
 		return nil
 	}
@@ -170,10 +183,12 @@ func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executi
 	if !m.isPrimaryShard(context.Background(), m.cfg.WorkflowID, m.cfg.WorkflowOwner) {
 		return
 	}
+	// Position 1 in ResolveAllShards' result is the secondary DON ID for this
+	// workflow; ShardDonLookup resolves it to the current DON.
 	secondaryDon := m.resolveDon(context.Background(), m.cfg.WorkflowID, m.cfg.WorkflowOwner, 1)
 	if secondaryDon == nil {
 		m.cfg.Logger.Warnw("failover: primary cannot resolve secondary DON, skipping status update",
-			"workflowID", workflowID, "myShardID", m.cfg.MyShardID)
+			"workflowID", workflowID, "myShardIndex", m.cfg.MyShardIndex)
 		return
 	}
 	execStatus := mapExecutionStatus(status, errClass)
@@ -183,7 +198,7 @@ func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executi
 		TriggerEventId: triggerEventID,
 		TriggerIndex:   uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
 		Status:         execStatus,
-		PrimaryDonId:   m.cfg.MyShardID,
+		PrimaryDonId:   m.cfg.MyDONID,
 	}, *secondaryDon)
 }
 
@@ -229,40 +244,40 @@ func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardown
 
 	switch {
 	case m.cfg.ShardResolver != nil:
-		shardID, found, err := m.cfg.ShardResolver.ResolveShard(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner)
+		donID, found, err := m.cfg.ShardResolver.ResolveShard(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner)
 		if err != nil {
 			return shardownership.DenyOrchestratorError
 		}
-		if !found || shardID != m.cfg.MyShardID {
+		if !found || donID != m.cfg.MyDONID {
 			return shardownership.DenyNotOwner
 		}
 		return shardownership.Allow
 	case m.cfg.ShardOrchestratorClient != nil:
-		verdict, _, _ := shardownership.CheckCommittedOwner(ctx, m.cfg.ShardOrchestratorClient, m.cfg.WorkflowID, m.cfg.MyShardID)
+		verdict, _, _ := shardownership.CheckCommittedOwner(ctx, m.cfg.ShardOrchestratorClient, m.cfg.WorkflowID, m.cfg.MyDONID)
 		return verdict
 	default:
 		return shardownership.Allow
 	}
 }
 
-func (m *ShardFailoverManager) cacheEvent(event v2.RoutedTriggerEvent) {
+func (m *ShardFailoverManager) cacheEvent(event triggers.CoordinatedEvent) {
 	eventID := event.Event.Event.ID
 	m.mu.Lock()
 	m.cache[eventID] = cachedEvent{event: event, cachedAt: time.Now()}
 	m.mu.Unlock()
 	m.cfg.Logger.Infow("secondary shard: cached trigger event for failover",
 		"eventID", eventID,
-		"myShardID", m.cfg.MyShardID,
+		"myShardIndex", m.cfg.MyShardIndex,
 		"workflowID", m.cfg.WorkflowID,
 		"triggerIndex", event.TriggerIndex)
 }
 
-func (m *ShardFailoverManager) popCachedEvent(eventID string) (v2.RoutedTriggerEvent, bool) {
+func (m *ShardFailoverManager) popCachedEvent(eventID string) (triggers.CoordinatedEvent, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ce, ok := m.cache[eventID]
 	if !ok {
-		return v2.RoutedTriggerEvent{}, false
+		return triggers.CoordinatedEvent{}, false
 	}
 	delete(m.cache, eventID)
 	return ce.event, true
@@ -327,7 +342,7 @@ func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 
 	m.cfg.Communicator.RegisterHandler(m.cfg.WorkflowID, primaryDonVal, m.HandleExecutionStatusUpdate)
 	m.cfg.Logger.Infow("shard failover: wired communicator",
-		"myShardID", m.cfg.MyShardID,
+		"myShardIndex", m.cfg.MyShardIndex,
 		"workflowID", m.cfg.WorkflowID,
 		"primaryDonID", primaryDonIDOrZero(primaryDon))
 
@@ -346,19 +361,19 @@ func primaryDonIDOrZero(d *commoncap.DON) uint32 {
 
 func (m *ShardFailoverManager) isPrimaryShard(ctx context.Context, workflowID, owner string) bool {
 	if m.cfg.ShardResolver == nil {
-		return m.cfg.MyShardID == 0
+		return m.cfg.MyShardIndex == 0
 	}
 	allResolver, ok := m.cfg.ShardResolver.(shardownership.AllShardsResolver)
 	if !ok {
-		return m.cfg.MyShardID == 0
+		return m.cfg.MyShardIndex == 0
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	shards, found, err := allResolver.ResolveAllShards(ctx, workflowID, owner)
 	if err != nil || !found || len(shards) == 0 {
-		return m.cfg.MyShardID == 0
+		return m.cfg.MyShardIndex == 0
 	}
-	return shards[0] == m.cfg.MyShardID
+	return shards[0] == m.cfg.MyDONID
 }
 
 func (m *ShardFailoverManager) resolveDon(ctx context.Context, workflowID, owner string, shardIndex int) *commoncap.DON {
@@ -401,4 +416,29 @@ func (m *ShardFailoverManager) ActiveExecutions() int32 { return m.engine.Active
 // DrainStartedAt delegates to the wrapped engine.
 func (m *ShardFailoverManager) DrainStartedAt() (time.Time, bool) { return m.engine.DrainStartedAt() }
 
-var _ DrainableService = (*ShardFailoverManager)(nil)
+// ExecuteTrigger is unreachable on a sharded node: the coordinator is the only
+// caller of the EventSink path, and a sharded node never takes the coordinated
+// path. Failover replay calls the wrapped engine directly, not this method.
+func (m *ShardFailoverManager) ExecuteTrigger(context.Context, triggers.CoordinatedEvent) error {
+	return ErrCoordinatedShardingUnsupported
+}
+
+// Subscribe is unreachable on a sharded node: only the coordinator calls it,
+// while registering triggers for a coordinated engine.
+func (m *ShardFailoverManager) Subscribe(context.Context) ([]*sdkpb.TriggerSubscription, error) {
+	return nil, ErrCoordinatedShardingUnsupported
+}
+
+// Tenant delegates to the wrapped engine. It has no error to return, and as a
+// plain getter it cannot half-work, so it stays a passthrough.
+func (m *ShardFailoverManager) Tenant() contexts.CRE { return m.engine.Tenant() }
+
+// IsCoordinated delegates to the wrapped engine. Unlike the methods above this
+// is called on the legacy path — every reconciliation tick reads it to classify
+// the engine — so it must answer rather than fail.
+func (m *ShardFailoverManager) IsCoordinated() bool { return m.engine.IsCoordinated() }
+
+var (
+	_ DrainableService  = (*ShardFailoverManager)(nil)
+	_ v2.WorkflowEngine = (*ShardFailoverManager)(nil)
+)

@@ -423,7 +423,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 			Name:  fmt.Sprintf("NOP for %s DON", donMetadata.Name),
 			Nodes: donPeerIDs,
 		}
-		donName := donMetadata.Name + "-don"
+		donName := donMetadata.Name
 		c := keystone_changeset.DonCapabilities{
 			Name:         donName,
 			F:            libc.MustSafeUint8(forwarderF),
@@ -542,14 +542,13 @@ func (r *capabilityRegistry) GetDONByName(opts *bind.CallOpts, donName string) (
 	}, nil
 }
 
-// ResolveContractDonIDs retrieves contract donIDs using GetDONByName(don.Name + "-don").
+// ResolveContractDonIDs retrieves contract donIDs using GetDONByName(don.Name).
 func ResolveContractDonIDs(capReg CapabilityRegistry, donNames []string) (map[string]uint32, error) {
 	result := make(map[string]uint32)
 	for _, name := range donNames {
-		donName := name + "-don"
-		info, err := capReg.GetDONByName(nil, donName)
+		info, err := capReg.GetDONByName(nil, name)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get DON by name %s", donName)
+			return nil, errors.Wrapf(err, "failed to get DON by name %s", name)
 		}
 		result[name] = info.ID
 	}
