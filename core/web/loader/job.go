@@ -34,7 +34,6 @@ func (b *jobBatcher) loadByExternalJobIDs(ctx context.Context, keys dataloader.K
 	var jobs []job.Job
 	for _, id := range jobIDs {
 		job, err := b.app.JobORM().FindJobByExternalJobID(ctx, id)
-
 		if err != nil {
 			return []*dataloader.Result{{Data: nil, Error: err}}
 		}
@@ -85,7 +84,7 @@ func (b *jobBatcher) loadByPipelineSpecIDs(ctx context.Context, keys dataloader.
 	// Construct the output array of dataloader results
 	results := make([]*dataloader.Result, len(keys))
 	for _, j := range jobs {
-		id := stringutils.FromInt32(j.PipelineSpecID)
+		id := stringutils.FromInt32(j.PipelineSpecID) //nolint:staticcheck // SA1019: matching key; FindJobsByPipelineSpecIDs does not preload the PipelineSpec relationship
 
 		ix, ok := keyOrder[id]
 		// if found, remove from index lookup map, so we know elements were found

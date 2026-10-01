@@ -113,9 +113,9 @@ func TestHandleNodeMessage(t *testing.T) {
 		}
 
 		httpResp := &network.HTTPResponse{
-			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       []byte(`{"result": "success"}`),
+			StatusCode:   200,
+			MultiHeaders: map[string][]string{"Content-Type": {"application/json"}},
+			Body:         []byte(`{"result": "success"}`),
 		}
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.MatchedBy(func(req network.HTTPRequest) bool {
 			return req.Method == http.MethodGet && req.URL == "https://example.com/api"
@@ -156,7 +156,7 @@ func TestHandleNodeMessage(t *testing.T) {
 		// Response with multiple Set-Cookie headers
 		httpResp := &network.HTTPResponse{
 			StatusCode: 200,
-			Headers: map[string]string{
+			Headers: map[string]string{ //nolint:staticcheck // SA1019: intentionally populating deprecated Headers to test backward compatibility
 				"Set-Cookie": "sessionid=abc123; Path=/; HttpOnly",
 			},
 			MultiHeaders: map[string][]string{
@@ -232,9 +232,9 @@ func TestHandleNodeMessage(t *testing.T) {
 		mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 		// First call: should fetch from HTTP client and cache the response
 		httpResp := &network.HTTPResponse{
-			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       []byte(`{"cached": "response"}`),
+			StatusCode:   200,
+			MultiHeaders: map[string][]string{"Content-Type": {"application/json"}},
+			Body:         []byte(`{"cached": "response"}`),
 		}
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(httpResp, nil).Once()
@@ -278,9 +278,9 @@ func TestHandleNodeMessage(t *testing.T) {
 		mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 		httpResp := &network.HTTPResponse{
-			StatusCode: 500,
-			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       []byte(`{"error": "bad request"}`),
+			StatusCode:   500,
+			MultiHeaders: map[string][]string{"Content-Type": {"application/json"}},
+			Body:         []byte(`{"error": "bad request"}`),
 		}
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(httpResp, nil).Once()
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
@@ -528,11 +528,11 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 
 	requestID := "test-request-id"
 	httpReq := network.HTTPRequest{
-		Method:  "POST",
-		URL:     "https://example.com/api",
-		Headers: map[string]string{"Content-Type": "application/json"},
-		Body:    []byte(`{"test": "data"}`),
-		Timeout: 5 * time.Second,
+		Method:       "POST",
+		URL:          "https://example.com/api",
+		MultiHeaders: map[string][]string{"Content-Type": {"application/json"}},
+		Body:         []byte(`{"test": "data"}`),
+		Timeout:      5 * time.Second,
 	}
 	outboundReq := gateway_common.OutboundHTTPRequest{
 		Method:       "POST",
@@ -547,9 +547,9 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 		expectedResp := &network.HTTPResponse{
-			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       []byte(`{"result": "success"}`),
+			StatusCode:   200,
+			MultiHeaders: map[string][]string{"Content-Type": {"application/json"}},
+			Body:         []byte(`{"result": "success"}`),
 		}
 
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(expectedResp, nil)
@@ -558,7 +558,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		response := callback()
 
 		require.Equal(t, expectedResp.StatusCode, response.StatusCode)
-		require.Equal(t, expectedResp.Headers, response.Headers) //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
+		require.Equal(t, expectedResp.MultiHeaders, response.MultiHeaders)
 		require.Equal(t, expectedResp.Body, response.Body)
 		require.Empty(t, response.ErrorMessage)
 		require.False(t, response.IsExternalEndpointError)
@@ -590,7 +590,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 
 		expectedResp := &network.HTTPResponse{
 			StatusCode: 200,
-			Headers: map[string]string{
+			Headers: map[string]string{ //nolint:staticcheck // SA1019: intentionally populating deprecated Headers to test backward compatibility
 				"Set-Cookie": "sessionid=abc123; Path=/; HttpOnly, csrf_token=xyz789; Path=/; Secure",
 				"Via":        "1.0 proxy1,1.1 proxy2",
 			},
@@ -640,7 +640,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 
 		expectedResp := &network.HTTPResponse{
 			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
+			Headers:    map[string]string{"Content-Type": "application/json"}, //nolint:staticcheck // SA1019: intentionally populating deprecated Headers to test backward compatibility
 			MultiHeaders: map[string][]string{
 				"Content-Type": {"application/json"},
 			},
@@ -813,12 +813,14 @@ func TestHTTPActionLatencyMetrics(t *testing.T) {
 			func(ctx context.Context, req network.HTTPRequest) (*network.HTTPResponse, error) {
 				time.Sleep(httpDelay)
 				return &network.HTTPResponse{StatusCode: 200, Body: []byte("ok")}, nil
-			})
+			},
+		)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).RunAndReturn(
 			func(ctx context.Context, nodeAddress string, req *jsonrpc.Request[json.RawMessage]) error {
 				time.Sleep(sendDelay)
 				return nil
-			})
+			},
+		)
 
 		require.NoError(t, handler.HandleNodeMessage(t.Context(), newHTTPActionNodeMessage(t), "node1"))
 		handler.wg.Wait()
@@ -854,7 +856,8 @@ func TestHTTPActionLatencyMetrics(t *testing.T) {
 			func(ctx context.Context, req network.HTTPRequest) (*network.HTTPResponse, error) {
 				time.Sleep(httpDelay)
 				return nil, network.ErrHTTPSend
-			})
+			},
+		)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
 
 		require.NoError(t, handler.HandleNodeMessage(t.Context(), newHTTPActionNodeMessage(t), "node1"))
@@ -936,9 +939,9 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 		mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 		httpResp := &network.HTTPResponse{
-			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       []byte(`{"test": "data"}`),
+			StatusCode:   200,
+			MultiHeaders: map[string][]string{"Content-Type": {"application/json"}},
+			Body:         []byte(`{"test": "data"}`),
 		}
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(httpResp, nil).Once()
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
@@ -980,9 +983,9 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 		mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 		httpResp := &network.HTTPResponse{
-			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       []byte(`{"test": "data"}`),
+			StatusCode:   200,
+			MultiHeaders: map[string][]string{"Content-Type": {"application/json"}},
+			Body:         []byte(`{"test": "data"}`),
 		}
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(httpResp, nil).Once()
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
@@ -1024,9 +1027,9 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 		mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 		httpResp := &network.HTTPResponse{
-			StatusCode: 200,
-			Headers:    map[string]string{"Content-Type": "application/json"},
-			Body:       []byte(`{"test": "cached"}`),
+			StatusCode:   200,
+			MultiHeaders: map[string][]string{"Content-Type": {"application/json"}},
+			Body:         []byte(`{"test": "cached"}`),
 		}
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(httpResp, nil).Once()
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
@@ -1071,9 +1074,9 @@ func setupRateLimitingTest(t *testing.T, cfg ServiceConfig) (*gatewayHandler, *j
 // expectSuccessfulRequest sets up expectations for a successful HTTP request
 func expectSuccessfulRequest(mockHTTPClient *httpmocks.HTTPClient, mockDon *handlermocks.DON, nodeAddr string) {
 	httpResp := &network.HTTPResponse{
-		StatusCode: 200,
-		Headers:    map[string]string{"Content-Type": "application/json"},
-		Body:       []byte(`{"result": "success"}`),
+		StatusCode:   200,
+		MultiHeaders: map[string][]string{"Content-Type": {"application/json"}},
+		Body:         []byte(`{"result": "success"}`),
 	}
 	mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(httpResp, nil).Once()
 	mockDon.EXPECT().SendToNode(mock.Anything, nodeAddr, mock.Anything).Return(nil).Once()

@@ -176,7 +176,7 @@ func TestConfig_Marshal(t *testing.T) {
 	global := Config{
 		Core: toml.Core{
 			InsecureFastScrypt:  new(true),
-			InsecurePPROFHeap:   new(true),
+			InsecurePPROFHeap:   new(true), //nolint:staticcheck // SA1019: intentionally exercises the deprecated field, which must still parse old configs
 			RootDir:             new("test/root/dir"),
 			ShutdownGracePeriod: commoncfg.MustNewDuration(10 * time.Second),
 			Insecure: toml.Insecure{

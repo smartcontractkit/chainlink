@@ -168,9 +168,9 @@ type SolKeys struct {
 }
 
 type SolKey struct {
-	JSON     *models.Secret
+	JSON     *commonconfig.SecretString
 	ID       *string
-	Password *models.Secret
+	Password *commonconfig.SecretString
 }
 
 func (s *SolKeys) SetFrom(f *SolKeys) error {
@@ -266,9 +266,9 @@ type AptosKeys struct {
 }
 
 type AptosKey struct {
-	JSON     *models.Secret
+	JSON     *commonconfig.SecretString
 	ID       *uint64
-	Password *models.Secret
+	Password *commonconfig.SecretString
 }
 
 func (a *AptosKeys) SetFrom(f *AptosKeys) error {
@@ -506,8 +506,8 @@ func dbURLPasswordComplexity(err error) string {
 }
 
 type DatabaseSecrets struct {
-	URL                  *models.SecretURL
-	BackupURL            *models.SecretURL
+	URL                  *commonconfig.SecretURL
+	BackupURL            *commonconfig.SecretURL
 	AllowSimplePasswords *bool
 }
 
@@ -606,9 +606,9 @@ func (d *DatabaseSecrets) validateMerge(f *DatabaseSecrets) (err error) {
 }
 
 type EthKey struct {
-	JSON     *models.Secret
+	JSON     *commonconfig.SecretString
 	ID       *int // TODO: consider using a chain selector instead. tried using chain_selectors.ChainDetails but toml lib barfed on the embedded uint64
-	Password *models.Secret
+	Password *commonconfig.SecretString
 }
 
 func (e *EthKey) SetFrom(f *EthKey) (err error) {
@@ -656,8 +656,8 @@ func (e *EthKey) ValidateConfig() (err error) {
 }
 
 type P2PKey struct {
-	JSON     *models.Secret
-	Password *models.Secret
+	JSON     *commonconfig.SecretString
+	Password *commonconfig.SecretString
 }
 
 func (p *P2PKey) SetFrom(f *P2PKey) (err error) {
@@ -692,8 +692,8 @@ func (p *P2PKey) ValidateConfig() (err error) {
 }
 
 type DKGRecipientKey struct {
-	JSON     *models.Secret
-	Password *models.Secret
+	JSON     *commonconfig.SecretString
+	Password *commonconfig.SecretString
 }
 
 func (p *DKGRecipientKey) SetFrom(f *DKGRecipientKey) (err error) {
@@ -728,8 +728,8 @@ func (p *DKGRecipientKey) ValidateConfig() (err error) {
 }
 
 type Passwords struct {
-	Keystore *models.Secret
-	VRF      *models.Secret
+	Keystore *commonconfig.SecretString
+	VRF      *commonconfig.SecretString
 }
 
 func (p *Passwords) SetFrom(f *Passwords) (err error) {
@@ -768,7 +768,7 @@ func (p *Passwords) ValidateConfig() (err error) {
 }
 
 type PyroscopeSecrets struct {
-	AuthToken *models.Secret
+	AuthToken *commonconfig.SecretString
 }
 
 func (p *PyroscopeSecrets) SetFrom(f *PyroscopeSecrets) (err error) {
@@ -793,7 +793,7 @@ func (p *PyroscopeSecrets) validateMerge(f *PyroscopeSecrets) (err error) {
 }
 
 type PrometheusSecrets struct {
-	AuthToken *models.Secret
+	AuthToken *commonconfig.SecretString
 }
 
 func (p *PrometheusSecrets) SetFrom(f *PrometheusSecrets) (err error) {
@@ -1980,13 +1980,13 @@ func (m *Mercury) ValidateConfig() (err error) {
 
 type MercuryCredentials struct {
 	// LegacyURL is the legacy base URL for mercury v0.2 API
-	LegacyURL *models.SecretURL
+	LegacyURL *commonconfig.SecretURL
 	// URL is the base URL for mercury v0.3 API
-	URL *models.SecretURL
+	URL *commonconfig.SecretURL
 	// Username is the user id for mercury credential
-	Username *models.Secret
+	Username *commonconfig.SecretString
 	// Password is the user secret key for mercury credential
-	Password *models.Secret
+	Password *commonconfig.SecretString
 }
 
 type MercurySecrets struct {
@@ -2907,7 +2907,7 @@ func (l *LocalCapabilities) ValidateConfig() (err error) {
 }
 
 type ThresholdKeyShareSecrets struct {
-	ThresholdKeyShare *models.Secret
+	ThresholdKeyShare *commonconfig.SecretString
 }
 
 func (t *ThresholdKeyShareSecrets) SetFrom(f *ThresholdKeyShareSecrets) (err error) {

@@ -360,7 +360,11 @@ func (h *gatewayHandler) send(ctx context.Context, httpReq network.HTTPRequest, 
 func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestID string, httpReq network.HTTPRequest, req gateway_common.OutboundHTTPRequest, nodeAddr string) func() gateway_common.OutboundHTTPResponse {
 	return func() gateway_common.OutboundHTTPResponse {
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
-		l.Debugw("Sending request to client", "requestBodySize", len(httpReq.Body), "numHeaders", len(httpReq.Headers))
+		numHeaders := len(httpReq.MultiHeaders)
+		if numHeaders == 0 {
+			numHeaders = len(httpReq.Headers) //nolint:staticcheck // SA1019: legacy requests carry deprecated Headers when MultiHeaders is not set
+		}
+		l.Debugw("Sending request to client", "requestBodySize", len(httpReq.Body), "numHeaders", numHeaders)
 		start := time.Now()
 		resp, err := h.send(ctx, httpReq, req)
 		externalEndpointLatency := time.Since(start)
@@ -394,7 +398,7 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 				ExternalEndpointLatency: externalEndpointLatency,
 			}
 		}
-		l.Debugw("Received HTTP response", "responseBodySize", len(resp.Body), "statusCode", resp.StatusCode, "numHeaders", len(resp.Headers))
+		l.Debugw("Received HTTP response", "responseBodySize", len(resp.Body), "statusCode", resp.StatusCode, "numHeaders", len(resp.MultiHeaders))
 		h.metrics.IncrementCustomerEndpointResponseCount(ctx, strconv.Itoa(resp.StatusCode), h.lggr)
 		return gateway_common.OutboundHTTPResponse{
 			StatusCode:              resp.StatusCode,

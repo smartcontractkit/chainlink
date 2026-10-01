@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 )
 
@@ -47,7 +46,7 @@ func prepareDB(t testing.TB, withTemplate bool, overrideFn func(c *chainlink.Con
 
 	gcfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.DriverName = pgcommon.DriverPostgres
-		s.Database.URL = models.NewSecretURL((*commoncfg.URL)(dbURL))
+		s.Database.URL = commoncfg.NewSecretURL((*commoncfg.URL)(dbURL))
 		// pgtestdb URLs use short passwords; validateDBURL exempts testdb_* database names.
 		s.Database.AllowSimplePasswords = new(false)
 		if overrideFn != nil {
@@ -55,7 +54,7 @@ func prepareDB(t testing.TB, withTemplate bool, overrideFn func(c *chainlink.Con
 		}
 	})
 
-	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
+	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0o700))
 	t.Cleanup(func() { os.RemoveAll(gcfg.RootDir()) })
 
 	db, err := pg.NewConnection(t.Context(), dbStr, pgcommon.DriverPostgres, gcfg.Database())
