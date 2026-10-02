@@ -110,8 +110,9 @@ type baseEngine struct {
 	orgIDMissingReason string
 
 	draining         atomic.Bool
-	activeExecutions atomic.Int32
 	drainStartedAtNs atomic.Int64
+
+	executions inFlight
 }
 
 // newBaseEngine builds the execution machinery shared by every workflow engine.
@@ -189,9 +190,21 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 }
 
 // ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
+// It runs on the caller's goroutine, which may not be one the engine started, so it ties the execution to the
+// engine's stop signal itself: closing cancels it and waits for it to return.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	e.activeExecutions.Add(1)
-	defer e.activeExecutions.Add(-1)
+	select {
+	case <-e.srvcEng.StopChan:
+		return ErrEngineClosed
+	default:
+	}
+	if !e.executions.enter() {
+		return ErrEngineClosed
+	}
+	defer e.executions.exit()
+
+	ctx, cancel := e.srvcEng.Ctx(ctx)
+	defer cancel()
 
 	eventID := event.Event.Event.ID
 	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
@@ -328,7 +341,7 @@ func (e *baseEngine) Draining() bool {
 }
 
 func (e *baseEngine) ActiveExecutions() int32 {
-	return e.activeExecutions.Load()
+	return e.executions.count()
 }
 
 func (e *baseEngine) DrainStartedAt() (time.Time, bool) {
@@ -973,6 +986,10 @@ func (e *baseEngine) shutdownCtx() (context.Context, context.CancelFunc) {
 
 // closeCommon is the teardown shared by every engine.
 func (e *baseEngine) closeCommon(ctx context.Context) {
+	// The stop signal has already cancelled any execution still running, including
+	// ones on a caller's goroutine; wait for them before tearing down what they use.
+	e.executions.closeAndWait()
+
 	if err := e.cfg.ExecutionsStore.DeleteByWorkflowID(ctx, e.cfg.WorkflowID); err != nil {
 		e.logger().Errorw("Failed to purge executions on close", "err", err)
 	}
