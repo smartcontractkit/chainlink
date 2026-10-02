@@ -1108,7 +1108,7 @@ func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknow
 	require.NoError(t, err)
 
 	// Sanity check: nothing cached yet.
-	cached, cachedObj := h.(*handler).getCachedPublicKey()
+	cached, _, cachedObj := h.(*handler).getCachedPublicKey()
 	require.Nil(t, cached)
 	require.Nil(t, cachedObj)
 
@@ -1132,7 +1132,7 @@ func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknow
 
 	// The gateway has cached the attacker-controlled master public key, purely on the basis of a
 	// signature-validated response.
-	_, cachedPublicKey := h.(*handler).getCachedPublicKey()
+	_, _, cachedPublicKey := h.(*handler).getCachedPublicKey()
 	require.Nil(t, cachedPublicKey, "expected the master public key not to be cached")
 }
 

@@ -2,11 +2,13 @@ package vaulttypes
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var DefaultNamespace = "main"
@@ -217,6 +220,43 @@ func ValidateSignatures(resp *SignedOCRResponse, allowedSigners []common.Address
 	}
 
 	return fmt.Errorf("only %d valid signatures, need at least %d", len(validSigners), minRequired)
+}
+
+// nodeSignatureDomain separates node envelope signatures from OCR report
+// signatures, which are produced by the same OCR2 onchain key.
+const nodeSignatureDomain = "chainlink-vault-node-sig-v1"
+
+// NodeSignatureRequestID returns the request ID a node signature is bound to:
+// the client-visible ID (owner prefix stripped, as the gateway does before
+// responding). vault.publicKey.get is bound to the empty ID because the gateway
+// caches and replays its signatures across requests; its result is public.
+func NodeSignatureRequestID(method, requestID string) string {
+	if method == MethodPublicKeyGet {
+		return ""
+	}
+	if _, clientID, ok := strings.Cut(requestID, RequestIDSeparator); ok {
+		return clientID
+	}
+	return requestID
+}
+
+// NodeSignaturePayload is the message vault nodes sign for envelope-level node
+// signatures (jsonrpc2 Response.NodeSignatures): the response digest bound to
+// the request ID (see NodeSignatureRequestID), so a signed response can't be
+// replayed as the answer to a different request.
+func NodeSignaturePayload(requestID, digest string) []byte {
+	h := sha256.New()
+	h.Write([]byte(nodeSignatureDomain))
+	_ = binary.Write(h, binary.BigEndian, uint32(len(requestID))) //nolint:gosec // request IDs are far below 4GiB
+	h.Write([]byte(requestID))
+	h.Write([]byte(digest))
+	return h.Sum(nil)
+}
+
+// RecoverNodeSigner returns the address that produced a node signature over
+// NodeSignaturePayload(requestID, digest).
+func RecoverNodeSigner(requestID, digest string, sig []byte) (common.Address, error) {
+	return utils.GetSignersEthAddress(NodeSignaturePayload(requestID, digest), slices.Clone(sig))
 }
 
 // UserError is a vault error caused by the caller (e.g. requesting a secret

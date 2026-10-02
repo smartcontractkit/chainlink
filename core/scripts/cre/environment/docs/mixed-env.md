@@ -17,7 +17,9 @@ It's the standard capabilities topology, except every multi-node DON is split **
 | `workflow` | 4 | 2 × PR · 2 × develop |
 | `chain-cap` (capabilities) | 4 | 2 × PR · 2 × develop |
 | `vault` | 4 | 2 × PR · 2 × develop |
-| `bootstrap` / `gateway` | 1 | develop |
+| `bootstrap` / `gateway` | 1 | PR |
+
+The single `bootstrap`/`gateway` node serves user-facing gateway traffic and runs no reporting plugin, so it always runs the **PR image** — mixed-env would otherwise exercise none of the PR's gateway code (single-node, so there is no split to test there anyway).
 
 ```
             workflow DON                        chain-cap / vault DON

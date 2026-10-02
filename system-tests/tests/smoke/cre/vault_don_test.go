@@ -50,6 +50,34 @@ func uniqueVaultSecretID(prefix string) string {
 	return prefix + strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
+// requireValidVaultNodeSignatures asserts that resp carries at least minCount
+// node signatures, each over vaulttypes.NodeSignaturePayload and from a distinct
+// vault DON member signer.
+func requireValidVaultNodeSignatures[T any](t *testing.T, resp *jsonrpc.Response[T], members vaultDONMemberSigners, minCount int) {
+	t.Helper()
+	require.NotEmpty(t, resp.NodeSignatures,
+		"vault response must carry node signatures over the response digest")
+
+	digest, err := resp.Digest()
+	require.NoError(t, err, "failed to compute response digest")
+
+	requestID := vaulttypes.NodeSignatureRequestID(resp.Method, resp.ID)
+	recovered := make(map[common.Address]struct{}, len(resp.NodeSignatures))
+	for _, sig := range resp.NodeSignatures {
+		addr, sigErr := vaulttypes.RecoverNodeSigner(requestID, digest, sig)
+		require.NoErrorf(t, sigErr, "node signature must recover against the response digest (digest=%s)", digest)
+		recovered[addr] = struct{}{}
+	}
+	require.Len(t, recovered, len(resp.NodeSignatures),
+		"node signatures must come from distinct DON nodes")
+	require.GreaterOrEqualf(t, len(recovered), minCount,
+		"expected at least %d distinct valid node signatures, got %d", minCount, len(recovered))
+	for addr := range recovered {
+		require.Containsf(t, members.Addrs, addr,
+			"node signature recovered to a non-member address %s; vault DON member signers: %v", addr, members.Addrs)
+	}
+}
+
 func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
 	var testLogger = framework.L
 	linkingService := fixture.LinkingService
@@ -307,6 +335,57 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		executeVaultJWTSecretsDeleteTest(t, issuer, vaultParsedPublicKey, secretID, orgID, derivedJWTWorkflowOwner, gwURL, []string{"main", "alt"})
 		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, vaultParsedPublicKey, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "main")
 		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, vaultParsedPublicKey, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "alt")
+	})
+
+	t.Run("node_signatures_enforced", func(t *testing.T) {
+		// Reverted on test cleanup. Apply once for all node-signature checks:
+		// re-applying an identical override later in the run doesn't take effect.
+		t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global("GatewayVaultNodeSignaturesEnabled = 'true'"))
+
+		members := vaultDONMemberSignerAddrs(t, testEnv)
+
+		auth := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, false)
+
+		uniqueRequestID := uuid.New().String()
+		secretsListRequest := vault_helpers.ListSecretIdentifiersRequest{
+			RequestId: uniqueRequestID,
+			Owner:     auth.requestOwner,
+			Namespace: "main",
+		}
+		jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
+		auth.apply(t, &jsonRequest)
+
+		jsonResponse := sendVaultSignedOCRRequestToGateway(t, gwURL, jsonRequest, auth.requestOwner)
+		if jsonResponse.ID == "" {
+			t.Fatal("vault node-signature enforcement test cannot tolerate a gateway-to-DON timeout sentinel response")
+		}
+
+		// Also proves signatures survive the gateway's owner-prefix ID rewrite.
+		requireValidVaultNodeSignatures(t, &jsonResponse, members, 1)
+
+		// Signed-OCR methods return via the OCR-signature fast path, which
+		// carries only the first responding node's signature; quorum would
+		// attach one per member.
+		require.Len(t, jsonResponse.NodeSignatures, 1,
+			"vault.secrets.list must return via the signed-OCR fast path (a single envelope signature)")
+
+		// vault.publicKey.get is served from the gateway's public key cache,
+		// which may predate the flag and carry a single signature. The gateway
+		// refreshes it every minute through quorum, after which it must carry
+		// one signature per responding member (at least 2F+1).
+		quorum := int(2*members.F + 1)
+		deadline := time.Now().Add(3 * time.Minute)
+		for {
+			publicKeyResponse := fetchVaultPublicKeyResponse(t, gwURL)
+			requireValidVaultNodeSignatures(t, &publicKeyResponse, members, 1)
+			if len(publicKeyResponse.NodeSignatures) >= quorum {
+				break
+			}
+			require.Falsef(t, time.Now().After(deadline),
+				"public key response still carries %d node signatures after cache refresh, want at least %d",
+				len(publicKeyResponse.NodeSignatures), quorum)
+			time.Sleep(5 * time.Second)
+		}
 	})
 
 	t.Run("jwt_digest_verified_after_prepare_user_jsonrpc_request", func(t *testing.T) {

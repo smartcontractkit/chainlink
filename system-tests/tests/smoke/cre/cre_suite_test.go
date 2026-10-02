@@ -85,6 +85,10 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 		})
 	case suite_config.SuiteScenarioVaultDON:
 		t.Run("Vault DON - "+topology, func(t *testing.T) {
+			t_helpers.SkipIfMixedEnv(t, "asserts envelope-level node signatures on every vault response and enables "+
+				"GatewayVaultNodeSignaturesEnabled, both new in this PR; 2 of 4 vault nodes run the baseline image and "+
+				"cannot sign, so the signature assertions can't hold and quorum enforcement can't reach 2F+1. "+
+				"Remove once node signatures are in the release baseline.")
 			if parallelEnabled {
 				t.Parallel()
 			}

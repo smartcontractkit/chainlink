@@ -146,13 +146,15 @@ type handler struct {
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
 
-	writeMethodsEnabled limits.GateLimiter
-	activeRequests      map[string]*activeRequest
-	metrics             *metrics
+	writeMethodsEnabled   limits.GateLimiter
+	nodeSignaturesEnabled limits.GateLimiter
+	activeRequests        map[string]*activeRequest
+	metrics               *metrics
 
 	aggregator aggregator
 
 	cachedPublicKeyGetResponse []byte
+	cachedPublicKeySignatures  [][]byte
 	cachedPublicKeyObject      *tdh2easy.PublicKey
 
 	clock clockwork.Clock
@@ -237,30 +239,37 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		return nil, fmt.Errorf("could not create vault mgmt limiter: %w", err)
 	}
 
+	nodeSignaturesEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.GatewayVaultNodeSignaturesEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("could not create vault node signatures limiter: %w", err)
+	}
+
 	requestProcessor, err := vaultcap.NewGatewayVaultRequestProcessor(requestValidator, authorizer, false, lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gateway vault request processor: %w", err)
 	}
 
 	return &handler{
-		methodConfig:        cfg,
-		donConfig:           donConfig,
-		don:                 don,
-		lggr:                logger.Named(lggr, "VaultHandler:"+donConfig.DonID),
-		requestTimeout:      time.Duration(cfg.RequestTimeoutSec) * time.Second,
-		nodeRateLimiter:     nodeRateLimiter,
-		writeMethodsEnabled: writeMethodsEnabled,
-		activeRequests:      make(map[string]*activeRequest),
-		mu:                  sync.RWMutex{},
-		authorizer:          authorizer,
-		jwtAuth:             jwtAuth,
-		stopCh:              make(services.StopChan),
-		metrics:             metrics,
+		methodConfig:          cfg,
+		donConfig:             donConfig,
+		don:                   don,
+		lggr:                  logger.Named(lggr, "VaultHandler:"+donConfig.DonID),
+		requestTimeout:        time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeRateLimiter:       nodeRateLimiter,
+		writeMethodsEnabled:   writeMethodsEnabled,
+		nodeSignaturesEnabled: nodeSignaturesEnabled,
+		activeRequests:        make(map[string]*activeRequest),
+		mu:                    sync.RWMutex{},
+		authorizer:            authorizer,
+		jwtAuth:               jwtAuth,
+		stopCh:                make(services.StopChan),
+		metrics:               metrics,
 		aggregator: &baseAggregator{
-			capabilitiesRegistry: capabilitiesRegistry,
-			metrics:              metrics,
-			donID:                donConfig.DonID,
-			vaultHandlerDonID:    donConfig.DonID,
+			capabilitiesRegistry:  capabilitiesRegistry,
+			metrics:               metrics,
+			donID:                 donConfig.DonID,
+			nodeSignaturesEnabled: nodeSignaturesEnabled,
+			vaultHandlerDonID:     donConfig.DonID,
 		},
 		clock:            clock,
 		requestProcessor: requestProcessor,
@@ -309,6 +318,7 @@ func (h *handler) Close() error {
 		return errors.Join(
 			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
+			h.nodeSignaturesEnabled.Close(),
 			h.requestProcessor.Close(),
 		)
 	})
@@ -406,7 +416,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		// Public key requests don't require authorization,
 		// Let's process this request right away.
 		// Note we cache this value quite aggressively so don't need to worry about DoS.
-		publicKeyResponseBytes, cachedPublicKey := h.getCachedPublicKey()
+		publicKeyResponseBytes, publicKeySignatures, cachedPublicKey := h.getCachedPublicKey()
 		if cachedPublicKey == nil {
 			// Not found in cache. Fetch from nodes.
 			ar, err := h.newActiveRequest(req, callback)
@@ -417,14 +427,14 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 			return h.handlePublicKeyGet(ctx, ar)
 		}
 		h.lggr.Debugw("returning cached public key response")
-		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
+		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, publicKeySignatures, callback)
 	}
 
 	if !vaulttypes.IsGatewaySecretsMethod(req.Method) {
 		return h.sendImmediateUserResponse(ctx, req, callback, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method))
 	}
 
-	_, cachedPublicKey := h.getCachedPublicKey()
+	_, _, cachedPublicKey := h.getCachedPublicKey()
 	authorized, err := h.requestProcessor.ProcessRequest(ctx, &req, cachedPublicKey)
 	if err != nil {
 		if vaultcap.IsInvalidVaultParamsError(err) {
@@ -578,6 +588,7 @@ func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessa
 
 	h.mu.Lock()
 	h.cachedPublicKeyGetResponse = *resp.Result
+	h.cachedPublicKeySignatures = resp.NodeSignatures
 	h.cachedPublicKeyObject = &masterPublicKey
 	h.mu.Unlock()
 	l.Debugw("successfully cached public key response")
@@ -678,29 +689,32 @@ func (h *handler) sendImmediateUserResponse(
 	return callback.SendResponse(h.errorResponse(req, errorCode, err, nil))
 }
 
-func (h *handler) getCachedPublicKey() ([]byte, *tdh2easy.PublicKey) {
+func (h *handler) getCachedPublicKey() ([]byte, [][]byte, *tdh2easy.PublicKey) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if h.cachedPublicKeyGetResponse == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	copied := make([]byte, len(h.cachedPublicKeyGetResponse))
 	copy(copied, h.cachedPublicKeyGetResponse)
+	cachedSignatures := make([][]byte, len(h.cachedPublicKeySignatures))
+	copy(cachedSignatures, h.cachedPublicKeySignatures)
 	cachedPublicKeyCopy := *h.cachedPublicKeyObject
-	return copied, &cachedPublicKeyCopy
+	return copied, cachedSignatures, &cachedPublicKeyCopy
 }
 
 func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
-	publicKeyResponseBytes, cachedPublicKey := h.getCachedPublicKey()
+	publicKeyResponseBytes, cachedSignatures, cachedPublicKey := h.getCachedPublicKey()
 	if cachedPublicKey != nil {
 		l.Debugw("returning cached public key response")
 		return h.sendSuccessResponse(ctx, l, ar, &jsonrpc.Response[json.RawMessage]{
-			Version: jsonrpc.JsonRpcVersion,
-			ID:      ar.req.ID,
-			Method:  ar.req.Method,
-			Result:  (*json.RawMessage)(&publicKeyResponseBytes),
+			Version:        jsonrpc.JsonRpcVersion,
+			ID:             ar.req.ID,
+			Method:         ar.req.Method,
+			Result:         (*json.RawMessage)(&publicKeyResponseBytes),
+			NodeSignatures: cachedSignatures,
 		})
 	}
 
@@ -708,12 +722,13 @@ func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) err
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
-func (h *handler) handlePublicKeyGetSynchronously(ctx context.Context, req jsonrpc.Request[json.RawMessage], publicKeyResponseBytes []byte, callback gwhandlers.Callback) error {
+func (h *handler) handlePublicKeyGetSynchronously(ctx context.Context, req jsonrpc.Request[json.RawMessage], publicKeyResponseBytes []byte, nodeSignatures [][]byte, callback gwhandlers.Callback) error {
 	resp := jsonrpc.Response[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      req.ID,
-		Method:  req.Method,
-		Result:  (*json.RawMessage)(&publicKeyResponseBytes),
+		Version:        jsonrpc.JsonRpcVersion,
+		ID:             req.ID,
+		Method:         req.Method,
+		Result:         (*json.RawMessage)(&publicKeyResponseBytes),
+		NodeSignatures: nodeSignatures,
 	}
 	rawResponse, err := jsonrpc.EncodeResponse(&resp)
 	if err != nil {

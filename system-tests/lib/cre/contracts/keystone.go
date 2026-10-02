@@ -230,7 +230,7 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 					nodes = append(nodes, contracts.NodesInput{
 						NOP:                 nopName,
 						P2pID:               n.PeerID,
-						Signer:              ocrCfg.OffchainPublicKey,
+						Signer:              nodeSigner(ocrCfg.OnchainPublicKey),
 						EncryptionPublicKey: [32]byte(wfKey),
 						CsaKey:              [32]byte(csKey),
 						CapabilityIDs:       capIDs,
@@ -331,6 +331,14 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		Capabilities:     capabilities,
 		DONs:             donParams,
 	}
+}
+
+// nodeSigner left-aligns the node's OCR2 onchain address in the registry's
+// bytes32 Signer field, as production does; consumers read Signer[0:20].
+func nodeSigner(onchainPublicKey []byte) [32]byte {
+	var s [32]byte
+	copy(s[:], common.BytesToAddress(onchainPublicKey).Bytes())
+	return s
 }
 
 func generateAdminAddresses(count int) ([]common.Address, error) {
