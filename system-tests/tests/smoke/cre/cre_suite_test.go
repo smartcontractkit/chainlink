@@ -127,6 +127,16 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				}
 				ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
 			})
+			t.Run("reshare_flags_read", func(t *testing.T) {
+				if parallelEnabled {
+					t.Parallel()
+				}
+				reshareEnv := fixture.TestEnv
+				if parallelEnabled {
+					reshareEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+				}
+				ExecuteVaultReadSecretsWithReshareFlagsTest(t, fixture, reshareEnv)
+			})
 		})
 	case suite_config.SuiteScenarioCronChipIngressStack:
 		t.Run("Cron Beholder - "+topology, func(t *testing.T) {

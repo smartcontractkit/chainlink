@@ -371,8 +371,15 @@ type executionHelperWithRawSecrets struct {
 	*ExecutionHelper
 }
 
+// GetRawSecrets returns the raw (still-encrypted) vault secret responses.
+//
+// Deprecated: use GetRawSecretsResponse.
 func (e *executionHelperWithRawSecrets) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vaultcommon.SecretResponse, error) {
 	return e.SecretsFetcher.(RawSecretsFetcher).GetRawSecrets(ctx, request, fetcher)
+}
+
+func (e *executionHelperWithRawSecrets) GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vaultcommon.GetSecretsResponse, error) {
+	return e.SecretsFetcher.(RawSecretsFetcher).GetRawSecretsResponse(ctx, request, fetcher)
 }
 
 func (e *executionHelperWithRawSecrets) GetOwner() string {
