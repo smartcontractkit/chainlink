@@ -291,7 +291,7 @@ func (c *Config) valueWarnings() (err error) {
 	if c.Tracing.Enabled != nil && *c.Tracing.Enabled {
 		if c.Tracing.Mode != nil && *c.Tracing.Mode == "unencrypted" {
 			if c.Tracing.TLSCertPath != nil {
-				err = errors.Join(err, config.ErrInvalid{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
+				err = errors.Join(err, config.InvalidError{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
 			}
 		}
 	}

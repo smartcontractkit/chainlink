@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -3307,7 +3308,7 @@ func isValidLocalURI(uri string) bool {
 		}
 
 		// Validating port
-		if _, err := net.LookupPort("tcp", port); err != nil {
+		if _, err := net.DefaultResolver.LookupPort(context.Background(), "tcp", port); err != nil {
 			return false
 		}
 

@@ -1014,7 +1014,7 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 
 	session, ok := webauth.GetGQLAuthenticatedSession(ctx)
 	if !ok {
-		return nil, errors.New("Failed to obtain current user from context")
+		return nil, errors.New("failed to obtain current user from context")
 	}
 	dbUser, err := r.App.AuthenticationProvider().FindUser(ctx, session.User.Email)
 	if err != nil {
@@ -1049,7 +1049,7 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 
 	session, ok := webauth.GetGQLAuthenticatedSession(ctx)
 	if !ok {
-		return nil, errors.New("Failed to obtain current user from context")
+		return nil, errors.New("failed to obtain current user from context")
 	}
 	dbUser, err := r.App.AuthenticationProvider().FindUser(ctx, session.User.Email)
 	if err != nil {
@@ -1100,12 +1100,12 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	case job.OffchainReporting:
 		jb, err = ocr.ValidatedOracleSpecToml(config, r.App.GetRelayers().LegacyEVMChains(), args.Input.TOML) //nolint:staticcheck // LegacyEVMChains is deprecated but refactoring to new relayer interface requires larger architectural changes
 		if !config.OCR().Enabled() {
-			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
+			return nil, errors.New("the Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
 		jb, err = validate.ValidatedOracleSpecToml(ctx, r.App.GetConfig().OCR2(), r.App.GetConfig().Insecure(), args.Input.TOML, r.App.GetLoopRegistrarConfig())
 		if !config.OCR2().Enabled() {
-			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
+			return nil, errors.New("the Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
 		return nil, fmt.Errorf("cannot create job of type %q: %w", job.DirectRequest, job.ErrJobTypeRemoved)

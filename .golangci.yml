@@ -123,6 +123,9 @@ linters:
             - pkg: github.com/smartcontractkit/chainlink/core/logger
     exhaustive:
       default-signifies-exhaustive: true
+    modernize:
+      disable:
+        - embedlit
     gosec:
       excludes:
         - G101
@@ -226,11 +229,15 @@ linters:
       - std-error-handling
     rules:
       - linters:
+          - bodyclose
+        path: _test\.go
+        # bodyclose cannot see that cltest.HTTPClientCleaner's returned cleanup
+        # closure closes the response body, so it false-positives on every test
+        # call site that binds a cleanup func.
+      - linters:
           - gosec
         path: test
         text: "^G404:"
-    paths:
-      - "core/scripts/cre/environment/examples/workflows"
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0
