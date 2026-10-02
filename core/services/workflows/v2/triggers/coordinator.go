@@ -176,7 +176,7 @@ func (c *coordinator) close() error {
 	return errs
 }
 
-func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) ([]string, error) {
+func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) (triggerCapIDs []string, err error) {
 	cre := subscriber.Tenant()
 	workflowID := cre.Workflow
 	wid, idErr := types.WorkflowIDFromHex(workflowID)
@@ -195,16 +195,17 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 
 	// Registration IDs derive from the workflowID, so a leftover registration
 	// must be unregistered first: unregistering it later would remove this one.
-	if err := c.UnregisterTriggers(workflowID); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
+	if err = c.UnregisterTriggers(workflowID); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
 		lggr.Errorw("Failed to unregister previous trigger registration", "err", err)
 	}
 
-	if err := c.useWorkflowLimit(ctx, lggr, wfMetrics); err != nil {
+	if err = c.useWorkflowLimit(ctx, lggr, wfMetrics); err != nil {
 		return nil, err
 	}
-	freeLimit := true
+	// Any failure return frees the limit slot because of the named err.
+	// Keep returns explicit (no naked return) so the defer always sees the final err.
 	defer func() {
-		if freeLimit {
+		if err != nil {
 			c.freeWorkflowLimit(ctx, lggr)
 		}
 	}()
@@ -260,7 +261,6 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		})
 	}
 
-	freeLimit = false
 	return triggerCapIDs, nil
 }
 
