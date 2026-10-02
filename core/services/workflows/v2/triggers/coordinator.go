@@ -152,6 +152,9 @@ func (r *workflowRegistry) pending() map[string]*coordinatedWorkflow {
 	return pending
 }
 
+// coordinatedWorkflow represents the state of a workflow's triggers within the coordinator.
+// It tracks the workflow ID, the context for cancellation, the handles for each trigger,
+// and the status of unregistration and release.
 type coordinatedWorkflow struct {
 	wid   types.WorkflowID
 	cre   contexts.CRE
