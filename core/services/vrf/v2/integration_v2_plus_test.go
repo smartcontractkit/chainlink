@@ -20,7 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2plus"
@@ -1210,7 +1210,7 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 		c.EVM[0].GasEstimator.LimitDefault = new(uint64(5_000_000))
 		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
 		c.Feature.LogPoller = new(true)
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].LogPollInterval = config.MustNewDuration(100 * time.Millisecond)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 

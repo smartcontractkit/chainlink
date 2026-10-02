@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -411,7 +411,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 		c.EVM[0].ChainID = (*sqlutil.Big)(testutils.FixtureChainID)
 		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
 		// Testing triggers requires committing transactions and does not work with transactional tests
-		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(time.Second)
+		c.Database.Listener.FallbackPollInterval = config.MustNewDuration(time.Second)
 	})
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)

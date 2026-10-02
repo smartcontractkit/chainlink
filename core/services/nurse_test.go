@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -18,9 +18,9 @@ import (
 type mockConfig struct {
 	t                    *testing.T
 	root                 string
-	pollInterval         *commonconfig.Duration
-	gatherDuration       *commonconfig.Duration
-	traceDuration        *commonconfig.Duration
+	pollInterval         *config.Duration
+	gatherDuration       *config.Duration
+	traceDuration        *config.Duration
 	profileSize          utils.FileSize
 	cpuProfileRate       int
 	memProfileRate       int
@@ -40,9 +40,9 @@ const (
 func newMockConfig(t *testing.T) *mockConfig {
 	return &mockConfig{
 		root:                 t.TempDir(),
-		pollInterval:         commonconfig.MustNewDuration(testInterval),
-		gatherDuration:       commonconfig.MustNewDuration(testDuration),
-		traceDuration:        commonconfig.MustNewDuration(testDuration),
+		pollInterval:         config.MustNewDuration(testInterval),
+		gatherDuration:       config.MustNewDuration(testDuration),
+		traceDuration:        config.MustNewDuration(testDuration),
 		profileSize:          utils.FileSize(testSize),
 		memProfileRate:       runtime.MemProfileRate,
 		blockProfileRate:     testRate,
@@ -57,15 +57,15 @@ func (c mockConfig) ProfileRoot() string {
 	return c.root
 }
 
-func (c mockConfig) PollInterval() commonconfig.Duration {
+func (c mockConfig) PollInterval() config.Duration {
 	return *c.pollInterval
 }
 
-func (c mockConfig) GatherDuration() commonconfig.Duration {
+func (c mockConfig) GatherDuration() config.Duration {
 	return *c.gatherDuration
 }
 
-func (c mockConfig) GatherTraceDuration() commonconfig.Duration {
+func (c mockConfig) GatherTraceDuration() config.Duration {
 	return *c.traceDuration
 }
 

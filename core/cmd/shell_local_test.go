@@ -24,7 +24,7 @@ import (
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -109,10 +109,10 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				s.Password.Keystore = commonconfig.NewSecretString("16charlengthp4SsW0rD1!@#_")
+				s.Password.Keystore = config.NewSecretString("16charlengthp4SsW0rD1!@#_")
 				c.EVM[0].Nodes[0].Name = new("fake")
-				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
-				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
+				c.EVM[0].Nodes[0].WSURL = config.MustParseURL("WSS://fake.com/ws")
+				c.EVM[0].Nodes[0].HTTPURL = config.MustParseURL("http://fake.com")
 				// seems to be needed for config validate
 				c.Insecure.OCRDevelopmentMode = nil
 			})
@@ -469,10 +469,10 @@ func TestShell_CleanupChainTables(t *testing.T) {
 func TestShell_RemoveBlocks(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		s.Password.Keystore = commonconfig.NewSecretString("dummy")
+		s.Password.Keystore = config.NewSecretString("dummy")
 		c.EVM[0].Nodes[0].Name = new("fake")
-		c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
-		c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
+		c.EVM[0].Nodes[0].HTTPURL = config.MustParseURL("http://fake.com")
+		c.EVM[0].Nodes[0].WSURL = config.MustParseURL("WSS://fake.com/ws")
 		// seems to be needed for config validate
 		c.Insecure.OCRDevelopmentMode = nil
 	})
@@ -728,10 +728,10 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				s.Password.Keystore = commonconfig.NewSecretString("dummy")
+				s.Password.Keystore = config.NewSecretString("dummy")
 				c.EVM[0].Nodes[0].Name = new("fake")
-				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
-				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
+				c.EVM[0].Nodes[0].HTTPURL = config.MustParseURL("http://fake.com")
+				c.EVM[0].Nodes[0].WSURL = config.MustParseURL("WSS://fake.com/ws")
 				// seems to be needed for config validate
 				c.Insecure.OCRDevelopmentMode = nil
 			})

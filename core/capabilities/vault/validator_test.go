@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
-	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -140,10 +140,10 @@ func TestEnsureRightLabelOnSecret_BackwardCompatSingleOwner(t *testing.T) {
 func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(2),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](1024*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter[config.Size](1024*config.Byte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
 	)
 
 	validValue := hex.EncodeToString(make([]byte, 10))
@@ -265,10 +265,10 @@ func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](10*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter[config.Size](10*config.Byte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
 	)
 
 	id := &vaultcommon.SecretIdentifier{
@@ -353,10 +353,10 @@ func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerFor
 	pk, _ := generateTestKeys(t)
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](10*pkgconfig.KByte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter[config.Size](10*config.KByte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
 	)
 
 	workflowOwner := "0x0001020304050607080900010203040506070809"
@@ -381,13 +381,13 @@ func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerFor
 
 func TestValidateSecretIdentifier(t *testing.T) {
 	const (
-		keyLimit   = 10 * pkgconfig.Byte
-		ownerLimit = 10 * pkgconfig.Byte
-		nsLimit    = 10 * pkgconfig.Byte
+		keyLimit   = 10 * config.Byte
+		ownerLimit = 10 * config.Byte
+		nsLimit    = 10 * config.Byte
 	)
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(100),
-		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(1024*config.Byte),
 		limits.NewUpperBoundLimiter(keyLimit),
 		limits.NewUpperBoundLimiter(ownerLimit),
 		limits.NewUpperBoundLimiter(nsLimit),
@@ -503,20 +503,20 @@ func TestValidateSecretIdentifier(t *testing.T) {
 
 func TestValidateSecretIdentifier_OwnerSpecificKeyLimit(t *testing.T) {
 	const (
-		defaultKeyLimit = 5 * pkgconfig.Byte
+		defaultKeyLimit = 5 * config.Byte
 		privilegedOwner = "privilegedowner"
-		privilegedLimit = 20 * pkgconfig.Byte
+		privilegedLimit = 20 * config.Byte
 	)
 
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(100),
-		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(1024*config.Byte),
 		&ownerOverrideLimiter{
 			defaultBound: defaultKeyLimit,
-			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
+			overrides:    map[string]config.Size{privilegedOwner: privilegedLimit},
 		},
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
 	)
 
 	longKey := "averylongkeyname" // 16 bytes: exceeds default (5) but within privileged (20)
@@ -533,13 +533,13 @@ func TestValidateSecretIdentifier_OwnerSpecificKeyLimit(t *testing.T) {
 
 func TestRequestValidator_IdentifierLengths(t *testing.T) {
 	const (
-		keyLimit   = 5 * pkgconfig.Byte
-		ownerLimit = 6 * pkgconfig.Byte
-		nsLimit    = 4 * pkgconfig.Byte
+		keyLimit   = 5 * config.Byte
+		ownerLimit = 6 * config.Byte
+		nsLimit    = 4 * config.Byte
 	)
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
-		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(1024*config.Byte),
 		limits.NewUpperBoundLimiter(keyLimit),
 		limits.NewUpperBoundLimiter(ownerLimit),
 		limits.NewUpperBoundLimiter(nsLimit),
@@ -622,10 +622,10 @@ func TestRequestValidator_IdentifierLengths(t *testing.T) {
 func TestValidateGetSecretsRequest(t *testing.T) {
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
-		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(1024*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
 	)
 
 	validID := func(key, owner, ns string) *vaultcommon.SecretIdentifier {
@@ -785,10 +785,10 @@ func TestRequestValidator_CheckRequestBatchSize_UserErrorClassification(t *testi
 	newValidator := func() *RequestValidator {
 		return NewRequestValidator(
 			limits.NewUpperBoundLimiter(10),
-			limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(1024*config.Byte),
+			limits.NewUpperBoundLimiter(64*config.Byte),
+			limits.NewUpperBoundLimiter(64*config.Byte),
+			limits.NewUpperBoundLimiter(64*config.Byte),
 		)
 	}
 
@@ -816,13 +816,13 @@ func TestRequestValidator_CheckRequestBatchSize_UserErrorClassification(t *testi
 }
 
 func TestValidateGetSecretsRequest_OwnerLengthPerBatchItem(t *testing.T) {
-	const ownerLimit = 6 * pkgconfig.Byte
+	const ownerLimit = 6 * config.Byte
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
-		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(1024*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
 		limits.NewUpperBoundLimiter(ownerLimit),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
 	)
 
 	// First item is within the owner length limit; second item exceeds it.
@@ -838,13 +838,13 @@ func TestValidateGetSecretsRequest_OwnerLengthPerBatchItem(t *testing.T) {
 }
 
 func TestValidateGetSecretsRequest_KeyLengthPerBatchItem(t *testing.T) {
-	const keyLimit = 5 * pkgconfig.Byte
+	const keyLimit = 5 * config.Byte
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
-		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(1024*config.Byte),
 		limits.NewUpperBoundLimiter(keyLimit),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
 	)
 
 	// First item is within the key length limit; second item exceeds it.
@@ -861,20 +861,20 @@ func TestValidateGetSecretsRequest_KeyLengthPerBatchItem(t *testing.T) {
 
 func TestValidateGetSecretsRequest_OwnerSpecificKeyLimit(t *testing.T) {
 	const (
-		defaultKeyLimit = 5 * pkgconfig.Byte
+		defaultKeyLimit = 5 * config.Byte
 		privilegedOwner = "privilegedowner"
-		privilegedLimit = 20 * pkgconfig.Byte
+		privilegedLimit = 20 * config.Byte
 	)
 
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
-		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(1024*config.Byte),
 		&ownerOverrideLimiter{
 			defaultBound: defaultKeyLimit,
-			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
+			overrides:    map[string]config.Size{privilegedOwner: privilegedLimit},
 		},
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
 	)
 
 	longKey := "averylongkeyname" // 16 bytes: exceeds default (5) but within privileged (20)
@@ -899,19 +899,19 @@ func TestValidateGetSecretsRequest_OwnerSpecificKeyLimit(t *testing.T) {
 
 func TestValidateGetSecretsRequest_OwnerSpecificNamespaceLimit(t *testing.T) {
 	const (
-		defaultNsLimit  = 5 * pkgconfig.Byte
+		defaultNsLimit  = 5 * config.Byte
 		privilegedOwner = "privilegedowner"
-		privilegedLimit = 20 * pkgconfig.Byte
+		privilegedLimit = 20 * config.Byte
 	)
 
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
-		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(1024*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
 		&ownerOverrideLimiter{
 			defaultBound: defaultNsLimit,
-			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
+			overrides:    map[string]config.Size{privilegedOwner: privilegedLimit},
 		},
 	)
 
@@ -937,20 +937,20 @@ func TestValidateGetSecretsRequest_OwnerSpecificNamespaceLimit(t *testing.T) {
 
 func TestRequestValidator_OwnerSpecificCiphertextLimit(t *testing.T) {
 	const (
-		defaultLimit    = 10 * pkgconfig.Byte
+		defaultLimit    = 10 * config.Byte
 		privilegedOwner = "privilegedowner"
-		privilegedLimit = 20 * pkgconfig.Byte
+		privilegedLimit = 20 * config.Byte
 	)
 
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(100),
 		&ownerOverrideLimiter{
 			defaultBound: defaultLimit,
-			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
+			overrides:    map[string]config.Size{privilegedOwner: privilegedLimit},
 		},
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
 	)
 
 	// 15 raw bytes: exceeds default (10) but within privileged (20)
@@ -986,10 +986,10 @@ func TestRequestValidator_ValidateCreateSecretsRequest_SkipsLabelValidationWithB
 	pk, _ := generateTestKeys(t)
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](10*pkgconfig.KByte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter[config.Size](10*config.KByte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
+		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
 	)
 
 	ownerA := "0x0001020304050607080900010203040506070809"
@@ -1020,10 +1020,10 @@ func TestRequestValidator_ValidateCreateSecretsRequest_SkipsLabelValidationWithB
 func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
-		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(1024*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
+		limits.NewUpperBoundLimiter(64*config.Byte),
 	)
 
 	t.Run("GetSecretsRequest", func(t *testing.T) {
@@ -1080,10 +1080,10 @@ func TestRequestValidator_Close(t *testing.T) {
 		batchLimiter := limits.NewUpperBoundLimiter(10)
 		validator := NewRequestValidator(
 			batchLimiter,
-			limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(1024*config.Byte),
+			limits.NewUpperBoundLimiter(64*config.Byte),
+			limits.NewUpperBoundLimiter(64*config.Byte),
+			limits.NewUpperBoundLimiter(64*config.Byte),
 		)
 
 		require.NoError(t, validator.Close())

@@ -19,7 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
-	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -452,17 +452,17 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 			{
 				"ChainID":   "starknet-id-1",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": config.MustParseURL("https://feeder.url"),
 			},
 			{
 				"ChainID":   "starknet-id-2",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": config.MustParseURL("https://feeder.url"),
 			},
 			{
 				"ChainID":   "disabled-starknet-id-1",
 				"Enabled":   new(false),
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": config.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -472,7 +472,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 			{
 				"ChainID":   "starknet-id-3",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": config.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -498,12 +498,12 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 			{
 				"ChainID":   "dupe",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": config.MustParseURL("https://feeder.url"),
 			},
 			{
 				"ChainID":   "dupe",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": config.MustParseURL("https://feeder.url"),
 			},
 		}
 	})

@@ -20,7 +20,7 @@ import (
 
 	"github.com/smartcontractkit/freeport"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -55,7 +55,7 @@ func TestPipelineRunsController_RunExistingWebhookJobRejected(t *testing.T) {
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = config.MustNewDuration(2 * time.Second)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)

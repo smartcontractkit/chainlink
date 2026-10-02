@@ -20,7 +20,7 @@ import (
 
 	"github.com/google/pprof/profile"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
@@ -42,14 +42,14 @@ type Nurse struct {
 type Config interface {
 	BlockProfileRate() int
 	CPUProfileRate() int
-	GatherDuration() commonconfig.Duration
-	GatherTraceDuration() commonconfig.Duration
+	GatherDuration() config.Duration
+	GatherTraceDuration() config.Duration
 	GoroutineThreshold() int
 	MaxProfileSize() utils.FileSize
 	MemProfileRate() int
 	MemThreshold() utils.FileSize
 	MutexProfileFraction() int
-	PollInterval() commonconfig.Duration
+	PollInterval() config.Duration
 	ProfileRoot() string
 }
 

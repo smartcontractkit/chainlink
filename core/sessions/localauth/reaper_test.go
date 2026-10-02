@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -19,12 +19,12 @@ import (
 
 type sessionReaperConfig struct{}
 
-func (c sessionReaperConfig) SessionTimeout() commonconfig.Duration {
-	return *commonconfig.MustNewDuration(42 * time.Second)
+func (c sessionReaperConfig) SessionTimeout() config.Duration {
+	return *config.MustNewDuration(42 * time.Second)
 }
 
-func (c sessionReaperConfig) SessionReaperExpiration() commonconfig.Duration {
-	return *commonconfig.MustNewDuration(142 * time.Second)
+func (c sessionReaperConfig) SessionReaperExpiration() config.Duration {
+	return *config.MustNewDuration(142 * time.Second)
 }
 
 func TestSessionReaper_ReapSessions(t *testing.T) {

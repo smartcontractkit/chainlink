@@ -10,7 +10,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 func TestImportedStellarKeys_List(t *testing.T) {
@@ -54,7 +54,7 @@ func TestImportedStellarKeys_ValidateRejectsUnknownChainID(t *testing.T) {
 	t.Parallel()
 
 	var secrets Secrets
-	err := commonconfig.DecodeTOML(strings.NewReader(`
+	err := config.DecodeTOML(strings.NewReader(`
 [Stellar]
 [[Stellar.Keys]]
 JSON = '{"id":"stellar-key-1"}'
@@ -67,7 +67,7 @@ Password = 'pw-1'
 
 func parseImportedStellarSecrets(secretsTOML string) (*Secrets, error) {
 	var secrets Secrets
-	if err := commonconfig.DecodeTOML(strings.NewReader(secretsTOML), &secrets); err != nil {
+	if err := config.DecodeTOML(strings.NewReader(secretsTOML), &secrets); err != nil {
 		return nil, err
 	}
 

@@ -21,7 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials/insecure"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -463,27 +463,31 @@ func CreateDockerEnv(t *testing.T, v1_6TestConfig *testhelpers.TestConfigs) (
 	}
 
 	// ignore critical CL node logs until they are fixed, as otherwise tests will fail
-	var allowedMessages = []testreporters.AllowedLogMessage{
+	allowedMessages := []testreporters.AllowedLogMessage{
 		testreporters.NewAllowedLogMessage(
 			"No live RPC nodes available",
 			"CL nodes are started before simulated chains, so this is expected",
 			zapcore.DPanicLevel,
-			testreporters.WarnAboutAllowedMsgs_No),
+			testreporters.WarnAboutAllowedMsgs_No,
+		),
 		testreporters.NewAllowedLogMessage(
 			"Lane processing is stopped because source chain is cursed or CommitStore is down",
 			"Curse test are expected to trigger this logs",
 			zapcore.DPanicLevel,
-			testreporters.WarnAboutAllowedMsgs_Yes),
+			testreporters.WarnAboutAllowedMsgs_Yes,
+		),
 		testreporters.NewAllowedLogMessage(
 			"Error stopping job service",
 			"Possible lifecycle bug in chainlink: failed to close RMN home reader:  has already been stopped: already stopped",
 			zapcore.DPanicLevel,
-			testreporters.WarnAboutAllowedMsgs_No),
+			testreporters.WarnAboutAllowedMsgs_No,
+		),
 		testreporters.NewAllowedLogMessage(
 			"Shutdown grace period of 5s exceeded, closing DB and exiting...",
 			"Possible lifecycle bug in chainlink.",
 			zapcore.DPanicLevel,
-			testreporters.WarnAboutAllowedMsgs_No),
+			testreporters.WarnAboutAllowedMsgs_No,
+		),
 	}
 	if v1_6TestConfig != nil {
 		for _, logMsg := range v1_6TestConfig.LogMessagesToIgnore {
@@ -495,7 +499,7 @@ func CreateDockerEnv(t *testing.T, v1_6TestConfig *testhelpers.TestConfigs) (
 			))
 		}
 	}
-	var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(allowedMessages...)
+	logScannerSettings := test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(allowedMessages...)
 
 	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
@@ -556,7 +560,7 @@ func CreateDockerEnv(t *testing.T, v1_6TestConfig *testhelpers.TestConfigs) (
 
 // NodeImageSelector returns the docker image and version for the node at the given index.
 // Index 0..NoOfBootstraps-1 are bootstrap nodes, the rest are plugin nodes.
-type NodeImageSelector func(nodeIndex int) (image string, version string)
+type NodeImageSelector func(nodeIndex int) (image, version string)
 
 // StartChainlinkNodes starts docker containers for chainlink nodes on the existing test environment based on provided test config
 // Once the nodes starts, it updates the devenv EnvironmentConfig with the node info
@@ -842,7 +846,7 @@ func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 	var err error
 	var commonChainConfig *evmcfg.Chain
 	if commonChain != "" {
-		err = commonconfig.DecodeTOML(bytes.NewReader([]byte(commonChain)), &commonChainConfig)
+		err = config.DecodeTOML(bytes.NewReader([]byte(commonChain)), &commonChainConfig)
 		if err != nil {
 			return nil, "", err
 		}
@@ -850,7 +854,7 @@ func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 	configByChainMap := make(map[int64]evmcfg.Chain)
 	for k, v := range configByChain {
 		var chain evmcfg.Chain
-		err = commonconfig.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
+		err = config.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
 		if err != nil {
 			return nil, "", err
 		}
@@ -863,7 +867,8 @@ func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 	if nodeConfig == "" {
 		tomlCfg = integrationnodes.NewConfig(
 			integrationnodes.NewBaseConfig(),
-			integrationnodes.WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
+			integrationnodes.WithPrivateEVMs(nets, commonChainConfig, configByChainMap),
+		)
 	} else {
 		tomlCfg, err = integrationnodes.NewConfigFromToml([]byte(nodeConfig), integrationnodes.WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
 		if err != nil {

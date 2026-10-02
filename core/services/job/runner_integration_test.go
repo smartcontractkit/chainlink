@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
@@ -67,8 +67,8 @@ func TestRunner(t *testing.T) {
 		c.OCR.KeyBundleID = &kbid
 		taddress := types.EIP55AddressFromAddress(transmitterAddress)
 		c.OCR.TransmitterAddress = &taddress
-		c.OCR2.DatabaseTimeout = commonconfig.MustNewDuration(time.Second)
-		c.OCR2.ContractTransmitterTransmitTimeout = commonconfig.MustNewDuration(time.Second)
+		c.OCR2.DatabaseTimeout = config.MustNewDuration(time.Second)
+		c.OCR2.ContractTransmitterTransmitTimeout = config.MustNewDuration(time.Second)
 		c.Insecure.OCRDevelopmentMode = new(true)
 	})
 
@@ -793,7 +793,7 @@ func TestRunner_WebhookJobRemoved(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true
 		c.JobPipeline.ExternalInitiatorsEnabled = &t
-		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = config.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)

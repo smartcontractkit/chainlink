@@ -22,7 +22,7 @@ import (
 
 	"github.com/smartcontractkit/freeport"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -60,7 +60,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	}
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(30 * time.Millisecond)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = config.MustNewDuration(30 * time.Millisecond)
 		f := false
 		c.EVM[0].Enabled = &f
 		c.P2P.V2.Enabled = &f
@@ -537,7 +537,7 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	// starving the test deadline and keep bridge traffic on local httptest only.
 	ctx := t.Context()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
+		c.JobPipeline.HTTPRequest.DefaultTimeout = config.MustNewDuration(2 * time.Second)
 		c.EVM[0].Enabled = new(true)
 		c.OCR.Enabled = new(true)
 		c.P2P.V2.Enabled = new(true)

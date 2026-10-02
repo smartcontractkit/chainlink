@@ -66,7 +66,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
@@ -1107,8 +1107,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Version: "1.0",
 			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
 				AttestationAPI:         endpoint,
-				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
-				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+				AttestationAPITimeout:  config.MustNewDuration(time.Second),
+				AttestationAPIInterval: config.MustNewDuration(500 * time.Millisecond),
 				Tokens:                 cctpContracts,
 			},
 		})
@@ -1126,8 +1126,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Version: "1.0",
 			LBTCObserverConfig: &pluginconfig.LBTCObserverConfig{
 				AttestationAPI:           endpoint,
-				AttestationAPITimeout:    commonconfig.MustNewDuration(time.Second),
-				AttestationAPIInterval:   commonconfig.MustNewDuration(500 * time.Millisecond),
+				AttestationAPITimeout:    config.MustNewDuration(time.Second),
+				AttestationAPIInterval:   config.MustNewDuration(500 * time.Millisecond),
 				SourcePoolAddressByChain: lbtcPools,
 			},
 		})

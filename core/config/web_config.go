@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 type TLS interface {
@@ -37,7 +37,7 @@ type LDAP interface {
 	ReadOnlyUserLogin() string
 	ReadOnlyUserPass() string
 	ServerTLS() bool
-	SessionTimeout() commonconfig.Duration
+	SessionTimeout() config.Duration
 	QueryTimeout() time.Duration
 	BaseUserAttr() string
 	BaseDN() string
@@ -50,9 +50,9 @@ type LDAP interface {
 	RunUserGroupCN() string
 	ReadUserGroupCN() string
 	UserApiTokenEnabled() bool
-	UserAPITokenDuration() commonconfig.Duration
-	UpstreamSyncInterval() commonconfig.Duration
-	UpstreamSyncRateLimit() commonconfig.Duration
+	UserAPITokenDuration() config.Duration
+	UpstreamSyncInterval() config.Duration
+	UpstreamSyncRateLimit() config.Duration
 }
 
 type OIDC interface {
@@ -65,9 +65,9 @@ type OIDC interface {
 	EditClaim() string
 	RunClaim() string
 	ReadClaim() string
-	SessionTimeout() commonconfig.Duration
+	SessionTimeout() config.Duration
 	UserAPITokenEnabled() bool
-	UserAPITokenDuration() commonconfig.Duration
+	UserAPITokenDuration() config.Duration
 }
 
 type WebServer interface {
@@ -79,10 +79,10 @@ type WebServer interface {
 	StartTimeout() time.Duration
 	HTTPWriteTimeout() time.Duration
 	HTTPPort() uint16
-	SessionReaperExpiration() commonconfig.Duration
+	SessionReaperExpiration() config.Duration
 	SecureCookies() bool
 	SessionOptions() sessions.Options
-	SessionTimeout() commonconfig.Duration
+	SessionTimeout() config.Duration
 	ListenIP() net.IP
 
 	TLS() TLS

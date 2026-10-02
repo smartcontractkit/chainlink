@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -21,7 +21,7 @@ func TestJobPipelineConfigTest(t *testing.T) {
 	jp := cfg.JobPipeline()
 
 	assert.Equal(t, int64(100*utils.MB), jp.DefaultHTTPLimit())
-	d, err := commonconfig.NewDuration(1 * time.Minute)
+	d, err := config.NewDuration(1 * time.Minute)
 	require.NoError(t, err)
 	assert.Equal(t, d, jp.DefaultHTTPTimeout())
 	assert.Equal(t, 1*time.Hour, jp.MaxRunDuration())

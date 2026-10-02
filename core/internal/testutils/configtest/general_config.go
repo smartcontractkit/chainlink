@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -42,28 +42,28 @@ func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlin
 
 // overrides applies some test config settings and adds a default chain with client.NullClientChainID.
 func overrides(c *chainlink.Config, s *chainlink.Secrets) {
-	s.Password.Keystore = commonconfig.NewSecretString("dummy-to-pass-validation")
+	s.Password.Keystore = config.NewSecretString("dummy-to-pass-validation")
 
 	c.Insecure.OCRDevelopmentMode = new(true)
 	c.InsecureFastScrypt = new(true)
-	c.ShutdownGracePeriod = commonconfig.MustNewDuration(testutils.DefaultWaitTimeout)
+	c.ShutdownGracePeriod = config.MustNewDuration(testutils.DefaultWaitTimeout)
 
 	c.Database.DriverName = pgcommon.DriverTxWrappedPostgres
 	c.Database.Lock.Enabled = new(false)
 	c.Database.MaxIdleConns = new(int64(20))
 	c.Database.MaxOpenConns = new(int64(20))
 	c.Database.MigrateOnStartup = new(false)
-	c.Database.DefaultLockTimeout = commonconfig.MustNewDuration(1 * time.Minute)
+	c.Database.DefaultLockTimeout = config.MustNewDuration(1 * time.Minute)
 
-	c.JobPipeline.ReaperInterval = commonconfig.MustNewDuration(0)
+	c.JobPipeline.ReaperInterval = config.MustNewDuration(0)
 	c.JobPipeline.VerboseLogging = new(true)
 
 	c.Mercury.VerboseLogging = new(true)
 
 	c.P2P.V2.Enabled = new(false)
 
-	c.WebServer.SessionTimeout = commonconfig.MustNewDuration(2 * time.Minute)
-	c.WebServer.BridgeResponseURL = commonconfig.MustParseURL("http://localhost:6688")
+	c.WebServer.SessionTimeout = config.MustNewDuration(2 * time.Minute)
+	c.WebServer.BridgeResponseURL = config.MustParseURL("http://localhost:6688")
 	testIP := net.ParseIP("127.0.0.1")
 	c.WebServer.ListenIP = &testIP
 	c.WebServer.TLS.ListenIP = &testIP
@@ -71,7 +71,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	chainID := sqlutil.NewI(client.NullClientChainID)
 
 	chainCfg := toml.Defaults(chainID)
-	chainCfg.LogPollInterval = commonconfig.MustNewDuration(1 * time.Second) // speed it up from the standard 15s for tests
+	chainCfg.LogPollInterval = config.MustNewDuration(1 * time.Second) // speed it up from the standard 15s for tests
 
 	c.EVM = append(c.EVM, &toml.EVMConfig{
 		ChainID: chainID,
@@ -79,8 +79,8 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 		Nodes: toml.EVMNodes{
 			&toml.Node{
 				Name:              new("test"),
-				WSURL:             &commonconfig.URL{},
-				HTTPURL:           &commonconfig.URL{},
+				WSURL:             &config.URL{},
+				HTTPURL:           &config.URL{},
 				SendOnly:          new(bool),
 				Order:             new(int32(100)),
 				IsLoadBalancedRPC: new(false),
@@ -121,8 +121,8 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 
 var validTestNode = toml.Node{
 	Name:              new("simulated-node"),
-	WSURL:             commonconfig.MustParseURL("WSS://simulated-wss.com/ws"),
-	HTTPURL:           commonconfig.MustParseURL("http://simulated.com"),
+	WSURL:             config.MustParseURL("WSS://simulated-wss.com/ws"),
+	HTTPURL:           config.MustParseURL("http://simulated.com"),
 	SendOnly:          nil,
 	Order:             new(int32(1)),
 	IsLoadBalancedRPC: new(false),

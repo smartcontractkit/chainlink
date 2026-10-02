@@ -36,7 +36,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
@@ -102,8 +102,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, types.Backend, common.
 	b := cltest.NewSimulatedBackend(t, genesisData, 2*ethconfig.Defaults.Miner.GasCeil)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b.Client())
 	require.NoError(t, err)
-	accessAddress, _, _, err :=
-		testoffchainaggregator.DeploySimpleWriteAccessController(owner, b.Client())
+	accessAddress, _, _, err := testoffchainaggregator.DeploySimpleWriteAccessController(owner, b.Client())
 	require.NoError(t, err, "failed to deploy test access controller contract")
 	b.Commit()
 
@@ -150,10 +149,10 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 
 		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaReconcile = config.MustNewDuration(5 * time.Second)
 
 		// GracePeriod < ObservationTimeout
-		c.EVM[0].OCR.ObservationGracePeriod = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].OCR.ObservationGracePeriod = config.MustNewDuration(100 * time.Millisecond)
 
 		if overrides != nil {
 			overrides(c, s)
@@ -194,7 +193,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 		c.P2P.PeerID = new(p2pKey.PeerID())
 		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaReconcile = config.MustNewDuration(5 * time.Second)
 
 		c.EVM[0].Transactions.ForwardersEnabled = new(true)
 
@@ -350,7 +349,7 @@ isBootstrapPeer    = true
 			b.Commit()
 
 			jids := make([]int32, 0, numOracles)
-			var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
+			servers, slowServers := make([]*httptest.Server, 4), make([]*httptest.Server, 4)
 			// We expect metadata of:
 			//  latestAnswer:nil // First call
 			//  latestAnswer:0
@@ -585,7 +584,7 @@ isBootstrapPeer    = true
 		b.Commit()
 
 		jids := make([]int32, 0, numOracles)
-		var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
+		servers, slowServers := make([]*httptest.Server, 4), make([]*httptest.Server, 4)
 		// We expect metadata of:
 		//  latestAnswer:nil // First call
 		//  latestAnswer:0

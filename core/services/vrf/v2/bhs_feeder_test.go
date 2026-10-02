@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -60,7 +60,7 @@ func TestStartHeartbeats(t *testing.T) {
 		c.Feature.LogPoller = new(true)
 		c.EVM[0].FinalityDepth = new(uint32(2))
 		c.EVM[0].GasEstimator.LimitDefault = new(gasLimit)
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(time.Second)
+		c.EVM[0].LogPollInterval = config.MustNewDuration(time.Second)
 	})
 
 	heartbeatPeriod := 5 * time.Second
@@ -71,7 +71,8 @@ func TestStartHeartbeats(t *testing.T) {
 
 		_ = vrftesthelpers.CreateAndStartBHSJob(
 			t, bhsKeyAddresses, app, uni.bhsContractAddress.String(),
-			uni.rootContractAddress.String(), "", "", 0, 200, heartbeatPeriod, 100)
+			uni.rootContractAddress.String(), "", "", 0, 200, heartbeatPeriod, 100,
+		)
 
 		// Ensure log poller is ready and has all logs.
 		chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface

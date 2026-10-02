@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -36,7 +36,7 @@ var (
 	testSecretsFileContents = chainlink.Secrets{
 		Secrets: toml.Secrets{
 			Prometheus: toml.PrometheusSecrets{
-				AuthToken: commonconfig.NewSecretString("PROM_TOKEN"),
+				AuthToken: config.NewSecretString("PROM_TOKEN"),
 			},
 		},
 	}
@@ -44,7 +44,7 @@ var (
 	testSecretsRedactedContents = chainlink.Secrets{
 		Secrets: toml.Secrets{
 			Prometheus: toml.PrometheusSecrets{
-				AuthToken: commonconfig.NewSecretString("xxxxx"),
+				AuthToken: config.NewSecretString("xxxxx"),
 			},
 		},
 	}

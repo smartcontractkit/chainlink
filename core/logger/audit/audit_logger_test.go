@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -65,10 +65,10 @@ func (c Config) Environment() string {
 	return "test"
 }
 
-func (c Config) ForwardToUrl() (commonconfig.URL, error) { //nolint:revive // method name required by interface
-	url, err := commonconfig.ParseURL("http://localhost:9898")
+func (c Config) ForwardToUrl() (config.URL, error) { //nolint:revive // method name required by interface
+	url, err := config.ParseURL("http://localhost:9898")
 	if err != nil {
-		return commonconfig.URL{}, err
+		return config.URL{}, err
 	}
 	return *url, nil
 }
@@ -86,8 +86,8 @@ type badForwardToURLConfig struct {
 	Config
 }
 
-func (c badForwardToURLConfig) ForwardToUrl() (commonconfig.URL, error) { //nolint:revive // method name required by interface
-	return commonconfig.URL{}, errors.New("bad forward-to url")
+func (c badForwardToURLConfig) ForwardToUrl() (config.URL, error) { //nolint:revive // method name required by interface
+	return config.URL{}, errors.New("bad forward-to url")
 }
 
 // badHeadersConfig fails Headers(), all other methods delegate to Config.

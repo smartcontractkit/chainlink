@@ -20,7 +20,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -86,7 +86,7 @@ func (c DonContext) WaitForCapabilitiesToBeExposed(t *testing.T, dons ...*DON) {
 	}, 1*time.Minute, 1*time.Second, "timeout waiting for capabilities to be exposed")
 }
 
-func (c DonContext) WaitForWorkflowRegistryMetadata(t *testing.T, workflowName string, tag string, owner string, workflowID [32]byte) {
+func (c DonContext) WaitForWorkflowRegistryMetadata(t *testing.T, workflowName, tag, owner string, workflowID [32]byte) {
 	require.Eventually(t, func() bool {
 		wf, err := c.workflowRegistry.contract.GetWorkflow(&bind.CallOpts{}, common.HexToAddress(owner), workflowName, tag)
 		if err != nil {
@@ -130,9 +130,12 @@ type DON struct {
 }
 
 func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig DonConfiguration,
-	dependentDONs []commoncap.DON, donContext DonContext, supportsOCR bool, protocolRoundInterval time.Duration) *DON {
-	don := &DON{t: t, lggr: logger.Named(lggr, donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry,
-		workflowRegistry: donContext.workflowRegistry}
+	dependentDONs []commoncap.DON, donContext DonContext, supportsOCR bool, protocolRoundInterval time.Duration,
+) *DON {
+	don := &DON{
+		t: t, lggr: logger.Named(lggr, donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry,
+		workflowRegistry: donContext.workflowRegistry,
+	}
 
 	if supportsOCR {
 		// This is required to support the non standard OCR3 capability - will be removed when required OCR3 behaviour is implemented as standard capabilities
@@ -317,7 +320,7 @@ command="%s"
 config=%s
 `
 
-func (d *DON) AddStandardCapability(name string, command string, config string) {
+func (d *DON) AddStandardCapability(name, command, config string) {
 	spec := fmt.Sprintf(StandardCapabilityTemplateJobSpec, name, command, config)
 	capabilitiesSpecJob, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(spec)
 	require.NoError(d.t, err)
@@ -325,9 +328,10 @@ func (d *DON) AddStandardCapability(name string, command string, config string) 
 	d.standardCapabilityJobs = append(d.standardCapabilityJobs, &capabilitiesSpecJob)
 }
 
-func (d *DON) AddPublishedStandardCapability(name string, command string, config string,
+func (d *DON) AddPublishedStandardCapability(name, command, config string,
 	defaultCapabilityRequestConfig *pb.CapabilityConfig,
-	registryConfig kcr.CapabilitiesRegistryCapability) {
+	registryConfig kcr.CapabilitiesRegistryCapability,
+) {
 	spec := fmt.Sprintf(StandardCapabilityTemplateJobSpec, name, command, config)
 	capabilitiesSpecJob, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(spec)
 	require.NoError(d.t, err)
@@ -424,9 +428,9 @@ func startNewNode(ctx context.Context,
 		c.CRE.UseLocalTimeProvider = new(true)
 		c.CRE.EnableDKGRecipient = new(true)
 
-		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(100 * time.Millisecond)
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaDial = config.MustNewDuration(100 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = config.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
 
 		if setupCfg != nil {
 			setupCfg(c)
@@ -441,7 +445,8 @@ func startNewNode(ctx context.Context,
 		assets.Ether(1).ToInt(),
 		21000,
 		assets.GWei(1).ToInt(),
-		nil)
+		nil,
+	)
 	signedTx, err := ethBlockchain.transactionOpts.Signer(ethBlockchain.transactionOpts.From, tx)
 	require.NoError(t, err)
 	err = ethBlockchain.Client().SendTransaction(ctx, signedTx)

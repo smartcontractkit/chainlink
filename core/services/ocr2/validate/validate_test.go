@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -20,7 +20,7 @@ import (
 )
 
 func TestValidateOracleSpec(t *testing.T) {
-	var tt = []struct {
+	tt := []struct {
 		name      string
 		toml      string
 		overrides func(c *chainlink.Config, s *chainlink.Secrets)
@@ -349,7 +349,7 @@ chainID = 1337
 				require.Contains(t, err.Error(), "database timeout must be between 100ms and 10s, but is currently 20m0s")
 			},
 			overrides: func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.DatabaseTimeout = commonconfig.MustNewDuration(20 * time.Minute)
+				c.OCR2.DatabaseTimeout = config.MustNewDuration(20 * time.Minute)
 			},
 		},
 		{
@@ -446,7 +446,8 @@ evm = ""
 				require.Error(t, err)
 				require.ErrorContains(t, err, "must provide plugin name")
 			},
-		}, {
+		},
+		{
 			name: "Generic plugin config validation - ocr version",
 			toml: `
 type = "offchainreporting2"
@@ -547,7 +548,8 @@ Command="some random command"
 				require.Error(t, err)
 				require.ErrorContains(t, err, "failed to find binary")
 			},
-		}, {
+		},
+		{
 			name: "minimal OCR2 oracle spec with JuelsPerFeeCoinCache",
 			toml: `
 type               = "offchainreporting2"

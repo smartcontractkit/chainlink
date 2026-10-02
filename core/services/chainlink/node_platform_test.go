@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
-	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -74,7 +74,7 @@ func TestNewNodePlatformBuildInfoConfig_UsesThreeMinuteBeat(t *testing.T) {
 	keyStore.EXPECT().CSA().Return(csaStore).Once()
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, _ *chainlink.Secrets) {
-		c.Telemetry.HeartbeatInterval = commoncfg.MustNewDuration(5 * time.Second)
+		c.Telemetry.HeartbeatInterval = config.MustNewDuration(5 * time.Second)
 	})
 
 	buildInfoCfg := chainlink.NewNodePlatformBuildInfoConfig(chainlink.ApplicationOpts{

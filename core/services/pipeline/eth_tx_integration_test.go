@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -69,7 +69,7 @@ func newAsyncEthTxEnv(t *testing.T) *asyncEthTxEnv {
 	backend.Commit()
 
 	cfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, _ *chainlink.Secrets) {
-		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = config.MustNewDuration(100 * time.Millisecond)
 	})
 
 	keyStore := cltest.NewKeyStore(t, db)

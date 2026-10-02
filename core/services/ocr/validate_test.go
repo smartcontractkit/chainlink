@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -35,7 +35,7 @@ import (
 )
 
 func TestValidateOracleSpec(t *testing.T) {
-	var tt = []struct {
+	tt := []struct {
 		name      string
 		toml      string
 		overrides func(c *chainlink.Config, s *chainlink.Secrets)
@@ -425,7 +425,7 @@ answer1      [type=median index=0];
 				require.Contains(t, err.Error(), "data source timeout must be between 1s and 20s, but is currently 20m0s")
 			},
 			overrides: func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR.ObservationTimeout = commonconfig.MustNewDuration(20 * time.Minute)
+				c.OCR.ObservationTimeout = config.MustNewDuration(20 * time.Minute)
 			},
 		},
 	}
@@ -511,7 +511,8 @@ answer1      [type=median index=0];
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(goodConfigDetails, nil).Once()
 	client.On("FilterLogs", mock.Anything, mock.Anything, mock.Anything).Return([]types2.Log{{
 		Address: common.HexToAddress("0x613a38ac1659769640aae063c651f48e0250454c"),
-		Topics:  []common.Hash{common.HexToHash("0x25d719d88a4512dd76c7442b910a83360845505894eb444ef299409e180f8fb9")}}}, nil).Once()
+		Topics:  []common.Hash{common.HexToHash("0x25d719d88a4512dd76c7442b910a83360845505894eb444ef299409e180f8fb9")},
+	}}, nil).Once()
 	_, err = ocr.ValidatedOracleSpecToml(cfg, legacyChain, jobSpec)
 	require.NoError(t, err)
 }
