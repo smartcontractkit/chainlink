@@ -201,8 +201,8 @@ func NewCoordinator(
 	return c
 }
 
-// close runs after the reader and release goroutines have exited, and
-// unregisters whatever the syncer did not tear down before shutdown.
+// close runs after the reader and release goroutines exit.
+// It unregisters the triggers that the syncer did not remove.
 func (c *coordinator) close() error {
 	pending := c.workflows.pending()
 
