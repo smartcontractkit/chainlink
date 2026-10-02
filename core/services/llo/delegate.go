@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -96,18 +97,53 @@ type DelegateConfig struct {
 	LocalConfig            ocr2types.LocalConfig
 	NewOCR3DB              func(pluginID int32) ocr3types.Database
 
-	// V31 runs the job on the v31 plugin, on libocr OCR3.1 (see
-	// chainlink-data-streams llo/pluginconfig.PluginConfig.PluginVersion)
-	V31 bool
+	// PluginVersions selects the plugin per protocol instance, positionally
+	// aligned with ContractConfigTrackers (see chainlink-data-streams
+	// llo/pluginconfig.PluginConfig.PluginVersions). The two entries differ only
+	// during blue/green handover across different plugin versions , where one
+	// instance hands over to the other in a different version.
+	PluginVersions []lloconfig.PluginVersion
 	// V31Config carries the v31 plugin knobs from the job's plugin config. Only
-	// read when V31 is true; zero fields fall through to the plugin defaults.
+	// read by v31 instances; zero fields fall through to the plugin defaults.
 	V31Config lloconfig.V31Config
 	// BinaryNetworkEndpoint2Factory is the OCR3.1 ("2") network endpoint factory
-	// (peerWrapper.Peer3_1). Required when V31 is true.
+	// (peerWrapper.Peer3_1). Required when any instance is v31.
 	BinaryNetworkEndpoint2Factory ocr2types.BinaryNetworkEndpoint2Factory
 	// KeyValueDatabaseFactory provides the replicated per-configDigest key-value
-	// store the OCR3.1 protocol requires. Required when V31 is true.
+	// store the OCR3.1 protocol requires. One factory serves both instances: it
+	// keys the database by config digest, so they get separate keyspaces.
+	// Required when any instance is v31.
 	KeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
+}
+
+// anyV31 reports whether any protocol instance runs the v31 plugin. The
+// OCR3.1-only dependencies are per job, so one v31 instance requires them.
+func (cfg DelegateConfig) anyV31() bool {
+	return slices.Contains(cfg.PluginVersions, lloconfig.PluginVersionV31)
+}
+
+// validateInstances checks the per-instance plugin selection and the
+// dependencies it implies.
+func (cfg DelegateConfig) validateInstances() error {
+	if len(cfg.PluginVersions) != len(cfg.ContractConfigTrackers) {
+		return fmt.Errorf("expected one PluginVersions entry per ContractConfigTracker, got %d entries for %d trackers", len(cfg.PluginVersions), len(cfg.ContractConfigTrackers))
+	}
+	for i, v := range cfg.PluginVersions {
+		switch v {
+		case lloconfig.PluginVersionV30, lloconfig.PluginVersionV31:
+		default:
+			return fmt.Errorf("unsupported plugin version for instance %d: %q", i, v)
+		}
+	}
+	if cfg.anyV31() {
+		if cfg.KeyValueDatabaseFactory == nil {
+			return errors.New("KeyValueDatabaseFactory must not be nil when running OCR3.1")
+		}
+		if cfg.BinaryNetworkEndpoint2Factory == nil {
+			return errors.New("BinaryNetworkEndpoint2Factory must not be nil when running OCR3.1")
+		}
+	}
+	return nil
 }
 
 func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
@@ -127,13 +163,8 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	if cfg.ShouldRetireCache == nil {
 		return nil, errors.New("ShouldRetireCache must not be nil")
 	}
-	if cfg.V31 {
-		if cfg.KeyValueDatabaseFactory == nil {
-			return nil, errors.New("KeyValueDatabaseFactory must not be nil when running OCR3.1")
-		}
-		if cfg.BinaryNetworkEndpoint2Factory == nil {
-			return nil, errors.New("BinaryNetworkEndpoint2Factory must not be nil when running OCR3.1")
-		}
+	if err := cfg.validateInstances(); err != nil {
+		return nil, err
 	}
 	var codecLggr logger.Logger
 	if cfg.ReportingPluginConfig.VerboseLogging {
@@ -192,11 +223,15 @@ func (d *delegate) Start(ctx context.Context) error {
 				// This is a performance optimization
 			})
 
+			// NewDelegate rejected any version this switch does not handle, so
+			// a new one added upstream fails at startup rather than silently
+			// running v30.
 			var oracle ocr2plus.Oracle
 			var err error
-			if d.cfg.V31 {
+			switch version := d.cfg.PluginVersions[i]; version {
+			case lloconfig.PluginVersionV31:
 				oracle, err = d.newOracleV31(i, configTracker, lggr, ocrLogger, psrrc)
-			} else {
+			default:
 				oracle, err = d.newOracleV30(i, configTracker, lggr, ocrLogger, psrrc)
 			}
 			if err != nil {

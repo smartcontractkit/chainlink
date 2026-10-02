@@ -106,6 +106,7 @@ jobs:
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
       docker-target: final
+      # No APT_CACHE_BUST needed: layer cache is disabled below, so apt always runs fresh.
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
@@ -146,6 +147,7 @@ jobs:
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
       docker-target: final
+      # No APT_CACHE_BUST needed: layer cache is disabled below, so apt always runs fresh.
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
