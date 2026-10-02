@@ -544,8 +544,8 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	// sleep-then-check: this fails the instant the bug appears rather than
 	// only if it happens to land inside a guessed window.
 	require.Never(t, func() bool {
-		wt, _ := f.c.workflows.get(validWorkflowID)
-		return wt != newWT
+		cw, _ := f.c.workflows.get(validWorkflowID)
+		return cw != newWT
 	}, 100*time.Millisecond, 2*time.Millisecond, "the old waiter must not drop the new registration")
 	require.Eventually(t, func() bool { return f.limits.inUse() == 1 }, time.Second, time.Millisecond,
 		"the old waiter must still free its own slot")

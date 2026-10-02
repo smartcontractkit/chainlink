@@ -108,51 +108,51 @@ type coordinator struct {
 // methods never handle the mutex directly.
 type workflowRegistry struct {
 	mu        sync.Mutex
-	workflows map[string]*workflowTriggers // workflowID (hex) -> state
+	workflows map[string]*coordinatedWorkflow // workflowID (hex) -> state
 }
 
 func newWorkflowRegistry() *workflowRegistry {
-	return &workflowRegistry{workflows: make(map[string]*workflowTriggers)}
+	return &workflowRegistry{workflows: make(map[string]*coordinatedWorkflow)}
 }
 
-func (r *workflowRegistry) get(workflowID string) (*workflowTriggers, bool) {
+func (r *workflowRegistry) get(workflowID string) (*coordinatedWorkflow, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	wt, ok := r.workflows[workflowID]
-	return wt, ok
+	cw, ok := r.workflows[workflowID]
+	return cw, ok
 }
 
-func (r *workflowRegistry) set(workflowID string, wt *workflowTriggers) {
+func (r *workflowRegistry) set(workflowID string, cw *coordinatedWorkflow) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.workflows[workflowID] = wt
+	r.workflows[workflowID] = cw
 }
 
-// deleteIf removes workflowID only if it still maps to wt: the workflow may
+// deleteIf removes workflowID only if it still maps to cw: the workflow may
 // have been re-registered while draining, and that state is not ours to drop.
-func (r *workflowRegistry) deleteIf(workflowID string, wt *workflowTriggers) {
+func (r *workflowRegistry) deleteIf(workflowID string, cw *coordinatedWorkflow) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.workflows[workflowID] == wt {
+	if r.workflows[workflowID] == cw {
 		delete(r.workflows, workflowID)
 	}
 }
 
 // pending returns the workflows whose capability-side unregistration has not
 // completed yet.
-func (r *workflowRegistry) pending() map[string]*workflowTriggers {
+func (r *workflowRegistry) pending() map[string]*coordinatedWorkflow {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	pending := make(map[string]*workflowTriggers, len(r.workflows))
-	for workflowID, wt := range r.workflows {
-		if !wt.unregistered.Load() {
-			pending[workflowID] = wt
+	pending := make(map[string]*coordinatedWorkflow, len(r.workflows))
+	for workflowID, cw := range r.workflows {
+		if !cw.unregistered.Load() {
+			pending[workflowID] = cw
 		}
 	}
 	return pending
 }
 
-type workflowTriggers struct {
+type coordinatedWorkflow struct {
 	wid   types.WorkflowID
 	cre   contexts.CRE
 	donID uint32
@@ -207,10 +207,10 @@ func (c *coordinator) close() error {
 	defer cancel()
 
 	var errs error
-	for workflowID, wt := range pending {
-		wt.cancel()
-		if failCount := Unregister(contexts.WithCRE(ctx, wt.cre), wt.lggr, workflowID, wt.donID, wt.handles); failCount > 0 {
-			errs = errors.Join(errs, fmt.Errorf("workflow %s: failed to unregister %d of %d triggers", workflowID, failCount, len(wt.handles)))
+	for workflowID, cw := range pending {
+		cw.cancel()
+		if failCount := Unregister(contexts.WithCRE(ctx, cw.cre), cw.lggr, workflowID, cw.donID, cw.handles); failCount > 0 {
+			errs = errors.Join(errs, fmt.Errorf("workflow %s: failed to unregister %d of %d triggers", workflowID, failCount, len(cw.handles)))
 		}
 	}
 	return errs
@@ -274,7 +274,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 	}
 
 	readerCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
-	wt := &workflowTriggers{
+	cw := &coordinatedWorkflow{
 		wid:     wid,
 		cre:     cre,
 		donID:   params.WorkflowDonID,
@@ -284,17 +284,17 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		metrics: wfMetrics,
 	}
 
-	// Set before publishing wt: an UnregisterTriggers racing in right after
+	// Set before publishing cw: an UnregisterTriggers racing in right after
 	// must not see zero readers and release before they've even started.
-	wt.readers.Add(len(eventChans))
+	cw.readers.Add(len(eventChans))
 
-	c.workflows.set(workflowID, wt)
+	c.workflows.set(workflowID, cw)
 
-	deliver := c.deliver(wt)
+	deliver := c.deliver(cw)
 	for idx, eventCh := range eventChans {
 		triggerCapID := triggerCapIDs[idx]
 		c.eng.GoCtx(readerCtx, func(ctx context.Context) {
-			defer wt.readers.Done()
+			defer cw.readers.Done()
 			ReadLoop(ctx, lggr, wfMetrics, c.clock, workflowID, triggerCapID, idx, eventCh, deliver)
 		})
 	}
@@ -304,21 +304,21 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 
 // deliver looks up the engine fresh on every event instead of caching it,
 // since the engine for a workflow can change while this reader is running.
-func (c *coordinator) deliver(wt *workflowTriggers) func(context.Context, CoordinatedEvent) {
+func (c *coordinator) deliver(cw *coordinatedWorkflow) func(context.Context, CoordinatedEvent) {
 	return func(ctx context.Context, event CoordinatedEvent) {
-		engine, found := c.engines.Get(wt.wid)
+		engine, found := c.engines.Get(cw.wid)
 		if !found {
-			wt.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
+			cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
 			return
 		}
 		if !engine.IsCoordinated() {
-			wt.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
+			cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
 			return
 		}
 
 		// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
 		if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
-			wt.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+			cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
 		}
 	}
 }
@@ -331,43 +331,43 @@ func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistration
 
 	var handle *Handle
 	lggr, wfMetrics := c.lggr, c.deps.Metrics
-	if wt, ok := c.workflows.get(workflowID); ok {
-		handle = wt.handles[triggerRegistrationID]
-		lggr, wfMetrics = wt.lggr, wt.metrics
+	if cw, ok := c.workflows.get(workflowID); ok {
+		handle = cw.handles[triggerRegistrationID]
+		lggr, wfMetrics = cw.lggr, cw.metrics
 	}
 	return Ack(ctx, lggr, wfMetrics, triggerCapID, triggerRegistrationID, eventID, handle)
 }
 
 func (c *coordinator) UnregisterTriggers(workflowID string) error {
-	wt, ok := c.workflows.get(workflowID)
+	cw, ok := c.workflows.get(workflowID)
 	if !ok {
 		return ErrWorkflowNotCoordinated
 	}
-	if wt.unregistered.Load() {
+	if cw.unregistered.Load() {
 		return nil
 	}
 	// CAS: exactly one caller spawns the release waiter.
-	spawnRelease := wt.releasing.CompareAndSwap(false, true)
+	spawnRelease := cw.releasing.CompareAndSwap(false, true)
 
 	// Cancel first: not every capability closes its event channel on
 	// Unregister, so this is the only guaranteed way to stop delivery.
-	wt.cancel()
+	cw.cancel()
 	if spawnRelease {
-		c.eng.Go(func(ctx context.Context) { c.releaseWhenDrained(ctx, workflowID, wt) })
+		c.eng.Go(func(ctx context.Context) { c.releaseWhenDrained(ctx, workflowID, cw) })
 	}
 
 	ctx, cancel := c.eng.NewCtx()
 	defer cancel()
-	ctx = contexts.WithCRE(ctx, wt.cre)
+	ctx = contexts.WithCRE(ctx, cw.cre)
 
-	if failCount := Unregister(ctx, wt.lggr, workflowID, wt.donID, wt.handles); failCount > 0 {
-		return fmt.Errorf("failed to unregister %d of %d triggers", failCount, len(wt.handles))
+	if failCount := Unregister(ctx, cw.lggr, workflowID, cw.donID, cw.handles); failCount > 0 {
+		return fmt.Errorf("failed to unregister %d of %d triggers", failCount, len(cw.handles))
 	}
 
-	wt.unregistered.Store(true)
+	cw.unregistered.Store(true)
 
-	wt.lggr.Infow("Unregistered triggers, retaining handles until drained", "numTriggers", len(wt.handles))
-	wt.metrics.IncrementWorkflowUnregisteredCounter(ctx)
+	cw.lggr.Infow("Unregistered triggers, retaining handles until drained", "numTriggers", len(cw.handles))
+	cw.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 	return nil
 }
 
@@ -375,21 +375,21 @@ func (c *coordinator) UnregisterTriggers(workflowID string) error {
 // once no execution can still need it to ACK. Waiting for this registration's
 // readers to exit is enough: an ACK only ever happens while a reader is still
 // running its delivery.
-func (c *coordinator) releaseWhenDrained(ctx context.Context, workflowID string, wt *workflowTriggers) {
-	ctx = contexts.WithCRE(ctx, wt.cre)
+func (c *coordinator) releaseWhenDrained(ctx context.Context, workflowID string, cw *coordinatedWorkflow) {
+	ctx = contexts.WithCRE(ctx, cw.cre)
 
 	select {
-	case <-wt.drained():
+	case <-cw.drained():
 	case <-c.clock.After(c.drainTimeout):
-		wt.lggr.Errorw("Timed out waiting for drain, releasing trigger handles anyway")
+		cw.lggr.Errorw("Timed out waiting for drain, releasing trigger handles anyway")
 	case <-ctx.Done():
 		return
 	}
 
-	c.workflows.deleteIf(workflowID, wt)
+	c.workflows.deleteIf(workflowID, cw)
 
-	c.freeWorkflowLimit(ctx, wt.lggr)
-	wt.lggr.Infow("Released trigger handles")
+	c.freeWorkflowLimit(ctx, cw.lggr)
+	cw.lggr.Infow("Released trigger handles")
 }
 
 // useWorkflowLimit acquires one slot of the node's workflow-count limit,
@@ -427,11 +427,11 @@ func (c *coordinator) freeWorkflowLimit(ctx context.Context, lggr logger.Logger)
 }
 
 // drained returns a channel that will be closed once all readers have finished, indicating that the workflow triggers have been fully drained.
-func (wt *workflowTriggers) drained() chan struct{} {
+func (cw *coordinatedWorkflow) drained() chan struct{} {
 	drained := make(chan struct{})
 	// Exits with the readers; outlives this waiter only on a timeout.
 	go func() {
-		wt.readers.Wait()
+		cw.readers.Wait()
 		close(drained)
 	}()
 	return drained
