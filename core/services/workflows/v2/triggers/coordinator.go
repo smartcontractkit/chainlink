@@ -101,8 +101,55 @@ type coordinator struct {
 
 	drainTimeout time.Duration
 
+	workflows *workflowRegistry
+}
+
+// workflowRegistry guards the workflowID -> triggers map so coordinator
+// methods never handle the mutex directly.
+type workflowRegistry struct {
 	mu        sync.Mutex
 	workflows map[string]*workflowTriggers // workflowID (hex) -> state
+}
+
+func newWorkflowRegistry() *workflowRegistry {
+	return &workflowRegistry{workflows: make(map[string]*workflowTriggers)}
+}
+
+func (r *workflowRegistry) get(workflowID string) (*workflowTriggers, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	wt, ok := r.workflows[workflowID]
+	return wt, ok
+}
+
+func (r *workflowRegistry) set(workflowID string, wt *workflowTriggers) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.workflows[workflowID] = wt
+}
+
+// deleteIf removes workflowID only if it still maps to wt: the workflow may
+// have been re-registered while draining, and that state is not ours to drop.
+func (r *workflowRegistry) deleteIf(workflowID string, wt *workflowTriggers) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.workflows[workflowID] == wt {
+		delete(r.workflows, workflowID)
+	}
+}
+
+// pending returns the workflows whose capability-side unregistration has not
+// completed yet.
+func (r *workflowRegistry) pending() map[string]*workflowTriggers {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	pending := make(map[string]*workflowTriggers, len(r.workflows))
+	for workflowID, wt := range r.workflows {
+		if !wt.unregistered.Load() {
+			pending[workflowID] = wt
+		}
+	}
+	return pending
 }
 
 type workflowTriggers struct {
@@ -140,7 +187,7 @@ func NewCoordinator(
 		workflowLimits: workflowLimits,
 		clock:          clock,
 		drainTimeout:   defaultDrainTimeout,
-		workflows:      make(map[string]*workflowTriggers),
+		workflows:      newWorkflowRegistry(),
 	}
 
 	c.Service, c.eng = services.Config{
@@ -154,14 +201,7 @@ func NewCoordinator(
 // close runs after the reader and release goroutines have exited, and
 // unregisters whatever the syncer did not tear down before shutdown.
 func (c *coordinator) close() error {
-	c.mu.Lock()
-	pending := make(map[string]*workflowTriggers, len(c.workflows))
-	for workflowID, wt := range c.workflows {
-		if !wt.unregistered.Load() {
-			pending[workflowID] = wt
-		}
-	}
-	c.mu.Unlock()
+	pending := c.workflows.pending()
 
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
@@ -248,9 +288,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 	// must not see zero readers and release before they've even started.
 	wt.readers.Add(len(eventChans))
 
-	c.mu.Lock()
-	c.workflows[workflowID] = wt
-	c.mu.Unlock()
+	c.workflows.set(workflowID, wt)
 
 	deliver := c.deliver(wt)
 	for idx, eventCh := range eventChans {
@@ -291,25 +329,17 @@ func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistration
 		return err
 	}
 
-	c.mu.Lock()
 	var handle *Handle
-	wt, found := c.workflows[workflowID]
-	if found {
-		handle = wt.handles[triggerRegistrationID]
-	}
-	c.mu.Unlock()
-
 	lggr, wfMetrics := c.lggr, c.deps.Metrics
-	if found {
+	if wt, ok := c.workflows.get(workflowID); ok {
+		handle = wt.handles[triggerRegistrationID]
 		lggr, wfMetrics = wt.lggr, wt.metrics
 	}
 	return Ack(ctx, lggr, wfMetrics, triggerCapID, triggerRegistrationID, eventID, handle)
 }
 
 func (c *coordinator) UnregisterTriggers(workflowID string) error {
-	c.mu.Lock()
-	wt, ok := c.workflows[workflowID]
-	c.mu.Unlock()
+	wt, ok := c.workflows.get(workflowID)
 	if !ok {
 		return ErrWorkflowNotCoordinated
 	}
@@ -356,12 +386,7 @@ func (c *coordinator) releaseWhenDrained(ctx context.Context, workflowID string,
 		return
 	}
 
-	c.mu.Lock()
-	// The workflow may have been re-registered while draining; its state is not ours to drop.
-	if c.workflows[workflowID] == wt {
-		delete(c.workflows, workflowID)
-	}
-	c.mu.Unlock()
+	c.workflows.deleteIf(workflowID, wt)
 
 	c.freeWorkflowLimit(ctx, wt.lggr)
 	wt.lggr.Infow("Released trigger handles")

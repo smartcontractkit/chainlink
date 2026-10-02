@@ -198,9 +198,7 @@ func testParams(t *testing.T) RegistrationParams {
 }
 
 func (f *coordinatorFixture) registered() bool {
-	f.c.mu.Lock()
-	defer f.c.mu.Unlock()
-	_, ok := f.c.workflows[validWorkflowID]
+	_, ok := f.c.workflows.get(validWorkflowID)
 	return ok
 }
 
@@ -525,9 +523,7 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	<-started
 	require.NoError(t, f.c.UnregisterTriggers(validWorkflowID))
 
-	f.c.mu.Lock()
-	oldWT := f.c.workflows[validWorkflowID]
-	f.c.mu.Unlock()
+	oldWT, _ := f.c.workflows.get(validWorkflowID)
 
 	// The replacement engine registers while the old registration is still draining.
 	f.engine.execute = nil
@@ -536,9 +532,7 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	_, err = f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 	require.NoError(t, err)
 
-	f.c.mu.Lock()
-	newWT := f.c.workflows[validWorkflowID]
-	f.c.mu.Unlock()
+	newWT, _ := f.c.workflows.get(validWorkflowID)
 	require.NotSame(t, oldWT, newWT, "registering again must replace, not reuse, the old state")
 	assert.Equal(t, 2, f.limits.inUse(), "the old slot is held until its drain completes")
 
@@ -550,9 +544,8 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	// sleep-then-check: this fails the instant the bug appears rather than
 	// only if it happens to land inside a guessed window.
 	require.Never(t, func() bool {
-		f.c.mu.Lock()
-		defer f.c.mu.Unlock()
-		return f.c.workflows[validWorkflowID] != newWT
+		wt, _ := f.c.workflows.get(validWorkflowID)
+		return wt != newWT
 	}, 100*time.Millisecond, 2*time.Millisecond, "the old waiter must not drop the new registration")
 	require.Eventually(t, func() bool { return f.limits.inUse() == 1 }, time.Second, time.Millisecond,
 		"the old waiter must still free its own slot")
