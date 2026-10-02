@@ -9,9 +9,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
+	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
@@ -23,6 +25,40 @@ func legacyCloseTestConfig(t *testing.T) (*v2.EngineConfig, *regmocks.Capabiliti
 	cfg := defaultTestConfig(t, nil)
 	cfg.CapRegistry = capreg
 	return cfg, capreg
+}
+
+// TestEngine_CloseCancelsAndWaitsForItsOwnExecution covers an execution the
+// legacy engine starts itself, from its trigger queue: Close cancels it and
+// waits for it before closing the module.
+func TestEngine_CloseCancelsAndWaitsForItsOwnExecution(t *testing.T) {
+	t.Parallel()
+
+	cfg, capreg := legacyCloseTestConfig(t)
+	cfg.BillingClient = setupMockBillingClient(t)
+	trigger := capmocks.NewTriggerCapability(t)
+	eventCh := make(chan capabilities.TriggerResponse)
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+
+	exec := newBlockingExecution()
+	re := newTestEngine(t, cfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+		module.EXPECT().Start().Once()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).RunAndReturn(exec.execute).Once()
+		exec.expectModuleClose(module)
+	})
+	require.NoError(t, re.engine.Start(t.Context()))
+	require.NoError(t, <-re.initializedCh)
+	require.Equal(t, []string{"id_0"}, <-re.subscribedToTriggersCh)
+
+	eventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "own_event"}}
+	<-exec.started
+
+	closeWithin(t, re.engine, 10*time.Second)
+	assert.True(t, exec.cancelled.Load(), "Close must cancel an execution the engine started")
+	assert.False(t, exec.moduleClosedEarly.Load(), "the module was closed while an execution was still running on it")
 }
 
 // TestEngine_CloseCancelsAndWaitsForExternallyInvokedExecution covers an

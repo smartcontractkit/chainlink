@@ -92,6 +92,50 @@ func TestCoordinatedEngine_CloseWaitsForInFlightExecution(t *testing.T) {
 	<-execDone
 }
 
+// TestCoordinatedEngine_CallerCanCancelExecution checks that tying executions to
+// the engine's stop signal adds a cancellation source without removing the
+// caller's: cancelling the ctx passed to ExecuteTrigger still cancels the
+// execution, and the engine keeps running.
+func TestCoordinatedEngine_CallerCanCancelExecution(t *testing.T) {
+	t.Parallel()
+
+	baseCfg := coordinatedTestConfig(t)
+	baseCfg.BillingClient = setupMockBillingClient(t)
+	exec := newBlockingExecution()
+	re := newTestEngine(t, baseCfg, v2.NewCoordinatedEngine, func(module *modulemocks.ModuleV2) {
+		module.EXPECT().Start().Once()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).RunAndReturn(exec.execute).Once()
+		module.EXPECT().Close().Once()
+	})
+	require.NoError(t, re.engine.Start(t.Context()))
+	require.NoError(t, <-re.initializedCh)
+
+	parent, event := coordinatedEvent(t, baseCfg, "caller_cancelled_event")
+	ctx, cancel := context.WithCancel(parent)
+	execDone := make(chan struct{})
+	go func() {
+		defer close(execDone)
+		_ = re.engine.ExecuteTrigger(ctx, event)
+	}()
+	select {
+	case <-exec.started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the execution never reached the module")
+	}
+
+	cancel()
+	select {
+	case <-execDone:
+	case <-time.After(10 * time.Second):
+		t.Fatal("cancelling the caller's ctx did not stop the execution")
+	}
+	assert.True(t, exec.cancelled.Load(), "the caller's cancellation must reach the execution")
+	assert.Equal(t, int32(0), re.engine.ActiveExecutions())
+	require.NoError(t, re.engine.Ready(), "a caller cancelling its execution must not affect the engine")
+
+	require.NoError(t, re.engine.Close())
+}
+
 func TestCoordinatedEngine_ExecuteTriggerAfterCloseIsRejected(t *testing.T) {
 	t.Parallel()
 
