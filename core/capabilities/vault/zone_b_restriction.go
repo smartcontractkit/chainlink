@@ -16,7 +16,8 @@ import (
 
 // zoneBFamily is the DON family (in the capabilities registry) identifying the
 // zone-b workflow DON whose vault GetSecrets reads are restricted to an
-// allowlist of workflow owners.
+// allowlist of workflow owners. Any family starting with it (e.g. the
+// "zone-b_workflows" family used by sharded workflow DONs) is treated as zone-b.
 const zoneBFamily = "zone-b"
 
 // zoneBRestrictor enforces that GetSecrets reads originating from a zone-b
@@ -113,12 +114,20 @@ func (z *zoneBRestrictor) isZoneBWorkflowDON(ctx context.Context, workflowDonID 
 		}
 		return false, fmt.Errorf("could not resolve caller workflow DON %d for zone-b vault read restriction: %w", workflowDonID, err)
 	}
-	// Case-insensitive match: family casing may vary across registry sources.
-	isZoneB := slices.ContainsFunc(don.Families, func(family string) bool {
-		return strings.EqualFold(family, zoneBFamily)
-	})
+	isZoneB := slices.ContainsFunc(don.Families, isZoneBFamily)
 	z.storeZoneMembership(workflowDonID, isZoneB)
 	return isZoneB, nil
+}
+
+// isZoneBFamily reports whether family identifies a zone-b workflow DON, i.e.
+// starts with zoneBFamily. This covers the base "zone-b" family as well as
+// sharding-specific variants such as "zone-b_workflows". Each workflow shard is
+// its own DON in the registry, so every shard of a zone-b workflow DON is
+// resolved and restricted by its own WorkflowDonID. A prefix match fails
+// closed: over-matching only restricts more DONs, never fewer. The match is
+// case-insensitive since family casing may vary across registry sources.
+func isZoneBFamily(family string) bool {
+	return strings.HasPrefix(strings.ToLower(family), zoneBFamily)
 }
 
 func (z *zoneBRestrictor) cachedZoneMembership(workflowDonID uint32) (bool, bool) {
