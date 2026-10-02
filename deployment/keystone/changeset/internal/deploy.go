@@ -299,7 +299,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRe
 	}, nil
 }
 
-// ocr3 contract on the registry chain for the wf dons
+// ConfigureOCR3Contract configures the OCR3 contract on the registry chain for the WF Dons.
 //
 // Deprecated: use changeset.ConfigureOCR3Contract instead.
 func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []RegisteredDon, cfg *ocr3.OracleConfig) error {

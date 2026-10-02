@@ -196,7 +196,7 @@ type HTTPRequest struct {
 
 type HTTPResponse struct {
 	StatusCode int
-	// Deprecated: use MultiHeaders, contains first value only for backward compatibility
+	// Deprecated: use MultiHeaders; multiple values are comma-joined for backward compatibility.
 	Headers      map[string]string
 	MultiHeaders map[string][]string // HTTP headers with all values preserved
 	Body         []byte              // HTTP response body

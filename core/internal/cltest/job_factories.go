@@ -59,8 +59,8 @@ func MustInsertWebhookSpec(t *testing.T, ds sqlutil.DataSource, externalJobID ..
 
 	createdJob := job.Job{
 		WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook",
-		ExternalJobID: extID, PipelineSpecID: pipelineSpecID,
-	} //nolint:staticcheck // SA1019: InsertJob persists the legacy jobs.pipeline_spec_id column
+		ExternalJobID: extID, PipelineSpecID: pipelineSpecID, //nolint:staticcheck // SA1019: InsertJob persists the legacy jobs.pipeline_spec_id column
+	}
 	require.NoError(t, jobORM.InsertJob(ctx, &createdJob))
 
 	return createdJob, webhookSpec

@@ -63,7 +63,7 @@ type CCIPChainState struct {
 
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA solana.PublicKey
-	// Deprecated: no longer used
+	// Deprecated: no longer read by the state view; retained for compatibility.
 	SourceChainStatePDAs map[uint64]solana.PublicKey
 	DestChainStatePDAs   map[uint64]solana.PublicKey
 	TokenPoolLookupTable map[solana.PublicKey]map[cldf.ContractType]map[string]solana.PublicKey // token -> token pool type -> metadata identifier -> lookup table
