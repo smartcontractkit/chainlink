@@ -352,15 +352,8 @@ func (c *coordinator) UnregisterTriggers(workflowID string) error {
 func (c *coordinator) releaseWhenDrained(ctx context.Context, workflowID string, wt *workflowTriggers) {
 	ctx = contexts.WithCRE(ctx, wt.cre)
 
-	drained := make(chan struct{})
-	// Exits with the readers; outlives this waiter only on a timeout.
-	go func() {
-		wt.readers.Wait()
-		close(drained)
-	}()
-
 	select {
-	case <-drained:
+	case <-wt.drained():
 	case <-c.clock.After(c.drainTimeout):
 		wt.lggr.Errorw("Timed out waiting for drain, releasing trigger handles anyway")
 	case <-ctx.Done():
@@ -410,4 +403,15 @@ func (c *coordinator) freeWorkflowLimit(ctx context.Context, lggr logger.Logger)
 	if err := c.workflowLimits.Free(ctx, 1); err != nil {
 		lggr.Errorw("Failed to free workflow count limit", "err", err)
 	}
+}
+
+// drained returns a channel that will be closed once all readers have finished, indicating that the workflow triggers have been fully drained.
+func (wt *workflowTriggers) drained() chan struct{} {
+	drained := make(chan struct{})
+	// Exits with the readers; outlives this waiter only on a timeout.
+	go func() {
+		wt.readers.Wait()
+		close(drained)
+	}()
+	return drained
 }
