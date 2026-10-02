@@ -398,7 +398,11 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 				ExternalEndpointLatency: externalEndpointLatency,
 			}
 		}
-		l.Debugw("Received HTTP response", "responseBodySize", len(resp.Body), "statusCode", resp.StatusCode, "numHeaders", len(resp.MultiHeaders))
+		numHeaders = len(resp.MultiHeaders)
+		if numHeaders == 0 {
+			numHeaders = len(resp.Headers) //nolint:staticcheck // SA1019: legacy responses carry deprecated Headers when MultiHeaders is not set
+		}
+		l.Debugw("Received HTTP response", "responseBodySize", len(resp.Body), "statusCode", resp.StatusCode, "numHeaders", numHeaders)
 		h.metrics.IncrementCustomerEndpointResponseCount(ctx, strconv.Itoa(resp.StatusCode), h.lggr)
 		return gateway_common.OutboundHTTPResponse{
 			StatusCode:              resp.StatusCode,
