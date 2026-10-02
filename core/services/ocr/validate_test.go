@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -425,7 +425,7 @@ answer1      [type=median index=0];
 				require.Contains(t, err.Error(), "data source timeout must be between 1s and 20s, but is currently 20m0s")
 			},
 			overrides: func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR.ObservationTimeout = config.MustNewDuration(20 * time.Minute)
+				c.OCR.ObservationTimeout = commonconfig.MustNewDuration(20 * time.Minute)
 			},
 		},
 	}

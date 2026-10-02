@@ -35,7 +35,7 @@ import (
 	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow/server"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
@@ -2172,9 +2172,9 @@ func Test_specStorage_StateMachine(t *testing.T) {
 	// team narrowing the cresettings window to include time.Now().
 	alwaysActive := func() *v2.EngineFeatureFlags {
 		return &v2.EngineFeatureFlags{
-			WorkflowTagBackfill: limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
+			WorkflowTagBackfill: limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
 				Lower: 0,
-				Upper: config.Timestamp(time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+				Upper: commonconfig.Timestamp(time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
 			}),
 		}
 	}
@@ -2182,9 +2182,9 @@ func Test_specStorage_StateMachine(t *testing.T) {
 	// so time.Now() never falls inside, matching a fresh-deploy no-op.
 	farFuture := func() *v2.EngineFeatureFlags {
 		return &v2.EngineFeatureFlags{
-			WorkflowTagBackfill: limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
-				Lower: config.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-				Upper: config.Timestamp(time.Date(2101, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+			WorkflowTagBackfill: limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
+				Lower: commonconfig.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+				Upper: commonconfig.Timestamp(time.Date(2101, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
 			}),
 		}
 	}

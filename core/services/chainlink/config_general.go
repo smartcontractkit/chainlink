@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -93,7 +93,7 @@ func (o *GeneralConfigOpts) Setup(configFiles, secretsFiles []string) error {
 // parseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
 func (o *GeneralConfigOpts) parseConfig(cfgStr string) error {
 	var c Config
-	if err2 := config.DecodeTOML(strings.NewReader(cfgStr), &c); err2 != nil {
+	if err2 := commonconfig.DecodeTOML(strings.NewReader(cfgStr), &c); err2 != nil {
 		return fmt.Errorf("failed to decode config TOML: %w", err2)
 	}
 
@@ -107,7 +107,7 @@ func (o *GeneralConfigOpts) parseConfig(cfgStr string) error {
 // parseSecrets sets Secrets from the given TOML string. Errors on overrides
 func (o *GeneralConfigOpts) parseSecrets(secrets string) error {
 	var s Secrets
-	if err2 := config.DecodeTOML(strings.NewReader(secrets), &s); err2 != nil {
+	if err2 := commonconfig.DecodeTOML(strings.NewReader(secrets), &s); err2 != nil {
 		return fmt.Errorf("failed to decode secrets TOML: %w", err2)
 	}
 
@@ -131,7 +131,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		return nil, err
 	}
 
-	_, warning := config.MultiErrorList(o.warnings())
+	_, warning := commonconfig.MultiErrorList(o.warnings())
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
@@ -233,7 +233,7 @@ func (g *generalConfig) validate(secretsValidationFn func() error) error {
 		secretsValidationFn(),
 	)
 
-	_, errList := config.MultiErrorList(err)
+	_, errList := commonconfig.MultiErrorList(err)
 	return errList
 }
 
@@ -248,7 +248,7 @@ var emptyStringsEnv string
 func validateEnv() (err error) {
 	defer func() {
 		if err != nil {
-			_, err = config.MultiErrorList(err)
+			_, err = commonconfig.MultiErrorList(err)
 			err = fmt.Errorf("invalid environment: %w", err)
 		}
 	}()
@@ -390,12 +390,12 @@ func (g *generalConfig) AutoPprofCPUProfileRate() int {
 	return int(*g.c.AutoPprof.CPUProfileRate)
 }
 
-func (g *generalConfig) AutoPprofGatherDuration() config.Duration {
-	return *config.MustNewDuration(g.c.AutoPprof.GatherDuration.Duration())
+func (g *generalConfig) AutoPprofGatherDuration() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(g.c.AutoPprof.GatherDuration.Duration())
 }
 
-func (g *generalConfig) AutoPprofGatherTraceDuration() config.Duration {
-	return *config.MustNewDuration(g.c.AutoPprof.GatherTraceDuration.Duration())
+func (g *generalConfig) AutoPprofGatherTraceDuration() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(g.c.AutoPprof.GatherTraceDuration.Duration())
 }
 
 func (g *generalConfig) AutoPprofGoroutineThreshold() int {
@@ -418,7 +418,7 @@ func (g *generalConfig) AutoPprofMutexProfileFraction() int {
 	return int(*g.c.AutoPprof.MutexProfileFraction)
 }
 
-func (g *generalConfig) AutoPprofPollInterval() config.Duration {
+func (g *generalConfig) AutoPprofPollInterval() commonconfig.Duration {
 	return *g.c.AutoPprof.PollInterval
 }
 

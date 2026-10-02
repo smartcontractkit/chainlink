@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -254,25 +254,25 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 }
 
 type VRFSpec struct {
-	BatchCoordinatorAddress       *types.EIP55Address  `json:"batchCoordinatorAddress"`
-	BatchFulfillmentEnabled       bool                 `json:"batchFulfillmentEnabled"`
-	CustomRevertsPipelineEnabled  *bool                `json:"customRevertsPipelineEnabled,omitempty"`
-	BatchFulfillmentGasMultiplier float64              `json:"batchFulfillmentGasMultiplier"`
-	CoordinatorAddress            types.EIP55Address   `json:"coordinatorAddress"`
-	PublicKey                     secp256k1.PublicKey  `json:"publicKey"`
-	FromAddresses                 []types.EIP55Address `json:"fromAddresses"`
-	PollPeriod                    config.Duration      `json:"pollPeriod"`
-	MinIncomingConfirmations      uint32               `json:"confirmations"`
-	CreatedAt                     time.Time            `json:"createdAt"`
-	UpdatedAt                     time.Time            `json:"updatedAt"`
-	EVMChainID                    *sqlutil.Big         `json:"evmChainID"`
-	ChunkSize                     uint32               `json:"chunkSize"`
-	RequestTimeout                config.Duration      `json:"requestTimeout"`
-	BackoffInitialDelay           config.Duration      `json:"backoffInitialDelay"`
-	BackoffMaxDelay               config.Duration      `json:"backoffMaxDelay"`
-	GasLanePrice                  *assets.Wei          `json:"gasLanePrice"`
-	RequestedConfsDelay           int64                `json:"requestedConfsDelay"`
-	VRFOwnerAddress               *types.EIP55Address  `json:"vrfOwnerAddress,omitempty"`
+	BatchCoordinatorAddress       *types.EIP55Address   `json:"batchCoordinatorAddress"`
+	BatchFulfillmentEnabled       bool                  `json:"batchFulfillmentEnabled"`
+	CustomRevertsPipelineEnabled  *bool                 `json:"customRevertsPipelineEnabled,omitempty"`
+	BatchFulfillmentGasMultiplier float64               `json:"batchFulfillmentGasMultiplier"`
+	CoordinatorAddress            types.EIP55Address    `json:"coordinatorAddress"`
+	PublicKey                     secp256k1.PublicKey   `json:"publicKey"`
+	FromAddresses                 []types.EIP55Address  `json:"fromAddresses"`
+	PollPeriod                    commonconfig.Duration `json:"pollPeriod"`
+	MinIncomingConfirmations      uint32                `json:"confirmations"`
+	CreatedAt                     time.Time             `json:"createdAt"`
+	UpdatedAt                     time.Time             `json:"updatedAt"`
+	EVMChainID                    *sqlutil.Big          `json:"evmChainID"`
+	ChunkSize                     uint32                `json:"chunkSize"`
+	RequestTimeout                commonconfig.Duration `json:"requestTimeout"`
+	BackoffInitialDelay           commonconfig.Duration `json:"backoffInitialDelay"`
+	BackoffMaxDelay               commonconfig.Duration `json:"backoffMaxDelay"`
+	GasLanePrice                  *assets.Wei           `json:"gasLanePrice"`
+	RequestedConfsDelay           int64                 `json:"requestedConfsDelay"`
+	VRFOwnerAddress               *types.EIP55Address   `json:"vrfOwnerAddress,omitempty"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
@@ -284,15 +284,15 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 		CoordinatorAddress:            spec.CoordinatorAddress,
 		PublicKey:                     spec.PublicKey,
 		FromAddresses:                 spec.FromAddresses,
-		PollPeriod:                    *config.MustNewDuration(spec.PollPeriod),
+		PollPeriod:                    *commonconfig.MustNewDuration(spec.PollPeriod),
 		MinIncomingConfirmations:      spec.MinIncomingConfirmations,
 		CreatedAt:                     spec.CreatedAt,
 		UpdatedAt:                     spec.UpdatedAt,
 		EVMChainID:                    spec.EVMChainID,
 		ChunkSize:                     spec.ChunkSize,
-		RequestTimeout:                *config.MustNewDuration(spec.RequestTimeout),
-		BackoffInitialDelay:           *config.MustNewDuration(spec.BackoffInitialDelay),
-		BackoffMaxDelay:               *config.MustNewDuration(spec.BackoffMaxDelay),
+		RequestTimeout:                *commonconfig.MustNewDuration(spec.RequestTimeout),
+		BackoffInitialDelay:           *commonconfig.MustNewDuration(spec.BackoffInitialDelay),
+		BackoffMaxDelay:               *commonconfig.MustNewDuration(spec.BackoffMaxDelay),
 		GasLanePrice:                  spec.GasLanePrice,
 		RequestedConfsDelay:           spec.RequestedConfsDelay,
 		VRFOwnerAddress:               spec.VRFOwnerAddress,

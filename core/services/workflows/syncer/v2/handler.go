@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -636,7 +636,7 @@ func (h *eventHandler) workflowTagBackfillActive(ctx context.Context) bool {
 	if h.featureFlags == nil || h.featureFlags.WorkflowTagBackfill == nil {
 		return false
 	}
-	return h.featureFlags.WorkflowTagBackfill.Check(ctx, config.Timestamp(time.Now().Unix())) == nil
+	return h.featureFlags.WorkflowTagBackfill.Check(ctx, commonconfig.Timestamp(time.Now().Unix())) == nil
 }
 
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.

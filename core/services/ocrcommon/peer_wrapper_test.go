@@ -11,7 +11,7 @@ import (
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -120,8 +120,8 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.P2P.V2.Enabled = new(true)
 		c.P2P.PeerID = new(k.PeerID())
-		c.P2P.V2.DeltaDial = config.MustNewDuration(100 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = config.MustNewDuration(1 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(1 * time.Second)
 
 		p2paddresses := []string{
 			fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t)),

@@ -21,7 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
@@ -202,8 +202,8 @@ func TestObservationContext_Observe_concurrencyStressTest(t *testing.T) {
 type mockPipelineConfig struct{}
 
 func (m *mockPipelineConfig) DefaultHTTPLimit() int64 { return 10000 }
-func (m *mockPipelineConfig) DefaultHTTPTimeout() config.Duration {
-	return *config.MustNewDuration(1 * time.Hour)
+func (m *mockPipelineConfig) DefaultHTTPTimeout() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(1 * time.Hour)
 }
 func (m *mockPipelineConfig) MaxRunDuration() time.Duration  { return 1 * time.Hour }
 func (m *mockPipelineConfig) ReaperInterval() time.Duration  { return 0 }

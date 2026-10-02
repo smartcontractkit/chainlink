@@ -3,12 +3,12 @@ package config
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 type JobPipeline interface {
 	DefaultHTTPLimit() int64
-	DefaultHTTPTimeout() config.Duration
+	DefaultHTTPTimeout() commonconfig.Duration
 	MaxRunDuration() time.Duration
 	MaxSuccessfulRuns() uint64
 	ReaperInterval() time.Duration

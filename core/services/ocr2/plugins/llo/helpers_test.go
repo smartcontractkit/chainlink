@@ -34,7 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -199,7 +199,7 @@ func setupRestartableNode(
 
 		// [OCR2]
 		c.OCR2.Enabled = new(true)
-		c.OCR2.ContractPollInterval = config.MustNewDuration(100 * time.Millisecond)
+		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 		// Unique per-node root for the OCR3.1 (llo/v31) pebble key-value store so the
 		// nodes in this process don't share state and nothing is written to ~/.chainlink-data.
 		c.OCR2.KeyValueStoreRootDir = new(t.TempDir())
@@ -215,8 +215,8 @@ func setupRestartableNode(
 		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
 		c.P2P.V2.ListenAddresses = &p2paddresses
-		c.P2P.V2.DeltaDial = config.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = config.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 
 		// [Mercury]
 		c.Mercury.VerboseLogging = new(true)
@@ -232,7 +232,7 @@ func setupRestartableNode(
 			evmCfg.Transactions.Enabled = new(false) // don't need txmgr
 			// The simulated backend only mines on Commit, so the 15s default
 			// stalls config and channel definition pickup by a full interval.
-			evmCfg.LogPollInterval = config.MustNewDuration(100 * time.Millisecond)
+			evmCfg.LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 		}
 
 		// Optional overrides

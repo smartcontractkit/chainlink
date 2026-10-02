@@ -20,7 +20,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -428,9 +428,9 @@ func startNewNode(ctx context.Context,
 		c.CRE.UseLocalTimeProvider = new(true)
 		c.CRE.EnableDKGRecipient = new(true)
 
-		c.P2P.V2.DeltaDial = config.MustNewDuration(100 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = config.MustNewDuration(100 * time.Millisecond)
-		c.EVM[0].LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(500 * time.Millisecond)
 
 		if setupCfg != nil {
 			setupCfg(c)

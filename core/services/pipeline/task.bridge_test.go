@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -610,7 +610,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	ctx := t.Context()
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.WebServer.BridgeCacheTTL = config.MustNewDuration(30 * time.Second)
+		c.WebServer.BridgeCacheTTL = commonconfig.MustNewDuration(30 * time.Second)
 	})
 
 	s1 := httptest.NewServer(fakeIntermittentlyFailingPriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
@@ -677,7 +677,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	require.Equal(t, string(big.NewInt(9700).Bytes()), result2.Value)
 
 	cfg2 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.WebServer.BridgeCacheTTL = config.MustNewDuration(0 * time.Second)
+		c.WebServer.BridgeCacheTTL = commonconfig.MustNewDuration(0 * time.Second)
 	})
 	task.HelperSetDependencies(cfg2.JobPipeline(), cfg2.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -1313,7 +1313,7 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.WebServer.BridgeCacheTTL = config.MustNewDuration(1 * time.Minute)
+		c.WebServer.BridgeCacheTTL = commonconfig.MustNewDuration(1 * time.Minute)
 	})
 
 	testAdapterResponse := &adapterResponse{
@@ -1420,7 +1420,7 @@ func TestBridgeTask_AdapterTimeout(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.WebServer.BridgeCacheTTL = config.MustNewDuration(1 * time.Minute)
+		c.WebServer.BridgeCacheTTL = commonconfig.MustNewDuration(1 * time.Minute)
 	})
 
 	s1 := httptest.NewServer(

@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 )
@@ -27,7 +27,7 @@ func TestEngine_emitUserLogs_ProcessesLogsWhenContextCancelled(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		limiters := &EngineLimiters{
 			LogEvent: &mockLimiter[int]{limit: 100},
-			LogLine:  &mockLimiter[config.Size]{limit: 1000},
+			LogLine:  &mockLimiter[commonconfig.Size]{limit: 1000},
 		}
 
 		e := &baseEngine{
@@ -82,7 +82,7 @@ func TestEngine_emitUserLogs_DrainsUntilTimeout(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		limiters := &EngineLimiters{
 			LogEvent: &mockLimiter[int]{limit: 100},
-			LogLine:  &mockLimiter[config.Size]{limit: 1000},
+			LogLine:  &mockLimiter[commonconfig.Size]{limit: 1000},
 		}
 
 		e := &baseEngine{
@@ -136,7 +136,7 @@ func TestEngine_emitUserLogs_TeardownOnChannelClose(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		limiters := &EngineLimiters{
 			LogEvent: &mockLimiter[int]{limit: 100},
-			LogLine:  &mockLimiter[config.Size]{limit: 1000},
+			LogLine:  &mockLimiter[commonconfig.Size]{limit: 1000},
 		}
 
 		e := &baseEngine{

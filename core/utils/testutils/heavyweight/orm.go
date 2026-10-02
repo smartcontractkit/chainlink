@@ -9,7 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -46,7 +46,7 @@ func prepareDB(t testing.TB, withTemplate bool, overrideFn func(c *chainlink.Con
 
 	gcfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.DriverName = pgcommon.DriverPostgres
-		s.Database.URL = config.NewSecretURL((*config.URL)(dbURL))
+		s.Database.URL = commonconfig.NewSecretURL((*commonconfig.URL)(dbURL))
 		// pgtestdb URLs use short passwords; validateDBURL exempts testdb_* database names.
 		s.Database.AllowSimplePasswords = new(false)
 		if overrideFn != nil {

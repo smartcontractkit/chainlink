@@ -3,11 +3,11 @@ package utils
 import (
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
-func MustURL(s string) *config.URL {
-	var u config.URL
+func MustURL(s string) *commonconfig.URL {
+	var u commonconfig.URL
 	if err := u.UnmarshalText([]byte(s)); err != nil {
 		panic(err)
 	}

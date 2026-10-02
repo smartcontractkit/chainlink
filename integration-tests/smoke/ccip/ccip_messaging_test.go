@@ -27,7 +27,7 @@ import (
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -223,8 +223,8 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithSolChains(1),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Minute)
-			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
+			params.ExecuteOffChainConfig.InflightCacheExpiry = *commonconfig.MustNewDuration(1 * time.Minute)
+			params.ExecuteOffChainConfig.MessageVisibilityInterval = *commonconfig.MustNewDuration(1 * time.Hour)
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
@@ -359,8 +359,8 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		testhelpers.WithMultiCall3(),
 		testhelpers.WithSolChains(1),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Minute)
-			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
+			params.ExecuteOffChainConfig.InflightCacheExpiry = *commonconfig.MustNewDuration(1 * time.Minute)
+			params.ExecuteOffChainConfig.MessageVisibilityInterval = *commonconfig.MustNewDuration(1 * time.Hour)
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
@@ -698,8 +698,8 @@ func Test_CCIPMessaging_Revert_EVM2Solana(t *testing.T) {
 		testhelpers.WithMultiCall3(),
 		testhelpers.WithSolChains(1),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(inflightDuration)
-			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
+			params.ExecuteOffChainConfig.InflightCacheExpiry = *commonconfig.MustNewDuration(inflightDuration)
+			params.ExecuteOffChainConfig.MessageVisibilityInterval = *commonconfig.MustNewDuration(1 * time.Hour)
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1

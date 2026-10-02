@@ -8,7 +8,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 func TestImportedAptosKeys_List(t *testing.T) {
@@ -50,7 +50,7 @@ func TestImportedAptosKeys_ValidateRejectsUnknownChainID(t *testing.T) {
 	t.Parallel()
 
 	var secrets Secrets
-	err := config.DecodeTOML(strings.NewReader(`
+	err := commonconfig.DecodeTOML(strings.NewReader(`
 [Aptos]
 [[Aptos.Keys]]
 JSON = '{"id":"aptos-key-1"}'
@@ -63,7 +63,7 @@ Password = 'pw-1'
 
 func parseImportedAptosSecrets(secretsTOML string) (*Secrets, error) {
 	var secrets Secrets
-	if err := config.DecodeTOML(strings.NewReader(secretsTOML), &secrets); err != nil {
+	if err := commonconfig.DecodeTOML(strings.NewReader(secretsTOML), &secrets); err != nil {
 		return nil, err
 	}
 

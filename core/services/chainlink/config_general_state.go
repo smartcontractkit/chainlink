@@ -4,7 +4,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
@@ -49,10 +49,10 @@ func (g *generalConfig) SetPasswords(keystore, vrf *string) {
 	g.passwordMu.Lock()
 	defer g.passwordMu.Unlock()
 	if keystore != nil {
-		g.secrets.Password.Keystore = (*config.SecretString)(keystore)
+		g.secrets.Password.Keystore = (*commonconfig.SecretString)(keystore)
 	}
 	if vrf != nil {
-		g.secrets.Password.VRF = (*config.SecretString)(vrf)
+		g.secrets.Password.VRF = (*commonconfig.SecretString)(vrf)
 	}
 }
 

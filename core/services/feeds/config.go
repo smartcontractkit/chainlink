@@ -3,7 +3,7 @@ package feeds
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
@@ -21,7 +21,7 @@ type JobDistributorConfig interface {
 }
 
 type JobConfig interface {
-	DefaultHTTPTimeout() config.Duration
+	DefaultHTTPTimeout() commonconfig.Duration
 }
 
 type InsecureConfig interface {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -60,7 +60,7 @@ func TestStartHeartbeats(t *testing.T) {
 		c.Feature.LogPoller = new(true)
 		c.EVM[0].FinalityDepth = new(uint32(2))
 		c.EVM[0].GasEstimator.LimitDefault = new(gasLimit)
-		c.EVM[0].LogPollInterval = config.MustNewDuration(time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(time.Second)
 	})
 
 	heartbeatPeriod := 5 * time.Second

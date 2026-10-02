@@ -23,7 +23,7 @@ import (
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -945,7 +945,7 @@ func (l *DatabaseLock) setFrom(f *DatabaseLock) {
 type DatabaseBackup struct {
 	Dir              *string
 	Frequency        *commonconfig.Duration
-	Mode             *config.DatabaseBackupMode
+	Mode             *coreconfig.DatabaseBackupMode
 	OnVersionUpgrade *bool
 }
 
@@ -2653,8 +2653,8 @@ func (r *WorkflowRegistry) ValidateConfig() error {
 
 // AdditionalSources returns the list of additional workflow sources.
 // Implements config.CapabilitiesWorkflowRegistry.
-func (r *WorkflowRegistry) AdditionalSources() []config.AdditionalWorkflowSource {
-	result := make([]config.AdditionalWorkflowSource, len(r.AdditionalSourcesConfig))
+func (r *WorkflowRegistry) AdditionalSources() []coreconfig.AdditionalWorkflowSource {
+	result := make([]coreconfig.AdditionalWorkflowSource, len(r.AdditionalSourcesConfig))
 	for i := range r.AdditionalSourcesConfig {
 		result[i] = r.AdditionalSourcesConfig[i]
 	}
@@ -3394,8 +3394,8 @@ func (e *BridgeStatusReporter) ValidateConfig() error {
 		return configutils.InvalidError{Name: "PollingInterval", Value: nil, Msg: "must be set"}
 	}
 
-	if e.PollingInterval.Duration() < config.MinimumPollingInterval {
-		return configutils.InvalidError{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + config.MinimumPollingInterval.String()}
+	if e.PollingInterval.Duration() < coreconfig.MinimumPollingInterval {
+		return configutils.InvalidError{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + coreconfig.MinimumPollingInterval.String()}
 	}
 
 	if e.IgnoreInvalidBridges == nil {
@@ -3439,8 +3439,8 @@ func (e *JobSpecReporter) ValidateConfig() error {
 		e.PollingInterval = defaultInterval
 	}
 
-	if e.PollingInterval.Duration() < config.MinimumPollingInterval {
-		return configutils.InvalidError{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + config.MinimumPollingInterval.String()}
+	if e.PollingInterval.Duration() < coreconfig.MinimumPollingInterval {
+		return configutils.InvalidError{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + coreconfig.MinimumPollingInterval.String()}
 	}
 
 	if e.EnabledOCR2PluginTypes == nil {

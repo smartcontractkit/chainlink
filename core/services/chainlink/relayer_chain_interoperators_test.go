@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -33,24 +33,24 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			node1_1 := toml.Node{
 				Name:              new("Test node chain1:1"),
-				WSURL:             config.MustParseURL("ws://localhost:8546"),
-				HTTPURL:           config.MustParseURL("http://localhost:8546"),
+				WSURL:             commonconfig.MustParseURL("ws://localhost:8546"),
+				HTTPURL:           commonconfig.MustParseURL("http://localhost:8546"),
 				SendOnly:          new(false),
 				Order:             new(int32(15)),
 				IsLoadBalancedRPC: new(false),
 			}
 			node1_2 := toml.Node{
 				Name:              new("Test node chain1:2"),
-				WSURL:             config.MustParseURL("ws://localhost:8547"),
-				HTTPURL:           config.MustParseURL("http://localhost:8547"),
+				WSURL:             commonconfig.MustParseURL("ws://localhost:8547"),
+				HTTPURL:           commonconfig.MustParseURL("http://localhost:8547"),
 				SendOnly:          new(false),
 				Order:             new(int32(36)),
 				IsLoadBalancedRPC: new(false),
 			}
 			node2_1 := toml.Node{
 				Name:              new("Test node chain2:1"),
-				WSURL:             config.MustParseURL("ws://localhost:8547"),
-				HTTPURL:           config.MustParseURL("http://localhost:8547"),
+				WSURL:             commonconfig.MustParseURL("ws://localhost:8547"),
+				HTTPURL:           commonconfig.MustParseURL("http://localhost:8547"),
 				SendOnly:          new(false),
 				Order:             new(int32(11)),
 				IsLoadBalancedRPC: new(false),

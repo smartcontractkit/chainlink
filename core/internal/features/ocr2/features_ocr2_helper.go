@@ -36,7 +36,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -95,8 +95,8 @@ func SetupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, c
 	host := "localhost"
 	nodeConfig := toml.Node{
 		Name:              new("simulated-node"),
-		WSURL:             new(config.URL{Scheme: "ws", Host: fmt.Sprintf("%s:%d", host, wsPort)}),
-		HTTPURL:           new(config.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", host, httpPort)}),
+		WSURL:             new(commonconfig.URL{Scheme: "ws", Host: fmt.Sprintf("%s:%d", host, wsPort)}),
+		HTTPURL:           new(commonconfig.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", host, httpPort)}),
 		SendOnly:          nil,
 		Order:             new(int32(1)),
 		IsLoadBalancedRPC: new(false),
@@ -157,15 +157,15 @@ func SetupNodeOCR2(
 
 		c.P2P.PeerID = new(p2pKey.PeerID())
 		c.P2P.V2.Enabled = new(true)
-		c.P2P.V2.DeltaDial = config.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = config.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
 		if len(p2pV2Bootstrappers) > 0 {
 			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 		}
 
 		c.EVM[0].Nodes = toml.EVMNodes{nodeConfig}
-		c.EVM[0].LogPollInterval = config.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarder
 	})
 

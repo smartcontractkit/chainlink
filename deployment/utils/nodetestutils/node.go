@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
@@ -394,8 +394,8 @@ func NewNode(
 
 		// P2P V2 configs.
 		c.P2P.V2.Enabled = new(true)
-		c.P2P.V2.DeltaDial = config.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = config.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", nodecfg.Port)}
 
 		// Enable Capabilities, This is a pre-requisite for registrySyncer to work.
@@ -409,7 +409,7 @@ func NewNode(
 		c.OCR.Enabled = new(false)
 		c.OCR.DefaultTransactionQueueDepth = new(uint32(200))
 		c.OCR2.Enabled = new(true)
-		c.OCR2.ContractPollInterval = config.MustNewDuration(5 * time.Second)
+		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(5 * time.Second)
 
 		c.Log.Level = new(configv2.LogLevel(nodecfg.LogLevel))
 
@@ -756,7 +756,7 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	chainIDBig := sqlutil.New(big.NewInt(0).SetUint64(chainID))
 	chain := v2toml.Defaults(chainIDBig)
 	chain.GasEstimator.LimitDefault = new(uint64(5e6))
-	chain.LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
+	chain.LogPollInterval = commonconfig.MustNewDuration(500 * time.Millisecond)
 	chain.Transactions.ForwardersEnabled = new(false)
 	chain.FinalityDepth = new(uint32(2))
 	return &v2toml.EVMConfig{

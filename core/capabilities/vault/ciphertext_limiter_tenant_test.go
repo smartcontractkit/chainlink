@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -29,7 +29,7 @@ import (
 
 type recordedCiphertextCheck struct {
 	owner  string
-	amount config.Size
+	amount commonconfig.Size
 }
 
 // recordingCiphertextLimiter records every Check call's owner tenant and amount.
@@ -37,12 +37,12 @@ type recordedCiphertextCheck struct {
 type recordingCiphertextLimiter struct {
 	mu     sync.Mutex
 	checks []recordedCiphertextCheck
-	errFor func(amount config.Size) error
+	errFor func(amount commonconfig.Size) error
 }
 
-var _ limits.BoundLimiter[config.Size] = (*recordingCiphertextLimiter)(nil)
+var _ limits.BoundLimiter[commonconfig.Size] = (*recordingCiphertextLimiter)(nil)
 
-func (r *recordingCiphertextLimiter) Check(ctx context.Context, amount config.Size) error {
+func (r *recordingCiphertextLimiter) Check(ctx context.Context, amount commonconfig.Size) error {
 	cre := contexts.CREValue(ctx)
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -53,7 +53,7 @@ func (r *recordingCiphertextLimiter) Check(ctx context.Context, amount config.Si
 	return nil
 }
 
-func (r *recordingCiphertextLimiter) Limit(context.Context) (config.Size, error) {
+func (r *recordingCiphertextLimiter) Limit(context.Context) (commonconfig.Size, error) {
 	return 0, nil
 }
 
@@ -71,9 +71,9 @@ func mustNewRecordingValidator(t *testing.T) (*vault.RequestValidator, *recordin
 	validator := vault.NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
 		recorder,
-		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
-		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
-		limits.NewUpperBoundLimiter[config.Size](64*config.Byte),
+		limits.NewUpperBoundLimiter[commonconfig.Size](64*commonconfig.Byte),
+		limits.NewUpperBoundLimiter[commonconfig.Size](64*commonconfig.Byte),
+		limits.NewUpperBoundLimiter[commonconfig.Size](64*commonconfig.Byte),
 	)
 	return validator, recorder
 }
@@ -168,8 +168,8 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_AuthorizedWriteChecksCipher
 				for _, check := range checks {
 					require.Equal(t, expectedTenantOwner, check.owner)
 				}
-				require.Equal(t, config.Byte, checks[0].amount)
-				require.Equal(t, 2*config.Byte, checks[1].amount)
+				require.Equal(t, commonconfig.Byte, checks[0].amount)
+				require.Equal(t, 2*commonconfig.Byte, checks[1].amount)
 			})
 		}
 	}
@@ -183,8 +183,8 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_AuthorizedWriteRejectsOvers
 			t.Parallel()
 
 			validator, recorder := mustNewRecordingValidator(t)
-			recorder.errFor = func(amount config.Size) error {
-				return limits.ErrorBoundLimited[config.Size]{Limit: config.Byte, Amount: amount}
+			recorder.errFor = func(amount commonconfig.Size) error {
+				return limits.ErrorBoundLimited[commonconfig.Size]{Limit: commonconfig.Byte, Amount: amount}
 			}
 			owner := "0xauthorized"
 
@@ -256,17 +256,17 @@ func TestRequestValidator_ValidateCiphertextSizes_UsesAuthorizedOwnerPerItem(t *
 	for _, check := range checks {
 		require.Equal(t, expectedTenantOwner, check.owner)
 	}
-	require.Equal(t, config.Byte, checks[0].amount)
-	require.Equal(t, 2*config.Byte, checks[1].amount)
+	require.Equal(t, commonconfig.Byte, checks[0].amount)
+	require.Equal(t, 2*commonconfig.Byte, checks[1].amount)
 }
 
 func TestRequestValidator_ValidateCiphertextSizes_RejectsOversizedItemWithIndex(t *testing.T) {
 	t.Parallel()
 
 	validator, recorder := mustNewRecordingValidator(t)
-	recorder.errFor = func(amount config.Size) error {
-		if amount > config.Byte {
-			return limits.ErrorBoundLimited[config.Size]{Limit: config.Byte, Amount: amount}
+	recorder.errFor = func(amount commonconfig.Size) error {
+		if amount > commonconfig.Byte {
+			return limits.ErrorBoundLimited[commonconfig.Size]{Limit: commonconfig.Byte, Amount: amount}
 		}
 		return nil
 	}

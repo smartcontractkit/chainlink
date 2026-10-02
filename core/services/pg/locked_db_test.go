@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -18,8 +18,8 @@ import (
 func lease(c *chainlink.Config, s *chainlink.Secrets) {
 	t := true
 	c.Database.Lock.Enabled = &t
-	c.Database.Lock.LeaseDuration = config.MustNewDuration(10 * time.Second)
-	c.Database.Lock.LeaseRefreshInterval = config.MustNewDuration(time.Second)
+	c.Database.Lock.LeaseDuration = commonconfig.MustNewDuration(10 * time.Second)
+	c.Database.Lock.LeaseRefreshInterval = commonconfig.MustNewDuration(time.Second)
 }
 
 func TestLockedDB_HappyPath(t *testing.T) {

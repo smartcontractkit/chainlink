@@ -18,7 +18,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -276,8 +276,8 @@ func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, no
 		},
 		OCR2: coretoml.OCR2{
 			Enabled:              new(true),
-			DatabaseTimeout:      config.MustNewDuration(1 * time.Second),
-			ContractPollInterval: config.MustNewDuration(1 * time.Second),
+			DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+			ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 		},
 		CRE: coretoml.CreConfig{
 			EnableDKGRecipient:   new(true),
@@ -325,8 +325,8 @@ func addBootstrapNodeConfig(
 ) (corechainlink.Config, error) {
 	existingConfig.OCR2 = coretoml.OCR2{
 		Enabled:              new(true),
-		DatabaseTimeout:      config.MustNewDuration(1 * time.Second),
-		ContractPollInterval: config.MustNewDuration(1 * time.Second),
+		DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
 	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstrapperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
@@ -350,7 +350,7 @@ func addBootstrapNodeConfig(
 
 		existingConfig.Telemetry.ChipIngressEndpoint = new(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
-		existingConfig.Telemetry.HeartbeatInterval = config.MustNewDuration(30 * time.Second)
+		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
 
 		existingConfig.Billing = coretoml.Billing{
@@ -424,8 +424,8 @@ func addWorkerNodeConfig(
 
 	existingConfig.OCR2 = coretoml.OCR2{
 		Enabled:              new(true),
-		DatabaseTimeout:      config.MustNewDuration(1 * time.Second),
-		ContractPollInterval: config.MustNewDuration(1 * time.Second),
+		DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
 	existingConfig.P2P = coretoml.P2P{
@@ -444,7 +444,7 @@ func addWorkerNodeConfig(
 
 		existingConfig.Telemetry.ChipIngressEndpoint = new(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
-		existingConfig.Telemetry.HeartbeatInterval = config.MustNewDuration(30 * time.Second)
+		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
 
 		existingConfig.Billing = coretoml.Billing{
@@ -545,7 +545,7 @@ func addWorkerNodeConfig(
 				return existingConfig, fmt.Errorf("shard %d node index %d exceeds shard leader node count %d", donMetadata.ShardIndex, m.Index, len(shard0.NodesMetadata))
 			}
 
-			existingConfig.Sharding.ShardOrchestratorAddress = new(*config.MustParseURL(shard0.NodesMetadata[m.Index].ShardOrchestratorAddressWithPort(cre.DefaultShardOrchestratorPort)))
+			existingConfig.Sharding.ShardOrchestratorAddress = new(*commonconfig.MustParseURL(shard0.NodesMetadata[m.Index].ShardOrchestratorAddressWithPort(cre.DefaultShardOrchestratorPort)))
 		}
 	}
 
@@ -605,8 +605,8 @@ func addGatewayNodeConfig(
 	// Having said that, this node will never receive any OCR2 or Peering traffic.
 	existingConfig.OCR2 = coretoml.OCR2{
 		Enabled:              new(true),
-		DatabaseTimeout:      config.MustNewDuration(1 * time.Second),
-		ContractPollInterval: config.MustNewDuration(1 * time.Second),
+		DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
 	if existingConfig.P2P.V2.Enabled == nil {
@@ -891,13 +891,13 @@ func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 		ChainType:             chaintype.NewConfig("tron"),
 		LogBroadcasterEnabled: new(false),
 		NodePool: evmconfigtoml.NodePool{
-			NewHeadsPollInterval: config.MustNewDuration(10 * time.Second),
+			NewHeadsPollInterval: commonconfig.MustNewDuration(10 * time.Second),
 		},
 		Nodes: []*evmconfigtoml.Node{
 			{
 				Name:              new(evmChain.Name),
-				HTTPURL:           config.MustParseURL(evmChain.HTTPRPC),
-				HTTPURLExtraWrite: config.MustParseURL(tronRPC),
+				HTTPURL:           commonconfig.MustParseURL(evmChain.HTTPRPC),
+				HTTPURLExtraWrite: commonconfig.MustParseURL(tronRPC),
 			},
 		},
 	}
@@ -910,8 +910,8 @@ func buildEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 		Nodes: []*evmconfigtoml.Node{
 			{
 				Name:    new(evmChain.Name),
-				WSURL:   config.MustParseURL(evmChain.WSRPC),
-				HTTPURL: config.MustParseURL(evmChain.HTTPRPC),
+				WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
+				HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
 			},
 		},
 	}

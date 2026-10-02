@@ -31,7 +31,7 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -241,7 +241,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Backup: toml.DatabaseBackup{
 			Dir:              new("test/backup/dir"),
 			Frequency:        &hour,
-			Mode:             &config.DatabaseBackupModeFull,
+			Mode:             &coreconfig.DatabaseBackupModeFull,
 			OnVersionUpgrade: new(true),
 		},
 	}

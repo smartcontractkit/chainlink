@@ -13,7 +13,7 @@ import (
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	stellarcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/stellar"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -358,9 +358,9 @@ func TestSimpleHasher_IncludesWorkflowTag_WhenFlagActive(t *testing.T) {
 	t.Parallel()
 
 	// ON-by-default window covers all timestamps including zero time.Time{}
-	flag := limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
-		Lower: config.Timestamp(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-		Upper: config.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+	flag := limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
+		Lower: commonconfig.Timestamp(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+		Upper: commonconfig.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
 	})
 	defer flag.Close()
 
@@ -380,9 +380,9 @@ func TestSimpleHasher_IncludesWorkflowTag_WithZeroTimestamp(t *testing.T) {
 	t.Parallel()
 
 	// ON-by-default window covers zero time.Time{} (year 1)
-	flag := limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
-		Lower: config.Timestamp(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-		Upper: config.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+	flag := limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
+		Lower: commonconfig.Timestamp(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+		Upper: commonconfig.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
 	})
 	defer flag.Close()
 
@@ -403,9 +403,9 @@ func TestSimpleHasher_ExcludesWorkflowTag_WhenFlagInactive(t *testing.T) {
 	t.Parallel()
 
 	// Far-future window — inactive for all timestamps
-	flag := limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
-		Lower: config.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-		Upper: config.Timestamp(time.Date(2101, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+	flag := limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
+		Lower: commonconfig.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+		Upper: commonconfig.Timestamp(time.Date(2101, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
 	})
 	defer flag.Close()
 
@@ -428,9 +428,9 @@ func TestSimpleHasher_ExcludesWorkflowTag_WhenFlagInactive(t *testing.T) {
 func TestWriteReportExcludeSignaturesHasher_IncludesWorkflowTag_WhenFlagActive(t *testing.T) {
 	t.Parallel()
 
-	flag := limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
-		Lower: config.Timestamp(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-		Upper: config.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+	flag := limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
+		Lower: commonconfig.Timestamp(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+		Upper: commonconfig.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
 	})
 	defer flag.Close()
 
@@ -455,7 +455,7 @@ func TestSimpleHasher_IncludesWorkflowTag_WithScopedLimiterAndBareCtx(t *testing
 		time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
 	)
 	flagSpec.Scope = settings.ScopeWorkflow
-	flag, err := limits.MakeRangeLimiter[config.Timestamp](limits.Factory{}, flagSpec)
+	flag, err := limits.MakeRangeLimiter[commonconfig.Timestamp](limits.Factory{}, flagSpec)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, flag.Close()) }()
 

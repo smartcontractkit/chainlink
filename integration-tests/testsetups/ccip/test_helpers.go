@@ -21,7 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -846,7 +846,7 @@ func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 	var err error
 	var commonChainConfig *evmcfg.Chain
 	if commonChain != "" {
-		err = config.DecodeTOML(bytes.NewReader([]byte(commonChain)), &commonChainConfig)
+		err = commonconfig.DecodeTOML(bytes.NewReader([]byte(commonChain)), &commonChainConfig)
 		if err != nil {
 			return nil, "", err
 		}
@@ -854,7 +854,7 @@ func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 	configByChainMap := make(map[int64]evmcfg.Chain)
 	for k, v := range configByChain {
 		var chain evmcfg.Chain
-		err = config.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
+		err = commonconfig.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
 		if err != nil {
 			return nil, "", err
 		}
