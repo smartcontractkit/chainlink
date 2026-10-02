@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -119,9 +120,8 @@ type workflowTriggers struct {
 	// nothing started by this registration can still ACK.
 	readers sync.WaitGroup
 
-	// guarded by coordinator.mu
-	unregistered bool // capability-side unregistration succeeded
-	releasing    bool // release waiter spawned
+	unregistered atomic.Bool // capability-side unregistration succeeded
+	releasing    atomic.Bool // release waiter spawned
 
 	lggr    logger.Logger
 	metrics *monitoring.WorkflowsMetricLabeler
@@ -157,7 +157,7 @@ func (c *coordinator) close() error {
 	c.mu.Lock()
 	pending := make(map[string]*workflowTriggers, len(c.workflows))
 	for workflowID, wt := range c.workflows {
-		if !wt.unregistered {
+		if !wt.unregistered.Load() {
 			pending[workflowID] = wt
 		}
 	}
@@ -309,17 +309,15 @@ func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistration
 func (c *coordinator) UnregisterTriggers(workflowID string) error {
 	c.mu.Lock()
 	wt, ok := c.workflows[workflowID]
+	c.mu.Unlock()
 	if !ok {
-		c.mu.Unlock()
 		return ErrWorkflowNotCoordinated
 	}
-	if wt.unregistered {
-		c.mu.Unlock()
+	if wt.unregistered.Load() {
 		return nil
 	}
-	spawnRelease := !wt.releasing
-	wt.releasing = true
-	c.mu.Unlock()
+	// CAS: exactly one caller spawns the release waiter.
+	spawnRelease := wt.releasing.CompareAndSwap(false, true)
 
 	// Cancel first: not every capability closes its event channel on
 	// Unregister, so this is the only guaranteed way to stop delivery.
@@ -336,9 +334,7 @@ func (c *coordinator) UnregisterTriggers(workflowID string) error {
 		return fmt.Errorf("failed to unregister %d of %d triggers", failCount, len(wt.handles))
 	}
 
-	c.mu.Lock()
-	wt.unregistered = true
-	c.mu.Unlock()
+	wt.unregistered.Store(true)
 
 	wt.lggr.Infow("Unregistered triggers, retaining handles until drained", "numTriggers", len(wt.handles))
 	wt.metrics.IncrementWorkflowUnregisteredCounter(ctx)
