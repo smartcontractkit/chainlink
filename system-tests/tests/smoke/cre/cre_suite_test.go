@@ -404,3 +404,21 @@ func Test_CRE_V2_FailoverManualSwap(t *testing.T) {
 	)
 	ExecuteFailoverManualSwapTest(t, testEnv)
 }
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardManualAssignmentSharedVault(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-manual.toml"),
+	)
+	ExecuteManualShardAssignmentSharedVaultTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-failover.toml"),
+	)
+	ExecuteShardFailoverSharedVaultTest(t, testEnv)
+}
