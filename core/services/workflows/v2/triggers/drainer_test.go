@@ -10,9 +10,41 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
+
+// testDrainerMetrics returns a labeler backed by a ManualReader so emitted
+// values can be read back.
+func testDrainerMetrics(t *testing.T) (*monitoring.TriggerDrainerMetricLabeler, *sdkmetric.ManualReader) {
+	t.Helper()
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	tm, err := monitoring.NewTriggerDrainerMetrics(mp.Meter("test"))
+	require.NoError(t, err)
+	return monitoring.NewTriggerDrainerMetricLabeler(metrics.NewLabeler(), tm), reader
+}
+
+// findMetric returns the named metric from the reader, or nil.
+func findMetric(t *testing.T, reader *sdkmetric.ManualReader, name string) *metricdata.Metrics {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(t.Context(), &rm))
+	for _, sm := range rm.ScopeMetrics {
+		for i := range sm.Metrics {
+			if sm.Metrics[i].Name == name {
+				return &sm.Metrics[i]
+			}
+		}
+	}
+	return nil
+}
 
 // fakeQueue is a minimal Queue whose Observe pops a scripted sequence of
 // results and counts calls. Once the script is exhausted it returns empty.
@@ -31,7 +63,7 @@ func (q *fakeQueue) Put(context.Context, CoordinatedEvent) error { return nil }
 
 func (q *fakeQueue) Stats(context.Context) (Stats, error) { return Stats{}, nil }
 
-func (q *fakeQueue) Observe(context.Context) ([]CoordinatedEvent, error) {
+func (q *fakeQueue) Drain(context.Context) ([]CoordinatedEvent, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	q.calls++
@@ -106,9 +138,10 @@ func TestDrainer_Drain(t *testing.T) {
 			t.Parallel()
 			q := &fakeQueue{results: tt.results}
 			var hookCalled atomic.Bool
+			dm, _ := testDrainerMetrics(t)
 			d := NewDrainer(q, time.Hour, drainerHooks{OnObservedEvents: func(context.Context, []CoordinatedEvent) {
 				hookCalled.Store(true)
-			}}, logger.Test(t))
+			}}, dm, logger.Test(t))
 
 			for range tt.results {
 				d.drain(t.Context()) // must return even when the buffer is full
@@ -119,6 +152,51 @@ func TestDrainer_Drain(t *testing.T) {
 			assert.False(t, hookCalled.Load(), "drain never calls the hook itself; only the worker does")
 		})
 	}
+}
+
+// TestDrainer_DroppedEventsMetric overflows the buffer and checks the dropped
+// events counter.
+func TestDrainer_DroppedEventsMetric(t *testing.T) {
+	t.Parallel()
+
+	dm, reader := testDrainerMetrics(t)
+	q := &fakeQueue{results: []observeResult{
+		{events: batchOf("a")},
+		{events: append(batchOf("b"), batchOf("c")...)}, // dropped: the buffer holds "a"
+	}}
+	d := NewDrainer(q, time.Hour, drainerHooks{}, dm, logger.Test(t))
+	d.drain(t.Context())
+	d.drain(t.Context())
+
+	m := findMetric(t, reader, "platform_engine_trigger_drainer_dropped_events_total")
+	require.NotNil(t, m)
+	sum, ok := m.Data.(metricdata.Sum[int64])
+	require.True(t, ok)
+	require.Len(t, sum.DataPoints, 1)
+	assert.Equal(t, int64(2), sum.DataPoints[0].Value)
+	reason, ok := sum.DataPoints[0].Attributes.Value(attribute.Key(platform.KeyTriggerDropReason))
+	require.True(t, ok)
+	assert.Equal(t, monitoring.TriggerDrainerDropReasonHookBusy, reason.AsString())
+}
+
+// TestDrainer_HookDurationMetric checks one histogram observation per hook call.
+func TestDrainer_HookDurationMetric(t *testing.T) {
+	t.Parallel()
+
+	dm, reader := testDrainerMetrics(t)
+	q := &fakeQueue{results: []observeResult{{events: batchOf("a")}}}
+	d := NewDrainer(q, 5*time.Millisecond, drainerHooks{}, dm, logger.Test(t))
+	require.NoError(t, d.Start(t.Context()))
+	t.Cleanup(func() { assert.NoError(t, d.Close()) })
+
+	require.Eventually(t, func() bool {
+		m := findMetric(t, reader, "platform_engine_trigger_drainer_hook_duration_seconds")
+		if m == nil {
+			return false
+		}
+		h, ok := m.Data.(metricdata.Histogram[float64])
+		return ok && len(h.DataPoints) == 1 && h.DataPoints[0].Count == 1
+	}, 5*time.Second, 5*time.Millisecond)
 }
 
 // TestDrainer_Running starts the drainer and checks what its hook receives.
@@ -146,11 +224,12 @@ func TestDrainer_Running(t *testing.T) {
 			t.Parallel()
 			q := &fakeQueue{results: tt.results}
 			received := make(chan string, len(tt.results))
+			dm, _ := testDrainerMetrics(t)
 			d := NewDrainer(q, 5*time.Millisecond, drainerHooks{OnObservedEvents: func(_ context.Context, events []CoordinatedEvent) {
 				for _, e := range events {
 					received <- e.WorkflowID
 				}
-			}}, logger.Test(t))
+			}}, dm, logger.Test(t))
 
 			require.NoError(t, d.Start(t.Context()))
 			t.Cleanup(func() { assert.NoError(t, d.Close()) })
@@ -195,13 +274,14 @@ func TestDrainer_BlockedHook(t *testing.T) {
 			var once sync.Once
 			entered := make(chan struct{})
 			var inFlight, calls atomic.Int32
+			dm, _ := testDrainerMetrics(t)
 			d := NewDrainer(q, 5*time.Millisecond, drainerHooks{OnObservedEvents: func(ctx context.Context, _ []CoordinatedEvent) {
 				calls.Add(1)
 				inFlight.Add(1)
 				defer inFlight.Add(-1)
 				once.Do(func() { close(entered) })
 				<-ctx.Done()
-			}}, logger.Test(t))
+			}}, dm, logger.Test(t))
 
 			require.NoError(t, d.Start(t.Context()))
 			<-entered // the hook is now blocked

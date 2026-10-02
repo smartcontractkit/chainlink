@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
 // _buffer is the observed batch buffer; a full channel drops observed batches
@@ -33,6 +34,9 @@ func (h *drainerHooks) setDefaultHooks() {
 // drainer is a consumer of the Queue; on each tick it observes the queue.  Events
 // may be handled by defining an OnObservedEvents hook.  The handler runs async
 // to the drain loop.
+//
+// drainer exists to be simple.  Do not attempt to overload OnObservedEvents and
+// ensure that hook definitions respect the passed context.
 type drainer struct {
 	services.Service
 	eng *services.Engine
@@ -43,17 +47,19 @@ type drainer struct {
 
 	// observed batches awaiting OnObservedEvents
 	batches chan []CoordinatedEvent
+	metrics *monitoring.TriggerDrainerMetricLabeler
 	lggr    logger.Logger
 }
 
-// NewDrainer returns a drainer that calls queue.Observe every interval.
-func NewDrainer(queue Queue, interval time.Duration, hooks drainerHooks, lggr logger.Logger) *drainer {
+// NewDrainer returns a drainer that calls queue.Drain every interval. metrics must be non-nil.
+func NewDrainer(queue Queue, interval time.Duration, hooks drainerHooks, metrics *monitoring.TriggerDrainerMetricLabeler, lggr logger.Logger) *drainer {
 	hooks.setDefaultHooks()
 	d := &drainer{
 		queue:    queue,
 		interval: interval,
 		hooks:    hooks,
 		batches:  make(chan []CoordinatedEvent, _buffer),
+		metrics:  metrics,
 		lggr:     logger.Named(lggr, "TriggerQueueDrainer"),
 	}
 	d.Service, d.eng = services.Config{
@@ -80,16 +86,18 @@ func (d *drainer) runHooks(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case events := <-d.batches:
+			start := time.Now()
 			d.hooks.OnObservedEvents(ctx, events)
+			d.metrics.RecordHookDurationSeconds(ctx, time.Since(start).Seconds())
 		}
 	}
 }
 
-// drain observes the queue once and hands the returned events to the hook
-// worker without blocking. An Observe error is logged and does not stop the
+// drain empties the queue once and hands the returned events to the hook
+// worker without blocking. A Drain error is logged and does not stop the
 // loop. The hook is not called for an empty batch.
 func (d *drainer) drain(ctx context.Context) {
-	events, err := d.queue.Observe(ctx)
+	events, err := d.queue.Drain(ctx)
 	if err != nil {
 		d.lggr.Errorw("Failed to observe trigger queue", "err", err)
 		return
@@ -102,5 +110,7 @@ func (d *drainer) drain(ctx context.Context) {
 	case d.batches <- events:
 	default:
 		// drop this batch rather than block the drain loop
+		d.metrics.IncrementDroppedEventsCounter(ctx, monitoring.TriggerDrainerDropReasonHookBusy, len(events))
+		d.lggr.Debugw("Events handler is blocked, dropping the batch", "count", len(events))
 	}
 }

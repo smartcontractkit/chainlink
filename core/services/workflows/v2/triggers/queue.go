@@ -16,17 +16,20 @@ type Queue interface {
 	// returns ErrQueueFull instead of blocking.
 	Put(context.Context, CoordinatedEvent) error
 
-	// Observe atomically returns all buffered events in FIFO (insertion) order
+	// Drain atomically returns all buffered events in FIFO (insertion) order
 	// and empties the queue. The caller owns the returned events.
-	Observe(context.Context) ([]CoordinatedEvent, error)
+	Drain(context.Context) ([]CoordinatedEvent, error)
 
-	// Stats reports current depth, capacity, and cumulative drops.
+	// Stats reports current length, capacity, and cumulative drops.
 	Stats(context.Context) (Stats, error)
 }
 
 // Stats is a point-in-time view of a Queue.
 type Stats struct {
-	Depth              uint64
+	// Len is the number of events in the queue
+	Len uint64
+
+	// Capacity is the current limit or max number of events the queue can hold
 	Capacity           uint64
 	DepthByWorkflow    map[string]uint64 // keyed by WorkflowID
 	DepthByTriggerType map[string]uint64 // keyed by TriggerCapID
