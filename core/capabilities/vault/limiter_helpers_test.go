@@ -3,7 +3,7 @@ package vault
 import (
 	"context"
 
-	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 )
@@ -11,22 +11,24 @@ import (
 // ownerOverrideLimiter is a BoundLimiter that applies different size limits based on the owner in context.
 // This lets tests verify that the validator correctly threads the owner through context to the limiter.
 type ownerOverrideLimiter struct {
-	defaultBound pkgconfig.Size
-	overrides    map[string]pkgconfig.Size
+	defaultBound commonconfig.Size
+	overrides    map[string]commonconfig.Size
 }
 
 func (o *ownerOverrideLimiter) Close() error { return nil }
-func (o *ownerOverrideLimiter) Limit(ctx context.Context) (pkgconfig.Size, error) {
+func (o *ownerOverrideLimiter) Limit(ctx context.Context) (commonconfig.Size, error) {
 	return o.boundFor(ctx), nil
 }
-func (o *ownerOverrideLimiter) Check(ctx context.Context, n pkgconfig.Size) error {
+
+func (o *ownerOverrideLimiter) Check(ctx context.Context, n commonconfig.Size) error {
 	bound := o.boundFor(ctx)
 	if n > bound {
-		return limits.ErrorBoundLimited[pkgconfig.Size]{Limit: bound, Amount: n}
+		return limits.ErrorBoundLimited[commonconfig.Size]{Limit: bound, Amount: n}
 	}
 	return nil
 }
-func (o *ownerOverrideLimiter) boundFor(ctx context.Context) pkgconfig.Size {
+
+func (o *ownerOverrideLimiter) boundFor(ctx context.Context) commonconfig.Size {
 	if override, ok := o.overrides[contexts.CREValue(ctx).Owner]; ok {
 		return override
 	}

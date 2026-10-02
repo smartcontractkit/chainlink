@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -380,8 +380,8 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 	testLogger.Info().Msg("Node containers stable. None was restarted or OOM-killed.")
 }
 
-func crePerWorkflowSizeLimitMiB(size config.Size) int {
-	return int(size / config.MByte)
+func crePerWorkflowSizeLimitMiB(size commonconfig.Size) int {
+	return int(size / commonconfig.MByte)
 }
 
 // histogramQuantileQuery aggregates per-workflow engine histograms on a node (sum by le).

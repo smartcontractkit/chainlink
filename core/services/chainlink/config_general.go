@@ -91,9 +91,9 @@ func (o *GeneralConfigOpts) Setup(configFiles, secretsFiles []string) error {
 }
 
 // parseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
-func (o *GeneralConfigOpts) parseConfig(config string) error {
+func (o *GeneralConfigOpts) parseConfig(cfgStr string) error {
 	var c Config
-	if err2 := commonconfig.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
+	if err2 := commonconfig.DecodeTOML(strings.NewReader(cfgStr), &c); err2 != nil {
 		return fmt.Errorf("failed to decode config TOML: %w", err2)
 	}
 

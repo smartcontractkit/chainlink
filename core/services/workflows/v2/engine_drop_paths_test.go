@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -177,7 +177,7 @@ func newDropPathHarness(t *testing.T, billingClient *metmocks.BillingClient, con
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -272,7 +272,7 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) { //nolint:parallelt
 			cfg.LocalLimiters.LogEvent = &failAfterNBoundLimiter[int]{n: 1, ok: 1000, failErr: missingTenant}
 		},
 		"ExecutionResponse": func(cfg *v2.EngineConfig) {
-			cfg.LocalLimiters.ExecutionResponse = &failAfterNBoundLimiter[config.Size]{n: 1, ok: config.Size(10 * 1024 * 1024), failErr: missingTenant}
+			cfg.LocalLimiters.ExecutionResponse = &failAfterNBoundLimiter[commonconfig.Size]{n: 1, ok: commonconfig.Size(10 * 1024 * 1024), failErr: missingTenant}
 		},
 	}
 
@@ -307,7 +307,7 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) { //nolint:parallelt
 // TestEngine_LimitReadFallback_UsesLimiterValue: on a read failure, the engine must use
 // whatever value the limiter returns, not substitute its own compiled default.
 func TestEngine_LimitReadFallback_UsesLimiterValue(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
-	const resolvedValue = config.Size(12345)
+	const resolvedValue = commonconfig.Size(12345)
 
 	// A real limiter whose own default differs from the engine-wide compiled default, so
 	// "used the limiter's value" and "substituted its own default" are distinguishable.
@@ -367,7 +367,7 @@ func TestEngine_AdmissionDenial_StaysSilent(t *testing.T) { //nolint:paralleltes
 func TestEngine_UserLog_LogLineCheck(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
 	t.Run("over-long message truncated to the bound", func(t *testing.T) { //nolint:paralleltest // shares the package-level beholder singleton
 		harness := newDropPathHarness(t, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
-			cfg.LocalLimiters.LogLine = limits.NewUpperBoundLimiter[config.Size](10)
+			cfg.LocalLimiters.LogLine = limits.NewUpperBoundLimiter[commonconfig.Size](10)
 		})
 
 		harness.module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
@@ -386,7 +386,7 @@ func TestEngine_UserLog_LogLineCheck(t *testing.T) { //nolint:paralleltest // us
 
 	t.Run("settings read failure emits untruncated", func(t *testing.T) { //nolint:paralleltest // shares the package-level beholder singleton
 		harness := newDropPathHarness(t, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
-			cfg.LocalLimiters.LogLine = &alwaysErrCheckLimiter[config.Size]{err: errors.New("settings unavailable")}
+			cfg.LocalLimiters.LogLine = &alwaysErrCheckLimiter[commonconfig.Size]{err: errors.New("settings unavailable")}
 		})
 
 		const message = "this message is not over any real bound"
