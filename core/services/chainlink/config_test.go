@@ -454,16 +454,15 @@ func TestConfig_Marshal(t *testing.T) {
 			ContractVersion: new("1.0.0"),
 		},
 		WorkflowRegistry: toml.WorkflowRegistry{
-			Address:                 new(""),
-			ChainID:                 new("1"),
-			ContractVersion:         new("1.0.0"),
-			NetworkID:               new("evm"),
-			MaxBinarySize:           new(utils.FileSize(20 * utils.MB)),
-			MaxEncryptedSecretsSize: new(utils.FileSize(26.4 * utils.KB)),
-			MaxConfigSize:           new(utils.FileSize(50 * utils.KB)),
-			SyncStrategy:            new("event"),
-			MaxConcurrency:          new(12),
-			MaxActivationRetries:    new(100),
+			Address:              new(""),
+			ChainID:              new("1"),
+			ContractVersion:      new("1.0.0"),
+			NetworkID:            new("evm"),
+			MaxBinarySize:        new(utils.FileSize(20 * utils.MB)),
+			MaxConfigSize:        new(utils.FileSize(50 * utils.KB)),
+			SyncStrategy:         new("event"),
+			MaxConcurrency:       new(12),
+			MaxActivationRetries: new(100),
 			WorkflowStorage: toml.WorkflowStorage{
 				ArtifactStorageHost: new(""),
 				URL:                 new(""),
@@ -486,7 +485,6 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		Dispatcher: toml.Dispatcher{
-			SupportedVersion:   new(1),
 			ReceiverBufferSize: new(10000),
 			RateLimit: toml.DispatcherRateLimit{
 				GlobalRPS:      new(800.0),
@@ -494,7 +492,7 @@ func TestConfig_Marshal(t *testing.T) {
 				PerSenderRPS:   new(10.0),
 				PerSenderBurst: new(50),
 			},
-			SendToSharedPeer: new(false),
+			SendToSharedPeer: new(false), //nolint:staticcheck // SA1019: intentionally exercises the deprecated field, which must still parse old configs
 		},
 		GatewayConnector: toml.GatewayConnector{
 			ChainIDForNodeKey:         new("11155111"),
