@@ -27,6 +27,9 @@ var (
 )
 
 // dispatcher en/decodes messages and routes traffic between peers and capabilities
+// messageVersion is the version of the remote message schema.
+const messageVersion = 1
+
 type dispatcher struct {
 	cfg               config.Dispatcher
 	peerID            p2ptypes.PeerID
@@ -230,8 +233,7 @@ func (d *dispatcher) removeReceiver(k key) {
 }
 
 func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
-	//nolint:gosec // disable G115
-	msgBody.Version = uint32(d.cfg.SupportedVersion())
+	msgBody.Version = messageVersion
 	msgBody.Sender = d.peerID[:]
 	msgBody.Receiver = peerID[:]
 	msgBody.Timestamp = time.Now().UnixMilli()
