@@ -50,6 +50,7 @@ HTTPURL = 'https://foo.bar'
 ok BridgeStatusReporter
 ok CRE
 ok CRE.DispatcherWrapper
+ok CapRegistryProjector
 ok EVM.1
 ok EVM.1.BalanceMonitor
 ok EVM.1.HeadBroadcaster
@@ -111,6 +112,15 @@ ok WorkflowStore
       "id": "CRE.DispatcherWrapper",
       "attributes": {
         "name": "CRE.DispatcherWrapper",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "CapRegistryProjector",
+      "attributes": {
+        "name": "CapRegistryProjector",
         "status": "passing",
         "output": ""
       }

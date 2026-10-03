@@ -102,6 +102,10 @@ type LocalCapabilities interface {
 	IsAllowlisted(capabilityID string) bool
 	// GetCapabilityConfig returns the node config for a specific capability, or nil if not configured.
 	GetCapabilityConfig(capabilityID string) CapabilityNodeConfig
+	// UseOffchainRegistry gates the offchain capabilities registry cutover. When false (default),
+	// capability config comes from TOML/on-chain and the offchain registry is cross-validation
+	// telemetry only. When true, spec_config is resolved as TOML < on-chain < offchain.
+	UseOffchainRegistry() bool
 }
 
 // CapabilityNodeConfig provides node-specific configuration for a capability.

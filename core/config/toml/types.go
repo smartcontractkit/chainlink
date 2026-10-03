@@ -2824,6 +2824,10 @@ type LocalCapabilities struct {
 	//   - "^http-action@.*$" matches any version of http-action
 	//   - ".*" matches all capabilities
 	RegistryBasedLaunchAllowlist []string `toml:",omitempty"`
+	// UseOffchainRegistry gates the offchain capabilities registry cutover. Default false: the
+	// offchain registry is cross-validation telemetry only. When true, spec_config is resolved
+	// as TOML < on-chain < offchain when a capability is started.
+	UseOffchainRegistry *bool `toml:",omitempty"`
 	// Capabilities contains per-capability node configuration, keyed by capability ID.
 	Capabilities map[string]CapabilityNodeConfig `toml:",omitempty"`
 }
@@ -2860,6 +2864,9 @@ func (l *LocalCapabilities) setFrom(f *LocalCapabilities) {
 			existing.setFrom(&v)
 			l.Capabilities[k] = existing
 		}
+	}
+	if f.UseOffchainRegistry != nil {
+		l.UseOffchainRegistry = f.UseOffchainRegistry
 	}
 }
 

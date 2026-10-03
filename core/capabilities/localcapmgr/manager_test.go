@@ -74,7 +74,7 @@ func TestBuildDesiredState(t *testing.T) {
 		},
 	}
 
-	desired := mgr.buildDesiredState(dons)
+	desired := mgr.buildDesiredState(dons, nil)
 
 	assert.Len(t, desired, 3)
 	assert.Contains(t, desired, "cron@1.0.0:1")
@@ -99,7 +99,7 @@ func TestBuildDesiredState_NilLocalConfig(t *testing.T) {
 		},
 	}
 
-	desired := mgr.buildDesiredState(dons)
+	desired := mgr.buildDesiredState(dons, nil)
 	assert.Empty(t, desired, "nil config should not allow any capabilities")
 }
 
@@ -282,9 +282,9 @@ func TestReconcile_DetectsConfigChange(t *testing.T) {
 	assert.Len(t, mgr.runningCapabilities, 1)
 	assert.Contains(t, mgr.runningCapabilities, "test-cap@1.0.0:1")
 
-	// Verify new hash.
+	// Verify new hash: the effective hash covers the on-chain bytes and the merged config.
 	rc := mgr.runningCapabilities["test-cap@1.0.0:1"]
-	assert.Equal(t, configHash(newCfg), rc.configHash)
+	assert.Equal(t, effectiveConfigHash(newCfg, `{"version":"2"}`), rc.configHash)
 }
 
 func TestReconcile_ContinuesOnStartFailure(t *testing.T) {
@@ -403,7 +403,10 @@ func (m *mockService) Close() error                { m.closed = true; return nil
 type testLocalCapabilities struct {
 	allowlisted map[string]bool
 	configs     map[string]*testCapabilityNodeConfig
+	useOffchain bool
 }
+
+func (t *testLocalCapabilities) UseOffchainRegistry() bool { return t.useOffchain }
 
 func (t *testLocalCapabilities) RegistryBasedLaunchAllowlist() []string {
 	result := make([]string, 0, len(t.allowlisted))

@@ -34,6 +34,7 @@ HTTPPort = $PORT
 ok BridgeStatusReporter
 ok CRE
 ok CRE.DispatcherWrapper
+ok CapRegistryProjector
 ok HeadReporter
 ok Heartbeat
 ok JobSpawner
@@ -77,6 +78,15 @@ ok WorkflowStore
       "id": "CRE.DispatcherWrapper",
       "attributes": {
         "name": "CRE.DispatcherWrapper",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "CapRegistryProjector",
+      "attributes": {
+        "name": "CapRegistryProjector",
         "status": "passing",
         "output": ""
       }

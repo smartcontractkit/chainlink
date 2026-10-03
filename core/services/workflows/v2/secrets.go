@@ -38,7 +38,10 @@ type SecretsFetcher interface {
 
 type RawSecretsFetcher interface {
 	SecretsFetcher
+	// Deprecated: use GetRawSecretsResponse, which also returns the top-level
+	// RawVaultPublicKey needed to verify/aggregate shares across DKG reshares.
 	GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error)
+	GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vault.GetSecretsResponse, error)
 	GetOwner() string
 }
 
@@ -298,7 +301,20 @@ func (s *secretsFetcher) getSecretsForBatchWithLocalFallback(ctx context.Context
 // GetRawSecrets obtains secrets from the Vault DON without decrypting their
 // values. Raw fetches are charged against the same per-execution secrets call
 // budget as GetSecrets.
+//
+// Deprecated: use GetRawSecretsResponse, which also returns the top-level
+// RawVaultPublicKey needed to verify/aggregate shares across DKG reshares.
 func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
+	resp, err := s.GetRawSecretsResponse(ctx, request, fetcher)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Responses, nil
+}
+
+// GetRawSecretsResponse returns the full vault GetSecrets response, including the
+// top-level RawVaultPublicKey, so callers stay correct across DKG reshares.
+func (s *secretsFetcher) GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vault.GetSecretsResponse, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{
 		Org:      s.orgID,
 		Owner:    s.workflowOwner,
@@ -314,7 +330,7 @@ func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSe
 // keys, executes the vault GetSecrets request, and returns the raw (still
 // encrypted) vault response. Callers must have already reserved a call from
 // the per-execution secrets call budget via countSecretsCall.
-func (s *secretsFetcher) getRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
+func (s *secretsFetcher) getRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vault.GetSecretsResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
 		return nil, errors.New("failed to get vault capability: " + err.Error())
@@ -383,7 +399,7 @@ func (s *secretsFetcher) getRawSecrets(ctx context.Context, request *sdkpb.GetSe
 		return nil, fmt.Errorf("failed to unmarshal vault payload to GetSecretsResponse: %w", err)
 	}
 
-	return batchedVaultResponse.Responses, nil
+	return batchedVaultResponse, nil
 }
 
 func (s *secretsFetcher) GetOwner() string {
@@ -442,7 +458,7 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 	responseOwner := owner
 
 	m := map[string]*vault.SecretResponse{}
-	for _, secretResponse := range batchedVaultResponse {
+	for _, secretResponse := range batchedVaultResponse.GetResponses() {
 		key := keyFor(secretResponse.Id.Owner, secretResponse.Id.Namespace, secretResponse.Id.Key)
 		m[key] = secretResponse
 	}

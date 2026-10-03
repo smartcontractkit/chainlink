@@ -1,6 +1,7 @@
 ok BridgeStatusReporter
 ok CRE
 ok CRE.DispatcherWrapper
+ok CapRegistryProjector
 ok EVM.1399100
 ok EVM.1399100.BalanceMonitor
 ok EVM.1399100.HeadBroadcaster
