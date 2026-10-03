@@ -14,9 +14,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -74,8 +76,6 @@ type GatewayHandler struct {
 
 	mu                    sync.RWMutex
 	cachedMasterPublicKey *tdh2easy.PublicKey
-
-	// TODO add org resolver? https://smartcontract-it.atlassian.net/browse/CRE-1707
 }
 
 // NewGatewayHandler creates a Vault gateway connector handler with internal auth wiring.
@@ -89,6 +89,7 @@ func NewGatewayHandler(
 	limitsFactory limits.Factory,
 	authorizer Authorizer,
 	auth0 *Auth0Config,
+	orgResolver orgresolver.OrgResolver,
 ) (*GatewayHandler, error) {
 	var jwtAuthService services.Service
 	var jwtBasedAuth Authorizer
@@ -120,7 +121,7 @@ func NewGatewayHandler(
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
-	requestProcessor, err := NewGatewayVaultRequestProcessor(requestValidator, authorizer, true, lggr)
+	requestProcessor, err := NewGatewayVaultRequestProcessor(requestValidator, authorizer, orgResolver, true, lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gateway vault request processor: %w", err)
 	}
@@ -197,6 +198,8 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 			break
 		}
 		authResult = authorized.AuthResult
+		// Lets the secrets service apply org-level overrides of owner-scoped limits.
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: authorized.OrgID})
 	case vaulttypes.MethodSecretsDelete, vaulttypes.MethodSecretsList:
 		authorized, pipelineErr := h.requestProcessor.ProcessRequest(ctx, req, nil)
 		if pipelineErr != nil {
