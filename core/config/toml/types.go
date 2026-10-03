@@ -2534,7 +2534,6 @@ type WorkflowRegistry struct {
 	ChainID                 *string
 	ContractVersion         *string
 	MaxBinarySize           *utils.FileSize
-	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
 	SyncStrategy            *string
 	MaxConcurrency          *int
@@ -2563,10 +2562,6 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.MaxBinarySize != nil {
 		r.MaxBinarySize = f.MaxBinarySize
-	}
-
-	if f.MaxEncryptedSecretsSize != nil {
-		r.MaxEncryptedSecretsSize = f.MaxEncryptedSecretsSize
 	}
 
 	if f.MaxConfigSize != nil {
@@ -2662,10 +2657,8 @@ func (r *WorkflowRegistry) AdditionalSources() []coreconfig.AdditionalWorkflowSo
 }
 
 type Dispatcher struct {
-	SupportedVersion   *int
 	ReceiverBufferSize *int
 	RateLimit          DispatcherRateLimit
-	SendToSharedPeer   *bool
 }
 
 func (d *Dispatcher) setFrom(f *Dispatcher) {
@@ -2673,14 +2666,6 @@ func (d *Dispatcher) setFrom(f *Dispatcher) {
 
 	if f.ReceiverBufferSize != nil {
 		d.ReceiverBufferSize = f.ReceiverBufferSize
-	}
-
-	if f.SupportedVersion != nil {
-		d.SupportedVersion = f.SupportedVersion
-	}
-
-	if f.SendToSharedPeer != nil {
-		d.SendToSharedPeer = f.SendToSharedPeer
 	}
 }
 

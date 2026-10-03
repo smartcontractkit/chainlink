@@ -54,7 +54,6 @@ func (w wfRegTestStub) Address() string                         { return w.addr 
 func (w wfRegTestStub) NetworkID() string                       { return "" }
 func (w wfRegTestStub) ChainID() string                         { return "" }
 func (w wfRegTestStub) ContractVersion() string                 { return "" }
-func (w wfRegTestStub) MaxEncryptedSecretsSize() utils.FileSize { return 0 }
 func (w wfRegTestStub) MaxBinarySize() utils.FileSize           { return 0 }
 func (w wfRegTestStub) MaxConfigSize() utils.FileSize           { return 0 }
 func (w wfRegTestStub) RelayID() commontypes.RelayID            { return commontypes.RelayID{} }

@@ -441,9 +441,7 @@ BytesRateLimiterRate = 5000000.0
 BytesRateLimiterCapacity = 10000000
 
 [Capabilities.Dispatcher]
-SupportedVersion = 1
 ReceiverBufferSize = 10000
-SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -463,7 +461,6 @@ NetworkID = 'evm'
 ChainID = '1'
 ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
-MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 MaxConcurrency = 12
