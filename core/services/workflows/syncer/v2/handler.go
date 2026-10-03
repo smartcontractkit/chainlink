@@ -993,9 +993,7 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 
 	construct := v2.NewEngine
 	if h.useCoordinatedEngine(ctx, workflowID) {
-		// The trigger coordinator is not implemented yet, so a workflow routed here
-		// will never receive triggers. Warn once per engine creation with the workflowID
-		h.lggr.Warnw("Routing workflow to the coordinated engine; trigger delivery is not implemented yet",
+		h.lggr.Infow("Routing workflow to the coordinated engine",
 			"workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 
 		cfg.TriggerAcknowledger = h.triggerCoordinator
@@ -1307,15 +1305,10 @@ func (h *eventHandler) tryCoordinatedEngineCreate(ctx context.Context, spec *job
 	donID := localNode.WorkflowDON.ID
 
 	triggerIDs, err := h.triggerCoordinator.RegisterTriggers(ctx, engine, triggers.RegistrationParams{
-		WorkflowOwner:       spec.WorkflowOwner,
-		WorkflowName:        in.workflowName.Hex(),
-		DecodedWorkflowName: in.workflowName.String(),
-		WorkflowTag:         spec.WorkflowTag,
-		WorkflowDonID:       donID,
-		// pinnedWorkflowDonConfigVersion in v2 pins this to 1 to avoid forcing
-		// forwarder updates on config churn; mirrored here since the syncer
-		// can't reference that unexported v2 constant.
-		WorkflowDonConfigVersion:      1,
+		WorkflowOwner:                 spec.WorkflowOwner,
+		WorkflowName:                  in.workflowName,
+		WorkflowTag:                   spec.WorkflowTag,
+		WorkflowDonID:                 donID,
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 	})
