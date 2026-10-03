@@ -2659,8 +2659,6 @@ func (r *WorkflowRegistry) AdditionalSources() []coreconfig.AdditionalWorkflowSo
 type Dispatcher struct {
 	ReceiverBufferSize *int
 	RateLimit          DispatcherRateLimit
-	// Deprecated: no effect if set, but field remains to parse old configs
-	SendToSharedPeer *bool
 }
 
 func (d *Dispatcher) setFrom(f *Dispatcher) {
@@ -2668,10 +2666,6 @@ func (d *Dispatcher) setFrom(f *Dispatcher) {
 
 	if f.ReceiverBufferSize != nil {
 		d.ReceiverBufferSize = f.ReceiverBufferSize
-	}
-
-	if f.SendToSharedPeer != nil {
-		d.SendToSharedPeer = f.SendToSharedPeer
 	}
 }
 

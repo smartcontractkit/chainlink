@@ -605,9 +605,6 @@ ContractVersion = '1.0.0' # Default
 [Capabilities.Dispatcher]
 # ReceiverBufferSize is the size of the buffer for incoming messages.
 ReceiverBufferSize = 10000 # Default
-# SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
-# Deprecated: no effect. Messages are always sent to the SharedPeer.
-SendToSharedPeer = false # Default
 
 [Capabilities.Dispatcher.RateLimit]
 # GlobalRPS is the global rate limit for the dispatcher.

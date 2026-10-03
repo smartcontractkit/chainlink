@@ -492,7 +492,6 @@ func TestConfig_Marshal(t *testing.T) {
 				PerSenderRPS:   new(10.0),
 				PerSenderBurst: new(50),
 			},
-			SendToSharedPeer: new(false), //nolint:staticcheck // SA1019: intentionally exercises the deprecated field, which must still parse old configs
 		},
 		GatewayConnector: toml.GatewayConnector{
 			ChainIDForNodeKey:         new("11155111"),

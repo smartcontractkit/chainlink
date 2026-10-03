@@ -1658,7 +1658,6 @@ ContractVersion identifies semantic version of the CapabilitiesRegistry contract
 ```toml
 [Capabilities.Dispatcher]
 ReceiverBufferSize = 10000 # Default
-SendToSharedPeer = false # Default
 ```
 
 
@@ -1667,13 +1666,6 @@ SendToSharedPeer = false # Default
 ReceiverBufferSize = 10000 # Default
 ```
 ReceiverBufferSize is the size of the buffer for incoming messages.
-
-### SendToSharedPeer
-```toml
-SendToSharedPeer = false # Default
-```
-SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
-Deprecated: no effect. Messages are always sent to the SharedPeer.
 
 ## Capabilities.Dispatcher.RateLimit
 ```toml

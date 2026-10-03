@@ -360,7 +360,6 @@ BytesRateLimiterCapacity = 10000000
 
 [Capabilities.Dispatcher]
 ReceiverBufferSize = 10000
-SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
