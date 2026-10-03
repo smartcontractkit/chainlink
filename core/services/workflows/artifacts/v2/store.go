@@ -129,16 +129,19 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 // FetchWorkflowArtifacts fetches the workflow spec and config from a cache or the specified URLs if the artifacts have not
 // been cached already.  Before a workflow can be started this method must be called to ensure all artifacts used by the
 // workflow are available from the store.
-func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error) {
-	// Check if the workflow spec is already stored in the database.
-	// A row whose binary payload is empty is a pause tombstone - don't use it.
-	if spec, err := h.orm.GetWorkflowSpec(ctx, workflowID); err == nil && spec.Workflow != "" {
+//
+// existingSpec is the workflow_specs_v2 row for workflowID if the caller already looked it up (nil if the caller
+// already knows no row exists). Callers in this package already fetch the row once per event to decide how to
+// proceed, so passing it in here avoids a second, redundant full-row query for the same workflowID.
+// A row whose binary payload is empty is a pause tombstone - don't use it.
+func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string, existingSpec *job.WorkflowSpec) ([]byte, []byte, error) {
+	if existingSpec != nil && existingSpec.Workflow != "" {
 		// there is no update in the BinaryURL or ConfigURL, lets decode the stored artifacts
-		decodedBinary, err := hex.DecodeString(spec.Workflow)
+		decodedBinary, err := hex.DecodeString(existingSpec.Workflow)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to decode stored workflow spec: %w", err)
 		}
-		return decodedBinary, []byte(spec.Config), nil
+		return decodedBinary, []byte(existingSpec.Config), nil
 	}
 
 	// Determine which URL to retrieve workflow binary artifacts from
