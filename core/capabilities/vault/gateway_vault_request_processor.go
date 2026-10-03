@@ -13,6 +13,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
@@ -31,10 +32,12 @@ import (
 //
 // Owner-scoped limit checks are deferred until after authorization: each new owner tenant
 // registered by a scoped limiter spawns a persistent background updater, so checking them
-// pre-auth would let unauthenticated callers create unbounded limiter tenants.
+// pre-auth would let unauthenticated callers create unbounded limiter tenants. For the same
+// reason, the org of the authorized owner is only resolved after authorization.
 type GatewayVaultRequestProcessor struct {
 	validator               *RequestValidator
 	authorizer              Authorizer
+	orgResolver             orgresolver.OrgResolver // optional; nil if the node isn't configured to resolve orgs (e.g. no Linking Service)
 	stripOwnerPrefixForAuth bool
 	lggr                    logger.Logger
 }
@@ -44,16 +47,19 @@ type GatewayVaultRequestProcessor struct {
 type AuthorizedGatewayVaultRequest struct {
 	Req        jsonrpc.Request[json.RawMessage]
 	AuthResult *AuthResult
+	// OrgID is the org of the authorized owner, resolved for write requests only. Empty if unknown.
+	OrgID string
 }
 
 // NewGatewayVaultRequestProcessor constructs the shared gateway vault request processor.
-func NewGatewayVaultRequestProcessor(validator *RequestValidator, authorizer Authorizer, stripOwnerPrefixForAuth bool, lggr logger.Logger) (*GatewayVaultRequestProcessor, error) {
+func NewGatewayVaultRequestProcessor(validator *RequestValidator, authorizer Authorizer, orgResolver orgresolver.OrgResolver, stripOwnerPrefixForAuth bool, lggr logger.Logger) (*GatewayVaultRequestProcessor, error) {
 	if validator == nil || authorizer == nil {
 		return nil, errors.New("validator and authorizer are required to construct a gateway vault request processor")
 	}
 	return &GatewayVaultRequestProcessor{
 		validator:               validator,
 		authorizer:              authorizer,
+		orgResolver:             orgResolver,
 		stripOwnerPrefixForAuth: stripOwnerPrefixForAuth,
 		lggr:                    logger.Named(lggr, "GatewayVaultRequestProcessor"),
 	}, nil
@@ -143,7 +149,8 @@ func (p *GatewayVaultRequestProcessor) processCreateSecretsRequest(
 		return nil, err
 	}
 
-	if err := p.validator.ValidateCiphertextSizes(ctx, authorized.AuthResult.AuthorizedOwner(), createReq.EncryptedSecrets); err != nil {
+	authorized.OrgID = p.resolveOrgID(ctx, authorized.AuthResult)
+	if err := p.validator.ValidateCiphertextSizes(ctx, authorized.OrgID, authorized.AuthResult.AuthorizedOwner(), createReq.EncryptedSecrets); err != nil {
 		return nil, p.validationError(req, err)
 	}
 	return authorized, nil
@@ -185,7 +192,8 @@ func (p *GatewayVaultRequestProcessor) processUpdateSecretsRequest(
 		return nil, err
 	}
 
-	if err := p.validator.ValidateCiphertextSizes(ctx, authorized.AuthResult.AuthorizedOwner(), updateReq.EncryptedSecrets); err != nil {
+	authorized.OrgID = p.resolveOrgID(ctx, authorized.AuthResult)
+	if err := p.validator.ValidateCiphertextSizes(ctx, authorized.OrgID, authorized.AuthResult.AuthorizedOwner(), updateReq.EncryptedSecrets); err != nil {
 		return nil, p.validationError(req, err)
 	}
 	return authorized, nil
@@ -290,6 +298,27 @@ func (p *GatewayVaultRequestProcessor) authorizeAndStamp(
 		Req:        *req,
 		AuthResult: authResult,
 	}, nil
+}
+
+// resolveOrgID returns the org of an authorized request: the org claim for JWT-authorized
+// requests, otherwise the org that the OrgResolver maps the authorized owner to. Returns ""
+// if the org can't be determined, in which case org-level setting overrides are skipped.
+// Must only be called after authorization so that unauthenticated callers can't trigger lookups.
+func (p *GatewayVaultRequestProcessor) resolveOrgID(ctx context.Context, authResult *AuthResult) string {
+	if orgID := authResult.OrgID(); orgID != "" {
+		return orgID
+	}
+	owner := authResult.AuthorizedOwner()
+	if p.orgResolver == nil {
+		p.lggr.Debugw("OrgResolver is nil, continuing without an orgID", "owner", owner)
+		return ""
+	}
+	orgID, err := p.orgResolver.Get(ctx, owner)
+	if err != nil {
+		p.lggr.Warnw("Failed to resolve organization ID, continuing without it", "owner", owner, "err", err)
+		return ""
+	}
+	return orgID
 }
 
 func (p *GatewayVaultRequestProcessor) validationError(req *jsonrpc.Request[json.RawMessage], err error) error {

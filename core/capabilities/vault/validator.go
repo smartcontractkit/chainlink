@@ -79,7 +79,8 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
 		if includeCiphertextSize {
-			if err := r.ValidateCiphertextSize(ctx, req.Id.Owner, req.EncryptedValue); err != nil {
+			// The org, if known, is set on ctx by the caller (see GatewayHandler).
+			if err := r.ValidateCiphertextSize(ctx, contexts.CREValue(ctx).Org, req.Id.Owner, req.EncryptedValue); err != nil {
 				return fmt.Errorf("secret encrypted value at index %d is invalid: %w", idx, err)
 			}
 		}
@@ -104,13 +105,14 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 	return nil
 }
 
-func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner, encryptedValue string) error {
+// ValidateCiphertextSize checks the owner-scoped ciphertext-size limit. orgID is optional:
+// when empty, org-level overrides of the limit are skipped.
+func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, orgID, owner, encryptedValue string) error {
 	rawCiphertext, err := hex.DecodeString(encryptedValue)
 	if err != nil {
 		return fmt.Errorf("failed to decode encrypted value: %w", err)
 	}
-	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
-	innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner})
+	innerCtx := contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: owner})
 	if err := r.MaxCiphertextLengthLimiter.Check(innerCtx, commonconfig.Size(len(rawCiphertext))*commonconfig.Byte); err != nil {
 		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[commonconfig.Size]](err); ok {
 			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s: %w", errBoundLimited.Limit, err)
@@ -123,16 +125,16 @@ func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner, en
 // ValidateCiphertextSizes checks the owner-scoped ciphertext-size limit for each
 // encrypted secret in a write request that already passed structure validation
 // (ValidateEncryptedSecretsStructure). It must only be called after
-// authorization, with the authorized workflow owner: checking the scoped
+// authorization, with the authorized workflow owner (and its org, if known): checking the scoped
 // limiter registers a per-owner tenant that spawns a persistent background
 // updater, so running it pre-auth would let unauthenticated callers create
 // unbounded limiter tenants.
-func (r *RequestValidator) ValidateCiphertextSizes(ctx context.Context, owner string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
+func (r *RequestValidator) ValidateCiphertextSizes(ctx context.Context, orgID, owner string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
 	for idx, secret := range encryptedSecrets {
 		if secret == nil {
 			return errors.New("encrypted secret must not be nil at index " + strconv.Itoa(idx))
 		}
-		if err := r.ValidateCiphertextSize(ctx, owner, secret.EncryptedValue); err != nil {
+		if err := r.ValidateCiphertextSize(ctx, orgID, owner, secret.EncryptedValue); err != nil {
 			return fmt.Errorf("secret encrypted value at index %d is invalid: %w", idx, err)
 		}
 	}
