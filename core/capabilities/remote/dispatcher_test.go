@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	commonMocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -89,7 +90,7 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 	signer.EXPECT().Initialize().Return(nil)
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
-	dispatcher, err := remote.NewDispatcher(newTestConfig(), sharedPeer, signer, registry, lggr)
+	dispatcher, err := remote.NewDispatcher(newTestConfig(), sharedPeer, signer, registry, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 	require.NoError(t, dispatcher.Close())
@@ -112,7 +113,7 @@ func TestDispatcher_Receive(t *testing.T) {
 	signer.EXPECT().Sign(mock.Anything).Return(nil, errors.New("not implemented"))
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
-	dispatcher, err := remote.NewDispatcher(newTestConfig(), sharedPeer, signer, registry, lggr)
+	dispatcher, err := remote.NewDispatcher(newTestConfig(), sharedPeer, signer, registry, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 
@@ -166,7 +167,7 @@ func TestDispatcher_ReceiveForMethod(t *testing.T) {
 			rps:         10.0,
 			burst:       50,
 		},
-	}, sharedPeer, signer, registry, lggr)
+	}, sharedPeer, signer, registry, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 
@@ -214,7 +215,7 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 	signer.EXPECT().Sign(mock.Anything).Return([]byte{1, 2, 3}, nil)
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
-	dispatcher, err := remote.NewDispatcher(newTestConfig(), sharedPeer, signer, registry, lggr)
+	dispatcher, err := remote.NewDispatcher(newTestConfig(), sharedPeer, signer, registry, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 
@@ -244,7 +245,7 @@ func TestDispatcher_Send(t *testing.T) {
 	sharedPeer.On("Send", mock.Anything, mock.Anything).Return(nil)
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
-	dispatcher, err := remote.NewDispatcher(newTestConfig(), sharedPeer, signer, registry, lggr)
+	dispatcher, err := remote.NewDispatcher(newTestConfig(), sharedPeer, signer, registry, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 
@@ -297,7 +298,7 @@ func TestDispatcher_ReceiverPanicDoesNotKillLoop(t *testing.T) {
 	signer.EXPECT().Initialize().Return(nil)
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
-	dispatcher, err := remote.NewDispatcher(newTestConfig(), sharedPeer, signer, registry, lggr)
+	dispatcher, err := remote.NewDispatcher(newTestConfig(), sharedPeer, signer, registry, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	require.NoError(t, dispatcher.Start(ctx))
 
