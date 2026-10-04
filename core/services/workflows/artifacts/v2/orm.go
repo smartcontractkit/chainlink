@@ -22,22 +22,27 @@ type WorkflowSpecsDS interface {
 	GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error)
 
 	// ListWorkflowSpecs returns the persisted workflow specs. It projects only
-	// identity columns (workflow_id, workflow_owner, registered_at);
-	// other fields are left zero to keep returned batch size small
+	// identity columns and storage_bytes (workflow_id, workflow_owner,
+	// registered_at, storage_bytes); other fields are left zero to keep
+	// returned batch size small
 	ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error)
 
 	// DeleteWorkflowSpec deletes the spec row for id. Idempotent: a missing row
-	// returns (nil, nil), not an error. The deleted row is returned so the
-	// caller can derive the generation-scoped metering event_id from the row's
-	// own persisted registered_at (every node emits the identical id regardless
-	// of local staleness).
+	// returns (nil, nil), not an error. The deleted row (including
+	// storage_bytes) is returned so the caller can derive the
+	// generation-scoped metering event_id from the row's own persisted
+	// registered_at and release the row's durable storage bytes (every node
+	// emits the identical id regardless of local staleness).
 	DeleteWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error)
 
 	// PauseWorkflowSpec tombstones the spec row: status becomes paused and the
 	// heavy artifact payload (hex binary + config) is cleared in the same
 	// statement, freeing storage while the row itself remains the durable record
 	// that this registration generation is still held (level-neutral for
-	// metering). Idempotent; pausing an absent or already-paused row is a no-op.
+	// metering). storage_bytes is intentionally NOT cleared: storage is billed
+	// for the registration lifetime, so the delete-time delta can still release
+	// the original byte count. Idempotent; pausing an absent or already-paused
+	// row is a no-op.
 	PauseWorkflowSpec(ctx context.Context, id string) error
 
 	// DeleteWorkflowSpecs deletes workflow specs for the given workflow IDs in a single query.
@@ -82,43 +87,46 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				created_at,
 				updated_at,
 				spec_type,
-				attributes,
-				registered_at,
-				source
-			) VALUES (
-				:workflow,
-				:config,
-				:workflow_id,
-				:workflow_owner,
-				:workflow_name,
-				:workflow_tag,
-				:status,
-				:binary_url,
-				:config_url,
-				:created_at,
-				:updated_at,
-				:spec_type,
-				:attributes,
-				:registered_at,
-				:source
-			) ON CONFLICT (workflow_id) DO UPDATE
-			SET
-				workflow = EXCLUDED.workflow,
-				config = EXCLUDED.config,
-				workflow_owner = EXCLUDED.workflow_owner,
-				workflow_name = EXCLUDED.workflow_name,
-				workflow_tag = EXCLUDED.workflow_tag,
-				status = EXCLUDED.status,
-				binary_url = EXCLUDED.binary_url,
-				config_url = EXCLUDED.config_url,
-				created_at = EXCLUDED.created_at,
-				updated_at = EXCLUDED.updated_at,
-				spec_type = EXCLUDED.spec_type,
-				attributes = EXCLUDED.attributes,
-				registered_at = EXCLUDED.registered_at,
-				source = EXCLUDED.source
-			RETURNING id
-		`
+			attributes,
+			registered_at,
+			source,
+			storage_bytes
+		) VALUES (
+			:workflow,
+			:config,
+			:workflow_id,
+			:workflow_owner,
+			:workflow_name,
+			:workflow_tag,
+			:status,
+			:binary_url,
+			:config_url,
+			:created_at,
+			:updated_at,
+			:spec_type,
+			:attributes,
+			:registered_at,
+			:source,
+			:storage_bytes
+		) ON CONFLICT (workflow_id) DO UPDATE
+		SET
+			workflow = EXCLUDED.workflow,
+			config = EXCLUDED.config,
+			workflow_owner = EXCLUDED.workflow_owner,
+			workflow_name = EXCLUDED.workflow_name,
+			workflow_tag = EXCLUDED.workflow_tag,
+			status = EXCLUDED.status,
+			binary_url = EXCLUDED.binary_url,
+			config_url = EXCLUDED.config_url,
+			created_at = EXCLUDED.created_at,
+			updated_at = EXCLUDED.updated_at,
+			spec_type = EXCLUDED.spec_type,
+			attributes = EXCLUDED.attributes,
+			registered_at = EXCLUDED.registered_at,
+			source = EXCLUDED.source,
+			storage_bytes = EXCLUDED.storage_bytes
+		RETURNING id
+	`
 
 		now := time.Now().UTC()
 		spec.UpdatedAt = now
@@ -154,10 +162,11 @@ func (orm *orm) GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSp
 }
 
 // ListWorkflowSpecs returns all persisted workflow specs, projecting the
-// identity columns needed by the orphan sweep and the metering snapshot path.
+// identity columns plus storage_bytes needed by the orphan sweep and the
+// metering snapshot path.
 func (orm *orm) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error) {
 	query := `
-		SELECT workflow_id, workflow_owner, registered_at, source
+		SELECT workflow_id, workflow_owner, registered_at, source, storage_bytes
 		FROM workflow_specs_v2
 	`
 
@@ -173,7 +182,7 @@ func (orm *orm) DeleteWorkflowSpec(ctx context.Context, id string) (*job.Workflo
 	query := `DELETE FROM workflow_specs_v2 WHERE workflow_id = $1
 		RETURNING id, workflow, config, workflow_id, workflow_owner, workflow_name,
 			workflow_tag, status, binary_url, config_url, created_at, updated_at,
-			spec_type, attributes, registered_at, source`
+			spec_type, attributes, registered_at, source, storage_bytes`
 	var spec job.WorkflowSpec
 	err := orm.ds.GetContext(ctx, &spec, query, id)
 	if errors.Is(err, sql.ErrNoRows) {

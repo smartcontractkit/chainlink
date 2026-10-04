@@ -31,7 +31,7 @@ func TestTracing_Config(t *testing.T) {
 	assert.True(t, tConfig.Enabled())
 	assert.Equal(t, "http://localhost:9000", tConfig.CollectorTarget())
 	assert.Equal(t, "Node1", tConfig.NodeID())
-	assert.Equal(t, 0.5, tConfig.SamplingRatio())
+	assert.InEpsilon(t, 0.5, tConfig.SamplingRatio(), 1e-9)
 	assert.Equal(t, "tls", tConfig.Mode())
 	assert.Equal(t, "/path/to/cert.pem", tConfig.TLSCertPath())
 	assert.Equal(t, map[string]string{"key": "value"}, tConfig.Attributes())

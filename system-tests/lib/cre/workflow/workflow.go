@@ -34,7 +34,6 @@ import (
 	chainlinkvalues "github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	libnet "github.com/smartcontractkit/chainlink/system-tests/lib/net"
 )
 

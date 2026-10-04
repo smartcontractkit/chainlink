@@ -124,7 +124,7 @@ func setupHandlerWithConfig(t *testing.T, numNodes, f int, handlerConfig Config)
 	}
 
 	donConfig := &config.DONConfig{
-		DonId:   "test_relay_don",
+		DonID:   "test_relay_don",
 		F:       f,
 		Members: members,
 	}
@@ -215,13 +215,21 @@ func TestConfidentialRelayHandler_ForwardsBundleAtQuorum(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
-		assert.NotNil(t, jsonResp.Result)
+		if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
+		if !assert.NotNil(t, jsonResp.Result) {
+			return
+		}
 		var bundle relaytypes.SignedCapabilityResponseBundle
-		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		if !assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle)) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Len(t, bundle.Responses, 3, "the gateway forwards every collected signed response")
 	})
 
@@ -286,12 +294,18 @@ func TestConfidentialRelayHandler_DoesNotForwardOnErrorMajority(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		require.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) {
+			return
+		}
 		var bundle relaytypes.SignedCapabilityResponseBundle
-		require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		if !assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle)) {
+			return
+		}
 		assert.Len(t, bundle.Responses, 4, "errors are dropped; only signed responses are bundled")
 	})
 	for i := 5; i < 7; i++ {
@@ -322,10 +336,14 @@ func TestConfidentialRelayHandler_TerminalStateBelowQuorumFailsImmediately(t *te
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		require.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		if assert.NotNil(t, jsonResp.Error) {
 			assert.Contains(t, jsonResp.Error.Message, "relay quorum unreachable")
 		}
@@ -339,7 +357,7 @@ func TestConfidentialRelayHandler_TerminalStateBelowQuorumFailsImmediately(t *te
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      req.ID,
 			Method:  MethodCapabilityExec,
-			Error:   &jsonrpc.WireError{Code: -32602, Message: "execution handler not found"},
+			Error:   &jsonrpc.WireError{Code: jsonrpc.ErrInternal, Message: "execution handler not found"},
 		}
 		require.NoError(t, h.HandleNodeMessage(t.Context(), errResp, fmt.Sprintf("0x%04d", i)))
 	}
@@ -367,10 +385,14 @@ func TestConfidentialRelayHandler_QuorumUnreachableFailsImmediately(t *testing.T
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		require.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		if assert.NotNil(t, jsonResp.Error) {
 			assert.Contains(t, jsonResp.Error.Message, "relay quorum unreachable")
 		}
@@ -383,7 +405,63 @@ func TestConfidentialRelayHandler_QuorumUnreachableFailsImmediately(t *testing.T
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      req.ID,
 			Method:  MethodCapabilityExec,
-			Error:   &jsonrpc.WireError{Code: -32602, Message: "execution handler not found"},
+			Error:   &jsonrpc.WireError{Code: jsonrpc.ErrInternal, Message: "execution handler not found"},
+		}
+		require.NoError(t, h.HandleNodeMessage(t.Context(), errResp, fmt.Sprintf("0x%04d", i)))
+	}
+	wg.Wait()
+	require.Nil(t, h.getActiveRequest(req.ID))
+}
+
+// A single user-level node error is enough to explain an unreachable quorum, so
+// the gateway returns that error and its code rather than the generic quorum
+// failure. Here one ErrInvalidParams arrives between two system errors.
+func TestConfidentialRelayHandler_QuorumUnreachablePropagatesUserError(t *testing.T) {
+	t.Parallel()
+	h, cb, don, _ := setupHandlerWithF(t, 4, 1) // F+1=2
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	params := validCapParamsJSON("wf1")
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-user-error",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		resp, err := cb.Wait(t.Context())
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
+		assert.Equal(t, api.InvalidParamsError, resp.ErrorCode)
+		var jsonResp jsonrpc.Response[json.RawMessage]
+		if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
+		if assert.NotNil(t, jsonResp.Error) {
+			assert.Equal(t, jsonrpc.ErrInvalidParams, jsonResp.Error.Code)
+			assert.Contains(t, jsonResp.Error.Message, "key does not exist")
+			assert.NotContains(t, jsonResp.Error.Message, "relay quorum unreachable")
+		}
+	})
+
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+
+	nodeErrs := []struct {
+		code int64
+		msg  string
+	}{
+		{jsonrpc.ErrInternal, "node unavailable"},
+		{jsonrpc.ErrInvalidParams, "vault error for secret main/API_TOKEN: key does not exist"},
+		{jsonrpc.ErrInternal, "node unavailable"},
+	}
+	for i, ne := range nodeErrs {
+		errResp := &jsonrpc.Response[json.RawMessage]{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      req.ID,
+			Method:  MethodCapabilityExec,
+			Error:   &jsonrpc.WireError{Code: ne.code, Message: ne.msg},
 		}
 		require.NoError(t, h.HandleNodeMessage(t.Context(), errResp, fmt.Sprintf("0x%04d", i)))
 	}
@@ -410,12 +488,18 @@ func TestConfidentialRelayHandler_ForwardsOnceEnoughSignedArrive(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		require.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) {
+			return
+		}
 		var bundle relaytypes.SignedCapabilityResponseBundle
-		require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		if !assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle)) {
+			return
+		}
 		assert.Len(t, bundle.Responses, 3)
 	})
 
@@ -460,12 +544,18 @@ func TestConfidentialRelayHandler_ForwardsAllDivergentResponses(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) {
+			return
+		}
 		var bundle relaytypes.SignedCapabilityResponseBundle
-		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		if !assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle)) {
+			return
+		}
 		assert.Len(t, bundle.Responses, 3, "divergent and matching responses are all forwarded untouched")
 	})
 
@@ -499,7 +589,9 @@ func TestConfidentialRelayHandler_BundlerErrorReturnsFatal(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 	})
 
@@ -572,7 +664,9 @@ func TestConfidentialRelayHandler_TimeoutBelowQuorumFloorReturnsTimeout(t *testi
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Equal(t, api.RequestTimeoutError, resp.ErrorCode)
 	})
 
@@ -602,7 +696,9 @@ func TestConfidentialRelayHandler_TimeoutNoResponses(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Equal(t, api.RequestTimeoutError, resp.ErrorCode)
 	})
 
@@ -752,7 +848,7 @@ func TestConfidentialRelayHandler_QuorumGraceConfig(t *testing.T) {
 			lggr := logger.Test(t)
 			methodConfig, err := json.Marshal(tc.cfg)
 			require.NoError(t, err)
-			donConfig := &config.DONConfig{DonId: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
+			donConfig := &config.DONConfig{DonID: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
 			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 
 			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory)
@@ -797,7 +893,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	// F=0 so the forward threshold (2F+1) is 1: a single response from the one-node
 	// DON forwards immediately, isolating the rate-limit behavior under test.
 	donConfig := &config.DONConfig{
-		DonId:   "test_relay_don",
+		DonID:   "test_relay_don",
 		F:       0,
 		Members: []config.NodeConfig{nodeOne},
 	}
@@ -906,11 +1002,15 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
 		err = json.Unmarshal(resp.RawResponse, &jsonResp)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Contains(t, jsonResp.Error.Message, "failed to forward user request to nodes")
 	})
 
@@ -975,11 +1075,15 @@ func TestConfidentialRelayHandler_FanOutFailsWhenQuorumBecomesImpossible(t *test
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
 		err = json.Unmarshal(resp.RawResponse, &jsonResp)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
 		assert.Contains(t, jsonResp.Error.Message, "failed to forward user request to nodes")
 	})
 
@@ -995,7 +1099,7 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 	lggr := logger.Test(t)
 	don := newBarrierDON(2)
 	donConfig := &config.DONConfig{
-		DonId: "test_relay_don",
+		DonID: "test_relay_don",
 		F:     1,
 		Members: []config.NodeConfig{
 			{Name: "node0", Address: "0x0000"},
@@ -1059,7 +1163,7 @@ func TestConfidentialRelayHandler_NodeSendTimeoutConfig(t *testing.T) {
 			lggr := logger.Test(t)
 			methodConfig, err := json.Marshal(tc.cfg)
 			require.NoError(t, err)
-			donConfig := &config.DONConfig{DonId: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
+			donConfig := &config.DONConfig{DonID: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
 			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 
 			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory)
@@ -1080,7 +1184,7 @@ func TestConfidentialRelayHandler_BlockedNodeDoesNotStallFanOut(t *testing.T) {
 	lggr := logger.Test(t)
 	don := &blockedDON{blockedAddr: "0x0002"}
 	donConfig := &config.DONConfig{
-		DonId: "test_relay_don",
+		DonID: "test_relay_don",
 		F:     1,
 		Members: []config.NodeConfig{
 			{Name: "node0", Address: "0x0000"},

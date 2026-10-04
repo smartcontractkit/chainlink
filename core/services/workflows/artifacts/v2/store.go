@@ -15,7 +15,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -34,9 +34,9 @@ func safeUint32(n uint64) uint32 {
 }
 
 type ArtifactLimiters struct {
-	MaxConfigSize  limits.BoundLimiter[config.Size]
-	MaxSecretsSize limits.BoundLimiter[config.Size] // TODO unused
-	MaxBinarySize  limits.BoundLimiter[config.Size]
+	MaxConfigSize  limits.BoundLimiter[commonconfig.Size]
+	MaxSecretsSize limits.BoundLimiter[commonconfig.Size] // TODO unused
+	MaxBinarySize  limits.BoundLimiter[commonconfig.Size]
 }
 
 // makeLimiters constructs ArtifactLimiters from cfg, or uses defaults if cfg is nil.
@@ -45,18 +45,18 @@ func makeLimiters(lf limits.Factory) (limiters *ArtifactLimiters, err error) {
 	configSizeLimit := cresettings.Default.PerWorkflow.WASMConfigSizeLimit
 	limiters.MaxConfigSize, err = limits.MakeUpperBoundLimiter(lf, configSizeLimit)
 	if err != nil {
-		return
+		return limiters, err
 	}
 
 	secretsSizeLimit := cresettings.Default.PerWorkflow.WASMSecretsSizeLimit
 	limiters.MaxSecretsSize, err = limits.MakeUpperBoundLimiter(lf, secretsSizeLimit)
 	if err != nil {
-		return
+		return limiters, err
 	}
 
 	binarySizeLimit := cresettings.Default.PerWorkflow.WASMBinarySizeLimit
 	limiters.MaxBinarySize, err = limits.MakeUpperBoundLimiter(lf, binarySizeLimit)
-	return
+	return limiters, err
 }
 
 type StoreConfig struct {
@@ -96,7 +96,8 @@ type Store struct {
 }
 
 func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherFunc, retrieveFunc types.LocationRetrieverFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
-	emitter custmsg.MessageEmitter, limitsFactory limits.Factory, opts ...func(*Store)) (*Store, error) {
+	emitter custmsg.MessageEmitter, limitsFactory limits.Factory, opts ...func(*Store),
+) (*Store, error) {
 	artifactsStore := &Store{
 		lggr:          lggr,
 		orm:           orm,
@@ -129,8 +130,9 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 // been cached already.  Before a workflow can be started this method must be called to ensure all artifacts used by the
 // workflow are available from the store.
 func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error) {
-	// Check if the workflow spec is already stored in the database
-	if spec, err := h.orm.GetWorkflowSpec(ctx, workflowID); err == nil {
+	// Check if the workflow spec is already stored in the database.
+	// A row whose binary payload is empty is a pause tombstone - don't use it.
+	if spec, err := h.orm.GetWorkflowSpec(ctx, workflowID); err == nil && spec.Workflow != "" {
 		// there is no update in the BinaryURL or ConfigURL, lets decode the stored artifacts
 		decodedBinary, err := hex.DecodeString(spec.Workflow)
 		if err != nil {

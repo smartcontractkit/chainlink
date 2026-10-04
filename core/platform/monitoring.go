@@ -10,6 +10,7 @@ const (
 	KeyCapabilityID        = "capabilityID"
 	KeyTriggerID           = "triggerID"
 	KeyTriggerDropReason   = "dropReason"
+	KeyLimitKey            = "limitKey"
 	KeyWorkflowID          = "workflowID"
 	KeyWorkflowExecutionID = "workflowExecutionID"
 	KeyWorkflowName        = "workflowName"

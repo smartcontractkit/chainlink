@@ -52,7 +52,6 @@ These are dispatched parametrized workflows, that may be triggered manually for 
 - [Client Compatibility Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/client-compatibility-tests.yml)
 - [Chaos Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/integration-chaos-tests.yml)
 - [OCR Soak Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-ocr-soak-test.yml)
-- [On-Demand Automation Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/automation-ondemand-tests.yml)
 - [CCIP Chaos Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/ccip-chaos-tests.yml)
 - [CCIP Load Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/ccip-load-tests.yml)
 

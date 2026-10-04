@@ -29,7 +29,7 @@ AllowSimplePasswords = false # Default
 ```toml
 URL = "postgresql://user:pass@localhost:5432/dbname?sslmode=disable" # Example
 ```
-URL is the PostgreSQL URI to connect to your database. Chainlink nodes require Postgres versions >= 11. See
+URL is the PostgreSQL URI to connect to your database. Chainlink nodes require Postgres versions >= 15. See
 [Running a Chainlink Node](https://docs.chain.link/docs/running-a-chainlink-node/#set-the-remote-database_url-config) for an example.
 
 Environment variable: `CL_DATABASE_URL`

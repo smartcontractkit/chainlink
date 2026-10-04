@@ -42,4 +42,11 @@ type OCRConfigService interface {
 		ocrConfigKey string,
 		legacyDigester ocrtypes.OffchainConfigDigester,
 	) (ocrtypes.OffchainConfigDigester, error)
+
+	// GetContractConfig returns the registry-based OCR contract config cached for the
+	// specified capability, if available. It exposes the parsed on-chain config
+	// (signers, transmitters, etc.) so callers can align a node's transmitter and
+	// signing key with what the registry expects. The bool is false when no
+	// registry config has been cached yet for the given capability/key.
+	GetContractConfig(capabilityID string, ocrConfigKey string) (ocrtypes.ContractConfig, bool)
 }

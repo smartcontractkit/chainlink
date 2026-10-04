@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -25,7 +25,7 @@ func setupORM(t *testing.T) (*sqlx.DB, sessions.AuthenticationProvider) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), &audit.AuditLoggerService{})
+	orm := localauth.NewORM(db, time.Minute, logger.TestSugared(t), &audit.LoggerService{})
 
 	return db, orm
 }
@@ -68,7 +68,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := t.Context()
 			db := pgtest.NewSqlxDB(t)
-			orm := localauth.NewORM(db, test.sessionDuration, logger.TestLogger(t), &audit.AuditLoggerService{})
+			orm := localauth.NewORM(db, test.sessionDuration, logger.TestSugared(t), &audit.LoggerService{})
 
 			user := cltest.MustRandomUser(t)
 			require.NoError(t, orm.CreateUser(ctx, &user))
@@ -129,7 +129,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	require.NoError(t, err)
 
 	sessions, err := orm.Sessions(ctx, 0, 10)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Empty(t, sessions)
 }
 
@@ -151,7 +151,7 @@ func TestORM_DeleteUserCascade(t *testing.T) {
 	require.Error(t, err)
 
 	sessions, err := orm.Sessions(ctx, 0, 10)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Empty(t, sessions)
 }
 
@@ -266,7 +266,7 @@ func TestORM_WebAuthn(t *testing.T) {
 		Password: cltest.Password,
 	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "MFA Error")
+	require.ErrorIs(t, err, localauth.ErrMFAFailed)
 
 	ss := sessions.NewWebAuthnSessionStore()
 	_, err = orm.CreateSession(ctx, sessions.SessionRequest{
@@ -294,7 +294,7 @@ func TestORM_WebAuthn(t *testing.T) {
 		WebAuthnData: "invalid-format",
 	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "MFA Error")
+	require.ErrorIs(t, err, localauth.ErrMFAFailed)
 
 	challengeResp, err := json.Marshal(protocol.CredentialAssertionResponse{
 		PublicKeyCredential: protocol.PublicKeyCredential{

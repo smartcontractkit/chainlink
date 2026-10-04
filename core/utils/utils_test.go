@@ -190,7 +190,7 @@ func TestHashPassword(t *testing.T) {
 	t.Parallel()
 
 	h, err := utils.HashPassword("Qwerty123!")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, h)
 
 	ok := utils.CheckPasswordHash("Qwerty123!", h)
@@ -213,7 +213,7 @@ func TestFormatJSON(t *testing.T) {
 
 	json := `{"foo":123}`
 	formatted, err := utils.FormatJSON(json)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "\"{\\\"foo\\\":123}\"", string(formatted))
 }
 
@@ -239,10 +239,10 @@ func TestSha256(t *testing.T) {
 	t.Parallel()
 
 	hexHash, err := utils.Sha256("test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	hash, err := hex.DecodeString(hexHash)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, hash, 32)
 }
 
@@ -368,13 +368,13 @@ func TestValidateCronSchedule(t *testing.T) {
 	t.Parallel()
 
 	err := utils.ValidateCronSchedule("")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = utils.ValidateCronSchedule("CRON_TZ=UTC 5 * * * *")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = utils.ValidateCronSchedule("@every 1h30m")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = utils.ValidateCronSchedule("@every xyz")
 	assert.Error(t, err)
@@ -440,7 +440,7 @@ func TestCronTicker(t *testing.T) {
 	var counter atomic.Int32
 
 	ct, err := utils.NewCronTicker("@every 100ms")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	awaiter := cltest.NewAwaiter()
 	done := make(chan struct{})

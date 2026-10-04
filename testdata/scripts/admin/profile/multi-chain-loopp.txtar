@@ -11,7 +11,7 @@ exec curl --retry 10 --retry-max-time 60 --retry-connrefused $NODEURL
 exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-version-check
 
 exec chainlink --remote-node-url $NODEURL admin profile -seconds 1 -output_dir ./profiles
-stderr 'Collecting profiles from host and 8 plugins: \[allocs block cmdline goroutine heap mutex threadcreate profile trace\]'
+stderr 'Collecting profiles from host and 7 plugins: \[allocs block cmdline goroutine heap mutex threadcreate profile trace\]'
 
 exec sh -c 'eval "ls -R $WORK"'
 
@@ -19,7 +19,6 @@ exec sh -c 'eval "ls -R $WORK"'
 stdout $WORK/profiles/debuginfo-.*:$
 stdout $WORK/profiles/debuginfo-[^/]*/plugins:$
 stdout $WORK/profiles/debuginfo-[^/]*/plugins/aptos.42:$
-stdout $WORK/profiles/debuginfo-[^/]*/plugins/cosmos.Foo:$
 stdout $WORK/profiles/debuginfo-[^/]*/plugins/evm.1:$
 stdout $WORK/profiles/debuginfo-[^/]*/plugins/solana.Bar:$
 stdout $WORK/profiles/debuginfo-[^/]*/plugins/starknet.Baz:$
@@ -51,13 +50,6 @@ ChainID = '42'
 [[Aptos.Nodes]]
 Name = 'primary'
 URL = 'http://aptos.blockchain'
-
-[[Cosmos]]
-ChainID = 'Foo'
-
-[[Cosmos.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://tender.mint'
 
 [[EVM]]
 ChainID = '1'

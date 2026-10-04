@@ -10,6 +10,7 @@ import (
 	"maps"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -35,6 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -53,13 +56,14 @@ import (
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
@@ -227,6 +231,7 @@ WorkflowLimit = "1"
 		PerOwner: 0,
 	}, limits.Factory{Settings: getter})
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, sLimiter.Close()) })
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -246,7 +251,7 @@ WorkflowLimit = "1"
 	cfg.CapRegistry = capreg
 	cfg.GlobalWorkflowLimit = sLimiter
 	cfg.Hooks = hooks
-	var engine1, engine2, engine3, engine4 *v2.Engine
+	var engine1, engine2, engine3, engine4 v2.WorkflowEngine
 
 	t.Run("engine 1 inits successfully", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		engine1, err = v2.NewEngine(cfg)
@@ -426,6 +431,42 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		servicetest.Run(t, engine)
 		require.ErrorContains(t, <-initDoneCh, "failed to register trigger id_1: failure ABC")
 	})
+}
+
+func TestEngine_TriggerSubscriptionPhase_DisallowsSecretsCalls(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+
+	initDoneCh := make(chan error)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Start().Once()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, _ *sdkpb.ExecuteRequest, helper host.ExecutionHelper) {
+			_, err := helper.GetSecrets(context.Background(), &sdkpb.GetSecretsRequest{})
+			assert.ErrorContains(t, err, "secrets calls cannot be made during trigger subscription")
+		}).
+		Return(newTriggerSubs(0), nil).Once()
+	require.NoError(t, engine.Start(t.Context()))
+
+	require.NoError(t, <-initDoneCh)
+
+	module.EXPECT().Close().Once()
+	require.NoError(t, engine.Close())
 }
 
 func TestEngine_TriggerRegistrationLogging(t *testing.T) {
@@ -914,7 +955,7 @@ func TestEngine_Execution(t *testing.T) {
 		require.NoError(t, <-initDoneCh) // successful trigger registration
 		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 
-		require.Equal(t, v2.TriggerRegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
+		require.Equal(t, triggers.RegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
 		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
 		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
 		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
@@ -2401,9 +2442,9 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 	donID := uint32(1)
 
 	// Update the DON to have ConfigVersion = 1 (initial state for this test)
-	don := lr.IDsToDONs[registrysyncer.DonID(donID)]
+	don := lr.IDsToDONs[capreg.DonID(donID)]
 	don.ConfigVersion = 1 // Start at version 1 so we can test the update to version 2
-	lr.IDsToDONs[registrysyncer.DonID(donID)] = don
+	lr.IDsToDONs[capreg.DonID(donID)] = don
 
 	// Wrap in updatableRegistry to allow thread-safe updates during testing
 	localRegistry := &updatableRegistry{
@@ -2418,8 +2459,8 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 	donNotifier.NotifyDonSet(don1)
 
 	// Create a real capabilities registry and set our updatable local registry
-	capRegistry := coreCap.NewRegistry(lggr)
-	capRegistry.SetLocalRegistry(localRegistry)
+	capRegistry := capreg.NewRegistry(lggr)
+	capRegistry.SetRegistryMetadata(localRegistry)
 
 	// Create a real engine configuration
 	engine, cfg := createTestEngineForDonVersionTest(t, lggr, capRegistry, donNotifier, trackingEmitter)
@@ -2452,9 +2493,9 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 	}
 
 	// Update the LocalRegistry (simulating what the registry syncer does)
-	localRegistry.UpdateDON(registrysyncer.DonID(donID), registrysyncer.DON{
+	localRegistry.UpdateDON(capreg.DonID(donID), capreg.DON{
 		DON:                      don2,
-		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{},
+		CapabilityConfigurations: map[string]capreg.CapabilityConfiguration{},
 	})
 
 	// Notify the engine of the DON update
@@ -2480,6 +2521,232 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 			"This test uses a REAL engine, REAL DON notifier, and triggers a REAL DON update.")
 
 	_ = cfg // Keep reference
+}
+
+func TestEngine_ExecuteTrigger(t *testing.T) {
+	t.Parallel()
+
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	billingClient := setupMockBillingClient(t)
+
+	baseCfg := defaultTestConfig(t, nil)
+	baseCfg.CapRegistry = capreg
+	baseCfg.BillingClient = billingClient
+
+	ctx := contexts.WithCRE(t.Context(), contexts.CRE{
+		Owner:    baseCfg.WorkflowOwner,
+		Workflow: baseCfg.WorkflowID,
+	})
+
+	makeEvent := func(eventID string) triggers.CoordinatedEvent {
+		return triggers.CoordinatedEvent{
+			WorkflowID:   baseCfg.WorkflowID,
+			TriggerCapID: "id_0",
+			TriggerIndex: 0,
+			ObservedAt:   time.Now(),
+			Event: capabilities.TriggerResponse{
+				Event: capabilities.TriggerEvent{
+					TriggerType: "basic-trigger@1.0.0",
+					ID:          eventID,
+				},
+			},
+		}
+	}
+	t.Run("happy path completes with status completed", func(t *testing.T) {
+		t.Parallel()
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+				Return(&sdkpb.ExecutionResult{
+					Result: &sdkpb.ExecutionResult_Value{},
+				}, nil).
+				Once()
+		})
+
+		err := ew.engine.ExecuteTrigger(ctx, makeEvent("happy_event"))
+		require.NoError(t, err)
+
+		require.Equal(t, "completed", <-ew.executionFinishedCh)
+		require.Equal(t, int32(0), ew.errorCalls.Load(), "OnExecutionError should not fire on the happy path")
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
+
+	t.Run("module execution error returns errored status", func(t *testing.T) {
+		t.Parallel()
+		execErr := errors.New("wasm panic: out of memory")
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+				Return(nil, execErr).
+				Once()
+		})
+
+		// startExecution catches the error internally and returns nil —
+		// the execution ran, it just failed. The error surfaces via hooks.
+		err := ew.engine.ExecuteTrigger(ctx, makeEvent("module_error_event"))
+		require.NoError(t, err)
+
+		require.Equal(t, "errored", <-ew.executionFinishedCh)
+		require.Contains(t, <-ew.executionErrorCh, "out of memory")
+		require.Equal(t, int32(0), ew.resultCalls.Load(), "OnResultReceived should not fire on error")
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
+
+	t.Run("module result error returns errored status", func(t *testing.T) {
+		t.Parallel()
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+				Return(&sdkpb.ExecutionResult{
+					Result: &sdkpb.ExecutionResult_Error{
+						Error: "user workflow error: assertion failed",
+					},
+				}, nil).
+				Once()
+		})
+
+		err := ew.engine.ExecuteTrigger(ctx, makeEvent("result_error_event"))
+		require.NoError(t, err)
+
+		require.Equal(t, "errored", <-ew.executionFinishedCh)
+		require.Contains(t, <-ew.executionErrorCh, "assertion failed")
+		require.Equal(t, int32(0), ew.resultCalls.Load(), "OnResultReceived should not fire on result error")
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
+
+	t.Run("duplicate event ID is rejected with ErrDuplicateExecution", func(t *testing.T) {
+		t.Parallel()
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+			// Only ONE execution should reach Module.Execute.
+			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+				Return(&sdkpb.ExecutionResult{
+					Result: &sdkpb.ExecutionResult_Value{},
+				}, nil).
+				Once()
+		})
+
+		event := makeEvent("dup_event")
+
+		// First call succeeds.
+		err := ew.engine.ExecuteTrigger(ctx, event)
+		require.NoError(t, err)
+		require.Equal(t, "completed", <-ew.executionFinishedCh)
+
+		// Second call with the same event ID must be rejected.
+		err = ew.engine.ExecuteTrigger(ctx, event)
+		require.ErrorIs(t, err, v2.ErrDuplicateExecution)
+
+		// ExecuteTrigger is synchronous, so after it returns the hook counts are
+		// final: the duplicate must not have produced a second execution.
+		require.Equal(t, int32(1), ew.finishedCalls.Load(), "duplicate event must not run a second execution")
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
+
+	t.Run("metering reserve failure returns ErrMeteringReserveFailed", func(t *testing.T) {
+		t.Parallel()
+		ack := &recordingAcknowledger{}
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+			// No Module.Execute expectation: the execution must never reach WASM.
+		}, func(cfg *v2.EngineConfig) {
+			cfg.BillingClient = setupFailingReserveBillingClient(t)
+			cfg.TriggerAcknowledger = ack
+		})
+
+		err := ew.engine.ExecuteTrigger(ctx, makeEvent("metering_reserve_failed_event"))
+		require.ErrorIs(t, err, v2.ErrMeteringReserveFailed)
+
+		// No ACK is sent on metering reserve failure; the caller may retry.
+		require.Empty(t, ack.ackCalls())
+
+		// The execution never started, so neither execution hook fired.
+		require.Equal(t, int32(0), ew.finishedCalls.Load(), "OnExecutionFinished should not fire when reserve fails")
+		require.Equal(t, int32(0), ew.errorCalls.Load(), "OnExecutionError should not fire when reserve fails")
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
+}
+
+// TestEngine_ShardDenial verifies that when the OnTriggerAdmission lifecycle hook
+// denies admission of a trigger, the engine correctly acknowledges and drops the trigger.
+func TestEngine_ShardDenial(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		wantErr error
+	}{
+		{name: "not owner", wantErr: v2.ErrShardDeniedNotOwner},
+		{name: "orchestrator error", wantErr: v2.ErrShardDeniedOrchestrator},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			capreg := regmocks.NewCapabilitiesRegistry(t)
+			capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+
+			trigger := capmocks.NewTriggerCapability(t)
+			capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+			eventCh := make(chan capabilities.TriggerResponse)
+			trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+			trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+			baseCfg := defaultTestConfig(t, nil)
+			baseCfg.CapRegistry = capreg
+
+			var admissionCalls atomic.Int32
+
+			ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+				module.EXPECT().Start()
+				module.EXPECT().Close()
+				module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+			}, func(cfg *v2.EngineConfig) {
+				cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ triggers.CoordinatedEvent) error {
+					admissionCalls.Add(1)
+					return tc.wantErr
+				}
+			})
+
+			registrationID := triggers.RegistrationID(baseCfg.WorkflowID, 0)
+			ackedCh := make(chan struct{}, 1)
+			event := capabilities.TriggerEvent{
+				TriggerType: "basic-trigger@1.0.0",
+				ID:          "shard_denial_event",
+			}
+			trigger.EXPECT().
+				AckEvent(matches.AnyContext, registrationID, event.ID, mock.Anything).
+				Run(func(context.Context, string, string, string) { close(ackedCh) }).
+				Return(nil).
+				Once()
+
+			require.NoError(t, ew.engine.Start(t.Context()))
+			require.NoError(t, <-ew.initializedCh)
+			require.Equal(t, []string{"id_0"}, <-ew.subscribedToTriggersCh)
+
+			// fire the trigger by writing to the channel returned by the mock
+			// trigger registration
+			eventCh <- capabilities.TriggerResponse{
+				Event: event,
+			}
+
+			select {
+			case <-ackedCh:
+			case <-time.After(5 * time.Second):
+				t.Fatal("expected the denied event to be ACKed")
+			}
+
+			// shutdown the engine after acknowledgement
+			require.NoError(t, ew.engine.Close())
+
+			// The admission hook is the wiring under test: it must have been
+			// consulted exactly once for the denied event.
+			require.Equal(t, int32(1), admissionCalls.Load())
+
+			// Assert that no other hooks were called and no active executions
+			// remain
+			require.Equal(t, int32(0), ew.finishedCalls.Load(), "OnExecutionFinished should not fire for a denied event")
+			require.Equal(t, int32(0), ew.errorCalls.Load(), "OnExecutionError should not fire for a denied event")
+			require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+		})
+	}
 }
 
 // setupMockBillingClient creates a mock billing client with default expectations.
@@ -2516,6 +2783,166 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 		})).
 		Return(&emptypb.Empty{}, nil).Maybe()
 	return billingClient
+}
+
+// setupFailingReserveBillingClient creates a mock billing client whose
+// ReserveCredits call fails (Success: false), which drives the engine to
+// return ErrMeteringReserveFailed.
+func setupFailingReserveBillingClient(t *testing.T) *metmocks.BillingClient {
+	billingClient := metmocks.NewBillingClient(t)
+
+	billingClient.EXPECT().
+		GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+		Return(&billing.GetWorkflowExecutionRatesResponse{
+			RateCards: []*billing.RateCard{
+				{
+					ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
+					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
+					UnitsPerCredit:  "0.0001",
+				},
+			},
+		}, nil)
+	billingClient.EXPECT().
+		ReserveCredits(mock.Anything, mock.Anything).
+		Return(&billing.ReserveCreditsResponse{
+			Success: false,
+		}, nil)
+	return billingClient
+}
+
+// stubShardResolver is a fixed-response shardownership.ShardResolver for engine tests.
+type stubShardResolver struct {
+	shardID uint32
+	found   bool
+	err     error
+}
+
+var _ shardownership.ShardResolver = (*stubShardResolver)(nil)
+
+func (s *stubShardResolver) ResolveShard(_ context.Context, _ string, _ string) (uint32, bool, error) {
+	return s.shardID, s.found, s.err
+}
+
+func (s *stubShardResolver) ResolveShards(_ context.Context, _ []string, _ []string) (map[string]uint32, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return map[string]uint32{}, nil
+}
+
+// recordingAcknowledger records Ack calls so tests can assert the engine's
+// ACK contract on execution-intrinsic gate failures.
+type recordingAcknowledger struct {
+	mu    sync.Mutex
+	calls []string
+}
+
+var _ triggers.Acknowledger = (*recordingAcknowledger)(nil)
+
+func (a *recordingAcknowledger) Ack(_ context.Context, _ string, triggerRegistrationID, eventID string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.calls = append(a.calls, triggerRegistrationID+"/"+eventID)
+	return nil
+}
+
+func (a *recordingAcknowledger) ackCalls() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]string(nil), a.calls...)
+}
+
+// testEngine wraps a WorkflowEngine with a default implementation of every
+// lifecycle hook, recording how many times each fired, alongside channels
+// carrying the payloads of the ones tests commonly need to wait on.
+type testEngine struct {
+	engine v2.WorkflowEngine
+
+	initializedCh              chan error
+	subscribedToTriggersCh     chan []string
+	executionFinishedCh        chan string // receives status
+	executionErrorCh           chan string // receives error message
+	resultReceivedCh           chan *sdkpb.ExecutionResult
+	subscriptionsReadyCalls    atomic.Int32
+	triggerEventDroppedCalls   atomic.Int32
+	finishedCalls              atomic.Int32
+	errorCalls                 atomic.Int32
+	executionStatusUpdateCalls atomic.Int32
+	resultCalls                atomic.Int32
+	rateLimitedCalls           atomic.Int32
+	nodeSyncedCalls            atomic.Int32
+	triggerAdmissionCalls      atomic.Int32
+	requirementsSetCalls       atomic.Int32
+}
+
+func newTestEngine(
+	t *testing.T,
+	baseCfg *v2.EngineConfig,
+	newEngine func(*v2.EngineConfig) (v2.WorkflowEngine, error),
+	setupModule func(module *modulemocks.ModuleV2),
+	cfgFn ...func(*v2.EngineConfig),
+) *testEngine {
+	t.Helper()
+	module := modulemocks.NewModuleV2(t)
+	setupModule(module)
+
+	e := &testEngine{
+		initializedCh:          make(chan error, 1),
+		subscribedToTriggersCh: make(chan []string, 1),
+		executionFinishedCh:    make(chan string, 1),
+		executionErrorCh:       make(chan string, 1),
+		resultReceivedCh:       make(chan *sdkpb.ExecutionResult, 1),
+	}
+
+	testCfg := *baseCfg
+	testCfg.Module = module
+	testCfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			e.initializedCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			e.subscribedToTriggersCh <- triggerIDs
+		},
+		OnTriggerEventDropped: func(_, _, _ string) {
+			e.triggerEventDroppedCalls.Add(1)
+		},
+		OnExecutionFinished: func(_ string, status string) {
+			e.finishedCalls.Add(1)
+			e.executionFinishedCh <- status
+		},
+		OnExecutionError: func(msg string) {
+			e.errorCalls.Add(1)
+			e.executionErrorCh <- msg
+		},
+		OnExecutionStatusUpdate: func(_ string, _ string, _ string, _ int, _ string, _ workflowEvents.ErrorClassification) {
+			e.executionStatusUpdateCalls.Add(1)
+		},
+		OnResultReceived: func(res *sdkpb.ExecutionResult) {
+			e.resultCalls.Add(1)
+			e.resultReceivedCh <- res
+		},
+		OnRateLimited: func(_ string) {
+			e.rateLimitedCalls.Add(1)
+		},
+		OnNodeSynced: func(_ capabilities.Node, _ error) {
+			e.nodeSyncedCalls.Add(1)
+		},
+		OnTriggerAdmission: func(_ context.Context, _ triggers.CoordinatedEvent) error {
+			e.triggerAdmissionCalls.Add(1)
+			return nil
+		},
+		OnRequirementsSet: func(_ string, _ *sdkpb.Requirements) {
+			e.requirementsSetCalls.Add(1)
+		},
+	}
+	for _, fn := range cfgFn {
+		fn(&testCfg)
+	}
+
+	engine, err := newEngine(&testCfg)
+	require.NoError(t, err)
+	e.engine = engine
+	return e
 }
 
 type observedBaseMessage struct {
@@ -2833,7 +3260,7 @@ func (c *TriggerCapabilityWrapper) Info(ctx context.Context) (capabilities.Capab
 // updatableRegistry wraps LocalRegistry to allow thread-safe updates during testing
 // and implements the full CapabilitiesRegistry interface
 type updatableRegistry struct {
-	localRegistry *registrysyncer.LocalRegistry
+	localRegistry *capreg.RegistryMetadata
 	mu            sync.RWMutex
 }
 
@@ -2843,7 +3270,7 @@ func (r *updatableRegistry) LocalNode(ctx context.Context) (capabilities.Node, e
 	return r.localRegistry.LocalNode(ctx)
 }
 
-func (r *updatableRegistry) UpdateDON(donID registrysyncer.DonID, don registrysyncer.DON) {
+func (r *updatableRegistry) UpdateDON(donID capreg.DonID, don capreg.DON) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.localRegistry.IDsToDONs[donID] = don
@@ -2886,10 +3313,10 @@ func (r *updatableRegistry) DONByID(ctx context.Context, donID uint32) (capabili
 func createTestEngineForDonVersionTest(
 	t *testing.T,
 	lggr logger.Logger,
-	registry *coreCap.Registry,
+	registry *capreg.Registry,
 	donNotifier coreCap.DonNotifyWaitSubscriber,
 	emitter custmsg.MessageEmitter,
-) (*v2.Engine, *v2.EngineConfig) {
+) (v2.WorkflowEngine, *v2.EngineConfig) {
 	lf := limits.Factory{Logger: lggr}
 
 	name, err := types.NewWorkflowName("test-don-update-workflow")
@@ -2897,6 +3324,7 @@ func createTestEngineForDonVersionTest(
 
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, lf)
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, sLimiter.Close()) })
 
 	// Use a mock WASM module (only mock we need!)
 	wasmModule := modulemocks.NewModuleV2(t)

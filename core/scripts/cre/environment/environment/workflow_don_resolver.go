@@ -71,7 +71,7 @@ func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelect
 func resolveWorkflowDONByFamily(wfDONs []*cre.DonMetadata, family string, shardIndex *uint) (*cre.DonMetadata, error) {
 	matches := make([]*cre.DonMetadata, 0, 1)
 	for _, wf := range wfDONs {
-		if wf.DonFamily == family {
+		if wf.DonFamily() == family {
 			matches = append(matches, wf)
 		}
 	}

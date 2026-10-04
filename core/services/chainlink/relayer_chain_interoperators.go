@@ -58,6 +58,7 @@ type NetworkChainStatus struct {
 	types.ChainStatus
 }
 
+// ChainStatusReader is an interface for reading chain statuses.
 type ChainStatusReader interface {
 	ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]NetworkChainStatus, int, error)
@@ -69,7 +70,7 @@ type NodeStatusReader interface {
 	NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []types.NodeStatus, count int, err error)
 }
 
-// StatusReader report statuses about chains and nodes
+// StatusReader reports statuses about chains and nodes
 type StatusReader interface {
 	ChainStatusReader
 	NodeStatusReader
@@ -136,23 +137,6 @@ func InitEVM(factory RelayerFactory, config EVMFactoryConfig) CoreRelayerChainIn
 			legacyMap[id.ChainID] = a.Chain()
 		}
 		op.legacyChains = legacyevm.NewLegacyChains(legacyMap)
-		return nil
-	}
-}
-
-// InitCosmos is a option for instantiating Cosmos relayers
-func InitCosmos(factory RelayerFactory, ks keystore.Cosmos, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
-	return func(op *CoreRelayerChainInteroperators) (err error) {
-		loopKs := &keystore.CosmosLoopSigner{Cosmos: ks}
-		relayers, err := factory.NewCosmos(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
-		if err != nil {
-			return fmt.Errorf("failed to setup Cosmos relayer: %w", err)
-		}
-		for id, relayer := range relayers {
-			op.srvs = append(op.srvs, relayer)
-			op.loopRelayers[id] = relayer
-		}
-
 		return nil
 	}
 }
@@ -314,6 +298,7 @@ func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]
 
 // LegacyEVMChains returns a container with all the evm chains
 // TODO BCF-2511
+//
 // Deprecated: use the Relayer interface
 func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() legacyevm.LegacyChainContainer {
 	rs.mu.Lock()
@@ -339,14 +324,14 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
-	relayerIds := make([]types.RelayID, 0)
+	relayerIDs := make([]types.RelayID, 0, len(rs.loopRelayers))
 	for rid := range rs.loopRelayers {
-		relayerIds = append(relayerIds, rid)
+		relayerIDs = append(relayerIDs, rid)
 	}
-	sort.Slice(relayerIds, func(i, j int) bool {
-		return relayerIds[i].String() < relayerIds[j].String()
+	sort.Slice(relayerIDs, func(i, j int) bool {
+		return relayerIDs[i].String() < relayerIDs[j].String()
 	})
-	for _, rid := range relayerIds {
+	for _, rid := range relayerIDs {
 		lr := rs.loopRelayers[rid]
 		stat, err := lr.GetChainStatus(ctx)
 		if err != nil {
@@ -388,8 +373,10 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		totalErr error
 		result   []types.NodeStatus
 	)
+	// Copy under the lock: Get inserts dummy relayers lazily, so the live map cannot be iterated unlocked.
+	relayers := rs.GetIDToRelayerMap()
 	if len(relayerIDs) == 0 {
-		keys := slices.Collect(maps.Keys(rs.loopRelayers))
+		keys := slices.Collect(maps.Keys(relayers))
 		slices.SortFunc(keys, func(a, b types.RelayID) int {
 			if c := strings.Compare(a.Network, b.Network); c != 0 {
 				return c
@@ -397,8 +384,8 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 			return strings.Compare(a.ChainID, b.ChainID)
 		})
 		for _, key := range keys {
-			lr := rs.loopRelayers[key]
-			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
+			lr := relayers[key]
+			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "") //nolint:gosec // G115: page size is far below math.MaxInt32
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
 				continue
@@ -408,13 +395,12 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		}
 	} else {
 		for _, rid := range relayerIDs {
-			lr, exist := rs.loopRelayers[rid]
+			lr, exist := relayers[rid]
 			if !exist {
 				totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
 				continue
 			}
-			nodeStats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
-
+			nodeStats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "") //nolint:gosec // G115: page size is far below math.MaxInt32
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
 				continue
@@ -469,12 +455,11 @@ func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInte
 // Returns a slice of [loop.Relayer]. A typically usage pattern to is
 // use [List(criteria)].Slice() for range based operations
 func (rs *CoreRelayerChainInteroperators) Slice() []loop.Relayer {
-	var result []loop.Relayer
-	for _, r := range rs.loopRelayers {
-		result = append(result, r)
-	}
-	return result
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	return slices.Collect(maps.Values(rs.loopRelayers))
 }
+
 func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
 	return rs.srvs
 }

@@ -90,10 +90,11 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			}
 			allowlistSubtestName := "allowlist_auth"
 			vaultConfig := getVaultDefaultTestConfig(t)
-			if isVaultStallPurgeTopology(topology) {
+			switch {
+			case isVaultStallPurgeTopology(topology):
 				vaultConfig = getVaultStallPurgeTestConfig(t)
 				allowlistSubtestName = "pending_queue_stall_purge"
-			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
+			case isVaultWorkflowDONBindingEnabledTopology(topology):
 				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
 			}
@@ -164,6 +165,7 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 		})
 	case suite_config.SuiteScenarioDONTime:
 		t.Run("DON Time - "+topology, func(t *testing.T) {
+			t_helpers.SkipIfMixedEnv(t, "DONTime registry launch requires all nodes to support jobless capability startup")
 			if parallelEnabled {
 				t.Parallel()
 			}
@@ -280,7 +282,6 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 	})
 }
 
-//nolint:paralleltest // isolate local cre env run
 func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
 
@@ -300,6 +301,12 @@ func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 		t.Parallel()
 		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
 		executeStellarWriteTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
+
+	t.Run("StellarDataFeedsWrite", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarDataFeedsWriteTest(t, env, chain, userLogsCh, baseMessageCh)
 	})
 }
 
@@ -362,6 +369,24 @@ func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
 	ExecuteManualShardAssignmentTest(t, testEnv)
 }
 
+//nolint:paralleltest // mutates CRE settings and shard assignment on the shared environment
+func Test_CRE_V2_ShardManualAssignmentBothSpecs(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
+	)
+	ExecuteManualShardAssignmentBothSpecs(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-sharded-capabilities-don.toml"),
+	)
+	ExecuteManualShardAssignmentWithEVMLogTriggerTest(t, testEnv)
+}
+
 //nolint:paralleltest // subtests share the same sharding config
 func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
@@ -369,4 +394,13 @@ func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-ringocr-overrides.toml"),
 	)
 	ExecuteRingOCROverridesTest(t, testEnv)
+}
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_FailoverManualSwap(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-failover-don.toml"),
+	)
+	ExecuteFailoverManualSwapTest(t, testEnv)
 }

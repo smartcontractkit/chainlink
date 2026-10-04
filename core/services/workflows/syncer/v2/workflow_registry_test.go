@@ -1971,7 +1971,7 @@ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
 	wr := &workflowRegistry{
 		shardOrchestratorClient: client,
 		shardResolver:           shardownership.NewRingOCRShardResolver(client, logger.TestLogger(t)),
-		myShardID:               1,
+		myDonID:                 1,
 		shardingEnabled:         true,
 	}
 
@@ -2024,7 +2024,6 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 		}}
 		wr := newReg(t,
 			WithShardEnabled(true),
-			WithShardID(0),
 			WithShardOrchestratorClient(client),
 		)
 		require.NotNil(t, wr.shardResolver, "resolver must be auto-wired from non-nil client")
@@ -2042,10 +2041,9 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 			Settings: manualConfigTOML,
 			Hash:     "test",
 		}))
-		manual := shardownership.NewManualShardResolver(settings, nil, logger.TestLogger(t))
+		manual := shardownership.NewManualShardResolver(settings, nil, nil, logger.TestLogger(t))
 		wr := newReg(t,
 			WithShardEnabled(true),
-			WithShardID(0),
 			WithShardOrchestratorClient(nil),
 			WithRegistryShardResolver(manual),
 		)
@@ -2069,12 +2067,11 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 			wf1.Hex(): 0,
 			wf2.Hex(): 1,
 		}}
-		override := shardownership.NewOverrideShardResolver(settings, nil,
+		override := shardownership.NewOverrideShardResolver(settings, nil, nil,
 			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
 			logger.TestLogger(t))
 		wr := newReg(t,
 			WithShardEnabled(true),
-			WithShardID(0),
 			WithShardOrchestratorClient(ringClient),
 			WithRegistryShardResolver(override),
 		)
@@ -2098,12 +2095,11 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 		ringClient := &mockShardMappingClient{mappings: map[string]uint32{
 			wf1.Hex(): 0,
 		}}
-		override := shardownership.NewOverrideShardResolver(settings, nil,
+		override := shardownership.NewOverrideShardResolver(settings, nil, nil,
 			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
 			logger.TestLogger(t))
 		wr := newReg(t,
 			WithShardEnabled(true),
-			WithShardID(0),
 			WithRegistryShardResolver(override),
 			WithShardOrchestratorClient(ringClient),
 		)
@@ -2119,7 +2115,6 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 		t.Parallel()
 		wr := newReg(t,
 			WithShardEnabled(true),
-			WithShardID(0),
 			WithShardOrchestratorClient(nil),
 		)
 		require.Nil(t, wr.shardResolver, "resolver must be nil when client is nil and no explicit resolver")
@@ -2415,7 +2410,6 @@ func Test_syncLoop_OrphanedSpecs(t *testing.T) {
 			&fakeMetadataSource{name: "source-a", metadata: []WorkflowMetadataView{liveMeta}},
 		},
 			WithShardEnabled(true),
-			WithShardID(0),
 			WithShardOrchestratorClient(&failingShardMappingClient{}),
 		)
 
@@ -2440,7 +2434,6 @@ func Test_syncLoop_OrphanedSpecs(t *testing.T) {
 			&fakeMetadataSource{name: "source-a", metadata: []WorkflowMetadataView{myMeta, movedMeta}},
 		},
 			WithShardEnabled(true),
-			WithShardID(0),
 			WithShardOrchestratorClient(&mockShardMappingClient{mappings: map[string]uint32{
 				myID.Hex():    0, // stays on this shard
 				movedID.Hex(): 1, // moved to another shard

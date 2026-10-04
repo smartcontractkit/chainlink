@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
@@ -51,7 +52,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
@@ -238,7 +238,7 @@ func RunTestIntegrationOCR2(t *testing.T) {
 			t.Parallel()
 			owner, b, ocrContractAddress, ocrContract, nodeConfig := SetupOCR2Contracts(t)
 
-			lggr := logger.TestLogger(t)
+			lggr := logger.Test(t)
 			bootstrapNodePort := freeport.GetOne(t)
 			bootstrapNode := SetupNodeOCR2(t, owner, bootstrapNodePort, false /* useForwarders */, b, nil, nodeConfig)
 
@@ -291,7 +291,7 @@ fromBlock = %d
 			}()
 
 			jids := make([]int32, 0, 4)
-			var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
+			servers, slowServers := make([]*httptest.Server, 4), make([]*httptest.Server, 4)
 			// We expect metadata of:
 			//  latestAnswer:nil // First call
 			//  latestAnswer:0
@@ -710,7 +710,7 @@ func InitOCR2(t *testing.T, lggr logger.Logger, b *simulated.Backend,
 	require.NoError(t, err)
 	err = bootstrapNode.App.AddJobV2(t.Context(), &ocrJob)
 	require.NoError(t, err)
-	return
+	return blockBeforeConfig
 }
 
 func withRPCServer(host string, httpPort, wsPort int, modules []string) func(nodeConf *node.Config, ethConf *ethconfig.Config) {

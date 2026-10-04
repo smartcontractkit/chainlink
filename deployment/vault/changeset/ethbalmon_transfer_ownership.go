@@ -96,7 +96,6 @@ var EthBalMonTransferOwnershipSequence = operations.NewSequence(
 		}
 
 		proposal, err := proposeutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon transferOwnership", ethBalMonProposalTimelockConfig(input.MCMSConfig))
-
 		if err != nil {
 			return EthBalMonTransferOwnershipSeqOutput{}, fmt.Errorf("failed to build timelock proposal: %w", err)
 		}
@@ -180,11 +179,9 @@ var EthBalMonTransferOwnershipOperation = operations.NewOperation(
 			ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
 			Transactions: []mcmstypes.Transaction{
 				{
-					OperationMetadata: mcmstypes.OperationMetadata{
-						ContractType: vaulttypes.EthBalMonContractType,
-						Tags: []string{
-							"transferOwnership",
-						},
+					ContractType: vaulttypes.EthBalMonContractType,
+					Tags: []string{
+						"transferOwnership",
 					},
 					To:               ethBalMonAddr,
 					Data:             transferOwnershipTx.Data(),

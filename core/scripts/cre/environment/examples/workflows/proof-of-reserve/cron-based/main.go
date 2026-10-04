@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/balance_reader"
 	types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 )
@@ -201,7 +200,7 @@ func main() {
 		}
 
 		if cfg.AuthKeySecretName != "" {
-			cfg.AuthKey = sdk.SecretValue(cfg.AuthKeySecretName)
+			cfg.AuthKey = cfg.AuthKeySecretName
 		}
 
 		return cfg, nil
@@ -235,9 +234,9 @@ func getHTTPPrice(config types.WorkflowConfig, runtime cre.NodeRuntime) (priceOu
 		//Timeout: durationpb.New(5 * time.Second),
 	}
 
-	if string(config.AuthKey) != "" {
+	if config.AuthKey != "" {
 		fetchRequest.Headers = map[string]string{
-			"Authorization": string(config.AuthKey),
+			"Authorization": config.AuthKey,
 		}
 	}
 
@@ -252,13 +251,6 @@ func getHTTPPrice(config types.WorkflowConfig, runtime cre.NodeRuntime) (priceOu
 	}
 
 	runtime.Logger().With().Info(fmt.Sprintf("Response is account name: %s, totalTrust: %.10f, ripcord: %v, updatedAt: %s", resp.AccountName, resp.TotalTrust, resp.Ripcord, resp.UpdatedAt.String()))
-
-	if resp.Ripcord {
-		runtime.Logger().With(
-			"feedID", config.FeedID,
-		).Info(fmt.Sprintf("ripcord flag set for feed ID %s", config.FeedID))
-		return priceOutput{}, sdk.BreakErr
-	}
 
 	return priceOutput{
 		FeedID:    feedID, // TrueUSD

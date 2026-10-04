@@ -285,7 +285,7 @@ func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 				)
 
 				if i > 0 {
-					require.ErrorContains(t, err, "already exists")
+					require.ErrorContains(t, err, "datastore refs conflict")
 				} else {
 					require.NoError(t, err)
 

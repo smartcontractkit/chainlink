@@ -1,15 +1,27 @@
 package cre
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	registrysyncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
+	registrysyncerV2Mocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+type registryListenerStub struct {
+	name string
+}
+
+func (*registryListenerStub) OnNewRegistry(context.Context, *registry.RegistryMetadata) error {
+	return nil
+}
 
 // wfRegTestStub implements config.CapabilitiesWorkflowRegistry for tests.
 type wfRegTestStub struct {
@@ -97,6 +109,25 @@ func TestWorkflowRegistryConfigured(t *testing.T) {
 	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xdef"), 2))
 	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "https://example"), 2))
 	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "grpc://x"), 2))
+}
+
+func TestWireRegistrySyncerV2(t *testing.T) {
+	t.Parallel()
+
+	registrySyncer := registrysyncerV2Mocks.NewRegistrySyncer(t)
+	ocrConfigService := registrysyncerV2Mocks.NewRegistrySyncer(t)
+	ocrConfigListener := &registryListenerStub{name: "OCR config service"}
+	wfLauncher := &registryListenerStub{name: "workflow launcher"}
+	shardIndexMapper := &registryListenerStub{name: "shard index mapper"}
+
+	registrySyncer.EXPECT().AddListener(ocrConfigListener, wfLauncher, shardIndexMapper)
+
+	services := wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigListener, wfLauncher, shardIndexMapper)
+	require.Len(t, services, 2)
+	require.Same(t, ocrConfigService, services[0])
+	require.Same(t, registrySyncer, services[1])
+
+	var _ registrysyncerV2.Listener = (*registryListenerStub)(nil)
 }
 
 func TestNewLocalTestMetadataRegistry(t *testing.T) {

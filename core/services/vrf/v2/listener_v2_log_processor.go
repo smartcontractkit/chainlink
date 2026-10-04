@@ -39,7 +39,7 @@ import (
 // Returns all the confirmed logs from the provided pending queue by subscription
 func (lsn *listenerV2) getConfirmedLogsBySub(latestHead uint64, pendingRequests []pendingRequest) map[string][]pendingRequest {
 	vrfcommon.UpdateQueueSize(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version(), uniqueReqs(pendingRequests))
-	var toProcess = make(map[string][]pendingRequest)
+	toProcess := make(map[string][]pendingRequest)
 	for _, request := range pendingRequests {
 		if lsn.ready(request, latestHead) {
 			toProcess[request.req.SubID().String()] = append(toProcess[request.req.SubID().String()], request)
@@ -64,7 +64,9 @@ func (lsn *listenerV2) ready(req pendingRequest, latestHead uint64) bool {
 			req.attempts,
 			lsn.job.VRFSpec.BackoffInitialDelay,
 			lsn.job.VRFSpec.BackoffMaxDelay,
-			req.lastTry))
+			req.lastTry,
+		),
+	)
 }
 
 func nextTry(retries int, initial, maxDur time.Duration, last time.Time) time.Time {
@@ -153,7 +155,8 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 			return
 		}
 		sub, err := lsn.coordinator.GetSubscription(&bind.CallOpts{
-			Context: ctx}, sID)
+			Context: ctx,
+		}, sID)
 
 		if err != nil {
 			if !strings.Contains(err.Error(), "execution reverted") {
@@ -202,7 +205,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
 // have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
 // and returns that value if there are no errors.
-func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalance *big.Int, chainID *big.Int, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
+func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalance, chainID, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
 	var metaField string
 	switch vrfVersion {
 	case vrfcommon.V2Plus:
@@ -242,7 +245,7 @@ func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalan
 // MaybeSubtractReservedEth figures out how much ether is reserved for other VRF requests that
 // have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
 // and returns that value if there are no errors.
-func (lsn *listenerV2) MaybeSubtractReservedEth(ctx context.Context, startBalance *big.Int, chainID *big.Int, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
+func (lsn *listenerV2) MaybeSubtractReservedEth(ctx context.Context, startBalance, chainID, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
 	var metaField string
 	switch vrfVersion {
 	case vrfcommon.V2Plus:
@@ -497,7 +500,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 		}
 	}
 
-	return
+	return processed
 }
 
 // processRequestsPerSubBatch processes requests for a given subscription using the batch coordinator for fulfillments.
@@ -510,15 +513,17 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	reqs []pendingRequest,
 	subIsActive bool,
 ) map[string]struct{} {
-	var processed = make(map[string]struct{})
+	processed := make(map[string]struct{})
 	startBalanceNoReserveLink, err := lsn.MaybeSubtractReservedLink(
-		ctx, startLinkBalance, lsn.chainID, subID, lsn.coordinator.Version())
+		ctx, startLinkBalance, lsn.chainID, subID, lsn.coordinator.Version(),
+	)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
 	}
 	startBalanceNoReserveEth, err := lsn.MaybeSubtractReservedEth(
-		ctx, startEthBalance, lsn.chainID, subID, lsn.coordinator.Version())
+		ctx, startEthBalance, lsn.chainID, subID, lsn.coordinator.Version(),
+	)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved ether for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
@@ -566,14 +571,14 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 ) (etx txmgr.Tx, err error) {
 	if lsn.job.VRFSpec.VRFOwnerAddress == nil {
 		err = errors.New("vrf owner address not set in job spec, recreate job and provide it to force-fulfill")
-		return
+		return etx, err
 	}
 
 	if p.payload == "" {
 		// should probably never happen
 		// a critical log will be logged if this is the case in simulateFulfillment
 		err = errors.New("empty payload in vrfPipelineResult")
-		return
+		return etx, err
 	}
 
 	// fulfill the request through the VRF owner
@@ -596,7 +601,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 	})
 	if err != nil {
 		err = fmt.Errorf("failed to estimate gas on VRFOwner.fulfillRandomWords: %w", err)
-		return
+		return etx, err
 	}
 
 	lsn.l.Infow("Estimated gas limit on force fulfillment",
@@ -851,7 +856,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 		}
 	}
 
-	return
+	return processed
 }
 
 func (lsn *listenerV2) transmitCheckerType() txmgrtypes.TransmitCheckerType {
@@ -873,16 +878,18 @@ func (lsn *listenerV2) processRequestsPerSub(
 		return lsn.processRequestsPerSubBatch(ctx, subID, startLinkBalance, startEthBalance, reqs, subIsActive)
 	}
 
-	var processed = make(map[string]struct{})
+	processed := make(map[string]struct{})
 	chainID := lsn.chain.Client().ConfiguredChainID()
 	startBalanceNoReserveLink, err := lsn.MaybeSubtractReservedLink(
-		ctx, startLinkBalance, chainID, subID, lsn.coordinator.Version())
+		ctx, startLinkBalance, chainID, subID, lsn.coordinator.Version(),
+	)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
 	}
 	startBalanceNoReserveEth, err := lsn.MaybeSubtractReservedEth(
-		ctx, startEthBalance, lsn.chainID, subID, lsn.coordinator.Version())
+		ctx, startEthBalance, lsn.chainID, subID, lsn.coordinator.Version(),
+	)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved ETH for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
@@ -923,7 +930,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 			startBalanceNoReserveEth,
 			nativeRequests,
 			subIsActive,
-			true)
+			true,
+		)
 	})
 	wg.Go(func() {
 		linkProcessed = lsn.processRequestsPerSubHelper(
@@ -933,7 +941,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 			startBalanceNoReserveLink,
 			linkRequests,
 			subIsActive,
-			false)
+			false,
+		)
 	})
 	wg.Wait()
 	// combine the native and link processed requests into the processed map

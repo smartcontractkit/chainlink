@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink/devenv/products/automation"
 	"github.com/smartcontractkit/chainlink/devenv/products/cron"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
 	"github.com/smartcontractkit/chainlink/devenv/products/vrfv2"
@@ -39,8 +38,6 @@ func newProduct(name string) (Product, error) {
 		return cron.NewConfigurator(), nil
 	case "ocr2":
 		return ocr2.NewConfigurator(), nil
-	case "automation":
-		return automation.NewConfigurator(), nil
 	case "vrfv2_plus":
 		return vrfv2plus.NewConfigurator(), nil
 	case "vrfv2":

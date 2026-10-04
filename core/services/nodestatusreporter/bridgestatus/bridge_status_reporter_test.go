@@ -545,7 +545,7 @@ func TestService_PollAllBridges_3000Bridges(t *testing.T) {
 	service, mockORM, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
 	numBridges := 3000
-	var allBridges []bridges.BridgeType
+	allBridges := make([]bridges.BridgeType, 0, numBridges)
 	for i := range numBridges {
 		u, _ := url.Parse(fmt.Sprintf("http://bridge%d.example.com", i))
 		bridge := bridges.BridgeType{
@@ -589,7 +589,7 @@ func TestService_PollAllBridges_ContextTimeout(t *testing.T) {
 	service, mockORM, jobORM, _ := setupTestService(t, true, testPollingInterval, httpClient)
 
 	numBridges := 5
-	var allBridges []bridges.BridgeType
+	allBridges := make([]bridges.BridgeType, 0, numBridges)
 	for i := range numBridges {
 		u, _ := url.Parse(fmt.Sprintf("http://bridge%d.example.com", i))
 		bridge := bridges.BridgeType{

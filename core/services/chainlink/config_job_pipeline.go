@@ -4,18 +4,18 @@ import (
 	"time"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
-var _ config.JobPipeline = (*jobPipelineConfig)(nil)
+var _ coreconfig.JobPipeline = (*jobPipelineConfig)(nil)
 
 type jobPipelineConfig struct {
 	c toml.JobPipeline
 }
 
 func (j *jobPipelineConfig) DefaultHTTPLimit() int64 {
-	return int64(*j.c.HTTPRequest.MaxSize)
+	return int64(*j.c.HTTPRequest.MaxSize) //nolint:gosec // G115: HTTP request size limit is far below math.MaxInt64
 }
 
 func (j *jobPipelineConfig) DefaultHTTPTimeout() commonconfig.Duration {

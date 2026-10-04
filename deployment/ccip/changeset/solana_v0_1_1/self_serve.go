@@ -16,9 +16,9 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
@@ -33,6 +33,8 @@ type OnboardTokenPoolConfig struct {
 	ProposedOwner    solana.PublicKey
 	PoolType         cldf.ContractType
 	Metadata         string
+	// TokenSymbol is the human-readable datastore key for this token mint.
+	TokenSymbol string
 }
 
 type OnboardTokenPoolsForSelfServeConfig struct {
@@ -54,6 +56,9 @@ func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chai
 	for i, registerTokenConfig := range cfg.RegisterTokenConfigs {
 		if registerTokenConfig.Metadata == "" {
 			return fmt.Errorf("RegisterTokenConfigs[%d].Metadata is required for token mint %s", i, registerTokenConfig.TokenMint.String())
+		}
+		if err := validateTokenSymbol(registerTokenConfig.TokenSymbol, registerTokenConfig.TokenMint.String()); err != nil {
+			return fmt.Errorf("RegisterTokenConfigs[%d]: %w", i, err)
 		}
 		if registerTokenConfig.PoolType != shared.BurnMintTokenPool && registerTokenConfig.PoolType != shared.LockReleaseTokenPool {
 			return fmt.Errorf("PoolType not supported: %v", registerTokenConfig.PoolType)
@@ -89,6 +94,16 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 	}
 	var mcmsTxs []mcmsTypes.Transaction
 	var instructions [][]solana.Instruction
+	// Use one output book and datastore for the whole batch so every token is returned.
+	newAddresses := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
+	var envAddresses map[string]cldf.TypeAndVersion
+	if e.ExistingAddresses != nil {
+		envAddresses, err = e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
+		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to read existing addresses for chain %d: %w", cfg.ChainSelector, err)
+		}
+	}
 	for _, registerTokenConfig := range cfg.RegisterTokenConfigs {
 		currentTokenPoolSolanaState, err := loadTokenPoolSolanaState(registerTokenConfig, solChainState)
 		var tokenInstructions []solana.Instruction
@@ -126,20 +141,23 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 				inputs = append(inputs, MCMSTxParams{
 					Ix:           proposeTokenAdminRegistryAdminIx,
 					ProgramID:    routerState.routerProgramID.String(),
-					ContractType: shared.Router})
+					ContractType: shared.Router,
+				})
 			}
 			if initializeTokenPoolIx != nil {
 				inputs = append(inputs,
 					MCMSTxParams{
 						Ix:           initializeTokenPoolIx,
 						ProgramID:    currentTokenPoolSolanaState.tokenPoolProgramID.String(),
-						ContractType: registerTokenConfig.PoolType})
+						ContractType: registerTokenConfig.PoolType,
+					})
 			}
 			inputs = append(inputs,
 				MCMSTxParams{
 					Ix:           transferTokenPoolOwnershipIx,
 					ProgramID:    currentTokenPoolSolanaState.tokenPoolProgramID.String(),
-					ContractType: registerTokenConfig.PoolType})
+					ContractType: registerTokenConfig.PoolType,
+				})
 			moreTx, err := BuildManyMCMSTxsFrom(inputs)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -151,21 +169,22 @@ func OnboardTokenPoolsForSelfServe(e cldf.Environment, cfg OnboardTokenPoolsForS
 			// the ccip admin will always be deployer key if done without mcms
 			instructions = append(instructions, tokenInstructions)
 		}
-		if proposeTokenAdminRegistryAdminIx != nil {
-			// Store in Address Book only first time running this
-			// TODO: Return this
-			newAddresses := cldf.NewMemoryAddressBook()
-			tv := cldf.NewTypeAndVersion(registerTokenConfig.TokenProgramName, deployment.Version1_0_0)
-			tv.AddLabel(registerTokenConfig.Metadata)                            // Customer Identifier
-			tv.AddLabel(registerTokenConfig.PoolType.String())                   // Pool Type
-			tv.AddLabel(currentTokenPoolSolanaState.tokenPoolProgramID.String()) // Token Pool Program ID
-			err = newAddresses.Save(cfg.ChainSelector, registerTokenConfig.TokenMint.String(), tv)
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
+		// Always include the token mint in the output registries. The on-chain instruction is only
+		// needed the first time a token is registered, but the datastore ref may still be missing
+		// on reruns or for tokens onboarded before datastore recording was added.
+		if err := recordOnboardedTokenMint(cfg.ChainSelector, newAddresses, ds, envAddresses, registerTokenConfig,
+			currentTokenPoolSolanaState.tokenPoolProgramID.String()); err != nil {
+			e.Logger.Errorw("Failed to record onboarded token mint", "chain", cfg.ChainSelector, "mint", registerTokenConfig.TokenMint.String(), "err", err)
+			return cldf.ChangesetOutput{}, err
 		}
 	}
-	return ExecuteInstructionsAndBuildProposals(e, ExecuteConfig{ChainSelector: cfg.ChainSelector, MCMS: cfg.MCMS, Chain: solChainState.chain}, instructions, mcmsTxs)
+	out, err := ExecuteInstructionsAndBuildProposals(e, ExecuteConfig{ChainSelector: cfg.ChainSelector, MCMS: cfg.MCMS, Chain: solChainState.chain}, instructions, mcmsTxs)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	out.AddressBook = newAddresses
+	out.DataStore = ds
+	return out, nil
 }
 
 func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, registerTokenConfig OnboardTokenPoolConfig, routerState routerSolanaState, solChainState globalState) (solana.Instruction, error) {
@@ -203,30 +222,30 @@ func generateProposeTokenAdminRegistryAdministratorIx(e cldf.Environment, regist
 			return nil, fmt.Errorf("failed to extract data payload from ccip admin propose admin instruction: %w", err)
 		}
 		return solana.NewInstruction(routerState.routerProgramID, tempIx.Accounts(), ixData), nil
-	} else {
-		if !tokenAdminRegistryAccount.Administrator.IsZero() {
-			e.Logger.Infow("Skipping Override Pending Administrator as there is already an administrator")
-			return nil, nil
-		}
-		e.Logger.Infow("Running NewCcipAdminOverridePendingAdministratorInstruction")
-		// Use this if the proposed token admin registry admin set was incorrect
-		overridePendingAdministratorIx, err := solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
-			registerTokenConfig.ProposedOwner, // customer's admin of the tokenAdminRegistry PDA in the Router
-			routerState.routerConfigPDA,
-			tokenAdminRegistryPDA,
-			tokenMint,
-			routerState.ccipAdmin,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate instruction to override pending administrator: %w", err)
-		}
-		ixData, err := overridePendingAdministratorIx.Data()
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract data payload from ccip admin override pending admin instruction: %w", err)
-		}
-		return solana.NewInstruction(routerState.routerProgramID, overridePendingAdministratorIx.Accounts(), ixData), nil
 	}
+
+	if !tokenAdminRegistryAccount.Administrator.IsZero() {
+		e.Logger.Infow("Skipping Override Pending Administrator as there is already an administrator")
+		return nil, nil
+	}
+	e.Logger.Infow("Running NewCcipAdminOverridePendingAdministratorInstruction")
+	// Use this if the proposed token admin registry admin set was incorrect
+	overridePendingAdministratorIx, err := solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
+		registerTokenConfig.ProposedOwner, // customer's admin of the tokenAdminRegistry PDA in the Router
+		routerState.routerConfigPDA,
+		tokenAdminRegistryPDA,
+		tokenMint,
+		routerState.ccipAdmin,
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate instruction to override pending administrator: %w", err)
+	}
+	ixData, err := overridePendingAdministratorIx.Data()
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract data payload from ccip admin override pending admin instruction: %w", err)
+	}
+	return solana.NewInstruction(routerState.routerProgramID, overridePendingAdministratorIx.Accounts(), ixData), nil
 }
 
 func generateInitializeCLLTokenPoolIx(e cldf.Environment, config OnboardTokenPoolConfig, state tokenPoolSolanaState, solChainState globalState) (solana.Instruction, error) {
@@ -313,7 +332,7 @@ type routerSolanaState struct {
 }
 
 func loadRouterSolanaState(e cldf.Environment, cfg OnboardTokenPoolsForSelfServeConfig) (globalState, routerSolanaState, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return globalState{}, routerSolanaState{}, err
 	}
@@ -336,13 +355,13 @@ func loadRouterSolanaState(e cldf.Environment, cfg OnboardTokenPoolsForSelfServe
 		"",
 	)
 	return globalState{
-			chain:      chain,
-			chainState: chainState,
-		}, routerSolanaState{
-			routerProgramID: routerProgramAddress,
-			routerConfigPDA: routerConfigPDA,
-			ccipAdmin:       ccipAdmin,
-		}, nil
+		chain:      chain,
+		chainState: chainState,
+	}, routerSolanaState{
+		routerProgramID: routerProgramAddress,
+		routerConfigPDA: routerConfigPDA,
+		ccipAdmin:       ccipAdmin,
+	}, nil
 }
 
 type tokenPoolSolanaState struct {

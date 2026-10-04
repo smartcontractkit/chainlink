@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPrometheusLogger_Counters(t *testing.T) {
@@ -89,7 +90,7 @@ func TestPrometheusLogger_Counters(t *testing.T) {
 func assertCounterValue(t *testing.T, c prometheus.Counter, v int) {
 	var m io_prometheus_client.Metric
 	err := c.Write(&m)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, v, int(m.GetCounter().GetValue()))
 }
 

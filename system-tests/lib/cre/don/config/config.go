@@ -23,11 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -36,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 const TronEVMChainID = 3360022319
@@ -269,24 +267,22 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 
 func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, nodeMetadata *cre.NodeMetadata) corechainlink.Config {
 	c := corechainlink.Config{
-		Core: coretoml.Core{
-			Feature: coretoml.Feature{
-				LogPoller: new(true),
-			},
-			Log: coretoml.Log{
-				JSONConsole: new(true),
-				Level:       new(coretoml.LogLevel(zapcore.DebugLevel)),
-			},
-			OCR2: coretoml.OCR2{
-				Enabled:              new(true),
-				DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
-				ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
-			},
-			CRE: coretoml.CreConfig{
-				EnableDKGRecipient:   new(true),
-				UseLocalTimeProvider: new(false),
-				DebugMode:            new(true),
-			},
+		Feature: coretoml.Feature{
+			LogPoller: new(true),
+		},
+		Log: coretoml.Log{
+			JSONConsole: new(true),
+			Level:       new(coretoml.LogLevel(zapcore.DebugLevel)),
+		},
+		OCR2: coretoml.OCR2{
+			Enabled:              new(true),
+			DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+			ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
+		},
+		CRE: coretoml.CreConfig{
+			EnableDKGRecipient:   new(true),
+			UseLocalTimeProvider: new(false),
+			DebugMode:            new(true),
 		},
 	}
 
@@ -298,7 +294,7 @@ func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, no
 			"node.don":         donMetadata.Name,
 			"node.index":       strconv.Itoa(nodeMetadata.Index),
 		}
-		resourceAttributes["don_family"] = donMetadata.DonFamily // OTel label; mirrors nodeset pairing key
+		resourceAttributes["don_family"] = donMetadata.DonFamily() // OTel label; mirrors nodeset pairing key
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             new(true),
 			Endpoint:            new(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
@@ -366,7 +362,8 @@ func addBootstrapNodeConfig(
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{
@@ -468,7 +465,8 @@ func addWorkerNodeConfig(
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{
@@ -561,7 +559,7 @@ func addWorkerNodeConfig(
 
 		gateways := []coretoml.ConnectorGateway{}
 		// Workflow nodes only receive gateway connectors paired to their don_family.
-		connectors := topology.GatewayConnectorsForDonFamily(donMetadata.DonFamily)
+		connectors := topology.GatewayConnectorsForDonFamily(donMetadata.DonFamily())
 		if len(connectors.Configurations) > 0 {
 			for _, gateway := range connectors.Configurations {
 				gateways = append(gateways, gateway.ToConnectorGateway())
@@ -616,10 +614,16 @@ func addGatewayNodeConfig(
 		existingConfig.P2P.V2.ListenAddresses = new([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)})
 	}
 
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstrapperPeerID, []string{ocrPeeringData.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
+	if ocrBErr != nil {
+		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
+	}
+
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled: new(false),
+				Enabled:              new(false),
+				DefaultBootstrappers: new([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 			},
 		},
 		SharedPeering: coretoml.SharedPeering{
@@ -807,6 +811,10 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	return solChain, nil
 }
 
+// stellarMaxResourceFeeStroops is the per-transaction Soroban resource fee cap applied to the
+// Stellar TXM in Local CRE nodes: 10_000_000 stroops = 1 XLM.
+const stellarMaxResourceFeeStroops = int64(10_000_000)
+
 type stellarChain struct {
 	Name    string
 	ChainID string
@@ -878,14 +886,12 @@ func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	tronRPC := strings.Replace(evmChain.HTTPRPC, "jsonrpc", "wallet", 1)
 	return evmconfigtoml.EVMConfig{
-		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-		Chain: evmconfigtoml.Chain{
-			AutoCreateKey:         new(false),
-			ChainType:             chaintype.NewConfig("tron"),
-			LogBroadcasterEnabled: new(false),
-			NodePool: evmconfigtoml.NodePool{
-				NewHeadsPollInterval: commonconfig.MustNewDuration(10 * time.Second),
-			},
+		ChainID:               sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		AutoCreateKey:         new(false),
+		ChainType:             chaintype.NewConfig("tron"),
+		LogBroadcasterEnabled: new(false),
+		NodePool: evmconfigtoml.NodePool{
+			NewHeadsPollInterval: commonconfig.MustNewDuration(10 * time.Second),
 		},
 		Nodes: []*evmconfigtoml.Node{
 			{
@@ -899,10 +905,8 @@ func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 
 func buildEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	return evmconfigtoml.EVMConfig{
-		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-		Chain: evmconfigtoml.Chain{
-			AutoCreateKey: new(false),
-		},
+		ChainID:       sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		AutoCreateKey: new(false),
 		Nodes: []*evmconfigtoml.Node{
 			{
 				Name:    new(evmChain.Name),
@@ -963,6 +967,13 @@ func appendStellarChain(existingConfig *corechainlink.RawConfigs, stChain *stell
 	*existingConfig = append(*existingConfig, corechainlink.RawConfig{
 		"Enabled": true,
 		"ChainID": stChain.ChainID,
+		"TxManager": map[string]any{
+			// Cap on the Soroban resource fee per transaction, in stroops. The chainlink-stellar
+			// TXM rejects a tx at assembly time when the simulated resource fee exceeds this cap.
+			// A forwarder -> data feeds cache write simulates at ~1.7M stroops on localnet, above
+			// the plugin default of 1_000_000, so set it explicitly to a value with headroom.
+			"MaxResourceFee": stellarMaxResourceFeeStroops,
+		},
 		"Nodes": []map[string]any{
 			{
 				"Name": stChain.Name,

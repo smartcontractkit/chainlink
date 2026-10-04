@@ -28,7 +28,7 @@ func testAggregator(t *testing.T, mcr *mockCapabilitiesRegistry) *baseAggregator
 }
 
 func makeNodes(t *testing.T, signers []string) []capabilities.Node {
-	nodes := []capabilities.Node{}
+	nodes := make([]capabilities.Node, 0, len(signers))
 	for idx, s := range signers {
 		b, err := hex.DecodeString(s)
 		require.NoError(t, err)
@@ -186,7 +186,7 @@ func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T
 	resp, err := agg.Aggregate(t.Context(), logger.Test(t), currResp.ID, responses, currResp)
 	require.NoError(t, err)
 
-	respDigests := []string{}
+	respDigests := make([]string, 0, 3)
 	for _, r := range []*jsonrpc.Response[json.RawMessage]{oldResp1, oldResp2, currResp} {
 		dig, ierr := r.Digest()
 		require.NoError(t, ierr)

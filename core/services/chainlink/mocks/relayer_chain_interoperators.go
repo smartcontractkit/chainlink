@@ -49,7 +49,7 @@ func (f *FakeRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]l
 }
 
 func (f *FakeRelayerChainInteroperators) Slice() []loop.Relayer {
-	var relayers []loop.Relayer
+	relayers := make([]loop.Relayer, 0, len(f.Relayers))
 
 	for _, value := range f.Relayers {
 		relayers = append(relayers, value)

@@ -230,10 +230,10 @@ func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
 	telemPayload := synchronization.TelemPayload{
 		Telemetry:     []byte("Test telemetry"),
 		ContractID:    "0xabc",
-		TelemType:     synchronization.OCR2Automation,
+		TelemType:     synchronization.OCR2Median,
 		ChainSelector: 99999,
-		Domain:        "automation",
-		Entity:        "ocr.v2.automation.telemetry",
+		Domain:        "data-feeds",
+		Entity:        "ocr.v2.median.telemetry",
 		Network:       "ethereum-mainnet",
 	}
 

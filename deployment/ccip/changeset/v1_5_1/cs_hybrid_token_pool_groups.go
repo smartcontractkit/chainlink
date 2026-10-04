@@ -6,11 +6,11 @@ import (
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_5_1"
@@ -36,10 +36,20 @@ const (
 type GroupUpdateConfig struct {
 	RemoteChainSelector uint64
 	Group               Group
-	RemoteChainSupply   *big.Int
+
+	// RemoteChainSupply is the backing amount to mint or burn, in the LOCAL token's base
+	// units. Where the remote chain's decimals differ, this is not the remote supply.
+	RemoteChainSupply *big.Int
+
+	// RemoteSupply states the same supply in the remote chain's decimal domain, and is
+	// required whenever RemoteChainSupply is non-zero.
+	RemoteSupply *shared.RemoteSupply
 }
 
-func (g *GroupUpdateConfig) Validate(contract *hybrid_external.HybridWithExternalMinterFastTransferTokenPool) error {
+func (g *GroupUpdateConfig) Validate(
+	env cldf.Environment,
+	contract *hybrid_external.HybridWithExternalMinterFastTransferTokenPool,
+) error {
 	if err := cldf.IsValidChainSelector(g.RemoteChainSelector); err != nil {
 		return fmt.Errorf("invalid remote chain selector %d: %w", g.RemoteChainSelector, err)
 	}
@@ -61,6 +71,7 @@ func (g *GroupUpdateConfig) Validate(contract *hybrid_external.HybridWithExterna
 	if err != nil {
 		return fmt.Errorf("failed to check if chain %d is supported: %w", g.RemoteChainSelector, err)
 	}
+
 	if !supported {
 		return fmt.Errorf("remote chain %d is not supported by the token pool", g.RemoteChainSelector)
 	}
@@ -70,11 +81,45 @@ func (g *GroupUpdateConfig) Validate(contract *hybrid_external.HybridWithExterna
 	if err != nil {
 		return fmt.Errorf("failed to get current group for chain %d: %w", g.RemoteChainSelector, err)
 	}
+
 	if Group(currentGroup) == g.Group {
 		return fmt.Errorf("remote chain %d is already in group %d", g.RemoteChainSelector, g.Group)
 	}
 
-	return nil
+	// A group change that migrates no liquidity needs no remote supply.
+	if g.RemoteChainSupply.Sign() == 0 {
+		return nil
+	}
+
+	if g.RemoteSupply == nil {
+		return fmt.Errorf("remote chain %d: RemoteChainSupply is non-zero but no RemoteSupply was given, so the local amount cannot be derived", g.RemoteChainSelector)
+	}
+
+	opts := &bind.CallOpts{Context: env.GetContext()}
+
+	localDecimals, err := contract.GetTokenDecimals(opts)
+	if err != nil {
+		return fmt.Errorf("failed to read local token decimals from pool %s: %w", contract.Address(), err)
+	}
+
+	remoteToken, err := contract.GetRemoteToken(opts, g.RemoteChainSelector)
+	if err != nil {
+		return fmt.Errorf("failed to read remote token for chain %d: %w", g.RemoteChainSelector, err)
+	}
+
+	verified, err := shared.VerifyRemoteDecimals(env.GetContext(), env, g.RemoteChainSelector, remoteToken, g.RemoteSupply.Decimals)
+	if err != nil {
+		return err
+	}
+
+	if !verified {
+		env.Logger.Warnw("Remote token decimals could not be verified on chain, relying on the supplied value",
+			"remoteChainSelector", g.RemoteChainSelector,
+			"declaredDecimals", g.RemoteSupply.Decimals,
+		)
+	}
+
+	return shared.ValidateRemoteChainSupply(*g.RemoteSupply, g.RemoteChainSupply, localDecimals, g.RemoteChainSelector)
 }
 
 type HybridTokenPoolUpdateGroupsConfig struct {
@@ -140,7 +185,7 @@ func (c HybridTokenPoolUpdateGroupsConfig) Validate(env cldf.Environment) error 
 		}
 
 		for _, update := range groupUpdates {
-			err := update.Validate(pool)
+			err := update.Validate(env, pool)
 			if err != nil {
 				return fmt.Errorf("failed to validate group update for chain selector %d: %w", chainSelector, err)
 			}

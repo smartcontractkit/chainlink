@@ -292,9 +292,9 @@ func encodeBytes(b []byte) []byte {
 func parseExtraDataMap(input map[string]any, sourceChainSelector ccipocr3.ChainSelector) (*big.Int, [32]byte, error) {
 	// gasLimit key differs by source family:
 	//   - SuiExtraArgsV1 (EVM/Sui sources, ABI/BCS) uses "gasLimit" (lowercase).
-	//   - Solana GenericExtraArgsV2 (Borsh, tag 0x181dcf10) uses "GasLimit" — the Borsh
-	//     struct field name emitted by ccipsolana.ExtraDataDecoder. Solana sends
-	//     GenericExtraArgsV2 to non-SVM dests (the Solana fee-quoter has no SuiExtraArgsV1).
+	//   - Solana (Borsh) uses "GasLimit" — the Borsh struct field name emitted by
+	//     ccipsolana.ExtraDataDecoder — for both GenericExtraArgsV2 (tag 0x181dcf10) and
+	//     SuiExtraArgsV1 (tag 0x21ea4ca9, chainlink-ccip PR #2239).
 	// Casing tolerance here is only to locate the gas limit; it carries no behavioral risk.
 	outputGas, ok := input["gasLimit"]
 	if !ok {
@@ -313,14 +313,25 @@ func parseExtraDataMap(input map[string]any, sourceChainSelector ccipocr3.ChainS
 	sourceFamily, err := chainsel.GetSelectorFamily(uint64(sourceChainSelector))
 	isSolanaSource := err == nil && sourceFamily == chainsel.FamilySolana
 
-	// tokenReceiver is carried by SuiExtraArgsV1 but NOT by Solana GenericExtraArgsV2.
-	// For Solana→Sui the on-chain Solana message cannot convey a separate token receiver, so
-	// the off-chain Any2SuiRampMessage is built with tokenReceiver = 0 (matching the EVM→Sui
-	// message-only convention). Default to zero ONLY for Solana sources: SuiExtraArgsV1
-	// (EVM/Sui sources) must carry tokenReceiver, so a missing key there is a malformed/partial
-	// decode and must error rather than silently produce a wrong hash. Token Solana→Sui
-	// transfers are not supported by this path (Solana has no SuiExtraArgsV1).
+	// tokenReceiver lookup is case-tolerant: the Solana Borsh decoder
+	// (ccipsolana.ExtraDataDecoder) emits map keys = Go struct field names, so a SuiExtraArgsV1
+	// decode surfaces "TokenReceiver" (capital T) and "GasLimit" (capital, already tolerated
+	// above). EVM/Sui sources decode via ABI/BCS and use lowercase "tokenReceiver".
+	//
+	// Solana→Sui has two modes:
+	//   - GenericExtraArgsV2 (the live encoding until the on-chain Solana dest config switches
+	//     to CHAIN_FAMILY_SELECTOR_SUI): message-only, no tokenReceiver key. For a Solana source
+	//     we default tokenReceiver to zero so the off-chain Any2SuiRampMessage is valid
+	//     (matching the EVM→Sui message-only convention).
+	//   - SuiExtraArgsV1 (chainlink-ccip PR #2239; enabled once the dest config switches):
+	//     carries a real "TokenReceiver" (non-zero for token transfers, zero for message-only),
+	//     found by the capital-key lookup below.
+	// A missing tokenReceiver on a non-Solana source (EVM/Sui SuiExtraArgsV1 must carry it) is a
+	// malformed/partial decode and must error rather than silently produce a wrong hash.
 	tokenReceiver, ok := input["tokenReceiver"]
+	if !ok {
+		tokenReceiver, ok = input["TokenReceiver"]
+	}
 	if !ok {
 		if !isSolanaSource {
 			return nil, [32]byte{}, errors.New("token receiver not found in extra data map")

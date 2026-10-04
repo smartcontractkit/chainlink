@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"crypto/tls"
 	"encoding/hex"
 	"flag"
@@ -88,20 +87,9 @@ func SetupEnv(overrideNonce bool) Environment {
 	PanicErr(err)
 
 	// Owner key. Make sure it has eth
-	b, err := hex.DecodeString(accountKey)
+	privateKey, err := crypto.HexToECDSA(accountKey)
 	PanicErr(err)
-	d := new(big.Int).SetBytes(b)
-
-	pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
-	privateKey := ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: crypto.S256(),
-			X:     pkX,
-			Y:     pkY,
-		},
-		D: d,
-	}
-	owner, err := bind.NewKeyedTransactorWithChainID(&privateKey, big.NewInt(chainID))
+	owner, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(chainID))
 	PanicErr(err)
 	// Explicitly set gas price to ensure non-eip 1559
 	gp, err := ec.SuggestGasPrice(context.Background())
@@ -121,10 +109,10 @@ func SetupEnv(overrideNonce bool) Environment {
 		block, err := ec.BlockNumber(context.Background())
 		PanicErr(err)
 
-		nonce, err := ec.NonceAt(context.Background(), owner.From, big.NewInt(int64(block)))
+		nonce, err := ec.NonceAt(context.Background(), owner.From, new(big.Int).SetUint64(block))
 		PanicErr(err)
 
-		owner.Nonce = big.NewInt(int64(nonce))
+		owner.Nonce = new(big.Int).SetUint64(nonce)
 	}
 	owner.GasPrice = gp.Mul(gp, big.NewInt(2))
 	fmt.Println("Modified Gas Price that will be set:", owner.GasPrice, "wei")
@@ -232,51 +220,6 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 	return
 }
 
-func automationExplorerNetworkName(chainID int64) (prefix string) {
-	switch chainID {
-	case 1: // ETH mainnet
-		prefix = "mainnet"
-	case 5: // Goerli
-		prefix = "goerli"
-	case 11155111: // Sepolia
-		prefix = "sepolia"
-
-	case 420: // Optimism Goerli
-		prefix = "optimism-goerli"
-
-	case ArbitrumGoerliChainID: // Arbitrum Goerli
-		prefix = "arbitrum-goerli"
-	case ArbitrumOneChainID: // Arbitrum mainnet
-		prefix = "arbitrum"
-	case ArbitrumSepoliaChainID: // Arbitrum Sepolia
-		prefix = "arbitrum-sepolia"
-
-	case 56: // BSC mainnet
-		prefix = "bsc"
-	case 97: // BSC testnet
-		prefix = "bnb-chain-testnet"
-
-	case 137: // Polygon mainnet
-		prefix = "polygon"
-	case 80001: // Polygon Mumbai testnet
-		prefix = "mumbai"
-
-	case 250: // Fantom mainnet
-		prefix = "fantom"
-	case 4002: // Fantom testnet
-		prefix = "fantom-testnet"
-
-	case 43114: // Avalanche mainnet
-		prefix = "avalanche"
-	case 43113: // Avalanche testnet
-		prefix = "fuji"
-
-	default: // Unknown chain, return prefix as-is
-		prefix = "<NOT IMPLEMENTED>"
-	}
-	return
-}
-
 // ExplorerLink creates a block explorer link for the given transaction hash. If the chain ID is
 // unrecognized, the hash is returned as-is.
 func ExplorerLink(chainID int64, txHash common.Hash) string {
@@ -351,7 +294,7 @@ func ConfirmCodeAt(ctx context.Context, client *ethclient.Client, addr common.Ad
 // of *big.Int objects.
 func ParseBigIntSlice(arg string) (ret []*big.Int) {
 	parts := strings.Split(arg, ",")
-	ret = []*big.Int{}
+	ret = make([]*big.Int, 0, len(parts))
 	for _, part := range parts {
 		ret = append(ret, decimal.RequireFromString(part).BigInt())
 	}
@@ -374,7 +317,7 @@ func ParseIntSlice(arg string) (ret []int) {
 // of common.Address objects.
 func ParseAddressSlice(arg string) (ret []common.Address) {
 	parts := strings.Split(arg, ",")
-	ret = []common.Address{}
+	ret = make([]common.Address, 0, len(parts))
 	for _, part := range parts {
 		ret = append(ret, common.HexToAddress(part))
 	}
@@ -385,7 +328,7 @@ func ParseAddressSlice(arg string) (ret []common.Address) {
 // common.Hash objects.
 func ParseHashSlice(arg string) (ret []common.Hash) {
 	parts := strings.Split(arg, ",")
-	ret = []common.Hash{}
+	ret = make([]common.Hash, 0, len(parts))
 	for _, part := range parts {
 		ret = append(ret, common.HexToHash(part))
 	}
@@ -410,7 +353,7 @@ func FundNode(e Environment, address string, fundingAmount *big.Int) {
 	block, err := e.Ec.BlockNumber(context.Background())
 	PanicErr(err)
 
-	nonce, err := e.Ec.NonceAt(context.Background(), e.Owner.From, big.NewInt(int64(block)))
+	nonce, err := e.Ec.NonceAt(context.Background(), e.Owner.From, new(big.Int).SetUint64(block))
 	PanicErr(err)
 	// Special case for Arbitrum since gas estimation there is different.
 
@@ -601,19 +544,21 @@ func IsPolygonEdgeNetwork(chainID int64) bool {
 }
 
 func CalculateLatestBlockHeader(env Environment, blockNumberInput int) (err error) {
-	blockNumber := uint64(blockNumberInput)
+	var blockNumber uint64
 	if blockNumberInput == -1 {
 		blockNumber, err = env.Ec.BlockNumber(context.Background())
 		if err != nil {
 			return fmt.Errorf("failed to fetch latest block: %w", err)
 		}
+	} else {
+		blockNumber = uint64(blockNumberInput) //nolint:gosec // block number fits in uint64
 	}
 
 	// GetRLPHeaders method increments the blockNum sent by 1 and then fetches
 	// block headers for the child block.
-	blockNumber = blockNumber - 1
+	blockNumber--
 
-	blockNumberBigInts := []*big.Int{big.NewInt(int64(blockNumber))}
+	blockNumberBigInts := []*big.Int{new(big.Int).SetUint64(blockNumber)}
 	headers, hashes, err := GetRlpHeaders(env, blockNumberBigInts, true)
 	if err != nil {
 		fmt.Println(err)
@@ -635,8 +580,4 @@ func CalculateLatestBlockHeader(env Environment, blockNumberInput int) (err erro
 func IsAvaxNetwork(chainID int64) bool {
 	return chainID == 43114 || // C-chain mainnet
 		chainID == 43113 // Fuji testnet
-}
-
-func UpkeepLink(chainID int64, upkeepID *big.Int) string {
-	return fmt.Sprintf("https://automation.chain.link/%s/%s", automationExplorerNetworkName(chainID), upkeepID.String())
 }

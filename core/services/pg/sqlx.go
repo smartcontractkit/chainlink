@@ -8,7 +8,9 @@ import (
 	"github.com/scylladb/go-reflectx"
 )
 
-// Queryer is deprecated. Use sqlutil.DataSource instead
+// Queryer is deprecated.
+//
+// Deprecated: use sqlutil.DataSource instead.
 type Queryer interface {
 	sqlx.Ext
 	sqlx.ExtContext

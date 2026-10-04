@@ -19,7 +19,7 @@ const defaultHeartbeatInterval = 1 * time.Second
 // Defaults for the durable emitter tuning knobs (mirrored in docs/core.toml).
 const (
 	defaultDurableEmitterRetransmitBatchSize      = 500
-	defaultDurableEmitterEventTTL                 = 1 * time.Hour
+	defaultDurableEmitterEventTTL                 = 6 * time.Hour
 	defaultDurableEmitterInsertBatchFlushInterval = 50 * time.Millisecond
 )
 

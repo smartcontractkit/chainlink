@@ -10,7 +10,7 @@ permissions: {}
 jobs:
   checks:
     name: "Checks"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
@@ -20,7 +20,7 @@ jobs:
       prerelease-phase: ${{ steps.detect-prerelease-phase.outputs.prerelease-phase }}
       is-hotfix: ${{ steps.detect-hotfix.outputs.is-hotfix }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -98,7 +98,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f7223bc10928ba2ac7028fe3fae1d435b3bbbf6a # reusable-docker-build-publish/1.2.0
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b7c347810a36a2d42dc039e3efd5fb86c7f7fa97 # v1.8.0 , intentionally pinned to commit for security
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-east-1
@@ -106,6 +106,7 @@ jobs:
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
       docker-target: final
+      # No APT_CACHE_BUST needed: layer cache is disabled below, so apt always runs fresh.
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
@@ -138,7 +139,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f7223bc10928ba2ac7028fe3fae1d435b3bbbf6a # reusable-docker-build-publish/1.2.0
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@b7c347810a36a2d42dc039e3efd5fb86c7f7fa97 # v1.8.0 , intentionally pinned to commit for security
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-east-1
@@ -146,6 +147,7 @@ jobs:
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
       docker-target: final
+      # No APT_CACHE_BUST needed: layer cache is disabled below, so apt always runs fresh.
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
@@ -184,7 +186,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -227,6 +229,37 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
           oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+
+  # Hand every image this build published to the deployment hub, which opens
+  # the tag-bump PRs in the deployment repos subscribed to them.
+  #
+  # This will eventually replace the `deploy` job in this workflow.
+  dispatch-release-fanout:
+    name: "Dispatch release fan-out"
+    needs: [checks, docker-core, docker-ccip]
+    # Fans out whatever published. Either image alone is a valid dispatch: the
+    # action drops the empty entry, and the hub routes per stream.
+    #
+    # !cancelled() rather than always(): a cancelled release must not go on to
+    # request deployment PRs for the images it had already pushed.
+    if: |
+      !cancelled() && (
+        needs.docker-core.result == 'success' ||
+        needs.docker-ccip.result == 'success'
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Dispatch release fan-out
+        uses: $/.github/actions/dispatch-release-fanout
+        with:
+          gati-profile: ${{ secrets.GATI_PROFILE_IMAGE_BUMP_HUB }}
+          hub-repo: ${{ secrets.REPO_IMAGE_BUMP_HUB }}
+          images: |
+            core=${{ needs.docker-core.result == 'success' && needs.docker-core.outputs.docker-manifest-tag || '' }}
+            ccip=${{ needs.docker-ccip.result == 'success' && needs.docker-ccip.outputs.docker-manifest-tag || '' }}
 
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.

@@ -37,7 +37,6 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 	gError := errors.New("error")
 	fakeKeys := []ocr2key.KeyBundle{
 		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm"),
-		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "cosmos"),
 		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "solana"),
 		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "starknet"),
 		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "aptos"),

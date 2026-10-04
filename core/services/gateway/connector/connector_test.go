@@ -20,7 +20,7 @@ import (
 const (
 	defaultConfig = `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 AuthMinChallengeLen = 10
 AuthTimestampToleranceSec = 5
 
@@ -36,14 +36,14 @@ URL = "wss://example.com:8090/node_endpoint"
 	testMethod2 = "test_method_2"
 )
 
-func parseTOMLConfig(t *testing.T, tomlConfig string) *ConnectorConfig {
-	var cfg ConnectorConfig
+func parseTOMLConfig(t *testing.T, tomlConfig string) *Config {
+	var cfg Config
 	err := toml.Unmarshal([]byte(tomlConfig), &cfg)
 	require.NoError(t, err)
 	return &cfg
 }
 
-func newTestConnector(t *testing.T, config *ConnectorConfig) (*gatewayConnector, *gatewaymocks.Signer, *gatewaymocks.GatewayConnectorHandler) {
+func newTestConnector(t *testing.T, config *Config) (*gatewayConnector, *gatewaymocks.Signer, *gatewaymocks.GatewayConnectorHandler) {
 	signer := gatewaymocks.NewSigner(t)
 	handler := gatewaymocks.NewGatewayConnectorHandler(t)
 	clock := clockwork.NewFakeClock()
@@ -58,7 +58,7 @@ func TestGatewayConnector_NewGatewayConnector_ValidConfig(t *testing.T) {
 
 	tomlConfig := parseTOMLConfig(t, `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 
 [[Gateways]]
 Id = "example_gateway"
@@ -74,19 +74,19 @@ func TestGatewayConnector_NewGatewayConnector_InvalidConfig(t *testing.T) {
 	invalidCases := map[string]string{
 		"invalid DON ID": `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = ""
+DonID = ""
 `,
 		"invalid DON ID length": `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "012345678901234567890123456789012345678901234567890123456789012345"
+DonID = "012345678901234567890123456789012345678901234567890123456789012345"
 `,
 		"partial per-gateway DonID": `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 
 [[Gateways]]
 Id = "gateway_us"
-DonId = "gateway_don_us"
+DonID = "gateway_don_us"
 URL = "ws://localhost:8081/us"
 
 [[Gateways]]
@@ -95,11 +95,11 @@ URL = "ws://localhost:8081/eu"
 `,
 		"invalid node address": `
 NodeAddress = "2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 `,
 		"duplicate gateway ID": `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 
 [[Gateways]]
 Id = "example_gateway"
@@ -111,7 +111,7 @@ URL = "ws://localhost:8081/b"
 `,
 		"duplicate gateway URL": `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 
 [[Gateways]]
 Id = "gateway_A"
@@ -181,8 +181,8 @@ func TestGatewayConnector_ChallengeResponse(t *testing.T) {
 	require.NoError(t, err)
 
 	challenge := network.ChallengeElems{
-		Timestamp:      uint32(now.Unix()),
-		GatewayId:      "example_gateway",
+		Timestamp:      uint32(now.Unix()), //nolint:gosec // G115: uint32 timestamp matches the auth handshake protocol
+		GatewayID:      "example_gateway",
 		ChallengeBytes: []byte("1234567890"),
 	}
 
@@ -203,9 +203,9 @@ func TestGatewayConnector_ChallengeResponse(t *testing.T) {
 	_, err = connector.ChallengeResponse(t.Context(), url, network.PackChallenge(&badChallenge))
 	require.Equal(t, network.ErrChallengeTooShort, err)
 
-	// invalid GatewayId
+	// invalid GatewayID
 	badChallenge = challenge
-	badChallenge.GatewayId = "wrong"
+	badChallenge.GatewayID = "wrong"
 	_, err = connector.ChallengeResponse(t.Context(), url, network.PackChallenge(&badChallenge))
 	require.Equal(t, network.ErrAuthInvalidGateway, err)
 }

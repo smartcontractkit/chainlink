@@ -11,19 +11,19 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type testPluginOption func(*testPluginBuildOpts)
 
 type testPluginBuildOpts struct {
-	lggr                                 logger.Logger
+	lggr                                 logger.SugaredLogger
 	store                                *requests.Store[*vaulttypes.Request]
 	publicKey                            *tdh2easy.PublicKey
 	privateKeyShare                      *tdh2easy.PrivateShare
@@ -44,7 +44,7 @@ type testPluginBuildOpts struct {
 }
 
 func withLggr(lggr logger.Logger) testPluginOption {
-	return func(o *testPluginBuildOpts) { o.lggr = lggr }
+	return func(o *testPluginBuildOpts) { o.lggr = logger.Sugared(lggr) }
 }
 
 func withStore(store *requests.Store[*vaulttypes.Request]) testPluginOption {
@@ -78,7 +78,7 @@ func withVaultPendingQueueStallThreshold(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultPendingQueueStallThreshold = n }
 }
 
-func withOnchainCfg(n int, f int) testPluginOption {
+func withOnchainCfg(n, f int) testPluginOption {
 	return func(o *testPluginBuildOpts) {
 		o.onchainCfg = ocr3types.ReportingPluginConfig{N: n, F: f}
 	}
@@ -104,14 +104,10 @@ func withMaxObservationBytes(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.maxObservationBytesOverride = n }
 }
 
-func withMaxReportsPlusPrecursorBytes(n int) testPluginOption {
-	return func(o *testPluginBuildOpts) { o.maxReportsPlusPrecursorBytesOverride = n }
-}
-
 func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPlugin {
 	t.Helper()
 	o := testPluginBuildOpts{
-		lggr:                              logger.TestLogger(t),
+		lggr:                              logger.TestSugared(t),
 		store:                             requests.NewStore[*vaulttypes.Request](),
 		onchainCfg:                        ocr3types.ReportingPluginConfig{N: 0, F: 0},
 		maxSecretsPerOwner:                1,
@@ -180,16 +176,16 @@ func makeTestValidator(
 ) *vaultcap.RequestValidator {
 	t.Helper()
 
-	cipherTextLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxCipherTextLengthBytes)*pkgconfig.Byte))
+	cipherTextLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxCipherTextLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
-	ownerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierOwnerLengthBytes)*pkgconfig.Byte))
+	ownerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxIdentifierOwnerLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
-	namespaceOwnerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierNamespaceOwnerLengthBytes)*pkgconfig.Byte))
+	namespaceOwnerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxIdentifierNamespaceOwnerLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
-	keyLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierKeyLengthBytes)*pkgconfig.Byte))
+	keyLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxIdentifierKeyLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
 	requestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxRequestBatchSize))
@@ -227,9 +223,9 @@ func makeReportingPluginConfig(
 	pendingQueueStallThresholdLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(0))
 	require.NoError(t, err)
 
-	var maxBlobPayloadLimiter limits.BoundLimiter[pkgconfig.Size]
+	var maxBlobPayloadLimiter limits.BoundLimiter[commonconfig.Size]
 	if maxBlobPayloadBytes > 0 {
-		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxBlobPayloadBytes)*pkgconfig.Byte))
+		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxBlobPayloadBytes)*commonconfig.Byte))
 	} else {
 		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
 	}

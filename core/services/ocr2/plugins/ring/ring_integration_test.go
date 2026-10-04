@@ -61,9 +61,9 @@ func TestRingStoreIntegration(t *testing.T) {
 
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
-		shardID, err := store.GetShardForWorkflow(ctx, "workflow1")
+		donID, err := store.GetShardForWorkflow(ctx, "workflow1")
 		require.NoError(t, err)
-		require.Equal(t, uint32(1), shardID)
+		require.Equal(t, uint32(1), donID)
 	})
 
 	t.Run("RingStore routes to multiple shards", func(t *testing.T) {
@@ -105,9 +105,9 @@ func TestRingStoreIntegration(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
-		shardID, err := store.GetShardForWorkflow(ctx, "cached-workflow")
+		donID, err := store.GetShardForWorkflow(ctx, "cached-workflow")
 		require.NoError(t, err)
-		require.Equal(t, uint32(0), shardID)
+		require.Equal(t, uint32(0), donID)
 	})
 }
 

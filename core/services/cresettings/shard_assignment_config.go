@@ -45,11 +45,11 @@ func ParseShardAssignmentConfig(raw string) (*ShardAssignmentConfig, error) {
 			return nil, errors.New("static_default_assignment must be an array of integers")
 		}
 		for _, iv := range vals {
-			shardID, err := toShardID(iv)
+			donID, err := toDonID(iv)
 			if err != nil {
-				return nil, fmt.Errorf("invalid shard ID in static_default_assignment: %w", err)
+				return nil, fmt.Errorf("invalid DON ID in static_default_assignment: %w", err)
 			}
-			cfg.StaticDefaultAssignment = append(cfg.StaticDefaultAssignment, shardID)
+			cfg.StaticDefaultAssignment = append(cfg.StaticDefaultAssignment, donID)
 		}
 	}
 
@@ -59,11 +59,11 @@ func ParseShardAssignmentConfig(raw string) (*ShardAssignmentConfig, error) {
 			return nil, errors.New("disabled_shards must be an array of integers")
 		}
 		for _, iv := range vals {
-			shardID, err := toShardID(iv)
+			donID, err := toDonID(iv)
 			if err != nil {
-				return nil, fmt.Errorf("invalid shard ID in disabled_shards: %w", err)
+				return nil, fmt.Errorf("invalid DON ID in disabled_shards: %w", err)
 			}
-			cfg.DisabledShards = append(cfg.DisabledShards, shardID)
+			cfg.DisabledShards = append(cfg.DisabledShards, donID)
 		}
 	}
 
@@ -92,11 +92,11 @@ func ParseShardAssignmentConfig(raw string) (*ShardAssignmentConfig, error) {
 			}
 			var shards []uint32
 			for _, iv := range vals {
-				shardID, err := toShardID(iv)
+				donID, err := toDonID(iv)
 				if err != nil {
-					return nil, fmt.Errorf("invalid shard ID in per_owner_assignment[%q]: %w", key, err)
+					return nil, fmt.Errorf("invalid DON ID in per_owner_assignment[%q]: %w", key, err)
 				}
-				shards = append(shards, shardID)
+				shards = append(shards, donID)
 			}
 			if len(shards) == 0 {
 				return nil, fmt.Errorf("per_owner_assignment[%q] must not be empty", key)
@@ -121,11 +121,11 @@ func ParseShardAssignmentConfig(raw string) (*ShardAssignmentConfig, error) {
 			}
 			var shards []uint32
 			for _, iv := range vals {
-				shardID, err := toShardID(iv)
+				donID, err := toDonID(iv)
 				if err != nil {
-					return nil, fmt.Errorf("invalid shard ID in per_org_assignment[%q]: %w", key, err)
+					return nil, fmt.Errorf("invalid DON ID in per_org_assignment[%q]: %w", key, err)
 				}
-				shards = append(shards, shardID)
+				shards = append(shards, donID)
 			}
 			if len(shards) == 0 {
 				return nil, fmt.Errorf("per_org_assignment[%q] must not be empty", key)
@@ -158,20 +158,20 @@ func ParseShardAssignmentConfig(raw string) (*ShardAssignmentConfig, error) {
 	return cfg, nil
 }
 
-func toShardID(v any) (uint32, error) {
+func toDonID(v any) (uint32, error) {
 	switch val := v.(type) {
 	case int64:
 		if val < 0 || val > 4294967295 {
-			return 0, fmt.Errorf("shard ID must be in range [0, 4294967295], got %d", val)
+			return 0, fmt.Errorf("DON ID must be in range [0, 4294967295], got %d", val)
 		}
 		return uint32(val), nil
 	case int:
 		if val < 0 || val > 4294967295 {
-			return 0, fmt.Errorf("shard ID must be in range [0, 4294967295], got %d", val)
+			return 0, fmt.Errorf("DON ID must be in range [0, 4294967295], got %d", val)
 		}
 		return uint32(val), nil
 	default:
-		return 0, fmt.Errorf("shard ID must be an integer, got %T", v)
+		return 0, fmt.Errorf("DON ID must be an integer, got %T", v)
 	}
 }
 

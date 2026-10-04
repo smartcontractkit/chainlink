@@ -167,7 +167,7 @@ func TestGetChainID(t *testing.T) {
 
 func TestParseEATelemetry(t *testing.T) {
 	ea, err := parseEATelemetry([]byte(bridgeResponse))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "data-source-name", ea.DataSource)
 	assert.Equal(t, int64(92233720368547760), ea.ProviderRequestedTimestamp)
 	assert.Equal(t, int64(-92233720368547760), ea.ProviderReceivedTimestamp)
@@ -179,14 +179,14 @@ func TestParseEATelemetry(t *testing.T) {
 }
 
 func TestGetJsonParsedValue(t *testing.T) {
-	resp := getJsonParsedValue(trrs[0], &trrs)
-	assert.Equal(t, 123456.123456789, *resp)
+	resp := getJSONParsedValue(trrs[0], &trrs)
+	assert.InEpsilon(t, 123456.123456789, *resp, 1e-9)
 
 	trrs[1].Result.Value = nil
-	resp = getJsonParsedValue(trrs[0], &trrs)
+	resp = getJSONParsedValue(trrs[0], &trrs)
 	assert.Nil(t, resp)
 
-	resp = getJsonParsedValue(trrs[1], &trrs)
+	resp = getJSONParsedValue(trrs[1], &trrs)
 	assert.Nil(t, resp)
 }
 
@@ -211,7 +211,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 		},
 	}
 
-	resp := getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	resp := getJSONParsedValue(trrsHexData[0], &trrsHexData)
 	assert.InDelta(t, 109519.0, *resp, 0)
 
 	trrsHexData = pipeline.TaskRunResults{
@@ -234,7 +234,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 		},
 	}
 
-	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	resp = getJSONParsedValue(trrsHexData[0], &trrsHexData)
 	assert.InDelta(t, 109519.0, *resp, 0)
 
 	trrsHexData = pipeline.TaskRunResults{
@@ -257,7 +257,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 		},
 	}
 
-	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	resp = getJSONParsedValue(trrsHexData[0], &trrsHexData)
 	assert.Nil(t, resp)
 
 	trrsHexData = pipeline.TaskRunResults{
@@ -280,7 +280,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 		},
 	}
 
-	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	resp = getJSONParsedValue(trrsHexData[0], &trrsHexData)
 	assert.Nil(t, resp)
 }
 
@@ -442,7 +442,8 @@ func TestCollectAndSend(t *testing.T) {
 			Result: pipeline.Result{
 				Value: bridgeResponse,
 			},
-		}}
+		},
+	}
 
 	observationTimestamp := ObservationTimestamp{
 		Round:        0,
@@ -467,7 +468,8 @@ func TestCollectAndSend(t *testing.T) {
 			Result: pipeline.Result{
 				Value: "[]",
 			},
-		}}
+		},
+	}
 	enhancedTelemChan <- EnhancedTelemetryData{
 		TaskRunResults: *badTrrs,
 		FinalResults:   *finalResult,
@@ -628,9 +630,9 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 
 	benchmarkPrice, bidPrice, askPrice := getPricesFromBridgeTask(lggr, taskRunResults[0], taskRunResults, 1)
 
-	require.Equal(t, 123456.123456, benchmarkPrice)
-	require.Equal(t, 1234567.1234567, bidPrice)
-	require.Equal(t, 321123.0, askPrice)
+	require.InEpsilon(t, 123456.123456, benchmarkPrice, 1e-9)
+	require.InEpsilon(t, 1234567.1234567, bidPrice, 1e-9)
+	require.InEpsilon(t, 321123.0, askPrice, 1e-9)
 
 	// now removing the TaskTags will throw off the parsed order - and we'll be parsing the "incorrect" prices
 	// according to the legacy ordering approach
@@ -639,23 +641,23 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 	jsonParseTaskBenchmark.Tags = ""
 
 	wrongBenchmarkPrice, wrongBidPrice, wrongAskPrice := getPricesFromBridgeTask(lggr, taskRunResults[0], taskRunResults, 1)
-	require.Equal(t, 1234567.1234567, wrongBenchmarkPrice)
-	require.Equal(t, 321123.0, wrongBidPrice)
-	require.Equal(t, 123456.123456, wrongAskPrice)
+	require.InEpsilon(t, 1234567.1234567, wrongBenchmarkPrice, 1e-9)
+	require.InEpsilon(t, 321123.0, wrongBidPrice, 1e-9)
+	require.InEpsilon(t, 123456.123456, wrongAskPrice, 1e-9)
 }
 
 func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
 	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
 
 	benchmarkPrice, bid, ask := getPricesFromBridgeTask(lggr, trrsMercuryV1[0], trrsMercuryV1, 1)
-	require.Equal(t, 123456.123456, benchmarkPrice)
-	require.Equal(t, 1234567.1234567, bid)
-	require.Equal(t, float64(321123), ask)
+	require.InEpsilon(t, 123456.123456, benchmarkPrice, 1e-9)
+	require.InEpsilon(t, 1234567.1234567, bid, 1e-9)
+	require.InEpsilon(t, float64(321123), ask, 1e-9)
 
 	benchmarkPrice, bid, ask = getPricesFromBridgeTask(lggr, trrsMercuryV1[0], pipeline.TaskRunResults{}, 1)
-	require.Equal(t, float64(0), benchmarkPrice)
-	require.Equal(t, float64(0), bid)
-	require.Equal(t, float64(0), ask)
+	require.InDelta(t, float64(0), benchmarkPrice, 1e-9)
+	require.InDelta(t, float64(0), bid, 1e-9)
+	require.InDelta(t, float64(0), ask, 1e-9)
 	require.Equal(t, 0, logs.Len())
 
 	tt := trrsMercuryV1[:2]
@@ -699,17 +701,18 @@ func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
 			Result: pipeline.Result{
 				Value: nil,
 			},
-		}}
+		},
+	}
 	benchmarkPrice, bid, ask = getPricesFromBridgeTask(lggr, trrsMercuryV1[0], trrs2, 3)
-	require.Equal(t, benchmarkPrice, float64(0))
-	require.Equal(t, bid, float64(0))
-	require.Equal(t, ask, float64(0))
+	require.InDelta(t, float64(0), benchmarkPrice, 1e-9)
+	require.InDelta(t, float64(0), bid, 1e-9)
+	require.InDelta(t, float64(0), ask, 1e-9)
 	require.Equal(t, 0, logs.Len())
 
 	benchmarkPrice, bid, ask = getPricesFromBridgeTask(lggr, trrsMercuryV1[0], trrsMercuryV2, 2)
-	require.Equal(t, 123456.123456, benchmarkPrice)
-	require.Equal(t, float64(0), bid)
-	require.Equal(t, float64(0), ask)
+	require.InEpsilon(t, 123456.123456, benchmarkPrice, 1e-9)
+	require.InDelta(t, float64(0), bid, 1e-9)
+	require.InDelta(t, float64(0), ask, 1e-9)
 }
 
 func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {
@@ -748,7 +751,7 @@ func TestParseBridgeRequestData(t *testing.T) {
 }
 
 func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
-	var taskViewFunctionParseValue = func() pipeline.MultiplyTask {
+	taskViewFunctionParseValue := func() pipeline.MultiplyTask {
 		task := pipeline.MultiplyTask{
 			BaseTask: pipeline.NewBaseTask(3, "ds1_parse", nil, nil, 3),
 			Times:    "1",
@@ -757,12 +760,12 @@ func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
 		return task
 	}()
 
-	var taskViewFunctionDecode = pipeline.ETHABIDecodeTask{
+	taskViewFunctionDecode := pipeline.ETHABIDecodeTask{
 		ABI:      "uint256 data",
 		BaseTask: pipeline.NewBaseTask(2, "ds1_decode", nil, []pipeline.Task{&taskViewFunctionParseValue}, 2),
 	}
 
-	var taskViewFunctionJSONParse = pipeline.JSONParseTask{
+	taskViewFunctionJSONParse := pipeline.JSONParseTask{
 		BaseTask: pipeline.NewBaseTask(1, "ds1_parse", nil, []pipeline.Task{&taskViewFunctionDecode}, 1),
 	}
 
@@ -781,7 +784,7 @@ func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
 		  }
 		}`
 
-	var taskViewFunctionBridgeRequest = pipeline.BridgeTask{
+	taskViewFunctionBridgeRequest := pipeline.BridgeTask{
 		Name:        "bridge-view-function",
 		BaseTask:    pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{&taskViewFunctionJSONParse}, 0),
 		RequestData: `{"data":{"address":"0x1234","signature":"function stEthPerToken() external view returns (uint256)"}}`,
@@ -988,13 +991,15 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 
 	chTelem <- EnhancedTelemetryMercuryData{
 		TaskRunResults: pipeline.TaskRunResults{
-			pipeline.TaskRunResult{Task: &pipeline.BridgeTask{
-				Name:     "test-mercury-bridge-1",
-				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
-			},
+			pipeline.TaskRunResult{
+				Task: &pipeline.BridgeTask{
+					Name:     "test-mercury-bridge-1",
+					BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+				},
 				Result: pipeline.Result{
 					Value: nil,
-				}},
+				},
+			},
 		},
 		V1Observation: &mercuryv1.Observation{},
 		RepTimestamp: types.ReportTimestamp{
@@ -1103,13 +1108,15 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 
 	chTelem <- EnhancedTelemetryMercuryData{
 		TaskRunResults: pipeline.TaskRunResults{
-			pipeline.TaskRunResult{Task: &pipeline.BridgeTask{
-				Name:     "test-mercury-bridge-2",
-				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
-			},
+			pipeline.TaskRunResult{
+				Task: &pipeline.BridgeTask{
+					Name:     "test-mercury-bridge-2",
+					BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+				},
 				Result: pipeline.Result{
 					Value: nil,
-				}},
+				},
+			},
 		},
 		V2Observation: &mercuryv2.Observation{},
 		RepTimestamp: types.ReportTimestamp{

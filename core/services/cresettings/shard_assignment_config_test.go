@@ -141,7 +141,7 @@ hashed_owner_assignment = ["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"]
 	assert.Contains(t, err.Error(), "appears in both")
 }
 
-func TestParseShardAssignmentConfig_NegativeShardID(t *testing.T) {
+func TestParseShardAssignmentConfig_NegativeDonID(t *testing.T) {
 	t.Parallel()
 	raw := `
 static_default_assignment = [-1]

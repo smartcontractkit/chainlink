@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -31,7 +32,7 @@ type StandardCapabilities struct {
 	config               string
 	pluginRegistrar      plugins.RegistrarConfig
 	store                core.KeyValueStore
-	CapabilitiesRegistry core.CapabilitiesRegistry
+	CapabilitiesRegistry registry.CapabilitiesRegistry
 	relayerSet           core.RelayerSet
 	keystore             core.Keystore
 	oracleFactory        core.OracleFactory

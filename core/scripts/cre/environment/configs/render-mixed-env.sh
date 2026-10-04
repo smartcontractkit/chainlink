@@ -36,18 +36,30 @@ done
 export CRE_PULL_IMAGE
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-template="${script_dir}/mixed-env-don.toml.tmpl"
-output="${script_dir}/mixed-env-don.toml"
 
 if ! command -v envsubst >/dev/null 2>&1; then
   echo "error: envsubst not found (install gettext)" >&2
   exit 1
 fi
 
-# Restrict substitution to only these vars so no other '$' in the file is touched.
-envsubst '${CRE_PR_IMAGE} ${CRE_BASELINE_IMAGE} ${CRE_PULL_IMAGE}' < "${template}" > "${output}"
+# Render every mixed-env topology template in this directory. Each
+# mixed-env-*.toml.tmpl renders to its .tmpl-stripped counterpart, so adding a
+# new mixed-env topology needs no change here.
+shopt -s nullglob
+templates=("${script_dir}"/mixed-env-*.toml.tmpl)
+shopt -u nullglob
+if [[ "${#templates[@]}" -eq 0 ]]; then
+  echo "error: no mixed-env-*.toml.tmpl templates found in ${script_dir}" >&2
+  exit 1
+fi
 
-echo "Rendered ${output}"
+for template in "${templates[@]}"; do
+  output="${template%.tmpl}"
+  # Restrict substitution to only these vars so no other '$' in the file is touched.
+  envsubst '${CRE_PR_IMAGE} ${CRE_BASELINE_IMAGE} ${CRE_PULL_IMAGE}' < "${template}" > "${output}"
+  echo "Rendered ${output}"
+done
+
 echo "  CRE_PR_IMAGE=${CRE_PR_IMAGE}"
 echo "  CRE_BASELINE_IMAGE=${CRE_BASELINE_IMAGE}"
 echo "  pull_image=${CRE_PULL_IMAGE}"

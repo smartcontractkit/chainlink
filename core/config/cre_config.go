@@ -40,4 +40,6 @@ type CRELinking interface {
 	TLSEnabled() bool
 	// RequestTimeout bounds each organization lookup against the linking service.
 	RequestTimeout() time.Duration
+	// DurableCacheEnabled turns on durable caching of owner->orgID mappings (backed by Postgres).
+	DurableCacheEnabled() bool
 }

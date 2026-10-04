@@ -13,6 +13,3 @@ EIP1559DynamicFees = true
 # EIP-1559 does well on a smaller block history size
 BlockHistorySize = 4
 TransactionPercentile = 50
-
-[OCR2.Automation]
-GasLimit = 10500000

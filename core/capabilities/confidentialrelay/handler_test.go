@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -101,6 +104,7 @@ func (m *mockGatewayConnector) AddHandler(_ context.Context, methods []string, _
 	m.addedMethods = methods
 	return nil
 }
+
 func (m *mockGatewayConnector) RemoveHandler(_ context.Context, _ []string) error {
 	m.removed = true
 	return nil
@@ -149,17 +153,19 @@ func (m *mockCapRegistry) ConfigForCapability(_ context.Context, capID string, _
 	}
 	return capabilities.CapabilityConfiguration{}, fmt.Errorf("config not found: %s", capID)
 }
+
 func (m *mockCapRegistry) DONsForCapability(_ context.Context, capID string) ([]capabilities.DONWithNodes, error) {
 	if dons, ok := m.dons[capID]; ok {
 		return dons, nil
 	}
 	return nil, fmt.Errorf("no DONs found for: %s", capID)
 }
+
 func (m *mockCapRegistry) LocalNode(_ context.Context) (capabilities.Node, error) {
 	return m.localNode, nil
 }
 
-func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn core.GatewayConnector) *Handler {
+func newTestHandler(t *testing.T, registry registry.CapabilitiesRegistry, gwConn core.GatewayConnector) *Handler {
 	t.Helper()
 	lggr, err := logger.New()
 	require.NoError(t, err)
@@ -389,6 +395,7 @@ func secretsGetTestParams(t *testing.T) confidentialrelaytypes.SecretsRequestPar
 		Owner:            "0xab5801a7d398351b8be11c439e05c5b3259aec9b", // lowercase, should be normalized
 		ExecutionID:      "0000000000000000000000000000000000000000000000000000000000000001",
 		OrgID:            "org-123",
+		CallbackID:       7,
 		EnclavePublicKey: "aabbcc",
 		EnclaveConfig:    testEnclaveConfigPtr(),
 		Secrets: []confidentialrelaytypes.SecretIdentifier{
@@ -446,7 +453,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
+				require.NotEmpty(t, result.Signature.Signature)
+				require.Len(t, result.Signatures, 1) //nolint:staticcheck // SA1019 still populated for legacy readers
 				assertValidCapabilitySignature(t, params, result)
 
 				decoded, err := base64.StdEncoding.DecodeString(result.Result.Payload)
@@ -554,7 +562,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
+				require.NotEmpty(t, result.Signature.Signature)
+				require.Len(t, result.Signatures, 1) //nolint:staticcheck // SA1019 still populated for legacy readers
 				assertValidCapabilitySignature(t, params, result)
 				assert.Equal(t, "execution failed", result.Result.Error)
 				assert.Empty(t, result.Result.Payload)
@@ -575,7 +584,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				params.Attestation = ""
 				var result confidentialrelaytypes.SignedSecretsResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
+				require.NotEmpty(t, result.Signature.Signature)
+				require.Len(t, result.Signatures, 1) //nolint:staticcheck // SA1019 still populated for legacy readers
 				assertValidSecretsSignature(t, params, result)
 				require.Len(t, result.Result.Secrets, 1)
 				assert.Equal(t, "API_KEY", result.Result.Secrets[0].ID.Key)
@@ -585,6 +595,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.Len(t, helper.lastSecretsRequest.Requests, 1)
 				assert.Equal(t, "API_KEY", helper.lastSecretsRequest.Requests[0].Id)
 				assert.Equal(t, "main", helper.lastSecretsRequest.Requests[0].Namespace)
+				assert.Equal(t, int32(7), helper.lastSecretsRequest.CallbackId)
 			},
 		},
 		{
@@ -642,6 +653,47 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.NotNil(t, resp.Error)
 				// Vault system failures are internal errors → ErrInternal, not a user error.
 				assert.Equal(t, jsonrpc.ErrInternal, resp.Error.Code)
+			},
+		},
+		{
+			name:        "secrets get GetRawSecrets user error classified as invalid params",
+			registry:    secretsGetTestRegistry,
+			req:         secretsGetTestRequest,
+			workflowID:  "wf-secrets-1",
+			executionID: "0000000000000000000000000000000000000000000000000000000000000001",
+			helper: func(_ *testing.T) *mockExecutionHelper {
+				// Reproduces the real chain: the vault's public user caperrors.Error
+				// is serialized at the remote boundary, deserialized client-side,
+				// and wrapped by the engine.
+				serialized := caperrors.NewPublicUserError(
+					errors.New("could not validate get secrets request: request batch size exceeds maximum of 10: limit of 10 exceeded"),
+					caperrors.LimitExceeded,
+				).SerializeToRemoteString()
+				deserialized := caperrors.DeserializeErrorFromString(serialized)
+				return &mockExecutionHelper{secretsErr: fmt.Errorf("failed to execute vault.GetSecrets: error executing request: INTERNAL_ERROR : %w", deserialized)}
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.NotNil(t, resp.Error)
+				// Must reach the caller with the real cause, not "internal error".
+				assert.Equal(t, jsonrpc.ErrInvalidParams, resp.Error.Code)
+				assert.Contains(t, resp.Error.Message, "request batch size exceeds maximum of 10")
+				assert.NotEqual(t, internalErrorMessage, resp.Error.Message)
+			},
+		},
+		{
+			name:        "secrets get GetRawSecrets system error classified as internal",
+			registry:    secretsGetTestRegistry,
+			req:         secretsGetTestRequest,
+			workflowID:  "wf-secrets-1",
+			executionID: "0000000000000000000000000000000000000000000000000000000000000001",
+			helper: func(_ *testing.T) *mockExecutionHelper {
+				// Node-side failures carry no user classification: internal and masked.
+				return &mockExecutionHelper{secretsErr: errors.New("failed to get vault capability: not found")}
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.NotNil(t, resp.Error)
+				assert.Equal(t, jsonrpc.ErrInternal, resp.Error.Code)
+				assert.Equal(t, internalErrorMessage, resp.Error.Message)
 			},
 		},
 		{
@@ -714,8 +766,8 @@ func assertValidCapabilitySignature(
 	hash, err := result.Result.Hash(params)
 	require.NoError(t, err)
 	payload := confidentialrelaytypes.RelayResponseSignaturePayload(hash)
-	pubKey := ed25519.PublicKey(result.Signatures[0].Signer)
-	require.True(t, ed25519.Verify(pubKey, payload, result.Signatures[0].Signature))
+	pubKey := ed25519.PublicKey(result.Signature.Signer)
+	require.True(t, ed25519.Verify(pubKey, payload, result.Signature.Signature))
 }
 
 func assertValidSecretsSignature(
@@ -727,8 +779,8 @@ func assertValidSecretsSignature(
 	hash, err := result.Result.Hash(params)
 	require.NoError(t, err)
 	payload := confidentialrelaytypes.RelayResponseSignaturePayload(hash)
-	pubKey := ed25519.PublicKey(result.Signatures[0].Signer)
-	require.True(t, ed25519.Verify(pubKey, payload, result.Signatures[0].Signature))
+	pubKey := ed25519.PublicKey(result.Signature.Signer)
+	require.True(t, ed25519.Verify(pubKey, payload, result.Signature.Signature))
 }
 
 func TestHandler_Lifecycle(t *testing.T) {
@@ -1135,10 +1187,14 @@ func blockingCapExecHandler(t *testing.T, capacity int) (*Handler, *mockGatewayC
 func blockingCapExecRequest(t *testing.T, id string) *jsonrpc.Request[json.RawMessage] {
 	t.Helper()
 	req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-		WorkflowID:    "wf-1",
-		Owner:         testOwner,
-		ExecutionID:   capExecExecutionID,
-		ReferenceID:   "1",
+		WorkflowID:  "wf-1",
+		Owner:       testOwner,
+		ExecutionID: capExecExecutionID,
+		// ReferenceID varies with the request id so the burst is 8 distinct
+		// logical identities: the pending-claim dedup intentionally collapses
+		// same-identity requests, and this test guards dispatch concurrency, not
+		// dedup behavior.
+		ReferenceID:   id,
 		CapabilityID:  "my-cap@1.0.0",
 		Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
 		EnclaveConfig: testEnclaveConfigPtr(),
@@ -1179,4 +1235,248 @@ func TestHandler_ServesRequestsConcurrently(t *testing.T) {
 	close(helper.release)
 	require.Eventually(t, func() bool { return gwConn.respCount() == concurrent },
 		testWaitTimeout, time.Millisecond, "expected one response per request")
+}
+
+// TestHandler_RetryServesCachedResult verifies the completed-result memo: a
+// second gateway request for the same logical identity (same params, new
+// request id — what the enclave's retry loop produces) returns the cached
+// signed result without re-executing the capability.
+func TestHandler_RetryServesCachedResult(t *testing.T) {
+	t.Parallel()
+	reg := withEnclaveConfig(&mockCapRegistry{})
+	gwConn := &mockGatewayConnector{}
+	h := newTestHandler(t, reg, gwConn)
+	helper := &countingExecutionHelper{
+		capResp: &sdkpb.CapabilityResponse{
+			Response: &sdkpb.CapabilityResponse_Payload{Payload: &anypb.Any{Value: []byte("result-proto-bytes")}},
+		},
+	}
+	h.executionHandlers.AddExecution("wf-1", capExecExecutionID, helper)
+
+	mkReq := func(id string) *jsonrpc.Request[json.RawMessage] {
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   capExecExecutionID,
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+		req.ID = id
+		return req
+	}
+
+	// First request: executes the capability and returns a signed response.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-1")))
+	resp1 := gwConn.waitResp(t)
+	require.Nil(t, resp1.Error)
+	require.NotNil(t, resp1.Result)
+	require.Equal(t, int32(1), helper.calls.Load(), "first request executes the capability")
+
+	// Second request with the same logical identity but a different gateway id
+	// (a retry): must return the cached signed result without re-executing.
+	gwConn.mu.Lock()
+	gwConn.resps = nil
+	gwConn.mu.Unlock()
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-2")))
+	resp2 := gwConn.waitResp(t)
+	require.Nil(t, resp2.Error)
+	require.NotNil(t, resp2.Result)
+	require.Equal(t, int32(1), helper.calls.Load(), "retry is served from the memo, no re-execution")
+
+	// Both responses carry the same signed payload (params-bound, not id-bound).
+	var signed1, signed2 confidentialrelaytypes.SignedCapabilityResponseResult
+	require.NoError(t, json.Unmarshal(*resp1.Result, &signed1))
+	require.NoError(t, json.Unmarshal(*resp2.Result, &signed2))
+	require.Equal(t, signed1.Result.Payload, signed2.Result.Payload)
+}
+
+// countingExecutionHelper is a host.ExecutionHelperWithRawSecrets stub that
+// counts CallCapability invocations, for the memo test.
+type countingExecutionHelper struct {
+	host.ExecutionHelperWithRawSecrets
+	capResp *sdkpb.CapabilityResponse
+	calls   atomic.Int32
+}
+
+func (c *countingExecutionHelper) CallCapability(_ context.Context, _ *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
+	c.calls.Add(1)
+	return c.capResp, nil
+}
+
+// TestHandler_RetryWhileInFlightWaits verifies that a retry arriving while
+// the original execution is still in flight waits for the claimant to complete
+// and then responds with its signed result, rather than re-executing.
+// Re-executing would hit the remote request server's duplicate-requester check
+// and return a well-formed error the enclave's retry loop treats as terminal.
+func TestHandler_RetryWhileInFlightWaits(t *testing.T) {
+	t.Parallel()
+	reg := withEnclaveConfig(&mockCapRegistry{})
+	gwConn := &mockGatewayConnector{}
+	h := newTestHandler(t, reg, gwConn)
+	helper := newBlockingExecutionHelper(2)
+	h.executionHandlers.AddExecution("wf-1", capExecExecutionID, helper)
+
+	mkReq := func(id string) *jsonrpc.Request[json.RawMessage] {
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   capExecExecutionID,
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+		req.ID = id
+		return req
+	}
+
+	// First request: enters CallCapability and blocks on release, so its
+	// pending claim is held while we dispatch the duplicate.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-1")))
+	select {
+	case <-helper.entered:
+	case <-time.After(testWaitTimeout):
+		t.Fatal("first request never entered CallCapability")
+	}
+	require.Zero(t, gwConn.respCount(), "leader is in flight, no response yet")
+
+	// Duplicate with the same logical identity while the first is in flight:
+	// waits on the claim (no second execution, no response until the leader
+	// completes). The gate receive above drained the leader's entry, so "no new
+	// entry" is len == 0.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-2")))
+	require.Eventually(t, func() bool { return len(helper.entered) == 0 },
+		testWaitTimeout, time.Millisecond, "duplicate must not enter CallCapability")
+	require.Zero(t, gwConn.respCount(), "duplicate waits, no send before the leader completes")
+
+	// Release the original: both requests respond — the leader's own, and the
+	// waiter's re-wrapped copy of the same signed result.
+	close(helper.release)
+	require.Eventually(t, func() bool { return gwConn.respCount() == 2 },
+		testWaitTimeout, time.Millisecond, "leader and waiter both respond")
+
+	gwConn.mu.Lock()
+	resps := append([]*jsonrpc.Response[json.RawMessage](nil), gwConn.resps...)
+	gwConn.resps = nil
+	gwConn.mu.Unlock()
+	payloads := make([]string, 0, len(resps))
+	for _, r := range resps {
+		require.Nil(t, r.Error)
+		var signed confidentialrelaytypes.SignedCapabilityResponseResult
+		require.NoError(t, json.Unmarshal(*r.Result, &signed))
+		payloads = append(payloads, signed.Result.Payload)
+	}
+	require.Len(t, payloads, 2)
+	require.Equal(t, payloads[0], payloads[1], "waiter responds with the claimant's signed result")
+
+	// A retry after completion is served from the memo, not re-executed.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-3")))
+	resp := gwConn.waitResp(t)
+	require.Nil(t, resp.Error)
+	require.Empty(t, helper.entered, "post-completion retry is served from the memo, no re-execution")
+}
+
+// TestHandler_WaiterRelaysOwnerError verifies a waiter reports the owner's
+// actual failure rather than a vague "no result" of its own: the two share one
+// execution, so they share its outcome. The owner here fails with a user-facing
+// code so the assertion sees a real message (errorResponse masks internal
+// errors on the wire by design).
+func TestHandler_WaiterRelaysOwnerError(t *testing.T) {
+	t.Parallel()
+	reg := withEnclaveConfig(&mockCapRegistry{})
+	gwConn := &mockGatewayConnector{}
+	h := newTestHandler(t, reg, gwConn)
+	helper := newBlockingExecutionHelper(2)
+	h.executionHandlers.AddExecution("wf-1", capExecExecutionID, helper)
+
+	// An undecodable payload makes the owner fail with ErrInvalidParams after
+	// it has taken the pending entry, so the waiter has something real to relay.
+	mkReq := func(id string) *jsonrpc.Request[json.RawMessage] {
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   capExecExecutionID,
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       "!!!not-base64!!!",
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+		req.ID = id
+		return req
+	}
+
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-1")))
+	resp1 := gwConn.waitResp(t)
+	require.NotNil(t, resp1.Error)
+	require.Equal(t, jsonrpc.ErrInvalidParams, resp1.Error.Code)
+
+	// A second request now hits the memo-miss path and executes itself (the
+	// failed owner released the entry), and must also surface a real error.
+	gwConn.mu.Lock()
+	gwConn.resps = nil
+	gwConn.mu.Unlock()
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-2")))
+	resp2 := gwConn.waitResp(t)
+	require.NotNil(t, resp2.Error)
+	require.Equal(t, resp1.Error.Code, resp2.Error.Code, "retry sees the same real error code, not a vague one")
+	require.Equal(t, resp1.Error.Message, resp2.Error.Message)
+}
+
+// TestHandler_RetryAfterExecutionLookupTimeout is the regression guard for a
+// pending entry outliving a failed owner. The first request registers the
+// pending entry and then fails its execution-handler lookup (the start-edge
+// race: this node has not begun its copy of the execution yet). If that entry
+// were left behind, every retry for the identity would wait on a request
+// nobody completes — for the whole cache TTL, far longer than the enclave's
+// retry window — so the call would fail permanently instead of recovering.
+// The retry must execute against the now-registered handler.
+func TestHandler_RetryAfterExecutionLookupTimeout(t *testing.T) {
+	t.Parallel()
+	reg := withEnclaveConfig(&mockCapRegistry{})
+	gwConn := &mockGatewayConnector{}
+	h := newTestHandler(t, reg, gwConn)
+
+	mkReq := func(id string) *jsonrpc.Request[json.RawMessage] {
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   capExecExecutionID,
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+		req.ID = id
+		return req
+	}
+
+	// No execution registered yet: the owner's lookup times out and it must
+	// leave no pending entry behind.
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-1")))
+	resp1 := gwConn.waitResp(t)
+	require.NotNil(t, resp1.Error, "owner fails when no execution handler registers")
+
+	// The execution registers a moment later, as in the real start-edge race.
+	helper := &countingExecutionHelper{
+		capResp: &sdkpb.CapabilityResponse{
+			Response: &sdkpb.CapabilityResponse_Payload{Payload: &anypb.Any{Value: []byte("result-proto-bytes")}},
+		},
+	}
+	h.executionHandlers.AddExecution("wf-1", capExecExecutionID, helper)
+
+	// The retry must execute and succeed, not wait on the failed owner's entry.
+	gwConn.mu.Lock()
+	gwConn.resps = nil
+	gwConn.mu.Unlock()
+	require.NoError(t, h.HandleGatewayMessage(context.Background(), "gw-1", mkReq("req-2")))
+	resp2 := gwConn.waitResp(t)
+	require.Nil(t, resp2.Error, "retry recovers once the execution handler is registered")
+	require.NotNil(t, resp2.Result)
+	require.Equal(t, int32(1), helper.calls.Load(), "retry executed the capability")
 }

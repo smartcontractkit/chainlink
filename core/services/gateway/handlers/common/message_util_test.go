@@ -19,8 +19,8 @@ func unsignedMessage() api.Message {
 	return api.Message{
 		Body: api.MessageBody{
 			Method:    "testMethod",
-			MessageId: "msg-123",
-			DonId:     "test_don",
+			MessageID: "msg-123",
+			DonID:     "test_don",
 		},
 	}
 }
@@ -46,7 +46,7 @@ func TestValidatedMessageFromReq(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msg)
 		require.Equal(t, "testMethod", msg.Body.Method)
-		require.Equal(t, "msg-123", msg.Body.MessageId)
+		require.Equal(t, "msg-123", msg.Body.MessageID)
 	})
 
 	t.Run("invalid message", func(t *testing.T) {
@@ -136,7 +136,7 @@ func TestValidatedMessageFromResp(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msg)
 		require.Equal(t, "testMethod", msg.Body.Method)
-		require.Equal(t, "msg-123", msg.Body.MessageId)
+		require.Equal(t, "msg-123", msg.Body.MessageID)
 	})
 
 	t.Run("response with error", func(t *testing.T) {
@@ -203,8 +203,8 @@ func TestValidatedResponseFromMessage(t *testing.T) {
 		err = json.Unmarshal(*resp.Result, &msg)
 		require.NoError(t, err)
 		require.Equal(t, validMsg.Body.Method, msg.Body.Method)
-		require.Equal(t, validMsg.Body.MessageId, msg.Body.MessageId)
-		require.Equal(t, validMsg.Body.DonId, msg.Body.DonId)
+		require.Equal(t, validMsg.Body.MessageID, msg.Body.MessageID)
+		require.Equal(t, validMsg.Body.DonID, msg.Body.DonID)
 	})
 
 	t.Run("nil message", func(t *testing.T) {
@@ -215,7 +215,7 @@ func TestValidatedResponseFromMessage(t *testing.T) {
 
 	t.Run("empty message ID", func(t *testing.T) {
 		msg := validMsg
-		msg.Body.MessageId = ""
+		msg.Body.MessageID = ""
 		resp, err := ValidatedResponseFromMessage(&msg)
 		require.Nil(t, resp)
 		require.EqualError(t, err, "message ID is empty")
@@ -230,15 +230,15 @@ func TestValidatedRequestFromMessage(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, req)
 		require.Equal(t, "2.0", req.Version)
-		require.Equal(t, validMsg.Body.MessageId, req.ID)
+		require.Equal(t, validMsg.Body.MessageID, req.ID)
 		require.Equal(t, validMsg.Body.Method, req.Method)
 		require.NotNil(t, req.Params)
 		var msg api.Message
 		err = json.Unmarshal(*req.Params, &msg)
 		require.NoError(t, err)
 		require.Equal(t, validMsg.Body.Method, msg.Body.Method)
-		require.Equal(t, validMsg.Body.MessageId, msg.Body.MessageId)
-		require.Equal(t, validMsg.Body.DonId, msg.Body.DonId)
+		require.Equal(t, validMsg.Body.MessageID, msg.Body.MessageID)
+		require.Equal(t, validMsg.Body.DonID, msg.Body.DonID)
 	})
 
 	t.Run("nil message", func(t *testing.T) {
@@ -249,7 +249,7 @@ func TestValidatedRequestFromMessage(t *testing.T) {
 
 	t.Run("empty message ID", func(t *testing.T) {
 		msg := validMsg
-		msg.Body.MessageId = ""
+		msg.Body.MessageID = ""
 		req, err := ValidatedRequestFromMessage(&msg)
 		require.Nil(t, req)
 		require.EqualError(t, err, "message ID is empty")

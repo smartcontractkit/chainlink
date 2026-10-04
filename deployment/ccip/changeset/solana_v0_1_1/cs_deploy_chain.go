@@ -18,6 +18,7 @@ import (
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -122,7 +123,7 @@ func (cfg UpgradeConfig) Validate(e cldf.Environment, chainSelector uint64) erro
 		return errors.New("upgrade authority must be set for fee quoter and router upgrades")
 	}
 	if cfg.MCMS != nil {
-		return cfg.MCMS.ValidateSolana(e, chainSelector)
+		return stateview.ValidateSolanaTimelockConfig(e, chainSelector, cfg.MCMS)
 	}
 	return nil
 }
@@ -170,6 +171,7 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 	err = v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -194,7 +196,7 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		e.Logger.Debugw("Skipping solana build as no build config provided")
 	}
 
-	batches, err := deployChainContractsSolana(e, chain, newAddresses, c)
+	batches, err := deployChainContractsSolana(e, chain, newAddresses, ds, c)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
 		return cldf.ChangesetOutput{}, err
@@ -211,21 +213,12 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		ds, err := shared.PopulateDataStore(newAddresses)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-		}
 
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 			AddressBook:           newAddresses,
 			DataStore:             ds,
 		}, nil
-	}
-
-	ds, err := shared.PopulateDataStore(newAddresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
@@ -240,6 +233,7 @@ func DeployAndMaybeSaveToAddressBook(
 	e cldf.Environment,
 	chain cldf_solana.Chain,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	contractType cldf.ContractType,
 	version semver.Version,
 	isUpgrade bool,
@@ -261,7 +255,7 @@ func DeployAndMaybeSaveToAddressBook(
 		if metadata != "" {
 			tv.AddLabel(metadata)
 		}
-		err = ab.Save(chain.Selector, programID, tv)
+		err = shared.RecordAddress(ab, ds, chain.Selector, programID, tv, metadata)
 		if err != nil {
 			return solana.PublicKey{}, fmt.Errorf("failed to save address: %w", err)
 		}
@@ -280,12 +274,13 @@ func upgradeProgramIfConfigured(
 	newVersion *semver.Version,
 	programID solana.PublicKey,
 	contractType cldf.ContractType,
+	ds datastore.MutableDataStore,
 ) ([]mcmsTypes.BatchOperation, error) {
 	if newVersion == nil {
 		return batches, nil
 	}
 	e.Logger.Infow("Generating instruction for upgrading contract", "chain", chain.String(), "contractType", contractType)
-	newTxns, err := generateUpgradeTxns(e, chain, ab, config, newVersion, programID, contractType)
+	newTxns, err := generateUpgradeTxns(e, chain, ab, ds, config, newVersion, programID, contractType)
 	if err != nil {
 		return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 	}
@@ -301,6 +296,7 @@ func resolveProgram(
 	e cldf.Environment,
 	chain cldf_solana.Chain,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	config DeployChainContractsConfig,
 	batches []mcmsTypes.BatchOperation,
 	contractType cldf.ContractType,
@@ -309,13 +305,13 @@ func resolveProgram(
 ) (address solana.PublicKey, justDeployed bool, outBatches []mcmsTypes.BatchOperation, err error) {
 	switch {
 	case existingAddress.IsZero():
-		address, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, contractType, deployment.Version1_0_0, false, "")
+		address, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, contractType, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return solana.PublicKey{}, false, batches, fmt.Errorf("failed to deploy %s: %w", contractType, err)
 		}
 		return address, true, batches, nil
 	case newVersion != nil:
-		batches, err = upgradeProgramIfConfigured(e, chain, ab, config, batches, newVersion, existingAddress, contractType)
+		batches, err = upgradeProgramIfConfigured(e, chain, ab, config, batches, newVersion, existingAddress, contractType, ds)
 		if err != nil {
 			return existingAddress, false, batches, err
 		}
@@ -350,6 +346,7 @@ func deployChainContractsSolana(
 	e cldf.Environment,
 	chain cldf_solana.Chain,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	config DeployChainContractsConfig,
 ) ([]mcmsTypes.BatchOperation, error) {
 	// we may need to gather instructions and submit them as part of MCMS
@@ -371,7 +368,8 @@ func deployChainContractsSolana(
 
 	// FEE QUOTER DEPLOY
 	feeQuoterAddress, fqJustDeployed, batches, err := resolveProgram(
-		e, chain, ab, config, batches, shared.FeeQuoter, chainState.FeeQuoter, config.UpgradeConfig.NewFeeQuoterVersion)
+		e, chain, ab, ds, config, batches, shared.FeeQuoter, chainState.FeeQuoter, config.UpgradeConfig.NewFeeQuoterVersion,
+	)
 	if err != nil {
 		return batches, err
 	}
@@ -381,7 +379,8 @@ func deployChainContractsSolana(
 
 	// ROUTER DEPLOY
 	ccipRouterProgram, routerJustDeployed, batches, err := resolveProgram(
-		e, chain, ab, config, batches, shared.Router, chainState.Router, config.UpgradeConfig.NewRouterVersion)
+		e, chain, ab, ds, config, batches, shared.Router, chainState.Router, config.UpgradeConfig.NewRouterVersion,
+	)
 	if err != nil {
 		return batches, err
 	}
@@ -395,15 +394,15 @@ func deployChainContractsSolana(
 	// track that in offRampJustDeployed so the initialize pass below knows whether it needs setup.
 	var offRampAddress solana.PublicKey
 	offRampJustDeployed := false
-	//nolint:gocritic // this is a false positive, we need to check if the address is zero
-	if chainState.OffRamp.IsZero() {
+	switch {
+	case chainState.OffRamp.IsZero():
 		// deploy offramp
-		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.OffRamp, deployment.Version1_0_0, false, "")
+		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.OffRamp, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 		offRampJustDeployed = true
-	} else if config.UpgradeConfig.NewOffRampVersion != nil {
+	case config.UpgradeConfig.NewOffRampVersion != nil:
 		tv := cldf.NewTypeAndVersion(shared.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
 		existingAddresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 		if err != nil {
@@ -412,7 +411,7 @@ func deployChainContractsSolana(
 		offRampAddress = solanastateview.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
 			// deploy offramp, not upgraded in place so upgrade is false
-			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false, "")
+			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false, "")
 			if err != nil {
 				return batches, fmt.Errorf("failed to deploy program: %w", err)
 			}
@@ -443,13 +442,13 @@ func deployChainContractsSolana(
 				}
 			}
 		} else {
-			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewOffRampVersion, chainState.OffRamp, shared.OffRamp)
+			newTxns, err := generateUpgradeTxns(e, chain, ab, ds, config, config.UpgradeConfig.NewOffRampVersion, chainState.OffRamp, shared.OffRamp)
 			if err != nil {
 				return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 			}
 			batches = appendBatchOperation(batches, chain.Selector, newTxns)
 		}
-	} else {
+	default:
 		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
 		offRampAddress = chainState.OffRamp
 	}
@@ -459,7 +458,8 @@ func deployChainContractsSolana(
 
 	// RMN REMOTE DEPLOY
 	rmnRemoteAddress, rmnJustDeployed, batches, err := resolveProgram(
-		e, chain, ab, config, batches, shared.RMNRemote, chainState.RMNRemote, config.UpgradeConfig.NewRMNRemoteVersion)
+		e, chain, ab, ds, config, batches, shared.RMNRemote, chainState.RMNRemote, config.UpgradeConfig.NewRMNRemoteVersion,
+	)
 	if err != nil {
 		return batches, err
 	}
@@ -520,7 +520,8 @@ func deployChainContractsSolana(
 				solana.Token2022ProgramID,
 				solana.TokenProgramID,
 				solana.SPLAssociatedTokenAccountProgramID,
-			})
+			},
+		)
 		if err != nil {
 			return batches, fmt.Errorf("failed to create address lookup table: %w", err)
 		}
@@ -550,15 +551,17 @@ func deployChainContractsSolana(
 		config.BurnMintTokenPoolMetadata = []string{shared.CLLMetadata}
 	}
 	for _, metadata := range config.BurnMintTokenPoolMetadata {
-		//nolint:gocritic // this is a false positive, we need to check if the address is zero
-		if chainState.BurnMintTokenPools[metadata].IsZero() {
+		switch {
+		case chainState.BurnMintTokenPools[metadata].IsZero():
 			e.Logger.Infow("Deploying new burn mint token pool", "metadata", metadata)
-			burnMintTokenPool, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.BurnMintTokenPool, deployment.Version1_0_0, false, metadata)
+			burnMintTokenPool, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.BurnMintTokenPool, deployment.Version1_0_0, false, metadata)
 			if err != nil {
 				return batches, fmt.Errorf("failed to deploy program: %w", err)
 			}
 			burnMintTokenPools = append(burnMintTokenPools, burnMintTokenPool)
-		} else if config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil {
+			// Solana pool programs are keyed by pool-set metadata (not token), so that is their
+			// datastore qualifier.
+		case config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil:
 			e.Logger.Infow("Upgrading existing burn mint token pool", "addr", chainState.BurnMintTokenPools[metadata].String())
 			burnMintTokenPool := chainState.BurnMintTokenPools[metadata]
 			if metadata != shared.CLLMetadata {
@@ -578,13 +581,13 @@ func deployChainContractsSolana(
 					return batches, fmt.Errorf("failed to build solana: %w", err)
 				}
 			}
-			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool)
+			newTxns, err := generateUpgradeTxns(e, chain, ab, ds, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool)
 			if err != nil {
 				return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 			}
 			batches = appendBatchOperation(batches, chain.Selector, newTxns)
 			burnMintTokenPools = append(burnMintTokenPools, burnMintTokenPool)
-		} else {
+		default:
 			e.Logger.Infow("Using existing burn mint token pool", "addr", chainState.BurnMintTokenPools[metadata].String())
 			burnMintTokenPools = append(burnMintTokenPools, chainState.BurnMintTokenPools[metadata])
 		}
@@ -595,15 +598,17 @@ func deployChainContractsSolana(
 		config.LockReleaseTokenPoolMetadata = []string{shared.CLLMetadata}
 	}
 	for _, metadata := range config.LockReleaseTokenPoolMetadata {
-		//nolint:gocritic // this is a false positive, we need to check if the address is zero
-		if chainState.LockReleaseTokenPools[metadata].IsZero() {
+		switch {
+		case chainState.LockReleaseTokenPools[metadata].IsZero():
 			e.Logger.Infow("Deploying new lock release token pool", "metadata", metadata)
-			lockReleaseTokenPool, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.LockReleaseTokenPool, deployment.Version1_0_0, false, metadata)
+			lockReleaseTokenPool, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.LockReleaseTokenPool, deployment.Version1_0_0, false, metadata)
 			if err != nil {
 				return batches, fmt.Errorf("failed to deploy program: %w", err)
 			}
 			lockReleaseTokenPools = append(lockReleaseTokenPools, lockReleaseTokenPool)
-		} else if config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil {
+			// Solana pool programs are keyed by pool-set metadata (not token), so that is their
+			// datastore qualifier.
+		case config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil:
 			e.Logger.Infow("Upgrading existing lock release token pool", "addr", chainState.LockReleaseTokenPools[metadata].String())
 			lockReleaseTokenPool := chainState.LockReleaseTokenPools[metadata]
 			if metadata != shared.CLLMetadata {
@@ -623,13 +628,13 @@ func deployChainContractsSolana(
 					return batches, fmt.Errorf("failed to build solana: %w", err)
 				}
 			}
-			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool)
+			newTxns, err := generateUpgradeTxns(e, chain, ab, ds, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool)
 			if err != nil {
 				return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 			}
 			lockReleaseTokenPools = append(lockReleaseTokenPools, lockReleaseTokenPool)
 			batches = appendBatchOperation(batches, chain.Selector, newTxns)
-		} else {
+		default:
 			e.Logger.Infow("Using existing lock release token pool", "addr", chainState.LockReleaseTokenPools[metadata].String())
 			lockReleaseTokenPools = append(lockReleaseTokenPools, chainState.LockReleaseTokenPools[metadata])
 		}
@@ -639,13 +644,13 @@ func deployChainContractsSolana(
 	metadata := shared.CLLMetadata
 	switch {
 	case chainState.CCTPTokenPool.IsZero():
-		cctpTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.CCTPTokenPool, deployment.Version1_0_0, false, metadata)
+		cctpTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.CCTPTokenPool, deployment.Version1_0_0, false, metadata)
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	case config.UpgradeConfig.NewCCTPTokenPoolVersion != nil:
 		cctpTokenPool = chainState.CCTPTokenPool
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewCCTPTokenPoolVersion, cctpTokenPool, shared.CCTPTokenPool)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, ds, config, config.UpgradeConfig.NewCCTPTokenPoolVersion, cctpTokenPool, shared.CCTPTokenPool)
 		if err != nil {
 			return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -673,6 +678,23 @@ func deployChainContractsSolana(
 
 	// MCMS
 	// this should selectively deploy and initialise anything if required
+	mcmsQualifier := ""
+	if config.MCMSWithTimelockConfig != nil && config.MCMSWithTimelockConfig.Qualifier != nil {
+		mcmsQualifier = *config.MCMSWithTimelockConfig.Qualifier
+	}
+	// Snapshot the addresses added so far so we can later qualify only the MCMS-related
+	// accounts (and not the chain-singleton programs) under the configured MCMS qualifier.
+	var mcmsAddrsBefore map[string]struct{}
+	if mcmsQualifier != "" {
+		existing, err := ab.AddressesForChain(chain.Selector)
+		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
+			return batches, fmt.Errorf("failed to get existing addresses for chain %v: %w", chain.Selector, err)
+		}
+		mcmsAddrsBefore = make(map[string]struct{}, len(existing))
+		for addr := range existing {
+			mcmsAddrsBefore[addr] = struct{}{}
+		}
+	}
 	if config.MCMSWithTimelockConfig != nil {
 		_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, *config.MCMSWithTimelockConfig)
 		if err != nil {
@@ -688,17 +710,34 @@ func deployChainContractsSolana(
 	if err != nil {
 		return batches, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
-	batches, err = upgradeProgramIfConfigured(e, chain, ab, config, batches, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram)
+	batches, err = upgradeProgramIfConfigured(e, chain, ab, config, batches, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram, ds)
 	if err != nil {
 		return batches, err
 	}
-	batches, err = upgradeProgramIfConfigured(e, chain, ab, config, batches, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram)
+	batches, err = upgradeProgramIfConfigured(e, chain, ab, config, batches, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram, ds)
 	if err != nil {
 		return batches, err
 	}
-	batches, err = upgradeProgramIfConfigured(e, chain, ab, config, batches, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram)
+	batches, err = upgradeProgramIfConfigured(e, chain, ab, config, batches, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram, ds)
 	if err != nil {
 		return batches, err
+	}
+
+	// Qualify the MCMS program/access-controller/timelock/role accounts added by the MCMS
+	// deploy and any MCMS program upgrades under the configured MCMS qualifier, so they are
+	// resolvable in the datastore under that qualifier.
+	if mcmsAddrsBefore != nil {
+		after, err := ab.AddressesForChain(chain.Selector)
+		if err != nil {
+			return batches, fmt.Errorf("failed to get addresses for chain %v: %w", chain.Selector, err)
+		}
+		for addr := range after {
+			if _, ok := mcmsAddrsBefore[addr]; !ok {
+				if err := shared.RecordAddress(nil, ds, chain.Selector, addr, after[addr], mcmsQualifier); err != nil {
+					return batches, fmt.Errorf("failed to record MCMS ref %s: %w", addr, err)
+				}
+			}
+		}
 	}
 
 	// BILLING
@@ -982,6 +1021,7 @@ func generateUpgradeTxns(
 	e cldf.Environment,
 	chain cldf_solana.Chain,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	config DeployChainContractsConfig,
 	newVersion *semver.Version,
 	programID solana.PublicKey,
@@ -989,7 +1029,7 @@ func generateUpgradeTxns(
 ) ([]mcmsTypes.Transaction, error) {
 	e.Logger.Infow("Generating instruction for upgrading contract", "contractType", contractType)
 	txns := make([]mcmsTypes.Transaction, 0)
-	bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, contractType, *newVersion, true, "")
+	bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, contractType, *newVersion, true, "")
 	if err != nil {
 		return txns, fmt.Errorf("failed to deploy program: %w", err)
 	}
@@ -1121,13 +1161,12 @@ func generateExtendIxn(
 		return nil, nil
 	}
 	extraBytes := newProgramSize - programDataSize
-	if extraBytes > math.MaxUint32 {
-		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32)
+	if extraBytes > math.MaxUint32-1024 {
+		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32-1024)
 	}
 	// https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
-	data := binary.LittleEndian.AppendUint32([]byte{}, 6) // 4-byte Extend instruction identifier
-	//nolint:gosec // G115 we check for overflow above
-	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes+1024)) // add some padding
+	data := binary.LittleEndian.AppendUint32([]byte{}, 6)                  // 4-byte Extend instruction identifier
+	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes+1024)) //nolint:gosec // G115: guard above covers the 1024 bytes of padding
 
 	keys := solana.AccountMetaSlice{
 		solana.NewAccountMeta(programDataAccount, true, false),      // Program data account (writable)
@@ -1289,7 +1328,8 @@ func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.Cha
 	}
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to close existing programs", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to close existing programs", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -1312,7 +1352,7 @@ func ExtendGlobalLookupTableChangeset(e cldf.Environment, cfg ExtendGlobalLookup
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("chain not found for selector %d", cfg.ChainSelector)
 	}
-	existingState, err := stateview.LoadOnchainState(e)
+	existingState, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}

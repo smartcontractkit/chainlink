@@ -50,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -69,6 +68,9 @@ import (
 	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
 	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
+	sollogtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/sollogtrigger-negative/config"
+	solread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/solread-negative/config"
+	solwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/solwrite-negative/config"
 	aptoswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite/config"
 	aptoswriteroundtrip_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
@@ -77,6 +79,7 @@ import (
 	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
 	solread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
+	datafeedswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write/config"
 	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -317,6 +320,7 @@ type WorkflowConfig interface {
 		AptosReadWorkflowConfig |
 		StellarReadWorkflowConfig |
 		StellarWriteWorkflowConfig |
+		datafeedswrite_config.Config |
 		aptoswrite_config.Config |
 		aptoswriteroundtrip_config.Config |
 		crontypes.WorkflowConfig |
@@ -331,6 +335,9 @@ type WorkflowConfig interface {
 		httpaction_smoke_config.Config |
 		httpaction_negative_config.Config |
 		solwrite_config.Config |
+		solwrite_negative_config.Config |
+		solread_negative_config.Config |
+		sollogtrigger_negative_config.Config |
 		sollogtrigger_config.Config |
 		vaultsecret_config.Config |
 		solread_config.Config
@@ -508,6 +515,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			require.NoError(t, configErr, "failed to create stellar write workflow config file")
 			testLogger.Info().Msg("Stellar write workflow config file created.")
 
+		case *datafeedswrite_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create stellar data feeds write workflow config file")
+			testLogger.Info().Msg("Stellar data feeds write workflow config file created.")
+
 		case *aptoswrite_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
@@ -590,6 +603,21 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create solwrite workflow config file")
 			testLogger.Info().Msg("Solana write workflow config file created.")
+		case *solwrite_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create solwrite-negative workflow config file")
+			testLogger.Info().Msg("Solana write negative workflow config file created.")
+		case *solread_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create solread-negative workflow config file")
+			testLogger.Info().Msg("Solana read negative workflow config file created.")
+		case *sollogtrigger_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create sollogtrigger-negative workflow config file")
+			testLogger.Info().Msg("Solana log trigger negative workflow config file created.")
 		case *sollogtrigger_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
@@ -821,7 +849,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryVersion: workflowRegistryAddress.Version,
 		ChainID:                 registryChainSelector,
 		DonID:                   testEnv.Dons.MustWorkflowDON().ID,
-		DonFamily:               testEnv.Dons.MustWorkflowDON().DonFamily,
+		DonFamily:               testEnv.Dons.MustWorkflowDON().DonFamily(),
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
 		SethClient:              testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient,
 		Attributes:              cfg.attributes,
@@ -895,9 +923,7 @@ func selectArtifactTargetDONs(testEnv *ttypes.TestEnvironment, donTypes []cre.Ca
 func workflowArtifactsDir(t *testing.T, testEnv *ttypes.TestEnvironment) string {
 	t.Helper()
 	if testEnv.Execution == nil || testEnv.Execution.TestID == "" {
-		dir, err := os.MkdirTemp("", "cre-workflow-artifacts-*")
-		require.NoError(t, err, "failed to create artifacts directory")
-		return dir
+		return t.TempDir()
 	}
 
 	dir := filepath.Join(os.TempDir(), "cre-workflow-artifacts", testEnv.Execution.TestID)
@@ -936,6 +962,39 @@ func truncateWorkflowName(name, uniquenessSeed string) string {
 func ParallelEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("CRE_TEST_PARALLEL_ENABLED")))
 	return v == "1" || v == "true" || v == "yes"
+}
+
+// IsMixedEnvTopology reports whether the suite is running under a mixed-env topology,
+// i.e. each multi-node DON runs 2 nodes on the PR image and 2 on the develop/baseline
+// image. CI sets TOPOLOGY_NAME=mixed-env for these runs. This is the signal that a DON
+// can legitimately behave two ways at once, so it is the correct gate for
+// SkipIfMixedEnv. See core/scripts/cre/environment/docs/mixed-env.md.
+func IsMixedEnvTopology() bool {
+	return strings.Contains(strings.ToLower(os.Getenv("TOPOLOGY_NAME")), "mixed-env")
+}
+
+// SkipIfMixedEnv skips the current test when running under a mixed-env topology (see
+// IsMixedEnvTopology). Call it at the very top of the test/scenario body, BEFORE any
+// deploy/register/ApplyCRESettings, so the skipped test emits no divergent traffic.
+//
+// WARNING: do NOT use this unless you know precisely why THIS test must skip mixed-env.
+// Mixed-env is a required merge gate that catches cross-version consensus/DON2DON
+// divergence between PR and develop nodes; every skip is a hole in that coverage. It is
+// justified ONLY when the test deliberately exercises behavior that exists in the PR
+// image but not the baseline image — e.g. a brand-new CRE settings flag enabled via
+// ApplyCRESettings, or a newly added capability — so a 2-vs-2 split is unavoidable and
+// expected. It is NOT a way to silence a real divergence a reviewer should see. The test
+// still runs in full under the normal single-image suite; only the (impossible)
+// cross-version check is skipped, and mixed-env covers it again automatically once the
+// flag/behavior lands in the baseline image.
+//
+// reason is mandatory: state why the divergence is expected, and note removing this guard
+// once the flag/behavior reaches the baseline image.
+func SkipIfMixedEnv(t *testing.T, reason string) {
+	t.Helper()
+	if IsMixedEnvTopology() {
+		t.Skipf("skipping in mixed-env: %s", reason)
+	}
 }
 
 // ─── Stellar ReadContract test helpers (shared by smoke + regression) ───

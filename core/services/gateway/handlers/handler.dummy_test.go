@@ -37,15 +37,24 @@ func (m *testConnManager) SendToNode(ctx context.Context, nodeAddress string, re
 func TestDummyHandler_BasicFlow(t *testing.T) {
 	t.Parallel()
 
-	config := config.DONConfig{
-		Members: []config.NodeConfig{
-			{Name: "node one", Address: "addr_1"},
-			{Name: "node two", Address: "addr_2"},
+	shardedDONs := []config.ShardedDONConfig{
+		{
+			DonName: "test_don",
+			Shards: []config.Shard{
+				{
+					Nodes: []config.NodeConfig{
+						{Name: "node one", Address: "addr_1"},
+						{Name: "node two", Address: "addr_2"},
+					},
+				},
+			},
 		},
 	}
 
 	connMgr := testConnManager{}
-	handler, err := handlers.NewDummyHandler(&config, &connMgr, logger.Test(t))
+	dons, err := handlers.NewShardedDONs(shardedDONs, [][]handlers.DON{{&connMgr}})
+	require.NoError(t, err)
+	handler, err := handlers.NewDummyHandler(dons, logger.Test(t))
 	require.NoError(t, err)
 	connMgr.SetHandler("", handler)
 
@@ -54,9 +63,9 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	// User request
 	msg := api.Message{
 		Body: api.MessageBody{
-			MessageId: "1234",
+			MessageID: "1234",
 			Method:    "testMethod",
-			DonId:     "test_don",
+			DonID:     "test_don",
 		},
 	}
 	key, err := crypto.HexToECDSA(privateKey)
@@ -76,8 +85,8 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	require.NoError(t, handler.HandleNodeMessage(ctx, resp, msg.Body.Sender))
 	response, err := cb.Wait(t.Context())
 	require.NoError(t, err)
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	responseMsg, err := codec.DecodeLegacyResponse(response.RawResponse)
 	require.NoError(t, err)
-	require.Equal(t, "1234", responseMsg.Body.MessageId)
+	require.Equal(t, "1234", responseMsg.Body.MessageID)
 }

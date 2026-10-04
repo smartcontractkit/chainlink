@@ -23,8 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	ccipocr3 "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -111,7 +111,7 @@ func validateExecOffchainConfig(e cldf.Environment, c *pluginconfig.ExecuteOffch
 	return nil
 }
 
-func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector uint64, feedChainSel uint64, state stateview.CCIPOnChainState) error {
+func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector, feedChainSel uint64, state stateview.CCIPOnChainState) error {
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("invalid commit off-chain config: %w", err)
 	}
@@ -330,7 +330,7 @@ func (c CCIPOCRParams) Copy() CCIPOCRParams {
 	return newC
 }
 
-func (c CCIPOCRParams) Validate(e cldf.Environment, selector uint64, feedChainSel uint64, state stateview.CCIPOnChainState) error {
+func (c CCIPOCRParams) Validate(e cldf.Environment, selector, feedChainSel uint64, state stateview.CCIPOnChainState) error {
 	if err := c.OCRParameters.Validate(); err != nil {
 		return fmt.Errorf("invalid OCR parameters: %w", err)
 	}
@@ -534,7 +534,7 @@ func (p SetCandidatePluginInfo) String() string {
 	return fmt.Sprintf("PluginType: %s, Chains: %v", p.PluginType.String(), allchains)
 }
 
-func (p SetCandidatePluginInfo) Validate(e cldf.Environment, state stateview.CCIPOnChainState, homeChain uint64, feedChain uint64) error {
+func (p SetCandidatePluginInfo) Validate(e cldf.Environment, state stateview.CCIPOnChainState, homeChain, feedChain uint64) error {
 	if p.PluginType != types.PluginTypeCCIPCommit &&
 		p.PluginType != types.PluginTypeCCIPExec {
 		return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
@@ -1074,7 +1074,8 @@ func revokeCandidateOps(
 	if !mcmsEnabled {
 		_, err = cldf.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx,
-			capabilities_registry.CapabilitiesRegistryABI, err)
+			capabilities_registry.CapabilitiesRegistryABI, err,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("error confirming UpdateDON call in revoke candidate (don: %d; ptype: %s): %w",
 				donID, types.PluginType(pluginType).String(), err)
@@ -1239,30 +1240,21 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 	}
 
 	ab := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 	homeChainSel, err := state.HomeChainSelector()
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get HomeChainSelector: %w", err)
 	}
 
 	chain := e.BlockChains.EVMChains()[homeChainSel]
-	err = deployDonIDClaimerContract(e, ab, state, chain)
+	err = deployDonIDClaimerContract(e, ab, ds, state, chain)
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy donIDClaimer contract", "err", err, "addressBook", ab)
-
-		ds, err2 := shared.PopulateDataStore(ab)
-		if err2 != nil {
-			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
-		}
 
 		return cldf.ChangesetOutput{
 			AddressBook: ab,
 			DataStore:   ds,
-		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", errors.Join(err, err2))
-	}
-
-	ds, err := shared.PopulateDataStore(ab)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
@@ -1271,14 +1263,14 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 	}, nil
 }
 
-func deployDonIDClaimerContract(e cldf.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain cldf_evm.Chain) error {
+func deployDonIDClaimerContract(e cldf.Environment, ab cldf.AddressBook, ds datastore.MutableDataStore, state stateview.CCIPOnChainState, chain cldf_evm.Chain) error {
 	chainState, chainExists := state.Chains[chain.Selector]
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
 	}
 
 	if state.Chains[chain.Selector].DonIDClaimer == nil {
-		_, err := cldf.DeployContract(e.Logger, chain, ab,
+		_, err := shared.DeployContractAndRecord(e.Logger, chain, ab, ds, cldf.NewTypeAndVersion(shared.DonIDClaimer, deployment.Version1_6_1), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*don_id_claimer.DonIDClaimer] {
 				donIDClaimerAddr, tx2, donIDClaimerC, err2 := don_id_claimer.DeployDonIDClaimer(
 					chain.DeployerKey,

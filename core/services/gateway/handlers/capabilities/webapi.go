@@ -40,9 +40,3 @@ func (r Response) Validate() error {
 
 	return nil
 }
-
-type TriggerResponsePayload struct {
-	ErrorMessage string `json:"error_message,omitempty"`
-	// ERROR, ACCEPTED, PENDING, COMPLETED
-	Status string `json:"status"`
-}

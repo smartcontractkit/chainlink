@@ -944,7 +944,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 		require.NoError(tt, err)
 		t.Log("gas used by proxied CreateSubscriptionAndFund:", r.GasUsed)
 
-		subID, err := consumerContract.SSubId(nil)
+		subID, err := consumerContract.SSubID(nil)
 		require.NoError(tt, err)
 		_, err = uni.rootContract.GetSubscription(nil, subID)
 		require.NoError(tt, err)
@@ -977,7 +977,7 @@ func TestVRFV2PlusIntegration_MaxConsumersCost(t *testing.T) {
 		big.NewInt(1000000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
 	uni.backend.Commit()
-	subID, err := carolContract.SSubId(nil)
+	subID, err := carolContract.SSubID(nil)
 	require.NoError(t, err)
 	addrs := make([]common.Address, 0, 98)
 	for range 98 {
@@ -1028,7 +1028,7 @@ func requestAndEstimateFulfillmentCost(
 		PreSeed:          s,
 		BlockHash:        requestLog.Raw().BlockHash,
 		BlockNum:         requestLog.Raw().BlockNumber,
-		SubId:            subID,
+		SubID:            subID,
 		CallbackGasLimit: gas,
 		NumWords:         numWords,
 		Sender:           consumerContractAddress,
@@ -1066,7 +1066,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 			big.NewInt(1000000000000000000)) // 0.1 LINK
 		require.NoError(tt, err)
 		uni.backend.Commit()
-		subID, err2 := carolContract.SSubId(nil)
+		subID, err2 := carolContract.SSubID(nil)
 		require.NoError(tt, err2)
 		_, err2 = carolContract.TopUpSubscriptionNative(carol,
 			big.NewInt(2000000000000000000)) // 0.2 ETH
@@ -1121,7 +1121,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 		_, err2 := consumerContract.CreateSubscriptionAndFund(consumerOwner, assets.Ether(5).ToInt())
 		require.NoError(t, err2)
 		uni.backend.Commit()
-		subID, err2 := consumerContract.SSubId(nil)
+		subID, err2 := consumerContract.SSubID(nil)
 		require.NoError(t, err2)
 		gasRequested := uint32(50_000)
 		nw := uint32(1)
@@ -1357,7 +1357,7 @@ func requestRandomnessAndValidate(t *testing.T,
 	require.NoError(t, err)
 	uni.backend.Commit()
 
-	requestID, err := consumerContract.SRequestId(nil)
+	requestID, err := consumerContract.SRequestID(nil)
 	require.NoError(t, err)
 
 	_, err = uni.migrationTestCoordinator.FulfillRandomWords(uni.neil, requestID)

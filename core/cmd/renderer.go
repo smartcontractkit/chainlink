@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/renderer"
+	"github.com/olekukonko/tablewriter/tw"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -78,8 +80,7 @@ func (rt RendererTable) renderLogPkgConfig(serviceLevelLog webpresenters.Service
 		})
 	}
 
-	render("ServiceLogConfig", table)
-	return nil
+	return render("ServiceLogConfig", table)
 }
 
 func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
@@ -98,14 +99,20 @@ func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
 	return nil
 }
 
-func render(name string, table *tablewriter.Table) {
-	table.SetRowLine(true)
-	table.SetColumnSeparator("║")
-	table.SetRowSeparator("═")
-	table.SetCenterSeparator("╬")
+func render(name string, table *tablewriter.Table) error {
+	symbols := tw.NewSymbolCustom("double-line").
+		WithColumn("║").
+		WithRow("═").
+		WithCenter("╬")
 
 	fmt.Println("╔ " + name)
-	table.Render()
+	return table.Options(
+		tablewriter.WithRenderer(
+			renderer.NewBlueprint(
+				tw.Rendition{Symbols: symbols},
+			),
+		),
+	).Render()
 }
 
 func renderList(fields []string, items [][]string, writer io.Writer) {
@@ -151,13 +158,12 @@ func (rt RendererTable) renderExternalInitiatorAuthentication(eia webpresenters.
 		eia.OutgoingToken,
 		eia.OutgoingSecret,
 	})
-	render("External Initiator Credentials:", table)
-	return nil
+	return render("External Initiator Credentials:", table)
 }
 
 func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader(headers)
+	table.Header(headers)
 	return table
 }
 
@@ -176,6 +182,5 @@ func (rt RendererTable) renderPipelineRun(run webpresenters.PipelineRunResource)
 	}
 	table.Append(row)
 
-	render("Pipeline Run", table)
-	return nil
+	return render("Pipeline Run", table)
 }

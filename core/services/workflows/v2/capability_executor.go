@@ -31,17 +31,19 @@ import (
 var _ host.ExecutionHelper = (*ExecutionHelper)(nil)
 
 type ExecutionHelper struct {
-	*Engine
+	base *baseEngine
+
 	WorkflowExecutionID string
 	ExecutionTimestamp  time.Time
 	UserLogChan         chan<- *protoevents.LogLine
 	TimeProvider
 	SecretsFetcher
 
-	chainAllowed limits.GateLimiter
-	callLimiters map[capCall]limits.BoundLimiter[int]
-	mu           sync.Mutex
-	callCounts   map[limits.Limiter[int]]int
+	chainAllowed       limits.GateLimiter
+	callLimiters       map[capCall]limits.BoundLimiter[int]
+	defaultCallLimiter limits.BoundLimiter[int]
+	mu                 sync.Mutex
+	callCounts         map[limits.Limiter[int]]int
 
 	executionProfile *executionProfileCollector
 
@@ -52,6 +54,7 @@ type ExecutionHelper struct {
 
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 	c.chainAllowed = limiters.ChainAllowed
+	c.defaultCallLimiter = limits.NewUpperBoundLimiter[int](defaultCapabilityCallLimit)
 	c.callLimiters = map[capCall]limits.BoundLimiter[int]{
 		{"consensus", "Simple"}: limiters.ConsensusCalls,
 		{"consensus", "Report"}: limiters.ConsensusCalls,
@@ -92,6 +95,8 @@ func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 	}
 }
 
+const defaultCapabilityCallLimit = 5
+
 type capCall struct {
 	name   string
 	method string
@@ -113,24 +118,25 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	}
 
 	limiter, ok := c.callLimiters[capCall{name: capName, method: request.Method}]
-	if ok {
-		c.mu.Lock()
-		if c.callCounts == nil {
-			c.callCounts = make(map[limits.Limiter[int]]int)
-		}
-		cnt := c.callCounts[limiter] + 1
-		if err := limiter.Check(ctx, cnt); err != nil {
-			c.mu.Unlock()
-			return nil, caperrors.NewPublicUserError(
-				fmt.Errorf("capability call limit exceeded for %s.%s: %w", capName, request.Method, err),
-				caperrors.LimitExceeded,
-			)
-		}
-		c.callCounts[limiter] = cnt
-		c.mu.Unlock()
+	if !ok {
+		limiter = c.defaultCallLimiter
 	}
+	c.mu.Lock()
+	if c.callCounts == nil {
+		c.callCounts = make(map[limits.Limiter[int]]int)
+	}
+	cnt := c.callCounts[limiter] + 1
+	if err := limiter.Check(ctx, cnt); err != nil {
+		c.mu.Unlock()
+		return nil, caperrors.NewPublicUserError(
+			fmt.Errorf("capability call limit exceeded for %s.%s: %w", capName, request.Method, err),
+			caperrors.LimitExceeded,
+		)
+	}
+	c.callCounts[limiter] = cnt
+	c.mu.Unlock()
 
-	free, err := c.capCallsSemaphore.Wait(ctx, 1)
+	free, err := c.base.capCallsSemaphore.Wait(ctx, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -140,9 +146,9 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 }
 
 func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
-	execLogger := c.logger().With("workflowExecutionID", c.WorkflowExecutionID, "capabilityID", request.Id, "callbackID", request.CallbackId, "method", request.Method)
+	execLogger := c.base.logger().With("workflowExecutionID", c.WorkflowExecutionID, "capabilityID", request.Id, "callbackID", request.CallbackId, "method", request.Method)
 	// TODO (CAPPL-735): use request.Metadata.WorkflowExecutionId to associate the call with a specific execution
-	capability, err := c.cfg.CapRegistry.GetExecutable(ctx, request.Id)
+	capability, err := c.base.cfg.CapRegistry.GetExecutable(ctx, request.Id)
 	if err != nil {
 		return nil, fmt.Errorf("action capability not found: %w, ", err)
 	}
@@ -156,7 +162,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		return nil, fmt.Errorf("capability %q is system-only and cannot be called from a workflow", info.ID)
 	}
 
-	localNode := c.localNode.Load()
+	localNode := c.base.localNode.Load()
 
 	// If the capability info is missing a DON, then
 	// the capability is local, and we should use the localNode's DON ID.
@@ -170,14 +176,14 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		donID = localNode.WorkflowDON.ID
 	}
 
-	config, err := c.cfg.CapRegistry.ConfigForCapability(ctx, info.ID, donID)
+	config, err := c.base.cfg.CapRegistry.ConfigForCapability(ctx, info.ID, donID)
 	if err != nil {
 		// not explicitly an error case and more relevant (helpful) logging occurs in the metering package
 		// debug level should be sufficient here
 		execLogger.Debugw("capability config not found", "err", err)
 	}
 
-	meterReport, ok := c.meterReports.Get(c.WorkflowExecutionID)
+	meterReport, ok := c.base.meterReports.Get(c.WorkflowExecutionID)
 	if !ok {
 		execLogger.Error("no metering report found")
 	}
@@ -192,7 +198,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		userSpendLimit.Valid = false
 
 		var openConcurrentCallSlots int
-		if openConcurrentCallSlots, err = c.cfg.LocalLimiters.CapabilityConcurrency.Available(ctx); err != nil {
+		if openConcurrentCallSlots, err = c.base.cfg.LocalLimiters.CapabilityConcurrency.Available(ctx); err != nil {
 			return nil, err
 		}
 
@@ -205,7 +211,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 				config.RestrictedConfig,
 			),
 		); err != nil {
-			c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+			c.base.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		}
 	}
 
@@ -214,69 +220,69 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Method:       request.Method,
 		CapabilityId: request.Id,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowOwner:            c.cfg.WorkflowOwner,
-			WorkflowID:               c.cfg.WorkflowID,
+			WorkflowOwner:            c.base.cfg.WorkflowOwner,
+			WorkflowID:               c.base.cfg.WorkflowID,
 			WorkflowExecutionID:      c.WorkflowExecutionID,
-			WorkflowName:             c.cfg.WorkflowName.Hex(),
+			WorkflowName:             c.base.cfg.WorkflowName.Hex(),
 			WorkflowDonID:            localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: pinnedWorkflowDonConfigVersion,
 			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
-			DecodedWorkflowName:      c.cfg.WorkflowName.String(),
+			DecodedWorkflowName:      c.base.cfg.WorkflowName.String(),
 			SpendLimits:              spendLimits,
-			WorkflowTag:              c.cfg.WorkflowTag,
+			WorkflowTag:              c.base.cfg.WorkflowTag,
 			ExecutionTimestamp:       c.ExecutionTimestamp,
 		},
 		Config: values.EmptyMap(),
 	}
 	var creGetter settings.Getter
-	if c.cfg.LocalLimiters != nil {
-		creGetter = c.cfg.LocalLimiters.Settings
+	if c.base.cfg.LocalLimiters != nil {
+		creGetter = c.base.cfg.LocalLimiters.Settings
 	}
 	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, creGetter)
-	if propagateOrgIDMeta && c.orgID != "" {
-		capReq.Metadata.OrgID = c.orgID
+	if propagateOrgIDMeta && c.base.orgID != "" {
+		capReq.Metadata.OrgID = c.base.orgID
 	}
 
 	execLogger.Debug("Executing capability ...")
-	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
-	loggerLabels := c.eventLabels()
+	c.base.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
+	loggerLabels := c.base.eventLabels()
 	_ = events.EmitCapabilityStartedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
 
-	execCtx, execCancel, err := c.cfg.LocalLimiters.CapabilityCallTime.WithTimeout(ctx)
+	execCtx, execCancel, err := c.base.cfg.LocalLimiters.CapabilityCallTime.WithTimeout(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer execCancel()
 
-	executionStart := c.cfg.Clock.Now()
+	executionStart := c.base.cfg.Clock.Now()
 	c.executionProfile.recordStepStart(meteringRef, request.Id, executionStart)
 
 	capResp, err := capability.Execute(execCtx, capReq)
-	executionEnd := c.cfg.Clock.Now()
+	executionEnd := c.base.cfg.Clock.Now()
 	executionDuration := executionEnd.Sub(executionStart)
 	c.executionProfile.recordStepEnd(meteringRef, executionEnd, err != nil)
 
-	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
+	c.base.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
 		if capabilityError, ok := errors.AsType[caperrors.Error](err); ok {
 			if capabilityError.Origin() == caperrors.OriginUser {
 				execLogger.Debugw("Capability execution failed with user error", "userErr", err)
 				_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, err)
-				c.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityUserErrorCounter(ctx)
+				c.base.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityUserErrorCounter(ctx)
 				return nil, fmt.Errorf("capability execution failed with user error: %w", err)
 			}
 
 			execLogger.Debugw("Capability execution failed with system error", "systemErr", err)
 			_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
-			c.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityFailureCounter(ctx)
-			c.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
+			c.base.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityFailureCounter(ctx)
+			c.base.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 			return nil, fmt.Errorf("failed to execute capability: %w", err)
 		}
 
 		execLogger.Debugw("Capability execution failed", "err", err)
 		_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
-		c.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, caperrors.Internal.String()).IncrementCapabilityFailureCounter(ctx)
-		c.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
+		c.base.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, caperrors.Internal.String()).IncrementCapabilityFailureCounter(ctx)
+		c.base.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
 
@@ -308,7 +314,7 @@ func (c *ExecutionHelper) EmitUserLog(msg string) error {
 	}:
 		// Successfully sent to channel
 	default:
-		c.logger().Warnw("Exceeded max allowed user log messages, dropping")
+		c.base.logger().Warnw("Exceeded max allowed user log messages, dropping")
 	}
 	return nil
 }
@@ -332,13 +338,19 @@ func (c *ExecutionHelper) EmitUserMetric(ctx context.Context, metric *eventsv2.W
 		return err
 	}
 	metric.Name = userMetricPrefix + metric.Name + suffix
-	return events.EmitUserMetric(ctx, c.eventLabels(), metric)
+	return events.EmitUserMetric(ctx, c.base.eventLabels(), metric)
 }
+
+// dontimeCapabilityID matches the capability ID registered by the OCR2 delegate
+// (core/services/ocr2/delegate.go).
+const dontimeCapabilityID = "dontime@1.0.0"
 
 // systemCapabilities lists capability IDs that are internal plumbing and must
 // not be callable from user workflow steps.
 var systemCapabilities = map[string]bool{
 	confidentialWorkflowsCapabilityID: true,
+	vaultcommon.CapabilityID:          true,
+	dontimeCapabilityID:               true,
 }
 
 func isSystemCapability(capID string) bool {

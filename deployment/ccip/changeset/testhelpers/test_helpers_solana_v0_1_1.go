@@ -40,6 +40,7 @@ import (
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
@@ -114,7 +115,7 @@ func TransferOwnershipSolanaV0_1_1(
 // assuming one out of the src and dst is solana and the other is evm
 func DeployTransferableTokenSolanaV0_1_1(
 	lggr logger.Logger,
-	e cldf.Environment,
+	e *cldf.Environment,
 	evmChainSel, solChainSel uint64,
 	evmDeployer *bind.TransactOpts,
 	evmTokenName string,
@@ -133,14 +134,21 @@ func DeployTransferableTokenSolanaV0_1_1(
 	if selectorFamily != chainsel.FamilySolana {
 		return nil, nil, solana.PublicKey{}, fmt.Errorf("solChainSel %d is not a solana chain", solChainSel)
 	}
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(*e)
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
 
 	addresses := e.ExistingAddresses
 	// deploy evm token and pool
-	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployer, addresses, evmTokenName)
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployer, addresses, ds, evmTokenName)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+	if err := mergeDataStoreIntoEnv(e, ds); err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
@@ -152,7 +160,7 @@ func DeployTransferableTokenSolanaV0_1_1(
 
 	// deploy solana token
 	solTokenName := evmTokenName
-	e, err = commoncs.Apply(nil, e,
+	*e, err = commoncs.Apply(nil, *e,
 		commoncs.Configure(
 			// this makes the deployer the mint authority by default
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.DeploySolanaToken),
@@ -187,7 +195,7 @@ func DeployTransferableTokenSolanaV0_1_1(
 	bnm := shared.BurnMintTokenPool
 
 	// deploy and configure solana token pool
-	e, err = commoncs.Apply(nil, e,
+	*e, err = commoncs.Apply(nil, *e,
 		commoncs.Configure(
 			// deploy token pool and set the burn/mint authority to the tokenPool
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.E2ETokenPool),

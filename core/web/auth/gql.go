@@ -7,15 +7,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
-type sessionUserKey struct{}
-type GQLSession struct {
-	SessionID string
-	User      *clsessions.User
-}
+type (
+	sessionUserKey struct{}
+	GQLSession     struct {
+		SessionID string
+		User      *clsessions.User
+	}
+)
 
 // AuthenticateGQL middleware checks the session cookie for a user and sets it
 // on the request context if it exists. It is the responsibility of each resolver

@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn/streamspb"
 )
 
@@ -14,6 +15,7 @@ import (
 type grpcStreamClient struct {
 	conn   *grpc.ClientConn
 	stream streamspb.StreamService_SubscribeClient
+	sendWG services.WaitGroup
 }
 
 // dialGRPCStream opens a gRPC connection to target and starts the bidirectional
@@ -38,6 +40,10 @@ func dialGRPCStream(ctx context.Context, target string, useTLS bool) (eaStreamCl
 }
 
 func (c *grpcStreamClient) Send(req *streamspb.SubscribeRequest) error {
+	if err := c.sendWG.TryAdd(1); err != nil {
+		return err
+	}
+	defer c.sendWG.Done()
 	return c.stream.Send(req)
 }
 
@@ -46,6 +52,7 @@ func (c *grpcStreamClient) Recv() (*streamspb.SubscribeResponse, error) {
 }
 
 func (c *grpcStreamClient) Close() error {
+	c.sendWG.Wait() // halt and block sending
 	_ = c.stream.CloseSend()
 	return c.conn.Close()
 }

@@ -102,8 +102,5 @@ DeltaCOverride = '168h'
 DeltaCJitterOverride = '1h'
 ObservationGracePeriod = '1s'
 
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400_000

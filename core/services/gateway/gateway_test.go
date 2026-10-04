@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -53,7 +54,7 @@ func (h *handlerFactory) NewHandler(handlerType gateway.HandlerType, _ json.RawM
 
 func newGatewayHandler(t *testing.T) gateway.HandlerFactory {
 	lggr := logger.Test(t)
-	return gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr, limits.Factory{Logger: lggr}, nil)
+	return gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr, limits.Factory{Logger: lggr}, nil, nil)
 }
 
 func TestGateway_NewGatewayFromConfig_NoServicesOrDONs(t *testing.T) {
@@ -409,7 +410,7 @@ Name = "dummy"
 	servicetest.Run(t, gatewayObj)
 }
 
-func requireJSONRPCResult(t *testing.T, method string, response []byte, expectedID string, expectedResult string) {
+func requireJSONRPCResult(t *testing.T, method string, response []byte, expectedID, expectedResult string) {
 	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s,"method":"%s"}`, expectedID, expectedResult, method), string(response))
 }
 
@@ -431,34 +432,34 @@ func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handlermocks.Han
 	handlersObj := map[string]handlers.Handler{
 		"testDON": handler,
 	}
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
-	gw := gateway.NewGateway(&api.JsonRPCCodec{}, httpServer, handlersObj, map[string]string{"testDON": "testDON"}, nil, nil, gMetrics, logger.Test(t))
+	gw := gateway.NewGateway(&api.JSONRPCCodec{}, httpServer, handlersObj, map[string]string{"testDON": "testDON"}, nil, nil, gMetrics, logger.Test(t))
 	return gw, handler
 }
 
 // newSignedLegacyRequest creates a signed legacy request message for testing purposes.
 // Legacy requests embed
-func newSignedLegacyRequest(t *testing.T, messageID string, method string, donID string, payload []byte) []byte {
+func newSignedLegacyRequest(t *testing.T, messageID, method, donID string, payload []byte) []byte {
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: messageID,
+			MessageID: messageID,
 			Method:    method,
-			DonId:     donID,
+			DonID:     donID,
 			Payload:   payload,
 		},
 	}
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	require.NoError(t, msg.Sign(privateKey))
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	rawRequest, err := codec.EncodeLegacyRequest(msg)
 	require.NoError(t, err)
 	return rawRequest
 }
 
 // newJSONRpcRequest creates a json rpc based request message for testing purposes.
-func newJSONRpcRequest(t *testing.T, requestID string, method string, payload []byte) []byte {
+func newJSONRpcRequest(t *testing.T, requestID, method string, payload []byte) []byte {
 	rawPayload := json.RawMessage(payload)
 	request := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
@@ -535,7 +536,7 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 		// echo back to sender with attached payload
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
-		codec := api.JsonRPCCodec{}
+		codec := api.JSONRPCCodec{}
 		err := callback.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
 		require.NoError(t, err)
 	})
@@ -644,7 +645,7 @@ func TestGateway_NewStyleConfig_UserMessageRouting(t *testing.T) {
 	// Set up gateway with serviceToMultiHandler (new-style config)
 	httpServer := netmocks.NewHTTPServer(t)
 	httpServer.On("SetHTTPRequestHandler", mock.Anything).Return(nil)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 
 	// Map services to their handlers (as would be created by setupFromNewConfig)
@@ -656,7 +657,7 @@ func TestGateway_NewStyleConfig_UserMessageRouting(t *testing.T) {
 	}
 
 	gw := gateway.NewGateway(
-		&api.JsonRPCCodec{},
+		&api.JSONRPCCodec{},
 		httpServer,
 		nil, // no legacy handlers
 		nil, // no legacy serviceNameToDonID
@@ -715,7 +716,7 @@ func TestGateway_NewStyleConfig_NodeResponseRouting(t *testing.T) {
 
 	httpServer := netmocks.NewHTTPServer(t)
 	httpServer.On("SetHTTPRequestHandler", mock.Anything).Return(nil)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 
 	// Map services to their handlers
@@ -727,7 +728,7 @@ func TestGateway_NewStyleConfig_NodeResponseRouting(t *testing.T) {
 	}
 
 	gw := gateway.NewGateway(
-		&api.JsonRPCCodec{},
+		&api.JSONRPCCodec{},
 		httpServer,
 		nil,
 		nil,
