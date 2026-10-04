@@ -1702,25 +1702,29 @@ PerSenderBurst = 50 # Default
 ```toml
 GlobalRPS = 800 # Default
 ```
-GlobalRPS is the global rate limit for the dispatcher.
+GlobalRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### GlobalBurst
 ```toml
 GlobalBurst = 1000 # Default
 ```
-GlobalBurst is the global burst limit for the dispatcher.
+GlobalBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### PerSenderRPS
 ```toml
 PerSenderRPS = 10 # Default
 ```
-PerSenderRPS is the per-sender rate limit for the dispatcher.
+PerSenderRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### PerSenderBurst
 ```toml
 PerSenderBurst = 50 # Default
 ```
-PerSenderBurst is the per-sender burst limit for the dispatcher.
+PerSenderBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ## Capabilities.Peering
 ```toml
