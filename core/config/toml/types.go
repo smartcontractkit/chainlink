@@ -2674,7 +2674,9 @@ func (r *WorkflowRegistry) AdditionalSources() []coreconfig.AdditionalWorkflowSo
 
 type Dispatcher struct {
 	ReceiverBufferSize *int
-	RateLimit          DispatcherRateLimit
+	// Deprecated: has no effect. Rate limiting is now configured via cresettings
+	// DispatcherGlobalRate/DispatcherPerSenderRate instead.
+	RateLimit DispatcherRateLimit
 }
 
 func (d *Dispatcher) setFrom(f *Dispatcher) {
