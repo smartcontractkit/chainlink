@@ -105,7 +105,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		})
 		return rm, emitter
 	}
-	identity := resourcemanager.ResourceIdentity{Product: "cre", Service: resourcemanager.EmittingServiceWorkflowEngine, ResourcePool: resourcemanager.WorkflowUsageResourcePool}
+	identity := resourcemanager.WithWorkflowUsagePool(resourcemanager.ResourceIdentity{Product: "cre", Service: resourcemanager.EmittingServiceWorkflowEngine}, resourcemanager.ResourceTypeWorkflowCompute)
 
 	t.Run("emits one compute record per execution and logs the contract line", func(t *testing.T) {
 		lggr, obs := logger.TestObserved(t, zapcore.InfoLevel)
@@ -122,6 +122,8 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		rec := records[0]
 		require.Equal(t, meteringpb.MeterAction_METER_ACTION_USAGE, rec.GetAction())
 		require.Equal(t, resourcemanager.EmittingServiceWorkflowEngine, rec.GetIdentity().GetService())
+		require.Equal(t, "cre:workflow:compute", rec.GetIdentity().GetResourcePool())
+		require.Equal(t, "cre:workflow:compute", rec.GetIdentity().GetResourcePoolId())
 		require.NotEmpty(t, rec.GetIdentity().GetDon().GetDonId(), "don id must be stamped from the local node")
 		require.Len(t, rec.GetUtilizations(), 1)
 		u := rec.GetUtilizations()[0]

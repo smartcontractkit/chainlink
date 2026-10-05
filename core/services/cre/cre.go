@@ -1033,7 +1033,7 @@ func newWorkflowRegistrySyncerV2(
 		})
 		usageIdentity := meterIdentity
 		usageIdentity.Service = resourcemanager.EmittingServiceWorkflowEngine
-		usageIdentity.ResourcePool = resourcemanager.WorkflowUsageResourcePool
+		usageIdentity = resourcemanager.WithWorkflowUsagePool(usageIdentity, resourcemanager.ResourceTypeWorkflowCompute)
 		handlerOpts = append(handlerOpts, syncerV2.WithUsageMeter(usageRM, usageIdentity))
 	}
 
