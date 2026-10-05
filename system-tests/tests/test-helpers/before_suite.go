@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/chiprouter"
@@ -130,7 +129,7 @@ func getOrCreateSharedEnvironment(t *testing.T, tconf *ttypes.TestConfig, flags 
 		require.NoError(t, err, "failed to ensure linking service is running")
 		createEnvironment(t, tconf, flags...)
 		require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
-		in := getEnvironmentConfig(t)
+		in := getEnvironmentConfig(t, tconf)
 		creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in)
 		if err != nil {
 			entry.err = err
@@ -176,7 +175,7 @@ func cloneSharedEnvironmentForTest(sharedEnv *ttypes.TestEnvironment, tconf *tty
 
 // configurePerTestExecutionContext creates one funded, registry-authorized signer, swaps testEnv EVM blockchains
 // to per-test seth clients, and sets the CLDF deployer key (SetupTestEnvironmentWithPerTestKeys).
-func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnvironment, testEnv *ttypes.TestEnvironment) *ttypes.ExecutionContext {
+func configurePerTestExecutionContext(t *testing.T, sharedEnv, testEnv *ttypes.TestEnvironment) *ttypes.ExecutionContext {
 	t.Helper()
 
 	ownerAddress, privateKey, addrErr := crecrypto.GenerateNewKeyPair()
@@ -307,12 +306,13 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 	}
 }
 
-func getEnvironmentConfig(t *testing.T) *envconfig.Config {
+func getEnvironmentConfig(t *testing.T, testConfig *ttypes.TestConfig) *envconfig.Config {
 	t.Helper()
 
 	// we call our own Load function because it executes a couple of crucial extra input transformations
 	in := &envconfig.Config{}
-	err := in.Load(os.Getenv("CTF_CONFIGS"))
+	statePath := envconfig.MustLocalCREStateFileAbsPath(testConfig.RelativePathToRepoRoot)
+	err := in.Load(statePath)
 	require.NoError(t, err, "couldn't load environment state")
 	return in
 }
@@ -320,34 +320,33 @@ func getEnvironmentConfig(t *testing.T) *envconfig.Config {
 func createEnvironment(t *testing.T, testConfig *ttypes.TestConfig, flags ...string) {
 	t.Helper()
 
-	confErr := setConfigurationIfMissing(testConfig.EnvironmentConfigPath)
-	require.NoError(t, confErr, "failed to set configuration")
+	keyErr := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
+	require.NoError(t, keyErr, "failed to set default private key")
 
-	createErr := createEnvironmentIfNotExists(t.Context(), testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, flags...)
+	createErr := createEnvironmentIfNotExists(t.Context(), testConfig, flags...)
 	require.NoError(t, createErr, "failed to create environment")
-
-	setErr := os.Setenv("CTF_CONFIGS", envconfig.MustLocalCREStateFileAbsPath(testConfig.RelativePathToRepoRoot))
-	require.NoError(t, setErr, "failed to set CTF_CONFIGS env var")
 }
 
-func setConfigurationIfMissing(configName string) error {
-	if os.Getenv("CTF_CONFIGS") == "" {
-		err := os.Setenv("CTF_CONFIGS", configName)
-		if err != nil {
-			return errors.Wrap(err, "failed to set CTF_CONFIGS env var")
+func createEnvironmentIfNotExists(ctx context.Context, testConfig *ttypes.TestConfig, flags ...string) error {
+	if !envconfig.LocalCREStateFileExists(testConfig.RelativePathToRepoRoot) {
+		// a CTF_CONFIGS set by the caller overrides the test's default topology
+		configPath := testConfig.EnvironmentConfigPath
+		if fromEnv := os.Getenv("CTF_CONFIGS"); fromEnv != "" {
+			configPath = fromEnv
 		}
-	}
 
-	return environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
-}
-
-func createEnvironmentIfNotExists(ctx context.Context, relativePathToRepoRoot, environmentDir string, flags ...string) error {
-	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
-		framework.L.Info().Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
+		framework.L.Info().Str("CTF_CONFIGS", configPath).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(testConfig.RelativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
 
 		args := append([]string{"env", "start"}, flags...)
 
-		cmd := resolveCreEnvCommand(ctx, relativePathToRepoRoot, environmentDir, args...)
+		cmd := resolveCreEnvCommand(ctx, testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, args...)
+		// drop any inherited CTF_CONFIGS entry so the child sees exactly one value
+		cmdEnv := slices.Clone(os.Environ())
+		cmdEnv = slices.DeleteFunc(cmdEnv, func(e string) bool {
+			return strings.HasPrefix(e, "CTF_CONFIGS=")
+		})
+		cmdEnv = append(cmdEnv, "CTF_CONFIGS="+configPath)
+		cmd.Env = cmdEnv
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmdErr := cmd.Run()

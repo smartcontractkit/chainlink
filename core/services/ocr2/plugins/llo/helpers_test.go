@@ -230,6 +230,9 @@ func setupRestartableNode(
 		// [EVM.Transactions]
 		for _, evmCfg := range c.EVM {
 			evmCfg.Transactions.Enabled = new(false) // don't need txmgr
+			// The simulated backend only mines on Commit, so the 15s default
+			// stalls config and channel definition pickup by a full interval.
+			evmCfg.LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 		}
 
 		// Optional overrides
