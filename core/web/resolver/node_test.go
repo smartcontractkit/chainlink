@@ -46,30 +46,24 @@ func TestResolver_Nodes(t *testing.T) {
 					Nodes: []chainlink.NetworkNodeStatus{
 						{
 							Network: relay.NetworkEVM,
-							NodeStatus: types.NodeStatus{
-								ChainID: "1",
-								Name:    "node-name",
-								Config:  "Name='node-name'\nOrder=11\nHTTPURL='http://some-url'\nWSURL='ws://some-url'",
-								State:   "alive",
-							},
+							ChainID: "1",
+							Name:    "node-name",
+							Config:  "Name='node-name'\nOrder=11\nHTTPURL='http://some-url'\nWSURL='ws://some-url'",
+							State:   "alive",
 						},
 						{
 							Network: relay.NetworkAptos,
-							NodeStatus: types.NodeStatus{
-								ChainID: "2",
-								Name:    "aptos-node",
-								Config:  "Name='aptos-node'\nURL='http://aptos-url'",
-								State:   "alive",
-							},
+							ChainID: "2",
+							Name:    "aptos-node",
+							Config:  "Name='aptos-node'\nURL='http://aptos-url'",
+							State:   "alive",
 						},
 						{
 							Network: relay.NetworkStellar,
-							NodeStatus: types.NodeStatus{
-								ChainID: "stellar-testnet",
-								Name:    "stellar-node",
-								Config:  "Name='stellar-node'\nURL='http://stellar-url'",
-								State:   "alive",
-							},
+							ChainID: "stellar-testnet",
+							Name:    "stellar-node",
+							Config:  "Name='stellar-node'\nURL='http://stellar-url'",
+							State:   "alive",
 						},
 					},
 					Relayers: map[types.RelayID]loop.Relayer{
