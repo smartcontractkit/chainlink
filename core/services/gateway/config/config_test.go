@@ -313,3 +313,9 @@ func TestGatewayConfig_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestGatewayDONIDForShard(t *testing.T) {
+	assert.Equal(t, "workflow_1_zone-b", GatewayDONIDForShard("workflow_1_zone-b", 0))
+	assert.Equal(t, "workflow_1_zone-b_shard-1", GatewayDONIDForShard("workflow_1_zone-b", 1))
+	assert.Equal(t, "workflow_1_zone-b_shard-12", GatewayDONIDForShard("workflow_1_zone-b", 12))
+}

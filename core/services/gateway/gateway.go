@@ -133,7 +133,7 @@ func setupFromNewConfig(
 
 			var shardConnMgrs []handlers.DON
 			for shardIdx := range donCfg.Shards {
-				donID := config.ShardDONID(donName, shardIdx)
+				donID := config.GatewayDONIDForShard(donName, shardIdx)
 				donConnMgr := connMgr.DONConnectionManager(donID)
 				if donConnMgr == nil {
 					return nil, fmt.Errorf("connection manager for DON %s shard %d not found", donName, shardIdx)
@@ -153,7 +153,7 @@ func setupFromNewConfig(
 		// Set (multi)handler on all associated DON connection managers, keyed by service name
 		for i, donName := range svc.DONs {
 			for shardIdx := range shardsConnMgrs[i] {
-				donID := config.ShardDONID(donName, shardIdx)
+				donID := config.GatewayDONIDForShard(donName, shardIdx)
 				donConnMgr := connMgr.DONConnectionManager(donID)
 				if donConnMgr == nil {
 					return nil, fmt.Errorf("connection manager for DON %s shard %d not found", donName, shardIdx)

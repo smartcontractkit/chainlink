@@ -68,13 +68,15 @@ type ShardedDONConfig struct {
 	Shards  []Shard
 }
 
-// ShardDONID returns the donID for a given shard
-func ShardDONID(donName string, shardIdx int) string {
+// GatewayDONIDForShard returns the DON ID that nodes of a given shard use to authenticate
+// with the Gateway (GatewayConnector.DonID in node config).
+// Shard 0 uses the bare DON name; shard N>0 uses "donName_shard-N".
+func GatewayDONIDForShard(donName string, shardIdx int) string {
 	if shardIdx == 0 {
 		// NOTE: special case for backward compatibility - shard 0 doesn't have an index suffix
 		return donName
 	}
-	return fmt.Sprintf("%s_%d", donName, shardIdx)
+	return fmt.Sprintf("%s_shard-%d", donName, shardIdx)
 }
 
 type Shard struct {
