@@ -2,7 +2,6 @@ package shardownership
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -45,7 +44,8 @@ func (s *ShardIndexMapper) OnNewRegistry(ctx context.Context, reg *registry.Regi
 		return fmt.Errorf("failed to resolve local node: %w", err)
 	}
 	if localNode.WorkflowDON.ID == 0 {
-		return errors.New("local node does not belong to a workflow DON")
+		s.lggr.Info("local node does not belong to a workflow DON, skipping shard index mapping")
+		return nil
 	}
 
 	namePrefix := shardGroupNamePrefix(localNode.WorkflowDON.Name)

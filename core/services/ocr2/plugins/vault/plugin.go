@@ -33,7 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -57,10 +57,10 @@ type ReportingPluginConfig struct {
 
 	// Sourced from the offchain config
 	MaxSecretsPerOwner              limits.BoundLimiter[int]
-	MaxShareLengthBytes             limits.BoundLimiter[pkgconfig.Size]
+	MaxShareLengthBytes             limits.BoundLimiter[commonconfig.Size]
 	MaxBatchSize                    limits.BoundLimiter[int]
 	MaxPendingQueueWriteSize        limits.BoundLimiter[int]
-	MaxBlobPayloadBytes             limits.BoundLimiter[pkgconfig.Size]
+	MaxBlobPayloadBytes             limits.BoundLimiter[commonconfig.Size]
 	VaultForceEmptyOCRRounds        limits.GateLimiter
 	VaultGetSecretsIncludePublicKey limits.GateLimiter
 	VaultPendingQueueStallThreshold limits.BoundLimiter[int]

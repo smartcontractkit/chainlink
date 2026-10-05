@@ -4,11 +4,11 @@ import (
 	"time"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
-var _ config.JobPipeline = (*jobPipelineConfig)(nil)
+var _ coreconfig.JobPipeline = (*jobPipelineConfig)(nil)
 
 type jobPipelineConfig struct {
 	c toml.JobPipeline

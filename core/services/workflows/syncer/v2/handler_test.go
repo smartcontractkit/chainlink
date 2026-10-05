@@ -35,7 +35,7 @@ import (
 	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow/server"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
@@ -1084,8 +1084,8 @@ type mockArtifactStore struct {
 	deleteWorkflowArtifactsErr error
 }
 
-func (m *mockArtifactStore) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error) {
-	return m.artifactStore.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
+func (m *mockArtifactStore) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string, existingSpec *job.WorkflowSpec) ([]byte, []byte, error) {
+	return m.artifactStore.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL, existingSpec)
 }
 
 func (m *mockArtifactStore) GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {
@@ -1397,7 +1397,7 @@ type stubWorkflowArtifactsStore struct {
 	fetchCalls     atomic.Int32
 }
 
-func (s *stubWorkflowArtifactsStore) FetchWorkflowArtifacts(context.Context, string, string, string) ([]byte, []byte, error) {
+func (s *stubWorkflowArtifactsStore) FetchWorkflowArtifacts(context.Context, string, string, string, *job.WorkflowSpec) ([]byte, []byte, error) {
 	s.fetchCalls.Add(1)
 	return []byte("binary"), []byte("config"), nil
 }
@@ -2172,9 +2172,9 @@ func Test_specStorage_StateMachine(t *testing.T) {
 	// team narrowing the cresettings window to include time.Now().
 	alwaysActive := func() *v2.EngineFeatureFlags {
 		return &v2.EngineFeatureFlags{
-			WorkflowTagBackfill: limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
+			WorkflowTagBackfill: limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
 				Lower: 0,
-				Upper: config.Timestamp(time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+				Upper: commonconfig.Timestamp(time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
 			}),
 		}
 	}
@@ -2182,9 +2182,9 @@ func Test_specStorage_StateMachine(t *testing.T) {
 	// so time.Now() never falls inside, matching a fresh-deploy no-op.
 	farFuture := func() *v2.EngineFeatureFlags {
 		return &v2.EngineFeatureFlags{
-			WorkflowTagBackfill: limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
-				Lower: config.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-				Upper: config.Timestamp(time.Date(2101, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+			WorkflowTagBackfill: limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
+				Lower: commonconfig.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+				Upper: commonconfig.Timestamp(time.Date(2101, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
 			}),
 		}
 	}

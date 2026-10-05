@@ -22,7 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -310,7 +310,7 @@ func (e *baseEngine) DrainStartedAt() (time.Time, bool) {
 //
 // triggerLoopFn is an engine's queue-draining loop (e.g., handleAllTriggerEvents).
 // Pass nil to skip loop draining.
-func (e *baseEngine) startWith(ctx context.Context, initFn func(context.Context), triggerLoopFn func(context.Context)) error {
+func (e *baseEngine) startWith(ctx context.Context, initFn, triggerLoopFn func(context.Context)) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
 
@@ -857,8 +857,8 @@ func (e *baseEngine) emitUserLogs(ctx context.Context, userLogChan chan *protoev
 			}
 			e.metrics.IncrementLimitCheckUnenforcedCounter(emitCtx, cresettings.Default.PerWorkflow.LogEventLimit.Key)
 		}
-		if err := e.cfg.LocalLimiters.LogLine.Check(emitCtx, config.Size(len(logLine.Message))); err != nil {
-			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[config.Size]](err); ok {
+		if err := e.cfg.LocalLimiters.LogLine.Check(emitCtx, commonconfig.Size(len(logLine.Message))); err != nil {
+			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[commonconfig.Size]](err); ok {
 				logLine.Message = logLine.Message[:errBoundLimited.Limit] + " ...(truncated)"
 			} else {
 				if limits.IsErrRecoverable(err) {
