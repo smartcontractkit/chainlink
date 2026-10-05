@@ -624,20 +624,19 @@ Invalid configuration: 2 errors:
 	Must not comprise:
 		Leading or trailing whitespace
 		A user's API email
-
+	
 	Faults:
 		password is less than 16 characters long
 	. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
-
+	
 		- BackupURL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
-
+	
 	- Password.Keystore: empty: must be provided and non-empty
-
 -- err.txt --
 Error running app: configuration validation failed: invalid configuration

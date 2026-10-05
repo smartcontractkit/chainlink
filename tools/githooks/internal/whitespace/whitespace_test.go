@@ -181,6 +181,21 @@ func TestFixFile(t *testing.T) {
 		assert.Equal(t, "package main   \n", string(content))
 	})
 
+	t.Run("skips golden fixture files", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "out.txtar")
+		require.NoError(t, os.WriteFile(filePath, []byte("-- out.txt --\ntrailing space   \ntab only\t\n"), 0o600))
+
+		changed, err := whitespace.FixFile(filePath, false)
+		require.NoError(t, err)
+		assert.False(t, changed)
+
+		content, err := os.ReadFile(filePath)
+		require.NoError(t, err)
+		assert.Equal(t, "-- out.txt --\ntrailing space   \ntab only\t\n", string(content))
+	})
+
 	t.Run("fixes trailing whitespace in eligible text file on disk when checkOnly is false", func(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()

@@ -503,7 +503,14 @@ func (e *EthKeys) ValidateConfig() (err error) {
 }
 
 func dbURLPasswordComplexity(err error) string {
-	return fmt.Sprintf("missing or insufficiently complex password: %s. Database should be secured by a password matching the following complexity requirements: "+utils.PasswordComplexityRequirements, err)
+	msg := err.Error()
+	// Keep the separator off when the underlying error already starts on a
+	// new line, so the message contains no trailing whitespace.
+	sep := " "
+	if strings.HasPrefix(msg, "\n") {
+		sep = ""
+	}
+	return fmt.Sprintf("missing or insufficiently complex password:%s%s. Database should be secured by a password matching the following complexity requirements:%s", sep, msg, utils.PasswordComplexityRequirements)
 }
 
 type DatabaseSecrets struct {

@@ -1689,12 +1689,12 @@ BackupURL = "foo-bar?password=asdf"
 AllowSimplePasswords = false`,
 			exp: `invalid secrets: 2 errors:
 	- Database: 2 errors:
-		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
+		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 	
-		- BackupURL: invalid value (*****): missing or insufficiently complex password: 
+		- BackupURL: invalid value (*****): missing or insufficiently complex password:
 	Expected password complexity:
 	Must be at least 16 characters long
 	Must not comprise:
@@ -1703,7 +1703,7 @@ AllowSimplePasswords = false`,
 	
 	Faults:
 		password is less than 16 characters long
-	. Database should be secured by a password matching the following complexity requirements: 
+	. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
