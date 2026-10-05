@@ -231,9 +231,11 @@ linters:
       - linters:
           - bodyclose
         path: _test\.go
+        source: "(client\\.(Get|Post|Put|Patch|Delete)|cltest\\.|sendRequest|postSkip)"
         # bodyclose cannot see that cltest.HTTPClientCleaner's returned cleanup
-        # closure closes the response body, so it false-positives on every test
-        # call site that binds a cleanup func.
+        # closure (or httpserver_test sendRequest's internal defer) closes the
+        # response body, so it false-positives on those test call sites only.
+        # bodyclose stays active for every other response in tests.
       - linters:
           - gosec
         path: test
