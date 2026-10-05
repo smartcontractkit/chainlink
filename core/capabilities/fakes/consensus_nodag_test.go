@@ -93,6 +93,7 @@ func splitStellarSig(t *testing.T, b []byte) (ed25519.PublicKey, []byte) {
 }
 
 func Test_Report_StellarEncoder(t *testing.T) {
+	t.Parallel()
 	evmSigners := []ocr2key.KeyBundle{
 		ocr2key.MustNewInsecure(SeedForKeys(), corekeys.EVM),
 		ocr2key.MustNewInsecure(SeedForKeys(), corekeys.EVM),
@@ -129,6 +130,7 @@ func Test_Report_StellarEncoder(t *testing.T) {
 }
 
 func Test_Report_StellarEncoder_CustomSigners(t *testing.T) {
+	t.Parallel()
 	custom := deterministicSigners(corekeys.Stellar, 2)
 	fc := NewFakeConsensusNoDAG(nil, logger.Test(t), WithEncoderSigners("Stellar", custom))
 
@@ -144,6 +146,7 @@ func Test_Report_StellarEncoder_CustomSigners(t *testing.T) {
 }
 
 func Test_Report_DefaultStellarSignersWithoutDefaults(t *testing.T) {
+	t.Parallel()
 	// No default signers still yields one Stellar signer: the forwarder
 	// rejects reports without signatures.
 	fc := NewFakeConsensusNoDAG(nil, logger.Test(t))
@@ -153,6 +156,7 @@ func Test_Report_DefaultStellarSignersWithoutDefaults(t *testing.T) {
 }
 
 func Test_Report_EncoderNamesAreCaseInsensitive(t *testing.T) {
+	t.Parallel()
 	signer := ocr2key.MustNewInsecure(SeedForKeys(), corekeys.EVM)
 	fc := NewFakeConsensusNoDAG([]ocr2key.KeyBundle{signer}, logger.Test(t))
 	for _, name := range []string{"evm", "EVM", "Evm", "solana", "Solana", "SOLANA"} {
