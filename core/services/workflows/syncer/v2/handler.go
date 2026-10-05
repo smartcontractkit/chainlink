@@ -1503,6 +1503,7 @@ func (h *eventHandler) newV2EngineConfig(
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
 		MyDonID:                 h.myDonID,
+		MyShardIndex:            h.myShardIndex,
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,
 	}

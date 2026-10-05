@@ -25,6 +25,7 @@ const (
 	KeyDonN                = "N"
 	KeyDonQ                = "Q"
 	KeyP2PID               = "p2pID"
+	KeyShardIndex          = "shardIndex"
 	ValueWorkflowVersion   = "1.0.0"
 	ValueWorkflowVersionV2 = "2.0.0"
 	KeyCapabilityErrorCode = "capabilityErrorCode"

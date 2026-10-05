@@ -3,6 +3,7 @@ package chainlink
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel/metric"
@@ -31,6 +32,7 @@ type HeartbeatConfig struct {
 	P2P          string
 	AppID        string
 	CSAPublicKey string
+	ShardIndex   uint16
 }
 
 func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
@@ -52,6 +54,7 @@ func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
 		P2P:          cfg.Config.P2P().PeerID().String(),
 		AppID:        cfg.Config.AppID().String(),
 		CSAPublicKey: csaKey,
+		ShardIndex:   cfg.Config.Sharding().ShardIndex(),
 	}
 }
 
@@ -62,6 +65,7 @@ func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
 	labels := map[string]string{"system": "Application", "version": static.Version, "commit": static.Sha}
 	if cfg.P2P != "" {
 		labels["peer_id"] = cfg.P2P
+		labels["shard_index"] = strconv.FormatUint(uint64(cfg.ShardIndex), 10)
 	}
 	if cfg.AppID != "" {
 		labels["appID"] = cfg.AppID
