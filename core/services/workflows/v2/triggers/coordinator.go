@@ -228,7 +228,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 
 	c.workflows.set(workflowID, cw)
 
-	deliverFn := c.buildDeliverFn(cw)
+	deliverFn := c.buildDeliverFn(cw.wid, cw.lggr)
 	for idx, eventCh := range eventChans {
 		triggerCapID := triggerCapIDs[idx]
 		c.eng.GoCtx(readerCtx, func(ctx context.Context) {
@@ -254,7 +254,7 @@ func (c *coordinator) UnregisterTriggers(ctx context.Context, workflowID string)
 	// call cancel to stop all reader goroutines associated with this workflow.
 	cw.cancel()
 	if spawnRelease {
-		c.eng.Go(func(ctx context.Context) { c.releaseWhenDrained(ctx, workflowID, cw) })
+		c.eng.Go(func(ctx context.Context) { c.releaseWhenDrained(ctx, cw) })
 	}
 
 	ctx, cancel := c.eng.Ctx(ctx)
@@ -307,30 +307,30 @@ func (c *coordinator) close() error {
 
 // buildDeliverFn creates a deliver function that looks up the engine fresh on every event
 // instead of caching it, since the engine for a workflow can change while this reader is running.
-func (c *coordinator) buildDeliverFn(cw *coordinatedWorkflow) func(context.Context, CoordinatedEvent) {
+func (c *coordinator) buildDeliverFn(wid types.WorkflowID, lggr logger.Logger) func(context.Context, CoordinatedEvent) {
 	return func(ctx context.Context, event CoordinatedEvent) {
-		engine, found := c.engines.Get(cw.wid)
+		engine, found := c.engines.Get(wid)
 		if !found {
-			cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
+			lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
 			return
 		}
 		if !engine.IsCoordinated() {
-			cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
+			lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
 			return
 		}
 
 		// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
 		if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
-			cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+			lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
 		}
 	}
 }
 
-// releaseWhenDrained drops the handle map and frees the workflow-count limit
+// releaseWhenDrained drops the registration and frees the workflow-count limit
 // once no execution can still need it to ACK. Waiting for this registration's
 // readers to exit is enough: an ACK only ever happens while a reader is still
 // running its delivery.
-func (c *coordinator) releaseWhenDrained(ctx context.Context, workflowID string, cw *coordinatedWorkflow) {
+func (c *coordinator) releaseWhenDrained(ctx context.Context, cw *coordinatedWorkflow) {
 	ctx = contexts.WithCRE(ctx, cw.cre)
 
 	select {
@@ -341,7 +341,7 @@ func (c *coordinator) releaseWhenDrained(ctx context.Context, workflowID string,
 		return
 	}
 
-	c.workflows.deleteIf(workflowID, cw)
+	c.workflows.deleteIf(cw.wid.Hex(), cw)
 
 	c.freeWorkflowLimit(ctx, cw.lggr)
 	cw.lggr.Infow("Released trigger handles")
