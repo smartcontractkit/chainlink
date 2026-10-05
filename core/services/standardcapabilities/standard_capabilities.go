@@ -49,7 +49,7 @@ type StandardCapabilities struct {
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 	// loopID is the ID this service holds in the plugin registrar. It is set
-	// once RegisterLOOP succeeds and cleared by unregisterLOOP, so the ID can be
+	// once RegisterLOOP succeeds and cleared by unregisterLOOP, so the same ID can be
 	// registered again when the capability is restarted (e.g. on a config change).
 	loopID string
 

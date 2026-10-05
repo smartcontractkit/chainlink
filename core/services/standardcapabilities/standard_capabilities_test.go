@@ -187,6 +187,7 @@ func (c *capturingRegistrar) UnregisterLOOP(string) {}
 // change. Before the fix, Close left the ID registered and the second Start
 // failed with plugins.ErrExists ("plugin already registered").
 func TestStandardCapabilities_CloseUnregistersLOOP(t *testing.T) {
+	t.Parallel()
 	registered := map[string]bool{}
 	pluginRegistrar := plugins.NewRegistrarConfig(loop.GRPCOpts{},
 		func(id string) (*plugins.RegisteredLoop, error) {
