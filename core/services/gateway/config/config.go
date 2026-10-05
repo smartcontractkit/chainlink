@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
-	shardtypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership/types"
 )
 
 type GatewayConfig struct {
@@ -70,14 +69,15 @@ type ShardedDONConfig struct {
 }
 
 // GatewayDONIDForShard returns the DON ID that nodes of a given shard use to authenticate
-// with the Gateway (GatewayConnector.DonID in node config).
+// with the Gateway. The corresponding GatewayConnector.DonID in the node config must exactly
+// match the DON ID returned by this function; otherwise the node will not be able to connect.
 // Shard 0 uses the bare DON name; shard N>0 uses "donName_shard-N".
 func GatewayDONIDForShard(donName string, shardIdx int) string {
 	if shardIdx == 0 {
 		// NOTE: special case for backward compatibility - shard 0 doesn't have an index suffix
 		return donName
 	}
-	return fmt.Sprintf("%s_%s%d", donName, shardtypes.ShardNameMarker, shardIdx)
+	return fmt.Sprintf("%s_shard-%d", donName, shardIdx)
 }
 
 type Shard struct {
