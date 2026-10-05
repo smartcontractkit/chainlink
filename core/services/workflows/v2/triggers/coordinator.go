@@ -104,64 +104,17 @@ type coordinator struct {
 	workflows *workflowRegistry
 }
 
-// workflowRegistry guards the workflowID -> triggers map so coordinator
-// methods never handle the mutex directly.
-type workflowRegistry struct {
-	mu        sync.Mutex
-	workflows map[string]*coordinatedWorkflow // workflowID (hex) -> state
-}
-
-func newWorkflowRegistry() *workflowRegistry {
-	return &workflowRegistry{workflows: make(map[string]*coordinatedWorkflow)}
-}
-
-func (r *workflowRegistry) get(workflowID string) (*coordinatedWorkflow, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	cw, ok := r.workflows[workflowID]
-	return cw, ok
-}
-
-func (r *workflowRegistry) set(workflowID string, cw *coordinatedWorkflow) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.workflows[workflowID] = cw
-}
-
-// deleteIf removes workflowID only if it still maps to cw: the workflow may
-// have been re-registered while draining, and that state is not ours to drop.
-func (r *workflowRegistry) deleteIf(workflowID string, cw *coordinatedWorkflow) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.workflows[workflowID] == cw {
-		delete(r.workflows, workflowID)
-	}
-}
-
-// pending returns the workflows whose capability-side unregistration has not
-// completed yet.
-func (r *workflowRegistry) pending() map[string]*coordinatedWorkflow {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	pending := make(map[string]*coordinatedWorkflow, len(r.workflows))
-	for workflowID, cw := range r.workflows {
-		if !cw.unregistered.Load() {
-			pending[workflowID] = cw
-		}
-	}
-	return pending
-}
-
 // coordinatedWorkflow represents the state of a workflow's triggers within the coordinator.
+// A successful call to RegisterTriggers creates a coordinatedWorkflow.
 // It tracks the workflow ID, the context for cancellation, the handles for each trigger,
 // and the status of unregistration and release.
 type coordinatedWorkflow struct {
 	wid   types.WorkflowID
 	cre   contexts.CRE
 	donID uint32
-	// cancel stops only this registration's readers. A workflow can be
-	// re-registered while its old registration is still draining, so this
-	// must not affect the new one.
+	// cancel stops reading all trigger events for this coordinated workflow instance.
+	// A workflow can be re-registered to the same triggers multiple times. This cancellation,
+	// is independent of subsequent trigger registrations.
 	cancel  context.CancelFunc
 	handles map[string]*Handle
 
@@ -202,7 +155,7 @@ func NewCoordinator(
 }
 
 // close runs after the reader and release goroutines exit.
-// It unregisters the triggers that the syncer did not remove.
+// It unregisters any triggers still in a pending state before returning.
 func (c *coordinator) close() error {
 	pending := c.workflows.pending()
 
@@ -352,8 +305,7 @@ func (c *coordinator) UnregisterTriggers(workflowID string) error {
 	// CAS: exactly one caller spawns the release waiter.
 	spawnRelease := cw.releasing.CompareAndSwap(false, true)
 
-	// Cancel first: not every capability closes its event channel on
-	// Unregister, so this is the only guaranteed way to stop delivery.
+	// call cancel to stop all reader goroutines associated with this workflow.
 	cw.cancel()
 	if spawnRelease {
 		c.eng.Go(func(ctx context.Context) { c.releaseWhenDrained(ctx, workflowID, cw) })
@@ -438,4 +390,52 @@ func (cw *coordinatedWorkflow) drained() chan struct{} {
 		close(drained)
 	}()
 	return drained
+}
+
+// workflowRegistry guards the workflowID -> triggers map so coordinator
+// methods never handle the mutex directly.
+type workflowRegistry struct {
+	mu        sync.Mutex
+	workflows map[string]*coordinatedWorkflow // workflowID (hex) -> state
+}
+
+func newWorkflowRegistry() *workflowRegistry {
+	return &workflowRegistry{workflows: make(map[string]*coordinatedWorkflow)}
+}
+
+func (r *workflowRegistry) get(workflowID string) (*coordinatedWorkflow, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	cw, ok := r.workflows[workflowID]
+	return cw, ok
+}
+
+func (r *workflowRegistry) set(workflowID string, cw *coordinatedWorkflow) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.workflows[workflowID] = cw
+}
+
+// deleteIf removes workflowID only if it still maps to cw: the workflow may
+// have been re-registered while draining, and that state is not ours to drop.
+func (r *workflowRegistry) deleteIf(workflowID string, cw *coordinatedWorkflow) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.workflows[workflowID] == cw {
+		delete(r.workflows, workflowID)
+	}
+}
+
+// pending returns the workflows whose capability-side unregistration has not
+// completed yet.
+func (r *workflowRegistry) pending() map[string]*coordinatedWorkflow {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	pending := make(map[string]*coordinatedWorkflow, len(r.workflows))
+	for workflowID, cw := range r.workflows {
+		if !cw.unregistered.Load() {
+			pending[workflowID] = cw
+		}
+	}
+	return pending
 }
