@@ -68,9 +68,9 @@ type ShardedDONConfig struct {
 	Shards  []Shard
 }
 
-// GatewayDONIDForShard returns the DON ID that nodes of a given shard use to authenticate
-// with the Gateway. The corresponding GatewayConnector.DonID in the node config must exactly
-// match the DON ID returned by this function; otherwise the node will not be able to connect.
+// GatewayDONIDForShard returns a special node gateway ID that authenticates a node to the Gateway.
+// The id returned by this function must exactly match the GatewayConnector.DonID
+// in the node's config; otherwise the node will not be able to connect.
 // Shard 0 uses the bare DON name; shard N>0 uses "donName_shard-N".
 func GatewayDONIDForShard(donName string, shardIdx int) string {
 	if shardIdx == 0 {
