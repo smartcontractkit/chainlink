@@ -370,7 +370,24 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 		}
 	}
 
-	// TODO(CRE-1775): also derive and pass OracleFactoryConfigs if present onchain.
+	// CRE-1775 decision: the registry-driven launch path does NOT derive a
+	// job.OracleFactoryConfig from the on-chain oracle_factory_configs field. That field
+	// exists in the CapabilityConfig proto but is neither populated by the deployment side
+	// nor consumed anywhere in core. OCR signer/transmitter alignment for registry-launched
+	// capabilities is handled instead by threading ocr3Config (the on-chain
+	// Ocr3Configs["default"]) into the delegate, which ResolveOracleFactoryConfig uses to
+	// fill the OCR contract address, chain, transmitter, and key bundle. Enabling an oracle
+	// factory for an allowlisted capability (bootstrap peers, signing strategy) is deferred
+	// to a dedicated typed offchain slice (like method_configs), delivered via the offchain
+	// registry rather than inferred from an unused on-chain field. The cre.go newServicesFn
+	// passes a nil job.OracleFactoryConfig here, so the delegate's ResolveOracleFactoryConfig
+	// no-ops for the disabled factory. If a payload ever carries oracle_factory_configs, warn
+	// so the silent drop is observable rather than mysterious.
+	if onchainOracleFactoryConfigPresent(info.config) {
+		m.lggr.Warnw("on-chain oracle_factory_configs present but not consumed by the registry launch path; "+
+			"oracle factory enablement is delivered via the offchain capabilities registry, not on-chain (CRE-1775)",
+			"capID", info.capID, "donID", info.donID)
+	}
 	ocr3Config := extractDefaultOCR3Config(info.config)
 	svcs, err := m.newServicesFn(ctx, info.capID, info.donID, command, configJSON, ocr3Config)
 	if err != nil {
@@ -524,6 +541,21 @@ func extractDefaultOCR3Config(cc registry.CapabilityConfiguration) *ocrtypes.Con
 		return nil
 	}
 	return &cfg
+}
+
+// onchainOracleFactoryConfigPresent reports whether the on-chain capability configuration
+// carries any oracle_factory_configs entries. The registry launch path does not consume this
+// field (see CRE-1775 in startCapability); detecting it lets us warn rather than drop it
+// silently. Returns false when the configuration is empty or cannot be parsed.
+func onchainOracleFactoryConfigPresent(cc registry.CapabilityConfiguration) bool {
+	if len(cc.Config) == 0 {
+		return false
+	}
+	parsed, err := cc.Unmarshal()
+	if err != nil {
+		return false
+	}
+	return len(parsed.OracleFactoryConfigs) > 0
 }
 
 func (m *localCapabilityManager) closeServices(rc *runningCapability) error {

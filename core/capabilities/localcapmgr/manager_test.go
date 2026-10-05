@@ -103,6 +103,38 @@ func TestBuildDesiredState_NilLocalConfig(t *testing.T) {
 	assert.Empty(t, desired, "nil config should not allow any capabilities")
 }
 
+func TestOnchainOracleFactoryConfigPresent(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty config returns false", func(t *testing.T) {
+		t.Parallel()
+		assert.False(t, onchainOracleFactoryConfigPresent(registry.CapabilityConfiguration{}))
+	})
+
+	t.Run("unparseable config returns false", func(t *testing.T) {
+		t.Parallel()
+		cc := registry.CapabilityConfiguration{Config: []byte("not-valid-proto")}
+		assert.False(t, onchainOracleFactoryConfigPresent(cc))
+	})
+
+	t.Run("config without oracle_factory_configs returns false", func(t *testing.T) {
+		t.Parallel()
+		cc := registry.CapabilityConfiguration{Config: mustMarshalCapConfig(t, map[string]string{"k": "v"})}
+		assert.False(t, onchainOracleFactoryConfigPresent(cc))
+	})
+
+	t.Run("config with oracle_factory_configs returns true", func(t *testing.T) {
+		t.Parallel()
+		raw, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+			OracleFactoryConfigs: map[string]*valuespb.Map{
+				capabilitiespb.OCR3ConfigDefaultKey: {},
+			},
+		})
+		require.NoError(t, err)
+		assert.True(t, onchainOracleFactoryConfigPresent(registry.CapabilityConfiguration{Config: raw}))
+	})
+}
+
 func TestExtractDefaultOCR3Config(t *testing.T) {
 	t.Parallel()
 
