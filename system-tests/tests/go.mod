@@ -625,7 +625,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260918135944-fa1a268dac47 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.13.1-0.20260918171034-c93b0d2ef3c0 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v1.1.2-0.20261002081259-6c2163b21db9 // indirect
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260930175125-de5769a7a922 // indirect
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20261005112317-b723176adfe8 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260724153515-bb6a2de39bcb // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260723212800-b2f21d31b1d2 // indirect
