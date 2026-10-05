@@ -65,7 +65,7 @@ type Coordinator interface {
 	//
 	// Returns ErrWorkflowNotCoordinated if workflowID was never registered here.
 	// A failed capability unregistration is returned and retried on the next call.
-	UnregisterTriggers(workflowID string) error
+	UnregisterTriggers(ctx context.Context, workflowID string) error
 }
 
 // RegisteredEngine is what EngineRegistry.Get returns: a sink the coordinator
@@ -191,7 +191,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 
 	// Registration IDs derive from the workflowID, so a leftover registration
 	// must be unregistered first: unregistering it later would remove this one.
-	if err = c.UnregisterTriggers(workflowID); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
+	if err = c.UnregisterTriggers(ctx, workflowID); err != nil && !errors.Is(err, ErrWorkflowNotCoordinated) {
 		lggr.Errorw("Failed to unregister previous trigger registration", "err", err)
 	}
 
@@ -294,7 +294,7 @@ func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistration
 	return Ack(ctx, lggr, wfMetrics, triggerCapID, triggerRegistrationID, eventID, handle)
 }
 
-func (c *coordinator) UnregisterTriggers(workflowID string) error {
+func (c *coordinator) UnregisterTriggers(ctx context.Context, workflowID string) error {
 	cw, ok := c.workflows.get(workflowID)
 	if !ok {
 		return ErrWorkflowNotCoordinated
@@ -311,7 +311,7 @@ func (c *coordinator) UnregisterTriggers(workflowID string) error {
 		c.eng.Go(func(ctx context.Context) { c.releaseWhenDrained(ctx, workflowID, cw) })
 	}
 
-	ctx, cancel := c.eng.NewCtx()
+	ctx, cancel := c.eng.Ctx(ctx)
 	defer cancel()
 	ctx = contexts.WithCRE(ctx, cw.cre)
 

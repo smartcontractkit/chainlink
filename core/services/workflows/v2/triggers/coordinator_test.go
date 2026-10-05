@@ -400,7 +400,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 	t.Run("unknown workflow", func(t *testing.T) {
 		t.Parallel()
 		f := newCoordinatorFixture(t)
-		require.ErrorIs(t, f.c.UnregisterTriggers(validWorkflowID), ErrWorkflowNotCoordinated)
+		require.ErrorIs(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID), ErrWorkflowNotCoordinated)
 	})
 
 	t.Run("releases handles once idle", func(t *testing.T) {
@@ -413,7 +413,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 
 		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 		require.NoError(t, err)
-		require.NoError(t, f.c.UnregisterTriggers(validWorkflowID))
+		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 
 		require.Eventually(t, func() bool { return !f.registered() && f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
 		assert.Equal(t, 1, f.limits.freeCount())
@@ -436,7 +436,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		eventCh <- triggerEvent("evt-1")
 		<-started
 
-		require.NoError(t, f.c.UnregisterTriggers(validWorkflowID))
+		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 
 		// Ingress is stopped but the in-flight execution still resolves its handle.
 		require.NoError(t, f.c.Ack(t.Context(), testTriggerCapID, regID, "evt-1"))
@@ -455,9 +455,9 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 
 		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 		require.NoError(t, err)
-		require.NoError(t, f.c.UnregisterTriggers(validWorkflowID))
+		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 		// The second call may land before or after the release; both are fine.
-		err = f.c.UnregisterTriggers(validWorkflowID)
+		err = f.c.UnregisterTriggers(t.Context(), validWorkflowID)
 		if err != nil {
 			require.ErrorIs(t, err, ErrWorkflowNotCoordinated)
 		}
@@ -479,8 +479,8 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		eventCh <- triggerEvent("evt-1")
 		<-started
 
-		require.ErrorContains(t, f.c.UnregisterTriggers(validWorkflowID), "failed to unregister 1 of 1 triggers")
-		require.NoError(t, f.c.UnregisterTriggers(validWorkflowID))
+		require.ErrorContains(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID), "failed to unregister 1 of 1 triggers")
+		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 
 		close(release)
 		require.Eventually(t, func() bool { return f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
@@ -500,7 +500,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		eventCh <- triggerEvent("evt-1")
 		<-started
 
-		require.NoError(t, f.c.UnregisterTriggers(validWorkflowID))
+		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 		require.NoError(t, f.clock.BlockUntilContext(t.Context(), 1))
 		assert.True(t, f.registered())
 
@@ -521,7 +521,7 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	require.NoError(t, err)
 	oldCh <- triggerEvent("evt-1")
 	<-started
-	require.NoError(t, f.c.UnregisterTriggers(validWorkflowID))
+	require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 
 	oldWT, _ := f.c.workflows.get(validWorkflowID)
 
