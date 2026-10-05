@@ -512,7 +512,11 @@ func (c *ClientRequest) hasValidAttestation(resp commoncap.CapabilityResponse) b
 
 	err := c.verifyAttestation(resp)
 	if err != nil {
-		c.lggr.Errorw("Attestation is present, but not valid. This is most likely a bug and requires investigation - falling back to identical responses verification", "error", err)
+		// This is error is caused by a known bug.
+		//The issue is not critical, as we can fallback to the quorum aggregation and only causes read failures
+		// if F+1 nodes have original RPC response used in report and F of those nodes are malicious or down.
+		// TODO: PLEX-3350 - fix validation of OCR attestation.
+		c.lggr.Debugw("Attestation is present, but not valid.", "error", err)
 		return false
 	}
 
