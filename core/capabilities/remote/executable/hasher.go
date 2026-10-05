@@ -15,7 +15,7 @@ import (
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	stellarcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/stellar"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
@@ -176,9 +176,9 @@ func NewWriteReportExcludeSignaturesHasher(cfg OptInHasherConfig) types.MessageH
 // metadata fields are included in the request hash beyond the base allowlist.
 //
 // To opt in a new field in the future:
-//  1. Add a feature flag (Setting[Range[config.Timestamp]]) in cresettings,
+//  1. Add a feature flag (Setting[Range[commonconfig.Timestamp]]) in cresettings,
 //     named FeatureRequestHashInclude<Field>ActivePeriod.
-//  2. Add a field of type limits.RangeLimiter[config.Timestamp] to this struct.
+//  2. Add a field of type limits.RangeLimiter[commonconfig.Timestamp] to this struct.
 //  3. Add the conditional copy in applyMetadataFields.
 //  4. Construct the limiter in launcher.NewLauncher and pass it via OptInHasherConfig.
 //
@@ -194,7 +194,7 @@ type OptInHasherConfig struct {
 	// IncludeWorkflowTag is ON by default (window covers all timestamps including
 	// zero time.Time{}), so WorkflowTag is included in the hash matching current
 	// prod behavior. After rollout, set to far-future window to exclude it.
-	IncludeWorkflowTag limits.RangeLimiter[config.Timestamp]
+	IncludeWorkflowTag limits.RangeLimiter[commonconfig.Timestamp]
 }
 
 // baseMetadataFields returns a copy of the metadata containing only the
@@ -222,7 +222,7 @@ func baseMetadataFields(md capabilities.RequestMetadata) capabilities.RequestMet
 // active for the given ExecutionTimestamp.
 func applyMetadataFields(ctx context.Context, md capabilities.RequestMetadata, cfg OptInHasherConfig) capabilities.RequestMetadata {
 	result := baseMetadataFields(md)
-	ts := config.Timestamp(md.ExecutionTimestamp.Unix())
+	ts := commonconfig.Timestamp(md.ExecutionTimestamp.Unix())
 
 	ctx = md.ContextWithCRE(ctx)
 	if cfg.IncludeWorkflowTag != nil {

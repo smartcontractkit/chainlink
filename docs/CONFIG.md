@@ -1424,7 +1424,6 @@ NetworkID = 'evm' # Default
 ChainID = '1' # Default
 ContractVersion = '1.0.0' # Default
 MaxBinarySize = '20.00mb' # Default
-MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
 MaxConcurrency = 12 # Default
@@ -1461,12 +1460,6 @@ ContractVersion identifies semantic version of the WorkflowRegistry contract.
 MaxBinarySize = '20.00mb' # Default
 ```
 MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
-
-### MaxEncryptedSecretsSize
-```toml
-MaxEncryptedSecretsSize = '26.40kb' # Default
-```
-MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
 
 ### MaxConfigSize
 ```toml
@@ -1664,29 +1657,15 @@ ContractVersion identifies semantic version of the CapabilitiesRegistry contract
 ## Capabilities.Dispatcher
 ```toml
 [Capabilities.Dispatcher]
-SupportedVersion = 1 # Default
 ReceiverBufferSize = 10000 # Default
-SendToSharedPeer = false # Default
 ```
 
-
-### SupportedVersion
-```toml
-SupportedVersion = 1 # Default
-```
-SupportedVersion is the version of the version of message schema.
 
 ### ReceiverBufferSize
 ```toml
 ReceiverBufferSize = 10000 # Default
 ```
 ReceiverBufferSize is the size of the buffer for incoming messages.
-
-### SendToSharedPeer
-```toml
-SendToSharedPeer = false # Default
-```
-SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
 
 ## Capabilities.Dispatcher.RateLimit
 ```toml
@@ -3077,7 +3056,7 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
-LimitTransfer = 21000
+LimitTransfer = 200000
 EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
@@ -15419,7 +15398,7 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
-LimitTransfer = 21000
+LimitTransfer = 200000
 EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20

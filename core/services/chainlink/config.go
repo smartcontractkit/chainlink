@@ -13,8 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
+	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 // Config is the root type used for TOML configuration.
@@ -291,7 +290,7 @@ func (c *Config) valueWarnings() (err error) {
 	if c.Tracing.Enabled != nil && *c.Tracing.Enabled {
 		if c.Tracing.Mode != nil && *c.Tracing.Mode == "unencrypted" {
 			if c.Tracing.TLSCertPath != nil {
-				err = errors.Join(err, config.InvalidError{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
+				err = errors.Join(err, configutils.InvalidError{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
 			}
 		}
 	}
@@ -499,13 +498,13 @@ func (s *Secrets) ValidateDB() error {
 // setEnv overrides fields from ENV vars, if present.
 func (s *Secrets) setEnv() error {
 	if dbURL := env.DatabaseURL.Get(); dbURL != "" {
-		s.Database.URL = new(models.SecretURL)
+		s.Database.URL = new(commonconfig.SecretURL)
 		if err := s.Database.URL.UnmarshalText([]byte(dbURL)); err != nil {
 			return err
 		}
 	}
 	if dbBackupURL := env.DatabaseBackupURL.Get(); dbBackupURL != "" {
-		s.Database.BackupURL = new(models.SecretURL)
+		s.Database.BackupURL = new(commonconfig.SecretURL)
 		if err := s.Database.BackupURL.UnmarshalText([]byte(dbBackupURL)); err != nil {
 			return err
 		}

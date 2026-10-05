@@ -46,7 +46,6 @@ import (
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -110,7 +109,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				s.Password.Keystore = models.NewSecret("16charlengthp4SsW0rD1!@#_")
+				s.Password.Keystore = commonconfig.NewSecretString("16charlengthp4SsW0rD1!@#_")
 				c.EVM[0].Nodes[0].Name = new("fake")
 				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
 				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
@@ -470,7 +469,7 @@ func TestShell_CleanupChainTables(t *testing.T) {
 func TestShell_RemoveBlocks(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		s.Password.Keystore = models.NewSecret("dummy")
+		s.Password.Keystore = commonconfig.NewSecretString("dummy")
 		c.EVM[0].Nodes[0].Name = new("fake")
 		c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
 		c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
@@ -729,7 +728,7 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				s.Password.Keystore = models.NewSecret("dummy")
+				s.Password.Keystore = commonconfig.NewSecretString("dummy")
 				c.EVM[0].Nodes[0].Name = new("fake")
 				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
 				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")

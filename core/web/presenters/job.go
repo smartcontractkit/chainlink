@@ -624,7 +624,7 @@ func NewJobResource(j job.Job) *JobResource {
 
 	jes := make([]JobError, 0, len(j.JobSpecErrors))
 	for _, e := range j.JobSpecErrors {
-		jes = append(jes, NewJobError((e)))
+		jes = append(jes, NewJobError(e))
 	}
 	resource.Errors = jes
 
