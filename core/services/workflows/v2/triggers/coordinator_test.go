@@ -3,7 +3,7 @@ package triggers
 import (
 	"context"
 	"errors"
-	"sync"
+	"slices"
 	"testing"
 	"time"
 
@@ -13,210 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
-const (
-	testTriggerCapID = "cron-trigger@1.0.0"
-	testMethod       = "Trigger"
-	testOwner        = "abcdef" // already normalized: contexts.WithCRE strips a 0x prefix
-	testOrg          = "org-1"
-	testDonID        = uint32(7)
-)
-
-var testTenant = contexts.CRE{Org: testOrg, Owner: testOwner, Workflow: validWorkflowID}
-
-type fakeSubscriber struct {
-	tenant contexts.CRE
-	subs   []*sdkpb.TriggerSubscription
-	err    error
-	calls  int
-}
-
-func (s *fakeSubscriber) Subscribe(context.Context) ([]*sdkpb.TriggerSubscription, error) {
-	s.calls++
-	return s.subs, s.err
-}
-
-func (s *fakeSubscriber) Tenant() contexts.CRE { return s.tenant }
-
-type fakeEngine struct {
-	coordinated bool
-	// execute, if set, runs inside ExecuteTrigger on the reader goroutine.
-	execute func(ctx context.Context, event CoordinatedEvent)
-
-	mu      sync.Mutex
-	events  []CoordinatedEvent
-	tenants []contexts.CRE
-}
-
-func (e *fakeEngine) ExecuteTrigger(ctx context.Context, event CoordinatedEvent) error {
-	e.mu.Lock()
-	e.events = append(e.events, event)
-	e.tenants = append(e.tenants, contexts.CREValue(ctx))
-	e.mu.Unlock()
-	if e.execute != nil {
-		e.execute(ctx, event)
-	}
-	return nil
-}
-
-func (e *fakeEngine) IsCoordinated() bool { return e.coordinated }
-
-func (e *fakeEngine) executed() []CoordinatedEvent {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return append([]CoordinatedEvent(nil), e.events...)
-}
-
-type fakeEngineRegistry struct {
-	mu      sync.Mutex
-	engines map[types.WorkflowID]RegisteredEngine
-}
-
-func newFakeEngineRegistry() *fakeEngineRegistry {
-	return &fakeEngineRegistry{engines: make(map[types.WorkflowID]RegisteredEngine)}
-}
-
-func (r *fakeEngineRegistry) Get(wid types.WorkflowID) (RegisteredEngine, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	e, ok := r.engines[wid]
-	return e, ok
-}
-
-func (r *fakeEngineRegistry) set(wid types.WorkflowID, e RegisteredEngine) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.engines[wid] = e
-}
-
-// fakeWorkflowLimits counts slots, recording the tenant each call was scoped to.
-type fakeWorkflowLimits struct {
-	mu      sync.Mutex
-	used    int
-	frees   int
-	useErr  error
-	tenants []contexts.CRE
-}
-
-func (l *fakeWorkflowLimits) Close() error                           { return nil }
-func (l *fakeWorkflowLimits) Limit(context.Context) (int, error)     { return 100, nil }
-func (l *fakeWorkflowLimits) Available(context.Context) (int, error) { return 100, nil }
-func (l *fakeWorkflowLimits) Use(ctx context.Context, amount int) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.tenants = append(l.tenants, contexts.CREValue(ctx))
-	if l.useErr != nil {
-		return l.useErr
-	}
-	l.used += amount
-	return nil
-}
-func (l *fakeWorkflowLimits) Free(ctx context.Context, amount int) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.tenants = append(l.tenants, contexts.CREValue(ctx))
-	l.used -= amount
-	l.frees++
-	return nil
-}
-func (l *fakeWorkflowLimits) inUse() int {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.used
-}
-func (l *fakeWorkflowLimits) freeCount() int {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.frees
-}
-
-type coordinatorFixture struct {
-	c       *coordinator
-	capReg  *regmocks.CapabilitiesRegistry
-	engines *fakeEngineRegistry
-	limits  *fakeWorkflowLimits
-	clock   *clockwork.FakeClock
-	wid     types.WorkflowID
-	engine  *fakeEngine
-}
-
-// newCoordinatorFixture starts a coordinator with one coordinated engine
-// already in the registry for testTenant's workflow.
-func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
-	t.Helper()
-	capReg := regmocks.NewCapabilitiesRegistry(t)
-	engines := newFakeEngineRegistry()
-	wfLimits := &fakeWorkflowLimits{}
-	clock := clockwork.NewFakeClock()
-
-	wid, err := types.WorkflowIDFromHex(validWorkflowID)
-	require.NoError(t, err)
-	engine := &fakeEngine{coordinated: true}
-	engines.set(wid, engine)
-
-	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), engines, wfLimits, clock)
-	servicetest.Run(t, c)
-
-	return &coordinatorFixture{
-		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
-		clock: clock, wid: wid, engine: engine,
-	}
-}
-
-// expectTrigger wires a trigger capability that hands back a fresh event channel on registration.
-func (f *coordinatorFixture) expectTrigger(t *testing.T) (*capmocks.TriggerCapability, chan capabilities.TriggerResponse) {
-	t.Helper()
-	trigger := capmocks.NewTriggerCapability(t)
-	eventCh := make(chan capabilities.TriggerResponse)
-	trigger.EXPECT().RegisterTrigger(mock.Anything, mock.Anything).
-		Return((<-chan capabilities.TriggerResponse)(eventCh), nil).Once()
-	f.capReg.EXPECT().GetTrigger(mock.Anything, testTriggerCapID).Return(trigger, nil).Once()
-	return trigger, eventCh
-}
-
-func newTestSubscriber() *fakeSubscriber {
-	return &fakeSubscriber{
-		tenant: testTenant,
-		subs:   []*sdkpb.TriggerSubscription{{Id: testTriggerCapID, Method: testMethod}},
-	}
-}
-
-func testParams(t *testing.T) RegistrationParams {
-	t.Helper()
-	name, err := types.NewWorkflowName("my-workflow")
-	require.NoError(t, err)
-	return RegistrationParams{WorkflowOwner: testOwner, WorkflowName: name, WorkflowDonID: testDonID}
-}
-
-func (f *coordinatorFixture) registered() bool {
-	_, ok := f.c.workflows.get(validWorkflowID)
-	return ok
-}
-
-func triggerEvent(id string) capabilities.TriggerResponse {
-	return capabilities.TriggerResponse{Event: capabilities.TriggerEvent{TriggerType: testTriggerCapID, ID: id}}
-}
-
-// blockingExecution makes the fixture engine park inside ExecuteTrigger until
-// release is closed, signalling started once it is in flight.
-func (f *coordinatorFixture) blockingExecution() (started chan struct{}, release chan struct{}) {
-	started, release = make(chan struct{}, 1), make(chan struct{})
-	f.engine.execute = func(context.Context, CoordinatedEvent) {
-		started <- struct{}{}
-		<-release
-	}
-	return started, release
-}
-
+// TestCoordinator_RegisterTriggers covers registration: the happy path with event
+// delivery, and each failure path that must free the workflow-count limit slot.
 func TestCoordinator_RegisterTriggers(t *testing.T) {
 	t.Parallel()
 
@@ -328,7 +133,9 @@ func TestCoordinator_RegisterTriggers(t *testing.T) {
 	})
 }
 
-func TestCoordinator_Deliver(t *testing.T) {
+// TestCoordinator_NoDeliver covers dropped delivery: events must not reach an
+// engine that is gone from the registry or not coordinated.
+func TestCoordinator_NoDeliver(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -363,6 +170,8 @@ func TestCoordinator_Deliver(t *testing.T) {
 	}
 }
 
+// TestCoordinator_Ack covers acknowledgement: routing to the registration's
+// handle, and the failure paths for unknown or malformed registration IDs.
 func TestCoordinator_Ack(t *testing.T) {
 	t.Parallel()
 
@@ -394,6 +203,9 @@ func TestCoordinator_Ack(t *testing.T) {
 	})
 }
 
+// TestCoordinator_UnregisterTriggers covers unregistration: ingress stops
+// immediately, handles stay available until in-flight executions drain, and the
+// limit slot is freed exactly once, also on retry and on drain timeout.
 func TestCoordinator_UnregisterTriggers(t *testing.T) {
 	t.Parallel()
 
@@ -403,7 +215,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		require.ErrorIs(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID), ErrWorkflowNotCoordinated)
 	})
 
-	t.Run("releases handles once idle", func(t *testing.T) {
+	t.Run("registration state is gone and the slot is freed when no execution is in flight", func(t *testing.T) {
 		t.Parallel()
 		f := newCoordinatorFixture(t)
 		trigger, _ := f.expectTrigger(t)
@@ -422,12 +234,14 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		f.limits.mu.Unlock()
 	})
 
-	t.Run("keeps handles while an execution is in flight so it can still ACK", func(t *testing.T) {
+	t.Run("keeps registration state and slot while an execution is in flight so it can still ACK", func(t *testing.T) {
 		t.Parallel()
 		f := newCoordinatorFixture(t)
 		trigger, eventCh := f.expectTrigger(t)
-		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 		regID := RegistrationID(validWorkflowID, 0)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.MatchedBy(func(req capabilities.TriggerRegistrationRequest) bool {
+			return req.TriggerID == regID && req.Method == testMethod
+		})).Return(nil).Once()
 		trigger.EXPECT().AckEvent(mock.Anything, regID, "evt-1", testMethod).Return(nil).Once()
 		started, release := f.blockingExecution()
 
@@ -438,7 +252,17 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 
 		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 
-		// Ingress is stopped but the in-flight execution still resolves its handle.
+		// Ingress is stopped: an event sent after unregister is never delivered
+		// to the engine. The send runs in a goroutine since the channel is
+		// unbuffered and no reader may remain to receive it.
+		go func() { eventCh <- triggerEvent("evt-2") }()
+		require.Never(t, func() bool {
+			return slices.ContainsFunc(f.engine.executed(), func(e CoordinatedEvent) bool {
+				return e.Event.Event.ID == "evt-2"
+			})
+		}, 100*time.Millisecond, 10*time.Millisecond, "event sent after unregister must not be delivered")
+
+		// The in-flight execution still resolves its handle.
 		require.NoError(t, f.c.Ack(t.Context(), testTriggerCapID, regID, "evt-1"))
 		assert.True(t, f.registered())
 		assert.Equal(t, 1, f.limits.inUse())
@@ -509,6 +333,14 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 	})
 }
 
+// TestCoordinator_ReRegisterWhileDraining covers the overlap of two registrations
+// for the same workflow: the old registration drains while the new one is active.
+//
+// The test registers, starts an execution that blocks, and unregisters. It then
+// registers again before the old registration drains. The new registration must
+// replace the old state, and the old release waiter must not delete the new state
+// or free the new slot when the old readers exit. The new registration must still
+// ACK against its own handles.
 func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	t.Parallel()
 	f := newCoordinatorFixture(t)
@@ -555,6 +387,8 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	require.NoError(t, f.c.Ack(t.Context(), testTriggerCapID, regID, "evt-2"))
 }
 
+// TestCoordinator_CloseUnregistersRemainingWorkflows covers shutdown: Close
+// unregisters the triggers that remain registered when the coordinator stops.
 func TestCoordinator_CloseUnregistersRemainingWorkflows(t *testing.T) {
 	t.Parallel()
 	capReg := regmocks.NewCapabilitiesRegistry(t)
@@ -569,7 +403,12 @@ func TestCoordinator_CloseUnregistersRemainingWorkflows(t *testing.T) {
 	trigger := capmocks.NewTriggerCapability(t)
 	trigger.EXPECT().RegisterTrigger(mock.Anything, mock.Anything).
 		Return((<-chan capabilities.TriggerResponse)(make(chan capabilities.TriggerResponse)), nil).Once()
-	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+
+	// The assertion: Close must unregister the remaining registration with the
+	// capability, or this Once() expectation fails the test.
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.MatchedBy(func(req capabilities.TriggerRegistrationRequest) bool {
+		return req.TriggerID == RegistrationID(validWorkflowID, 0) && req.Method == testMethod
+	})).Return(nil).Once()
 	capReg.EXPECT().GetTrigger(mock.Anything, testTriggerCapID).Return(trigger, nil).Once()
 
 	_, err = c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
