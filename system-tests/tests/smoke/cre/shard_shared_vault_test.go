@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	vaultsecretstypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -206,12 +207,46 @@ func mustSharedVaultShardPair(t *testing.T, testEnv *ttypes.TestEnvironment, own
 	}
 }
 
+// awaitShardDONsConnectedToJD waits until every worker node of every shard DON reports
+// connected to the job distributor. Under local load the JD occasionally drops idle node
+// streams (wsrpc "Read error: i/o timeout"); nodes reconnect within seconds, but
+// proposing a shard-assignment job to a node mid-reconnect fails with
+// "node is not connected", so each proposal round waits for full shard connectivity first.
+func awaitShardDONsConnectedToJD(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	t.Helper()
+
+	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
+	require.Eventually(t, func() bool {
+		for _, don := range shardDONs {
+			workers, err := don.Workers()
+			if err != nil {
+				return false
+			}
+			nodes, err := offchain.FetchNodesFromJD(t.Context(), testEnv.CreEnvironment.CldfEnvironment.Offchain, offchain.TargetDONFilter{
+				Key:   offchain.FilterKeyDONName,
+				Value: don.Name,
+			}.ToListFilter())
+			if err != nil || len(nodes) != len(workers) {
+				return false
+			}
+			for _, node := range nodes {
+				if !node.IsConnected {
+					return false
+				}
+			}
+		}
+		return true
+	}, 2*time.Minute, 3*time.Second, "shard DON worker nodes did not all report connected to the job distributor")
+}
+
 // proposeSharedVaultAssignment proposes and approves the shard-assignment job with
 // the given TOML on every shard DON: each shard resolves ownership from its own
 // copy of the spec, so both the shard that must run the workflow and the shard that
 // must not need it.
 func proposeSharedVaultAssignment(t *testing.T, testEnv *ttypes.TestEnvironment, shardAssignmentTOML string) {
 	t.Helper()
+
+	awaitShardDONsConnectedToJD(t, testEnv)
 
 	for _, don := range testEnv.Dons.DonsWithFlag(cre.ShardDON) {
 		proposeAndApproveShardAssignmentJob(t, testEnv, don, shardAssignmentTOML, framework.L)

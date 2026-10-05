@@ -189,6 +189,55 @@ func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnec
 	return GatewayConnectors{Configurations: configs}
 }
 
+// GatewayConnectorsForCapabilitiesDon returns gateway connector configs for a capabilities DON
+// (e.g. a shared vault DON) by ANY don_family it shares with a workflow DON that is already
+// paired with a gateway — mirroring buildDonFamilyPairingState, which pairs by ANY shared
+// family, not just the primary one. A shared capabilities DON may belong only to per-shard
+// families while the gateway belongs to the common one, so a primary-family lookup
+// (GatewayConnectorsForDonFamily) can return nothing even though a gateway is reachable
+// through the paired workflow DONs. Without a connector the capabilities DON's nodes get an
+// empty [Capabilities.GatewayConnector].Gateways and the gateway cannot forward user
+// requests (e.g. vault secrets CRUD) to them.
+func (t *Topology) GatewayConnectorsForCapabilitiesDon(don *DonMetadata) GatewayConnectors {
+	if t.GatewayConnectors == nil || t.gatewayDonFamilyPairing == nil || don == nil {
+		return GatewayConnectors{}
+	}
+
+	donFamilies := make(map[string]struct{}, len(don.DonFamilies))
+	for _, family := range don.DonFamilies {
+		donFamilies[family] = struct{}{}
+	}
+
+	seen := make(map[string]struct{})
+	gatewayNames := make([]string, 0)
+	for _, pair := range t.gatewayDonFamilyPairing.pairs {
+		if _, ok := seen[pair.GatewayDONName]; ok {
+			continue
+		}
+		wf := t.donByName(pair.WorkflowDONName)
+		if wf == nil {
+			continue
+		}
+		sharesFamily := slices.ContainsFunc(wf.DonFamilies, func(family string) bool {
+			_, ok := donFamilies[family]
+			return ok
+		})
+		if !sharesFamily {
+			continue
+		}
+		seen[pair.GatewayDONName] = struct{}{}
+		gatewayNames = append(gatewayNames, pair.GatewayDONName)
+	}
+
+	configs := make([]*DonGatewayConfiguration, 0, len(gatewayNames))
+	for _, gwName := range gatewayNames {
+		if cfg, ok := t.gatewayConnectorsByDon[gwName]; ok {
+			configs = append(configs, cfg)
+		}
+	}
+	return GatewayConnectors{Configurations: configs}
+}
+
 // GatewayServiceConfigsForGateway scopes gateway worker service configs to DONs reachable
 // from the gateway (workflow and capabilities DONs, e.g. vault handler routing).
 //

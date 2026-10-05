@@ -198,6 +198,60 @@ func TestGatewayServiceConfigsForGateway_reachesCapabilitiesDonViaWorkflowFamily
 	require.Equal(t, []string{"chain-capabilities-zone-a"}, scoped[0].DONs)
 }
 
+// TestGatewayConnectorsForCapabilitiesDon_reachesGatewayViaWorkflowFamily proves a
+// capabilities DON that shares no family with any gateway directly, but shares a
+// shard-specific family with a workflow DON already paired with that gateway, still
+// resolves a gateway connector — matching the sharded shared-vault layout, where the
+// vault DON belongs only to per-shard families ("zone-a_shard-0", "zone-a_shard-1")
+// while the gateway belongs only to the common family ("zone-a"). Without this, the
+// vault DON's nodes get an empty [Capabilities.GatewayConnector].Gateways and the
+// gateway cannot forward vault user requests to them.
+func TestGatewayConnectorsForCapabilitiesDon_reachesGatewayViaWorkflowFamily(t *testing.T) {
+	t.Parallel()
+
+	conn := testGatewayConnector("gateway-node-0", "bootstrap-gateway.local", 5002)
+	topology := &Topology{
+		DonsMetadata: &DonsMetadata{
+			dons: []*DonMetadata{
+				{Name: "workflow-1-zone-a", DonFamilies: []string{"zone-a", "zone-a_shard-0"}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "workflow-1-zone-a-shard-1", DonFamilies: []string{"zone-a", "zone-a_shard-1"}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "chain-capabilities-zone-a", DonFamilies: []string{"zone-a_shard-0", "zone-a_shard-1"}, Flags: []string{CapabilitiesDON, VaultCapability}},
+				{Name: "bootstrap-gateway", DonFamilies: []string{"zone-a"}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+			},
+		},
+		GatewayConnectors: &GatewayConnectors{Configurations: []*DonGatewayConfiguration{conn}},
+		gatewayConnectorsByDon: map[string]*DonGatewayConfiguration{
+			"bootstrap-gateway": conn,
+		},
+	}
+	require.NoError(t, topology.initDonFamilyGatewayPairing())
+
+	vaultDon := topology.donByName("chain-capabilities-zone-a")
+	require.NotNil(t, vaultDon)
+
+	connectors := topology.GatewayConnectorsForCapabilitiesDon(vaultDon)
+	require.Len(t, connectors.Configurations, 1)
+	require.Equal(t, "gateway-node-0", connectors.Configurations[0].AuthGatewayID)
+
+	// A capabilities DON that shares no family with any gateway-paired workflow DON
+	// resolves no connector.
+	orphan := &Topology{
+		DonsMetadata: &DonsMetadata{
+			dons: []*DonMetadata{
+				{Name: "workflow", DonFamilies: []string{"zone-a"}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "capabilities", DonFamilies: []string{"zone-b"}, Flags: []string{CapabilitiesDON, VaultCapability}},
+				{Name: "bootstrap-gateway", DonFamilies: []string{"zone-a"}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+			},
+		},
+		GatewayConnectors: &GatewayConnectors{Configurations: []*DonGatewayConfiguration{conn}},
+		gatewayConnectorsByDon: map[string]*DonGatewayConfiguration{
+			"bootstrap-gateway": conn,
+		},
+	}
+	require.NoError(t, orphan.initDonFamilyGatewayPairing())
+	require.Empty(t, orphan.GatewayConnectorsForCapabilitiesDon(orphan.donByName("capabilities")).Configurations)
+}
+
 func TestWorkflowDONFamilies(t *testing.T) {
 	t.Parallel()
 
