@@ -154,24 +154,6 @@ func NewCoordinator(
 	return c
 }
 
-// close runs after the reader and release goroutines exit.
-// It unregisters any triggers still in a pending state before returning.
-func (c *coordinator) close() error {
-	pending := c.workflows.pending()
-
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
-
-	var errs error
-	for workflowID, cw := range pending {
-		cw.cancel()
-		if failCount := Unregister(contexts.WithCRE(ctx, cw.cre), cw.lggr, workflowID, cw.donID, cw.handles); failCount > 0 {
-			errs = errors.Join(errs, fmt.Errorf("workflow %s: failed to unregister %d of %d triggers", workflowID, failCount, len(cw.handles)))
-		}
-	}
-	return errs
-}
-
 func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) (triggerCapIDs []string, err error) {
 	cre := subscriber.Tenant()
 	workflowID := cre.Workflow
@@ -258,42 +240,6 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 	return triggerCapIDs, nil
 }
 
-// buildDeliverFn creates a deliver function that looks up the engine fresh on every event
-// instead of caching it, since the engine for a workflow can change while this reader is running.
-func (c *coordinator) buildDeliverFn(cw *coordinatedWorkflow) func(context.Context, CoordinatedEvent) {
-	return func(ctx context.Context, event CoordinatedEvent) {
-		engine, found := c.engines.Get(cw.wid)
-		if !found {
-			cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
-			return
-		}
-		if !engine.IsCoordinated() {
-			cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
-			return
-		}
-
-		// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
-		if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
-			cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
-		}
-	}
-}
-
-func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
-	workflowID, err := ParseWorkflowID(triggerRegistrationID)
-	if err != nil {
-		return err
-	}
-
-	var handle *Handle
-	lggr, wfMetrics := c.lggr, c.deps.Metrics
-	if cw, ok := c.workflows.get(workflowID); ok {
-		handle = cw.handles[triggerRegistrationID]
-		lggr, wfMetrics = cw.lggr, cw.metrics
-	}
-	return Ack(ctx, lggr, wfMetrics, triggerCapID, triggerRegistrationID, eventID, handle)
-}
-
 func (c *coordinator) UnregisterTriggers(ctx context.Context, workflowID string) error {
 	cw, ok := c.workflows.get(workflowID)
 	if !ok {
@@ -324,6 +270,60 @@ func (c *coordinator) UnregisterTriggers(ctx context.Context, workflowID string)
 	cw.lggr.Infow("Unregistered triggers, retaining handles until drained", "numTriggers", len(cw.handles))
 	cw.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 	return nil
+}
+
+func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
+	workflowID, err := ParseWorkflowID(triggerRegistrationID)
+	if err != nil {
+		return err
+	}
+
+	var handle *Handle
+	lggr, wfMetrics := c.lggr, c.deps.Metrics
+	if cw, ok := c.workflows.get(workflowID); ok {
+		handle = cw.handles[triggerRegistrationID]
+		lggr, wfMetrics = cw.lggr, cw.metrics
+	}
+	return Ack(ctx, lggr, wfMetrics, triggerCapID, triggerRegistrationID, eventID, handle)
+}
+
+// close runs after the reader and release goroutines exit.
+// It unregisters any triggers still in a pending state before returning.
+func (c *coordinator) close() error {
+	pending := c.workflows.pending()
+
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	var errs error
+	for workflowID, cw := range pending {
+		cw.cancel()
+		if failCount := Unregister(contexts.WithCRE(ctx, cw.cre), cw.lggr, workflowID, cw.donID, cw.handles); failCount > 0 {
+			errs = errors.Join(errs, fmt.Errorf("workflow %s: failed to unregister %d of %d triggers", workflowID, failCount, len(cw.handles)))
+		}
+	}
+	return errs
+}
+
+// buildDeliverFn creates a deliver function that looks up the engine fresh on every event
+// instead of caching it, since the engine for a workflow can change while this reader is running.
+func (c *coordinator) buildDeliverFn(cw *coordinatedWorkflow) func(context.Context, CoordinatedEvent) {
+	return func(ctx context.Context, event CoordinatedEvent) {
+		engine, found := c.engines.Get(cw.wid)
+		if !found {
+			cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
+			return
+		}
+		if !engine.IsCoordinated() {
+			cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
+			return
+		}
+
+		// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
+		if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
+			cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+		}
+	}
 }
 
 // releaseWhenDrained drops the handle map and frees the workflow-count limit
