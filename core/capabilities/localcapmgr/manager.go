@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"sort"
 	"sync"
 	"time"
 
@@ -59,6 +60,11 @@ type capabilityInfo struct {
 	// config JSON). A change in either, including an offchain-only change, restarts the
 	// capability.
 	configHash string
+	// tomlConfigKeysUsed are the node-local TOML Config override keys that survived into the
+	// effective config un-shadowed by on-chain/offchain (i.e. removing the TOML override would
+	// change the launch config). Sorted; empty when the TOML override contributes nothing. Used
+	// to emit the deprecation signal in startCapability.
+	tomlConfigKeysUsed []string
 }
 
 func runningKey(capID string, donID uint32) string {
@@ -345,6 +351,17 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	if info.configErr != nil {
 		return nil, fmt.Errorf("build config for %s: %w", info.capID, info.configErr)
 	}
+
+	// Deprecation signal: a node-local TOML Config override is contributing to this capability's
+	// config. This override is slated for removal once config moves to the offchain registry;
+	// a production rate of ~0 on platform_capability_toml_config_override_used_total is the
+	// green light to remove it.
+	if len(info.tomlConfigKeysUsed) > 0 {
+		m.lggr.Warnw("Deprecated node-local TOML [Capabilities.Local.Capabilities] Config override in use; "+
+			"migrate these keys to the offchain capabilities registry (this override is slated for removal)",
+			"capID", info.capID, "donID", info.donID, "keys", info.tomlConfigKeysUsed)
+		m.metrics.recordTomlConfigOverrideUsed(ctx, info.capID)
+	}
 	configJSON := info.configJSON
 	if len(info.config.Config) > 0 {
 		if _, err := info.config.Unmarshal(); err != nil {
@@ -425,12 +442,11 @@ func (m *localCapabilityManager) resolveCapabilityBinary(capID string) string {
 // cutover; because it is skipped entirely when the cutover is off, and any key the offchain
 // payload omits keeps its on-chain/TOML value, the layering is backwards compatible.
 func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, error) {
-	merged := make(map[string]any)
-
 	// 1. node-local TOML base.
-	maps.Copy(merged, m.overridesFor(info.capID, info.donID))
+	toml := m.overridesFor(info.capID, info.donID)
 
 	// 2. on-chain SpecConfig.
+	var onchain map[string]any
 	if len(info.config.Config) > 0 {
 		capCfg, err := info.config.Unmarshal()
 		if err != nil {
@@ -442,15 +458,20 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 			if err != nil {
 				return "", fmt.Errorf("unwrap onchain spec config for %s: %w", info.capID, err)
 			}
-			if onchain, ok := unwrapped.(map[string]any); ok {
-				maps.Copy(merged, onchain)
+			if oc, ok := unwrapped.(map[string]any); ok {
+				onchain = oc
 			}
 		}
 	}
 
 	// 3. offchain SpecConfig wins (cutover on only; nil otherwise). Applied last, keys absent
 	// offchain retain their on-chain/TOML value.
+	merged := make(map[string]any, len(toml)+len(onchain)+len(info.offchainOverrides))
+	maps.Copy(merged, toml)
+	maps.Copy(merged, onchain)
 	maps.Copy(merged, info.offchainOverrides)
+
+	info.tomlConfigKeysUsed = contributingTOMLKeys(toml, onchain, info.offchainOverrides)
 
 	if len(merged) == 0 {
 		return "{}", nil
@@ -461,6 +482,28 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 		return "", fmt.Errorf("marshal merged config for %s: %w", info.capID, err)
 	}
 	return string(b), nil
+}
+
+// contributingTOMLKeys returns the TOML override keys that survive into the effective config,
+// i.e. those not shadowed by an on-chain or offchain value for the same key. Removing the TOML
+// override would change the launch config for exactly these keys (a key the on-chain/offchain
+// layer also sets would keep its value without the TOML override, so it does not contribute).
+func contributingTOMLKeys(toml, onchain, offchain map[string]any) []string {
+	if len(toml) == 0 {
+		return nil
+	}
+	var keys []string
+	for k := range toml {
+		if _, ok := onchain[k]; ok {
+			continue
+		}
+		if _, ok := offchain[k]; ok {
+			continue
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // extractDefaultOCR3Config returns the `default` on-chain OCR3 config parsed from the
