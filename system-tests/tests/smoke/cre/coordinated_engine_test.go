@@ -180,6 +180,71 @@ func Test_CRE_V2_CoordinatedEngine_MixedModeReRegister(t *testing.T) {
 	requireCoordinatorLogForWorkflow(t, testEnv, coordinatedID)
 }
 
+// Test_CRE_V2_CoordinatedEngine_RollbackToLegacy starts a workflow with
+// CoordinatedEngineEnabled on, then disables the flag and pauses/re-activates the
+// workflow. The syncer tears down the coordinated engine and re-registers it, and
+// the new engine is created with the flag off — the workflow ends up on the legacy
+// engine.
+//
+// This is the rollback path. The flag is read once at engine creation, so a flip
+// alone does not migrate running workflows: ops must also pause/activate each
+// workflow (as here) or restart the nodes, which rebuild every engine from the
+// registry state with the flag read fresh.
+//
+//	go test ./system-tests/tests/smoke/cre -run '^Test_CRE_V2_CoordinatedEngine_RollbackToLegacy$' -timeout 20m -v
+//
+//nolint:paralleltest // mutates settings on the shared environment; must run serially
+func Test_CRE_V2_CoordinatedEngine_RollbackToLegacy(t *testing.T) {
+	testLogger := framework.L
+	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
+
+	// Flag on: the workflow registers and runs through the trigger coordinator.
+	settings := t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(`CoordinatedEngineEnabled = 'true'`))
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		// t.Context() is already cancelled when cleanups run.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+	})
+
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
+	workflowName := t_helpers.UniqueWorkflowName(testEnv, "coordinatedcron")
+	workflowConfig := crontypes.WorkflowConfig{Schedule: "*/30 * * * * *"}
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog,
+		"Amazing workflow user log", 2*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	requireCoordinatorLogForWorkflow(t, testEnv, workflowID)
+	registrationsBefore := countCoordinatorLogLinesForWorkflow(t, testEnv, workflowID)
+
+	// Flag off: engines created from now on are legacy. The baseline has the flag
+	// off, so resetting the override disables it — a second ApplyCRESettings call
+	// would fail: only one override may be active per test.
+	settings.Reset(t)
+
+	// Recreate the engine so it picks up the disabled flag: pause removes it,
+	// activate builds a new one. The wait matters because a pause with an
+	// in-flight execution is deferred, and an activate processed while the old
+	// engine is still registered takes the happy path and returns without
+	// recreating it.
+	pauseWorkflow(t, testEnv, workflowID)
+	waitForEngineTeardown(t, testEnv, workflowID)
+	activateWorkflow(t, testEnv, workflowID)
+
+	// The workflow must keep executing on the legacy engine.
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog,
+		"Amazing workflow user log", 2*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+
+	// No new coordinator registration may appear for the re-created engine:
+	// the line count must be unchanged since before the pause.
+	require.Equal(t, registrationsBefore, countCoordinatorLogLinesForWorkflow(t, testEnv, workflowID),
+		"the re-created engine must not register triggers via the coordinator")
+}
+
 // coordinatorLogMessage is the syncer log line emitted once a workflow's triggers
 // are registered through the coordinator.
 const coordinatorLogMessage = "Registered triggers via coordinator"
@@ -201,6 +266,15 @@ func requireCoordinatorLogForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironm
 	require.Eventually(t, func() bool {
 		return len(coordinatorLogLinesForWorkflow(t, testEnv, workflowID)) > 0
 	}, time.Minute, 5*time.Second, "expected a %q line for workflow %s", coordinatorLogMessage, workflowID)
+}
+
+// countCoordinatorLogLinesForWorkflow counts the coordinator registration lines of
+// workflowID across the workflow DON: one per node per registration through the
+// coordinator. Note the count is per-node — 4 nodes each log one line per
+// registration, so a single registration yields 4 lines.
+func countCoordinatorLogLinesForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workflowID string) int {
+	t.Helper()
+	return len(coordinatorLogLinesForWorkflow(t, testEnv, workflowID))
 }
 
 // workflowRegistry binds the WorkflowRegistry contract for the test chain.
