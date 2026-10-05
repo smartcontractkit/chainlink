@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+	shardtypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership/types"
 )
 
 type GatewayConfig struct {
@@ -76,7 +77,7 @@ func GatewayDONIDForShard(donName string, shardIdx int) string {
 		// NOTE: special case for backward compatibility - shard 0 doesn't have an index suffix
 		return donName
 	}
-	return fmt.Sprintf("%s_shard-%d", donName, shardIdx)
+	return fmt.Sprintf("%s_%s%d", donName, shardtypes.ShardNameMarker, shardIdx)
 }
 
 type Shard struct {
