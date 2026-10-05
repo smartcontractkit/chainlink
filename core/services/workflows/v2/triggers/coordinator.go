@@ -293,21 +293,21 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 
 	c.workflows.set(workflowID, cw)
 
-	deliver := c.deliver(cw)
+	deliverFn := c.buildDeliverFn(cw)
 	for idx, eventCh := range eventChans {
 		triggerCapID := triggerCapIDs[idx]
 		c.eng.GoCtx(readerCtx, func(ctx context.Context) {
 			defer cw.readers.Done()
-			ReadLoop(ctx, lggr, wfMetrics, c.clock, workflowID, triggerCapID, idx, eventCh, deliver)
+			ReadLoop(ctx, lggr, wfMetrics, c.clock, workflowID, triggerCapID, idx, eventCh, deliverFn)
 		})
 	}
 
 	return triggerCapIDs, nil
 }
 
-// deliver looks up the engine fresh on every event instead of caching it,
-// since the engine for a workflow can change while this reader is running.
-func (c *coordinator) deliver(cw *coordinatedWorkflow) func(context.Context, CoordinatedEvent) {
+// buildDeliverFn creates a deliver function that looks up the engine fresh on every event
+// instead of caching it, since the engine for a workflow can change while this reader is running.
+func (c *coordinator) buildDeliverFn(cw *coordinatedWorkflow) func(context.Context, CoordinatedEvent) {
 	return func(ctx context.Context, event CoordinatedEvent) {
 		engine, found := c.engines.Get(cw.wid)
 		if !found {
