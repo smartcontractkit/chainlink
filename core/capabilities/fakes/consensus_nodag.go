@@ -6,9 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
@@ -22,26 +25,61 @@ import (
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 )
 
+// Report encoders. Every encoder emits the shared 109-byte metadata header
+// followed by the raw payload; they differ only in the key type signing it.
+const (
+	encoderEVM     = "evm"
+	encoderSolana  = "solana"
+	encoderStellar = "stellar"
+)
+
 type fakeConsensusNoDAG struct {
 	services.Service
 	eng *services.Engine
 
-	signers      []ocr2key.KeyBundle
-	configDigest ocr2types.ConfigDigest
-	seqNr        uint64
+	// signers is the default signer set. signersByEncoder overrides it per
+	// encoder (keyed by lowercase encoder name) when a chain needs a different
+	// signature scheme.
+	signers          []ocr2key.KeyBundle
+	signersByEncoder map[string][]ocr2key.KeyBundle
+	configDigest     ocr2types.ConfigDigest
+	seqNr            uint64
 }
 
 var _ consensusserver.ConsensusCapability = (*fakeConsensusNoDAG)(nil)
 
-func NewFakeConsensusNoDAG(signers []ocr2key.KeyBundle, lggr logger.Logger) *fakeConsensusNoDAG {
+// FakeConsensusOption configures NewFakeConsensusNoDAG.
+type FakeConsensusOption func(*fakeConsensusNoDAG)
+
+// WithEncoderSigners signs reports for the given encoder (case-insensitive)
+// with signers instead of the default set, e.g. to match the signer set
+// configured on a real forwarder.
+func WithEncoderSigners(encoderName string, signers []ocr2key.KeyBundle) FakeConsensusOption {
+	return func(fc *fakeConsensusNoDAG) {
+		fc.signersByEncoder[strings.ToLower(encoderName)] = signers
+	}
+}
+
+// NewFakeConsensusNoDAG returns a single-node consensus fake. signers sign EVM
+// and Solana reports. Stellar reports need ed25519 (keccak) signatures, so
+// unless overridden via WithEncoderSigners they are signed by deterministic
+// Stellar keys generated here, one per default signer.
+func NewFakeConsensusNoDAG(signers []ocr2key.KeyBundle, lggr logger.Logger, opts ...FakeConsensusOption) *fakeConsensusNoDAG {
 	configDigest := ocr2types.ConfigDigest{}
 	for i := range configDigest {
 		configDigest[i] = byte(i)
 	}
 	fc := &fakeConsensusNoDAG{
-		signers:      signers,
-		configDigest: configDigest,
-		seqNr:        1,
+		signers:          signers,
+		signersByEncoder: map[string][]ocr2key.KeyBundle{},
+		configDigest:     configDigest,
+		seqNr:            1,
+	}
+	for _, opt := range opts {
+		opt(fc)
+	}
+	if _, ok := fc.signersByEncoder[encoderStellar]; !ok {
+		fc.signersByEncoder[encoderStellar] = deterministicSigners(corekeys.Stellar, max(len(signers), 1))
 	}
 	fc.Service, fc.eng = services.Config{
 		Name:  "fakeConsensusNoDAG",
@@ -102,8 +140,9 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 		ReportID:         "0001",
 	}
 
-	switch input.EncoderName {
-	case "evm", "EVM", "solana", "Solana":
+	encoder := strings.ToLower(input.EncoderName)
+	switch encoder {
+	case encoderEVM, encoderSolana, encoderStellar:
 		if len(input.EncodedPayload) == 0 {
 			return nil, caperrors.NewPublicUserError(fmt.Errorf("input value for %s encoder needs to be a byte array and cannot be empty or nil", input.EncoderName), caperrors.InvalidArgument)
 		}
@@ -115,11 +154,22 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 		}
 		rawOutput = append(rawOutput, input.EncodedPayload...)
 
+		reportContext := report.GenerateReportContext(fc.seqNr, fc.configDigest)
+
 		// sign the report
 		sigs := []*sdkpb.AttributedSignature{}
 		var idx uint32
-		for _, signer := range fc.signers {
-			sig, err := signer.Sign3(fc.configDigest, fc.seqNr, rawOutput)
+		for _, signer := range fc.signersFor(encoder) {
+			var sig []byte
+			if encoder == encoderStellar {
+				// The Stellar forwarder verifies ed25519 over
+				// keccak256(keccak256(raw_report) ‖ report_context); the
+				// keyring returns public_key ‖ signature, the pair the
+				// forwarder's Ed25519Signature carries.
+				sig, err = signer.SignBlob(stellarReportDigest(rawOutput, reportContext))
+			} else {
+				sig, err = signer.Sign3(fc.configDigest, fc.seqNr, rawOutput)
+			}
 			if err != nil {
 				return nil, caperrors.NewPublicSystemError(fmt.Errorf("failed to sign with signer %s: %w", signer.ID(), err), caperrors.Internal)
 			}
@@ -134,7 +184,7 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 			RawReport:     rawOutput,
 			ConfigDigest:  fc.configDigest[:],
 			SeqNr:         fc.seqNr,
-			ReportContext: report.GenerateReportContext(fc.seqNr, fc.configDigest),
+			ReportContext: reportContext,
 			Sigs:          sigs,
 		}
 		responseAndMetadata := capabilities.ResponseAndMetadata[*sdkpb.ReportResponse]{
@@ -146,6 +196,31 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 	default:
 		return nil, caperrors.NewPublicUserError(fmt.Errorf("unsupported encoder name: %s", input.EncoderName), caperrors.InvalidArgument)
 	}
+}
+
+// stellarReportDigest is the digest the Stellar CRE forwarder verifies.
+func stellarReportDigest(rawReport, reportContext []byte) []byte {
+	inner := crypto.Keccak256(rawReport)
+	return crypto.Keccak256(append(inner, reportContext...))
+}
+
+// signersFor returns the signer set for a lowercase encoder name.
+func (fc *fakeConsensusNoDAG) signersFor(encoder string) []ocr2key.KeyBundle {
+	if s, ok := fc.signersByEncoder[encoder]; ok {
+		return s
+	}
+	return fc.signers
+}
+
+// deterministicSigners returns n distinct, reproducible key bundles of the
+// given chain type, drawn sequentially from SeedForKeys.
+func deterministicSigners(chainType corekeys.ChainType, n int) []ocr2key.KeyBundle {
+	seed := SeedForKeys()
+	out := make([]ocr2key.KeyBundle, n)
+	for i := range out {
+		out[i] = ocr2key.MustNewInsecure(seed, chainType)
+	}
+	return out
 }
 
 func (fc *fakeConsensusNoDAG) Description() string {
