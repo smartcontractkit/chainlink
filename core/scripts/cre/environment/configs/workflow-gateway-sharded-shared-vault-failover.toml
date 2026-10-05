@@ -68,7 +68,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["72051:50051", "22876:9876"]
+      custom_ports = ["62051:50051", "23876:9876"]
       user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
 
   [[nodesets.node_specs]]
@@ -77,7 +77,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["22877:9876"]
+      custom_ports = ["23877:9876"]
       user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
 
   [[nodesets.node_specs]]
@@ -86,7 +86,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["22878:9876"]
+      custom_ports = ["23878:9876"]
       user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
 
   [[nodesets.node_specs]]
@@ -95,7 +95,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["22879:9876"]
+      custom_ports = ["23879:9876"]
       user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
 
 # --- Workflow shard 1 --------------------------------------------------------
