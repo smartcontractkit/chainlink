@@ -230,12 +230,15 @@ linters:
     rules:
       - linters:
           - bodyclose
-        path: _test\.go
-        source: "(client\\.(Get|Post|Put|Patch|Delete)|cltest\\.|sendRequest|postSkip)"
-        # bodyclose cannot see that cltest.HTTPClientCleaner's returned cleanup
-        # closure (or httpserver_test sendRequest's internal defer) closes the
-        # response body, so it false-positives on those test call sites only.
-        # bodyclose stays active for every other response in tests.
+        path: core/(web/.*_test|cmd/renderer_test|services/job/runner_integration_test|services/gateway/network/httpserver_test)\.go
+        source: "(client\\.(Get|Post|Put|Patch|Delete)|cltest\\.|postSkip|sendRequest)"
+        # bodyclose cannot detect that response bodies are closed by helper closures or wrappers:
+        # - cltest.HTTPClientCleaner methods (client.Get/Post/...) and cltest.Unauthenticated* return
+        #   cleanup closures (bodyCleaner) invoked via t.Cleanup or defer.
+        # - core/web postSkip wraps client.Post and registers cleanup via t.Cleanup.
+        # - core/services/gateway/network/httpserver_test.go sendRequest defers body close internally
+        #   before returning the response for status assertions.
+        # Scoped strictly to paths using these helpers so real leaks elsewhere in tests are caught.
       - linters:
           - gosec
         path: test
