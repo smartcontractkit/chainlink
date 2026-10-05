@@ -182,6 +182,43 @@ func (c *capturingRegistrar) RegisterLOOP(cfg plugins.CmdConfig) (func() *exec.C
 
 func (c *capturingRegistrar) UnregisterLOOP(string) {}
 
+// TestStandardCapabilities_CloseUnregistersLOOP checks that a capability can be
+// restarted with the same LOOP ID, as LocalCapabilityManager does on a config
+// change. Before the fix, Close left the ID registered and the second Start
+// failed with plugins.ErrExists ("plugin already registered").
+func TestStandardCapabilities_CloseUnregistersLOOP(t *testing.T) {
+	t.Parallel()
+	registered := map[string]bool{}
+	pluginRegistrar := plugins.NewRegistrarConfig(loop.GRPCOpts{},
+		func(id string) (*plugins.RegisteredLoop, error) {
+			if registered[id] {
+				return nil, plugins.ErrExists
+			}
+			registered[id] = true
+			return &plugins.RegisteredLoop{}, nil
+		},
+		func(id string) { delete(registered, id) },
+	)
+	lggr := logger.TestLogger(t).Named("consensus@1.0.0-alpha")
+
+	newStd := func() *StandardCapabilities {
+		std := NewStandardCapabilities(lggr, "not/found/path/to/binary", "{}", pluginRegistrar, core.StandardCapabilitiesDependencies{})
+		std.startTimeout = time.Second
+		return std
+	}
+
+	first := newStd()
+	require.NoError(t, first.Start(t.Context()))
+	require.True(t, registered[lggr.Name()])
+	require.NoError(t, first.Close())
+	require.Empty(t, registered, "Close must unregister the LOOP")
+
+	second := newStd()
+	require.NoError(t, second.Start(t.Context()), "restart with the same LOOP ID must succeed")
+	require.NoError(t, second.Close())
+	require.Empty(t, registered)
+}
+
 func TestStandardCapabilityStart(t *testing.T) {
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
