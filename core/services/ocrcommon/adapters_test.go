@@ -209,6 +209,43 @@ func TestNewOCR3OnchainKeyringMultiChainAdapter_Stellar(t *testing.T) {
 	assert.Equal(t, stellarBundle.PublicKey(), keys[string(corekeys.Stellar)])
 }
 
+// Regression test: a signature produced by the OCR3 multichain adapter for an EVM-tagged
+// report must verify against the OCR3 EvmVerifyBlob + ReportToSigData3 path used by the
+// workflow-DON client (core/capabilities/remote/executable/request/client_request.go:540).
+// Before the Sign/Verify methods were switched to Sign3/Verify3 the adapter signed with
+// the OCR2 report structure, which the workflow-DON verifier (using the OCR3 structure)
+// could never reconstruct; every attestation failed with "invalid signature from signer
+// index: N" and the fallback identical-response path carried workflows through.
+func TestOCR3OnchainKeyringMultiChainAdapter_SignVerifiesWithOCR3ReportStructure(t *testing.T) {
+	t.Parallel()
+
+	evmBundle, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+
+	adapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(
+		map[string]ocr2key.KeyBundle{"evm": evmBundle},
+		logger.TestLogger(t),
+	)
+	require.NoError(t, err)
+
+	info, err := structpb.NewStruct(map[string]any{"keyBundleName": "evm"})
+	require.NoError(t, err)
+	infob, err := proto.Marshal(info)
+	require.NoError(t, err)
+
+	report := []byte("some-report-bytes")
+	r := ocr3types.ReportWithInfo[[]byte]{Report: report, Info: infob}
+
+	sig, err := adapter.Sign(configDigest, seqNr, r)
+	require.NoError(t, err)
+
+	// Mirror the exact verification the workflow DON performs.
+	sigData := ocr2key.ReportToSigData3(configDigest, seqNr, report)
+	expectedSigner := evmBundle.PublicKey() // 20-byte EVM address
+	require.True(t, ocr2key.EvmVerifyBlob(expectedSigner, sigData, sig),
+		"signature produced by the OCR3 adapter must verify against the OCR3 (ReportToSigData3) structure that the workflow DON uses")
+}
+
 func TestOCR3OnchainKeyringMultiChainAdapter_Has(t *testing.T) {
 	adapter := newMultichainAdapter(t)
 

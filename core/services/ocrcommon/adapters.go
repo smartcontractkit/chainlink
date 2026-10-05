@@ -244,14 +244,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 	if err != nil {
 		return nil, fmt.Errorf("sign: failed to get key bundle from report info: %w", err)
 	}
-	return kb.Sign(ocrtypes.ReportContext{
-		ReportTimestamp: ocrtypes.ReportTimestamp{
-			ConfigDigest: digest,
-			Epoch:        uint32(seqNr), //nolint:gosec // seqNr maps to the uint32 epoch field
-			Round:        0,
-		},
-		ExtraHash: [32]byte(make([]byte, 32)),
-	}, r.Report)
+	return kb.Sign3(digest, seqNr, r.Report)
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
@@ -270,14 +263,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicK
 		a.lggr.Warnf("verify: publicKey not found: %v", kbName)
 		return false
 	}
-	return kb.Verify(publicKey, ocrtypes.ReportContext{
-		ReportTimestamp: ocrtypes.ReportTimestamp{
-			ConfigDigest: digest,
-			Epoch:        uint32(seqNr), //nolint:gosec // seqNr maps to the uint32 epoch field
-			Round:        0,
-		},
-		ExtraHash: [32]byte(make([]byte, 32)),
-	}, ri.Report, signature)
+	return kb.Verify3(publicKey, digest, seqNr, ri.Report, signature)
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) MaxSignatureLength() int {
