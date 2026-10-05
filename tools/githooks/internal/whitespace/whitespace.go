@@ -31,6 +31,10 @@ func FixContent(filePath string, content []byte) ([]byte, bool, error) {
 		return content, false, nil
 	}
 
+	if filefilter.IsGoldenPath(filePath) {
+		return content, false, nil
+	}
+
 	ext := strings.ToLower(filepath.Ext(filePath))
 	switch ext {
 	case ".go":

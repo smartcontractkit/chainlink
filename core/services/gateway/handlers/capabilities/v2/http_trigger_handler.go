@@ -472,7 +472,7 @@ func (h *httpTriggerHandler) cleanupCallback(requestID string) {
 }
 
 func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
-	result := "nil"
+	result := "<nil>"
 	if resp.Result != nil {
 		result = string(*resp.Result)
 	}

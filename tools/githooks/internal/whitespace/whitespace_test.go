@@ -23,6 +23,15 @@ func TestFixContent_Go(t *testing.T) {
 		assert.False(t, changed)
 		assert.Equal(t, string(input), string(fixed))
 	})
+
+	t.Run("skips golden fixture files", func(t *testing.T) {
+		t.Parallel()
+		input := []byte("-- out.txt --\ntrailing space   \ntab only\t\n")
+		fixed, changed, err := whitespace.FixContent("testdata/invalid.txtar", input)
+		require.NoError(t, err)
+		assert.False(t, changed)
+		assert.Equal(t, string(input), string(fixed))
+	})
 }
 
 func TestFixContent_Markdown(t *testing.T) {
