@@ -12,6 +12,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -82,6 +83,9 @@ type EngineConfig struct {
 	ShardResolver           shardownership.ShardResolver
 
 	TriggerAcknowledger triggers.Acknowledger
+
+	CachedTriggerSubscriptions        []*sdkpb.TriggerSubscription
+	CachedTriggerSubscriptionsEnabled bool
 }
 
 type EngineLimiters struct {
@@ -436,6 +440,11 @@ type LifecycleHooks struct {
 	// has completed initialization. It is also helpful for testing.
 	OnInitialized func(err error)
 
+	// OnSubscriptionsReady is called once trigger subscriptions are available,
+	// whether freshly computed by the WASM Subscribe call or returned from
+	// EngineConfig.CachedTriggerSubscriptions; fromCache distinguishes the two
+	OnSubscriptionsReady func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE, fromCache bool) error
+
 	OnSubscribedToTriggers  func(triggerIDs []string)
 	OnTriggerEventDropped   func(triggerID, eventID, reason string)
 	OnExecutionFinished     func(executionID, status string)
@@ -524,6 +533,9 @@ func (l *EngineLimits) setDefaultLimits() {
 func (h *LifecycleHooks) setDefaultHooks() {
 	if h.OnInitialized == nil {
 		h.OnInitialized = func(err error) {}
+	}
+	if h.OnSubscriptionsReady == nil {
+		h.OnSubscriptionsReady = func(_ []*sdkpb.TriggerSubscription, _ contexts.CRE, _ bool) error { return nil }
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
