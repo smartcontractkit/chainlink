@@ -192,7 +192,7 @@ operator-ui: ## Fetch the frontend
 	go run operator_ui/install.go .
 
 .PHONY: generate
-generate: codecgen mockery protoc gomods ## Execute all go:generate commands.
+generate: codecgen mockery protoc gomods config-docs ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
 	find . -type d -name "*temp-repo*" -exec rm -rf {} + 2>/dev/null || true
 	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
