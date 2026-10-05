@@ -8,8 +8,6 @@ type DispatcherRateLimit interface {
 }
 
 type Dispatcher interface {
-	SupportedVersion() int
 	ReceiverBufferSize() int
 	RateLimit() DispatcherRateLimit
-	SendToSharedPeer() bool
 }
