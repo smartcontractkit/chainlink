@@ -482,6 +482,8 @@ flowchart LR
 	chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based --> cre-sdk-go/capabilities/networking/http
 	chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based href "https://github.com/smartcontractkit/chainlink"
+	chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-contract-examples/chains/evm
 	chainlink/deployment --> chainlink-aptos/deployment
 	chainlink/deployment --> chainlink-ccip/chains/solana/deployment
@@ -510,6 +512,7 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink-confidential-compute/tests/testhelpers
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/cron
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based
+	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets
 	chainlink/system-tests/tests --> chainlink/system-tests/lib
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/consensus
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmread-negative
@@ -663,6 +666,7 @@ flowchart LR
 		 chainlink/core/scripts
 		 chainlink/core/scripts/cre/environment/examples/workflows/cron
 		 chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based
+		 chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets
 		 chainlink/deployment
 		 chainlink/devenv
 		 chainlink/devenv/fakes
