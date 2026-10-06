@@ -527,7 +527,10 @@ func (s *Services) newRegistrySyncer(
 					}
 					return ocr2Delegate.NewServices(ctx, capID, donID, commontypes.DonTimePlugin, configJSON, ocr3Config)
 				}
-				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), nil, donID, ocr3Config)
+				// Enable the oracle factory only when there's an on-chain OCR3 config.
+				// ResolveOracleFactoryConfig then fills in all details from node config and keystore.
+				oracleFactoryConfig := &job.OracleFactoryConfig{Enabled: ocr3Config != nil}
+				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), oracleFactoryConfig, donID, ocr3Config)
 			}
 
 			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
