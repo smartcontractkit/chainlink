@@ -135,6 +135,12 @@ jobs:
             "Test_CRE_V2_ShardRingOCROverrides": [
                 {"topology":"workflow-gateway-sharded-ringocr-overrides","configs":"configs/workflow-gateway-sharded-ringocr-overrides.toml"}
               ],
+            "Test_CRE_V2_ShardManualAssignmentSharedVault": [
+                {"topology":"workflow-gateway-sharded-shared-vault-manual","configs":"configs/workflow-gateway-sharded-shared-vault-manual.toml"}
+              ],
+            "Test_CRE_V2_ShardFailoverSharedVault": [
+                {"topology":"workflow-gateway-sharded-shared-vault-failover","configs":"configs/workflow-gateway-sharded-shared-vault-failover.toml"}
+              ],
             "Test_CRE_V2_FailoverManualSwap": [
                 {"topology":"workflow-gateway-failover","configs":"configs/workflow-gateway-failover-don.toml"}
               ],
