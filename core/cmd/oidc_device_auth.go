@@ -67,7 +67,7 @@ func NewOIDCDeviceCookieAuthenticator(config ClientOpts, store CookieStore, out 
 // body must be JSON with enabled=true so a reverse-proxy 200 HTML page cannot
 // accidentally trigger the device-flow path.
 func NodeHasOIDCEnabled(ctx context.Context, config ClientOpts, lggr logger.Logger) bool {
-	client := newHttpClient(lggr, config.InsecureSkipVerify)
+	client := newHTTPClient(lggr, config.InsecureSkipVerify)
 	u := config.RemoteNodeURL.String() + "/oidc-enabled"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
@@ -142,7 +142,7 @@ func (o *OIDCDeviceCookieAuthenticator) start(ctx context.Context) (*oidcDeviceS
 	if err != nil {
 		return nil, err
 	}
-	client := newHttpClient(o.lggr, o.config.InsecureSkipVerify)
+	client := newHTTPClient(o.lggr, o.config.InsecureSkipVerify)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -172,7 +172,7 @@ func (o *OIDCDeviceCookieAuthenticator) poll(ctx context.Context, handle string)
 		return nil, "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	client := newHttpClient(o.lggr, o.config.InsecureSkipVerify)
+	client := newHTTPClient(o.lggr, o.config.InsecureSkipVerify)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, "", err

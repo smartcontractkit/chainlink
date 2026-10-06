@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
@@ -177,7 +177,7 @@ func TestGenerateDeviceHandle_UniqueAndURLSafe(t *testing.T) {
 
 func TestFinishDeviceFlow_RecordsTerminalState(t *testing.T) {
 	t.Parallel()
-	oi := &oidcAuthenticator{lggr: logger.TestLogger(t)}
+	oi := &oidcAuthenticator{lggr: logger.TestSugared(t)}
 
 	okState := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
 	oi.finishDeviceFlow(okState, "sess-1", "user@example.com", clsessions.UserRoleEdit, nil)
@@ -202,7 +202,7 @@ func TestFinishDeviceFlow_RecordsTerminalState(t *testing.T) {
 // separates the background poll goroutine from the CLI poll handler.
 func TestDeviceFlowState_ConcurrentAccess(t *testing.T) {
 	t.Parallel()
-	oi := &oidcAuthenticator{lggr: logger.TestLogger(t)}
+	oi := &oidcAuthenticator{lggr: logger.TestSugared(t)}
 	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
 
 	var wg sync.WaitGroup
