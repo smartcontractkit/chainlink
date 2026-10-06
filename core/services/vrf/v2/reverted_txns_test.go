@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
