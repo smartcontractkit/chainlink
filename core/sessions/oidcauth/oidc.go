@@ -411,11 +411,15 @@ func (oi *oidcAuthenticator) FindUser(ctx context.Context, email string) (clsess
 	return foundUser, nil
 }
 
-// FindUserByAPIToken refuses OIDC API tokens. The token row caches the role,
-// nothing re-checks the identity provider when a group is revoked, and the
-// session reaper does not touch this table. The config flag does not enable it.
+// errOIDCAPITokensDisabled is returned for every OIDC API-token operation.
+// The token row caches the role, nothing re-checks the identity provider when
+// a group is revoked, and the session reaper does not touch that table. The
+// config flag does not enable the path.
+var errOIDCAPITokensDisabled = errors.New("OIDC API tokens are disabled")
+
+// FindUserByAPIToken refuses OIDC API tokens. See errOIDCAPITokensDisabled.
 func (oi *oidcAuthenticator) FindUserByAPIToken(context.Context, string) (clsessions.User, error) {
-	return clsessions.User{}, errors.New("OIDC API tokens are disabled")
+	return clsessions.User{}, errOIDCAPITokensDisabled
 }
 
 // ListUsers in the context of the OIDC driver only supports listing the local (admin) users, we don't have an identity server to query against
@@ -578,19 +582,14 @@ func (oi *oidcAuthenticator) TestPassword(ctx context.Context, email, password s
 	return nil
 }
 
-// CreateAndSetAuthToken generates a new credential token with the user role
-func (oi *oidcAuthenticator) CreateAndSetAuthToken(ctx context.Context, user *clsessions.User) (*auth.Token, error) {
-	newToken := auth.NewToken()
-	err := oi.SetAuthToken(ctx, user, newToken)
-	if err != nil {
-		return nil, err
-	}
-	return newToken, nil
+// CreateAndSetAuthToken refuses OIDC API tokens. See errOIDCAPITokensDisabled.
+func (oi *oidcAuthenticator) CreateAndSetAuthToken(context.Context, *clsessions.User) (*auth.Token, error) {
+	return nil, errOIDCAPITokensDisabled
 }
 
-// SetAuthToken refuses OIDC API tokens. See FindUserByAPIToken.
+// SetAuthToken refuses OIDC API tokens. See errOIDCAPITokensDisabled.
 func (oi *oidcAuthenticator) SetAuthToken(context.Context, *clsessions.User, *auth.Token) error {
-	return errors.New("OIDC API tokens are disabled")
+	return errOIDCAPITokensDisabled
 }
 
 // DeleteAuthToken clears and disables the users Authentication Token.

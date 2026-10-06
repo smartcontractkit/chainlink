@@ -70,19 +70,19 @@ func TestDeviceFailureReason(t *testing.T) {
 	t.Parallel()
 	require.Empty(t, deviceFailureReason(nil))
 	assert.Equal(t, "failed", deviceFailureReason(assert.AnError))
-	assert.Equal(t, "denied", deviceFailureReason(errString("access_denied")))
+	assert.Equal(t, "denied", deviceFailureReason(stringError("access_denied")))
 	assert.Equal(t, "abandoned", deviceFailureReason(errDeviceFlowAbandoned))
-	assert.Equal(t, "expired", deviceFailureReason(errString("context deadline exceeded")))
+	assert.Equal(t, "expired", deviceFailureReason(stringError("context deadline exceeded")))
 }
 
-type errString string
+type stringError string
 
-func (e errString) Error() string { return string(e) }
+func (e stringError) Error() string { return string(e) }
 
 func deviceRequest(t *testing.T, remoteAddr, xff string) *gin.Context {
 	t.Helper()
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest(http.MethodPost, "/oidc-device/start", nil)
+	c.Request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/oidc-device/start", nil)
 	c.Request.RemoteAddr = remoteAddr
 	if xff != "" {
 		c.Request.Header.Set("X-Forwarded-For", xff)
