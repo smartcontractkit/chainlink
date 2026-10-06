@@ -72,11 +72,20 @@ func (n *donNotifier) Subscribe(ctx context.Context) (<-chan capabilities.DON, f
 		n.subscribers.Delete(s)
 	}
 
-	if n.don.Load() != nil {
-		s <- *n.don.Load()
-	}
-
+	// Register BEFORE reading the current value: a NotifyDonSet that lands
+	// between the read below and the registration would otherwise be lost
+	// entirely (the broadcast ranges only over registered channels), leaving
+	// this subscriber waiting forever. Registering first guarantees the
+	// broadcast either reaches this channel or is observed by the read below.
 	n.subscribers.Store(s, struct{}{})
+	if n.don.Load() != nil {
+		// Non-blocking: a concurrent broadcast may have already delivered the
+		// (same or newer) value into the buffer.
+		select {
+		case s <- *n.don.Load():
+		default:
+		}
+	}
 
 	return s, unsubscribe, nil
 }
