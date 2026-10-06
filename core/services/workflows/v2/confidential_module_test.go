@@ -50,6 +50,10 @@ func (s *stubExecutionHelper) GetRawSecrets(ctx context.Context, request *sdkpb.
 	return nil, nil
 }
 
+func (s *stubExecutionHelper) GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vaultcommon.GetSecretsResponse, error) {
+	return nil, nil
+}
+
 func (s *stubExecutionHelper) GetOwner() string {
 	return ""
 }
