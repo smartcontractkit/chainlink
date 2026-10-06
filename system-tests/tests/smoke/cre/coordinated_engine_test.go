@@ -328,6 +328,6 @@ func waitForEngineTeardown(t *testing.T, testEnv *ttypes.TestEnvironment, workfl
 	require.Eventually(t, func() bool {
 		lines := t_helpers.ContainerLogLinesForNodeset(t, testEnv, coordinatedEngineDON, "handled event (WorkflowPaused)")
 		lines = slices.DeleteFunc(lines, func(line string) bool { return !strings.Contains(line, workflowID) })
-		return len(lines) >= 4 // one per workflow node
+		return len(lines) >= len(testEnv.Dons.MustWorkflowDON().Nodes) // one per workflow node
 	}, 2*time.Minute, 5*time.Second, "workflow %s was not torn down on all workflow nodes", workflowID)
 }
