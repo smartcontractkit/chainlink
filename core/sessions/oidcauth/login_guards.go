@@ -3,6 +3,7 @@ package oidcauth
 import (
 	"net"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,9 +19,9 @@ func capDeviceExpiry(expiry, now time.Time) time.Time {
 	if !expiry.IsZero() && !expiry.After(now) {
 		return expiry
 	}
-	cap := now.Add(maxDeviceFlowLifetime)
-	if expiry.IsZero() || expiry.After(cap) {
-		return cap
+	deadline := now.Add(maxDeviceFlowLifetime)
+	if expiry.IsZero() || expiry.After(deadline) {
+		return deadline
 	}
 	return expiry
 }
@@ -72,8 +73,8 @@ func deviceClientIP(c *gin.Context) string {
 		return peer
 	}
 	parts := strings.Split(xff, ",")
-	for i := len(parts) - 1; i >= 0; i-- {
-		ip := net.ParseIP(strings.TrimSpace(parts[i]))
+	for _, part := range slices.Backward(parts) {
+		ip := net.ParseIP(strings.TrimSpace(part))
 		if ip != nil {
 			return ip.String()
 		}

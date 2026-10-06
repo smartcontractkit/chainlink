@@ -66,6 +66,7 @@ func TestORM_FindUser_Single(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Disabled(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 
@@ -82,6 +83,7 @@ func TestORM_FindUserByAPIToken_Disabled(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_ExpiredStillDisabled(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	cfg := oidcauth.TestConfig{}
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
