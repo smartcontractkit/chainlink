@@ -65,9 +65,8 @@ func TestORM_FindUser_Single(t *testing.T) {
 	require.Equal(t, foundUser.Role, user1.Role)
 }
 
-func TestORM_FindUserByAPIToken_Success(t *testing.T) {
+func TestORM_FindUserByAPIToken_Disabled(t *testing.T) {
 	ctx := t.Context()
-	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 
 	testEmail := "test@test.com"
@@ -75,16 +74,15 @@ func TestORM_FindUserByAPIToken_Success(t *testing.T) {
 	_, err := db.Exec("INSERT INTO oidc_user_api_tokens values ($1, 'edit', $2, '', '', now())", testEmail, apiToken)
 	require.NoError(t, err)
 
-	// Find user
-	foundUser, err := oidcAuthProvider.FindUserByAPIToken(ctx, apiToken)
-	require.NoError(t, err)
-	require.Equal(t, foundUser.Email, testEmail)
-	require.Equal(t, sessions.UserRoleEdit, foundUser.Role)
+	_, err = oidcAuthProvider.FindUserByAPIToken(ctx, apiToken)
+	require.EqualError(t, err, "OIDC API tokens are disabled")
+
+	_, err = oidcAuthProvider.CreateAndSetAuthToken(ctx, &sessions.User{Email: testEmail, Role: sessions.UserRoleEdit})
+	require.EqualError(t, err, "OIDC API tokens are disabled")
 }
 
-func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
+func TestORM_FindUserByAPIToken_ExpiredStillDisabled(t *testing.T) {
 	ctx := t.Context()
-	// Init OIDC authenticator
 	cfg := oidcauth.TestConfig{}
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 
@@ -94,35 +92,29 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 	_, err := db.Exec("INSERT INTO oidc_user_api_tokens values ($1, 'edit', $2, '', '', $3)", testEmail, apiToken, expiredTime)
 	require.NoError(t, err, "failed to insert expired token")
 
-	// Token found but expired. expect error
 	_, err = oidcAuthProvider.FindUserByAPIToken(ctx, apiToken)
-	require.ErrorIs(t, err, sessions.ErrUserSessionExpired, "expected expired token to return ErrUserSessionExpired")
+	require.EqualError(t, err, "OIDC API tokens are disabled")
 }
 
 func TestORM_DeleteAuthToken(t *testing.T) {
 	ctx := t.Context()
 
-	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 
-	// Create a token for a test user
 	testEmail := "test-delete@test.com"
 	apiToken := "delete-test-token"
 	_, err := db.Exec("INSERT INTO oidc_user_api_tokens values ($1, 'edit', $2, '', '', now())", testEmail, apiToken)
 	require.NoError(t, err)
 
-	// Verify token exists by finding user
-	user, err := oidcAuthProvider.FindUserByAPIToken(ctx, apiToken)
-	require.NoError(t, err)
-	require.Equal(t, testEmail, user.Email)
+	var n int
+	require.NoError(t, db.Get(&n, "SELECT count(*) FROM oidc_user_api_tokens WHERE user_email = $1", testEmail))
+	require.Equal(t, 1, n)
 
-	// Delete the auth token
-	err = oidcAuthProvider.DeleteAuthToken(ctx, &user)
+	err = oidcAuthProvider.DeleteAuthToken(ctx, &sessions.User{Email: testEmail})
 	require.NoError(t, err)
 
-	// Verify token is deleted - FindUserByAPIToken should fail
-	_, err = oidcAuthProvider.FindUserByAPIToken(ctx, apiToken)
-	require.Error(t, err)
+	require.NoError(t, db.Get(&n, "SELECT count(*) FROM oidc_user_api_tokens WHERE user_email = $1", testEmail))
+	require.Equal(t, 0, n)
 }
 
 func TestORM_ListUsers(t *testing.T) {

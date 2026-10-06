@@ -5,14 +5,10 @@ import (
 	"time"
 )
 
-// pendingAuth holds server-side secrets for one browser authorization-code
-// login. The PKCE verifier and OIDC nonce must not round-trip through the
-// signed-but-not-encrypted session cookie (see OCD-004 / OCD-005). Only the
-// anti-CSRF state value is stored client-side; the secrets stay here, keyed by
-// that state, until a single successful take() at exchange time.
-//
-// Like deviceFlowStore this is process-local: multi-replica deployments need
-// session affinity for /oidc-login → /oidc-exchange, or a shared short-TTL store.
+// pendingAuth is the in-memory copy used by unit tests that have no database.
+// Production sign-in and exchange write oidc_pending_auth. The cookie holds
+// only the anti-CSRF state. The PKCE verifier and OIDC nonce stay server-side,
+// keyed by that state, until a single successful take at exchange time.
 type pendingAuth struct {
 	verifier  string
 	nonce     string

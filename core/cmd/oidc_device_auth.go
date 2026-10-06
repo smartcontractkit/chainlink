@@ -93,6 +93,9 @@ func NodeHasOIDCEnabled(ctx context.Context, config ClientOpts, lggr logger.Logg
 // Login runs the full device flow: start, prompt the operator, poll until the
 // node reports completion, then save the returned session cookie.
 func (o *OIDCDeviceCookieAuthenticator) Login(ctx context.Context) error {
+	if o.config.InsecureSkipVerify {
+		return errors.New("device login requires TLS verification; do not set insecure-skip-verify")
+	}
 	start, err := o.start(ctx)
 	if err != nil {
 		return err
@@ -201,7 +204,8 @@ func (o *OIDCDeviceCookieAuthenticator) promptUser(start *oidcDeviceStartRespons
 	if uri == "" {
 		uri = start.VerificationURI
 	}
-	fmt.Fprintln(o.out, "To log in, open the following URL in a browser and sign in with your identity provider:")
+	fmt.Fprintln(o.out, "To log in, open the following URL in a browser and sign in with your identity provider.")
+	fmt.Fprintln(o.out, "Confirm the host is your identity provider before you approve. An approval you did not start is an attack.")
 	fmt.Fprintf(o.out, "\n    %s\n\n", uri)
 	if start.VerificationURIComplete == "" {
 		fmt.Fprintf(o.out, "When prompted, enter the code: %s\n\n", start.UserCode)

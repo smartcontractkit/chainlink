@@ -180,7 +180,7 @@ func TestFinishDeviceFlow_RecordsTerminalState(t *testing.T) {
 	oi := &oidcAuthenticator{lggr: logger.TestSugared(t)}
 
 	okState := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
-	oi.finishDeviceFlow(okState, "sess-1", "user@example.com", clsessions.UserRoleEdit, nil)
+	oi.finishDeviceFlow(okState, "handle-ok", "sess-1", "user@example.com", clsessions.UserRoleEdit, nil)
 	okState.mu.Lock()
 	assert.True(t, okState.done)
 	assert.Equal(t, "sess-1", okState.sessionID)
@@ -190,7 +190,7 @@ func TestFinishDeviceFlow_RecordsTerminalState(t *testing.T) {
 
 	errState := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
 	wantErr := errors.New("denied")
-	oi.finishDeviceFlow(errState, "", "", "", wantErr)
+	oi.finishDeviceFlow(errState, "handle-err", "", "", "", wantErr)
 	errState.mu.Lock()
 	assert.True(t, errState.done)
 	assert.Empty(t, errState.sessionID)
@@ -209,7 +209,7 @@ func TestDeviceFlowState_ConcurrentAccess(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		oi.finishDeviceFlow(state, "s", "e", clsessions.UserRoleView, nil)
+		oi.finishDeviceFlow(state, "handle-conc", "s", "e", clsessions.UserRoleView, nil)
 	}()
 	go func() {
 		defer wg.Done()

@@ -18,6 +18,7 @@ import (
 	"net/mail"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
@@ -51,9 +52,6 @@ type oidcAuthenticator struct {
 	lggr         logger.SugaredLogger
 	auditLogger  audit.Logger
 	deviceFlows  *deviceFlowStore
-	// pendingAuth holds PKCE verifiers and OIDC nonces server-side for the
-	// browser authorization-code flow (not in the signed session cookie).
-	pendingAuth *pendingAuthStore
 }
 
 // ExchangeTokenRequest represents the expected JSON payload from the frontend
@@ -140,12 +138,12 @@ func NewOIDCAuthenticator(
 		lggr:         logger.Sugared(lggr).Named("OIDCAuthenticationProvider"),
 		auditLogger:  auditLogger,
 		deviceFlows:  newDeviceFlowStore(),
-		pendingAuth:  newPendingAuthStore(),
 	}
 
-	// Device-flow and pending-auth state are process-local. Multi-replica nodes
-	// need sticky sessions for OIDC routes (see device_flow.go header comment).
-	oidcAuth.lggr.Infof("OIDC authenticator ready (device flow + PKCE). Multi-replica deployments require session affinity for /oidc-device/* and /oidc-login|/oidc-exchange")
+	// Browser login state and device-flow results live in Postgres, so any
+	// replica can finish a login. The provider device code stays in the poller
+	// process that called the identity provider.
+	oidcAuth.lggr.Infof("OIDC authenticator ready (device flow + PKCE). Login state is shared across replicas; the provider device code stays on the replica that started the flow")
 
 	return &oidcAuth, nil
 }
@@ -173,14 +171,18 @@ func (oi *oidcAuthenticator) handleSignIn(c *gin.Context) {
 	state := oi.generateState()
 	verifier := oauth2.GenerateVerifier()
 	nonce := oi.generateState()
-	oi.pendingAuth.put(state, verifier, nonce)
+	if err := putPendingAuth(c.Request.Context(), oi.ds, state, verifier, nonce, time.Now().Add(pendingAuthTTL)); err != nil {
+		oi.lggr.Errorf("failed to store authorization state: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start login"})
+		return
+	}
 
 	session := sessions.Default(c)
 	session.Set("state", state)
 	// Intentionally do NOT store pkce_verifier or nonce in the cookie.
 	err := session.Save()
 	if err != nil {
-		oi.pendingAuth.take(state) // best-effort cleanup
+		_, _, _, _ = takePendingAuth(c.Request.Context(), oi.ds, state)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save session"})
 		return
 	}
@@ -217,8 +219,16 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		return
 	}
 
-	// Recover PKCE verifier + nonce from the server-side store (single-use).
-	storedVerifier, expectedNonce, ok := oi.pendingAuth.take(req.State)
+	// Recover PKCE verifier + nonce from the shared store (single-use).
+	storedVerifier, expectedNonce, ok, err := takePendingAuth(c.Request.Context(), oi.ds, req.State)
+	if err != nil {
+		oi.lggr.Errorf("failed to load authorization state: %v", err)
+		c.JSON(http.StatusInternalServerError, ExchangeTokenResponse{
+			Success: false,
+			Message: "Failed to load authorization state",
+		})
+		return
+	}
 	if !ok || storedVerifier == "" {
 		c.JSON(http.StatusBadRequest, ExchangeTokenResponse{
 			Success: false,
@@ -315,6 +325,10 @@ func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDT
 	if err != nil {
 		return "", "", "", err
 	}
+	if extra := unexpectedGroup(idClaims, oi.config.AdminClaim(), oi.config.EditClaim(), oi.config.RunClaim(), oi.config.ReadClaim()); extra != "" {
+		oi.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]any{"email": email, "reason": "unexpected_group", "group": extra})
+		return "", "", "", fmt.Errorf("%w: groups claim is not limited to the configured role groups", errNoMatchingRole)
+	}
 	oi.lggr.Tracef("Received and validated ID claims: %v\n", idClaims)
 
 	role, err := oi.IDClaimsToUserRole(
@@ -397,53 +411,11 @@ func (oi *oidcAuthenticator) FindUser(ctx context.Context, email string) (clsess
 	return foundUser, nil
 }
 
-// FindUserByAPIToken retrieves a possible stored user and role from the oidc_user_api_tokens table store
-func (oi *oidcAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken string) (clsessions.User, error) {
-	if !oi.config.UserAPITokenEnabled() {
-		return clsessions.User{}, errors.New("API token is not enabled")
-	}
-
-	var foundUser clsessions.User
-	err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
-		// Query the oidc user API token table for the given token. The user role
-		// and email are cached on the row, so no upstream OIDC query is performed
-		// on lookup. NOTE: there is no upstream revocation sync for these tokens.
-		// The OIDC reaper (reaper.go) only deletes stale oidc_sessions, and
-		// UpstreamSyncInterval applies to the LDAP provider, not OIDC. A cached
-		// token therefore retains its role until its own UserAPITokenDuration
-		// expiry, even if the user's group is revoked at the identity provider.
-		// This mechanism must stay disabled (UserAPITokenEnabled = false) until
-		// that revocation gap is fixed.
-		var foundUserToken struct {
-			UserEmail string
-			UserRole  clsessions.UserRole
-			Valid     bool
-		}
-		if err := tx.GetContext(ctx, &foundUserToken,
-			"SELECT user_email, user_role, created_at + $2 >= now() as valid FROM oidc_user_api_tokens WHERE token_key = $1",
-			apiToken, oi.config.UserAPITokenDuration().Duration(),
-		); err != nil {
-			return err
-		}
-		if !foundUserToken.Valid {
-			return clsessions.ErrUserSessionExpired
-		}
-		foundUser = clsessions.User{
-			Email: foundUserToken.UserEmail,
-			Role:  foundUserToken.UserRole,
-		}
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, clsessions.ErrUserSessionExpired) {
-			// API Token expired, purge
-			if _, execErr := oi.ds.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE token_key = $1", apiToken); execErr != nil {
-				oi.lggr.Errorf("error purging stale oidc API token session: %v", execErr)
-			}
-		}
-		return clsessions.User{}, err
-	}
-	return foundUser, nil
+// FindUserByAPIToken refuses OIDC API tokens. The token row caches the role,
+// nothing re-checks the identity provider when a group is revoked, and the
+// session reaper does not touch this table. The config flag does not enable it.
+func (oi *oidcAuthenticator) FindUserByAPIToken(context.Context, string) (clsessions.User, error) {
+	return clsessions.User{}, errors.New("OIDC API tokens are disabled")
 }
 
 // ListUsers in the context of the OIDC driver only supports listing the local (admin) users, we don't have an identity server to query against
@@ -616,44 +588,9 @@ func (oi *oidcAuthenticator) CreateAndSetAuthToken(ctx context.Context, user *cl
 	return newToken, nil
 }
 
-// SetAuthToken updates the user to use the given Authentication Token.
-func (oi *oidcAuthenticator) SetAuthToken(ctx context.Context, user *clsessions.User, token *auth.Token) error {
-	if !oi.config.UserAPITokenEnabled() {
-		return errors.New("API token is not enabled ")
-	}
-
-	salt := utils.NewSecret(utils.DefaultSecretSize)
-	hashedSecret, err := auth.HashedSecret(token, salt)
-	if err != nil {
-		return fmt.Errorf("OIDCAuth SetAuthToken hashed secret error: %w", err)
-	}
-
-	err = sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
-		// Remove any existing API tokens
-		if _, err = oi.ds.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
-			return fmt.Errorf("error executing DELETE FROM oidc_user_api_tokens: %w", err)
-		}
-		// Create new API token for user
-		_, err = oi.ds.ExecContext(ctx,
-			"INSERT INTO oidc_user_api_tokens (user_email, user_role, token_key, token_salt, token_hashed_secret, created_at) VALUES ($1, $2, $3, $4, $5, $6, now())",
-			user.Email,
-			user.Role,
-			token.AccessKey,
-			salt,
-			hashedSecret,
-		)
-		if err != nil {
-			return fmt.Errorf("failed insert into oidc_user_api_tokens: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		oi.lggr.Errorf("error creating API token: %v", err)
-		return errors.New("error creating API token")
-	}
-
-	oi.auditLogger.Audit(audit.APITokenCreated, map[string]any{"user": user.Email})
-	return nil
+// SetAuthToken refuses OIDC API tokens. See FindUserByAPIToken.
+func (oi *oidcAuthenticator) SetAuthToken(context.Context, *clsessions.User, *auth.Token) error {
+	return errors.New("OIDC API tokens are disabled")
 }
 
 // DeleteAuthToken clears and disables the users Authentication Token.
@@ -774,11 +711,11 @@ func (oi *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
 	// background goroutine); poll is cheaper but still unauthenticated.
 	// These nest under the outer api rate limiter so both apply.
 	api.POST("/oidc-device/start",
-		deviceEndpointRateLimit(deviceStartRatePeriod, deviceStartRateLimit),
+		deviceEndpointRateLimit(deviceStartRatePeriod, deviceStartRateLimit, oi.lggr),
 		oi.handleDeviceStart,
 	)
 	api.POST("/oidc-device/poll",
-		deviceEndpointRateLimit(devicePollRatePeriod, devicePollRateLimit),
+		deviceEndpointRateLimit(devicePollRatePeriod, devicePollRateLimit, oi.lggr),
 		oi.handleDevicePoll,
 	)
 

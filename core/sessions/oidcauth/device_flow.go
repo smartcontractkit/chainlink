@@ -17,6 +17,7 @@ import (
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"golang.org/x/oauth2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
@@ -36,11 +37,10 @@ import (
 // node's poll to the provider: no matter how fast the CLI asks, the node never
 // exceeds the provider's cadence.
 //
-// Multi-replica note: deviceFlowStore is process-local memory. Deployments with
-// more than one replica behind a load balancer MUST use session affinity
-// (sticky sessions) for /oidc-device/* (and preferably the whole node API), or
-// replace this store with a shared short-TTL backend. Without affinity, start
-// and poll can land on different replicas and the login fails closed.
+// Multi-replica: the opaque handle and its terminal result live in
+// oidc_device_flows, so start and poll may land on different replicas. The
+// provider device code stays in the poller process and is not written to the
+// database. The in-memory map below is only the poller's local copy.
 
 const (
 	// maxConcurrentDeviceFlows bounds the in-memory store so unauthenticated
@@ -208,15 +208,23 @@ type DevicePollResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
-// deviceEndpointRateLimit builds a dedicated per-IP limiter for pre-auth device
-// routes. Nested under the outer api group so both limits apply.
-func deviceEndpointRateLimit(period time.Duration, limit int64) gin.HandlerFunc {
+// deviceEndpointRateLimit builds a dedicated limiter for pre-auth device
+// routes. The key is the operator address from deviceClientIP, not the socket
+// peer, so a load balancer does not collapse every caller into one bucket.
+// Nested under the outer api group so both limits apply.
+func deviceEndpointRateLimit(period time.Duration, limit int64, lggr logger.Logger) gin.HandlerFunc {
 	store := memory.NewStore()
 	rate := limiter.Rate{
 		Period: period,
 		Limit:  limit,
 	}
-	return mgin.NewMiddleware(limiter.New(store, rate))
+	return mgin.NewMiddleware(limiter.New(store, rate),
+		mgin.WithKeyGetter(deviceClientIP),
+		mgin.WithLimitReachedHandler(func(c *gin.Context) {
+			lggr.Warnf("device endpoint rate limit reached path=%s client=%s", c.FullPath(), deviceClientIP(c))
+			c.String(http.StatusTooManyRequests, "Limit exceeded")
+		}),
+	)
 }
 
 // handleDeviceStart begins a device authorization flow. Unauthenticated, like
@@ -232,12 +240,24 @@ func (oi *oidcAuthenticator) handleDeviceStart(c *gin.Context) {
 	// Reserve a concurrency slot *before* calling the IdP so a refused flow
 	// never produces outbound provider load, and so a flood cannot open more
 	// IdP device codes than the store will accept.
+	clientIP := deviceClientIP(c)
+	provisional := time.Now().Add(maxDeviceFlowLifetime)
 	state := &deviceFlowState{
-		expiresAt: time.Now().Add(5 * time.Minute), // provisional; refined after IdP response
-		clientIP:  c.ClientIP(),
+		expiresAt: provisional,
+		clientIP:  clientIP,
+	}
+	if addErr := reserveDeviceFlow(c.Request.Context(), oi.ds, handle, clientIP, provisional); addErr != nil {
+		oi.lggr.Warnf("refusing new device flow client=%s: %v", clientIP, addErr)
+		if errors.Is(addErr, errTooManyDeviceFlows) || errors.Is(addErr, errTooManyDeviceFlowsPerIP) {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": addErr.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start device authorization"})
+		return
 	}
 	if addErr := oi.deviceFlows.add(handle, state); addErr != nil {
-		oi.lggr.Warnf("refusing new device flow: %v", addErr)
+		_ = removeDeviceFlow(c.Request.Context(), oi.ds, handle)
+		oi.lggr.Warnf("refusing new device flow client=%s: %v", clientIP, addErr)
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": addErr.Error()})
 		return
 	}
@@ -245,22 +265,35 @@ func (oi *oidcAuthenticator) handleDeviceStart(c *gin.Context) {
 	ctx := context.Background()
 	da, err := oi.oauth2Config.DeviceAuth(ctx)
 	if err != nil {
+		_ = removeDeviceFlow(c.Request.Context(), oi.ds, handle)
 		oi.deviceFlows.remove(handle)
 		oi.lggr.Errorf("device authorization request failed: %v", err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to start device authorization"})
 		return
 	}
 
-	expiry := da.Expiry
-	if expiry.IsZero() {
-		// Per RFC 8628 the provider should send expires_in; fall back to a
-		// conservative default so a malformed response cannot create an
-		// unbounded flow.
-		expiry = time.Now().Add(5 * time.Minute)
+	expiry := capDeviceExpiry(da.Expiry, time.Now())
+	if !expiry.After(time.Now()) {
+		_ = removeDeviceFlow(c.Request.Context(), oi.ds, handle)
+		oi.deviceFlows.remove(handle)
+		oi.lggr.Errorf("device authorization expiry is already past")
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to start device authorization"})
+		return
+	}
+	if !verificationURIAllowed(oi.config.ProviderURL(), da.VerificationURI) ||
+		(da.VerificationURIComplete != "" && !verificationURIAllowed(oi.config.ProviderURL(), da.VerificationURIComplete)) {
+		_ = removeDeviceFlow(c.Request.Context(), oi.ds, handle)
+		oi.deviceFlows.remove(handle)
+		oi.lggr.Errorf("device authorization verification URI host does not match the configured provider")
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to start device authorization"})
+		return
 	}
 	state.mu.Lock()
 	state.expiresAt = expiry
 	state.mu.Unlock()
+	if _, err := oi.ds.ExecContext(c.Request.Context(), `UPDATE oidc_device_flows SET expires_at = $2 WHERE handle = $1`, handle, expiry); err != nil {
+		oi.lggr.Errorf("failed to record device flow expiry: %v", err)
+	}
 
 	// Poll the provider in the background. DeviceAccessToken blocks until the
 	// user approves, denies, or the code expires, internally respecting the
@@ -290,44 +323,60 @@ func (oi *oidcAuthenticator) pollDeviceToken(handle string, state *deviceFlowSta
 
 	token, err := oi.oauth2Config.DeviceAccessToken(ctx, da)
 	if err != nil {
-		oi.finishDeviceFlow(state, "", "", "", err)
+		oi.finishDeviceFlow(state, handle, "", "", "", err)
 		return
 	}
 
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
-		oi.finishDeviceFlow(state, "", "", "", errors.New("missing id_token in device token response"))
+		oi.finishDeviceFlow(state, handle, "", "", "", errors.New("missing id_token in device token response"))
 		return
 	}
 
 	// If the handle was swept/expired while we waited on the IdP, do not mint a
 	// session nobody can claim (orphan oidc_sessions row).
-	if !oi.deviceFlows.contains(handle) {
+	if !oi.deviceHandleLive(ctx, handle) {
 		oi.lggr.Warnf("device flow handle gone before token completion; abandoning without session")
-		oi.finishDeviceFlow(state, "", "", "", errDeviceFlowAbandoned)
+		oi.finishDeviceFlow(state, handle, "", "", "", errDeviceFlowAbandoned)
 		return
 	}
 
 	// Device flow does not use a browser nonce; pass empty expectedNonce.
 	sessionID, email, role, err := oi.issueSessionFromIDToken(ctx, rawIDToken, "")
 	if err != nil {
-		oi.finishDeviceFlow(state, "", "", "", err)
+		oi.finishDeviceFlow(state, handle, "", "", "", err)
 		return
 	}
 
-	// Race: handle may have been swept between contains and issue. Drop the
+	// Race: handle may have been swept between the live check and issue. Drop the
 	// orphan session rather than leave a live unclaimable row.
-	if !oi.deviceFlows.contains(handle) {
+	if !oi.deviceHandleLive(ctx, handle) {
 		oi.lggr.Warnf("device flow handle gone after session insert; deleting orphan session")
 		oi.deleteOIDCSession(ctx, sessionID)
-		oi.finishDeviceFlow(state, "", "", "", errDeviceFlowAbandoned)
+		oi.finishDeviceFlow(state, handle, "", "", "", errDeviceFlowAbandoned)
 		return
 	}
 
-	oi.finishDeviceFlow(state, sessionID, email, role, nil)
+	oi.finishDeviceFlow(state, handle, sessionID, email, role, nil)
 }
 
-func (oi *oidcAuthenticator) finishDeviceFlow(state *deviceFlowState, sessionID, email string, role clsessions.UserRole, err error) {
+func (oi *oidcAuthenticator) deviceHandleLive(ctx context.Context, handle string) bool {
+	if oi.ds != nil {
+		live, err := deviceFlowLive(ctx, oi.ds, handle)
+		if err != nil {
+			oi.lggr.Errorf("device flow live check failed: %v", err)
+			return false
+		}
+		return live
+	}
+	return oi.deviceFlows.contains(handle)
+}
+
+func (oi *oidcAuthenticator) finishDeviceFlow(state *deviceFlowState, handle, sessionID, email string, role clsessions.UserRole, err error) {
+	errText := ""
+	if err != nil {
+		errText = deviceFailureReason(err)
+	}
 	state.mu.Lock()
 	state.done = true
 	state.sessionID = sessionID
@@ -337,6 +386,17 @@ func (oi *oidcAuthenticator) finishDeviceFlow(state *deviceFlowState, sessionID,
 	state.mu.Unlock()
 	if err != nil {
 		oi.lggr.Errorf("device authorization flow failed: %v", err)
+		if oi.auditLogger != nil {
+			oi.auditLogger.Audit(audit.AuthLoginFailedDevice, map[string]any{
+				"method": "device_flow",
+				"reason": errText,
+			})
+		}
+	}
+	if oi.ds != nil && handle != "" {
+		if werr := recordDeviceFlowResult(context.Background(), oi.ds, handle, sessionID, email, string(role), errText); werr != nil {
+			oi.lggr.Errorf("failed to record device flow result: %v", werr)
+		}
 	}
 }
 
@@ -361,9 +421,15 @@ func (oi *oidcAuthenticator) handleDevicePoll(c *gin.Context) {
 		return
 	}
 
-	// Read the terminal result and consume the handle in one critical section
-	// so two concurrent polls cannot both be handed the session cookie.
-	sessionID, email, role, terminal, known, flowErr := oi.deviceFlows.consumeIfDone(req.DeviceHandle)
+	// Read the terminal result and consume the handle in one statement so two
+	// polls, including polls on different replicas, cannot both be handed the
+	// session cookie.
+	sessionID, email, role, terminal, known, flowErr, err := consumeDeviceFlow(c.Request.Context(), oi.ds, req.DeviceHandle)
+	if err != nil {
+		oi.lggr.Errorf("device flow poll failed: %v", err)
+		c.JSON(http.StatusInternalServerError, DevicePollResponse{Status: "denied", Message: "Failed to read device authorization"})
+		return
+	}
 	if !known {
 		c.JSON(http.StatusNotFound, DevicePollResponse{Status: "denied", Message: errUnknownDeviceFlow.Error()})
 		return
