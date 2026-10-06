@@ -273,6 +273,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		t.Parallel()
 		f := newCoordinatorFixture(t)
 		trigger, _ := f.expectTrigger(t)
+		// require that UnregisterTrigger on the trigger capability is called exactly once
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 
 		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
@@ -287,7 +288,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		assert.Equal(t, 1, f.limits.freeCount())
 	})
 
-	t.Run("a failed unregister is returned and retried on the next call", func(t *testing.T) {
+	t.Run("a failed unregistration does not prevent a subsequent successful unregistration", func(t *testing.T) {
 		t.Parallel()
 		f := newCoordinatorFixture(t)
 		trigger, eventCh := f.expectTrigger(t)
