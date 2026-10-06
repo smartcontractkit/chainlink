@@ -7,26 +7,25 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pelletier/go-toml/v2"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
 
 // NodeResolver resolves the Node type.
 type NodeResolver struct {
 	node   evmtoml.Node
-	status types.NodeStatus
+	status chainlink.NetworkNodeStatus
 }
 
-func NewNode(status types.NodeStatus) (nr *NodeResolver, warn error) {
+func NewNode(status chainlink.NetworkNodeStatus) (nr *NodeResolver, warn error) {
 	nr = &NodeResolver{status: status}
 	warn = toml.Unmarshal([]byte(status.Config), &nr.node)
 	return
 }
 
-func NewNodes(nodes []types.NodeStatus) (resolvers []*NodeResolver, warns error) {
+func NewNodes(nodes []chainlink.NetworkNodeStatus) (resolvers []*NodeResolver, warns error) {
 	for _, n := range nodes {
 		nr, warn := NewNode(n)
 		if warn != nil {
@@ -89,7 +88,7 @@ func (r *NodeResolver) Order() *int32 {
 
 // Chain resolves the node's chain object field.
 func (r *NodeResolver) Chain(ctx context.Context) (*ChainResolver, error) {
-	relayID := types.NewRelayID(chainsel.FamilyEVM, r.status.ChainID)
+	relayID := types.NewRelayID(r.status.Network, r.status.ChainID)
 	chain, err := loader.GetChainByRelayID(ctx, relayID.Name())
 	if err != nil {
 		return nil, err
@@ -105,7 +104,7 @@ type NodePayloadResolver struct {
 	NotFoundErrorUnionType
 }
 
-func NewNodePayloadResolver(node *types.NodeStatus, err error) (npr *NodePayloadResolver, warn error) {
+func NewNodePayloadResolver(node *chainlink.NetworkNodeStatus, err error) (npr *NodePayloadResolver, warn error) {
 	e := NotFoundErrorUnionType{err: err, message: "node not found", isExpectedErrorFn: nil}
 	npr = &NodePayloadResolver{NotFoundErrorUnionType: e}
 	if node != nil {
@@ -126,7 +125,7 @@ type NodesPayloadResolver struct {
 	total int32
 }
 
-func NewNodesPayload(nodes []types.NodeStatus, total int32) (npr *NodesPayloadResolver, warn error) {
+func NewNodesPayload(nodes []chainlink.NetworkNodeStatus, total int32) (npr *NodesPayloadResolver, warn error) {
 	npr = &NodesPayloadResolver{total: total}
 	npr.nrs, warn = NewNodes(nodes)
 	return

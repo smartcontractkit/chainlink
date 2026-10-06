@@ -46,8 +46,8 @@ func NewShardedDONs(shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]DO
 // that reaches its members, and the config (membership, Byzantine fault
 // tolerance threshold F) that applies to it.
 type ShardEndpoint struct {
-	// DonID is the shard-specific DON identifier, derived via config.ShardDONID.
-	// Shard 0 uses the bare DON name; shard N>0 uses "donName_N".
+	// DonID is the shard-specific DON identifier, derived via config.GatewayDONIDForShard.
+	// Shard 0 uses the bare DON name; shard N>0 uses "donName_shard-N".
 	DonID    string
 	DonName  string
 	ShardIdx int
@@ -69,7 +69,7 @@ func (s *ShardedDONs) BuildShardEndpoints() ([]*ShardEndpoint, map[string]*Shard
 		connMgrs := s.ConnMgrs[i]
 		for shardIdx, shard := range sd.Shards {
 			ep := &ShardEndpoint{
-				DonID:    config.ShardDONID(sd.DonName, shardIdx),
+				DonID:    config.GatewayDONIDForShard(sd.DonName, shardIdx),
 				DonName:  sd.DonName,
 				ShardIdx: shardIdx,
 				ConnMgr:  connMgrs[shardIdx],

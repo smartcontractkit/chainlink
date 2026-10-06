@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
-	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -332,8 +332,8 @@ func (r *ReportingPlugin) validateEncryptedShareSize(ctx context.Context, es *va
 	if err != nil {
 		return err
 	}
-	if err := r.cfg.MaxShareLengthBytes.Check(ctx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
-		if _, ok := errors.AsType[limits.ErrorBoundLimited[pkgconfig.Size]](err); ok {
+	if err := r.cfg.MaxShareLengthBytes.Check(ctx, commonconfig.Size(shareSize)*commonconfig.Byte); err != nil {
+		if _, ok := errors.AsType[limits.ErrorBoundLimited[commonconfig.Size]](err); ok {
 			return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
 		}
 		return errors.New("failed to check share size")

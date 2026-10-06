@@ -62,8 +62,9 @@ type CCIPChainState struct {
 	Receiver solana.PublicKey
 
 	// PDAs to avoid redundant lookups
-	RouterConfigPDA      solana.PublicKey
-	SourceChainStatePDAs map[uint64]solana.PublicKey // deprecated
+	RouterConfigPDA solana.PublicKey
+	// Deprecated: no longer read by the state view; retained for compatibility.
+	SourceChainStatePDAs map[uint64]solana.PublicKey
 	DestChainStatePDAs   map[uint64]solana.PublicKey
 	TokenPoolLookupTable map[solana.PublicKey]map[cldf.ContractType]map[string]solana.PublicKey // token -> token pool type -> metadata identifier -> lookup table
 	FeeQuoterConfigPDA   solana.PublicKey
@@ -890,7 +891,6 @@ func GetAccountData(
 	e cldf.Environment,
 	chain *cldf_solana.Chain,
 	account solana.PublicKey,
-
 ) ([]byte, error) {
 	resp, err := chain.Client.GetAccountInfoWithOpts(
 		e.GetContext(),

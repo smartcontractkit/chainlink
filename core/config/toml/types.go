@@ -23,7 +23,7 @@ import (
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -36,9 +36,10 @@ var ErrUnsupported = errors.New("unsupported with config v2")
 // Core holds the core configuration. See chainlink.Config for more information.
 type Core struct {
 	// General/misc
-	AppID               uuid.UUID `toml:"-"` // random or test
-	InsecureFastScrypt  *bool
-	InsecurePPROFHeap   *bool // Deprecated: no effect if set, but field remains to parse old configs
+	AppID              uuid.UUID `toml:"-"` // random or test
+	InsecureFastScrypt *bool
+	// Deprecated: no effect if set, but field remains to parse old configs
+	InsecurePPROFHeap   *bool
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
@@ -167,9 +168,9 @@ type SolKeys struct {
 }
 
 type SolKey struct {
-	JSON     *models.Secret
+	JSON     *commonconfig.SecretString
 	ID       *string
-	Password *models.Secret
+	Password *commonconfig.SecretString
 }
 
 func (s *SolKeys) SetFrom(f *SolKeys) error {
@@ -265,9 +266,9 @@ type AptosKeys struct {
 }
 
 type AptosKey struct {
-	JSON     *models.Secret
+	JSON     *commonconfig.SecretString
 	ID       *uint64
-	Password *models.Secret
+	Password *commonconfig.SecretString
 }
 
 func (a *AptosKeys) SetFrom(f *AptosKeys) error {
@@ -505,8 +506,8 @@ func dbURLPasswordComplexity(err error) string {
 }
 
 type DatabaseSecrets struct {
-	URL                  *models.SecretURL
-	BackupURL            *models.SecretURL
+	URL                  *commonconfig.SecretURL
+	BackupURL            *commonconfig.SecretURL
 	AllowSimplePasswords *bool
 }
 
@@ -605,9 +606,9 @@ func (d *DatabaseSecrets) validateMerge(f *DatabaseSecrets) (err error) {
 }
 
 type EthKey struct {
-	JSON     *models.Secret
+	JSON     *commonconfig.SecretString
 	ID       *int // TODO: consider using a chain selector instead. tried using chain_selectors.ChainDetails but toml lib barfed on the embedded uint64
-	Password *models.Secret
+	Password *commonconfig.SecretString
 }
 
 func (e *EthKey) SetFrom(f *EthKey) (err error) {
@@ -655,8 +656,8 @@ func (e *EthKey) ValidateConfig() (err error) {
 }
 
 type P2PKey struct {
-	JSON     *models.Secret
-	Password *models.Secret
+	JSON     *commonconfig.SecretString
+	Password *commonconfig.SecretString
 }
 
 func (p *P2PKey) SetFrom(f *P2PKey) (err error) {
@@ -691,8 +692,8 @@ func (p *P2PKey) ValidateConfig() (err error) {
 }
 
 type DKGRecipientKey struct {
-	JSON     *models.Secret
-	Password *models.Secret
+	JSON     *commonconfig.SecretString
+	Password *commonconfig.SecretString
 }
 
 func (p *DKGRecipientKey) SetFrom(f *DKGRecipientKey) (err error) {
@@ -727,8 +728,8 @@ func (p *DKGRecipientKey) ValidateConfig() (err error) {
 }
 
 type Passwords struct {
-	Keystore *models.Secret
-	VRF      *models.Secret
+	Keystore *commonconfig.SecretString
+	VRF      *commonconfig.SecretString
 }
 
 func (p *Passwords) SetFrom(f *Passwords) (err error) {
@@ -767,7 +768,7 @@ func (p *Passwords) ValidateConfig() (err error) {
 }
 
 type PyroscopeSecrets struct {
-	AuthToken *models.Secret
+	AuthToken *commonconfig.SecretString
 }
 
 func (p *PyroscopeSecrets) SetFrom(f *PyroscopeSecrets) (err error) {
@@ -792,7 +793,7 @@ func (p *PyroscopeSecrets) validateMerge(f *PyroscopeSecrets) (err error) {
 }
 
 type PrometheusSecrets struct {
-	AuthToken *models.Secret
+	AuthToken *commonconfig.SecretString
 }
 
 func (p *PrometheusSecrets) SetFrom(f *PrometheusSecrets) (err error) {
@@ -944,7 +945,7 @@ func (l *DatabaseLock) setFrom(f *DatabaseLock) {
 type DatabaseBackup struct {
 	Dir              *string
 	Frequency        *commonconfig.Duration
-	Mode             *config.DatabaseBackupMode
+	Mode             *coreconfig.DatabaseBackupMode
 	OnVersionUpgrade *bool
 }
 
@@ -1979,13 +1980,13 @@ func (m *Mercury) ValidateConfig() (err error) {
 
 type MercuryCredentials struct {
 	// LegacyURL is the legacy base URL for mercury v0.2 API
-	LegacyURL *models.SecretURL
+	LegacyURL *commonconfig.SecretURL
 	// URL is the base URL for mercury v0.3 API
-	URL *models.SecretURL
+	URL *commonconfig.SecretURL
 	// Username is the user id for mercury credential
-	Username *models.Secret
+	Username *commonconfig.SecretString
 	// Password is the user secret key for mercury credential
-	Password *models.Secret
+	Password *commonconfig.SecretString
 }
 
 type MercurySecrets struct {
@@ -2060,8 +2061,12 @@ type CreConfig struct {
 	// Requires [Tracing].Enabled = true for traces to be exported (trace export is gated by
 	// Tracing.Enabled in initGlobals; Telemetry.Enabled is optional—traces work with or without it).
 	// WARNING: This is not suitable for production use due to performance overhead.
-	DebugMode         *bool                    `toml:",omitempty"`
-	ConfidentialRelay *ConfidentialRelayConfig `toml:",omitempty"`
+	DebugMode *bool `toml:",omitempty"`
+	// CachedTriggerSubscriptionsEnabled makes workflow engines reuse a
+	// previously-persisted trigger subscription payload instead of executing
+	// the workflow's WASM Subscribe() call on every engine start.
+	CachedTriggerSubscriptionsEnabled *bool                    `toml:",omitempty"`
+	ConfidentialRelay                 *ConfidentialRelayConfig `toml:",omitempty"`
 }
 
 // WorkflowFetcherConfig holds the configuration for fetching workflow files
@@ -2143,6 +2148,10 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 
 	if f.DebugMode != nil {
 		c.DebugMode = f.DebugMode
+	}
+
+	if f.CachedTriggerSubscriptionsEnabled != nil {
+		c.CachedTriggerSubscriptionsEnabled = f.CachedTriggerSubscriptionsEnabled
 	}
 
 	if f.ConfidentialRelay != nil {
@@ -2533,7 +2542,6 @@ type WorkflowRegistry struct {
 	ChainID                 *string
 	ContractVersion         *string
 	MaxBinarySize           *utils.FileSize
-	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
 	SyncStrategy            *string
 	MaxConcurrency          *int
@@ -2562,10 +2570,6 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.MaxBinarySize != nil {
 		r.MaxBinarySize = f.MaxBinarySize
-	}
-
-	if f.MaxEncryptedSecretsSize != nil {
-		r.MaxEncryptedSecretsSize = f.MaxEncryptedSecretsSize
 	}
 
 	if f.MaxConfigSize != nil {
@@ -2652,8 +2656,8 @@ func (r *WorkflowRegistry) ValidateConfig() error {
 
 // AdditionalSources returns the list of additional workflow sources.
 // Implements config.CapabilitiesWorkflowRegistry.
-func (r *WorkflowRegistry) AdditionalSources() []config.AdditionalWorkflowSource {
-	result := make([]config.AdditionalWorkflowSource, len(r.AdditionalSourcesConfig))
+func (r *WorkflowRegistry) AdditionalSources() []coreconfig.AdditionalWorkflowSource {
+	result := make([]coreconfig.AdditionalWorkflowSource, len(r.AdditionalSourcesConfig))
 	for i := range r.AdditionalSourcesConfig {
 		result[i] = r.AdditionalSourcesConfig[i]
 	}
@@ -2661,10 +2665,8 @@ func (r *WorkflowRegistry) AdditionalSources() []config.AdditionalWorkflowSource
 }
 
 type Dispatcher struct {
-	SupportedVersion   *int
 	ReceiverBufferSize *int
 	RateLimit          DispatcherRateLimit
-	SendToSharedPeer   *bool
 }
 
 func (d *Dispatcher) setFrom(f *Dispatcher) {
@@ -2672,14 +2674,6 @@ func (d *Dispatcher) setFrom(f *Dispatcher) {
 
 	if f.ReceiverBufferSize != nil {
 		d.ReceiverBufferSize = f.ReceiverBufferSize
-	}
-
-	if f.SupportedVersion != nil {
-		d.SupportedVersion = f.SupportedVersion
-	}
-
-	if f.SendToSharedPeer != nil {
-		d.SendToSharedPeer = f.SendToSharedPeer
 	}
 }
 
@@ -2906,7 +2900,7 @@ func (l *LocalCapabilities) ValidateConfig() (err error) {
 }
 
 type ThresholdKeyShareSecrets struct {
-	ThresholdKeyShare *models.Secret
+	ThresholdKeyShare *commonconfig.SecretString
 }
 
 func (t *ThresholdKeyShareSecrets) SetFrom(f *ThresholdKeyShareSecrets) (err error) {
@@ -3393,8 +3387,8 @@ func (e *BridgeStatusReporter) ValidateConfig() error {
 		return configutils.InvalidError{Name: "PollingInterval", Value: nil, Msg: "must be set"}
 	}
 
-	if e.PollingInterval.Duration() < config.MinimumPollingInterval {
-		return configutils.InvalidError{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + config.MinimumPollingInterval.String()}
+	if e.PollingInterval.Duration() < coreconfig.MinimumPollingInterval {
+		return configutils.InvalidError{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + coreconfig.MinimumPollingInterval.String()}
 	}
 
 	if e.IgnoreInvalidBridges == nil {
@@ -3438,8 +3432,8 @@ func (e *JobSpecReporter) ValidateConfig() error {
 		e.PollingInterval = defaultInterval
 	}
 
-	if e.PollingInterval.Duration() < config.MinimumPollingInterval {
-		return configutils.InvalidError{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + config.MinimumPollingInterval.String()}
+	if e.PollingInterval.Duration() < coreconfig.MinimumPollingInterval {
+		return configutils.InvalidError{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + coreconfig.MinimumPollingInterval.String()}
 	}
 
 	if e.EnabledOCR2PluginTypes == nil {

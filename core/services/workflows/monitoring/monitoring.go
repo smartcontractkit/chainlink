@@ -32,6 +32,7 @@ type EngineMetrics struct {
 	workflowStepErrorCounter                 metric.Int64Counter
 	workflowInitializationCounter            metric.Int64Counter
 	workflowInitializationFailureCounter     metric.Int64Counter
+	triggerSubscriptionSourceCounter         metric.Int64Counter
 	workflowTriggerEventErrorCounter         metric.Int64Counter
 	workflowTriggerEventQueueFullCounter     metric.Int64Counter
 
@@ -170,6 +171,13 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		metric.WithDescription("Count of failed engine initializations by failure reason"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow initialization failure counter: %w", err)
+	}
+
+	em.triggerSubscriptionSourceCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_subscription_source_total",
+		metric.WithDescription("Count of engine starts by trigger subscription source: cache or wasm"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger subscription source counter: %w", err)
 	}
 
 	em.workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_errors")
@@ -538,6 +546,12 @@ func MetricViews() []sdkmetric.View {
 				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60},
 			}},
 		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_trigger_drainer_hook_duration_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 5, 30},
+			}},
+		),
 	}
 }
 
@@ -651,6 +665,12 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowInitializationFailureCounter(ct
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	otelLabels = append(otelLabels, attribute.String("reason", reason))
 	c.em.workflowInitializationFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerSubscriptionSourceCounter(ctx context.Context, source string) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	otelLabels = append(otelLabels, attribute.String("source", source))
+	c.em.triggerSubscriptionSourceCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementWorkflowTriggerEventErrorCounter(ctx context.Context) {

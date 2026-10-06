@@ -11,14 +11,14 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 )
 
 // Returns an instantiated OIDCAuthenticator struct without validation for testing
 func NewTestOIDCAuthenticator(
 	ds sqlutil.DataSource,
-	oidcCfg config.OIDC,
+	oidcCfg coreconfig.OIDC,
 	lggr logger.Logger,
 	auditLogger audit.Logger,
 ) (*oidcAuthenticator, error) {
@@ -81,7 +81,7 @@ const (
 	ReadClaim   = "NodeReadOnly"
 )
 
-// Implements config.OIDC
+// Implements coreconfig.OIDC
 type TestConfig struct{}
 
 func (t *TestConfig) ClientID() string {
