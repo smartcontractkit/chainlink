@@ -1023,10 +1023,10 @@ func newWorkflowRegistrySyncerV2(
 		handlerOpts = append(handlerOpts, syncerV2.WithSpecMeter(specMeter))
 	}
 
-	// Capability usage records (compute now, gas from the chain-write plugins)
-	// are gated separately from durable resource metering so they can be rolled
-	// out per DON. Nil meter means engines emit nothing.
-	if meteringCfg != nil && meteringCfg.CapabilityUsageEnabled() {
+	// Workflow compute usage records (gas comes from the chain-write plugins)
+	// share the [Metering].MeterRecordsEnabled gate with durable resource
+	// metering; there is no separate flag. Nil meter means engines emit nothing.
+	if meterRecordsEnabled {
 		usageRM := resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
 			MeterRecordsEnabled: true,
 			Emitter:             beholder.GetEmitter(),
