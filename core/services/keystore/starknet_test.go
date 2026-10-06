@@ -68,6 +68,8 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 		importedKey, err := ks.Import(ctx, exportJSON, cltest.Password)
 		require.NoError(t, err)
 		require.Equal(t, key.ID(), importedKey.ID())
+		_, err = ks.Import(ctx, exportJSON, cltest.Password)
+		require.ErrorIs(t, err, keystore.ErrKeyExists)
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
 		corekeys.RequireEqualKeys(t, importedKey, retrievedKey)

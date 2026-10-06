@@ -105,7 +105,7 @@ func (ks *ton) Import(ctx context.Context, keyJSON []byte, password string) (ton
 		return tonkey.Key{}, errors.Wrap(err, "TONKeyStore#ImportKey failed to decrypt key")
 	}
 	if _, found := ks.keyRing.TON[key.ID()]; found {
-		return tonkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
+		return tonkey.Key{}, fmt.Errorf("%w: key with ID %s already exists", ErrKeyExists, key.ID())
 	}
 	return key, ks.safeAddKey(ctx, key)
 }
