@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 )
 
@@ -155,7 +155,7 @@ func newAuthenticatorForIDP(t *testing.T, idp *mockIDP, ds sqlutil.DataSource) *
 		provider:     provider,
 		oidcConfig:   &gooidc.Config{ClientID: idp.clientID},
 		oauth2Config: &oauth2.Config{ClientID: idp.clientID, Endpoint: provider.Endpoint()},
-		lggr:         logger.TestLogger(t),
+		lggr:         logger.TestSugared(t),
 		auditLogger:  &audit.AuditLoggerService{},
 		deviceFlows:  newDeviceFlowStore(),
 		pendingAuth:  newPendingAuthStore(),
