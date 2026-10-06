@@ -91,7 +91,7 @@ func TestOffchainMethodConfigs_Overlay(t *testing.T) {
 			RemoteExecutableConfig: &capabilities.RemoteExecutableConfig{RequestTimeout: 10 * time.Second},
 		},
 	}
-	don := regpkg.DON{DON: capabilities.DON{ID: 1, Name: "don-1"}}
+	don := regpkg.DON{ID: 1, Name: "don-1"}
 
 	t.Run("nil snapshot is a no-op", func(t *testing.T) {
 		t.Parallel()
