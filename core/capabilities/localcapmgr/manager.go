@@ -214,7 +214,9 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 		return nil, fmt.Errorf("build config for %s: %w", info.capID, err)
 	}
 
-	// TODO(CRE-1775): also derive and pass OracleFactoryConfigs if present onchain.
+	// newServicesFn derives OracleFactoryConfig.Enabled from whether ocr3Config is
+	// present; node config/keystore fill in chain ID, contract address, key bundle
+	// and transmitter (see ResolveOracleFactoryConfig).
 	ocr3Config := extractDefaultOCR3Config(info.config)
 	svcs, err := m.newServicesFn(ctx, info.capID, info.donID, command, configJSON, ocr3Config)
 	if err != nil {
