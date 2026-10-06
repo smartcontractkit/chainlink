@@ -1065,14 +1065,7 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 	e, ok := h.engineRegistry.Get(workflowID)
 	var drainable DrainableService
 	if ok {
-		// on coordinated engines, stop coordinator ingress before draining,
-		// so the drain can actually reach zero active executions.
-		if e.Coordinated() && h.triggerCoordinator != nil {
-			if err := h.triggerCoordinator.UnregisterTriggers(ctx, workflowID.Hex()); err != nil && !errors.Is(err, triggers.ErrWorkflowNotCoordinated) {
-				h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
-			}
-		}
-
+		// set drain state of service to stop further ingress of triggers
 		var isDrainable bool
 		if drainable, isDrainable = e.Service.(DrainableService); isDrainable {
 			if started := drainable.Drain(); started {
@@ -1081,15 +1074,27 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 					h.metrics.incrementDrainStarted(ctx)
 				}
 			}
+		}
 
+		// stop coordinator ingress of triggers.  Call until there are no more
+		// active executions.  Once no longer active, call again to release
+		// trigger registrations and free the workflow limit.
+		if e.Coordinated() && h.triggerCoordinator != nil {
+			err := h.triggerCoordinator.UnregisterTriggers(ctx, workflowID.Hex())
+			if errors.Is(err, triggers.ErrExecutionsInFlight) {
+				return nil, h.drainInProgress(ctx, workflowID, err)
+			}
+			if err != nil && !errors.Is(err, triggers.ErrWorkflowNotCoordinated) {
+				// allow retry of UnregisterTriggers to enable trigger registration
+				// clean up and freeing workflow limit.
+				h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
+				return nil, fmt.Errorf("failed to unregister triggers via coordinator: %w", err)
+			}
+		}
+
+		if isDrainable {
 			if active := drainable.ActiveExecutions(); active > 0 {
-				if h.metrics != nil {
-					h.metrics.incrementDeleteDeferred(ctx, "drain_in_progress")
-				}
-				h.lggr.Infow("workflow deletion deferred: active executions still running",
-					"workflowID", workflowID.String(),
-					"activeExecutions", active)
-				return nil, fmt.Errorf("%w: %d active executions still running", ErrDrainInProgress, active)
+				return nil, h.drainInProgress(ctx, workflowID, fmt.Errorf("%d active executions still running", active))
 			}
 		}
 
@@ -1098,6 +1103,18 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 		}
 	}
 	return drainable, nil
+}
+
+// drainInProgress records that deletion is deferred because executions are still running
+// and returns the ErrDrainInProgress the caller retries on.
+func (h *eventHandler) drainInProgress(ctx context.Context, workflowID types.WorkflowID, cause error) error {
+	if h.metrics != nil {
+		h.metrics.incrementDeleteDeferred(ctx, "drain_in_progress")
+	}
+	h.lggr.Infow("workflow deletion deferred: active executions still running",
+		"workflowID", workflowID.String(),
+		"cause", cause)
+	return fmt.Errorf("%w: %w", ErrDrainInProgress, cause)
 }
 
 // releaseSpecStorage deletes the persisted spec row and, iff a row was
@@ -1221,6 +1238,14 @@ func (h *eventHandler) tryEngineCleanup(ctx context.Context, workflowID types.Wo
 
 	if _, err := h.engineRegistry.Pop(workflowID); err != nil {
 		return fmt.Errorf("failed to remove workflow engine: %w", err)
+	}
+
+	// The engine was closed without waiting for its executions.  Call again to
+	// release any remaining trigger handles.
+	if e.Coordinated() && h.triggerCoordinator != nil {
+		if err := h.triggerCoordinator.UnregisterTriggers(ctx, workflowID.Hex()); err != nil && !errors.Is(err, triggers.ErrWorkflowNotCoordinated) {
+			h.lggr.Errorw("Failed to release triggers via coordinator after closing engine", "workflowID", workflowID.String(), "err", err)
+		}
 	}
 	return nil
 }

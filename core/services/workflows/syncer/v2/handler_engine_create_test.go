@@ -36,11 +36,31 @@ func (f *fakeCoordinatedEngine) Close() error {
 
 func (f *fakeCoordinatedEngine) IsCoordinated() bool { return true }
 
-// recordingCoordinator records the subscribers handed to RegisterTriggers.
+// recordingCoordinator records the subscribers handed to RegisterTriggers and
+// the UnregisterTriggers calls, answering the latter from unregisterErrs.
 type recordingCoordinator struct {
 	triggers.Coordinator
 	registerErr error
 	registered  []triggers.Subscriber
+
+	unregisterErrs  []error // consumed one per call; nil once exhausted
+	unregisterCalls int
+	// onUnregister, if set, runs at the start of each UnregisterTriggers call so
+	// a test can observe the state the coordinator is called in.
+	onUnregister func()
+}
+
+func (c *recordingCoordinator) UnregisterTriggers(context.Context, string) error {
+	c.unregisterCalls++
+	if c.onUnregister != nil {
+		c.onUnregister()
+	}
+	if len(c.unregisterErrs) == 0 {
+		return nil
+	}
+	err := c.unregisterErrs[0]
+	c.unregisterErrs = c.unregisterErrs[1:]
+	return err
 }
 
 func (c *recordingCoordinator) RegisterTriggers(_ context.Context, subscriber triggers.Subscriber, _ triggers.RegistrationParams) ([]string, error) {

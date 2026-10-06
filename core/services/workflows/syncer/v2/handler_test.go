@@ -105,9 +105,10 @@ func newMockFetcher(m map[string]mockFetchResp) *mockFetcher {
 }
 
 type mockEngine struct {
-	CloseErr error
-	ReadyErr error
-	StartErr error
+	CloseErr    error
+	ReadyErr    error
+	StartErr    error
+	Coordinated bool
 }
 
 func (m *mockEngine) Ready() error {
@@ -140,7 +141,7 @@ func (m *mockEngine) ActiveExecutions() int32 { return 0 }
 
 func (m *mockEngine) DrainStartedAt() (time.Time, bool) { return time.Time{}, false }
 
-func (m *mockEngine) IsCoordinated() bool { return false }
+func (m *mockEngine) IsCoordinated() bool { return m.Coordinated }
 
 type mockDrainableEngine struct {
 	mockEngine
@@ -2593,4 +2594,86 @@ func Test_handler_SourceParity_PauseActivateCycle(t *testing.T) {
 			requireSpecBytesDelta(t, records[3], "-12", wfID.Hex(), meteringBytesEventID(wantDeleteID))
 		})
 	}
+}
+
+func TestStopEngine_Coordinated(t *testing.T) {
+	t.Parallel()
+
+	t.Run("engine is draining before attempting to unregister triggers", func(t *testing.T) {
+		t.Parallel()
+		h, engine, coord, wid := newStopEngineFixture(t)
+		var drainedAtUnregister []bool
+		coord.onUnregister = func() { drainedAtUnregister = append(drainedAtUnregister, engine.draining.Load()) }
+
+		_, err := h.stopEngine(t.Context(), wid)
+		require.NoError(t, err)
+		assert.Equal(t, []bool{true}, drainedAtUnregister, "the engine must already be draining when the coordinator may release")
+		assert.EqualValues(t, 1, engine.closeCalls.Load())
+	})
+
+	t.Run("executions in flight defer the stop until a subsequent call finds none", func(t *testing.T) {
+		t.Parallel()
+		h, engine, coord, wid := newStopEngineFixture(t, fmt.Errorf("%w: 1 active executions", triggers.ErrExecutionsInFlight))
+
+		_, err := h.stopEngine(t.Context(), wid)
+		require.ErrorIs(t, err, ErrDrainInProgress)
+		assert.Zero(t, engine.closeCalls.Load(), "an engine with executions in flight must not be closed")
+
+		_, err = h.stopEngine(t.Context(), wid)
+		require.NoError(t, err)
+		assert.EqualValues(t, 1, engine.closeCalls.Load())
+		assert.Equal(t, 2, coord.unregisterCalls)
+	})
+
+	t.Run("a failed unregister may be retried and completed", func(t *testing.T) {
+		t.Parallel()
+		h, engine, coord, wid := newStopEngineFixture(t, errors.New("capability down"))
+
+		_, err := h.stopEngine(t.Context(), wid)
+		require.ErrorContains(t, err, "capability down")
+		require.NotErrorIs(t, err, ErrDrainInProgress)
+		assert.Zero(t, engine.closeCalls.Load())
+
+		_, err = h.stopEngine(t.Context(), wid)
+		require.NoError(t, err)
+		assert.EqualValues(t, 1, engine.closeCalls.Load())
+		assert.Equal(t, 2, coord.unregisterCalls)
+	})
+
+	t.Run("an engine the coordinator never registered still stops", func(t *testing.T) {
+		t.Parallel()
+		h, engine, _, wid := newStopEngineFixture(t, triggers.ErrWorkflowNotCoordinated)
+
+		_, err := h.stopEngine(t.Context(), wid)
+		require.NoError(t, err)
+		assert.EqualValues(t, 1, engine.closeCalls.Load())
+	})
+}
+
+func TestTryEngineCleanup_ReleasesRegistrationAfterClose(t *testing.T) {
+	t.Parallel()
+	// The first call sees executions in flight, as it does when a draining engine is replaced.
+	h, engine, coord, wid := newStopEngineFixture(t, triggers.ErrExecutionsInFlight)
+	var closedAtUnregister []bool
+	coord.onUnregister = func() { closedAtUnregister = append(closedAtUnregister, engine.closeCalls.Load() > 0) }
+
+	require.NoError(t, h.tryEngineCleanup(t.Context(), wid))
+
+	assert.EqualValues(t, 1, engine.closeCalls.Load())
+	_, found := h.engineRegistry.Get(wid)
+	assert.False(t, found, "the engine is removed from the registry")
+	require.Equal(t, 2, coord.unregisterCalls, "unregister again once the engine is gone, or the registration leaks")
+	assert.Equal(t, []bool{false, true}, closedAtUnregister, "the second call must come after the close")
+}
+
+// newStopEngineFixture is a handler whose registry holds one coordinated, drainable engine.
+func newStopEngineFixture(t *testing.T, unregisterErrs ...error) (*eventHandler, *mockDrainableEngine, *recordingCoordinator, types.WorkflowID) {
+	t.Helper()
+	wid := types.WorkflowID{1}
+	engine := &mockDrainableEngine{mockEngine: mockEngine{Coordinated: true}}
+	coord := &recordingCoordinator{unregisterErrs: unregisterErrs}
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(wid, "test", engine))
+	h := &eventHandler{lggr: logger.TestLogger(t), engineRegistry: registry, triggerCoordinator: coord}
+	return h, engine, coord, wid
 }
