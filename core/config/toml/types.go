@@ -2825,7 +2825,8 @@ type LocalCapabilities struct {
 	RegistryBasedLaunchAllowlist []string `toml:",omitempty"`
 	// UseOffchainRegistry gates the offchain capabilities registry cutover. Default false: the
 	// offchain registry is cross-validation telemetry only. When true, spec_config is resolved
-	// as TOML < on-chain < offchain when a capability is started.
+	// as TOML < on-chain < offchain when a capability is started, and method_configs are applied
+	// on top of the on-chain ones (offchain-wins per method) when don2don shims are wired.
 	UseOffchainRegistry *bool `toml:",omitempty"`
 	// Capabilities contains per-capability node configuration, keyed by capability ID.
 	Capabilities map[string]CapabilityNodeConfig `toml:",omitempty"`

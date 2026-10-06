@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
@@ -300,7 +301,65 @@ func validate(reg *capabilitiespb.OffchainCapabilitiesRegistry) error {
 			if _, err := SpecConfigMap(capCfg.GetSpecConfig()); err != nil {
 				return fmt.Errorf("dons[%q].capabilities[%q]: invalid spec_config: %w", donName, capID, err)
 			}
+			if _, err := MethodConfigsFromProto(capCfg.GetMethodConfigs()); err != nil {
+				return fmt.Errorf("dons[%q].capabilities[%q]: invalid method_configs: %w", donName, capID, err)
+			}
 		}
 	}
 	return nil
+}
+
+// MethodConfigsFromProto converts an offchain method_configs map (pb) into the
+// capabilities.CapabilityMethodConfig map the launcher's don2don shims consume. It mirrors the
+// conversion in registry.CapabilityConfiguration.Unmarshal in chainlink-common, so the offchain
+// and on-chain paths convert identically. A nil map yields nil.
+//
+// An entry whose remote_config oneof is unset converts to a zero CapabilityMethodConfig (both
+// RemoteTriggerConfig and RemoteExecutableConfig nil); the launcher treats that as "no remote
+// config found" for the method, same as an on-chain entry with an unset oneof.
+func MethodConfigsFromProto(in map[string]*capabilitiespb.CapabilityMethodConfig) (map[string]capabilities.CapabilityMethodConfig, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make(map[string]capabilities.CapabilityMethodConfig, len(in))
+	for method, mc := range in {
+		var config capabilities.CapabilityMethodConfig
+		switch remoteCfg := mc.GetRemoteConfig().(type) {
+		case nil:
+			// unset oneof: zero config, handled by the launcher as no remote config
+		case *capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig:
+			rt := remoteCfg.RemoteTriggerConfig
+			config = capabilities.CapabilityMethodConfig{
+				RemoteTriggerConfig: &capabilities.RemoteTriggerConfig{
+					RegistrationRefresh:     rt.GetRegistrationRefresh().AsDuration(),
+					RegistrationExpiry:      rt.GetRegistrationExpiry().AsDuration(),
+					MinResponsesToAggregate: rt.GetMinResponsesToAggregate(),
+					MessageExpiry:           rt.GetMessageExpiry().AsDuration(),
+					MaxBatchSize:            rt.GetMaxBatchSize(),
+					BatchCollectionPeriod:   rt.GetBatchCollectionPeriod().AsDuration(),
+				},
+			}
+		case *capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig:
+			re := remoteCfg.RemoteExecutableConfig
+			config = capabilities.CapabilityMethodConfig{
+				RemoteExecutableConfig: &capabilities.RemoteExecutableConfig{
+					TransmissionSchedule:      capabilities.TransmissionSchedule(re.GetTransmissionSchedule()),
+					DeltaStage:                re.GetDeltaStage().AsDuration(),
+					RequestTimeout:            re.GetRequestTimeout().AsDuration(),
+					ServerMaxParallelRequests: re.GetServerMaxParallelRequests(),
+					RequestHasherType:         capabilities.RequestHasherType(re.GetRequestHasherType()),
+					MinResponsesToAggregate:   re.GetMinResponsesToAggregate(),
+				},
+			}
+		default:
+			return nil, fmt.Errorf("method %q: unknown method config type %T", method, mc.GetRemoteConfig())
+		}
+		if agg := mc.GetAggregatorConfig(); agg != nil {
+			config.AggregatorConfig = &capabilities.AggregatorConfig{
+				AggregatorType: capabilities.AggregatorType(agg.GetAggregatorType()),
+			}
+		}
+		out[method] = config
+	}
+	return out, nil
 }

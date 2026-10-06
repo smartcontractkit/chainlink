@@ -43,7 +43,7 @@ func (p tomlCapabilityConfigProvider) LocalConfigOverrides(capID string, _ uint3
 // offchainCapabilityConfigProvider is backed by a snapshot of the offchain capabilities
 // registry taken once per reconcile. It returns the offchain spec_config for a (capID, donID),
 // matching the shape the TOML provider yields. The offchain registry is keyed by on-chain DON
-// name, so donID is resolved through donNames (see offchainDONNames).
+// name, so donID is resolved through donNames (see OffchainDONNames).
 //
 // Missing entries are not an error: when the DON has no usable name, the payload has no config
 // for the DON, no entry for the capability, or no spec_config, it returns nil and every key

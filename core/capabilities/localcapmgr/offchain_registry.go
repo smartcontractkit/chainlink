@@ -2,8 +2,10 @@ package localcapmgr
 
 import (
 	"context"
+	"reflect"
 	"sort"
 
+	capabilities "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
@@ -66,7 +68,7 @@ func (m *localCapabilityManager) computeOffchainCrossCheck(reg *capabilitiespb.O
 	}
 
 	offchainDONs := reg.GetDons()
-	donNames := m.offchainDONNames(allMyDONs)
+	donNames := OffchainDONNames(allMyDONs)
 
 	// on-chain -> offchain: every allowlisted (DON, capability) on-chain should be present
 	// offchain.
@@ -131,10 +133,22 @@ func (m *localCapabilityManager) computeOffchainCrossCheck(reg *capabilitiespb.O
 	return check
 }
 
-// offchainChangesConfig reports whether applying offCap's spec_config on top of the legacy
+// offchainChangesConfig reports whether applying offCap on top of the legacy (TOML + on-chain)
+// config would change the config the capability is launched with. It covers both config
+// surfaces the offchain registry carries: spec_config (compared through the effective launch
+// config) and method_configs (compared structurally against the on-chain method configs).
+// Keys the offchain payload sets to the legacy value, and keys it omits, are not differences.
+func (m *localCapabilityManager) offchainChangesConfig(donID uint32, capID string, onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
+	if m.offchainChangesSpecConfig(donID, capID, onchain, offCap) {
+		return true
+	}
+	return m.offchainChangesMethodConfigs(donID, capID, onchain, offCap)
+}
+
+// offchainChangesSpecConfig reports whether applying offCap's spec_config on top of the legacy
 // (TOML + on-chain) config would change the config the capability is launched with. Keys the
 // offchain payload sets to the legacy value, and keys it omits, are not differences.
-func (m *localCapabilityManager) offchainChangesConfig(donID uint32, capID string, onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
+func (m *localCapabilityManager) offchainChangesSpecConfig(donID uint32, capID string, onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
 	overrides, err := globalconfig.SpecConfigMap(offCap.GetSpecConfig())
 	if err != nil || len(overrides) == 0 {
 		return false
@@ -152,16 +166,53 @@ func (m *localCapabilityManager) offchainChangesConfig(donID uint32, capID strin
 	return legacy != cutover
 }
 
-// offchainDONNames maps this node's on-chain DON IDs to the DON names that key the offchain
+// offchainChangesMethodConfigs reports whether the offchain method_configs would change the
+// don2don method configs the launcher wires for this capability, relative to the on-chain
+// method configs. A method present in both is a difference only when its converted config
+// differs; methods the offchain payload omits keep their on-chain config (not differences);
+// methods only present offchain are additions (differences).
+func (m *localCapabilityManager) offchainChangesMethodConfigs(donID uint32, capID string, onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
+	offMethodConfigs, err := globalconfig.MethodConfigsFromProto(offCap.GetMethodConfigs())
+	if err != nil || len(offMethodConfigs) == 0 {
+		return false
+	}
+	onchainCfg, err := onchain.Unmarshal()
+	if err != nil {
+		return false
+	}
+	onMethodConfigs := onchainCfg.CapabilityMethodConfig
+	for method, offCfg := range offMethodConfigs {
+		if onCfg, ok := onMethodConfigs[method]; !ok || !methodConfigEqual(onCfg, offCfg) {
+			return true
+		}
+	}
+	return false
+}
+
+// methodConfigEqual compares two method configs for equality on the fields the launcher
+// consumes (remote trigger/executable config and aggregator config).
+func methodConfigEqual(a, b capabilities.CapabilityMethodConfig) bool {
+	if !reflect.DeepEqual(a.RemoteTriggerConfig, b.RemoteTriggerConfig) {
+		return false
+	}
+	if !reflect.DeepEqual(a.RemoteExecutableConfig, b.RemoteExecutableConfig) {
+		return false
+	}
+	return reflect.DeepEqual(a.AggregatorConfig, b.AggregatorConfig)
+}
+
+// OffchainDONNames maps this node's on-chain DON IDs to the DON names that key the offchain
 // registry. A DON without a name (e.g. from a registry version that does not record names), or
 // whose name is shared with another of this node's DONs, is left out: its offchain config
 // cannot be attributed unambiguously, so it keeps its legacy (on-chain/TOML) config and is
 // reported as missing_don by the cross-check.
-func (m *localCapabilityManager) offchainDONNames(dons []registry.DON) map[uint32]string {
+//
+// Exported for the capabilities launcher, which resolves offchain method_configs by DON name
+// the same way (see the offchain method_configs design note).
+func OffchainDONNames(dons []registry.DON) map[uint32]string {
 	byName := make(map[string][]uint32, len(dons))
 	for _, don := range dons {
 		if don.Name == "" {
-			m.lggr.Debugw("On-chain DON has no name; offchain config cannot apply to it", "donID", don.ID)
 			continue
 		}
 		byName[don.Name] = append(byName[don.Name], don.ID)
@@ -169,8 +220,6 @@ func (m *localCapabilityManager) offchainDONNames(dons []registry.DON) map[uint3
 	out := make(map[uint32]string, len(dons))
 	for name, ids := range byName {
 		if len(ids) > 1 {
-			m.lggr.Warnw("On-chain DON name is not unique among this node's DONs; offchain config cannot apply to them",
-				"donName", name, "donIDs", ids)
 			continue
 		}
 		out[ids[0]] = name

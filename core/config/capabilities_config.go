@@ -104,7 +104,8 @@ type LocalCapabilities interface {
 	GetCapabilityConfig(capabilityID string) CapabilityNodeConfig
 	// UseOffchainRegistry gates the offchain capabilities registry cutover. When false (default),
 	// capability config comes from TOML/on-chain and the offchain registry is cross-validation
-	// telemetry only. When true, spec_config is resolved as TOML < on-chain < offchain.
+	// telemetry only. When true, spec_config is resolved as TOML < on-chain < offchain, and
+	// method_configs are applied on top of the on-chain ones (offchain-wins per method).
 	UseOffchainRegistry() bool
 }
 

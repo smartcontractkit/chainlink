@@ -1999,9 +1999,11 @@ UseOffchainRegistry = false # Default
 UseOffchainRegistry gates the offchain capabilities registry cutover. When false (default),
 capability config is sourced from TOML/on-chain and the offchain registry (delivered via the
 cresettings job) is used for cross-validation telemetry only. When true, each capability's
-spec_config is resolved per (DON, capability) as TOML < on-chain < offchain; keys the offchain
-registry omits keep their TOML/on-chain value. Binary paths, the launch allowlist and OCR3
-config are unaffected. The gate is per-node and reversible.
+spec_config is resolved per (DON, capability) as TOML < on-chain < offchain (keys the offchain
+registry omits keep their TOML/on-chain value), and its method_configs are applied on top of
+the on-chain ones when don2don shims are wired (offchain-wins per method; methods the payload
+omits keep their on-chain config). Binary paths, the launch allowlist and OCR3 config are
+unaffected. The gate is per-node and reversible.
 
 Per-capability configuration. Each capability ID can have its own configuration section.
 Capability IDs must be in the format "name@version".
