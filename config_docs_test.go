@@ -18,6 +18,8 @@ var (
 )
 
 func TestConfigDocs(t *testing.T) {
+	t.Parallel()
+
 	config, err := docs.GenerateConfig()
 	require.NoError(t, err, "invalid config docs")
 	assert.Equal(t, configMD, config, "docs/CONFIG.md is out of date. Run 'make config-docs' to regenerate.")

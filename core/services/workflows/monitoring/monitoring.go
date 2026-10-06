@@ -156,7 +156,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 
 	em.workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge(
 		"platform_engine_workflow_time",
-		metric.WithUnit("ms"))
+		metric.WithUnit("ms"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow execution latency gauge: %w", err)
 	}
@@ -168,7 +169,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 
 	em.workflowInitializationFailureCounter, err = beholder.GetMeter().Int64Counter(
 		"platform_engine_workflow_initialization_failures_total",
-		metric.WithDescription("Count of failed engine initializations by failure reason"))
+		metric.WithDescription("Count of failed engine initializations by failure reason"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow initialization failure counter: %w", err)
 	}
@@ -232,7 +234,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowCompletedDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_workflow_completed_time_seconds",
 		metric.WithDescription("Distribution of completed execution latencies"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register completed duration histogram: %w", err)
 	}
@@ -240,7 +243,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowEarlyExitDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_workflow_earlyexit_time_seconds",
 		metric.WithDescription("Distribution of earlyexit execution latencies"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register early exit duration histogram: %w", err)
 	}
@@ -248,7 +252,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowErrorDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_workflow_error_time_seconds",
 		metric.WithDescription("Distribution of error execution latencies"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register error duration histogram: %w", err)
 	}
@@ -256,7 +261,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowTimeoutDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_workflow_timeout_time_seconds",
 		metric.WithDescription("Distribution of timeout execution latencies"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register timeout duration histogram: %w", err)
 	}
@@ -264,7 +270,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowStepDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_workflow_step_time_seconds",
 		metric.WithDescription("Distribution of step execution times"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register step execution time histogram: %w", err)
 	}
@@ -272,7 +279,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.capabilityExecutionDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_capability_execution_time_seconds",
 		metric.WithDescription("Distribution of capability execution times"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register capability execution time histogram: %w", err)
 	}
@@ -284,7 +292,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 
 	em.workflowMeteringMode, err = beholder.GetMeter().Int64Gauge(
 		"platform_engine_workflow_metering_mode",
-		metric.WithUnit("active"))
+		metric.WithUnit("active"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow metering mode gauge: %w", err)
 	}
