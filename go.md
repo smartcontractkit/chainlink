@@ -487,7 +487,6 @@ flowchart LR
 	click chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based href "https://github.com/smartcontractkit/chainlink"
 	chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets href "https://github.com/smartcontractkit/chainlink"
-	chainlink/deployment --> ccip-contract-examples/chains/evm
 	chainlink/deployment --> chainlink-aptos/deployment
 	chainlink/deployment --> chainlink-ccip/chains/solana/deployment
 	chainlink/deployment --> chainlink-solana/contracts
