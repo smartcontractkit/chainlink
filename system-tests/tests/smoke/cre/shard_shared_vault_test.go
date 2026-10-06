@@ -176,8 +176,8 @@ func awaitSharedVaultWorkflowExecution(t *testing.T, testEnv *ttypes.TestEnviron
 	require.Len(t, executedWorkflows, len(workflowIDs), "workflows %v did not execute on shard %s (DON ID %d)", workflowIDs, expectedShardDON.Name, expectedShardDON.ID)
 }
 
-// sharedVaultShardPair picks the two shard DONs of the topology and returns them
-// with their shard indices (the terms the shard-assignment TOML is authored in).
+// sharedVaultShardPair holds the two shard DONs of the topology with their shard
+// indices (the terms the shard-assignment TOML is authored in).
 type sharedVaultShardPair struct {
 	shardZeroDON  *cre.Don
 	shardZeroIdx  uint32
@@ -186,11 +186,38 @@ type sharedVaultShardPair struct {
 	workflowOwner string // lowercase owner hex; per_owner_assignment keys are normalized this way
 }
 
-func mustSharedVaultShardPair(t *testing.T, testEnv *ttypes.TestEnvironment, owner string) sharedVaultShardPair {
+// mustSharedVaultShardPair verifies the running environment is the sharded
+// shared-vault topology this test requires, and returns its two shard DONs. It is
+// meant to run FIRST, before the minutes-long vault setup: a mismatched topology
+// (e.g. CI's per-test topology mapping sending this test to the default config)
+// then fails in seconds with an actionable message instead of failing after the
+// vault setup with a cryptic count.
+func mustSharedVaultShardPair(t *testing.T, testEnv *ttypes.TestEnvironment) sharedVaultShardPair {
 	t.Helper()
 
 	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
-	require.GreaterOrEqual(t, len(shardDONs), 2, "Expected at least 2 shard DONs")
+	if len(shardDONs) < 2 {
+		require.FailNowf(t, "wrong topology for the sharded shared-vault tests",
+			"expected at least 2 shard DONs, found %d. This test requires the sharded shared-vault topology "+
+				"(configs/workflow-gateway-sharded-shared-vault-manual.toml / configs/workflow-gateway-sharded-shared-vault-failover.toml: "+
+				"2 workflow shard DONs without the vault capability + 1 shared vault DON). If this fails in CI, the test is missing from the "+
+				"per-test topology mapping (.github/workflows/cre-system-tests.yaml PER_TEST_TOPOLOGIES_JSON and "+
+				"tools/ci/internal/matrix/system.go defaultCRESmokePerTestTopologies) and ran against the default config. "+
+				"Running DONs: %v", len(shardDONs), donNames(testEnv))
+	}
+
+	// The vault must be hosted by exactly one NON-shard capabilities DON - the shared
+	// vault both shards route to. A vault on a shard DON is a different (per-shard
+	// vault) topology where secret continuity across shards cannot hold.
+	sharedVaultDONs := slices.DeleteFunc(slices.Clone(testEnv.Dons.DonsWithFlag(cre.VaultCapability)), func(don *cre.Don) bool {
+		return don.HasFlag(cre.ShardDON)
+	})
+	if len(sharedVaultDONs) != 1 {
+		require.FailNowf(t, "wrong topology for the sharded shared-vault tests",
+			"expected exactly 1 shared vault DON (a non-shard capabilities DON hosting the vault), found %d. "+
+				"This test requires the sharded shared-vault topology (configs/workflow-gateway-sharded-shared-vault-manual.toml / "+
+				"configs/workflow-gateway-sharded-shared-vault-failover.toml). Running DONs: %v", len(sharedVaultDONs), donNames(testEnv))
+	}
 
 	shardZeroDON := getShardZeroDon(t, testEnv)
 	nonLeaderDONs := slices.DeleteFunc(slices.Clone(shardDONs), func(don *cre.Don) bool {
@@ -199,12 +226,21 @@ func mustSharedVaultShardPair(t *testing.T, testEnv *ttypes.TestEnvironment, own
 	require.NotEmpty(t, nonLeaderDONs, "Expected to find a second shard DON")
 
 	return sharedVaultShardPair{
-		shardZeroDON:  shardZeroDON,
-		shardZeroIdx:  uint32(shardZeroDON.Metadata().ShardIndex), //nolint:gosec // G115: overflow is unrealistic
-		shardOneDON:   nonLeaderDONs[0],
-		shardOneIdx:   uint32(nonLeaderDONs[0].Metadata().ShardIndex), //nolint:gosec // G115: overflow is unrealistic
-		workflowOwner: owner,
+		shardZeroDON: shardZeroDON,
+		shardZeroIdx: uint32(shardZeroDON.Metadata().ShardIndex), //nolint:gosec // G115: overflow is unrealistic
+		shardOneDON:  nonLeaderDONs[0],
+		shardOneIdx:  uint32(nonLeaderDONs[0].Metadata().ShardIndex), //nolint:gosec // G115: overflow is unrealistic
 	}
+}
+
+// donNames lists the running DON names for topology-mismatch diagnostics.
+func donNames(testEnv *ttypes.TestEnvironment) []string {
+	dons := testEnv.Dons.List()
+	names := make([]string, 0, len(dons))
+	for _, don := range dons {
+		names = append(names, don.Name)
+	}
+	return names
 }
 
 // awaitShardDONsConnectedToJD waits until every worker node of every shard DON reports
@@ -260,8 +296,12 @@ func proposeSharedVaultAssignment(t *testing.T, testEnv *ttypes.TestEnvironment,
 func ExecuteManualShardAssignmentSharedVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
+	// Topology guard first (see mustSharedVaultShardPair): a mismatched environment
+	// fails in seconds with an actionable message, before the vault setup waits.
+	shards := mustSharedVaultShardPair(t, testEnv)
+
 	fixture := setupSharedVaultShardFixture(t, testEnv)
-	shards := mustSharedVaultShardPair(t, testEnv, strings.ToLower(fixture.owner))
+	shards.workflowOwner = strings.ToLower(fixture.owner)
 
 	secretValue := "manual-shared-vault-secret"
 	secretKey := fixture.createSharedVaultSecret(t, secretValue)
@@ -322,8 +362,12 @@ hashed_default_assignment = false
 func ExecuteShardFailoverSharedVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
+	// Topology guard first (see mustSharedVaultShardPair): a mismatched environment
+	// fails in seconds with an actionable message, before the vault setup waits.
+	shards := mustSharedVaultShardPair(t, testEnv)
+
 	fixture := setupSharedVaultShardFixture(t, testEnv)
-	shards := mustSharedVaultShardPair(t, testEnv, strings.ToLower(fixture.owner))
+	shards.workflowOwner = strings.ToLower(fixture.owner)
 
 	secretValue := "failover-shared-vault-secret"
 	secretKey := fixture.createSharedVaultSecret(t, secretValue)
