@@ -2381,6 +2381,12 @@ ChipIngressSendInterval = '500ms' # Default
 ChipIngressSendTimeout = '10s' # Default
 ChipIngressDrainTimeout = '30s' # Default
 ChipIngressMaxGRPCRequestSize = 10485760 # Default
+ChipIngressRetryEnabled = false # Default
+ChipIngressRetryMaxAttempts = 3 # Default
+ChipIngressRetryInitialBackoff = '100ms' # Default
+ChipIngressRetryMaxBackoff = '1s' # Default
+ChipIngressRetryBackoffMultiplier = 2.0 # Default
+ChipIngressRetryableStatusCodes = ['Unavailable', 'ResourceExhausted'] # Default
 DurableEmitterEnabled = true # Default
 DurableEmitterRetransmitBatchSize = 500 # Default
 DurableEmitterEventTTL = '6h0m0s' # Default
@@ -2512,6 +2518,42 @@ ChipIngressDrainTimeout is the max shutdown wait to flush queued events.
 ChipIngressMaxGRPCRequestSize = 10485760 # Default
 ```
 ChipIngressMaxGRPCRequestSize is the max serialized PublishBatch request size in bytes. Batches exceeding this are split before send (min 1 MiB enforced by batch client).
+
+### ChipIngressRetryEnabled
+```toml
+ChipIngressRetryEnabled = false # Default
+```
+ChipIngressRetryEnabled turns on gRPC-level retries for the node's chip ingress client. Retries replay failed RPCs (Publish/PublishBatch) on transient failures; without them every UNAVAILABLE/RESOURCE_EXHAUSTED publish is dropped. Off by default: replayed publishes can duplicate events unless an idempotency key is set.
+
+### ChipIngressRetryMaxAttempts
+```toml
+ChipIngressRetryMaxAttempts = 3 # Default
+```
+ChipIngressRetryMaxAttempts is the max call attempts including the original (min 2; gRPC silently installs no retry policy below 2). Applies when ChipIngressRetryEnabled is true.
+
+### ChipIngressRetryInitialBackoff
+```toml
+ChipIngressRetryInitialBackoff = '100ms' # Default
+```
+ChipIngressRetryInitialBackoff is the base delay before the first retry attempt. Applies when ChipIngressRetryEnabled is true.
+
+### ChipIngressRetryMaxBackoff
+```toml
+ChipIngressRetryMaxBackoff = '1s' # Default
+```
+ChipIngressRetryMaxBackoff caps the exponential backoff delay between retry attempts. Applies when ChipIngressRetryEnabled is true.
+
+### ChipIngressRetryBackoffMultiplier
+```toml
+ChipIngressRetryBackoffMultiplier = 2.0 # Default
+```
+ChipIngressRetryBackoffMultiplier grows the backoff delay after each attempt. Applies when ChipIngressRetryEnabled is true.
+
+### ChipIngressRetryableStatusCodes
+```toml
+ChipIngressRetryableStatusCodes = ['Unavailable', 'ResourceExhausted'] # Default
+```
+ChipIngressRetryableStatusCodes lists gRPC status code names eligible for retry (codes.Code.String() spelling, e.g. 'Unavailable', 'ResourceExhausted'). Applies when ChipIngressRetryEnabled is true.
 
 ### DurableEmitterEnabled
 ```toml

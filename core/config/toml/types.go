@@ -3028,6 +3028,12 @@ type Telemetry struct {
 	ChipIngressSendTimeout                 *commonconfig.Duration
 	ChipIngressDrainTimeout                *commonconfig.Duration
 	ChipIngressMaxGRPCRequestSize          *int
+	ChipIngressRetryEnabled                *bool
+	ChipIngressRetryMaxAttempts            *int
+	ChipIngressRetryInitialBackoff         *commonconfig.Duration
+	ChipIngressRetryMaxBackoff             *commonconfig.Duration
+	ChipIngressRetryBackoffMultiplier      *float64
+	ChipIngressRetryableStatusCodes        []string
 	DurableEmitterEnabled                  *bool
 	DurableEmitterRetransmitBatchSize      *int
 	DurableEmitterEventTTL                 *commonconfig.Duration
@@ -3104,6 +3110,24 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.ChipIngressMaxGRPCRequestSize; v != nil {
 		b.ChipIngressMaxGRPCRequestSize = v
+	}
+	if v := f.ChipIngressRetryEnabled; v != nil {
+		b.ChipIngressRetryEnabled = v
+	}
+	if v := f.ChipIngressRetryMaxAttempts; v != nil {
+		b.ChipIngressRetryMaxAttempts = v
+	}
+	if v := f.ChipIngressRetryInitialBackoff; v != nil {
+		b.ChipIngressRetryInitialBackoff = v
+	}
+	if v := f.ChipIngressRetryMaxBackoff; v != nil {
+		b.ChipIngressRetryMaxBackoff = v
+	}
+	if v := f.ChipIngressRetryBackoffMultiplier; v != nil {
+		b.ChipIngressRetryBackoffMultiplier = v
+	}
+	if v := f.ChipIngressRetryableStatusCodes; v != nil {
+		b.ChipIngressRetryableStatusCodes = v
 	}
 	if v := f.DurableEmitterEnabled; v != nil {
 		b.DurableEmitterEnabled = v
@@ -3189,6 +3213,18 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	}
 	if v := b.ChipIngressMaxGRPCRequestSize; v != nil && *v <= 0 {
 		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressMaxGRPCRequestSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressRetryMaxAttempts; v != nil && *v < 2 {
+		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressRetryMaxAttempts", Value: *v, Msg: "must be at least 2 (gRPC silently installs no retry policy below 2 attempts)"})
+	}
+	if v := b.ChipIngressRetryInitialBackoff; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressRetryInitialBackoff", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressRetryMaxBackoff; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressRetryMaxBackoff", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressRetryBackoffMultiplier; v != nil && *v <= 0 {
+		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressRetryBackoffMultiplier", Value: *v, Msg: "must be greater than 0"})
 	}
 	return err
 }

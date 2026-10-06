@@ -181,6 +181,21 @@ func newBeholderClient(
 		MetricCardinalityLimit:    cfgTelemetry.MetricCardinalityLimit(),
 	}
 
+	// Opt-in gRPC-level retries for the chip ingress client (nil keeps them off).
+	// Unset knobs fall back to chipingress.DefaultRetryPolicy values.
+	retryPolicy, err := beholder.ChipIngressRetryConfig{
+		Enabled:              cfgTelemetry.ChipIngressRetryEnabled(),
+		MaxAttempts:          cfgTelemetry.ChipIngressRetryMaxAttempts(),
+		InitialBackoff:       cfgTelemetry.ChipIngressRetryInitialBackoff(),
+		MaxBackoff:           cfgTelemetry.ChipIngressRetryMaxBackoff(),
+		BackoffMultiplier:    cfgTelemetry.ChipIngressRetryBackoffMultiplier(),
+		RetryableStatusCodes: cfgTelemetry.ChipIngressRetryableStatusCodes(),
+	}.RetryPolicy()
+	if err != nil {
+		return nil, err
+	}
+	clientCfg.ChipIngressRetryPolicy = retryPolicy
+
 	if cfgTracing.Enabled() {
 		tracingCfg := tracingConfig(cfgTracing, lggr)
 		// add tracing attributes to resource attributes

@@ -23,6 +23,21 @@ const (
 	defaultDurableEmitterInsertBatchFlushInterval = 50 * time.Millisecond
 )
 
+// Defaults for the chip ingress client gRPC retry policy knobs. They mirror
+// chainlink-common's chipingress.DefaultRetryPolicy so that enabling retries
+// without overrides yields the recommended policy (mirrored in docs/core.toml).
+const (
+	defaultChipIngressRetryMaxAttempts       = 3
+	defaultChipIngressRetryInitialBackoff    = 100 * time.Millisecond
+	defaultChipIngressRetryMaxBackoff        = 1 * time.Second
+	defaultChipIngressRetryBackoffMultiplier = 2
+)
+
+// defaultChipIngressRetryableStatusCodes are the gRPC status code names
+// (codes.Code.String() spelling, per chipingress.ParseStatusCodes) retried by
+// default: transient transport/server pressure failures.
+var defaultChipIngressRetryableStatusCodes = []string{"Unavailable", "ResourceExhausted"}
+
 // defaultDurableEmitterMaxQueuePayloadBytes is the denominator used for the
 // durable_emitter.queue.capacity_usage_ratio gauge when the operator does not
 // override it via TOML. 1 GiB gives capacity tracking a sane default ceiling.
@@ -166,6 +181,48 @@ func (b *telemetryConfig) ChipIngressMaxGRPCRequestSize() int {
 		return 0
 	}
 	return *b.s.ChipIngressMaxGRPCRequestSize
+}
+
+func (b *telemetryConfig) ChipIngressRetryEnabled() bool {
+	if b.s.ChipIngressRetryEnabled == nil {
+		return false
+	}
+	return *b.s.ChipIngressRetryEnabled
+}
+
+func (b *telemetryConfig) ChipIngressRetryMaxAttempts() int {
+	if b.s.ChipIngressRetryMaxAttempts == nil {
+		return defaultChipIngressRetryMaxAttempts
+	}
+	return *b.s.ChipIngressRetryMaxAttempts
+}
+
+func (b *telemetryConfig) ChipIngressRetryInitialBackoff() time.Duration {
+	if b.s.ChipIngressRetryInitialBackoff == nil {
+		return defaultChipIngressRetryInitialBackoff
+	}
+	return b.s.ChipIngressRetryInitialBackoff.Duration()
+}
+
+func (b *telemetryConfig) ChipIngressRetryMaxBackoff() time.Duration {
+	if b.s.ChipIngressRetryMaxBackoff == nil {
+		return defaultChipIngressRetryMaxBackoff
+	}
+	return b.s.ChipIngressRetryMaxBackoff.Duration()
+}
+
+func (b *telemetryConfig) ChipIngressRetryBackoffMultiplier() float64 {
+	if b.s.ChipIngressRetryBackoffMultiplier == nil {
+		return defaultChipIngressRetryBackoffMultiplier
+	}
+	return *b.s.ChipIngressRetryBackoffMultiplier
+}
+
+func (b *telemetryConfig) ChipIngressRetryableStatusCodes() []string {
+	if b.s.ChipIngressRetryableStatusCodes == nil {
+		return defaultChipIngressRetryableStatusCodes
+	}
+	return b.s.ChipIngressRetryableStatusCodes
 }
 
 func (b *telemetryConfig) DurableEmitterEnabled() bool {

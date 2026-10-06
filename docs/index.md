@@ -11,6 +11,7 @@ This local docs bundle exposes documentation from the `chainlink` repository thr
 
 - [Local CRE](local-cre/index.md)
 - [Configuration Reference](CONFIG.md)
+- [Chip Ingress Retry Policy](CHIP_INGRESS_RETRY.md)
 - [Secrets Reference](SECRETS.md)
 - [Contributing](CONTRIBUTING.md)
 - [Community](COMMUNITY.md)

@@ -100,6 +100,22 @@ func (m mockCfgTelemetry) ChipIngressDrainTimeout() time.Duration { return 10 * 
 
 func (m mockCfgTelemetry) ChipIngressMaxGRPCRequestSize() int { return 10485760 }
 
+func (m mockCfgTelemetry) ChipIngressRetryEnabled() bool { return true }
+
+func (m mockCfgTelemetry) ChipIngressRetryMaxAttempts() int { return 5 }
+
+func (m mockCfgTelemetry) ChipIngressRetryInitialBackoff() time.Duration {
+	return 250 * time.Millisecond
+}
+
+func (m mockCfgTelemetry) ChipIngressRetryMaxBackoff() time.Duration { return 5 * time.Second }
+
+func (m mockCfgTelemetry) ChipIngressRetryBackoffMultiplier() float64 { return 1.5 }
+
+func (m mockCfgTelemetry) ChipIngressRetryableStatusCodes() []string {
+	return []string{"Unavailable", "ResourceExhausted"}
+}
+
 func (m mockCfgTelemetry) HeartbeatInterval() time.Duration {
 	return 5 * time.Second
 }
@@ -313,4 +329,10 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 10*time.Second, envCfg.ChipIngressSendTimeout)
 	require.Equal(t, 10*time.Second, envCfg.ChipIngressDrainTimeout)
 	require.Equal(t, 10485760, envCfg.ChipIngressMaxGRPCRequestSize)
+	require.True(t, envCfg.ChipIngressRetryEnabled)
+	require.Equal(t, 5, envCfg.ChipIngressRetryMaxAttempts)
+	require.Equal(t, 250*time.Millisecond, envCfg.ChipIngressRetryInitialBackoff)
+	require.Equal(t, 5*time.Second, envCfg.ChipIngressRetryMaxBackoff)
+	require.InDelta(t, 1.5, envCfg.ChipIngressRetryBackoffMultiplier, 0.0001)
+	require.Equal(t, []string{"Unavailable", "ResourceExhausted"}, envCfg.ChipIngressRetryableStatusCodes)
 }
