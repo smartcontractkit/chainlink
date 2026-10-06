@@ -29,7 +29,6 @@ type CapabilitiesWorkflowRegistry interface {
 	NetworkID() string
 	ChainID() string
 	ContractVersion() string
-	MaxEncryptedSecretsSize() utils.FileSize
 	MaxBinarySize() utils.FileSize
 	MaxConfigSize() utils.FileSize
 	RelayID() types.RelayID

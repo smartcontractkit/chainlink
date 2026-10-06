@@ -95,7 +95,7 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 	payload = Response{
 		ExecutionError: false,
 		StatusCode:     resp.StatusCode,
-		Headers:        resp.Headers,
+		Headers:        resp.Headers, //nolint:staticcheck // SA1019: forward deprecated Headers for backward compatibility with the v1 wire format, which only supports single-valued headers
 		Body:           resp.Body,
 	}
 	payloadBytes, err := json.Marshal(payload)
@@ -129,7 +129,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 	req := network.HTTPRequest{
 		Method:           payload.Method,
 		URL:              payload.URL,
-		Headers:          payload.Headers,
+		Headers:          payload.Headers, //nolint:staticcheck // SA1019: forward deprecated Headers from the v1 wire format, which only supports single-valued headers
 		Body:             payload.Body,
 		MaxResponseBytes: payload.MaxResponseBytes,
 		Timeout:          timeout,

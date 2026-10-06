@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 func TestPluginPortManager(t *testing.T) {
@@ -117,7 +117,7 @@ func (m mockCfgTelemetry) MetricViewsDenyAttributes() []string {
 }
 func (m mockCfgTelemetry) MetricCardinalityLimit() int { return 100000 }
 
-func (m mockCfgTelemetry) PrometheusBridge() config.PrometheusBridge {
+func (m mockCfgTelemetry) PrometheusBridge() coreconfig.PrometheusBridge {
 	return mockPrometheusBridge{}
 }
 
@@ -140,11 +140,11 @@ func (m mockPrometheusBridge) Prefixes() []string { return nil }
 
 type mockCfgDatabase struct{}
 
-func (m mockCfgDatabase) Backup() config.Backup { panic("unimplemented") }
+func (m mockCfgDatabase) Backup() coreconfig.Backup { panic("unimplemented") }
 
-func (m mockCfgDatabase) Listener() config.Listener { return mockCfgListener{} }
+func (m mockCfgDatabase) Listener() coreconfig.Listener { return mockCfgListener{} }
 
-func (m mockCfgDatabase) Lock() config.Lock { panic("unimplemented") }
+func (m mockCfgDatabase) Lock() coreconfig.Lock { panic("unimplemented") }
 
 func (m mockCfgDatabase) DefaultIdleInTxSessionTimeout() time.Duration { return time.Hour }
 

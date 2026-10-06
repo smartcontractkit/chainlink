@@ -32,9 +32,11 @@ type ConnectionManagerConfig struct {
 }
 
 type DONConfig struct {
-	DonID         string
-	HandlerName   string          // Deprecated: use Handlers instead
-	HandlerConfig json.RawMessage // Deprecated: use Handlers instead
+	DonID string
+	// Deprecated: use Handlers instead
+	HandlerName string
+	// Deprecated: use Handlers instead
+	HandlerConfig json.RawMessage
 	Members       []NodeConfig
 	F             int
 	Handlers      []Handler
@@ -66,13 +68,16 @@ type ShardedDONConfig struct {
 	Shards  []Shard
 }
 
-// ShardDONID returns the donID for a given shard
-func ShardDONID(donName string, shardIdx int) string {
+// GatewayDONIDForShard returns a special node gateway ID that authenticates a node to the Gateway.
+// The id returned by this function must exactly match the GatewayConnector.DonID
+// in the node's config; otherwise the node will not be able to connect.
+// Shard 0 uses the bare DON name; shard N>0 uses "donName_shard-N".
+func GatewayDONIDForShard(donName string, shardIdx int) string {
 	if shardIdx == 0 {
 		// NOTE: special case for backward compatibility - shard 0 doesn't have an index suffix
 		return donName
 	}
-	return fmt.Sprintf("%s_%d", donName, shardIdx)
+	return fmt.Sprintf("%s_shard-%d", donName, shardIdx)
 }
 
 type Shard struct {

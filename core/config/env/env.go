@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
 var (
@@ -66,7 +66,7 @@ func (e Var) IsTrue() bool { return strings.ToLower(e.Get()) == "true" }
 
 type Secret string
 
-func (e Secret) Get() models.Secret { return models.Secret(os.Getenv(string(e))) }
+func (e Secret) Get() config.SecretString { return config.SecretString(os.Getenv(string(e))) }
 
 type Plugin struct {
 	Cmd Var
