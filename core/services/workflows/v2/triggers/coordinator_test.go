@@ -3,7 +3,6 @@ package triggers
 import (
 	"context"
 	"errors"
-	"slices"
 	"testing"
 	"time"
 
@@ -252,23 +251,22 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 
 		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 
-		// Ingress is stopped: an event sent after unregister is never delivered
-		// to the engine. The send runs in a goroutine since the channel is
-		// unbuffered and no reader may remain to receive it.
-		go func() { eventCh <- triggerEvent("evt-2") }()
-		require.Never(t, func() bool {
-			return slices.ContainsFunc(f.engine.executed(), func(e CoordinatedEvent) bool {
-				return e.Event.Event.ID == "evt-2"
-			})
-		}, 100*time.Millisecond, 10*time.Millisecond, "event sent after unregister must not be delivered")
-
 		// The in-flight execution still resolves its handle.
 		require.NoError(t, f.c.Ack(t.Context(), testTriggerCapID, regID, "evt-1"))
 		assert.True(t, f.registered())
 		assert.Equal(t, 1, f.limits.inUse())
 
+		// Ingress is stopped: an event sent after unregister must never be
+		// delivered, including after the in-flight delivery returns. The send
+		// stays parked on the unbuffered channel until the reader exits.
+		go func() { eventCh <- triggerEvent("evt-2") }()
+
 		close(release)
 		require.Eventually(t, func() bool { return !f.registered() && f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
+
+		executed := f.engine.executed()
+		require.Len(t, executed, 1, "evt-2 must not be delivered after unregister")
+		assert.Equal(t, "evt-1", executed[0].Event.Event.ID)
 	})
 
 	t.Run("repeated calls unregister with the capability once", func(t *testing.T) {
