@@ -158,6 +158,5 @@ func newAuthenticatorForIDP(t *testing.T, idp *mockIDP, ds sqlutil.DataSource) *
 		lggr:         logger.TestSugared(t),
 		auditLogger:  &audit.AuditLoggerService{},
 		deviceFlows:  newDeviceFlowStore(),
-		pendingAuth:  newPendingAuthStore(),
 	}
 }

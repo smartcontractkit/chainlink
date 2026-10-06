@@ -72,6 +72,22 @@ func TestIssueSessionFromIDToken_Expired(t *testing.T) {
 	assert.Equal(t, 0, countOIDCSessions(t, oi, "expired-user@example.com"))
 }
 
+// TestIssueSessionFromIDToken_UnexpectedGroup rejects a token that carries a
+// configured role group plus any other group. The login fails closed.
+func TestIssueSessionFromIDToken_UnexpectedGroup(t *testing.T) {
+	t.Parallel()
+	db := pgtest.NewSqlxDB(t)
+	idp := newMockIDP(t, testClientID)
+	idp.email = "extra-group@example.com"
+	idp.groups = []string{AdminClaim, "Contractors"}
+	oi := newAuthenticatorForIDP(t, idp, db)
+
+	_, _, _, err := oi.issueSessionFromIDToken(t.Context(), idp.signIDToken(t), "")
+	require.ErrorIs(t, err, errNoMatchingRole)
+	assert.Contains(t, err.Error(), "not limited")
+	assert.Equal(t, 0, countOIDCSessions(t, oi, "extra-group@example.com"))
+}
+
 // TestIssueSessionFromIDToken_NoMatchingGroup asserts a validly signed token
 // whose groups map to no RBAC role is rejected with errNoMatchingRole and
 // creates no session.
@@ -142,7 +158,8 @@ func TestDeviceFlow_EndToEnd(t *testing.T) {
 	require.NoError(t, err)
 
 	const handle = "e2e-handle"
-	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
+	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute), clientIP: "127.0.0.1"}
+	require.NoError(t, reserveDeviceFlow(t.Context(), oi.ds, handle, state.clientIP, state.expiresAt))
 	require.NoError(t, oi.deviceFlows.add(handle, state))
 	oi.pollDeviceToken(handle, state, da)
 
@@ -217,7 +234,8 @@ func TestDeviceFlow_WrongAudienceRejected(t *testing.T) {
 	require.NoError(t, err)
 
 	const handle = "e2e-handle-2"
-	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
+	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute), clientIP: "127.0.0.1"}
+	require.NoError(t, reserveDeviceFlow(t.Context(), oi.ds, handle, state.clientIP, state.expiresAt))
 	require.NoError(t, oi.deviceFlows.add(handle, state))
 	oi.pollDeviceToken(handle, state, da)
 

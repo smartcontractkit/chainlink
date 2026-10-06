@@ -122,9 +122,19 @@ func TestOIDCDeviceLogin_Success(t *testing.T) {
 	assert.Equal(t, "clsession", cookie.Name)
 	assert.Equal(t, "abc123", cookie.Value)
 
-	// The operator must be shown the verification URI and code.
+	// The operator must be shown the verification URI, the code, and a warning
+	// to confirm the host before approving.
 	assert.Contains(t, out.String(), "https://sso.example.com/activate")
 	assert.Contains(t, out.String(), "WDJB-MJHT")
+	assert.Contains(t, out.String(), "An approval you did not start is an attack.")
+}
+
+func TestOIDCDeviceLogin_RefusesInsecureSkipVerify(t *testing.T) {
+	t.Parallel()
+	opts := cmd.ClientOpts{InsecureSkipVerify: true}
+	auth := cmd.NewOIDCDeviceCookieAuthenticator(opts, &cmd.MemoryCookieStore{}, &bytes.Buffer{}, logger.TestLogger(t))
+	err := auth.Login(context.Background())
+	require.EqualError(t, err, "device login requires TLS verification; do not set insecure-skip-verify")
 }
 
 func TestOIDCDeviceLogin_Denied(t *testing.T) {
