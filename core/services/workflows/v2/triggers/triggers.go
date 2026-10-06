@@ -145,6 +145,11 @@ func ReadLoop(
 			if !isOpen {
 				return
 			}
+			// The select races a queued event against cancellation: without this
+			// check, an event received after cancel would still be delivered.
+			if ctx.Err() != nil {
+				return
+			}
 			eventID := event.Event.ID
 			metrics.With(platform.KeyTriggerID, triggerCapID).IncrementTriggerEventReceivedCounter(ctx)
 			lggr.Debugw("Processing trigger event", "triggerID", triggerCapID, "eventID", eventID)
