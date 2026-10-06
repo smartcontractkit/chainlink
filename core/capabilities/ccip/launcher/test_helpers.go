@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 )
 
 const (
@@ -24,14 +24,14 @@ var (
 	p2pID2            = getP2PID(2)
 	p2pID3            = getP2PID(3)
 	p2pID4            = getP2PID(4)
-	defaultCapCfgs    = map[string]registrysyncer.CapabilityConfiguration{
+	defaultCapCfgs    = map[string]registry.CapabilityConfiguration{
 		defaultCapability.ID: {},
 	}
-	defaultRegistryDon = registrysyncer.DON{
+	defaultRegistryDon = registry.DON{
 		DON:                      getDON(1, []ragep2ptypes.PeerID{p2pID1}, 0),
 		CapabilityConfigurations: defaultCapCfgs,
 	}
-	secondaryRegistryDon = registrysyncer.DON{
+	secondaryRegistryDon = registry.DON{
 		DON:                      getDON(2, []ragep2ptypes.PeerID{p2pID1}, 0),
 		CapabilityConfigurations: defaultCapCfgs,
 	}
@@ -41,9 +41,9 @@ func getP2PID(id uint32) ragep2ptypes.PeerID {
 	return ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(id))).PeerID())
 }
 
-func getCapability(ccipCapName, ccipCapVersion string) registrysyncer.Capability {
+func getCapability(ccipCapName, ccipCapVersion string) registry.Capability {
 	id := fmt.Sprintf("%s@%s", ccipCapName, ccipCapVersion)
-	return registrysyncer.Capability{
+	return registry.Capability{
 		CapabilityType: capabilities.CapabilityTypeTarget,
 		ID:             id,
 	}

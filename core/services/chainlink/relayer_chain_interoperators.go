@@ -58,6 +58,13 @@ type NetworkChainStatus struct {
 	types.ChainStatus
 }
 
+// NetworkNodeStatus is a NodeStatus from a particular Network.
+type NetworkNodeStatus struct {
+	Network string
+	types.NodeStatus
+}
+
+// ChainStatusReader is an interface for reading chain statuses.
 type ChainStatusReader interface {
 	ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]NetworkChainStatus, int, error)
@@ -66,10 +73,10 @@ type ChainStatusReader interface {
 // NodeStatusReader is an interface for node configuration and state.
 // TODO BCF-2440, BCF-2511 may need Node(ctx,name) to get a node status by name
 type NodeStatusReader interface {
-	NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []types.NodeStatus, count int, err error)
+	NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []NetworkNodeStatus, count int, err error)
 }
 
-// StatusReader report statuses about chains and nodes
+// StatusReader reports statuses about chains and nodes
 type StatusReader interface {
 	ChainStatusReader
 	NodeStatusReader
@@ -136,23 +143,6 @@ func InitEVM(factory RelayerFactory, config EVMFactoryConfig) CoreRelayerChainIn
 			legacyMap[id.ChainID] = a.Chain()
 		}
 		op.legacyChains = legacyevm.NewLegacyChains(legacyMap)
-		return nil
-	}
-}
-
-// InitCosmos is a option for instantiating Cosmos relayers
-func InitCosmos(factory RelayerFactory, ks keystore.Cosmos, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
-	return func(op *CoreRelayerChainInteroperators) (err error) {
-		loopKs := &keystore.CosmosLoopSigner{Cosmos: ks}
-		relayers, err := factory.NewCosmos(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
-		if err != nil {
-			return fmt.Errorf("failed to setup Cosmos relayer: %w", err)
-		}
-		for id, relayer := range relayers {
-			op.srvs = append(op.srvs, relayer)
-			op.loopRelayers[id] = relayer
-		}
-
 		return nil
 	}
 }
@@ -314,6 +304,7 @@ func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]
 
 // LegacyEVMChains returns a container with all the evm chains
 // TODO BCF-2511
+//
 // Deprecated: use the Relayer interface
 func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() legacyevm.LegacyChainContainer {
 	rs.mu.Lock()
@@ -339,14 +330,14 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
-	relayerIds := make([]types.RelayID, 0)
+	relayerIDs := make([]types.RelayID, 0, len(rs.loopRelayers))
 	for rid := range rs.loopRelayers {
-		relayerIds = append(relayerIds, rid)
+		relayerIDs = append(relayerIDs, rid)
 	}
-	sort.Slice(relayerIds, func(i, j int) bool {
-		return relayerIds[i].String() < relayerIds[j].String()
+	sort.Slice(relayerIDs, func(i, j int) bool {
+		return relayerIDs[i].String() < relayerIDs[j].String()
 	})
-	for _, rid := range relayerIds {
+	for _, rid := range relayerIDs {
 		lr := rs.loopRelayers[rid]
 		stat, err := lr.GetChainStatus(ctx)
 		if err != nil {
@@ -375,7 +366,7 @@ func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string)
 	}
 	for _, stat := range stats {
 		if stat.Name == name {
-			return stat, nil
+			return stat.NodeStatus, nil
 		}
 	}
 	return types.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
@@ -383,10 +374,10 @@ func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string)
 
 // ids must be a string representation of relay.Identifier
 // ids are a filter; if none are specified, all are returned.
-func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...types.RelayID) (nodes []types.NodeStatus, count int, err error) {
+func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...types.RelayID) (nodes []NetworkNodeStatus, count int, err error) {
 	var (
 		totalErr error
-		result   []types.NodeStatus
+		result   []NetworkNodeStatus
 	)
 	// Copy under the lock: Get inserts dummy relayers lazily, so the live map cannot be iterated unlocked.
 	relayers := rs.GetIDToRelayerMap()
@@ -400,12 +391,12 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		})
 		for _, key := range keys {
 			lr := relayers[key]
-			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
+			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "") //nolint:gosec // G115: page size is far below math.MaxInt32
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
 				continue
 			}
-			result = append(result, stats...)
+			result = appendNetworkNodeStatuses(result, key.Network, stats)
 			count += total
 		}
 	} else {
@@ -415,13 +406,12 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 				totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
 				continue
 			}
-			nodeStats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
-
+			nodeStats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "") //nolint:gosec // G115: page size is far below math.MaxInt32
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
 				continue
 			}
-			result = append(result, nodeStats...)
+			result = appendNetworkNodeStatuses(result, rid.Network, nodeStats)
 			count += total
 		}
 	}
@@ -436,6 +426,13 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		return result[:limit], count, nil
 	}
 	return result, count, nil
+}
+
+func appendNetworkNodeStatuses(result []NetworkNodeStatus, network string, stats []types.NodeStatus) []NetworkNodeStatus {
+	for _, stat := range stats {
+		result = append(result, NetworkNodeStatus{Network: network, NodeStatus: stat})
+	}
+	return result
 }
 
 type FilterFn func(id types.RelayID) bool
@@ -475,6 +472,7 @@ func (rs *CoreRelayerChainInteroperators) Slice() []loop.Relayer {
 	defer rs.mu.Unlock()
 	return slices.Collect(maps.Values(rs.loopRelayers))
 }
+
 func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
 	return rs.srvs
 }

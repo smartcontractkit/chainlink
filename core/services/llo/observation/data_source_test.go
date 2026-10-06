@@ -35,6 +35,7 @@ import (
 )
 
 type mockPipeline struct {
+	mu   sync.Mutex
 	run  *pipeline.Run
 	trrs pipeline.TaskRunResults
 	err  error
@@ -46,7 +47,17 @@ type mockPipeline struct {
 
 func (m *mockPipeline) Run(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	m.runCount.Add(1)
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.run, m.trrs, m.err
+}
+
+// setResults swaps the results returned by Run. Keeping one pipeline pointer lets a test
+// change generations without a concurrent observation round mixing results from two pointers.
+func (m *mockPipeline) setResults(run *pipeline.Run, trrs pipeline.TaskRunResults, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.run, m.trrs, m.err = run, trrs, err
 }
 
 func (m *mockPipeline) StreamIDs() []streams.StreamID {
@@ -545,7 +556,9 @@ func Test_DataSource(t *testing.T) {
 				wg.Go(func() {
 					vals := lloprotocol.StreamValues{1: nil}
 					err := ds.Observe(ctx, vals, opts)
-					assert.NoError(t, err)
+					if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+						return
+					}
 					assert.Equal(t, lloprotocol.StreamValues{1: lloprotocol.ToDecimal(decimal.NewFromInt(100))}, vals)
 				})
 			}
@@ -591,13 +604,16 @@ func Test_DataSource(t *testing.T) {
 			// Explicitly abort Cycle 1's background observation task before mutating pipelines
 			cancel()
 
-			// Fix the pipeline with distinct values so we can verify generation
+			// Ignore the writes recorded so far; only cycle 2 writes are under test
+			mc.mu.Lock()
+			cycle2Start := len(mc.addCalls)
+			mc.mu.Unlock()
+
+			// Fix the results with distinct values so we can verify generation. Swap them on the
+			// same pipeline pointer: replacing the registry entries would let a concurrent
+			// observation round read stream 1 from the old pipeline and streams 2, 3 from the new one.
 			fixedPipeline := makePipelineWithMultipleStreamResults(sids, []any{decimal.NewFromFloat(111.0), decimal.NewFromFloat(222.0), decimal.NewFromFloat(333.0)})
-			reg.mu.Lock()
-			reg.pipelines[1] = fixedPipeline
-			reg.pipelines[2] = fixedPipeline
-			reg.pipelines[3] = fixedPipeline
-			reg.mu.Unlock()
+			partialPipeline.setResults(fixedPipeline.run, fixedPipeline.trrs, fixedPipeline.err)
 
 			time.Sleep(observationTimeout * 3)
 
@@ -620,7 +636,7 @@ func Test_DataSource(t *testing.T) {
 			defer mc.mu.Unlock()
 
 			foundAtomicWrite := false
-			for _, call := range mc.addCalls {
+			for _, call := range mc.addCalls[cycle2Start:] {
 				v1, has1 := call.values[llotypes.StreamID(1)]
 				v2, has2 := call.values[llotypes.StreamID(2)]
 				v3, has3 := call.values[llotypes.StreamID(3)]

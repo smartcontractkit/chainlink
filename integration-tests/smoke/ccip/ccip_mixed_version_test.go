@@ -48,7 +48,7 @@ func Test_CCIPMixedVersionDON(t *testing.T) {
 		chainsel.GETH_TESTNET,  // source
 		chainsel.GETH_DEVNET_2, // dest
 	}
-	var chainIDs = []uint64{
+	chainIDs := []uint64{
 		chains[0].Selector,
 		chains[1].Selector,
 	}
@@ -103,8 +103,8 @@ func Test_CCIPMixedVersionDON(t *testing.T) {
 				Nonce:                  &nonce,
 				Receiver:               common.HexToAddress("0xdead").Bytes(),
 				MsgData:                []byte("hello from mixed version DON"),
-				ExtraArgs:              nil,                                 // default extraArgs
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+				ExtraArgs:              nil,                               // default extraArgs
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess, // success because offRamp won't call an EOA
 			},
 		)
 	})
@@ -119,7 +119,7 @@ func Test_CCIPMixedVersionDON(t *testing.T) {
 				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver from mixed version DON"),
 				ExtraArgs:              nil, // default extraArgs
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})
@@ -144,7 +144,7 @@ func Test_CCIPRollingUpgrade(t *testing.T) {
 		chainsel.GETH_TESTNET,  // source
 		chainsel.GETH_DEVNET_2, // dest
 	}
-	var chainIDs = []uint64{
+	chainIDs := []uint64{
 		chains[0].Selector,
 		chains[1].Selector,
 	}
@@ -206,7 +206,7 @@ func Test_CCIPRollingUpgrade(t *testing.T) {
 				Receiver:               common.HexToAddress("0xdead").Bytes(),
 				MsgData:                []byte("baseline before rolling upgrade"),
 				ExtraArgs:              nil,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})
@@ -242,7 +242,7 @@ func Test_CCIPRollingUpgrade(t *testing.T) {
 					Receiver:               common.HexToAddress("0xdead").Bytes(),
 					MsgData:                []byte(fmt.Sprintf("message after upgrading node %d", i)),
 					ExtraArgs:              nil,
-					ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+					ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 					Replayed:               true, // skip replay after upgrade since the node restarts and the log poller starts fresh
 				},
 			)
@@ -260,7 +260,7 @@ func Test_CCIPRollingUpgrade(t *testing.T) {
 				Receiver:               state.MustGetEVMChainState(destChain).Receiver.Address().Bytes(),
 				MsgData:                []byte("final message after rolling upgrade"),
 				ExtraArgs:              nil,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				Replayed:               true, // skip replay after upgrades since the nodes restart and the log poller starts fresh
 			},
 		)

@@ -8,15 +8,16 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 // zoneBFamily is the DON family (in the capabilities registry) identifying the
 // zone-b workflow DON whose vault GetSecrets reads are restricted to an
-// allowlist of workflow owners.
+// allowlist of workflow owners. Any family starting with it (e.g. the
+// "zone-b_workflows" family used by sharded workflow DONs) is treated as zone-b.
 const zoneBFamily = "zone-b"
 
 // zoneBRestrictor enforces that GetSecrets reads originating from a zone-b
@@ -25,7 +26,7 @@ const zoneBFamily = "zone-b"
 // never from caller-supplied metadata.
 type zoneBRestrictor struct {
 	lggr                 logger.Logger
-	capabilitiesRegistry core.CapabilitiesRegistry
+	capabilitiesRegistry registry.CapabilitiesRegistry
 	// restrictEnabled is the master gate. When open, GetSecrets reads from a
 	// zone-b workflow DON are restricted to allowlisted workflow owners.
 	restrictEnabled limits.GateLimiter
@@ -42,7 +43,7 @@ type zoneBRestrictor struct {
 	zoneCache map[uint32]bool
 }
 
-func newZoneBRestrictor(lggr logger.Logger, limitsFactory limits.Factory, capabilitiesRegistry core.CapabilitiesRegistry) (*zoneBRestrictor, error) {
+func newZoneBRestrictor(lggr logger.Logger, limitsFactory limits.Factory, capabilitiesRegistry registry.CapabilitiesRegistry) (*zoneBRestrictor, error) {
 	restrictEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultZoneBWorkflowGetSecretsRestrictEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create zone-b restrict gate limiter: %w", err)
@@ -69,7 +70,7 @@ func newZoneBRestrictor(lggr logger.Logger, limitsFactory limits.Factory, capabi
 // resolves to a zone-b DON. The owner is read from ctx, which must already carry
 // the (normalized) CRE owner via RequestMetadata.ContextWithCRE.
 func (z *zoneBRestrictor) enforce(ctx context.Context, workflowDonID uint32) error {
-	enabled, err := z.restrictEnabled.Limit(ctx)
+	enabled, err := z.restrictEnabled.IsOpen(ctx)
 	if err != nil {
 		return fmt.Errorf("could not evaluate zone-b vault read restriction gate: %w", err)
 	}
@@ -113,12 +114,20 @@ func (z *zoneBRestrictor) isZoneBWorkflowDON(ctx context.Context, workflowDonID 
 		}
 		return false, fmt.Errorf("could not resolve caller workflow DON %d for zone-b vault read restriction: %w", workflowDonID, err)
 	}
-	// Case-insensitive match: family casing may vary across registry sources.
-	isZoneB := slices.ContainsFunc(don.Families, func(family string) bool {
-		return strings.EqualFold(family, zoneBFamily)
-	})
+	isZoneB := slices.ContainsFunc(don.Families, isZoneBFamily)
 	z.storeZoneMembership(workflowDonID, isZoneB)
 	return isZoneB, nil
+}
+
+// isZoneBFamily reports whether family identifies a zone-b workflow DON, i.e.
+// starts with zoneBFamily. This covers the base "zone-b" family as well as
+// sharding-specific variants such as "zone-b_workflows". Each workflow shard is
+// its own DON in the registry, so every shard of a zone-b workflow DON is
+// resolved and restricted by its own WorkflowDonID. A prefix match fails
+// closed: over-matching only restricts more DONs, never fewer. The match is
+// case-insensitive since family casing may vary across registry sources.
+func isZoneBFamily(family string) bool {
+	return strings.HasPrefix(strings.ToLower(family), zoneBFamily)
 }
 
 func (z *zoneBRestrictor) cachedZoneMembership(workflowDonID uint32) (bool, bool) {

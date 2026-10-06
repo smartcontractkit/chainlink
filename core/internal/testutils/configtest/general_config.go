@@ -12,23 +12,21 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
-	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 
-// NewTestGeneralConfig returns a new chainlink.GeneralConfig with default test overrides and one chain with evmclient.NullClientChainID.
+// NewTestGeneralConfig returns a new chainlink.GeneralConfig with default test overrides and one chain with client.NullClientChainID.
 func NewTestGeneralConfig(t testing.TB) chainlink.GeneralConfig { return NewGeneralConfig(t, nil) }
 
 // NewGeneralConfig returns a new chainlink.GeneralConfig with overrides.
-// The default test overrides are applied before overrideFn, and include one chain with evmclient.NullClientChainID.
+// The default test overrides are applied before overrideFn, and include one chain with client.NullClientChainID.
 func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlink.Secrets)) chainlink.GeneralConfig {
 	tempDir := t.TempDir()
-	g, err := chainlink.GeneralConfigOpts{
+	opts := chainlink.GeneralConfigOpts{
 		OverrideFn: func(c *chainlink.Config, s *chainlink.Secrets) {
 			overrides(c, s)
 			c.RootDir = &tempDir
@@ -36,14 +34,15 @@ func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlin
 				fn(c, s)
 			}
 		},
-	}.New()
+	}
+	g, err := opts.New()
 	require.NoError(t, err)
 	return g
 }
 
-// overrides applies some test config settings and adds a default chain with evmclient.NullClientChainID.
+// overrides applies some test config settings and adds a default chain with client.NullClientChainID.
 func overrides(c *chainlink.Config, s *chainlink.Secrets) {
-	s.Password.Keystore = models.NewSecret("dummy-to-pass-validation")
+	s.Password.Keystore = commonconfig.NewSecretString("dummy-to-pass-validation")
 
 	c.Insecure.OCRDevelopmentMode = new(true)
 	c.InsecureFastScrypt = new(true)
@@ -69,7 +68,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.WebServer.ListenIP = &testIP
 	c.WebServer.TLS.ListenIP = &testIP
 
-	chainID := sqlutil.NewI(evmclient.NullClientChainID)
+	chainID := sqlutil.NewI(client.NullClientChainID)
 
 	chainCfg := toml.Defaults(chainID)
 	chainCfg.LogPollInterval = commonconfig.MustNewDuration(1 * time.Second) // speed it up from the standard 15s for tests
@@ -92,7 +91,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 
 // NewGeneralConfigSimulated returns a new chainlink.GeneralConfig with overrides, including the simulated EVM chain.
 // The default test overrides are applied before overrideFn.
-// The simulated chain (testutils.SimulatedChainID) replaces the null chain (evmclient.NullClientChainID).
+// The simulated chain (testutils.SimulatedChainID) replaces the null chain (client.NullClientChainID).
 func NewGeneralConfigSimulated(t testing.TB, overrideFn func(*chainlink.Config, *chainlink.Secrets)) chainlink.GeneralConfig {
 	return NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulated(c, s)

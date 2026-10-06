@@ -16,7 +16,7 @@ import (
 type FakeRelayerChainInteroperators struct {
 	Relayers  map[types.RelayID]loop.Relayer
 	EVMChains legacyevm.LegacyChainContainer
-	Nodes     []types.NodeStatus
+	Nodes     []chainlink.NetworkNodeStatus
 	NodesErr  error
 }
 
@@ -24,7 +24,7 @@ func (f *FakeRelayerChainInteroperators) LegacyEVMChains() legacyevm.LegacyChain
 	return f.EVMChains
 }
 
-func (f *FakeRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []types.NodeStatus, count int, err error) {
+func (f *FakeRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []chainlink.NetworkNodeStatus, count int, err error) {
 	return slices.Clone(f.Nodes), len(f.Nodes), f.NodesErr
 }
 
@@ -49,7 +49,7 @@ func (f *FakeRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]l
 }
 
 func (f *FakeRelayerChainInteroperators) Slice() []loop.Relayer {
-	var relayers []loop.Relayer
+	relayers := make([]loop.Relayer, 0, len(f.Relayers))
 
 	for _, value := range f.Relayers {
 		relayers = append(relayers, value)

@@ -12,9 +12,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -58,7 +58,7 @@ func NewConfigOverriderImpl(
 
 	addressBig := contractAddress.Big()
 	jitterSeconds := int64(cfg.DeltaCJitterOverride() / time.Second)
-	addressSeconds := addressBig.Mod(addressBig, big.NewInt(jitterSeconds)).Uint64()
+	addressSeconds := addressBig.Mod(addressBig, big.NewInt(jitterSeconds)).Int64()
 	deltaC := cfg.DeltaCOverride() + time.Duration(addressSeconds)*time.Second
 
 	co := ConfigOverriderImpl{
@@ -91,7 +91,7 @@ func (c *ConfigOverriderImpl) Start(context.Context) error {
 }
 
 func (c *ConfigOverriderImpl) Close() error {
-	return c.StopOnce("OCRContractTracker", func() error {
+	return c.StopOnce("ContractTracker", func() error {
 		close(c.chStop)
 		<-c.chDone
 		return nil

@@ -295,14 +295,14 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 	name := string(args.ID)
 	r.App.GetLogger().Debug("resolver Node name %s", name)
 
-	for _, relayer := range r.App.GetRelayers().Slice() {
+	for rid, relayer := range r.App.GetRelayers().GetIDToRelayerMap() {
 		statuses, _, _, err := relayer.ListNodeStatuses(ctx, 0, "")
 		if err != nil {
 			return nil, err
 		}
-		for i, s := range statuses {
+		for _, s := range statuses {
 			if s.Name == name {
-				npr, err2 := NewNodePayloadResolver(&statuses[i], nil)
+				npr, err2 := NewNodePayloadResolver(&chainlink.NetworkNodeStatus{Network: rid.Network, NodeStatus: s}, nil)
 				if err2 != nil {
 					return nil, err2
 				}
@@ -605,18 +605,6 @@ func (r *Resolver) AptosKeys(ctx context.Context) (*AptosKeysPayloadResolver, er
 	}
 
 	return NewAptosKeysPayload(keys), nil
-}
-
-func (r *Resolver) CosmosKeys(ctx context.Context) (*CosmosKeysPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
-		return nil, err
-	}
-	keys, err := r.App.GetKeyStore().Cosmos().GetAll()
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCosmosKeysPayload(keys), nil
 }
 
 func (r *Resolver) SuiKeys(ctx context.Context) (*SuiKeysPayloadResolver, error) {

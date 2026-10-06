@@ -31,7 +31,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow"]
   override_mode = "all"
   http_port_range_start = 10100
@@ -45,7 +45,7 @@
   registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13000
 
   [[nodesets.node_specs]]
@@ -60,7 +60,7 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
@@ -68,7 +68,7 @@
   supported_evm_chains = [1337]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13200
 
   [[nodesets.node_specs]]

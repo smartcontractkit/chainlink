@@ -1,10 +1,10 @@
 package job
 
 import (
-	"context"
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
@@ -22,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -139,37 +137,38 @@ var (
 )
 
 type Job struct {
-	ID                         int32     `toml:"-"`
-	ExternalJobID              uuid.UUID `toml:"externalJobID"`
-	StreamID                   *uint32   `toml:"streamID"`
-	OCROracleSpecID            *int32
-	OCROracleSpec              *OCROracleSpec
-	OCR2OracleSpecID           *int32
-	OCR2OracleSpec             *OCR2OracleSpec
-	CronSpecID                 *int32
-	CronSpec                   *CronSpec
-	DirectRequestSpecID        *int32
-	DirectRequestSpec          *DirectRequestSpec
-	FluxMonitorSpecID          *int32
-	FluxMonitorSpec            *FluxMonitorSpec
-	VRFSpecID                  *int32
-	VRFSpec                    *VRFSpec
-	WebhookSpecID              *int32
-	WebhookSpec                *WebhookSpec
-	BlockhashStoreSpecID       *int32
-	BlockhashStoreSpec         *BlockhashStoreSpec
-	BlockHeaderFeederSpecID    *int32
-	BlockHeaderFeederSpec      *BlockHeaderFeederSpec
-	BALSpecID                  *int32
-	BootstrapSpec              *BootstrapSpec
-	BootstrapSpecID            *int32
-	GatewaySpec                *GatewaySpec
-	GatewaySpecID              *int32
-	EALSpec                    *EALSpec
-	EALSpecID                  *int32
-	LiquidityBalancerSpec      *LiquidityBalancerSpec
-	LiquidityBalancerSpecID    *int32
-	PipelineSpecID             int32 // This is deprecated in favor of the `job_pipeline_specs` table relationship
+	ID                      int32     `toml:"-"`
+	ExternalJobID           uuid.UUID `toml:"externalJobID"`
+	StreamID                *uint32   `toml:"streamID"`
+	OCROracleSpecID         *int32
+	OCROracleSpec           *OCROracleSpec
+	OCR2OracleSpecID        *int32
+	OCR2OracleSpec          *OCR2OracleSpec
+	CronSpecID              *int32
+	CronSpec                *CronSpec
+	DirectRequestSpecID     *int32
+	DirectRequestSpec       *DirectRequestSpec
+	FluxMonitorSpecID       *int32
+	FluxMonitorSpec         *FluxMonitorSpec
+	VRFSpecID               *int32
+	VRFSpec                 *VRFSpec
+	WebhookSpecID           *int32
+	WebhookSpec             *WebhookSpec
+	BlockhashStoreSpecID    *int32
+	BlockhashStoreSpec      *BlockhashStoreSpec
+	BlockHeaderFeederSpecID *int32
+	BlockHeaderFeederSpec   *BlockHeaderFeederSpec
+	BALSpecID               *int32
+	BootstrapSpec           *BootstrapSpec
+	BootstrapSpecID         *int32
+	GatewaySpec             *GatewaySpec
+	GatewaySpecID           *int32
+	EALSpec                 *EALSpec
+	EALSpecID               *int32
+	LiquidityBalancerSpec   *LiquidityBalancerSpec
+	LiquidityBalancerSpecID *int32
+	// Deprecated: use the `job_pipeline_specs` table relationship instead
+	PipelineSpecID             int32
 	PipelineSpec               *pipeline.Spec
 	WorkflowSpecID             *int32
 	WorkflowSpec               *WorkflowSpec
@@ -310,7 +309,7 @@ func (s *OCROracleSpec) SetID(value string) error {
 
 // JSONConfig is a map for config properties which are encoded as JSON in the database by implementing
 // sql.Scanner and driver.Valuer.
-type JSONConfig map[string]any //nolint:recvcheck // Scan requires pointer receiver to unmarshal into map, Value requires value receiver for driver.Valuer
+type JSONConfig map[string]any
 
 // Bytes returns the raw bytes
 func (r JSONConfig) Bytes() []byte {
@@ -327,7 +326,7 @@ func (r JSONConfig) Value() (driver.Value, error) {
 func (r *JSONConfig) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
-		return errors.Errorf("expected bytes got %T", b)
+		return fmt.Errorf("expected bytes got %T", b)
 	}
 	return json.Unmarshal(b, &r)
 }
@@ -810,9 +809,7 @@ type LiquidityBalancerSpec struct {
 type WorkflowSpecType string
 
 const (
-	YamlSpec        WorkflowSpecType = "yaml"
-	WASMFile        WorkflowSpecType = "wasm_file"
-	DefaultSpecType                  = ""
+	WASMFile WorkflowSpecType = "wasm_file"
 )
 
 type WorkflowSpecStatus string
@@ -848,99 +845,9 @@ type WorkflowSpec struct {
 	// StorageBytes is the workflow + config size in bytes. Set at registration
 	// and not cleared by pausing the workflow
 	StorageBytes int64 `toml:"-" db:"storage_bytes"`
-
-	sdkWorkflow *sdk.WorkflowSpec
-	rawSpec     []byte
-	config      []byte
-}
-
-var (
-	ErrInvalidWorkflowID       = errors.New("invalid workflow id")
-	ErrInvalidWorkflowYAMLSpec = errors.New("invalid workflow yaml spec")
-)
-
-const (
-	workflowIDLen = 64 // sha256 hash
-)
-
-// Validate checks the workflow spec for correctness
-func (w *WorkflowSpec) Validate(ctx context.Context) error {
-	s, err := w.SDKSpec(ctx)
-	if err != nil {
-		return err
-	}
-
-	// For yaml-based workflow specs, use the owner & name fields defined there.
-	// For wasm workflows, use the `workflow_name` & `workflow_owner` fields directly from the job spec.
-	if s.Owner+s.Name != "" {
-		w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
-		w.WorkflowName = s.Name
-	} else {
-		w.WorkflowOwner = strings.TrimPrefix(w.WorkflowOwner, "0x")
-	}
-
-	if len(w.WorkflowID) != workflowIDLen {
-		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))
-	}
-
-	return nil
-}
-
-func (w *WorkflowSpec) SDKSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
-	if w.sdkWorkflow != nil {
-		return *w.sdkWorkflow, nil
-	}
-
-	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
-	if !ok {
-		return sdk.WorkflowSpec{}, fmt.Errorf("unknown spec type %s", w.SpecType)
-	}
-	spec, rawSpec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, w.Config)
-	if err != nil {
-		return sdk.WorkflowSpec{}, fmt.Errorf("spec factory failed: %w", err)
-	}
-	w.sdkWorkflow = &spec
-	w.rawSpec = rawSpec
-	w.WorkflowID = cid
-	return spec, nil
-}
-
-func (w *WorkflowSpec) RawSpec(ctx context.Context) ([]byte, error) {
-	if w.rawSpec != nil {
-		return w.rawSpec, nil
-	}
-
-	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
-	if !ok {
-		return nil, fmt.Errorf("unknown spec type %s", w.SpecType)
-	}
-
-	rs, err := workflowSpecFactory.RawSpec(ctx, w.Workflow, w.Config)
-	if err != nil {
-		return nil, err
-	}
-
-	w.rawSpec = rs
-	return rs, nil
-}
-
-func (w *WorkflowSpec) GetConfig(ctx context.Context) ([]byte, error) {
-	if w.config != nil {
-		return w.config, nil
-	}
-
-	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
-	if !ok {
-		return nil, fmt.Errorf("unknown spec type %s", w.SpecType)
-	}
-
-	rs, err := workflowSpecFactory.Config(ctx, w.Config)
-	if err != nil {
-		return nil, err
-	}
-
-	w.config = rs
-	return rs, nil
+	// TriggerSubscriptions caches the marshaled sdkpb.TriggerSubscriptionRequest
+	// values, so future engine starts can skip re-executing the binary to get them.
+	TriggerSubscriptions []byte `toml:"-" db:"trigger_subscriptions"`
 }
 
 type StandardCapabilitiesConfig struct {
@@ -954,7 +861,7 @@ type StandardCapabilitiesConfig struct {
 	OracleFactory     OracleFactoryConfig `toml:"oracle_factory"`
 }
 
-type OracleFactoryConfig struct { //nolint:recvcheck // Scan requires pointer receiver to unmarshal into struct, Value requires value receiver for driver.Valuer
+type OracleFactoryConfig struct {
 	Enabled            bool                   `toml:"enabled"`
 	BootstrapPeers     []string               `toml:"bootstrap_peers"`
 	OCRContractAddress string                 `toml:"ocr_contract_address"`
@@ -977,7 +884,7 @@ func (ofc *OracleFactoryConfig) Scan(value any) error {
 
 	b, ok := value.([]byte)
 	if !ok {
-		return errors.Errorf("expected bytes got %T", value)
+		return fmt.Errorf("expected bytes got %T", value)
 	}
 	return json.Unmarshal(b, &ofc)
 }

@@ -156,7 +156,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/keystore:
     interfaces:
       Aptos:
-      Cosmos:
       CSA:
       Eth:
       Master:

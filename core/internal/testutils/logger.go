@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // LoggerAssertMaxLevel returns a test logger which is observed on cleanup
@@ -18,7 +18,7 @@ func LoggerAssertMaxLevel(t *testing.T, lvl zapcore.Level) logger.Logger {
 	if lvl >= zapcore.FatalLevel {
 		t.Fatalf("no levels exist after %s", zapcore.FatalLevel)
 	}
-	lggr, o := logger.TestLoggerObserved(t, lvl+1)
+	lggr, o := logger.TestObserved(t, lvl+1)
 	t.Cleanup(func() {
 		assert.Empty(t, o.Len(), "logger contains entries with levels above %q:\n%s", lvl, loggedEntries(o.All()))
 	})

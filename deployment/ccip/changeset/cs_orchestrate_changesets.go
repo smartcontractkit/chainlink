@@ -228,7 +228,7 @@ func MergeChangesetOutput(e cldf.Environment, dest *cldf.ChangesetOutput, src cl
 		dest.Reports = append(dest.Reports, src.Reports...)
 	}
 
-	src.AddressBook = nil //nolint:staticcheck // AddressBook is deprecated, but Phase 1 still uses it
+	src.AddressBook = nil
 	src.DataStore = nil
 	if err := cldf.MergeChangesetOutput(e, dest, src); err != nil {
 		return fmt.Errorf("failed to merge changeset output: %w", err)
@@ -301,7 +301,7 @@ func mergeAddressBookEntries(dst cldf.AddressBook, entries map[uint64]map[string
 func planChangesetMerge(env cldf.Environment, dest, src cldf.ChangesetOutput) (*changesetMergePlan, error) {
 	plan := &changesetMergePlan{}
 
-	if err := plan.planAddressBook(env, dest.AddressBook, src.AddressBook); err != nil { //nolint:staticcheck // AddressBook is deprecated, but Phase 1 still uses it
+	if err := plan.planAddressBook(env, dest.AddressBook, src.AddressBook); err != nil {
 		return nil, err
 	}
 
@@ -640,7 +640,7 @@ func (p *changesetMergePlan) applyAddressBookAndDataStore(env cldf.Environment, 
 	}
 
 	if p.addressBook != nil {
-		dest.AddressBook = p.addressBook //nolint:staticcheck // AddressBook is deprecated, but Phase 1 still uses it
+		dest.AddressBook = p.addressBook
 	}
 	if p.dataStore != nil {
 		dest.DataStore = p.dataStore

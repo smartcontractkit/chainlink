@@ -13,10 +13,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -27,12 +27,15 @@ var (
 )
 
 // dispatcher en/decodes messages and routes traffic between peers and capabilities
+// messageVersion is the version of the remote message schema.
+const messageVersion = 1
+
 type dispatcher struct {
 	cfg               config.Dispatcher
 	peerID            p2ptypes.PeerID
 	signer            p2ptypes.Signer
 	don2donSharedPeer p2ptypes.SharedPeer
-	registry          core.CapabilitiesRegistry
+	registry          registry.CapabilitiesRegistry
 	rateLimiter       *ratelimit.RateLimiter
 	receivers         map[key]*receiver
 	mu                sync.RWMutex
@@ -64,7 +67,7 @@ type key struct {
 
 var _ services.Service = &dispatcher{}
 
-func NewDispatcher(cfg config.Dispatcher, don2donSharedPeer p2ptypes.SharedPeer, signer p2ptypes.Signer, registry core.CapabilitiesRegistry, lggr logger.Logger) (*dispatcher, error) {
+func NewDispatcher(cfg config.Dispatcher, don2donSharedPeer p2ptypes.SharedPeer, signer p2ptypes.Signer, registry registry.CapabilitiesRegistry, lggr logger.Logger) (*dispatcher, error) {
 	if don2donSharedPeer == nil {
 		return nil, errors.New("don2donSharedPeer is required")
 	}
@@ -230,8 +233,7 @@ func (d *dispatcher) removeReceiver(k key) {
 }
 
 func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
-	//nolint:gosec // disable G115
-	msgBody.Version = uint32(d.cfg.SupportedVersion())
+	msgBody.Version = messageVersion
 	msgBody.Sender = d.peerID[:]
 	msgBody.Receiver = peerID[:]
 	msgBody.Timestamp = time.Now().UnixMilli()

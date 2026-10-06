@@ -31,6 +31,8 @@ type EngineMetrics struct {
 	workflowExecutionLatencyGauge            metric.Int64Gauge // ms
 	workflowStepErrorCounter                 metric.Int64Counter
 	workflowInitializationCounter            metric.Int64Counter
+	workflowInitializationFailureCounter     metric.Int64Counter
+	triggerSubscriptionSourceCounter         metric.Int64Counter
 	workflowTriggerEventErrorCounter         metric.Int64Counter
 	workflowTriggerEventQueueFullCounter     metric.Int64Counter
 
@@ -84,6 +86,9 @@ type EngineMetrics struct {
 	donTimeErrorsCounter   metric.Int64Counter
 
 	orgIDMissingCounter metric.Int64Counter
+
+	limitReadFallbackTotal    metric.Int64Counter
+	limitCheckUnenforcedTotal metric.Int64Counter
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -159,6 +164,20 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowInitializationCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_initializations")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow initialization counter: %w", err)
+	}
+
+	em.workflowInitializationFailureCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_workflow_initialization_failures_total",
+		metric.WithDescription("Count of failed engine initializations by failure reason"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow initialization failure counter: %w", err)
+	}
+
+	em.triggerSubscriptionSourceCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_subscription_source_total",
+		metric.WithDescription("Count of engine starts by trigger subscription source: cache or wasm"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger subscription source counter: %w", err)
 	}
 
 	em.workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_errors")
@@ -449,6 +468,22 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register org id missing counter: %w", err)
 	}
 
+	em.limitReadFallbackTotal, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_limit_read_fallback_total",
+		metric.WithDescription("Limit reads that failed and fell back to the static default, by limitKey"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register limit read fallback counter: %w", err)
+	}
+
+	em.limitCheckUnenforcedTotal, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_limit_check_unenforced_total",
+		metric.WithDescription("Limit checks that could not be evaluated, so the limit went unenforced (failed open), by limitKey"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register limit check unenforced counter: %w", err)
+	}
+
 	return em, nil
 }
 
@@ -509,6 +544,12 @@ func MetricViews() []sdkmetric.View {
 			sdkmetric.Instrument{Name: "platform_engine_execution_semaphore_wait_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
 				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60},
+			}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_trigger_drainer_hook_duration_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 5, 30},
 			}},
 		),
 	}
@@ -612,6 +653,24 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowUnregisteredCounter(ctx context
 func (c WorkflowsMetricLabeler) IncrementWorkflowInitializationCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowInitializationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementWorkflowInitializationFailureCounter records one failed engine
+// initialization. reason must be a low-cardinality value identifying the
+// failing phase; see the initFailure* constants in the engine package.
+func (c WorkflowsMetricLabeler) IncrementWorkflowInitializationFailureCounter(ctx context.Context, reason string) {
+	if reason == "" {
+		reason = "unknown"
+	}
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	otelLabels = append(otelLabels, attribute.String("reason", reason))
+	c.em.workflowInitializationFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerSubscriptionSourceCounter(ctx context.Context, source string) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	otelLabels = append(otelLabels, attribute.String("source", source))
+	c.em.triggerSubscriptionSourceCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementWorkflowTriggerEventErrorCounter(ctx context.Context) {
@@ -822,4 +881,25 @@ func (c WorkflowsMetricLabeler) IncrementOrgIDMissingCounter(ctx context.Context
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	otelLabels = append(otelLabels, attribute.String("reason", reason))
 	c.em.orgIDMissingCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementLimitReadFallbackCounter records one limit read that failed and fell back
+// to a default instead of dropping the execution/event. limitKey should be the
+// canonical settings.Setting.Key for the limit that failed.
+func (c WorkflowsMetricLabeler) IncrementLimitReadFallbackCounter(ctx context.Context, limitKey string) {
+	lc := c.With(platform.KeyLimitKey, limitKey)
+	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()
+	lc.em.limitReadFallbackTotal.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementLimitCheckUnenforcedCounter records one limit Check that could not be
+// evaluated (a settings read failure rather than the bound being exceeded), so the
+// limit was skipped and the operation allowed through. Distinct from
+// IncrementLimitReadFallbackCounter: there is no default to substitute here, the limit
+// simply went unenforced, so a non-zero rate means a limit is not being applied.
+// limitKey should be the canonical settings.Setting.Key for the limit that failed.
+func (c WorkflowsMetricLabeler) IncrementLimitCheckUnenforcedCounter(ctx context.Context, limitKey string) {
+	lc := c.With(platform.KeyLimitKey, limitKey)
+	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()
+	lc.em.limitCheckUnenforcedTotal.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

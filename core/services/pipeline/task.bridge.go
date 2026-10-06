@@ -190,6 +190,15 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		promBridgeLatency.WithLabelValues(t.Name, statusCodeGroup(statusCode)).Set(elapsed.Seconds())
 		promBridgeLatencyHist.WithLabelValues(t.Name, statusCodeGroup(statusCode)).Observe(float64(elapsed.Milliseconds()))
 
+		// Reuse the same cache-fallback path as the HTTP flow.
+		out := bridgeHTTPOutcome{
+			body:           responseBytes,
+			statusCode:     statusCode,
+			err:            obsErr,
+			cachedResponse: false,
+		}
+		out, earlyResult, earlyRunInfo := t.resolveFailureOrCache(overtimeCtx, lggr, url, out, cacheTTL)
+
 		if telemetryCh := GetTelemetryCh(ctx); telemetryCh != nil {
 			requestDataJSON, jsonErr := json.Marshal(lookupPayload)
 			if jsonErr != nil {
@@ -198,16 +207,17 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 			bt := &BridgeTelemetry{
 				Name:                   t.Name,
 				RequestData:            requestDataJSON,
-				ResponseData:           responseBytes,
-				ResponseStatusCode:     statusCode,
+				ResponseData:           out.body,
+				ResponseStatusCode:     out.statusCode,
+				LocalCacheHit:          out.cachedResponse,
 				RequestStartTimestamp:  start,
 				RequestFinishTimestamp: finish,
 				SpecID:                 t.specID,
 				DotID:                  t.DotID(),
 			}
-			if obsErr != nil {
+			if out.err != nil {
 				bt.ResponseError = new(string)
-				*bt.ResponseError = obsErr.Error()
+				*bt.ResponseError = out.err.Error()
 			}
 
 			bt.resolveStreamID(t, vars, lggr)
@@ -219,15 +229,24 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 			}
 		}
 
-		if obsErr != nil {
+		if earlyResult != nil {
 			lggr.Debugw("Bridge task: connection manager request failed",
-				"response", string(responseBytes),
+				"response", string(out.body),
 				"url", url.String(),
-				"error", obsErr,
+				"error", out.err,
 			)
-			return Result{Error: obsErr}, RunInfo{IsRetryable: true}
+			return *earlyResult, *earlyRunInfo
 		}
-		return Result{Value: string(responseBytes)}, runInfo
+
+		// Persist successful connection-manager responses so future failures can
+		// fall back to them.
+		if !out.cachedResponse && cacheTTL > 0 {
+			if upsertErr := t.orm.UpsertBridgeResponse(overtimeCtx, t.dotID, t.specID, out.body); upsertErr != nil {
+				lggr.Errorw("Bridge task: failed to upsert response in bridge cache", "err", upsertErr)
+			}
+		}
+
+		return Result{Value: string(out.body)}, runInfo
 	}
 
 	requestDataJSON, err := t.finalizeAndMarshalBridgeRequestData(lggr, vars, inputValues, &requestData, includeInputAtKey)

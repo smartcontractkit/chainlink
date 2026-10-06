@@ -40,6 +40,10 @@ const (
 	errorIncomingRatelimitSender   = "message from gateway exceeded per sender rate limit"
 )
 
+// rateLimitedError marks an error as caused by the node's local outgoing rate limiter,
+// so it can be reported as its own status distinct from a downstream transport/gateway failure.
+type rateLimitedError struct{ error }
+
 var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 
 type OutgoingConnectorHandler struct {
@@ -97,10 +101,12 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	totalDuration := time.Since(start)
 	status := "fail"
 	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		status = "timeout"
 	case err == nil:
 		status = "success"
+	case errors.Is(err, context.DeadlineExceeded):
+		status = "timeout"
+	case errors.As(err, &rateLimitedError{}):
+		status = "rate_limited"
 	}
 	c.metrics.recordSingleNodeRequestDuration(ctx, totalDuration, status, req.WorkflowID)
 
@@ -111,10 +117,10 @@ func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, 
 	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", req.WorkflowID)
 	workflowAllow, globalAllow := c.outgoingRateLimiter.AllowVerbose(req.WorkflowID)
 	if !workflowAllow {
-		return nil, errors.New(errorOutgoingRatelimitWorkflow)
+		return nil, rateLimitedError{errors.New(errorOutgoingRatelimitWorkflow)}
 	}
 	if !globalAllow {
-		return nil, errors.New(errorOutgoingRatelimitGlobal)
+		return nil, rateLimitedError{errors.New(errorOutgoingRatelimitGlobal)}
 	}
 
 	// set default timeout if not provided for all outgoing requests
@@ -350,7 +356,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 
 	l.Debugw("handling gateway request")
 	switch body.Method {
-	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction, capabilities.MethodWorkflowSyncer:
+	case capabilities.MethodWorkflowSyncer:
 		body := &msg.Body
 		var payload capabilities.Response
 		err := json.Unmarshal(body.Payload, &payload)
@@ -428,7 +434,7 @@ func outgoingRateLimiterConfigDefaults(config ratelimit.RateLimiterConfig) ratel
 
 func validMethod(method string) bool {
 	switch method {
-	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction, capabilities.MethodWorkflowSyncer:
+	case capabilities.MethodWorkflowSyncer:
 		return true
 	default:
 		return false
@@ -513,5 +519,5 @@ func newMetrics(method string) (*metrics, error) {
 		return nil, err
 	}
 
-	return &metrics{handleDuration: h, awaitConnDuration: a}, nil
+	return &metrics{handleDuration: h, awaitConnDuration: a, method: method}, nil
 }

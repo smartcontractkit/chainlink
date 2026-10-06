@@ -522,7 +522,13 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 	}
 
 	dispatcher := mocks.NewDispatcher(t)
-	allowRegistrationChecks(dispatcher)
+	checkReceived := make(chan *remotetypes.MessageBody, 10)
+	dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
+		return m.Method == remotetypes.MethodTriggerRegistrationCheck
+	})).Run(func(args mock.Arguments) {
+		msg := args.Get(1).(*remotetypes.MessageBody)
+		checkReceived <- msg
+	}).Return(nil).Maybe()
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -548,6 +554,17 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 	publisher.Receive(ctx, regEvent)
 
 	waitForRegistration(t, underlying.registrationsCh)
+
+	// RegisterTrigger on the underlying capability runs asynchronously; the publisher only
+	// records the registration (and becomes eligible to process an unregister for it) after
+	// that call returns. Wait for a registration check, which is only sent for triggers
+	// already present in the publisher's registration map, so the race below can't drop the
+	// unregister message.
+	select {
+	case <-checkReceived:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for registration check message")
+	}
 
 	// Send unregister
 	unregMsg := &remotetypes.MessageBody{

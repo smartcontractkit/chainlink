@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -37,13 +38,18 @@ type triggerSubscriber struct {
 	//   - Easier migration.
 	// workflowID -> triggerID -> subRegState
 	registeredWorkflows map[string]map[string]*subRegState
+	// registrationBuckets[i] holds the registrations due to resend during second i of the
+	// refresh window. registrationLoop only ever touches the one bucket due "now".
+	// Resized (and everything re-bucketed) whenever RegistrationRefresh changes.
+	registrationBuckets []map[*subRegState]struct{}
 	// Records that the workflow engine already issued ACK fan-out for this logical event
 	// (registration TriggerID + TriggerEventId). Used to replay ACK on duplicate Receive without
 	// re-aggregating or delivering to the engine again.
 	ackReplayCache map[ackReplayKey]int64
-	mu             sync.RWMutex // protects registeredWorkflows, messageCache, and ackReplayCache
+	mu             sync.RWMutex // protects registeredWorkflows, registrationBuckets, messageCache, and ackReplayCache
 	stopCh         services.StopChan
 	wg             sync.WaitGroup
+	closeOnce      sync.Once
 	lggr           logger.Logger
 }
 
@@ -70,6 +76,9 @@ type ackReplayKey struct {
 type subRegState struct {
 	callback   chan commoncap.TriggerResponse
 	rawRequest []byte
+	// bucket is the index into triggerSubscriber.registrationBuckets
+	// assigned randomly so resends spread across the refresh window
+	bucket int
 }
 
 type TriggerSubscriber interface {
@@ -86,7 +95,45 @@ const (
 	// Engine reads trigger events without blocking and applies its own limits
 	sendChannelBufferSize = 1000
 	maxBatchedWorkflowIDs = 1000
+
+	// registrationBucketDuration is both the registrationLoop poll period and the width of each
+	// registrationBuckets slot: registrations are spread across RegistrationRefresh/registrationBucketDuration
+	// buckets so each tick only has to look at the one bucket due "now".
+	registrationBucketDuration = 1 * time.Second
 )
+
+// numRegistrationBuckets is how many registrationBucketDuration-wide buckets span one refresh
+// window, floored at 1 so very short refresh values (e.g. in tests) still work.
+// Because of the integer division, the effective resend period is RegistrationRefresh rounded
+// down to a whole number of seconds, and never less than 1s: e.g. 1.5s resends every 1s, and
+// anything below 1s (e.g. 500ms) also resends every 1s, i.e. less often than configured.
+func numRegistrationBuckets(refresh time.Duration) int {
+	n := int(refresh / registrationBucketDuration)
+	if n < 1 {
+		return 1
+	}
+	return n
+}
+
+// ensureBucketsLocked resizes registrationBuckets to match refresh, re-bucketing any existing
+// registrations if the bucket count changed. Caller must hold s.mu for writing.
+func (s *triggerSubscriber) ensureBucketsLocked(refresh time.Duration) {
+	want := numRegistrationBuckets(refresh)
+	if len(s.registrationBuckets) == want {
+		return
+	}
+	newBuckets := make([]map[*subRegState]struct{}, want)
+	for i := range newBuckets {
+		newBuckets[i] = make(map[*subRegState]struct{})
+	}
+	for _, old := range s.registrationBuckets {
+		for regState := range old {
+			regState.bucket = rand.IntN(want) //nolint:gosec // G404: weak random is fine for send-time jitter
+			newBuckets[regState.bucket][regState] = struct{}{}
+		}
+	}
+	s.registrationBuckets = newBuckets
+}
 
 func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerSubscriber {
 	return &triggerSubscriber{
@@ -197,11 +244,15 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	}
 	regState, ok := triggerMap[request.TriggerID]
 	if !ok {
+		// Assign a random bucket so resends spread across the refresh window instead of bursting.
+		bucket := rand.IntN(len(s.registrationBuckets)) //nolint:gosec // G404: weak random is fine for send-time jitter
 		regState = &subRegState{
 			callback:   make(chan commoncap.TriggerResponse, sendChannelBufferSize),
 			rawRequest: rawRequest,
+			bucket:     bucket,
 		}
 		triggerMap[request.TriggerID] = regState
+		s.registrationBuckets[bucket][regState] = struct{}{}
 	} else {
 		regState.rawRequest = rawRequest
 		s.lggr.Warnw("RegisterTrigger re-registering trigger", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID)
@@ -212,61 +263,77 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 
 func (s *triggerSubscriber) registrationLoop() {
 	defer s.wg.Done()
-	cfg := s.cfg.Load()
-	tickerDuration := cfg.remoteConfig.RegistrationRefresh
-	ticker := time.NewTicker(tickerDuration)
+	ticker := time.NewTicker(registrationBucketDuration)
 	defer ticker.Stop()
+	lastSentSec := time.Now().Unix()
 	for {
 		select {
 		case <-s.stopCh:
 			return
-		case <-ticker.C:
-			cfg := s.cfg.Load()
-			if cfg.remoteConfig.RegistrationRefresh != tickerDuration {
-				tickerDuration = cfg.remoteConfig.RegistrationRefresh
-				ticker.Reset(tickerDuration)
-			}
-
-			s.mu.RLock()
-			s.lggr.Infow("register trigger for remote capability", "donId", cfg.capDonInfo.ID, "nMembers", len(cfg.capDonInfo.Members), "nWorkflows", len(s.registeredWorkflows))
-			var totalRegistrations, totalP2PSends, totalSendErrors int
-			for _, regMap := range s.registeredWorkflows {
-				totalRegistrations += len(regMap)
-			}
-			s.lggr.Infow("registrationLoop tick: sending registrations",
-				"donId", cfg.capDonInfo.ID,
-				"nCapDonMembers", len(cfg.capDonInfo.Members),
-				"nWorkflows", len(s.registeredWorkflows),
-				"nRegistrations", totalRegistrations,
-				"expectedP2PSends", totalRegistrations*len(cfg.capDonInfo.Members))
-			for _, regMap := range s.registeredWorkflows {
-				for _, registration := range regMap {
-					for _, peerID := range cfg.capDonInfo.Members {
-						m := &types.MessageBody{
-							CapabilityId:     cfg.capInfo.ID,
-							CapabilityDonId:  cfg.capDonInfo.ID,
-							CallerDonId:      cfg.localDonID,
-							Method:           types.MethodRegisterTrigger,
-							Payload:          registration.rawRequest, // triggerID is in the raw request
-							CapabilityMethod: s.capMethodName,
-						}
-						err := s.dispatcher.Send(peerID, m)
-						if err != nil {
-							totalSendErrors++
-							s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
-						} else {
-							totalP2PSends++
-						}
-					}
-				}
-			}
-			s.mu.RUnlock()
-			s.lggr.Infow("registrationLoop tick: completed",
-				"donId", cfg.capDonInfo.ID,
-				"p2pSendsSent", totalP2PSends,
-				"p2pSendErrors", totalSendErrors)
+		case now := <-ticker.C:
+			lastSentSec = s.sendDueBuckets(lastSentSec, now.Unix())
 		}
 	}
+}
+
+// sendDueBuckets sends registrations in every bucket due in seconds (lastSentSec, nowSec] and
+// returns the new lastSentSec. Catching up on all elapsed seconds, rather than only the one
+// due "now", ensures no bucket is skipped when ticks are dropped (time.Ticker drops ticks while
+// a slow send is in progress) or land on both sides of a second boundary. The catch-up is
+// capped at one full refresh window so each registration is sent at most once per call.
+func (s *triggerSubscriber) sendDueBuckets(lastSentSec, nowSec int64) int64 {
+	if nowSec == lastSentSec {
+		return lastSentSec // already sent this second's bucket
+	}
+	if nowSec < lastSentSec {
+		// Wall clock moved backwards; resync instead of stalling until it catches up.
+		lastSentSec = nowSec - 1
+	}
+
+	cfg := s.cfg.Load()
+
+	s.mu.Lock()
+	nBuckets := int64(len(s.registrationBuckets))
+	fromSec := max(lastSentSec+1, nowSec-nBuckets+1)
+	var due [][]byte
+	for sec := fromSec; sec <= nowSec; sec++ {
+		for regState := range s.registrationBuckets[sec%nBuckets] {
+			due = append(due, regState.rawRequest)
+		}
+	}
+	s.mu.Unlock()
+
+	if len(due) == 0 {
+		return nowSec
+	}
+
+	var totalP2PSends, totalSendErrors int
+	for _, rawRequest := range due {
+		for _, peerID := range cfg.capDonInfo.Members {
+			m := &types.MessageBody{
+				CapabilityId:     cfg.capInfo.ID,
+				CapabilityDonId:  cfg.capDonInfo.ID,
+				CallerDonId:      cfg.localDonID,
+				Method:           types.MethodRegisterTrigger,
+				Payload:          rawRequest, // triggerID is in the raw request
+				CapabilityMethod: s.capMethodName,
+			}
+			if err := s.dispatcher.Send(peerID, m); err != nil {
+				totalSendErrors++
+				s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+			} else {
+				totalP2PSends++
+			}
+		}
+	}
+	s.lggr.Infow("registrationLoop tick: sent due buckets",
+		"donId", cfg.capDonInfo.ID,
+		"nCapDonMembers", len(cfg.capDonInfo.Members),
+		"nBucketsDue", nowSec-fromSec+1,
+		"nDue", len(due),
+		"p2pSendsSent", totalP2PSends,
+		"p2pSendErrors", totalSendErrors)
+	return nowSec
 }
 
 func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) error {
@@ -278,8 +345,11 @@ func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commo
 		return nil
 	}
 	state := triggerMap[request.TriggerID]
-	if state != nil && state.callback != nil {
-		close(state.callback)
+	if state != nil {
+		if state.callback != nil {
+			close(state.callback)
+		}
+		delete(s.registrationBuckets[state.bucket], state)
 	}
 	delete(triggerMap, request.TriggerID)
 	if len(triggerMap) == 0 {
@@ -495,9 +565,11 @@ func (s *triggerSubscriber) eventCleanupLoop() {
 }
 
 func (s *triggerSubscriber) Close() error {
-	close(s.stopCh)
-	s.wg.Wait()
-	s.lggr.Info("TriggerSubscriber closed")
+	s.closeOnce.Do(func() {
+		close(s.stopCh)
+		s.wg.Wait()
+		s.lggr.Info("TriggerSubscriber closed")
+	})
 	return nil
 }
 
@@ -537,6 +609,10 @@ func (s *triggerSubscriber) SetConfig(config *commoncap.RemoteTriggerConfig, cap
 	for _, member := range remoteDON.Members {
 		capDonMembers[member] = struct{}{}
 	}
+
+	s.mu.Lock()
+	s.ensureBucketsLocked(config.RegistrationRefresh)
+	s.mu.Unlock()
 
 	// always replace the whole dynamicConfig object to avoid inconsistent state
 	s.cfg.Store(&dynamicConfig{

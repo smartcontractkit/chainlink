@@ -33,14 +33,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -57,10 +57,10 @@ type ReportingPluginConfig struct {
 
 	// Sourced from the offchain config
 	MaxSecretsPerOwner              limits.BoundLimiter[int]
-	MaxShareLengthBytes             limits.BoundLimiter[pkgconfig.Size]
+	MaxShareLengthBytes             limits.BoundLimiter[commonconfig.Size]
 	MaxBatchSize                    limits.BoundLimiter[int]
 	MaxPendingQueueWriteSize        limits.BoundLimiter[int]
-	MaxBlobPayloadBytes             limits.BoundLimiter[pkgconfig.Size]
+	MaxBlobPayloadBytes             limits.BoundLimiter[commonconfig.Size]
 	VaultForceEmptyOCRRounds        limits.GateLimiter
 	VaultPendingQueueStallThreshold limits.BoundLimiter[int]
 }
@@ -91,7 +91,7 @@ func NewReportingPluginFactory(
 	}
 
 	return &ReportingPluginFactory{
-		lggr:          lggr.Named("VaultReportingPluginFactory"),
+		lggr:          logger.Sugared(lggr).Named("VaultReportingPluginFactory"),
 		store:         store,
 		cfg:           cfg,
 		db:            db,
@@ -102,7 +102,7 @@ func NewReportingPluginFactory(
 }
 
 type ReportingPluginFactory struct {
-	lggr          logger.Logger
+	lggr          logger.SugaredLogger
 	store         *requests.Store[*vaulttypes.Request]
 	cfg           *ReportingPluginConfig
 	db            dkgocrtypes.ResultPackageDatabase
@@ -296,7 +296,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
-	plugin := &ReportingPlugin{
+	return &ReportingPlugin{
 		lggr:                         r.lggr.Named("VaultReportingPlugin"),
 		store:                        r.store,
 		cfg:                          cfg,
@@ -314,15 +314,14 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
 			return handle.MarshalBinary()
 		},
-	}
-	return plugin, ocr3_1types.ReportingPluginInfo1{
+	}, ocr3_1types.ReportingPluginInfo1{
 		Name:   "VaultReportingPlugin",
 		Limits: pluginLimits,
 	}, nil
 }
 
 type ReportingPlugin struct {
-	lggr       logger.Logger
+	lggr       logger.SugaredLogger
 	store      *requests.Store[*vaulttypes.Request]
 	onchainCfg ocr3types.ReportingPluginConfig
 	cfg        *ReportingPluginConfig
@@ -557,7 +556,15 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 
 		if len(payload) > maxBlobBytes {
 			if len(currentBatch) == 0 {
-				return pendingQueueBlobPack{}, fmt.Errorf("single pending queue item exceeds max blob payload size (%d > %d)", len(payload), maxBlobBytes)
+				// The item can never be advertised so skip it
+				r.lggr.Warnw("single pending queue item exceeds max blob payload size; skipping",
+					"seqNr", seqNr,
+					"requestID", queueItem.ID(),
+					"payloadBytes", len(payload),
+					"maxBlobBytes", maxBlobBytes,
+				)
+				r.metrics.trackPendingQueueItemOversized(ctx, len(payload), maxBlobBytes)
+				continue
 			}
 			// Current batch is full; flush it and retry the same item on the next iteration.
 			var ferr error
@@ -586,7 +593,7 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 }
 
 func (r *ReportingPlugin) shouldPurgePendingQueue(ctx context.Context) bool {
-	if gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if r.isForceEmptyOCRRoundsEnabled(ctx) {
 		return true
 	}
 	stallThreshold, err := r.cfg.VaultPendingQueueStallThreshold.Limit(ctx)
@@ -1254,7 +1261,7 @@ func userFacingError(err error, fallback string) string {
 
 func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...any) {
 	keysAndValues = append(keysAndValues, "error", err)
-	lggr := l.Helper(1)
+	lggr := logger.Sugared(l).Helper(1)
 	if vaulttypes.IsUserError(err) {
 		lggr.Debugw(msg, keysAndValues...)
 		return
@@ -1289,7 +1296,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 
 	readKV := NewReadStore(keyValueReader, r.metrics)
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if !r.isForceEmptyOCRRoundsEnabled(ctx) {
 		var err error
 		pendingQueueItems, err = readKV.GetPendingQueue(ctx)
 		if err != nil {
@@ -1325,7 +1332,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	//   This is because honest nodes may omit tail items when the full Observations proto would exceed the
 	//   max observation byte limit.
 	// - that all pending queue items can be fetched as blobs.
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if !r.isForceEmptyOCRRoundsEnabled(ctx) {
 		if err := r.validatePendingQueueObservationsPrefix(pendingQueueItems, obs); err != nil {
 			return err
 		}
@@ -1434,7 +1441,7 @@ func (r *ReportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, a
 		return true, nil
 	}
 
-	if gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if r.isForceEmptyOCRRoundsEnabled(ctx) {
 		return true, nil
 	}
 
@@ -1932,7 +1939,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(chosen []*vaultcommon.Observ
 		}
 	}
 
-	sortedResponses := []*vaultcommon.SecretResponse{}
+	sortedResponses := make([]*vaultcommon.SecretResponse, 0, len(idToAggResponse))
 	for _, k := range slices.Sorted(maps.Keys(idToAggResponse)) {
 		sortedResponses = append(sortedResponses, idToAggResponse[k])
 	}

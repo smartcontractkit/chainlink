@@ -129,19 +129,19 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 	answer2 := &pipeline.BridgeTask{
 		Name: "election_winner",
 	}
-	ds1_multiply := &pipeline.MultiplyTask{
+	ds1Multiply := &pipeline.MultiplyTask{
 		Times: "1.23",
 	}
-	ds1_parse := &pipeline.JSONParseTask{
+	ds1Parse := &pipeline.JSONParseTask{
 		Path: "one,two",
 	}
 	ds1 := &pipeline.BridgeTask{
 		Name: "voter_turnout",
 	}
-	ds2_multiply := &pipeline.MultiplyTask{
+	ds2Multiply := &pipeline.MultiplyTask{
 		Times: "4.56",
 	}
-	ds2_parse := &pipeline.JSONParseTask{
+	ds2Parse := &pipeline.JSONParseTask{
 		Path: "three,four",
 	}
 	ds2 := &pipeline.HTTPTask{
@@ -156,42 +156,47 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		[]pipeline.TaskDependency{
 			{
 				PropagateResult: false, // propagateResult is false because this dependency is implicit
-				InputTask:       pipeline.Task(ds1_multiply),
+				InputTask:       pipeline.Task(ds1Multiply),
 			},
 			{
 				PropagateResult: true, // propagateResult is true because this dependency is explicit in spec
-				InputTask:       pipeline.Task(ds2_multiply),
+				InputTask:       pipeline.Task(ds2Multiply),
 			},
 		},
 		nil,
-		0)
+		0,
+	)
 	answer2.BaseTask = pipeline.NewBaseTask(7, "answer2", nil, nil, 1)
-	ds1_multiply.BaseTask = pipeline.NewBaseTask(
+	ds1Multiply.BaseTask = pipeline.NewBaseTask(
 		2,
 		"ds1_multiply",
-		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds1_parse)}},
+		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds1Parse)}},
 		[]pipeline.Task{answer1},
-		-1)
-	ds2_multiply.BaseTask = pipeline.NewBaseTask(
+		-1,
+	)
+	ds2Multiply.BaseTask = pipeline.NewBaseTask(
 		5,
 		"ds2_multiply",
-		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds2_parse)}},
+		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds2Parse)}},
 		[]pipeline.Task{answer1},
-		-1)
-	ds1_parse.BaseTask = pipeline.NewBaseTask(
+		-1,
+	)
+	ds1Parse.BaseTask = pipeline.NewBaseTask(
 		1,
 		"ds1_parse",
 		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds1)}},
-		[]pipeline.Task{ds1_multiply},
-		-1)
-	ds2_parse.BaseTask = pipeline.NewBaseTask(
+		[]pipeline.Task{ds1Multiply},
+		-1,
+	)
+	ds2Parse.BaseTask = pipeline.NewBaseTask(
 		4,
 		"ds2_parse",
 		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds2)}},
-		[]pipeline.Task{ds2_multiply},
-		-1)
-	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, -1)
-	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, -1)
+		[]pipeline.Task{ds2Multiply},
+		-1,
+	)
+	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1Parse}, -1)
+	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2Parse}, -1)
 
 	for i, task := range p.Tasks {
 		// Make sure inputs appear before the task, and outputs don't
@@ -203,7 +208,7 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		}
 	}
 
-	expected := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
+	expected := []pipeline.Task{ds1, ds1Parse, ds1Multiply, ds2, ds2Parse, ds2Multiply, answer1, answer2}
 	require.Len(t, p.Tasks, len(expected))
 
 	require.Equal(t, expected, p.Tasks)

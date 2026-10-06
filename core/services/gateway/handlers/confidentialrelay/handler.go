@@ -507,6 +507,24 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 		return h.forwardBundle(ctx, l, ar, summary)
 	}
 	if maxPossibleSigned < minQuorum {
+		// A user-level node error means the request is invalid for every node,
+		// so report it rather than the generic quorum failure.
+		if userErr := summary.UserError(); userErr != nil {
+			l.Warnw("relay quorum unreachable due to a user error; propagating node error",
+				"signed", summary.Signed(),
+				"minQuorum", minQuorum,
+				"collected", summary.Total(),
+				"nodes", nodes,
+				"remaining", remaining,
+				"expired", expired,
+				"errors", summary.Error(),
+				"undecodable", summary.Undecodable(),
+				"userErrorCode", userErr.Code,
+				"nodeErrors", summary.NodeErrorsFormatted(),
+			)
+			return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.InvalidParamsError,
+				errors.New(sanitizeNodeErrorMessage(userErr.Message))))
+		}
 		if expired {
 			l.Warnw("request expired before relay quorum was reached",
 				"signed", summary.Signed(),

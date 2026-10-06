@@ -71,7 +71,8 @@ func TestStartHeartbeats(t *testing.T) {
 
 		_ = vrftesthelpers.CreateAndStartBHSJob(
 			t, bhsKeyAddresses, app, uni.bhsContractAddress.String(),
-			uni.rootContractAddress.String(), "", "", 0, 200, heartbeatPeriod, 100)
+			uni.rootContractAddress.String(), "", "", 0, 200, heartbeatPeriod, 100,
+		)
 
 		// Ensure log poller is ready and has all logs.
 		chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface

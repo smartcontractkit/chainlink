@@ -29,3 +29,16 @@ func TestTokenPoolLookupTableQualifierIsUnambiguous(t *testing.T) {
 		TokenPoolLookupTableQualifier(mint, "BurnMintTokenPool/a", "b"),
 	)
 }
+
+func TestParseQualifierParts(t *testing.T) {
+	t.Parallel()
+	parts := []string{"mint/with/slashes", `pool"type`, "metadata\\with/slashes"}
+	qualifier := QualifierFromParts(parts...)
+	decoded, err := ParseQualifierParts(qualifier)
+	require.NoError(t, err)
+	require.Equal(t, parts, decoded)
+
+	decoded, err = ParseQualifierParts("mint/pool/metadata")
+	require.NoError(t, err)
+	require.Equal(t, []string{"mint", "pool", "metadata"}, decoded)
+}

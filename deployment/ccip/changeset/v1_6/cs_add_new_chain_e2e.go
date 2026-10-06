@@ -262,6 +262,12 @@ func addCandidatesForNewChainPrecondition(e cldf.Environment, c AddCandidatesFor
 func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChainConfig) (cldf.ChangesetOutput, error) {
 	newAddresses := cldf.NewMemoryAddressBook()
 	finalDS := datastore.NewMemoryDataStore()
+	workingDS := datastore.NewMemoryDataStore()
+	if e.DataStore != nil {
+		if err := workingDS.Merge(e.DataStore); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to copy environment datastore: %w", err)
+		}
+	}
 	var allProposals []mcmslib.TimelockProposal
 
 	if !c.SkipDeployments {
@@ -272,7 +278,8 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		}
 		err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
 			return changeset.SaveExistingContractsChangeset(e, c.NewChain.ExistingContracts)
-		}, newAddresses, e.ExistingAddresses, finalDS)
+		}, newAddresses, e.ExistingAddresses, finalDS, workingDS)
+		e.DataStore = workingDS.Seal()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run SaveExistingContractsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 		}
@@ -280,7 +287,8 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		// Deploy the prerequisite contracts to the new chain
 		err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
 			return changeset.DeployPrerequisitesChangeset(e, c.prerequisiteConfigForNewChain())
-		}, newAddresses, e.ExistingAddresses, finalDS)
+		}, newAddresses, e.ExistingAddresses, finalDS, workingDS)
+		e.DataStore = workingDS.Seal()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run DeployPrerequisitesChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 		}
@@ -291,7 +299,8 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 				return mcmschangesets.DeployMCMSWithTimelockV2(e, map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					c.NewChain.Selector: *c.MCMSDeploymentConfig,
 				})
-			}, newAddresses, e.ExistingAddresses, finalDS)
+			}, newAddresses, e.ExistingAddresses, finalDS, workingDS)
+			e.DataStore = workingDS.Seal()
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to run DeployMCMSWithTimelockV2 on chain with selector %d: %w", c.NewChain.Selector, err)
 			}
@@ -300,7 +309,8 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		// Deploy chain contracts to the new chain
 		err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
 			return DeployChainContractsChangeset(e, c.deploymentConfigForNewChain())
-		}, newAddresses, e.ExistingAddresses, finalDS)
+		}, newAddresses, e.ExistingAddresses, finalDS, workingDS)
+		e.DataStore = workingDS.Seal()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run DeployChainContractsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 		}
@@ -401,11 +411,9 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 
 	// Add the DON to the registry and set candidate for the commit plugin
 	out, err = AddDonAndSetCandidateChangeset(e, AddDonAndSetCandidateChangesetConfig{
-		SetCandidateConfigBase: SetCandidateConfigBase{
-			HomeChainSelector: c.HomeChainSelector,
-			FeedChainSelector: c.FeedChainSelector,
-			MCMS:              c.MCMSConfig,
-		},
+		HomeChainSelector: c.HomeChainSelector,
+		FeedChainSelector: c.FeedChainSelector,
+		MCMS:              c.MCMSConfig,
 		PluginInfo: SetCandidatePluginInfo{
 			PluginType: types.PluginTypeCCIPCommit,
 			OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
@@ -423,11 +431,9 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 
 	// Set the candidate for the exec plugin
 	out, err = SetCandidateChangeset(e, SetCandidateChangesetConfig{
-		SetCandidateConfigBase: SetCandidateConfigBase{
-			HomeChainSelector: c.HomeChainSelector,
-			FeedChainSelector: c.FeedChainSelector,
-			MCMS:              c.MCMSConfig,
-		},
+		HomeChainSelector: c.HomeChainSelector,
+		FeedChainSelector: c.FeedChainSelector,
+		MCMS:              c.MCMSConfig,
 		PluginInfo: []SetCandidatePluginInfo{
 			{
 				PluginType: types.PluginTypeCCIPExec,
@@ -464,7 +470,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 
 	var proposal *mcmslib.TimelockProposal
 	if c.MCMSConfig != nil && len(allProposals) > 0 {
-		proposal, err = proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 yet
+		proposal, err = proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: AggregateProposalsV2 migration is tracked separately
 			e,
 			state.EVMMCMSStateByChain(),
 			nil,
@@ -484,7 +490,10 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	ds := finalDS
 
 	if proposal == nil {
-		return cldf.ChangesetOutput{AddressBook: newAddresses, DataStore: ds}, nil
+		return cldf.ChangesetOutput{
+			AddressBook: newAddresses,
+			DataStore:   ds,
+		}, nil
 	}
 	return cldf.ChangesetOutput{
 		AddressBook:           newAddresses,
@@ -657,7 +666,7 @@ func promoteNewChainForConfigLogic(e cldf.Environment, c PromoteNewChainForConfi
 	if c.MCMSConfig == nil || len(allProposals) == 0 {
 		return cldf.ChangesetOutput{}, nil
 	}
-	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
+	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: AggregateProposalsV2 migration is tracked separately
 		e,
 		state.EVMMCMSStateByChain(),
 		nil,
@@ -880,7 +889,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 	if c.MCMSConfig == nil || len(allProposals) == 0 {
 		return cldf.ChangesetOutput{}, nil
 	}
-	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
+	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: AggregateProposalsV2 migration is tracked separately
 		env,
 		state.EVMMCMSStateByChain(),
 		nil,
@@ -985,7 +994,13 @@ func connectRampsAndRouters(
 // END ConnectNewChainChangeset
 // /////////////////////////////////
 
-func runAndSaveAddresses(fn func() (cldf.ChangesetOutput, error), newAddresses cldf.AddressBook, existingAddresses cldf.AddressBook, finalDS *datastore.MemoryDataStore) error {
+func runAndSaveAddresses(
+	fn func() (cldf.ChangesetOutput, error),
+	newAddresses cldf.AddressBook,
+	existingAddresses cldf.AddressBook,
+	finalDS *datastore.MemoryDataStore,
+	workingDS *datastore.MemoryDataStore,
+) error {
 	output, err := fn()
 	if err != nil {
 		return fmt.Errorf("failed to run changeset: %w", err)
@@ -1001,6 +1016,9 @@ func runAndSaveAddresses(fn func() (cldf.ChangesetOutput, error), newAddresses c
 	if output.DataStore != nil {
 		if err := finalDS.Merge(output.DataStore.Seal()); err != nil {
 			return fmt.Errorf("failed to merge child datastore: %w", err)
+		}
+		if err := workingDS.Merge(output.DataStore.Seal()); err != nil {
+			return fmt.Errorf("failed to update working datastore: %w", err)
 		}
 	}
 

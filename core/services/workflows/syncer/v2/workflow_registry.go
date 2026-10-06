@@ -126,8 +126,9 @@ type workflowRegistry struct {
 
 	// myDonID is the DON ID of the shard this syncer belongs to.
 	// Set from don.ID after WaitForDon resolves. Used to filter workflows.
-	myDonID         uint32
-	shardingEnabled bool
+	myDonID              uint32
+	shardingEnabled      bool
+	shardingFailoverGate limits.GateLimiter
 
 	centralizedOwnerVerificationEnabled limits.GateLimiter
 	settingsGetter                      settings.Getter
@@ -294,6 +295,12 @@ func WithShardOrchestratorClient(client shardorchestrator.ClientInterface) Optio
 func WithShardEnabled(shardingEnabled bool) Option {
 	return func(wr *workflowRegistry) {
 		wr.shardingEnabled = shardingEnabled
+	}
+}
+
+func WithShardFailoverEnabled(gate limits.GateLimiter) Option {
+	return func(wr *workflowRegistry) {
+		wr.shardingFailoverGate = gate
 	}
 }
 
@@ -828,10 +835,27 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 		}
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
+	failoverEnabled := w.shardingFailoverGate != nil && w.shardingFailoverGate.AllowErr(ctx) == nil
 	for _, wf := range workflows {
 		id := wf.WorkflowID.Hex()
-		if shardID, ok := mappings[id]; ok && shardID == w.myDonID {
-			filtered = append(filtered, wf)
+		if failoverEnabled {
+			if allResolver, ok := w.shardResolver.(shardownership.AllShardsResolver); ok {
+				shards, found, err := allResolver.ResolveAllShards(ctx, id, hex.EncodeToString(wf.Owner))
+				if err != nil || !found {
+					continue
+				}
+				if slices.Contains(shards, w.myDonID) {
+					filtered = append(filtered, wf)
+				}
+			} else {
+				if shardID, ok := mappings[id]; ok && shardID == w.myDonID {
+					filtered = append(filtered, wf)
+				}
+			}
+		} else {
+			if shardID, ok := mappings[id]; ok && shardID == w.myDonID {
+				filtered = append(filtered, wf)
+			}
 		}
 	}
 	return filtered, nil
@@ -852,7 +876,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 		case <-ticker:
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
-				w.lggr.Errorw("failed to get get don from notifier", "err", err)
+				w.lggr.Errorw("failed to get don from notifier", "err", err)
 				continue
 			}
 			w.lggr.Debugw("fetching workflow metadata from all sources", "don", don.Families)
@@ -1051,20 +1075,40 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 
 			runningWorkflows := w.engineRegistry.GetAll()
 			w.metrics.recordRunningWorkflows(ctx, len(runningWorkflows))
-			drainingWorkflows := 0
-			for _, workflow := range runningWorkflows {
-				drainable, isDrainable := workflow.Service.(DrainableService)
-				if !isDrainable {
-					continue
-				}
-				if _, draining := drainable.DrainStartedAt(); draining {
-					drainingWorkflows++
-				}
-			}
-			w.metrics.recordDrainingWorkflows(ctx, drainingWorkflows)
+			counts := countEngines(runningWorkflows)
+			w.metrics.recordDrainingWorkflows(ctx, counts.draining)
+			w.metrics.recordRunningEngines(ctx, counts.coordinated, counts.legacy)
 			w.metrics.incrementCompletedSyncs(ctx)
 		}
 	}
+}
+
+// engineCounts is the per-tick breakdown of the engines in the registry.
+// coordinated + legacy always equals the number of engines; draining overlaps
+// with both.
+type engineCounts struct {
+	draining    int
+	coordinated int
+	legacy      int
+}
+
+func countEngines(engines []ServiceWithMetadata) engineCounts {
+	var c engineCounts
+	for _, e := range engines {
+		if e.Coordinated() {
+			c.coordinated++
+		} else {
+			c.legacy++
+		}
+		drainable, isDrainable := e.Service.(DrainableService)
+		if !isDrainable {
+			continue
+		}
+		if _, draining := drainable.DrainStartedAt(); draining {
+			c.draining++
+		}
+	}
+	return c
 }
 
 // reconcileOrphanedSpecs releases persisted specs whose workflow ID is absent
@@ -1235,7 +1279,7 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 
 	var newAllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
 	readIdentifier = contractBinding.ReadIdentifier(GetActiveAllowlistedRequestsReverseMethodName)
-	var endIndex = new(big.Int).Sub(totalAllowlistedRequestsResult, big.NewInt(1))
+	endIndex := new(big.Int).Sub(totalAllowlistedRequestsResult, big.NewInt(1))
 	var startIndex *big.Int
 
 	for {

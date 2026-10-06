@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 var ErrExists = errors.New("plugin already registered")
@@ -33,21 +33,22 @@ type LoopRegistry struct {
 	lggr                   logger.Logger
 	appID                  string
 	featureLogPoller       bool
-	cfgDatabase            config.Database
+	cfgDatabase            coreconfig.Database
 	cfgMercury             dataengine.Mercury
-	cfgPyroscope           config.Pyroscope
-	autoPPROF              config.AutoPprof
-	cfgTracing             config.Tracing
-	cfgTelemetry           config.Telemetry
-	cfgMetering            config.Metering
+	cfgPyroscope           coreconfig.Pyroscope
+	autoPPROF              coreconfig.AutoPprof
+	cfgTracing             coreconfig.Tracing
+	cfgTelemetry           coreconfig.Telemetry
+	cfgMetering            coreconfig.Metering
 	telemetryAuthHeaders   map[string]string
 	telemetryAuthPubKeyHex string
-	cfgLOOPP               config.LOOPP
+	cfgLOOPP               coreconfig.LOOPP
 }
 
-func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, dbConfig config.Database,
-	mercury dataengine.Mercury, pyroscope config.Pyroscope, autoPPROF config.AutoPprof, tracing config.Tracing, telemetry config.Telemetry,
-	metering config.Metering, telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string, looppCfg config.LOOPP) *LoopRegistry {
+func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, dbConfig coreconfig.Database,
+	mercury dataengine.Mercury, pyroscope coreconfig.Pyroscope, autoPPROF coreconfig.AutoPprof, tracing coreconfig.Tracing, telemetry coreconfig.Telemetry,
+	metering coreconfig.Metering, telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string, looppCfg coreconfig.LOOPP,
+) *LoopRegistry {
 	return &LoopRegistry{
 		registry:               map[string]*RegisteredLoop{},
 		lggr:                   logger.Named(lggr, "LoopRegistry"),
@@ -228,8 +229,8 @@ func (m *LoopRegistry) Unregister(id string) {
 
 // Return slice sorted by plugin name. Safe for concurrent use.
 func (m *LoopRegistry) List() []*RegisteredLoop {
-	var registeredLoops []*RegisteredLoop
 	m.mu.Lock()
+	registeredLoops := make([]*RegisteredLoop, 0, len(m.registry))
 	for _, known := range m.registry {
 		registeredLoops = append(registeredLoops, known)
 	}

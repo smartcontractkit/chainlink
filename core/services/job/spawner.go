@@ -153,23 +153,76 @@ func (js *spawner) startAllServices(ctx context.Context) {
 		jobIDs[i] = jb.ID
 	}
 	js.lggr.Debugw("Starting jobs...", "jobIDs", jobIDs)
-	wg := sync.WaitGroup{}
-	wg.Add(len(jbs))
-	for _, jb := range jbs {
-		go func(jb Job) {
-			defer wg.Done()
-			if err = js.StartService(ctx, jb); err != nil {
-				js.lggr.Errorw("Couldn't start job", "jobID", jb.ID, "jobName", jb.Name.ValueOrZero(), "err", err)
-			}
-		}(jb)
-	}
-	wg.Wait()
+
+	// Prerequisite jobs must be fully started before any other job, because
+	// other jobs rely on the state they install. In particular, CRESettings
+	// distributes the CRE settings overrides that other jobs read: OCR plugins
+	// resolve those settings at construction and freeze the result for the life
+	// of the instance, so a job that starts before the settings are applied
+	// silently bakes in the compiled defaults and desyncs from the rest of the
+	// DON until restarted. Starting prerequisite jobs to completion first
+	// guarantees their state is in effect before the remaining jobs begin.
+	prerequisiteJobs, remainingJobs := splitPrerequisiteJobs(jbs)
+	js.startPrerequisiteJobs(ctx, prerequisiteJobs)
+	js.startJobsConcurrently(ctx, remainingJobs)
+
 	js.lggr.Debugw("Started jobs", "jobIDs", jobIDs)
 	// Log Broadcaster fully starts after all initial Register calls are done from other starting services
 	// to make sure the initial backfill covers those subscribers.
 	for _, lbd := range js.lbDependentAwaiters {
 		lbd.DependentReady()
 	}
+}
+
+// prerequisiteJobTypes are job types that must be fully started, in order,
+// before any other job is started. Their delegates install shared state that
+// other jobs depend on at startup. CRESettings applies the CRE settings
+// overrides synchronously while starting (its Delegate.ServicesForSpec stores
+// the update before returning), so starting it first makes those overrides
+// available to every other job.
+var prerequisiteJobTypes = map[Type]struct{}{
+	CRESettings: {},
+}
+
+// splitPrerequisiteJobs separates the prerequisite jobs that must start first
+// from the remaining jobs, preserving the original order within each group.
+func splitPrerequisiteJobs(jbs []Job) (prerequisite, remaining []Job) {
+	for _, jb := range jbs {
+		if _, ok := prerequisiteJobTypes[jb.Type]; ok {
+			prerequisite = append(prerequisite, jb)
+		} else {
+			remaining = append(remaining, jb)
+		}
+	}
+	return prerequisite, remaining
+}
+
+// startPrerequisiteJobs starts prerequisite jobs sequentially and waits for
+// each to finish starting, so the state they install is guaranteed to be in
+// effect before any dependent job starts.
+func (js *spawner) startPrerequisiteJobs(ctx context.Context, jbs []Job) {
+	for _, jb := range jbs {
+		js.lggr.Debugw("Starting prerequisite job before all others", "jobID", jb.ID, "jobName", jb.Name.ValueOrZero(), "jobType", jb.Type)
+		if err := js.StartService(ctx, jb); err != nil {
+			js.lggr.Errorw("Couldn't start prerequisite job", "jobID", jb.ID, "jobName", jb.Name.ValueOrZero(), "err", err)
+		}
+	}
+}
+
+// startJobsConcurrently starts the given jobs in parallel and waits for all of
+// them to finish starting.
+func (js *spawner) startJobsConcurrently(ctx context.Context, jbs []Job) {
+	wg := sync.WaitGroup{}
+	wg.Add(len(jbs))
+	for _, jb := range jbs {
+		go func(jb Job) {
+			defer wg.Done()
+			if err := js.StartService(ctx, jb); err != nil {
+				js.lggr.Errorw("Couldn't start job", "jobID", jb.ID, "jobName", jb.Name.ValueOrZero(), "err", err)
+			}
+		}(jb)
+	}
+	wg.Wait()
 }
 
 func (js *spawner) stopAllServices() {

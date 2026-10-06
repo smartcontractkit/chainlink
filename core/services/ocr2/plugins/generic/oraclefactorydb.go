@@ -9,7 +9,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type oracleFactoryDb struct {
@@ -26,15 +26,13 @@ type oracleFactoryDb struct {
 	mu sync.Mutex
 }
 
-var (
-	_ ocrtypes.Database = &oracleFactoryDb{}
-)
+var _ ocrtypes.Database = &oracleFactoryDb{}
 
 // NewDB returns a new DB scoped to this instanceID
 func OracleFactoryDB(specID int32, lggr logger.Logger) *oracleFactoryDb {
 	return &oracleFactoryDb{
 		specID:               specID,
-		lggr:                 logger.Sugared(lggr.Named("OracleFactoryMemoryDb")),
+		lggr:                 logger.Sugared(lggr).Named("OracleFactoryMemoryDb"),
 		states:               make(map[ocrtypes.ConfigDigest]*ocrtypes.PersistentState),
 		pendingTransmissions: make(map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission),
 		protocolStates:       make(map[ocrtypes.ConfigDigest]map[string][]byte),

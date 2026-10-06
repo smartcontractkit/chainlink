@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -17,21 +16,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
-type LLOOnchainKeyring ocr3types.OnchainKeyring[llotypes.ReportInfo]
+type OnchainKeyring ocr3types.OnchainKeyring[llotypes.ReportInfo]
 
-var _ LLOOnchainKeyring = &onchainKeyring{}
+var _ OnchainKeyring = &onchainKeyring{}
 
 type Key interface {
 	// Legacy Sign/Verify methods needed for v0.3 report compatibility
 	// New keys can leave these stubbed
-	Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error)
-	Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool
+	Sign(reportCtx types.ReportContext, report types.Report) ([]byte, error)
+	Verify(publicKey types.OnchainPublicKey, reportCtx types.ReportContext, report types.Report, signature []byte) bool
 
-	Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error)
-	Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool
+	Sign3(digest types.ConfigDigest, seqNr uint64, r types.Report) (signature []byte, err error)
+	Verify3(publicKey types.OnchainPublicKey, cd types.ConfigDigest, seqNr uint64, r types.Report, signature []byte) bool
 	SignBlob(b []byte) (sig []byte, err error)
-	VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b, sig []byte) bool
-	PublicKey() ocrtypes.OnchainPublicKey
+	VerifyBlob(publicKey types.OnchainPublicKey, b, sig []byte) bool
+	PublicKey() types.OnchainPublicKey
 	MaxSignatureLength() int
 }
 
@@ -41,7 +40,7 @@ type onchainKeyring struct {
 	donID uint32
 }
 
-func NewOnchainKeyring(lggr logger.Logger, keys map[llotypes.ReportFormat]Key, donID uint32) LLOOnchainKeyring {
+func NewOnchainKeyring(lggr logger.Logger, keys map[llotypes.ReportFormat]Key, donID uint32) OnchainKeyring {
 	return &onchainKeyring{
 		logger.Sugared(lggr).Named("OnchainKeyring"), keys, donID,
 	}
@@ -52,7 +51,7 @@ func (okr *onchainKeyring) PublicKey() types.OnchainPublicKey {
 	// byte string
 	onchainPublicKey := []byte{}
 
-	keys := slices.AppendSeq(make([]Key, 0, len(okr.keys)), maps.Values(okr.keys))
+	keys := slices.Collect(maps.Values(okr.keys))
 	if len(keys) == 0 {
 		return onchainPublicKey
 	}

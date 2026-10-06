@@ -189,7 +189,7 @@ func (lsn *listenerV2) processBatch(
 			// should never happen
 			l.Errorw("Failed to pack batch fulfillRandomWords payload",
 				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
-			return
+			return processedRequestIDs
 		}
 		txMetaSubID = new(subID.Uint64())
 	case vrfcommon.V2Plus:
@@ -198,7 +198,7 @@ func (lsn *listenerV2) processBatch(
 			// should never happen
 			l.Errorw("Failed to pack batch fulfillRandomWords payload",
 				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
-			return
+			return processedRequestIDs
 		}
 		txMetaGlobalSubID = new(subID.String())
 	default:
@@ -260,7 +260,7 @@ func (lsn *listenerV2) processBatch(
 	})
 	if err != nil {
 		ll.Errorw("Error enqueuing batch fulfillments, requeuing requests", "err", err)
-		return
+		return processedRequestIDs
 	}
 	ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.GetID())
 
@@ -273,7 +273,7 @@ func (lsn *listenerV2) processBatch(
 
 	ll.Infow("Successfully enqueued batch", "duration", time.Since(start))
 
-	return
+	return processedRequestIDs
 }
 
 // getReadyAndExpired filters out requests that are expired from the given pendingRequest slice
@@ -292,7 +292,7 @@ func (lsn *listenerV2) getReadyAndExpired(l logger.Logger, reqs []pendingRequest
 		// we always check if the requests are already fulfilled prior to trying to fulfill them again
 		ready = append(ready, req)
 	}
-	return
+	return ready, expired
 }
 
 func batchFulfillmentGasEstimate(
@@ -305,7 +305,7 @@ func batchFulfillmentGasEstimate(
 	)
 }
 
-func accumulateMaxLinkAndMaxEth(batch *batchFulfillment) (maxLinkStr string, maxEthStr string) {
+func accumulateMaxLinkAndMaxEth(batch *batchFulfillment) (maxLinkStr, maxEthStr string) {
 	maxLink := big.NewInt(0)
 	maxEth := big.NewInt(0)
 	for i := range batch.commitments {

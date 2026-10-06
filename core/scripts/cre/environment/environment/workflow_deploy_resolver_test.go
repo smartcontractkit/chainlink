@@ -48,7 +48,7 @@ func TestValidateWorkflowDeployFlags_donFamilyMismatch(t *testing.T) {
 	require.NoError(t, cmd.Flags().Set("workflow-don-name", "feeds-zone-a"))
 	require.NoError(t, cmd.Flags().Set("don-family", "feeds-zone-b"))
 
-	donMeta := &cre.DonMetadata{Name: "feeds-zone-a", DonFamily: "feeds-zone-a"}
+	donMeta := &cre.DonMetadata{Name: "feeds-zone-a", DonFamilies: []string{"feeds-zone-a"}}
 	err := validateWorkflowDeployFlags(cmd, donMeta, workflowDONSelector{ExplicitName: "feeds-zone-a"}, "feeds-zone-b")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `--don-family "feeds-zone-b"`)
@@ -62,7 +62,7 @@ func TestValidateWorkflowDeployFlags_agreeWithState(t *testing.T) {
 	require.NoError(t, cmd.Flags().Set("workflow-don-name", "feeds-zone-a"))
 	require.NoError(t, cmd.Flags().Set("don-family", "feeds-zone-a"))
 
-	donMeta := &cre.DonMetadata{Name: "feeds-zone-a", DonFamily: "feeds-zone-a"}
+	donMeta := &cre.DonMetadata{Name: "feeds-zone-a", DonFamilies: []string{"feeds-zone-a"}}
 	err := validateWorkflowDeployFlags(cmd, donMeta, workflowDONSelector{ExplicitName: "feeds-zone-a"}, "feeds-zone-a")
 	require.NoError(t, err)
 }
@@ -73,7 +73,7 @@ func TestValidateWorkflowDeployFlags_skipsWhenOnlyOneFlagSet(t *testing.T) {
 	cmd := newTestDeployCmd(t)
 	require.NoError(t, cmd.Flags().Set("don-family", "feeds-zone-b"))
 
-	donMeta := &cre.DonMetadata{Name: "feeds-zone-a", DonFamily: "feeds-zone-a"}
+	donMeta := &cre.DonMetadata{Name: "feeds-zone-a", DonFamilies: []string{"feeds-zone-a"}}
 	err := validateWorkflowDeployFlags(cmd, donMeta, workflowDONSelector{ExplicitName: "feeds-zone-a"}, "feeds-zone-b")
 	require.NoError(t, err)
 }
@@ -85,7 +85,7 @@ func TestValidateWorkflowDeployFlags_nameMismatch(t *testing.T) {
 	require.NoError(t, cmd.Flags().Set("workflow-don-name", "feeds-zone-b"))
 	require.NoError(t, cmd.Flags().Set("don-family", "feeds-zone-a"))
 
-	donMeta := &cre.DonMetadata{Name: "feeds-zone-a", DonFamily: "feeds-zone-a"}
+	donMeta := &cre.DonMetadata{Name: "feeds-zone-a", DonFamilies: []string{"feeds-zone-a"}}
 	err := validateWorkflowDeployFlags(cmd, donMeta, workflowDONSelector{ExplicitName: "feeds-zone-b"}, "feeds-zone-a")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `--workflow-don-name "feeds-zone-b"`)
@@ -269,10 +269,10 @@ func deployTestTwoFamilyTopology(t *testing.T) *cre.Topology {
 			{GatewayConfiguration: &cre.GatewayConfiguration{AuthGatewayID: "gateway-node-0"}},
 			{GatewayConfiguration: &cre.GatewayConfiguration{AuthGatewayID: "gateway-node-1"}},
 		},
-		&cre.DonMetadata{Name: "feeds-zone-a", ID: 1, DonFamily: "feeds-zone-a", Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
-		&cre.DonMetadata{Name: "feeds-zone-b", ID: 2, DonFamily: "feeds-zone-b", Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
-		&cre.DonMetadata{Name: "gateway-zone-a", DonFamily: "feeds-zone-a", NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
-		&cre.DonMetadata{Name: "gateway-zone-b", DonFamily: "feeds-zone-b", NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+		&cre.DonMetadata{Name: "feeds-zone-a", ID: 1, DonFamilies: []string{"feeds-zone-a"}, Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "feeds-zone-b", ID: 2, DonFamilies: []string{"feeds-zone-b"}, Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "gateway-zone-a", DonFamilies: []string{"feeds-zone-a"}, NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+		&cre.DonMetadata{Name: "gateway-zone-b", DonFamilies: []string{"feeds-zone-b"}, NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
 	)
 }
 
@@ -284,10 +284,10 @@ func deployTestTwoFamilyTopologyWithIncoming(t *testing.T) *cre.Topology {
 			deployTestGatewayConnector("gateway-node-0", "gateway-zone-a.local", 5002),
 			deployTestGatewayConnector("gateway-node-1", "gateway-zone-b.local", 5004),
 		},
-		&cre.DonMetadata{Name: "feeds-zone-a", ID: 1, DonFamily: "feeds-zone-a", Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
-		&cre.DonMetadata{Name: "feeds-zone-b", ID: 2, DonFamily: "feeds-zone-b", Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
-		&cre.DonMetadata{Name: "gateway-zone-a", DonFamily: "feeds-zone-a", NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
-		&cre.DonMetadata{Name: "gateway-zone-b", DonFamily: "feeds-zone-b", NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+		&cre.DonMetadata{Name: "feeds-zone-a", ID: 1, DonFamilies: []string{"feeds-zone-a"}, Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "feeds-zone-b", ID: 2, DonFamilies: []string{"feeds-zone-b"}, Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "gateway-zone-a", DonFamilies: []string{"feeds-zone-a"}, NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+		&cre.DonMetadata{Name: "gateway-zone-b", DonFamilies: []string{"feeds-zone-b"}, NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
 	)
 }
 
@@ -298,9 +298,9 @@ func deployTestShardedTopology(t *testing.T) *cre.Topology {
 		[]*cre.DonGatewayConfiguration{
 			deployTestGatewayConnector("gateway-node-0", "bootstrap-gateway.local", 5002),
 		},
-		&cre.DonMetadata{Name: "shard0", ID: 1, DonFamily: envconfig.DefaultDONFamily, ShardIndex: 0, Flags: []string{cre.WorkflowDON, cre.ShardDON, cre.HTTPActionCapability}},
-		&cre.DonMetadata{Name: "shard1", ID: 2, DonFamily: envconfig.DefaultDONFamily, ShardIndex: 1, Flags: []string{cre.WorkflowDON, cre.ShardDON, cre.HTTPActionCapability}},
-		&cre.DonMetadata{Name: "bootstrap-gateway", DonFamily: envconfig.DefaultDONFamily, NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+		&cre.DonMetadata{Name: "shard0", ID: 1, DonFamilies: []string{envconfig.DefaultDONFamily}, ShardIndex: 0, Flags: []string{cre.WorkflowDON, cre.ShardDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "shard1", ID: 2, DonFamilies: []string{envconfig.DefaultDONFamily}, ShardIndex: 1, Flags: []string{cre.WorkflowDON, cre.ShardDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "bootstrap-gateway", DonFamilies: []string{envconfig.DefaultDONFamily}, NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
 	)
 }
 
@@ -324,7 +324,7 @@ func mustDeployTestTopology(t *testing.T, connectors []*cre.DonGatewayConfigurat
 func deployTestBootstrapDON() *cre.DonMetadata {
 	return &cre.DonMetadata{
 		Name:          "bootstrap",
-		DonFamily:     envconfig.DefaultDONFamily,
+		DonFamilies:   []string{envconfig.DefaultDONFamily},
 		NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.BootstrapNode}}},
 	}
 }

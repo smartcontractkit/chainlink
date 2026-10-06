@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
-	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/config/configtest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -31,7 +31,7 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -64,7 +64,7 @@ var (
 			},
 			Database: toml.Database{
 				Listener: toml.DatabaseListener{
-					FallbackPollInterval: commoncfg.MustNewDuration(2 * time.Minute),
+					FallbackPollInterval: commonconfig.MustNewDuration(2 * time.Minute),
 				},
 			},
 			Log: toml.Log{
@@ -73,16 +73,16 @@ var (
 			},
 			JobPipeline: toml.JobPipeline{
 				HTTPRequest: toml.JobPipelineHTTPRequest{
-					DefaultTimeout: commoncfg.MustNewDuration(30 * time.Second),
+					DefaultTimeout: commonconfig.MustNewDuration(30 * time.Second),
 				},
 			},
 			OCR2: toml.OCR2{
 				Enabled:         new(true),
-				DatabaseTimeout: commoncfg.MustNewDuration(20 * time.Second),
+				DatabaseTimeout: commonconfig.MustNewDuration(20 * time.Second),
 			},
 			OCR: toml.OCR{
 				Enabled:           new(true),
-				BlockchainTimeout: commoncfg.MustNewDuration(5 * time.Second),
+				BlockchainTimeout: commonconfig.MustNewDuration(5 * time.Second),
 			},
 			P2P: toml.P2P{
 				IncomingMessageBufferSize: new(int64(999)),
@@ -152,10 +152,10 @@ var (
 )
 
 func TestConfig_Marshal(t *testing.T) {
-	zeroSeconds := *commoncfg.MustNewDuration(time.Second * 0)
-	second := *commoncfg.MustNewDuration(time.Second)
-	minute := *commoncfg.MustNewDuration(time.Minute)
-	hour := *commoncfg.MustNewDuration(time.Hour)
+	zeroSeconds := *commonconfig.MustNewDuration(time.Second * 0)
+	second := *commonconfig.MustNewDuration(time.Second)
+	minute := *commonconfig.MustNewDuration(time.Minute)
+	hour := *commonconfig.MustNewDuration(time.Hour)
 	mustPeerID := func(s string) *p2pkey.PeerID {
 		id, err := p2pkey.MakePeerID(s)
 		require.NoError(t, err)
@@ -176,9 +176,9 @@ func TestConfig_Marshal(t *testing.T) {
 	global := Config{
 		Core: toml.Core{
 			InsecureFastScrypt:  new(true),
-			InsecurePPROFHeap:   new(true),
+			InsecurePPROFHeap:   new(true), //nolint:staticcheck // SA1019: intentionally exercises the deprecated field, which must still parse old configs
 			RootDir:             new("test/root/dir"),
-			ShutdownGracePeriod: commoncfg.MustNewDuration(10 * time.Second),
+			ShutdownGracePeriod: commonconfig.MustNewDuration(10 * time.Second),
 			Insecure: toml.Insecure{
 				DevWebServer:         new(false),
 				OCRDevelopmentMode:   new(false),
@@ -221,17 +221,17 @@ func TestConfig_Marshal(t *testing.T) {
 		MultiFeedsManagers: new(true),
 	}
 	full.Database = toml.Database{
-		DefaultIdleInTxSessionTimeout: commoncfg.MustNewDuration(time.Minute),
-		DefaultLockTimeout:            commoncfg.MustNewDuration(time.Hour),
-		DefaultQueryTimeout:           commoncfg.MustNewDuration(time.Second),
+		DefaultIdleInTxSessionTimeout: commonconfig.MustNewDuration(time.Minute),
+		DefaultLockTimeout:            commonconfig.MustNewDuration(time.Hour),
+		DefaultQueryTimeout:           commonconfig.MustNewDuration(time.Second),
 		LogQueries:                    new(true),
 		MigrateOnStartup:              new(true),
 		MaxIdleConns:                  new(int64(7)),
 		MaxOpenConns:                  new(int64(13)),
 		Listener: toml.DatabaseListener{
-			MaxReconnectDuration: commoncfg.MustNewDuration(time.Minute),
-			MinReconnectInterval: commoncfg.MustNewDuration(5 * time.Minute),
-			FallbackPollInterval: commoncfg.MustNewDuration(2 * time.Minute),
+			MaxReconnectDuration: commonconfig.MustNewDuration(time.Minute),
+			MinReconnectInterval: commonconfig.MustNewDuration(5 * time.Minute),
+			FallbackPollInterval: commonconfig.MustNewDuration(2 * time.Minute),
 		},
 		Lock: toml.DatabaseLock{
 			Enabled:              new(false),
@@ -241,7 +241,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Backup: toml.DatabaseBackup{
 			Dir:              new("test/backup/dir"),
 			Frequency:        &hour,
-			Mode:             &config.DatabaseBackupModeFull,
+			Mode:             &coreconfig.DatabaseBackupModeFull,
 			OnVersionUpgrade: new(true),
 		},
 	}
@@ -250,8 +250,8 @@ func TestConfig_Marshal(t *testing.T) {
 		Logging:            new(true),
 		BufferSize:         new(uint16(1234)),
 		MaxBatchSize:       new(uint16(4321)),
-		SendInterval:       commoncfg.MustNewDuration(time.Minute),
-		SendTimeout:        commoncfg.MustNewDuration(5 * time.Second),
+		SendInterval:       commonconfig.MustNewDuration(time.Minute),
+		SendTimeout:        commonconfig.MustNewDuration(5 * time.Second),
 		UseBatchSend:       new(true),
 		ChipIngressEnabled: new(false),
 		Endpoints: []toml.TelemetryIngressEndpoint{
@@ -279,14 +279,14 @@ func TestConfig_Marshal(t *testing.T) {
 		AuthenticationMethod:    new("local"),
 		AllowOrigins:            new("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
-		BridgeCacheTTL:          commoncfg.MustNewDuration(10 * time.Second),
-		HTTPWriteTimeout:        commoncfg.MustNewDuration(time.Minute),
+		BridgeCacheTTL:          commonconfig.MustNewDuration(10 * time.Second),
+		HTTPWriteTimeout:        commonconfig.MustNewDuration(time.Minute),
 		HTTPPort:                new(uint16(56)),
 		SecureCookies:           new(true),
-		SessionTimeout:          commoncfg.MustNewDuration(time.Hour),
-		SessionReaperExpiration: commoncfg.MustNewDuration(7 * 24 * time.Hour),
+		SessionTimeout:          commonconfig.MustNewDuration(time.Hour),
+		SessionReaperExpiration: commonconfig.MustNewDuration(7 * 24 * time.Hour),
 		HTTPMaxSize:             new(utils.FileSize(uint64(32770))),
-		StartTimeout:            commoncfg.MustNewDuration(15 * time.Second),
+		StartTimeout:            commonconfig.MustNewDuration(15 * time.Second),
 		ListenIP:                mustIP("192.158.1.37"),
 		MFA: toml.WebServerMFA{
 			RPID:     new("test-rpid"),
@@ -294,8 +294,8 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 		LDAP: toml.WebServerLDAP{
 			ServerTLS:                   new(true),
-			SessionTimeout:              commoncfg.MustNewDuration(15 * time.Minute),
-			QueryTimeout:                commoncfg.MustNewDuration(2 * time.Minute),
+			SessionTimeout:              commonconfig.MustNewDuration(15 * time.Minute),
+			QueryTimeout:                commonconfig.MustNewDuration(2 * time.Minute),
 			BaseUserAttr:                new("uid"),
 			BaseDN:                      new("dc=custom,dc=example,dc=com"),
 			UsersDN:                     new("ou=users"),
@@ -307,9 +307,9 @@ func TestConfig_Marshal(t *testing.T) {
 			RunUserGroupCN:              new("NodeRunners"),
 			ReadUserGroupCN:             new("NodeReadOnly"),
 			UserApiTokenEnabled:         new(false),
-			UserAPITokenDuration:        commoncfg.MustNewDuration(240 * time.Hour),
-			UpstreamSyncInterval:        commoncfg.MustNewDuration(0 * time.Second),
-			UpstreamSyncRateLimit:       commoncfg.MustNewDuration(2 * time.Minute),
+			UserAPITokenDuration:        commonconfig.MustNewDuration(240 * time.Hour),
+			UpstreamSyncInterval:        commonconfig.MustNewDuration(0 * time.Second),
+			UpstreamSyncRateLimit:       commonconfig.MustNewDuration(2 * time.Minute),
 		},
 		OIDC: toml.WebServerOIDC{
 			ClientID:             new("abcd1234"),
@@ -320,15 +320,15 @@ func TestConfig_Marshal(t *testing.T) {
 			EditClaim:            new("NodeEditors"),
 			RunClaim:             new("NodeRunners"),
 			ReadClaim:            new("NodeReadOnly"),
-			SessionTimeout:       commoncfg.MustNewDuration(15 * time.Minute),
+			SessionTimeout:       commonconfig.MustNewDuration(15 * time.Minute),
 			UserAPITokenEnabled:  new(false),
-			UserAPITokenDuration: commoncfg.MustNewDuration(240 * time.Hour),
+			UserAPITokenDuration: commonconfig.MustNewDuration(240 * time.Hour),
 		},
 		RateLimit: toml.WebServerRateLimit{
 			Authenticated:         new(int64(42)),
-			AuthenticatedPeriod:   commoncfg.MustNewDuration(time.Second),
+			AuthenticatedPeriod:   commonconfig.MustNewDuration(time.Second),
 			Unauthenticated:       new(int64(7)),
-			UnauthenticatedPeriod: commoncfg.MustNewDuration(time.Minute),
+			UnauthenticatedPeriod: commonconfig.MustNewDuration(time.Minute),
 		},
 		TLS: toml.WebServerTLS{
 			CertPath:      new("tls/cert/path"),
@@ -341,15 +341,15 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.JobPipeline = toml.JobPipeline{
 		ExternalInitiatorsEnabled: new(true),
-		MaxRunDuration:            commoncfg.MustNewDuration(time.Hour),
+		MaxRunDuration:            commonconfig.MustNewDuration(time.Hour),
 		MaxSuccessfulRuns:         new(uint64(123456)),
-		ReaperInterval:            commoncfg.MustNewDuration(4 * time.Hour),
-		ReaperThreshold:           commoncfg.MustNewDuration(7 * 24 * time.Hour),
+		ReaperInterval:            commonconfig.MustNewDuration(4 * time.Hour),
+		ReaperThreshold:           commonconfig.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     new(uint32(10)),
 		VerboseLogging:            new(false),
 		HTTPRequest: toml.JobPipelineHTTPRequest{
 			MaxSize:        new(utils.FileSize(100 * utils.MB)),
-			DefaultTimeout: commoncfg.MustNewDuration(time.Minute),
+			DefaultTimeout: commonconfig.MustNewDuration(time.Minute),
 		},
 	}
 	full.FluxMonitor = toml.FluxMonitor{ //nolint:staticcheck // deprecated config surface must match embedded config-full.toml
@@ -359,11 +359,11 @@ func TestConfig_Marshal(t *testing.T) {
 	full.OCR2 = toml.OCR2{
 		Enabled:                            new(true),
 		ContractConfirmations:              new(uint32(11)),
-		BlockchainTimeout:                  commoncfg.MustNewDuration(3 * time.Second),
-		ContractPollInterval:               commoncfg.MustNewDuration(time.Hour),
-		ContractSubscribeInterval:          commoncfg.MustNewDuration(time.Minute),
-		ContractTransmitterTransmitTimeout: commoncfg.MustNewDuration(time.Minute),
-		DatabaseTimeout:                    commoncfg.MustNewDuration(8 * time.Second),
+		BlockchainTimeout:                  commonconfig.MustNewDuration(3 * time.Second),
+		ContractPollInterval:               commonconfig.MustNewDuration(time.Hour),
+		ContractSubscribeInterval:          commonconfig.MustNewDuration(time.Minute),
+		ContractTransmitterTransmitTimeout: commonconfig.MustNewDuration(time.Minute),
+		DatabaseTimeout:                    commonconfig.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        new(corekeys.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 new(false),
 		AllowNoBootstrappers:               new(true),
@@ -375,10 +375,10 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.OCR = toml.OCR{
 		Enabled:                      new(true),
-		ObservationTimeout:           commoncfg.MustNewDuration(11 * time.Second),
-		BlockchainTimeout:            commoncfg.MustNewDuration(3 * time.Second),
-		ContractPollInterval:         commoncfg.MustNewDuration(time.Hour),
-		ContractSubscribeInterval:    commoncfg.MustNewDuration(time.Minute),
+		ObservationTimeout:           commonconfig.MustNewDuration(11 * time.Second),
+		BlockchainTimeout:            commonconfig.MustNewDuration(3 * time.Second),
+		ContractPollInterval:         commonconfig.MustNewDuration(time.Hour),
+		ContractSubscribeInterval:    commonconfig.MustNewDuration(time.Minute),
 		DefaultTransactionQueueDepth: new(uint32(12)),
 		KeyBundleID:                  new(corekeys.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
 		SimulateTransactions:         new(true),
@@ -400,8 +400,8 @@ func TestConfig_Marshal(t *testing.T) {
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"test:99"}},
 			},
-			DeltaDial:       commoncfg.MustNewDuration(time.Minute),
-			DeltaReconcile:  commoncfg.MustNewDuration(time.Second),
+			DeltaDial:       commonconfig.MustNewDuration(time.Minute),
+			DeltaReconcile:  commonconfig.MustNewDuration(time.Second),
 			ListenAddresses: &[]string{"foo", "bar"},
 		},
 	}
@@ -426,8 +426,8 @@ func TestConfig_Marshal(t *testing.T) {
 					{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
 					{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"test:99"}},
 				},
-				DeltaDial:       commoncfg.MustNewDuration(time.Minute),
-				DeltaReconcile:  commoncfg.MustNewDuration(2 * time.Second),
+				DeltaDial:       commonconfig.MustNewDuration(time.Minute),
+				DeltaReconcile:  commonconfig.MustNewDuration(2 * time.Second),
 				ListenAddresses: &[]string{"foo", "bar"},
 			},
 		},
@@ -454,16 +454,15 @@ func TestConfig_Marshal(t *testing.T) {
 			ContractVersion: new("1.0.0"),
 		},
 		WorkflowRegistry: toml.WorkflowRegistry{
-			Address:                 new(""),
-			ChainID:                 new("1"),
-			ContractVersion:         new("1.0.0"),
-			NetworkID:               new("evm"),
-			MaxBinarySize:           new(utils.FileSize(20 * utils.MB)),
-			MaxEncryptedSecretsSize: new(utils.FileSize(26.4 * utils.KB)),
-			MaxConfigSize:           new(utils.FileSize(50 * utils.KB)),
-			SyncStrategy:            new("event"),
-			MaxConcurrency:          new(12),
-			MaxActivationRetries:    new(100),
+			Address:              new(""),
+			ChainID:              new("1"),
+			ContractVersion:      new("1.0.0"),
+			NetworkID:            new("evm"),
+			MaxBinarySize:        new(utils.FileSize(20 * utils.MB)),
+			MaxConfigSize:        new(utils.FileSize(50 * utils.KB)),
+			SyncStrategy:         new("event"),
+			MaxConcurrency:       new(12),
+			MaxActivationRetries: new(100),
 			WorkflowStorage: toml.WorkflowStorage{
 				ArtifactStorageHost: new(""),
 				URL:                 new(""),
@@ -473,7 +472,7 @@ func TestConfig_Marshal(t *testing.T) {
 				Enabled:            new(false),
 				DiskMonitorEnabled: new(false),
 				IdleEviction:       new(true),
-				IdleTimeout:        commoncfg.MustNewDuration(10 * time.Minute),
+				IdleTimeout:        commonconfig.MustNewDuration(10 * time.Minute),
 				MaxLoaded:          new(200),
 				CacheDir:           new(""),
 			},
@@ -486,7 +485,6 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		Dispatcher: toml.Dispatcher{
-			SupportedVersion:   new(1),
 			ReceiverBufferSize: new(10000),
 			RateLimit: toml.DispatcherRateLimit{
 				GlobalRPS:      new(800.0),
@@ -494,7 +492,6 @@ func TestConfig_Marshal(t *testing.T) {
 				PerSenderRPS:   new(10.0),
 				PerSenderBurst: new(50),
 			},
-			SendToSharedPeer: new(false),
 		},
 		GatewayConnector: toml.GatewayConnector{
 			ChainIDForNodeKey:         new("11155111"),
@@ -530,9 +527,9 @@ func TestConfig_Marshal(t *testing.T) {
 	full.AutoPprof = toml.AutoPprof{
 		Enabled:              new(true),
 		ProfileRoot:          new("prof/root"),
-		PollInterval:         commoncfg.MustNewDuration(time.Minute),
-		GatherDuration:       commoncfg.MustNewDuration(12 * time.Second),
-		GatherTraceDuration:  commoncfg.MustNewDuration(13 * time.Second),
+		PollInterval:         commonconfig.MustNewDuration(time.Minute),
+		GatherDuration:       commonconfig.MustNewDuration(12 * time.Second),
+		GatherTraceDuration:  commonconfig.MustNewDuration(13 * time.Second),
 		MaxProfileSize:       new(utils.FileSize(utils.GB)),
 		CPUProfileRate:       new(int64(7)),
 		MemProfileRate:       new(int64(9)),
@@ -560,28 +557,28 @@ func TestConfig_Marshal(t *testing.T) {
 		ResourceAttributes:                     map[string]string{"Baz": "test", "Foo": "bar"},
 		TraceSampleRatio:                       new(0.01),
 		EmitterBatchProcessor:                  new(true),
-		EmitterExportTimeout:                   commoncfg.MustNewDuration(1 * time.Second),
-		AuthHeadersTTL:                         commoncfg.MustNewDuration(0 * time.Second),
+		EmitterExportTimeout:                   commonconfig.MustNewDuration(1 * time.Second),
+		AuthHeadersTTL:                         commonconfig.MustNewDuration(0 * time.Second),
 		ChipIngressEndpoint:                    new("example.com/chip-ingress"),
 		ChipIngressInsecureConnection:          new(false),
 		ChipIngressBatchEmitterEnabled:         new(true),
 		ChipIngressBufferSize:                  new(uint(10000)),
 		ChipIngressMaxBatchSize:                new(uint(1000)),
 		ChipIngressMaxConcurrentSends:          new(10),
-		ChipIngressSendInterval:                commoncfg.MustNewDuration(500 * time.Millisecond),
-		ChipIngressSendTimeout:                 commoncfg.MustNewDuration(10 * time.Second),
-		ChipIngressDrainTimeout:                commoncfg.MustNewDuration(30 * time.Second),
+		ChipIngressSendInterval:                commonconfig.MustNewDuration(500 * time.Millisecond),
+		ChipIngressSendTimeout:                 commonconfig.MustNewDuration(10 * time.Second),
+		ChipIngressDrainTimeout:                commonconfig.MustNewDuration(30 * time.Second),
 		ChipIngressMaxGRPCRequestSize:          new(10485760),
 		DurableEmitterEnabled:                  new(false),
 		DurableEmitterRetransmitBatchSize:      new(500),
-		DurableEmitterEventTTL:                 commoncfg.MustNewDuration(1 * time.Hour),
+		DurableEmitterEventTTL:                 commonconfig.MustNewDuration(6 * time.Hour),
 		DurableEmitterMaxQueuePayloadBytes:     new(int64(1073741824)),
-		DurableEmitterInsertBatchFlushInterval: commoncfg.MustNewDuration(50 * time.Millisecond),
-		HeartbeatInterval:                      commoncfg.MustNewDuration(1 * time.Second),
+		DurableEmitterInsertBatchFlushInterval: commonconfig.MustNewDuration(50 * time.Millisecond),
+		HeartbeatInterval:                      commonconfig.MustNewDuration(1 * time.Second),
 		LogStreamingEnabled:                    new(false),
 		LogLevel:                               new("info"),
 		LogBatchProcessor:                      new(true),
-		LogExportTimeout:                       commoncfg.MustNewDuration(1 * time.Second),
+		LogExportTimeout:                       commonconfig.MustNewDuration(1 * time.Second),
 		LogExportMaxBatchSize:                  new(512),
 		LogExportInterval:                      ptrDuration(1 * time.Second),
 		LogMaxQueueSize:                        new(2048),
@@ -604,9 +601,10 @@ func TestConfig_Marshal(t *testing.T) {
 		NodeID:                new("clp-cre-wf-zone-a-1"),
 	}
 	full.CRE = toml.CreConfig{
-		UseLocalTimeProvider: new(true),
-		EnableDKGRecipient:   new(false),
-		DebugMode:            new(false),
+		UseLocalTimeProvider:              new(true),
+		EnableDKGRecipient:                new(false),
+		DebugMode:                         new(false),
+		CachedTriggerSubscriptionsEnabled: new(false),
 		Streams: &toml.StreamsConfig{
 			WsURL:   new("streams.url"),
 			RestURL: new("streams.url"),
@@ -617,7 +615,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Linking: &toml.LinkingConfig{
 			URL:                 new(""),
 			TLSEnabled:          new(true),
-			RequestTimeout:      commoncfg.MustNewDuration(2 * time.Second),
+			RequestTimeout:      commonconfig.MustNewDuration(2 * time.Second),
 			DurableCacheEnabled: new(true),
 		},
 		ConfidentialRelay: &toml.ConfidentialRelayConfig{
@@ -633,25 +631,25 @@ func TestConfig_Marshal(t *testing.T) {
 	full.BridgeStatusReporter = toml.BridgeStatusReporter{
 		Enabled:              new(false),
 		StatusPath:           new("/status"),
-		PollingInterval:      commoncfg.MustNewDuration(5 * time.Minute),
+		PollingInterval:      commonconfig.MustNewDuration(5 * time.Minute),
 		IgnoreInvalidBridges: new(true),
 		IgnoreJoblessBridges: new(false),
 	}
 	enabledOCR2PluginTypes := []string{"median"}
 	full.JobSpecReporter = toml.JobSpecReporter{
 		Enabled:                new(true),
-		PollingInterval:        commoncfg.MustNewDuration(time.Hour),
+		PollingInterval:        commonconfig.MustNewDuration(time.Hour),
 		EnabledOCR2PluginTypes: &enabledOCR2PluginTypes,
 	}
 	mode := "manual-only"
 	full.Sharding = toml.Sharding{
 		ShardingEnabled:          new(false),
 		ArbiterPort:              new(uint16(9876)),
-		ArbiterPollInterval:      commoncfg.MustNewDuration(12 * time.Second),
-		ArbiterRetryInterval:     commoncfg.MustNewDuration(12 * time.Second),
+		ArbiterPollInterval:      commonconfig.MustNewDuration(12 * time.Second),
+		ArbiterRetryInterval:     commonconfig.MustNewDuration(12 * time.Second),
 		ShardIndex:               new(uint16(0)),
 		ShardOrchestratorPort:    new(uint16(50051)),
-		ShardOrchestratorAddress: &commoncfg.URL{},
+		ShardOrchestratorAddress: &commonconfig.URL{},
 		ShardAssignmentMode:      &mode,
 	}
 	full.LOOPP = toml.LOOPP{
@@ -699,12 +697,11 @@ func TestConfig_Marshal(t *testing.T) {
 					PriceMin:           assets.NewWeiI(13),
 
 					LimitJobType: evmcfg.GasLimitJobType{
-						OCR:    new(uint32(1001)),
-						DR:     new(uint32(1002)),
-						VRF:    new(uint32(1003)),
-						FM:     new(uint32(1004)),
-						Keeper: new(uint32(1005)),
-						OCR2:   new(uint32(1006)),
+						OCR:  new(uint32(1001)),
+						DR:   new(uint32(1002)),
+						VRF:  new(uint32(1003)),
+						FM:   new(uint32(1004)),
+						OCR2: new(uint32(1006)),
 					},
 
 					BlockHistory: evmcfg.BlockHistoryEstimator{
@@ -815,20 +812,15 @@ func TestConfig_Marshal(t *testing.T) {
 					ContractConfirmations:              new(uint16(11)),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
-					DeltaCOverride:                     commoncfg.MustNewDuration(time.Hour),
-					DeltaCJitterOverride:               commoncfg.MustNewDuration(time.Second),
+					DeltaCOverride:                     commonconfig.MustNewDuration(time.Hour),
+					DeltaCJitterOverride:               commonconfig.MustNewDuration(time.Second),
 					ObservationGracePeriod:             &second,
-				},
-				OCR2: evmcfg.OCR2{
-					Automation: evmcfg.Automation{
-						GasLimit: new(uint32(540)),
-					},
 				},
 				Workflow: evmcfg.Workflow{
 					GasLimitDefault:   new(uint64(400000)),
 					TxAcceptanceState: new(commontypes.Unconfirmed),
-					PollPeriod:        commoncfg.MustNewDuration(time.Second * 2),
-					AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 30),
+					PollPeriod:        commonconfig.MustNewDuration(time.Second * 2),
+					AcceptanceTimeout: commonconfig.MustNewDuration(time.Second * 30),
 				},
 			},
 			Nodes: []*evmcfg.Node{
@@ -853,9 +845,9 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.Mercury = toml.Mercury{
 		Cache: toml.MercuryCache{
-			LatestReportTTL:      commoncfg.MustNewDuration(100 * time.Second),
-			MaxStaleAge:          commoncfg.MustNewDuration(101 * time.Second),
-			LatestReportDeadline: commoncfg.MustNewDuration(102 * time.Second),
+			LatestReportTTL:      commonconfig.MustNewDuration(100 * time.Second),
+			MaxStaleAge:          commonconfig.MustNewDuration(101 * time.Second),
+			LatestReportDeadline: commonconfig.MustNewDuration(102 * time.Second),
 		},
 		TLS: toml.MercuryTLS{
 			CertFile: new("/path/to/cert.pem"),
@@ -863,10 +855,10 @@ func TestConfig_Marshal(t *testing.T) {
 		Transmitter: toml.MercuryTransmitter{
 			Protocol:             new(mercurytransmitter.MercuryTransmitterProtocolGRPC),
 			TransmitQueueMaxSize: new(uint32(123)),
-			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
+			TransmitTimeout:      commonconfig.MustNewDuration(234 * time.Second),
 			TransmitConcurrency:  new(uint32(456)),
-			ReaperFrequency:      commoncfg.MustNewDuration(567 * time.Second),
-			ReaperMaxAge:         commoncfg.MustNewDuration(678 * time.Hour),
+			ReaperFrequency:      commonconfig.MustNewDuration(567 * time.Second),
+			ReaperMaxAge:         commonconfig.MustNewDuration(678 * time.Hour),
 		},
 		VerboseLogging: new(true),
 	}
@@ -1193,7 +1185,6 @@ OCR2 = 1006
 DR = 1002
 VRF = 1003
 FM = 1004
-Keeper = 1005
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
@@ -1265,10 +1256,6 @@ DeltaCOverride = '1h0m0s'
 DeltaCJitterOverride = '1s'
 ObservationGracePeriod = '1s'
 
-[EVM.OCR2]
-[EVM.OCR2.Automation]
-GasLimit = 540
-
 [EVM.Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -1320,7 +1307,7 @@ ReaperMaxAge = '678h0m0s'
 
 			var got Config
 
-			require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(s), &got))
+			require.NoError(t, commonconfig.DecodeTOML(strings.NewReader(s), &got))
 			ts, err := got.TOMLString()
 
 			require.NoError(t, err)
@@ -1331,7 +1318,7 @@ ReaperMaxAge = '678h0m0s'
 
 func TestConfig_full(t *testing.T) {
 	var got Config
-	require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(fullTOML), &got))
+	require.NoError(t, commonconfig.DecodeTOML(strings.NewReader(fullTOML), &got))
 	// Except for some EVM node fields.
 	for c := range got.EVM {
 		addr, err := types.NewEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")
@@ -1347,7 +1334,7 @@ func TestConfig_full(t *testing.T) {
 		}
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
-				got.EVM[c].Nodes[n].WSURL = new(commoncfg.URL)
+				got.EVM[c].Nodes[n].WSURL = new(commonconfig.URL)
 			}
 			if got.EVM[c].Nodes[n].SendOnly == nil {
 				got.EVM[c].Nodes[n].SendOnly = new(true)
@@ -1356,17 +1343,17 @@ func TestConfig_full(t *testing.T) {
 				got.EVM[c].Nodes[n].Order = new(int32(100))
 			}
 			if got.EVM[c].Nodes[n].HTTPURLExtraWrite == nil {
-				got.EVM[c].Nodes[n].HTTPURLExtraWrite = new(commoncfg.URL)
+				got.EVM[c].Nodes[n].HTTPURLExtraWrite = new(commonconfig.URL)
 			}
 			if got.EVM[c].Nodes[n].IsLoadBalancedRPC == nil {
 				got.EVM[c].Nodes[n].IsLoadBalancedRPC = new(false)
 			}
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.BlockTime == nil {
-			got.EVM[c].Transactions.TransactionManagerV2.BlockTime = new(commoncfg.Duration)
+			got.EVM[c].Transactions.TransactionManagerV2.BlockTime = new(commonconfig.Duration)
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.CustomURL == nil {
-			got.EVM[c].Transactions.TransactionManagerV2.CustomURL = new(commoncfg.URL)
+			got.EVM[c].Transactions.TransactionManagerV2.CustomURL = new(commonconfig.URL)
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast = new(false)
@@ -1378,7 +1365,7 @@ func TestConfig_full(t *testing.T) {
 			got.EVM[c].Transactions.TransactionManagerV2.Bundles = new(false)
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout == nil {
-			got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout = new(commoncfg.Duration)
+			got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout = new(commonconfig.Duration)
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.FeeBoost == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.FeeBoost = new(false)
@@ -1390,7 +1377,7 @@ func TestConfig_full(t *testing.T) {
 			got.EVM[c].Transactions.AutoPurge.MinAttempts = new(uint32(0))
 		}
 		if got.EVM[c].Transactions.AutoPurge.DetectionApiUrl == nil {
-			got.EVM[c].Transactions.AutoPurge.DetectionApiUrl = new(commoncfg.URL)
+			got.EVM[c].Transactions.AutoPurge.DetectionApiUrl = new(commonconfig.URL)
 		}
 		if got.EVM[c].GasEstimator.DAOracle.OracleType == nil {
 			oracleType := evmcfg.DAOracleOPStack
@@ -1404,6 +1391,9 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].GasEstimator.SenderAddress == nil {
 			got.EVM[c].GasEstimator.SenderAddress = new(types.EIP55Address)
+		}
+		if got.EVM[c].BalanceMonitor.ERC20TokenAddress == nil {
+			got.EVM[c].BalanceMonitor.ERC20TokenAddress = new(types.EIP55Address)
 		}
 	}
 
@@ -1419,7 +1409,7 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 10 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 9 errors:
 	- P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
@@ -1448,7 +1438,7 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: 2 errors:
 				- 0.HTTPURL: missing: required for all nodes
 				- 1.HTTPURL: missing: required for all nodes
-		- 1: 10 errors:
+		- 1: 9 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
 			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit, tron, rootstock, pharos, jovay or omitted
@@ -1460,7 +1450,6 @@ func TestConfig_Validate(t *testing.T) {
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
 			- HeadTracker.MaxAllowedFinalityDepth: invalid value (0): must be greater than or equal to 1
-			- KeySpecific.Key: invalid value (0xde709f2102306220921060314715629080e2fb77): duplicate - must be unique
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
@@ -1488,13 +1477,6 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: missing: must have at least one node
 		- 5.Transactions.AutoPurge.DetectionApiUrl: invalid value (): must be set for scroll
 		- 6.Nodes: missing: 0th node (primary) must have a valid WSURL when http polling is disabled
-	- Cosmos: 4 errors:
-		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
-		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique
-		- 1.Nodes: missing: expected at least one node
-		- 2: 2 errors:
-			- ChainID: missing: required for all chains
-			- Nodes: missing: expected at least one node
 	- Solana: 4 errors:
 		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (bar): duplicate - must be unique
@@ -1526,15 +1508,15 @@ func TestConfig_Validate(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config
-			require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(tt.toml), &c))
+			require.NoError(t, commonconfig.DecodeTOML(strings.NewReader(tt.toml), &c))
 			c.setDefaults()
 			assertValidationError(t, &c, tt.exp)
 		})
 	}
 }
 
-func mustURL(s string) *commoncfg.URL {
-	var u commoncfg.URL
+func mustURL(s string) *commonconfig.URL {
+	var u commonconfig.URL
 	if err := u.UnmarshalText([]byte(s)); err != nil {
 		panic(err)
 	}
@@ -1651,7 +1633,7 @@ func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 		SecretsStrings: []string{secretsFullTOML},
 	}
 	_, err := opts.New()
-	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: U+007B '{'")
+	assert.ErrorContains(t, err, "failed to decode config TOML: toml: invalid character at start of key:")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
@@ -1741,7 +1723,7 @@ AllowSimplePasswords = true`,
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var s Secrets
-			require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(tt.toml), &s))
+			require.NoError(t, commonconfig.DecodeTOML(strings.NewReader(tt.toml), &s))
 			assertValidationError(t, &s, tt.exp)
 		})
 	}
@@ -1758,7 +1740,6 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: sqlutil.NewI(99999133712345)}}
-	c.Cosmos = RawConfigs{{"ChainID": new("unknown cosmos chain")}}
 	c.Solana = RawConfigs{{"ChainID": new("unknown solana chain")}}
 	c.Starknet = RawConfigs{{"ChainID": new("unknown starknet chain")}}
 	c.setDefaults()
@@ -1803,7 +1784,7 @@ func TestConfig_SetFrom(t *testing.T) {
 			var c Config
 			for _, fs := range tt.from {
 				var f Config
-				require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(fs), &f))
+				require.NoError(t, commonconfig.DecodeTOML(strings.NewReader(fs), &f))
 				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()

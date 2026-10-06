@@ -16,7 +16,7 @@ func TestNodeResource(t *testing.T) {
 	var nodeResource NodeResource
 	state := "test"
 	cfg := "cfg"
-	testCases := []string{"solana", "cosmos", "starknet", "tron"}
+	testCases := []string{"solana", "starknet", "tron"}
 	for _, tc := range testCases {
 		chainID := tc + " chain ID"
 		nodeName := tc + "_node"

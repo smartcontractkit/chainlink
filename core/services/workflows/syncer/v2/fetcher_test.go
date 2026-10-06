@@ -218,7 +218,7 @@ func TestNewFetcherService(t *testing.T) {
 			Body: api.MessageBody{
 				MessageID: msgID,
 				DonID:     donID,
-				Method:    ghcapabilities.MethodWebAPITarget,
+				Method:    ghcapabilities.MethodWorkflowSyncer,
 				Payload:   responsePayload,
 			},
 		}
@@ -593,7 +593,7 @@ func gatewayResponse(t *testing.T, msgID, donID string, statusCode int) *api.Mes
 		Body: api.MessageBody{
 			MessageID: msgID,
 			DonID:     donID,
-			Method:    ghcapabilities.MethodWebAPITarget,
+			Method:    ghcapabilities.MethodWorkflowSyncer,
 			Payload:   responsePayload,
 		},
 	}
@@ -610,7 +610,7 @@ func inconsistentPayload(t *testing.T, msgID, donID string) *api.Message {
 		Body: api.MessageBody{
 			MessageID: msgID,
 			DonID:     donID,
-			Method:    ghcapabilities.MethodWebAPITarget,
+			Method:    ghcapabilities.MethodWorkflowSyncer,
 			Payload:   responsePayload,
 		},
 	}

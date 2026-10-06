@@ -41,7 +41,7 @@ func TestNewUser(t *testing.T) {
 			if test.wantError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, test.email, user.Email)
 				assert.Equal(t, test.role, user.Role)
 				assert.NotEmpty(t, user.HashedPassword)
@@ -64,13 +64,13 @@ func TestAuthenticateUserByToken(t *testing.T) {
 	var user sessions.User
 
 	token, err := user.GenerateAuthToken()
-	assert.NoError(t, err, "failed when generate auth token")
+	require.NoError(t, err, "failed when generate auth token")
 	ok, err := sessions.AuthenticateUserByToken(token, &user)
 	require.NoError(t, err)
 	assert.True(t, ok, "authentication must be successful")
 
 	_, err = user.GenerateAuthToken()
-	assert.NoError(t, err, "failed to generate auth token")
+	require.NoError(t, err, "failed to generate auth token")
 	ok, err = sessions.AuthenticateUserByToken(token, &user)
 	require.NoError(t, err)
 	assert.False(t, ok, "authentication must fail with past token")

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
 ##
 # Build image: Chainlink binary with plugins for testing purposes only.
 # XXX: Experimental -- not to be used to build images for production use.
@@ -7,9 +8,10 @@
 # Stage: deps-base — module downloads, no source tree.
 # Stages that don't need the full source (remote plugins, delve) branch from
 # here so that source-only changes never invalidate their layer cache.
-FROM golang:1.26.7-bookworm AS deps-base
-RUN go version
-RUN apt-get update && apt-get install -y --no-install-recommends jq=1.6-2.1+deb12u2 && rm -rf /var/lib/apt/lists/*
+FROM golang:1.27.1-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195 AS deps-base
+# Build-only tooling; never shipped, so versions are intentionally unpinned.
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /chainlink
 
@@ -71,10 +73,10 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     mkdir -p /gobins "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
     GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
     fi && \
     if [ "${CL_INSTALL_TESTING_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
     fi && \
     mkdir -p /tmp/lib && \
     ./plugins/scripts/copy_loopinstall_libs.sh \
@@ -99,42 +101,50 @@ RUN --mount=type=cache,id=go-mod-cache,target=/go/pkg/mod \
     --mount=type=cache,id=go-build-cache,target=/root/.cache/go-build \
     mkdir -p /gobins && \
     if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
-          GOBIN=/gobins make install-chainlink-dev; \
-      else \
-          GOBIN=/gobins make install-chainlink; \
-      fi
+    GOBIN=/gobins make install-chainlink-dev; \
+    else \
+    GOBIN=/gobins make install-chainlink; \
+    fi
 
 ##
 # Final Image
 ##
-FROM ubuntu:24.04 AS final
+FROM ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3 AS final
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates=20260601~24.04.1 \
-    gnupg=2.4.4-2ubuntu17.6 \
-    lsb-release=12.0-2 \
-    curl=8.5.0-2ubuntu10.13 \
-    && rm -rf /var/lib/apt/lists/*
+# Postgres apt signing key (fingerprint B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8), vendored from
+# https://www.postgresql.org/media/keys/ACCC4CF8.asc so builds don't break when upstream
+# reissues the file, and gnupg isn't needed in the image.
+COPY --link --chmod=644 tools/docker/postgresql-archive-keyring.asc /usr/share/keyrings/postgresql-archive-keyring.asc
 
-# Install Postgres for CLI tools, needed specifically for DB backups
-RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-    | gpg --dearmor -o /usr/share/keyrings/postgresql-archive-keyring.gpg \
-    && gpg --no-default-keyring \
-        --keyring /usr/share/keyrings/postgresql-archive-keyring.gpg \
-        --fingerprint B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 \
-    && echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] \
-       https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+# Package versions are intentionally NOT pinned. Ubuntu only serves the newest
+# build in noble-updates/-security, so exact pins break every time a security
+# fix ships (#23461, #23521, #23645, #23818). Instead we take the latest patched
+# packages at build time (incl. `upgrade` for base-image packages); apt verifies
+# archive signatures, and CI scans the image for fixable CVEs.
+# Install Postgres client for CLI tools, needed specifically for DB backups.
+# APT_CACHE_BUST: CI passes the current UTC date so this layer (and its upgrade)
+# is rebuilt at least daily instead of being served stale from the layer cache.
+ARG APT_CACHE_BUST=unset
+# hadolint ignore=DL3005,DL3008
+RUN echo "apt cache bust: ${APT_CACHE_BUST}" \
+    && apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && . /etc/os-release \
+    && echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
         >/etc/apt/sources.list.d/pgdg.list \
-    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-17=17.10-1.pgdg24.04+1 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-18 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Prod images (CHAINLINK_USER=chainlink) run as UID:GID 14933:14933 for deterministic ownership.
 RUN if [ ${CHAINLINK_USER} != root ]; then \
-      groupadd --gid 14933 ${CHAINLINK_USER} && \
-      useradd --uid 14933 --gid 14933 --create-home ${CHAINLINK_USER}; \
+    groupadd --gid 14933 ${CHAINLINK_USER} && \
+    useradd --uid 14933 --gid 14933 --create-home ${CHAINLINK_USER}; \
     fi
 USER ${CHAINLINK_USER}
 
@@ -151,16 +161,16 @@ ENV CL_EVM_CMD=chainlink-evm
 ENV CL_MERCURY_CMD=chainlink-mercury
 
 # CCIP specific
-COPY ./cci[p]/confi[g] /ccip-config
+COPY --link ./cci[p]/confi[g] /ccip-config
 ARG CL_CHAIN_DEFAULTS
 ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
 
 # Copy binaries from the parallel build stages.
-COPY --from=build-remote-plugins /gobins/ /usr/local/bin/
-COPY --from=build-local-plugins /gobins/ /usr/local/bin/
-COPY --from=build-chainlink /gobins/ /usr/local/bin/
+COPY --link --from=build-remote-plugins /gobins/ /usr/local/bin/
+COPY --link --from=build-local-plugins /gobins/ /usr/local/bin/
+COPY --link --from=build-chainlink /gobins/ /usr/local/bin/
 # Copy shared libraries from the remote plugins build stage.
-COPY --from=build-remote-plugins /tmp/lib /usr/lib/
+COPY --link --from=build-remote-plugins /tmp/lib /usr/lib/
 
 WORKDIR /home/${CHAINLINK_USER}
 
@@ -175,4 +185,4 @@ CMD ["local", "node"]
 
 FROM final AS debug
 
-COPY --from=build-delve /go/bin/dlv /usr/local/bin/dlv
+COPY --link --from=build-delve /go/bin/dlv /usr/local/bin/dlv

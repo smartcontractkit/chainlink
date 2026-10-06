@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/diskmonitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
@@ -70,6 +71,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	ocr3beholderwrapper "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/beholderwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/beholderwrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -93,6 +95,11 @@ const (
 	dontimeCapabilityPrefix      = "dontime"
 	gaugeVaultDiskUsageBytes     = "platform_vault_disk_usage_bytes"
 	vaultDiskMonitorTickInterval = time.Minute
+
+	consensusQueueCapabilityID            = "consensus-queue@1.0.0"
+	consensusQueueOCRConfigKey            = "consensus-queue"
+	gaugeConsensusQueueBytes              = "platform_consensus_queue_usage_bytes"
+	consensusQueueDiskMonitorTickInterval = time.Minute
 )
 
 type JobSpecNoRelayerError struct {
@@ -131,7 +138,7 @@ type Delegate struct {
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	cfg                   DelegateConfig
-	lggr                  logger.Logger
+	lggr                  logger.SugaredLogger
 	ks                    keystore.OCR2
 	ethKs                 keystore.Eth
 	workflowKs            keystore.Workflow
@@ -142,7 +149,7 @@ type Delegate struct {
 	retirementReportCache retirement.RetirementReportCache
 
 	legacyChains                   legacyevm.LegacyChainContainer // legacy: use relayers instead
-	capabilitiesRegistry           core.CapabilitiesRegistry
+	capabilitiesRegistry           registry.CapabilitiesRegistry
 	dontimeStore                   *dontime.Store
 	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
@@ -274,12 +281,12 @@ type DelegateOpts struct {
 	PeerWrapper                    *ocrcommon.SingletonPeerWrapper
 	MonitoringEndpointGen          telemetry.MonitoringEndpointGenerator
 	LegacyChains                   legacyevm.LegacyChainContainer
-	Lggr                           logger.Logger
+	Lggr                           logger.SugaredLogger
 	Ks                             keystore.OCR2
 	EthKs                          keystore.Eth
 	Relayers                       RelayGetter
 	MailMon                        *mailbox.Monitor
-	CapabilitiesRegistry           core.CapabilitiesRegistry
+	CapabilitiesRegistry           registry.CapabilitiesRegistry
 	DonTimeStore                   *dontime.Store
 	RetirementReportCache          retirement.RetirementReportCache
 	GatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
@@ -315,7 +322,7 @@ func NewDelegate(
 		monitoringEndpointGen:          opts.MonitoringEndpointGen,
 		legacyChains:                   opts.LegacyChains,
 		cfg:                            cfg,
-		lggr:                           opts.Lggr.Named("OCR2"),
+		lggr:                           logger.Sugared(opts.Lggr.Named("OCR2")),
 		ks:                             opts.Ks,
 		ethKs:                          opts.EthKs,
 		workflowKs:                     opts.WorkflowKs,
@@ -361,7 +368,7 @@ func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 	rid, err := spec.RelayID()
 	if err != nil {
 		d.lggr.Errorw("DeleteJob", "err", JobSpecNoRelayerError{Err: err, PluginName: string(spec.PluginType)})
-		return nil
+		return nil //nolint:nilerr // deletion must not be blocked by a malformed spec
 	}
 	// we only have clean to do for the EVM
 	if rid.Network == relay.NetworkEVM {
@@ -550,6 +557,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 
 	case types.RingPlugin:
 		return d.newServicesRing(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+
+	case types.ConsensusQueue:
+		return d.newServicesConsensusQueue(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -772,8 +782,155 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, evm types.EV
 	return spec.TransmitterID.String, nil
 }
 
-type connProvider interface {
-	ClientConn() grpc.ClientConnInterface
+func (d *Delegate) getRelayer(spec *job.OCR2OracleSpec) (types.RelayID, loop.Relayer, error) {
+	rid, err := spec.RelayID()
+	if err != nil {
+		return types.RelayID{}, nil, JobSpecNoRelayerError{PluginName: string(spec.PluginType), Err: err}
+	}
+
+	relayer, err := d.Get(rid)
+	if err != nil {
+		return types.RelayID{}, nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: string(spec.PluginType)}
+	}
+	return rid, relayer, nil
+}
+
+func (d *Delegate) newServicesConsensusQueue(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+) (srvs []job.ServiceCtx, err error) {
+	spec := jb.OCR2OracleSpec
+
+	// TODO ticket validate job spec
+
+	rid, relayer, err := d.getRelayer(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         jb.ID,
+		OracleSpecID:  spec.ID,
+		ContractID:    spec.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  string(types.OCR3Capability),
+	}, types.PluginArgs{
+		TransmitterID: spec.TransmitterID.String,
+		PluginConfig:  spec.PluginConfig.Bytes(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, provider)
+
+	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		rid.Network,
+		rid.ChainID,
+		spec.ContractID,
+		synchronization.TelemetryType(types.VaultPlugin),
+	)
+
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+	srvs = append(srvs, ocrLogger)
+
+	dm, err := diskmonitor.NewDiskMonitor(
+		lggr,
+		d.cfg.OCR2().KeyValueStoreRootDir(),
+		gaugeConsensusQueueBytes,
+		consensusQueueDiskMonitorTickInterval,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create disk monitor: %w", err)
+	}
+	srvs = append(srvs, dm)
+
+	fullPath, err := d.ensureKeyValueStorePath(jb.ExternalJobID.String())
+	if err != nil {
+		return nil, err
+	}
+	kvFactory := kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
+
+	keyBundles := map[string]ocr2key.KeyBundle{
+		string(corekeys.EVM): kb,
+	}
+	onchainKeyringAdapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get DKG config tracker and digester, optionally wrapping with OCRConfigService
+	configTracker, configDigester, lc, err := d.maybeWrapConfigService(consensusQueueCapabilityID, consensusQueueOCRConfigKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
+	if err != nil {
+		return nil, err
+	}
+
+	oracleArgs := libocr2.OCR3_1OracleArgs2[[]byte]{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractConfigTracker:        configTracker,
+		ContractTransmitter:          nil, // TODO ticket transmitter
+		Database:                     ocrDB,
+		KeyValueDatabaseFactory:      kvFactory,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           oracleEndpoint,
+		OffchainConfigDigester:       configDigester,
+		OffchainKeyring:              kb,
+		OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+	}
+
+	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, d.limitsFactory)
+	if err != nil {
+		return nil, err
+	}
+
+	wrappedRpf := beholderwrapper.NewReportingPluginFactory(rpf, lggr, string(types.ConsensusQueue))
+	oracleArgs.ReportingPluginFactory = wrappedRpf
+
+	oracle, err := libocr2.NewOracle(oracleArgs)
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, job.NewServiceAdapter(oracle))
+
+	return srvs, nil
+}
+
+func (d *Delegate) ensureKeyValueStorePath(subPath string) (fullPath string, err error) {
+	fullPath = filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), subPath)
+	if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
+		err = fmt.Errorf("failed to create key value store directory: %w", err)
+	}
+	return
+}
+
+func (d *Delegate) maybeWrapConfigService(id, key string, lggr logger.Logger, configTracker ocrtypes.ContractConfigTracker, configDigester ocrtypes.OffchainConfigDigester, localConfig ocrtypes.LocalConfig) (ocrtypes.ContractConfigTracker, ocrtypes.OffchainConfigDigester, ocrtypes.LocalConfig, error) {
+	if d.ocrConfigService == nil {
+		return configTracker, configDigester, localConfig, nil
+	}
+	var err error
+	configTracker, err = d.ocrConfigService.GetConfigTracker(id, key, configTracker)
+	if err != nil {
+		return nil, nil, ocrtypes.LocalConfig{}, fmt.Errorf("failed to get config tracker from OCRConfigService: %w", err)
+	}
+	configDigester, err = d.ocrConfigService.GetConfigDigester(id, key, configDigester)
+	if err != nil {
+		return nil, nil, ocrtypes.LocalConfig{}, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
+	}
+	localConfig = generic.AdjustLocalConfigForRegistryBasedConfig(localConfig)
+	lggr.Infow("Using dynamic OCR config from registry", "capabilityID", id, "ocrConfigKey", key)
+
+	return configTracker, configDigester, localConfig, nil
 }
 
 func (d *Delegate) newServicesVaultPlugin(
@@ -784,7 +941,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	capabilitiesRegistry core.CapabilitiesRegistry,
+	capabilitiesRegistry registry.CapabilitiesRegistry,
 	wrapper *gatewayconnector.ServiceWrapper,
 	syncer syncerV2.WorkflowRegistrySyncer,
 	limitsFactory limits.Factory,
@@ -837,14 +994,9 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, handler)
 
-	rid, err := spec.RelayID()
+	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
-		return nil, JobSpecNoRelayerError{PluginName: string(types.VaultPlugin), Err: err}
-	}
-
-	relayer, err := d.Get(rid)
-	if err != nil {
-		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: string(types.VaultPlugin)}
+		return nil, err
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -887,10 +1039,9 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, dm)
 
-	fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
-	err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700))
+	fullPath, err := d.ensureKeyValueStorePath(jb.ExternalJobID.String())
 	if err != nil {
-		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
+		return nil, err
 	}
 	kvFactory := kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
 
@@ -903,20 +1054,9 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 
 	// Get config tracker and digester, optionally wrapping with OCRConfigService
-	configTracker := provider.ContractConfigTracker()
-	configDigester := provider.OffchainConfigDigester()
-	vaultPluginLocalConfig := lc
-	if d.ocrConfigService != nil {
-		configTracker, err = d.ocrConfigService.GetConfigTracker(vaultCapabilityID, vaultOCRConfigKey, configTracker)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get config tracker from OCRConfigService: %w", err)
-		}
-		configDigester, err = d.ocrConfigService.GetConfigDigester(vaultCapabilityID, vaultOCRConfigKey, configDigester)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
-		}
-		vaultPluginLocalConfig = generic.AdjustLocalConfigForRegistryBasedConfig(vaultPluginLocalConfig)
-		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", vaultCapabilityID, "ocrConfigKey", vaultOCRConfigKey)
+	configTracker, configDigester, vaultPluginLocalConfig, err := d.maybeWrapConfigService(vaultCapabilityID, vaultOCRConfigKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
+	if err != nil {
+		return nil, err
 	}
 
 	oracleArgs := libocr2.OCR3_1OracleArgs2[[]byte]{
@@ -989,7 +1129,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	srvs = append(srvs, dkgProvider)
 
 	fullPathDKG := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String(), "_dkg")
-	err = utils.EnsureDirAndMaxPerms(fullPathDKG, os.FileMode(0700))
+	err = utils.EnsureDirAndMaxPerms(fullPathDKG, os.FileMode(0o700))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
 	}
@@ -1001,20 +1141,9 @@ func (d *Delegate) newServicesVaultPlugin(
 	)
 
 	// Get DKG config tracker and digester, optionally wrapping with OCRConfigService
-	dkgConfigTracker := dkgProvider.ContractConfigTracker()
-	dkgConfigDigester := dkgProvider.OffchainConfigDigester()
-	dkgPluginLocalConfig := lc
-	if d.ocrConfigService != nil {
-		dkgConfigTracker, err = d.ocrConfigService.GetConfigTracker(vaultCapabilityID, dkgOCRConfigKey, dkgConfigTracker)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get DKG config tracker from OCRConfigService: %w", err)
-		}
-		dkgConfigDigester, err = d.ocrConfigService.GetConfigDigester(vaultCapabilityID, dkgOCRConfigKey, dkgConfigDigester)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get DKG config digester from OCRConfigService: %w", err)
-		}
-		dkgPluginLocalConfig = generic.AdjustLocalConfigForRegistryBasedConfig(dkgPluginLocalConfig)
-		lggr.Infow("Using dynamic OCR config from registry for DKG", "capabilityID", vaultCapabilityID, "ocrConfigKey", dkgOCRConfigKey)
+	dkgConfigTracker, dkgConfigDigester, dkgPluginLocalConfig, err := d.maybeWrapConfigService(vaultCapabilityID, dkgOCRConfigKey, lggr, dkgProvider.ContractConfigTracker(), dkgProvider.OffchainConfigDigester(), lc)
+	if err != nil {
+		return nil, err
 	}
 
 	dkgOracleArgs := oracleargs.OCR3_1OracleArgsForSanMarinoDKG(
@@ -1055,14 +1184,9 @@ func (d *Delegate) newDonTimePlugin(
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	rid, err := spec.RelayID()
+	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
-		return nil, JobSpecNoRelayerError{PluginName: "dontime", Err: err}
-	}
-
-	relayer, err := d.Get(rid)
-	if err != nil {
-		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: "dontime"}
+		return nil, err
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -1128,19 +1252,9 @@ func (d *Delegate) newDonTimePlugin(
 	// Get config tracker and digester, optionally wrapping with OCRConfigService.
 	// capabilityID is the registry capability ID (e.g. "dontime@1.0.0"); it keys
 	// the OCRConfigService cache, so it must match the ID the registry carries.
-	configTracker := provider.ContractConfigTracker()
-	configDigester := provider.OffchainConfigDigester()
-	if d.ocrConfigService != nil {
-		configTracker, err = d.ocrConfigService.GetConfigTracker(capabilityID, capabilitiespb.OCR3ConfigDefaultKey, configTracker)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get config tracker from OCRConfigService: %w", err)
-		}
-		configDigester, err = d.ocrConfigService.GetConfigDigester(capabilityID, capabilitiespb.OCR3ConfigDefaultKey, configDigester)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
-		}
-		lc = generic.AdjustLocalConfigForRegistryBasedConfig(lc)
-		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", capabilityID)
+	configTracker, configDigester, lc, err := d.maybeWrapConfigService(capabilityID, capabilitiespb.OCR3ConfigDefaultKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
+	if err != nil {
+		return nil, err
 	}
 
 	oracleArgs := libocr2.OCR3OracleArgs2[[]byte]{
@@ -1190,14 +1304,9 @@ func (d *Delegate) newServicesRing(
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	rid, err := spec.RelayID()
+	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
-		return nil, JobSpecNoRelayerError{PluginName: "ring", Err: err}
-	}
-
-	relayer, err := d.Get(rid)
-	if err != nil {
-		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: "ring"}
+		return nil, err
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -1342,6 +1451,10 @@ func (d *Delegate) newServicesRing(
 	return srvs, nil
 }
 
+type connProvider interface {
+	ClientConn() grpc.ClientConnInterface
+}
+
 func (d *Delegate) newServicesGenericPlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
@@ -1350,7 +1463,7 @@ func (d *Delegate) newServicesGenericPlugin(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	capabilitiesRegistry core.CapabilitiesRegistry,
+	capabilitiesRegistry registry.CapabilitiesRegistry,
 	keyValueStore core.KeyValueStore,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
@@ -1382,19 +1495,14 @@ func (d *Delegate) newServicesGenericPlugin(
 		validate.PipelineSpec{Name: "__DEFAULT_PIPELINE__", Spec: jb.Pipeline.Source},
 	)
 
-	rid, err := spec.RelayID()
+	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
-		return nil, JobSpecNoRelayerError{PluginName: pCfg.PluginName, Err: err}
+		return nil, err
 	}
 
 	relayerSet, err := generic.NewRelayerSet(d.RelayGetter, jb.ExternalJobID, jb.ID, d.isNewlyCreatedJob)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
-	}
-
-	relayer, err := d.Get(rid)
-	if err != nil {
-		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: pCfg.PluginName}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -1605,13 +1713,9 @@ func (d *Delegate) newServicesLLO(
 		return nil, errors.Wrapf(err, "ServicesForSpec: streams job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
 	}
 
-	rid, err := spec.RelayID()
+	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
-		return nil, JobSpecNoRelayerError{Err: err, PluginName: "streams"}
-	}
-	relayer, err := d.Get(rid)
-	if err != nil {
-		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: "streams"}
+		return nil, err
 	}
 
 	provider, err2 := relayer.NewLLOProvider(ctx,
@@ -1690,6 +1794,13 @@ func (d *Delegate) newServicesLLO(
 
 	telemetryContractID := fmt.Sprintf("%s/%d", spec.ContractID, pluginCfg.DonID)
 
+	// The plugin version is a property of the protocol instance, not of the
+	// job: a v30 -> v31 blue/green handover runs one of each.
+	pluginVersions := make([]lloconfig.PluginVersion, len(provider.ContractConfigTrackers()))
+	for i := range pluginVersions {
+		pluginVersions[i] = pluginCfg.PluginVersionForInstance(i)
+	}
+
 	cfg := llo.DelegateConfig{
 		Logger:     lggr,
 		DataSource: d.ds,
@@ -1730,15 +1841,20 @@ func (d *Delegate) newServicesLLO(
 			return NewDB(d.ds, spec.ID, pluginID, lggr)
 		},
 
-		OCR31: pluginCfg.IsOCR31(),
+		PluginVersions: pluginVersions,
+		V31Config:      pluginCfg.V31,
 	}
 
-	// OCR3.1 (llo/v31) additionally requires the "2" network endpoint factory and
+	// The v31 plugin additionally requires the "2" network endpoint factory and
 	// a persistent replicated key-value store, wired here the same way the vault
 	// and DKG OCR3.1 plugins are (pebble under OCR2().KeyValueStoreRootDir()).
-	if pluginCfg.IsOCR31() {
+	// They are built whenever any instance is v31: during a v30 -> v31 handover
+	// only the staging instance needs them, but they are per job. The store
+	// directory stays per job too, since the key-value database is created per
+	// config digest and so the instances cannot collide inside it.
+	if pluginCfg.AnyV31() {
 		fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
-		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700)); err != nil {
+		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
 			return nil, fmt.Errorf("failed to create LLO key value store directory: %w", err)
 		}
 		cfg.BinaryNetworkEndpoint2Factory = d.peerWrapper.Peer3_1
@@ -1764,9 +1880,9 @@ func (d *Delegate) newServicesMedian(
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
-	rid, err := spec.RelayID()
+	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
-		return nil, JobSpecNoRelayerError{Err: err, PluginName: "median"}
+		return nil, err
 	}
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
@@ -1793,11 +1909,6 @@ func (d *Delegate) newServicesMedian(
 		d.cfg,
 	)
 
-	relayer, err := d.Get(rid)
-	if err != nil {
-		return nil, RelayNotEnabledError{Err: err, PluginName: "median", Relay: spec.Relay}
-	}
-
 	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
@@ -1820,14 +1931,4 @@ type errorLog struct {
 
 func (l *errorLog) SaveError(ctx context.Context, msg string) error {
 	return l.recordError(ctx, l.jobID, msg)
-}
-
-type logWriter struct {
-	log logger.Logger
-}
-
-func (l *logWriter) Write(p []byte) (n int, err error) {
-	l.log.Debug(string(p), nil)
-	n = len(p)
-	return
 }

@@ -8,11 +8,11 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -26,7 +26,7 @@ type Delegate struct {
 	ks                     keystore.Eth
 	ds                     sqlutil.DataSource
 	lggr                   logger.Logger
-	capabilitiesRegistry   core.CapabilitiesRegistry
+	capabilitiesRegistry   registry.CapabilitiesRegistry
 	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
 	lf                     limits.Factory
 	orgResolver            orgresolver.OrgResolver // optional; nil if the node isn't configured to resolve orgs (e.g. no Linking Service)
@@ -34,7 +34,7 @@ type Delegate struct {
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, orgResolver orgresolver.OrgResolver) *Delegate {
+func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, capabilitiesRegistry registry.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, orgResolver orgresolver.OrgResolver) *Delegate {
 	return &Delegate{
 		legacyChains:           legacyChains,
 		ks:                     ks,

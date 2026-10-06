@@ -399,7 +399,7 @@ func (test testCase) testFeeder(t *testing.T) {
 	}
 
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]uint64, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.Collect(maps.Keys(feeder.stored)))
 }
 
 func TestFeederWithLogPollerVRFv2(t *testing.T) {
@@ -429,25 +429,25 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 	// Construct request logs.
 	var requestLogs []logpoller.Log
 	for _, r := range test.requests {
-		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) {
+		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) { //nolint:gosec // G115: fromBlock/toBlock are non-negative (clamped below)
 			continue // do not include blocks outside our search window
 		}
-		reqId, ok := big.NewInt(0).SetString(r.ID, 10)
+		reqID, ok := big.NewInt(0).SetString(r.ID, 10)
 		require.True(t, ok)
 		requestLogs = append(
 			requestLogs,
-			newRandomnessRequestedLogV2(t, r.Block, reqId, coordinatorAddress),
+			newRandomnessRequestedLogV2(t, r.Block, reqID, coordinatorAddress),
 		)
 	}
 
 	// Construct fulfillment logs.
-	var fulfillmentLogs []logpoller.Log
+	fulfillmentLogs := make([]logpoller.Log, 0, len(test.fulfillments))
 	for _, r := range test.fulfillments {
-		reqId, ok := big.NewInt(0).SetString(r.ID, 10)
+		reqID, ok := big.NewInt(0).SetString(r.ID, 10)
 		require.True(t, ok)
 		fulfillmentLogs = append(
 			fulfillmentLogs,
-			newRandomnessFulfilledLogV2(t, r.Block, reqId, coordinatorAddress),
+			newRandomnessFulfilledLogV2(t, r.Block, reqID, coordinatorAddress),
 		)
 	}
 
@@ -498,7 +498,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 		require.EqualError(t, err, test.expectedErrMsg)
 	}
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]uint64, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.Collect(maps.Keys(feeder.stored)))
 }
 
 func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
@@ -531,22 +531,22 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) { //nolint:gosec // G115
 			continue // do not include blocks outside our search window
 		}
-		reqId, ok := big.NewInt(0).SetString(r.ID, 10)
+		reqID, ok := big.NewInt(0).SetString(r.ID, 10)
 		require.True(t, ok)
 		requestLogs = append(
 			requestLogs,
-			newRandomnessRequestedLogV2Plus(t, r.Block, reqId, coordinatorAddress),
+			newRandomnessRequestedLogV2Plus(t, r.Block, reqID, coordinatorAddress),
 		)
 	}
 
 	// Construct fulfillment logs.
-	var fulfillmentLogs []logpoller.Log
+	fulfillmentLogs := make([]logpoller.Log, 0, len(test.fulfillments))
 	for _, r := range test.fulfillments {
-		reqId, ok := big.NewInt(0).SetString(r.ID, 10)
+		reqID, ok := big.NewInt(0).SetString(r.ID, 10)
 		require.True(t, ok)
 		fulfillmentLogs = append(
 			fulfillmentLogs,
-			newRandomnessFulfilledLogV2Plus(t, r.Block, reqId, coordinatorAddress),
+			newRandomnessFulfilledLogV2Plus(t, r.Block, reqID, coordinatorAddress),
 		)
 	}
 
@@ -597,7 +597,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 		require.EqualError(t, err, test.expectedErrMsg)
 	}
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]uint64, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.Collect(maps.Keys(feeder.stored)))
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
@@ -675,7 +675,7 @@ func newRandomnessRequestedLogV2(
 	keyHashType, err := abi.NewType("bytes32", "", nil)
 	require.NoError(t, err)
 
-	subIdType, err := abi.NewType("uint64", "", nil)
+	subIDType, err := abi.NewType("uint64", "", nil)
 	require.NoError(t, err)
 
 	senderType, err := abi.NewType("address", "", nil)
@@ -686,9 +686,9 @@ func newRandomnessRequestedLogV2(
 		Type:    keyHashType,
 		Indexed: true,
 	}}
-	subIdArg := abi.Arguments{abi.Argument{
+	subIDArg := abi.Arguments{abi.Argument{
 		Name:    "subId",
-		Type:    subIdType,
+		Type:    subIDType,
 		Indexed: true,
 	}}
 
@@ -700,7 +700,7 @@ func newRandomnessRequestedLogV2(
 
 	topic1, err := keyHashArg.Pack(e.KeyHash)
 	require.NoError(t, err)
-	topic2, err := subIdArg.Pack(e.SubId)
+	topic2, err := subIDArg.Pack(e.SubId)
 	require.NoError(t, err)
 	topic3, err := senderArg.Pack(e.Sender)
 	require.NoError(t, err)
@@ -753,16 +753,16 @@ func newRandomnessFulfilledLogV2(
 	)
 	require.NoError(t, err)
 
-	requestIdType, err := abi.NewType("uint256", "", nil)
+	requestIDType, err := abi.NewType("uint256", "", nil)
 	require.NoError(t, err)
 
-	requestIdArg := abi.Arguments{abi.Argument{
+	requestIDArg := abi.Arguments{abi.Argument{
 		Name:    "requestId",
-		Type:    requestIdType,
+		Type:    requestIDType,
 		Indexed: true,
 	}}
 
-	topic1, err := requestIdArg.Pack(e.RequestId)
+	topic1, err := requestIDArg.Pack(e.RequestId)
 	require.NoError(t, err)
 
 	topic0 := vrfCoordinatorV2ABI.Events[randomWordsFulfilledV2].ID
@@ -819,7 +819,7 @@ func newRandomnessRequestedLogV2Plus(
 	keyHashType, err := abi.NewType("bytes32", "", nil)
 	require.NoError(t, err)
 
-	subIdType, err := abi.NewType("uint256", "", nil)
+	subIDType, err := abi.NewType("uint256", "", nil)
 	require.NoError(t, err)
 
 	senderType, err := abi.NewType("address", "", nil)
@@ -830,9 +830,9 @@ func newRandomnessRequestedLogV2Plus(
 		Type:    keyHashType,
 		Indexed: true,
 	}}
-	subIdArg := abi.Arguments{abi.Argument{
+	subIDArg := abi.Arguments{abi.Argument{
 		Name:    "subId",
-		Type:    subIdType,
+		Type:    subIDType,
 		Indexed: true,
 	}}
 
@@ -844,7 +844,7 @@ func newRandomnessRequestedLogV2Plus(
 
 	topic1, err := keyHashArg.Pack(e.KeyHash)
 	require.NoError(t, err)
-	topic2, err := subIdArg.Pack(e.SubId)
+	topic2, err := subIDArg.Pack(e.SubId)
 	require.NoError(t, err)
 	topic3, err := senderArg.Pack(e.Sender)
 	require.NoError(t, err)
@@ -863,7 +863,7 @@ func newRandomnessRequestedLogV2Plus(
 			// third topic is sender since it's indexed
 			topic3,
 		},
-		BlockNumber: int64(requestBlock),
+		BlockNumber: int64(requestBlock), //nolint:gosec // G115: fixture block numbers fit int64
 		EventSig:    topic0,
 	}
 	return lg
@@ -899,25 +899,25 @@ func newRandomnessFulfilledLogV2Plus(
 	)
 	require.NoError(t, err)
 
-	requestIdType, err := abi.NewType("uint256", "", nil)
+	requestIDType, err := abi.NewType("uint256", "", nil)
 	require.NoError(t, err)
-	subIdType, err := abi.NewType("uint256", "", nil)
+	subIDType, err := abi.NewType("uint256", "", nil)
 	require.NoError(t, err)
 
-	requestIdArg := abi.Arguments{abi.Argument{
+	requestIDArg := abi.Arguments{abi.Argument{
 		Name:    "requestId",
-		Type:    requestIdType,
+		Type:    requestIDType,
 		Indexed: true,
 	}}
-	subIdArg := abi.Arguments{abi.Argument{
+	subIDArg := abi.Arguments{abi.Argument{
 		Name:    "subID",
-		Type:    subIdType,
+		Type:    subIDType,
 		Indexed: true,
 	}}
 
-	topic1, err := requestIdArg.Pack(e.RequestId)
+	topic1, err := requestIDArg.Pack(e.RequestId)
 	require.NoError(t, err)
-	topic2, err := subIdArg.Pack(e.SubId)
+	topic2, err := subIDArg.Pack(e.SubId)
 	require.NoError(t, err)
 
 	topic0 := vrfCoordinatorV2PlusABI.Events[randomWordsFulfilledV2Plus].ID
@@ -931,7 +931,7 @@ func newRandomnessFulfilledLogV2Plus(
 			topic1,
 			topic2,
 		},
-		BlockNumber: int64(requestBlock),
+		BlockNumber: int64(requestBlock), //nolint:gosec // G115: fixture block numbers fit int64
 		EventSig:    topic0,
 	}
 	return lg

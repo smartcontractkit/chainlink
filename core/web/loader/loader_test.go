@@ -118,8 +118,9 @@ func TestLoader_Nodes(t *testing.T) {
 			ChainID: id,
 		}
 	}
-	rcInterops := &chainlinkmocks.FakeRelayerChainInteroperators{Nodes: []commontypes.NodeStatus{
-		genNodeStat(chainID2.String()), genNodeStat(chainID1.String()),
+	rcInterops := &chainlinkmocks.FakeRelayerChainInteroperators{Nodes: []chainlink.NetworkNodeStatus{
+		{Network: relay.NetworkEVM, NodeStatus: genNodeStat(chainID2.String())},
+		{Network: relay.NetworkEVM, NodeStatus: genNodeStat(chainID1.String())},
 	}}
 
 	app.On("GetRelayers").Return(rcInterops)
@@ -141,20 +142,20 @@ func TestLoader_FeedsManagers(t *testing.T) {
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(t.Context(), app)
 
-	mgr1 := feeds.FeedsManager{
+	mgr1 := feeds.Manager{
 		ID:   int64(1),
 		Name: "manager 1",
 	}
-	mgr2 := feeds.FeedsManager{
+	mgr2 := feeds.Manager{
 		ID:   int64(2),
 		Name: "manager 2",
 	}
-	mgr3 := feeds.FeedsManager{
+	mgr3 := feeds.Manager{
 		ID:   int64(3),
 		Name: "manager 3",
 	}
 
-	fsvc.On("ListManagersByIDs", mock.Anything, []int64{3, 1, 2, 5}).Return([]feeds.FeedsManager{
+	fsvc.On("ListManagersByIDs", mock.Anything, []int64{3, 1, 2, 5}).Return([]feeds.Manager{
 		mgr1, mgr2, mgr3,
 	}, nil)
 	app.On("GetFeedsService").Return(fsvc)
@@ -249,9 +250,9 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 		app := coremocks.NewApplication(t)
 		ctx := InjectDataloader(t.Context(), app)
 
-		job1 := job.Job{ID: int32(2), PipelineSpecID: int32(1)}
-		job2 := job.Job{ID: int32(3), PipelineSpecID: int32(2)}
-		job3 := job.Job{ID: int32(4), PipelineSpecID: int32(3)}
+		job1 := job.Job{ID: int32(2), PipelineSpecID: int32(1)} //nolint:staticcheck // SA1019: mock mirrors FindJobsByPipelineSpecIDs, which selects the legacy column without preloading the relationship
+		job2 := job.Job{ID: int32(3), PipelineSpecID: int32(2)} //nolint:staticcheck // SA1019: mock mirrors FindJobsByPipelineSpecIDs, which selects the legacy column without preloading the relationship
+		job3 := job.Job{ID: int32(4), PipelineSpecID: int32(3)} //nolint:staticcheck // SA1019: mock mirrors FindJobsByPipelineSpecIDs, which selects the legacy column without preloading the relationship
 
 		jobsORM.On("FindJobsByPipelineSpecIDs", mock.Anything, []int32{3, 1, 2}).Return([]job.Job{
 			job1, job2, job3,

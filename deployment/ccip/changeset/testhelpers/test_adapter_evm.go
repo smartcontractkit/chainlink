@@ -205,7 +205,6 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
 				Context: t.Context(),
 			})
-
 			// In some test case the test ends while the filter is still running resulting in a context.Canceled error.
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
@@ -304,7 +303,7 @@ func ConfirmExecWithSeqNrs(
 				scc, executionState := getExecutionState(t, sourceSelector, offRamp, expectedSeqNr)
 				t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 					dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
-				if executionState == EXECUTION_STATE_SUCCESS || executionState == EXECUTION_STATE_FAILURE {
+				if executionState == ExecutionStateSuccess || executionState == ExecutionStateFailure {
 					t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
 						executionStateToString(executionState), dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
 					executionStates[expectedSeqNr] = int(executionState)

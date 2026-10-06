@@ -16,10 +16,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -28,14 +30,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
+	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
@@ -48,17 +52,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 type ORM interface {
 	artifacts.WorkflowSpecsDS
 }
 
-// engineFactoryFn creates a workflow engine. The initDone channel is used to signal when the engine
-// has completed initialization (including trigger subscriptions). For v2 engines, this is wired to
-// the OnInitialized lifecycle hook. For v1 legacy DAG engines, nil is sent immediately after engine
-// creation since they don't support async initialization hooks.
-type engineFactoryFn func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
+// engineFactoryFn creates a workflow engine. The initDone channel is used to signal when
+// the engine has completed initialization; it is wired to the OnInitialized lifecycle hook.
+type engineFactoryFn func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (v2.WorkflowEngine, error)
 
 type DrainableService interface {
 	Drain() bool
@@ -75,19 +78,26 @@ type eventHandler struct {
 
 	lggr logger.Logger
 
-	workflowStore          store.Store
-	capRegistry            core.CapabilitiesRegistry
-	executionHandlers      *confidentialrelay.ExecutionHandlers
-	donTimeStore           *dontime.Store
-	useLocalTimeProvider   bool
-	engineRegistry         *EngineRegistry
-	emitter                custmsg.MessageEmitter
-	emitterMu              sync.RWMutex
-	engineFactory          engineFactoryFn
-	engineLimiters         *v2.EngineLimiters
-	featureFlags           *v2.EngineFeatureFlags
-	ratelimiter            *ratelimiter.RateLimiter
-	workflowLimits         limits.ResourceLimiter[int]
+	workflowStore        store.Store
+	capRegistry          registry.CapabilitiesRegistry
+	executionHandlers    *confidentialrelay.ExecutionHandlers
+	donTimeStore         *dontime.Store
+	useLocalTimeProvider bool
+	engineRegistry       *EngineRegistry
+	emitter              custmsg.MessageEmitter
+	emitterMu            sync.RWMutex
+	engineFactory        engineFactoryFn
+	engineLimiters       *v2.EngineLimiters
+	featureFlags         *v2.EngineFeatureFlags
+	ratelimiter          *ratelimiter.RateLimiter
+	workflowLimits       limits.ResourceLimiter[int]
+
+	// triggerCoordinator owns registration/handles/ACK for every workflow
+	// running the coordinated engine. Nil until wired via WithTriggerCoordinator.
+	// useCoordinatedEngine picks the legacy path when nil, regardless of the
+	// CoordinatedEngine flag.
+	triggerCoordinator triggers.Coordinator
+
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
 	workflowDonSubscriber  capabilities.DonSubscriber
@@ -117,14 +127,23 @@ type eventHandler struct {
 	// When enabled, traces are created for workflow execution and syncer events.
 	debugMode bool
 
+	// cachedTriggerSubscriptionsEnabled gates whether a previously-persisted
+	// workflow_specs_v2.trigger_subscriptions value is used to skip WASM
+	// Subscribe() calls on engine start. See CRE.CachedTriggerSubscriptionsEnabled.
+	cachedTriggerSubscriptionsEnabled bool
+
 	// tracer is the OTel tracer for this handler. It's a noop tracer when debug mode is disabled.
 	tracer trace.Tracer
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardingEnabled         bool
 	myDonID                 uint32
+	myShardIndex            uint32
 	shardRoutingSteady      *shardownership.SteadySignal
 	shardResolver           shardownership.ShardResolver
+	dispatcher              remotetypes.Dispatcher
+	shardDonLookup          func(ctx context.Context, shardID uint32) *commoncap.DON
+	shardFailoverComm       *sharding.ShardFailoverCommunicator
 
 	metrics *metrics
 }
@@ -146,15 +165,25 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 	}
 }
 
-func WithStaticEngine(engine services.Service) func(*eventHandler) {
+func WithStaticEngine(engine v2.WorkflowEngine) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.engineFactory = func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, initDone chan<- error) (services.Service, error) {
+		e.engineFactory = func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, _ []byte, initDone chan<- error) (v2.WorkflowEngine, error) {
 			// For static engines (used in tests), signal immediate initialization success
 			if initDone != nil {
 				initDone <- nil
 			}
 			return engine, nil
 		}
+	}
+}
+
+// WithTriggerCoordinator wires the TriggerCoordinator used for every workflow
+// the CoordinatedEngine flag routes to the coordinated engine. Without
+// this option, tryEngineCreate always takes the legacy path, regardless of
+// the flag's value.
+func WithTriggerCoordinator(tc triggers.Coordinator) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.triggerCoordinator = tc
 	}
 }
 
@@ -194,6 +223,24 @@ func WithShardResolver(resolver shardownership.ShardResolver) func(*eventHandler
 	}
 }
 
+func WithShardIndex(shardIndex uint32) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.myShardIndex = shardIndex
+	}
+}
+
+func WithDispatcher(dispatcher remotetypes.Dispatcher) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.dispatcher = dispatcher
+	}
+}
+
+func WithShardDonLookup(lookup func(ctx context.Context, shardID uint32) *commoncap.DON) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardDonLookup = lookup
+	}
+}
+
 func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.workflowRegistryAddress = address
@@ -221,6 +268,12 @@ func WithDebugMode(debugMode bool) func(*eventHandler) {
 			// set to no-op just in case a real tracer was initialised elsewhere
 			e.tracer = noop.NewTracerProvider().Tracer("")
 		}
+	}
+}
+
+func WithCachedTriggerSubscriptionsEnabled(enabled bool) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.cachedTriggerSubscriptionsEnabled = enabled
 	}
 }
 
@@ -278,13 +331,14 @@ func WithModuleEngineVersion(v string) func(*eventHandler) {
 }
 
 type WorkflowArtifactsStore interface {
-	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string) ([]byte, []byte, error)
+	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string, existingSpec *job.WorkflowSpec) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
 	ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error)
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
 	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
 	PauseWorkflowArtifacts(ctx context.Context, workflowID string) error
 	DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error
+	SaveTriggerSubscriptions(ctx context.Context, workflowID string, payload []byte) error
 }
 
 // NewEventHandler returns a new eventHandler instance.
@@ -293,7 +347,7 @@ func NewEventHandler(
 	workflowStore store.Store,
 	donTimeStore *dontime.Store,
 	useLocalTimeProvider bool,
-	capRegistry core.CapabilitiesRegistry,
+	capRegistry registry.CapabilitiesRegistry,
 	executionHandlers *confidentialrelay.ExecutionHandlers,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
@@ -343,15 +397,15 @@ func NewEventHandler(
 		return nil, fmt.Errorf("new metrics: %w", metricsErr)
 	}
 	eh.metrics = metricsInst
-	eh.engineFactory = eh.engineFactoryFn
+	eh.engineFactory = eh.newEngine
 	for _, o := range opts {
 		o(eh)
 	}
 
 	eh.Service, eh.eng = services.Config{
 		Name: "EventHandler",
-		// The workflow store and the spec meter are started and stopped
-		// alongside the handler.
+		// The workflow store, the spec meter and the trigger coordinator are
+		// started and stopped alongside the handler.
 		NewSubServices: func(logger.Logger) []services.Service {
 			var subs []services.Service
 			if eh.workflowStore != nil {
@@ -359,6 +413,9 @@ func NewEventHandler(
 			}
 			if eh.specMeter != nil {
 				subs = append(subs, eh.specMeter)
+			}
+			if eh.triggerCoordinator != nil {
+				subs = append(subs, eh.triggerCoordinator)
 			}
 			return subs
 		},
@@ -388,6 +445,9 @@ func (h *eventHandler) close() error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Close()
 	}
+	if h.shardFailoverComm != nil {
+		_ = h.shardFailoverComm.Close()
+	}
 	es := h.engineRegistry.PopAll()
 	// No metering is emitted on close: meter records anchor on workflow-spec
 	// storage transitions, not engine lifecycle, so stopping an engine at
@@ -395,10 +455,11 @@ func (h *eventHandler) close() error {
 	// untouched. A spec that is genuinely released stops being snapshotted
 	// (the spec meter sub-service unregisters itself after this hook runs).
 	cs := make([]io.Closer, 0, len(es)+1)
-	cs = append(cs, h.engineLimiters)
+	cs = append(cs, h.engineLimiters, h.featureFlags)
 	for _, e := range es {
 		cs = append(cs, e)
 	}
+
 	return services.CloseAll(cs...)
 }
 
@@ -589,7 +650,7 @@ func (h *eventHandler) workflowTagBackfillActive(ctx context.Context) bool {
 	if h.featureFlags == nil || h.featureFlags.WorkflowTagBackfill == nil {
 		return false
 	}
-	return h.featureFlags.WorkflowTagBackfill.Check(ctx, config.Timestamp(time.Now().Unix())) == nil
+	return h.featureFlags.WorkflowTagBackfill.Check(ctx, commonconfig.Timestamp(time.Now().Unix())) == nil
 }
 
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
@@ -618,7 +679,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	spec, err := h.workflowArtifactsStore.GetWorkflowSpec(ctx, payload.WorkflowID.Hex())
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
+		newSpec, innerErr := h.createWorkflowSpec(ctx, payload, spec)
 		if innerErr != nil {
 			return innerErr
 		}
@@ -632,7 +693,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	case spec.WorkflowID != payload.WorkflowID.Hex() ||
 		spec.WorkflowOwner != hex.EncodeToString(payload.WorkflowOwner) ||
 		spec.WorkflowName != payload.WorkflowName:
-		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
+		newSpec, innerErr := h.createWorkflowSpec(ctx, payload, spec)
 		if innerErr != nil {
 			return innerErr
 		}
@@ -646,7 +707,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		// Activating a paused tombstone: the artifact payload was cleared at
 		// pause time, so refetch and re-persist it. Level-neutral for metering
 		// (the registration generation was never released), so no delta.
-		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
+		newSpec, innerErr := h.createWorkflowSpec(ctx, payload, spec)
 		if innerErr != nil {
 			return innerErr
 		}
@@ -757,7 +818,9 @@ func toSpecStatus(s uint8) job.WorkflowSpecStatus {
 	}
 }
 
-func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowRegisteredEvent) (*job.WorkflowSpec, error) {
+// existingSpec is the workflow_specs_v2 row the caller already looked up for payload.WorkflowID
+// (nil if it's known not to exist).
+func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowRegisteredEvent, existingSpec *job.WorkflowSpec) (*job.WorkflowSpec, error) {
 	ctx, span := h.tracer.Start(ctx, "fetch_artifacts",
 		trace.WithAttributes(
 			attribute.String("component", "workflow_syncer"),
@@ -774,7 +837,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: owner, Workflow: wfID})
 
 	// With Workflow Registry contract v2 the BinaryURL and ConfigURL are expected to be identifiers that put through the Storage Service.
-	decodedBinary, config, err := h.workflowArtifactsStore.FetchWorkflowArtifacts(ctx, wfID, payload.BinaryURL, payload.ConfigURL)
+	decodedBinary, config, err := h.workflowArtifactsStore.FetchWorkflowArtifacts(ctx, wfID, payload.BinaryURL, payload.ConfigURL, existingSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -827,16 +890,35 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 	return organizationID, nil
 }
 
-func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+// useCoordinatedEngine reads the CoordinatedEngine flag. A node without a
+// TriggerCoordinator always takes the legacy path, and so does a sharded node:
+// sharding and the coordinated engine are not yet compatible.
+func (h *eventHandler) useCoordinatedEngine(ctx context.Context, workflowID string) bool {
+	if h.triggerCoordinator == nil || h.featureFlags == nil || h.featureFlags.CoordinatedEngine == nil {
+		return false
+	}
+	if h.shardingEnabled && h.dispatcher != nil {
+		return false
+	}
+	open, err := h.featureFlags.CoordinatedEngine.IsOpen(ctx)
+	if err != nil {
+		h.lggr.Warnw("Could not evaluate CoordinatedEngine flag, falling back to the legacy engine",
+			"workflowID", workflowID, "err", err)
+		return false
+	}
+	return open
+}
+
+// buildEngineConfig builds the module stack (local WASM module plus the
+// confidential module) and the EngineConfig that the legacy and the
+// coordinated engine share.
+func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (*v2.EngineConfig, error) {
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+
 	var sdkName string
-	h.emitterMu.RLock()
-	labeler := h.emitter
-	h.emitterMu.RUnlock()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                               lggr,
-		Labeler:                              labeler,
 		MemoryLimiter:                        h.engineLimiters.WASMMemorySize,
 		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
 		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
@@ -857,18 +939,13 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 
 	h.lggr.Debugw("Creating module for workflowID", "workflowID", workflowID)
 
-	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
+	module, err := host.NewModule(ctx, moduleConfig, binary)
 	if err != nil {
 		return nil, err
 	}
 
 	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
 
-	if module.IsLegacyDAG() { // V1 aka "DAG"
-		return nil, errors.New("legacy DAG workflows are not supported")
-	}
-
-	// V2 aka "NoDAG"
 	// Wrap the local WASM module in a RequirementSelectingModule that routes
 	// triggers with a TEE requirement to the ConfidentialModule (which delegates
 	// to the confidential-workflows capability and runs the WASM inside the
@@ -888,11 +965,73 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID, owner st
 			RequirementsHandler: generichost.RequirementsHandler{Tee: confidential.Tee},
 		}},
 	)
-	cfg := h.newV2EngineConfig(selectingModule, workflowID, owner, tag, sdkName, name, config)
+	cfg := h.newV2EngineConfig(ctx, selectingModule, workflowID, owner, tag, sdkName, name, config)
+
+	cfg.CachedTriggerSubscriptions = h.parseCachedTriggerSubscriptions(workflowID, cachedTriggerSubs)
+	h.wireTriggerSubscriptionCacheHook(cfg, workflowID)
 
 	h.wireInitDoneHook(cfg, initDone)
 
-	return v2.NewEngine(cfg)
+	return cfg, nil
+}
+
+// newEngine is the default engineFactoryFn: it builds the module stack and
+// EngineConfig, wires sharding, and calls one of the two engine constructors.
+//
+// The coordinated engine registers no triggers itself:
+// tryCoordinatedEngineCreate hands it to the coordinator once it is in the
+// registry, and the coordinator calls Subscribe to obtain its subscriptions.
+func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (v2.WorkflowEngine, error) {
+	cfg, err := h.buildEngineConfig(ctx, workflowID, owner, name, tag, config, binary, binaryURL, cachedTriggerSubs, initDone)
+	if err != nil {
+		return nil, err
+	}
+
+	var manager *ShardFailoverManager
+	if h.shardingEnabled && h.dispatcher != nil {
+		if h.shardFailoverComm == nil {
+			h.shardFailoverComm = sharding.NewShardFailoverCommunicator(h.dispatcher, h.myDonID, h.lggr)
+		}
+		manager = NewShardFailoverManager(ShardFailoverManagerConfig{
+			ShardingEnabled:         h.shardingEnabled,
+			MyDONID:                 h.myDonID,
+			MyShardIndex:            h.myShardIndex,
+			WorkflowID:              workflowID,
+			WorkflowOwner:           owner,
+			ShardResolver:           h.shardResolver,
+			ShardOrchestratorClient: h.shardOrchestratorClient,
+			ShardRoutingSteady:      h.shardRoutingSteady,
+			FailoverGate:            h.engineLimiters.ShardingFailoverEnabled,
+			Communicator:            h.shardFailoverComm,
+			ShardDonLookup:          h.shardDonLookup,
+			DonSubscriber:           h.workflowDonSubscriber,
+			Logger:                  h.lggr,
+		})
+		manager.WireHooks(cfg)
+	}
+
+	construct := v2.NewEngine
+	if h.useCoordinatedEngine(ctx, workflowID) {
+		// The trigger coordinator is not implemented yet, so a workflow routed here
+		// will never receive triggers. Warn once per engine creation with the workflowID
+		h.lggr.Warnw("Routing workflow to the coordinated engine; trigger delivery is not implemented yet",
+			"workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+
+		cfg.TriggerAcknowledger = h.triggerCoordinator
+		construct = v2.NewCoordinatedEngine
+	}
+
+	engine, err := construct(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if manager != nil {
+		manager.SetEngine(engine)
+		return manager, nil
+	}
+
+	return engine, nil
 }
 
 func (h *eventHandler) createEngineModule(
@@ -912,7 +1051,7 @@ func (h *eventHandler) createEngineModule(
 		if storeErr != nil {
 			h.lggr.Warnw("Failed to cache module binary to disk, LRU eviction disabled for this workflow", "workflowID", workflowID, "err", storeErr)
 		} else {
-			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)), host.WithDeterminism())
+			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)))
 			h.moduleLRU.Register(workflowID, evictable)
 			engineModule = evictable
 		}
@@ -928,6 +1067,14 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 	e, ok := h.engineRegistry.Get(workflowID)
 	var drainable DrainableService
 	if ok {
+		// on coordinated engines, stop coordinator ingress before draining,
+		// so the drain can actually reach zero active executions.
+		if e.Coordinated() && h.triggerCoordinator != nil {
+			if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, triggers.ErrWorkflowNotCoordinated) {
+				h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
+			}
+		}
+
 		var isDrainable bool
 		if drainable, isDrainable = e.Service.(DrainableService); isDrainable {
 			if started := drainable.Drain(); started {
@@ -1053,6 +1200,16 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 		return nil
 	}
 
+	// Unregister before close, same as stopEngine.
+	// This path (reconcile-to-inactive, replace-draining-engine) must mirror
+	// stopEngine's coordinator handling, or trigger registrations are left
+	// orphaned on this path alone.
+	if e.Coordinated() && h.triggerCoordinator != nil {
+		if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, triggers.ErrWorkflowNotCoordinated) {
+			h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
+		}
+	}
+
 	// Close the engine, then remove it from the registry only once cleanup has succeeded. The
 	// registry entry is what tells us this workflow still needs cleanup, so if a step fails we
 	// leave it in place and return the error, allowing a future attempt to retry in case the
@@ -1081,9 +1238,22 @@ func (h *eventHandler) cleanupModuleCache(workflowID string) {
 	}
 }
 
+// engineInputs is the validated, decoded form of a WorkflowSpec that both
+// engine creation paths start from.
+type engineInputs struct {
+	wid          types.WorkflowID
+	workflowName types.WorkflowName
+	binary       []byte
+	config       []byte
+	reconcileKey string
+}
+
 // tryEngineCreate attempts to create a new workflow engine, start it, and register it with the engine registry.
 // This function waits for the engine to complete initialization (including trigger subscriptions) before returning,
 // ensuring that the workflowActivated event accurately reflects the deployment status including trigger registration.
+//
+// The CoordinatedEngine flag is read here, once, and decides between the legacy
+// and the coordinated creation path.
 func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSpec, source string) error {
 	ctx, span := h.tracer.Start(ctx, "engine_create",
 		trace.WithAttributes(
@@ -1093,15 +1263,102 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		))
 	defer span.End()
 
+	in, err := h.prepareEngineInputs(ctx, spec)
+	if err != nil {
+		return err
+	}
+
+	initDone := make(chan error, 1)
+	engine, err := h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, in.workflowName, spec.WorkflowTag, in.config, in.binary, spec.BinaryURL, spec.TriggerSubscriptions, initDone)
+	if err != nil {
+		return fmt.Errorf("failed to create workflow engine: %w", err)
+	}
+
+	if engine.IsCoordinated() {
+		return h.tryCoordinatedEngineCreate(ctx, spec, source, in, engine, initDone)
+	}
+	return h.tryLegacyEngineCreate(ctx, spec, source, in, engine, initDone)
+}
+
+// tryLegacyEngineCreate finishes creation for an engine that registers its own
+// triggers while it starts, so it is done once the engine is in the registry.
+func (h *eventHandler) tryLegacyEngineCreate(ctx context.Context, spec *job.WorkflowSpec, source string, in *engineInputs, engine v2.WorkflowEngine, initDone <-chan error) error {
+	if err := h.startEngine(ctx, spec.WorkflowID, engine, initDone); err != nil {
+		return err
+	}
+
+	if err := h.engineRegistry.AddWithReconcileKey(in.wid, source, in.reconcileKey, engine); err != nil {
+		return h.registryAddFailed(in.wid, source, engine, err)
+	}
+	return nil
+}
+
+// tryCoordinatedEngineCreate finishes creation for an engine that registers no triggers itself.
+func (h *eventHandler) tryCoordinatedEngineCreate(ctx context.Context, spec *job.WorkflowSpec, source string, in *engineInputs, engine v2.WorkflowEngine, initDone <-chan error) error {
+	if err := h.startEngine(ctx, spec.WorkflowID, engine, initDone); err != nil {
+		return err
+	}
+
+	if err := h.engineRegistry.AddWithReconcileKey(in.wid, source, in.reconcileKey, engine); err != nil {
+		return h.registryAddFailed(in.wid, source, engine, err)
+	}
+
+	cleanup := func(location string) {
+		if _, innerErr := h.engineRegistry.Pop(in.wid); innerErr != nil {
+			h.lggr.Warnw(fmt.Sprintf("Failed to pop engine from registry after %s failure", location), "workflowID", in.wid.Hex(), "err", innerErr)
+		}
+		if innerErr := engine.Close(); innerErr != nil {
+			h.lggr.Warnw(fmt.Sprintf("Failed to close engine after %s failure", location), "workflowID", in.wid.Hex(), "err", innerErr)
+		}
+	}
+
+	// Registration happens here, now that the engine is already in the
+	// registry, so the coordinator's readers can resolve it for the first
+	// event. RegisterTriggers calls the engine's Subscribe itself — the WASM
+	// call is scoped to the one workflow it describes, which matters because
+	// Handle runs on a worker pool and several workflows reach this point
+	// concurrently.
+	localNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		cleanup("local node resolution")
+		return fmt.Errorf("failed to resolve local node DON ID for trigger registration: %w", err)
+	}
+	donID := localNode.WorkflowDON.ID
+
+	triggerIDs, err := h.triggerCoordinator.RegisterTriggers(ctx, engine, triggers.RegistrationParams{
+		WorkflowOwner:       spec.WorkflowOwner,
+		WorkflowName:        in.workflowName.Hex(),
+		DecodedWorkflowName: in.workflowName.String(),
+		WorkflowTag:         spec.WorkflowTag,
+		WorkflowDonID:       donID,
+		// pinnedWorkflowDonConfigVersion in v2 pins this to 1 to avoid forcing
+		// forwarder updates on config churn; mirrored here since the syncer
+		// can't reference that unexported v2 constant.
+		WorkflowDonConfigVersion:      1,
+		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
+		WorkflowRegistryAddress:       h.workflowRegistryAddress,
+	})
+	if err != nil {
+		cleanup("trigger registration")
+		return fmt.Errorf("failed to register triggers via coordinator: %w", err)
+	}
+	h.lggr.Infow("Registered triggers via coordinator", "workflowID", in.wid.Hex(), "triggerIDs", triggerIDs)
+	return nil
+}
+
+// prepareEngineInputs decodes and validates the spec before any engine is
+// built: the binary, owner and name must decode, and the workflow ID must
+// match the one derived from the stored artifacts.
+func (h *eventHandler) prepareEngineInputs(ctx context.Context, spec *job.WorkflowSpec) (*engineInputs, error) {
 	// Ensure the capabilities registry is ready before creating any Engine instances.
 	// This should be guaranteed by the Workflow Registry Syncer.
 	if err := h.ensureCapRegistryReady(ctx); err != nil {
-		return fmt.Errorf("failed to ensure capabilities registry is ready: %w", err)
+		return nil, fmt.Errorf("failed to ensure capabilities registry is ready: %w", err)
 	}
 
 	decodedBinary, err := hex.DecodeString(spec.Workflow)
 	if err != nil {
-		return nonRetryable(fmt.Errorf("failed to decode workflow spec binary: %w", err))
+		return nil, nonRetryable(fmt.Errorf("failed to decode workflow spec binary: %w", err))
 	}
 	// Free the hex-encoded binary string as it is not needed beyond this decode
 	spec.Workflow = ""
@@ -1113,88 +1370,91 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	// Workflow ID should match what is generated from the stored artifacts
 	ownerBytes, err := hex.DecodeString(spec.WorkflowOwner)
 	if err != nil {
-		return nonRetryable(fmt.Errorf("failed to decode owner: %w", err))
+		return nil, nonRetryable(fmt.Errorf("failed to decode owner: %w", err))
 	}
 	configBytes := []byte(spec.Config)
 	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, configBytes, secretsURL)
 	if err != nil {
-		return fmt.Errorf("failed to generate workflow id: %w", err)
+		return nil, fmt.Errorf("failed to generate workflow id: %w", err)
 	}
 	wid, err := types.WorkflowIDFromHex(spec.WorkflowID)
 	if err != nil {
-		return nonRetryable(fmt.Errorf("invalid workflow id: %w", err))
+		return nil, nonRetryable(fmt.Errorf("invalid workflow id: %w", err))
 	}
 	if !types.WorkflowID(hash).Equal(wid) {
-		return nonRetryable(fmt.Errorf("workflowID mismatch: %s != %s", types.WorkflowID(hash).Hex(), wid.Hex()))
+		return nil, nonRetryable(fmt.Errorf("workflowID mismatch: %s != %s", types.WorkflowID(hash).Hex(), wid.Hex()))
 	}
 
-	// Start a new WorkflowEngine instance, and add it to local engine registry
 	workflowName, err := types.NewWorkflowName(spec.WorkflowName)
 	if err != nil {
-		return nonRetryable(fmt.Errorf("invalid workflow name: %w", err))
+		return nil, nonRetryable(fmt.Errorf("invalid workflow name: %w", err))
 	}
 
-	// Create a channel to receive the initialization result.
-	// This allows us to wait for the engine to complete initialization (including trigger subscriptions)
-	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
-	initDone := make(chan error, 1)
-	var engine services.Service
-
-	engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, spec.BinaryURL, initDone)
+	// Identity fingerprint stored alongside the engine in the registry.
+	reconcileKey, err := ReconcileKey(ownerBytes, spec.WorkflowName)
 	if err != nil {
-		return fmt.Errorf("failed to create workflow engine: %w", err)
+		return nil, fmt.Errorf("failed to compute reconcile key: %w", err)
 	}
 
-	if err = engine.Start(ctx); err != nil {
+	return &engineInputs{
+		wid:          wid,
+		workflowName: workflowName,
+		binary:       decodedBinary,
+		config:       configBytes,
+		reconcileKey: reconcileKey,
+	}, nil
+}
+
+// startEngine starts engine and waits for it to complete initialization
+// (including trigger subscriptions), so we don't emit workflowActivated events
+// before the engine initializes successfully. The engine is closed if
+// initialization fails or ctx is cancelled first.
+func (h *eventHandler) startEngine(ctx context.Context, workflowID string, engine services.Service, initDone <-chan error) error {
+	if err := engine.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
-	// Wait for the engine to complete initialization (including trigger subscriptions).
-	// This ensures we don't emit workflowActivated events before the engine initializes successfully.
 	select {
 	case <-ctx.Done():
 		// Context cancelled while waiting for initialization
 		if closeErr := engine.Close(); closeErr != nil {
-			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", spec.WorkflowID)
+			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", workflowID)
 		}
 		return fmt.Errorf("context cancelled while waiting for engine initialization: %w", ctx.Err())
 	case initErr := <-initDone:
 		if initErr != nil {
 			// Engine initialization failed (e.g., trigger subscription failed)
 			if closeErr := engine.Close(); closeErr != nil {
-				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", spec.WorkflowID)
+				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", workflowID)
 			}
 			return fmt.Errorf("engine initialization failed: %w", initErr)
 		}
 	}
-
-	// Engine is fully initialized, add to registry with source tracking and identity fingerprint
-	reconcileKey, err := ReconcileKey(ownerBytes, spec.WorkflowName)
-	if err != nil {
-		return fmt.Errorf("failed to compute reconcile key: %w", err)
-	}
-	if err := h.engineRegistry.AddWithReconcileKey(wid, source, reconcileKey, engine); err != nil {
-		if closeErr := engine.Close(); closeErr != nil {
-			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
-		}
-
-		// Check for WorkflowID collision across sources
-		if errors.Is(err, ErrAlreadyExists) {
-			existingEntry, found := h.engineRegistry.Get(wid)
-			if found {
-				h.lggr.Warnw("WorkflowID collision detected: workflow already exists from different source",
-					"workflowID", wid.Hex(),
-					"attemptedSource", source,
-					"existingSource", existingEntry.Source,
-					"hint", "Each workflow ID should only be registered from a single source. Check your workflow configurations for duplicates.")
-			}
-		}
-
-		// This shouldn't happen because we call the handler serially and
-		// check for running engines above, see the call to engineRegistry.Contains.
-		return fmt.Errorf("invariant violation: %w", err)
-	}
 	return nil
+}
+
+// registryAddFailed closes an engine the registry refused and returns the
+// error to report. Both creation paths share it.
+func (h *eventHandler) registryAddFailed(wid types.WorkflowID, source string, engine services.Service, err error) error {
+	if closeErr := engine.Close(); closeErr != nil {
+		return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
+	}
+
+	// Check for WorkflowID collision across sources
+	if errors.Is(err, ErrAlreadyExists) {
+		existingEntry, found := h.engineRegistry.Get(wid)
+		if found {
+			h.lggr.Warnw("WorkflowID collision detected: workflow already exists from different source",
+				"workflowID", wid.Hex(),
+				"attemptedSource", source,
+				"existingSource", existingEntry.Source,
+				"hint", "Each workflow ID should only be registered from a single source. Check your workflow configurations for duplicates.")
+		}
+	}
+
+	// This shouldn't happen because we call the handler serially and
+	// check for running engines above, see the call to engineRegistry.Contains.
+	return fmt.Errorf("invariant violation: %w", err)
 }
 
 func (h *eventHandler) overrideFetcherForOwner(owner string) v2.SecretsFetcher {
@@ -1216,12 +1476,13 @@ func (h *eventHandler) overrideFetcherForOwner(owner string) v2.SecretsFetcher {
 // newV2EngineConfig builds the common EngineConfig shared by both the normal
 // WASM engine and the confidential engine paths. Caller supplies the module.
 func (h *eventHandler) newV2EngineConfig(
+	ctx context.Context,
 	module host.ModuleV2,
 	workflowID, owner, tag, sdkName string,
 	name types.WorkflowName,
 	config []byte,
 ) *v2.EngineConfig {
-	return &v2.EngineConfig{
+	cfg := &v2.EngineConfig{
 		Lggr:                  h.lggr,
 		Module:                module,
 		WorkflowConfig:        config,
@@ -1248,13 +1509,14 @@ func (h *eventHandler) newV2EngineConfig(
 		}(),
 		BillingClient: h.billingClient,
 
-		WorkflowRegistryAddress:       h.workflowRegistryAddress,
-		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
-		OrgResolver:                   h.orgResolver,
-		SecretsFetcher:                h.secretsFetcher,
-		OverrideFetcher:               h.overrideFetcherForOwner(owner),
-		DebugMode:                     h.debugMode,
-		SdkName:                       sdkName,
+		WorkflowRegistryAddress:           h.workflowRegistryAddress,
+		WorkflowRegistryChainSelector:     h.workflowRegistryChainSelector,
+		OrgResolver:                       h.orgResolver,
+		SecretsFetcher:                    h.secretsFetcher,
+		OverrideFetcher:                   h.overrideFetcherForOwner(owner),
+		DebugMode:                         h.debugMode,
+		CachedTriggerSubscriptionsEnabled: h.cachedTriggerSubscriptionsEnabled,
+		SdkName:                           sdkName,
 
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
@@ -1262,9 +1524,10 @@ func (h *eventHandler) newV2EngineConfig(
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,
 	}
+
+	return cfg
 }
 
-// wireInitDoneHook wires the initDone channel to the OnInitialized lifecycle hook.
 // This will be called when the engine completes initialization (including trigger subscriptions).
 // We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
 func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- error) {
@@ -1279,6 +1542,49 @@ func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- er
 		if existingHook != nil {
 			existingHook(err)
 		}
+	}
+}
+
+func (h *eventHandler) parseCachedTriggerSubscriptions(workflowID string, payload []byte) []*sdkpb.TriggerSubscription {
+	if !h.cachedTriggerSubscriptionsEnabled || len(payload) == 0 {
+		return nil
+	}
+	var req sdkpb.TriggerSubscriptionRequest
+	if err := proto.Unmarshal(payload, &req); err != nil {
+		h.lggr.Warnw("failed to unmarshal cached trigger subscriptions; falling back to WASM Subscribe", "workflowID", workflowID, "err", err)
+		return nil
+	}
+	return req.Subscriptions
+}
+
+// wireTriggerSubscriptionCacheHook persists a freshly WASM-computed trigger
+// subscription set back to workflow_specs_v2 so future engine starts for this
+// workflow ID can skip WASM execution.
+func (h *eventHandler) wireTriggerSubscriptionCacheHook(cfg *v2.EngineConfig, workflowID string) {
+	if !h.cachedTriggerSubscriptionsEnabled {
+		return
+	}
+	existingHook := cfg.Hooks.OnSubscriptionsReady
+	cfg.Hooks.OnSubscriptionsReady = func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE, fromCache bool) error {
+		if !fromCache {
+			payload, err := proto.Marshal(&sdkpb.TriggerSubscriptionRequest{Subscriptions: subs})
+			if err != nil {
+				h.lggr.Errorw("failed to marshal trigger subscriptions for caching", "workflowID", workflowID, "err", err)
+			} else {
+				// best-effort, non-blocking save to the DB
+				go func() {
+					saveCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					if saveErr := h.workflowArtifactsStore.SaveTriggerSubscriptions(saveCtx, workflowID, payload); saveErr != nil {
+						h.lggr.Errorw("failed to cache trigger subscriptions", "workflowID", workflowID, "err", saveErr)
+					}
+				}()
+			}
+		}
+		if existingHook != nil {
+			return existingHook(subs, cre, fromCache)
+		}
+		return nil
 	}
 }
 

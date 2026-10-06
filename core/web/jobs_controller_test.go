@@ -26,11 +26,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -44,15 +44,13 @@ import (
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
 	t.Parallel()
-	var (
-		contractAddress = cltest.NewEIP55Address()
-	)
+	contractAddress := cltest.NewEIP55Address()
 
 	var peerID ragep2ptypes.PeerID
 	require.NoError(t, peerID.UnmarshalText([]byte(configtest.DefaultPeerID)))
 	randomBytes := testutils.Random32Byte()
 
-	var tt = []struct {
+	tt := []struct {
 		name        string
 		pid         p2pkey.PeerID
 		kb          string
@@ -129,7 +127,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 	}
 
 	jorm := app.JobORM()
-	var tt = []struct {
+	tt := []struct {
 		name         string
 		tomlTemplate func(nameAndExternalJobID string) string
 		assertion    func(t *testing.T, nameAndExternalJobID string, r *http.Response)
@@ -457,7 +455,8 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	// BCF-2095
 	// disable fkey checks until the end of the test transaction
 	require.NoError(t, utils.JustError(
-		app.GetDB().ExecContext(ctx, `SET CONSTRAINTS job_spec_errors_v2_job_id_fkey DEFERRED`)))
+		app.GetDB().ExecContext(ctx, `SET CONSTRAINTS job_spec_errors_v2_job_id_fkey DEFERRED`),
+	))
 
 	var ocrSpec job.OCROracleSpec
 	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrSpec)
@@ -586,7 +585,7 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 
 	// Seed a local test metadata registry so workflow jobs can resolve local
 	// node state without an on-chain capabilities registry.
-	app.GetCapabilitiesRegistry().SetLocalRegistry(&corecaps.TestMetadataRegistry{})
+	app.GetCapabilitiesRegistry().SetRegistryMetadata(&registry.TestRegistryMetadata{})
 
 	client := app.NewHTTPClient(nil)
 	vrfKeyStore := app.GetKeyStore().VRF()

@@ -48,7 +48,7 @@ func TestGetters_VarExpr(t *testing.T) {
 			getter := pipeline.VarExpr(test.expr, vars)
 			v, err := getter()
 			if test.err == nil {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, test.result, v)
 			} else {
 				assert.Equal(t, test.err, errors.Cause(err))
@@ -177,7 +177,7 @@ func TestGetters_NonemptyString(t *testing.T) {
 
 	t.Run("returns any non-empty string", func(t *testing.T) {
 		val, err := pipeline.NonemptyString("foo bar")()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "foo bar", val)
 	})
 
@@ -194,15 +194,15 @@ func TestGetters_ValidDurationInSeconds(t *testing.T) {
 
 	t.Run("returns duration in seconds", func(t *testing.T) {
 		val, err := pipeline.ValidDurationInSeconds("10s")()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 10, val)
 
 		val, err = pipeline.ValidDurationInSeconds("1m")()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 60, val)
 
 		val, err = pipeline.ValidDurationInSeconds("1h")()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 3600, val)
 	})
 
@@ -267,7 +267,7 @@ func TestGetters_From(t *testing.T) {
 
 			for _, getter := range getters {
 				val, err := getter()
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, test.expected, val)
 			}
 		})

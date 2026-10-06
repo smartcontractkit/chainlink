@@ -10,6 +10,7 @@ import (
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -19,7 +20,7 @@ import (
 )
 
 type Listener interface {
-	OnNewRegistry(ctx context.Context, registry *LocalRegistry) error
+	OnNewRegistry(ctx context.Context, registry *registry.RegistryMetadata) error
 }
 
 type Syncer interface {
@@ -54,7 +55,7 @@ type registrySyncer struct {
 
 	orm ORM
 
-	updateChan chan *LocalRegistry
+	updateChan chan *registry.RegistryMetadata
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -63,9 +64,7 @@ type registrySyncer struct {
 
 var _ services.Service = &registrySyncer{}
 
-var (
-	defaultTickInterval = 12 * time.Second
-)
+var defaultTickInterval = 12 * time.Second
 
 // New instantiates a new RegistrySyncer
 func New(
@@ -83,7 +82,7 @@ func New(
 	return &registrySyncer{
 		metrics:    metricLabeler,
 		stopCh:     make(services.StopChan),
-		updateChan: make(chan *LocalRegistry),
+		updateChan: make(chan *registry.RegistryMetadata),
 		lggr:       logger.Named(lggr, "RegistrySyncer"),
 		relayer:    relayer,
 		capabilitiesContract: types.BoundContract{
@@ -191,14 +190,14 @@ func (s *registrySyncer) updateStateLoop() {
 				// channel has been closed, terminating.
 				return
 			}
-			if err := s.orm.AddLocalRegistry(ctx, *localRegistry); err != nil {
+			if err := s.orm.AddRegistryMetadata(ctx, localRegistry); err != nil {
 				s.lggr.Errorw("failed to save state to local registry", "error", err)
 			}
 		}
 	}
 }
 
-func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegistry, error) {
+func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
 
 	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
@@ -206,11 +205,11 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 		return nil, err
 	}
 
-	idsToCapabilities := map[string]Capability{}
+	idsToCapabilities := map[string]registry.Capability{}
 	hashedIDsToCapabilityIDs := map[[32]byte]string{}
 	for _, c := range caps {
 		cid := fmt.Sprintf("%s@%s", c.LabelledName, c.Version)
-		idsToCapabilities[cid] = Capability{
+		idsToCapabilities[cid] = registry.Capability{
 			ID:             cid,
 			CapabilityType: toCapabilityType(c.CapabilityType),
 		}
@@ -225,21 +224,21 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 		return nil, err
 	}
 
-	idsToDONs := map[DonID]DON{}
+	idsToDONs := map[registry.DonID]registry.DON{}
 	for _, d := range dons {
-		cc := map[string]CapabilityConfiguration{}
+		cc := map[string]registry.CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
 			cid, ok := hashedIDsToCapabilityIDs[dc.CapabilityId]
 			if !ok {
 				return nil, fmt.Errorf("invariant violation: could not find full ID for hashed ID %s", dc.CapabilityId)
 			}
 
-			cc[cid] = CapabilityConfiguration{
+			cc[cid] = registry.CapabilityConfiguration{
 				Config: dc.Config,
 			}
 		}
 
-		idsToDONs[DonID(d.Id)] = DON{
+		idsToDONs[registry.DonID(d.Id)] = registry.DON{
 			DON:                      *toDONInfo(d),
 			CapabilityConfigurations: cc,
 		}
@@ -252,9 +251,9 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 		return nil, err
 	}
 
-	idsToNodes := map[p2ptypes.PeerID]NodeInfo{}
+	idsToNodes := map[p2ptypes.PeerID]registry.NodeInfo{}
 	for _, node := range nodes {
-		nodeInfo := NodeInfo{
+		nodeInfo := registry.NodeInfo{
 			NodeOperatorID:      node.NodeOperatorId,
 			ConfigCount:         node.ConfigCount,
 			WorkflowDONId:       node.WorkflowDONId,
@@ -280,7 +279,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 		idsToNodes[node.P2pId] = nodeInfo
 	}
 
-	return &LocalRegistry{
+	return &registry.RegistryMetadata{
 		Logger:            s.lggr,
 		GetPeerID:         s.getPeerID,
 		IDsToDONs:         idsToDONs,
@@ -307,12 +306,12 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		s.reader = reader
 	}
 
-	var latestRegistry *LocalRegistry
+	var latestRegistry *registry.RegistryMetadata
 	var err error
 
 	if isInitialSync {
 		s.lggr.Debug("syncing with local registry")
-		latestRegistry, err = s.orm.LatestLocalRegistry(ctx)
+		latestRegistry, err = s.orm.LatestRegistryMetadata(ctx)
 		if err != nil {
 			s.lggr.Warnw("failed to sync with local registry, using remote registry instead", "error", err)
 		} else {
@@ -343,7 +342,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	for _, listener := range s.listeners {
-		lrCopy := DeepCopyLocalRegistry(latestRegistry)
+		lrCopy := registry.DeepCopyRegistryMetadata(latestRegistry)
 		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
@@ -378,7 +377,7 @@ func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {
 }
 
 func toDONInfo(don kcr.CapabilitiesRegistryDONInfo) *capabilities.DON {
-	peerIDs := []p2ptypes.PeerID{}
+	peerIDs := make([]p2ptypes.PeerID, 0, len(don.NodeP2PIds))
 	for _, p := range don.NodeP2PIds {
 		peerIDs = append(peerIDs, p)
 	}

@@ -142,13 +142,19 @@ func fakePriceResponder(t *testing.T, requestData map[string]any, result decimal
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		assert.Equal(t, expectedRequest.Data, reqBody.Data)
 		w.Header().Set("Content-Type", "application/json")
-		assert.NoError(t, json.NewEncoder(w).Encode(response))
+		if !assert.NoError(t, json.NewEncoder(w).Encode(response)) {
+			return
+		}
 
 		if inputKey != "" {
 			m := utils.MustUnmarshalToMap(string(payload))
@@ -174,21 +180,29 @@ func fakeIntermittentlyFailingPriceResponder(t *testing.T, requestData map[strin
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		assert.Equal(t, expectedRequest.Data, reqBody.Data)
 		// require.Equal(t, float64(0), reqBody.Meta["id"])
 
 		if reqBody.Meta["shouldFail"].(bool) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadGateway)
-			assert.NoError(t, json.NewEncoder(w).Encode(errors.New("EA failure")))
+			if !assert.NoError(t, json.NewEncoder(w).Encode(errors.New("EA failure"))) {
+				return
+			}
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		assert.NoError(t, json.NewEncoder(w).Encode(response))
+		if !assert.NoError(t, json.NewEncoder(w).Encode(response)) {
+			return
+		}
 
 		if inputKey != "" {
 			m := utils.MustUnmarshalToMap(string(payload))
@@ -205,7 +219,9 @@ func fakeStringResponder(t *testing.T, s string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, err := w.Write([]byte(s))
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 	})
 }
 
@@ -323,6 +339,92 @@ func TestBridgeTask_UsesBridgeConnManagerHappyPath(t *testing.T) {
 	assert.Equal(t, int32(0), httpCalls.Load())
 }
 
+func TestBridgeTask_UsesBridgeConnManagerCacheFallback(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+
+	var httpCalls atomic.Int32
+	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httpCalls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer s1.Close()
+
+	feedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+
+	orm := bridges.NewORM(db)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{
+		URL:                  feedURL.String(),
+		UseConnectionManager: true,
+	})
+
+	manager := bridgeconn.NewBridgeConnManager(logger.TestLogger(t))
+	seedable, ok := manager.(interface {
+		SeedObservation(bridge bridges.BridgeType, requestData map[string]any, observation []byte) error
+		DisableEAConnDialingForTest()
+	})
+	require.True(t, ok)
+	seedable.DisableEAConnDialingForTest()
+
+	task := pipeline.BridgeTask{
+		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+		Name:        bridge.Name.String(),
+		RequestData: btcUSDPairing,
+		CacheTTL:    "30s",
+	}
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(t.Context(), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
+	require.NoError(t, err)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
+	task.HelperSetBridgeConnManager(manager)
+
+	telemCh := make(chan any, 2)
+	ctx := pipeline.WithTelemetryCh(t.Context(), telemCh)
+
+	cachedResponse := []byte(`{"data":{"result":"9700"}}`)
+
+	// Prime the connection manager so the first live lookup succeeds and its
+	// response is persisted to the bridge cache by the task.
+	require.NoError(t, seedable.SeedObservation(*bridge, utils.MustUnmarshalToMap(btcUSDPairing), cachedResponse))
+
+	result, runInfo := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
+	require.NoError(t, result.Error)
+	assert.JSONEq(t, string(cachedResponse), result.Value.(string))
+	assert.Equal(t, int32(0), httpCalls.Load())
+
+	telem := <-telemCh
+	require.IsType(t, &pipeline.BridgeTelemetry{}, telem)
+	btelem := telem.(*pipeline.BridgeTelemetry)
+	assert.False(t, btelem.LocalCacheHit)
+	// The telemetry body carries the live observation.
+	assert.JSONEq(t, string(cachedResponse), string(btelem.ResponseData))
+
+	// Point the task at a different request payload. The connection manager only
+	// holds an observation for the original payload, so this second lookup misses
+	// and falls back to the bridge cache persisted by the first run.
+	task.RequestData = ethUSDPairing
+
+	result2, runInfo2 := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo2.IsPending)
+	assert.False(t, runInfo2.IsRetryable)
+	require.NoError(t, result2.Error)
+	assert.JSONEq(t, string(cachedResponse), result2.Value.(string))
+	assert.Equal(t, int32(0), httpCalls.Load())
+
+	telem2 := <-telemCh
+	require.IsType(t, &pipeline.BridgeTelemetry{}, telem2)
+	btelem2 := telem2.(*pipeline.BridgeTelemetry)
+	assert.True(t, btelem2.LocalCacheHit)
+	// The cache-fallback body is served from the bridge cache persisted above.
+	assert.JSONEq(t, string(cachedResponse), string(btelem2.ResponseData))
+}
+
 func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	t.Parallel()
 
@@ -389,16 +491,22 @@ func TestBridgeTask_CacheFallbackOnMissingRequiredJSONPath(t *testing.T) {
 
 	var callCount atomic.Int32
 	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.NoError(t, r.Body.Close())
+		if !assert.NoError(t, r.Body.Close()) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if callCount.Add(1) == 1 {
 			resp := adapterResponse{Data: dataWithResult(t, decimal.NewFromInt(42))}
-			assert.NoError(t, json.NewEncoder(w).Encode(resp))
+			if !assert.NoError(t, json.NewEncoder(w).Encode(resp)) {
+				return
+			}
 			return
 		}
 		// HTTP 200 but missing data.result — should fall back to cache when required paths are set.
 		_, err := w.Write([]byte(`{"errorMessage":null,"error":null,"statusCode":null,"providerStatusCode":null,"data":{}}`))
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 	}))
 	defer s1.Close()
 
@@ -447,15 +555,21 @@ func TestBridgeTask_SkipsRequiredPathValidationWhenCheckRequiredFalse(t *testing
 
 	var callCount atomic.Int32
 	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.NoError(t, r.Body.Close())
+		if !assert.NoError(t, r.Body.Close()) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if callCount.Add(1) == 1 {
 			resp := adapterResponse{Data: dataWithResult(t, decimal.NewFromInt(42))}
-			assert.NoError(t, json.NewEncoder(w).Encode(resp))
+			if !assert.NoError(t, json.NewEncoder(w).Encode(resp)) {
+				return
+			}
 			return
 		}
 		_, err := w.Write([]byte(`{"errorMessage":null,"error":null,"statusCode":null,"providerStatusCode":null,"data":{}}`))
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 	}))
 	defer s1.Close()
 
@@ -595,17 +709,23 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		defer r.Body.Close()
 
 		err = json.Unmarshal(payload, &reqBody)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		assert.Equal(t, fmt.Sprintf("%s/v2/resume/%v", cfg.WebServer().BridgeResponseURL(), id.String()), reqBody.ResponseURL)
 		w.Header().Set("Content-Type", "application/json")
 
 		// w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]any{"pending": true}
-		assert.NoError(t, json.NewEncoder(w).Encode(response))
+		if !assert.NoError(t, json.NewEncoder(w).Encode(response)) {
+			return
+		}
 	})
 
 	server := httptest.NewServer(handler)
@@ -840,11 +960,15 @@ func TestBridgeTask_Meta(t *testing.T) {
 		var req adapterRequest
 		body, _ := io.ReadAll(r.Body)
 		err := json.Unmarshal(body, &req)
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		assert.InEpsilon(t, float64(10), req.Meta["latestAnswer"], 0)
 		assert.InDelta(t, float64(1616447984), req.Meta["updatedAt"], 0)
 		w.Header().Set("Content-Type", "application/json")
-		assert.NoError(t, json.NewEncoder(w).Encode(empty))
+		if !assert.NoError(t, json.NewEncoder(w).Encode(empty)) {
+			return
+		}
 		httpCalled.Store(true)
 	})
 
@@ -873,7 +997,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 
 	mp := map[string]any{"meta": metaDataForBridge}
 	res, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]any{"jobRun": mp}), nil)
-	assert.NoError(t, res.Error)
+	require.NoError(t, res.Error)
 
 	assert.True(t, httpCalled.Load())
 }
@@ -1100,7 +1224,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeURL.String()})
 
 	allHeaders := func(headers http.Header) (s []string) {
-		var keys []string
+		keys := make([]string, 0, len(headers))
 		for k := range headers {
 			keys = append(keys, k)
 		}
@@ -1134,7 +1258,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		result, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
-		assert.NoError(t, result.Error)
+		require.NoError(t, result.Error)
 
 		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
 	})
@@ -1155,7 +1279,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 		result, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
-		assert.Error(t, result.Error)
+		require.Error(t, result.Error)
 		assert.Equal(t, `headers must have an even number of elements`, result.Error.Error())
 		assert.Nil(t, result.Value)
 	})
@@ -1177,7 +1301,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		result, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
-		assert.NoError(t, result.Error)
+		require.NoError(t, result.Error)
 
 		assert.Equal(t, []string{"Content-Length", "38", "Content-Type", "footype", "User-Agent", "Go-http-client/1.1", "X-Header-1", "foo", "X-Header-2", "bar"}, allHeaders(headers))
 	})
@@ -1200,7 +1324,8 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			err := json.NewEncoder(w).Encode(testAdapterResponse)
 			assert.NoError(t, err)
-		}))
+		}),
+	)
 	defer s1.Close()
 
 	feedURL, err := url.ParseRequestURI(s1.URL)
@@ -1301,7 +1426,8 @@ func TestBridgeTask_AdapterTimeout(t *testing.T) {
 	s1 := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(time.Second) // delay enough to time-out
-		}))
+		}),
+	)
 	defer s1.Close()
 
 	feedURL, err := url.ParseRequestURI(s1.URL)

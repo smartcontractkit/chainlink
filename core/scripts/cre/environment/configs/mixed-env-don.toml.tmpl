@@ -54,7 +54,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["workflow"]
   # "each" lets us assign a different image per node (2 PR + 2 develop).
   override_mode = "each"
@@ -69,7 +69,7 @@
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13000
 
   [[nodesets.node_specs]] # node 0 - PR
@@ -103,7 +103,7 @@
 [[nodesets]]
   nodes = 4
   name = "capabilities"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
   override_mode = "each"
@@ -117,7 +117,7 @@
   capabilities = ["vault", "evm-2337"]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13100
 
   [[nodesets.node_specs]] # node 0 - PR
@@ -151,7 +151,7 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_family = "test-don-family"
+  don_families = ["test-don-family"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
@@ -160,7 +160,7 @@
   supported_evm_chains = [1337, 2337]
 
   [nodesets.db]
-    image = "postgres:12.0"
+    image = "postgres:15.0"
     port = 13200
 
   # The bootstrap/gateway node does not run the reporting plugin, so its code

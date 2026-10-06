@@ -82,5 +82,6 @@ func TestPingController_Show_NoCredentials(t *testing.T) {
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }

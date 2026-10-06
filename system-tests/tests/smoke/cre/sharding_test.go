@@ -213,7 +213,7 @@ func ExecuteShardingTemplate[T t_helpers.WorkflowConfig](t *testing.T, testEnv *
 	testLogger.Info().Msg("Verifying Ring OCR Oracle health on shard0 nodes...")
 	waitForRingOracleHealthy(t, shardZero)
 
-	var workflowIDs []string
+	workflowIDs := make([]string, 0, len(workflowNames))
 	for _, workflowName := range workflowNames {
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, workflowConfig, workflowFileLocation)
 		workflowIDs = append(workflowIDs, workflowID)
@@ -222,7 +222,7 @@ func ExecuteShardingTemplate[T t_helpers.WorkflowConfig](t *testing.T, testEnv *
 
 	var rpcHost string
 	for _, nodeSet := range testEnv.Config.NodeSets {
-		if nodeSet.Name == "shard0" && nodeSet.Out != nil && len(nodeSet.Out.CLNodes) > 0 {
+		if nodeSet.Name == "workflow-1-zone-a" && nodeSet.Out != nil && len(nodeSet.Out.CLNodes) > 0 {
 			externalURL := nodeSet.Out.CLNodes[0].Node.ExternalURL
 			parsedURL, parseErr := url.Parse(externalURL)
 			require.NoError(t, parseErr, "Failed to parse ExternalURL")
@@ -554,7 +554,10 @@ func waitForRingOracleHealthy(t *testing.T, shardZero *cre.Don) {
 	logger.Info().Str("node", node.Name).Msg("Waiting for Ring Oracle health...")
 
 	require.Eventually(t, func() bool {
-		health, _, healthErr := node.Clients.RestClient.Health()
+		health, httpResp, healthErr := node.Clients.RestClient.Health()
+		if httpResp != nil && httpResp.Body != nil {
+			httpResp.Body.Close()
+		}
 		if healthErr != nil {
 			logger.Warn().Err(healthErr).Msg("Waiting for health status")
 			return false

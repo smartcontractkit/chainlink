@@ -1332,9 +1332,11 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "84.0000000000",
 					},
 					{
-						Peer_2PeerId:         "abc",
-						SpendUnit:            testUnitGas,
-						SpendValue:           "0.000001",
+						Peer_2PeerId: "abc",
+						SpendUnit:    testUnitGas,
+						// native fixed-point value is surfaced in the legacy field for
+						// consumers that only read SpendValue (e.g. billing)
+						SpendValue:           "1000000000000",
 						SpendValueCre:        "100.0000000000",
 						SpendValueInGasUnits: "1000000000000",
 					},
@@ -1420,6 +1422,200 @@ func Test_Report_FormatReport(t *testing.T) {
 		assert.Len(t, logs.All(), 1)
 		billingClient.AssertExpectations(t)
 	})
+
+	// Aptos specific regression test
+	t.Run("non-18-decimal gas token uses gas units, not legacy shift", func(t *testing.T) {
+		t.Parallel()
+
+		const aptosUnit = "GAS.4741433654826277614"
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRatesMulti,
+				GasTokensPerCredit: map[uint64]string{
+					4741433654826277614: "156889", // octas per credit
+				},
+			}, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", decimal.NewFromInt(1)))
+		require.NoError(t, err)
+
+		// 0.001158 APT = 115800 octas
+		require.NoError(t, report.Settle("ref1", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "abc", SpendUnit: aptosUnit, SpendValue: "0.001158", SpendValueInGasUnits: "115800"},
+		}}))
+
+		expected := map[string]*eventspb.MeteringReportStep{
+			"ref1": {
+				Nodes: []*eventspb.MeteringReportNodeDetail{
+					{
+						Peer_2PeerId: "abc",
+						SpendUnit:    aptosUnit,
+						// native fixed-point value is surfaced in the legacy field
+						SpendValue:           "115800",
+						SpendValueCre:        "0.7381014603",
+						SpendValueInGasUnits: "115800",
+					},
+				},
+				AggSpendValue:    "115800.0000000000",
+				AggSpendUnit:     aptosUnit,
+				AggSpendValueCre: "0.7381014603",
+				CapdonN:          1,
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "115800.0000000000",
+						SpendUnit:     aptosUnit,
+						SpendValueCre: "0.7381014603",
+					},
+				},
+			},
+		}
+
+		assert.Equal(t, expected, report.FormatReport().Steps)
+		assert.False(t, report.meteringMode)
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("invalid native gas units are dropped and not promoted to spend value", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRatesMulti,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "10000000000", // 10 gwei per credit
+				},
+			}, nil)
+		report := newTestReport(t, lggr, billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", decimal.NewFromInt(1)))
+		require.NoError(t, err)
+
+		require.NoError(t, report.Settle("ref1", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "frac", SpendUnit: testUnitGas, SpendValue: "0.000005", SpendValueInGasUnits: "0.5"},      // fractional: dropped
+			{Peer2PeerID: "neg", SpendUnit: testUnitGas, SpendValue: "0.000005", SpendValueInGasUnits: "-100"},      // negative: dropped
+			{Peer2PeerID: "ok", SpendUnit: testUnitGas, SpendValue: "0.000005", SpendValueInGasUnits: "5000000000"}, // valid
+		}}))
+
+		steps := report.FormatReport().Steps
+		require.Len(t, steps, 1)
+		require.Len(t, steps["ref1"].Nodes, 3)
+
+		// only the valid detail feeds the aggregate: 5000000000 wei / 1e10 per credit = 0.5 credits
+		assert.Equal(t, "5000000000.0000000000", steps["ref1"].AggSpendValue)
+		assert.Equal(t, "0.5000000000", steps["ref1"].AggSpendValueCre)
+
+		for _, node := range steps["ref1"].Nodes {
+			if node.Peer_2PeerId == "ok" {
+				assert.Equal(t, "5000000000", node.SpendValue)
+			} else {
+				assert.Equal(t, "0.000005", node.SpendValue, "peer %s", node.Peer_2PeerId)
+				assert.Equal(t, "0.0000000000", node.SpendValueCre, "peer %s", node.Peer_2PeerId)
+			}
+		}
+
+		// one warn per invalid detail, none for the valid one
+		assert.Len(t, logs.All(), 2)
+		assert.False(t, report.meteringMode)
+		billingClient.AssertExpectations(t)
+	})
+	t.Run("legacy gas spend without gas units falls back to shift 18", func(t *testing.T) {
+		t.Parallel()
+
+		const aptosUnit = "GAS.4741433654826277614"
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRatesMulti,
+				GasTokensPerCredit: map[uint64]string{
+					4741433654826277614: "156889", // octas per credit
+				},
+			}, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		_, err := report.Deduct("ref1", ByResource(testUnitA, "", decimal.NewFromInt(1)))
+		require.NoError(t, err)
+
+		require.NoError(t, report.Settle("ref1", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "abc", SpendUnit: aptosUnit, SpendValue: "0.001158"},
+		}}))
+
+		expected := map[string]*eventspb.MeteringReportStep{
+			"ref1": {
+				Nodes: []*eventspb.MeteringReportNodeDetail{
+					{
+						Peer_2PeerId:  "abc",
+						SpendUnit:     aptosUnit,
+						SpendValue:    "0.001158",              // no native value available: legacy field is preserved
+						SpendValueCre: "7381014602.6808762883", // Shift(18) on an 8-decimal token inflates by 10^10
+					},
+				},
+				AggSpendValue:    "1158000000000000.0000000000",
+				AggSpendUnit:     aptosUnit,
+				AggSpendValueCre: "7381014602.6808762883",
+				CapdonN:          1,
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "1158000000000000.0000000000",
+						SpendUnit:     aptosUnit,
+						SpendValueCre: "7381014602.6808762883",
+					},
+				},
+			},
+		}
+
+		assert.Equal(t, expected, report.FormatReport().Steps)
+		assert.False(t, report.meteringMode)
+		billingClient.AssertExpectations(t)
+	})
+}
+
+func Test_parseNativeGasUnits(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{name: "integer", input: "115800", want: "115800"},
+		{name: "large integer", input: "34440000000000", want: "34440000000000"},
+		{name: "zero", input: "0", want: "0"},
+		{name: "exponent with integer value is accepted", input: "1e18", want: "1000000000000000000"},
+		{name: "fractional rejected", input: "0.001158", wantErr: true},
+		{name: "fractional wei rejected", input: "0.5", wantErr: true},
+		{name: "negative rejected", input: "-5", wantErr: true},
+		{name: "unparseable rejected", input: "????", wantErr: true},
+		{name: "empty rejected", input: "", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := parseNativeGasUnits(tt.input)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got.String())
+		})
+	}
 }
 
 func Test_Report_SendReceipt(t *testing.T) {

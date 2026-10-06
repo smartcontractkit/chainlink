@@ -2,16 +2,15 @@ package gateway
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -36,7 +35,7 @@ type handlerFactory struct {
 	ds                     sqlutil.DataSource
 	lggr                   logger.Logger
 	httpClient             network.HTTPClient
-	capabilitiesRegistry   core.CapabilitiesRegistry
+	capabilitiesRegistry   registry.CapabilitiesRegistry
 	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
 	lf                     limits.Factory
 	httpClientFactory      network.HTTPClientFactory
@@ -45,7 +44,7 @@ type handlerFactory struct {
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver) HandlerFactory {
+func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry registry.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver) HandlerFactory {
 	return &handlerFactory{
 		legacyChains,
 		ds,
@@ -65,29 +64,31 @@ func (hf *handlerFactory) NewHandler(
 	shardedDONs []config.ShardedDONConfig,
 	shardsConnMgrs [][]handlers.DON,
 ) (handlers.Handler, error) {
-	if len(shardedDONs) == 0 || len(shardsConnMgrs) == 0 {
-		return nil, errors.New("at least one DON and connection manager required")
+	dons, err := handlers.NewShardedDONs(shardedDONs, shardsConnMgrs)
+	if err != nil {
+		return nil, err
 	}
-	if len(shardsConnMgrs[0]) == 0 {
-		return nil, errors.New("at least one shard connection manager required")
-	}
-
-	// For backward compatibility, convert sharded config to legacy DONConfig
-	// using the first DON's first shard. Handlers that support sharding can
-	// use the full shardedDONs and shardsConnMgrs directly.
-	donConfig := shardedDONsToLegacy(shardedDONs[0])
-	don := shardsConnMgrs[0][0]
 
 	switch handlerType {
 	case DummyHandlerType:
-		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
+		return handlers.NewDummyHandler(dons, hf.lggr)
 	case WebAPICapabilitiesType:
-		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
+		return capabilities.NewHandler(handlerConfig, dons, hf.httpClient, hf.lggr)
 	case HTTPCapabilityType:
-		return v2.NewGatewayHandler(handlerConfig, shardedDONs, shardsConnMgrs, hf.httpClient, hf.lggr, hf.lf, hf.httpClientFactory, hf.orgResolver)
+		return v2.NewGatewayHandler(handlerConfig, dons, hf.httpClient, hf.lggr, hf.lf, hf.httpClientFactory, hf.orgResolver)
 	case VaultHandlerType:
+		// For backward compatibility, convert sharded config to legacy DONConfig
+		// using the first DON's first shard. TODO(CRE-1640): migrate to full
+		// shardedDONs/shardsConnMgrs support.
+		donConfig := shardedDONsToLegacy(dons.DONs[0])
+		don := dons.ConnMgrs[0][0]
 		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	case ConfidentialRelayHandlerType:
+		// For backward compatibility, convert sharded config to legacy DONConfig
+		// using the first DON's first shard. TODO(CRE-1640): migrate to full
+		// shardedDONs/shardsConnMgrs support.
+		donConfig := shardedDONsToLegacy(dons.DONs[0])
+		don := dons.ConnMgrs[0][0]
 		return confidentialrelay.NewHandler(handlerConfig, donConfig, don, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)

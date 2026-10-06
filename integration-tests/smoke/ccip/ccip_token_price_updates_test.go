@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
@@ -40,7 +40,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 		nRoleDON = 3*fRoleDON + 1
 	)
 
-	var tokenPriceExpiry = 5 * time.Second
+	tokenPriceExpiry := 5 * time.Second
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfNodes(nRoleDON),
 		testhelpers.WithRoleDONTopology(cciptesthelpertypes.NewRandomTopology(
@@ -51,7 +51,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 		)),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			if params.CommitOffChainConfig != nil {
-				params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(tokenPriceExpiry)
+				params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *commonconfig.MustNewDuration(tokenPriceExpiry)
 			}
 			return params
 		}))

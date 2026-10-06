@@ -391,7 +391,7 @@ jobs:
         id: wasm-key
         shell: bash
         run: |
-          echo "key=${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}" >> "$GITHUB_OUTPUT"
+          echo "key=${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/services/workflows/**') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore WASM test binaries cache
         if: ${{ matrix.type.should-run == 'true' }}
@@ -452,9 +452,11 @@ jobs:
         # Increase timeouts for scheduled runs only
         if: ${{ github.event.schedule != '' && matrix.type.should-run == 'true' }}
         run: |
-          echo "TIMEOUT=10m" >> "$GITHUB_ENV"
-          echo "COUNT=50" >> "$GITHUB_ENV"
-          echo "FUZZ_TIMEOUT_MINUTES=10" >> "$GITHUB_ENV"
+          {
+            echo "TIMEOUT=10m"
+            echo "COUNT=50"
+            echo "FUZZ_TIMEOUT_MINUTES=10"
+          } | tee -a "$GITHUB_ENV"
 
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}

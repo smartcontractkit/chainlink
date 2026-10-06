@@ -13,8 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
+	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 // Config is the root type used for TOML configuration.
@@ -31,8 +30,6 @@ type Config struct {
 	toml.Core
 
 	EVM configtoml.EVMConfigs `toml:",omitempty"`
-
-	Cosmos RawConfigs `toml:",omitempty"`
 
 	Solana RawConfigs `toml:",omitempty"`
 
@@ -99,7 +96,7 @@ func (rs RawConfigs) validateKeys() (err error) {
 			}
 		}
 	}
-	return
+	return err
 }
 
 func (rs RawConfigs) ValidateConfig() (err error) {
@@ -253,7 +250,7 @@ func (c *RawConfig) SetFrom(config RawConfig) error {
 
 func (c RawConfig) NodeNames() []string {
 	nodes, _ := c["Nodes"].([]any)
-	nodeNames := []string{}
+	nodeNames := make([]string, 0, len(nodes))
 	for _, node := range nodes {
 		config, _ := node.(map[string]any)
 		nodeName, _ := config["Name"].(string)
@@ -293,11 +290,11 @@ func (c *Config) valueWarnings() (err error) {
 	if c.Tracing.Enabled != nil && *c.Tracing.Enabled {
 		if c.Tracing.Mode != nil && *c.Tracing.Mode == "unencrypted" {
 			if c.Tracing.TLSCertPath != nil {
-				err = errors.Join(err, config.ErrInvalid{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
+				err = errors.Join(err, configutils.InvalidError{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
 			}
 		}
 	}
-	return
+	return err
 }
 
 // deprecationWarnings returns an error if the Config contains deprecated fields.
@@ -331,8 +328,6 @@ func (c *Config) setDefaults() {
 		}
 	}
 
-	c.Cosmos.SetDefaults()
-
 	c.Solana.SetDefaults()
 
 	c.Starknet.SetDefaults()
@@ -356,7 +351,6 @@ func (c *Config) SetFrom(f *Config) (err error) {
 	}
 
 	appendErr(c.EVM.SetFrom(&f.EVM), "EVM")
-	appendErr(c.Cosmos.SetFrom(f.Cosmos), "Cosmos")
 	appendErr(c.Solana.SetFrom(f.Solana), "Solana")
 	appendErr(c.Starknet.SetFrom(f.Starknet), "Starknet")
 	appendErr(c.Aptos.SetFrom(f.Aptos), "Aptos")
@@ -504,14 +498,14 @@ func (s *Secrets) ValidateDB() error {
 // setEnv overrides fields from ENV vars, if present.
 func (s *Secrets) setEnv() error {
 	if dbURL := env.DatabaseURL.Get(); dbURL != "" {
-		s.Database.URL = new(models.SecretURL)
+		s.Database.URL = new(commonconfig.SecretURL)
 		if err := s.Database.URL.UnmarshalText([]byte(dbURL)); err != nil {
 			return err
 		}
 	}
-	if dbBackupUrl := env.DatabaseBackupURL.Get(); dbBackupUrl != "" {
-		s.Database.BackupURL = new(models.SecretURL)
-		if err := s.Database.BackupURL.UnmarshalText([]byte(dbBackupUrl)); err != nil {
+	if dbBackupURL := env.DatabaseBackupURL.Get(); dbBackupURL != "" {
+		s.Database.BackupURL = new(commonconfig.SecretURL)
+		if err := s.Database.BackupURL.UnmarshalText([]byte(dbBackupURL)); err != nil {
 			return err
 		}
 	}

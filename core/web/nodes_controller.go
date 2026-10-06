@@ -21,7 +21,7 @@ type NetworkScopedNodeStatuser struct {
 	relayers chainlink.RelayerChainInteroperators
 }
 
-func (n *NetworkScopedNodeStatuser) NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []types.NodeStatus, count int, err error) {
+func (n *NetworkScopedNodeStatuser) NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []chainlink.NetworkNodeStatus, count int, err error) {
 	return n.relayers.NodeStatuses(ctx, offset, limit, relayIDs...)
 }
 
@@ -45,7 +45,7 @@ func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 	id := c.Param("ID")
 	network := c.Param("network")
 
-	var nodes []types.NodeStatus
+	var nodes []chainlink.NetworkNodeStatus
 	var count int
 	var err error
 
@@ -72,7 +72,7 @@ func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 
 	resources := make([]R, 0, len(nodes))
 	for _, node := range nodes {
-		res := n.newResource(node)
+		res := n.newResource(node.NodeStatus)
 		resources = append(resources, res)
 	}
 

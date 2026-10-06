@@ -22,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -102,6 +104,7 @@ func (m *mockGatewayConnector) AddHandler(_ context.Context, methods []string, _
 	m.addedMethods = methods
 	return nil
 }
+
 func (m *mockGatewayConnector) RemoveHandler(_ context.Context, _ []string) error {
 	m.removed = true
 	return nil
@@ -150,17 +153,19 @@ func (m *mockCapRegistry) ConfigForCapability(_ context.Context, capID string, _
 	}
 	return capabilities.CapabilityConfiguration{}, fmt.Errorf("config not found: %s", capID)
 }
+
 func (m *mockCapRegistry) DONsForCapability(_ context.Context, capID string) ([]capabilities.DONWithNodes, error) {
 	if dons, ok := m.dons[capID]; ok {
 		return dons, nil
 	}
 	return nil, fmt.Errorf("no DONs found for: %s", capID)
 }
+
 func (m *mockCapRegistry) LocalNode(_ context.Context) (capabilities.Node, error) {
 	return m.localNode, nil
 }
 
-func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn core.GatewayConnector) *Handler {
+func newTestHandler(t *testing.T, registry registry.CapabilitiesRegistry, gwConn core.GatewayConnector) *Handler {
 	t.Helper()
 	lggr, err := logger.New()
 	require.NoError(t, err)
@@ -448,7 +453,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
+				require.NotEmpty(t, result.Signature.Signature)
+				require.Len(t, result.Signatures, 1) //nolint:staticcheck // SA1019 still populated for legacy readers
 				assertValidCapabilitySignature(t, params, result)
 
 				decoded, err := base64.StdEncoding.DecodeString(result.Result.Payload)
@@ -556,7 +562,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
+				require.NotEmpty(t, result.Signature.Signature)
+				require.Len(t, result.Signatures, 1) //nolint:staticcheck // SA1019 still populated for legacy readers
 				assertValidCapabilitySignature(t, params, result)
 				assert.Equal(t, "execution failed", result.Result.Error)
 				assert.Empty(t, result.Result.Payload)
@@ -577,7 +584,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				params.Attestation = ""
 				var result confidentialrelaytypes.SignedSecretsResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
+				require.NotEmpty(t, result.Signature.Signature)
+				require.Len(t, result.Signatures, 1) //nolint:staticcheck // SA1019 still populated for legacy readers
 				assertValidSecretsSignature(t, params, result)
 				require.Len(t, result.Result.Secrets, 1)
 				assert.Equal(t, "API_KEY", result.Result.Secrets[0].ID.Key)
@@ -645,6 +653,47 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.NotNil(t, resp.Error)
 				// Vault system failures are internal errors → ErrInternal, not a user error.
 				assert.Equal(t, jsonrpc.ErrInternal, resp.Error.Code)
+			},
+		},
+		{
+			name:        "secrets get GetRawSecrets user error classified as invalid params",
+			registry:    secretsGetTestRegistry,
+			req:         secretsGetTestRequest,
+			workflowID:  "wf-secrets-1",
+			executionID: "0000000000000000000000000000000000000000000000000000000000000001",
+			helper: func(_ *testing.T) *mockExecutionHelper {
+				// Reproduces the real chain: the vault's public user caperrors.Error
+				// is serialized at the remote boundary, deserialized client-side,
+				// and wrapped by the engine.
+				serialized := caperrors.NewPublicUserError(
+					errors.New("could not validate get secrets request: request batch size exceeds maximum of 10: limit of 10 exceeded"),
+					caperrors.LimitExceeded,
+				).SerializeToRemoteString()
+				deserialized := caperrors.DeserializeErrorFromString(serialized)
+				return &mockExecutionHelper{secretsErr: fmt.Errorf("failed to execute vault.GetSecrets: error executing request: INTERNAL_ERROR : %w", deserialized)}
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.NotNil(t, resp.Error)
+				// Must reach the caller with the real cause, not "internal error".
+				assert.Equal(t, jsonrpc.ErrInvalidParams, resp.Error.Code)
+				assert.Contains(t, resp.Error.Message, "request batch size exceeds maximum of 10")
+				assert.NotEqual(t, internalErrorMessage, resp.Error.Message)
+			},
+		},
+		{
+			name:        "secrets get GetRawSecrets system error classified as internal",
+			registry:    secretsGetTestRegistry,
+			req:         secretsGetTestRequest,
+			workflowID:  "wf-secrets-1",
+			executionID: "0000000000000000000000000000000000000000000000000000000000000001",
+			helper: func(_ *testing.T) *mockExecutionHelper {
+				// Node-side failures carry no user classification: internal and masked.
+				return &mockExecutionHelper{secretsErr: errors.New("failed to get vault capability: not found")}
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.NotNil(t, resp.Error)
+				assert.Equal(t, jsonrpc.ErrInternal, resp.Error.Code)
+				assert.Equal(t, internalErrorMessage, resp.Error.Message)
 			},
 		},
 		{
@@ -717,8 +766,8 @@ func assertValidCapabilitySignature(
 	hash, err := result.Result.Hash(params)
 	require.NoError(t, err)
 	payload := confidentialrelaytypes.RelayResponseSignaturePayload(hash)
-	pubKey := ed25519.PublicKey(result.Signatures[0].Signer)
-	require.True(t, ed25519.Verify(pubKey, payload, result.Signatures[0].Signature))
+	pubKey := ed25519.PublicKey(result.Signature.Signer)
+	require.True(t, ed25519.Verify(pubKey, payload, result.Signature.Signature))
 }
 
 func assertValidSecretsSignature(
@@ -730,8 +779,8 @@ func assertValidSecretsSignature(
 	hash, err := result.Result.Hash(params)
 	require.NoError(t, err)
 	payload := confidentialrelaytypes.RelayResponseSignaturePayload(hash)
-	pubKey := ed25519.PublicKey(result.Signatures[0].Signer)
-	require.True(t, ed25519.Verify(pubKey, payload, result.Signatures[0].Signature))
+	pubKey := ed25519.PublicKey(result.Signature.Signer)
+	require.True(t, ed25519.Verify(pubKey, payload, result.Signature.Signature))
 }
 
 func TestHandler_Lifecycle(t *testing.T) {

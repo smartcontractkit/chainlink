@@ -25,7 +25,7 @@ func TestNewExternalInitiator(t *testing.T) {
 		URL:  &url,
 	}
 	ei, err := bridges.NewExternalInitiator(eia, eir)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEqual(t, ei.HashedSecret, eia.Secret)
 	assert.Equal(t, ei.AccessKey, eia.AccessKey)
 }

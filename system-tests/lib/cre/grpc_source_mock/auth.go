@@ -92,7 +92,7 @@ func NewJWTAuthInterceptor(authProvider NodeAuthProvider) grpc.UnaryServerInterc
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	})).With("logger", "grpc_source_mock.JWTAuthInterceptor")
-	authenticator := jwt.NewNodeJWTAuthenticator(authProvider, logger)
+	authenticator := jwt.NewNodeJWTAuthenticator(authProvider, logger) //nolint:staticcheck // SA1019 use NodeJWTAuthenticatorConfig.New, not yet migrated
 
 	return func(
 		ctx context.Context,

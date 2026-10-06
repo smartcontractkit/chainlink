@@ -3,14 +3,13 @@ package pipeline
 import (
 	"database/sql/driver"
 	"encoding/json"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"gopkg.in/guregu/null.v4"
 
@@ -71,7 +70,7 @@ type Run struct {
 	FailSilently bool
 }
 
-func (r Run) GetID() string {
+func (r *Run) GetID() string {
 	return strconv.FormatInt(r.ID, 10)
 }
 
@@ -84,7 +83,7 @@ func (r *Run) SetID(value string) error {
 	return nil
 }
 
-func (r Run) HasFatalErrors() bool {
+func (r *Run) HasFatalErrors() bool {
 	for _, err := range r.FatalErrors {
 		if !err.IsZero() {
 			return true
@@ -93,7 +92,7 @@ func (r Run) HasFatalErrors() bool {
 	return false
 }
 
-func (r Run) HasErrors() bool {
+func (r *Run) HasErrors() bool {
 	for _, err := range r.AllErrors {
 		if !err.IsZero() {
 			return true
@@ -206,11 +205,16 @@ type RunErrors []null.String
 
 func (re *RunErrors) Scan(value any) error {
 	if value == nil {
+		*re = nil
 		return nil
 	}
 	bytes, ok := value.([]byte)
 	if !ok {
-		return errors.Errorf("RunErrors#Scan received a value of type %T", value)
+		return fmt.Errorf("RunErrors#Scan received unsupported value %v of type %T", value, value)
+	}
+	if len(bytes) == 0 {
+		*re = nil
+		return nil
 	}
 	return json.Unmarshal(bytes, re)
 }
@@ -231,8 +235,6 @@ func (re RunErrors) HasError() bool {
 	return false
 }
 
-// ToError coalesces all non-nil errors into a single error object.
-// This is useful for logging.
 func (re RunErrors) ToError() error {
 	toErr := func(ns null.String) error {
 		if !ns.IsZero() {
@@ -240,11 +242,11 @@ func (re RunErrors) ToError() error {
 		}
 		return nil
 	}
-	errs := []error{}
+	errs := make([]error, 0, len(re))
 	for _, e := range re {
 		errs = append(errs, toErr(e))
 	}
-	return stderrors.Join(errs...)
+	return errors.Join(errs...)
 }
 
 type ResumeRequest struct {
@@ -281,7 +283,7 @@ type TaskRun struct {
 	task Task
 }
 
-func (tr TaskRun) GetID() string {
+func (tr *TaskRun) GetID() string {
 	return fmt.Sprintf("%v", tr.ID)
 }
 
@@ -294,11 +296,11 @@ func (tr *TaskRun) SetID(value string) error {
 	return nil
 }
 
-func (tr TaskRun) GetDotID() string {
+func (tr *TaskRun) GetDotID() string {
 	return tr.DotID
 }
 
-func (tr TaskRun) Result() Result {
+func (tr *TaskRun) Result() Result {
 	var result Result
 	if !tr.Error.IsZero() {
 		result.Error = errors.New(tr.Error.ValueOrZero())
