@@ -334,3 +334,84 @@ func TestOffchainMethodConfigs_GateOn_Overrides(t *testing.T) {
 	assert.Equal(t, 10*time.Second, requestTimeoutFor(t, logs, fullCapID, "View"),
 		"gate on: method omitted offchain keeps its on-chain config")
 }
+
+// TestOffchainMethodConfigs_NoThrashAcrossPasses locks the central invariant of the method_configs
+// overlay: the prune path (computeWantedShimKeys) and the create path (addRemoteCapabilities) must
+// apply the SAME offchain overlay. An offchain-only method's shim created on the first OnNewRegistry
+// pass must survive the second pass untouched.
+//
+// A single pass cannot catch a prune/create overlay mismatch: on the first pass the shim cache is
+// empty, so pruneStaleShims has nothing to remove and the method is created regardless. The thrash
+// only manifests on the second pass — if computeWantedShimKeys did NOT apply the overlay, the
+// offchain-only method would be absent from the wanted set and torn down (RemoveReceiverForMethod)
+// before being re-created, churning every tick. RemoveReceiverForMethod is deliberately left
+// unexpected on the dispatcher mock, so any such prune fails the test.
+func TestOffchainMethodConfigs_NoThrashAcrossPasses(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	reg := regpkg.NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes := newNodes(4)
+	capabilityDonNodes := newNodes(4)
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	fullCapID := "write-chain_evm_1@1.0.0"
+	capIDHash := RandomUTF8BytesWord()
+
+	// On-chain carries a single executable method, "Write".
+	onchainCfg := onchainMethodCfg(t, map[string]*capabilitiespb.CapabilityMethodConfig{
+		"Write": {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					RequestTimeout: durationpb.New(30 * time.Second),
+				},
+			},
+		},
+	})
+
+	wfDONID, capDONID := uint32(1), uint32(2)
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDONID, uint32(0), uint8(1), true, true, workflowDonNodes, []string{"zone-a"}, 1, nil)
+	addDON(localRegistry, capDONID, uint32(0), uint8(1), true, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{capIDHash})
+	addCapabilityToDON(localRegistry, capDONID, fullCapID, capabilities.CapabilityTypeTarget, onchainCfg)
+	// Name the capability DON so the offchain payload can key it.
+	capDON := localRegistry.IDsToDONs[regpkg.DonID(capDONID)]
+	capDON.Name = "don-2"
+	localRegistry.IDsToDONs[regpkg.DonID(capDONID)] = capDON
+
+	// Offchain adds an executable method "Extra" that exists ONLY offchain (not on-chain).
+	gc := offchainMethodCfg(t, 1, "don-2", fullCapID, map[string]*capabilitiespb.CapabilityMethodConfig{
+		"Extra": {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					RequestTimeout: durationpb.New(45 * time.Second),
+				},
+			},
+		},
+	})
+
+	launcher, err := NewLauncher(lggr, sharedPeer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0)
+	require.NoError(t, err)
+	launcher.SetOffchainRegistry(gc, true) // gate ON
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
+
+	// Both the on-chain "Write" and the offchain-only "Extra" client shims are created on the first
+	// pass. SetReceiverForMethod fires only on shim creation, so it is called twice total (pass 1),
+	// not again on pass 2. RemoveReceiverForMethod is intentionally NOT registered: if the overlay
+	// is missing from the wanted-set computation, pass 2 prunes "Extra" and the unexpected call fails
+	// the mock.
+	dispatcher.On("SetReceiverForMethod", fullCapID, capDONID, "Write", mock.AnythingOfType("*executable.client")).Return(nil)
+	dispatcher.On("SetReceiverForMethod", fullCapID, capDONID, "Extra", mock.AnythingOfType("*executable.client")).Return(nil)
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+	// Second pass with identical inputs must be a no-op for the shim set.
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	dispatcher.AssertNotCalled(t, "RemoveReceiverForMethod", fullCapID, capDONID, "Extra")
+	dispatcher.AssertNotCalled(t, "RemoveReceiverForMethod", fullCapID, capDONID, "Write")
+}

@@ -310,13 +310,21 @@ func validate(reg *capabilitiespb.OffchainCapabilitiesRegistry) error {
 }
 
 // MethodConfigsFromProto converts an offchain method_configs map (pb) into the
-// capabilities.CapabilityMethodConfig map the launcher's don2don shims consume. It mirrors the
-// conversion in registry.CapabilityConfiguration.Unmarshal in chainlink-common, so the offchain
-// and on-chain paths convert identically. A nil map yields nil.
+// capabilities.CapabilityMethodConfig map the launcher's don2don shims consume. For every set
+// remote_config oneof it mirrors the conversion in registry.CapabilityConfiguration.Unmarshal in
+// chainlink-common field-for-field, so a trigger/executable method converts identically to the
+// on-chain path. A nil map yields nil.
 //
-// An entry whose remote_config oneof is unset converts to a zero CapabilityMethodConfig (both
-// RemoteTriggerConfig and RemoteExecutableConfig nil); the launcher treats that as "no remote
-// config found" for the method, same as an on-chain entry with an unset oneof.
+// It diverges from the on-chain path in ONE case, deliberately: an entry whose remote_config oneof
+// is unset. On-chain, Unmarshal rejects that entry (its switch has no such case) and the whole
+// capability config fails to load. Here it converts to a zero CapabilityMethodConfig (both
+// RemoteTriggerConfig and RemoteExecutableConfig nil) and is accepted at ingestion. The launcher
+// then treats a zero config as "no remote config found" for that method, so it is neither added to
+// the wanted shim set nor created — the effect is to DISABLE that method's shim (any existing one is
+// pruned and not recreated). This is an intentional offchain-only lever (disable a method without an
+// on-chain change); the cross-check reports it as config_mismatch. If strict on-chain parity is ever
+// required instead, make the nil case below return an error so such entries are rejected at
+// ingestion like the on-chain path.
 func MethodConfigsFromProto(in map[string]*capabilitiespb.CapabilityMethodConfig) (map[string]capabilities.CapabilityMethodConfig, error) {
 	if in == nil {
 		return nil, nil
