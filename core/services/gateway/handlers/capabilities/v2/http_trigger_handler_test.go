@@ -916,7 +916,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_DeliversOnlyToRegisteredSha
 		NodeSendTimeoutMs:           5000,
 	})
 
-	// Three shards, each with 3 disjoint nodes. donIDs: "don", "don_1", "don_2".
+	// Three shards, each with 3 disjoint nodes. donIDs: "don", "don_shard-1", "don_shard-2".
 	shardedDONs := []config.ShardedDONConfig{
 		{
 			DonName: "don",
@@ -940,8 +940,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_DeliversOnlyToRegisteredSha
 	require.Len(t, shards, 3)
 	// Sanity-check donID derivation used by the metadata/trigger handlers.
 	require.Equal(t, "don", shards[0].DonID)
-	require.Equal(t, "don_1", shards[1].DonID)
-	require.Equal(t, "don_2", shards[2].DonID)
+	require.Equal(t, "don_shard-1", shards[1].DonID)
+	require.Equal(t, "don_shard-2", shards[2].DonID)
 
 	allMembersSlice := handlers.AllMembers(shards)
 	testMetrics, err := metrics.NewMetrics(allMembersSlice)
@@ -991,8 +991,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_DeliversOnlyToRegisteredSha
 	require.True(t, exists, "callback should be registered for the request ID")
 	require.Len(t, saved.responseAggregators, 2, "exactly 2 shards are registered for this workflow")
 	require.Contains(t, saved.responseAggregators, "don")
-	require.Contains(t, saved.responseAggregators, "don_1")
-	require.NotContains(t, saved.responseAggregators, "don_2")
+	require.Contains(t, saved.responseAggregators, "don_shard-1")
+	require.NotContains(t, saved.responseAggregators, "don_shard-2")
 
 	// Assert the mock connection managers saw exactly the expected sends. The
 	// cleanup registered by NewDON will call AssertExpectations on test teardown,

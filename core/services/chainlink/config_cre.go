@@ -50,6 +50,13 @@ func (c *creConfig) DebugMode() bool {
 	return *c.c.DebugMode
 }
 
+func (c *creConfig) CachedTriggerSubscriptionsEnabled() bool {
+	if c.c.CachedTriggerSubscriptionsEnabled == nil {
+		return false // disabled by default
+	}
+	return *c.c.CachedTriggerSubscriptionsEnabled
+}
+
 type workflowFetcherConfig struct {
 	url string
 }
