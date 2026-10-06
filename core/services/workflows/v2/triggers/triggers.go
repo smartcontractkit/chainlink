@@ -12,8 +12,10 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -119,6 +121,29 @@ type CoordinatedEvent struct {
 	// SequenceNumber determines the execution order of trigger events across the DON.
 	SequenceNumber uint64
 	Event          capabilities.TriggerResponse
+}
+
+func (e *CoordinatedEvent) ToProto() *pb.CoordinatedEvent {
+	return &pb.CoordinatedEvent{
+		WorkflowID:     e.WorkflowID,
+		TriggerCapID:   e.TriggerCapID,
+		TriggerIndex:   int64(e.TriggerIndex),
+		ObservedAt:     timestamppb.New(e.ObservedAt),
+		Deadline:       timestamppb.New(e.Deadline),
+		SequenceNumber: e.SequenceNumber,
+		Event:          pb.TriggerResponseToProto(e.Event),
+	}
+}
+
+func (e *CoordinatedEvent) FromProto(p *pb.CoordinatedEvent) (err error) {
+	e.WorkflowID = p.WorkflowID
+	e.TriggerCapID = p.TriggerCapID
+	e.TriggerIndex = int(p.TriggerIndex)
+	e.ObservedAt = p.ObservedAt.AsTime()
+	e.Deadline = p.Deadline.AsTime()
+	e.SequenceNumber = p.SequenceNumber
+	e.Event, err = pb.TriggerResponseFromProto(p.Event)
+	return
 }
 
 // ReadLoop consumes triggerEventCh until it closes or ctx is done,

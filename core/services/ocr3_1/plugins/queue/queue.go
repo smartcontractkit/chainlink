@@ -11,7 +11,9 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
@@ -53,11 +55,15 @@ func (c *consensusQueuePlugin) Query(ctx context.Context, seqNr uint64, keyValue
 	return nil, errors.ErrUnsupported
 }
 
-func (c *consensusQueuePlugin) Observation(ctx context.Context, seqNr uint64, aq ocrtypes.AttributedQuery, keyValueStateReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (ocrtypes.Observation, error) {
-	var _ []triggers.CoordinatedEvent
+func (c *consensusQueuePlugin) Observation(ctx context.Context, seqNr uint64, _ ocrtypes.AttributedQuery, _ ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (ocrtypes.Observation, error) {
+	var events []triggers.CoordinatedEvent
 	// TODO observe queue via c.CentralTriggerQueue.TakeForObservation()
-	//TODO serialize observed events
-	return nil, errors.ErrUnsupported
+	// TODO sort?
+	pbs := make([]*pb.CoordinatedEvent, 0, len(events))
+	for _, e := range events {
+		pbs = append(pbs, e.ToProto())
+	}
+	return proto.Marshal(&pb.ConsensusQueueObservation{Events: pbs})
 }
 
 func (c *consensusQueuePlugin) ValidateObservation(ctx context.Context, seqNr uint64, aq ocrtypes.AttributedQuery, ao ocrtypes.AttributedObservation, keyValueStateReader ocr3_1types.KeyValueStateReader, blobFetcher ocr3_1types.BlobFetcher) error {
@@ -76,7 +82,7 @@ func (c *consensusQueuePlugin) StateTransition(ctx context.Context, seqNr uint64
 	if err != nil {
 		return nil, fmt.Errorf("failed to write random data to KV store: %w", err)
 	}
-	//TODO precursor?
+	//TODO precursor from observations
 	return nil, nil
 }
 
@@ -85,6 +91,8 @@ func (c *consensusQueuePlugin) Committed(ctx context.Context, seqNr uint64, keyV
 }
 
 func (c *consensusQueuePlugin) Reports(ctx context.Context, seqNr uint64, reportsPlusPrecursor ocr3_1types.ReportsPlusPrecursor) ([]ocr3types.ReportPlus[[]byte], error) {
+	// TODO construct reports from precursor outcomes
+	// pb.ConsensusQueueReport{}
 	return nil, errors.ErrUnsupported
 }
 
