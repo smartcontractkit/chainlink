@@ -10,15 +10,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
-	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -123,13 +123,15 @@ func TestSkipRevertedTxnFetchFatal(t *testing.T) {
 }
 
 func TestFilterBatchRevertedTxnSkipsLogsMissingTopics(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	encodedPayload, err := batchCoordinatorV2ABI.Pack("fulfillRandomWords",
 		[]vrf_coordinator_v2.VRFProof{},
 		[]vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{},
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// A consumer callback emitting log0/log1 from inside a batch fulfillment
 	// can put logs with fewer than two topics into the batch receipt. Such logs
@@ -162,20 +164,24 @@ func TestFilterBatchRevertedTxnSkipsLogsMissingTopics(t *testing.T) {
 		EncodedPayload: encodedPayload,
 		SubID:          1,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Empty(t, revertedTxns)
 }
 
 func TestFilterSingleRevertedTxnMalformedRevertData(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	vrfKey := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	lsn := &listenerV2{
-		l:           commonlogger.TestSugared(t),
-		coordinator: &stubCoordinator{commitment: [32]byte{1}},
-		chain:       &stubChain{client: &stubRPCClient{}},
-		job:         job.Job{VRFSpec: &job.VRFSpec{PublicKey: vrfKey.PublicKey}},
-		chStop:      make(chan struct{}),
+	newListener := func() *listenerV2 {
+		return &listenerV2{
+			l:           commonlogger.TestSugared(t),
+			coordinator: &stubCoordinator{commitment: [32]byte{1}},
+			chain:       &stubChain{client: &stubRPCClient{}},
+			job:         job.Job{VRFSpec: &job.VRFSpec{PublicKey: vrfKey.PublicKey}},
+			chStop:      make(chan struct{}),
+		}
 	}
 
 	txn := TxnReceiptDB{
@@ -234,13 +240,15 @@ func TestFilterSingleRevertedTxnMalformedRevertData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			lsn := newListener()
 			lsn.chain.(*stubChain).client.(*stubRPCClient).err = evmclient.JsonError{
 				Code:    -32000,
 				Message: "execution reverted",
 				Data:    tt.data,
 			}
 			revertedTxn, err := lsn.filterSingleRevertedTxn(ctx, txn)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			if tt.wantNil {
 				assert.Nil(t, revertedTxn)
 			} else {
