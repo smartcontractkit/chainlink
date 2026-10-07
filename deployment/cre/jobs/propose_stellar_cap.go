@@ -39,6 +39,8 @@ type ProposeStellarCapJobSpecInput struct {
 	Zone        string `json:"zone" yaml:"zone"`
 	Domain      string `json:"domain" yaml:"domain"`
 	DONName     string `json:"donName" yaml:"donName"`
+	// JDDONName overrides the DON name used for JD node lookup. Defaults to DONName.
+	JDDONName string `json:"jdDonName,omitempty" yaml:"jdDonName,omitempty"`
 
 	ChainSelector        uint64   `json:"chainSelector" yaml:"chainSelector"`
 	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
@@ -185,5 +187,5 @@ func (u ProposeStellarCapJobSpec) Apply(e cldf.Environment, input ProposeStellar
 		nodeIDToConfig[capInput.NodeID] = string(enc)
 	}
 
-	return proposeAndReport(e, job, nodeIDToConfig, input.Domain, input.Environment, input.DONName, input.Zone)
+	return proposeAndReportWithJDDON(e, job, nodeIDToConfig, input.Domain, input.Environment, input.DONName, input.JDDONName, input.Zone)
 }
