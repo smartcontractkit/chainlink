@@ -23,6 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -37,37 +40,62 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
-// Test_workflowLifecycle drives the real event handler, engine registry, workflow limiter
-// and legacy engine through each workflow lifecycle path. Only the capability registry,
-// trigger, WASM module and billing client are mocked.
+// engineMode is the kind of engine a lifecycle test runs against.
+type engineMode string
+
+const (
+	// modeLegacy is the engine that registers its own triggers and owns the workflow-limit slot.
+	modeLegacy engineMode = "legacy"
+	// modeCoordinated is the execution-only engine whose triggers and workflow-limit slot are
+	// owned by a real trigger coordinator.
+	modeCoordinated engineMode = "coordinated"
+)
+
+// Test_workflowLifecycle drives the real event handler, engine registry and workflow limiter
+// through each workflow lifecycle path, once with the legacy engine and once with the
+// coordinated engine behind a real trigger coordinator. Only the capability registry, trigger,
+// WASM module and billing client are mocked. Each subtest reads top to bottom: send lifecycle
+// events, then check the three outcomes that matter: the workflow-limit slots in use, whether
+// the workflow's engine is registered, and how many times its engine was closed.
 func Test_workflowLifecycle(t *testing.T) {
 	t.Parallel()
 
-	t.Run("register holds a slot and rejects a second workflow", testRegisterHoldsSlotAndRejectsSecondWorkflow)
-	t.Run("pause frees the slot and redelivery is a no-op", testPauseFreesSlotAndRedeliveryIsNoOp)
-	t.Run("activate after pause holds one slot", testActivateAfterPauseHoldsOneSlot)
-	t.Run("delete frees the slot and admits the next workflow", testDeleteFreesSlotAndAdmitsNextWorkflow)
-	t.Run("delete with an execution in flight is deferred", testDeleteWithExecutionInFlightIsDeferred)
-	t.Run("pause with an execution in flight is deferred", testPauseWithExecutionInFlightIsDeferred)
-	t.Run("registered event with paused status releases the slot", testPausedRegisteredEventReleasesSlot)
-	t.Run("replacing a draining engine holds one slot", testReplacingDrainingEngineHoldsOneSlot)
-	t.Run("failed registration leaks nothing", testFailedRegistrationLeaksNothing)
+	for _, mode := range []engineMode{modeLegacy, modeCoordinated} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Parallel()
+
+			run := func(name string, test func(*testing.T, engineMode)) {
+				t.Run(name, func(t *testing.T) { test(t, mode) })
+			}
+			run("register holds a slot and rejects a second workflow", testRegisterHoldsSlotAndRejectsSecondWorkflow)
+			run("pause frees the slot and redelivery is a no-op", testPauseFreesSlotAndRedeliveryIsNoOp)
+			run("activate after pause holds one slot", testActivateAfterPauseHoldsOneSlot)
+			run("delete frees the slot and admits the next workflow", testDeleteFreesSlotAndAdmitsNextWorkflow)
+			run("delete with an execution in flight is deferred", testDeleteWithExecutionInFlightIsDeferred)
+			run("pause with an execution in flight is deferred", testPauseWithExecutionInFlightIsDeferred)
+			run("registered event with paused status releases the slot", testPausedRegisteredEventReleasesSlot)
+			run("replacing a draining engine holds one slot", testReplacingDrainingEngineHoldsOneSlot)
+			run("failed registration leaks nothing", testFailedRegistrationLeaksNothing)
+		})
+	}
 }
 
 // testRegisterHoldsSlotAndRejectsSecondWorkflow registers a workflow on a node that allows one
 // workflow. It asserts the workflow holds the only slot and has an engine, and that a second
 // workflow is refused with ErrGlobalWorkflowCountLimitReached, leaving the slot count
 // unchanged, no engine registered, and its engine closed once.
-func testRegisterHoldsSlotAndRejectsSecondWorkflow(t *testing.T) {
+func testRegisterHoldsSlotAndRejectsSecondWorkflow(t *testing.T, mode engineMode) {
 	t.Parallel()
-	h := newLifecycleHarness(t, 1)
+	h := newLifecycleHarness(t, mode, 1)
 	wfA, wfB := h.workflow("wf-a"), h.workflow("wf-b")
 
 	require.NoError(t, h.registered(wfA))
@@ -85,9 +113,9 @@ func testRegisterHoldsSlotAndRejectsSecondWorkflow(t *testing.T) {
 // testPauseFreesSlotAndRedeliveryIsNoOp pauses a running workflow. It asserts the slot is
 // freed, the engine is removed and closed once, and that delivering the same pause event again
 // changes nothing: no second close and no double free.
-func testPauseFreesSlotAndRedeliveryIsNoOp(t *testing.T) {
+func testPauseFreesSlotAndRedeliveryIsNoOp(t *testing.T, mode engineMode) {
 	t.Parallel()
-	h := newLifecycleHarness(t, 1)
+	h := newLifecycleHarness(t, mode, 1)
 	wf := h.workflow("wf-a")
 
 	require.NoError(t, h.registered(wf))
@@ -107,9 +135,9 @@ func testPauseFreesSlotAndRedeliveryIsNoOp(t *testing.T) {
 // testActivateAfterPauseHoldsOneSlot pauses a workflow and activates it again. It asserts the
 // pause frees the slot and the activation takes exactly one slot back with a new registered
 // engine, so the old engine was closed only once.
-func testActivateAfterPauseHoldsOneSlot(t *testing.T) {
+func testActivateAfterPauseHoldsOneSlot(t *testing.T, mode engineMode) {
 	t.Parallel()
-	h := newLifecycleHarness(t, 1)
+	h := newLifecycleHarness(t, mode, 1)
 	wf := h.workflow("wf-a")
 
 	require.NoError(t, h.registered(wf))
@@ -125,9 +153,9 @@ func testActivateAfterPauseHoldsOneSlot(t *testing.T) {
 // testDeleteFreesSlotAndAdmitsNextWorkflow deletes a running workflow on a node that allows
 // one workflow. It asserts the slot is freed and the engine removed and closed once, that
 // redelivering the delete is a no-op, and that a second workflow can then take the freed slot.
-func testDeleteFreesSlotAndAdmitsNextWorkflow(t *testing.T) {
+func testDeleteFreesSlotAndAdmitsNextWorkflow(t *testing.T, mode engineMode) {
 	t.Parallel()
-	h := newLifecycleHarness(t, 1)
+	h := newLifecycleHarness(t, mode, 1)
 	wfA, wfB := h.workflow("wf-a"), h.workflow("wf-b")
 
 	require.NoError(t, h.registered(wfA))
@@ -151,9 +179,9 @@ func testDeleteFreesSlotAndAdmitsNextWorkflow(t *testing.T) {
 // running. It asserts the delete returns ErrDrainInProgress and leaves the slot held and the
 // engine registered and open. Once the execution finishes, it asserts retrying the delete
 // frees the slot and removes and closes the engine.
-func testDeleteWithExecutionInFlightIsDeferred(t *testing.T) {
+func testDeleteWithExecutionInFlightIsDeferred(t *testing.T, mode engineMode) {
 	t.Parallel()
-	h := newLifecycleHarness(t, 1)
+	h := newLifecycleHarness(t, mode, 1)
 	wf := h.workflow("wf-a")
 
 	require.NoError(t, h.registered(wf))
@@ -179,9 +207,9 @@ func testDeleteWithExecutionInFlightIsDeferred(t *testing.T) {
 // running. It asserts the pause returns ErrDrainInProgress and leaves the slot held and the
 // engine registered and open. Once the execution finishes, it asserts retrying the pause frees
 // the slot and removes and closes the engine.
-func testPauseWithExecutionInFlightIsDeferred(t *testing.T) {
+func testPauseWithExecutionInFlightIsDeferred(t *testing.T, mode engineMode) {
 	t.Parallel()
-	h := newLifecycleHarness(t, 1)
+	h := newLifecycleHarness(t, mode, 1)
 	wf := h.workflow("wf-a")
 
 	require.NoError(t, h.registered(wf))
@@ -206,9 +234,9 @@ func testPauseWithExecutionInFlightIsDeferred(t *testing.T) {
 // testPausedRegisteredEventReleasesSlot sends a registered event that carries the paused
 // status for a running workflow. It asserts the engine is stopped, the slot is freed, and the
 // engine is removed and closed once, as it would be for a pause event.
-func testPausedRegisteredEventReleasesSlot(t *testing.T) {
+func testPausedRegisteredEventReleasesSlot(t *testing.T, mode engineMode) {
 	t.Parallel()
-	h := newLifecycleHarness(t, 1)
+	h := newLifecycleHarness(t, mode, 1)
 	wf := h.workflow("wf-a")
 
 	require.NoError(t, h.registered(wf))
@@ -227,9 +255,9 @@ func testPausedRegisteredEventReleasesSlot(t *testing.T) {
 // replaces the draining engine instead of treating it as healthy: the old engine is closed and
 // its slot freed before the new engine takes one, so a single slot suffices and exactly one
 // engine is registered afterwards.
-func testReplacingDrainingEngineHoldsOneSlot(t *testing.T) {
+func testReplacingDrainingEngineHoldsOneSlot(t *testing.T, mode engineMode) {
 	t.Parallel()
-	h := newLifecycleHarness(t, 1)
+	h := newLifecycleHarness(t, mode, 1)
 	wf := h.workflow("wf-a")
 
 	require.NoError(t, h.registered(wf))
@@ -257,9 +285,9 @@ func testReplacingDrainingEngineHoldsOneSlot(t *testing.T) {
 // testFailedRegistrationLeaksNothing registers a workflow whose trigger registration fails. It
 // asserts the registration returns an error, no slot stays held, no engine is registered, and
 // the engine that was created is closed once.
-func testFailedRegistrationLeaksNothing(t *testing.T) {
+func testFailedRegistrationLeaksNothing(t *testing.T, mode engineMode) {
 	t.Parallel()
-	h := newLifecycleHarness(t, 1)
+	h := newLifecycleHarness(t, mode, 1)
 	wf := h.workflow("wf-a")
 	h.failTriggerRegistrations(errors.New("trigger registration failed"))
 
@@ -290,14 +318,17 @@ func (w lifecycleWorkflow) registered(status uint8) WorkflowRegisteredEvent {
 	}
 }
 
-// lifecycleHarness is an event handler wired to a real engine registry, workflow
-// limiter and legacy engine. The engine factory builds a real legacy engine whose
-// executions block until the test lets them finish.
+// lifecycleHarness is an event handler wired to a real engine registry and workflow
+// limiter. The engine factory builds a real engine of the harness's mode, whose executions
+// block until the test lets them finish. In coordinated mode a real trigger coordinator owns
+// trigger registration, event delivery and the workflow-limit slot.
 type lifecycleHarness struct {
-	t        *testing.T
-	handler  *eventHandler
-	registry *EngineRegistry
-	limits   *countingLimiter
+	t           *testing.T
+	mode        engineMode
+	coordinator triggers.Coordinator // nil in legacy mode
+	handler     *eventHandler
+	registry    *EngineRegistry
+	limits      *countingLimiter
 
 	capRegistry  *regmocks.CapabilitiesRegistry
 	limiters     *v2.EngineLimiters
@@ -311,8 +342,9 @@ type lifecycleHarness struct {
 	nextEvent  int
 }
 
-// newLifecycleHarness returns a harness whose node allows globalLimit workflows.
-func newLifecycleHarness(t *testing.T, globalLimit int) *lifecycleHarness {
+// newLifecycleHarness returns a harness for the given engine mode whose node allows globalLimit
+// workflows.
+func newLifecycleHarness(t *testing.T, mode engineMode, globalLimit int) *lifecycleHarness {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	lf := limits.Factory{Logger: lggr}
@@ -328,6 +360,7 @@ func newLifecycleHarness(t *testing.T, globalLimit int) *lifecycleHarness {
 
 	h := &lifecycleHarness{
 		t:            t,
+		mode:         mode,
 		registry:     NewEngineRegistry(),
 		limits:       &countingLimiter{ResourceLimiter: workflowLimits},
 		capRegistry:  regmocks.NewCapabilitiesRegistry(t),
@@ -341,6 +374,12 @@ func newLifecycleHarness(t *testing.T, globalLimit int) *lifecycleHarness {
 	// Cleanups run last-in first-out, so this closes any engine the test left
 	// running before the limiters those engines use are closed.
 	t.Cleanup(h.closeEngines)
+
+	handlerOpts := []func(*eventHandler){WithEngineFactoryFn(h.engineFactory)}
+	if mode == modeCoordinated {
+		h.coordinator = h.newCoordinator()
+		handlerOpts = append(handlerOpts, WithTriggerCoordinator(h.coordinator))
+	}
 
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
@@ -360,10 +399,32 @@ func newLifecycleHarness(t *testing.T, globalLimit int) *lifecycleHarness {
 		&lifecycleStore{byID: make(map[string]*job.WorkflowSpec)},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		&testDonNotifier{},
-		WithEngineFactoryFn(h.engineFactory),
+		handlerOpts...,
 	)
 	require.NoError(t, err)
 	return h
+}
+
+// newCoordinator starts a real trigger coordinator over the harness's engine registry,
+// capability registry and workflow limiter.
+func (h *lifecycleHarness) newCoordinator() triggers.Coordinator {
+	h.t.Helper()
+	em, err := monitoring.InitMonitoringResources()
+	require.NoError(h.t, err)
+	coordinator := triggers.NewCoordinator(
+		triggers.RegisterDeps{
+			CapRegistry:  h.capRegistry,
+			RegTimeout:   limits.NewTimeLimiter(5 * time.Second),
+			ChainAllowed: limits.NewGateLimiter(true),
+			Logger:       commonlogger.Test(h.t),
+			Metrics:      monitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), em),
+		},
+		NewTriggerEngineRegistry(h.registry),
+		h.limits,
+		clockwork.NewFakeClock(),
+	)
+	servicetest.Run(h.t, coordinator)
+	return coordinator
 }
 
 // workflow returns a workflow whose ID matches the artifacts the stub store
@@ -459,6 +520,12 @@ func (h *lifecycleHarness) failTriggerRegistrations(err error) {
 // summed over all workflows.
 func (h *lifecycleHarness) requireSlotsInUse(want int) {
 	h.t.Helper()
+	if h.mode == modeCoordinated {
+		// The coordinator frees a slot on its own goroutine once the workflow's readers drain.
+		require.Eventually(h.t, func() bool { return h.limits.inUse() == want },
+			tests.WaitTimeout(h.t), 10*time.Millisecond, "workflow limit slots in use, want %d", want)
+		return
+	}
 	require.Equal(h.t, want, h.limits.inUse(), "workflow limit slots in use")
 }
 
@@ -554,9 +621,9 @@ func (h *lifecycleHarness) closeEngines() {
 	}
 }
 
-// engineFactory builds the real legacy engine for a workflow. Its module mock
-// returns one trigger subscription and holds every execution on the workflow's
-// gate.
+// engineFactory builds the real engine for a workflow in the harness's mode: the legacy engine,
+// or the coordinated engine acknowledging through the harness's coordinator. Its module mock
+// returns one trigger subscription and holds every execution on the workflow's gate.
 func (h *lifecycleHarness) engineFactory(
 	_ context.Context, wfid, owner string, name types.WorkflowName, tag string, config, _ []byte, _ string, _ []byte,
 	initDone chan<- error,
@@ -586,7 +653,7 @@ func (h *lifecycleHarness) engineFactory(
 	donSubscriber.EXPECT().Subscribe(mock.Anything).Return(make(<-chan capabilities.DON), func() {}, nil).Maybe()
 
 	lggr := logger.TestLogger(t)
-	inner, err := v2.NewEngine(&v2.EngineConfig{
+	cfg := &v2.EngineConfig{
 		Lggr:                          lggr,
 		Module:                        module,
 		CapRegistry:                   h.capRegistry,
@@ -616,7 +683,16 @@ func (h *lifecycleHarness) engineFactory(
 				}
 			},
 		},
-	})
+	}
+
+	construct := v2.NewEngine
+	if h.mode == modeCoordinated {
+		// The coordinated engine registers no triggers and holds no limit slot of its own, so
+		// it acknowledges events through the coordinator that owns them.
+		cfg.TriggerAcknowledger = h.coordinator
+		construct = v2.NewCoordinatedEngine
+	}
+	inner, err := construct(cfg)
 	if err != nil {
 		return nil, err
 	}
