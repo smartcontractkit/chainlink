@@ -1356,6 +1356,63 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 		require.NoError(t, err)
 		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
+
+	t.Run("workflowID with matching owner, name and tag", func(t *testing.T) {
+		callback := hc.NewCallback()
+		req := newSignedTriggerRequest(t, "test-request-id-match", gateway_common.WorkflowSelector{
+			WorkflowID:    workflowID,
+			WorkflowOwner: "0x1234567890abcdef1234567890abcdef1234", // padded during comparison
+			WorkflowName:  "test-workflow",
+			WorkflowTag:   workflowTag,
+		}, privateKey)
+
+		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
+		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
+		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
+
+		require.NoError(t, handler.HandleUserTriggerRequest(ctx, req, callback, time.Now()))
+	})
+
+	mismatches := []struct {
+		name     string
+		selector gateway_common.WorkflowSelector
+		errField string
+	}{
+		{"zero owner", gateway_common.WorkflowSelector{WorkflowID: workflowID, WorkflowOwner: "0x00"}, "workflowOwner"},
+		{"different owner", gateway_common.WorkflowSelector{WorkflowID: workflowID, WorkflowOwner: "0x1111111111111111111111111111111111111111"}, "workflowOwner"},
+		{"different name", gateway_common.WorkflowSelector{WorkflowID: workflowID, WorkflowName: "other-workflow"}, "workflowName"},
+		{"different tag", gateway_common.WorkflowSelector{WorkflowID: workflowID, WorkflowTag: "v2.0"}, "workflowTag"},
+	}
+	for _, tc := range mismatches {
+		t.Run("workflowID with "+tc.name, func(t *testing.T) {
+			callback := hc.NewCallback()
+			req := newSignedTriggerRequest(t, "test-request-id-mismatch-"+tc.name, tc.selector, privateKey)
+
+			err := handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
+			require.ErrorContains(t, err, tc.errField)
+
+			r, err := callback.Wait(t.Context())
+			require.NoError(t, err)
+			requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
+		})
+	}
+}
+
+func newSignedTriggerRequest(t *testing.T, requestID string, selector gateway_common.WorkflowSelector, privateKey *ecdsa.PrivateKey) *jsonrpc.Request[json.RawMessage] {
+	reqBytes, err := json.Marshal(gateway_common.HTTPTriggerRequest{
+		Workflow: selector,
+		Input:    []byte(`{"key": "value"}`),
+	})
+	require.NoError(t, err)
+	rawParams := json.RawMessage(reqBytes)
+	req := &jsonrpc.Request[json.RawMessage]{
+		Version: "2.0",
+		ID:      requestID,
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawParams,
+	}
+	req.Auth = createTestJWTToken(t, req, privateKey)
+	return req
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {

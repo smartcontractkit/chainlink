@@ -344,15 +344,19 @@ func (h *httpTriggerHandler) resolveWorkflowID(ctx context.Context, triggerReq *
 	workflowID := triggerReq.Params.Workflow.WorkflowID
 	if workflowID != "" {
 		workflowID = normalizeHex(workflowID, workflowIDLength)
-		_, found := h.workflowMetadataHandler.GetWorkflowReference(workflowID)
+		workflowRef, found := h.workflowMetadataHandler.GetWorkflowReference(workflowID)
 		if !found {
 			h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, fmt.Sprintf("Workflow not found. 'workflowID' %s is not a valid workflow ID", workflowID), callback)
 			return "", errors.New("workflow not found")
 		}
+		if err := validateSelectorMatchesReference(triggerReq.Params.Workflow, workflowRef); err != nil {
+			h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, err.Error(), callback)
+			return "", err
+		}
 		return workflowID, nil
 	}
 	workflowOwner := normalizeHex(triggerReq.Params.Workflow.WorkflowOwner, workflowOwnerLength)
-	workflowName := "0x" + hex.EncodeToString([]byte(workflows.HashTruncateName(triggerReq.Params.Workflow.WorkflowName)))
+	workflowName := hashedWorkflowName(triggerReq.Params.Workflow.WorkflowName)
 	workflowID, found := h.workflowMetadataHandler.GetWorkflowID(
 		workflowOwner,
 		workflowName,
@@ -363,6 +367,25 @@ func (h *httpTriggerHandler) resolveWorkflowID(ctx context.Context, triggerReq *
 		return "", errors.New("workflow not found")
 	}
 	return workflowID, nil
+}
+
+func hashedWorkflowName(workflowName string) string {
+	return "0x" + hex.EncodeToString([]byte(workflows.HashTruncateName(workflowName)))
+}
+
+// validateSelectorMatchesReference rejects optional owner/name/tag fields that
+// don't match the workflow resolved by workflowID.
+func validateSelectorMatchesReference(selector gateway_common.WorkflowSelector, ref workflowReference) error {
+	if selector.WorkflowOwner != "" && normalizeHex(selector.WorkflowOwner, workflowOwnerLength) != ref.workflowOwner {
+		return errors.New("'workflowOwner' does not match the owner of the workflow identified by 'workflowID'")
+	}
+	if selector.WorkflowName != "" && hashedWorkflowName(selector.WorkflowName) != ref.workflowName {
+		return errors.New("'workflowName' does not match the name of the workflow identified by 'workflowID'")
+	}
+	if selector.WorkflowTag != "" && selector.WorkflowTag != ref.workflowTag {
+		return errors.New("'workflowTag' does not match the tag of the workflow identified by 'workflowID'")
+	}
+	return nil
 }
 
 func (h *httpTriggerHandler) authorizeRequest(ctx context.Context, workflowID string, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback) (*gateway_common.AuthorizedKey, error) {
