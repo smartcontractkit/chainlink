@@ -1515,6 +1515,7 @@ type JobPipeline struct {
 	ExternalInitiatorsEnabled *bool
 	MaxRunDuration            *commonconfig.Duration
 	MaxSuccessfulRuns         *uint64
+	MedianMaxStaleness        *commonconfig.Duration
 	ReaperInterval            *commonconfig.Duration
 	ReaperThreshold           *commonconfig.Duration
 	ResultWriteQueueDepth     *uint32
@@ -1532,6 +1533,9 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 	}
 	if v := f.MaxSuccessfulRuns; v != nil {
 		j.MaxSuccessfulRuns = v
+	}
+	if v := f.MedianMaxStaleness; v != nil {
+		j.MedianMaxStaleness = v
 	}
 	if v := f.ReaperInterval; v != nil {
 		j.ReaperInterval = v

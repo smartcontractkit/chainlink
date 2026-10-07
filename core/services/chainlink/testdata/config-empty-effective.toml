@@ -133,6 +133,7 @@ DisplayName = ''
 ExternalInitiatorsEnabled = false
 MaxRunDuration = '10m0s'
 MaxSuccessfulRuns = 10000
+MedianMaxStaleness = '30s'
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '24h0m0s'
 ResultWriteQueueDepth = 100

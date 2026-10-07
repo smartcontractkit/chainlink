@@ -68,6 +68,7 @@ type (
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() commonconfig.Duration
 		MaxRunDuration() time.Duration
+		MedianMaxStaleness() time.Duration
 		ReaperInterval() time.Duration
 		ReaperThreshold() time.Duration
 		VerboseLogging() bool
@@ -136,6 +137,11 @@ func isRetryableHTTPError(statusCode int, err error) bool {
 type Result struct {
 	Value any
 	Error error
+	// Timestamp is the source timestamp of the value in unix milliseconds,
+	// resolved from the provider-indicated timestamp when present, otherwise
+	// the provider-data-received timestamp. Zero means unknown; unknown
+	// timestamps are never treated as stale.
+	Timestamp uint64
 }
 
 // OutputDB dumps a single result output for a pipeline_run or pipeline_task_run
