@@ -50,12 +50,12 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 
 	switch configType {
 	case ConfigTypeCapRegistry:
-		payload, err := extractOffchainConfig(spec.Settings)
-		if err != nil {
-			return jb, errors.Wrap(err, "invalid capabilities_registry config")
+		payload, err2 := extractOffchainConfig(spec.Settings)
+		if err2 != nil {
+			return jb, errors.Wrap(err2, "invalid capabilities_registry config")
 		}
-		if err = globalconfig.Validate(payload); err != nil {
-			return jb, errors.Wrap(err, "invalid capabilities_registry config")
+		if err2 = globalconfig.Validate(payload); err2 != nil {
+			return jb, errors.Wrap(err2, "invalid capabilities_registry config")
 		}
 	case ConfigTypeShardAssignment:
 		if _, err = ParseShardAssignmentConfig(spec.Settings); err != nil {
