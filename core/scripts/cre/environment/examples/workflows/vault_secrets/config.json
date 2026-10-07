@@ -1,5 +1,0 @@
-{
-    "schedule": "*/30 * * * * *",
-    "secretNamespace": "main",
-    "secretKey": "vault-secrets-example"
-}

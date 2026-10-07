@@ -52,7 +52,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
-	vaultsecretstypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -82,6 +81,7 @@ import (
 	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	datafeedswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write/config"
 	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
+	vaultsecretcron_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecretcron/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -325,7 +325,7 @@ type WorkflowConfig interface {
 		aptoswrite_config.Config |
 		aptoswriteroundtrip_config.Config |
 		crontypes.WorkflowConfig |
-		vaultsecretstypes.WorkflowConfig |
+		vaultsecretcron_config.Config |
 		HTTPWorkflowConfig |
 		consensus_negative_config.Config |
 		evmread_config.Config |
@@ -547,11 +547,11 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			require.NoError(t, configErr, "failed to create Cron workflow config file")
 			testLogger.Info().Msg("Cron workflow config file created.")
 
-		case *vaultsecretstypes.WorkflowConfig:
+		case *vaultsecretcron_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create vault secrets workflow config file")
-			testLogger.Info().Msg("Vault secrets workflow config file created.")
+			require.NoError(t, configErr, "failed to create vault secret cron workflow config file")
+			testLogger.Info().Msg("Vault secret cron workflow config file created.")
 
 		case *consensus_negative_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)

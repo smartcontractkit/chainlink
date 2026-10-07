@@ -18,12 +18,12 @@ import (
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	vaultsecretstypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	vaultsecretcron_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecretcron/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
@@ -52,10 +52,10 @@ import (
 // execution to the other shard without losing access to the same secret.
 
 const (
-	sharedVaultWorkflowFileLocation = "../../../../core/scripts/cre/environment/examples/workflows/vault_secrets/main.go"
+	sharedVaultWorkflowFileLocation = "./vaultsecretcron/main.go"
 	sharedVaultSchedule             = "*/30 * * * * *"
 	sharedVaultNamespace            = "main"
-	// The log the vault_secrets example emits per execution; the secret value in
+	// The log the vaultsecretcron workflow emits per execution; the secret value in
 	// it is the observable proof that the fetched secret decrypted on the shard
 	// that executed the workflow.
 	sharedVaultUserLogPrefix = "Vault secret fetched: "
@@ -125,7 +125,7 @@ func (f *sharedVaultShardFixture) createSharedVaultSecret(t *testing.T, value st
 	return secretKey
 }
 
-// deploySharedVaultWorkflow deploys one cron-scheduled vault_secrets workflow that
+// deploySharedVaultWorkflow deploys one cron-scheduled vaultsecretcron workflow that
 // reads the given secret from the shared vault on every run. The registered name is
 // unique per test run (UniqueWorkflowName), so re-running against the same shared
 // environment yields fresh workflow IDs instead of deduplicating against the
@@ -133,7 +133,7 @@ func (f *sharedVaultShardFixture) createSharedVaultSecret(t *testing.T, value st
 func deploySharedVaultWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workflowBaseName, secretKey string) string {
 	t.Helper()
 
-	workflowConfig := vaultsecretstypes.WorkflowConfig{
+	workflowConfig := vaultsecretcron_config.Config{
 		Schedule:        sharedVaultSchedule,
 		SecretNamespace: sharedVaultNamespace,
 		SecretKey:       secretKey,

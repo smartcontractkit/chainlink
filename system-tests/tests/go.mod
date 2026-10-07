@@ -13,8 +13,6 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron => ../../core/scripts/cre/environment/examples/workflows/cron
 
-replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets => ../../core/scripts/cre/environment/examples/workflows/vault_secrets
-
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread => ./smoke/cre/evm/evmread
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger => ./smoke/cre/evm/logtrigger
@@ -50,6 +48,8 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger => ./smoke/cre/solana/sollogtrigger
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret => ./smoke/cre/vaultsecret
+
+replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecretcron => ./smoke/cre/vaultsecretcron
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread => ./smoke/cre/solana/solread
 
@@ -97,7 +97,6 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based v0.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20260126202327-6be9a05f0caf
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus v0.0.0-20251008094352-f74459c46e8c
@@ -120,6 +119,7 @@ require (
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecretcron v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.32.0
 	github.com/smartcontractkit/cld-changesets v0.9.1-0.20260911120037-95e1c8bcb265
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c

@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/vault_secrets
+module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecretcron
 
 go 1.26.5
 
