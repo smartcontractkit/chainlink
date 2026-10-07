@@ -240,6 +240,7 @@ func makeReportingPluginConfig(
 		MaxShareLengthBytes:             shareLimiter,
 		MaxBlobPayloadBytes:             maxBlobPayloadLimiter,
 		VaultForceEmptyOCRRounds:        limits.NewGateLimiter(false),
+		VaultGetSecretsIncludePublicKey: limits.NewGateLimiter(false),
 		VaultPendingQueueStallThreshold: pendingQueueStallThresholdLimiter,
 	}
 }

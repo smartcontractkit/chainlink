@@ -542,6 +542,7 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/solana/solwrite
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/vaultsecret
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/vaultsecretcron
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/consensus --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/regression/cre/consensus href "https://github.com/smartcontractkit/chainlink"
@@ -606,6 +607,8 @@ flowchart LR
 	click chainlink/system-tests/tests/smoke/cre/stellar/stellarwrite href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/vaultsecret --> cre-sdk-go/capabilities/networking/http
 	click chainlink/system-tests/tests/smoke/cre/vaultsecret href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/vaultsecretcron --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/vaultsecretcron href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-aptos/codec
 	chainlink/v2 --> chainlink-ccv
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
@@ -705,6 +708,7 @@ flowchart LR
 		 chainlink/system-tests/tests/smoke/cre/stellar/stellarread
 		 chainlink/system-tests/tests/smoke/cre/stellar/stellarwrite
 		 chainlink/system-tests/tests/smoke/cre/vaultsecret
+		 chainlink/system-tests/tests/smoke/cre/vaultsecretcron
 		 chainlink/v2
 		 chainlink/v2/tools/test
 	end

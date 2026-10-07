@@ -49,6 +49,8 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solan
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret => ./smoke/cre/vaultsecret
 
+replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecretcron => ./smoke/cre/vaultsecretcron
+
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread => ./smoke/cre/solana/solread
 
 // chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
@@ -76,7 +78,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.112
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260923062809-ca886ade4d26
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260916222901-720a003dab50
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261006203132-b9dc9eb30657
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261007204644-6ed222033a26
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261005132539-b7d63d5fd549
 	github.com/smartcontractkit/chainlink-confidential-compute v1.3.0
@@ -117,6 +119,7 @@ require (
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecretcron v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.32.0
 	github.com/smartcontractkit/cld-changesets v0.9.1-0.20261006140245-39c6e0739a44
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c
