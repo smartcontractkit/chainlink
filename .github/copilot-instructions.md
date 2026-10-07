@@ -8,11 +8,11 @@ The repo tracks the latest Go release (`go` directive in the nearest `go.mod`), 
 
 Open the review summary with a table rating the PR on three axes. Scale: 🟢 trivial/small · 🟡 minor/medium · 🟠 large · 🔴 major/extreme. Each rationale names a concrete reason (callers, data, deploy order, on-chain state), never a restated rating.
 
-| Axis | Measures |
-| --- | --- |
-| **Blast radius** | What breaks if this is wrong: callers, services, nodes, funds, on-chain or persisted state. |
-| **Revert** | Cost of undoing it: schema migrations, data rewrites, config or protocol changes other services depend on, deploy ordering. |
-| **Complexity** | Effort to verify correctness: concurrency, branching state machines, cross-module contracts, logic without tests. |
+| Axis             | Measures                                                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Blast radius** | What breaks if this is wrong: callers, services, nodes, funds, on-chain or persisted state.                                 |
+| **Revert**       | Cost of undoing it: schema migrations, data rewrites, config or protocol changes other services depend on, deploy ordering. |
+| **Complexity**   | Effort to verify correctness: concurrency, branching state machines, cross-module contracts, logic without tests.           |
 
 Then list the code blocks that need **scrupulous human review**, worst first.
 
@@ -27,11 +27,13 @@ Run each check against every changed file, in priority order:
 5. **Security**: Is untrusted input validated at the trust boundary? Do secrets stay out of logs, errors, and responses? Can any check be bypassed?
 6. **Performance**: Does cost stay bounded as input grows? Is the hot path free of work that could be batched, cached, or skipped?
 7. **Tests**: Is new behaviour tested through its public interface, including error paths? Are tests deterministic, passing by design rather than by timing or ordering luck?
-8. **Design**: Does the change keep each decision in one place and each interface small? Does it break contracts other packages or modules rely on?
-
-## Comment format
-
-Each comment names the defect, the line, and a **failure scenario**: concrete input or state leading to a wrong outcome, plus a fix. A concern with no failure scenario belongs in the summary as a question, or nowhere.
+8. **Design**: Does it break contracts other packages or modules rely on? Does it leave structure as good or better than it found it?
+   - **Deep modules**: Does each new interface hide more than it costs to learn? Flag pass-through methods and layers that add no abstraction.
+   - **Information hiding**: Does each design decision (format, algorithm, storage) live in one place, or must several packages change together?
+   - **Pull complexity downward**: Does the callee absorb hard cases, or must every caller handle them? Could the error case be defined out of existence?
+   - **DRY**: Is each piece of knowledge represented once? Code that merely looks alike but encodes different knowledge stays apart.
+   - **Orthogonality**: Does a change here force changes in unrelated modules? Do callers reach through chains like `a.B().C().D()`?
+   - **Good-enough**: Does the code build what the task needs, with generality waiting for a real second use case?
 
 ## Owned by CI
 
