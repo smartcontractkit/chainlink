@@ -456,9 +456,11 @@ func mustMarshalCapConfig(t *testing.T, kv map[string]string) []byte {
 }
 
 func TestBuildConfigJSON(t *testing.T) {
+	t.Parallel()
 	lggr := testLogger(t)
 
 	t.Run("onchain config only", func(t *testing.T) {
+		t.Parallel()
 		mgr := &localCapabilityManager{
 			lggr:     lggr,
 			localCfg: &testLocalCapabilities{allowlisted: map[string]bool{"cap@1.0.0": true}},
@@ -477,6 +479,7 @@ func TestBuildConfigJSON(t *testing.T) {
 	})
 
 	t.Run("empty config returns empty JSON object", func(t *testing.T) {
+		t.Parallel()
 		mgr := &localCapabilityManager{
 			lggr:     lggr,
 			localCfg: &testLocalCapabilities{allowlisted: map[string]bool{"cap@1.0.0": true}},
@@ -488,6 +491,7 @@ func TestBuildConfigJSON(t *testing.T) {
 	})
 
 	t.Run("invalid onchain proto yields empty JSON object", func(t *testing.T) {
+		t.Parallel()
 		mgr := &localCapabilityManager{
 			lggr:     lggr,
 			localCfg: &testLocalCapabilities{allowlisted: map[string]bool{"cap@1.0.0": true}},
