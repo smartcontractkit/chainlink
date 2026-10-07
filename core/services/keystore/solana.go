@@ -128,7 +128,7 @@ func (ks *solana) Import(ctx context.Context, keyJSON []byte, password string) (
 		return solkey.Key{}, errors.Wrap(err, "SolanaKeyStore#ImportKey failed to decrypt key")
 	}
 	if _, found := ks.keyRing.Solana[key.ID()]; found {
-		return solkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
+		return solkey.Key{}, fmt.Errorf("%w: key with ID %s already exists", ErrKeyExists, key.ID())
 	}
 	return key, ks.safeAddKey(ctx, key)
 }
