@@ -1,5 +1,23 @@
 # Changelog Chainlink Core
 
+## 2.68.0
+
+### Minor Changes
+
+- [#23860](https://github.com/smartcontractkit/chainlink/pull/23860) [`baf06c4`](https://github.com/smartcontractkit/chainlink/commit/baf06c43e2b1de17429cee0a27399672941e206a) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23898](https://github.com/smartcontractkit/chainlink/pull/23898) [`edb5ba6`](https://github.com/smartcontractkit/chainlink/commit/edb5ba6687a0dbac4a0607b20a36ad3c25d71460) - #added `stellar` encoder to the CRE fake consensus (simulator), signing Stellar reports with ed25519 keys over the Stellar forwarder's digest
+
+- [#23902](https://github.com/smartcontractkit/chainlink/pull/23902) [`861c3d6`](https://github.com/smartcontractkit/chainlink/commit/861c3d68e006ad5c31c55f4cfd1ec66de3eabe33) - Gateway: DON IDs for shards N>0 of a sharded DON now use the format `<DonName>_shard-<N>` (previously `<DonName>_<N>`), matching the naming used for shard DONs elsewhere. Shard 0 still uses the bare DON name. Nodes in shards N>0 must set `GatewayConnector.DonID` accordingly. #changed
+
+- [#23908](https://github.com/smartcontractkit/chainlink/pull/23908) [`5003526`](https://github.com/smartcontractkit/chainlink/commit/5003526baf940259b4a15555ad93451e262ecc07) - #bugfix Standard capabilities now unregister their LOOP on close, so restarting a capability after a config change no longer fails with "plugin already registered"
+
+- [#23899](https://github.com/smartcontractkit/chainlink/pull/23899) [`351ef60`](https://github.com/smartcontractkit/chainlink/commit/351ef605e032bfa5687e31f4881063443d34ead8) - #bugfix Operator UI nodes page failing with "not found" when non-EVM (e.g. Aptos, Stellar) nodes are configured
+
+- [#23893](https://github.com/smartcontractkit/chainlink/pull/23893) [`d6016cf`](https://github.com/smartcontractkit/chainlink/commit/d6016cfaff550821e0d8de2ac262470a874df478) - Removed obsolete `Capabilities.WorkflowRegistry.MaxEncryptedSecretsSize`, `Capabilities.Dispatcher.SupportedVersion` and `Capabilities.Dispatcher.SendToSharedPeer` config fields. #removed
+
 ## 2.67.0
 
 ### Minor Changes

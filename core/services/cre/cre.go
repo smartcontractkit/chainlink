@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -967,6 +968,24 @@ func newWorkflowRegistrySyncerV2(
 	meterRecordsEnabled := meteringCfg != nil && meteringCfg.MeterRecordsEnabled()
 	meterSnapshotsEnabled := meteringCfg != nil && meteringCfg.MeterSnapshotsEnabled()
 
+	coordinatorMetrics, err := wfmonitoring.InitMonitoringResources()
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to init trigger coordinator metrics: %w", err)
+	}
+	triggerCoordinator := triggers.NewCoordinator(
+		triggers.RegisterDeps{
+			CapRegistry:  opts.CapabilitiesRegistry,
+			RegTimeout:   engineLimiters.TriggerRegistrationsTime,
+			ChainAllowed: engineLimiters.ChainAllowed,
+			Settings:     engineLimiters.Settings,
+			Logger:       lggr,
+			Metrics:      wfmonitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), coordinatorMetrics),
+		},
+		syncerV2.NewTriggerEngineRegistry(engineRegistry),
+		workflowLimits,
+		clockwork.NewRealClock(),
+	)
+
 	handlerOpts := []syncerV2.EventHandlerOption{
 		syncerV2.WithBillingClient(billingClient),
 		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
@@ -978,9 +997,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 		syncerV2.WithShardResolver(shardResolver),
 		syncerV2.WithShardIndex(uint32(cfg.Sharding().ShardIndex())),
-		syncerV2.WithTriggerCoordinator(
-			triggers.NewCoordinator(opts.CapabilitiesRegistry, syncerV2.NewTriggerEngineRegistry(engineRegistry), clockwork.NewRealClock(), lggr),
-		),
+		syncerV2.WithTriggerCoordinator(triggerCoordinator),
 	}
 	if shardingEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,

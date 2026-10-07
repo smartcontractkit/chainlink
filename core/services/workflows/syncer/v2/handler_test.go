@@ -1773,13 +1773,13 @@ func Test_tryEngineCleanup_ClosesEngineThenRemovesFromRegistry(t *testing.T) {
 		engineRegistry: registry,
 	}
 
-	require.NoError(t, h.tryEngineCleanup(workflowID))
+	require.NoError(t, h.tryEngineCleanup(t.Context(), workflowID))
 	assert.Equal(t, int32(1), engine.closeCalls.Load())
 	_, ok := registry.Get(workflowID)
 	assert.False(t, ok, "engine should be removed from the registry after a successful close")
 
 	// Cleanup for an already-removed workflow is a no-op and does not close again.
-	require.NoError(t, h.tryEngineCleanup(workflowID))
+	require.NoError(t, h.tryEngineCleanup(t.Context(), workflowID))
 	assert.Equal(t, int32(1), engine.closeCalls.Load())
 }
 
@@ -1798,13 +1798,13 @@ func Test_tryEngineCleanup_KeepsEngineInRegistryOnCloseFailure(t *testing.T) {
 	}
 
 	// A failing close leaves the engine in the registry so the cleanup can be retried later.
-	require.Error(t, h.tryEngineCleanup(workflowID))
+	require.Error(t, h.tryEngineCleanup(t.Context(), workflowID))
 	_, ok := registry.Get(workflowID)
 	require.True(t, ok, "engine must remain in the registry so the close can be retried")
 
 	// Once the (spurious) failure clears, the retry succeeds and only then is the engine removed.
 	engine.CloseErr = nil
-	require.NoError(t, h.tryEngineCleanup(workflowID))
+	require.NoError(t, h.tryEngineCleanup(t.Context(), workflowID))
 	assert.Equal(t, int32(2), engine.closeCalls.Load())
 	_, ok = registry.Get(workflowID)
 	assert.False(t, ok)
@@ -1826,7 +1826,7 @@ func Test_tryEngineCleanup_ToleratesErrAlreadyStopped(t *testing.T) {
 
 	// ErrAlreadyStopped means the engine was already closed on a prior attempt; treat it as
 	// success and remove the registry entry.
-	require.NoError(t, h.tryEngineCleanup(workflowID))
+	require.NoError(t, h.tryEngineCleanup(t.Context(), workflowID))
 	_, ok := registry.Get(workflowID)
 	assert.False(t, ok)
 }

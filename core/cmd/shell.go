@@ -261,7 +261,6 @@ func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 	err := validateFn()
 	if err != nil {
 		fmt.Println("Invalid configuration:", err)
-		fmt.Println()
 		return s.errorOut(errors.New("invalid configuration"))
 	}
 	return nil

@@ -911,7 +911,7 @@ func (d *Delegate) ensureKeyValueStorePath(subPath string) (fullPath string, err
 	if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
 		err = fmt.Errorf("failed to create key value store directory: %w", err)
 	}
-	return
+	return fullPath, err
 }
 
 func (d *Delegate) maybeWrapConfigService(id, key string, lggr logger.Logger, configTracker ocrtypes.ContractConfigTracker, configDigester ocrtypes.OffchainConfigDigester, localConfig ocrtypes.LocalConfig) (ocrtypes.ContractConfigTracker, ocrtypes.OffchainConfigDigester, ocrtypes.LocalConfig, error) {
