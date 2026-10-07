@@ -116,6 +116,7 @@ func (m mockCfgTelemetry) MetricViewsDenyAttributes() []string {
 	return []string{"event_id"}
 }
 func (m mockCfgTelemetry) MetricCardinalityLimit() int { return 100000 }
+func (m mockCfgTelemetry) MetricExportBatchSize() int  { return 0 }
 
 func (m mockCfgTelemetry) PrometheusBridge() coreconfig.PrometheusBridge {
 	return mockPrometheusBridge{}
@@ -303,6 +304,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, []string{"event_id"}, envCfg.TelemetryMetricViewsDenyAttributes)
 	require.NotNil(t, envCfg.TelemetryMetricCardinalityLimit)
 	require.Equal(t, 100000, *envCfg.TelemetryMetricCardinalityLimit)
+	require.Equal(t, 0, envCfg.TelemetryMetricExportBatchSize)
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 	require.False(t, envCfg.ChipIngressBatchEmitterEnabled)

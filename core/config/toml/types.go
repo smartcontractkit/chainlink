@@ -3051,6 +3051,7 @@ type Telemetry struct {
 	LogMaxQueueSize                        *int
 	MetricViewsDenyAttributes              []string
 	MetricCardinalityLimit                 *int
+	MetricExportBatchSize                  *int
 
 	PrometheusBridge PrometheusBridge `toml:",omitempty"`
 }
@@ -3157,6 +3158,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.MetricCardinalityLimit; v != nil {
 		b.MetricCardinalityLimit = v
+	}
+	if v := f.MetricExportBatchSize; v != nil {
+		b.MetricExportBatchSize = v
 	}
 	b.PrometheusBridge.setFrom(&f.PrometheusBridge)
 }
