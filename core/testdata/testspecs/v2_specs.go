@@ -209,9 +209,7 @@ type VRFSpecParams struct {
 	CoordinatorAddress            string
 	VRFVersion                    vrfcommon.Version
 	BatchCoordinatorAddress       string
-	VRFOwnerAddress               string
 	BatchFulfillmentEnabled       bool
-	CustomRevertsPipelineEnabled  bool
 	BatchFulfillmentGasMultiplier float64
 	MinIncomingConfirmations      int
 	FromAddresses                 []string
@@ -250,7 +248,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.Name != "" {
 		name = params.Name
 	}
-	vrfVersion := vrfcommon.V2
+	vrfVersion := vrfcommon.V2Plus
 	if params.VRFVersion != "" {
 		vrfVersion = params.VRFVersion
 	}
@@ -262,12 +260,8 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.BatchCoordinatorAddress != "" {
 		batchCoordinatorAddress = params.BatchCoordinatorAddress
 	}
-	vrfOwnerAddress := "0x5383C25DA15b1253463626243215495a3718beE4"
-	if params.VRFOwnerAddress != "" && vrfVersion == vrfcommon.V2 {
-		vrfOwnerAddress = params.VRFOwnerAddress
-	}
 	pollPeriod := 5 * time.Second
-	if params.PollPeriod > 0 && (vrfVersion == vrfcommon.V2 || vrfVersion == vrfcommon.V2Plus) {
+	if params.PollPeriod > 0 && vrfVersion == vrfcommon.V2Plus {
 		pollPeriod = params.PollPeriod
 	}
 	batchFulfillmentGasMultiplier := 1.0
@@ -294,9 +288,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.ChunkSize != 0 {
 		chunkSize = params.ChunkSize
 	}
-	var observationSource string
-	if vrfVersion == vrfcommon.V2Plus {
-		observationSource = fmt.Sprintf(`
+	observationSource := fmt.Sprintf(`
 decode_log              [type=ethabidecodelog
                          abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint256 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bytes extraArgs,address indexed sender)"
                          data="$(jobRun.logData)"
@@ -323,33 +315,6 @@ simulate_fulfillment    [type=ethcall
 ]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
-	} else {
-		observationSource = fmt.Sprintf(`
-decode_log   [type=ethabidecodelog
-              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrfv2
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-estimate_gas [type=estimategaslimit
-              to="%s"
-              multiplier="1.1"
-              data="$(vrf.output)"
-]
-simulate [type=ethcall
-          to="%s"
-		  gas="$(estimate_gas)"
-		  gasPrice="$(jobSpec.maxGasPrice)"
-		  extractRevertReason=true
-		  contract="%s"
-		  data="$(vrf.output)"
-]
-decode_log->vrf->estimate_gas->simulate
-`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
-	}
 	if params.ObservationSource != "" {
 		observationSource = params.ObservationSource
 	}
@@ -366,7 +331,6 @@ evmChainID         =  "%s"
 batchCoordinatorAddress = "%s"
 batchFulfillmentEnabled = %v
 batchFulfillmentGasMultiplier = %s
-customRevertsPipelineEnabled = %v
 minIncomingConfirmations = %d
 requestedConfsDelay = %d
 requestTimeout = "%s"
@@ -386,7 +350,6 @@ observationSource = """
 	toml := fmt.Sprintf(template,
 		jobID, name, coordinatorAddress, params.EVMChainID, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
-		params.CustomRevertsPipelineEnabled,
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
 		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(),
 		pollPeriod.String(), observationSource)
@@ -399,9 +362,6 @@ observationSource = """
 		addresses = append(addresses, fmt.Sprintf("%q", address))
 	}
 	toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
-	if vrfVersion == vrfcommon.V2 {
-		toml = toml + "\n" + fmt.Sprintf(`vrfOwnerAddress = "%s"`, vrfOwnerAddress)
-	}
 
 	return VRFSpec{VRFSpecParams: VRFSpecParams{
 		JobID:                    jobID,
@@ -418,7 +378,6 @@ observationSource = """
 		ChunkSize:                chunkSize,
 		BackoffInitialDelay:      params.BackoffInitialDelay,
 		BackoffMaxDelay:          params.BackoffMaxDelay,
-		VRFOwnerAddress:          vrfOwnerAddress,
 		VRFVersion:               vrfVersion,
 		PollPeriod:               pollPeriod,
 	}, toml: toml}

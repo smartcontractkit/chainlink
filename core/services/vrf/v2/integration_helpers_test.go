@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
@@ -21,7 +20,6 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -39,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -238,19 +235,9 @@ func testMultipleConsumersNeedBHS(
 	)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
-	var (
-		v2CoordinatorAddress     string
-		v2PlusCoordinatorAddress string
-	)
-
-	switch vrfVersion {
-	case vrfcommon.V2:
-		v2CoordinatorAddress = coordinatorAddress.String()
-	case vrfcommon.V2Plus:
-		v2PlusCoordinatorAddress = coordinatorAddress.String()
-		// Also set V2 to satisfy validation when using a V2Plus coordinator.
-		v2CoordinatorAddress = coordinatorAddress.String()
-	}
+	v2CoordinatorAddress := coordinatorAddress.String()
+	// Also set V2 to satisfy validation when using a V2Plus coordinator.
+	v2PlusCoordinatorAddress := coordinatorAddress.String()
 
 	_ = vrftesthelpers.CreateAndStartBHSJob(
 		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(),
@@ -269,9 +256,6 @@ func testMultipleConsumersNeedBHS(
 
 		// Create a subscription and fund with 0 LINK.
 		_, subID := subscribeVRF(t, consumer, consumerContract, coordinator, uni.backend, new(big.Int), nativePayment)
-		if vrfVersion == vrfcommon.V2 {
-			require.Equal(t, uint64(i+1), subID.Uint64())
-		}
 
 		// Make the randomness request. It will not yet succeed since it is underfunded.
 		numWords := uint32(20)
@@ -394,19 +378,9 @@ func testMultipleConsumersNeedTrustedBHS(
 	)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
-	var (
-		v2CoordinatorAddress     string
-		v2PlusCoordinatorAddress string
-	)
-
-	switch vrfVersion {
-	case vrfcommon.V2:
-		v2CoordinatorAddress = coordinatorAddress.String()
-	case vrfcommon.V2Plus:
-		v2PlusCoordinatorAddress = coordinatorAddress.String()
-		// Also set V2 to satisfy validation when using a V2Plus coordinator.
-		v2CoordinatorAddress = coordinatorAddress.String()
-	}
+	v2CoordinatorAddress := coordinatorAddress.String()
+	// Also set V2 to satisfy validation when using a V2Plus coordinator.
+	v2PlusCoordinatorAddress := coordinatorAddress.String()
 
 	waitBlocks := 100
 	if addedDelay {
@@ -428,9 +402,6 @@ func testMultipleConsumersNeedTrustedBHS(
 
 		// Create a subscription and fund with 0 LINK.
 		_, subID := subscribeVRF(t, consumer, consumerContract, coordinator, uni.backend, new(big.Int), nativePayment)
-		if vrfVersion == vrfcommon.V2 {
-			require.Equal(t, uint64(i+1), subID.Uint64())
-		}
 
 		// Make the randomness request. It will not yet succeed since it is underfunded.
 		numWords := uint32(20)
@@ -801,16 +772,8 @@ func testBlockHeaderFeeder(
 		gasLanePriceWei,
 	)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
-	var (
-		v2coordinatorAddress     string
-		v2plusCoordinatorAddress string
-	)
-	switch vrfVersion {
-	case vrfcommon.V2:
-		v2coordinatorAddress = coordinatorAddress.String()
-	case vrfcommon.V2Plus:
-		v2plusCoordinatorAddress = coordinatorAddress.String()
-	}
+	v2coordinatorAddress := coordinatorAddress.String()
+	v2plusCoordinatorAddress := coordinatorAddress.String()
 
 	_ = vrftesthelpers.CreateAndStartBlockHeaderFeederJob(
 		t, bhfKeys, app, uni.bhsContractAddress.String(), uni.batchBHSContractAddress.String(),
@@ -829,9 +792,6 @@ func testBlockHeaderFeeder(
 
 		// Create a subscription and fund with 0 LINK.
 		_, subID := subscribeVRF(t, consumer, consumerContract, coordinator, uni.backend, new(big.Int), nativePayment)
-		if vrfVersion == vrfcommon.V2 {
-			require.Equal(t, uint64(i+1), subID.Uint64())
-		}
 
 		// Make the randomness request. It will not yet succeed since it is underfunded.
 		numWords := uint32(20)
@@ -908,17 +868,7 @@ func setupAndFundSubscriptionAndConsumer(
 	require.NoError(t, err, "failed to add consumer")
 	uni.backend.Commit()
 
-	if vrfVersion == vrfcommon.V2Plus {
-		b, err2 := evmutils.ABIEncode(`[{"type":"uint256"}]`, subID)
-		require.NoError(t, err2)
-		_, err2 = uni.linkContract.TransferAndCall(
-			uni.sergey, coordinatorAddress, fundingAmount, b,
-		)
-		require.NoError(t, err2, "failed to fund sub")
-		uni.backend.Commit()
-		return subID
-	}
-	b, err := evmutils.ABIEncode(`[{"type":"uint64"}]`, subID.Uint64())
+	b, err := evmutils.ABIEncode(`[{"type":"uint256"}]`, subID)
 	require.NoError(t, err)
 	_, err = uni.linkContract.TransferAndCall(
 		uni.sergey, coordinatorAddress, fundingAmount, b,
@@ -926,179 +876,6 @@ func setupAndFundSubscriptionAndConsumer(
 	require.NoError(t, err, "failed to fund sub")
 	uni.backend.Commit()
 	return subID
-}
-
-func testSingleConsumerForcedFulfillment(
-	t *testing.T,
-	ownerKey ethkey.KeyV2,
-	uni coordinatorV2Universe,
-	coordinator v22.CoordinatorV2_X,
-	coordinatorAddress common.Address,
-	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
-	vrfVersion vrfcommon.Version,
-) {
-	ctx := t.Context()
-	key1 := cltest.MustGenerateRandomKey(t)
-	key2 := cltest.MustGenerateRandomKey(t)
-	gasLanePriceWei := assets.GWei(10)
-	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
-			// Gas lane.
-			Key:          new(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
-		}, v2.KeySpecific{
-			// Gas lane.
-			Key:          new(key2.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
-		})(c, s)
-		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
-		c.Feature.LogPoller = new(true)
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
-	})
-	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
-
-	eoaConsumerAddr, _, eoaConsumer, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
-		uni.neil,
-		uni.backend.Client(),
-		uni.oldRootContractAddress,
-		uni.linkContractAddress,
-	)
-	require.NoError(t, err, "failed to deploy eoa consumer")
-	uni.backend.Commit()
-
-	// Create a subscription and fund with 5 LINK.
-	subID := setupAndFundSubscriptionAndConsumer(
-		t,
-		uni.coordinatorV2UniverseCommon,
-		uni.oldRootContract,
-		uni.oldRootContractAddress,
-		uni.neil,
-		eoaConsumerAddr,
-		vrfVersion,
-		assets.Ether(5).ToInt(),
-	)
-
-	// Check the subscription state
-	sub, err := uni.oldRootContract.GetSubscription(nil, subID)
-	require.NoError(t, err, "failed to get subscription with id %d", subID)
-	require.Equal(t, assets.Ether(5).ToInt(), sub.Balance())
-	require.Len(t, sub.Consumers(), 1)
-	require.Equal(t, eoaConsumerAddr, sub.Consumers()[0])
-	require.Equal(t, uni.neil.From, sub.Owner())
-
-	// Fund gas lanes.
-	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
-	sendEth(t, ownerKey, uni.backend, key2.Address, 10)
-	require.NoError(t, app.Start(ctx))
-
-	// Create VRF job using key1 and key2 on the same gas lane.
-	jbs := createVRFJobs(
-		t,
-		[][]ethkey.KeyV2{{key1, key2}},
-		app,
-		coordinator,
-		coordinatorAddress,
-		batchCoordinatorAddress,
-		uni.coordinatorV2UniverseCommon,
-		new(uni.vrfOwnerAddress),
-		vrfVersion,
-		batchEnabled,
-		gasLanePriceWei,
-	)
-	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
-
-	// Transfer ownership of the VRF coordinator to the VRF owner,
-	// which is critical for this test.
-	_, err = uni.oldRootContract.TransferOwnership(uni.neil, uni.vrfOwnerAddress)
-	require.NoError(t, err, "unable to TransferOwnership of VRF coordinator to VRFOwner")
-	uni.backend.Commit()
-
-	_, err = uni.vrfOwner.AcceptVRFOwnership(uni.neil)
-	require.NoError(t, err, "unable to Accept VRF Ownership")
-	uni.backend.Commit()
-
-	actualCoordinatorAddr, err := uni.vrfOwner.GetVRFCoordinator(nil)
-	require.NoError(t, err)
-	require.Equal(t, uni.oldRootContractAddress, actualCoordinatorAddr)
-
-	t.Log("vrf owner address:", uni.vrfOwnerAddress)
-
-	// Add allowed callers so that the oracle can call fulfillRandomWords
-	// on VRFOwner.
-	_, err = uni.vrfOwner.SetAuthorizedSenders(uni.neil, []common.Address{
-		key1.EIP55Address.Address(),
-		key2.EIP55Address.Address(),
-	})
-	require.NoError(t, err, "unable to update authorized senders in VRFOwner")
-	uni.backend.Commit()
-
-	// Make the randomness request.
-	// Give it a larger number of confs so that we have enough time to remove the consumer
-	// and cause a 0 balance to the sub.
-	numWords := 3
-	confs := 10
-	_, err = eoaConsumer.RequestRandomWords(uni.neil, subID.Uint64(), 500_000, uint16(confs), uint32(numWords), keyHash)
-	require.NoError(t, err, "failed to request randomness from consumer")
-	uni.backend.Commit()
-
-	requestID, err := eoaConsumer.SRequestId(nil)
-	require.NoError(t, err)
-
-	// Remove consumer and cancel the sub before the request can be fulfilled
-	_, err = uni.oldRootContract.RemoveConsumer(uni.neil, subID, eoaConsumerAddr)
-	require.NoError(t, err, "RemoveConsumer tx failed")
-	uni.backend.Commit()
-	_, err = uni.oldRootContract.CancelSubscription(uni.neil, subID, uni.neil.From)
-	require.NoError(t, err, "CancelSubscription tx failed")
-	uni.backend.Commit()
-
-	// Wait for force-fulfillment to be queued.
-	require.Eventually(t, func() bool {
-		uni.backend.Commit()
-		commitment, err2 := uni.oldRootContract.GetCommitment(nil, requestID)
-		require.NoError(t, err2)
-		t.Log("commitment is:", hexutil.Encode(commitment[:]))
-		// LogPoller may not have indexed the latest block yet; skip the filter
-		// check rather than crashing — the commitment check below is the real
-		// predicate and the filter will succeed on a later iteration.
-		it, err2 := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{requestID}, []uint64{subID.Uint64()}, []common.Address{eoaConsumerAddr})
-		if err2 == nil {
-			i := 0
-			for it.Next() {
-				i++
-				require.Equal(t, requestID.String(), it.Event.RequestId.String())
-				require.Equal(t, subID.Uint64(), it.Event.SubId)
-				require.Equal(t, eoaConsumerAddr.String(), it.Event.Sender.String())
-			}
-			t.Log("num RandomWordsForced logs:", i)
-		}
-		return utils.IsEmpty(commitment[:])
-	}, testutils.WaitTimeout(t), 100*time.Millisecond)
-
-	// Mine the fulfillment that was queued.
-	mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
-
-	// Assert correct state of RandomWordsFulfilled event.
-	// In this particular case:
-	// * success should be true
-	// * payment should be zero (forced fulfillment)
-	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, false)
-	require.Equal(t, "0", rwfe.Payment().String())
-
-	// Check that the RandomWordsForced event is emitted correctly.
-	it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{requestID}, []uint64{subID.Uint64()}, []common.Address{eoaConsumerAddr})
-	require.NoError(t, err)
-	i := 0
-	for it.Next() {
-		i++
-		require.Equal(t, requestID.String(), it.Event.RequestId.String())
-		require.Equal(t, subID.Uint64(), it.Event.SubId)
-		require.Equal(t, eoaConsumerAddr.String(), it.Event.Sender.String())
-	}
-	require.Positive(t, i)
-
-	t.Log("Done!")
 }
 
 func testSingleConsumerEIP150(
@@ -1882,10 +1659,6 @@ func testReplayOldRequestsOnStartUp(
 	require.NoError(t, err)
 
 	incomingConfs := 2
-	var vrfOwnerString string
-	if vrfOwnerAddress != nil {
-		vrfOwnerString = vrfOwnerAddress.Hex()
-	}
 
 	spec := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		Name:                     "vrf-primary",
@@ -1899,7 +1672,6 @@ func testReplayOldRequestsOnStartUp(
 		BackoffMaxDelay:          time.Second,
 		V2:                       true,
 		GasLanePrice:             gasLanePriceWei,
-		VRFOwnerAddress:          vrfOwnerString,
 		EVMChainID:               testutils.SimulatedChainID.String(),
 	}).Toml()
 

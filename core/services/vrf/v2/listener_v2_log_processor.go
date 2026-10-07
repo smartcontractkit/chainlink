@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -25,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -210,8 +208,6 @@ func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalan
 	switch vrfVersion {
 	case vrfcommon.V2Plus:
 		metaField = txMetaGlobalSubID
-	case vrfcommon.V2:
-		metaField = txMetaFieldSubID
 	default:
 		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
@@ -250,9 +246,6 @@ func (lsn *listenerV2) MaybeSubtractReservedEth(ctx context.Context, startBalanc
 	switch vrfVersion {
 	case vrfcommon.V2Plus:
 		metaField = txMetaGlobalSubID
-	case vrfcommon.V2:
-		// native payment is not supported for v2, so returning 0 reserved ETH
-		return big.NewInt(0), nil
 	default:
 		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
@@ -427,19 +420,11 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 				default:
 					ll.Errorw("Pipeline error", "err", p.err)
 					if !subIsActive {
-						ll.Warnw("Force-fulfilling a request with insufficient funds on a cancelled sub")
-						etx, err := lsn.enqueueForceFulfillment(ctx, p, fromAddress)
-						if err != nil {
-							ll.Errorw("Error enqueuing force-fulfillment, re-queueing request", "err", err)
-							continue
-						}
-						ll.Infow("Successfully enqueued force-fulfillment", "ethTxID", etx.ID)
+						ll.Warnw("Request has insufficient funds on a cancelled sub, dropping")
 						processed[p.req.req.RequestID().String()] = struct{}{}
 
 						// Need to put a continue here, otherwise the next if statement will be hit
 						// and we'd break out of the loop prematurely.
-						// If a sub is canceled, we want to force-fulfill ALL of it's pending requests
-						// before saying we're done with it.
 						continue
 					}
 
@@ -559,73 +544,6 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	maps.Copy(processed, linkProcessed)
 
 	return processed
-}
-
-// enqueueForceFulfillment enqueues a forced fulfillment through the
-// VRFOwner contract. It estimates gas again on the transaction due
-// to the extra steps taken within VRFOwner.fulfillRandomWords.
-func (lsn *listenerV2) enqueueForceFulfillment(
-	ctx context.Context,
-	p vrfPipelineResult,
-	fromAddress common.Address,
-) (etx txmgr.Tx, err error) {
-	if lsn.job.VRFSpec.VRFOwnerAddress == nil {
-		err = errors.New("vrf owner address not set in job spec, recreate job and provide it to force-fulfill")
-		return etx, err
-	}
-
-	if p.payload == "" {
-		// should probably never happen
-		// a critical log will be logged if this is the case in simulateFulfillment
-		err = errors.New("empty payload in vrfPipelineResult")
-		return etx, err
-	}
-
-	// fulfill the request through the VRF owner
-	lsn.l.Infow("VRFOwner.fulfillRandomWords vs. VRFCoordinatorV2.fulfillRandomWords",
-		"vrf_owner.fulfillRandomWords", hexutil.Encode(vrfOwnerABI.Methods["fulfillRandomWords"].ID),
-		"vrf_coordinator_v2.fulfillRandomWords", hexutil.Encode(coordinatorV2ABI.Methods["fulfillRandomWords"].ID),
-	)
-
-	vrfOwnerAddress1 := lsn.vrfOwner.Address()
-	vrfOwnerAddressSpec := lsn.job.VRFSpec.VRFOwnerAddress.Address()
-	lsn.l.Infow("addresses diff", "wrapper_address", vrfOwnerAddress1, "spec_address", vrfOwnerAddressSpec)
-
-	lsn.l.Infow("fulfillRandomWords payload", "proof", p.proof, "commitment", p.reqCommitment.Get(), "payload", p.payload)
-	txData := hexutil.MustDecode(p.payload)
-
-	estimateGasLimit, err := lsn.chain.Client().EstimateGas(ctx, ethereum.CallMsg{
-		From: fromAddress,
-		To:   &vrfOwnerAddressSpec,
-		Data: txData,
-	})
-	if err != nil {
-		err = fmt.Errorf("failed to estimate gas on VRFOwner.fulfillRandomWords: %w", err)
-		return etx, err
-	}
-
-	lsn.l.Infow("Estimated gas limit on force fulfillment",
-		"estimateGasLimit", estimateGasLimit, "pipelineGasLimit", p.gasLimit)
-	if estimateGasLimit < p.gasLimit {
-		estimateGasLimit = p.gasLimit
-	}
-
-	requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
-	subID := p.req.req.SubID()
-	requestTxHash := p.req.req.Raw().TxHash
-	return lsn.chain.TxManager().CreateTransaction(ctx, txmgr.TxRequest{
-		FromAddress:    fromAddress,
-		ToAddress:      lsn.vrfOwner.Address(),
-		EncodedPayload: txData,
-		FeeLimit:       estimateGasLimit,
-		Strategy:       txmgrcommon.NewSendEveryStrategy(),
-		Meta: &txmgr.TxMeta{
-			RequestID:     &requestID,
-			SubID:         new(subID.Uint64()),
-			RequestTxHash: &requestTxHash,
-			// No max link since simulation failed
-		},
-	})
 }
 
 // For an errored pipeline run, wait until the finality depth of the chain to have elapsed,
@@ -751,19 +669,11 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 					ll.Errorw("Pipeline error", "err", p.err)
 
 					if !subIsActive {
-						lsn.l.Warnw("Force-fulfilling a request with insufficient funds on a cancelled sub")
-						etx, err2 := lsn.enqueueForceFulfillment(ctx, p, fromAddress)
-						if err2 != nil {
-							ll.Errorw("Error enqueuing force-fulfillment, re-queueing request", "err", err2)
-							continue
-						}
-						ll.Infow("Enqueued force-fulfillment", "ethTxID", etx.ID)
+						lsn.l.Warnw("Request has insufficient funds on a cancelled sub, dropping")
 						processed[p.req.req.RequestID().String()] = struct{}{}
 
 						// Need to put a continue here, otherwise the next if statement will be hit
 						// and we'd break out of the loop prematurely.
-						// If a sub is canceled, we want to force-fulfill ALL of it's pending requests
-						// before saying we're done with it.
 						continue
 					}
 
@@ -808,15 +718,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				} else {
 					maxLink = &tmp
 				}
-				var (
-					txMetaSubID       *uint64
-					txMetaGlobalSubID *string
-				)
-				if lsn.coordinator.Version() == vrfcommon.V2Plus {
-					txMetaGlobalSubID = new(p.req.req.SubID().String())
-				} else if lsn.coordinator.Version() == vrfcommon.V2 {
-					txMetaSubID = new(p.req.req.SubID().Uint64())
-				}
+				txMetaGlobalSubID := new(p.req.req.SubID().String())
 				requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
 				requestTxHash := p.req.req.Raw().TxHash
@@ -829,7 +731,6 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 						RequestID:     &requestID,
 						MaxLink:       maxLink,
 						MaxEth:        maxEth,
-						SubID:         txMetaSubID,
 						GlobalSubID:   txMetaGlobalSubID,
 						RequestTxHash: &requestTxHash,
 					},
@@ -860,9 +761,6 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 }
 
 func (lsn *listenerV2) transmitCheckerType() txmgrtypes.TransmitCheckerType {
-	if lsn.coordinator.Version() == vrfcommon.V2 {
-		return txmgr.TransmitCheckerTypeVRFV2
-	}
 	return txmgr.TransmitCheckerTypeVRFV2Plus
 }
 
@@ -955,8 +853,6 @@ func (lsn *listenerV2) processRequestsPerSub(
 func (lsn *listenerV2) requestCommitmentPayload(requestID *big.Int) (payload []byte, err error) {
 	if lsn.coordinator.Version() == vrfcommon.V2Plus {
 		return coordinatorV2PlusABI.Pack("s_requestCommitments", requestID)
-	} else if lsn.coordinator.Version() == vrfcommon.V2 {
-		return coordinatorV2ABI.Pack("getCommitment", requestID)
 	}
 	return nil, errors.Errorf("unsupported coordinator version: %s", lsn.coordinator.Version())
 }
@@ -1151,29 +1047,6 @@ func (lsn *listenerV2) simulateFulfillment(
 		case isProofVerificationError(res.err.Error()):
 			res.err = stderrors.Join(res.err, proofVerificationFailedError{})
 		case strings.Contains(res.err.Error(), "execution reverted"):
-			// Even if the simulation fails, we want to get the
-			// txData for the fulfillRandomWords call, in case
-			// we need to force fulfill.
-			for _, trr := range trrs {
-				if trr.Task.Type() == pipeline.TaskTypeVRFV2 {
-					if trr.Result.Error != nil {
-						// error in VRF proof generation
-						// this means that we won't be able to force-fulfill in the event of a
-						// canceled sub and active requests.
-						// since this would be an extraordinary situation,
-						// we can log loudly here.
-						logger.Sugared(lg).Criticalw("failed to generate VRF proof", "err", trr.Result.Error)
-						break
-					}
-
-					// extract the abi-encoded tx data to fulfillRandomWords from the VRF task.
-					// that's all we need in the event of a force-fulfillment.
-					m := trr.Result.Value.(map[string]any)
-					res.payload = m["output"].(string)
-					res.proof = FromV2Proof(m["proof"].(vrf_coordinator_v2.VRFProof))
-					res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
-				}
-			}
 			res.err = stderrors.Join(res.err, possiblyInsufficientFundsError{})
 		}
 
@@ -1199,13 +1072,6 @@ func (lsn *listenerV2) simulateFulfillment(
 	}
 
 	for _, trr := range trrs {
-		if trr.Task.Type() == pipeline.TaskTypeVRFV2 {
-			m := trr.Result.Value.(map[string]any)
-			res.payload = m["output"].(string)
-			res.proof = FromV2Proof(m["proof"].(vrf_coordinator_v2.VRFProof))
-			res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
-		}
-
 		if trr.Task.Type() == pipeline.TaskTypeVRFV2Plus {
 			m := trr.Result.Value.(map[string]any)
 			res.payload = m["output"].(string)

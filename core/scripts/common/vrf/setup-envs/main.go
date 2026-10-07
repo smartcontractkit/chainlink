@@ -15,11 +15,9 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
-	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/v2scripts"
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -76,13 +74,12 @@ func main() {
 	estimateGasMultiplier := flag.Float64("estimate-gas-multiplier", 1.1, "")
 	pollPeriod := flag.String("poll-period", "300ms", "")
 	requestTimeout := flag.String("request-timeout", "30m0s", "")
-	revertsPipelineEnabled := flag.Bool("reverts-pipeline-enabled", true, "")
 	bhsJobWaitBlocks := flag.Int("bhs-job-wait-blocks", 30, "")
 	bhsJobLookBackBlocks := flag.Int("bhs-job-look-back-blocks", 200, "")
 	bhsJobPollPeriod := flag.String("bhs-job-poll-period", "3s", "")
 	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
 
-	vrfVersion := flag.String("vrf-version", "v2", "VRF version to use")
+	vrfVersion := flag.String("vrf-version", "v2plus", "VRF version to use")
 	coordinatorType := flag.String("coordinator-type", "", "Specify which coordinator type to use: layer1, arbitrum, optimism")
 	deployContractsAndCreateJobs := flag.Bool("deploy-contracts-and-create-jobs", false, "whether to deploy contracts and create jobs")
 
@@ -99,8 +96,6 @@ func main() {
 	batchCoordinatorAddressString := flag.String("batch-coordinator-address", "", "address Batch VRF Coordinator contract")
 	registerVRFKeyAgainstAddress := flag.String("register-vrf-key-against-address", "", "VRF Key registration against address - "+
 		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
-	deployVRFOwner := flag.Bool("deploy-vrfv2-owner", true, "whether to deploy VRF owner contracts")
-	useTestCoordinator := flag.Bool("use-test-coordinator", true, "whether to use test coordinator contract or use the normal one")
 	maxGasLimit := flag.Int64("max-gas-limit", constants.MaxGasLimit, "max gas limit")
 	stalenessSeconds := flag.Int64("staleness-seconds", constants.StalenessSeconds, "staleness in seconds")
 	gasAfterPayment := flag.Int64("gas-after-payment", constants.GasAfterPayment, "gas after payment calculation")
@@ -118,8 +113,8 @@ func main() {
 	flag.Parse()
 	nodesMap := make(map[string]model.Node)
 
-	if *vrfVersion != "v2" && *vrfVersion != "v2plus" {
-		panic(fmt.Sprintf("Invalid VRF Version `%s`. Only `v2` and `v2plus` are supported", *vrfVersion))
+	if *vrfVersion != "v2plus" {
+		panic(fmt.Sprintf("Invalid VRF Version `%s`. Only `v2plus` is supported", *vrfVersion))
 	}
 	fmt.Println("Using VRF Version:", *vrfVersion)
 
@@ -225,56 +220,6 @@ func main() {
 		var jobSpecs model.JobSpecs
 
 		switch *vrfVersion {
-		case "v2":
-			feeConfigV2 := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-				FulfillmentFlatFeeLinkPPMTier1: uint32(constants.FlatFeeTier1), //nolint:gosec // fee tier fits in uint32
-				FulfillmentFlatFeeLinkPPMTier2: uint32(constants.FlatFeeTier2), //nolint:gosec // fee tier fits in uint32
-				FulfillmentFlatFeeLinkPPMTier3: uint32(constants.FlatFeeTier3), //nolint:gosec // fee tier fits in uint32
-				FulfillmentFlatFeeLinkPPMTier4: uint32(constants.FlatFeeTier4), //nolint:gosec // fee tier fits in uint32
-				FulfillmentFlatFeeLinkPPMTier5: uint32(constants.FlatFeeTier5), //nolint:gosec // fee tier fits in uint32
-				ReqsForTier2:                   big.NewInt(constants.ReqsForTier2),
-				ReqsForTier3:                   big.NewInt(constants.ReqsForTier3),
-				ReqsForTier4:                   big.NewInt(constants.ReqsForTier4),
-				ReqsForTier5:                   big.NewInt(constants.ReqsForTier5),
-			}
-
-			coordinatorConfigV2 := v2scripts.CoordinatorConfigV2{
-				MinConfs:               *minConfs,
-				MaxGasLimit:            *maxGasLimit,
-				StalenessSeconds:       *stalenessSeconds,
-				GasAfterPayment:        *gasAfterPayment,
-				FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
-				FeeConfig:              feeConfigV2,
-			}
-
-			coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
-				BatchFulfillmentEnabled:       *batchFulfillmentEnabled,
-				BatchFulfillmentGasMultiplier: *batchFulfillmentGasMultiplier,
-				EstimateGasMultiplier:         *estimateGasMultiplier,
-				PollPeriod:                    *pollPeriod,
-				RequestTimeout:                *requestTimeout,
-				RevertsPipelineEnabled:        *revertsPipelineEnabled,
-			}
-
-			bhsJobSpecConfig := model.BHSJobSpecConfig{
-				RunTimeout:     *bhsJobRunTimeout,
-				WaitBlocks:     *bhsJobWaitBlocks,
-				LookBackBlocks: *bhsJobLookBackBlocks,
-				PollPeriod:     *bhsJobPollPeriod,
-			}
-			jobSpecs = v2scripts.VRFV2DeployUniverse(
-				e,
-				subscriptionBalanceJuels,
-				vrfKeyRegistrationConfig,
-				contractAddresses,
-				coordinatorConfigV2,
-				nodesMap,
-				*deployVRFOwner,
-				coordinatorJobSpecConfig,
-				bhsJobSpecConfig,
-				*useTestCoordinator,
-				*simulationBlock,
-			)
 		case "v2plus":
 			coordinatorConfigV2Plus := v2plusscripts.CoordinatorConfigV2Plus{
 				MinConfs:                          *minConfs,
