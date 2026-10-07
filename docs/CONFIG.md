@@ -1951,6 +1951,7 @@ BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
 ```toml
 [Capabilities.Local]
 RegistryBasedLaunchAllowlist = [] # Default
+UseOffchainRegistry = false # Default
 ```
 
 
@@ -1970,15 +1971,21 @@ Examples (using single-quoted TOML strings where backslashes are literal):
 - '^http-action@.*$' matches any version of http-action
 - '.*' matches all capabilities
 
+### UseOffchainRegistry
+```toml
+UseOffchainRegistry = false # Default
+```
+UseOffchainRegistry gates the offchain capabilities registry cutover. When false (default),
+capability config is sourced from the on-chain registry and the offchain registry is used for
+cross-validation telemetry only. When true, offchain capability config takes precedence over the
+on-chain config, key by key. Binary paths, the launch allowlist and OCR3 config are unaffected.
+The gate is per-node and reversible.
+
 Per-capability configuration. Each capability ID can have its own configuration section.
 Capability IDs must be in the format "name@version".
 [Capabilities.Local.Capabilities."http-action@1.0.0"]
 BinaryPathOverride overrides the default binary path for a LOOP capability.
 BinaryPathOverride = '/opt/chainlink/binaries/http_action' # Example
-[Capabilities.Local.Capabilities."http-action@1.0.0".Config]
-Capability-specific configuration as key-value pairs.
-proxyMode = 'gateway' # Example
-allowedPorts = '443,8443' # Example
 
 ## AutoPprof
 ```toml

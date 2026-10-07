@@ -95,6 +95,9 @@ type LocalCapabilities interface {
 	// RegistryBasedLaunchAllowlist returns regex patterns that match capability IDs to be
 	// launched from the capabilities registry instead of via job specs.
 	RegistryBasedLaunchAllowlist() []string
+	// UseOffchainRegistry returns true when offchain capability config should take precedence
+	// over the on-chain registry config. Defaults to false.
+	UseOffchainRegistry() bool
 	// Capabilities returns per-capability node configuration, keyed by capability ID.
 	Capabilities() map[string]CapabilityNodeConfig
 	// IsAllowlisted returns true if the capability ID matches any pattern in the allowlist.
@@ -107,8 +110,6 @@ type LocalCapabilities interface {
 type CapabilityNodeConfig interface {
 	// BinaryPathOverride returns the override path for the capability binary, or empty if not set.
 	BinaryPathOverride() string
-	// Config returns capability-specific configuration as key-value pairs.
-	Config() map[string]string
 }
 
 type SharedPeering interface {

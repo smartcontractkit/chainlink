@@ -261,24 +261,14 @@ func (m *localCapabilityManager) resolveCapabilityBinary(capID string) string {
 	return conversions.GetCommandFromCapabilityID(capID)
 }
 
-// buildConfigJSON merges the node-local TOML config with the onchain SpecConfig
-// into a flat JSON object. Onchain values take precedence over local ones.
+// buildConfigJSON renders the onchain SpecConfig into a flat JSON object.
 func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, error) {
 	merged := make(map[string]any)
-
-	if m.localCfg != nil {
-		capCfg := m.localCfg.GetCapabilityConfig(info.capID)
-		if capCfg != nil {
-			for k, v := range capCfg.Config() {
-				merged[k] = v
-			}
-		}
-	}
 
 	if len(info.config.Config) > 0 {
 		capCfg, err := info.config.Unmarshal()
 		if err != nil {
-			m.lggr.Warnw("Failed to unmarshal onchain config, using local config only",
+			m.lggr.Warnw("Failed to unmarshal onchain config, launching without on-chain spec config",
 				"capID", info.capID, "error", err)
 		} else if capCfg.SpecConfig != nil {
 			unwrapped, err := capCfg.SpecConfig.Unwrap()

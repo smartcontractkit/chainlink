@@ -410,6 +410,10 @@ func (l *localCapabilities) RegistryBasedLaunchAllowlist() []string {
 	return l.c.RegistryBasedLaunchAllowlist
 }
 
+func (l *localCapabilities) UseOffchainRegistry() bool {
+	return l.c.UseOffchainRegistry != nil && *l.c.UseOffchainRegistry
+}
+
 func (l *localCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
 	if l.c.Capabilities == nil {
 		return nil
@@ -463,8 +467,4 @@ func (c *capabilityNodeConfig) BinaryPathOverride() string {
 		return ""
 	}
 	return *c.c.BinaryPathOverride
-}
-
-func (c *capabilityNodeConfig) Config() map[string]string {
-	return c.c.Config
 }
