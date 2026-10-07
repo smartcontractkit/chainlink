@@ -34,7 +34,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260916222901-720a003dab50
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260916222901-720a003dab50
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260916222901-720a003dab50
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260929093916-bc9452cf0a49
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261007133058-d01384fc4ef4
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d
 	github.com/smartcontractkit/chainlink-deployments-framework v0.122.2
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260929161505-cc645fce4250
@@ -49,7 +49,7 @@ require (
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20260126202327-6be9a05f0caf
 	github.com/smartcontractkit/chainlink/v2 v2.29.0
 	github.com/smartcontractkit/cld-changesets v0.9.1-0.20260911120037-95e1c8bcb265
-	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342
+	github.com/smartcontractkit/libocr v0.0.0-20260917135550-38019a378d1f
 	github.com/smartcontractkit/mcms v0.55.2-0.20260911113758-08ee2754f62a
 	github.com/stretchr/testify v1.12.1
 	github.com/subosito/gotenv v1.6.0
@@ -409,7 +409,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/deployment v0.0.0-20260916222901-720a003dab50 // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260916222901-720a003dab50 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.13.1-0.20260918171034-c93b0d2ef3c0 // indirect
-	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260915184316-2730f1867c92 // indirect
+	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261005132539-b7d63d5fd549 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v1.1.2-0.20260929142841-14ba41fe8d23 // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect

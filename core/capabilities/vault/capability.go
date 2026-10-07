@@ -46,6 +46,7 @@ type Capability struct {
 	publicKey            *LazyPublicKey
 	lifecycle            *RequestLifecycleTracker
 	zoneBRestrictor      *zoneBRestrictor
+	directReader         *LazyDirectSecretsReader
 	*RequestValidator
 }
 
@@ -151,6 +152,14 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	id := vaultcommon.BuildWorkflowGetSecretsRequestID(md)
 	s.lggr.Debugw("received workflow get secrets request", "requestID", id, "request", r.String())
 
+	if r.GetSecretsDirectly {
+		respPB, derr := s.handleGetSecretsDirect(ctx, id, r)
+		if derr != nil {
+			return capabilities.CapabilityResponse{}, derr
+		}
+		return toCapabilityResponse(respPB)
+	}
+
 	resp, err := s.handleRequest(ctx, id, r)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
@@ -164,6 +173,10 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not unmarshal response to GetSecretsResponse: %w", err)
 	}
 
+	return toCapabilityResponse(respPB)
+}
+
+func toCapabilityResponse(respPB *vaultcommon.GetSecretsResponse) (capabilities.CapabilityResponse, error) {
 	anyProto, err := anypb.New(respPB)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not marshal response to anypb: %w", err)
@@ -326,6 +339,7 @@ func NewCapability(
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
 	capabilitiesRegistry registry.CapabilitiesRegistry,
 	publicKey *LazyPublicKey,
+	directReader *LazyDirectSecretsReader,
 	limitsFactory limits.Factory,
 	lifecycle *RequestLifecycleTracker,
 ) (*Capability, error) {
@@ -343,6 +357,9 @@ func NewCapability(
 	if zoneBRestrictor == nil {
 		return nil, errors.New("vault capability requires a non-nil zone-b restrictor")
 	}
+	if directReader == nil {
+		return nil, errors.New("vault capability requires a non-nil direct secrets reader")
+	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
 		clock:                clock,
@@ -352,6 +369,7 @@ func NewCapability(
 		publicKey:            publicKey,
 		lifecycle:            lifecycle,
 		zoneBRestrictor:      zoneBRestrictor,
+		directReader:         directReader,
 		RequestValidator:     requestValidator,
 	}, nil
 }

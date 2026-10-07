@@ -76,9 +76,9 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.111
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260923062809-ca886ade4d26
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260916222901-720a003dab50
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260929093916-bc9452cf0a49
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261007133058-d01384fc4ef4
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d
-	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260915184316-2730f1867c92
+	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261005132539-b7d63d5fd549
 	github.com/smartcontractkit/chainlink-confidential-compute v1.3.0
 	github.com/smartcontractkit/chainlink-confidential-compute/tests/testhelpers v0.0.0-20260812145307-d77342c53d7d
 	github.com/smartcontractkit/chainlink-deployments-framework v0.122.2
@@ -660,7 +660,7 @@ require (
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
 	github.com/smartcontractkit/go-daml v0.0.0-20260702101944-3a593d4e8e19 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
-	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342 // indirect
+	github.com/smartcontractkit/libocr v0.0.0-20260917135550-38019a378d1f // indirect
 	github.com/smartcontractkit/mcms v0.55.2-0.20260911113758-08ee2754f62a // indirect
 	github.com/smartcontractkit/smdkg v0.0.0-20260819115032-4afa3ab56bc4 // indirect
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 // indirect

@@ -11,6 +11,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -22,6 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/directread"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -591,7 +594,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		} else { // executable
 			client, alreadyExists := w.cachedShims.executableClients[key]
 			if !alreadyExists {
-				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr)
+				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr, executableClientOpts(capID, method)...)
 				cc.SetExecutableClient(method, client)
 				// add to cachedShims later, only after startNewShim succeeds
 			}
@@ -622,6 +625,15 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		if err2 := w.registry.Add(ctx, cc); err2 != nil {
 			return fmt.Errorf("failed to add CombinedClient for capability %s to registry: %w", capID, err2)
 		}
+	}
+	return nil
+}
+
+// Vault direct GetSecrets responses carry a different share from each node, so
+// they can't use the identical-response quorum.
+func executableClientOpts(capID, method string) []executable.ClientOpt {
+	if capID == vaultcommon.CapabilityID && method == vaulttypes.MethodSecretsGet {
+		return []executable.ClientOpt{executable.WithAggregatorFactory(directread.NewAggregatorFactory())}
 	}
 	return nil
 }

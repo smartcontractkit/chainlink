@@ -46,3 +46,39 @@ func (f *fakeFactory[RI]) NewReportingPlugin(context.Context, ocr3types.Reportin
 	}
 	return &fakePlugin[RI]{}, ocr3_1types.ReportingPluginInfo1{}, nil
 }
+
+func Test_WrapperFactory2(t *testing.T) {
+	kv := fakeReadOnlyKV{}
+	inner := &fakeFactory2[uint]{}
+	validFactory := NewReportingPluginFactory2(inner, logger.TestLogger(t), "plugin")
+	failingFactory := NewReportingPluginFactory2(&fakeFactory2[uint]{err: errors.New("error")}, logger.TestLogger(t), "plugin")
+
+	plugin, _, err := validFactory.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{}, nil, kv)
+	require.NoError(t, err)
+	require.Equal(t, kv, inner.gotKV, "the read-only state is passed through")
+
+	_, err = plugin.StateTransition(t.Context(), 1, ocrtypes.AttributedQuery{}, nil, nil, nil)
+	require.NoError(t, err)
+
+	_, _, err = failingFactory.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{}, nil, kv)
+	require.Error(t, err)
+}
+
+type fakeReadOnlyKV struct{}
+
+func (fakeReadOnlyKV) NewReadTransaction(context.Context) (ocr3_1types.KeyValueStateReadTransaction, error) {
+	return nil, errors.New("not used")
+}
+
+type fakeFactory2[RI any] struct {
+	err   error
+	gotKV ocr3_1types.ReadOnlyKeyValueState
+}
+
+func (f *fakeFactory2[RI]) NewReportingPlugin(_ context.Context, _ ocr3types.ReportingPluginConfig, _ ocr3_1types.BlobBroadcastFetcher, kv ocr3_1types.ReadOnlyKeyValueState) (ocr3_1types.ReportingPlugin[RI], ocr3_1types.ReportingPluginInfo, error) {
+	f.gotKV = kv
+	if f.err != nil {
+		return nil, nil, f.err
+	}
+	return &fakePlugin[RI]{}, ocr3_1types.ReportingPluginInfo1{}, nil
+}
