@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -320,6 +321,16 @@ func TestResolveCapabilityDonID(t *testing.T) {
 		}, capabilityID)
 
 		assert.Equal(t, uint32(0), got)
+	})
+
+	t.Run("reports unresolved when registry is nil", func(t *testing.T) {
+		t.Parallel()
+		nilRegistryCapabilityID := "evm:ChainSelector:43@1.0.0"
+
+		got := resolveCapabilityDonID(t.Context(), logger.Test(t), nil, getLocalPeerID, nilRegistryCapabilityID)
+
+		assert.Equal(t, uint32(0), got)
+		assert.InDelta(t, 1.0, testutil.ToFloat64(capabilityDonIDUnresolved.WithLabelValues(nilRegistryCapabilityID)), 0)
 	})
 
 	t.Run("returns 0 without retrying when no DON matches local peer", func(t *testing.T) {

@@ -125,9 +125,8 @@ func TestStandardCapabilities_InitialiseDependenciesRoundTrip(t *testing.T) {
 
 // TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP asserts that the
 // host-resolved capability DON ID is carried on the dependencies delivered to
-// the capability LOOP at Initialise. Without this, a trigger producer silently
-// falls back to the consumer workflow's DON for metering identity and event
-// labels even when the node knows which DON it is serving.
+// the capability LOOP at Initialise. Without this, a trigger producer emits
+// events without its DON ID even when the node knows which DON it is serving.
 func TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP(t *testing.T) {
 	t.Parallel()
 	t.Run("nonzero DON ID round-trips when the DON is known", func(t *testing.T) {

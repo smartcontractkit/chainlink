@@ -406,11 +406,6 @@ func (d *Delegate) NewServices(
 // an error: if the DON ID can't be resolved it returns 0, logs an error and sets
 // the capabilityDonIDUnresolved metric, but does not block startup.
 func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry registry.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) (donID uint32) {
-	if registry == nil || getPeerID == nil {
-		lggr.Warnw("Capabilities registry or getPeerID is nil; capability DON ID unresolved", "capabilityID", capabilityID)
-		return 0
-	}
-
 	defer func() {
 		unresolved := 0.0
 		if donID == 0 {
@@ -418,6 +413,11 @@ func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry re
 		}
 		capabilityDonIDUnresolved.WithLabelValues(capabilityID).Set(unresolved)
 	}()
+
+	if registry == nil || getPeerID == nil {
+		lggr.Warnw("Capabilities registry or getPeerID is nil; capability DON ID unresolved", "capabilityID", capabilityID)
+		return 0
+	}
 
 	type lookup struct {
 		peerID p2ptypes.PeerID
