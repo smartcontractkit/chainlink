@@ -26,6 +26,14 @@ import (
 
 const adapterLWBAErrorName = "AdapterLWBAError"
 
+// maxBufferedSeqNrsPerDigest bounds telemetryBuffer independently of
+// Transmit() activity. Buffered entries are normally evicted by
+// sendBufferedTelemetry when a Transmit() occurs for their digest, but a
+// digest that transmits rarely (or never, e.g. because it lost transmission
+// duty or is winding down) would otherwise accumulate one entry per round
+// forever.
+const maxBufferedSeqNrsPerDigest = 10
+
 // DSOpts is the shared, version-agnostic LLO data-source options (llo/v30 and
 // llo/v31 both use llodatasource.DSOpts). Aliased here so the telemetry and
 // observation paths keep referring to telem.DSOpts.
@@ -143,7 +151,8 @@ type telemeter struct {
 	}
 
 	// Buffer Report and Outcome telemetry to only send
-	// for transmitting rounds sequence numbers
+	// for transmitting rounds sequence numbers. Bounded per-digest by
+	// maxBufferedSeqNrsPerDigest; see evictOldestSeqNrsLocked.
 	telemetryBufferMu sync.Mutex
 	telemetryBuffer   map[string]map[uint64][]telemetryEntry
 
@@ -319,6 +328,26 @@ func (t *telemeter) sendBufferedTelemetry(digest types.ConfigDigest, seqNr uint6
 	}()
 }
 
+// evictOldestSeqNrsLocked drops the oldest buffered seqNrs for digest until
+// at most maxBufferedSeqNrsPerDigest remain. Callers must hold
+// telemetryBufferMu.
+func (t *telemeter) evictOldestSeqNrsLocked(digest string) {
+	digestMessages := t.telemetryBuffer[digest]
+	for len(digestMessages) > maxBufferedSeqNrsPerDigest {
+		var oldest uint64
+		first := true
+		for seqNr := range digestMessages {
+			if first || seqNr < oldest {
+				oldest = seqNr
+				first = false
+			}
+		}
+		delete(digestMessages, oldest)
+		t.eng.Warnw("Telemetry: evicted buffered telemetry for stale seqNr; digest may not be transmitting",
+			"digest", digest, "evictedSeqNr", oldest, "bufferSize", len(digestMessages))
+	}
+}
+
 func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchronization.TelemetryType, msg proto.Message) {
 	switch typ {
 	case synchronization.PipelineBridge, synchronization.LLOObservation, synchronization.EnhancedEAMercury:
@@ -349,6 +378,7 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 			telemType: typ,
 			msg:       msg,
 		}}
+		t.evictOldestSeqNrsLocked(digest)
 	default: // synchronization.LLOReport and other buffered types
 		// Report telemetry: append, since multiple reports per seqNr is
 		// expected (one per reportable channel).
@@ -363,6 +393,7 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 			telemType: typ,
 			msg:       msg,
 		})
+		t.evictOldestSeqNrsLocked(digest)
 	}
 }
 
