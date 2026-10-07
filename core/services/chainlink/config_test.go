@@ -759,7 +759,7 @@ func TestConfig_Marshal(t *testing.T) {
 						ReadRequestsToMultipleNodes: new(false),
 						Bundles:                     new(false),
 					},
-					ConfirmationTimeout:       &minute,
+					ConfirmationTimeout:      &minute,
 					MaxUnknownErrorRetries:   new(uint32(22)),
 					UnknownErrorRetryTimeout: &minute,
 				},
