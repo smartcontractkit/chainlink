@@ -18,16 +18,16 @@ Then list the code blocks that need **scrupulous human review**, worst first.
 
 ## What to find
 
-In priority order:
+Run each check against every changed file, in priority order:
 
-1. **Correctness**: wrong conditions, off-by-one, nil and zero-value handling, broken invariants, unhandled state transitions, behaviour that contradicts the PR description. `*big.Int` aliasing (mutating a shared pointer), integer overflow on amounts, unit mismatches (wei/gwei, seconds/ms).
-2. **Concurrency**: data races on maps, slices, and struct fields; goroutines with no exit path on context cancel or channel close; deadlocks; locks held across I/O or RPC; sends that can block forever; `WaitGroup` or `Once` misuse.
-3. **Lifecycle**: `context.Context` replaced with `context.Background()` mid-chain; missing `cancel()`; `Close` that leaves goroutines started by `Start` running; rows, bodies, files, tickers, and subscriptions released on the happy path only.
-4. **Errors**: an error both logged and returned (handle it once, at the layer that can act); wrapping with `%v` where callers use `errors.Is`/`errors.As`; panics reachable from external input; retries that never stop.
-5. **Security**: untrusted input reaching SQL, file paths, shell, or unbounded allocation; secrets or keys in logs or errors; bypassable signature, auth, or chain-ID checks; reorg and nonce handling.
-6. **Performance** on hot paths: a DB query or RPC per item (N+1), unbounded growth of maps, channels, or caches, allocation inside loops over unbounded input, repeated recomputation of the same result.
-7. **Tests**: new behaviour with no test; tests that pass by coincidence (`time.Sleep` synchronisation, ordering luck, shared global state); error paths and edge cases left uncovered; mocks where an in-memory fake would run real logic.
-8. **Design**: breaking changes to exported APIs other modules import; one decision leaking across several packages; pass-through layers that add no abstraction.
+1. **Correctness**: Does the code do what the PR claims, for every input and state it can receive, including edge, empty, and failure cases? Do invariants still hold after every path?
+2. **Concurrency**: Is all shared state safely synchronised? Can every goroutine and blocking operation finish or be cancelled?
+3. **Lifecycle**: Is everything acquired or started (contexts, goroutines, connections, handles) released or stopped on every path, including errors and shutdown?
+4. **Errors**: Is each error handled once, at the layer that can act on it, with enough context for callers to inspect and operators to diagnose?
+5. **Security**: Is untrusted input validated at the trust boundary? Do secrets stay out of logs, errors, and responses? Can any check be bypassed?
+6. **Performance**: Does cost stay bounded as input grows? Is the hot path free of work that could be batched, cached, or skipped?
+7. **Tests**: Is new behaviour tested through its public interface, including error paths? Are tests deterministic, passing by design rather than by timing or ordering luck?
+8. **Design**: Does the change keep each decision in one place and each interface small? Does it break contracts other packages or modules rely on?
 
 ## Comment format
 
