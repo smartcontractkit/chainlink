@@ -108,9 +108,9 @@ func TestShardedDONs_BuildShardEndpoints(t *testing.T) {
 		require.Len(t, eps, 4)
 		// donIDs: shard 0 bare, shard 1 suffixed
 		require.Equal(t, "donA", eps[0].DonID)
-		require.Equal(t, "donA_1", eps[1].DonID)
+		require.Equal(t, "donA_shard-1", eps[1].DonID)
 		require.Equal(t, "donB", eps[2].DonID)
-		require.Equal(t, "donB_1", eps[3].DonID)
+		require.Equal(t, "donB_shard-1", eps[3].DonID)
 		require.Len(t, addrMap, 6)
 		require.Same(t, eps[1], addrMap["a2"])
 		require.Same(t, eps[3], addrMap["b1"])

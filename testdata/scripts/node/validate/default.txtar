@@ -404,6 +404,7 @@ PerOwner = 200
 UseLocalTimeProvider = true
 EnableDKGRecipient = false
 DebugMode = false
+CachedTriggerSubscriptionsEnabled = false
 
 [CRE.Streams]
 WsURL = ''
@@ -455,4 +456,3 @@ GRPCServerMaxRecvMsgSize = '32.00mb'
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty
-

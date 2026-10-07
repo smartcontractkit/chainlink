@@ -118,7 +118,7 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 	dons := make(map[string]*donConnectionManager)
 	for _, shardedDON := range gwConfig.ShardedDONs {
 		for shardIdx, shard := range shardedDON.Shards {
-			donID := config.ShardDONID(shardedDON.DonName, shardIdx)
+			donID := config.GatewayDONIDForShard(shardedDON.DonName, shardIdx)
 			if _, ok := dons[donID]; ok {
 				return nil, fmt.Errorf("duplicate DON ID %s", donID)
 			}

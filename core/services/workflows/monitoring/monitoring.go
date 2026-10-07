@@ -32,6 +32,7 @@ type EngineMetrics struct {
 	workflowStepErrorCounter                 metric.Int64Counter
 	workflowInitializationCounter            metric.Int64Counter
 	workflowInitializationFailureCounter     metric.Int64Counter
+	triggerSubscriptionSourceCounter         metric.Int64Counter
 	workflowTriggerEventErrorCounter         metric.Int64Counter
 	workflowTriggerEventQueueFullCounter     metric.Int64Counter
 
@@ -155,7 +156,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 
 	em.workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge(
 		"platform_engine_workflow_time",
-		metric.WithUnit("ms"))
+		metric.WithUnit("ms"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow execution latency gauge: %w", err)
 	}
@@ -167,9 +169,17 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 
 	em.workflowInitializationFailureCounter, err = beholder.GetMeter().Int64Counter(
 		"platform_engine_workflow_initialization_failures_total",
-		metric.WithDescription("Count of failed engine initializations by failure reason"))
+		metric.WithDescription("Count of failed engine initializations by failure reason"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow initialization failure counter: %w", err)
+	}
+
+	em.triggerSubscriptionSourceCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_subscription_source_total",
+		metric.WithDescription("Count of engine starts by trigger subscription source: cache or wasm"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger subscription source counter: %w", err)
 	}
 
 	em.workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_errors")
@@ -224,7 +234,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowCompletedDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_workflow_completed_time_seconds",
 		metric.WithDescription("Distribution of completed execution latencies"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register completed duration histogram: %w", err)
 	}
@@ -232,7 +243,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowEarlyExitDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_workflow_earlyexit_time_seconds",
 		metric.WithDescription("Distribution of earlyexit execution latencies"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register early exit duration histogram: %w", err)
 	}
@@ -240,7 +252,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowErrorDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_workflow_error_time_seconds",
 		metric.WithDescription("Distribution of error execution latencies"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register error duration histogram: %w", err)
 	}
@@ -248,7 +261,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowTimeoutDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_workflow_timeout_time_seconds",
 		metric.WithDescription("Distribution of timeout execution latencies"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register timeout duration histogram: %w", err)
 	}
@@ -256,7 +270,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowStepDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_workflow_step_time_seconds",
 		metric.WithDescription("Distribution of step execution times"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register step execution time histogram: %w", err)
 	}
@@ -264,7 +279,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.capabilityExecutionDurationSeconds, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_capability_execution_time_seconds",
 		metric.WithDescription("Distribution of capability execution times"),
-		metric.WithUnit("seconds"))
+		metric.WithUnit("seconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register capability execution time histogram: %w", err)
 	}
@@ -276,7 +292,8 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 
 	em.workflowMeteringMode, err = beholder.GetMeter().Int64Gauge(
 		"platform_engine_workflow_metering_mode",
-		metric.WithUnit("active"))
+		metric.WithUnit("active"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow metering mode gauge: %w", err)
 	}
@@ -657,6 +674,12 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowInitializationFailureCounter(ct
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	otelLabels = append(otelLabels, attribute.String("reason", reason))
 	c.em.workflowInitializationFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerSubscriptionSourceCounter(ctx context.Context, source string) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	otelLabels = append(otelLabels, attribute.String("source", source))
+	c.em.triggerSubscriptionSourceCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementWorkflowTriggerEventErrorCounter(ctx context.Context) {

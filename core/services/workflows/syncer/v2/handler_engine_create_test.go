@@ -89,7 +89,7 @@ func newEngineCreateFixture(t *testing.T, cfg nodeConfig) *engineCreateFixture {
 		engineRegistry: NewEngineRegistry(),
 		featureFlags:   &v2.EngineFeatureFlags{CoordinatedEngine: limits.NewGateLimiter(cfg.flagOpen)},
 		tracer:         noop.NewTracerProvider().Tracer(""),
-		engineFactory: func(ctx context.Context, wfid, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, initDone chan<- error) (v2.WorkflowEngine, error) {
+		engineFactory: func(ctx context.Context, wfid, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, _ []byte, initDone chan<- error) (v2.WorkflowEngine, error) {
 			f.factoryCalls.Add(1)
 			if f.factoryErr != nil {
 				return nil, f.factoryErr

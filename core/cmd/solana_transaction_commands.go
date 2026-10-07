@@ -47,12 +47,14 @@ type SolanaMsgPresenter struct {
 // RenderTable implements TableRenderer
 func (p *SolanaMsgPresenter) RenderTable(rt RendererTable) error {
 	table := rt.newTable([]string{"Chain ID", "From", "To", "Amount"})
-	table.Append([]string{
+	if err := table.Append([]string{
 		p.ChainID,
 		p.From,
 		p.To,
 		strconv.FormatUint(p.Amount, 10),
-	})
+	}); err != nil {
+		return err
+	}
 
 	return render(fmt.Sprintf("Solana Message %v", p.ID), table)
 }
@@ -73,7 +75,8 @@ func (s *Shell) SolanaSendSol(c *cli.Context) (err error) {
 	if err != nil {
 		return s.errorOut(stderrors.Join(
 			errors.Errorf("while parsing withdrawal source address %v",
-				unparsedFromAddress), err))
+				unparsedFromAddress), err,
+		))
 	}
 
 	unparsedDestinationAddress := c.Args().Get(2)
@@ -81,7 +84,8 @@ func (s *Shell) SolanaSendSol(c *cli.Context) (err error) {
 	if err != nil {
 		return s.errorOut(stderrors.Join(
 			errors.Errorf("while parsing withdrawal destination address %v",
-				unparsedDestinationAddress), err))
+				unparsedDestinationAddress), err,
+		))
 	}
 
 	chainID := c.String("id")

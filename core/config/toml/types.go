@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -502,7 +503,14 @@ func (e *EthKeys) ValidateConfig() (err error) {
 }
 
 func dbURLPasswordComplexity(err error) string {
-	return fmt.Sprintf("missing or insufficiently complex password: %s. Database should be secured by a password matching the following complexity requirements: "+utils.PasswordComplexityRequirements, err)
+	msg := err.Error()
+	// Keep the separator off when the underlying error already starts on a
+	// new line, so the message contains no trailing whitespace.
+	sep := " "
+	if strings.HasPrefix(msg, "\n") {
+		sep = ""
+	}
+	return fmt.Sprintf("missing or insufficiently complex password:%s%s. Database should be secured by a password matching the following complexity requirements:%s", sep, msg, utils.PasswordComplexityRequirements)
 }
 
 type DatabaseSecrets struct {
@@ -2061,8 +2069,12 @@ type CreConfig struct {
 	// Requires [Tracing].Enabled = true for traces to be exported (trace export is gated by
 	// Tracing.Enabled in initGlobals; Telemetry.Enabled is optional—traces work with or without it).
 	// WARNING: This is not suitable for production use due to performance overhead.
-	DebugMode         *bool                    `toml:",omitempty"`
-	ConfidentialRelay *ConfidentialRelayConfig `toml:",omitempty"`
+	DebugMode *bool `toml:",omitempty"`
+	// CachedTriggerSubscriptionsEnabled makes workflow engines reuse a
+	// previously-persisted trigger subscription payload instead of executing
+	// the workflow's WASM Subscribe() call on every engine start.
+	CachedTriggerSubscriptionsEnabled *bool                    `toml:",omitempty"`
+	ConfidentialRelay                 *ConfidentialRelayConfig `toml:",omitempty"`
 }
 
 // WorkflowFetcherConfig holds the configuration for fetching workflow files
@@ -2144,6 +2156,10 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 
 	if f.DebugMode != nil {
 		c.DebugMode = f.DebugMode
+	}
+
+	if f.CachedTriggerSubscriptionsEnabled != nil {
+		c.CachedTriggerSubscriptionsEnabled = f.CachedTriggerSubscriptionsEnabled
 	}
 
 	if f.ConfidentialRelay != nil {
@@ -3293,7 +3309,7 @@ func isValidLocalURI(uri string) bool {
 		}
 
 		// Validating port
-		if _, err := net.LookupPort("tcp", port); err != nil {
+		if _, err := net.DefaultResolver.LookupPort(context.Background(), "tcp", port); err != nil {
 			return false
 		}
 

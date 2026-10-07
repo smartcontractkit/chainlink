@@ -102,7 +102,9 @@ func isPermanentEngineInitError(err error) bool {
 			// the trigger subscription phase; a deterministic user error that can
 			// never succeed on retry
 			strings.Contains(msg, wfv2.ErrCapabilityCallDuringSubscription.Error()),
-			strings.Contains(msg, wfv2.ErrSecretsCallDuringSubscription.Error()):
+			strings.Contains(msg, wfv2.ErrSecretsCallDuringSubscription.Error()),
+			// workflow subscribed to zero triggers - it can never execute
+			strings.Contains(msg, wfv2.ErrZeroTriggerSubscriptions.Error()):
 			return true
 		}
 		err = errors.Unwrap(err)
