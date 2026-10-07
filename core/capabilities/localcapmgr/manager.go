@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"sort"
 	"sync"
 	"time"
 
@@ -60,11 +59,6 @@ type capabilityInfo struct {
 	// config JSON). A change in either, including an offchain-only change, restarts the
 	// capability.
 	configHash string
-	// tomlConfigKeysUsed are the node-local TOML Config override keys that survived into the
-	// effective config un-shadowed by on-chain/offchain (i.e. removing the TOML override would
-	// change the launch config). Sorted; empty when the TOML override contributes nothing. Used
-	// to emit the deprecation signal in startCapability.
-	tomlConfigKeysUsed []string
 }
 
 func runningKey(capID string, donID uint32) string {
@@ -77,10 +71,6 @@ type localCapabilityManager struct {
 
 	localCfg      config.LocalCapabilities
 	newServicesFn NewServicesFn
-	// configProvider yields node-local (TOML) capability config overrides. It is the base layer
-	// in buildConfigJSON, below the on-chain SpecConfig. Binary-path/allowlist still read
-	// directly from localCfg.
-	configProvider CapabilityConfigProvider
 	// useOffchainRegistry is the cutover gate. When true, the offchain spec_config is applied
 	// LAST in buildConfigJSON (offchain-wins over both TOML and on-chain). When false the
 	// offchain layer is skipped entirely, and any key absent offchain falls back to the on-chain
@@ -138,7 +128,6 @@ func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabili
 		lggr:                named,
 		localCfg:            localCfg,
 		newServicesFn:       newServicesFn,
-		configProvider:      tomlCapabilityConfigProvider{localCfg: localCfg},
 		useOffchainRegistry: useOffchain,
 		offchainRegistry:    offchainRegistry,
 		stopCh:              make(services.StopChan),
@@ -352,16 +341,6 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 		return nil, fmt.Errorf("build config for %s: %w", info.capID, info.configErr)
 	}
 
-	// Deprecation signal: a node-local TOML Config override is contributing to this capability's
-	// config. This override is slated for removal once config moves to the offchain registry;
-	// a production rate of ~0 on platform_capability_toml_config_override_used_total is the
-	// green light to remove it.
-	if len(info.tomlConfigKeysUsed) > 0 {
-		m.lggr.Warnw("Deprecated node-local TOML [Capabilities.Local.Capabilities] Config override in use; "+
-			"migrate these keys to the offchain capabilities registry (this override is slated for removal)",
-			"capID", info.capID, "donID", info.donID, "keys", info.tomlConfigKeysUsed)
-		m.metrics.recordTomlConfigOverrideUsed(ctx, info.capID)
-	}
 	configJSON := info.configJSON
 	if len(info.config.Config) > 0 {
 		if _, err := info.config.Unmarshal(); err != nil {
@@ -370,24 +349,9 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 		}
 	}
 
-	// CRE-1775 decision: the registry-driven launch path does NOT derive a
-	// job.OracleFactoryConfig from the on-chain oracle_factory_configs field. That field
-	// exists in the CapabilityConfig proto but is neither populated by the deployment side
-	// nor consumed anywhere in core. OCR signer/transmitter alignment for registry-launched
-	// capabilities is handled instead by threading ocr3Config (the on-chain
-	// Ocr3Configs["default"]) into the delegate, which ResolveOracleFactoryConfig uses to
-	// fill the OCR contract address, chain, transmitter, and key bundle. Enabling an oracle
-	// factory for an allowlisted capability (bootstrap peers, signing strategy) is deferred
-	// to a dedicated typed offchain slice (like method_configs), delivered via the offchain
-	// registry rather than inferred from an unused on-chain field. The cre.go newServicesFn
-	// passes a nil job.OracleFactoryConfig here, so the delegate's ResolveOracleFactoryConfig
-	// no-ops for the disabled factory. If a payload ever carries oracle_factory_configs, warn
-	// so the silent drop is observable rather than mysterious.
-	if onchainOracleFactoryConfigPresent(info.config) {
-		m.lggr.Warnw("on-chain oracle_factory_configs present but not consumed by the registry launch path; "+
-			"oracle factory enablement is delivered via the offchain capabilities registry, not on-chain (CRE-1775)",
-			"capID", info.capID, "donID", info.donID)
-	}
+	// newServicesFn derives OracleFactoryConfig.Enabled from whether ocr3Config is
+	// present; node config/keystore fill in chain ID, contract address, key bundle
+	// and transmitter (see ResolveOracleFactoryConfig).
 	ocr3Config := extractDefaultOCR3Config(info.config)
 	svcs, err := m.newServicesFn(ctx, info.capID, info.donID, command, configJSON, ocr3Config)
 	if err != nil {
@@ -419,23 +383,6 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	}, nil
 }
 
-// overridesFor returns the node-local (TOML) capability config base via the config provider.
-// It falls back to reading TOML directly when no provider is set (e.g. managers built as struct
-// literals in tests); the constructor always installs a provider in production. The offchain
-// layer is applied separately (and last) in buildConfigJSON.
-func (m *localCapabilityManager) overridesFor(capID string, donID uint32) map[string]any {
-	if m.configProvider != nil {
-		return m.configProvider.LocalConfigOverrides(capID, donID)
-	}
-	if m.localCfg == nil {
-		return nil
-	}
-	if capCfg := m.localCfg.GetCapabilityConfig(capID); capCfg != nil {
-		return toAnyMap(capCfg.Config())
-	}
-	return nil
-}
-
 func (m *localCapabilityManager) resolveCapabilityBinary(capID string) string {
 	if m.localCfg != nil {
 		capCfg := m.localCfg.GetCapabilityConfig(capID)
@@ -451,24 +398,20 @@ func (m *localCapabilityManager) resolveCapabilityBinary(capID string) string {
 
 // buildConfigJSON merges capability config into a flat JSON object, in increasing order of
 // precedence:
-//  1. node-local TOML overrides (base),
-//  2. on-chain SpecConfig,
-//  3. offchain SpecConfig (only when the cutover is enabled).
+//  1. on-chain SpecConfig,
+//  2. offchain SpecConfig (only when the cutover is enabled).
 //
 // The offchain layer is applied last so it wins over on-chain, which is what makes it a real
 // cutover; because it is skipped entirely when the cutover is off, and any key the offchain
-// payload omits keeps its on-chain/TOML value, the layering is backwards compatible.
+// payload omits keeps its on-chain value, the layering is backwards compatible.
 func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, error) {
-	// 1. node-local TOML base.
-	toml := m.overridesFor(info.capID, info.donID)
-
-	// 2. on-chain SpecConfig.
+	// 1. on-chain SpecConfig.
 	var onchain map[string]any
 	if len(info.config.Config) > 0 {
 		capCfg, err := info.config.Unmarshal()
 		if err != nil {
 			// Logged at launch (startCapability); this runs on every reconcile.
-			m.lggr.Debugw("Failed to unmarshal onchain config, using local config only",
+			m.lggr.Debugw("Failed to unmarshal onchain config, launching without on-chain spec config",
 				"capID", info.capID, "error", err)
 		} else if capCfg.SpecConfig != nil {
 			unwrapped, err := capCfg.SpecConfig.Unwrap()
@@ -481,14 +424,11 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 		}
 	}
 
-	// 3. offchain SpecConfig wins (cutover on only; nil otherwise). Applied last, keys absent
-	// offchain retain their on-chain/TOML value.
-	merged := make(map[string]any, len(toml)+len(onchain)+len(info.offchainOverrides))
-	maps.Copy(merged, toml)
+	// 2. offchain SpecConfig wins (cutover on only; nil otherwise). Applied last, keys absent
+	// offchain retain their on-chain value.
+	merged := make(map[string]any, len(onchain)+len(info.offchainOverrides))
 	maps.Copy(merged, onchain)
 	maps.Copy(merged, info.offchainOverrides)
-
-	info.tomlConfigKeysUsed = contributingTOMLKeys(toml, onchain, info.offchainOverrides)
 
 	if len(merged) == 0 {
 		return "{}", nil
@@ -499,28 +439,6 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 		return "", fmt.Errorf("marshal merged config for %s: %w", info.capID, err)
 	}
 	return string(b), nil
-}
-
-// contributingTOMLKeys returns the TOML override keys that survive into the effective config,
-// i.e. those not shadowed by an on-chain or offchain value for the same key. Removing the TOML
-// override would change the launch config for exactly these keys (a key the on-chain/offchain
-// layer also sets would keep its value without the TOML override, so it does not contribute).
-func contributingTOMLKeys(toml, onchain, offchain map[string]any) []string {
-	if len(toml) == 0 {
-		return nil
-	}
-	var keys []string
-	for k := range toml {
-		if _, ok := onchain[k]; ok {
-			continue
-		}
-		if _, ok := offchain[k]; ok {
-			continue
-		}
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // extractDefaultOCR3Config returns the `default` on-chain OCR3 config parsed from the
@@ -541,21 +459,6 @@ func extractDefaultOCR3Config(cc registry.CapabilityConfiguration) *ocrtypes.Con
 		return nil
 	}
 	return &cfg
-}
-
-// onchainOracleFactoryConfigPresent reports whether the on-chain capability configuration
-// carries any oracle_factory_configs entries. The registry launch path does not consume this
-// field (see CRE-1775 in startCapability); detecting it lets us warn rather than drop it
-// silently. Returns false when the configuration is empty or cannot be parsed.
-func onchainOracleFactoryConfigPresent(cc registry.CapabilityConfiguration) bool {
-	if len(cc.Config) == 0 {
-		return false
-	}
-	parsed, err := cc.Unmarshal()
-	if err != nil {
-		return false
-	}
-	return len(parsed.OracleFactoryConfigs) > 0
 }
 
 func (m *localCapabilityManager) closeServices(rc *runningCapability) error {

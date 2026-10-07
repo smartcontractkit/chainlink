@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -74,19 +73,6 @@ func (t Type) SchemaVersion() uint32 {
 	return schemaVersions[t]
 }
 
-// additionalSchemaVersions lists schema versions accepted for a job type besides its current
-// SchemaVersion, when a newer version only adds fields. The job type's validator decides
-// which features require which version.
-var additionalSchemaVersions = map[Type][]uint32{
-	// cresettings v2 adds the top-level config_type and offchain_config fields
-	// (config_type = "capabilities_registry"); v1 specs are unchanged.
-	CRESettings: {2},
-}
-
-func (t Type) acceptsSchemaVersion(v uint32) bool {
-	return v == t.SchemaVersion() || slices.Contains(additionalSchemaVersions[t], v)
-}
-
 var (
 	requiresPipelineSpec = map[Type]bool{
 		BlockHeaderFeeder:    false,
@@ -151,37 +137,38 @@ var (
 )
 
 type Job struct {
-	ID                         int32     `toml:"-"`
-	ExternalJobID              uuid.UUID `toml:"externalJobID"`
-	StreamID                   *uint32   `toml:"streamID"`
-	OCROracleSpecID            *int32
-	OCROracleSpec              *OCROracleSpec
-	OCR2OracleSpecID           *int32
-	OCR2OracleSpec             *OCR2OracleSpec
-	CronSpecID                 *int32
-	CronSpec                   *CronSpec
-	DirectRequestSpecID        *int32
-	DirectRequestSpec          *DirectRequestSpec
-	FluxMonitorSpecID          *int32
-	FluxMonitorSpec            *FluxMonitorSpec
-	VRFSpecID                  *int32
-	VRFSpec                    *VRFSpec
-	WebhookSpecID              *int32
-	WebhookSpec                *WebhookSpec
-	BlockhashStoreSpecID       *int32
-	BlockhashStoreSpec         *BlockhashStoreSpec
-	BlockHeaderFeederSpecID    *int32
-	BlockHeaderFeederSpec      *BlockHeaderFeederSpec
-	BALSpecID                  *int32
-	BootstrapSpec              *BootstrapSpec
-	BootstrapSpecID            *int32
-	GatewaySpec                *GatewaySpec
-	GatewaySpecID              *int32
-	EALSpec                    *EALSpec
-	EALSpecID                  *int32
-	LiquidityBalancerSpec      *LiquidityBalancerSpec
-	LiquidityBalancerSpecID    *int32
-	PipelineSpecID             int32 // This is deprecated in favor of the `job_pipeline_specs` table relationship
+	ID                      int32     `toml:"-"`
+	ExternalJobID           uuid.UUID `toml:"externalJobID"`
+	StreamID                *uint32   `toml:"streamID"`
+	OCROracleSpecID         *int32
+	OCROracleSpec           *OCROracleSpec
+	OCR2OracleSpecID        *int32
+	OCR2OracleSpec          *OCR2OracleSpec
+	CronSpecID              *int32
+	CronSpec                *CronSpec
+	DirectRequestSpecID     *int32
+	DirectRequestSpec       *DirectRequestSpec
+	FluxMonitorSpecID       *int32
+	FluxMonitorSpec         *FluxMonitorSpec
+	VRFSpecID               *int32
+	VRFSpec                 *VRFSpec
+	WebhookSpecID           *int32
+	WebhookSpec             *WebhookSpec
+	BlockhashStoreSpecID    *int32
+	BlockhashStoreSpec      *BlockhashStoreSpec
+	BlockHeaderFeederSpecID *int32
+	BlockHeaderFeederSpec   *BlockHeaderFeederSpec
+	BALSpecID               *int32
+	BootstrapSpec           *BootstrapSpec
+	BootstrapSpecID         *int32
+	GatewaySpec             *GatewaySpec
+	GatewaySpecID           *int32
+	EALSpec                 *EALSpec
+	EALSpecID               *int32
+	LiquidityBalancerSpec   *LiquidityBalancerSpec
+	LiquidityBalancerSpecID *int32
+	// Deprecated: use the `job_pipeline_specs` table relationship instead
+	PipelineSpecID             int32
 	PipelineSpec               *pipeline.Spec
 	WorkflowSpecID             *int32
 	WorkflowSpec               *WorkflowSpec
@@ -858,6 +845,9 @@ type WorkflowSpec struct {
 	// StorageBytes is the workflow + config size in bytes. Set at registration
 	// and not cleared by pausing the workflow
 	StorageBytes int64 `toml:"-" db:"storage_bytes"`
+	// TriggerSubscriptions caches the marshaled sdkpb.TriggerSubscriptionRequest
+	// values, so future engine starts can skip re-executing the binary to get them.
+	TriggerSubscriptions []byte `toml:"-" db:"trigger_subscriptions"`
 }
 
 type StandardCapabilitiesConfig struct {
@@ -1002,11 +992,4 @@ type CRESettingsSpec struct {
 
 	Hash     string `toml:"hash"`
 	Settings string `toml:"settings"`
-
-	// ConfigType selects how the payload is interpreted: "settings" (default),
-	// "shard_assignment", or "capabilities_registry". When empty it falls back to a
-	// config_type key embedded in Settings, then to "settings".
-	ConfigType string `toml:"config_type"`
-	// OffchainConfig carries the proto-JSON payload for config_type=capabilities_registry.
-	OffchainConfig string `toml:"offchain_config"`
 }

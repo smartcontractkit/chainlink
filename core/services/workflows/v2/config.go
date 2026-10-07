@@ -11,7 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -82,13 +83,16 @@ type EngineConfig struct {
 	ShardResolver           shardownership.ShardResolver
 
 	TriggerAcknowledger triggers.Acknowledger
+
+	CachedTriggerSubscriptions        []*sdkpb.TriggerSubscription
+	CachedTriggerSubscriptionsEnabled bool
 }
 
 type EngineLimiters struct {
 	// Settings is the CRE dynamic settings getter from [limits.Factory.Settings] (optional).
 	Settings settings.Getter
 
-	ExecutionResponse        limits.BoundLimiter[config.Size]
+	ExecutionResponse        limits.BoundLimiter[commonconfig.Size]
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
 	TriggerSubscription      limits.BoundLimiter[int]
@@ -96,16 +100,16 @@ type EngineLimiters struct {
 	TriggerEventQueueTimeout limits.BoundLimiter[time.Duration]
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
-	WASMBinarySize           limits.BoundLimiter[config.Size]
-	WASMCompressedBinarySize limits.BoundLimiter[config.Size]
-	WASMMemorySize           limits.BoundLimiter[config.Size]
+	WASMBinarySize           limits.BoundLimiter[commonconfig.Size]
+	WASMCompressedBinarySize limits.BoundLimiter[commonconfig.Size]
+	WASMMemorySize           limits.BoundLimiter[commonconfig.Size]
 
 	CapabilityConcurrency limits.ResourcePoolLimiter[int]
 	SecretsConcurrency    limits.ResourcePoolLimiter[int]
 	ExecutionTime         limits.TimeLimiter
 	CapabilityCallTime    limits.TimeLimiter
 	LogEvent              limits.BoundLimiter[int]
-	LogLine               limits.BoundLimiter[config.Size]
+	LogLine               limits.BoundLimiter[commonconfig.Size]
 	ChainAllowed          limits.GateLimiter
 
 	ChainWriteTargets     limits.BoundLimiter[int]
@@ -116,7 +120,7 @@ type EngineLimiters struct {
 	SecretsCalls          limits.BoundLimiter[int]
 
 	UserMetricEnabled          limits.GateLimiter
-	UserMetricPayload          limits.BoundLimiter[config.Size]
+	UserMetricPayload          limits.BoundLimiter[commonconfig.Size]
 	UserMetricNameLength       limits.BoundLimiter[int]
 	UserMetricLabelsPerMetric  limits.BoundLimiter[int]
 	UserMetricLabelValueLength limits.BoundLimiter[int]
@@ -385,7 +389,7 @@ type EngineFeatureFlags struct {
 	// The Check succeeds only when time.Now() is inside the configured active period,
 	// which lets ops schedule a healing window across the DON via cresettings.
 	// Nil when construction fails; call sites must nil-check.
-	WorkflowTagBackfill limits.RangeLimiter[config.Timestamp]
+	WorkflowTagBackfill limits.RangeLimiter[commonconfig.Timestamp]
 
 	// CoordinatedEngine selects the coordinatedEngine over the legacy trigger-owning
 	// Engine for newly created workflows. Nil when construction fails; call sites must nil-check.
@@ -397,7 +401,7 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
-	workflowTagBackfill, err := limits.MakeRangeLimiter[config.Timestamp](lf, cfg.FeatureWorkflowTagBackfillActivePeriod)
+	workflowTagBackfill, err := limits.MakeRangeLimiter[commonconfig.Timestamp](lf, cfg.FeatureWorkflowTagBackfillActivePeriod)
 	if err != nil {
 		return nil, fmt.Errorf("workflow tag backfill flag: %w", err)
 	}
@@ -436,11 +440,16 @@ type LifecycleHooks struct {
 	// has completed initialization. It is also helpful for testing.
 	OnInitialized func(err error)
 
+	// OnSubscriptionsReady is called once trigger subscriptions are available,
+	// whether freshly computed by the WASM Subscribe call or returned from
+	// EngineConfig.CachedTriggerSubscriptions; fromCache distinguishes the two
+	OnSubscriptionsReady func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE, fromCache bool) error
+
 	OnSubscribedToTriggers  func(triggerIDs []string)
 	OnTriggerEventDropped   func(triggerID, eventID, reason string)
-	OnExecutionFinished     func(executionID string, status string)
+	OnExecutionFinished     func(executionID, status string)
 	OnExecutionError        func(msg string)
-	OnExecutionStatusUpdate func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification)
+	OnExecutionStatusUpdate func(workflowID, executionID, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification)
 	OnResultReceived        func(*sdkpb.ExecutionResult)
 	OnRateLimited           func(executionID string)
 	OnNodeSynced            func(node commoncap.Node, err error)
@@ -525,6 +534,9 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	if h.OnInitialized == nil {
 		h.OnInitialized = func(err error) {}
 	}
+	if h.OnSubscriptionsReady == nil {
+		h.OnSubscriptionsReady = func(_ []*sdkpb.TriggerSubscription, _ contexts.CRE, _ bool) error { return nil }
+	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
 	}
@@ -541,7 +553,7 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		h.OnExecutionFinished = func(executionID, status string) {}
 	}
 	if h.OnExecutionStatusUpdate == nil {
-		h.OnExecutionStatusUpdate = func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
+		h.OnExecutionStatusUpdate = func(workflowID, executionID, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
 		}
 	}
 	if h.OnTriggerAdmission == nil {

@@ -31,6 +31,10 @@ func FixContent(filePath string, content []byte) ([]byte, bool, error) {
 		return content, false, nil
 	}
 
+	if filefilter.IsGoldenPath(filePath) {
+		return content, false, nil
+	}
+
 	ext := strings.ToLower(filepath.Ext(filePath))
 	switch ext {
 	case ".go":
@@ -45,7 +49,7 @@ func FixContent(filePath string, content []byte) ([]byte, bool, error) {
 // FixFile checks and trims extraneous whitespace for the file at filePath.
 func FixFile(filePath string, checkOnly bool) (bool, error) {
 	cleanPath := filepath.Clean(filePath)
-	if strings.ToLower(filepath.Ext(cleanPath)) == ".go" || !filefilter.IsEligiblePath(cleanPath) {
+	if strings.ToLower(filepath.Ext(cleanPath)) == ".go" || filefilter.IsGoldenPath(cleanPath) || !filefilter.IsEligiblePath(cleanPath) {
 		return false, nil
 	}
 

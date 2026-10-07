@@ -15,7 +15,6 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
@@ -24,20 +23,20 @@ func TestMercurySecrets_valid(t *testing.T) {
 	ms := MercurySecrets{
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
-				URL:      models.MustSecretURL("https://facebook.com"),
-				Username: models.NewSecret("new user1"),
-				Password: models.NewSecret("new password1"),
+				URL:      commonconfig.MustSecretURL("https://facebook.com"),
+				Username: commonconfig.NewSecretString("new user1"),
+				Password: commonconfig.NewSecretString("new password1"),
 			},
 			"cred2": {
-				URL:      models.MustSecretURL("HTTPS://GOOGLE.COM"),
-				Username: models.NewSecret("new user1"),
-				Password: models.NewSecret("new password2"),
+				URL:      commonconfig.MustSecretURL("HTTPS://GOOGLE.COM"),
+				Username: commonconfig.NewSecretString("new user1"),
+				Password: commonconfig.NewSecretString("new password2"),
 			},
 			"cred3": {
-				LegacyURL: models.MustSecretURL("https://abc.com"),
-				URL:       models.MustSecretURL("HTTPS://GOOGLE1.COM"),
-				Username:  models.NewSecret("new user1"),
-				Password:  models.NewSecret("new password2"),
+				LegacyURL: commonconfig.MustSecretURL("https://abc.com"),
+				URL:       commonconfig.MustSecretURL("HTTPS://GOOGLE1.COM"),
+				Username:  commonconfig.NewSecretString("new user1"),
+				Password:  commonconfig.NewSecretString("new password2"),
 			},
 		},
 	}
@@ -50,14 +49,14 @@ func TestMercurySecrets_duplicateURLs(t *testing.T) {
 	ms := MercurySecrets{
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
-				URL:      models.MustSecretURL("HTTPS://GOOGLE.COM"),
-				Username: models.NewSecret("new user1"),
-				Password: models.NewSecret("new password1"),
+				URL:      commonconfig.MustSecretURL("HTTPS://GOOGLE.COM"),
+				Username: commonconfig.NewSecretString("new user1"),
+				Password: commonconfig.NewSecretString("new password1"),
 			},
 			"cred2": {
-				URL:      models.MustSecretURL("HTTPS://GOOGLE.COM"),
-				Username: models.NewSecret("new user2"),
-				Password: models.NewSecret("new password2"),
+				URL:      commonconfig.MustSecretURL("HTTPS://GOOGLE.COM"),
+				Username: commonconfig.NewSecretString("new user2"),
+				Password: commonconfig.NewSecretString("new password2"),
 			},
 		},
 	}
@@ -72,8 +71,8 @@ func TestMercurySecrets_emptyURL(t *testing.T) {
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
 				URL:      nil,
-				Username: models.NewSecret("new user1"),
-				Password: models.NewSecret("new password1"),
+				Username: commonconfig.NewSecretString("new user1"),
+				Password: commonconfig.NewSecretString("new password1"),
 			},
 		},
 	}
@@ -117,13 +116,13 @@ func Test_validateDBURL(t *testing.T) {
 
 func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
 	validURL := commonconfig.URL(url.URL{Scheme: "https", Host: "localhost"})
-	validSecretURL := *models.NewSecretURL(&validURL)
+	validSecretURL := *commonconfig.NewSecretURL(&validURL)
 
 	invalidEmptyURL := commonconfig.URL(url.URL{})
-	invalidEmptySecretURL := *models.NewSecretURL(&invalidEmptyURL)
+	invalidEmptySecretURL := *commonconfig.NewSecretURL(&invalidEmptyURL)
 
 	invalidBackupURL := commonconfig.URL(url.URL{Scheme: "http", Host: "localhost"})
-	invalidBackupSecretURL := *models.NewSecretURL(&invalidBackupURL)
+	invalidBackupSecretURL := *commonconfig.NewSecretURL(&invalidBackupURL)
 
 	tests := []struct {
 		name                string
@@ -590,8 +589,8 @@ func TestEthKeys_TOMLSerialization(t *testing.T) {
 	t.Run("encode", func(t *testing.T) {
 		ethKeysWrapper := EthKeys{
 			Keys: []*EthKey{
-				{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new(1)},
-				{JSON: new(models.Secret("key2")), Password: new(models.Secret("pass2")), ID: new(99)},
+				{JSON: new(commonconfig.SecretString("key1")), Password: new(commonconfig.SecretString("pass1")), ID: new(1)},
+				{JSON: new(commonconfig.SecretString("key2")), Password: new(commonconfig.SecretString("pass2")), ID: new(99)},
 			},
 		}
 
@@ -621,8 +620,8 @@ Password = 'something'`
 		require.NoError(t, err)
 		assert.Len(t, decoded2.Keys, 1)
 		assert.Equal(t, 1337, *decoded2.Keys[0].ID)
-		assert.Equal(t, models.NewSecret("something"), decoded2.Keys[0].Password)
-		assert.Equal(t, models.NewSecret("{k:v}"), decoded2.Keys[0].JSON)
+		assert.Equal(t, commonconfig.NewSecretString("something"), decoded2.Keys[0].Password)
+		assert.Equal(t, commonconfig.NewSecretString("{k:v}"), decoded2.Keys[0].JSON)
 	})
 }
 
@@ -632,8 +631,8 @@ func TestSolKeys_TOMLSerialization(t *testing.T) {
 	t.Run("encode", func(t *testing.T) {
 		solKeys := SolKeys{
 			Keys: []*SolKey{
-				{JSON: new(models.Secret("solkey1")), Password: new(models.Secret("pass1")), ID: new("devnet")},
-				{JSON: new(models.Secret("solkey2")), Password: new(models.Secret("pass2")), ID: new("mainnet")},
+				{JSON: new(commonconfig.SecretString("solkey1")), Password: new(commonconfig.SecretString("pass1")), ID: new("devnet")},
+				{JSON: new(commonconfig.SecretString("solkey2")), Password: new(commonconfig.SecretString("pass2")), ID: new("mainnet")},
 			},
 		}
 
@@ -663,8 +662,8 @@ Password = 'secret'`
 		require.NoError(t, err)
 		assert.Len(t, decoded.Keys, 1)
 		assert.Equal(t, "devnet", *decoded.Keys[0].ID)
-		assert.Equal(t, models.NewSecret("secret"), decoded.Keys[0].Password)
-		assert.Equal(t, models.NewSecret("{k:v}"), decoded.Keys[0].JSON)
+		assert.Equal(t, commonconfig.NewSecretString("secret"), decoded.Keys[0].Password)
+		assert.Equal(t, commonconfig.NewSecretString("{k:v}"), decoded.Keys[0].JSON)
 	})
 }
 
@@ -675,8 +674,8 @@ func TestSolKeys_SetFrom(t *testing.T) {
 	solKeysWrapper2 := SolKeys{
 		Keys: []*SolKey{
 			{
-				JSON:     new(models.Secret("solkey1")),
-				Password: new(models.Secret("pass1")),
+				JSON:     new(commonconfig.SecretString("solkey1")),
+				Password: new(commonconfig.SecretString("pass1")),
 				ID:       new("devnet"),
 			},
 		},
@@ -691,7 +690,7 @@ func TestEthKeys_SetFrom(t *testing.T) {
 	ethKeysWrapper1 := &EthKeys{}
 	ethKeysWrapper2 := EthKeys{
 		Keys: []*EthKey{
-			{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new(1)},
+			{JSON: new(commonconfig.SecretString("key1")), Password: new(commonconfig.SecretString("pass1")), ID: new(1)},
 		},
 	}
 
@@ -705,10 +704,10 @@ func TestEthKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 	// Secrets files are applied in order and must union: a key from an earlier
 	// -s file has to survive a later file that only carries other chains' keys.
 	base := &EthKeys{Keys: []*EthKey{
-		{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new(1)},
+		{JSON: new(commonconfig.SecretString("key1")), Password: new(commonconfig.SecretString("pass1")), ID: new(1)},
 	}}
 	disjoint := &EthKeys{Keys: []*EthKey{
-		{JSON: new(models.Secret("key56")), Password: new(models.Secret("pass56")), ID: new(56)},
+		{JSON: new(commonconfig.SecretString("key56")), Password: new(commonconfig.SecretString("pass56")), ID: new(56)},
 	}}
 
 	require.NoError(t, base.SetFrom(disjoint))
@@ -721,7 +720,7 @@ func TestEthKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 
 	// Union must not weaken the no-overrides guarantee the -s flag documents.
 	dupe := &EthKeys{Keys: []*EthKey{
-		{JSON: new(models.Secret("other")), Password: new(models.Secret("otherpass")), ID: new(1)},
+		{JSON: new(commonconfig.SecretString("other")), Password: new(commonconfig.SecretString("otherpass")), ID: new(1)},
 	}}
 	require.Error(t, base.SetFrom(dupe))
 	assert.Len(t, base.Keys, 2)
@@ -733,7 +732,7 @@ func TestEthKeys_validateMerge_nilID(t *testing.T) {
 	// is a validation error, not a crash.
 	base := &EthKeys{}
 	noID := &EthKeys{Keys: []*EthKey{
-		{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1"))},
+		{JSON: new(commonconfig.SecretString("key1")), Password: new(commonconfig.SecretString("pass1"))},
 	}}
 	require.NotPanics(t, func() {
 		require.NoError(t, base.SetFrom(noID))
@@ -743,10 +742,10 @@ func TestEthKeys_validateMerge_nilID(t *testing.T) {
 func TestSolKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 	t.Parallel()
 	base := &SolKeys{Keys: []*SolKey{
-		{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new("devnet")},
+		{JSON: new(commonconfig.SecretString("key1")), Password: new(commonconfig.SecretString("pass1")), ID: new("devnet")},
 	}}
 	disjoint := &SolKeys{Keys: []*SolKey{
-		{JSON: new(models.Secret("key2")), Password: new(models.Secret("pass2")), ID: new("mainnet")},
+		{JSON: new(commonconfig.SecretString("key2")), Password: new(commonconfig.SecretString("pass2")), ID: new("mainnet")},
 	}}
 
 	require.NoError(t, base.SetFrom(disjoint))
@@ -758,13 +757,13 @@ func TestSolKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 	assert.Equal(t, []string{"devnet", "mainnet"}, ids, "keys from earlier secrets files must not be discarded")
 
 	dupe := &SolKeys{Keys: []*SolKey{
-		{JSON: new(models.Secret("other")), Password: new(models.Secret("otherpass")), ID: new("devnet")},
+		{JSON: new(commonconfig.SecretString("other")), Password: new(commonconfig.SecretString("otherpass")), ID: new("devnet")},
 	}}
 	require.Error(t, base.SetFrom(dupe))
 	assert.Len(t, base.Keys, 2)
 
 	require.NotPanics(t, func() {
-		noID := &SolKeys{Keys: []*SolKey{{JSON: new(models.Secret("k"))}}}
+		noID := &SolKeys{Keys: []*SolKey{{JSON: new(commonconfig.SecretString("k"))}}}
 		require.NoError(t, (&SolKeys{}).SetFrom(noID))
 	})
 }
@@ -772,10 +771,10 @@ func TestSolKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 func TestAptosKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 	t.Parallel()
 	base := &AptosKeys{Keys: []*AptosKey{
-		{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new(uint64(1))},
+		{JSON: new(commonconfig.SecretString("key1")), Password: new(commonconfig.SecretString("pass1")), ID: new(uint64(1))},
 	}}
 	disjoint := &AptosKeys{Keys: []*AptosKey{
-		{JSON: new(models.Secret("key2")), Password: new(models.Secret("pass2")), ID: new(uint64(2))},
+		{JSON: new(commonconfig.SecretString("key2")), Password: new(commonconfig.SecretString("pass2")), ID: new(uint64(2))},
 	}}
 
 	require.NoError(t, base.SetFrom(disjoint))
@@ -787,13 +786,13 @@ func TestAptosKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 	assert.Equal(t, []uint64{1, 2}, ids, "keys from earlier secrets files must not be discarded")
 
 	dupe := &AptosKeys{Keys: []*AptosKey{
-		{JSON: new(models.Secret("other")), Password: new(models.Secret("otherpass")), ID: new(uint64(1))},
+		{JSON: new(commonconfig.SecretString("other")), Password: new(commonconfig.SecretString("otherpass")), ID: new(uint64(1))},
 	}}
 	require.Error(t, base.SetFrom(dupe))
 	assert.Len(t, base.Keys, 2)
 
 	require.NotPanics(t, func() {
-		noID := &AptosKeys{Keys: []*AptosKey{{JSON: new(models.Secret("k"))}}}
+		noID := &AptosKeys{Keys: []*AptosKey{{JSON: new(commonconfig.SecretString("k"))}}}
 		require.NoError(t, (&AptosKeys{}).SetFrom(noID))
 	})
 }
@@ -832,7 +831,7 @@ func TestStellarKeys_SetFrom_multipleSecretsFiles(t *testing.T) {
 // rule.
 func TestKeys_ValidateConfig_partialFields(t *testing.T) {
 	t.Parallel()
-	secret := new(models.Secret("s"))
+	secret := new(commonconfig.SecretString("s"))
 	stellarSecret := new(commonconfig.SecretString("s"))
 
 	for _, tt := range []struct {

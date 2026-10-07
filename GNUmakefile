@@ -16,7 +16,7 @@ CL_LOOPINSTALL_OUTPUT_DIR ?=
 LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
 LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
-GOLANGCI_LINT_VERSION = "v2.13.1"
+GOLANGCI_LINT_VERSION = "v2.14.0"
 MOCKERY_VERSION = 2.53.7
 # Pin path so `make generate` does not pick up a different mockery (e.g. v3) from PATH.
 MOCKERY_BIN ?= $(shell command -v mockery 2>/dev/null || (GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" -a -f "$$GOBIN/mockery" ]; then echo "$$GOBIN/mockery"; else echo "$$(go env GOPATH)/bin/mockery"; fi))
@@ -192,7 +192,7 @@ operator-ui: ## Fetch the frontend
 	go run operator_ui/install.go .
 
 .PHONY: generate
-generate: codecgen mockery protoc gomods ## Execute all go:generate commands.
+generate: codecgen mockery protoc gomods config-docs ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
 	find . -type d -name "*temp-repo*" -exec rm -rf {} + 2>/dev/null || true
 	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...

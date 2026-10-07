@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -220,7 +220,7 @@ func TestConfig_SecretsMerging(t *testing.T) {
 
 func parseSecrets(secrets string) (*Secrets, error) {
 	var s Secrets
-	if err := config.DecodeTOML(strings.NewReader(secrets), &s); err != nil {
+	if err := commonconfig.DecodeTOML(strings.NewReader(secrets), &s); err != nil {
 		return nil, fmt.Errorf("failed to decode secrets TOML: %w", err)
 	}
 

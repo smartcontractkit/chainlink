@@ -170,9 +170,6 @@ func TestComputeOffchainCrossCheck_ConfigMismatch(t *testing.T) {
 		lggr: testLogger(t),
 		localCfg: &testLocalCapabilities{
 			allowlisted: map[string]bool{"cron@1.0.0": true},
-			configs: map[string]*testCapabilityNodeConfig{
-				"cron@1.0.0": {cfg: map[string]string{"tomlOnly": "t"}},
-			},
 		},
 	}
 	onchain := []registry.DON{{
@@ -198,9 +195,7 @@ func TestComputeOffchainCrossCheck_ConfigMismatch(t *testing.T) {
 	}{
 		{"no spec_config", nil, 0},
 		{"same value as on-chain", map[string]any{"interval": "20"}, 0},
-		{"same value as TOML", map[string]any{"tomlOnly": "t"}, 0},
 		{"overrides on-chain value", map[string]any{"interval": "30"}, 1},
-		{"overrides TOML value", map[string]any{"tomlOnly": "x"}, 1},
 		{"adds a key", map[string]any{"interval": "20", "extra": "e"}, 1},
 		{"different type, same text", map[string]any{"interval": int64(20)}, 1},
 	} {

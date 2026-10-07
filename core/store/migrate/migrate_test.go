@@ -131,7 +131,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 			ExternalJobID:  uuid.New(),
 			Type:           job.OffchainReporting2,
 			SchemaVersion:  1,
-			PipelineSpecID: pipelineID,
+			PipelineSpecID: pipelineID, //nolint:staticcheck // SA1019: test data for legacy schema migration
 		},
 		Offchainreporting2OracleSpec:   &spec,
 		Offchainreporting2OracleSpecID: &spec.ID,
@@ -143,7 +143,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 			ExternalJobID:  uuid.New(),
 			Type:           job.OffchainReporting2,
 			SchemaVersion:  1,
-			PipelineSpecID: pipelineID2,
+			PipelineSpecID: pipelineID2, //nolint:staticcheck // SA1019: test data for legacy schema migration
 		},
 		Offchainreporting2OracleSpec:   &spec2,
 		Offchainreporting2OracleSpecID: &spec2.ID,
@@ -163,7 +163,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 			ExternalJobID:  uuid.New(),
 			Type:           job.OffchainReporting2,
 			SchemaVersion:  1,
-			PipelineSpecID: nonBootstrapPipelineID,
+			PipelineSpecID: nonBootstrapPipelineID, //nolint:staticcheck // SA1019: test data for legacy schema migration
 		},
 		Offchainreporting2OracleSpec:   &nonBootstrapSpec,
 		Offchainreporting2OracleSpecID: &nonBootstrapSpec.ID,
@@ -186,7 +186,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 			ExternalJobID:   uuid.New(),
 			Type:            job.Bootstrap,
 			SchemaVersion:   1,
-			PipelineSpecID:  newFormatBootstrapPipelineID2,
+			PipelineSpecID:  newFormatBootstrapPipelineID2, //nolint:staticcheck // SA1019: test data for legacy schema migration
 			BootstrapSpecID: &newFormatBootstrapSpec.ID,
 			BootstrapSpec:   &newFormatBootstrapSpec,
 		},
@@ -251,7 +251,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	require.Len(t, jobs, 4)
 	t.Logf("jobs count %d\n", len(jobs))
 	for _, jb := range jobs {
-		t.Logf("job id: %d with BootstrapSpecID: %d\n", jb.ID, jb.BootstrapSpecID)
+		t.Logf("job id: %d with BootstrapSpecID: %v\n", jb.ID, jb.BootstrapSpecID)
 	}
 	require.Nil(t, jobs[2].BootstrapSpecID)
 

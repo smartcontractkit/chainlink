@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
@@ -43,7 +42,7 @@ func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlin
 
 // overrides applies some test config settings and adds a default chain with client.NullClientChainID.
 func overrides(c *chainlink.Config, s *chainlink.Secrets) {
-	s.Password.Keystore = models.NewSecret("dummy-to-pass-validation")
+	s.Password.Keystore = commonconfig.NewSecretString("dummy-to-pass-validation")
 
 	c.Insecure.OCRDevelopmentMode = new(true)
 	c.InsecureFastScrypt = new(true)

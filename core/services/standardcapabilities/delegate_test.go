@@ -326,8 +326,9 @@ type stubLocalCapabilities struct {
 	allowlisted map[string]bool
 }
 
+func (s *stubLocalCapabilities) UseOffchainRegistry() bool { return false }
+
 func (s *stubLocalCapabilities) RegistryBasedLaunchAllowlist() []string { return nil }
-func (s *stubLocalCapabilities) UseOffchainRegistry() bool              { return false }
 func (s *stubLocalCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
 	return nil
 }

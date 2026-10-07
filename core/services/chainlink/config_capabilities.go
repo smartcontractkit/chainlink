@@ -73,20 +73,12 @@ type dispatcher struct {
 	d toml.Dispatcher
 }
 
-func (d *dispatcher) SupportedVersion() int {
-	return *d.d.SupportedVersion
-}
-
 func (d *dispatcher) ReceiverBufferSize() int {
 	return *d.d.ReceiverBufferSize
 }
 
 func (d *dispatcher) RateLimit() config.DispatcherRateLimit {
 	return &dispatcherRateLimit{r: d.d.RateLimit}
-}
-
-func (d *dispatcher) SendToSharedPeer() bool {
-	return *d.d.SendToSharedPeer
 }
 
 type sharedPeering struct {
@@ -212,10 +204,6 @@ func (c *capabilitiesWorkflowRegistry) ContractVersion() string {
 
 func (c *capabilitiesWorkflowRegistry) Address() string {
 	return *c.c.Address
-}
-
-func (c *capabilitiesWorkflowRegistry) MaxEncryptedSecretsSize() utils.FileSize {
-	return *c.c.MaxEncryptedSecretsSize
 }
 
 func (c *capabilitiesWorkflowRegistry) MaxBinarySize() utils.FileSize {
@@ -479,8 +467,4 @@ func (c *capabilityNodeConfig) BinaryPathOverride() string {
 		return ""
 	}
 	return *c.c.BinaryPathOverride
-}
-
-func (c *capabilityNodeConfig) Config() map[string]string {
-	return c.c.Config
 }

@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 type ShardAssignmentConfig struct {
@@ -23,7 +21,6 @@ type ShardAssignmentConfig struct {
 const (
 	ConfigTypeSettings        = "settings"
 	ConfigTypeShardAssignment = "shard_assignment"
-	ConfigTypeCapRegistry     = job.CRESettingsConfigTypeCapRegistry
 )
 
 func ParseShardAssignmentConfig(raw string) (*ShardAssignmentConfig, error) {

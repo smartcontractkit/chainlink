@@ -51,7 +51,8 @@ func (r *Resolver) Bridge(ctx context.Context, args struct{ ID graphql.ID }) (*B
 func (r *Resolver) Bridges(ctx context.Context, args struct {
 	Offset *int32
 	Limit  *int32
-}) (*BridgesPayloadResolver, error) {
+},
+) (*BridgesPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -82,7 +83,8 @@ func (r *Resolver) Chain(ctx context.Context,
 	args struct {
 		ID      graphql.ID
 		Network *string
-	}) (*ChainPayloadResolver, error) {
+	},
+) (*ChainPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -116,7 +118,8 @@ func (r *Resolver) Chain(ctx context.Context,
 func (r *Resolver) Chains(ctx context.Context, args struct {
 	Offset *int32
 	Limit  *int32
-}) (*ChainsPayloadResolver, error) {
+},
+) (*ChainsPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -235,7 +238,8 @@ func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobP
 func (r *Resolver) Jobs(ctx context.Context, args struct {
 	Offset *int32
 	Limit  *int32
-}) (*JobsPayloadResolver, error) {
+},
+) (*JobsPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -295,14 +299,14 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 	name := string(args.ID)
 	r.App.GetLogger().Debug("resolver Node name %s", name)
 
-	for _, relayer := range r.App.GetRelayers().Slice() {
+	for rid, relayer := range r.App.GetRelayers().GetIDToRelayerMap() {
 		statuses, _, _, err := relayer.ListNodeStatuses(ctx, 0, "")
 		if err != nil {
 			return nil, err
 		}
-		for i, s := range statuses {
+		for _, s := range statuses {
 			if s.Name == name {
-				npr, err2 := NewNodePayloadResolver(&statuses[i], nil)
+				npr, err2 := NewNodePayloadResolver(&chainlink.NetworkNodeStatus{Network: rid.Network, NodeStatus: s}, nil)
 				if err2 != nil {
 					return nil, err2
 				}
@@ -345,7 +349,8 @@ func (r *Resolver) VRFKeys(ctx context.Context) (*VRFKeysPayloadResolver, error)
 // VRFKey fetches the VRF key with the given ID.
 func (r *Resolver) VRFKey(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*VRFKeyPayloadResolver, error) {
+},
+) (*VRFKeyPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -364,7 +369,8 @@ func (r *Resolver) VRFKey(ctx context.Context, args struct {
 // JobProposal retrieves a job proposal by ID
 func (r *Resolver) JobProposal(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*JobProposalPayloadResolver, error) {
+},
+) (*JobProposalPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -390,7 +396,8 @@ func (r *Resolver) JobProposal(ctx context.Context, args struct {
 func (r *Resolver) Nodes(ctx context.Context, args struct {
 	Offset *int32
 	Limit  *int32
-}) (*NodesPayloadResolver, error) {
+},
+) (*NodesPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -415,7 +422,8 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 func (r *Resolver) JobRuns(ctx context.Context, args struct {
 	Offset *int32
 	Limit  *int32
-}) (*JobRunsPayloadResolver, error) {
+},
+) (*JobRunsPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -433,7 +441,8 @@ func (r *Resolver) JobRuns(ctx context.Context, args struct {
 
 func (r *Resolver) JobRun(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*JobRunPayloadResolver, error) {
+},
+) (*JobRunPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -515,7 +524,8 @@ func (r *Resolver) ConfigV2(ctx context.Context) (*ConfigV2PayloadResolver, erro
 
 func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 	Hash graphql.ID
-}) (*EthTransactionPayloadResolver, error) {
+},
+) (*EthTransactionPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -536,7 +546,8 @@ func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 	Offset *int32
 	Limit  *int32
-}) (*EthTransactionsPayloadResolver, error) {
+},
+) (*EthTransactionsPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -555,7 +566,8 @@ func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
 	Offset *int32
 	Limit  *int32
-}) (*EthTransactionsAttemptsPayloadResolver, error) {
+},
+) (*EthTransactionsAttemptsPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}

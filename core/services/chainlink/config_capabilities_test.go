@@ -76,14 +76,11 @@ func TestCapabilitiesLocalConfig(t *testing.T) {
 	httpAction := local.GetCapabilityConfig("http-action@1.0.0")
 	require.NotNil(t, httpAction)
 	assert.Equal(t, "/opt/chainlink/binaries/http_action", httpAction.BinaryPathOverride())
-	assert.Equal(t, "gateway", httpAction.Config()["proxyMode"])
-	assert.Equal(t, "443,8443", httpAction.Config()["allowedPorts"])
 
 	// Test cron config
 	cronConfig := local.GetCapabilityConfig("cron@1.0.0")
 	require.NotNil(t, cronConfig)
 	assert.Equal(t, "/opt/chainlink/binaries/cron", cronConfig.BinaryPathOverride())
-	assert.Equal(t, "60", cronConfig.Config()["fastestScheduleIntervalSeconds"])
 
 	// Test non-existent capability
 	unknownConfig := local.GetCapabilityConfig("unknown@1.0.0")

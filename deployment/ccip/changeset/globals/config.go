@@ -6,7 +6,7 @@ import (
 
 	"dario.cat/mergo"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -43,8 +43,8 @@ var (
 	// on _most_ chains. This should be used as a base for all chains, with overrides only where necessary.
 	// Notable overrides are for Ethereum, which has a slower block time.
 	DefaultCommitOffChainCfg = pluginconfig.CommitOffchainConfig{
-		RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
-		TokenPriceBatchWriteFrequency:      *config.MustNewDuration(TokenPriceBatchWriteFrequency),
+		RemoteGasPriceBatchWriteFrequency:  *commonconfig.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
+		TokenPriceBatchWriteFrequency:      *commonconfig.MustNewDuration(TokenPriceBatchWriteFrequency),
 		NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
 		MaxReportTransmissionCheckAttempts: 10,
 		RMNSignaturesTimeout:               6900 * time.Millisecond,
@@ -68,8 +68,8 @@ var (
 		// ChainFeeAsyncObserverSyncTimeout:   1 * time.Second,
 		TokenPriceAsyncObserverDisabled: true,
 		// TODO: revisit
-		// TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(1*time.Second + 500*time.Millisecond),
-		// TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(1 * time.Second),
+		// TokenPriceAsyncObserverSyncFreq:    *commonconfig.MustNewDuration(1*time.Second + 500*time.Millisecond),
+		// TokenPriceAsyncObserverSyncTimeout: *commonconfig.MustNewDuration(1 * time.Second),
 
 		// Remaining fields cannot be statically set:
 		// PriceFeedChainSelector: , // Must be configured in CLD
@@ -83,9 +83,9 @@ var (
 	// Notable overrides are for Ethereum, which has a slower block time.
 	DefaultExecuteOffChainCfg = pluginconfig.ExecuteOffchainConfig{
 		BatchGasLimit:               BatchGasLimit,
-		InflightCacheExpiry:         *config.MustNewDuration(InflightCacheExpiry),
-		RootSnoozeTime:              *config.MustNewDuration(RootSnoozeTime),
-		MessageVisibilityInterval:   *config.MustNewDuration(8 * time.Hour),
+		InflightCacheExpiry:         *commonconfig.MustNewDuration(InflightCacheExpiry),
+		RootSnoozeTime:              *commonconfig.MustNewDuration(RootSnoozeTime),
+		MessageVisibilityInterval:   *commonconfig.MustNewDuration(8 * time.Hour),
 		BatchingStrategyID:          BatchingStrategyID,
 		TransmissionDelayMultiplier: TransmissionDelayMultiplier,
 		MaxReportMessages:           0,
@@ -98,13 +98,13 @@ var (
 	DefaultCommitOffChainCfgForEth = withCommitOffchainConfigOverrides(
 		DefaultCommitOffChainCfg,
 		pluginconfig.CommitOffchainConfig{
-			RemoteGasPriceBatchWriteFrequency: *config.MustNewDuration(2 * time.Hour),
-			TokenPriceBatchWriteFrequency:     *config.MustNewDuration(12 * time.Hour),
+			RemoteGasPriceBatchWriteFrequency: *commonconfig.MustNewDuration(2 * time.Hour),
+			TokenPriceBatchWriteFrequency:     *commonconfig.MustNewDuration(12 * time.Hour),
 		},
 	)
 )
 
-func withCommitOffchainConfigOverrides(base pluginconfig.CommitOffchainConfig, overrides pluginconfig.CommitOffchainConfig) pluginconfig.CommitOffchainConfig {
+func withCommitOffchainConfigOverrides(base, overrides pluginconfig.CommitOffchainConfig) pluginconfig.CommitOffchainConfig {
 	outcome := base
 	if err := mergo.Merge(&outcome, overrides, mergo.WithOverride); err != nil {
 		panic(fmt.Sprintf("error while building an OCR config %v", err))

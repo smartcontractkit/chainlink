@@ -31,41 +31,6 @@ func storedRegistry(t *testing.T, version uint64, dons map[uint32]map[string]*ca
 	return gc
 }
 
-func TestTomlCapabilityConfigProvider(t *testing.T) {
-	t.Parallel()
-
-	t.Run("nil localCfg returns nil", func(t *testing.T) {
-		t.Parallel()
-		p := tomlCapabilityConfigProvider{}
-		assert.Nil(t, p.LocalConfigOverrides("cron@1.0.0", 1))
-	})
-
-	t.Run("returns capability config map", func(t *testing.T) {
-		t.Parallel()
-		p := tomlCapabilityConfigProvider{localCfg: &testLocalCapabilities{
-			configs: map[string]*testCapabilityNodeConfig{
-				"cron@1.0.0": {cfg: map[string]string{"interval": "60"}},
-			},
-		}}
-		assert.Equal(t, map[string]any{"interval": "60"}, p.LocalConfigOverrides("cron@1.0.0", 1))
-	})
-
-	t.Run("unknown capability returns nil", func(t *testing.T) {
-		t.Parallel()
-		p := tomlCapabilityConfigProvider{localCfg: &testLocalCapabilities{}}
-		assert.Nil(t, p.LocalConfigOverrides("missing@1.0.0", 1))
-	})
-}
-
-// stubConfigProvider lets tests drive buildConfigJSON through the seam directly.
-type stubConfigProvider struct {
-	overrides map[string]map[string]any
-}
-
-func (s stubConfigProvider) LocalConfigOverrides(capID string, _ uint32) map[string]any {
-	return s.overrides[capID]
-}
-
 func TestOffchainCapabilityConfigProvider(t *testing.T) {
 	t.Parallel()
 
@@ -135,74 +100,4 @@ func onchainSpecConfig(t *testing.T, kv map[string]any) registry.CapabilityConfi
 	b, err := proto.Marshal(cc)
 	require.NoError(t, err)
 	return registry.CapabilityConfiguration{Config: b}
-}
-
-func TestBuildConfigJSON_UsesConfigProvider(t *testing.T) {
-	t.Parallel()
-
-	mgr := &localCapabilityManager{
-		lggr: testLogger(t),
-		configProvider: stubConfigProvider{overrides: map[string]map[string]any{
-			"cron@1.0.0": {"interval": "60"},
-		}},
-	}
-
-	got, err := mgr.buildConfigJSON(&capabilityInfo{
-		capID:  "cron@1.0.0",
-		config: registry.CapabilityConfiguration{},
-	})
-	require.NoError(t, err)
-	assert.JSONEq(t, `{"interval":"60"}`, got)
-}
-
-func TestContributingTOMLKeys(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name                    string
-		toml, onchain, offchain map[string]any
-		want                    []string
-	}{
-		{"no toml", nil, map[string]any{"a": "1"}, nil, nil},
-		{"toml only contributes, sorted", map[string]any{"b": "2", "a": "1"}, nil, nil, []string{"a", "b"}},
-		{"shadowed by on-chain does not contribute", map[string]any{"a": "1"}, map[string]any{"a": "9"}, nil, nil},
-		{"shadowed by offchain does not contribute", map[string]any{"a": "1"}, nil, map[string]any{"a": "9"}, nil},
-		{"same value still counts as shadowed", map[string]any{"a": "1"}, map[string]any{"a": "1"}, nil, nil},
-		{"partial", map[string]any{"a": "1", "b": "2", "c": "3"}, map[string]any{"b": "x"}, map[string]any{"c": "y"}, []string{"a"}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			assert.Equal(t, tt.want, contributingTOMLKeys(tt.toml, tt.onchain, tt.offchain))
-		})
-	}
-}
-
-func TestBuildConfigJSON_TracksTomlContribution(t *testing.T) {
-	t.Parallel()
-
-	mgr := &localCapabilityManager{
-		lggr: testLogger(t),
-		configProvider: tomlCapabilityConfigProvider{localCfg: &testLocalCapabilities{
-			configs: map[string]*testCapabilityNodeConfig{
-				"cron@1.0.0": {cfg: map[string]string{"tomlOnly": "a", "shadowedByOnchain": "b", "shadowedByOffchain": "c"}},
-			},
-		}},
-	}
-	info := &capabilityInfo{
-		capID:             "cron@1.0.0",
-		donID:             1,
-		config:            onchainSpecConfig(t, map[string]any{"shadowedByOnchain": "oc"}),
-		offchainOverrides: map[string]any{"shadowedByOffchain": "off"},
-	}
-
-	_, err := mgr.buildConfigJSON(info)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"tomlOnly"}, info.tomlConfigKeysUsed)
-
-	// No TOML override -> nothing tracked.
-	bare := &localCapabilityManager{lggr: testLogger(t), configProvider: tomlCapabilityConfigProvider{localCfg: &testLocalCapabilities{}}}
-	info2 := &capabilityInfo{capID: "cron@1.0.0", donID: 1, config: onchainSpecConfig(t, map[string]any{"x": "1"})}
-	_, err = bare.buildConfigJSON(info2)
-	require.NoError(t, err)
-	assert.Empty(t, info2.tomlConfigKeysUsed)
 }

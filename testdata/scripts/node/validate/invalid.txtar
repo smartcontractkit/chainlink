@@ -338,9 +338,7 @@ BytesRateLimiterRate = 5000000.0
 BytesRateLimiterCapacity = 10000000
 
 [Capabilities.Dispatcher]
-SupportedVersion = 1
 ReceiverBufferSize = 10000
-SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -360,7 +358,6 @@ NetworkID = 'evm'
 ChainID = '1'
 ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
-MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 MaxConcurrency = 12
@@ -450,6 +447,7 @@ PerOwner = 200
 UseLocalTimeProvider = true
 EnableDKGRecipient = false
 DebugMode = false
+CachedTriggerSubscriptionsEnabled = false
 
 [CRE.Streams]
 WsURL = ''
@@ -624,7 +622,7 @@ Invalid configuration: 2 errors:
 	- invalid configuration: Billing.URL: invalid value (): billing service url must be set
 	- invalid secrets: 2 errors:
 	- Database: 2 errors:
-		- URL: invalid value (*****): missing or insufficiently complex password: 
+		- URL: invalid value (*****): missing or insufficiently complex password:
 	Expected password complexity:
 	Must be at least 16 characters long
 	Must not comprise:
@@ -633,17 +631,16 @@ Invalid configuration: 2 errors:
 	
 	Faults:
 		password is less than 16 characters long
-	. Database should be secured by a password matching the following complexity requirements: 
+	. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 	
-		- BackupURL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
+		- BackupURL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 	
 	- Password.Keystore: empty: must be provided and non-empty
-
 -- err.txt --
 Error running app: configuration validation failed: invalid configuration

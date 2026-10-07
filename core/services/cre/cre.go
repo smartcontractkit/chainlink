@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -538,7 +539,10 @@ func (s *Services) newRegistrySyncer(
 					}
 					return ocr2Delegate.NewServices(ctx, capID, donID, commontypes.DonTimePlugin, configJSON, ocr3Config)
 				}
-				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), nil, donID, ocr3Config)
+				// Enable the oracle factory only when there's an on-chain OCR3 config.
+				// ResolveOracleFactoryConfig then fills in all details from node config and keystore.
+				oracleFactoryConfig := &job.OracleFactoryConfig{Enabled: ocr3Config != nil}
+				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), oracleFactoryConfig, donID, ocr3Config)
 			}
 
 			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn, opts.OffchainCapabilitiesRegistry, localCfg.UseOffchainRegistry())
@@ -975,19 +979,36 @@ func newWorkflowRegistrySyncerV2(
 	meterRecordsEnabled := meteringCfg != nil && meteringCfg.MeterRecordsEnabled()
 	meterSnapshotsEnabled := meteringCfg != nil && meteringCfg.MeterSnapshotsEnabled()
 
+	coordinatorMetrics, err := wfmonitoring.InitMonitoringResources()
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to init trigger coordinator metrics: %w", err)
+	}
+	triggerCoordinator := triggers.NewCoordinator(
+		triggers.RegisterDeps{
+			CapRegistry:  opts.CapabilitiesRegistry,
+			RegTimeout:   engineLimiters.TriggerRegistrationsTime,
+			ChainAllowed: engineLimiters.ChainAllowed,
+			Settings:     engineLimiters.Settings,
+			Logger:       lggr,
+			Metrics:      wfmonitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), coordinatorMetrics),
+		},
+		syncerV2.NewTriggerEngineRegistry(engineRegistry),
+		workflowLimits,
+		clockwork.NewRealClock(),
+	)
+
 	handlerOpts := []syncerV2.EventHandlerOption{
 		syncerV2.WithBillingClient(billingClient),
 		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
+		syncerV2.WithCachedTriggerSubscriptionsEnabled(cfg.CRE().CachedTriggerSubscriptionsEnabled()),
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
 		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 		syncerV2.WithShardResolver(shardResolver),
 		syncerV2.WithShardIndex(uint32(cfg.Sharding().ShardIndex())),
-		syncerV2.WithTriggerCoordinator(
-			triggers.NewCoordinator(opts.CapabilitiesRegistry, syncerV2.NewTriggerEngineRegistry(engineRegistry), clockwork.NewRealClock(), lggr),
-		),
+		syncerV2.WithTriggerCoordinator(triggerCoordinator),
 	}
 	if shardingEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,

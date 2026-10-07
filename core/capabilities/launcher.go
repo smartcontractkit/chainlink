@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -108,7 +108,7 @@ type shimID struct {
 func NewLauncher(
 	lggr logger.Logger,
 	don2donSharedPeer p2ptypes.SharedPeer,
-	streamConfig config.StreamConfig,
+	streamConfig coreconfig.StreamConfig,
 	dispatcher remotetypes.Dispatcher,
 	registry *registry.Registry,
 	workflowDonNotifier DonNotifier,
@@ -292,7 +292,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, metadataRegistry *registry
 	}) {
 		return errors.New("service has been stopped")
 	}
-	return
+	return err
 }
 
 func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry.RegistryMetadata) error {
@@ -470,7 +470,7 @@ func (w *launcher) warnOnDuplicateInFamilyCapabilities(ctx context.Context, remo
 	}
 }
 
-func donFamiliesOverlap(donA []string, donB []string) bool {
+func donFamiliesOverlap(donA, donB []string) bool {
 	if len(donA) == 0 && len(donB) == 0 {
 		return true // legacy setting with empty families - ignore filtering
 	}
@@ -543,7 +543,7 @@ func (w *launcher) offchainMethodConfigsSnapshot(allDONIDs []registry.DonID, loc
 // addRemoteCapabilities adds remote capabilities from a remote DON to the local node,
 // allowing the local node to use these capabilities in its workflows.
 // it is best effort to ensure that valid capabilities are added even if some fail
-func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registry.DON, remoteDON registry.DON, localRegistry *registry.RegistryMetadata, offchain *offchainMethodConfigs) {
+func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON registry.DON, localRegistry *registry.RegistryMetadata, offchain *offchainMethodConfigs) {
 	for cid, c := range remoteDON.CapabilityConfigurations {
 		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
@@ -633,7 +633,7 @@ func signersFor(don registry.DON, localRegistry *registry.RegistryMetadata) ([][
 }
 
 // Add a V2 capability with multiple methods, using CombinedClient.
-func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON registry.DON, remoteDON registry.DON, metadataRegistry *registry.RegistryMetadata) error {
+func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON, remoteDON registry.DON, metadataRegistry *registry.RegistryMetadata) error {
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capabilities.CapabilityTypeCombined,
@@ -746,7 +746,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 	}
 	for method, config := range methodConfig {
 		if config.RemoteTriggerConfig != nil { // trigger
-			underlyingTriggerCapability, ok := (underlying).(capabilities.TriggerCapability)
+			underlyingTriggerCapability, ok := underlying.(capabilities.TriggerCapability)
 			if !ok {
 				return fmt.Errorf("capability %s does not implement TriggerCapability", capID)
 			}
@@ -775,7 +775,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 				w.lggr.Infow("added new remote trigger publisher", "capID", capID, "method", method)
 			}
 		} else { // executable
-			underlyingExecutableCapability, ok := (underlying).(capabilities.ExecutableCapability)
+			underlyingExecutableCapability, ok := underlying.(capabilities.ExecutableCapability)
 			if !ok {
 				return fmt.Errorf("capability %s does not implement ExecutableCapability", capID)
 			}

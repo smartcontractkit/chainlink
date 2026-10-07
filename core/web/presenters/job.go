@@ -506,19 +506,14 @@ type CRESettingsSpec struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 	Settings  string    `json:"settings"`
 	Hash      string    `json:"hash"`
-	// ConfigType and OffchainConfig are only set for config_type=capabilities_registry specs.
-	ConfigType     string `json:"configType,omitempty"`
-	OffchainConfig string `json:"offchainConfig,omitempty"`
 }
 
 func NewCRESettingsSpec(spec *job.CRESettingsSpec) *CRESettingsSpec {
 	return &CRESettingsSpec{
-		CreatedAt:      spec.CreatedAt,
-		UpdatedAt:      spec.UpdatedAt,
-		Settings:       spec.Settings,
-		Hash:           spec.Hash,
-		ConfigType:     spec.ConfigType,
-		OffchainConfig: spec.OffchainConfig,
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
+		Settings:  spec.Settings,
+		Hash:      spec.Hash,
 	}
 }
 
@@ -629,7 +624,7 @@ func NewJobResource(j job.Job) *JobResource {
 
 	jes := make([]JobError, 0, len(j.JobSpecErrors))
 	for _, e := range j.JobSpecErrors {
-		jes = append(jes, NewJobError((e)))
+		jes = append(jes, NewJobError(e))
 	}
 	resource.Errors = jes
 

@@ -23,15 +23,9 @@ type metrics struct {
 	runningGauge   metric.Int64Gauge
 
 	// Offchain capabilities registry cross-validation telemetry. The applied version is
-	// emitted by the cresettings CapRegistryProjector (platform_cap_config_applied_version).
+	// emitted by the cresettings delegate (platform_cap_config_applied_version).
 	offchainMatchedCaps metric.Int64Gauge
 	offchainDivergences metric.Int64Counter
-
-	// tomlConfigOverrideUsed counts capability launches whose node-local TOML
-	// [Capabilities.Local.Capabilities.<id>].Config override contributed at least one key to the
-	// effective config. Deprecation signal: this override is slated for removal once config moves
-	// to the offchain capabilities registry, so a rate of ~0 in production is the green light.
-	tomlConfigOverrideUsed metric.Int64Counter
 }
 
 func newMetrics() (*metrics, error) {
@@ -79,21 +73,14 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
-	tomlConfigOverrideUsed, err := meter.Int64Counter("platform_capability_toml_config_override_used_total",
-		metric.WithDescription("Capability launches where a node-local TOML Config override contributed a key to the effective config (deprecated; slated for removal)"))
-	if err != nil {
-		return nil, err
-	}
-
 	return &metrics{
-		launchesTotal:          launchesTotal,
-		stopsTotal:             stopsTotal,
-		configUpdates:          configUpdates,
-		launchDuration:         launchDuration,
-		runningGauge:           runningGauge,
-		offchainMatchedCaps:    offchainMatchedCaps,
-		offchainDivergences:    offchainDivergences,
-		tomlConfigOverrideUsed: tomlConfigOverrideUsed,
+		launchesTotal:       launchesTotal,
+		stopsTotal:          stopsTotal,
+		configUpdates:       configUpdates,
+		launchDuration:      launchDuration,
+		runningGauge:        runningGauge,
+		offchainMatchedCaps: offchainMatchedCaps,
+		offchainDivergences: offchainDivergences,
 	}, nil
 }
 
@@ -115,10 +102,6 @@ func (m *metrics) recordConfigUpdate(ctx context.Context, capID string) {
 
 func (m *metrics) recordRunning(ctx context.Context, count int64) {
 	m.runningGauge.Record(ctx, count)
-}
-
-func (m *metrics) recordTomlConfigOverrideUsed(ctx context.Context, capID string) {
-	m.tomlConfigOverrideUsed.Add(ctx, 1, metric.WithAttributes(attribute.String(keyCapabilityID, capID)))
 }
 
 // recordOffchainCheck emits the result of an offchain-vs-onchain cross-validation pass.

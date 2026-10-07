@@ -2239,40 +2239,4 @@ func TestORM_CRESettings(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, jobORM.DeleteJob(t.Context(), settingsJob.ID, settingsJob.Type))
-
-	// capabilities_registry specs carry their payload in config_type/offchain_config rather than
-	// settings; both must survive persistence so the job resolves to the same config_type (and
-	// re-applies the same payload) when it is reloaded on node restart.
-	const offchainConfig = `{"domain":"cre","env":"test","version":3,"dons":{"don-7":{"capabilities":{"cron@1.0.0":{}}}}}`
-	capRegJob, err := cresettings.ValidatedCRESettingsSpec(fmt.Sprintf(`type = "cresettings"
-schemaVersion = 2
-externalJobID = "%s"
-config_type = "capabilities_registry"
-offchain_config = '''%s'''`, uuid.New(), offchainConfig))
-	require.NoError(t, err)
-	require.NoError(t, jobORM.CreateJob(t.Context(), &capRegJob))
-
-	loaded, err := jobORM.FindJobByExternalJobID(t.Context(), capRegJob.ExternalJobID)
-	require.NoError(t, err)
-	require.NotNil(t, loaded.CRESettingsSpec)
-	assert.Equal(t, cresettings.ConfigTypeCapRegistry, loaded.CRESettingsSpec.ConfigType)
-	assert.JSONEq(t, offchainConfig, loaded.CRESettingsSpec.OffchainConfig)
-	assert.Equal(t, capRegJob.CRESettingsSpec.Hash, loaded.CRESettingsSpec.Hash)
-	assert.Empty(t, loaded.CRESettingsSpec.Settings)
-
-	// FindJobs is the path the spawner uses to start all jobs on boot.
-	all, _, err := jobORM.FindJobs(t.Context(), 0, 100)
-	require.NoError(t, err)
-	var found bool
-	for _, j := range all {
-		if j.ID == loaded.ID {
-			found = true
-			require.NotNil(t, j.CRESettingsSpec)
-			assert.Equal(t, cresettings.ConfigTypeCapRegistry, j.CRESettingsSpec.ConfigType)
-			assert.JSONEq(t, offchainConfig, j.CRESettingsSpec.OffchainConfig)
-		}
-	}
-	require.True(t, found, "capabilities_registry job not returned by FindJobs")
-
-	require.NoError(t, jobORM.DeleteJob(t.Context(), loaded.ID, loaded.Type))
 }

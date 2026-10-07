@@ -103,38 +103,6 @@ func TestBuildDesiredState_NilLocalConfig(t *testing.T) {
 	assert.Empty(t, desired, "nil config should not allow any capabilities")
 }
 
-func TestOnchainOracleFactoryConfigPresent(t *testing.T) {
-	t.Parallel()
-
-	t.Run("empty config returns false", func(t *testing.T) {
-		t.Parallel()
-		assert.False(t, onchainOracleFactoryConfigPresent(registry.CapabilityConfiguration{}))
-	})
-
-	t.Run("unparseable config returns false", func(t *testing.T) {
-		t.Parallel()
-		cc := registry.CapabilityConfiguration{Config: []byte("not-valid-proto")}
-		assert.False(t, onchainOracleFactoryConfigPresent(cc))
-	})
-
-	t.Run("config without oracle_factory_configs returns false", func(t *testing.T) {
-		t.Parallel()
-		cc := registry.CapabilityConfiguration{Config: mustMarshalCapConfig(t, map[string]string{"k": "v"})}
-		assert.False(t, onchainOracleFactoryConfigPresent(cc))
-	})
-
-	t.Run("config with oracle_factory_configs returns true", func(t *testing.T) {
-		t.Parallel()
-		raw, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
-			OracleFactoryConfigs: map[string]*valuespb.Map{
-				capabilitiespb.OCR3ConfigDefaultKey: {},
-			},
-		})
-		require.NoError(t, err)
-		assert.True(t, onchainOracleFactoryConfigPresent(registry.CapabilityConfiguration{Config: raw}))
-	})
-}
-
 func TestExtractDefaultOCR3Config(t *testing.T) {
 	t.Parallel()
 
@@ -469,11 +437,9 @@ func (t *testLocalCapabilities) GetCapabilityConfig(capabilityID string) config.
 
 type testCapabilityNodeConfig struct {
 	binaryPath string
-	cfg        map[string]string
 }
 
 func (c *testCapabilityNodeConfig) BinaryPathOverride() string { return c.binaryPath }
-func (c *testCapabilityNodeConfig) Config() map[string]string  { return c.cfg }
 
 // mustMarshalCapConfig creates proto-encoded CapabilityConfig bytes with a DefaultConfig map.
 func mustMarshalCapConfig(t *testing.T, kv map[string]string) []byte {
@@ -491,28 +457,11 @@ func mustMarshalCapConfig(t *testing.T, kv map[string]string) []byte {
 }
 
 func TestBuildConfigJSON(t *testing.T) {
+	t.Parallel()
 	lggr := testLogger(t)
 
-	t.Run("local config only", func(t *testing.T) {
-		mgr := &localCapabilityManager{
-			lggr: lggr,
-			localCfg: &testLocalCapabilities{
-				allowlisted: map[string]bool{"cap@1.0.0": true},
-				configs: map[string]*testCapabilityNodeConfig{
-					"cap@1.0.0": {cfg: map[string]string{"key1": "local1"}},
-				},
-			},
-		}
-		info := &capabilityInfo{capID: "cap@1.0.0", config: registry.CapabilityConfiguration{}}
-		result, err := mgr.buildConfigJSON(info)
-		require.NoError(t, err)
-
-		var got map[string]any
-		require.NoError(t, json.Unmarshal([]byte(result), &got))
-		assert.Equal(t, "local1", got["key1"])
-	})
-
 	t.Run("onchain config only", func(t *testing.T) {
+		t.Parallel()
 		mgr := &localCapabilityManager{
 			lggr:     lggr,
 			localCfg: &testLocalCapabilities{allowlisted: map[string]bool{"cap@1.0.0": true}},
@@ -530,32 +479,8 @@ func TestBuildConfigJSON(t *testing.T) {
 		assert.Equal(t, "42", got["chainId"])
 	})
 
-	t.Run("onchain overrides local", func(t *testing.T) {
-		mgr := &localCapabilityManager{
-			lggr: lggr,
-			localCfg: &testLocalCapabilities{
-				allowlisted: map[string]bool{"cap@1.0.0": true},
-				configs: map[string]*testCapabilityNodeConfig{
-					"cap@1.0.0": {cfg: map[string]string{"chainId": "99", "localOnly": "yes"}},
-				},
-			},
-		}
-		onchainBytes := mustMarshalCapConfig(t, map[string]string{"chainId": "42", "onchainOnly": "true"})
-		info := &capabilityInfo{
-			capID:  "cap@1.0.0",
-			config: registry.CapabilityConfiguration{Config: onchainBytes},
-		}
-		result, err := mgr.buildConfigJSON(info)
-		require.NoError(t, err)
-
-		var got map[string]any
-		require.NoError(t, json.Unmarshal([]byte(result), &got))
-		assert.Equal(t, "42", got["chainId"], "onchain should override local")
-		assert.Equal(t, "true", got["onchainOnly"], "onchain-only keys preserved")
-		assert.Equal(t, "yes", got["localOnly"], "local-only keys included")
-	})
-
 	t.Run("empty config returns empty JSON object", func(t *testing.T) {
+		t.Parallel()
 		mgr := &localCapabilityManager{
 			lggr:     lggr,
 			localCfg: &testLocalCapabilities{allowlisted: map[string]bool{"cap@1.0.0": true}},
@@ -566,15 +491,11 @@ func TestBuildConfigJSON(t *testing.T) {
 		assert.Equal(t, "{}", result)
 	})
 
-	t.Run("invalid onchain proto falls back to local config", func(t *testing.T) {
+	t.Run("invalid onchain proto yields empty JSON object", func(t *testing.T) {
+		t.Parallel()
 		mgr := &localCapabilityManager{
-			lggr: lggr,
-			localCfg: &testLocalCapabilities{
-				allowlisted: map[string]bool{"cap@1.0.0": true},
-				configs: map[string]*testCapabilityNodeConfig{
-					"cap@1.0.0": {cfg: map[string]string{"fallback": "ok"}},
-				},
-			},
+			lggr:     lggr,
+			localCfg: &testLocalCapabilities{allowlisted: map[string]bool{"cap@1.0.0": true}},
 		}
 		info := &capabilityInfo{
 			capID:  "cap@1.0.0",
@@ -582,9 +503,6 @@ func TestBuildConfigJSON(t *testing.T) {
 		}
 		result, err := mgr.buildConfigJSON(info)
 		require.NoError(t, err)
-
-		var got map[string]any
-		require.NoError(t, json.Unmarshal([]byte(result), &got))
-		assert.Equal(t, "ok", got["fallback"])
+		assert.Equal(t, "{}", result)
 	})
 }

@@ -4,12 +4,11 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 // CapabilityConfigProvider supplies capability config overrides to merge into the config a
 // capability is started with, keyed by capability ID and on-chain DON ID. It is the seam
-// through which the offchain capabilities registry (GlobalConfig) is layered over node TOML
+// through which the offchain capabilities registry (GlobalConfig) is layered over on-chain config
 // ([Capabilities.Local]) without changing the LocalCapabilityManager. See the Offchain
 // Capabilities Registry design.
 //
@@ -21,23 +20,6 @@ type CapabilityConfigProvider interface {
 	// given DON, or nil when there is no override. The DON ID is honored by the offchain
 	// provider (whose config is DON-scoped); the TOML provider ignores it.
 	LocalConfigOverrides(capID string, donID uint32) map[string]any
-}
-
-// tomlCapabilityConfigProvider is the default provider, backed by node TOML config. TOML
-// config is not DON-scoped, so donID is ignored.
-type tomlCapabilityConfigProvider struct {
-	localCfg config.LocalCapabilities
-}
-
-func (p tomlCapabilityConfigProvider) LocalConfigOverrides(capID string, _ uint32) map[string]any {
-	if p.localCfg == nil {
-		return nil
-	}
-	capCfg := p.localCfg.GetCapabilityConfig(capID)
-	if capCfg == nil {
-		return nil
-	}
-	return toAnyMap(capCfg.Config())
 }
 
 // offchainCapabilityConfigProvider is backed by a snapshot of the offchain capabilities

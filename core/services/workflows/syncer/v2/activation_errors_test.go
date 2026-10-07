@@ -76,6 +76,11 @@ func Test_classifyActivationError(t *testing.T) {
 			want: ActivationNonRetryable,
 		},
 		{
+			name: "zero trigger subscriptions is non-retryable",
+			err:  wfv2.ErrZeroTriggerSubscriptions,
+			want: ActivationNonRetryable,
+		},
+		{
 			name: "unknown error is retryable",
 			err:  errors.New("unexpected engine failure"),
 			want: ActivationRetryable,

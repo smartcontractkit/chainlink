@@ -1,6 +1,9 @@
 package v2
 
-import "strings"
+import (
+	"errors"
+	"strings"
+)
 
 // Engine initialization failure reasons labeling the
 // platform_engine_workflow_initialization_failures_total counter. Values must
@@ -24,6 +27,9 @@ const (
 	// initFailureDisallowedSecretsCall labels a module that attempted a
 	// secrets call during the trigger subscription phase.
 	initFailureDisallowedSecretsCall = "disallowed_secrets_call_during_subscription"
+	// initFailureZeroTriggerSubscriptions labels a module whose Subscribe()
+	// call succeeded but returned no trigger subscriptions.
+	initFailureZeroTriggerSubscriptions = "zero_trigger_subscriptions"
 )
 
 // initFailureReasonForSubscribe classifies a failed Subscribe phase for the
@@ -35,6 +41,8 @@ func initFailureReasonForSubscribe(err error) string {
 		return initFailureSubscribe
 	}
 	switch {
+	case errors.Is(err, ErrZeroTriggerSubscriptions):
+		return initFailureZeroTriggerSubscriptions
 	case strings.Contains(err.Error(), ErrSecretsCallDuringSubscription.Error()):
 		return initFailureDisallowedSecretsCall
 	case strings.Contains(err.Error(), ErrCapabilityCallDuringSubscription.Error()):
