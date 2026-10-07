@@ -85,6 +85,8 @@ func Test_workflowLifecycle(t *testing.T) {
 			run("registered event with paused status releases the slot", testPausedRegisteredEventReleasesSlot)
 			run("replacing a draining engine holds one slot", testReplacingDrainingEngineHoldsOneSlot)
 			run("failed registration leaks nothing", testFailedRegistrationLeaksNothing)
+			run("activate while an execution is in flight replaces the engine", testActivateWhileExecutionInFlightReplacesEngine)
+			run("delete then register at the limit admits the next workflow", testDeleteThenRegisterAtLimitAdmitsNextWorkflow)
 		})
 	}
 }
@@ -295,6 +297,47 @@ func testFailedRegistrationLeaksNothing(t *testing.T, mode engineMode) {
 	h.requireSlotsInUse(0)
 	h.requireNoEngine(wf)
 	h.requireEngineCloses(wf, 1)
+}
+
+// testActivateWhileExecutionInFlightReplacesEngine pauses a workflow while an execution is
+// running, so the pause is deferred and leaves the engine draining, then activates the workflow
+// again without waiting for the execution to finish. It asserts the draining engine is replaced
+// and the slot handed over, leaving one engine registered and one slot held with the old engine
+// closed once, and that the running execution was canceled rather than waited for.
+func testActivateWhileExecutionInFlightReplacesEngine(t *testing.T, mode engineMode) {
+	t.Parallel()
+	h := newLifecycleHarness(t, mode, 1)
+	wf := h.workflow("wf-a")
+
+	require.NoError(t, h.registered(wf))
+	h.startExecution(wf)
+	require.ErrorIs(t, h.paused(wf), ErrDrainInProgress)
+
+	// The activation arrives while the execution is still running. Replacing the draining
+	// engine closes it, which cancels the execution instead of waiting for it to finish.
+	require.NoError(t, h.activated(wf))
+	h.requireSlotsInUse(1)
+	h.requireEngineRegistered(wf)
+	h.requireEngineCloses(wf, 1)
+	h.requireExecutionCanceled(wf)
+}
+
+// testDeleteThenRegisterAtLimitAdmitsNextWorkflow deletes a workflow on a node that allows one
+// workflow and registers another immediately afterwards, as a reconcile batch with both events
+// would. It asserts the second registration is admitted without waiting for the freed slot to
+// become available, and ends with only the second workflow holding the slot.
+func testDeleteThenRegisterAtLimitAdmitsNextWorkflow(t *testing.T, mode engineMode) {
+	t.Parallel()
+	h := newLifecycleHarness(t, mode, 1)
+	wfA, wfB := h.workflow("wf-a"), h.workflow("wf-b")
+
+	require.NoError(t, h.registered(wfA))
+	require.NoError(t, h.deleted(wfA))
+	require.NoError(t, h.registered(wfB))
+
+	h.requireSlotsInUse(1)
+	h.requireNoEngine(wfA)
+	h.requireEngineRegistered(wfB)
 }
 
 // lifecycleTriggerID is the one trigger every lifecycle workflow subscribes to.
@@ -543,6 +586,13 @@ func (h *lifecycleHarness) requireNoEngine(w lifecycleWorkflow) {
 	require.False(h.t, ok, "workflow %s should have no engine in the registry", w.name)
 }
 
+// requireExecutionCanceled fails the test unless w's in-flight execution ended because its
+// context was canceled, as happens when the engine running it is closed.
+func (h *lifecycleHarness) requireExecutionCanceled(w lifecycleWorkflow) {
+	h.t.Helper()
+	require.True(h.t, h.gate(w.id.Hex()).canceled.Load(), "workflow %s's execution should have been canceled", w.name)
+}
+
 // requireEngineCloses checks the Close calls summed over every engine created for w.
 func (h *lifecycleHarness) requireEngineCloses(w lifecycleWorkflow, want int32) {
 	h.t.Helper()
@@ -635,7 +685,7 @@ func (h *lifecycleHarness) engineFactory(
 	module.EXPECT().Start().Maybe()
 	module.EXPECT().Close().Maybe()
 	module.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).
-		RunAndReturn(func(_ context.Context, req *sdk.ExecuteRequest, _ host.ExecutionHelper) (*sdk.ExecutionResult, error) {
+		RunAndReturn(func(ctx context.Context, req *sdk.ExecuteRequest, _ host.ExecutionHelper) (*sdk.ExecutionResult, error) {
 			if _, ok := req.Request.(*sdk.ExecuteRequest_Subscribe); ok {
 				return &sdk.ExecutionResult{
 					Result: &sdk.ExecutionResult_TriggerSubscriptions{
@@ -645,7 +695,7 @@ func (h *lifecycleHarness) engineFactory(
 					},
 				}, nil
 			}
-			gate.block()
+			gate.block(ctx)
 			return nil, nil
 		}).Maybe()
 
@@ -732,24 +782,39 @@ func newLifecycleBillingClient(t *testing.T) *metmocks.BillingClient {
 	return client
 }
 
-// executionGate holds a workflow's executions in flight until opened.
+// lifecycleExecutionTimeout bounds how long a blocked execution waits, standing in for the real
+// per-execution timeout so a test whose engine never cancels the execution fails instead of hanging.
+const lifecycleExecutionTimeout = 5 * time.Second
+
+// executionGate holds a workflow's executions in flight until opened, their context is canceled,
+// or lifecycleExecutionTimeout passes.
 type executionGate struct {
-	started chan struct{}
-	release chan struct{}
-	once    sync.Once
+	started  chan struct{}
+	release  chan struct{}
+	once     sync.Once
+	canceled atomic.Bool // an execution ended because its context was canceled
 }
 
 func newExecutionGate() *executionGate {
 	return &executionGate{started: make(chan struct{}, 16), release: make(chan struct{})}
 }
 
-// block signals that an execution started and holds it until the gate opens.
-func (g *executionGate) block() {
+// block signals that an execution started and holds it until the gate opens, ctx is canceled
+// (as it is when the engine running the execution is closed), or the timeout passes.
+func (g *executionGate) block(ctx context.Context) {
 	select {
 	case g.started <- struct{}{}:
 	default:
 	}
-	<-g.release
+
+	timeout := time.NewTimer(lifecycleExecutionTimeout)
+	defer timeout.Stop()
+	select {
+	case <-g.release:
+	case <-ctx.Done():
+		g.canceled.Store(true)
+	case <-timeout.C:
+	}
 }
 
 func (g *executionGate) open() { g.once.Do(func() { close(g.release) }) }
