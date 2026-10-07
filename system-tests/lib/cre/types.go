@@ -611,7 +611,7 @@ func donFamiliesRequired(donTypes []string) bool {
 		return true
 	}
 	for _, donType := range donTypes {
-		switch CapabilityFlag(donType) {
+		switch donType {
 		case BootstrapDON, GatewayDON:
 			// public-URL only: may omit don_families
 		default:
