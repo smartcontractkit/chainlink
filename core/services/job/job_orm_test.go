@@ -470,7 +470,6 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 			BackoffInitialDelay: time.Minute,
 			BackoffMaxDelay:     time.Hour,
 			GasLanePrice:        assets.GWei(100),
-			VRFOwnerAddress:     "0x32891BD79647DC9136Fc0a59AAB48c7825eb624c",
 		},
 	).
 		Toml())
@@ -552,14 +551,13 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	fromAddresses := []string{cltest.NewEIP55Address().String(), cltest.NewEIP55Address().String()}
 	jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 		testspecs.VRFSpecParams{
-			VRFVersion:                   vrfcommon.V2Plus,
-			RequestedConfsDelay:          10,
-			FromAddresses:                fromAddresses,
-			ChunkSize:                    25,
-			BackoffInitialDelay:          time.Minute,
-			BackoffMaxDelay:              time.Hour,
-			GasLanePrice:                 assets.GWei(100),
-			CustomRevertsPipelineEnabled: true,
+			VRFVersion:          vrfcommon.V2Plus,
+			RequestedConfsDelay: 10,
+			FromAddresses:       fromAddresses,
+			ChunkSize:           25,
+			BackoffInitialDelay: time.Minute,
+			BackoffMaxDelay:     time.Hour,
+			GasLanePrice:        assets.GWei(100),
 		},
 	).
 		Toml())

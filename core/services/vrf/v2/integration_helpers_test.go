@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_plus_upgradeable_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -1448,12 +1448,12 @@ func testConsumerProxyCoordinatorZeroAddress(
 ) {
 	// Deploy another upgradeable consumer, proxy, and proxy admin
 	// to test vrfCoordinator != 0x0 condition.
-	upgradeableConsumerAddress, _, _, err := vrf_consumer_v2_upgradeable_example.DeployVRFConsumerV2UpgradeableExample(uni.neil, uni.backend.Client())
+	upgradeableConsumerAddress, _, _, err := vrf_consumer_v2_plus_upgradeable_example.DeployVRFConsumerV2PlusUpgradeableExample(uni.neil, uni.backend.Client())
 	require.NoError(t, err, "failed to deploy upgradeable consumer to simulated ethereum blockchain")
 	uni.backend.Commit()
 
 	// Deployment should revert if we give the 0x0 address for the coordinator.
-	upgradeableAbi, err := vrf_consumer_v2_upgradeable_example.VRFConsumerV2UpgradeableExampleMetaData.GetAbi()
+	upgradeableAbi, err := vrf_consumer_v2_plus_upgradeable_example.VRFConsumerV2PlusUpgradeableExampleMetaData.GetAbi()
 	require.NoError(t, err)
 	initializeCalldata, err := upgradeableAbi.Pack("initialize",
 		common.BytesToAddress(common.LeftPadBytes([]byte{}, 20)), // zero address for the coordinator
