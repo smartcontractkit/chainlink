@@ -263,11 +263,9 @@ func subscribeAptosTransmitEvents(
 			// Push metrics to state manager
 			data := messageData{
 				eventType: transmitted,
-				srcDstSeqNum: srcDstSeqNum{
-					src:    srcChainSel,
-					dst:    event.DestChainSelector,
-					seqNum: event.SequenceNumber,
-				},
+				src:       srcChainSel,
+				dst:       event.DestChainSelector,
+				seqNum:    event.SequenceNumber,
 				timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115 // todo: do we require a real timestamp here?
 			}
 
@@ -400,11 +398,9 @@ func subscribeAptosCommitEvents(
 				for i := mr.MinSeqNr; i <= mr.MaxSeqNr; i++ {
 					data := messageData{
 						eventType: committed,
-						srcDstSeqNum: srcDstSeqNum{
-							src:    mr.SourceChainSelector,
-							dst:    chainSelector,
-							seqNum: i,
-						},
+						src:       mr.SourceChainSelector,
+						dst:       chainSelector,
+						seqNum:    i,
 						timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115 // todo: do we require a real timestamp here?
 					}
 					metricPipe <- data
@@ -552,11 +548,9 @@ func subscribeAptosExecutionEvents(
 			// Push metrics
 			data := messageData{
 				eventType: executed,
-				srcDstSeqNum: srcDstSeqNum{
-					src:    event.SourceChainSelector,
-					dst:    chainSelector,
-					seqNum: event.SequenceNumber,
-				},
+				src:       event.SourceChainSelector,
+				dst:       chainSelector,
+				seqNum:    event.SequenceNumber,
 				timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115 // todo: do we require a real timestamp here?
 			}
 			metricPipe <- data

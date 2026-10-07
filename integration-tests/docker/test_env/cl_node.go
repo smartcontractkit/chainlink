@@ -97,18 +97,16 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 		return nil, err
 	}
 	n := &ClNode{
-		EnvComponent: test_env.EnvComponent{
-			ContainerName:    nodeDefaultCName,
-			ContainerImage:   imageName,
-			ContainerVersion: imageVersion,
-			Networks:         networks,
-			StartupTimeout:   3 * time.Minute,
-		},
-		UserEmail:    "local@local.com",
-		UserPassword: "localdevpassword",
-		NodeConfig:   nodeConfig,
-		PostgresDb:   pgDb,
-		l:            log.Logger,
+		ContainerName:    nodeDefaultCName,
+		ContainerImage:   imageName,
+		ContainerVersion: imageVersion,
+		Networks:         networks,
+		StartupTimeout:   3 * time.Minute,
+		UserEmail:        "local@local.com",
+		UserPassword:     "localdevpassword", // betterleaks:allow // fake test password
+		NodeConfig:       nodeConfig,
+		PostgresDb:       pgDb,
+		l:                log.Logger,
 	}
 	for _, opt := range opts {
 		opt(n)
@@ -150,15 +148,17 @@ func (n *ClNode) PrimaryETHAddress() (string, error) {
 }
 
 func (n *ClNode) AddBootstrapJob(verifierAddr common.Address, chainID int64,
-	feedID [32]byte) (*nodeclient.Job, error) {
+	feedID [32]byte,
+) (*nodeclient.Job, error) {
 	spec := it_utils.BuildBootstrapSpec(verifierAddr, chainID, feedID)
 	return n.API.MustCreateJob(spec)
 }
 
 func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64, chainID int64,
 	feedID [32]byte, customAllowedFaults *int, bootstrapURL string,
-	mercuryServerURL string, mercuryServerPubKey string,
-	eaUrls []*url.URL) (*nodeclient.Job, error) {
+	mercuryServerURL, mercuryServerPubKey string,
+	eaUrls []*url.URL,
+) (*nodeclient.Job, error) {
 	csaKeys, _, err := n.API.ReadCSAKeys()
 	if err != nil {
 		return nil, err
@@ -196,7 +196,8 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 	spec := it_utils.BuildOCRSpec(
 		verifierAddr, chainID, fromBlock, feedID, bridges,
 		csaPubKey, mercuryServerURL, mercuryServerPubKey, nodeOCRKeyID[0],
-		bootstrapURL, allowedFaults)
+		bootstrapURL, allowedFaults,
+	)
 
 	return n.API.MustCreateJob(spec)
 }
@@ -363,7 +364,8 @@ func (n ClNode) GetNodeConfigStr() (string, error) {
 }
 
 func (n *ClNode) getContainerRequest(secrets string) (
-	*tc.ContainerRequest, error) {
+	*tc.ContainerRequest, error,
+) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
 		return nil, err
@@ -416,7 +418,8 @@ func (n *ClNode) getContainerRequest(secrets string) (
 		Image:           fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
 		ExposedPorts:    []string{"6688/tcp"},
 		Env:             n.ContainerEnvs,
-		Entrypoint: []string{"chainlink",
+		Entrypoint: []string{
+			"chainlink",
 			"-c", configPath,
 			"-s", secretsPath,
 			"node", "start", "-d",
@@ -432,22 +435,22 @@ func (n *ClNode) getContainerRequest(secrets string) (
 			{
 				HostFilePath:      configFile.Name(),
 				ContainerFilePath: configPath,
-				FileMode:          0644,
+				FileMode:          0o644,
 			},
 			{
 				HostFilePath:      secretsFile.Name(),
 				ContainerFilePath: secretsPath,
-				FileMode:          0644,
+				FileMode:          0o644,
 			},
 			{
 				HostFilePath:      adminCredsFile.Name(),
 				ContainerFilePath: adminCredsPath,
-				FileMode:          0644,
+				FileMode:          0o644,
 			},
 			{
 				HostFilePath:      apiCredsFile.Name(),
 				ContainerFilePath: apiCredsPath,
-				FileMode:          0644,
+				FileMode:          0o644,
 			},
 		},
 	}, nil

@@ -26,40 +26,38 @@ import (
 
 func NewBaseConfig() *chainlink.Config {
 	return &chainlink.Config{
-		Core: toml.Core{
-			RootDir: new("/home/chainlink"),
-			Database: toml.Database{
-				MaxIdleConns:     new(int64(20)),
-				MaxOpenConns:     new(int64(40)),
-				MigrateOnStartup: new(true),
-			},
-			Log: toml.Log{
-				Level:       ptr.Ptr(toml.LogLevel(zapcore.DebugLevel)),
-				JSONConsole: new(true),
-				File: toml.LogFile{
-					MaxSize: ptr.Ptr(utils.FileSize(0)),
-				},
-			},
-			WebServer: toml.WebServer{
-				AllowOrigins:   new("*"),
-				HTTPPort:       ptr.Ptr[uint16](6688),
-				SecureCookies:  new(false),
-				SessionTimeout: commonconfig.MustNewDuration(time.Hour * 999),
-				TLS: toml.WebServerTLS{
-					HTTPSPort: ptr.Ptr[uint16](0),
-				},
-				RateLimit: toml.WebServerRateLimit{
-					Authenticated:   new(int64(2000)),
-					Unauthenticated: new(int64(100)),
-				},
-			},
-			Feature: toml.Feature{
-				LogPoller:    new(true),
-				FeedsManager: new(true),
-				UICSAKeys:    new(true),
-			},
-			P2P: toml.P2P{},
+		RootDir: new("/home/chainlink"),
+		Database: toml.Database{
+			MaxIdleConns:     new(int64(20)),
+			MaxOpenConns:     new(int64(40)),
+			MigrateOnStartup: new(true),
 		},
+		Log: toml.Log{
+			Level:       ptr.Ptr(toml.LogLevel(zapcore.DebugLevel)),
+			JSONConsole: new(true),
+			File: toml.LogFile{
+				MaxSize: ptr.Ptr(utils.FileSize(0)),
+			},
+		},
+		WebServer: toml.WebServer{
+			AllowOrigins:   new("*"),
+			HTTPPort:       ptr.Ptr[uint16](6688),
+			SecureCookies:  new(false),
+			SessionTimeout: commonconfig.MustNewDuration(time.Hour * 999),
+			TLS: toml.WebServerTLS{
+				HTTPSPort: ptr.Ptr[uint16](0),
+			},
+			RateLimit: toml.WebServerRateLimit{
+				Authenticated:   new(int64(2000)),
+				Unauthenticated: new(int64(100)),
+			},
+		},
+		Feature: toml.Feature{
+			LogPoller:    new(true),
+			FeedsManager: new(true),
+			UICSAKeys:    new(true),
+		},
+		P2P: toml.P2P{},
 	}
 }
 

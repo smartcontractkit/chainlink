@@ -45,9 +45,7 @@ const (
 	SubscriptionTimeout = 1 * time.Minute
 )
 
-var (
-	fundingAmount = new(big.Int).Mul(bigint.UBigInt(100), bigint.UBigInt(1e18)) // 100 eth
-)
+var fundingAmount = new(big.Int).Mul(bigint.UBigInt(100), bigint.UBigInt(1e18)) // 100 eth
 
 type finalSeqNrReport struct {
 	sourceChainSelector uint64
@@ -113,11 +111,9 @@ func subscribeTransmitEvents(
 			}
 			data := messageData{
 				eventType: transmitted,
-				srcDstSeqNum: srcDstSeqNum{
-					src:    srcChainSel,
-					dst:    event.DestChainSelector,
-					seqNum: event.SequenceNumber,
-				},
+				src:       srcChainSel,
+				dst:       event.DestChainSelector,
+				seqNum:    event.SequenceNumber,
 			}
 			if header != nil {
 				data.timestamp = header.Time
@@ -225,11 +221,9 @@ func subscribeCommitEvents(
 						}
 						data := messageData{
 							eventType: committed,
-							srcDstSeqNum: srcDstSeqNum{
-								src:    mr.SourceChainSelector,
-								dst:    chainSelector,
-								seqNum: i,
-							},
+							src:       mr.SourceChainSelector,
+							dst:       chainSelector,
+							seqNum:    i,
 						}
 						if header != nil {
 							data.timestamp = header.Time
@@ -351,11 +345,9 @@ func subscribeExecutionEvents(
 			}
 			data := messageData{
 				eventType: executed,
-				srcDstSeqNum: srcDstSeqNum{
-					src:    event.SourceChainSelector,
-					dst:    chainSelector,
-					seqNum: event.SequenceNumber,
-				},
+				src:       event.SourceChainSelector,
+				dst:       chainSelector,
+				seqNum:    event.SequenceNumber,
 			}
 			if header != nil {
 				data.timestamp = header.Time
@@ -524,6 +516,7 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 	}
 	return deployerMap, nil
 }
+
 func reclaimFunds(lggr logger.Logger, e cldf.Environment, addressesByChain map[uint64][]*bind.TransactOpts, returnAddress common.Address) error {
 	removeFundsFromAccounts := func(ctx context.Context, lggr logger.Logger, chain cldf_evm.Chain, addresses []*bind.TransactOpts, returnAddress common.Address, sel uint64) error {
 		for _, deployer := range addresses {
@@ -596,7 +589,8 @@ func prepareAccountToSendLink(
 	state stateview.CCIPOnChainState,
 	e cldf.Environment,
 	src uint64,
-	srcAccount *bind.TransactOpts) error {
+	srcAccount *bind.TransactOpts,
+) error {
 	srcDeployer := e.BlockChains.EVMChains()[src].DeployerKey
 	lggr.Infow("Setting up link token", "src", src)
 	srcLink := state.Chains[src].LinkToken

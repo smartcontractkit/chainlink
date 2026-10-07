@@ -80,11 +80,9 @@ func subscribeSolTransmitEvents(
 
 			data := messageData{
 				eventType: transmitted,
-				srcDstSeqNum: srcDstSeqNum{
-					src:    srcChainSel,
-					dst:    event.DestinationChainSelector,
-					seqNum: event.SequenceNumber,
-				},
+				src:       srcChainSel,
+				dst:       event.DestinationChainSelector,
+				seqNum:    event.SequenceNumber,
 				timestamp: uint64(*eventWithTxn.Txn.BlockTime), //nolint:gosec // G115
 			}
 
@@ -196,11 +194,9 @@ func subscribeSolCommitEvents(
 			for i := mr.MinSeqNr; i <= mr.MaxSeqNr; i++ {
 				data := messageData{
 					eventType: committed,
-					srcDstSeqNum: srcDstSeqNum{
-						src:    mr.SourceChainSelector,
-						dst:    chainSelector,
-						seqNum: i,
-					},
+					src:       mr.SourceChainSelector,
+					dst:       chainSelector,
+					seqNum:    i,
 					timestamp: uint64(*eventWithTx.Txn.BlockTime), //nolint:gosec // G115
 				}
 				metricPipe <- data
@@ -316,11 +312,9 @@ func subscribeSolExecutionEvents(
 			// push metrics to loki here
 			data := messageData{
 				eventType: executed,
-				srcDstSeqNum: srcDstSeqNum{
-					src:    event.SourceChainSelector,
-					dst:    chainSelector,
-					seqNum: event.SequenceNumber,
-				},
+				src:       event.SourceChainSelector,
+				dst:       chainSelector,
+				seqNum:    event.SequenceNumber,
 				timestamp: uint64(*eventWithTxn.Txn.BlockTime), //nolint:gosec // G115
 			}
 			metricPipe <- data

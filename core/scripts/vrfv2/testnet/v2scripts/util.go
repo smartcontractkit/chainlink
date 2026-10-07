@@ -154,7 +154,7 @@ func RegisterCoordinatorProvingKey(e helpers.Environment, coordinator vrf_coordi
 	helpers.PanicErr(err)
 	tx, err := coordinator.RegisterProvingKey(e.Owner,
 		common.HexToAddress(oracleAddress),
-		[2]*big.Int{pk.X, pk.Y})
+		[2]*big.Int{pk.X, pk.Y}) //nolint:staticcheck // SA1019: coordinator ABI requires [2]*big.Int coordinates
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(
 		context.Background(),

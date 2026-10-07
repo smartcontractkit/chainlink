@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
-	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -168,12 +167,10 @@ func SetupNewChain(
 	remoteChainsDefinition := make([]v1_6.ChainDefinition, len(remoteChains))
 	for i, selector := range remoteChains {
 		remoteChainsDefinition[i] = v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
-			Selector: selector,
-			GasPrice: testhelpers.DefaultGasPrice,
+			RMNVerificationDisabled: true,
+			AllowListEnabled:        false,
+			Selector:                selector,
+			GasPrice:                testhelpers.DefaultGasPrice,
 			TokenPrices: map[common.Address]*big.Int{
 				state.Chains[selector].LinkToken.Address(): testhelpers.DefaultLinkPrice,
 				state.Chains[selector].Weth9.Address():     testhelpers.DefaultWethPrice,
@@ -183,23 +180,17 @@ func SetupNewChain(
 	}
 
 	newChainDefinition := v1_6.NewChainDefinition{
-		ChainDefinition: v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
-			Selector: chainToDeploy,
-			GasPrice: testhelpers.DefaultGasPrice,
-			TokenPrices: map[common.Address]*big.Int{
-				state.Chains[chainToDeploy].LinkToken.Address(): testhelpers.DefaultLinkPrice,
-				state.Chains[chainToDeploy].Weth9.Address():     testhelpers.DefaultWethPrice,
-			},
-			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
+		RMNVerificationDisabled: true,
+		AllowListEnabled:        false,
+		Selector:                chainToDeploy,
+		GasPrice:                testhelpers.DefaultGasPrice,
+		TokenPrices: map[common.Address]*big.Int{
+			state.Chains[chainToDeploy].LinkToken.Address(): testhelpers.DefaultLinkPrice,
+			state.Chains[chainToDeploy].Weth9.Address():     testhelpers.DefaultWethPrice,
 		},
-		ChainContractParams: ccipseq.ChainContractParams{
-			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
-			OffRampParams:   ccipops.DefaultOffRampParams(),
-		},
+		FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
+		FeeQuoterParams:          ccipops.DefaultFeeQuoterParams(),
+		OffRampParams:            ccipops.DefaultOffRampParams(),
 		ConfigOnHome: v1_6.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3), // #nosec G115 - Overflow is not a concern in this test scenario
@@ -303,7 +294,8 @@ func SendMsgs(
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
-			})
+			},
+		)
 		startBlocks[pair.DestChainSelector] = &block
 		expectedSeqNum[pair] = msgSentEvent.SequenceNumber
 		expectedSeqNumExec[pair] = append(expectedSeqNumExec[pair], msgSentEvent.SequenceNumber)

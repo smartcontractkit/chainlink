@@ -5,24 +5,20 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
 	"strings"
 	"time"
 
-	"main/types"
-
-	"google.golang.org/protobuf/types/known/durationpb"
-	"gopkg.in/yaml.v3"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"gopkg.in/yaml.v3"
+	"main/types"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
@@ -30,6 +26,7 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
 
 const balanceReaderABIJson = `[
@@ -68,7 +65,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 
 	// get balance with BalanceAt()
 	evmClient := evm.Client{ChainSelector: chain_selectors.GETH_TESTNET.Selector}
-	addressesToRead := config.BalanceReaderConfig.AddressesToRead
+	addressesToRead := config.AddressesToRead
 	if len(addressesToRead) < 2 {
 		runtime.Logger().Info("need at least 2 addresses to read balances from:", "addresses", addressesToRead)
 		return "", fmt.Errorf("need at least 2 addresses to read balances from: %v", addressesToRead)
@@ -79,9 +76,9 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	// The happy-path scenario in the system tests guarantees there are at least two addresses present.
 	// However, in real-world usage, it is advisable to implement
 	// proper validation for the configuration and handle possible errors.
-	addressToRead_1 := addressesToRead[0]
+	addressToRead1 := addressesToRead[0]
 	balanceAtOutput, err := evmClient.BalanceAt(runtime, &evm.BalanceAtRequest{
-		Account:     addressToRead_1.Bytes(),
+		Account:     addressToRead1.Bytes(),
 		BlockNumber: nil,
 	}).Await()
 	if err != nil {
@@ -89,7 +86,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 		return "", fmt.Errorf("failed to get on-chain balance: %w", err)
 	}
 	balanceAtResult := values.ProtoToBigInt(balanceAtOutput.Balance)
-	runtime.Logger().With().Info(fmt.Sprintf("[logger] Got on-chain balance with BalanceAt() for address %s: %s", addressToRead_1, balanceAtResult.String()))
+	runtime.Logger().With().Info(fmt.Sprintf("[logger] Got on-chain balance with BalanceAt() for address %s: %s", addressToRead1, balanceAtResult.String()))
 
 	// get balance with CallContract
 	readBalancesParsedABI, err := getReadBalancesContractABI(runtime, balanceReaderABIJson)
@@ -101,15 +98,15 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	// To test that reading the contract is operational, it is sufficient to use 1 address.
 	// For testing purposes, there is no index out of range or nil handling,
 	// see comments above for more details (TL:DR; implement your own proper validation)
-	addressToRead_2 := addressesToRead[1]
-	readBalancesOutput, err := readBalancesFromContract([]common.Address{addressToRead_2}, readBalancesParsedABI, evmClient, runtime, config)
+	addressToRead2 := addressesToRead[1]
+	readBalancesOutput, err := readBalancesFromContract([]common.Address{addressToRead2}, readBalancesParsedABI, evmClient, runtime, config)
 	if err != nil {
 		return "", fmt.Errorf("failed to read balances from contract: %w", err)
 	}
 
 	if readBalancesOutput == nil || readBalancesOutput.Data == nil {
 		runtime.Logger().Error("CallContract returned nil output, check if BalanceReader contract is deployed")
-		return "", fmt.Errorf("CallContract returned nil output")
+		return "", errors.New("CallContract returned nil output")
 	}
 
 	var readBalancePrices []*big.Int
@@ -121,7 +118,8 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	runtime.Logger().With().Info(fmt.Sprintf("Read on-onchain balances for addresses %v: %v", addressesToRead, &readBalancePrices))
 
 	// get total on-chain balance
-	allOnchainBalances := append(readBalancePrices, balanceAtResult)
+	allOnchainBalances := append([]*big.Int(nil), readBalancePrices...)
+	allOnchainBalances = append(allOnchainBalances, balanceAtResult)
 	var totalOnChainBalance big.Int
 	for _, balance := range allOnchainBalances {
 		totalOnChainBalance = *totalOnChainBalance.Add(&totalOnChainBalance, balance)
@@ -130,9 +128,9 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 
 	totalPriceOutput, err := cre.RunInNodeMode(config, runtime,
 		func(config types.WorkflowConfig, nodeRuntime cre.NodeRuntime) (priceOutput, error) {
-			httpOutput, err := getHTTPPrice(config, nodeRuntime)
-			if err != nil {
-				return priceOutput{}, fmt.Errorf("failed to get HTTP price: %w", err)
+			httpOutput, httpErr := getHTTPPrice(config, nodeRuntime)
+			if httpErr != nil {
+				return priceOutput{}, fmt.Errorf("failed to get HTTP price: %w", httpErr)
 			}
 			httpOutput.Price.Add(httpOutput.Price, &totalOnChainBalance)
 			return httpOutput, nil
@@ -176,7 +174,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	}
 	runtime.Logger().With().Info("Submitted report on-chain")
 
-	var message = "PoR Workflow successfully completed"
+	message := "PoR Workflow successfully completed"
 	if wrOutput.ErrorMessage != nil {
 		message = *wrOutput.ErrorMessage
 	}
@@ -210,7 +208,7 @@ func readBalancesFromContract(addresses []common.Address, readBalancesABI abi.AB
 		runtime.Logger().Error(fmt.Sprintf("[logger] failed to get balances %v: %v", addresses, err))
 		return nil, fmt.Errorf("failed to get balances for addresses %v: %w", addresses, err)
 	}
-	runtime.Logger().With().Info(fmt.Sprintf("Got raw CallContract output: %s", hex.EncodeToString(readBalancesOutput.Data)))
+	runtime.Logger().With().Info("Got raw CallContract output: " + hex.EncodeToString(readBalancesOutput.Data))
 	return readBalancesOutput, nil
 }
 
@@ -252,19 +250,19 @@ func getHTTPPrice(config types.WorkflowConfig, runtime cre.NodeRuntime) (priceOu
 
 	fetchRequest := http.Request{
 		Url:     config.URL + "?feedID=" + config.FeedID,
-		Method:  "GET",
+		Method:  "GET", //nolint:usestdlibvars // cre-sdk http package doesn't declare method constants
 		Timeout: durationpb.New(5 * time.Second),
 	}
 
 	if config.AuthKey != "" {
-		fetchRequest.Headers = map[string]string{
+		fetchRequest.Headers = map[string]string{ //nolint:staticcheck // SA1019: deprecated proto field
 			"Authorization": config.AuthKey,
 		}
 	}
 
 	r, err := httpClient.SendRequest(runtime, &fetchRequest).Await()
 	if err != nil {
-		return priceOutput{}, fmt.Errorf("failed to await price response from %s and %v err: %w", fetchRequest.String(), fetchRequest.Headers, err)
+		return priceOutput{}, fmt.Errorf("failed to await price response from %s and %v err: %w", fetchRequest.String(), fetchRequest.Headers, err) //nolint:staticcheck // SA1019: deprecated proto field
 	}
 
 	var resp trueUSDResponse
@@ -277,20 +275,20 @@ func getHTTPPrice(config types.WorkflowConfig, runtime cre.NodeRuntime) (priceOu
 	if resp.Ripcord {
 		runtime.Logger().With(
 			"feedID", config.FeedID,
-		).Info(fmt.Sprintf("ripcord flag set for feed ID %s", config.FeedID))
+		).Info("ripcord flag set for feed ID " + config.FeedID)
 		return priceOutput{}, capabilities.ErrStopExecution
 	}
 
 	return priceOutput{
-		FeedID:    feedID, // TrueUSD
-		Timestamp: uint32(resp.UpdatedAt.Unix()),
+		FeedID:    feedID,                                   // TrueUSD
+		Timestamp: uint32(resp.UpdatedAt.Unix()),            //nolint:gosec // G115: unix timestamp fits in uint32
 		Price:     big.NewInt(int64(resp.TotalTrust * 100)), // Convert to integer cents
 	}, nil
 }
 
 func convertFeedIDtoBytes(feedIDStr string) ([32]byte, error) {
 	if feedIDStr == "" {
-		return [32]byte{}, fmt.Errorf("feedID string is empty")
+		return [32]byte{}, errors.New("feedID string is empty")
 	}
 
 	if len(feedIDStr) < 2 {
@@ -304,7 +302,7 @@ func convertFeedIDtoBytes(feedIDStr string) ([32]byte, error) {
 
 	if len(b) < 32 {
 		nb := [32]byte{}
-		copy(nb[:], b[:])
+		copy(nb[:], b)
 		return nb, err
 	}
 

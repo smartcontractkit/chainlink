@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	http "github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
-	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type Config struct {
@@ -26,12 +26,12 @@ func main() {
 			return Config{}, fmt.Errorf("failed to unmarshal config: %w", err)
 		}
 		return config, nil
-	}).Run(RunSimpleHttpWorkflow)
+	}).Run(RunSimpleHTTPWorkflow)
 }
 
-func RunSimpleHttpWorkflow(config Config, _ *slog.Logger, _ cre.SecretsProvider) (sdk.Workflow[Config], error) {
-	workflows := sdk.Workflow[Config]{
-		sdk.Handler(
+func RunSimpleHTTPWorkflow(config Config, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[Config], error) {
+	workflows := cre.Workflow[Config]{
+		cre.Handler(
 			http.Trigger(&http.Config{
 				AuthorizedKeys: []*http.AuthorizedKey{
 					{
@@ -52,21 +52,21 @@ type OrderResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
-func onTrigger(cfg Config, runtime sdk.Runtime, trigger *http.Payload) (string, error) {
+func onTrigger(cfg Config, runtime cre.Runtime, trigger *http.Payload) (string, error) {
 	logger := runtime.Logger()
 	logger.Info("Simple HTTP workflow triggered.")
 
 	logger.Info("Processing order with inputs", "inputs", string(trigger.Input))
 
-	orderPromise := sdk.RunInNodeMode(cfg, runtime,
-		func(cfg Config, nodeRuntime sdk.NodeRuntime) (string, error) {
+	orderPromise := cre.RunInNodeMode(cfg, runtime,
+		func(cfg Config, nodeRuntime cre.NodeRuntime) (string, error) {
 			client := &http.Client{}
 
 			req := &http.Request{
 				Url:    cfg.URL,
-				Method: "POST",
+				Method: "POST", //nolint:usestdlibvars // cre-sdk http package doesn't declare method constants
 				Body:   trigger.Input,
-				Headers: map[string]string{
+				Headers: map[string]string{ //nolint:staticcheck // SA1019: deprecated proto field
 					"Content-Type": "application/json",
 				},
 				Timeout: &durationpb.Duration{
@@ -85,12 +85,12 @@ func onTrigger(cfg Config, runtime sdk.Runtime, trigger *http.Payload) (string, 
 			}
 
 			if orderResp.Status == "success" {
-				return fmt.Sprintf("Order placed successfully! Order ID: %s", orderResp.OrderID), nil
+				return "Order placed successfully! Order ID: " + orderResp.OrderID, nil
 			}
 
 			return "Order completed", nil
 		},
-		sdk.ConsensusIdenticalAggregation[string](),
+		cre.ConsensusIdenticalAggregation[string](),
 	)
 
 	result, err := orderPromise.Await()

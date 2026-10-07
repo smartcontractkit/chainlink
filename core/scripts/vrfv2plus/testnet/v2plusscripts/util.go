@@ -233,7 +233,7 @@ func RegisterCoordinatorProvingKey(e helpers.Environment,
 	pk, err := crypto.UnmarshalPubkey(pubBytes)
 	helpers.PanicErr(err)
 	tx, err := coordinator.RegisterProvingKey(e.Owner,
-		[2]*big.Int{pk.X, pk.Y}, gasLaneMaxGas)
+		[2]*big.Int{pk.X, pk.Y}, gasLaneMaxGas) //nolint:staticcheck // SA1019: coordinator ABI requires [2]*big.Int coordinates
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(
 		context.Background(),

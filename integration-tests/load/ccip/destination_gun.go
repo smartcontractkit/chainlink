@@ -121,11 +121,9 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 			// sequence numbers start at 1 so using 0 as a sentinel value
 			data := messageData{
 				eventType: transmitted,
-				srcDstSeqNum: srcDstSeqNum{
-					src:    src,
-					dst:    m.chainSelector,
-					seqNum: 0,
-				},
+				src:       src,
+				dst:       m.chainSelector,
+				seqNum:    0,
 				timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115
 			}
 			m.metricPipe <- data
@@ -144,7 +142,7 @@ func (m *DestinationGun) mustSourceChain() (uint64, error) {
 	}
 
 	// Round-robin through available sources with chain offset
-	index := (int(m.roundNum.Load())) % len(m.availableSources)
+	index := int(m.roundNum.Load()) % len(m.availableSources)
 	selectedSource := m.availableSources[index]
 
 	m.l.Debugw("Selected source chain",
@@ -183,7 +181,8 @@ func (m *DestinationGun) sendEVMSourceMessage(src uint64) error {
 	}
 
 	fee, err := r.GetFee(
-		&bind.CallOpts{Context: context.Background()}, m.chainSelector, msg)
+		&bind.CallOpts{Context: context.Background()}, m.chainSelector, msg,
+	)
 	if err != nil {
 		m.l.Errorw("could not get fee",
 			"dstChainSelector", m.chainSelector,
@@ -353,7 +352,8 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			tokenReceiver, _, err = soltokens.FindAssociatedTokenAddress(
 				solana.Token2022ProgramID,
 				dstChainState.LinkToken,
-				dstChainState.Receiver)
+				dstChainState.Receiver,
+			)
 			if err != nil {
 				return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("error getting token receiver address: %w", err)
 			}
