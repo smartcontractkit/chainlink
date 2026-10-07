@@ -1452,6 +1452,8 @@ func TestLauncher_ShardIdentityFromConfig(t *testing.T) {
 }
 
 func TestWithoutLocallyHostedCapabilities(t *testing.T) {
+	t.Parallel()
+
 	cfg := func() regpkg.CapabilityConfiguration { return regpkg.CapabilityConfiguration{Config: []byte{1}} }
 	mine := regpkg.DON{ID: 2, CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{"evm@1.0.0": cfg()}}
 	remote := regpkg.DON{ID: 1, CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{"evm@1.0.0": cfg(), "other@1.0.0": cfg()}}
