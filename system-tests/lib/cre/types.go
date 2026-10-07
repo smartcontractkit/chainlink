@@ -586,7 +586,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	c.CapabilityConfigs = capConfigs
 
 	donFamilies := normalizedDonFamilies(c.DonFamilies)
-	if len(donFamilies) == 0 {
+	if len(donFamilies) == 0 && donFamiliesRequired(c.DONTypes) {
 		return nil, fmt.Errorf("nodeset %q has no don_families; set don_families on every nodeset", c.Name)
 	}
 
@@ -604,6 +604,23 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	}
 
 	return out, nil
+}
+
+func donFamiliesRequired(donTypes []string) bool {
+	if len(donTypes) == 0 {
+		return true
+	}
+	for _, donType := range donTypes {
+		switch CapabilityFlag(donType) {
+		case BootstrapDON, GatewayDON:
+			// public-URL only: may omit don_families
+		default:
+			// workflow/capabilities/shard route by family; unknown types may,
+			// so keep the requirement.
+			return true
+		}
+	}
+	return false
 }
 
 // normalizedDonFamilies trims, drops empty entries and de-duplicates, preserving

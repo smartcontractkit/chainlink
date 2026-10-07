@@ -7,15 +7,17 @@
 # secrets from the same shared vault over the workflow-DON -> vault-DON remote hop.
 #
 # Family layout (see don_families):
-#   workflow-1-zone-a         : don_families=["zone-a", "zone-a_shard-0"]   (shard 0; no vault capability)
-#   workflow-1-zone-a-shard-1 : don_families=["zone-a", "zone-a_shard-1"]   (shard 1; no vault capability)
+#   workflow-1-zone-a         : don_families=["zone-a_workflows", "zone-a_shard-0"]   (shard 0; no vault capability)
+#   workflow-1-zone-a-shard-1 : don_families=["zone-a_workflows", "zone-a_shard-1"]   (shard 1; no vault capability)
 #   chain-capabilities-zone-a : don_families=["zone-a_shard-0", "zone-a_shard-1"]   (hosts vault; reachable by all shards)
-#   bootstrap-gateway         : don_families=["zone-a"]
+#   bootstrap-gateway         : no don_families (gateways are reached over public URLs, not by don-family routing)
 #
-# The common "zone-a" family makes the workflow registry entry (registered on the
-# first workflow DON) visible to both shards; the per-shard families give each shard
-# its own route to the shared vault DON. ShardingFailoverEnabled is deliberately NOT
-# set here: in this topology only the assigned shard syncs and runs each workflow.
+# The "_workflows" suffix marks the shared family as workflow-DON-only (the syncer
+# also fetches workflows from the base "zone-a" family via ExpandWorkflowFamilies);
+# it makes the workflow registry entry (registered on the first workflow DON) visible
+# to both shards. The per-shard families give each shard its own route to the shared
+# vault DON. ShardingFailoverEnabled is deliberately NOT set here: in this topology
+# only the assigned shard syncs and runs each workflow.
 
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
@@ -50,7 +52,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow-1-zone-a"
-  don_families = ["zone-a", "zone-a_shard-0"]
+  don_families = ["zone-a_workflows", "zone-a_shard-0"]
   don_types = ["workflow", "shard"]
   shard_index = 0
   override_mode = "each"
@@ -105,7 +107,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow-1-zone-a-shard-1"
-  don_families = ["zone-a", "zone-a_shard-1"]
+  don_families = ["zone-a_workflows", "zone-a_shard-1"]
   don_types = ["workflow", "shard"]
   shard_index = 1
   override_mode = "all"
@@ -158,7 +160,6 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_families = ["zone-a"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 12300

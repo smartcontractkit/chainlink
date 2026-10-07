@@ -9,10 +9,10 @@
 # shards keep reading their secrets from the one shared vault DON.
 #
 # Family layout (see don_families):
-#   workflow-1-zone-a         : don_families=["zone-a", "zone-a_shard-0"]   (shard 0; no vault capability)
-#   workflow-1-zone-a-shard-1 : don_families=["zone-a", "zone-a_shard-1"]   (shard 1; no vault capability)
+#   workflow-1-zone-a         : don_families=["zone-a_workflows", "zone-a_shard-0"]   (shard 0; no vault capability)
+#   workflow-1-zone-a-shard-1 : don_families=["zone-a_workflows", "zone-a_shard-1"]   (shard 1; no vault capability)
 #   chain-capabilities-zone-a : don_families=["zone-a_shard-0", "zone-a_shard-1"]   (hosts vault; reachable by all shards)
-#   bootstrap-gateway         : don_families=["zone-a"]
+#   bootstrap-gateway         : no don_families (gateways are reached over public URLs, not by don-family routing)
 
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
@@ -47,7 +47,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow-1-zone-a"
-  don_families = ["zone-a", "zone-a_shard-0"]
+  don_families = ["zone-a_workflows", "zone-a_shard-0"]
   don_types = ["workflow", "shard"]
   shard_index = 0
   override_mode = "each"
@@ -102,7 +102,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow-1-zone-a-shard-1"
-  don_families = ["zone-a", "zone-a_shard-1"]
+  don_families = ["zone-a_workflows", "zone-a_shard-1"]
   don_types = ["workflow", "shard"]
   shard_index = 1
   override_mode = "all"
@@ -155,7 +155,6 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
-  don_families = ["zone-a"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 14300

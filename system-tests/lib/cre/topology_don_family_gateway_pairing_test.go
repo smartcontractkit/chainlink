@@ -52,21 +52,41 @@ func TestTopology_validateDonFamilyGatewayPairing_missingGateway(t *testing.T) {
 	require.Contains(t, err.Error(), "no gateway DON shares any of them")
 }
 
-func TestTopology_validateDonFamilyGatewayPairing_gatewayMissingDonFamily(t *testing.T) {
+func TestTopology_validateDonFamilyGatewayPairing_gatewayWithoutFamilies(t *testing.T) {
 	t.Parallel()
 
+	conn := testGatewayConnector("gateway-node-0", "bootstrap-gateway.local", 5002)
 	topology := &Topology{
 		DonsMetadata: &DonsMetadata{
 			dons: []*DonMetadata{
-				{Name: "workflow", DonFamilies: []string{testDONFamily}, ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "workflow-a", DonFamilies: []string{"zone-a_workflows", "zone-a_shard-0"}, ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "workflow-b", DonFamilies: []string{"zone-b"}, ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
 				{Name: "bootstrap-gateway", ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
 			},
+		},
+		GatewayConnectors: &GatewayConnectors{Configurations: []*DonGatewayConfiguration{conn}},
+		gatewayConnectorsByDon: map[string]*DonGatewayConfiguration{
+			"bootstrap-gateway": conn,
 		},
 	}
 
 	err := topology.initDonFamilyGatewayPairing()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `gateway DON "bootstrap-gateway" has no don_family`)
+	require.NoError(t, err)
+
+	pairs := topology.DonFamilyGatewayPairings()
+	require.Len(t, pairs, 2) // one pair per workflow DON
+	paired := []string{pairs[0].WorkflowDONName, pairs[1].WorkflowDONName}
+	require.ElementsMatch(t, []string{"workflow-a", "workflow-b"}, paired)
+	for _, pair := range pairs {
+		require.Equal(t, "bootstrap-gateway", pair.GatewayDONName)
+	}
+
+	// The unscoped gateway is reachable from every family, including an unknown one.
+	for _, family := range []string{"zone-a_workflows", "zone-a_shard-0", "unknown-family"} {
+		connectors := topology.GatewayConnectorsForDonFamily(family)
+		require.Len(t, connectors.Configurations, 1, family)
+		require.Equal(t, "gateway-node-0", connectors.Configurations[0].AuthGatewayID)
+	}
 }
 
 func TestInitDonFamilyGatewayPairing_requiresDonFamilyOnWorkflow(t *testing.T) {
