@@ -38,11 +38,6 @@ type SecretsFetcher interface {
 
 type RawSecretsFetcher interface {
 	SecretsFetcher
-	// GetRawSecrets returns the raw (still-encrypted) vault secret responses.
-	//
-	// Deprecated: use GetRawSecretsResponse, which also returns the top-level
-	// RawVaultPublicKey needed to verify/aggregate shares across DKG reshares.
-	GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error)
 	GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vault.GetSecretsResponse, error)
 	GetOwner() string
 }
@@ -300,23 +295,10 @@ func (s *secretsFetcher) getSecretsForBatchWithLocalFallback(ctx context.Context
 	return combined, nil
 }
 
-// GetRawSecrets obtains secrets from the Vault DON without decrypting their
-// values. Raw fetches are charged against the same per-execution secrets call
-// budget as GetSecrets.
-// GetRawSecrets returns the raw (still-encrypted) vault secret responses.
-//
-// Deprecated: use GetRawSecretsResponse, which also returns the top-level
-// RawVaultPublicKey needed to verify/aggregate shares across DKG reshares.
-func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
-	resp, err := s.GetRawSecretsResponse(ctx, request, fetcher)
-	if err != nil {
-		return nil, err
-	}
-	return resp.Responses, nil
-}
-
-// GetRawSecretsResponse returns the full vault GetSecrets response, including the
-// top-level RawVaultPublicKey, so callers stay correct across DKG reshares.
+// GetRawSecretsResponse obtains secrets from the Vault DON without decrypting
+// their values, returning the full response including the top-level
+// RawVaultPublicKey so callers stay correct across DKG reshares. Raw fetches are
+// charged against the same per-execution secrets call budget as GetSecrets.
 func (s *secretsFetcher) GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vault.GetSecretsResponse, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{
 		Org:      s.orgID,
