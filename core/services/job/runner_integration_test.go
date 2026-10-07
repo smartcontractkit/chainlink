@@ -837,7 +837,7 @@ observationSource = """
 	client := app.NewHTTPClient(nil)
 	body, err := json.Marshal(web.CreateJobRequest{TOML: tomlSpec})
 	require.NoError(t, err)
-	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body)) //nolint:bodyclose // closed via cleanup
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 
@@ -849,7 +849,7 @@ observationSource = """
 		static.ExternalInitiatorSecretHeader:    eia.Secret,
 	}
 	url := app.Server.URL + "/v2/jobs/" + jobUUID.String() + "/runs"
-	resp, cleanup := cltest.UnauthenticatedPost(t, url, bytes.NewBufferString(runBody), headers) //nolint:bodyclose // closed via cleanup
+	resp, cleanup := cltest.UnauthenticatedPost(t, url, bytes.NewBufferString(runBody), headers)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 	cltest.AssertCountStays(t, app.GetDB(), "pipeline_runs", 0)

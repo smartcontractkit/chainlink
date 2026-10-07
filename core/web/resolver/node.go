@@ -22,7 +22,7 @@ type NodeResolver struct {
 func NewNode(status chainlink.NetworkNodeStatus) (nr *NodeResolver, warn error) {
 	nr = &NodeResolver{status: status}
 	warn = toml.Unmarshal([]byte(status.Config), &nr.node)
-	return
+	return nr, warn
 }
 
 func NewNodes(nodes []chainlink.NetworkNodeStatus) (resolvers []*NodeResolver, warns error) {
@@ -34,7 +34,7 @@ func NewNodes(nodes []chainlink.NetworkNodeStatus) (resolvers []*NodeResolver, w
 		resolvers = append(resolvers, nr)
 	}
 
-	return
+	return resolvers, warns
 }
 
 func orZero[P any](s *P) P {
@@ -110,7 +110,7 @@ func NewNodePayloadResolver(node *chainlink.NetworkNodeStatus, err error) (npr *
 	if node != nil {
 		npr.nr, warn = NewNode(*node)
 	}
-	return
+	return npr, warn
 }
 
 // ToNode resolves the Node object to be returned if it is found
@@ -128,7 +128,7 @@ type NodesPayloadResolver struct {
 func NewNodesPayload(nodes []chainlink.NetworkNodeStatus, total int32) (npr *NodesPayloadResolver, warn error) {
 	npr = &NodesPayloadResolver{total: total}
 	npr.nrs, warn = NewNodes(nodes)
-	return
+	return npr, warn
 }
 
 func (r *NodesPayloadResolver) Results() []*NodeResolver {

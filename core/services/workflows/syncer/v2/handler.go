@@ -772,7 +772,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 	// Let's try to clean one up if it exists
 	if spec.Status != job.WorkflowSpecStatusActive {
-		return h.tryEngineCleanup(payload.WorkflowID)
+		return h.tryEngineCleanup(ctx, payload.WorkflowID)
 	}
 
 	// We know we need an engine, let's make sure that there isn't already one running for this workflow ID.
@@ -799,7 +799,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// - state isn't active
 	// Let's clean up and recreate
 
-	cleanupErr := h.tryEngineCleanup(payload.WorkflowID)
+	cleanupErr := h.tryEngineCleanup(ctx, payload.WorkflowID)
 	if cleanupErr != nil {
 		return fmt.Errorf("could not clean up old engine: %w", cleanupErr)
 	}
@@ -1012,9 +1012,7 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 
 	construct := v2.NewEngine
 	if h.useCoordinatedEngine(ctx, workflowID) {
-		// The trigger coordinator is not implemented yet, so a workflow routed here
-		// will never receive triggers. Warn once per engine creation with the workflowID
-		h.lggr.Warnw("Routing workflow to the coordinated engine; trigger delivery is not implemented yet",
+		h.lggr.Infow("Routing workflow to the coordinated engine",
 			"workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 
 		cfg.TriggerAcknowledger = h.triggerCoordinator
@@ -1070,7 +1068,7 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 		// on coordinated engines, stop coordinator ingress before draining,
 		// so the drain can actually reach zero active executions.
 		if e.Coordinated() && h.triggerCoordinator != nil {
-			if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, triggers.ErrWorkflowNotCoordinated) {
+			if err := h.triggerCoordinator.UnregisterTriggers(ctx, workflowID.Hex()); err != nil && !errors.Is(err, triggers.ErrWorkflowNotCoordinated) {
 				h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
 			}
 		}
@@ -1194,7 +1192,7 @@ func (h *eventHandler) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSp
 
 // tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
 // workflow engine is not running.
-func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
+func (h *eventHandler) tryEngineCleanup(ctx context.Context, workflowID types.WorkflowID) error {
 	e, ok := h.engineRegistry.Get(workflowID)
 	if !ok {
 		return nil
@@ -1205,7 +1203,7 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 	// stopEngine's coordinator handling, or trigger registrations are left
 	// orphaned on this path alone.
 	if e.Coordinated() && h.triggerCoordinator != nil {
-		if err := h.triggerCoordinator.UnregisterTriggers(workflowID.Hex()); err != nil && !errors.Is(err, triggers.ErrWorkflowNotCoordinated) {
+		if err := h.triggerCoordinator.UnregisterTriggers(ctx, workflowID.Hex()); err != nil && !errors.Is(err, triggers.ErrWorkflowNotCoordinated) {
 			h.lggr.Errorw("Failed to unregister triggers via coordinator", "workflowID", workflowID.String(), "err", err)
 		}
 	}
@@ -1326,15 +1324,10 @@ func (h *eventHandler) tryCoordinatedEngineCreate(ctx context.Context, spec *job
 	donID := localNode.WorkflowDON.ID
 
 	triggerIDs, err := h.triggerCoordinator.RegisterTriggers(ctx, engine, triggers.RegistrationParams{
-		WorkflowOwner:       spec.WorkflowOwner,
-		WorkflowName:        in.workflowName.Hex(),
-		DecodedWorkflowName: in.workflowName.String(),
-		WorkflowTag:         spec.WorkflowTag,
-		WorkflowDonID:       donID,
-		// pinnedWorkflowDonConfigVersion in v2 pins this to 1 to avoid forcing
-		// forwarder updates on config churn; mirrored here since the syncer
-		// can't reference that unexported v2 constant.
-		WorkflowDonConfigVersion:      1,
+		WorkflowOwner:                 spec.WorkflowOwner,
+		WorkflowName:                  in.workflowName,
+		WorkflowTag:                   spec.WorkflowTag,
+		WorkflowDonID:                 donID,
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 	})

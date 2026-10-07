@@ -88,6 +88,12 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	"Test_CRE_V2_ShardRingOCROverrides": {
 		{Topology: "workflow-gateway-sharded-ringocr-overrides", Configs: "configs/workflow-gateway-sharded-ringocr-overrides.toml"},
 	},
+	"Test_CRE_V2_ShardManualAssignmentSharedVault": {
+		{Topology: "workflow-gateway-sharded-shared-vault-manual", Configs: "configs/workflow-gateway-sharded-shared-vault-manual.toml"},
+	},
+	"Test_CRE_V2_ShardFailoverSharedVault": {
+		{Topology: "workflow-gateway-sharded-shared-vault-failover", Configs: "configs/workflow-gateway-sharded-shared-vault-failover.toml"},
+	},
 	"Test_CRE_V2_FailoverManualSwap": {
 		{Topology: "workflow-gateway-failover", Configs: "configs/workflow-gateway-failover-don.toml"},
 	},
