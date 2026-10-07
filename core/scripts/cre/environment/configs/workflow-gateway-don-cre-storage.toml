@@ -1,0 +1,105 @@
+# workflow-gateway-don-grpc-source.toml with workflows served by cre-storage-service (its local-stack on ctf).
+# Start with `-e 4566` so the gateway can fetch artifacts from storage-s3.
+
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  container_name = "anvil-2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+  # change to your version
+  image = "job-distributor:0.28.0"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+#[s3provider]
+#  # use all defaults
+#  port = 9000
+#  console_port = 9001
+
+[infra]
+  # either "docker" or "kubernetes"
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_families = ["test-don-family"]
+  don_types = ["workflow"]
+  override_mode = "all"
+  http_port_range_start = 10100
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
+  capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337", "evm-2337"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
+
+  # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 13000
+
+[[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = """
+[CRE.WorkflowFetcher]
+URL = ''
+
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+URL = 'storage-node-service:50052'
+TLSEnabled = false
+ArtifactStorageHost = 'storage-s3:4566'
+
+[[Capabilities.WorkflowRegistry.AdditionalSources]]
+URL = 'storage-node-service:50052'
+TLSEnabled = false
+Name = 'cre-storage'
+"""
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_families = ["test-don-family"]
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
+  supported_evm_chains = [1337, 2337]
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # 5002 is the web API capabilities port for incoming requests
+      # 15002 is the vault port for incoming requests
+      custom_ports = ["5002:5002","15002:15002"]
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = ""
