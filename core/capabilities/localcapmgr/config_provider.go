@@ -56,14 +56,3 @@ func (p offchainCapabilityConfigProvider) LocalConfigOverrides(capID string, don
 	}
 	return out
 }
-
-func toAnyMap(m map[string]string) map[string]any {
-	if m == nil {
-		return nil
-	}
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
