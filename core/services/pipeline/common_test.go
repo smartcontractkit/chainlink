@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -139,13 +138,16 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	})
 
 	t.Run("legacy vrf pipeline task types are rejected", func(t *testing.T) {
-		for _, taskType := range []pipeline.TaskType{pipeline.TaskTypeVRF, pipeline.TaskTypeVRFV2} {
-			taskMap := map[string]string{}
-			_, err := pipeline.UnmarshalTaskFromMap(taskType, taskMap, 0, "foo-dot-id")
-			require.ErrorContains(t, err, fmt.Sprintf("UnmarshalTaskFromMap: pipeline task type %q", taskType))
-			require.ErrorContains(t, err, "has been removed")
-			require.ErrorContains(t, err, "vrfv2plus")
-		}
+		taskMap := map[string]string{}
+		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskTypeVRF, taskMap, 0, "foo-dot-id")
+		require.ErrorContains(t, err, `UnmarshalTaskFromMap: pipeline task type "vrf"`)
+		require.ErrorContains(t, err, "has been removed")
+		require.ErrorContains(t, err, "vrfv2plus")
+
+		_, err = pipeline.UnmarshalTaskFromMap(pipeline.TaskTypeVRFV2, taskMap, 0, "foo-dot-id")
+		require.ErrorContains(t, err, `UnmarshalTaskFromMap: pipeline task type "vrfv2"`)
+		require.ErrorContains(t, err, "has been removed")
+		require.ErrorContains(t, err, "vrfv2plus")
 	})
 
 	tests := []struct {

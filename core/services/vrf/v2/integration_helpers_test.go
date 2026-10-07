@@ -20,7 +20,6 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_plus_upgradeable_example"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	v2 "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -1459,7 +1458,7 @@ func testConsumerProxyCoordinatorZeroAddress(
 		common.BytesToAddress(common.LeftPadBytes([]byte{}, 20)), // zero address for the coordinator
 		uni.linkContractAddress)
 	require.NoError(t, err)
-	_, _, _, err = vrfv2_transparent_upgradeable_proxy.DeployVRFV2TransparentUpgradeableProxy(
+	_, _, err = deployOZTransparentUpgradeableProxy(
 		uni.neil, uni.backend.Client(), upgradeableConsumerAddress, uni.proxyAdminAddress, initializeCalldata,
 	)
 	require.Error(t, err)

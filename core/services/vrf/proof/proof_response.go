@@ -123,24 +123,26 @@ func GenerateProofResponseFromProofV2Plus(
 	gx, gy := secp256k1.Coordinates(solidityProof.P.Gamma)
 	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
 	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
-	return vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof{
-			Pk:            [2]*big.Int{x, y},
-			Gamma:         [2]*big.Int{gx, gy},
-			C:             solidityProof.P.C,
-			S:             solidityProof.P.S,
-			Seed:          common.BytesToHash(s.PreSeed[:]).Big(),
-			UWitness:      solidityProof.UWitness,
-			CGammaWitness: [2]*big.Int{cgx, cgy},
-			SHashWitness:  [2]*big.Int{shx, shy},
-			ZInv:          solidityProof.ZInv,
-		}, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{
-			BlockNum:         s.BlockNum,
-			SubId:            s.SubID,
-			CallbackGasLimit: s.CallbackGasLimit,
-			NumWords:         s.NumWords,
-			Sender:           s.Sender,
-			ExtraArgs:        s.ExtraArgs,
-		}, nil
+	proof = vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof{
+		Pk:            [2]*big.Int{x, y},
+		Gamma:         [2]*big.Int{gx, gy},
+		C:             solidityProof.P.C,
+		S:             solidityProof.P.S,
+		Seed:          common.BytesToHash(s.PreSeed[:]).Big(),
+		UWitness:      solidityProof.UWitness,
+		CGammaWitness: [2]*big.Int{cgx, cgy},
+		SHashWitness:  [2]*big.Int{shx, shy},
+		ZInv:          solidityProof.ZInv,
+	}
+	rc = vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{
+		BlockNum:         s.BlockNum,
+		SubId:            s.SubID,
+		CallbackGasLimit: s.CallbackGasLimit,
+		NumWords:         s.NumWords,
+		Sender:           s.Sender,
+		ExtraArgs:        s.ExtraArgs,
+	}
+	return proof, rc, nil
 }
 
 func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (

@@ -35,8 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_malicious_consumer_v2_plus"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2plus_single_consumer"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2plus_sub_owner"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_proxy_admin"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_consumer_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_reverting_example"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -226,9 +224,9 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	require.NoError(t, err, "failed to deploy upgradeable consumer to simulated ethereum blockchain")
 	backend.Commit()
 
-	proxyAdminAddress, _, proxyAdmin, err := vrfv2_proxy_admin.DeployVRFV2ProxyAdmin(neil, backend.Client())
-	require.NoError(t, err)
-	backend.Commit()
+	// The proxy admin can be a plain EOA here; the tests never upgrade the
+	// proxy through a ProxyAdmin contract.
+	proxyAdminAddress := neil.From
 
 	// provide abi-encoded initialize function call on the implementation contract
 	// so that it's called upon the proxy construction, to initialize it.
@@ -238,7 +236,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	hexified := hexutil.Encode(initializeCalldata)
 	t.Log("initialize calldata:", hexified, "coordinator:", coordinatorAddress.String(), "link:", linkAddress)
 	require.NoError(t, err)
-	proxyAddress, _, _, err := vrfv2_transparent_upgradeable_proxy.DeployVRFV2TransparentUpgradeableProxy(
+	proxyAddress, _, err := deployOZTransparentUpgradeableProxy(
 		neil, backend.Client(), upgradeableConsumerAddress, proxyAdminAddress, initializeCalldata,
 	)
 	require.NoError(t, err)
@@ -248,7 +246,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	require.NoError(t, err)
 	backend.Commit()
 
-	implAddress, err := proxyAdmin.GetProxyImplementation(nil, proxyAddress)
+	implAddress, err := getOZProxyImplementation(t.Context(), backend.Client(), proxyAddress)
 	require.NoError(t, err)
 	t.Log("impl address:", implAddress.String())
 	require.Equal(t, upgradeableConsumerAddress, implAddress)
