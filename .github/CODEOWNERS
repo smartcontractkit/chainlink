@@ -42,7 +42,6 @@
 /core/services/vrf/ @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/blockhashstore/ @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/blockheaderfeeder/ @smartcontractkit/dev-services @smartcontractkit/core
-/core/services/pipeline/task.vrf.go @smartcontractkit/dev-services
 /core/services/pipeline/task.vrfv2plus.go @smartcontractkit/dev-services
 /core/scripts/vrf*/ @smartcontractkit/dev-services
 
