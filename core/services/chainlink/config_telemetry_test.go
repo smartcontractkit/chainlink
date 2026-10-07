@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -599,5 +601,143 @@ func TestTelemetryConfig_MetricCardinalityLimit(t *testing.T) {
 		defaults := docs.CoreDefaults()
 		tc := telemetryConfig{s: defaults.Telemetry}
 		assert.Equal(t, 100000, tc.MetricCardinalityLimit())
+	})
+}
+
+func TestTelemetryConfig_ChipIngressRetry(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Enabled", func(t *testing.T) {
+		t.Parallel()
+		tests := []struct {
+			name      string
+			telemetry toml.Telemetry
+			expected  bool
+		}{
+			{"Set", toml.Telemetry{ChipIngressRetryEnabled: new(true)}, true},
+			{"NilDisables", toml.Telemetry{}, false},
+			{"ExplicitFalse", toml.Telemetry{ChipIngressRetryEnabled: new(false)}, false},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				tc := telemetryConfig{s: tt.telemetry}
+				assert.Equal(t, tt.expected, tc.ChipIngressRetryEnabled())
+			})
+		}
+	})
+
+	t.Run("MaxAttempts", func(t *testing.T) {
+		t.Parallel()
+		tests := []struct {
+			name      string
+			telemetry toml.Telemetry
+			expected  int
+		}{
+			{"Set", toml.Telemetry{ChipIngressRetryMaxAttempts: new(5)}, 5},
+			{"NilDefaults", toml.Telemetry{}, defaultChipIngressRetryMaxAttempts},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				tc := telemetryConfig{s: tt.telemetry}
+				assert.Equal(t, tt.expected, tc.ChipIngressRetryMaxAttempts())
+			})
+		}
+	})
+
+	t.Run("InitialBackoff", func(t *testing.T) {
+		t.Parallel()
+		tests := []struct {
+			name      string
+			telemetry toml.Telemetry
+			expected  time.Duration
+		}{
+			{"Set", toml.Telemetry{ChipIngressRetryInitialBackoff: commonconfig.MustNewDuration(250 * time.Millisecond)}, 250 * time.Millisecond},
+			{"NilDefaults", toml.Telemetry{}, defaultChipIngressRetryInitialBackoff},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				tc := telemetryConfig{s: tt.telemetry}
+				assert.Equal(t, tt.expected, tc.ChipIngressRetryInitialBackoff())
+			})
+		}
+	})
+
+	t.Run("MaxBackoff", func(t *testing.T) {
+		t.Parallel()
+		tests := []struct {
+			name      string
+			telemetry toml.Telemetry
+			expected  time.Duration
+		}{
+			{"Set", toml.Telemetry{ChipIngressRetryMaxBackoff: commonconfig.MustNewDuration(5 * time.Second)}, 5 * time.Second},
+			{"NilDefaults", toml.Telemetry{}, defaultChipIngressRetryMaxBackoff},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				tc := telemetryConfig{s: tt.telemetry}
+				assert.Equal(t, tt.expected, tc.ChipIngressRetryMaxBackoff())
+			})
+		}
+	})
+
+	t.Run("BackoffMultiplier", func(t *testing.T) {
+		t.Parallel()
+		tests := []struct {
+			name      string
+			telemetry toml.Telemetry
+			expected  float64
+		}{
+			{"Set", toml.Telemetry{ChipIngressRetryBackoffMultiplier: new(1.5)}, 1.5},
+			{"NilDefaults", toml.Telemetry{}, defaultChipIngressRetryBackoffMultiplier},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				tc := telemetryConfig{s: tt.telemetry}
+				assert.InDelta(t, tt.expected, tc.ChipIngressRetryBackoffMultiplier(), 0.0001)
+			})
+		}
+	})
+
+	t.Run("RetryableStatusCodes", func(t *testing.T) {
+		t.Parallel()
+		tests := []struct {
+			name      string
+			telemetry toml.Telemetry
+			expected  []string
+		}{
+			{"Set", toml.Telemetry{ChipIngressRetryableStatusCodes: []string{"Unavailable"}}, []string{"Unavailable"}},
+			{"NilDefaults", toml.Telemetry{}, defaultChipIngressRetryableStatusCodes},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				tc := telemetryConfig{s: tt.telemetry}
+				assert.Equal(t, tt.expected, tc.ChipIngressRetryableStatusCodes())
+			})
+		}
+	})
+
+	t.Run("DefaultsMirrorCommonRecommendedPolicy", func(t *testing.T) {
+		t.Parallel()
+		// The getters' defaults must resolve to the same policy as
+		// chainlink-common's chipingress.DefaultRetryPolicy so that enabling
+		// retries without overrides yields the recommended policy.
+		tc := telemetryConfig{s: toml.Telemetry{}}
+		assert.False(t, tc.ChipIngressRetryEnabled(), "retries must stay off unless explicitly enabled")
+
+		expected := chipingress.DefaultRetryPolicy()
+		assert.Equal(t, expected.MaxAttempts, tc.ChipIngressRetryMaxAttempts())
+		assert.Equal(t, expected.InitialBackoff, tc.ChipIngressRetryInitialBackoff())
+		assert.Equal(t, expected.MaxBackoff, tc.ChipIngressRetryMaxBackoff())
+		assert.InDelta(t, expected.BackoffMultiplier, tc.ChipIngressRetryBackoffMultiplier(), 0.0001)
+
+		codes, err := chipingress.ParseStatusCodes(tc.ChipIngressRetryableStatusCodes())
+		require.NoError(t, err)
+		assert.Equal(t, expected.RetryableStatusCodes, codes)
 	})
 }
