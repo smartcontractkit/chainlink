@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.68.1
+
+### Patch Changes
+
+- Hotfix line cut from v2.68.0-rc.0. Changes land via PRs against release/2.68.1.
+
 ## 2.68.0
 
 ### Minor Changes
