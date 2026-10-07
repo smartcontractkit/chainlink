@@ -116,7 +116,7 @@ func (s *StandardCapabilities) maybeResolveCapabilityDonID(ctx context.Context) 
 	if s.capabilityDonID != 0 || s.resolveCapabilityDonID == nil {
 		return
 	}
-timeout := maxResolveCapabilityDonIDTimeout
+	timeout := maxResolveCapabilityDonIDTimeout
 	if s.startTimeout > 0 {
 		timeout = min(timeout, s.startTimeout/2)
 	}
