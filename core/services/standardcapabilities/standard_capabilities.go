@@ -20,6 +20,10 @@ import (
 
 const defaultStartTimeout = 3 * time.Minute
 
+// maxResolveCapabilityDonIDTimeout bounds capability DON ID resolution so it
+// can't use up the start timeout that Initialise also needs.
+const maxResolveCapabilityDonIDTimeout = time.Minute
+
 var (
 	ErrServiceStopped  = errors.New("service stopped")
 	ErrServiceNotReady = errors.New("service not ready")
@@ -40,12 +44,13 @@ type StandardCapabilities struct {
 	orgResolver          orgresolver.OrgResolver
 	creSettings          core.SettingsBroadcaster
 	triggerEventStore    capabilities.EventStore
-	// capabilityDonID is the authoritative on-chain DON ID this plugin process
-	// was spawned for, resolved by the host (localcapmgr.startCapability or
-	// Delegate.NewServices). Plumbed to the LOOP via StandardCapabilitiesDependencies
-	// at Initialise time. Zero means the host did not resolve one; the plugin
-	// will fall back to capability-registry lookup.
+	// capabilityDonID is the on-chain DON ID this plugin process was spawned for.
+	// Plumbed to the LOOP via StandardCapabilitiesDependencies at Initialise time.
+	// Zero means unresolved.
 	capabilityDonID uint32
+	// resolveCapabilityDonID, when set, resolves capabilityDonID at startup
+	// before Initialise (job-spec boot path, where it is not known up front).
+	resolveCapabilityDonID func(ctx context.Context) uint32
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 	// loopID is the ID this service holds in the plugin registrar. It is set
@@ -106,6 +111,20 @@ func NewStandardCapabilities(
 	}
 }
 
+// maybeResolveCapabilityDonID resolves capabilityDonID when it is not known up front
+func (s *StandardCapabilities) maybeResolveCapabilityDonID(ctx context.Context) {
+	if s.capabilityDonID != 0 || s.resolveCapabilityDonID == nil {
+		return
+	}
+	timeout := maxResolveCapabilityDonIDTimeout
+	if s.startTimeout > 0 {
+		timeout = min(timeout, s.startTimeout/2)
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	s.capabilityDonID = s.resolveCapabilityDonID(ctx)
+}
+
 // initialiseDependencies builds the StandardCapabilitiesDependencies delivered to
 // the capability LOOP via Initialise.
 func (s *StandardCapabilities) initialiseDependencies() core.StandardCapabilitiesDependencies {
@@ -162,6 +181,8 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				s.setReadyErr(fmt.Errorf("waiting for standard capabilities service to start: %w", err))
 				return
 			}
+
+			s.maybeResolveCapabilityDonID(cctx)
 
 			dependencies := s.initialiseDependencies()
 			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {

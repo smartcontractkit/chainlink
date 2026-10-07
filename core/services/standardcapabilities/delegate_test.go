@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -228,9 +230,10 @@ func Test_ServicesForSpec_AllowlistEnforcement(t *testing.T) {
 func TestResolveCapabilityDonID(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
 	capabilityID := "evm:ChainSelector:42@1.0.0"
 	localPeerID := testPeerID(1)
+	getLocalPeerID := func() (p2ptypes.PeerID, error) { return localPeerID, nil }
+	errMetadataNotReady := errors.New("metadataRegistry information not available")
 
 	node := func(peerID p2ptypes.PeerID) capabilities.Node {
 		return capabilities.Node{PeerID: &peerID}
@@ -241,75 +244,107 @@ func TestResolveCapabilityDonID(t *testing.T) {
 			Nodes: nodes,
 		}
 	}
+	// shortCtx bounds retries in cases that never succeed.
+	shortCtx := func(t *testing.T) context.Context {
+		ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
+		t.Cleanup(cancel)
+		return ctx
+	}
 
 	t.Run("returns matching DON ID", func(t *testing.T) {
 		t.Parallel()
 
 		registry := mocks.NewCapabilitiesRegistry(t)
-		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return([]capabilities.DONWithNodes{
+		registry.EXPECT().DONsForCapability(mock.Anything, capabilityID).Return([]capabilities.DONWithNodes{
 			donWithNodes(10, node(testPeerID(2))),
 			donWithNodes(20, node(localPeerID)),
-		}, nil)
+		}, nil).Once()
 
-		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(t.Context(), logger.Test(t), registry, getLocalPeerID, capabilityID)
+
+		assert.Equal(t, uint32(20), got)
+	})
+
+	t.Run("retries until the metadata registry is ready", func(t *testing.T) {
+		t.Parallel()
+
+		registry := mocks.NewCapabilitiesRegistry(t)
+		registry.EXPECT().DONsForCapability(mock.Anything, capabilityID).Return(nil, errMetadataNotReady).Twice()
+		registry.EXPECT().DONsForCapability(mock.Anything, capabilityID).Return([]capabilities.DONWithNodes{
+			donWithNodes(20, node(localPeerID)),
+		}, nil).Once()
+
+		got := resolveCapabilityDonID(t.Context(), logger.Test(t), registry, getLocalPeerID, capabilityID)
+
+		assert.Equal(t, uint32(20), got)
+	})
+
+	t.Run("retries until local peer ID is available", func(t *testing.T) {
+		t.Parallel()
+
+		registry := mocks.NewCapabilitiesRegistry(t)
+		registry.EXPECT().DONsForCapability(mock.Anything, capabilityID).Return([]capabilities.DONWithNodes{
+			donWithNodes(20, node(localPeerID)),
+		}, nil).Once()
+
+		calls := 0
+		got := resolveCapabilityDonID(t.Context(), logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
+			calls++
+			if calls == 1 {
+				return p2ptypes.PeerID{}, errors.New("dispatcher not ready")
+			}
 			return localPeerID, nil
 		}, capabilityID)
 
 		assert.Equal(t, uint32(20), got)
 	})
 
-	t.Run("falls back to 0 when no DON matches local peer", func(t *testing.T) {
+	t.Run("returns 0 when registry stays unavailable until ctx is done", func(t *testing.T) {
 		t.Parallel()
 
 		registry := mocks.NewCapabilitiesRegistry(t)
-		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return([]capabilities.DONWithNodes{
-			donWithNodes(10, node(testPeerID(2))),
-		}, nil)
+		registry.EXPECT().DONsForCapability(mock.Anything, capabilityID).Return(nil, errMetadataNotReady)
 
-		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
-			return localPeerID, nil
-		}, capabilityID)
+		got := resolveCapabilityDonID(shortCtx(t), logger.Test(t), registry, getLocalPeerID, capabilityID)
 
 		assert.Equal(t, uint32(0), got)
 	})
 
-	t.Run("falls back to 0 when local peer matches multiple DONs", func(t *testing.T) {
-		t.Parallel()
-
-		registry := mocks.NewCapabilitiesRegistry(t)
-		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return([]capabilities.DONWithNodes{
-			donWithNodes(10, node(localPeerID)),
-			donWithNodes(20, node(localPeerID)),
-		}, nil)
-
-		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
-			return localPeerID, nil
-		}, capabilityID)
-
-		assert.Equal(t, uint32(0), got)
-	})
-
-	t.Run("falls back to 0 when getPeerID fails", func(t *testing.T) {
+	t.Run("returns 0 when getPeerID keeps failing until ctx is done", func(t *testing.T) {
 		t.Parallel()
 
 		registry := mocks.NewCapabilitiesRegistry(t)
 
-		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(shortCtx(t), logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return p2ptypes.PeerID{}, errors.New("dispatcher not ready")
 		}, capabilityID)
 
 		assert.Equal(t, uint32(0), got)
 	})
 
-	t.Run("falls back to 0 when registry call fails", func(t *testing.T) {
+	t.Run("returns 0 without retrying when no DON matches local peer", func(t *testing.T) {
 		t.Parallel()
 
 		registry := mocks.NewCapabilitiesRegistry(t)
-		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return(nil, errors.New("registry unavailable"))
+		registry.EXPECT().DONsForCapability(mock.Anything, capabilityID).Return([]capabilities.DONWithNodes{
+			donWithNodes(10, node(testPeerID(2))),
+		}, nil).Once()
 
-		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
-			return localPeerID, nil
-		}, capabilityID)
+		got := resolveCapabilityDonID(t.Context(), logger.Test(t), registry, getLocalPeerID, capabilityID)
+
+		assert.Equal(t, uint32(0), got)
+	})
+
+	t.Run("returns 0 without retrying when local peer matches multiple DONs", func(t *testing.T) {
+		t.Parallel()
+
+		registry := mocks.NewCapabilitiesRegistry(t)
+		registry.EXPECT().DONsForCapability(mock.Anything, capabilityID).Return([]capabilities.DONWithNodes{
+			donWithNodes(10, node(localPeerID)),
+			donWithNodes(20, node(localPeerID)),
+		}, nil).Once()
+
+		got := resolveCapabilityDonID(t.Context(), logger.Test(t), registry, getLocalPeerID, capabilityID)
 
 		assert.Equal(t, uint32(0), got)
 	})
