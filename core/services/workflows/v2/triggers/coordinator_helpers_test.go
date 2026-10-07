@@ -3,6 +3,7 @@ package triggers
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
@@ -48,12 +49,16 @@ type fakeEngine struct {
 	// execute, if set, runs inside ExecuteTrigger on the reader goroutine.
 	execute func(ctx context.Context, event CoordinatedEvent)
 
+	active atomic.Int32
+
 	mu      sync.Mutex
 	events  []CoordinatedEvent
 	tenants []contexts.CRE
 }
 
 func (e *fakeEngine) ExecuteTrigger(ctx context.Context, event CoordinatedEvent) error {
+	e.active.Add(1)
+	defer e.active.Add(-1)
 	e.mu.Lock()
 	e.events = append(e.events, event)
 	e.tenants = append(e.tenants, contexts.CREValue(ctx))
@@ -65,6 +70,8 @@ func (e *fakeEngine) ExecuteTrigger(ctx context.Context, event CoordinatedEvent)
 }
 
 func (e *fakeEngine) IsCoordinated() bool { return e.coordinated }
+
+func (e *fakeEngine) ActiveExecutions() int32 { return e.active.Load() }
 
 func (e *fakeEngine) executed() []CoordinatedEvent {
 	e.mu.Lock()
@@ -86,6 +93,12 @@ func (r *fakeEngineRegistry) Get(wid types.WorkflowID) (RegisteredEngine, bool) 
 	defer r.mu.Unlock()
 	e, ok := r.engines[wid]
 	return e, ok
+}
+
+func (r *fakeEngineRegistry) remove(wid types.WorkflowID) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.engines, wid)
 }
 
 func (r *fakeEngineRegistry) set(wid types.WorkflowID, e RegisteredEngine) {

@@ -3,6 +3,8 @@ package triggers
 import (
 	"context"
 	"errors"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -204,7 +206,7 @@ func TestCoordinator_Ack(t *testing.T) {
 
 // TestCoordinator_UnregisterTriggers covers unregistration: ingress stops
 // immediately, handles stay available until in-flight executions drain, and the
-// limit slot is freed exactly once, also on retry and on drain timeout.
+// limit slot is freed exactly once, also on retry and under concurrent calls.
 func TestCoordinator_UnregisterTriggers(t *testing.T) {
 	t.Parallel()
 
@@ -226,7 +228,8 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 
-		require.Eventually(t, func() bool { return !f.registered() && f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
+		assert.False(t, f.registered())
+		assert.Equal(t, 0, f.limits.inUse())
 		assert.Equal(t, 1, f.limits.freeCount())
 		f.limits.mu.Lock()
 		assert.Equal(t, testTenant, f.limits.tenants[len(f.limits.tenants)-1], "the limit is freed under the workflow's tenant")
@@ -249,7 +252,17 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		eventCh <- triggerEvent("evt-1")
 		<-started
 
-		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+		require.ErrorIs(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID), ErrExecutionsInFlight)
+
+		// Ingress is stopped: an event sent after unregister is never delivered
+		// to the engine. The send runs in a goroutine since the channel is
+		// unbuffered and no reader may remain to receive it.
+		go func() { eventCh <- triggerEvent("evt-2") }()
+		require.Never(t, func() bool {
+			return slices.ContainsFunc(f.engine.executed(), func(e CoordinatedEvent) bool {
+				return e.Event.Event.ID == "evt-2"
+			})
+		}, 100*time.Millisecond, 10*time.Millisecond, "event sent after unregister must not be delivered")
 
 		// The in-flight execution still resolves its handle.
 		require.NoError(t, f.c.Ack(t.Context(), testTriggerCapID, regID, "evt-1"))
@@ -262,11 +275,11 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		go func() { eventCh <- triggerEvent("evt-2") }()
 
 		close(release)
-		require.Eventually(t, func() bool { return !f.registered() && f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
-
-		executed := f.engine.executed()
-		require.Len(t, executed, 1, "evt-2 must not be delivered after unregister")
-		assert.Equal(t, "evt-1", executed[0].Event.Event.ID)
+		require.Eventually(t, func() bool { return f.engine.ActiveExecutions() == 0 }, 5*time.Second, 10*time.Millisecond)
+		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+		assert.False(t, f.registered())
+		assert.Equal(t, 0, f.limits.inUse())
+		assert.Equal(t, 1, f.limits.freeCount())
 	})
 
 	t.Run("repeated calls unregister with the capability once", func(t *testing.T) {
@@ -279,12 +292,9 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 		require.NoError(t, err)
 		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
-		// The second call may land before or after the release; both are fine.
-		err = f.c.UnregisterTriggers(t.Context(), validWorkflowID)
-		if err != nil {
-			require.ErrorIs(t, err, ErrWorkflowNotCoordinated)
-		}
-		require.Eventually(t, func() bool { return f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
+		// The first call already released, so there is nothing left to unregister.
+		require.ErrorIs(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID), ErrWorkflowNotCoordinated)
+		assert.Equal(t, 0, f.limits.inUse())
 		assert.Equal(t, 1, f.limits.freeCount())
 	})
 
@@ -294,7 +304,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(errors.New("capability down")).Once()
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
-		// Keep a reader busy so the retry happens before the release.
+		// Keep an execution running so the retry happens before the release.
 		started, release := f.blockingExecution()
 
 		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
@@ -303,43 +313,60 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		<-started
 
 		require.ErrorContains(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID), "failed to unregister 1 of 1 triggers")
-		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+		require.ErrorIs(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID), ErrExecutionsInFlight)
 
 		close(release)
-		require.Eventually(t, func() bool { return f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
-		assert.Equal(t, 1, f.limits.freeCount(), "only one release waiter may free the slot")
+		require.Eventually(t, func() bool { return f.engine.ActiveExecutions() == 0 }, 5*time.Second, 10*time.Millisecond)
+		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+		assert.Equal(t, 0, f.limits.inUse())
+		assert.Equal(t, 1, f.limits.freeCount())
 	})
 
-	t.Run("releases after the drain timeout even if an execution hangs", func(t *testing.T) {
+	t.Run("releases when the engine is gone", func(t *testing.T) {
 		t.Parallel()
 		f := newCoordinatorFixture(t)
-		trigger, eventCh := f.expectTrigger(t)
+		trigger, _ := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
-		started, release := f.blockingExecution()
-		defer close(release)
 
 		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 		require.NoError(t, err)
-		eventCh <- triggerEvent("evt-1")
-		<-started
+		f.engines.remove(f.wid)
 
 		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
-		require.NoError(t, f.clock.BlockUntilContext(t.Context(), 1))
-		assert.True(t, f.registered())
+		assert.False(t, f.registered())
+		assert.Equal(t, 1, f.limits.freeCount())
+	})
 
-		f.clock.Advance(defaultDrainTimeout)
-		require.Eventually(t, func() bool { return !f.registered() && f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
+	t.Run("concurrent calls free the slot once", func(t *testing.T) {
+		t.Parallel()
+		f := newCoordinatorFixture(t)
+		trigger, _ := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		var wg sync.WaitGroup
+		for range 8 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_ = f.c.UnregisterTriggers(t.Context(), validWorkflowID)
+			}()
+		}
+		wg.Wait()
+		assert.Equal(t, 0, f.limits.inUse())
+		assert.Equal(t, 1, f.limits.freeCount())
 	})
 }
 
 // TestCoordinator_ReRegisterWhileDraining covers the overlap of two registrations
-// for the same workflow: the old registration drains while the new one is active.
+// for the same workflow: the caller replaces the engine, so registering again
+// releases the old registration outright instead of waiting for it to drain.
 //
 // The test registers, starts an execution that blocks, and unregisters. It then
-// registers again before the old registration drains. The new registration must
-// replace the old state, and the old release waiter must not delete the new state
-// or free the new slot when the old readers exit. The new registration must still
-// ACK against its own handles.
+// registers again. The new registration must replace the old state and free the
+// old slot exactly once, and must still ACK against its own handles.
 func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	t.Parallel()
 	f := newCoordinatorFixture(t)
@@ -352,7 +379,7 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	require.NoError(t, err)
 	oldCh <- triggerEvent("evt-1")
 	<-started
-	require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+	require.ErrorIs(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID), ErrExecutionsInFlight)
 
 	oldWT, _ := f.c.workflows.get(validWorkflowID)
 
@@ -365,21 +392,15 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 
 	newWT, _ := f.c.workflows.get(validWorkflowID)
 	require.NotSame(t, oldWT, newWT, "registering again must replace, not reuse, the old state")
-	assert.Equal(t, 2, f.limits.inUse(), "the old slot is held until its drain completes")
+	assert.Equal(t, 1, f.limits.inUse(), "the old slot is freed when it is replaced")
+	assert.Equal(t, 1, f.limits.freeCount())
 
+	// Finishing the old execution must not disturb the new registration.
 	close(release)
-	oldWT.readers.Wait() // the old registration's own readers have now exited
-
-	// The old release waiter, woken by the same Wait(), may still run and
-	// (wrongly, if buggy) drop the new registration. Poll instead of a single
-	// sleep-then-check: this fails the instant the bug appears rather than
-	// only if it happens to land inside a guessed window.
-	require.Never(t, func() bool {
-		cw, _ := f.c.workflows.get(validWorkflowID)
-		return cw != newWT
-	}, 100*time.Millisecond, 2*time.Millisecond, "the old waiter must not drop the new registration")
-	require.Eventually(t, func() bool { return f.limits.inUse() == 1 }, time.Second, time.Millisecond,
-		"the old waiter must still free its own slot")
+	oldWT.readers.Wait()
+	cw, _ := f.c.workflows.get(validWorkflowID)
+	require.Same(t, newWT, cw)
+	assert.Equal(t, 1, f.limits.inUse())
 
 	regID := RegistrationID(validWorkflowID, 0)
 	newTrigger.EXPECT().AckEvent(mock.Anything, regID, "evt-2", testMethod).Return(nil).Once()
