@@ -11,14 +11,24 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings) *delegate {
+// ConfigTypeCapRegistry is the config_type of the offchain capabilities registry payload. The
+// payload is carried in the spec's settings TOML under the offchain_config key.
+const ConfigTypeCapRegistry = "capabilities_registry"
+
+// offchainConfigKey is the settings TOML key holding the capabilities_registry proto-JSON payload.
+const offchainConfigKey = "offchain_config"
+
+func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings, capRegistry *globalconfig.GlobalConfig) *delegate {
 	return &delegate{
 		lggr:                    lggr,
 		atomicSettings:          atomicSettings,
 		shardAssignmentSettings: shardAssignmentSettings,
+		capRegistry:             capRegistry,
+		capRegMetrics:           globalconfig.DefaultMetrics(),
 	}
 }
 
@@ -28,6 +38,8 @@ type delegate struct {
 	lggr                    logger.Logger
 	atomicSettings          *loop.AtomicSettings
 	shardAssignmentSettings *loop.AtomicSettings
+	capRegistry             *globalconfig.GlobalConfig
+	capRegMetrics           *globalconfig.Metrics
 
 	// activeJobIDs maps config type to the active job ID.
 	activeJobIDs sync.Map
@@ -43,7 +55,7 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 	spec := j.CRESettingsSpec
 	configType := d.configType(spec)
 	switch configType {
-	case ConfigTypeSettings, ConfigTypeShardAssignment:
+	case ConfigTypeSettings, ConfigTypeShardAssignment, ConfigTypeCapRegistry:
 	default:
 		return nil, fmt.Errorf("unknown config_type %q", configType)
 	}
@@ -53,6 +65,21 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 	}
 
 	switch configType {
+	case ConfigTypeCapRegistry:
+		payload, err := extractOffchainConfig(spec.Settings)
+		if err == nil {
+			err = d.capRegistry.Store(globalconfig.Update{Raw: payload, Hash: spec.Hash})
+		}
+		domain, env := globalconfig.PayloadLabels(payload)
+		if err != nil {
+			d.capRegMetrics.RecordApplyError(ctx, domain, env)
+			d.activeJobIDs.CompareAndDelete(configType, j.ID)
+			return nil, fmt.Errorf("failed to store capabilities registry config: %w", err)
+		}
+		_, version := d.capRegistry.Load()
+		d.capRegMetrics.RecordAppliedVersion(ctx, domain, env, version)
+		d.lggr.Infow("Updated capabilities registry config", "hash", spec.Hash, "version", version)
+
 	case ConfigTypeShardAssignment:
 		if err := d.shardAssignmentSettings.Store(core.SettingsUpdate{
 			Settings: spec.Settings,
@@ -83,6 +110,8 @@ func (d *delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 	configType := d.configType(jb.CRESettingsSpec)
 	if !d.activeJobIDs.CompareAndDelete(configType, jb.ID) {
 		d.lggr.Errorf("job %d was not the active %s job for config_type %q", jb.ID, job.CRESettings, configType)
+	} else if configType == ConfigTypeCapRegistry {
+		d.capRegistry.Clear()
 	}
 	return nil
 }
