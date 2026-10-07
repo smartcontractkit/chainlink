@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -241,37 +243,58 @@ func (d *Delegate) NewServices(
 		}
 	}
 
-	ocrEvmKeyBundles, err := d.ks.OCR2().GetAllOfType(corekeys.EVM)
-	if err != nil {
-		return nil, err
-	}
-
-	var ocrEvmKeyBundle ocr2key.KeyBundle
+	// ocrKeyBundles maps chain family to the bundle used for onchain signing;
+	// ocrKeyBundle is the bundle used for the offchain keyring.
+	var ocrKeyBundles map[string]ocr2key.KeyBundle
+	var ocrKeyBundle ocr2key.KeyBundle
+	// transmitter is the transmitter paired with this node's signer in the on-chain
+	// OCR config. The caller passes it to ResolveOracleFactoryConfig so the node uses
+	// exactly the transmitter the OCR config expects. Empty when no registry config
+	// is available or this node's signer is not in it.
+	var transmitter string
 	if ocrContractConfig != nil {
-		// Always select the exact bundle matching the on-chain OCR config from the
-		// Capabilities Registry. If none matches, OCR won't work, so we fail here
-		// rather than silently picking a non-matching bundle.
-		// TODO: extend to cover other chain families besides EVM.
-		kb, ok := generic.SelectOCRKeyBundleForConfig(ocrEvmKeyBundles, ocrContractConfig)
-		if !ok {
-			log.Warnw("none of the node's EVM OCR key bundles match the signers in the on-chain OCR config; using the first bundle, which may cause unexpected behavior",
-				"numBundles", len(ocrEvmKeyBundles))
-			ocrEvmKeyBundle = ocrEvmKeyBundles[0]
-		} else {
-			ocrEvmKeyBundle = kb
+		// Select the bundles matching this node's signer in the on-chain OCR config.
+		// Signers may combine keys of several chain families (multichain public key),
+		// so all of the node's bundles are considered, not just EVM ones.
+		allBundles, bundlesErr := d.ks.OCR2().GetAll()
+		if bundlesErr != nil {
+			return nil, bundlesErr
 		}
-	} else {
-		// No on-chain OCR config available yet.
+		if match, ok := generic.MatchOCRSigner(allBundles, ocrContractConfig); ok {
+			ocrKeyBundles = match.KeyBundles
+			ocrKeyBundle = match.PrimaryKeyBundle()
+			if t, ok := generic.TransmitterAt(*ocrContractConfig, match.Index); ok {
+				transmitter = t
+			} else {
+				log.Warnw("no transmitter paired with node signer in on-chain OCR config; falling back to round-robin transmitter",
+					"signerIndex", match.Index)
+			}
+			log.Infow("matched node signer in on-chain OCR config",
+				"signerIndex", match.Index,
+				"families", slices.Sorted(maps.Keys(match.KeyBundles)),
+				"ocrKeyBundleID", ocrKeyBundle.ID())
+		} else {
+			log.Warnw("none of the node's OCR key bundles match the signers in the on-chain OCR config; using the first EVM bundle and round-robin transmitter, which may cause unexpected behavior",
+				"numBundles", len(allBundles))
+		}
+	}
+	if ocrKeyBundle == nil {
+		// No on-chain OCR config available yet, or no bundle matches it.
+		ocrEvmKeyBundles, bundlesErr := d.ks.OCR2().GetAllOfType(corekeys.EVM)
+		if bundlesErr != nil {
+			return nil, bundlesErr
+		}
 		if len(ocrEvmKeyBundles) == 0 {
-			ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, corekeys.EVM)
+			ocrKeyBundle, err = d.ks.OCR2().Create(ctx, corekeys.EVM)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to create OCR key bundle")
 			}
 		} else {
 			// Use the first bundle as a fallback, which may cause unexpected behavior
 			// if using the OracleFactory.
-			ocrEvmKeyBundle = ocrEvmKeyBundles[0]
+			ocrKeyBundle = ocrEvmKeyBundles[0]
 		}
+		ocrKeyBundles = map[string]ocr2key.KeyBundle{string(corekeys.EVM): ocrKeyBundle}
 	}
 
 	// Best-effort resolve the authoritative capability DON ID for this plugin
@@ -284,21 +307,6 @@ func (d *Delegate) NewServices(
 		capabilityDonID = resolveCapabilityDonID(ctx, log, d.registry, d.getPeerID, capabilityID)
 		log.Debugw("Resolved capability DON ID from registry", "capabilityID", capabilityID, "donID", capabilityDonID)
 	}
-
-	// Extract the transmitter paired with this node's signer from the on-chain OCR config.
-	// The caller passes it to ResolveOracleFactoryConfig so the node uses exactly the
-	// transmitter the OCR config expects. Empty when no registry config is available.
-	var transmitter string
-	if ocrContractConfig != nil {
-		if t, ok := generic.TransmitterForSigner(*ocrContractConfig, ocrEvmKeyBundle.PublicKey()); ok {
-			transmitter = t
-		} else {
-			log.Warnw("node signer not found in on-chain OCR config; falling back to round-robin transmitter",
-				"ocrKeyBundleID", ocrEvmKeyBundle.ID())
-		}
-	}
-
-	ocrKeyBundles := map[string]ocr2key.KeyBundle{"evm": ocrEvmKeyBundle}
 
 	// Always resolve the oracle factory config to fill in any missing fields
 	// (contract address, chain ID, key bundle, transmitter, signing strategy).
@@ -340,7 +348,7 @@ func (d *Delegate) NewServices(
 			JobORM:                 d.jobORM,
 			JobID:                  jobID,
 			JobName:                jobName,
-			KB:                     ocrEvmKeyBundle,
+			KB:                     ocrKeyBundle,
 			Config:                 oracleFactoryCfg,
 			OnchainSigningStrategy: resolvedSigning,
 			PeerWrapper:            d.ocrPeerWrapper,
@@ -362,7 +370,7 @@ func (d *Delegate) NewServices(
 			JobORM:                 d.jobORM,
 			JobID:                  jobID,
 			JobName:                jobName,
-			KB:                     ocrEvmKeyBundle,
+			KB:                     ocrKeyBundle,
 			Config:                 oracleFactoryCfg,
 			OnchainSigningStrategy: resolvedSigning,
 			PeerWrapper:            d.ocrPeerWrapper,

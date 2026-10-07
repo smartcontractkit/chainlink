@@ -15,23 +15,37 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
-func TestRegistryOCRKeyBundle(t *testing.T) {
+func TestRegistryOCRSignerMatch(t *testing.T) {
 	t.Parallel()
 
-	key, err := ocr2key.New(corekeys.EVM)
+	evmKey, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+	solKey, err := ocr2key.New(corekeys.Solana)
 	require.NoError(t, err)
 	keyStore := keystoremocks.NewOCR2(t)
-	keyStore.EXPECT().GetAllOfType(corekeys.EVM).Return([]ocr2key.KeyBundle{key}, nil)
+	keyStore.EXPECT().GetAll().Return([]ocr2key.KeyBundle{evmKey, solKey}, nil)
 
-	got, err := registryOCRKeyBundle(keyStore, &ocrtypes.ContractConfig{
-		Signers: []ocrtypes.OnchainPublicKey{key.PublicKey()},
+	signer, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
+		string(corekeys.EVM):    evmKey.PublicKey(),
+		string(corekeys.Solana): solKey.PublicKey(),
 	})
 	require.NoError(t, err)
-	require.NotNil(t, got)
-	assert.Equal(t, key.ID(), got.ID())
+
+	match, ok, err := registryOCRSignerMatch(keyStore, &ocrtypes.ContractConfig{
+		Signers: []ocrtypes.OnchainPublicKey{signer},
+	})
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, evmKey.ID(), match.PrimaryKeyBundle().ID())
+	assert.Equal(t, solKey.ID(), match.KeyBundles["solana"].ID())
+
+	_, ok, err = registryOCRSignerMatch(keyStore, nil)
+	require.NoError(t, err)
+	assert.False(t, ok)
 }
 
 func TestRegistryOCR2SpecRelayID(t *testing.T) {
