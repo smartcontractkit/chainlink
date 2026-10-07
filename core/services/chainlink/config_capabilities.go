@@ -468,7 +468,3 @@ func (c *capabilityNodeConfig) BinaryPathOverride() string {
 	}
 	return *c.c.BinaryPathOverride
 }
-
-func (c *capabilityNodeConfig) Config() map[string]string {
-	return c.c.Config
-}

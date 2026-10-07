@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -72,19 +71,6 @@ func (t Type) SupportsAsync() bool {
 
 func (t Type) SchemaVersion() uint32 {
 	return schemaVersions[t]
-}
-
-// additionalSchemaVersions lists schema versions accepted for a job type besides its current
-// SchemaVersion, when a newer version only adds fields. The job type's validator decides
-// which features require which version.
-var additionalSchemaVersions = map[Type][]uint32{
-	// cresettings v2 adds the top-level config_type and offchain_config fields
-	// (config_type = "capabilities_registry"); v1 specs are unchanged.
-	CRESettings: {2},
-}
-
-func (t Type) acceptsSchemaVersion(v uint32) bool {
-	return v == t.SchemaVersion() || slices.Contains(additionalSchemaVersions[t], v)
 }
 
 var (
@@ -1006,11 +992,4 @@ type CRESettingsSpec struct {
 
 	Hash     string `toml:"hash"`
 	Settings string `toml:"settings"`
-
-	// ConfigType selects how the payload is interpreted: "settings" (default),
-	// "shard_assignment", or "capabilities_registry". When empty it falls back to a
-	// config_type key embedded in Settings, then to "settings".
-	ConfigType string `toml:"config_type"`
-	// OffchainConfig carries the proto-JSON payload for config_type=capabilities_registry.
-	OffchainConfig string `toml:"offchain_config"`
 }

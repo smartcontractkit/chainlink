@@ -110,7 +110,7 @@ func onchainDONWith(id uint32, caps map[string]registry.CapabilityConfiguration)
 
 // TestReconcile_EffectiveSpecConfigPrecedence drives the full launch path (Reconcile ->
 // buildDesiredState -> startCapability -> newServicesFn) and asserts the config the capability
-// is actually launched with: TOML < on-chain < offchain (gate on only), with any key the
+// is actually launched with: on-chain < offchain (gate on only), with any key the
 // offchain payload omits keeping its legacy value.
 func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 	t.Parallel()
@@ -119,7 +119,7 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 		return &testLocalCapabilities{
 			allowlisted: map[string]bool{"cron@1.0.0": true, "consensus@1.0.0": true},
 			configs: map[string]*testCapabilityNodeConfig{
-				"cron@1.0.0": {binaryPath: "/node/local/cron", cfg: map[string]string{"interval": "10", "tomlOnly": "keep"}},
+				"cron@1.0.0": {binaryPath: "/node/local/cron"},
 			},
 		}
 	}
@@ -136,7 +136,7 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 		})
 		return gc
 	}
-	legacy := map[string]any{"interval": "20", "tomlOnly": "keep", "onchainOnly": "oc"}
+	legacy := map[string]any{"interval": "20", "onchainOnly": "oc"}
 
 	t.Run("gate off: offchain ignored, legacy behavior preserved", func(t *testing.T) {
 		t.Parallel()
@@ -150,11 +150,11 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 		t.Parallel()
 		m, rec := newCutoverManager(t, localCfg(), newGC(t), true)
 		require.NoError(t, m.Reconcile(t.Context(), dons))
-		assert.Equal(t, map[string]any{"interval": "30", "offchainOnly": "add", "onchainOnly": "oc", "tomlOnly": "keep"},
+		assert.Equal(t, map[string]any{"interval": "30", "offchainOnly": "add", "onchainOnly": "oc"},
 			rec.configFor(t, "cron@1.0.0", 7))
 		// missing DON in the offchain payload -> legacy value
 		assert.Equal(t, legacy, rec.configFor(t, "cron@1.0.0", 8))
-		// missing capability on a present DON -> legacy value (no TOML config for consensus)
+		// missing capability on a present DON -> legacy value
 		assert.Equal(t, map[string]any{"interval": "20", "onchainOnly": "oc"}, rec.configFor(t, "consensus@1.0.0", 7))
 	})
 

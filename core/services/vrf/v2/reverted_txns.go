@@ -552,8 +552,9 @@ func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 	revertErrDataStr := ""
 	revertErrDataBytes := []byte{}
 	if revertErr.Data != nil {
-		revertErrDataStr = revertErr.Data.(string)
-		revertErrDataStr = strings.Replace(revertErrDataStr, "Reverted ", "", 1)
+		if s, ok := revertErr.Data.(string); ok {
+			revertErrDataStr = strings.Replace(s, "Reverted ", "", 1)
+		}
 		// If force fulfillment txn reverts on chain due to getFeedData not falling back
 		// to MAXINT256 due to stalenessSeconds criteria not satisfying
 		revertErrDataBytes = common.FromHex(revertErrDataStr)
@@ -561,7 +562,7 @@ func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 	insufficientErr := coordinatorV2ABI.Errors["InsufficientBalance"].ID.Bytes()[0:4]
 	// Revert reason may not be accurately determined from all RPC nodes and may
 	// not work in some chains
-	if len(revertErrDataStr) > 0 && !bytes.Equal(revertErrDataBytes[0:4], insufficientErr) {
+	if len(revertErrDataStr) > 0 && (len(revertErrDataBytes) < 4 || !bytes.Equal(revertErrDataBytes[0:4], insufficientErr)) {
 		return nil, nil
 	}
 	// If reached maximum number of retries for force fulfillment

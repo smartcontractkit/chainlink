@@ -3,6 +3,7 @@ package cre
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
@@ -25,6 +26,28 @@ func TestNewNodesPreservesInputOrder(t *testing.T) {
 		require.Equal(t, cfgs[i].Host, node.Host)
 		require.Equal(t, cfgs[i].Index, node.Index)
 		require.Equal(t, cfgs[i].Roles, node.Roles)
+	}
+}
+
+func TestDonFamiliesRequired(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		donTypes []string
+		want     bool
+	}{
+		{nil, true},                                 // no DON types: keep the requirement
+		{[]string{}, true},                          // no DON types: keep the requirement
+		{[]string{WorkflowDON}, true},               // routes by family
+		{[]string{CapabilitiesDON}, true},           // routes by family
+		{[]string{ShardDON}, true},                  // routes by family
+		{[]string{WorkflowDON, ShardDON}, true},     // any family-routing type requires it
+		{[]string{BootstrapDON}, false},             // public-URL only
+		{[]string{GatewayDON}, false},               // public-URL only
+		{[]string{BootstrapDON, GatewayDON}, false}, // public-URL only (the usual gateway nodeset)
+		{[]string{"unknown"}, true},                 // unknown types: keep the requirement
+	} {
+		assert.Equal(t, tc.want, donFamiliesRequired(tc.donTypes), tc.donTypes)
 	}
 }
 

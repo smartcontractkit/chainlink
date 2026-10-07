@@ -459,4 +459,3 @@ GRPCServerMaxRecvMsgSize = '32.00mb'
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty
-

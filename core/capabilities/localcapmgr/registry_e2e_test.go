@@ -3,6 +3,7 @@ package localcapmgr
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -40,36 +41,31 @@ func (c *configCapture) get(capID string) string {
 	return c.last[capID]
 }
 
-// validateCapRegistrySpec runs a capabilities_registry cresettings TOML through the real
-// ingestion validator, returning the validated job (with OffchainConfig + computed Hash).
+// validateCapRegistrySpec runs a capabilities_registry cresettings TOML (config_type and the
+// payload in the settings TOML) through the real ingestion validator, returning the validated job
+// (with the computed Hash).
 func validateCapRegistrySpec(t *testing.T, raw string) job.Job {
 	t.Helper()
-	toml := fmt.Sprintf(`type = "cresettings"
-schemaVersion = 2
-externalJobID = %q
-config_type = "capabilities_registry"
-offchain_config = '''%s'''`, uuid.NewString(), raw)
+	settings := fmt.Sprintf("config_type = \"capabilities_registry\"\noffchain_config = '''%s'''\n", raw)
+	toml := fmt.Sprintf("type = \"cresettings\"\nschemaVersion = 1\nexternalJobID = %q\nsettings = \"\"\"\n%s\"\"\"\n", uuid.NewString(), strings.ReplaceAll(settings, `\`, `\\`))
 	jb, err := cresettings.ValidatedCRESettingsSpec(toml)
 	require.NoError(t, err)
 	require.NotNil(t, jb.CRESettingsSpec)
 	return jb
 }
 
-// applyAsProjector mirrors what CapRegistryProjector.Refresh does once a capabilities_registry
-// job is committed: it stores the validated payload into the runtime GlobalConfig. (The
-// delegate -> projector -> DB -> GlobalConfig leg is DB-backed and covered by the cresettings
-// projector tests; this test exercises validation + GlobalConfig + the launcher.)
-func applyAsProjector(t *testing.T, gc *globalconfig.GlobalConfig, jb job.Job) {
+// applyAsDelegate mirrors what the cresettings delegate does when a capabilities_registry job
+// starts: it stores the validated payload into the runtime GlobalConfig. This test exercises
+// validation + GlobalConfig + the launcher.
+func applyAsDelegate(t *testing.T, gc *globalconfig.GlobalConfig, raw string) {
 	t.Helper()
-	require.NoError(t, gc.Store(globalconfig.Update{
-		Raw:  jb.CRESettingsSpec.OffchainConfig,
-		Hash: jb.CRESettingsSpec.Hash,
-	}))
+	jb := validateCapRegistrySpec(t, raw)
+	require.NoError(t, gc.Store(globalconfig.Update{Raw: raw, Hash: jb.CRESettingsSpec.Hash}))
 }
 
 // TestOffchainRegistry_EndToEnd walks the full node-side path with the cutover ON:
 // validate a capabilities_registry spec -> apply it to the runtime GlobalConfig (as the
-// projector would) -> the LocalCapabilityManager launches the capability with offchain-wins
+// delegate would) -> the LocalCapabilityManager launches the capability with offchain-wins
 // config -> a newer payload re-reconciles reactively via Subscribe, without a new Reconcile call.
 func TestOffchainRegistry_EndToEnd(t *testing.T) {
 	t.Parallel()
@@ -78,12 +74,12 @@ func TestOffchainRegistry_EndToEnd(t *testing.T) {
 
 	gc := globalconfig.New()
 
-	// --- Ingestion: validate the v1 payload and apply it as the projector would. ---
+	// --- Ingestion: validate the v1 payload and apply it as the delegate would. ---
 	rawV1, err := marshalOffchainRegistry(offchainReg(1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
 		1: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30"})},
 	}))
 	require.NoError(t, err)
-	applyAsProjector(t, gc, validateCapRegistrySpec(t, rawV1))
+	applyAsDelegate(t, gc, rawV1)
 
 	_, version := gc.Load()
 	require.Equal(t, uint64(1), version)
@@ -125,7 +121,7 @@ func TestOffchainRegistry_EndToEnd(t *testing.T) {
 		1: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "99"})},
 	}))
 	require.NoError(t, err)
-	applyAsProjector(t, gc, validateCapRegistrySpec(t, rawV2))
+	applyAsDelegate(t, gc, rawV2)
 
 	require.Eventually(t, func() bool {
 		return capture.get("cron@1.0.0") == `{"interval":"99","region":"us"}`
@@ -145,7 +141,7 @@ func TestOffchainRegistry_EndToEnd_GateOff(t *testing.T) {
 		1: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30"})},
 	}))
 	require.NoError(t, err)
-	applyAsProjector(t, gc, validateCapRegistrySpec(t, rawV1))
+	applyAsDelegate(t, gc, rawV1)
 
 	capture := &configCapture{last: map[string]string{}}
 	localCfg := &testLocalCapabilities{
