@@ -153,7 +153,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	// resolved from the capability registry at startup (see resolveCapabilityDonID).
 	// On a node that belongs to multiple DONs running the same capability, the
 	// lookup cannot disambiguate which DON this plugin serves and it stays
-	// unresolved. Carrying the DON ID in the job spec would close that gap;
+	// unresolved. Carrying the DON ID in the job spec would close that gap.
 	// The job-spec launch path has no registry OCR3 config to thread; NewServices falls
 	// back to the cached OCRConfigService when available.
 	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, &spec.StandardCapabilitiesSpec.OracleFactory, 0, nil)
