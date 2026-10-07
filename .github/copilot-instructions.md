@@ -1,24 +1,24 @@
 # PR Review Instructions
 
+Chainlink node: a Go monorepo of many modules whose code signs transactions, moves funds, and writes on-chain and persisted state.
+
 Every PR runs CI: `go build`, tests, and `golangci-lint` (`.golangci.yml`). Your review covers what CI cannot see: **behaviour**. Spend each comment on a defect that compiles cleanly, passes lint, and still breaks at runtime.
 
-The repo tracks the latest Go release (`go` directive in the nearest `go.mod`), which is newer than your training data. Treat every syntax form and stdlib API in the diff as valid; the CI compiler decides what builds.
+Each comment states a **failure scenario**: the concrete input or state that leads to a wrong outcome, plus a fix. A concern with no failure scenario stays out of the review.
 
-## Merge danger
+The repo tracks the latest Go release, which is newer than your training data. Treat every syntax form and stdlib API in the diff as valid; the CI compiler decides what builds.
 
-Open the review summary with a table rating the PR on three axes. Scale: 🟢 trivial/small · 🟡 minor/medium · 🟠 large · 🔴 major/extreme. Each rationale names a concrete reason (callers, data, deploy order, on-chain state), never a restated rating.
+## Where to look hardest
 
-| Axis             | Measures                                                                                                                    |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **Blast radius** | What breaks if this is wrong: callers, services, nodes, funds, on-chain or persisted state.                                 |
-| **Revert**       | Cost of undoing it: schema migrations, data rewrites, config or protocol changes other services depend on, deploy ordering. |
-| **Complexity**   | Effort to verify correctness: concurrency, branching state machines, cross-module contracts, logic without tests.           |
+Scale scrutiny to **merge danger**. Read line by line any change with:
 
-Then list the code blocks that need **scrupulous human review**, worst first.
+- **Wide blast radius**: shared utilities, transaction signing and submission, funds, on-chain or persisted state.
+- **Costly revert**: schema migrations, data rewrites, config or protocol changes other services depend on, deploy ordering.
+- **High complexity**: concurrency, branching state machines, cross-module contracts, logic without tests.
 
 ## What to find
 
-Run each check against every changed file, in priority order:
+In priority order:
 
 1. **Correctness**: Does the code do what the PR claims, for every input and state it can receive, including edge, empty, and failure cases? Do invariants still hold after every path?
 2. **Concurrency**: Is all shared state safely synchronised? Can every goroutine and blocking operation finish or be cancelled?
