@@ -516,6 +516,11 @@ func (s *Services) newRegistrySyncer(
 	}
 	srvcs = append(srvcs, wfLauncher)
 
+	// Wire the offchain capabilities registry into the launcher so its method_configs
+	// overlay onto the on-chain ones under the same UseOffchainRegistry gate the
+	// LocalCapabilityManager uses below.
+	wfLauncher.SetOffchainRegistry(opts.OffchainCapabilitiesRegistry, capCfg.Local().UseOffchainRegistry())
+
 	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	localCfg := cfg.Capabilities().Local()
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {

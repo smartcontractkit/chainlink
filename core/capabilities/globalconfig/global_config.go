@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
@@ -300,7 +301,73 @@ func validate(reg *capabilitiespb.OffchainCapabilitiesRegistry) error {
 			if _, err := SpecConfigMap(capCfg.GetSpecConfig()); err != nil {
 				return fmt.Errorf("dons[%q].capabilities[%q]: invalid spec_config: %w", donName, capID, err)
 			}
+			if _, err := MethodConfigsFromProto(capCfg.GetMethodConfigs()); err != nil {
+				return fmt.Errorf("dons[%q].capabilities[%q]: invalid method_configs: %w", donName, capID, err)
+			}
 		}
 	}
 	return nil
+}
+
+// MethodConfigsFromProto converts an offchain method_configs map (pb) into the
+// capabilities.CapabilityMethodConfig map the launcher's don2don shims consume. For every set
+// remote_config oneof it mirrors the conversion in registry.CapabilityConfiguration.Unmarshal in
+// chainlink-common field-for-field, so a trigger/executable method converts identically to the
+// on-chain path. A nil map yields nil.
+//
+// It diverges from the on-chain path in ONE case, deliberately: an entry whose remote_config oneof
+// is unset. On-chain, Unmarshal rejects that entry (its switch has no such case) and the whole
+// capability config fails to load. Here it converts to a zero CapabilityMethodConfig (both
+// RemoteTriggerConfig and RemoteExecutableConfig nil) and is accepted at ingestion. The launcher
+// then treats a zero config as "no remote config found" for that method, so it is neither added to
+// the wanted shim set nor created — the effect is to DISABLE that method's shim (any existing one is
+// pruned and not recreated). This is an intentional offchain-only lever (disable a method without an
+// on-chain change); the cross-check reports it as config_mismatch. If strict on-chain parity is ever
+// required instead, make the nil case below return an error so such entries are rejected at
+// ingestion like the on-chain path.
+func MethodConfigsFromProto(in map[string]*capabilitiespb.CapabilityMethodConfig) (map[string]capabilities.CapabilityMethodConfig, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make(map[string]capabilities.CapabilityMethodConfig, len(in))
+	for method, mc := range in {
+		var config capabilities.CapabilityMethodConfig
+		switch remoteCfg := mc.GetRemoteConfig().(type) {
+		case nil:
+			// unset oneof: zero config, handled by the launcher as no remote config
+		case *capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig:
+			rt := remoteCfg.RemoteTriggerConfig
+			config = capabilities.CapabilityMethodConfig{
+				RemoteTriggerConfig: &capabilities.RemoteTriggerConfig{
+					RegistrationRefresh:     rt.GetRegistrationRefresh().AsDuration(),
+					RegistrationExpiry:      rt.GetRegistrationExpiry().AsDuration(),
+					MinResponsesToAggregate: rt.GetMinResponsesToAggregate(),
+					MessageExpiry:           rt.GetMessageExpiry().AsDuration(),
+					MaxBatchSize:            rt.GetMaxBatchSize(),
+					BatchCollectionPeriod:   rt.GetBatchCollectionPeriod().AsDuration(),
+				},
+			}
+		case *capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig:
+			re := remoteCfg.RemoteExecutableConfig
+			config = capabilities.CapabilityMethodConfig{
+				RemoteExecutableConfig: &capabilities.RemoteExecutableConfig{
+					TransmissionSchedule:      capabilities.TransmissionSchedule(re.GetTransmissionSchedule()),
+					DeltaStage:                re.GetDeltaStage().AsDuration(),
+					RequestTimeout:            re.GetRequestTimeout().AsDuration(),
+					ServerMaxParallelRequests: re.GetServerMaxParallelRequests(),
+					RequestHasherType:         capabilities.RequestHasherType(re.GetRequestHasherType()),
+					MinResponsesToAggregate:   re.GetMinResponsesToAggregate(),
+				},
+			}
+		default:
+			return nil, fmt.Errorf("method %q: unknown method config type %T", method, mc.GetRemoteConfig())
+		}
+		if agg := mc.GetAggregatorConfig(); agg != nil {
+			config.AggregatorConfig = &capabilities.AggregatorConfig{
+				AggregatorType: capabilities.AggregatorType(agg.GetAggregatorType()),
+			}
+		}
+		out[method] = config
+	}
+	return out, nil
 }

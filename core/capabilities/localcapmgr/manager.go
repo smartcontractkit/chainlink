@@ -245,7 +245,7 @@ func (m *localCapabilityManager) reconcileLocked(ctx context.Context, allMyDONs 
 
 	var offchain CapabilityConfigProvider
 	if m.useOffchainRegistry && offchainReg != nil {
-		offchain = offchainCapabilityConfigProvider{reg: offchainReg, donNames: m.offchainDONNames(allMyDONs), version: offchainVersion, lggr: m.lggr}
+		offchain = offchainCapabilityConfigProvider{reg: offchainReg, donNames: OffchainDONNames(allMyDONs), version: offchainVersion, lggr: m.lggr}
 	}
 	desired := m.buildDesiredState(allMyDONs, offchain)
 
