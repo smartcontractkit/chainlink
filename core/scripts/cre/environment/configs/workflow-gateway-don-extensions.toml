@@ -1,5 +1,9 @@
-# workflow-gateway-don-grpc-source.toml with workflows served by cre-storage-service (its local-stack on ctf).
-# Start with `-e 4566` so the gateway can fetch artifacts from storage-s3.
+# Workflow DON with gateway, reading workflows from extension stacks (configs/extensions).
+# This topology is the same as workflow-gateway-don.toml but the workflow nodes use the extension roles:
+# AdditionalSources at cre-workflow-source and WorkflowStorage at cre-artifact-api / cre-artifact-store.
+# Start with `-e 4566` so the gateway can fetch artifacts from cre-artifact-store.
+#
+# Used by: configs/extensions/README.md
 
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
@@ -43,13 +47,12 @@
   don_families = ["test-don-family"]
   don_types = ["workflow"]
   override_mode = "all"
-  http_port_range_start = 10100
+  http_port_range_start = 10000
+  p2p_port_range_start = 12000
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337", "evm-2337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
-
-  # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
     image = "postgres:15.0"
@@ -67,14 +70,14 @@
 URL = ''
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
-URL = 'storage-node-service:50052'
+URL = 'cre-artifact-api:50052'
 TLSEnabled = false
-ArtifactStorageHost = 'storage-s3:4566'
+ArtifactStorageHost = 'cre-artifact-store:4566'
 
 [[Capabilities.WorkflowRegistry.AdditionalSources]]
-URL = 'storage-node-service:50052'
+URL = 'cre-workflow-source:50052'
 TLSEnabled = false
-Name = 'cre-storage'
+Name = 'cre-extensions'
 """
 
 [[nodesets]]
@@ -83,14 +86,15 @@ Name = 'cre-storage'
   don_families = ["test-don-family"]
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
-  http_port_range_start = 10300
+  http_port_range_start = 10100
+  p2p_port_range_start = 12100
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   supported_evm_chains = [1337, 2337]
 
   [nodesets.db]
     image = "postgres:15.0"
-    port = 13200
+    port = 13100
 
   [[nodesets.node_specs]]
     roles = ["bootstrap", "gateway"]

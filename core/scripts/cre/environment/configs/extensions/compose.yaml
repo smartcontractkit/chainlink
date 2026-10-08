@@ -1,0 +1,6 @@
+# Extension stacks started alongside Local CRE. Each joins ctf and answers to the roles in README.md.
+name: cre-extensions
+
+include:
+  - path: ${CRE_STORAGE_COMPOSE:?path to cre-storage-service/local-stack/compose.yaml}
+    env_file: extensions.env
