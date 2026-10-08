@@ -138,6 +138,8 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	})
 
 	t.Run("legacy vrf pipeline task types are rejected", func(t *testing.T) {
+		t.Parallel()
+
 		taskMap := map[string]string{}
 		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskTypeVRF, taskMap, 0, "foo-dot-id")
 		require.ErrorContains(t, err, `UnmarshalTaskFromMap: pipeline task type "vrf"`)
