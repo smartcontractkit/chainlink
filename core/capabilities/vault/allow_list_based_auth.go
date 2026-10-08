@@ -11,6 +11,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
@@ -48,7 +49,14 @@ func (r *allowListBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.R
 		r.lggr.Errorw("AllowListBasedAuth workflowRegistrySyncer is nil", "method", req.Method, "requestID", req.ID)
 		return nil, errors.New("internal error: workflowRegistrySyncer is nil")
 	}
-	allowlistedRequest, allowedRequestsStrs, err := r.findAllowlistedItemWithRetry(ctx, req, requestDigest, requestDigestBytes32)
+	// Scope the lookup by the payload owner so an entry registered under a
+	// different owner (same digest) can't authorize this request.
+	requestOwner, err := extractRequestOwner(req)
+	if err != nil {
+		r.lggr.Debugw("AllowListBasedAuth failed to extract request owner", "method", req.Method, "requestID", req.ID, "error", err)
+		return nil, err
+	}
+	allowlistedRequest, allowedRequestsStrs, err := r.findAllowlistedItemWithRetry(ctx, req, requestDigest, requestDigestBytes32, requestOwner)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +84,7 @@ func (r *allowListBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.R
 	}, nil
 }
 
-func (r *allowListBasedAuth) findAllowlistedItemWithRetry(ctx context.Context, req jsonrpc.Request[json.RawMessage], requestDigest string, requestDigestBytes32 [32]byte) (*workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, []string, error) {
+func (r *allowListBasedAuth) findAllowlistedItemWithRetry(ctx context.Context, req jsonrpc.Request[json.RawMessage], requestDigest string, requestDigestBytes32 [32]byte, requestOwner string) (*workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, []string, error) {
 	for attempt := 0; attempt <= r.retryCount; attempt++ {
 		allowedRequests := r.workflowRegistrySyncer.GetAllowlistedRequests(ctx)
 		allowedRequestsStrs := make([]string, 0, len(allowedRequests))
@@ -86,7 +94,7 @@ func (r *allowListBasedAuth) findAllowlistedItemWithRetry(ctx context.Context, r
 		}
 		r.lggr.Debugw("AllowListBasedAuth loaded allowlisted requests", "method", req.Method, "requestID", req.ID, "attempt", attempt+1, "allowedRequests", allowedRequestsStrs)
 
-		allowlistedRequest := r.fetchAllowlistedItem(allowedRequests, requestDigestBytes32)
+		allowlistedRequest := r.fetchAllowlistedItem(allowedRequests, requestDigestBytes32, requestOwner)
 		if allowlistedRequest != nil {
 			return allowlistedRequest, allowedRequestsStrs, nil
 		}
@@ -110,9 +118,10 @@ func (r *allowListBasedAuth) findAllowlistedItemWithRetry(ctx context.Context, r
 	return nil, nil, nil // unreachable: loop always returns
 }
 
-func (r *allowListBasedAuth) fetchAllowlistedItem(allowListedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, digest [32]byte) *workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
+func (r *allowListBasedAuth) fetchAllowlistedItem(allowListedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, digest [32]byte, requestOwner string) *workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
+	normalizedOwner := vaultutils.NormalizeOwner(requestOwner)
 	for _, item := range allowListedRequests {
-		if item.RequestDigest == digest {
+		if item.RequestDigest == digest && vaultutils.NormalizeOwner(item.Owner.Hex()) == normalizedOwner {
 			return &item
 		}
 	}
