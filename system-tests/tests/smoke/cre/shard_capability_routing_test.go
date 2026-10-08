@@ -165,8 +165,8 @@ func mustShardedCapabilitiesTopology(t *testing.T, testEnv *ttypes.TestEnvironme
 	chain := evmChainEnabledOnNodeSet(t, testEnv, capForShardZero)
 	capForShardOneChains, err := capForShardOne.GetEnabledChainIDsForCapability(cre.EVMCapability)
 	require.NoErrorf(t, err, "failed to get EVM-enabled chain IDs for DON %s", capForShardOne.Name)
-	require.Containsf(t, capForShardOneChains, chain.CtfOutput().ChainID,
-		"EVM chain %s is not enabled on capability DON %s; both phases need the same chain", chain.CtfOutput().ChainID, capForShardOne.Name)
+	require.Containsf(t, capForShardOneChains, chain.ChainID(),
+		"EVM chain %d is not enabled on capability DON %s; both phases need the same chain", chain.ChainID(), capForShardOne.Name)
 
 	workflowOwner := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient.MustGetRootPrivateKey()
 	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
