@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	workflowhost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -225,6 +226,13 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 	if e.cfg.CachedTriggerSubscriptions != nil && e.cfg.CachedTriggerSubscriptionsEnabled {
 		if err := e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(e.cfg.CachedTriggerSubscriptions)); err != nil {
 			return nil, err
+		}
+		// The cache path skips Execute(Subscribe), so modules that derive their trigger
+		// routing from that call (e.g. requirementSelectingModule) must be primed explicitly.
+		if primer, ok := e.cfg.Module.(workflowhost.TriggerCachePrimer); ok {
+			if err := primer.PrimeTriggerCache(ctx, e.cfg.CachedTriggerSubscriptions); err != nil {
+				return nil, fmt.Errorf("failed to prime trigger cache: %w", err)
+			}
 		}
 		e.metrics.IncrementTriggerSubscriptionSourceCounter(ctx, triggerSubscriptionSourceCache)
 		if err := e.cfg.Hooks.OnSubscriptionsReady(e.cfg.CachedTriggerSubscriptions, e.Tenant(), true); err != nil {
