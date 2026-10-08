@@ -196,7 +196,6 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 							settings.Range[config.Timestamp]{Lower: config.NewTimestamp(time.Now()), Upper: config.NewTimestamp(time.Now().Add(1 * time.Hour))}.String())))
 					}
 					ExecuteDonTimeTest(t, testEnv)
-
 				})
 			}
 		})
