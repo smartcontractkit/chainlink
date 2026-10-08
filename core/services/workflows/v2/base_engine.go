@@ -193,11 +193,6 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 // It runs on the caller's goroutine, which may not be one the engine started, so it ties the execution to the
 // engine's stop signal itself: closing cancels it and waits for it to return.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	select {
-	case <-e.srvcEng.StopChan:
-		return ErrEngineClosed
-	default:
-	}
 	if !e.executions.enter() {
 		return ErrEngineClosed
 	}
@@ -220,7 +215,11 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 		))
 	defer span.End()
 
-	return e.startExecution(ctx, event)
+	var err error
+	if notStarted := e.srvcEng.IfStarted(func() error { err = e.startExecution(ctx, event); return nil }); notStarted != nil {
+		return ErrEngineClosed
+	}
+	return err
 }
 
 // Trigger subscription source labels for the
