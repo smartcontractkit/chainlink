@@ -126,6 +126,16 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				}
 				ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
 			})
+			t.Run("direct_read", func(t *testing.T) {
+				if parallelEnabled {
+					t.Parallel()
+				}
+				directEnv := fixture.TestEnv
+				if parallelEnabled {
+					directEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+				}
+				ExecuteVaultDirectReadTests(t, fixture, directEnv)
+			})
 		})
 	case suite_config.SuiteScenarioCronChipIngressStack:
 		t.Run("Cron Beholder - "+topology, func(t *testing.T) {

@@ -24,7 +24,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.2
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.14.10-0.20260511081501-829666151188
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
-	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342
+	github.com/smartcontractkit/libocr v0.0.0-20260917135550-38019a378d1f
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.28.0
