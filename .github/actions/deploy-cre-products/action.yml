@@ -51,14 +51,18 @@ runs:
           cre-mainline-prod_zone-a
           cre-mainline-prod_zone-b
           cre-mainline-prod_zone-global
+          cre-mainline-prod_gateway_zone-a
+          cre-mainline-prod_gateway_zone-b
           cre-mainline-prod_testnet-group-1
           cre-mainline-prod_testnet-group-2
-          cre-mainline-prod_testnet-group-3
-          cre-mainline-prod_testnet-group-4
           cre-df-staging_zone-a
           cre-df-staging_zone-b
           cre-df-prod_zone-a
           cre-df-prod_zone-b
+          cre-df-prod_testnet-zone-a-group-1
+          cre-df-prod_testnet-zone-a-group-2
+          cre-df-prod_testnet-zone-b-group-1
+          cre-df-prod_testnet-zone-b-group-2
           cre-bcm-prod_zone-a-group-1
           cre-bcm-prod_zone-a-group-2
           cre-bcm-prod_zone-a-group-3
@@ -66,4 +70,3 @@ runs:
           cre-bcm-prod_zone-b-group-1
           cre-bcm-prod_zone-b-group-2
           cre-bcm-prod_zone-b-group-3
-          cre-reliability
