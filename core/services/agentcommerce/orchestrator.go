@@ -24,6 +24,7 @@ type OrchestratorConfig struct {
 	Policy     Policy
 	VerifyWith ProofVerifier
 	ExecuteAs  ServiceExecutor
+	Clock      Clock
 	Timeout    time.Duration
 	MaxRetries int
 }
@@ -53,6 +54,9 @@ func NewOrchestrator(cfg OrchestratorConfig) (*Orchestrator, error) {
 	}
 	if cfg.ExecuteAs == nil {
 		return nil, fmt.Errorf("service executor is required")
+	}
+	if cfg.Clock == nil {
+		cfg.Clock = SystemClock{}
 	}
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 30 * time.Second
@@ -94,7 +98,7 @@ func (o *Orchestrator) RunTransaction(ctx context.Context, query ServiceQuery, r
 		Price:          price,
 		Buyer:          o.config.Wallet.Address(),
 		Seller:         seller.ID,
-		Timestamp:      time.Now().UTC(),
+		Timestamp:      o.config.Clock.Now().UTC(),
 	}
 
 	if err := EvaluatePolicy(o.config.Policy, seller, terms); err != nil {
@@ -227,13 +231,13 @@ func (o *Orchestrator) execute(ctx context.Context, intent SignedIntent) (Proof,
 			return Proof{}, fmt.Errorf("execution returned nil output")
 		}
 		sum := sha256.Sum256(output)
-		executionID := "exec-" + intent.Hash
-		if len(intent.Hash) > 16 {
-			executionID = "exec-" + intent.Hash[:16]
+		executionID, err := ExecutionIDForIntent(intent.Hash)
+		if err != nil {
+			return Proof{}, fmt.Errorf("derive execution id: %w", err)
 		}
 		return Proof{
 			OutputHash:  hex.EncodeToString(sum[:]),
-			Timestamp:   time.Now().UTC(),
+			Timestamp:   o.config.Clock.Now().UTC(),
 			ExecutionID: executionID,
 			Metadata:    metadata,
 		}, nil
@@ -268,13 +272,13 @@ func (o *Orchestrator) verify(ctx context.Context, intent SignedIntent, proof Pr
 				Verified: false,
 				Method:   "deterministic",
 				Reason:   "empty output hash",
-				Time:     time.Now().UTC(),
+				Time:     o.config.Clock.Now().UTC(),
 			}, nil
 		}
 		return VerificationResult{
 			Verified: true,
 			Method:   "deterministic",
-			Time:     time.Now().UTC(),
+			Time:     o.config.Clock.Now().UTC(),
 		}, nil
 	}
 
