@@ -1419,9 +1419,9 @@ func TestNewGatewayHandler_MultiShardCreatesRateLimitersForAllMembers(t *testing
 
 	// Verify donIDs: shard 0 = bare name, shard 1 = suffixed.
 	require.Equal(t, "donA", handler.shards[0].DonID)
-	require.Equal(t, "donA_1", handler.shards[1].DonID)
+	require.Equal(t, "donA_shard-1", handler.shards[1].DonID)
 	require.Equal(t, "donB", handler.shards[2].DonID)
-	require.Equal(t, "donB_1", handler.shards[3].DonID)
+	require.Equal(t, "donB_shard-1", handler.shards[3].DonID)
 
 	// Verify per-node rate limiters created for all 8 members.
 	require.Len(t, handler.perNodeRateLimiters, 8)
@@ -1431,9 +1431,9 @@ func TestNewGatewayHandler_MultiShardCreatesRateLimitersForAllMembers(t *testing
 
 	// Verify nodeAddrToShard maps each node to the correct shard endpoint.
 	require.Equal(t, "donA", handler.nodeAddrToShard["a1"].DonID)
-	require.Equal(t, "donA_1", handler.nodeAddrToShard["a3"].DonID)
+	require.Equal(t, "donA_shard-1", handler.nodeAddrToShard["a3"].DonID)
 	require.Equal(t, "donB", handler.nodeAddrToShard["b1"].DonID)
-	require.Equal(t, "donB_1", handler.nodeAddrToShard["b3"].DonID)
+	require.Equal(t, "donB_shard-1", handler.nodeAddrToShard["b3"].DonID)
 }
 
 // TestGatewayHandler_SendResponseToNode_MultiShardRouting verifies that when a

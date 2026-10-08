@@ -1424,7 +1424,6 @@ NetworkID = 'evm' # Default
 ChainID = '1' # Default
 ContractVersion = '1.0.0' # Default
 MaxBinarySize = '20.00mb' # Default
-MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
 MaxConcurrency = 12 # Default
@@ -1461,12 +1460,6 @@ ContractVersion identifies semantic version of the WorkflowRegistry contract.
 MaxBinarySize = '20.00mb' # Default
 ```
 MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
-
-### MaxEncryptedSecretsSize
-```toml
-MaxEncryptedSecretsSize = '26.40kb' # Default
-```
-MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
 
 ### MaxConfigSize
 ```toml
@@ -1664,29 +1657,15 @@ ContractVersion identifies semantic version of the CapabilitiesRegistry contract
 ## Capabilities.Dispatcher
 ```toml
 [Capabilities.Dispatcher]
-SupportedVersion = 1 # Default
 ReceiverBufferSize = 10000 # Default
-SendToSharedPeer = false # Default
 ```
 
-
-### SupportedVersion
-```toml
-SupportedVersion = 1 # Default
-```
-SupportedVersion is the version of the version of message schema.
 
 ### ReceiverBufferSize
 ```toml
 ReceiverBufferSize = 10000 # Default
 ```
 ReceiverBufferSize is the size of the buffer for incoming messages.
-
-### SendToSharedPeer
-```toml
-SendToSharedPeer = false # Default
-```
-SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
 
 ## Capabilities.Dispatcher.RateLimit
 ```toml
@@ -2889,6 +2868,7 @@ An empty list disables all OCR2 telemetry. Use ["all"] to enable all OCR2 plugin
 UseLocalTimeProvider = true # Default
 EnableDKGRecipient = false # Default
 DebugMode = false # Default
+CachedTriggerSubscriptionsEnabled = false # Default
 ```
 
 
@@ -2909,6 +2889,12 @@ EnableDKGRecipient should be set to true if the DON runs a capability that uses 
 DebugMode = false # Default
 ```
 DebugMode enables additional tracing and logging for workflow engines.
+
+### CachedTriggerSubscriptionsEnabled
+```toml
+CachedTriggerSubscriptionsEnabled = false # Default
+```
+CachedTriggerSubscriptionsEnabled makes workflow engines reuse a previously-persisted trigger subscription payload instead of executing the workflow's WASM Subscribe() call on every engine start.
 
 ## CRE.ConfidentialRelay
 ```toml
@@ -18105,4 +18091,3 @@ URL is the base HTTP(S) endpoint for this node.
 APIKey = 'key' # Example
 ```
 APIKey Header is optional and only required for Nethermind RPCs
-

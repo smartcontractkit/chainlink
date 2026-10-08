@@ -316,9 +316,9 @@ Address = "0x0008020304050607080900010203040506070809"
 	cfg := parseTOMLConfig(t, tomlConfig)
 	mgr := newConnectionManager(t, cfg, clockwork.NewFakeClock())
 
-	require.NotNil(t, mgr.DONConnectionManager(config.ShardDONID("myDON", 0)), "shard 0 connection manager should exist")
-	require.NotNil(t, mgr.DONConnectionManager(config.ShardDONID("myDON", 1)), "shard 1 connection manager should exist")
-	require.Nil(t, mgr.DONConnectionManager("myDON_2"), "shard 2 should not exist")
+	require.NotNil(t, mgr.DONConnectionManager(config.GatewayDONIDForShard("myDON", 0)), "shard 0 connection manager should exist")
+	require.NotNil(t, mgr.DONConnectionManager(config.GatewayDONIDForShard("myDON", 1)), "shard 1 connection manager should exist")
+	require.Nil(t, mgr.DONConnectionManager("myDON_shard-2"), "shard 2 should not exist")
 }
 
 func TestConnectionManager_ShardedDONs_MultipleDONs(t *testing.T) {
@@ -350,8 +350,8 @@ Address = "0x0002020304050607080900010203040506070809"
 	cfg := parseTOMLConfig(t, tomlConfig)
 	mgr := newConnectionManager(t, cfg, clockwork.NewFakeClock())
 
-	require.NotNil(t, mgr.DONConnectionManager(config.ShardDONID("donA", 0)))
-	require.NotNil(t, mgr.DONConnectionManager(config.ShardDONID("donB", 0)))
+	require.NotNil(t, mgr.DONConnectionManager(config.GatewayDONIDForShard("donA", 0)))
+	require.NotNil(t, mgr.DONConnectionManager(config.GatewayDONIDForShard("donB", 0)))
 }
 
 func TestConnectionManager_ShardedDONs_DuplicateNodeAddress(t *testing.T) {
@@ -403,7 +403,7 @@ Address = "0x0001020304050607080900010203040506070809"
 	cfg := parseTOMLConfig(t, tomlConfig)
 	mgr := newConnectionManager(t, cfg, clockwork.NewFakeClock())
 
-	donMgr := mgr.DONConnectionManager(config.ShardDONID("myDON", 0))
+	donMgr := mgr.DONConnectionManager(config.GatewayDONIDForShard("myDON", 0))
 	require.NotNil(t, donMgr)
 
 	err := donMgr.SendToNode(t.Context(), "0x0001020304050607080900010203040506070809", nil)
@@ -541,7 +541,7 @@ func TestConnectionManager_ReadyForTrafficRequiresEveryShard(t *testing.T) {
 
 	for i := 4; i < 7; i++ {
 		serverConn, _ := newWebSocketPair(t)
-		doHandshakeForDON(t, mgr, clock, "my_don_1_1", nodes[i], serverConn)
+		doHandshakeForDON(t, mgr, clock, config.GatewayDONIDForShard("my_don_1", 1), nodes[i], serverConn)
 	}
 	require.NoError(t, mgr.ReadyForTraffic(t.Context()))
 }

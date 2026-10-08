@@ -369,9 +369,6 @@ func addBootstrapNodeConfig(
 		SharedPeering: coretoml.SharedPeering{
 			Enabled: new(true),
 		},
-		Dispatcher: coretoml.Dispatcher{
-			SendToSharedPeer: new(true),
-		},
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
@@ -471,9 +468,6 @@ func addWorkerNodeConfig(
 		},
 		SharedPeering: coretoml.SharedPeering{
 			Enabled: new(true),
-		},
-		Dispatcher: coretoml.Dispatcher{
-			SendToSharedPeer: new(true),
 		},
 		WorkflowRegistry: existingWorkflowRegistry,
 		Local:            existingLocalCapabilities,
@@ -628,9 +622,6 @@ func addGatewayNodeConfig(
 		},
 		SharedPeering: coretoml.SharedPeering{
 			Enabled: new(true),
-		},
-		Dispatcher: coretoml.Dispatcher{
-			SendToSharedPeer: new(true),
 		},
 	}
 

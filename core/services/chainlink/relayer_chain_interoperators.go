@@ -58,6 +58,12 @@ type NetworkChainStatus struct {
 	types.ChainStatus
 }
 
+// NetworkNodeStatus is a NodeStatus from a particular Network.
+type NetworkNodeStatus struct {
+	Network string
+	types.NodeStatus
+}
+
 // ChainStatusReader is an interface for reading chain statuses.
 type ChainStatusReader interface {
 	ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error)
@@ -67,7 +73,7 @@ type ChainStatusReader interface {
 // NodeStatusReader is an interface for node configuration and state.
 // TODO BCF-2440, BCF-2511 may need Node(ctx,name) to get a node status by name
 type NodeStatusReader interface {
-	NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []types.NodeStatus, count int, err error)
+	NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []NetworkNodeStatus, count int, err error)
 }
 
 // StatusReader reports statuses about chains and nodes
@@ -360,7 +366,7 @@ func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string)
 	}
 	for _, stat := range stats {
 		if stat.Name == name {
-			return stat, nil
+			return stat.NodeStatus, nil
 		}
 	}
 	return types.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
@@ -368,10 +374,10 @@ func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string)
 
 // ids must be a string representation of relay.Identifier
 // ids are a filter; if none are specified, all are returned.
-func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...types.RelayID) (nodes []types.NodeStatus, count int, err error) {
+func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...types.RelayID) (nodes []NetworkNodeStatus, count int, err error) {
 	var (
 		totalErr error
-		result   []types.NodeStatus
+		result   []NetworkNodeStatus
 	)
 	// Copy under the lock: Get inserts dummy relayers lazily, so the live map cannot be iterated unlocked.
 	relayers := rs.GetIDToRelayerMap()
@@ -390,7 +396,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 				totalErr = errors.Join(totalErr, err)
 				continue
 			}
-			result = append(result, stats...)
+			result = appendNetworkNodeStatuses(result, key.Network, stats)
 			count += total
 		}
 	} else {
@@ -405,7 +411,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 				totalErr = errors.Join(totalErr, err)
 				continue
 			}
-			result = append(result, nodeStats...)
+			result = appendNetworkNodeStatuses(result, rid.Network, nodeStats)
 			count += total
 		}
 	}
@@ -420,6 +426,13 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		return result[:limit], count, nil
 	}
 	return result, count, nil
+}
+
+func appendNetworkNodeStatuses(result []NetworkNodeStatus, network string, stats []types.NodeStatus) []NetworkNodeStatus {
+	for _, stat := range stats {
+		result = append(result, NetworkNodeStatus{Network: network, NodeStatus: stat})
+	}
+	return result
 }
 
 type FilterFn func(id types.RelayID) bool

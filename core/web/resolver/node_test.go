@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
@@ -25,6 +26,7 @@ func TestResolver_Nodes(t *testing.T) {
 						name
 						chain {
 							id
+							network
 						}
 					}
 					metadata {
@@ -41,11 +43,26 @@ func TestResolver_Nodes(t *testing.T) {
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
-					Nodes: []types.NodeStatus{
+					Nodes: []chainlink.NetworkNodeStatus{
 						{
+							Network: relay.NetworkEVM,
 							ChainID: "1",
 							Name:    "node-name",
 							Config:  "Name='node-name'\nOrder=11\nHTTPURL='http://some-url'\nWSURL='ws://some-url'",
+							State:   "alive",
+						},
+						{
+							Network: relay.NetworkAptos,
+							ChainID: "2",
+							Name:    "aptos-node",
+							Config:  "Name='aptos-node'\nURL='http://aptos-url'",
+							State:   "alive",
+						},
+						{
+							Network: relay.NetworkStellar,
+							ChainID: "stellar-testnet",
+							Name:    "stellar-node",
+							Config:  "Name='stellar-node'\nURL='http://stellar-url'",
 							State:   "alive",
 						},
 					},
@@ -58,6 +75,20 @@ func TestResolver_Nodes(t *testing.T) {
 							Enabled: true,
 							Config:  "",
 						}},
+						{
+							Network: relay.NetworkAptos,
+							ChainID: "2",
+						}: &testutils.MockRelayer{ChainStatus: types.ChainStatus{
+							ID:      "2",
+							Enabled: true,
+						}},
+						{
+							Network: relay.NetworkStellar,
+							ChainID: "stellar-testnet",
+						}: &testutils.MockRelayer{ChainStatus: types.ChainStatus{
+							ID:      "stellar-testnet",
+							Enabled: true,
+						}},
 					},
 				})
 			},
@@ -69,11 +100,26 @@ func TestResolver_Nodes(t *testing.T) {
 						"id": "node-name",
 						"name": "node-name",
 						"chain": {
-							"id": "1"
+							"id": "1",
+							"network": "evm"
+						}
+					}, {
+						"id": "aptos-node",
+						"name": "aptos-node",
+						"chain": {
+							"id": "2",
+							"network": "aptos"
+						}
+					}, {
+						"id": "stellar-node",
+						"name": "stellar-node",
+						"chain": {
+							"id": "stellar-testnet",
+							"network": "stellar"
 						}
 					}],
 					"metadata": {
-						"total": 1
+						"total": 3
 					}
 				}
 			}`,
@@ -146,6 +192,49 @@ func Test_NodeQuery(t *testing.T) {
 					"wsURL": "ws://some-url",
 					"httpURL": "http://some-url",
 					"order": 11
+				}
+			}`,
+		},
+		{
+			name:          "success non-evm node",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[types.RelayID]loop.Relayer{
+					{
+						Network: relay.NetworkStellar,
+						ChainID: "stellar-testnet",
+					}: &testutils.MockRelayer{
+						ChainStatus: types.ChainStatus{ID: "stellar-testnet", Enabled: true},
+						NodeStatuses: []types.NodeStatus{
+							{
+								ChainID: "stellar-testnet",
+								Name:    "node-name",
+								Config:  "Name='node-name'\nURL='http://stellar-url'",
+							},
+						},
+					},
+				}})
+			},
+			query: `
+				query GetNode {
+					node(id: "node-name") {
+						... on Node {
+							name
+							chain {
+								id
+								network
+							}
+						}
+					}
+				}`,
+			result: `
+			{
+				"node": {
+					"name": "node-name",
+					"chain": {
+						"id": "stellar-testnet",
+						"network": "stellar"
+					}
 				}
 			}`,
 		},

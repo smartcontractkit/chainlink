@@ -109,7 +109,7 @@ func TestSetupFromNewConfig_SharedDONAndLegacyMethodRouting(t *testing.T) {
 		"setupFromNewConfig should normalize node addresses before passing DON configs to handlers",
 	)
 
-	donConnMgr := connMgr.DONConnectionManager(config.ShardDONID("shared-don", 0))
+	donConnMgr := connMgr.DONConnectionManager(config.GatewayDONIDForShard("shared-don", 0))
 	require.NotNil(t, donConnMgr)
 
 	legacyHandler, err := donConnMgr.getHandler("legacyMethodWithoutServicePrefix")

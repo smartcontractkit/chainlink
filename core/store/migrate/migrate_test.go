@@ -251,7 +251,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	require.Len(t, jobs, 4)
 	t.Logf("jobs count %d\n", len(jobs))
 	for _, jb := range jobs {
-		t.Logf("job id: %d with BootstrapSpecID: %d\n", jb.ID, jb.BootstrapSpecID)
+		t.Logf("job id: %d with BootstrapSpecID: %v\n", jb.ID, jb.BootstrapSpecID)
 	}
 	require.Nil(t, jobs[2].BootstrapSpecID)
 

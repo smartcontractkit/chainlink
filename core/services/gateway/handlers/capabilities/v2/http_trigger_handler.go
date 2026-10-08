@@ -113,11 +113,6 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 	}
 
 	strippedWorkflowID := strings.TrimPrefix(workflowID, "0x")
-	legacyExecutionID, err := workflows.EncodeExecutionID(strippedWorkflowID, req.ID) //nolint:staticcheck // legacy ID kept for observability comparison
-	if err != nil {
-		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
-		return errors.New("error generating execution ID: " + err.Error())
-	}
 	// Workflows shouldn't use more than one HTTP trigger. If we ever need to support multiple triggers, we'd need to pass
 	// trigger index to the Gateway handler and somehow allow senders to pick. For now, we use trigger index 0.
 	// Execution IDs here are used only for logging.
@@ -127,7 +122,6 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return errors.New("error generating execution ID with trigger index: " + err.Error())
 	}
 	h.lggr.Debugw("processing request",
-		"legacyExecutionID", legacyExecutionID,
 		"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
 		"requestID", req.ID,
 		"workflowID", workflowID)
@@ -143,7 +137,7 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return err
 	}
 
-	return h.sendWithRetries(ctx, legacyExecutionID, executionIDWithTriggerIndex, reqWithKey, workflowID, doneCh)
+	return h.sendWithRetries(ctx, executionIDWithTriggerIndex, reqWithKey, workflowID, doneCh)
 }
 
 func (h *httpTriggerHandler) validatedTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback) (*jsonrpc.Request[gateway_common.HTTPTriggerRequest], error) {
@@ -472,7 +466,11 @@ func (h *httpTriggerHandler) cleanupCallback(requestID string) {
 }
 
 func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
-	h.lggr.Debugw("handling trigger response", "requestID", resp.ID, "nodeAddr", nodeAddr, "error", resp.Error, "result", resp.Result)
+	result := "<nil>"
+	if resp.Result != nil {
+		result = string(*resp.Result)
+	}
+	h.lggr.Debugw("handling trigger response", "requestID", resp.ID, "nodeAddr", nodeAddr, "error", resp.Error, "result", result)
 	h.callbacksMu.Lock()
 	defer h.callbacksMu.Unlock()
 	saved, exists := h.callbacks[resp.ID]
@@ -640,7 +638,7 @@ type nodeSendResult struct {
 // delay delivery to the rest of the DON.
 // doneCh is closed when the callback has been responded to (first shard reaches
 // quorum), allowing immediate termination of all shard loops.
-func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutionID, executionIDWithTriggerIndex string, req *jsonrpc.Request[json.RawMessage], workflowID string, doneCh <-chan struct{}) error {
+func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionIDWithTriggerIndex string, req *jsonrpc.Request[json.RawMessage], workflowID string, doneCh <-chan struct{}) error {
 	if doneCh == nil {
 		return errors.New("doneCh cannot be nil")
 	}
@@ -667,7 +665,7 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutio
 	errCh := make(chan error, len(assigned))
 	for _, shard := range assigned {
 		h.wg.Go(func() {
-			errCh <- h.sendToShard(ctxWithTimeout, shard, legacyExecutionID, executionIDWithTriggerIndex, req, doneCh)
+			errCh <- h.sendToShard(ctxWithTimeout, shard, executionIDWithTriggerIndex, req, doneCh)
 		})
 	}
 
@@ -683,7 +681,7 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutio
 // sendToShard sends the request to all members of a single shard, retrying
 // failures until all succeed, the callback is responded to (doneCh), or ctx is
 // cancelled (overall max duration).
-func (h *httpTriggerHandler) sendToShard(ctx context.Context, shard *handlers.ShardEndpoint, legacyExecutionID, executionIDWithTriggerIndex string, req *jsonrpc.Request[json.RawMessage], doneCh <-chan struct{}) error {
+func (h *httpTriggerHandler) sendToShard(ctx context.Context, shard *handlers.ShardEndpoint, executionIDWithTriggerIndex string, req *jsonrpc.Request[json.RawMessage], doneCh <-chan struct{}) error {
 	nodeTimeout := time.Duration(h.config.NodeSendTimeoutMs) * time.Millisecond
 
 	successfulNodes := make(map[string]bool)
@@ -734,7 +732,6 @@ func (h *httpTriggerHandler) sendToShard(ctx context.Context, shard *handlers.Sh
 				h.lggr.Debugw("Failed to send trigger request to node, will retry",
 					"node", res.nodeAddress,
 					"shard", shard.DonID,
-					"legacyExecutionID", legacyExecutionID,
 					"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
 					"error", res.err)
 			} else {
@@ -745,7 +742,6 @@ func (h *httpTriggerHandler) sendToShard(ctx context.Context, shard *handlers.Sh
 		if len(successfulNodes) == len(shard.Members) {
 			h.lggr.Infow("Successfully sent trigger request to all nodes in shard",
 				"shard", shard.DonID,
-				"legacyExecutionID", legacyExecutionID,
 				"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
 				"nodeCount", len(shard.Members))
 			return nil
@@ -754,7 +750,6 @@ func (h *httpTriggerHandler) sendToShard(ctx context.Context, shard *handlers.Sh
 		// Not all nodes succeeded, wait and retry
 		h.lggr.Debugw("Retrying failed nodes for trigger request",
 			"shard", shard.DonID,
-			"legacyExecutionID", legacyExecutionID,
 			"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
 			"failedCount", len(shard.Members)-len(successfulNodes),
 			"errors", combinedErr)
@@ -763,7 +758,6 @@ func (h *httpTriggerHandler) sendToShard(ctx context.Context, shard *handlers.Sh
 		case <-doneCh:
 			h.lggr.Infow("Callback already responded to, stopping retries",
 				"shard", shard.DonID,
-				"legacyExecutionID", legacyExecutionID,
 				"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
 				"requestID", req.ID,
 				"successNodes", len(successfulNodes),
@@ -772,8 +766,8 @@ func (h *httpTriggerHandler) sendToShard(ctx context.Context, shard *handlers.Sh
 		case <-time.After(b.Duration()):
 			continue
 		case <-ctx.Done():
-			return fmt.Errorf("shard %s: request retry time exceeded, some nodes may not have received the request: legacyExecutionID=%s, executionIDWithTriggerIndex=%s, successNodes=%d, totalNodes=%d",
-				shard.DonID, legacyExecutionID, executionIDWithTriggerIndex, len(successfulNodes), len(shard.Members))
+			return fmt.Errorf("shard %s: request retry time exceeded, some nodes may not have received the request: executionIDWithTriggerIndex=%s, successNodes=%d, totalNodes=%d",
+				shard.DonID, executionIDWithTriggerIndex, len(successfulNodes), len(shard.Members))
 		}
 	}
 }

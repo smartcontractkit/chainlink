@@ -57,6 +57,8 @@ var (
 	ErrEngineDraining = errors.New("engine is draining")
 	ErrQueueFull      = errors.New("trigger event queue is full")
 	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
+
+	ErrZeroTriggerSubscriptions = errors.New("workflow subscribed to zero triggers")
 )
 
 // Pin config version to 1 to avoid updating forwarder contracts on every single config update.
@@ -207,8 +209,30 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 	return e.startExecution(ctx, event)
 }
 
+// Trigger subscription source labels for the
+// platform_engine_trigger_subscription_source_total counter.
+const (
+	triggerSubscriptionSourceCache = "cache"
+	triggerSubscriptionSourceWASM  = "wasm"
+)
+
 // Subscribe issues the WASM Subscribe request and returns the validated trigger subscriptions.
+// If a cached result is available (see EngineConfig.CachedTriggerSubscriptions) and the
+// CachedTriggerSubscriptionsEnabled gate is on, it's returned directly without executing the
+// WASM binary. The per-workflow TriggerSubscription limit check and the OnSubscriptionsReady
+// hook both apply to either path; the hook's fromCache argument distinguishes them.
 func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
+	if e.cfg.CachedTriggerSubscriptions != nil && e.cfg.CachedTriggerSubscriptionsEnabled {
+		if err := e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(e.cfg.CachedTriggerSubscriptions)); err != nil {
+			return nil, err
+		}
+		e.metrics.IncrementTriggerSubscriptionSourceCounter(ctx, triggerSubscriptionSourceCache)
+		if err := e.cfg.Hooks.OnSubscriptionsReady(e.cfg.CachedTriggerSubscriptions, e.Tenant(), true); err != nil {
+			return nil, fmt.Errorf("OnSubscriptionsReady hook failed: %w", err)
+		}
+		return e.cfg.CachedTriggerSubscriptions, nil
+	}
+
 	// call into the workflow to get trigger subscriptions
 	subCtx, subCancel, err := e.cfg.LocalLimiters.TriggerSubscriptionTime.WithTimeout(ctx)
 	if err != nil {
@@ -261,9 +285,19 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 	if subs == nil {
 		return nil, errors.New("subscribe result is nil")
 	}
+	if len(subs.Subscriptions) == 0 {
+		// Reject before OnSubscriptionsReady fires, so a zero-subscription
+		// result is never persisted to the trigger subscription cache.
+		return nil, ErrZeroTriggerSubscriptions
+	}
 	err = e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(subs.Subscriptions))
 	if err != nil {
 		return nil, err
+	}
+
+	e.metrics.IncrementTriggerSubscriptionSourceCounter(ctx, triggerSubscriptionSourceWASM)
+	if err := e.cfg.Hooks.OnSubscriptionsReady(subs.Subscriptions, e.Tenant(), false); err != nil {
+		return nil, fmt.Errorf("OnSubscriptionsReady hook failed: %w", err)
 	}
 
 	return subs.Subscriptions, nil

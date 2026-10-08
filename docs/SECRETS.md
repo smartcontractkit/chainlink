@@ -220,4 +220,3 @@ LocalSecretOverrides maps workflow owner to (secret id -> secret value) map.
 When non-empty, overrides are used as fallback when Vault calls fail.
 
 "0000000000000000000000000000000000000000" = { "my-secret-id" = "my-plaintext-value" } # Example
-
