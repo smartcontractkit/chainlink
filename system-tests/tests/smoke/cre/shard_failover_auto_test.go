@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -37,16 +37,13 @@ import (
 // restarting anything else.
 
 const (
-	// shardAutoFailoverWindowTOML is the test-friendly failover window applied
-	// at runtime: with the 30s cron schedule the secondary then auto-executes
-	// within roughly a minute of the primary going silent, instead of the 5m
-	// production default.
-	shardAutoFailoverWindowTOMLValue = "30s"
-
 	// Settings fragments applied via t_helpers.ApplyCRESettings (global
-	// scope, layered onto the boot CL_CRE_SETTINGS baseline). The gate is
-	// re-checked both when a secondary caches a trigger and when its failover
-	// deadline elapses, so a runtime flip takes effect on the next event.
+	// scope, layered onto the boot CL_CRE_SETTINGS baseline). The 30s window
+	// is the test-friendly override of the 5m production default: with the
+	// 30s cron schedule the secondary then auto-executes within roughly a
+	// minute of the primary going silent. The gate is re-checked both when a
+	// secondary caches a trigger and when its failover deadline elapses, so a
+	// runtime flip takes effect on the next event.
 	shardAutoFailoverOnTOML = "ShardingFailoverAutoExecutionEnabled = 'true'\nShardingFailoverAutoWindow = '30s'"
 	// The window is kept in the off fragment too: window-only changes without
 	// the gate would still arm failover deadlines on freshly cached events.
@@ -166,7 +163,7 @@ func (c *shardUserLogCollector) requireOnlyDONExecuted(t *testing.T, workflowIDs
 		if !slices.Contains(workflowIDs, r.workflowID) {
 			continue
 		}
-		require.Equal(t, int32(allowedDON.ID), r.donID,
+		require.Equal(t, int32(allowedDON.ID), r.donID, //nolint:gosec // G115: DON IDs are small
 			"workflow %s executed on DON %d (%s) but only DON %s may execute it",
 			r.workflowID, r.donID, r.p2pID, allowedDON.Name)
 		allowed++
@@ -247,7 +244,7 @@ func (c *shardUserLogCollector) requireDONTaggedEvents(t *testing.T, expected ma
 	for workflowID, don := range expected {
 		require.NotEmpty(t, observed[workflowID],
 			"no user logs observed for workflow %s - cannot verify its DON tagging", workflowID)
-		require.Contains(t, observed[workflowID], uint32(don.ID),
+		require.Contains(t, observed[workflowID], uint32(don.ID), //nolint:gosec // G115: DON IDs are small
 			"workflow %s never executed on its expected DON %s (observed DONs: %v)",
 			workflowID, don.Name, observed[workflowID])
 	}
@@ -301,8 +298,7 @@ func requireCachedEventForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment
 func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	shards := mustSharedVaultShardPair(t, testEnv,
-		"configs/workflow-gateway-sharded-shared-vault-failover.toml")
+	shards := mustSharedVaultShardPair(t, testEnv)
 	fixture := setupSharedVaultShardFixture(t, testEnv)
 	shards.workflowOwner = strings.ToLower(fixture.owner)
 
@@ -369,8 +365,7 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	shards := mustSharedVaultShardPair(t, testEnv,
-		"configs/workflow-gateway-sharded-shared-vault-failover.toml")
+	shards := mustSharedVaultShardPair(t, testEnv)
 	fixture := setupSharedVaultShardFixture(t, testEnv)
 	shards.workflowOwner = strings.ToLower(fixture.owner)
 
@@ -456,8 +451,7 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	shards := mustSharedVaultShardPair(t, testEnv,
-		"configs/workflow-gateway-sharded-shared-vault-failover.toml")
+	shards := mustSharedVaultShardPair(t, testEnv)
 	fixture := setupSharedVaultShardFixture(t, testEnv)
 	shards.workflowOwner = strings.ToLower(fixture.owner)
 
