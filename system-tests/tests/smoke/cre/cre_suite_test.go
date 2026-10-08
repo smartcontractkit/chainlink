@@ -128,9 +128,6 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
 			})
 			t.Run("direct_read", func(t *testing.T) {
-				if parallelEnabled {
-					t.Parallel()
-				}
 				directEnv := fixture.TestEnv
 				if parallelEnabled {
 					directEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
@@ -138,9 +135,6 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				ExecuteVaultDirectReadTests(t, fixture, directEnv)
 			})
 			t.Run("reshare_flags_read", func(t *testing.T) {
-				if parallelEnabled {
-					t.Parallel()
-				}
 				reshareEnv := fixture.TestEnv
 				if parallelEnabled {
 					reshareEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)

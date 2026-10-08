@@ -48,6 +48,8 @@ func (f *fakeFactory[RI]) NewReportingPlugin(context.Context, ocr3types.Reportin
 }
 
 func Test_WrapperFactory2(t *testing.T) {
+	t.Parallel()
+
 	kv := fakeReadOnlyKV{}
 	inner := &fakeFactory2[uint]{}
 	validFactory := NewReportingPluginFactory2(inner, logger.TestLogger(t), "plugin")

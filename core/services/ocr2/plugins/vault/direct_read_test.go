@@ -211,6 +211,8 @@ func TestReportingPlugin_CloseClearsDirectReader(t *testing.T) {
 }
 
 func TestPlugin_ReportingPluginFactory_RegistersDirectReader(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
 	_, orm := setupORM(t)
 	dkgrecipientKey, err := dkgrecipientkey.New()
