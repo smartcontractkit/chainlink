@@ -136,6 +136,10 @@ func TestGetSecretsDirect(t *testing.T) {
 
 	assert.Equal(t, "key does not exist", resp.Responses[1].GetError())
 
+	pkb, err := f.pk.Marshal()
+	require.NoError(t, err)
+	assert.Equal(t, hex.EncodeToString(pkb), resp.RawVaultPublicKey, "set even with the include-public-key gate closed")
+
 	assert.Equal(t, 1, f.kv.opens, "all items are read from a single transaction")
 	assert.Equal(t, 1, f.kv.discards, "the transaction is discarded")
 }

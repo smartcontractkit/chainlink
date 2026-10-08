@@ -32,9 +32,8 @@ func NewAggregatorFactory() request.AggregatorFactory {
 }
 
 // Aggregator can't verify shares (they're encrypted to the workflow nodes), so it
-// accepts a secret once 2F+1 nodes return the same identifier and ciphertext: at
-// most F of them are faulty, leaving F+1 valid shares, and with N=3F+1 no two
-// workflow nodes can accept different ciphertexts.
+// accepts a secret once 2F+1 nodes return the same identifier, ciphertext and
+// vault public key
 type Aggregator struct {
 	numSecrets int
 	n          int
@@ -44,6 +43,7 @@ type Aggregator struct {
 	replies     int
 	peerErrors  map[string]int
 	secretVotes []map[string][]*vaultcommon.SecretResponse // per secret, by voteKey
+	votePKs     map[string]string                          // voteKey -> RawVaultPublicKey
 }
 
 var _ request.ResponseAggregator = (*Aggregator)(nil)
@@ -60,6 +60,7 @@ func NewAggregator(req *vaultcommon.GetSecretsRequest, n, f int) *Aggregator {
 		quorum:      2*f + 1,
 		peerErrors:  map[string]int{},
 		secretVotes: votes,
+		votePKs:     map[string]string{},
 	}
 }
 
@@ -78,8 +79,11 @@ func (a *Aggregator) OnResponse(_ p2ptypes.PeerID, resp commoncap.CapabilityResp
 
 	a.replies++
 	for i, sr := range gsr.Responses {
-		k := voteKey(sr)
+		k := voteKey(sr, gsr.RawVaultPublicKey)
 		a.secretVotes[i][k] = append(a.secretVotes[i][k], sr)
+		if sr.GetData() != nil {
+			a.votePKs[k] = gsr.RawVaultPublicKey
+		}
 	}
 	return a.decide()
 }
@@ -90,13 +94,14 @@ func (a *Aggregator) OnError(_ p2ptypes.PeerID, errMsg string) (*commoncap.Capab
 	return a.decide()
 }
 
-func voteKey(sr *vaultcommon.SecretResponse) string {
+// Shares only combine within one DKG instance, so data votes include the key.
+func voteKey(sr *vaultcommon.SecretResponse, publicKey string) string {
 	id := "<nil>"
 	if sr.GetId() != nil {
 		id = vaulttypes.KeyFor(sr.GetId())
 	}
 	if sr.GetData() != nil {
-		return id + "|data|" + sr.GetData().GetEncryptedValue()
+		return id + "|data|" + publicKey + "|" + sr.GetData().GetEncryptedValue()
 	}
 	return id + "|error|" + sr.GetError()
 }
@@ -160,6 +165,9 @@ func (a *Aggregator) errorSummary() string {
 func (a *Aggregator) merge(winners []string) (*commoncap.CapabilityResponse, error) {
 	out := &vaultcommon.GetSecretsResponse{Responses: make([]*vaultcommon.SecretResponse, 0, a.numSecrets)}
 	for i, k := range winners {
+		if pk, ok := a.votePKs[k]; ok {
+			out.RawVaultPublicKey = pk
+		}
 		out.Responses = append(out.Responses, mergeSecretResponses(a.secretVotes[i][k]))
 	}
 	payload, err := anypb.New(out)

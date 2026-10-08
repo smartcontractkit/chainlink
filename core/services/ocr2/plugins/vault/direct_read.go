@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -21,6 +22,11 @@ type directSecretRead struct {
 func (r *ReportingPlugin) GetSecretsDirect(ctx context.Context, req *vaultcommon.GetSecretsRequest) (*vaultcommon.GetSecretsResponse, error) {
 	if r.readOnlyKV == nil {
 		return nil, vaultcap.ErrDirectReadNotReady
+	}
+
+	publicKey, err := r.directReadPublicKey()
+	if err != nil {
+		return nil, err
 	}
 
 	reads, err := r.readSecretsDirect(ctx, req.Requests)
@@ -46,7 +52,18 @@ func (r *ReportingPlugin) GetSecretsDirect(ctx context.Context, req *vaultcommon
 		resps = append(resps, resp)
 	}
 
-	return &vaultcommon.GetSecretsResponse{Responses: resps}, nil
+	return &vaultcommon.GetSecretsResponse{Responses: resps, RawVaultPublicKey: publicKey}, nil
+}
+
+func (r *ReportingPlugin) directReadPublicKey() (string, error) {
+	if r.cfg.PublicKey == nil {
+		return "", vaultcap.ErrDirectReadNotReady
+	}
+	pkb, err := r.cfg.PublicKey.Marshal()
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal vault public key: %w", err)
+	}
+	return hex.EncodeToString(pkb), nil
 }
 
 func (d directSecretRead) response(r *ReportingPlugin, secretRequest *vaultcommon.SecretRequest) (*vaultcommon.SecretResponse, error) {

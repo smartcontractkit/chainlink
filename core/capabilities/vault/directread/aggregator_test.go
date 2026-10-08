@@ -49,6 +49,12 @@ func capResp(t *testing.T, rs ...*vaultcommon.SecretResponse) commoncap.Capabili
 	return commoncap.CapabilityResponse{Payload: p}
 }
 
+func capRespWithKey(t *testing.T, publicKey string, rs ...*vaultcommon.SecretResponse) commoncap.CapabilityResponse {
+	p, err := anypb.New(&vaultcommon.GetSecretsResponse{Responses: rs, RawVaultPublicKey: publicKey})
+	require.NoError(t, err)
+	return commoncap.CapabilityResponse{Payload: p}
+}
+
 func decode(t *testing.T, resp *commoncap.CapabilityResponse) *vaultcommon.GetSecretsResponse {
 	require.NotNil(t, resp)
 	out := &vaultcommon.GetSecretsResponse{}
@@ -111,6 +117,47 @@ func TestAggregator_SplitVersionsIsSkew(t *testing.T) {
 	_, err = a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "v1", 3)))
 	require.ErrorIs(t, err, vaultcommon.ErrSecretVersionSkew)
 	assert.True(t, vaultcommon.IsSecretVersionSkew(err))
+}
+
+func TestAggregator_ReturnsVaultPublicKey(t *testing.T) {
+	t.Parallel()
+	a := NewAggregator(newReq(idA), n, f)
+
+	var resp *commoncap.CapabilityResponse
+	for node := range byte(3) {
+		var err error
+		resp, err = a.OnResponse(p2ptypes.PeerID{}, capRespWithKey(t, "pk1", data(idA, "ctA", node)))
+		require.NoError(t, err)
+	}
+	assert.Equal(t, "pk1", decode(t, resp).RawVaultPublicKey)
+}
+
+func TestAggregator_DifferentVaultPublicKeysAreSkew(t *testing.T) {
+	t.Parallel()
+	a := NewAggregator(newReq(idA), n, f)
+
+	for node, pk := range []string{"old", "old", "new"} {
+		resp, err := a.OnResponse(p2ptypes.PeerID{}, capRespWithKey(t, pk, data(idA, "ctA", byte(node))))
+		require.NoError(t, err)
+		require.Nil(t, resp)
+	}
+	_, err := a.OnResponse(p2ptypes.PeerID{}, capRespWithKey(t, "new", data(idA, "ctA", 3)))
+	require.ErrorIs(t, err, vaultcommon.ErrSecretVersionSkew, "same ciphertext from different DKG instances must not combine")
+}
+
+func TestAggregator_ItemErrorsIgnoreVaultPublicKey(t *testing.T) {
+	t.Parallel()
+	a := NewAggregator(newReq(idA), n, f)
+
+	var resp *commoncap.CapabilityResponse
+	for _, pk := range []string{"old", "new", "new"} {
+		var err error
+		resp, err = a.OnResponse(p2ptypes.PeerID{}, capRespWithKey(t, pk, itemErr(idA, "key does not exist")))
+		require.NoError(t, err)
+	}
+	out := decode(t, resp)
+	assert.Equal(t, "key does not exist", out.Responses[0].GetError())
+	assert.Empty(t, out.RawVaultPublicKey)
 }
 
 func TestAggregator_SkewFailsEarly(t *testing.T) {
