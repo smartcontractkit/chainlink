@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -66,14 +65,12 @@ const (
 	// authenticate to the fake storage service. The fake does not verify the JWT.
 	confidentialStorageKeyHex = "0000000000000000000000000000000000000000000000000000000000000001"
 
-	confidentialWorkflowBinaryFilename = "workflow-test-confidential.br.b64"
-	confidentialWorkflowConfigFilename = "workflow-test-config.json"
-
-	// confidentialWorkflowSrcRelDir is the WASM workflow this test compiles,
-	// relative to the chainlink-confidential-compute checkout. The source is not
-	// vendored here on purpose: it depends on cre-sdk-go versions that predate the
-	// removal of the in-TEE HTTP API, which this repository's dependency
-	// validation rejects, and the compiled artifact is covered by .gitignore.
+	// confidentialWorkflowSrcRelDir is the WASM workflow the relay E2E test
+	// compiles, relative to the chainlink-confidential-compute checkout. The
+	// source is not vendored here on purpose: it depends on cre-sdk-go versions
+	// that predate the removal of the in-TEE HTTP API, which this repository's
+	// dependency validation rejects, and the compiled artifact is covered by
+	// .gitignore.
 	confidentialWorkflowSrcRelDir = "tests/e2e/testdata/workflow"
 
 	// confidentialEnclaveRegion is recorded on each enclave descriptor. Descriptor
@@ -149,22 +146,26 @@ func (p *deferredGatewayProxy) SetTarget(rawURL string) error {
 // fakeStorageService is a minimal in-process CRE storage NodeService. The enclave
 // fetches the workflow binary itself: it calls DownloadArtifact over JWT-authed
 // gRPC, gets a pre-signed URL, downloads it and verifies the hash. This fake
-// returns the URL of the base64 WASM server the test stands up.
+// returns the URL of the base64 WASM server the test stands up, keyed by
+// artifact id so multiple workflows can be served side by side.
 type fakeStorageService struct {
 	storage_service.UnimplementedNodeServiceServer
-	mu  sync.Mutex
-	url string
+	mu   sync.Mutex
+	urls map[string]string
 }
 
-func (f *fakeStorageService) setURL(u string) {
+func (f *fakeStorageService) setArtifactURL(id, u string) {
 	f.mu.Lock()
-	f.url = u
+	if f.urls == nil {
+		f.urls = make(map[string]string)
+	}
+	f.urls[id] = u
 	f.mu.Unlock()
 }
 
 func (f *fakeStorageService) DownloadArtifact(_ context.Context, req *storage_service.DownloadArtifactRequest) (*storage_service.DownloadArtifactResponse, error) {
 	f.mu.Lock()
-	u := f.url
+	u := f.urls[req.GetId()]
 	f.mu.Unlock()
 
 	// Mirror real storage-service semantics: the id must be a bare artifact id,
@@ -174,7 +175,7 @@ func (f *fakeStorageService) DownloadArtifact(_ context.Context, req *storage_se
 		return nil, status.Errorf(codes.NotFound, "fake storage: artifact with id %q not found (expected a bare id, not a URL)", req.GetId())
 	}
 	if u == "" {
-		return nil, errors.New("fake storage: artifact url not set yet")
+		return nil, fmt.Errorf("fake storage: artifact url not set yet for id %q", req.GetId())
 	}
 	return &storage_service.DownloadArtifactResponse{Url: u}, nil
 }
@@ -203,35 +204,39 @@ func startFakeStorageService(t *testing.T, enclaveHost string) (string, *fakeSto
 // ---------------------------------------------------------------------------
 
 // confidentialWorkflowArtifacts holds everything derived from compiling the test
-// workflow: the URLs the syncer and enclave fetch it from, and the on-disk
-// directory the test copies into the DON containers.
+// workflow: the URLs the syncer and enclave fetch it from, the on-disk directory
+// the test copies into the DON containers, and the staged binary filename, which
+// doubles as the artifact id the enclave requests from the storage service.
 type confidentialWorkflowArtifacts struct {
-	BinaryURL   string
-	ConfigURL   string
-	ArtifactDir string
-	BinaryHash  []byte
+	BinaryURL      string
+	ConfigURL      string
+	BinaryFilename string
+	ConfigFilename string
+	ArtifactDir    string
+	BinaryHash     []byte
 }
 
-// buildAndServeConfidentialWorkflow compiles the test workflow to wasip1/wasm
-// from the chainlink-confidential-compute checkout, brotli-compresses and
-// base64-encodes it (the format the syncer and the enclave both expect), and
-// serves the binary and its config over HTTP bound to 0.0.0.0 so the host, the
-// Docker containers and the enclaves can all fetch them.
+// buildAndServeConfidentialWorkflow compiles the test workflow at workflowSrcDir
+// to wasip1/wasm, brotli-compresses and base64-encodes it (the format the
+// syncer and the enclave both expect), and serves the binary and its config
+// over HTTP bound to 0.0.0.0 so the host, the Docker containers and the
+// enclaves can all fetch them.
 //
-// Compiling from the checkout rather than vendoring the source keeps the
-// workflow single-sourced and keeps its cre-sdk-go pins out of this
-// repository's module graph.
-func buildAndServeConfidentialWorkflow(t *testing.T, ccRoot string, configJSON string, hostIP string) confidentialWorkflowArtifacts {
+// The staged filenames derive from workflowName so several workflows can be
+// built and served side by side without overwriting each other's artifacts.
+func buildAndServeConfidentialWorkflow(t *testing.T, workflowSrcDir string, workflowName string, configJSON string, hostIP string) confidentialWorkflowArtifacts {
 	t.Helper()
 
-	srcDir := filepath.Join(ccRoot, confidentialWorkflowSrcRelDir)
-	require.DirExists(t, srcDir, "confidential workflow source not found in the chainlink-confidential-compute checkout")
+	require.DirExists(t, workflowSrcDir, "confidential workflow source not found at %s", workflowSrcDir)
+
+	binaryFilename := workflowName + ".br.b64"
+	configFilename := workflowName + "-config.json"
 
 	tmpDir := t.TempDir()
 	outFile := filepath.Join(tmpDir, "workflow-test.wasm")
 
 	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", outFile, ".")
-	cmd.Dir = srcDir
+	cmd.Dir = workflowSrcDir
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm", "CGO_ENABLED=0")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "compiling confidential workflow WASM: %s", string(output))
@@ -252,17 +257,21 @@ func buildAndServeConfidentialWorkflow(t *testing.T, ccRoot string, configJSON s
 	// The syncer's file fetcher reads both files from disk inside the container,
 	// so they have to exist as real files the test can copy in.
 	require.NoError(t,
-		os.WriteFile(filepath.Join(tmpDir, confidentialWorkflowBinaryFilename), []byte(encoded), 0o600),
+		os.WriteFile(filepath.Join(tmpDir, binaryFilename), []byte(encoded), 0o600),
 		"staging workflow binary artifact")
 	require.NoError(t,
-		os.WriteFile(filepath.Join(tmpDir, confidentialWorkflowConfigFilename), []byte(configJSON), 0o600),
+		os.WriteFile(filepath.Join(tmpDir, configFilename), []byte(configJSON), 0o600),
 		"staging workflow config artifact")
 
+	// Served under an /artifacts/ path segment: the enclave extracts the
+	// storage-service artifact id from the binary URL's /artifacts/<id> shape,
+	// falling back to the parent directory otherwise, which yields "/" for a
+	// bare /<file> path and breaks the artifact resolution.
 	mux := http.NewServeMux()
-	mux.HandleFunc("/"+confidentialWorkflowBinaryFilename, func(rw http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/artifacts/"+binaryFilename, func(rw http.ResponseWriter, _ *http.Request) {
 		_, _ = rw.Write([]byte(encoded))
 	})
-	mux.HandleFunc("/"+confidentialWorkflowConfigFilename, func(rw http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/artifacts/"+configFilename, func(rw http.ResponseWriter, _ *http.Request) {
 		_, _ = rw.Write([]byte(configJSON))
 	})
 
@@ -274,13 +283,15 @@ func buildAndServeConfidentialWorkflow(t *testing.T, ccRoot string, configJSON s
 	t.Cleanup(func() { _ = srv.Close() })
 
 	port := listener.Addr().(*net.TCPAddr).Port
-	base := fmt.Sprintf("http://%s:%d/", hostIP, port)
+	base := fmt.Sprintf("http://%s:%d/artifacts/", hostIP, port)
 
 	return confidentialWorkflowArtifacts{
-		BinaryURL:   base + confidentialWorkflowBinaryFilename,
-		ConfigURL:   base + confidentialWorkflowConfigFilename,
-		ArtifactDir: tmpDir,
-		BinaryHash:  hash[:],
+		BinaryURL:      base + binaryFilename,
+		ConfigURL:      base + configFilename,
+		BinaryFilename: binaryFilename,
+		ConfigFilename: configFilename,
+		ArtifactDir:    tmpDir,
+		BinaryHash:     hash[:],
 	}
 }
 
@@ -292,21 +303,22 @@ func buildAndServeConfidentialWorkflow(t *testing.T, ccRoot string, configJSON s
 // Until this lands, an enclave has no signer set and no master public key, so it
 // rejects every incoming compute request.
 //
-// The signer set is the workflow DON's worker P2P IDs, and F is derived as
-// 2*don.F + 1 to match the relay DON quorum the enclave expects.
+// The signer set is the workflow DON's worker P2P IDs. An enclave group is bound
+// to exactly one workflow DON: the node-side executor and the relay both verify
+// the enclave's reported signers against their own DON's membership, so a group
+// configured with one DON's workers cannot serve another DON's executions.
 func configureEnclaves(
 	t *testing.T,
-	testEnv *ttypes.TestEnvironment,
 	testLogger zerolog.Logger,
 	configURLs []string,
+	don *crelib.Don,
 	vaultPublicKey string,
 ) {
 	t.Helper()
 
-	don := testEnv.Dons.MustWorkflowDON()
 	workers, err := don.Workers()
 	require.NoError(t, err, "failed to get worker nodes from topology")
-	require.NotEmpty(t, workers, "workflow DON has no worker nodes")
+	require.NotEmpty(t, workers, "workflow DON %s has no worker nodes", don.Name)
 
 	signers := make([][]byte, 0, len(workers))
 	for _, node := range workers {
@@ -316,17 +328,18 @@ func configureEnclaves(
 	masterPublicKey, err := hex.DecodeString(vaultPublicKey)
 	require.NoError(t, err, "failed to hex-decode vault public key")
 
-	// Quorum tracks the DON's registered fault tolerance (Don.F, computed as
-	// (workers-1)/3 in NewDON), not a re-derivation from the worker count: the
-	// two diverge for e.g. 6-node DONs, and the enclave would then demand more
-	// signatures than the DON can produce.
+	// F must be the DON's own fault tolerance, not a 2F+1 quorum value: the
+	// enclave host derives its batch quorum from it (f+1, or 2f+1 with
+	// REQUIRE_BFT_QUORUM), so inflating F demands more node signatures than
+	// the DON's worker count can ever produce and every execution times out
+	// at the host. T carries the 2F+1 threshold for the vault DON decryption.
 	quorum := 2*uint32(don.F) + 1
 
 	config := cctypes.EnclaveConfig{
 		Signers:         signers,
 		MasterPublicKey: masterPublicKey,
 		T:               quorum,
-		F:               quorum,
+		F:               uint32(don.F),
 	}
 	configBytes, err := json.Marshal(config)
 	require.NoError(t, err, "failed to marshal enclave config")

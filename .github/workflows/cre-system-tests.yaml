@@ -152,6 +152,12 @@ jobs:
              ],
             "Test_CRE_V2_ConfidentialWorkflows_Relay": [
                {"topology":"workflow-gateway-capabilities-confidential-workflows","configs":"configs/workflow-gateway-capabilities-don-confidential-workflows.toml"}
+             ],
+            "Test_CRE_V2_ShardManualAssignmentConfidentialWorkflows": [
+               {"topology":"workflow-gateway-sharded-confidential-workflows-manual","configs":"configs/workflow-gateway-sharded-confidential-workflows-manual.toml"}
+             ],
+            "Test_CRE_V2_ShardFailoverConfidentialWorkflows": [
+               {"topology":"workflow-gateway-sharded-confidential-workflows-failover","configs":"configs/workflow-gateway-sharded-confidential-workflows-failover.toml"}
              ]
           }'
 
@@ -396,9 +402,10 @@ jobs:
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           ctf-configs: ${{ matrix.tests.configs }}
-          # The confidential workflows test starts enclaves on the harness's
-          # default ports; the gateway needs them allowlisted to reach them.
-          env-start-extra-args: ${{ contains(matrix.tests.test_name, 'ConfidentialWorkflows') && '-e 8080,8081,8082,8083' || '' }}
+          # The confidential workflows tests start enclaves on the harness's
+          # default ports plus the second per-shard group on the next block;
+          # the gateway needs them allowlisted to reach them.
+          env-start-extra-args: ${{ contains(matrix.tests.test_name, 'ConfidentialWorkflows') && '-e 8080,8081,8082,8083,8084,8085,8086,8087' || '' }}
           retry-count: "3"
           retry-delay-seconds: "15"
           cleanup-on-error: "false"

@@ -4,26 +4,23 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"math/big"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-confidential-compute/tests/testhelpers"
 	cctypes "github.com/smartcontractkit/chainlink-confidential-compute/types"
-	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/confidentialcompute"
@@ -51,10 +48,6 @@ const (
 
 	// confidentialVaultThreshold matches the 4-node F=1 vault DON.
 	confidentialVaultThreshold = 1
-
-	// confidentialDONPageLimit bounds the getDONs page read when locating a
-	// capability's DON. The topology has a handful of DONs, so one page covers it.
-	confidentialDONPageLimit = 100
 )
 
 // Test_CRE_V2_ConfidentialWorkflows_Relay exercises the confidential workflows
@@ -131,7 +124,7 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		//    which the relay handler reads to decide where to route. The capability
 		//    registers with an empty list and refreshes from the registry on a timer,
 		//    so this can land after the environment is already running.
-		publishEnclaves(t, testEnv, testLogger, enclaves.Enclaves)
+		publishEnclaves(t, testEnv, testLogger, testEnv.Dons.MustWorkflowDON().Name, enclaves.Enclaves)
 
 		// 5. Point the proxy at the real gateway now that it exists.
 		gatewayURL := confidentialGatewayURL(t, testEnv)
@@ -150,7 +143,7 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 
 		// 6b. The enclaves boot with no signer set and no master public key, so they
 		//     reject every compute request until this lands.
-		configureEnclaves(t, testEnv, testLogger, enclaves.ConfigURLs, vaultPublicKey)
+		configureEnclaves(t, testLogger, enclaves.ConfigURLs, testEnv.Dons.MustWorkflowDON(), vaultPublicKey)
 
 		// 6c. Store the secret the workflow reads via GetSecret. Without it the
 		//     request really reaches the vault DON and really comes back empty.
@@ -161,7 +154,7 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		//    ConsumerAddress is left empty, which the workflow treats as "skip the
 		//    chain-write leg".
 		configJSON := fmt.Sprintf(`{"echo_url":%q}`, confidentialEchoURL)
-		artifacts := buildAndServeConfidentialWorkflow(t, ccRoot, configJSON, testhelpers.DetectHostIP())
+		artifacts := buildAndServeConfidentialWorkflow(t, filepath.Join(ccRoot, confidentialWorkflowSrcRelDir), confidentialWorkflowName, configJSON, testhelpers.DetectHostIP())
 		testLogger.Info().
 			Str("binaryURL", artifacts.BinaryURL).
 			Str("configURL", artifacts.ConfigURL).
@@ -171,7 +164,7 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		// different host than Docker does, so swap only the host portion.
 		parsed, pErr := url.Parse(artifacts.BinaryURL)
 		require.NoError(t, pErr, "parsing workflow binary URL")
-		storageSvc.setURL(fmt.Sprintf("http://%s:%s%s", enclaveHost, parsed.Port(), parsed.Path))
+		storageSvc.setArtifactURL(artifacts.BinaryFilename, fmt.Sprintf("http://%s:%s%s", enclaveHost, parsed.Port(), parsed.Path))
 
 		// 8. The syncer reads the binary and config from disk (see the topology's
 		//    CRE.WorkflowFetcher override), so copy them into the containers.
@@ -181,7 +174,7 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		//    execution. The workflow returns an error if either GetSecret or the
 		//    in-enclave HTTP fetch fails, so a successful execution implies the
 		//    whole relay + enclave path worked.
-		workflowID := registerConfidentialWorkflow(t, testEnv, testLogger, artifacts)
+		workflowID := registerConfidentialWorkflow(t, testEnv, testLogger, confidentialWorkflowName, artifacts)
 		waitForConfidentialWorkflowExecution(t, testEnv, testLogger, workflowID, 5*time.Minute)
 
 		testLogger.Info().Msg("Confidential workflows relay E2E passed")
@@ -228,8 +221,11 @@ func confidentialGatewayURL(t *testing.T, testEnv *ttypes.TestEnvironment) strin
 	return fmt.Sprintf("%s://%s:%d%s", incoming.Protocol, host, incoming.ExternalPort, incoming.Path)
 }
 
-// publishEnclaves writes the enclave list into the capability's on-chain
-// registry config and waits for the capability to pick it up.
+// publishEnclaves writes the enclave list into the named DON's on-chain
+// capability config and waits for the capability to pick it up.
+//
+// The capability config is per DON, so a sharded topology publishes each
+// shard's enclave group in that shard DON's own config.
 //
 // The capability refreshes from the registry on a ticker
 // (DefaultEnclaveRefreshIntervalSeconds, 10s), so this waits two intervals
@@ -239,6 +235,7 @@ func publishEnclaves(
 	t *testing.T,
 	testEnv *ttypes.TestEnvironment,
 	testLogger zerolog.Logger,
+	donName string,
 	enclaves []cctypes.Enclave,
 ) {
 	t.Helper()
@@ -259,8 +256,6 @@ func publishEnclaves(
 	config, err := confidentialcompute.MarshalRegistryConfig(enclaves)
 	require.NoError(t, err, "failed to encode enclave list for the registry")
 
-	donName := donNameForCapability(t, sethClient, capRegAddr, confidentialWorkflowsApp)
-
 	require.NoError(t,
 		crelib.UpdateDONCapabilityConfig(ctx, sethClient, capRegAddr, donName, confidentialWorkflowsApp, config),
 		"failed to publish enclave list to the capabilities registry",
@@ -272,43 +267,6 @@ func publishEnclaves(
 		Dur("wait", confidentialEnclaveRefreshWait).
 		Msg("Published enclave list; waiting for the capability to refresh from the registry")
 	time.Sleep(confidentialEnclaveRefreshWait)
-}
-
-// donNameForCapability returns the registry name of the DON providing the named
-// capability. The registry derives DON names from the topology, so the name is
-// resolved rather than assumed: a wrong name makes getDONByName revert with an
-// opaque custom error, whereas this reports which DONs actually exist.
-func donNameForCapability(
-	t *testing.T,
-	sethClient *seth.Client,
-	capabilitiesRegistryAddr string,
-	capabilityName string,
-) string {
-	t.Helper()
-
-	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-		common.HexToAddress(capabilitiesRegistryAddr), sethClient.Client,
-	)
-	require.NoError(t, err, "failed to create capabilities registry wrapper")
-
-	allDONs, err := capReg.GetDONs(&bind.CallOpts{Context: t.Context()}, big.NewInt(0), big.NewInt(confidentialDONPageLimit))
-	require.NoError(t, err, "failed to list DONs from the capabilities registry")
-
-	names := make([]string, 0, len(allDONs))
-	for i := range allDONs {
-		names = append(names, allDONs[i].Name)
-		// The registry keys capabilities as "name@version".
-		for _, capabilityConfig := range allDONs[i].CapabilityConfigurations {
-			if strings.HasPrefix(capabilityConfig.CapabilityId, capabilityName+"@") {
-				return allDONs[i].Name
-			}
-		}
-	}
-
-	require.FailNowf(t, "capability is not registered on any DON",
-		"no DON provides capability %q; DONs present: %s", capabilityName, strings.Join(names, ", "))
-
-	return ""
 }
 
 // injectVaultPublicKey writes the vault DON's DKG public key and threshold into
@@ -351,7 +309,7 @@ func copyWorkflowArtifactsToContainers(t *testing.T, testEnv *ttypes.TestEnviron
 		if !don.HasFlag(crelib.WorkflowDON) {
 			continue
 		}
-		for _, filename := range []string{confidentialWorkflowBinaryFilename, confidentialWorkflowConfigFilename} {
+		for _, filename := range []string{artifacts.BinaryFilename, artifacts.ConfigFilename} {
 			require.NoError(t,
 				creworkflow.CopyArtifactsToDockerContainers(
 					creworkflow.DefaultWorkflowTargetDir,
@@ -369,6 +327,7 @@ func registerConfidentialWorkflow(
 	t *testing.T,
 	testEnv *ttypes.TestEnvironment,
 	testLogger zerolog.Logger,
+	workflowName string,
 	artifacts confidentialWorkflowArtifacts,
 ) string {
 	t.Helper()
@@ -396,7 +355,7 @@ func registerConfidentialWorkflow(
 		wfRegistryRef.Version,
 		0, // donID unused for v2
 		testEnv.Dons.MustWorkflowDON().DonFamily(),
-		confidentialWorkflowName,
+		workflowName,
 		workflowTag,
 		artifacts.BinaryURL,
 		&configURL,
@@ -413,30 +372,32 @@ func registerConfidentialWorkflow(
 			sethClient,
 			common.HexToAddress(wfRegistryRef.Address),
 			wfRegistryRef.Version,
-			confidentialWorkflowName,
+			workflowName,
 		)
 	})
 
 	return workflowID
 }
 
-// waitForConfidentialWorkflowExecution waits for the engine to log a successful
-// execution for this workflow. The engine emits that line once per successful
-// trigger execution, not for the Subscribe-phase call at engine startup, so
-// finding it means the cron trigger fired and the whole enclave path succeeded.
+// waitForConfidentialWorkflowExecution waits for the engine of the given workflow
+// DONs (all workflow DONs when none are named) to log a successful execution for
+// this workflow. The engine emits that line once per successful trigger execution,
+// not for the Subscribe-phase call at engine startup, so finding it means the cron
+// trigger fired and the whole enclave path succeeded on that DON.
 func waitForConfidentialWorkflowExecution(
 	t *testing.T,
 	testEnv *ttypes.TestEnvironment,
 	testLogger zerolog.Logger,
 	workflowID string,
 	timeout time.Duration,
+	donNames ...string,
 ) {
 	t.Helper()
 
-	containers := confidentialWorkflowDONContainers(testEnv)
+	containers := confidentialWorkflowDONContainers(testEnv, donNames...)
 	require.NotEmpty(t, containers, "no workflow DON containers found to scrape")
 
-	needleMsg := []byte(`"msg":"Workflow execution finished successfully"`)
+	needleMsg := []byte(confidentialWorkflowSuccessLogNeedle)
 	needleID := []byte(workflowID)
 	testLogger.Info().
 		Str("workflowID", workflowID).
@@ -512,11 +473,15 @@ func truncateForLog(line []byte, maxLen int) string {
 }
 
 // confidentialWorkflowDONContainers returns the chainlink container names for
-// every nodeset whose DON carries the workflow DON flag.
-func confidentialWorkflowDONContainers(testEnv *ttypes.TestEnvironment) []string {
+// every nodeset whose DON carries the workflow DON flag, filtered to the named
+// DONs when any are given (all workflow DONs otherwise).
+func confidentialWorkflowDONContainers(testEnv *ttypes.TestEnvironment, donNames ...string) []string {
 	workflowDONNames := map[string]bool{}
 	for _, don := range testEnv.Dons.List() {
-		if don.HasFlag(crelib.WorkflowDON) {
+		if !don.HasFlag(crelib.WorkflowDON) {
+			continue
+		}
+		if len(donNames) == 0 || slices.Contains(donNames, don.Name) {
 			workflowDONNames[don.Name] = true
 		}
 	}
