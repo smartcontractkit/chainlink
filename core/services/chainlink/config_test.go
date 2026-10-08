@@ -506,16 +506,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 		Local: toml.LocalCapabilities{
 			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-action@.*$`},
-			Capabilities: map[string]toml.CapabilityNodeConfig{
-				"http-action@1.0.0": {
-					BinaryPathOverride: new("/opt/chainlink/binaries/http_action"),
-					Config:             map[string]string{"proxyMode": "gateway", "allowedPorts": "443,8443"},
-				},
-				"cron@1.0.0": {
-					BinaryPathOverride: new("/opt/chainlink/binaries/cron"),
-					Config:             map[string]string{"fastestScheduleIntervalSeconds": "60"},
-				},
-			},
+			UseOffchainRegistry:          new(true),
 		},
 	}
 	full.Workflows = toml.Workflows{
