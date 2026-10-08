@@ -190,6 +190,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				{"unsequenced", false},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
+					if parallelEnabled {
+						t.Parallel()
+					}
 					testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 					if tc.sequenced {
 						t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(fmt.Sprintf(`DonTimeSequencedTimestampsActivePeriod = '%s'`,
