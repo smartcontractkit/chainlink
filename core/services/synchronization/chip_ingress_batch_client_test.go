@@ -95,7 +95,7 @@ func awaitFirstEvent(t *testing.T, published *publishedBatches) chipingress.Clou
 }
 
 func counterValue(vec *prometheus.CounterVec, telemType TelemetryType) float64 {
-	return testutil.ToFloat64(vec.WithLabelValues(chipIngress, string(telemType)))
+	return testutil.ToFloat64(vec.WithLabelValues(chipIngressEndpointLabel, string(telemType)))
 }
 
 func TestChipIngressBatchClient_Event(t *testing.T) {
@@ -173,10 +173,10 @@ func TestChipIngressBatchClient_CountsPerMessage(t *testing.T) { //nolint:parall
 
 func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) { //nolint:paralleltest // resets a package-global prometheus gauge
 	// The status gauge is package-global; reset it so a value left by another test can't satisfy the check.
-	TelemetryClientConnectionStatus.WithLabelValues(chipIngress).Set(0)
+	TelemetryClientConnectionStatus.WithLabelValues(chipIngressEndpointLabel).Set(0)
 	startBatchClient(t, publishOK)
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		assert.InDelta(c, 1, testutil.ToFloat64(TelemetryClientConnectionStatus.WithLabelValues(chipIngress)), 0.001)
+		assert.InDelta(c, 1, testutil.ToFloat64(TelemetryClientConnectionStatus.WithLabelValues(chipIngressEndpointLabel)), 0.001)
 	}, testutils.WaitTimeout(t), 10*time.Millisecond)
 }

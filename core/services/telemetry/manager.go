@@ -39,18 +39,20 @@ type Manager struct {
 	chipIngressEndpoint string                             // "" when disabled
 }
 
-// telemetryEndpoint is one [[TelemetryIngress.Endpoints]] entry. With chip
-// ingress enabled it only allowlists the chain and client is nil.
+// telemetryEndpoint is one [[TelemetryIngress.Endpoints]] entry, keyed by Network and ChainID.
 type telemetryEndpoint struct {
 	ChainID string
 	Network string
 	URL     *url.URL
-	client  synchronization.TelemetryService
+	client  synchronization.TelemetryService // WSRPC client; nil in chip mode, where the entry only allowlists the chain
 	PubKey  string
 }
 
-// NewManager create a new telemetry manager that is responsible for configuring telemetry agents and generating the defined telemetry endpoints and monitoring endpoints
-// chipService is the shared chip-ingress service to use when ChipIngressEnabled is true; nil when the flag is off.
+// NewManager creates the telemetry manager, which hands each job a monitoring
+// endpoint for its chain and runs the clients behind them.
+//
+// A non-nil chipService puts the manager in chip mode: every allowlisted chain sends
+// through that one shared service. With nil, each endpoint gets its own WSRPC client.
 func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, chipService synchronization.ChipIngressService, lggr common.Logger) *Manager {
 	var chipIngressEndpoint string
 	if chipService != nil {
