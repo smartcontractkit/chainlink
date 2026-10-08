@@ -61,9 +61,9 @@ func TestCoordinatedEngine_ExecuteTrigger(t *testing.T) {
 	require.Equal(t, int32(0), re.engine.ActiveExecutions())
 }
 
-// TestCoordinatedEngine_CloseWaitsForInFlightExecution runs an execution on a
-// caller's goroutine, as the trigger coordinator does. Close must cancel it and
-// wait for it to return before closing the module it runs on.
+// TestCoordinatedEngine_CloseWaitsForInFlightExecution runs an execution with a context separate
+// from the stop context of the engine. Test ensures that calling Close on the engine cancels the
+// inflight execution and waits for it to return before closing the engine's module.
 func TestCoordinatedEngine_CloseWaitsForInFlightExecution(t *testing.T) {
 	t.Parallel()
 
@@ -210,6 +210,7 @@ func (b *blockingExecution) expectModuleClose(module *modulemocks.ModuleV2) {
 	module.EXPECT().Close().Run(func() {
 		select {
 		case <-b.returned:
+			return
 		default:
 			b.moduleClosedEarly.Store(true)
 		}
