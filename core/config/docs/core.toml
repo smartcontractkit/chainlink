@@ -713,12 +713,6 @@ RegistryBasedLaunchAllowlist = [] # Default
 # The gate is per-node and reversible.
 UseOffchainRegistry = false # Default
 
-# Per-capability configuration. Each capability ID can have its own configuration section.
-# Capability IDs must be in the format "name@version".
-# [Capabilities.Local.Capabilities."http-action@1.0.0"]
-# BinaryPathOverride overrides the default binary path for a LOOP capability.
-# BinaryPathOverride = '/opt/chainlink/binaries/http_action' # Example
-
 # The Chainlink node is equipped with an internal "nurse" service that can perform automatic `pprof` profiling when the certain resource thresholds are exceeded, such as memory and goroutine count. These profiles are saved to disk to facilitate fine-grained debugging of performance-related issues. In general, if you notice that your node has begun to accumulate profiles, forward them to the Chainlink team.
 #
 # To learn more about these profiles, read the [Profiling Go programs with pprof](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/) guide.

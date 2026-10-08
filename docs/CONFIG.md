@@ -1981,12 +1981,6 @@ cross-validation telemetry only. When true, offchain capability config takes pre
 on-chain config, key by key. Binary paths, the launch allowlist and OCR3 config are unaffected.
 The gate is per-node and reversible.
 
-Per-capability configuration. Each capability ID can have its own configuration section.
-Capability IDs must be in the format "name@version".
-[Capabilities.Local.Capabilities."http-action@1.0.0"]
-BinaryPathOverride overrides the default binary path for a LOOP capability.
-BinaryPathOverride = '/opt/chainlink/binaries/http_action' # Example
-
 ## AutoPprof
 ```toml
 [AutoPprof]

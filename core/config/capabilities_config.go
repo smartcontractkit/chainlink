@@ -98,18 +98,8 @@ type LocalCapabilities interface {
 	// UseOffchainRegistry returns true when offchain capability config should take precedence
 	// over the on-chain registry config. Defaults to false.
 	UseOffchainRegistry() bool
-	// Capabilities returns per-capability node configuration, keyed by capability ID.
-	Capabilities() map[string]CapabilityNodeConfig
 	// IsAllowlisted returns true if the capability ID matches any pattern in the allowlist.
 	IsAllowlisted(capabilityID string) bool
-	// GetCapabilityConfig returns the node config for a specific capability, or nil if not configured.
-	GetCapabilityConfig(capabilityID string) CapabilityNodeConfig
-}
-
-// CapabilityNodeConfig provides node-specific configuration for a capability.
-type CapabilityNodeConfig interface {
-	// BinaryPathOverride returns the override path for the capability binary, or empty if not set.
-	BinaryPathOverride() string
 }
 
 type SharedPeering interface {

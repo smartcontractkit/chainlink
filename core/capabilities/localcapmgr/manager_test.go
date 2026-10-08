@@ -15,7 +15,6 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -157,9 +156,6 @@ func TestReconcile_StartsNewCapabilities(t *testing.T) {
 		lggr: lggr,
 		localCfg: &testLocalCapabilities{
 			allowlisted: map[string]bool{"test-cap@1.0.0": true},
-			configs: map[string]*testCapabilityNodeConfig{
-				"test-cap@1.0.0": {binaryPath: "/bin/test-cap"},
-			},
 		},
 		newServicesFn:       noopServiceBuilder,
 		runningCapabilities: make(map[string]*runningCapability),
@@ -195,9 +191,6 @@ func TestReconcile_StopsRemovedCapabilities(t *testing.T) {
 		lggr: lggr,
 		localCfg: &testLocalCapabilities{
 			allowlisted: map[string]bool{"test-cap@1.0.0": true},
-			configs: map[string]*testCapabilityNodeConfig{
-				"test-cap@1.0.0": {binaryPath: "/bin/test-cap"},
-			},
 		},
 		newServicesFn: noopServiceBuilder,
 		runningCapabilities: map[string]*runningCapability{
@@ -249,9 +242,6 @@ func TestReconcile_DetectsConfigChange(t *testing.T) {
 		lggr: lggr,
 		localCfg: &testLocalCapabilities{
 			allowlisted: map[string]bool{"test-cap@1.0.0": true},
-			configs: map[string]*testCapabilityNodeConfig{
-				"test-cap@1.0.0": {binaryPath: "/bin/test-cap"},
-			},
 		},
 		newServicesFn: noopServiceBuilder,
 		runningCapabilities: map[string]*runningCapability{
@@ -298,10 +288,6 @@ func TestReconcile_ContinuesOnStartFailure(t *testing.T) {
 		lggr: lggr,
 		localCfg: &testLocalCapabilities{
 			allowlisted: map[string]bool{"failing-cap@1.0.0": true, "good-cap@1.0.0": true},
-			configs: map[string]*testCapabilityNodeConfig{
-				"failing-cap@1.0.0": {binaryPath: "/bin/failing"},
-				"good-cap@1.0.0":    {binaryPath: "/bin/good"},
-			},
 		},
 		newServicesFn:       failingServiceBuilder,
 		runningCapabilities: make(map[string]*runningCapability),
@@ -323,45 +309,6 @@ func TestReconcile_ContinuesOnStartFailure(t *testing.T) {
 
 	// Both failed since we use failingServiceBuilder.
 	assert.Empty(t, mgr.runningCapabilities)
-}
-
-func TestResolveCapabilityBinary(t *testing.T) {
-	lggr := testLogger(t)
-
-	t.Run("uses TOML override when set", func(t *testing.T) {
-		override := "/opt/chainlink/binaries/cron"
-		mgr := &localCapabilityManager{
-			lggr: lggr,
-			localCfg: &testLocalCapabilities{
-				allowlisted: map[string]bool{"cron@1.0.0": true},
-				configs: map[string]*testCapabilityNodeConfig{
-					"cron@1.0.0": {binaryPath: override},
-				},
-			},
-		}
-		path := mgr.resolveCapabilityBinary("cron@1.0.0")
-		assert.Equal(t, override, path)
-	})
-
-	t.Run("falls back to command from capID when no override", func(t *testing.T) {
-		mgr := &localCapabilityManager{
-			lggr: lggr,
-			localCfg: &testLocalCapabilities{
-				allowlisted: map[string]bool{"cron-trigger@1.0.0": true},
-			},
-		}
-		path := mgr.resolveCapabilityBinary("cron-trigger@1.0.0")
-		assert.Equal(t, "cron", path)
-	})
-
-	t.Run("returns empty for unrecognized capID with nil config", func(t *testing.T) {
-		mgr := &localCapabilityManager{
-			lggr:     lggr,
-			localCfg: nil,
-		}
-		path := mgr.resolveCapabilityBinary("unknown@1.0.0")
-		assert.Empty(t, path)
-	})
 }
 
 func TestClose_StopsAllRunningCapabilities(t *testing.T) {
@@ -402,7 +349,6 @@ func (m *mockService) Close() error                { m.closed = true; return nil
 // testLocalCapabilities implements config.LocalCapabilities for testing.
 type testLocalCapabilities struct {
 	allowlisted map[string]bool
-	configs     map[string]*testCapabilityNodeConfig
 }
 
 func (t *testLocalCapabilities) UseOffchainRegistry() bool { return false }
@@ -415,30 +361,9 @@ func (t *testLocalCapabilities) RegistryBasedLaunchAllowlist() []string {
 	return result
 }
 
-func (t *testLocalCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
-	return nil
-}
-
 func (t *testLocalCapabilities) IsAllowlisted(capabilityID string) bool {
 	return t.allowlisted[capabilityID]
 }
-
-func (t *testLocalCapabilities) GetCapabilityConfig(capabilityID string) config.CapabilityNodeConfig {
-	if t.configs == nil {
-		return nil
-	}
-	c, ok := t.configs[capabilityID]
-	if !ok {
-		return nil
-	}
-	return c
-}
-
-type testCapabilityNodeConfig struct {
-	binaryPath string
-}
-
-func (c *testCapabilityNodeConfig) BinaryPathOverride() string { return c.binaryPath }
 
 // mustMarshalCapConfig creates proto-encoded CapabilityConfig bytes with a DefaultConfig map.
 func mustMarshalCapConfig(t *testing.T, kv map[string]string) []byte {
@@ -490,7 +415,7 @@ func TestBuildConfigJSON(t *testing.T) {
 		assert.Equal(t, "{}", result)
 	})
 
-	t.Run("invalid onchain proto yields empty JSON object", func(t *testing.T) {
+	t.Run("invalid onchain proto fails hard", func(t *testing.T) {
 		t.Parallel()
 		mgr := &localCapabilityManager{
 			lggr:     lggr,
@@ -500,8 +425,7 @@ func TestBuildConfigJSON(t *testing.T) {
 			capID:  "cap@1.0.0",
 			config: registry.CapabilityConfiguration{Config: []byte("not-valid-proto")},
 		}
-		result, err := mgr.buildConfigJSON(info)
-		require.NoError(t, err)
-		assert.Equal(t, "{}", result)
+		_, err := mgr.buildConfigJSON(info)
+		require.ErrorContains(t, err, "failed to unmarshal cap registry config")
 	})
 }
