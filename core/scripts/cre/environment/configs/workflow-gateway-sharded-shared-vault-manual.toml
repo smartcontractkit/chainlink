@@ -1,23 +1,3 @@
-# Static shard assignment (manual-only) with a single shared vault DON.
-#
-# Same shape as workflow-gateway-sharded-manual.toml, with one change: the workflow
-# shards host no vault capability of their own. The only vault in the topology is a
-# dedicated, non-sharded capability DON that belongs to BOTH shard families, so every
-# workflow - on whichever shard the manual assignment routes it to - reads its
-# secrets from the same shared vault over the workflow-DON -> vault-DON remote hop.
-#
-# Family layout (see don_families):
-#   workflow-1-zone-a         : don_families=["zone-a_workflows", "zone-a_shard-0"]   (shard 0; no vault capability)
-#   workflow-1-zone-a-shard-1 : don_families=["zone-a_workflows", "zone-a_shard-1"]   (shard 1; no vault capability)
-#   chain-capabilities-zone-a : don_families=["zone-a_shard-0", "zone-a_shard-1"]   (hosts vault; reachable by all shards)
-#   bootstrap-gateway         : no don_families (gateways are reached over public URLs, not by don-family routing)
-#
-# The "_workflows" suffix marks the shared family as workflow-DON-only (the syncer
-# also fetches workflows from the base "zone-a" family via ExpandWorkflowFamilies);
-# it makes the workflow registry entry (registered on the first workflow DON) visible
-# to both shards. The per-shard families give each shard its own route to the shared
-# vault DON. ShardingFailoverEnabled is deliberately NOT set here: in this topology
-# only the assigned shard syncs and runs each workflow.
 
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
@@ -48,7 +28,6 @@
 [infra]
   type = "docker"
 
-# --- Workflow shard 0 --------------------------------------------------------
 [[nodesets]]
   nodes = 4
   name = "workflow-1-zone-a"
@@ -103,7 +82,6 @@
       custom_ports = ["12879:9876"]
       user_config_overrides = "[Sharding]\nShardAssignmentMode = \"manual-only\"\n"
 
-# --- Workflow shard 1 --------------------------------------------------------
 [[nodesets]]
   nodes = 4
   name = "workflow-1-zone-a-shard-1"
@@ -130,7 +108,6 @@
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       user_config_overrides = "[Sharding]\nShardAssignmentMode = \"manual-only\"\n"
 
-# --- Shared (non-sharded) vault DON, reachable by every workflow shard --------
 [[nodesets]]
   nodes = 4
   name = "chain-capabilities-zone-a"
@@ -156,7 +133,6 @@
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       user_config_overrides = ""
 
-# --- Bootstrap + gateway -----------------------------------------------------
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
