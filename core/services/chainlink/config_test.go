@@ -246,14 +246,16 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.TelemetryIngress = toml.TelemetryIngress{
-		UniConn:            new(false),
-		Logging:            new(true),
-		BufferSize:         new(uint16(1234)),
-		MaxBatchSize:       new(uint16(4321)),
-		SendInterval:       commonconfig.MustNewDuration(time.Minute),
-		SendTimeout:        commonconfig.MustNewDuration(5 * time.Second),
-		UseBatchSend:       new(true),
-		ChipIngressEnabled: new(false),
+		UniConn:                       new(false),
+		Logging:                       new(true),
+		BufferSize:                    new(uint16(1234)),
+		MaxBatchSize:                  new(uint16(4321)),
+		SendInterval:                  commonconfig.MustNewDuration(time.Minute),
+		SendTimeout:                   commonconfig.MustNewDuration(5 * time.Second),
+		UseBatchSend:                  new(true),
+		ChipIngressEnabled:            new(false),
+		ChipIngressEndpoint:           new("legacy-telemetry.example:443"),
+		ChipIngressInsecureConnection: new(true),
 		Endpoints: []toml.TelemetryIngressEndpoint{
 			{
 				Network:      new("EVM"),
@@ -939,6 +941,8 @@ SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 ChipIngressEnabled = false
+ChipIngressEndpoint = 'legacy-telemetry.example:443'
+ChipIngressInsecureConnection = true
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'
@@ -1504,7 +1508,13 @@ func TestConfig_Validate(t *testing.T) {
 		- 0.Nodes.1.Name: invalid value (ton-test): duplicate - must be unique
 		- 0: 2 errors:
 			- Enabled: invalid value (1): expected bool
-			- ChainID: missing: required for all chains`},
+			- ChainID: missing: required for all chains`,
+		},
+		{name: "TelemetryIngress chip enabled without endpoint", toml: `
+[TelemetryIngress]
+ChipIngressEnabled = true
+ChipIngressEndpoint = ''
+`, exp: `invalid configuration: TelemetryIngress.ChipIngressEndpoint: missing: must be set when ChipIngressEnabled is true`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config

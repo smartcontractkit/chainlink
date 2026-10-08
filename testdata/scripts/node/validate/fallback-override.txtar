@@ -199,6 +199,8 @@ SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
 ChipIngressEnabled = false
+ChipIngressEndpoint = 'legacy-telemetry.prod.telemetry.chain.link:443'
+ChipIngressInsecureConnection = false
 
 [AuditLogger]
 Enabled = false

@@ -26,7 +26,7 @@ func NewTestTelemetryIngressBatchClient(t *testing.T, url *url.URL, serverPubKey
 	return tc
 }
 
-// NewTestChipIngressBatchClient calls NewChipIngressBatchClient and injects chipClient.
-func NewTestChipIngressBatchClient(t *testing.T, chipClient chipingress.Client, logging bool, sendInterval time.Duration) ChipIngressService {
-	return NewChipIngressBatchClient(chipClient, logging, logger.TestLogger(t), 100, 50, sendInterval, time.Second)
+// NewTestChipIngressBatchClient calls NewChipIngressBatchClient with a fixed test CSA key.
+func NewTestChipIngressBatchClient(t *testing.T, chipClient chipingress.Client, logging bool, sendInterval time.Duration) (ChipIngressService, error) {
+	return NewChipIngressBatchClient(chipClient, "deadbeef", logging, logger.TestLogger(t), sendInterval, time.Second)
 }

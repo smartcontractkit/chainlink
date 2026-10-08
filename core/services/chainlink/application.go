@@ -85,6 +85,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -539,7 +540,29 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, globalLogger)
+	var telemChipService synchronization.ChipIngressService
+	if ti := cfg.TelemetryIngress(); ti.ChipIngressEnabled() {
+		chipClient, chipErr := synchronization.NewChipIngressClient(synchronization.ChipIngressClientConfig{
+			Endpoint:           ti.ChipIngressEndpoint(),
+			InsecureConnection: ti.ChipIngressInsecureConnection(),
+			AuthHeaders:        beholderAuthHeaders,
+			AuthHeadersTTL:     cfg.Telemetry().AuthHeadersTTL(),
+			AuthPublicKeyHex:   csaPubKeyHex,
+			AuthKeySigner:      csaKeystore,
+			MeterProvider:      beholder.GetClient().MeterProvider,
+			TracerProvider:     beholder.GetClient().TracerProvider,
+		})
+		if chipErr != nil {
+			return nil, fmt.Errorf("failed to create telemetry chip-ingress client: %w", chipErr)
+		}
+		telemChipService, chipErr = synchronization.NewChipIngressBatchClient(chipClient, csaPubKeyHex, ti.Logging(), globalLogger, ti.SendInterval(), ti.SendTimeout())
+		if chipErr != nil {
+			_ = chipClient.Close() // the batch client never took ownership of chipClient
+			return nil, fmt.Errorf("failed to create telemetry chip-ingress batch client: %w", chipErr)
+		}
+		globalLogger.Infow("Telemetry will be sent via ChIP ingress", "endpoint", ti.ChipIngressEndpoint())
+	}
+	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, telemChipService, globalLogger)
 	srvcs = append(srvcs, telemetryManager)
 
 	backupCfg := cfg.Database().Backup()

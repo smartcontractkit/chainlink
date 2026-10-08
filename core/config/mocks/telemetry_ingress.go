@@ -112,6 +112,96 @@ func (_c *TelemetryIngress_ChipIngressEnabled_Call) RunAndReturn(run func() bool
 	return _c
 }
 
+// ChipIngressEndpoint provides a mock function with no fields
+func (_m *TelemetryIngress) ChipIngressEndpoint() string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChipIngressEndpoint")
+	}
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// TelemetryIngress_ChipIngressEndpoint_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChipIngressEndpoint'
+type TelemetryIngress_ChipIngressEndpoint_Call struct {
+	*mock.Call
+}
+
+// ChipIngressEndpoint is a helper method to define mock.On call
+func (_e *TelemetryIngress_Expecter) ChipIngressEndpoint() *TelemetryIngress_ChipIngressEndpoint_Call {
+	return &TelemetryIngress_ChipIngressEndpoint_Call{Call: _e.mock.On("ChipIngressEndpoint")}
+}
+
+func (_c *TelemetryIngress_ChipIngressEndpoint_Call) Run(run func()) *TelemetryIngress_ChipIngressEndpoint_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressEndpoint_Call) Return(_a0 string) *TelemetryIngress_ChipIngressEndpoint_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressEndpoint_Call) RunAndReturn(run func() string) *TelemetryIngress_ChipIngressEndpoint_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ChipIngressInsecureConnection provides a mock function with no fields
+func (_m *TelemetryIngress) ChipIngressInsecureConnection() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChipIngressInsecureConnection")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// TelemetryIngress_ChipIngressInsecureConnection_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChipIngressInsecureConnection'
+type TelemetryIngress_ChipIngressInsecureConnection_Call struct {
+	*mock.Call
+}
+
+// ChipIngressInsecureConnection is a helper method to define mock.On call
+func (_e *TelemetryIngress_Expecter) ChipIngressInsecureConnection() *TelemetryIngress_ChipIngressInsecureConnection_Call {
+	return &TelemetryIngress_ChipIngressInsecureConnection_Call{Call: _e.mock.On("ChipIngressInsecureConnection")}
+}
+
+func (_c *TelemetryIngress_ChipIngressInsecureConnection_Call) Run(run func()) *TelemetryIngress_ChipIngressInsecureConnection_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressInsecureConnection_Call) Return(_a0 bool) *TelemetryIngress_ChipIngressInsecureConnection_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressInsecureConnection_Call) RunAndReturn(run func() bool) *TelemetryIngress_ChipIngressInsecureConnection_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Endpoints provides a mock function with no fields
 func (_m *TelemetryIngress) Endpoints() []config.TelemetryIngressEndpoint {
 	ret := _m.Called()

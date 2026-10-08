@@ -281,6 +281,8 @@ SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 UseBatchSend = true # Default
 ChipIngressEnabled = false # Default
+ChipIngressEndpoint = 'legacy-telemetry.prod.telemetry.chain.link:443' # Default
+ChipIngressInsecureConnection = false # Default
 ```
 
 
@@ -300,13 +302,13 @@ Logging toggles verbose logging of the raw telemetry messages being sent.
 ```toml
 BufferSize = 100 # Default
 ```
-BufferSize is the number of telemetry messages to buffer before dropping new ones.
+BufferSize is the number of telemetry messages to buffer before dropping new ones. Ignored when ChipIngressEnabled is true.
 
 ### MaxBatchSize
 ```toml
 MaxBatchSize = 50 # Default
 ```
-MaxBatchSize is the maximum number of messages to batch into one telemetry request.
+MaxBatchSize is the maximum number of messages to batch into one telemetry request. Ignored when ChipIngressEnabled is true.
 
 ### SendInterval
 ```toml
@@ -330,7 +332,19 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 ```toml
 ChipIngressEnabled = false # Default
 ```
-ChipIngressEnabled enables sending telemetry to CHIP Ingress.
+ChipIngressEnabled sends all telemetry to ChipIngressEndpoint instead of the WSRPC Endpoints. Endpoints entries are still required and select which chains send telemetry.
+
+### ChipIngressEndpoint
+```toml
+ChipIngressEndpoint = 'legacy-telemetry.prod.telemetry.chain.link:443' # Default
+```
+ChipIngressEndpoint is the host:port of the chip-ingress legacy telemetry endpoint used when ChipIngressEnabled is true. Separate from Telemetry.ChipIngressEndpoint, which is Beholder's endpoint.
+
+### ChipIngressInsecureConnection
+```toml
+ChipIngressInsecureConnection = false # Default
+```
+ChipIngressInsecureConnection disables TLS to ChipIngressEndpoint. Only for local/test setups.
 
 ## TelemetryIngress.Endpoints
 ```toml

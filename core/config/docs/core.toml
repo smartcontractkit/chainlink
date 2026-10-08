@@ -104,9 +104,9 @@ LeaseRefreshInterval = '1s' # Default
 UniConn = false # Default
 # Logging toggles verbose logging of the raw telemetry messages being sent.
 Logging = false # Default
-# BufferSize is the number of telemetry messages to buffer before dropping new ones.
+# BufferSize is the number of telemetry messages to buffer before dropping new ones. Ignored when ChipIngressEnabled is true.
 BufferSize = 100 # Default
-# MaxBatchSize is the maximum number of messages to batch into one telemetry request.
+# MaxBatchSize is the maximum number of messages to batch into one telemetry request. Ignored when ChipIngressEnabled is true.
 MaxBatchSize = 50 # Default
 # SendInterval determines how often batched telemetry is sent to the ingress server.
 SendInterval = '500ms' # Default
@@ -114,8 +114,12 @@ SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 # UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 UseBatchSend = true # Default
-# ChipIngressEnabled enables sending telemetry to CHIP Ingress.
+# ChipIngressEnabled sends all telemetry to ChipIngressEndpoint instead of the WSRPC Endpoints. Endpoints entries are still required and select which chains send telemetry.
 ChipIngressEnabled = false # Default
+# ChipIngressEndpoint is the host:port of the chip-ingress legacy telemetry endpoint used when ChipIngressEnabled is true. Separate from Telemetry.ChipIngressEndpoint, which is Beholder's endpoint.
+ChipIngressEndpoint = 'legacy-telemetry.prod.telemetry.chain.link:443' # Default
+# ChipIngressInsecureConnection disables TLS to ChipIngressEndpoint. Only for local/test setups.
+ChipIngressInsecureConnection = false # Default
 
 [[TelemetryIngress.Endpoints]] # Example
 # Network aka EVM, Solana, Starknet

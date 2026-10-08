@@ -973,15 +973,17 @@ func (d *DatabaseBackup) setFrom(f *DatabaseBackup) {
 }
 
 type TelemetryIngress struct {
-	UniConn            *bool
-	Logging            *bool
-	BufferSize         *uint16
-	MaxBatchSize       *uint16
-	SendInterval       *commonconfig.Duration
-	SendTimeout        *commonconfig.Duration
-	UseBatchSend       *bool
-	Endpoints          []TelemetryIngressEndpoint `toml:",omitempty"`
-	ChipIngressEnabled *bool
+	UniConn                       *bool
+	Logging                       *bool
+	BufferSize                    *uint16
+	MaxBatchSize                  *uint16
+	SendInterval                  *commonconfig.Duration
+	SendTimeout                   *commonconfig.Duration
+	UseBatchSend                  *bool
+	Endpoints                     []TelemetryIngressEndpoint `toml:",omitempty"`
+	ChipIngressEnabled            *bool
+	ChipIngressEndpoint           *string
+	ChipIngressInsecureConnection *bool
 }
 
 type TelemetryIngressEndpoint struct {
@@ -1019,6 +1021,22 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	if v := f.ChipIngressEnabled; v != nil {
 		t.ChipIngressEnabled = v
 	}
+	if v := f.ChipIngressEndpoint; v != nil {
+		t.ChipIngressEndpoint = v
+	}
+	if v := f.ChipIngressInsecureConnection; v != nil {
+		t.ChipIngressInsecureConnection = v
+	}
+}
+
+func (t *TelemetryIngress) ValidateConfig() (err error) {
+	if t.ChipIngressEnabled == nil || !*t.ChipIngressEnabled {
+		return nil
+	}
+	if t.ChipIngressEndpoint == nil || *t.ChipIngressEndpoint == "" {
+		err = errors.Join(err, configutils.MissingError{Name: "ChipIngressEndpoint", Msg: "must be set when ChipIngressEnabled is true"})
+	}
+	return err
 }
 
 type AuditLogger struct {

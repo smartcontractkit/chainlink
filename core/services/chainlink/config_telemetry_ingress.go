@@ -60,6 +60,14 @@ func (t *telemetryIngressConfig) ChipIngressEnabled() bool {
 	return *t.c.ChipIngressEnabled
 }
 
+func (t *telemetryIngressConfig) ChipIngressEndpoint() string {
+	return *t.c.ChipIngressEndpoint
+}
+
+func (t *telemetryIngressConfig) ChipIngressInsecureConnection() bool {
+	return *t.c.ChipIngressInsecureConnection
+}
+
 func (t *telemetryIngressEndpointConfig) Network() string {
 	return *t.c.Network
 }
