@@ -235,7 +235,7 @@ func TestORM(t *testing.T) {
 	t.Run("it creates and deletes records for blockhash store jobs", func(t *testing.T) {
 		ctx := t.Context()
 		bhsJob, err := blockhashstore.ValidatedSpec(
-			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{CoordinatorV2Address: "0x613a38AC1659769640aaE063C651F48E0250454C"}).Toml(),
+			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{CoordinatorV2PlusAddress: "0x613a38AC1659769640aaE063C651F48E0250454C"}).Toml(),
 		)
 		require.NoError(t, err)
 
@@ -270,7 +270,7 @@ func TestORM(t *testing.T) {
 		// at least one coordinator address to satisfy the validation DB constraint
 		bhsJob, err := blockheaderfeeder.ValidatedSpec(
 			testspecs.GenerateBlockHeaderFeederSpec(testspecs.BlockHeaderFeederSpecParams{
-				CoordinatorV2Address: "0x0000000000000000000000000000000000000001",
+				CoordinatorV2PlusAddress: "0x0000000000000000000000000000000000000001",
 			}).Toml(),
 		)
 		require.NoError(t, err)
@@ -448,7 +448,7 @@ executorConfig = "Foo = 'Bar'"
 	})
 }
 
-func TestORM_CreateJob_VRFV2(t *testing.T) {
+func TestORM_CreateJob_VRF(t *testing.T) {
 	ctx := t.Context()
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
@@ -513,8 +513,7 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	}
 	require.ElementsMatch(t, fromAddresses, actual)
 	var vrfOwnerAddress evmtypes.EIP55Address
-	require.NoError(t, db.Get(&vrfOwnerAddress, `SELECT vrf_owner_address FROM vrf_specs LIMIT 1`))
-	require.Equal(t, "0x32891BD79647DC9136Fc0a59AAB48c7825eb624c", vrfOwnerAddress.Address().String())
+	require.Error(t, db.Get(&vrfOwnerAddress, `SELECT vrf_owner_address FROM vrf_specs LIMIT 1`))
 	require.NoError(t, jobORM.DeleteJob(ctx, jb.ID, jb.Type))
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
@@ -574,7 +573,7 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	require.False(t, batchFulfillmentEnabled)
 	var customRevertsPipelineEnabled bool
 	require.NoError(t, db.Get(&customRevertsPipelineEnabled, `SELECT custom_reverts_pipeline_enabled FROM vrf_specs LIMIT 1`))
-	require.True(t, customRevertsPipelineEnabled)
+	require.False(t, customRevertsPipelineEnabled)
 	var batchFulfillmentGasMultiplier float64
 	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
 	require.InEpsilon(t, float64(1.0), batchFulfillmentGasMultiplier, 1e-9)

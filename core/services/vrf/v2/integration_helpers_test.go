@@ -234,13 +234,11 @@ func testMultipleConsumersNeedBHS(
 	)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
-	v2CoordinatorAddress := coordinatorAddress.String()
-	// Also set V2 to satisfy validation when using a V2Plus coordinator.
 	v2PlusCoordinatorAddress := coordinatorAddress.String()
 
 	_ = vrftesthelpers.CreateAndStartBHSJob(
 		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(),
-		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200, 0, 100,
+		"", v2PlusCoordinatorAddress, "", 0, 200, 0, 100,
 	)
 
 	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
@@ -377,8 +375,6 @@ func testMultipleConsumersNeedTrustedBHS(
 	)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
-	v2CoordinatorAddress := coordinatorAddress.String()
-	// Also set V2 to satisfy validation when using a V2Plus coordinator.
 	v2PlusCoordinatorAddress := coordinatorAddress.String()
 
 	waitBlocks := 100
@@ -386,7 +382,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		waitBlocks = 400
 	}
 	_ = vrftesthelpers.CreateAndStartBHSJob(
-		t, bhsKeyAddressesStrings, app, "", v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000, 0, waitBlocks,
+		t, bhsKeyAddressesStrings, app, "", "", v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000, 0, waitBlocks,
 	)
 
 	// Ensure log poller is ready and has all logs.
@@ -771,12 +767,11 @@ func testBlockHeaderFeeder(
 		gasLanePriceWei,
 	)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
-	v2coordinatorAddress := coordinatorAddress.String()
 	v2plusCoordinatorAddress := coordinatorAddress.String()
 
 	_ = vrftesthelpers.CreateAndStartBlockHeaderFeederJob(
 		t, bhfKeys, app, uni.bhsContractAddress.String(), uni.batchBHSContractAddress.String(),
-		v2coordinatorAddress, v2plusCoordinatorAddress,
+		"", v2plusCoordinatorAddress,
 	)
 
 	// Ensure log poller is ready and has all logs.

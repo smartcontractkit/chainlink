@@ -224,9 +224,13 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	require.NoError(t, err, "failed to deploy upgradeable consumer to simulated ethereum blockchain")
 	backend.Commit()
 
-	// The proxy admin can be a plain EOA here; the tests never upgrade the
-	// proxy through a ProxyAdmin contract.
-	proxyAdminAddress := neil.From
+	// Use a dedicated EOA as the proxy admin. OZ TransparentUpgradeableProxy
+	// rejects calls made by the admin through the proxy ("admin cannot
+	// fallback to proxy target"), so the admin must be an account that never
+	// interacts with the proxied consumer. The tests never upgrade the proxy
+	// through a ProxyAdmin contract.
+	proxyAdminEOA := evmtestutils.MustNewSimTransactor(t)
+	proxyAdminAddress := proxyAdminEOA.From
 
 	// provide abi-encoded initialize function call on the implementation contract
 	// so that it's called upon the proxy construction, to initialize it.
