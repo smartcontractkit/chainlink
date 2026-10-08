@@ -12,15 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// stubMedianConfig embeds the nil Config interface: MedianTask.Run only calls
-// MedianMaxStaleness, so the other methods are never reached.
-type stubMedianConfig struct {
-	Config
-	maxStaleness time.Duration
-}
-
-func (c stubMedianConfig) MedianMaxStaleness() time.Duration { return c.maxStaleness }
-
 func mustDecimalStaleness(t *testing.T, s string) decimal.Decimal {
 	t.Helper()
 	d, err := decimal.NewFromString(s)
@@ -47,11 +38,11 @@ func TestMedianTask_StalenessGate(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		timestamps    map[string]uint64
-		allowedFaults string
-		config        Config // nil = not injected
-		want          string // expected median as decimal string
+		name                 string
+		timestamps           map[string]uint64
+		allowedFaults        string
+		stalenessGateSeconds string
+		want                 string // expected median as decimal string
 	}{
 		{
 			name: "gate excludes input older than max staleness",
@@ -60,9 +51,9 @@ func TestMedianTask_StalenessGate(t *testing.T) {
 				"ds2": nowMs - 10_000,
 				"ds3": nowMs - 120_000,
 			},
-			allowedFaults: "1",
-			config:        stubMedianConfig{maxStaleness: 30 * time.Second},
-			want:          "1.5",
+			allowedFaults:        "1",
+			stalenessGateSeconds: "30",
+			want:                 "1.5",
 		},
 		{
 			name: "staleness fallback when exclusions would exceed allowed faults",
@@ -71,9 +62,9 @@ func TestMedianTask_StalenessGate(t *testing.T) {
 				"ds2": nowMs - 10_000,
 				"ds3": nowMs - 120_000,
 			},
-			allowedFaults: "0",
-			config:        stubMedianConfig{maxStaleness: 30 * time.Second},
-			want:          "2",
+			allowedFaults:        "0",
+			stalenessGateSeconds: "30",
+			want:                 "2",
 		},
 		{
 			name: "unset allowedFaults tolerates stale faults by default",
@@ -82,9 +73,9 @@ func TestMedianTask_StalenessGate(t *testing.T) {
 				"ds2": nowMs - 10_000,
 				"ds3": nowMs - 120_000,
 			},
-			allowedFaults: "",
-			config:        stubMedianConfig{maxStaleness: 30 * time.Second},
-			want:          "1.5",
+			allowedFaults:        "",
+			stalenessGateSeconds: "30",
+			want:                 "1.5",
 		},
 		{
 			name: "zero timestamp is never excluded",
@@ -93,9 +84,9 @@ func TestMedianTask_StalenessGate(t *testing.T) {
 				"ds2": 0,
 				"ds3": nowMs - 120_000,
 			},
-			allowedFaults: "1",
-			config:        stubMedianConfig{maxStaleness: 30 * time.Second},
-			want:          "1.5",
+			allowedFaults:        "1",
+			stalenessGateSeconds: "30",
+			want:                 "1.5",
 		},
 		{
 			name: "all timestamps zero leaves the gate inert",
@@ -104,9 +95,9 @@ func TestMedianTask_StalenessGate(t *testing.T) {
 				"ds2": 0,
 				"ds3": 0,
 			},
-			allowedFaults: "0",
-			config:        stubMedianConfig{maxStaleness: 30 * time.Second},
-			want:          "2",
+			allowedFaults:        "0",
+			stalenessGateSeconds: "30",
+			want:                 "2",
 		},
 		{
 			name: "mostly stale triggers fallback when exclusions exceed threshold (freshest is never stale)",
@@ -115,45 +106,72 @@ func TestMedianTask_StalenessGate(t *testing.T) {
 				"ds2": nowMs - 240_000,
 				"ds3": nowMs - 360_000,
 			},
-			allowedFaults: "1",
-			config:        stubMedianConfig{maxStaleness: 30 * time.Second},
-			want:          "2",
+			allowedFaults:        "1",
+			stalenessGateSeconds: "30",
+			want:                 "2",
 		},
 		{
-			name: "gate disabled when max staleness is zero",
+			name: "explicit zero means zero tolerance: only the freshest survives",
 			timestamps: map[string]uint64{
 				"ds1": nowMs,
 				"ds2": nowMs - 10_000,
 				"ds3": nowMs - 120_000,
 			},
-			allowedFaults: "1",
-			config:        stubMedianConfig{maxStaleness: 0},
-			want:          "2",
+			allowedFaults:        "2",
+			stalenessGateSeconds: "0",
+			want:                 "1",
 		},
 		{
-			name: "gate disabled when config is not injected",
+			name: "zero tolerance still never excludes unknown timestamps",
+			timestamps: map[string]uint64{
+				"ds1": nowMs,
+				"ds2": 0,
+				"ds3": nowMs - 120_000,
+			},
+			allowedFaults:        "1",
+			stalenessGateSeconds: "0",
+			want:                 "1.5",
+		},
+		{
+			name: "gate off when the parameter is absent",
 			timestamps: map[string]uint64{
 				"ds1": nowMs,
 				"ds2": nowMs - 10_000,
 				"ds3": nowMs - 120_000,
 			},
-			allowedFaults: "1",
-			config:        nil,
-			want:          "2",
+			allowedFaults:        "1",
+			stalenessGateSeconds: "",
+			want:                 "2",
+		},
+		{
+			name: "gate seconds can be a var expression",
+			timestamps: map[string]uint64{
+				"ds1": nowMs,
+				"ds2": nowMs - 10_000,
+				"ds3": nowMs - 120_000,
+			},
+			allowedFaults:        "1",
+			stalenessGateSeconds: "$(gateSeconds)",
+			want:                 "1.5",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			vars := NewVarsFrom(values)
+			vars := NewVarsFrom(map[string]any{
+				"ds1":         values["ds1"],
+				"ds2":         values["ds2"],
+				"ds3":         values["ds3"],
+				"gateSeconds": uint64(30),
+			})
 			for dotID, ts := range test.timestamps {
 				vars.SetTimestamp(dotID, ts)
 			}
 			task := MedianTask{
-				BaseTask:      NewBaseTask(0, "task", nil, nil, 0),
-				Values:        "[$(ds1),$(ds2),$(ds3)]",
-				AllowedFaults: test.allowedFaults,
-				config:        test.config,
+				BaseTask:             NewBaseTask(0, "task", nil, nil, 0),
+				Values:               "[$(ds1),$(ds2),$(ds3)]",
+				AllowedFaults:        test.allowedFaults,
+				StalenessGateSeconds: test.stalenessGateSeconds,
 			}
 			result := runMedianWithTimestamps(t, task, vars, nil)
 			require.NoError(t, result.Error)
@@ -172,9 +190,9 @@ func TestMedianTask_StalenessGate_InputsFallback(t *testing.T) {
 		{Value: mustDecimalStaleness(t, "3"), Timestamp: nowMs - 120_000},
 	}
 	task := MedianTask{
-		BaseTask:      NewBaseTask(0, "task", nil, nil, 0),
-		AllowedFaults: "1",
-		config:        stubMedianConfig{maxStaleness: 30 * time.Second},
+		BaseTask:             NewBaseTask(0, "task", nil, nil, 0),
+		AllowedFaults:        "1",
+		StalenessGateSeconds: "30",
 	}
 	result := runMedianWithTimestamps(t, task, NewVarsFrom(nil), inputs)
 	require.NoError(t, result.Error)

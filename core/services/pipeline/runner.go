@@ -351,8 +351,6 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			bt.httpClient = r.unrestrictedHTTPClient
 			bt.bridgeConnManager = r.bridgeConnManager
 			bt.requiredJSONPaths = bt.getRequiredJSONPaths()
-		case TaskTypeMedian:
-			task.(*MedianTask).config = r.config
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
 			task.(*ETHCallTask).config = r.config

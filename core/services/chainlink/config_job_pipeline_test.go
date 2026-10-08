@@ -25,7 +25,6 @@ func TestJobPipelineConfigTest(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, d, jp.DefaultHTTPTimeout())
 	assert.Equal(t, 1*time.Hour, jp.MaxRunDuration())
-	assert.Equal(t, 2*time.Hour, jp.MedianMaxStaleness())
 	assert.Equal(t, uint64(123456), jp.MaxSuccessfulRuns())
 	assert.Equal(t, 4*time.Hour, jp.ReaperInterval())
 	assert.Equal(t, 168*time.Hour, jp.ReaperThreshold())

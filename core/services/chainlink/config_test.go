@@ -343,7 +343,6 @@ func TestConfig_Marshal(t *testing.T) {
 		ExternalInitiatorsEnabled: new(true),
 		MaxRunDuration:            commonconfig.MustNewDuration(time.Hour),
 		MaxSuccessfulRuns:         new(uint64(123456)),
-		MedianMaxStaleness:        commonconfig.MustNewDuration(2 * time.Hour),
 		ReaperInterval:            commonconfig.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           commonconfig.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     new(uint32(10)),
@@ -1027,7 +1026,6 @@ ListenIP = '192.158.1.38'
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
 MaxSuccessfulRuns = 123456
-MedianMaxStaleness = '2h0m0s'
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10

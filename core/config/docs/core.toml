@@ -320,8 +320,6 @@ MaxRunDuration = '10m' # Default
 # Note this is not a hard cap, it can drift slightly larger than this but not
 # by more than 5% or so.
 MaxSuccessfulRuns = 10000 # Default
-# MedianMaxStaleness is the maximum age of a data source relative to the freshest input that the median task's staleness gate tolerates before excluding it; excluded inputs count as faults, and if that would fail the task's fault threshold the gate is discarded. A value of zero disables the gate.
-MedianMaxStaleness = '30s' # Default
 # ReaperInterval controls how often the job pipeline reaper will run to delete completed jobs older than ReaperThreshold, in order to keep database size manageable.
 #
 # Set to `0` to disable the periodic reaper.

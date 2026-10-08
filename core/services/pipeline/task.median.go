@@ -6,7 +6,6 @@ import (
 	"math"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -27,11 +26,13 @@ type MedianTask struct {
 	// CountNilsAsFaults when enabled treats nil values as faults (counted toward allowedFaults) but filters them out before median calculation.
 	// This is mutually exclusive with Lax.
 	CountNilsAsFaults string
-
-	// config is injected by the pipeline runner; it is nil when the task is
-	// constructed directly (e.g. in unit tests), which disables the staleness
-	// gate.
-	config Config
+	// StalenessGateSeconds opts into the staleness gate: inputs whose source
+	// timestamp trails the freshest input by more than this many seconds are
+	// excluded from the median and count as faults (with a fallback to all
+	// inputs when those exclusions would fail the allowedFaults check). An
+	// explicit zero admits only the freshest input. The gate is off when the
+	// parameter is absent.
+	StalenessGateSeconds string `json:"stalenessGateSeconds"`
 }
 
 var _ Task = (*MedianTask)(nil)
@@ -42,19 +43,21 @@ func (t *MedianTask) Type() TaskType {
 
 func (t *MedianTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
-		maybeAllowedFaults MaybeUint64Param
-		valuesAndErrs      SliceParam
-		decimalValues      DecimalSliceParam
-		allowedFaults      int
-		faults             int
-		lax                BoolParam
-		countNilsAsFaults  BoolParam
+		maybeAllowedFaults    MaybeUint64Param
+		valuesAndErrs         SliceParam
+		decimalValues         DecimalSliceParam
+		allowedFaults         int
+		faults                int
+		lax                   BoolParam
+		countNilsAsFaults     BoolParam
+		maybeStalenessGateSec MaybeUint64Param
 	)
 	err := stderrors.Join(
 		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
 		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 		errors.Wrap(ResolveParam(&lax, From(NonemptyString(t.Lax), false)), "lax"),
 		errors.Wrap(ResolveParam(&countNilsAsFaults, From(NonemptyString(t.CountNilsAsFaults), false)), "countNilsAsFaults"),
+		errors.Wrap(ResolveParam(&maybeStalenessGateSec, From(VarExpr(t.StalenessGateSeconds, vars), t.StalenessGateSeconds)), "stalenessGateSeconds"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -94,7 +97,11 @@ func (t *MedianTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		faults += nilCount
 	}
 
-	values, faults = t.applyStalenessGate(lggr, values, timestamps, faults, allowedFaults)
+	// The staleness gate is opt-in: unset or empty stalenessGateSeconds leaves
+	// it off; an explicit zero means zero tolerance (only the freshest input
+	// survives).
+	stalenessGateSec, gateEnabled := maybeStalenessGateSec.Uint64()
+	values, faults = applyStalenessGate(lggr, values, timestamps, faults, allowedFaults, stalenessGateSec, gateEnabled)
 
 	switch {
 	case faults > allowedFaults:
@@ -213,23 +220,20 @@ func filterNilsWithTimestamps(values SliceParam, ts []uint64) (SliceParam, []uin
 }
 
 // applyStalenessGate excludes values whose source timestamp is older than the
-// freshest input by more than maxStaleness (the maximum staleness), counting
-// them as faults. Inputs with an unknown (zero) timestamp are never excluded.
+// freshest input by more than stalenessGateSec seconds (the maximum
+// staleness), counting them as faults. Inputs with an unknown (zero)
+// timestamp are never excluded. It is a no-op when the gate is not enabled.
 //
 // When the exclusions would fail the fault-threshold check, the gate is
 // discarded (staleness fallback) and the values are returned untouched, which
 // reproduces the pre-gate behavior.
-func (t *MedianTask) applyStalenessGate(lggr logger.Logger, values SliceParam, ts []uint64, faults, allowedFaults int) (SliceParam, int) {
-	var maxStaleness time.Duration
-	if t.config != nil {
-		maxStaleness = t.config.MedianMaxStaleness()
-	}
-	if maxStaleness <= 0 || len(ts) != len(values) {
-		// Gate disabled, or timestamps unknown for this run.
+func applyStalenessGate(lggr logger.Logger, values SliceParam, ts []uint64, faults, allowedFaults int, stalenessGateSec uint64, enabled bool) (SliceParam, int) {
+	if !enabled || len(ts) != len(values) {
+		// Gate not opted into, or timestamps unknown for this run.
 		return values, faults
 	}
 
-	maxStalenessMs := uint64(maxStaleness.Milliseconds())
+	stalenessGateMs := stalenessGateSec * 1_000
 	var freshest uint64
 	for _, ms := range ts {
 		if ms > freshest {
@@ -243,7 +247,7 @@ func (t *MedianTask) applyStalenessGate(lggr logger.Logger, values SliceParam, t
 	staleCount := 0
 	outValues := make(SliceParam, 0, len(values))
 	for i, x := range values {
-		if ts[i] != 0 && freshest-ts[i] > maxStalenessMs {
+		if ts[i] != 0 && freshest-ts[i] > stalenessGateMs {
 			staleCount++
 			continue
 		}

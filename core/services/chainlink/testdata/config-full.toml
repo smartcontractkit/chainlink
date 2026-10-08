@@ -139,7 +139,6 @@ DisplayName = 'test-node'
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
 MaxSuccessfulRuns = 123456
-MedianMaxStaleness = '2h0m0s'
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10

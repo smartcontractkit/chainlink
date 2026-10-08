@@ -26,10 +26,6 @@ func (j *jobPipelineConfig) MaxRunDuration() time.Duration {
 	return j.c.MaxRunDuration.Duration()
 }
 
-func (j *jobPipelineConfig) MedianMaxStaleness() time.Duration {
-	return j.c.MedianMaxStaleness.Duration()
-}
-
 func (j *jobPipelineConfig) MaxSuccessfulRuns() uint64 {
 	return *j.c.MaxSuccessfulRuns
 }
