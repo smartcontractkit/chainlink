@@ -141,6 +141,15 @@ jobs:
             "Test_CRE_V2_ShardFailoverSharedVault": [
                 {"topology":"workflow-gateway-sharded-shared-vault-failover","configs":"configs/workflow-gateway-sharded-shared-vault-failover.toml"}
               ],
+            "Test_CRE_V2_ShardFailoverAutoOnPrimaryDeath": [
+                {"topology":"workflow-gateway-sharded-shared-vault-failover","configs":"configs/workflow-gateway-sharded-shared-vault-failover.toml"}
+              ],
+            "Test_CRE_V2_ShardFailoverPrimaryRecovery": [
+                {"topology":"workflow-gateway-sharded-shared-vault-failover","configs":"configs/workflow-gateway-sharded-shared-vault-failover.toml"}
+              ],
+            "Test_CRE_V2_ShardFailoverCentralizedEventRouting": [
+                {"topology":"workflow-gateway-sharded-shared-vault-failover","configs":"configs/workflow-gateway-sharded-shared-vault-failover.toml"}
+              ],
             "Test_CRE_V2_FailoverManualSwap": [
                 {"topology":"workflow-gateway-failover","configs":"configs/workflow-gateway-failover-don.toml"}
               ],

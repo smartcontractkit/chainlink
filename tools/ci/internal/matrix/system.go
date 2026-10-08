@@ -94,6 +94,15 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	"Test_CRE_V2_ShardFailoverSharedVault": {
 		{Topology: "workflow-gateway-sharded-shared-vault-failover", Configs: "configs/workflow-gateway-sharded-shared-vault-failover.toml"},
 	},
+	"Test_CRE_V2_ShardFailoverAutoOnPrimaryDeath": {
+		{Topology: "workflow-gateway-sharded-shared-vault-failover", Configs: "configs/workflow-gateway-sharded-shared-vault-failover.toml"},
+	},
+	"Test_CRE_V2_ShardFailoverPrimaryRecovery": {
+		{Topology: "workflow-gateway-sharded-shared-vault-failover", Configs: "configs/workflow-gateway-sharded-shared-vault-failover.toml"},
+	},
+	"Test_CRE_V2_ShardFailoverCentralizedEventRouting": {
+		{Topology: "workflow-gateway-sharded-shared-vault-failover", Configs: "configs/workflow-gateway-sharded-shared-vault-failover.toml"},
+	},
 	"Test_CRE_V2_FailoverManualSwap": {
 		{Topology: "workflow-gateway-failover", Configs: "configs/workflow-gateway-failover-don.toml"},
 	},
