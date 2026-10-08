@@ -549,8 +549,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			AuthHeadersTTL:     cfg.Telemetry().AuthHeadersTTL(),
 			AuthPublicKeyHex:   csaPubKeyHex,
 			AuthKeySigner:      csaKeystore,
-			MeterProvider:      beholder.GetClient().MeterProvider,
-			TracerProvider:     beholder.GetClient().TracerProvider,
 		})
 		if chipErr != nil {
 			return nil, fmt.Errorf("failed to create telemetry chip-ingress client: %w", chipErr)

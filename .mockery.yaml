@@ -215,6 +215,7 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/synchronization:
     interfaces:
       TelemetryService:
+      ChipIngressService:
   github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem:
     config:
       dir: "{{ .InterfaceDir }}/../mocks"

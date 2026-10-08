@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -36,27 +35,25 @@ type Manager struct {
 	uniConn      bool
 	useBatchSend bool
 
-	chipService synchronization.ChipIngressService // nil when chip ingress is disabled
-
-	chipIngressEndpoint string
-	configGauge         otelmetric.Int64Gauge
+	chipService         synchronization.ChipIngressService // nil when chip ingress is disabled
+	chipIngressEndpoint string                             // "" when disabled
 }
 
+// telemetryEndpoint is one [[TelemetryIngress.Endpoints]] entry. With chip
+// ingress enabled it only allowlists the chain and client is nil.
 type telemetryEndpoint struct {
-	ChainID           string
-	Network           string
-	URL               *url.URL
-	client            synchronization.TelemetryService
-	PubKey            string
-	chipIngressClient synchronization.ChipIngressService
+	ChainID string
+	Network string
+	URL     *url.URL
+	client  synchronization.TelemetryService
+	PubKey  string
 }
 
 // NewManager create a new telemetry manager that is responsible for configuring telemetry agents and generating the defined telemetry endpoints and monitoring endpoints
 // chipService is the shared chip-ingress service to use when ChipIngressEnabled is true; nil when the flag is off.
 func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, chipService synchronization.ChipIngressService, lggr common.Logger) *Manager {
-	var chipIngressEndpoint string // "" when disabled
+	var chipIngressEndpoint string
 	if chipService != nil {
-		lggr.Info("ChIP Ingress is enabled for telemetry")
 		chipIngressEndpoint = cfg.ChipIngressEndpoint()
 	}
 
@@ -75,14 +72,8 @@ func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, chipServi
 	m.Service, m.eng = services.Config{
 		Name: "TelemetryManager",
 		Start: func(ctx context.Context) error {
-			if err := m.recordConfigMetric(ctx); err != nil {
-				m.eng.Errorw("failed to record telemetry ingress config metric", "err", err)
-			}
-			m.eng.GoTick(services.TickerConfig{}.NewTicker(time.Hour), func(ctx context.Context) {
-				if err := m.recordConfigMetric(ctx); err != nil {
-					m.eng.Errorw("failed to record telemetry ingress config metric", "err", err)
-				}
-			})
+			m.recordConfigMetric(ctx)
+			m.eng.GoTick(services.TickerConfig{}.NewTicker(time.Hour), m.recordConfigMetric)
 			return nil
 		},
 		NewSubServices: func(lggr common.Logger) (subs []services.Service) {
@@ -117,7 +108,7 @@ func (m *Manager) GenMonitoringEndpoint(network string, chainID string, contract
 
 	if m.chipService != nil {
 		lggr := m.eng.Named("chip-ingress")
-		adapter, err := NewChipIngressAgent(e.chipIngressClient, network, chainID, contractID, telemType, lggr)
+		adapter, err := NewChipIngressAgent(m.chipService, network, chainID, contractID, telemType, lggr)
 		if err != nil {
 			m.eng.Errorw("failed to create ChIP ingress agent, falling back to noop", "error", err, "network", network, "chainID", chainID, "contractID", contractID, "telemType", telemType)
 			return &NoopAgent{}
@@ -142,7 +133,7 @@ func (m *Manager) GenMultitypeMonitoringEndpoint(network string, chainID string,
 
 	if m.chipService != nil {
 		lggr := m.eng.Named("chip-ingress-multipletype")
-		adapter, err := NewChipIngressAgentMultitype(e.chipIngressClient, network, chainID, contractID, lggr)
+		adapter, err := NewChipIngressAgentMultitype(m.chipService, network, chainID, contractID, lggr)
 		if err != nil {
 			m.eng.Errorw("failed to create ChIP ingress multitype agent, falling back to noop", "error", err, "network", network, "chainID", chainID, "contractID", contractID)
 			return &NoopAgent{}
@@ -178,61 +169,42 @@ func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr common.Log
 		return nil, errors.Errorf("cannot add telemetry endpoint for network %q and chainID %q, endpoint already exists", e.Network(), e.ChainID())
 	}
 
-	lggr = common.Sugared(lggr).Named(e.Network()).Named(e.ChainID())
-
-	if m.chipService != nil {
-		lggr.Infof("Using chip-ingress service for network %q chainID %q", e.Network(), e.ChainID())
-		// When ChIP ingress is enabled, all endpoints share the one ChipIngressService
-		// (injected by the application); entries only select which chains send telemetry.
-		te := telemetryEndpoint{
-			Network:           strings.ToUpper(e.Network()),
-			ChainID:           strings.ToUpper(e.ChainID()),
-			URL:               e.URL(),
-			PubKey:            e.ServerPubKey(),
-			chipIngressClient: m.chipService,
-		}
-		m.endpoints = append(m.endpoints, &te)
-		return nil, nil
-	}
-
-	// Otherwise use the traditional telemetry service
-	var tClient synchronization.TelemetryService
-	if m.useBatchSend {
-		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, cfg.Logging(), lggr, cfg.BufferSize(), cfg.MaxBatchSize(), cfg.SendInterval(), cfg.SendTimeout(), cfg.UniConn())
-	} else {
-		tClient = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, lggr, cfg.BufferSize())
-	}
-
-	te := telemetryEndpoint{
+	te := &telemetryEndpoint{
 		Network: strings.ToUpper(e.Network()),
 		ChainID: strings.ToUpper(e.ChainID()),
 		URL:     e.URL(),
-		client:  tClient,
 		PubKey:  e.ServerPubKey(),
 	}
+	m.endpoints = append(m.endpoints, te)
 
-	m.endpoints = append(m.endpoints, &te)
+	if m.chipService != nil {
+		// All chains share the injected chip service; the entry is only an allowlist.
+		return nil, nil
+	}
+
+	lggr = common.Sugared(lggr).Named(e.Network()).Named(e.ChainID())
+	if m.useBatchSend {
+		te.client = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, cfg.Logging(), lggr, cfg.BufferSize(), cfg.MaxBatchSize(), cfg.SendInterval(), cfg.SendTimeout(), cfg.UniConn())
+	} else {
+		te.client = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, lggr, cfg.BufferSize())
+	}
 	return te.client, nil
 }
 
-// recordConfigMetric records the telemetry ingress config info metric, mirroring
-// beholder's ConfigRecorder "config.info" pattern.
-func (m *Manager) recordConfigMetric(ctx context.Context) error {
-	if m.configGauge == nil {
-		gauge, err := beholder.GetMeter().Int64Gauge("telemetry_ingress.config.info",
-			otelmetric.WithDescription("Telemetry ingress config info metric"),
-			otelmetric.WithUnit("{info}"))
-		if err != nil {
-			return fmt.Errorf("failed to create telemetry ingress config metric: %w", err)
-		}
-		m.configGauge = gauge
+// recordConfigMetric records the telemetry_ingress.config.info gauge, mirroring
+// Beholder's "config.info" pattern. OTel caches the instrument by name.
+func (m *Manager) recordConfigMetric(ctx context.Context) {
+	gauge, err := beholder.GetMeter().Int64Gauge("telemetry_ingress.config.info",
+		otelmetric.WithDescription("Telemetry ingress config info metric"),
+		otelmetric.WithUnit("{info}"))
+	if err != nil {
+		m.eng.Errorw("failed to create telemetry ingress config metric", "err", err)
+		return
 	}
-	m.configGauge.Record(ctx, 1, otelmetric.WithAttributes(
+	gauge.Record(ctx, 1, otelmetric.WithAttributes(
 		attribute.Bool("chip_ingress_enabled", m.chipService != nil),
-		// "" when disabled
 		attribute.String("chip_ingress_endpoint", m.chipIngressEndpoint),
 	))
-	return nil
 }
 
 func (m *Manager) getEndpoint(network string, chainID string) (*telemetryEndpoint, bool) {

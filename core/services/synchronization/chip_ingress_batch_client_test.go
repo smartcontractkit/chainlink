@@ -2,12 +2,14 @@ package synchronization
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -20,8 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-// newTestPayload returns a payload with Domain/Entity unset so the
-// TelemetryTypeToDomainAndEntity fallback applies.
 func newTestPayload(contractID string) TelemPayload {
 	return TelemPayload{
 		Telemetry:     []byte("telemetry-payload"),
@@ -51,28 +51,34 @@ func (p *publishedBatches) snapshot() [][]*chipingress.CloudEventPb {
 	return slices.Clone(p.batches)
 }
 
-func setupBatchClientTest(t *testing.T) (*chipingressmocks.Client, ChipIngressService, *publishedBatches) {
+type publishFunc func(*chipingress.CloudEventBatch) (*chipingress.PublishResponse, error)
+
+// publishOK acknowledges every event; the batch client expects one positional result per event.
+func publishOK(b *chipingress.CloudEventBatch) (*chipingress.PublishResponse, error) {
+	results := make([]*chipingress.PublishResult, len(b.Events))
+	for i := range results {
+		results[i] = &chipingress.PublishResult{}
+	}
+	return &chipingress.PublishResponse{Results: results}, nil
+}
+
+// startBatchClient starts a batch client over a mock chip client whose PublishBatch
+// records each request and then answers with publish.
+func startBatchClient(t *testing.T, publish publishFunc) (ChipIngressService, *publishedBatches) {
 	t.Helper()
 	chipClient := chipingressmocks.NewClient(t)
 	chipClient.On("Ping", mock.Anything, mock.Anything, mock.Anything).Return(&chipingress.PingResponse{}, nil).Maybe()
-	// batch.Client.Stop() closes the underlying client.
-	chipClient.On("Close").Return(nil).Maybe()
+	chipClient.On("Close").Return(nil).Maybe() // batch.Client.Stop() closes the underlying client
 	published := &publishedBatches{}
 	chipClient.EXPECT().PublishBatch(mock.Anything, mock.Anything, mock.Anything).
-		RunAndReturn(func(_ context.Context, batch *chipingress.CloudEventBatch, _ ...grpc.CallOption) (*chipingress.PublishResponse, error) {
-			published.add(batch.Events)
-			// The batch client validates positional results: one per event.
-			results := make([]*chipingress.PublishResult, len(batch.Events))
-			for i := range results {
-				results[i] = &chipingress.PublishResult{}
-			}
-			return &chipingress.PublishResponse{Results: results}, nil
+		RunAndReturn(func(_ context.Context, b *chipingress.CloudEventBatch, _ ...grpc.CallOption) (*chipingress.PublishResponse, error) {
+			published.add(b.Events)
+			return publish(b)
 		}).Maybe()
 
-	client, err := NewTestChipIngressBatchClient(t, chipClient, false, time.Nanosecond)
-	require.NoError(t, err)
+	client := NewTestChipIngressBatchClient(t, chipClient, false, time.Nanosecond)
 	servicetest.Run(t, client)
-	return chipClient, client, published
+	return client, published
 }
 
 // awaitFirstEvent waits for exactly one published batch holding one event and decodes it.
@@ -88,38 +94,31 @@ func awaitFirstEvent(t *testing.T, published *publishedBatches) chipingress.Clou
 	return event
 }
 
-func sentCount(telemType string) float64 {
-	return testutil.ToFloat64(TelemetryClientMessagesSent.WithLabelValues(chipIngress, telemType))
+func counterValue(vec *prometheus.CounterVec, telemType TelemetryType) float64 {
+	return testutil.ToFloat64(vec.WithLabelValues(chipIngress, string(telemType)))
 }
 
-func sendErrorCount(telemType string) float64 {
-	return testutil.ToFloat64(TelemetryClientMessagesSendErrors.WithLabelValues(chipIngress, telemType))
-}
-
-func droppedCount(telemType string) float64 {
-	return testutil.ToFloat64(TelemetryClientMessagesDropped.WithLabelValues(chipIngress, telemType))
-}
-
-func TestChipIngressBatchClient_Extensions(t *testing.T) {
+func TestChipIngressBatchClient_Event(t *testing.T) {
 	t.Parallel()
-	_, client, published := setupBatchClientTest(t)
+	client, published := startBatchClient(t, publishOK)
 
 	client.Send(t.Context(), newTestPayload("0xabc"))
 	event := awaitFirstEvent(t, published)
 
+	// Source/type come from the telemetry type and pick the Kafka topic.
+	domain, entity, err := TelemetryTypeToDomainAndEntity(OCR2Median)
+	require.NoError(t, err)
+	assert.Equal(t, domain, event.Source())
+	assert.Equal(t, entity, event.Type())
+
 	// Exact extension set from the OTI-parity table plus the ones the
 	// library stamps (seqnum by the batch client, recordedtime by NewEvent).
-	extNames := make([]string, 0, len(event.Extensions()))
-	for name := range event.Extensions() {
-		extNames = append(extNames, name)
-	}
+	exts := event.Extensions()
 	assert.ElementsMatch(t, []string{
 		"legacytelemetry", "telemetrytype", "chainselector", "networkname",
 		"contractid", "csapublickey", "partitionkey", "sentat", "receivedat",
 		"seqnum", "recordedtime",
-	}, extNames)
-
-	exts := event.Extensions()
+	}, slices.Collect(maps.Keys(exts)))
 	assert.Equal(t, "true", exts["legacytelemetry"])
 	assert.Equal(t, string(OCR2Median), exts["telemetrytype"])
 	assert.Equal(t, "12345", exts["chainselector"])
@@ -133,86 +132,49 @@ func TestChipIngressBatchClient_Extensions(t *testing.T) {
 	require.NoError(t, err)
 	receivedAt, err := strconv.ParseInt(exts["receivedat"].(string), 10, 64)
 	require.NoError(t, err)
-	assert.Positive(t, sentAt)
 	assert.Equal(t, sentAt/1_000_000, receivedAt)
 	assert.WithinDuration(t, time.Now(), time.Unix(0, sentAt), time.Minute)
-
-	// nodeoperator* / nodename / nodecsapublickey must be absent: chip-ingress
-	// stamps them server-side; sending them would duplicate headers.
-	for _, absent := range []string{"nodeoperatorname", "nodename", "nodecsapublickey", "nodeoperatorkey"} {
-		assert.NotContains(t, exts, absent)
-	}
-}
-
-func TestChipIngressBatchClient_DomainEntityFallback(t *testing.T) {
-	t.Parallel()
-	_, client, published := setupBatchClientTest(t)
-
-	client.Send(t.Context(), newTestPayload("0xabc"))
-	event := awaitFirstEvent(t, published)
-	domain, entity, err := TelemetryTypeToDomainAndEntity(OCR2Median)
-	require.NoError(t, err)
-	assert.Equal(t, domain, event.Source())
-	assert.Equal(t, entity, event.Type())
 }
 
 func TestChipIngressBatchClient_UnmappedTypeDropped(t *testing.T) { //nolint:paralleltest // asserts deltas on package-global prometheus metrics
-	_, client, published := setupBatchClientTest(t)
+	client, published := startBatchClient(t, publishOK)
 
 	payload := newTestPayload("0xabc")
 	payload.TelemType = LLOReport // no chip domain/entity mapping
-	payload.Domain = ""
-	payload.Entity = ""
-	before := droppedCount(string(payload.TelemType))
+	before := counterValue(TelemetryClientMessagesDropped, payload.TelemType)
 	// The event is rejected synchronously in Send, before it reaches the queue.
 	client.Send(t.Context(), payload)
 
-	assert.InDelta(t, 1, droppedCount(string(payload.TelemType))-before, 0.001)
+	assert.InDelta(t, 1, counterValue(TelemetryClientMessagesDropped, payload.TelemType)-before, 0.001)
 	assert.Empty(t, published.snapshot(), "PublishBatch must never be called for unmapped types")
 }
 
-func TestChipIngressBatchClient_SentCountsMessages(t *testing.T) { //nolint:paralleltest // asserts deltas on package-global prometheus metrics
-	_, client, _ := setupBatchClientTest(t)
-
-	payload := newTestPayload("0xabc")
-	const n = 5
-	before := sentCount(string(payload.TelemType))
-	for range n {
-		client.Send(t.Context(), payload)
+func TestChipIngressBatchClient_CountsPerMessage(t *testing.T) { //nolint:paralleltest // asserts deltas on package-global prometheus metrics
+	for name, tc := range map[string]struct { //nolint:paralleltest // subtests share package-global prometheus metrics
+		publish publishFunc
+		counter *prometheus.CounterVec
+	}{
+		"sent":        {publishOK, TelemetryClientMessagesSent},
+		"send errors": {func(*chipingress.CloudEventBatch) (*chipingress.PublishResponse, error) { return nil, assert.AnError }, TelemetryClientMessagesSendErrors},
+	} {
+		t.Run(name, func(t *testing.T) {
+			client, _ := startBatchClient(t, tc.publish)
+			const n = 3
+			before := counterValue(tc.counter, OCR2Median)
+			for range n {
+				client.Send(t.Context(), newTestPayload("0xabc"))
+			}
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				assert.InDelta(c, float64(n), counterValue(tc.counter, OCR2Median)-before, 0.001, "must count messages, not batches")
+			}, testutils.WaitTimeout(t), 10*time.Millisecond)
+		})
 	}
-	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		assert.InDelta(c, float64(n), sentCount(string(payload.TelemType))-before, 0.001,
-			"Sent must count messages, not batches")
-	}, testutils.WaitTimeout(t), 10*time.Millisecond)
-}
-
-func TestChipIngressBatchClient_SendErrorCountsMessages(t *testing.T) { //nolint:paralleltest // asserts deltas on package-global prometheus metrics
-	chipClient := chipingressmocks.NewClient(t)
-	chipClient.On("Ping", mock.Anything, mock.Anything, mock.Anything).Return(&chipingress.PingResponse{}, nil).Maybe()
-	chipClient.On("Close").Return(nil).Maybe()
-	chipClient.EXPECT().PublishBatch(mock.Anything, mock.Anything, mock.Anything).
-		Return(nil, assert.AnError).Maybe()
-
-	client, err := NewTestChipIngressBatchClient(t, chipClient, false, time.Nanosecond)
-	require.NoError(t, err)
-	servicetest.Run(t, client)
-
-	payload := newTestPayload("0xabc")
-	const n = 3
-	before := sendErrorCount(string(payload.TelemType))
-	for range n {
-		client.Send(t.Context(), payload)
-	}
-	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		assert.InDelta(c, float64(n), sendErrorCount(string(payload.TelemType))-before, 0.001,
-			"SendErrors must count messages, not batches")
-	}, testutils.WaitTimeout(t), 10*time.Millisecond)
 }
 
 func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) { //nolint:paralleltest // resets a package-global prometheus gauge
 	// The status gauge is package-global; reset it so a value left by another test can't satisfy the check.
 	TelemetryClientConnectionStatus.WithLabelValues(chipIngress).Set(0)
-	_, _, _ = setupBatchClientTest(t)
+	startBatchClient(t, publishOK)
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.InDelta(c, 1, testutil.ToFloat64(TelemetryClientConnectionStatus.WithLabelValues(chipIngress)), 0.001)

@@ -12,7 +12,6 @@ import (
 	chipingresspb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 )
 
 const (
@@ -72,10 +71,20 @@ func NewChipIngressBatchClient(chipClient chipingress.Client, csaPubKeyHex strin
 	return c, nil
 }
 
-// start initializes the chip ingress batch client and starts health monitoring
+// start starts the batch client and a 5s health ping that drives
+// telemetry_client_connection_status{endpoint="chip-ingress"}.
 func (cc *chipIngressBatchClient) start(ctx context.Context) error {
 	cc.batchClient.Start(ctx)
-	cc.startHealthMonitoring(ctx, cc.chipClient)
+	cc.eng.GoTick(services.TickerConfig{}.NewTicker(5*time.Second), func(ctx context.Context) {
+		pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+		connected := float64(1)
+		if _, err := cc.chipClient.Ping(pingCtx, &chipingresspb.EmptyRequest{}); err != nil {
+			connected = 0
+			cc.eng.EmitHealthErr(err)
+		}
+		TelemetryClientConnectionStatus.WithLabelValues(chipIngress).Set(connected)
+	})
 	return nil
 }
 
@@ -107,8 +116,7 @@ func (cc *chipIngressBatchClient) Send(ctx context.Context, payload TelemPayload
 			return
 		}
 		TelemetryClientMessagesSendErrors.WithLabelValues(chipIngress, string(payload.TelemType)).Inc()
-		count := cc.errorCount.Add(1)
-		if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
+		if count := cc.errorCount.Add(1); shouldLogCount(count) {
 			cc.eng.Warnw("Could not send telemetry via ChIP ingress",
 				"error", sendErr,
 				"errorCode", batch.ErrorCodeFor(sendErr),
@@ -119,8 +127,7 @@ func (cc *chipIngressBatchClient) Send(ctx context.Context, payload TelemPayload
 	if err != nil {
 		// batch.ErrMessageBufferFull or batch.ErrClientShutdown
 		TelemetryClientMessagesDropped.WithLabelValues(chipIngress, string(payload.TelemType)).Inc()
-		count := cc.dropCount.Add(1)
-		if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
+		if count := cc.dropCount.Add(1); shouldLogCount(count) {
 			cc.eng.Warnw("dropping telemetry message for ChIP ingress",
 				"error", err,
 				"contractID", payload.ContractID,
@@ -137,20 +144,11 @@ func (cc *chipIngressBatchClient) Send(ctx context.Context, payload TelemPayload
 // (enqueue time); chip-ingress legacy mode may overwrite receivedat with the
 // true server-receive time later.
 func (cc *chipIngressBatchClient) payloadToEvent(payload TelemPayload, now time.Time) (*chipingress.CloudEventPb, error) {
-	domain := payload.Domain
-	entity := payload.Entity
-	if domain == "" || entity == "" {
-		var err error
-		domain, entity, err = TelemetryTypeToDomainAndEntity(payload.TelemType)
-		if err != nil {
-			return nil, fmt.Errorf("missing domain/entity for telemType %s: %w", payload.TelemType, err)
-		}
+	domain, entity, err := TelemetryTypeToDomainAndEntity(payload.TelemType)
+	if err != nil {
+		return nil, err
 	}
-
-	event, err := chipingress.NewEvent(domain, entity, payload.Telemetry, map[string]any{
-		"time":            now.UTC(),
-		"datacontenttype": "application/protobuf",
-	})
+	event, err := chipingress.NewEvent(domain, entity, payload.Telemetry, map[string]any{"time": now.UTC()})
 	if err != nil {
 		return nil, fmt.Errorf("failed creating CloudEvent: %w", err)
 	}
@@ -170,22 +168,4 @@ func (cc *chipIngressBatchClient) payloadToEvent(payload TelemPayload, now time.
 	// the node at all (spike INFOPLAT-19426).
 
 	return chipingress.EventToProto(event)
-}
-
-// startHealthMonitoring starts a goroutine to monitor the connection state and update other relevant metrics every 5 seconds
-func (cc *chipIngressBatchClient) startHealthMonitoring(_ context.Context, chipClient chipingress.Client) {
-	cc.eng.GoTick(timeutil.NewTicker(func() time.Duration {
-		return 5 * time.Second
-	}), func(ctx context.Context) {
-		connected := float64(0)
-		pingCtx, pingCancel := context.WithTimeout(ctx, 2*time.Second)
-		_, err := chipClient.Ping(pingCtx, &chipingresspb.EmptyRequest{})
-		pingCancel()
-		if err == nil {
-			connected = float64(1)
-		} else {
-			cc.eng.EmitHealthErr(err)
-		}
-		TelemetryClientConnectionStatus.WithLabelValues(chipIngress).Set(connected)
-	})
 }

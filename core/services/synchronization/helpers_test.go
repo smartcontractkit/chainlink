@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -27,6 +29,8 @@ func NewTestTelemetryIngressBatchClient(t *testing.T, url *url.URL, serverPubKey
 }
 
 // NewTestChipIngressBatchClient calls NewChipIngressBatchClient with a fixed test CSA key.
-func NewTestChipIngressBatchClient(t *testing.T, chipClient chipingress.Client, logging bool, sendInterval time.Duration) (ChipIngressService, error) {
-	return NewChipIngressBatchClient(chipClient, "deadbeef", logging, logger.TestLogger(t), sendInterval, time.Second)
+func NewTestChipIngressBatchClient(t *testing.T, chipClient chipingress.Client, logging bool, sendInterval time.Duration) ChipIngressService {
+	c, err := NewChipIngressBatchClient(chipClient, "deadbeef", logging, logger.TestLogger(t), sendInterval, time.Second)
+	require.NoError(t, err)
+	return c
 }

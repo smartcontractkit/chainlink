@@ -284,32 +284,6 @@ func TestCorrectEndpointRouting(t *testing.T) {
 	}
 }
 
-func TestManager_ChipIngressService(t *testing.T) {
-	t.Parallel()
-	t.Run("disabled chip ingress", func(t *testing.T) {
-		t.Parallel()
-		tic := setupMockConfig(t, true)
-		tic.On("Endpoints").Return(nil)
-
-		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-		ks := keymocks.NewCSA(t)
-		tm := NewManager(tic, ks, nil, lggr)
-		assert.Nil(t, tm.chipService)
-	})
-
-	t.Run("enabled chip ingress", func(t *testing.T) {
-		t.Parallel()
-		tic := setupMockConfig(t, true)
-		tic.On("Endpoints").Return(nil)
-
-		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-		ks := keymocks.NewCSA(t)
-		chipSvc := &MockChipIngressService{}
-		tm := NewManager(tic, ks, chipSvc, lggr)
-		assert.Same(t, chipSvc, tm.chipService)
-	})
-}
-
 func TestManager_ChipIngressEndpoint(t *testing.T) {
 	t.Parallel()
 	t.Run("all endpoints share one chip ingress service, started once", func(t *testing.T) {
@@ -329,21 +303,22 @@ func TestManager_ChipIngressEndpoint(t *testing.T) {
 
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 		ks := keymocks.NewCSA(t)
-		chipSvc := &MockChipIngressService{}
+		chipSvc := mocks2.NewChipIngressService(t)
 		chipSvc.On("Start", mock.Anything).Return(nil).Once()
 		chipSvc.On("Close").Return(nil).Once()
 		chipSvc.On("Name").Return("ChipIngressBatchClient").Maybe()
+		chipSvc.On("Send", mock.Anything, mock.Anything).Twice()
 
 		tm := NewManager(tic, ks, chipSvc, lggr)
 		require.Len(t, tm.endpoints, 2)
 		for _, e := range tm.endpoints {
-			assert.Same(t, chipSvc, e.chipIngressClient)
-			assert.Nil(t, e.client)
+			assert.Nil(t, e.client, "chip mode must not create per-endpoint WSRPC clients")
 		}
 
 		require.NoError(t, tm.Start(t.Context()))
+		tm.GenMonitoringEndpoint("EVM", "1", "0xa", synchronization.OCR2Median).SendLog([]byte("a"))
+		tm.GenMonitoringEndpoint("EVM", "137", "0xb", synchronization.OCR2Median).SendLog([]byte("b"))
 		require.NoError(t, tm.Close())
-		chipSvc.AssertExpectations(t)
 	})
 
 	t.Run("creates traditional endpoint when chip ingress disabled", func(t *testing.T) {
@@ -365,7 +340,6 @@ func TestManager_ChipIngressEndpoint(t *testing.T) {
 
 		tm := NewManager(tic, ks, nil, lggr)
 		require.Len(t, tm.endpoints, 1)
-		assert.Nil(t, tm.endpoints[0].chipIngressClient)
 		assert.NotNil(t, tm.endpoints[0].client)
 	})
 }
@@ -384,7 +358,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 		ks := keymocks.NewCSA(t)
 
-		tm := NewManager(tic, ks, &MockChipIngressService{}, lggr)
+		tm := NewManager(tic, ks, mocks2.NewChipIngressService(t), lggr)
 		me := tm.GenMonitoringEndpoint("EVM", "1", "0x123", synchronization.OCR2Median)
 		assert.Equal(t, "*telemetry.ChipIngressAgent", reflect.TypeOf(me).String())
 	})
@@ -401,7 +375,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		ks := keymocks.NewCSA(t)
-		chipSvc := &MockChipIngressService{}
+		chipSvc := mocks2.NewChipIngressService(t)
 		chipSvc.On("Start", mock.Anything).Return(nil)
 		chipSvc.On("Close").Return(nil)
 		chipSvc.On("Name").Return("ChipIngressBatchClient").Maybe()
@@ -442,7 +416,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 		lggr, obsLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 		ks := keymocks.NewCSA(t)
 
-		tm := NewManager(tic, ks, &MockChipIngressService{}, lggr)
+		tm := NewManager(tic, ks, mocks2.NewChipIngressService(t), lggr)
 		// Invalid network/chainID combination that doesn't exist in chain-selectors
 		me := tm.GenMonitoringEndpoint("INVALID", "999", "0x123", synchronization.OCR2Median)
 		assert.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(me).String())
@@ -497,7 +471,7 @@ func TestManager_GenMultitypeMonitoringEndpoint_ChipIngress(t *testing.T) {
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 		ks := keymocks.NewCSA(t)
 
-		tm := NewManager(tic, ks, &MockChipIngressService{}, lggr)
+		tm := NewManager(tic, ks, mocks2.NewChipIngressService(t), lggr)
 		me := tm.GenMultitypeMonitoringEndpoint("EVM", "137", "0x456")
 		assert.Equal(t, "*telemetry.ChipIngressAgent", reflect.TypeOf(me).String())
 	})
@@ -515,7 +489,7 @@ func TestManager_GenMultitypeMonitoringEndpoint_ChipIngress(t *testing.T) {
 		lggr, obsLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 		ks := keymocks.NewCSA(t)
 
-		tm := NewManager(tic, ks, &MockChipIngressService{}, lggr)
+		tm := NewManager(tic, ks, mocks2.NewChipIngressService(t), lggr)
 		// Invalid network/chainID combination
 		me := tm.GenMultitypeMonitoringEndpoint("INVALID", "888", "0x456")
 		assert.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(me).String())

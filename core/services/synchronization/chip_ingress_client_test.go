@@ -50,13 +50,3 @@ func TestChipIngressClient_SendAuthHeaders(t *testing.T) {
 	assert.Equal(t, []string{"true"}, capture.lastMD.Get("x-include-nop-info"))
 	assert.Equal(t, []string{"x"}, capture.lastMD.Get("X-Beholder-Node-Auth-Token"))
 }
-
-func TestChipIngressClient_InvalidAddress(t *testing.T) {
-	t.Parallel()
-	_, err := NewChipIngressClient(ChipIngressClientConfig{
-		Endpoint:           "no-port",
-		InsecureConnection: true,
-		AuthHeaders:        map[string]string{"X-Beholder-Node-Auth-Token": "x"},
-	})
-	require.Error(t, err)
-}

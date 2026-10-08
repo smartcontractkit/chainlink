@@ -39,11 +39,15 @@ type TelemPayload struct {
 	Telemetry     []byte
 	TelemType     TelemetryType
 	ContractID    string
-	Domain        string
-	Entity        string
 	ChainSelector uint64
 	Network       string
 	ChainID       string
+}
+
+// shouldLogCount reports whether the n-th occurrence of a repeated warning
+// should be logged: at 1, 2, 4, 8, 16, 32, 64, then every 100th.
+func shouldLogCount(n uint32) bool {
+	return n > 0 && (n%100 == 0 || n&(n-1) == 0)
 }
 
 // TelemetryService encapsulates all the functionality needed to
