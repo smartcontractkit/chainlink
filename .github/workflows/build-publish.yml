@@ -106,6 +106,7 @@ jobs:
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
       docker-target: final
+      # No APT_CACHE_BUST needed: layer cache is disabled below, so apt always runs fresh.
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
@@ -146,6 +147,7 @@ jobs:
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
       docker-target: final
+      # No APT_CACHE_BUST needed: layer cache is disabled below, so apt always runs fresh.
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
@@ -251,10 +253,11 @@ jobs:
       id-token: write
     steps:
       - name: Dispatch release fan-out
-        uses: $/.github/actions/dispatch-release-fanout
+        uses: smartcontractkit/.github/actions/dispatch-release-fanout@dispatch-release-fanout/v1
         with:
           gati-profile: ${{ secrets.GATI_PROFILE_IMAGE_BUMP_HUB }}
           hub-repo: ${{ secrets.REPO_IMAGE_BUMP_HUB }}
+          audience: ${{ secrets.OIDC_AUDIENCE_IMAGE_BUMP_HUB }}
           images: |
             core=${{ needs.docker-core.result == 'success' && needs.docker-core.outputs.docker-manifest-tag || '' }}
             ccip=${{ needs.docker-ccip.result == 'success' && needs.docker-ccip.outputs.docker-manifest-tag || '' }}

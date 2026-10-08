@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -176,16 +176,16 @@ func makeTestValidator(
 ) *vaultcap.RequestValidator {
 	t.Helper()
 
-	cipherTextLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxCipherTextLengthBytes)*pkgconfig.Byte))
+	cipherTextLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxCipherTextLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
-	ownerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierOwnerLengthBytes)*pkgconfig.Byte))
+	ownerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxIdentifierOwnerLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
-	namespaceOwnerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierNamespaceOwnerLengthBytes)*pkgconfig.Byte))
+	namespaceOwnerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxIdentifierNamespaceOwnerLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
-	keyLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierKeyLengthBytes)*pkgconfig.Byte))
+	keyLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxIdentifierKeyLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
 	requestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxRequestBatchSize))
@@ -223,9 +223,9 @@ func makeReportingPluginConfig(
 	pendingQueueStallThresholdLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(0))
 	require.NoError(t, err)
 
-	var maxBlobPayloadLimiter limits.BoundLimiter[pkgconfig.Size]
+	var maxBlobPayloadLimiter limits.BoundLimiter[commonconfig.Size]
 	if maxBlobPayloadBytes > 0 {
-		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxBlobPayloadBytes)*pkgconfig.Byte))
+		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxBlobPayloadBytes)*commonconfig.Byte))
 	} else {
 		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
 	}
@@ -240,6 +240,7 @@ func makeReportingPluginConfig(
 		MaxShareLengthBytes:             shareLimiter,
 		MaxBlobPayloadBytes:             maxBlobPayloadLimiter,
 		VaultForceEmptyOCRRounds:        limits.NewGateLimiter(false),
+		VaultGetSecretsIncludePublicKey: limits.NewGateLimiter(false),
 		VaultPendingQueueStallThreshold: pendingQueueStallThresholdLimiter,
 	}
 }

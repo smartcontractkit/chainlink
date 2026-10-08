@@ -1083,10 +1083,10 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimitOnRawSecrets(t *testing.T) {
 		keyFetcher := sf.(*secretsFetcher).encryptionKeyFetcher
 
 		// 1st call to occupy the only available slot in the limiter
-		_, _ = sf.GetRawSecrets(t.Context(), req, keyFetcher)
+		_, _ = sf.GetRawSecretsResponse(t.Context(), req, keyFetcher)
 
 		// second call should fail due to exceeding the bound limiter (limit == 1)
-		_, err := sf.GetRawSecrets(t.Context(), req, keyFetcher)
+		_, err := sf.GetRawSecretsResponse(t.Context(), req, keyFetcher)
 		require.ErrorContains(t, err, "limited: cannot use 2, limit is 1")
 	})
 
@@ -1100,7 +1100,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimitOnRawSecrets(t *testing.T) {
 		_, _ = sf.GetSecrets(t.Context(), req)
 
 		// the raw path must be charged against the same budget (limit == 1)
-		_, err := sf.GetRawSecrets(t.Context(), req, keyFetcher)
+		_, err := sf.GetRawSecretsResponse(t.Context(), req, keyFetcher)
 		require.ErrorContains(t, err, "limited: cannot use 2, limit is 1")
 	})
 }

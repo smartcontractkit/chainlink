@@ -40,7 +40,7 @@ type SecretsFetcher interface {
 
 type RawSecretsFetcher interface {
 	SecretsFetcher
-	GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error)
+	GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vault.GetSecretsResponse, error)
 	GetOwner() string
 }
 
@@ -300,10 +300,11 @@ func (s *secretsFetcher) getSecretsForBatchWithLocalFallback(ctx context.Context
 	return combined, nil
 }
 
-// GetRawSecrets obtains secrets from the Vault DON without decrypting their
-// values. Raw fetches are charged against the same per-execution secrets call
-// budget as GetSecrets.
-func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
+// GetRawSecretsResponse obtains secrets from the Vault DON without decrypting
+// their values, returning the full response including the top-level
+// RawVaultPublicKey so callers stay correct across DKG reshares. Raw fetches are
+// charged against the same per-execution secrets call budget as GetSecrets.
+func (s *secretsFetcher) GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vault.GetSecretsResponse, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{
 		Org:      s.orgID,
 		Owner:    s.workflowOwner,
@@ -319,7 +320,7 @@ func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSe
 // keys, executes the vault GetSecrets request, and returns the raw (still
 // encrypted) vault response. Callers must have already reserved a call from
 // the per-execution secrets call budget via countSecretsCall.
-func (s *secretsFetcher) getRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
+func (s *secretsFetcher) getRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vault.GetSecretsResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
 		return nil, errors.New("failed to get vault capability: " + err.Error())
@@ -391,7 +392,7 @@ func (s *secretsFetcher) getSecretsDirectlyEnabled(ctx context.Context) bool {
 	return activePeriod.Contains(config.Timestamp(s.executionTimestamp.Unix()))
 }
 
-func (s *secretsFetcher) executeGetSecrets(ctx context.Context, lggr logger.Logger, vaultCap capabilities.ExecutableCapability, vp *vault.GetSecretsRequest, metadata capabilities.RequestMetadata) ([]*vault.SecretResponse, error) {
+func (s *secretsFetcher) executeGetSecrets(ctx context.Context, lggr logger.Logger, vaultCap capabilities.ExecutableCapability, vp *vault.GetSecretsRequest, metadata capabilities.RequestMetadata) (*vault.GetSecretsResponse, error) {
 	anypbReq, err := anypb.New(vp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert vault request to any: %w", err)
@@ -419,7 +420,7 @@ func (s *secretsFetcher) executeGetSecrets(ctx context.Context, lggr logger.Logg
 		return nil, fmt.Errorf("failed to unmarshal vault payload to GetSecretsResponse: %w", err)
 	}
 
-	return batchedVaultResponse.Responses, nil
+	return batchedVaultResponse, nil
 }
 
 func (s *secretsFetcher) GetOwner() string {
@@ -471,6 +472,20 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 		return nil, err
 	}
 
+	// Prefer the vault public key returned inline with the response (the key of the
+	// DKG instance that produced these shares) so a reshare does not require a
+	// CapReg / config update to decrypt. Fall back to the capability-config key.
+	vaultPublicKey := cfg.VaultPublicKey
+	if raw := batchedVaultResponse.GetRawVaultPublicKey(); raw != "" {
+		pk, perr := parseVaultPublicKeyHex(raw)
+		if perr != nil {
+			s.lggr.Warnw("failed to parse RawVaultPublicKey from response; falling back to config key", "err", perr)
+		} else {
+			s.lggr.Debug("using vault public key from GetSecrets response")
+			vaultPublicKey = pk
+		}
+	}
+
 	owner, err := normalizeOwner(s.workflowOwner)
 	if err != nil {
 		return nil, fmt.Errorf("could not normalize workflowOwner: %w", err)
@@ -478,7 +493,7 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 	responseOwner := owner
 
 	m := map[string]*vault.SecretResponse{}
-	for _, secretResponse := range batchedVaultResponse {
+	for _, secretResponse := range batchedVaultResponse.Responses {
 		key := keyFor(secretResponse.Id.Owner, secretResponse.Id.Namespace, secretResponse.Id.Key)
 		m[key] = secretResponse
 	}
@@ -497,13 +512,13 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 			sdkResp = append(sdkResp, &errorResponse)
 			continue
 		}
-		response := s.getSecretForSingleRequest(logger.With(s.lggr, "key", key), r.Id, responseOwner, namespace, cfg, resp)
+		response := s.getSecretForSingleRequest(logger.With(s.lggr, "key", key), r.Id, responseOwner, namespace, cfg, vaultPublicKey, resp)
 		sdkResp = append(sdkResp, &response)
 	}
 	return sdkResp, nil
 }
 
-func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, owner, namespace string, cfg *vaultConfig, response *vault.SecretResponse) sdkpb.SecretResponse {
+func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, owner, namespace string, cfg *vaultConfig, vaultPublicKey *tdh2easy.PublicKey, response *vault.SecretResponse) sdkpb.SecretResponse {
 	if response.GetId() != nil {
 		if response.GetId().GetKey() != "" {
 			id = response.GetId().GetKey()
@@ -549,7 +564,7 @@ func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, owner
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
 
-	secret, err := s.decryptSecret(lggr, encryptedSecretBytes, encryptedDecryptionShares, cfg)
+	secret, err := s.decryptSecret(lggr, encryptedSecretBytes, encryptedDecryptionShares, cfg, vaultPublicKey)
 	if err != nil {
 		errorMessage := "failed to decrypt secret: " + err.Error()
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
@@ -596,10 +611,10 @@ func encryptedDecryptionShareBytes(binaryShares [][]byte, hexShares []string) ([
 	return out, nil
 }
 
-func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares [][]byte, cfg *vaultConfig) (string, error) {
+func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares [][]byte, cfg *vaultConfig, vaultPublicKey *tdh2easy.PublicKey) (string, error) {
 	lggr.Debug("decrypting secret...")
 
-	plaintext, rejected, err := vaultcrypto.DecryptSecret(encryptedSecretBytes, cfg.VaultPublicKey, cfg.Threshold, encryptedDecryptionShares, s.workflowEncryptionKey)
+	plaintext, rejected, err := vaultcrypto.DecryptSecret(encryptedSecretBytes, vaultPublicKey, cfg.Threshold, encryptedDecryptionShares, s.workflowEncryptionKey)
 	for _, r := range rejected {
 		lggr.Debugw("rejected decryption share", "err", r)
 	}
@@ -635,19 +650,30 @@ func unmarshalConfig(config capabilities.CapabilityConfiguration) (*vaultConfig,
 		return nil, errors.New("VaultPublicKey is not provided in the capability config")
 	}
 
-	pkBytes, err := hex.DecodeString(cfg.VaultPublicKey)
+	pk, err := parseVaultPublicKeyHex(cfg.VaultPublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode vault public key from registry: %w", err)
-	}
-
-	pk := tdh2easy.PublicKey{}
-	err = pk.Unmarshal(pkBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct vault public key from raw bytes: %w", err)
+		return nil, fmt.Errorf("failed to parse vault public key from registry: %w", err)
 	}
 
 	return &vaultConfig{
 		Threshold:      cfg.Threshold,
-		VaultPublicKey: &pk,
+		VaultPublicKey: pk,
 	}, nil
+}
+
+// parseVaultPublicKeyHex decodes a hex-encoded TDH2 vault public key (the JSON
+// blob {Group,G_bar,H[,HArray]}) into a tdh2easy.PublicKey. It accepts a key
+// with or without HArray — encryption/verification use only Group/G_bar/H — so
+// an encrypt-only key (e.g. one returned inline in a GetSecretsResponse) parses
+// fine.
+func parseVaultPublicKeyHex(s string) (*tdh2easy.PublicKey, error) {
+	pkBytes, err := hex.DecodeString(s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode vault public key: %w", err)
+	}
+	pk := tdh2easy.PublicKey{}
+	if err := pk.Unmarshal(pkBytes); err != nil {
+		return nil, fmt.Errorf("failed to construct vault public key from raw bytes: %w", err)
+	}
+	return &pk, nil
 }

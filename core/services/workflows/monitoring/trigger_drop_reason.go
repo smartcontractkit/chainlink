@@ -20,5 +20,6 @@ const (
 	TriggerDropReasonTriggerIndexInvalid              = "trigger_index_invalid"
 	TriggerDropReasonExecutionResponseLimitReadFailed = "execution_response_limit_read_failed"
 	TriggerDropReasonExecutionResponseLimitInvalid    = "execution_response_limit_invalid"
+	TriggerDropReasonCentralQueueFull                 = "central_queue_full"
 	TriggerDropReasonUnknown                          = "unknown"
 )

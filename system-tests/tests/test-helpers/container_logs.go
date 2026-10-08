@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -63,9 +62,10 @@ func nodesetContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment, nodese
 	return names
 }
 
-// containerLogsContain reports whether needle appears in the logs of any of containerNames,
-// as they stand at the moment of the call.
-func containerLogsContain(t *testing.T, containerNames []string, needle string) bool {
+// containerLogLines returns every log line containing needle from the current logs
+// of containerNames. It is the shared scanning core: the needle assertions check for
+// a non-empty result, and callers that need the lines themselves filter them further.
+func containerLogLines(t *testing.T, containerNames []string, needle string) []string {
 	t.Helper()
 
 	targetNames := make(map[string]struct{}, len(containerNames))
@@ -79,7 +79,7 @@ func containerLogsContain(t *testing.T, containerNames []string, needle string) 
 	)
 	require.NoError(t, err)
 
-	found := false
+	var matches []string
 	for containerName, reader := range logStreams {
 		if _, ok := targetNames[containerName]; !ok {
 			_ = reader.Close()
@@ -90,12 +90,22 @@ func containerLogsContain(t *testing.T, containerNames []string, needle string) 
 			framework.L.Warn().Str("container", containerName).Err(readErr).Msg("could not read container logs")
 			continue
 		}
-		if strings.Contains(content, needle) {
-			found = true
-			framework.L.Info().Str("container", containerName).Str("needle", needle).Msg("container log match")
+		for line := range strings.Lines(content) {
+			if strings.Contains(line, needle) {
+				matches = append(matches, line)
+				framework.L.Info().Str("container", containerName).Str("needle", needle).Msg("container log match")
+			}
 		}
 	}
-	return found
+	return matches
+}
+
+// containerLogsContain reports whether needle appears in the logs of any of containerNames,
+// as they stand at the moment of the call.
+func containerLogsContain(t *testing.T, containerNames []string, needle string) bool {
+	t.Helper()
+
+	return len(containerLogLines(t, containerNames, needle)) > 0
 }
 
 // assertContainerLogs scans stdout/stderr of containerNames and checks whether needle appears.
@@ -108,6 +118,16 @@ func assertContainerLogs(t *testing.T, containerNames []string, needle string, w
 		return
 	}
 	assert.False(t, found, "expected none of %v to contain %q", containerNames, needle)
+}
+
+// ContainerLogLinesForNodeset returns every log line containing needle from the
+// current logs of the nodeset's containers. Unlike the needle assertions, it returns
+// the lines so callers can filter further (e.g. by a workflow ID whose position in the
+// line is not stable).
+func ContainerLogLinesForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string) []string {
+	t.Helper()
+
+	return containerLogLines(t, nodesetContainerNames(t, testEnv, nodesetName), needle)
 }
 
 // AssertNodeLogs requires needle to appear in at least one Chainlink node container log.

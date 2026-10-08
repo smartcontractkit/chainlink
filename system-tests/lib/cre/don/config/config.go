@@ -23,11 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -36,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 const TronEVMChainID = 3360022319
@@ -269,24 +267,22 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 
 func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, nodeMetadata *cre.NodeMetadata) corechainlink.Config {
 	c := corechainlink.Config{
-		Core: coretoml.Core{
-			Feature: coretoml.Feature{
-				LogPoller: new(true),
-			},
-			Log: coretoml.Log{
-				JSONConsole: new(true),
-				Level:       new(coretoml.LogLevel(zapcore.DebugLevel)),
-			},
-			OCR2: coretoml.OCR2{
-				Enabled:              new(true),
-				DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
-				ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
-			},
-			CRE: coretoml.CreConfig{
-				EnableDKGRecipient:   new(true),
-				UseLocalTimeProvider: new(false),
-				DebugMode:            new(true),
-			},
+		Feature: coretoml.Feature{
+			LogPoller: new(true),
+		},
+		Log: coretoml.Log{
+			JSONConsole: new(true),
+			Level:       new(coretoml.LogLevel(zapcore.DebugLevel)),
+		},
+		OCR2: coretoml.OCR2{
+			Enabled:              new(true),
+			DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+			ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
+		},
+		CRE: coretoml.CreConfig{
+			EnableDKGRecipient:   new(true),
+			UseLocalTimeProvider: new(false),
+			DebugMode:            new(true),
 		},
 	}
 
@@ -372,9 +368,6 @@ func addBootstrapNodeConfig(
 		},
 		SharedPeering: coretoml.SharedPeering{
 			Enabled: new(true),
-		},
-		Dispatcher: coretoml.Dispatcher{
-			SendToSharedPeer: new(true),
 		},
 	}
 
@@ -475,9 +468,6 @@ func addWorkerNodeConfig(
 		},
 		SharedPeering: coretoml.SharedPeering{
 			Enabled: new(true),
-		},
-		Dispatcher: coretoml.Dispatcher{
-			SendToSharedPeer: new(true),
 		},
 		WorkflowRegistry: existingWorkflowRegistry,
 		Local:            existingLocalCapabilities,
@@ -632,9 +622,6 @@ func addGatewayNodeConfig(
 		},
 		SharedPeering: coretoml.SharedPeering{
 			Enabled: new(true),
-		},
-		Dispatcher: coretoml.Dispatcher{
-			SendToSharedPeer: new(true),
 		},
 	}
 
@@ -890,14 +877,12 @@ func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	tronRPC := strings.Replace(evmChain.HTTPRPC, "jsonrpc", "wallet", 1)
 	return evmconfigtoml.EVMConfig{
-		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-		Chain: evmconfigtoml.Chain{
-			AutoCreateKey:         new(false),
-			ChainType:             chaintype.NewConfig("tron"),
-			LogBroadcasterEnabled: new(false),
-			NodePool: evmconfigtoml.NodePool{
-				NewHeadsPollInterval: commonconfig.MustNewDuration(10 * time.Second),
-			},
+		ChainID:               sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		AutoCreateKey:         new(false),
+		ChainType:             chaintype.NewConfig("tron"),
+		LogBroadcasterEnabled: new(false),
+		NodePool: evmconfigtoml.NodePool{
+			NewHeadsPollInterval: commonconfig.MustNewDuration(10 * time.Second),
 		},
 		Nodes: []*evmconfigtoml.Node{
 			{
@@ -911,10 +896,8 @@ func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 
 func buildEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	return evmconfigtoml.EVMConfig{
-		ChainID: sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-		Chain: evmconfigtoml.Chain{
-			AutoCreateKey: new(false),
-		},
+		ChainID:       sqlutil.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		AutoCreateKey: new(false),
 		Nodes: []*evmconfigtoml.Node{
 			{
 				Name:    new(evmChain.Name),

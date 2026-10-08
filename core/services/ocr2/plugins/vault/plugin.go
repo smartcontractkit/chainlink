@@ -32,7 +32,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/vaultcrypto"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -56,11 +56,12 @@ type ReportingPluginConfig struct {
 
 	// Sourced from the offchain config
 	MaxSecretsPerOwner              limits.BoundLimiter[int]
-	MaxShareLengthBytes             limits.BoundLimiter[pkgconfig.Size]
+	MaxShareLengthBytes             limits.BoundLimiter[commonconfig.Size]
 	MaxBatchSize                    limits.BoundLimiter[int]
 	MaxPendingQueueWriteSize        limits.BoundLimiter[int]
-	MaxBlobPayloadBytes             limits.BoundLimiter[pkgconfig.Size]
+	MaxBlobPayloadBytes             limits.BoundLimiter[commonconfig.Size]
 	VaultForceEmptyOCRRounds        limits.GateLimiter
+	VaultGetSecretsIncludePublicKey limits.GateLimiter
 	VaultPendingQueueStallThreshold limits.BoundLimiter[int]
 }
 
@@ -186,6 +187,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultForceEmptyOCRRounds: %w", err)
 	}
 
+	vaultGetSecretsIncludePublicKey, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultGetSecretsIncludePublicKeyEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("VaultGetSecretsIncludePublicKeyEnabled: %w", err)
+	}
+
 	vaultPendingQueueStallThreshold, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultPendingQueueStallThreshold)
 	if err != nil {
 		return nil, fmt.Errorf("VaultPendingQueueStallThreshold: %w", err)
@@ -206,6 +212,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxBlobPayloadBytes:             maxBlobPayloadBytesLimiter,
 		MaxPendingQueueWriteSize:        maxPendingQueueWriteSizeLimiter,
 		VaultForceEmptyOCRRounds:        vaultForceEmptyOCRRounds,
+		VaultGetSecretsIncludePublicKey: vaultGetSecretsIncludePublicKey,
 		VaultPendingQueueStallThreshold: vaultPendingQueueStallThreshold,
 	}, nil
 }
@@ -655,6 +662,11 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		return nil, fmt.Errorf("could not generate nonce for observation: %w", ierr)
 	}
 	obspb.SortNonce = nonce
+
+	// Broadcast this node's view of the DKG public key so StateTransition can
+	// attach the quorum-agreed value to GetSecrets responses without reading
+	// node-local config, keeping StateTransition a pure function of observations.
+	obspb.RawVaultPublicKey = r.observedVaultPublicKey(ctx)
 
 	if shouldPurge := r.shouldPurgePendingQueue(ctx); shouldPurge {
 		obspb.PendingQueueStallSignal = vaultcommon.PendingQueueStallSignal_PENDING_QUEUE_STALL_SIGNAL_STALLED
@@ -1567,6 +1579,12 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		marshalledObs[uint8(ao.Observer)] = obs
 	}
 
+	// Aggregate the DKG public key from the observations once for the round; it is
+	// attached to every GetSecrets response below. Doing this over observations
+	// (rather than reading r.cfg) keeps StateTransition pure and tolerant of a
+	// staggered rollout of the include-public-key gate.
+	rawVaultPublicKey := r.aggregateVaultPublicKey(marshalledObs)
+
 	if stallSignalCount := countPendingQueueStallSignalsInMap(marshalledObs); stallSignalCount >= r.onchainCfg.F+1 {
 		return r.purgeStalledPendingQueue(ctx, l, writeKV, stallSignalCount)
 	}
@@ -1740,7 +1758,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 		switch first.RequestType {
 		case vaultcommon.RequestType_GET_SECRETS:
-			r.stateTransitionGetSecrets(chosen, o)
+			r.stateTransitionGetSecrets(chosen, o, rawVaultPublicKey)
 		case vaultcommon.RequestType_CREATE_SECRETS:
 			r.stateTransitionCreateSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_UPDATE_SECRETS:
@@ -1911,7 +1929,77 @@ func sortKey(id string, nonce []byte) []byte {
 	return h.Sum(nil)
 }
 
-func (r *ReportingPlugin) stateTransitionGetSecrets(chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
+// observedVaultPublicKey returns the marshaled DKG public key when the
+// include-public-key gate is open for this node, or nil otherwise. Each node
+// broadcasts this in its observation so StateTransition can aggregate it.
+func (r *ReportingPlugin) observedVaultPublicKey(ctx context.Context) []byte {
+	open, err := r.cfg.VaultGetSecretsIncludePublicKey.IsOpen(ctx)
+	if err != nil {
+		r.lggr.Errorw("unexpected error evaluating CRE gate", "gate", "VaultGetSecretsIncludePublicKey", "error", err)
+		return nil
+	}
+	if !open || r.cfg.PublicKey == nil {
+		return nil
+	}
+	pkb, mErr := r.cfg.PublicKey.Marshal()
+	if mErr != nil {
+		r.lggr.Errorw("could not marshal vault public key for observation", "error", mErr)
+		return nil
+	}
+	return pkb
+}
+
+// aggregateVaultPublicKey returns the hex-encoded DKG public key advertised by at
+// least F+1 observations (guaranteeing at least one honest node), or "" when no
+// such quorum exists. Honest nodes all broadcast the same instance key, so the
+// result is deterministic; selecting it here over observations rather than from
+// r.cfg keeps StateTransition pure and tolerant of a staggered gate rollout.
+func (r *ReportingPlugin) aggregateVaultPublicKey(marshalledObs map[uint8]*vaultcommon.Observations) string {
+	counts := map[string]int{}
+	for _, obs := range marshalledObs {
+		pk := obs.GetRawVaultPublicKey()
+		if len(pk) == 0 {
+			continue
+		}
+		counts[string(pk)]++
+	}
+
+	// Honest nodes all broadcast the same instance key, so more than one distinct
+	// key means some nodes disagree (config skew, mid-reshare, or Byzantine). Log
+	// the breakdown to aid debugging.
+	if len(counts) > 1 {
+		keyValues := make([]any, 0, 2*len(counts)+1)
+		keyValues = append(keyValues, "distinctKeys", len(counts))
+		for _, k := range slices.Sorted(maps.Keys(counts)) {
+			keyValues = append(keyValues, hex.EncodeToString([]byte(k)), counts[k])
+		}
+		r.lggr.Warnw("nodes reported differing vault public keys in observations", keyValues...)
+	}
+
+	threshold := r.onchainCfg.F + 1
+	var chosen string
+	// Iterate in sorted order and keep the last key meeting the threshold so the
+	// choice is deterministic even in the (cryptographically unreachable) case of
+	// two keys each reaching F+1.
+	for _, k := range slices.Sorted(maps.Keys(counts)) {
+		if counts[k] >= threshold {
+			chosen = k
+		}
+	}
+	if chosen == "" {
+		// Empty counts is the expected no-op when the include-public-key gate is off
+		// on all nodes; only flag the case where keys were advertised but none
+		// reached quorum, which is a genuine consensus failure.
+		if len(counts) > 0 {
+			r.lggr.Errorw("no vault public key reached quorum in observations; GetSecrets responses will omit RawVaultPublicKey",
+				"threshold", threshold, "distinctKeys", len(counts))
+		}
+		return ""
+	}
+	return hex.EncodeToString([]byte(chosen))
+}
+
+func (r *ReportingPlugin) stateTransitionGetSecrets(chosen []*vaultcommon.Observation, o *vaultcommon.Outcome, rawVaultPublicKey string) {
 	// Next, we deal with the responses.
 	// For each request, we take the Id of the first observation
 	// then aggregate the encrypted shares across all observations.
@@ -1941,10 +2029,19 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(chosen []*vaultcommon.Observ
 		sortedResponses = append(sortedResponses, idToAggResponse[k])
 	}
 
+	resp := &vaultcommon.GetSecretsResponse{
+		Responses: sortedResponses,
+	}
+
+	// Attach the vault public key of the DKG instance that produced these shares so
+	// decrypt-side callers read the matching key live from the response instead of
+	// from CapReg / static config. The value is the key agreed by a quorum of the
+	// observations for this round (see aggregateVaultPublicKey), so it is derived
+	// purely from observations rather than from node-local config.
+	resp.RawVaultPublicKey = rawVaultPublicKey
+
 	o.Response = &vaultcommon.Outcome_GetSecretsResponse{
-		GetSecretsResponse: &vaultcommon.GetSecretsResponse{
-			Responses: sortedResponses,
-		},
+		GetSecretsResponse: resp,
 	}
 }
 
@@ -2424,6 +2521,7 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxPendingQueueWriteSize.Close(),
 		r.cfg.MaxBlobPayloadBytes.Close(),
 		r.cfg.VaultForceEmptyOCRRounds.Close(),
+		r.cfg.VaultGetSecretsIncludePublicKey.Close(),
 		r.cfg.VaultPendingQueueStallThreshold.Close(),
 	)
 }

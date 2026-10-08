@@ -184,7 +184,7 @@ func TestShardIndexMapper_ErrorsWhenLocalDonHasNoFamilies(t *testing.T) {
 	assert.Contains(t, err.Error(), "no workflow DONs found")
 }
 
-func TestShardIndexMapper_ErrorsWhenLocalNodeNotInAnyWorkflowDon(t *testing.T) {
+func TestShardIndexMapper_SkipsWhenLocalNodeNotInAnyWorkflowDon(t *testing.T) {
 	t.Parallel()
 
 	me := makePeerID(1)
@@ -194,9 +194,8 @@ func TestShardIndexMapper_ErrorsWhenLocalNodeNotInAnyWorkflowDon(t *testing.T) {
 	)
 
 	idx := NewShardIndexMapper(logger.Test(t))
-	err := idx.OnNewRegistry(t.Context(), reg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "does not belong to a workflow DON")
+	require.NoError(t, idx.OnNewRegistry(t.Context(), reg))
+	assert.Nil(t, idx.DonByShardIndex(t.Context(), 0))
 }
 
 func TestShardIndexMapper_ErrorsOnMultiDigitShardSuffix(t *testing.T) {

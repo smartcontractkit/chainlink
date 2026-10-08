@@ -377,7 +377,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	for _, listener := range s.listeners {
 		lrCopy := registry.DeepCopyRegistryMetadata(latestRegistry)
 		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
-			s.lggr.Errorf("error calling launcher: %s", err)
+			s.lggr.Errorf("error calling OnNewRegistry on a registrysyncer listener: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
 		}
 	}

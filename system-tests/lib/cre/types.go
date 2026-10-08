@@ -256,7 +256,7 @@ func (c *WorkflowRegistryOutput) Store(absPath string) error {
 	return storeLocalArtifact(c, absPath)
 }
 
-func (c WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
+func (c *WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
 	owners := make([]string, len(c.WorkflowOwners))
 	for idx, owner := range c.WorkflowOwners {
 		owners[idx] = owner.String()
@@ -266,7 +266,7 @@ func (c WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
 }
 
 func storeLocalArtifact(artifact any, absPath string) error {
-	dErr := os.MkdirAll(filepath.Dir(absPath), 0755)
+	dErr := os.MkdirAll(filepath.Dir(absPath), 0o755)
 	if dErr != nil {
 		return errors.Wrap(dErr, "failed to create directory for the environment artifact")
 	}
@@ -276,7 +276,7 @@ func storeLocalArtifact(artifact any, absPath string) error {
 		return errors.Wrap(mErr, "failed to marshal environment artifact to TOML")
 	}
 
-	return os.WriteFile(absPath, d, 0600)
+	return os.WriteFile(absPath, d, 0o600)
 }
 
 type ConfigureDataFeedsCacheOutput struct {
@@ -586,7 +586,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	c.CapabilityConfigs = capConfigs
 
 	donFamilies := normalizedDonFamilies(c.DonFamilies)
-	if len(donFamilies) == 0 {
+	if len(donFamilies) == 0 && donFamiliesRequired(c.DONTypes) {
 		return nil, fmt.Errorf("nodeset %q has no don_families; set don_families on every nodeset", c.Name)
 	}
 
@@ -606,21 +606,18 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	return out, nil
 }
 
-// trimmedNonEmpty trims whitespace from each string and drops empty results, preserving order.
-func trimmedNonEmpty(in []string) []string {
-	if len(in) == 0 {
-		return nil
+func donFamiliesRequired(donTypes []string) bool {
+	if len(donTypes) == 0 {
+		return true
 	}
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		if t := strings.TrimSpace(s); t != "" {
-			out = append(out, t)
+	for _, donType := range donTypes {
+		switch donType {
+		case BootstrapDON, GatewayDON:
+		default:
+			return true
 		}
 	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
+	return false
 }
 
 // normalizedDonFamilies trims, drops empty entries and de-duplicates, preserving
@@ -1375,7 +1372,7 @@ func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
 }
 
 func (c *NodeSet) Flags() []string {
-	var stringCaps = make([]string, len(c.Capabilities)+len(c.DONTypes))
+	stringCaps := make([]string, len(c.Capabilities)+len(c.DONTypes))
 	copy(stringCaps, c.Capabilities)
 	for i, donType := range c.DONTypes {
 		stringCaps[len(c.Capabilities)+i] = donType

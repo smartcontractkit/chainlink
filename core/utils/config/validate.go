@@ -5,22 +5,22 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
-type InvalidError = config.ErrInvalid
+type InvalidError = commonconfig.ErrInvalid
 
 // NewErrDuplicate returns an InvalidError with a standard duplicate message.
 func NewErrDuplicate(name string, value any) InvalidError {
-	return config.NewErrDuplicate(name, value)
+	return commonconfig.NewErrDuplicate(name, value)
 }
 
-type MissingError = config.ErrMissing
+type MissingError = commonconfig.ErrMissing
 
-type EmptyError = config.ErrEmpty
+type EmptyError = commonconfig.ErrEmpty
 
 // UniqueStrings is a helper for tracking unique values in string form.
-type UniqueStrings = config.UniqueStrings
+type UniqueStrings = commonconfig.UniqueStrings
 
 type OverrideError struct {
 	Name string

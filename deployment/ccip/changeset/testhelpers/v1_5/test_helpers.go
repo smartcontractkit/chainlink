@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	ccipcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -43,12 +43,12 @@ import (
 type jsonCommitOffchainConfig struct {
 	SourceFinalityDepth      uint32
 	DestFinalityDepth        uint32
-	GasPriceHeartBeat        config.Duration
+	GasPriceHeartBeat        commonconfig.Duration
 	DAGasPriceDeviationPPB   uint32
 	ExecGasPriceDeviationPPB uint32
-	TokenPriceHeartBeat      config.Duration
+	TokenPriceHeartBeat      commonconfig.Duration
 	TokenPriceDeviationPPB   uint32
-	InflightCacheExpiry      config.Duration
+	InflightCacheExpiry      commonconfig.Duration
 	PriceReportingDisabled   bool
 }
 
@@ -91,10 +91,10 @@ type jsonExecOffchainConfig struct {
 	DestFinalityDepth           uint32
 	BatchGasLimit               uint32
 	RelativeBoostPerWaitHour    float64
-	InflightCacheExpiry         config.Duration
-	RootSnoozeTime              config.Duration
+	InflightCacheExpiry         commonconfig.Duration
+	RootSnoozeTime              commonconfig.Duration
 	BatchingStrategyID          uint32
-	MessageVisibilityInterval   config.Duration
+	MessageVisibilityInterval   commonconfig.Duration
 }
 
 func (c jsonExecOffchainConfig) Validate() error {
@@ -139,12 +139,12 @@ func linkUSDWei(amount int64) *big.Int {
 }
 
 func encodeCommitOffchainBytes(
-	gasPriceHeartBeat config.Duration,
+	gasPriceHeartBeat commonconfig.Duration,
 	daGasPriceDeviationPPB uint32,
 	execGasPriceDeviationPPB uint32,
-	tokenPriceHeartBeat config.Duration,
+	tokenPriceHeartBeat commonconfig.Duration,
 	tokenPriceDeviationPPB uint32,
-	inflightCacheExpiry config.Duration,
+	inflightCacheExpiry commonconfig.Duration,
 	priceReportingDisabled bool,
 ) ([]byte, error) {
 	j := jsonCommitOffchainConfig{
@@ -166,10 +166,10 @@ func encodeExecOffchainBytes(
 	destOptimisticConfirmations uint32,
 	batchGasLimit uint32,
 	relativeBoostPerWaitHour float64,
-	inflightCacheExpiry config.Duration,
-	rootSnoozeTime config.Duration,
+	inflightCacheExpiry commonconfig.Duration,
+	rootSnoozeTime commonconfig.Duration,
 	batchingStrategyID uint32,
-	messageVisibilityInterval config.Duration,
+	messageVisibilityInterval commonconfig.Duration,
 ) ([]byte, error) {
 	j := jsonExecOffchainConfig{
 		DestOptimisticConfirmations: destOptimisticConfirmations,
@@ -505,12 +505,12 @@ type CommitOCR2ConfigParams struct {
 	DestinationChainSelector uint64
 	SourceChainSelector      uint64
 	OCR2ConfigParams         confighelper.PublicConfig
-	GasPriceHeartBeat        config.Duration
+	GasPriceHeartBeat        commonconfig.Duration
 	DAGasPriceDeviationPPB   uint32
 	ExecGasPriceDeviationPPB uint32
-	TokenPriceHeartBeat      config.Duration
+	TokenPriceHeartBeat      commonconfig.Duration
 	TokenPriceDeviationPPB   uint32
-	InflightCacheExpiry      config.Duration
+	InflightCacheExpiry      commonconfig.Duration
 	PriceReportingDisabled   bool
 }
 
@@ -568,10 +568,10 @@ type ExecuteOCR2ConfigParams struct {
 	DestOptimisticConfirmations uint32
 	BatchGasLimit               uint32
 	RelativeBoostPerWaitHour    float64
-	InflightCacheExpiry         config.Duration
-	RootSnoozeTime              config.Duration
+	InflightCacheExpiry         commonconfig.Duration
+	RootSnoozeTime              commonconfig.Duration
 	BatchingStrategyID          uint32
-	MessageVisibilityInterval   config.Duration
+	MessageVisibilityInterval   commonconfig.Duration
 	ExecOnchainConfig           evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig
 	OCR2ConfigParams            confighelper.PublicConfig
 }
@@ -931,12 +931,12 @@ func LaneConfigsForChains(t *testing.T, env cldf.Environment, state stateview.CC
 			SourceChainSelector:      src,
 			DestinationChainSelector: dest,
 			OCR2ConfigParams:         DefaultOCRParams(),
-			GasPriceHeartBeat:        *config.MustNewDuration(10 * time.Second),
+			GasPriceHeartBeat:        *commonconfig.MustNewDuration(10 * time.Second),
 			DAGasPriceDeviationPPB:   1,
 			ExecGasPriceDeviationPPB: 1,
-			TokenPriceHeartBeat:      *config.MustNewDuration(10 * time.Second),
+			TokenPriceHeartBeat:      *commonconfig.MustNewDuration(10 * time.Second),
 			TokenPriceDeviationPPB:   1,
-			InflightCacheExpiry:      *config.MustNewDuration(5 * time.Second),
+			InflightCacheExpiry:      *commonconfig.MustNewDuration(5 * time.Second),
 			PriceReportingDisabled:   false,
 		})
 		execOCR2Configs = append(execOCR2Configs, ExecuteOCR2ConfigParams{
@@ -945,10 +945,10 @@ func LaneConfigsForChains(t *testing.T, env cldf.Environment, state stateview.CC
 			DestOptimisticConfirmations: 1,
 			BatchGasLimit:               5_000_000,
 			RelativeBoostPerWaitHour:    0.07,
-			InflightCacheExpiry:         *config.MustNewDuration(1 * time.Minute),
-			RootSnoozeTime:              *config.MustNewDuration(1 * time.Minute),
+			InflightCacheExpiry:         *commonconfig.MustNewDuration(1 * time.Minute),
+			RootSnoozeTime:              *commonconfig.MustNewDuration(1 * time.Minute),
 			BatchingStrategyID:          0,
-			MessageVisibilityInterval:   config.Duration{},
+			MessageVisibilityInterval:   commonconfig.Duration{},
 			ExecOnchainConfig: evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig{
 				PermissionLessExecutionThresholdSeconds: uint32(24 * time.Hour.Seconds()),
 				MaxDataBytes:                            1e5,

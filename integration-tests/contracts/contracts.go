@@ -3,25 +3,25 @@ package contracts
 import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 type OffChainAggregatorV2Config struct {
-	DeltaProgress                           *config.Duration                   `toml:",omitempty"`
-	DeltaResend                             *config.Duration                   `toml:",omitempty"`
-	DeltaRound                              *config.Duration                   `toml:",omitempty"`
-	DeltaGrace                              *config.Duration                   `toml:",omitempty"`
-	DeltaStage                              *config.Duration                   `toml:",omitempty"`
+	DeltaProgress                           *commonconfig.Duration             `toml:",omitempty"`
+	DeltaResend                             *commonconfig.Duration             `toml:",omitempty"`
+	DeltaRound                              *commonconfig.Duration             `toml:",omitempty"`
+	DeltaGrace                              *commonconfig.Duration             `toml:",omitempty"`
+	DeltaStage                              *commonconfig.Duration             `toml:",omitempty"`
 	RMax                                    uint8                              `toml:"-"`
 	S                                       []int                              `toml:"-"`
 	Oracles                                 []confighelper.OracleIdentityExtra `toml:"-"`
 	ReportingPluginConfig                   []byte                             `toml:"-"`
-	MaxDurationQuery                        *config.Duration                   `toml:",omitempty"`
-	MaxDurationObservation                  *config.Duration                   `toml:",omitempty"`
-	MaxDurationReport                       *config.Duration                   `toml:",omitempty"`
-	MaxDurationShouldAcceptFinalizedReport  *config.Duration                   `toml:",omitempty"`
-	MaxDurationShouldTransmitAcceptedReport *config.Duration                   `toml:",omitempty"`
+	MaxDurationQuery                        *commonconfig.Duration             `toml:",omitempty"`
+	MaxDurationObservation                  *commonconfig.Duration             `toml:",omitempty"`
+	MaxDurationReport                       *commonconfig.Duration             `toml:",omitempty"`
+	MaxDurationShouldAcceptFinalizedReport  *commonconfig.Duration             `toml:",omitempty"`
+	MaxDurationShouldTransmitAcceptedReport *commonconfig.Duration             `toml:",omitempty"`
 	F                                       int                                `toml:"-"`
 	OnchainConfig                           []byte                             `toml:"-"`
 }

@@ -43,9 +43,9 @@ func actionMessage(t *testing.T, url string) *jsonrpc.Response[json.RawMessage] 
 
 func okHTTPResponse() *network.HTTPResponse {
 	return &network.HTTPResponse{
-		StatusCode: 200,
-		Headers:    map[string]string{"Content-Type": "application/json"},
-		Body:       []byte(`{"ok": true}`),
+		StatusCode:   200,
+		MultiHeaders: map[string][]string{"Content-Type": {"application/json"}},
+		Body:         []byte(`{"ok": true}`),
 	}
 }
 

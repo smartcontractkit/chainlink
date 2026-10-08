@@ -3,6 +3,7 @@ package cre
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
@@ -25,6 +26,28 @@ func TestNewNodesPreservesInputOrder(t *testing.T) {
 		require.Equal(t, cfgs[i].Host, node.Host)
 		require.Equal(t, cfgs[i].Index, node.Index)
 		require.Equal(t, cfgs[i].Roles, node.Roles)
+	}
+}
+
+func TestDonFamiliesRequired(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		donTypes []string
+		want     bool
+	}{
+		{nil, true},
+		{[]string{}, true},
+		{[]string{WorkflowDON}, true},
+		{[]string{CapabilitiesDON}, true},
+		{[]string{ShardDON}, true},
+		{[]string{WorkflowDON, ShardDON}, true},
+		{[]string{BootstrapDON}, false},
+		{[]string{GatewayDON}, false},
+		{[]string{BootstrapDON, GatewayDON}, false},
+		{[]string{"unknown"}, true},
+	} {
+		assert.Equal(t, tc.want, donFamiliesRequired(tc.donTypes), tc.donTypes)
 	}
 }
 

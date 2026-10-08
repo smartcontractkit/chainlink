@@ -3,6 +3,7 @@ package vault
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -17,6 +18,7 @@ import (
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
@@ -47,6 +49,11 @@ type Capability struct {
 	lifecycle            *RequestLifecycleTracker
 	zoneBRestrictor      *zoneBRestrictor
 	directReader         *LazyDirectSecretsReader
+	// encryptOnlyEnabled, when open, makes GetPublicKey return only the stable
+	// encrypt-only sub-key (Group/G_bar/H, without the per-recipient HArray that
+	// changes on every DKG reshare), so encrypt-only consumers (e.g. the CRE CLI)
+	// are unaffected by reshares.
+	encryptOnlyEnabled limits.GateLimiter
 	*RequestValidator
 }
 
@@ -88,6 +95,10 @@ func (s *Capability) Close() error {
 
 	if lerr := s.zoneBRestrictor.close(); lerr != nil {
 		err = errors.Join(err, lerr)
+	}
+
+	if lerr := s.encryptOnlyEnabled.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing encrypt-only gate limiter: %w", lerr))
 	}
 
 	return err
@@ -264,9 +275,44 @@ func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetP
 		return nil, fmt.Errorf("could not marshal public key: %w", err)
 	}
 
+	// When the encrypt-only gate is open, return only the stable sub-key
+	// (Group/G_bar/H, without HArray) so consumers that only encrypt (e.g. the CRE
+	// CLI) are unaffected by DKG reshares that redistribute HArray.
+	open, err := s.encryptOnlyEnabled.IsOpen(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not evaluate encrypt-only gate: %w", err)
+	}
+	if open {
+		l.Debug("encrypt-only gate open: stripping HArray, returning encrypt-only public key")
+		pkb, err = encryptOnlyPublicKey(pkb)
+		if err != nil {
+			l.Debugw("could not derive encrypt-only public key", "err", err)
+			return nil, fmt.Errorf("could not derive encrypt-only public key: %w", err)
+		}
+	}
+
 	return &vaultcommon.GetPublicKeyResponse{
 		PublicKey: hex.EncodeToString(pkb),
 	}, nil
+}
+
+// encryptOnlyPublicKey takes the marshaled TDH2 vault public key JSON
+// ({Group, G_bar, H, HArray}) and returns the same JSON with HArray removed.
+// HArray holds the per-recipient verification shares, which are redistributed
+// (and so change) on every DKG reshare; Group/G_bar/H are the stable parts
+// required to encrypt. Encrypt-only consumers use the result so they are
+// unaffected by reshares.
+func encryptOnlyPublicKey(pkJSON []byte) ([]byte, error) {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(pkJSON, &m); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal public key json: %w", err)
+	}
+	delete(m, "HArray")
+	out, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal encrypt-only public key json: %w", err)
+	}
+	return out, nil
 }
 
 func validateEncryptedSecretsUniformOwners(encryptedSecrets []*vaultcommon.EncryptedSecret) error {
@@ -360,6 +406,13 @@ func NewCapability(
 	if directReader == nil {
 		return nil, errors.New("vault capability requires a non-nil direct secrets reader")
 	}
+	encryptOnlyEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultPublicKeyEncryptOnlyEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vault public key encrypt-only gate limiter: %w", err)
+	}
+	if encryptOnlyEnabled == nil {
+		return nil, errors.New("vault capability requires a non-nil encrypt-only gate limiter")
+	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
 		clock:                clock,
@@ -370,6 +423,7 @@ func NewCapability(
 		lifecycle:            lifecycle,
 		zoneBRestrictor:      zoneBRestrictor,
 		directReader:         directReader,
+		encryptOnlyEnabled:   encryptOnlyEnabled,
 		RequestValidator:     requestValidator,
 	}, nil
 }

@@ -19,6 +19,8 @@ const (
 	// ForwarderWasm is the CRE Forwarder contract.
 	ForwarderWasm = cre.ForwarderWasm
 
+	MockForwarderWasm = cre.MockForwarderWasm
+
 	// ReceiverWasm is the CRE test receiver.
 	ReceiverWasm = cre.ReceiverWasm
 

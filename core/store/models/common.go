@@ -295,7 +295,7 @@ type ServiceHeaders []ServiceHeader
 
 func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 	if sh == nil {
-		return errors.New("Cannot unmarshal to a nil receiver")
+		return errors.New("cannot unmarshal to a nil receiver")
 	}
 
 	headers := string(input)
@@ -326,7 +326,7 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 
 func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
 	if sh == nil {
-		return nil, errors.New("Cannot marshal to a nil receiver")
+		return nil, errors.New("cannot marshal to a nil receiver")
 	}
 
 	sb := strings.Builder{}

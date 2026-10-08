@@ -6,14 +6,14 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 )
 
 // Returns an instantiated ldapAuthenticator struct without validation for testing
 func NewTestLDAPAuthenticator(
 	ds sqlutil.DataSource,
-	ldapCfg config.LDAP,
+	ldapCfg coreconfig.LDAP,
 	lggr logger.Logger,
 	auditLogger audit.Logger,
 ) (*ldapAuthenticator, error) {
@@ -41,7 +41,7 @@ func (l *ldapAuthenticator) SetLDAPClient(newClient LDAPClient) {
 	l.ldapClient = newClient
 }
 
-// Implements config.LDAP
+// Implements coreconfig.LDAP
 type TestConfig struct{}
 
 func (t *TestConfig) ServerAddress() string {

@@ -434,3 +434,56 @@ func Test_GetWorkflowSpec(t *testing.T) {
 		require.Nil(t, dbSpec)
 	})
 }
+
+func Test_SaveTriggerSubscriptions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("persists and round-trips the payload", func(t *testing.T) {
+		t.Parallel()
+		db := pgtest.NewSqlxDB(t)
+		ctx := t.Context()
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
+		spec := &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    "cid-trigger-subs",
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			WorkflowTag:   "workflowTag",
+			Status:        job.WorkflowSpecStatusActive,
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+		}
+		_, err := orm.UpsertWorkflowSpec(ctx, spec)
+		require.NoError(t, err)
+
+		payload := []byte("marshaled-trigger-subscriptions")
+		require.NoError(t, orm.SaveTriggerSubscriptions(ctx, spec.WorkflowID, payload))
+
+		dbSpec, err := orm.GetWorkflowSpec(ctx, spec.WorkflowID)
+		require.NoError(t, err)
+		require.Equal(t, payload, dbSpec.TriggerSubscriptions)
+
+		// A subsequent UpsertWorkflowSpec (e.g. a status flip) must not clobber
+		// the cached payload: it isn't in the upsert's column list.
+		spec.Status = job.WorkflowSpecStatusPaused
+		_, err = orm.UpsertWorkflowSpec(ctx, spec)
+		require.NoError(t, err)
+
+		dbSpec, err = orm.GetWorkflowSpec(ctx, spec.WorkflowID)
+		require.NoError(t, err)
+		require.Equal(t, payload, dbSpec.TriggerSubscriptions, "trigger_subscriptions must survive an unrelated upsert")
+	})
+
+	t.Run("no-op when the workflow ID doesn't exist", func(t *testing.T) {
+		t.Parallel()
+		db := pgtest.NewSqlxDB(t)
+		ctx := t.Context()
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
+		require.NoError(t, orm.SaveTriggerSubscriptions(ctx, "inexistent-workflow-id", []byte("payload")))
+	})
+}

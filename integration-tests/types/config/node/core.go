@@ -10,7 +10,7 @@ import (
 	"github.com/segmentio/ksuid"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -44,7 +44,7 @@ func NewBaseConfig() *chainlink.Config {
 				AllowOrigins:   new("*"),
 				HTTPPort:       ptr.Ptr[uint16](6688),
 				SecureCookies:  new(false),
-				SessionTimeout: config.MustNewDuration(time.Hour * 999),
+				SessionTimeout: commonconfig.MustNewDuration(time.Hour * 999),
 				TLS: toml.WebServerTLS{
 					HTTPSPort: ptr.Ptr[uint16](0),
 				},
@@ -74,7 +74,7 @@ func NewConfig(baseConf *chainlink.Config, opts ...ConfigOpt) *chainlink.Config 
 
 func NewConfigFromToml(tomlConfig []byte, opts ...ConfigOpt) (*chainlink.Config, error) {
 	var cfg chainlink.Config
-	err := config.DecodeTOML(bytes.NewReader(tomlConfig), &cfg)
+	err := commonconfig.DecodeTOML(bytes.NewReader(tomlConfig), &cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func BuildChainlinkNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonCh
 	var err error
 	var commonChainConfig *evmcfg.Chain
 	if commonChain != "" {
-		err = config.DecodeTOML(bytes.NewReader([]byte(commonChain)), &commonChainConfig)
+		err = commonconfig.DecodeTOML(bytes.NewReader([]byte(commonChain)), &commonChainConfig)
 		if err != nil {
 			return nil, "", err
 		}
@@ -156,7 +156,7 @@ func BuildChainlinkNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonCh
 	configByChainMap := make(map[int64]evmcfg.Chain)
 	for k, v := range configByChain {
 		var chain evmcfg.Chain
-		err = config.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
+		err = commonconfig.DecodeTOML(bytes.NewReader([]byte(v)), &chain)
 		if err != nil {
 			return nil, "", err
 		}
@@ -169,7 +169,8 @@ func BuildChainlinkNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonCh
 	if nodeConfig == "" {
 		tomlCfg = NewConfig(
 			NewBaseConfig(),
-			WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
+			WithPrivateEVMs(nets, commonChainConfig, configByChainMap),
+		)
 	} else {
 		tomlCfg, err = NewConfigFromToml([]byte(nodeConfig), WithPrivateEVMs(nets, commonChainConfig, configByChainMap))
 		if err != nil {

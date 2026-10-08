@@ -88,7 +88,6 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	t.Run("happy case", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
 			StatusCode: 200,
-			Headers:    map[string]string{},
 			Body:       []byte("response body"),
 		}, nil).Once()
 
@@ -124,7 +123,6 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	t.Run("http client non-HTTP error", func(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
 			StatusCode: 404,
-			Headers:    map[string]string{},
 			Body:       []byte("access denied"),
 		}, nil).Once()
 

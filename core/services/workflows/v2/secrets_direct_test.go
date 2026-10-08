@@ -81,7 +81,7 @@ FeatureVaultGetSecretsDirectlyActivePeriod = '[2000-01-01 00:00:00 +0000 UTC,210
 	t.Run("disabled by default", func(t *testing.T) {
 		t.Parallel()
 		v := &scriptedVault{}
-		_, err := newFetcher(t, v, nil, enabledAt).GetRawSecrets(t.Context(), req, staticKeyFetcher{})
+		_, err := newFetcher(t, v, nil, enabledAt).GetRawSecretsResponse(t.Context(), req, staticKeyFetcher{})
 		require.NoError(t, err)
 		require.Len(t, v.calls, 1)
 		assert.False(t, v.calls[0].req.GetSecretsDirectly)
@@ -90,7 +90,7 @@ FeatureVaultGetSecretsDirectlyActivePeriod = '[2000-01-01 00:00:00 +0000 UTC,210
 	t.Run("gated on the execution timestamp", func(t *testing.T) {
 		t.Parallel()
 		v := &scriptedVault{}
-		_, err := newFetcher(t, v, activeFrom2000, disabledAt).GetRawSecrets(t.Context(), req, staticKeyFetcher{})
+		_, err := newFetcher(t, v, activeFrom2000, disabledAt).GetRawSecretsResponse(t.Context(), req, staticKeyFetcher{})
 		require.NoError(t, err)
 		assert.False(t, v.calls[0].req.GetSecretsDirectly)
 	})
@@ -98,7 +98,7 @@ FeatureVaultGetSecretsDirectlyActivePeriod = '[2000-01-01 00:00:00 +0000 UTC,210
 	t.Run("enabled", func(t *testing.T) {
 		t.Parallel()
 		v := &scriptedVault{}
-		_, err := newFetcher(t, v, activeFrom2000, enabledAt).GetRawSecrets(t.Context(), req, staticKeyFetcher{})
+		_, err := newFetcher(t, v, activeFrom2000, enabledAt).GetRawSecretsResponse(t.Context(), req, staticKeyFetcher{})
 		require.NoError(t, err)
 		require.Len(t, v.calls, 1)
 		assert.True(t, v.calls[0].req.GetSecretsDirectly)
@@ -107,7 +107,7 @@ FeatureVaultGetSecretsDirectlyActivePeriod = '[2000-01-01 00:00:00 +0000 UTC,210
 	t.Run("version skew is retried once under a new reference ID", func(t *testing.T) {
 		t.Parallel()
 		v := &scriptedVault{errs: []error{skew}}
-		_, err := newFetcher(t, v, activeFrom2000, enabledAt).GetRawSecrets(t.Context(), req, staticKeyFetcher{})
+		_, err := newFetcher(t, v, activeFrom2000, enabledAt).GetRawSecretsResponse(t.Context(), req, staticKeyFetcher{})
 		require.NoError(t, err)
 		require.Len(t, v.calls, 2)
 		assert.Equal(t, "7", v.calls[0].metadata.ReferenceID)
@@ -119,7 +119,7 @@ FeatureVaultGetSecretsDirectlyActivePeriod = '[2000-01-01 00:00:00 +0000 UTC,210
 	t.Run("only one retry", func(t *testing.T) {
 		t.Parallel()
 		v := &scriptedVault{errs: []error{skew, skew}}
-		_, err := newFetcher(t, v, activeFrom2000, enabledAt).GetRawSecrets(t.Context(), req, staticKeyFetcher{})
+		_, err := newFetcher(t, v, activeFrom2000, enabledAt).GetRawSecretsResponse(t.Context(), req, staticKeyFetcher{})
 		require.ErrorIs(t, err, vault.ErrSecretVersionSkew)
 		assert.Len(t, v.calls, 2)
 	})
@@ -127,7 +127,7 @@ FeatureVaultGetSecretsDirectlyActivePeriod = '[2000-01-01 00:00:00 +0000 UTC,210
 	t.Run("other errors are not retried", func(t *testing.T) {
 		t.Parallel()
 		v := &scriptedVault{errs: []error{errors.New("boom")}}
-		_, err := newFetcher(t, v, activeFrom2000, enabledAt).GetRawSecrets(t.Context(), req, staticKeyFetcher{})
+		_, err := newFetcher(t, v, activeFrom2000, enabledAt).GetRawSecretsResponse(t.Context(), req, staticKeyFetcher{})
 		require.ErrorContains(t, err, "boom")
 		assert.Len(t, v.calls, 1)
 	})

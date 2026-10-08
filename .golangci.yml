@@ -123,6 +123,9 @@ linters:
             - pkg: github.com/smartcontractkit/chainlink/core/logger
     exhaustive:
       default-signifies-exhaustive: true
+    modernize:
+      disable:
+        - embedlit
     gosec:
       excludes:
         - G101
@@ -226,18 +229,20 @@ linters:
       - std-error-handling
     rules:
       - linters:
+          - bodyclose
+        path: core/(web/.*_test|cmd/renderer_test|services/job/runner_integration_test|services/gateway/network/httpserver_test)\.go
+        source: "(client\\.(Get|Post|Put|Patch|Delete)|cltest\\.|postSkip|sendRequest)"
+        # bodyclose cannot detect that response bodies are closed by helper closures or wrappers:
+        # - cltest.HTTPClientCleaner methods (client.Get/Post/...) and cltest.Unauthenticated* return
+        #   cleanup closures (bodyCleaner) invoked via t.Cleanup or defer.
+        # - core/web postSkip wraps client.Post and registers cleanup via t.Cleanup.
+        # - core/services/gateway/network/httpserver_test.go sendRequest defers body close internally
+        #   before returning the response for status assertions.
+        # Scoped strictly to paths using these helpers so real leaks elsewhere in tests are caught.
+      - linters:
           - gosec
         path: test
         text: "^G404:"
-      # AddressBook on ChangesetOutput/Environment is deprecated in favor of
-      # DataStore, but the migration is still pending. Suppress centrally instead
-      # of scattering inline //nolint:staticcheck directives across every changeset
-      # return site. Mirrors deployment/.golangci.yml.
-      - linters:
-          - staticcheck
-        text: "SA1019: (.*).AddressBook is deprecated"
-    paths:
-      - "core/scripts/cre/environment/examples/workflows"
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0

@@ -539,8 +539,6 @@ ChainID = '1' # Default
 ContractVersion = '1.0.0' # Default
 # MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
 MaxBinarySize = '20.00mb' # Default
-# MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
-MaxEncryptedSecretsSize = '26.40kb' # Default
 # MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 MaxConfigSize = '50.00kb' # Default
 # SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
@@ -605,12 +603,8 @@ ChainID = '1' # Default
 ContractVersion = '1.0.0' # Default
 
 [Capabilities.Dispatcher]
-# SupportedVersion is the version of the version of message schema.
-SupportedVersion = 1 # Default
 # ReceiverBufferSize is the size of the buffer for incoming messages.
 ReceiverBufferSize = 10000 # Default
-# SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
-SendToSharedPeer = false # Default
 
 [Capabilities.Dispatcher.RateLimit]
 # GlobalRPS is the global rate limit for the dispatcher.
@@ -1037,6 +1031,8 @@ UseLocalTimeProvider = true # Default
 EnableDKGRecipient = false # Default
 # DebugMode enables additional tracing and logging for workflow engines.
 DebugMode = false # Default
+# CachedTriggerSubscriptionsEnabled makes workflow engines reuse a previously-persisted trigger subscription payload instead of executing the workflow's WASM Subscribe() call on every engine start.
+CachedTriggerSubscriptionsEnabled = false # Default
 
 [CRE.ConfidentialRelay]
 # Enabled controls whether the confidential relay gateway handler should be configured.

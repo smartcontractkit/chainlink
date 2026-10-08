@@ -149,7 +149,7 @@ func sendVaultRequestToGatewayWithHeaders(t *testing.T, gatewayURL string, reque
 	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
 
 	for attempt := range maxRetries + 1 {
-		req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, gatewayURL, bytes.NewBuffer(requestBody))
 		require.NoError(t, err, "failed to create request")
 
 		req.Header.Set("Content-Type", "application/json")
@@ -189,7 +189,7 @@ func sendVaultRequestToGatewayWithHeadersNoT(gatewayURL string, requestBody []by
 	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
 
 	for attempt := range maxRetries + 1 {
-		req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, gatewayURL, bytes.NewBuffer(requestBody))
 		if err != nil {
 			return 0, nil, fmt.Errorf("create request: %w", err)
 		}
@@ -649,7 +649,7 @@ func trySendVaultSignedOCRRequestToGateway(gatewayURL string, jsonRequest jsonrp
 	return jsonResponse, nil
 }
 
-func tryValidateVaultSecretsCreateResponse(gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], uniqueRequestID, secretID string, expectedResponseOwners []string, namespaces []string) error {
+func tryValidateVaultSecretsCreateResponse(gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], uniqueRequestID, secretID string, expectedResponseOwners, namespaces []string) error {
 	if len(expectedResponseOwners) == 0 {
 		return errors.New("expected response owners must not be empty")
 	}
@@ -1289,16 +1289,6 @@ func sendVaultJWTRequestToGatewayExpectError(t *testing.T, gatewayURL string, js
 func outboundRequestWithoutAuth(req jsonrpc.Request[json.RawMessage]) jsonrpc.Request[json.RawMessage] {
 	req.Auth = ""
 	return req
-}
-
-func executeVaultJWTSecretsCreateUnauthorizedTest(
-	t *testing.T,
-	issuer *stvault.TestJWTIssuer,
-	vaultPublicKey, orgID, gatewayURL string,
-	expectedAuthError string,
-) {
-	t.Helper()
-	executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(t, issuer, vaultPublicKey, orgID, gatewayURL, nil, expectedAuthError)
 }
 
 func executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(
