@@ -26,11 +26,6 @@ func main() {
 	}).Run(RunVaultSecretCronWorkflow)
 }
 
-// RunVaultSecretCronWorkflow is the minimal cron-triggered counterpart of the
-// vaultsecret verifier: on every scheduled run it fetches one secret and emits its
-// plaintext value in a user log. It is what the sharded shared-vault tests deploy,
-// so they can tell from the emitted log which shard executed the run and that the
-// fetched secret actually decrypted there.
 func RunVaultSecretCronWorkflow(cfg config.Config, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	return cre.Workflow[config.Config]{
 		cre.Handler(
@@ -49,8 +44,6 @@ func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string,
 		return "", fmt.Errorf("failed to get secret %s/%s: %w", cfg.SecretNamespace, cfg.SecretKey, err)
 	}
 
-	// The plaintext value is part of the user log on purpose: it is the only
-	// observable proof that the decrypted secret actually reached the guest.
 	runtime.Logger().Info(fmt.Sprintf("Vault secret fetched: %s", secret.Value))
 	return secret.Value, nil
 }
