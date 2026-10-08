@@ -24,7 +24,7 @@
   - [Create ATA](#create-ata)
   - [Set Token Authority](#set-token-authority)
 - [Token Pool Operations](#token-pool-operations)
-  - [Deploying Token Pool Executables](#deploy-new-token-pool-executables)
+  - [Deploying Token Pool Executables](#deploying-token-pool-executables)
     - [Deploy New Token Pool Executable (CLL)](#deploy-new-token-pool-executable-cll)
     - [Deploy New Token Pool Executable (Partners)](#deploy-new-token-pool-executable-partners)
   - [Adding Token Pools for Solana Tokens (Deploying Token Pool PDAs)](#adding-token-pools-for-solana-tokens-deploying-token-pool-pdas)
