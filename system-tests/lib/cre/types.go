@@ -492,13 +492,13 @@ func isChainCapability(flag string) bool {
 }
 
 func parseChainCapabilityFlag(flag string) (CapabilityFlag, uint64, bool, error) {
-	lastIdx := strings.LastIndex(flag, "-")
-	if lastIdx == -1 {
+	before, after, ok := strings.CutLast(flag, "-")
+	if !ok {
 		return "", 0, false, nil
 	}
 
-	base := flag[:lastIdx]
-	chainPart := flag[lastIdx+1:]
+	base := before
+	chainPart := after
 
 	if base == "" {
 		return "", 0, true, fmt.Errorf("capability flag %q is missing a capability name before the chain suffix", flag)
@@ -676,12 +676,12 @@ func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (Capabilit
 		}
 
 		// Extract base capability name and copy its defaults to the chain-specific key
-		lastIdx := strings.LastIndex(flag, "-")
-		if lastIdx == -1 {
+		before, _, ok := strings.CutLast(flag, "-")
+		if !ok {
 			continue
 		}
 
-		flagWithoutChainID := flag[:lastIdx]
+		flagWithoutChainID := before
 		defaults[flag] = defaults[flagWithoutChainID]
 
 		chainCapabilitiesFound = append(chainCapabilitiesFound, flagWithoutChainID)
