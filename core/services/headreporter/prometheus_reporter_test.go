@@ -27,7 +27,9 @@ import (
 )
 
 func Test_PrometheusReporter(t *testing.T) {
+	t.Parallel()
 	t.Run("with nothing in the database", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
 
 		backend := headreporter.NewMockPrometheusBackend(t)
@@ -49,6 +51,7 @@ func Test_PrometheusReporter(t *testing.T) {
 	})
 
 	t.Run("with null txm", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
 		backend := headreporter.NewMockPrometheusBackend(t)
 
@@ -61,6 +64,7 @@ func Test_PrometheusReporter(t *testing.T) {
 	})
 
 	t.Run("with unconfirmed evm.txes", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
 		txStore := txmgrtest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -93,6 +97,7 @@ func Test_PrometheusReporter(t *testing.T) {
 	})
 
 	t.Run("with unfinished pipeline task runs", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
 		pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`)
 
@@ -152,7 +157,8 @@ func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainCon
 		estimator,
 		ht,
 		nil,
-		false)
+		false,
+	)
 	require.NoError(t, err)
 
 	cfg := configtest.NewGeneralConfig(t, nil)

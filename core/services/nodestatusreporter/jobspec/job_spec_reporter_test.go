@@ -142,6 +142,7 @@ func requireSingleJobSpecEvent(t *testing.T, observer beholdertest.Observer) *ev
 	return ev
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestShouldEmit_DefaultConfig(t *testing.T) {
 	beholdertest.NewObserver(t)
 	svc := newTestReporter(t, defaultConfig(), nil)
@@ -162,11 +163,13 @@ func TestShouldEmit_DefaultConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, svc.ShouldEmit(tc.jb))
 		})
 	}
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestShouldEmit_NoOCR2Types(t *testing.T) {
 	beholdertest.NewObserver(t)
 	cfg := defaultConfig()
@@ -183,6 +186,7 @@ func TestShouldEmit_NoOCR2Types(t *testing.T) {
 	assert.False(t, svc.ShouldEmit(&nonOCR2))
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestShouldEmit_AllOCR2Types(t *testing.T) {
 	beholdertest.NewObserver(t)
 	cfg := defaultConfig()
@@ -199,6 +203,7 @@ func TestShouldEmit_AllOCR2Types(t *testing.T) {
 	assert.False(t, svc.ShouldEmit(&nonOCR2))
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestShouldEmit_NonOCR2Skipped(t *testing.T) {
 	beholdertest.NewObserver(t)
 	cfg := defaultConfig()
@@ -212,6 +217,7 @@ func TestShouldEmit_NonOCR2Skipped(t *testing.T) {
 	assert.True(t, svc.ShouldEmit(&median))
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestBuildEvent_MedianJob(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
@@ -242,6 +248,7 @@ func TestBuildEvent_MedianJob(t *testing.T) {
 	assert.Equal(t, "0x1111111111111111111111111111111111111111", ev.Ocr2OracleSpec.EvmRelayConfig.GetEffectiveTransmitterId())
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestBuildEvent_MedianJobBridgeNamesFromPipelineSpec(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
@@ -256,6 +263,7 @@ func TestBuildEvent_MedianJobBridgeNamesFromPipelineSpec(t *testing.T) {
 	assert.Equal(t, []string{"my-bridge"}, ev.BridgeNames)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestBuildEvent_MedianJobNumericRelayConfigChainID(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
@@ -273,6 +281,7 @@ func TestBuildEvent_MedianJobNumericRelayConfigChainID(t *testing.T) {
 	assert.Equal(t, "11155111", ev.Ocr2OracleSpec.EvmRelayConfig.GetChainId())
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestBuildEvent_EVMRelayConfigEmitsExplicitFalseBooleans(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
@@ -293,6 +302,7 @@ func TestBuildEvent_EVMRelayConfigEmitsExplicitFalseBooleans(t *testing.T) {
 	assert.NotNil(t, ev.Ocr2OracleSpec.EvmRelayConfig.EnableTriggerCapability)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
@@ -309,6 +319,7 @@ func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
 	assert.NotEmpty(t, ev.Ocr2OracleSpec.RelayConfigJson)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestBuildEvent_NonOCR2Job(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
@@ -322,6 +333,7 @@ func TestBuildEvent_NonOCR2Job(t *testing.T) {
 	require.Empty(t, msgs)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestAfterJobStarted_EmitsCreate(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
@@ -333,6 +345,7 @@ func TestAfterJobStarted_EmitsCreate(t *testing.T) {
 	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_CREATE, ev.EmissionTrigger)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestAfterJobStopped_EmitsDelete(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
@@ -344,6 +357,7 @@ func TestAfterJobStopped_EmitsDelete(t *testing.T) {
 	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_DELETE, ev.EmissionTrigger)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestAfterJobStarted_SkippedWhenGateFails(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
@@ -355,6 +369,7 @@ func TestAfterJobStarted_SkippedWhenGateFails(t *testing.T) {
 	require.Empty(t, msgs)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 	feedsORM := feedsmocks.NewORM(t)

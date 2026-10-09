@@ -588,6 +588,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	}
 
 	t.Run("by id", func(t *testing.T) {
+		t.Parallel()
 		actual, err := orm.GetJobProposal(ctx, id)
 		require.NoError(t, err)
 
@@ -599,6 +600,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	})
 
 	t.Run("by remote uuid", func(t *testing.T) {
+		t.Parallel()
 		actual, err := orm.GetJobProposalByRemoteUUID(ctx, remoteUUID)
 		require.NoError(t, err)
 
@@ -612,6 +614,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	})
 
 	t.Run("by external job id", func(t *testing.T) {
+		t.Parallel()
 		externalJobID := uuid.New()
 		createJob(t, orm.db, externalJobID)
 		jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
@@ -814,6 +817,7 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			orm := setupORM(t)
 
 			counts := tc.before(t, orm)
@@ -1088,6 +1092,7 @@ func Test_ORM_CancelSpec(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			orm := setupORM(t)
 
@@ -1248,6 +1253,7 @@ func Test_ORM_DeleteProposal(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			orm := setupORM(t)
 
@@ -1365,6 +1371,7 @@ func Test_ORM_RevokeSpec(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			orm := setupORM(t)
 
@@ -1612,6 +1619,7 @@ func Test_ORM_RejectSpec(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			orm := setupORM(t)
 
