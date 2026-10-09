@@ -26,6 +26,19 @@ type CRESmokeEntry struct {
 	Configs  string `json:"configs"`
 	TestID   int    `json:"test_id"`
 	RunsOn   string `json:"runs_on"`
+	// TestTimeout overrides the go test timeout (default 7m) and
+	// JobTimeoutMinutes the job-level timeout (default 10 minutes). Zero
+	// values keep the defaults. Consumers fall back to the defaults when the
+	// fields are absent (omitempty).
+	TestTimeout       string `json:"test_timeout,omitempty"`
+	JobTimeoutMinutes int    `json:"job_timeout_minutes,omitempty"`
+}
+
+// CRESmokeTimeoutOverride carries the per-test budget override for tests
+// whose scenarios cannot fit the default test/job budgets.
+type CRESmokeTimeoutOverride struct {
+	TestTimeout       string
+	JobTimeoutMinutes int
 }
 
 // CRERegression options.
@@ -42,6 +55,17 @@ type CRERegressionEntry struct {
 	TestID   int    `json:"test_id"`
 	Configs  string `json:"configs"`
 	RunsOn   string `json:"runs_on"`
+}
+
+// defaultCRESmokePerTestTimeouts overrides the default go test (7m) and job
+// (10 minutes) budgets for tests whose scenarios cannot fit them: the shard
+// failover tests stop and restart whole shard containers, flip CRE settings
+// at runtime and observe multi-minute stability windows around each
+// transition.
+var defaultCRESmokePerTestTimeouts = map[string]CRESmokeTimeoutOverride{
+	"Test_CRE_V2_ShardFailoverAutoOnPrimaryDeath":      {TestTimeout: "30m", JobTimeoutMinutes: 40},
+	"Test_CRE_V2_ShardFailoverPrimaryRecovery":         {TestTimeout: "30m", JobTimeoutMinutes: 40},
+	"Test_CRE_V2_ShardFailoverCentralizedEventRouting": {TestTimeout: "30m", JobTimeoutMinutes: 40},
 }
 
 var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
@@ -146,16 +170,19 @@ func BuildCRESmokeMatrix(ctx context.Context, opts CRESmokeOptions) ([]CRESmokeE
 				{Topology: "workflow-gateway-capabilities", Configs: "configs/workflow-gateway-capabilities-don.toml"},
 			}
 		}
+		timeoutOverride := defaultCRESmokePerTestTimeouts[name]
 
 		for _, top := range topologies {
 			runsOn := fmt.Sprintf("runs-on=%s-%d-%s/cpu=16/ram=64/family=m7i+m8i/%s/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
 				params.RunID, testID, params.RunAttempt, params.SpotFlag)
 			entries = append(entries, CRESmokeEntry{
-				TestName: name,
-				Topology: top.Topology,
-				Configs:  top.Configs,
-				TestID:   testID,
-				RunsOn:   runsOn,
+				TestName:          name,
+				Topology:          top.Topology,
+				Configs:           top.Configs,
+				TestID:            testID,
+				RunsOn:            runsOn,
+				TestTimeout:       timeoutOverride.TestTimeout,
+				JobTimeoutMinutes: timeoutOverride.JobTimeoutMinutes,
 			})
 			testID++
 		}
