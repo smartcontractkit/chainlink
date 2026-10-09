@@ -152,7 +152,7 @@ func testLifecycleExecuteTriggerAfterClose(t *testing.T, mode lifecycleEngineMod
 
 	err := h.engine.ExecuteTrigger(h.tenantCtx(), h.event("after-close"))
 
-	require.Error(t, err, "ExecuteTrigger on a closed engine")
+	require.ErrorIs(t, err, v2.ErrEngineClosed, "ExecuteTrigger on a closed engine")
 	require.Equal(t, int32(0), h.moduleExecutions.Load(), "executions that reached the module")
 }
 
