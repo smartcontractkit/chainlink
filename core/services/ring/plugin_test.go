@@ -628,29 +628,35 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 
 func TestPlugin_RingStoreIntegration(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
-
-	ringStore := NewStore()
-	ringStore.SetAllShardHealth(map[uint32]bool{0: true, 1: true, 2: true})
-
-	config := ocr3types.ReportingPluginConfig{
-		N: 4, F: 1,
-	}
-
-	arbiter := &mockArbiter{}
-	plugin, err := NewPlugin(ringStore, arbiter, config, lggr, &ConsensusConfig{
-		BatchSize:  100,
-		TimeToSync: 1 * time.Second,
-	})
-	require.NoError(t, err)
-
-	transmitter := NewTransmitter(lggr, ringStore, arbiter, "test-account")
-
-	ctx := t.Context()
 	now := time.Now()
+
+	setup := func(t *testing.T) (*Plugin, *Transmitter, *Store) {
+		t.Helper()
+		lggr := logger.Test(t)
+
+		ringStore := NewStore()
+		ringStore.SetAllShardHealth(map[uint32]bool{0: true, 1: true, 2: true})
+
+		config := ocr3types.ReportingPluginConfig{
+			N: 4, F: 1,
+		}
+
+		arbiter := &mockArbiter{}
+		plugin, err := NewPlugin(ringStore, arbiter, config, lggr, &ConsensusConfig{
+			BatchSize:  100,
+			TimeToSync: 1 * time.Second,
+		})
+		require.NoError(t, err)
+
+		transmitter := NewTransmitter(lggr, ringStore, arbiter, "test-account")
+
+		return plugin, transmitter, ringStore
+	}
 
 	t.Run("initial_workflow_assignments", func(t *testing.T) {
 		t.Parallel()
+		plugin, transmitter, ringStore := setup(t)
+		ctx := t.Context()
 		workflows := []string{"wf-A", "wf-B", "wf-C"}
 		aos := makeObservationsWithWantShards(t, []map[uint32]*ringpb.ShardStatus{
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},
@@ -687,6 +693,8 @@ func TestPlugin_RingStoreIntegration(t *testing.T) {
 
 	t.Run("workflow_transition_detected", func(t *testing.T) {
 		t.Parallel()
+		plugin, transmitter, _ := setup(t)
+		ctx := t.Context()
 		baselineAos := makeObservationsWithWantShards(t, []map[uint32]*ringpb.ShardStatus{
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},
