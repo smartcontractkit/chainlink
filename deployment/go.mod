@@ -69,7 +69,7 @@ require (
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260824235525-aea7e0904150
 	// Using a separate inline `require` here to avoid surrounding line changes
 	// creating potential merge conflicts.
-	github.com/smartcontractkit/chainlink/v2 v2.29.0
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20261009180326-29695ba94b9b
 	github.com/smartcontractkit/cld-changesets v0.9.1-0.20261006140245-39c6e0739a44
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad
 	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342
