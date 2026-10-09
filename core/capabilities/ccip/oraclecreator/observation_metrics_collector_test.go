@@ -44,6 +44,7 @@ func (m *mockPublisher) getMetrics() []metricRecord {
 }
 
 func TestObservationMetricsCollector(t *testing.T) {
+	t.Parallel()
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
@@ -149,6 +150,7 @@ func TestObservationMetricsCollector(t *testing.T) {
 }
 
 func TestWrappedCounter(t *testing.T) {
+	t.Parallel()
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
@@ -209,6 +211,7 @@ func TestWrappedCounter(t *testing.T) {
 // TestWrappedCounter_ConcurrentIncrements verifies that the total delta is correctly published
 // when the underlying counter is incremented concurrently from multiple goroutines.
 func TestWrappedCounter_ConcurrentIncrements(t *testing.T) {
+	t.Parallel()
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
@@ -258,6 +261,7 @@ func TestWrappedCounter_ConcurrentIncrements(t *testing.T) {
 
 // TestWrappedCounter_DeltaPublishing verifies that deltas (not cumulative values) are published
 func TestWrappedCounter_DeltaPublishing(t *testing.T) {
+	t.Parallel()
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
@@ -314,6 +318,7 @@ func TestWrappedCounter_DeltaPublishing(t *testing.T) {
 
 // TestWrappedCounter_AddWithFractionalValues tests Add with non-integer values
 func TestWrappedCounter_AddWithFractionalValues(t *testing.T) {
+	t.Parallel()
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
@@ -351,6 +356,7 @@ func TestWrappedCounter_AddWithFractionalValues(t *testing.T) {
 
 // TestObservationMetricsCollector_NonTargetMetrics verifies non-observation metrics pass through unchanged
 func TestObservationMetricsCollector_NonTargetMetrics(t *testing.T) {
+	t.Parallel()
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
@@ -394,6 +400,7 @@ func TestObservationMetricsCollector_NonTargetMetrics(t *testing.T) {
 // TestObservationMetricsCollector_BackgroundPolling verifies that Start publishes metrics
 // on a timer without any explicit Collect call from the outside (i.e. without a Prometheus scrape).
 func TestObservationMetricsCollector_BackgroundPolling(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -449,6 +456,7 @@ func TestObservationMetricsCollector_BackgroundPolling(t *testing.T) {
 // TestObservationMetricsCollector_CloseStopsPolling verifies that Close stops the background
 // goroutine and no further publishes occur even if the counter keeps incrementing.
 func TestObservationMetricsCollector_CloseStopsPolling(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -492,6 +500,7 @@ func TestObservationMetricsCollector_CloseStopsPolling(t *testing.T) {
 
 // TestObservationMetricsCollector_Close verifies proper cleanup
 func TestObservationMetricsCollector_Close(t *testing.T) {
+	t.Parallel()
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
@@ -517,6 +526,7 @@ func TestObservationMetricsCollector_Close(t *testing.T) {
 
 // TestWrappedCounter_NilPublisher verifies behavior when publisher is nil
 func TestWrappedCounter_NilPublisher(t *testing.T) {
+	t.Parallel()
 	lggr, err := logger.New()
 	require.NoError(t, err)
 

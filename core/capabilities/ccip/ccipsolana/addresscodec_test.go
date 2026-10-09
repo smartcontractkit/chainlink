@@ -11,6 +11,7 @@ import (
 )
 
 func TestPublicKeyFromBytes(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		inHex    string
@@ -46,6 +47,7 @@ func TestPublicKeyFromBytes(t *testing.T) {
 	codec := AddressCodec{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			bytes, err := hex.DecodeString(test.inHex)
 			require.NoError(t, err)
 
@@ -62,6 +64,7 @@ func TestPublicKeyFromBytes(t *testing.T) {
 }
 
 func TestPublicKeyFromBase58(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		in          string
@@ -85,6 +88,7 @@ func TestPublicKeyFromBase58(t *testing.T) {
 	codec := AddressCodec{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			actual, err := codec.AddressStringToBytes(test.in)
 			if test.expectedErr == nil {
 				require.NoError(t, err)
@@ -97,6 +101,7 @@ func TestPublicKeyFromBase58(t *testing.T) {
 }
 
 func TestAddressCodec_OracleIDAsAddressBytes(t *testing.T) {
+	t.Parallel()
 	codec := AddressCodec{}
 
 	testCases := []struct {
@@ -135,6 +140,7 @@ func TestAddressCodec_OracleIDAsAddressBytes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			actual, err := codec.OracleIDAsAddressBytes(tc.oracleID)
 
 			require.NoError(t, err)

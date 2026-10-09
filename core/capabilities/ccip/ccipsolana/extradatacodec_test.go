@@ -16,6 +16,7 @@ import (
 func Test_decodeExtraArgs(t *testing.T) {
 	extraDataDecoder := &ExtraDataDecoder{}
 	t.Run("decode dest exec data into map svm", func(t *testing.T) {
+		t.Parallel()
 		destGasAmount := uint32(10000)
 		encoded := make([]byte, 4)
 		binary.BigEndian.PutUint32(encoded, destGasAmount)
@@ -28,6 +29,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map svm", func(t *testing.T) {
+		t.Parallel()
 		destGasAmount := uint32(10000)
 		bitmap := uint64(0)
 		extraArgs := fee_quoter.SVMExtraArgsV1{
@@ -64,6 +66,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map evm", func(t *testing.T) {
+		t.Parallel()
 		extraArgs := fee_quoter.GenericExtraArgsV2{
 			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
 			AllowOutOfOrderExecution: false,

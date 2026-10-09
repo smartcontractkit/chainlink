@@ -9,7 +9,9 @@ import (
 )
 
 func TestBeholderMetricsPublisher_PublishMetric(t *testing.T) {
+	t.Parallel()
 	t.Run("publishes with correct context", func(t *testing.T) {
+		t.Parallel()
 		// Create a context with cancellation
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -30,6 +32,7 @@ func TestBeholderMetricsPublisher_PublishMetric(t *testing.T) {
 	})
 
 	t.Run("handles multiple labels", func(t *testing.T) {
+		t.Parallel()
 		mockPub := &mockPublisher{}
 
 		labels := map[string]string{
@@ -54,6 +57,7 @@ func TestBeholderMetricsPublisher_PublishMetric(t *testing.T) {
 	})
 
 	t.Run("handles empty labels", func(t *testing.T) {
+		t.Parallel()
 		mockPub := &mockPublisher{}
 
 		mockPub.PublishMetric(t.Context(), "test_metric", 1.0, map[string]string{})
@@ -64,6 +68,7 @@ func TestBeholderMetricsPublisher_PublishMetric(t *testing.T) {
 	})
 
 	t.Run("handles nil labels map", func(t *testing.T) {
+		t.Parallel()
 		mockPub := &mockPublisher{}
 
 		mockPub.PublishMetric(t.Context(), "test_metric", 1.0, nil)
