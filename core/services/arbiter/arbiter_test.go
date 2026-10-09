@@ -56,7 +56,7 @@ func (m *mockContractReader) Unbind(ctx context.Context, bindings []types.BoundC
 	return nil
 }
 
-func (m *mockContractReader) GetLatestValue(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) error {
+func (m *mockContractReader) GetLatestValue(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
 	if m.err != nil {
 		return m.err
 	}
@@ -67,7 +67,7 @@ func (m *mockContractReader) GetLatestValue(ctx context.Context, readIdentifier 
 	return nil
 }
 
-func (m *mockContractReader) GetLatestValueWithHeadData(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *types.Head, err error) {
+func (m *mockContractReader) GetLatestValueWithHeadData(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) (head *types.Head, err error) {
 	err = m.GetLatestValue(ctx, readIdentifier, confidenceLevel, params, returnVal)
 	return nil, err
 }
@@ -99,6 +99,7 @@ const (
 )
 
 func TestArbiter_New(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
@@ -111,6 +112,7 @@ func TestArbiter_New(t *testing.T) {
 }
 
 func TestArbiter_StartClose(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
@@ -133,6 +135,7 @@ func TestArbiter_StartClose(t *testing.T) {
 }
 
 func TestArbiter_ServiceTestRun(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
@@ -150,6 +153,7 @@ func TestArbiter_ServiceTestRun(t *testing.T) {
 }
 
 func TestArbiter_HealthReport(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
@@ -157,14 +161,14 @@ func TestArbiter_HealthReport(t *testing.T) {
 	arb, err := New(lggr, factory, testShardConfigAddr, uint16(freeport.GetOne(t)), testPollInterval, testRetryInterval) //nolint:gosec // G115: freeport returns valid port range
 	require.NoError(t, err)
 
-	t.Run("before start - not ready", func(t *testing.T) {
+	t.Run("before start - not ready", func(t *testing.T) { //nolint:paralleltest // subtests share one arbiter: this one asserts the pre-start state while its sibling starts it, so they must run sequentially
 		healthReport := arb.HealthReport()
 		require.Contains(t, healthReport, arb.Name())
 		// Before start, Ready() should return an error
 		assert.Error(t, healthReport[arb.Name()])
 	})
 
-	t.Run("after start - ready", func(t *testing.T) {
+	t.Run("after start - ready", func(t *testing.T) { //nolint:paralleltest // subtests share one arbiter: the sibling asserts the pre-start state, so this start must happen after it
 		err := arb.Start(context.Background())
 		require.NoError(t, err)
 		t.Cleanup(func() { arb.Close() })
@@ -176,6 +180,7 @@ func TestArbiter_HealthReport(t *testing.T) {
 }
 
 func TestArbiter_DoubleStart(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
@@ -194,6 +199,7 @@ func TestArbiter_DoubleStart(t *testing.T) {
 }
 
 func TestArbiter_DoubleClose(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
@@ -214,6 +220,7 @@ func TestArbiter_DoubleClose(t *testing.T) {
 }
 
 func TestArbiter_Name(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
@@ -225,6 +232,7 @@ func TestArbiter_Name(t *testing.T) {
 }
 
 func TestArbiter_Ready(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)
@@ -252,6 +260,7 @@ func TestArbiter_Ready(t *testing.T) {
 }
 
 func TestArbiter_GRPCServerListening(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockContractReader{desiredShardCount: 10}
 	factory := mockContractReaderFactory(mockReader)

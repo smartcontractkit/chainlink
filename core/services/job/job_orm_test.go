@@ -73,7 +73,7 @@ func TestORM(t *testing.T) {
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 	jb := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
-	t.Run("it creates job specs", func(t *testing.T) {
+	t.Run("it creates job specs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		err := orm.CreateJob(t.Context(), jb)
 		require.NoError(t, err)
 
@@ -88,7 +88,7 @@ func TestORM(t *testing.T) {
 		compareOCRJobSpecs(t, *jb, returnedSpec)
 	})
 
-	t.Run("it correctly mark job_pipeline_specs as primary when creating a job", func(t *testing.T) {
+	t.Run("it correctly mark job_pipeline_specs as primary when creating a job", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		ctx := t.Context()
 		jb2 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 		err := orm.CreateJob(ctx, jb2)
@@ -106,7 +106,7 @@ func TestORM(t *testing.T) {
 		assert.True(t, jobPipelineSpec.IsPrimary)
 	})
 
-	t.Run("autogenerates external job ID if missing", func(t *testing.T) {
+	t.Run("autogenerates external job ID if missing", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		jb2 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 		jb2.ExternalJobID = uuid.UUID{}
 		err := orm.CreateJob(t.Context(), jb2)
@@ -119,7 +119,7 @@ func TestORM(t *testing.T) {
 		assert.NotEqual(t, uuid.UUID{}, returnedSpec.ExternalJobID)
 	})
 
-	t.Run("it deletes jobs from the DB", func(t *testing.T) {
+	t.Run("it deletes jobs from the DB", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		var dbSpecs []job.Job
 
 		err := db.Select(&dbSpecs, "SELECT * FROM jobs")
@@ -135,7 +135,7 @@ func TestORM(t *testing.T) {
 		require.Len(t, dbSpecs, 2)
 	})
 
-	t.Run("increase job spec error occurrence", func(t *testing.T) {
+	t.Run("increase job spec error occurrence", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		ctx := t.Context()
 		jb3 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 		err := orm.CreateJob(ctx, jb3)
@@ -174,7 +174,7 @@ func TestORM(t *testing.T) {
 		require.Len(t, jobSpecErrors, 2)
 	})
 
-	t.Run("finds job spec error by ID", func(t *testing.T) {
+	t.Run("finds job spec error by ID", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		ctx := t.Context()
 		jb3 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 		err := orm.CreateJob(ctx, jb3)
@@ -215,7 +215,7 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, ocrSpecError2, dbSpecErr2.Description)
 	})
 
-	t.Run("rejects webhook job creation with external initiators", func(t *testing.T) {
+	t.Run("rejects webhook job creation with external initiators", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 		eiBar := cltest.MustInsertExternalInitiator(t, borm)
 
@@ -232,7 +232,7 @@ func TestORM(t *testing.T) {
 		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
 	})
 
-	t.Run("it creates and deletes records for blockhash store jobs", func(t *testing.T) {
+	t.Run("it creates and deletes records for blockhash store jobs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		ctx := t.Context()
 		bhsJob, err := blockhashstore.ValidatedSpec(
 			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{CoordinatorV2PlusAddress: "0x613a38AC1659769640aaE063C651F48E0250454C"}).Toml(),
@@ -265,7 +265,7 @@ func TestORM(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("it creates and deletes records for blockheaderfeeder jobs", func(t *testing.T) {
+	t.Run("it creates and deletes records for blockheaderfeeder jobs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		ctx := t.Context()
 		// at least one coordinator address to satisfy the validation DB constraint
 		bhsJob, err := blockheaderfeeder.ValidatedSpec(
@@ -317,7 +317,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	bridgesORM := bridges.NewORM(db)
 	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
-	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
+	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		ctx := t.Context()
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 		_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
@@ -351,7 +351,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
-	t.Run("it creates and deletes records for vrf jobs", func(t *testing.T) {
+	t.Run("it creates and deletes records for vrf jobs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		ctx := t.Context()
 		key, err := keyStore.VRF().Create(ctx)
 		require.NoError(t, err)
@@ -369,7 +369,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
-	t.Run("it creates and deletes records for ccv committee verifier jobs", func(t *testing.T) {
+	t.Run("it creates and deletes records for ccv committee verifier jobs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		ctx := t.Context()
 		jb, err := ccvcommitteeverifier.ValidatedCCVCommitteeVerifierSpec(
 			`
@@ -389,7 +389,7 @@ committeeVerifierConfig = "Foo = 'Bar'"
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
-	t.Run("it creates and deletes records for ccv executor jobs", func(t *testing.T) {
+	t.Run("it creates and deletes records for ccv executor jobs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		ctx := t.Context()
 		jb, err := ccvexecutor.ValidatedCCVExecutorSpec(
 			`
@@ -409,7 +409,7 @@ executorConfig = "Foo = 'Bar'"
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
-	t.Run("it deletes records for webhook jobs", func(t *testing.T) {
+	t.Run("it deletes records for webhook jobs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		ctx := t.Context()
 		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db))
 		jb, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
@@ -423,7 +423,7 @@ executorConfig = "Foo = 'Bar'"
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
-	t.Run("it creates and deletes records for stream jobs", func(t *testing.T) {
+	t.Run("it creates and deletes records for stream jobs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and assert on table-wide row counts, so they must run sequentially
 		ctx := t.Context()
 		jb, err := streams.ValidatedStreamSpec(testspecs.GenerateStreamSpec(testspecs.StreamSpecParams{Name: "Test-stream", StreamID: 1}).Toml())
 		require.NoError(t, err)
@@ -436,6 +436,7 @@ executorConfig = "Foo = 'Bar'"
 	})
 
 	t.Run("does not allow to delete external initiators if they have referencing external_initiator_webhook_specs", func(t *testing.T) {
+		t.Parallel()
 		// create new db because this will rollback transaction and poison it
 		db := pgtest.NewSqlxDB(t)
 		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db))
@@ -538,6 +539,7 @@ func TestORM_CreateJob_VRF(t *testing.T) {
 }
 
 func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
@@ -626,6 +628,7 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
@@ -665,6 +668,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
 	t.Run("evm chain id validation for ocr works", func(t *testing.T) {
+		t.Parallel()
 		jb := job.Job{
 			Type:          job.OffchainReporting,
 			OCROracleSpec: &job.OCROracleSpec{},
@@ -673,6 +677,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 	})
 
 	t.Run("evm chain id validation for direct request works", func(t *testing.T) {
+		t.Parallel()
 		// DirectRequest has been removed; the job-type removal check fires
 		// before any EVM-chain-ID validation.
 		jb := job.Job{
@@ -685,6 +690,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 	})
 
 	t.Run("evm chain id validation for flux monitor works", func(t *testing.T) {
+		t.Parallel()
 		// FluxMonitor has been removed; the job-type removal check fires
 		// before any EVM-chain-ID validation.
 		jb := job.Job{
@@ -697,6 +703,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 	})
 
 	t.Run("webhook job creation is rejected", func(t *testing.T) {
+		t.Parallel()
 		jb := job.Job{
 			Type:        job.Webhook,
 			WebhookSpec: &job.WebhookSpec{},
@@ -719,6 +726,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 	})
 
 	t.Run("evm chain id validation for vrf works", func(t *testing.T) {
+		t.Parallel()
 		jb := job.Job{
 			Type:    job.VRF,
 			VRFSpec: &job.VRFSpec{},
@@ -727,6 +735,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 	})
 
 	t.Run("evm chain id validation for block hash store works", func(t *testing.T) {
+		t.Parallel()
 		jb := job.Job{
 			Type:               job.BlockhashStore,
 			BlockhashStoreSpec: &job.BlockhashStoreSpec{},
@@ -735,6 +744,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 	})
 
 	t.Run("evm chain id validation for block header feeder works", func(t *testing.T) {
+		t.Parallel()
 		jb := job.Job{
 			Type:                  job.BlockHeaderFeeder,
 			BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{},
@@ -744,6 +754,7 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	customChainID := sqlutil.New(testutils.NewRandomEVMChainID())
 
@@ -821,6 +832,7 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	customChainID := sqlutil.New(testutils.NewRandomEVMChainID())
 
@@ -885,6 +897,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 }
 
 func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	customChainID := sqlutil.New(testutils.NewRandomEVMChainID())
 
@@ -910,14 +923,14 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 	jb, err := ocr2validate.ValidatedOracleSpecToml(t.Context(), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)
 
-	t.Run("sending keys or transmitterID must be defined", func(t *testing.T) {
+	t.Run("sending keys or transmitterID must be defined", func(t *testing.T) { //nolint:paralleltest // subtests mutate the shared job spec jb, so they must run sequentially
 		ctx := t.Context()
 		jb.OCR2OracleSpec.TransmitterID = null.String{}
 		assert.Equal(t, "CreateJobFailed: neither sending keys nor transmitter ID is defined", jobORM.CreateJob(ctx, &jb).Error())
 	})
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	t.Run("sending keys validation works properly", func(t *testing.T) {
+	t.Run("sending keys validation works properly", func(t *testing.T) { //nolint:paralleltest // subtests mutate the shared job spec jb, so they must run sequentially
 		ctx := t.Context()
 		jb.OCR2OracleSpec.TransmitterID = null.String{}
 		_, address2 := cltest.MustInsertRandomKey(t, keyStore.Eth())
@@ -928,14 +941,14 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 		assert.Equal(t, "CreateJobFailed: sending keys are of wrong type", jobORM.CreateJob(ctx, &jb).Error())
 	})
 
-	t.Run("sending keys and transmitter ID can't both be defined", func(t *testing.T) {
+	t.Run("sending keys and transmitter ID can't both be defined", func(t *testing.T) { //nolint:paralleltest // subtests mutate the shared job spec jb, so they must run sequentially
 		ctx := t.Context()
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = any([]any{address.String()})
 		assert.Equal(t, "CreateJobFailed: sending keys and transmitter ID can't both be defined", jobORM.CreateJob(ctx, &jb).Error())
 	})
 
-	t.Run("transmitter validation works", func(t *testing.T) {
+	t.Run("transmitter validation works", func(t *testing.T) { //nolint:paralleltest // subtests mutate the shared job spec jb, so they must run sequentially
 		ctx := t.Context()
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("transmitterID that doesn't have a match in key store")
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = nil
@@ -944,6 +957,7 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 }
 
 func TestORM_ValidateKeyStoreMatch(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 
@@ -957,7 +971,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	t.Run("test ETH key validation", func(t *testing.T) {
+	t.Run("test ETH key validation", func(t *testing.T) { //nolint:paralleltest // subtests mutate the shared job spec and key store (same instance)
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkEVM
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
@@ -968,7 +982,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("test Solana key validation", func(t *testing.T) {
+	t.Run("test Solana key validation", func(t *testing.T) { //nolint:paralleltest // subtests mutate the shared job spec and key store (same instance)
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkSolana
 
@@ -981,7 +995,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("test Starknet key validation", func(t *testing.T) {
+	t.Run("test Starknet key validation", func(t *testing.T) { //nolint:paralleltest // subtests mutate the shared job spec and key store (same instance)
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkStarkNet
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
@@ -993,7 +1007,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("test Aptos key validation", func(t *testing.T) {
+	t.Run("test Aptos key validation", func(t *testing.T) { //nolint:paralleltest // subtests mutate the shared job spec and key store (same instance)
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkAptos
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
@@ -1005,7 +1019,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("test Tron key validation", func(t *testing.T) {
+	t.Run("test Tron key validation", func(t *testing.T) { //nolint:paralleltest // subtests mutate the shared job spec and key store (same instance)
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkTron
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
@@ -1017,7 +1031,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("test TON key validation", func(t *testing.T) {
+	t.Run("test TON key validation", func(t *testing.T) { //nolint:paralleltest // subtests mutate the shared job spec and key store (same instance)
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkTON
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
@@ -1101,6 +1115,7 @@ func Test_FindJobs(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("jobs are ordered by latest first", func(t *testing.T) {
+		t.Parallel()
 		jobs, count, err2 := orm.FindJobs(t.Context(), 0, 2)
 		require.NoError(t, err2)
 		require.Len(t, jobs, 2)
@@ -1114,6 +1129,7 @@ func Test_FindJobs(t *testing.T) {
 	})
 
 	t.Run("jobs respect pagination", func(t *testing.T) {
+		t.Parallel()
 		jobs, count, err2 := orm.FindJobs(t.Context(), 0, 1)
 		require.NoError(t, err2)
 		require.Len(t, jobs, 1)
@@ -1251,6 +1267,7 @@ func Test_FindJob(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("by id", func(t *testing.T) {
+		t.Parallel()
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 		jb, err2 := orm.FindJob(ctx, job.ID)
@@ -1266,6 +1283,7 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("by external job id", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		jb, err2 := orm.FindJobByExternalJobID(ctx, externalJobID)
 		require.NoError(t, err2)
@@ -1280,6 +1298,7 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("by address", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		jbID, err2 := orm.FindJobIDByAddress(ctx, job.OCROracleSpec.ContractAddress, job.OCROracleSpec.EVMChainID)
 		require.NoError(t, err2)
@@ -1292,6 +1311,7 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("by address yet chain scoped", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		commonAddr := jobSameAddress.OCROracleSpec.ContractAddress
 
@@ -1309,6 +1329,7 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("by contract id without feed id (with duplicate contract ids on different chain ids)", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 
 		// Find job ID for ocr2 job without feedID.
@@ -1319,6 +1340,7 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("with duplicate contract id and the same chain id", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		_, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID2, sharedOCR2ContractID, nil)
 		assert.ErrorContains(t, err2, "find returned > 1 job results")
@@ -1345,6 +1367,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with jobs", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		jbs, err2 := orm.FindJobsByPipelineSpecIDs(ctx, []int32{jb.PipelineSpecID})
 		require.NoError(t, err2)
@@ -1359,6 +1382,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	})
 
 	t.Run("without jobs", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		jbs, err2 := orm.FindJobsByPipelineSpecIDs(ctx, []int32{-1})
 		require.NoError(t, err2)
@@ -1366,6 +1390,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	})
 
 	t.Run("with chainID disabled", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		orm2 := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
@@ -1415,7 +1440,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 	err = orm.CreateJob(t.Context(), &jb)
 	require.NoError(t, err)
 
-	t.Run("with no pipeline runs", func(t *testing.T) {
+	t.Run("with no pipeline runs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and job; the no-runs and a-run cases assert mutually exclusive preconditions, so they must run sequentially
 		ctx := t.Context()
 		runs, count, err2 := orm.PipelineRuns(ctx, nil, 0, 10)
 		require.NoError(t, err2)
@@ -1423,7 +1448,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 		assert.Empty(t, runs)
 	})
 
-	t.Run("with a pipeline run", func(t *testing.T) {
+	t.Run("with a pipeline run", func(t *testing.T) { //nolint:paralleltest // subtests share one database and job; the no-runs and a-run cases assert mutually exclusive preconditions, so they must run sequentially
 		ctx := t.Context()
 		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
@@ -1485,7 +1510,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	err = orm.CreateJob(t.Context(), &jb)
 	require.NoError(t, err)
 
-	t.Run("with no pipeline runs", func(t *testing.T) {
+	t.Run("with no pipeline runs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and job; the no-runs and a-run cases assert mutually exclusive preconditions, so they must run sequentially
 		ctx := t.Context()
 		runs, count, err2 := orm.PipelineRuns(ctx, &jb.ID, 0, 10)
 		require.NoError(t, err2)
@@ -1493,7 +1518,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 		assert.Empty(t, runs)
 	})
 
-	t.Run("with a pipeline run", func(t *testing.T) {
+	t.Run("with a pipeline run", func(t *testing.T) { //nolint:paralleltest // subtests share one database and job; the no-runs and a-run cases assert mutually exclusive preconditions, so they must run sequentially
 		ctx := t.Context()
 		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
@@ -1514,6 +1539,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 }
 
 func Test_FindPipelineRunIDsByJobID(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	var jb job.Job
 
@@ -1571,14 +1597,14 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		}
 	}
 
-	t.Run("with no pipeline runs", func(t *testing.T) {
+	t.Run("with no pipeline runs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and job; the no-runs and a-run cases assert mutually exclusive preconditions, so they must run sequentially
 		ctx := t.Context()
 		runIDs, err := orm.FindPipelineRunIDsByJobID(ctx, jb.ID, 0, 10)
 		require.NoError(t, err)
 		assert.Empty(t, runIDs)
 	})
 
-	t.Run("with a pipeline run", func(t *testing.T) {
+	t.Run("with a pipeline run", func(t *testing.T) { //nolint:paralleltest // subtests share one database and job; the no-runs and a-run cases assert mutually exclusive preconditions, so they must run sequentially
 		ctx := t.Context()
 		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
@@ -1592,6 +1618,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	// Internally these queries are batched by 1000, this tests case requiring concatenation
 	//  of more than 1 batch
 	t.Run("with batch concatenation limit 10", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		runIDs, err := orm.FindPipelineRunIDsByJobID(ctx, jobs[3].ID, 95, 10)
 		require.NoError(t, err)
@@ -1602,6 +1629,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	// Internally these queries are batched by 1000, this tests case requiring concatenation
 	//  of more than 1 batch
 	t.Run("with batch concatenation limit 100", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		runIDs, err := orm.FindPipelineRunIDsByJobID(ctx, jobs[3].ID, 95, 100)
 		require.NoError(t, err)
@@ -1617,6 +1645,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	//  returns empty.  This can happen if the job id being requested hasn't run in a while,
 	//  but many other jobs have run since.
 	t.Run("with first batch empty, over limit", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		runIDs, err := orm.FindPipelineRunIDsByJobID(ctx, jobs[3].ID, 0, 25)
 		require.NoError(t, err)
@@ -1626,6 +1655,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 
 	// Same as previous, but where there are fewer matching jobs than the limit
 	t.Run("with first batch empty, under limit", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		runIDs, err := orm.FindPipelineRunIDsByJobID(ctx, jobs[3].ID, 143, 190)
 		require.NoError(t, err)
@@ -1676,6 +1706,7 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with no pipeline runs", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		runs, err2 := orm.FindPipelineRunsByIDs(ctx, []int64{-1})
 		require.NoError(t, err2)
@@ -1683,6 +1714,7 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 	})
 
 	t.Run("with a pipeline run", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
@@ -1723,6 +1755,7 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with no pipeline run", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		run, err2 := orm.FindPipelineRunByID(ctx, -1)
 		assert.Equal(t, pipeline.Run{}, run)
@@ -1730,6 +1763,7 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	})
 
 	t.Run("with a pipeline run", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
@@ -1861,14 +1895,14 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 	err = orm.CreateJob(t.Context(), &jb)
 	require.NoError(t, err)
 
-	t.Run("with no pipeline runs", func(t *testing.T) {
+	t.Run("with no pipeline runs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and job; the no-runs and a-run cases assert mutually exclusive preconditions, so they must run sequentially
 		ctx := t.Context()
 		count, err2 := orm.CountPipelineRunsByJobID(ctx, jb.ID)
 		require.NoError(t, err2)
 		assert.Equal(t, int32(0), count)
 	})
 
-	t.Run("with a pipeline run", func(t *testing.T) {
+	t.Run("with a pipeline run", func(t *testing.T) { //nolint:paralleltest // subtests share one database and job; the no-runs and a-run cases assert mutually exclusive preconditions, so they must run sequentially
 		ctx := t.Context()
 		mustInsertPipelineRun(t, pipelineORM, jb)
 
@@ -1897,6 +1931,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.R
 }
 
 func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	customChainID := sqlutil.New(testutils.NewRandomEVMChainID())
 
@@ -1978,6 +2013,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 }
 
 func TestORM_CreateJob_KeyLocking(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	customChainID := sqlutil.New(testutils.NewRandomEVMChainID())
 
@@ -2006,6 +2042,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, ks)
 
 	t.Run("keys not locked", func(t *testing.T) {
+		t.Parallel()
 		completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
@@ -2027,6 +2064,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 	})
 
 	t.Run("keys locked", func(t *testing.T) {
+		t.Parallel()
 		completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
@@ -2052,6 +2090,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 	})
 
 	t.Run("keys locked but job spec misconfigured", func(t *testing.T) {
+		t.Parallel()
 		rm := ks.Eth().GetResourceMutex(ctx, transmitterID)
 		require.NoError(t, rm.TryLock(keys.TXMv1))
 		rm = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
@@ -2219,6 +2258,7 @@ func Test_FindStandardCapabilityJobID_NoMatch(t *testing.T) {
 }
 
 func TestORM_CRESettings(t *testing.T) {
+	t.Parallel()
 	config := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)

@@ -12,6 +12,7 @@ import (
 )
 
 func TestDatabaseConfig(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 		SecretsStrings: []string{`[Database]

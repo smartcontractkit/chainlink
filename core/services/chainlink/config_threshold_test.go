@@ -15,6 +15,7 @@ ThresholdKeyShare = "something"
 )
 
 func TestThresholdConfig(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		SecretsStrings: []string{thresholdSecrets},
 	}

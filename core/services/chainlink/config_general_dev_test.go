@@ -16,6 +16,7 @@ func TestTOMLGeneralConfig_DevModeInsecureConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("all insecure configs are false by default", func(t *testing.T) {
+		t.Parallel()
 		config, err := GeneralConfigOpts{}.New()
 		require.NoError(t, err)
 
@@ -26,12 +27,16 @@ func TestTOMLGeneralConfig_DevModeInsecureConfig(t *testing.T) {
 	})
 
 	t.Run("insecure config ignore override on non-dev builds", func(t *testing.T) {
+		t.Parallel()
 		config, err := GeneralConfigOpts{
 			OverrideFn: func(c *Config, s *Secrets) {
-				*c.Insecure.DevWebServer = true
-				*c.Insecure.DisableRateLimiting = true
-				*c.Insecure.InfiniteDepthQueries = true
-				*c.Insecure.OCRDevelopmentMode = true
+				// Replace the pointers instead of writing through them: after setDefaults
+				// these fields alias the package-global docs.CoreDefaults() singleton, and
+				// deref-writes would leak into every other test in the process.
+				c.Insecure.DevWebServer = new(true)
+				c.Insecure.DisableRateLimiting = new(true)
+				c.Insecure.InfiniteDepthQueries = new(true)
+				c.Insecure.OCRDevelopmentMode = new(true)
 			},
 		}.New()
 		require.NoError(t, err)
@@ -43,6 +48,7 @@ func TestTOMLGeneralConfig_DevModeInsecureConfig(t *testing.T) {
 	})
 
 	t.Run("ParseConfig accepts insecure values on dev builds", func(t *testing.T) {
+		t.Parallel()
 		opts := GeneralConfigOpts{
 			ConfigStrings: []string{
 				`

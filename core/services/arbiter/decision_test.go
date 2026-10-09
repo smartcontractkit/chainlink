@@ -43,6 +43,7 @@ func (m *mockShardConfigReader) GetDesiredShardCount(ctx context.Context) (uint6
 }
 
 func TestDecisionEngine_ComputeApprovedCount(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		desiredCount   int
@@ -105,6 +106,7 @@ func TestDecisionEngine_ComputeApprovedCount(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			lggr := logger.TestLogger(t)
 
 			mockReader := &mockShardConfigReader{
@@ -128,9 +130,11 @@ func TestDecisionEngine_ComputeApprovedCount(t *testing.T) {
 }
 
 func TestDecisionEngine_ComputeApprovedCount_EdgeCases(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	t.Run("large on-chain limit", func(t *testing.T) {
+		t.Parallel()
 		mockReader := &mockShardConfigReader{
 			desiredCount: 1000,
 		}
@@ -143,6 +147,7 @@ func TestDecisionEngine_ComputeApprovedCount_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("exactly at on-chain limit", func(t *testing.T) {
+		t.Parallel()
 		mockReader := &mockShardConfigReader{
 			desiredCount: 7,
 		}
@@ -155,6 +160,7 @@ func TestDecisionEngine_ComputeApprovedCount_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("on-chain limit is zero - minimum 1 applied", func(t *testing.T) {
+		t.Parallel()
 		mockReader := &mockShardConfigReader{
 			desiredCount: 0,
 		}
@@ -169,6 +175,7 @@ func TestDecisionEngine_ComputeApprovedCount_EdgeCases(t *testing.T) {
 }
 
 func TestDecisionEngine_ContextCancellation(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	t.Run("context cancellation propagated", func(t *testing.T) {

@@ -20,6 +20,7 @@ import (
 )
 
 func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
+	t.Parallel()
 	tomlData := `
 	type = "standardcapabilities"
 	schemaVersion = 1
@@ -60,6 +61,7 @@ func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
 }
 
 func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
+	t.Parallel()
 	type fields struct {
 		Relay       string
 		ChainID     string
@@ -132,6 +134,7 @@ var (
 )
 
 func TestOCR2OracleSpec(t *testing.T) {
+	t.Parallel()
 	val := job.OCR2OracleSpec{
 		Relay:                             relay.NetworkEVM,
 		PluginType:                        types.Median,
@@ -289,6 +292,7 @@ func TestOCR2OracleSpec(t *testing.T) {
 	}
 
 	t.Run("marshal", func(t *testing.T) {
+		t.Parallel()
 		gotB, err := toml.Marshal(val)
 		require.NoError(t, err)
 		t.Log("marshaled:", string(gotB))
@@ -296,12 +300,14 @@ func TestOCR2OracleSpec(t *testing.T) {
 	})
 
 	t.Run("round-trip", func(t *testing.T) {
+		t.Parallel()
 		var gotVal job.OCR2OracleSpec
 		require.NoError(t, toml.Unmarshal([]byte(compact), &gotVal))
 		gotB, err := toml.Marshal(gotVal)
 		require.NoError(t, err)
 		require.Equal(t, compact, string(gotB))
 		t.Run("pretty", func(t *testing.T) {
+			t.Parallel()
 			var gotVal job.OCR2OracleSpec
 			require.NoError(t, toml.Unmarshal([]byte(pretty), &gotVal))
 			gotB, err := toml.Marshal(gotVal)

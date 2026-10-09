@@ -7,6 +7,7 @@ import (
 )
 
 func TestPyroscopeConfigTest(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		ConfigStrings:  []string{fullTOML},
 		SecretsStrings: []string{secretsFullTOML},

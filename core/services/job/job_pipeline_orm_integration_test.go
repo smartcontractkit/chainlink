@@ -27,6 +27,7 @@ func clearJobsDb(t *testing.T, db *sqlx.DB) {
 }
 
 func TestPipelineORM_Integration(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	const DotStr = `
         // data source 1
@@ -130,7 +131,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
-	t.Run("creates task DAGs", func(t *testing.T) {
+	t.Run("creates task DAGs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and each truncates it via clearJobsDb, so they must run sequentially
 		ctx := t.Context()
 		clearJobsDb(t, db)
 
@@ -154,7 +155,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("creates runs", func(t *testing.T) {
+	t.Run("creates runs", func(t *testing.T) { //nolint:paralleltest // subtests share one database and each truncates it via clearJobsDb, so they must run sequentially
 		lggr := logger.TestLogger(t)
 		clearJobsDb(t, db)
 		orm := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())

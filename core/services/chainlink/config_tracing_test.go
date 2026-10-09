@@ -9,6 +9,7 @@ import (
 )
 
 func TestTracing_Config(t *testing.T) {
+	t.Parallel()
 	// Test when all fields are non-nil
 	enabled := true
 	collectorTarget := "http://localhost:9000"

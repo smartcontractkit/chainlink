@@ -25,6 +25,7 @@ APISecret = "indexer-api-secret"
 )
 
 func TestCCVConfig(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		SecretsStrings: []string{secretsCCV},
 	}

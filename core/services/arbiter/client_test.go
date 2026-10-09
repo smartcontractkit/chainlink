@@ -40,9 +40,11 @@ func (m *mockArbiterScalerServer) ConsensusWantShards(ctx context.Context, req *
 }
 
 func TestRingArbiterClient_Status(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	t.Run("returns status from server", func(t *testing.T) {
+		t.Parallel()
 		mockServer := &mockArbiterScalerServer{
 			statusResp: &ringpb.ReplicaStatus{
 				WantShards: 5,
@@ -67,6 +69,7 @@ func TestRingArbiterClient_Status(t *testing.T) {
 	})
 
 	t.Run("returns error from server", func(t *testing.T) {
+		t.Parallel()
 		expectedErr := errors.New("server error")
 		mockServer := &mockArbiterScalerServer{
 			statusErr: expectedErr,
@@ -82,9 +85,11 @@ func TestRingArbiterClient_Status(t *testing.T) {
 }
 
 func TestRingArbiterClient_ConsensusWantShards(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	t.Run("calls server with correct request", func(t *testing.T) {
+		t.Parallel()
 		mockServer := &mockArbiterScalerServer{}
 
 		client := NewRingArbiterClient(mockServer, lggr)
@@ -98,6 +103,7 @@ func TestRingArbiterClient_ConsensusWantShards(t *testing.T) {
 	})
 
 	t.Run("returns error from server", func(t *testing.T) {
+		t.Parallel()
 		expectedErr := errors.New("consensus error")
 		mockServer := &mockArbiterScalerServer{
 			consensusErr: expectedErr,

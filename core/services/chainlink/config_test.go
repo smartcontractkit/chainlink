@@ -152,6 +152,7 @@ var (
 )
 
 func TestConfig_Marshal(t *testing.T) {
+	t.Parallel()
 	zeroSeconds := *commonconfig.MustNewDuration(time.Second * 0)
 	second := *commonconfig.MustNewDuration(time.Second)
 	minute := *commonconfig.MustNewDuration(time.Minute)
@@ -1292,6 +1293,7 @@ ReaperMaxAge = '678h0m0s'
 		{"multi-chain", multiChain, multiChainTOML},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			s, err := tt.config.TOMLString()
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, s, diff.Diff(tt.exp, s))
@@ -1308,6 +1310,7 @@ ReaperMaxAge = '678h0m0s'
 }
 
 func TestConfig_full(t *testing.T) {
+	t.Parallel()
 	var got Config
 	require.NoError(t, commonconfig.DecodeTOML(strings.NewReader(fullTOML), &got))
 	// Except for some EVM node fields.
@@ -1395,6 +1398,7 @@ func TestConfig_full(t *testing.T) {
 var invalidTOML string
 
 func TestConfig_Validate(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct {
 		name string
 		toml string
@@ -1498,6 +1502,7 @@ func TestConfig_Validate(t *testing.T) {
 			- ChainID: missing: required for all chains`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var c Config
 			require.NoError(t, commonconfig.DecodeTOML(strings.NewReader(tt.toml), &c))
 			c.setDefaults()
@@ -1542,6 +1547,7 @@ var (
 )
 
 func Test_generalConfig_LogConfiguration(t *testing.T) {
+	t.Parallel()
 	const (
 		secrets   = "# Secrets:\n"
 		input     = "# Input Configuration:\n"
@@ -1572,6 +1578,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 			opts := GeneralConfigOpts{
 				SkipEnv:        true,
@@ -1618,6 +1625,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 }
 
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
+	t.Parallel()
 	invalidTOML := "{ bad syntax {"
 	opts := GeneralConfigOpts{
 		ConfigStrings:  []string{invalidTOML},
@@ -1628,6 +1636,7 @@ func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
+	t.Parallel()
 	invalidTOML := `Dev = false
 Dev = true`
 	opts := GeneralConfigOpts{
@@ -1659,6 +1668,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 }
 
 func TestSecrets_Validate(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct {
 		name string
 		toml string
@@ -1713,6 +1723,7 @@ AllowSimplePasswords = true`,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var s Secrets
 			require.NoError(t, commonconfig.DecodeTOML(strings.NewReader(tt.toml), &s))
 			assertValidationError(t, &s, tt.exp)
@@ -1729,6 +1740,7 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 }
 
 func TestConfig_setDefaults(t *testing.T) {
+	t.Parallel()
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: sqlutil.NewI(99999133712345)}}
 	c.Solana = RawConfigs{{"ChainID": new("unknown solana chain")}}
@@ -1772,6 +1784,7 @@ func TestConfig_SetFrom(t *testing.T) {
 		{"multi-empty", multiChainTOML, []string{multiChainTOML, ""}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var c Config
 			for _, fs := range tt.from {
 				var f Config
@@ -1787,6 +1800,7 @@ func TestConfig_SetFrom(t *testing.T) {
 }
 
 func TestConfig_warnings(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		config         Config
@@ -1814,6 +1828,7 @@ func TestConfig_warnings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.config.warnings()
 			if len(tt.expectedErrors) == 0 {
 				assert.NoError(t, err)
@@ -1833,6 +1848,7 @@ func mustHexToBig(t *testing.T, hx string) *big.Int {
 }
 
 func TestRawConfig_IsEnabled(t *testing.T) {
+	t.Parallel()
 	assert.True(t, RawConfig{"Enabled": true}.IsEnabled())
 	assert.True(t, RawConfig{"Enabled": nil}.IsEnabled())
 	assert.True(t, RawConfig{}.IsEnabled())
@@ -1842,6 +1858,7 @@ func TestRawConfig_IsEnabled(t *testing.T) {
 }
 
 func TestRawConfig_SetDefaults(t *testing.T) {
+	t.Parallel()
 	c := RawConfig{"Enabled": true}
 	c.SetDefaults()
 	require.NotContains(t, c, "Enabled")
