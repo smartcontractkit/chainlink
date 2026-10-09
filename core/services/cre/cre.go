@@ -18,7 +18,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
@@ -233,7 +232,7 @@ func (s *Services) newSubservices(
 				opts.CapabilitiesRegistry,
 				opts.ExecutionHandlers,
 				keyStore.P2P(),
-				confidentialRelayPeerID(cfg, capCfg),
+				cfg.P2P().PeerID(),
 				lggr,
 				opts.LimitsFactory,
 				attestationValidator,
@@ -333,15 +332,6 @@ func (s *Services) newSubservices(
 	srvs = append(srvs, wfSyncerSrvcs...)
 
 	return srvs, nil
-}
-
-// Same peerID resolution pattern as core/services/standardcapabilities/delegate.go: prefer a
-// configured peerID, fall through to GetOrFirst(zero) so single-key nodes still resolve cleanly.
-func confidentialRelayPeerID(cfg Config, capCfg config.Capabilities) p2pkey.PeerID {
-	if id := capCfg.Peering().PeerID(); id != (p2pkey.PeerID{}) {
-		return id
-	}
-	return cfg.P2P().PeerID()
 }
 
 // Config is the minimal interface needed from GeneralConfig for CRE

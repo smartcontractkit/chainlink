@@ -170,7 +170,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		bootstrapPeers = of.defaultBootstrappers
 	}
 	if len(bootstrapPeers) == 0 {
-		return nil, errors.New("no bootstrap peers found in job spec or Capabilities.Peering.V2.DefaultBootstrappers")
+		return nil, errors.New("no bootstrap peers found in job spec or P2P.V2.DefaultBootstrappers")
 	}
 
 	keyBundles := map[string]ocr2key.KeyBundle{}
