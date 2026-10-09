@@ -4,7 +4,7 @@ go 1.25.3
 
 require (
 	github.com/smartcontractkit/cre-sdk-go v1.17.0-capdev.1
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.1-0.20260504162314-fbfac1c36bec
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.4.0-capdev.1
 )
 
 require (

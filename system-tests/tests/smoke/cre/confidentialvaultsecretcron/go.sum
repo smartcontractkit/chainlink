@@ -28,8 +28,8 @@ github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260804191526-b7a850
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260804191526-b7a850ae7648/go.mod h1:/i8hjTPFdVWHiY+QjeSiVS2Z3GB3WAZznGgXHstC02E=
 github.com/smartcontractkit/cre-sdk-go v1.17.0-capdev.1 h1:8ts9cl7bOopbOALhXHMTgZy8w1VU/bEuY8It2T0Lwdk=
 github.com/smartcontractkit/cre-sdk-go v1.17.0-capdev.1/go.mod h1:FDmcK/My08vBNWqpKUQGtSxVEmECzPye3tpGOzVxw/k=
-github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.1-0.20260504162314-fbfac1c36bec h1:K5c66SeYJ9Psa14SkShBjmXiST5UctigQIxDsREoGt0=
-github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.1-0.20260504162314-fbfac1c36bec/go.mod h1:RHfcLS022PoBg1mOB8ObuzHrTJ+ZEh4rQdeuNfheBsI=
+github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.4.0-capdev.1 h1:+t2KR7OqGBGO/LCuI1QzPxeMMHi2rtAVhv8jYl3xUB0=
+github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.4.0-capdev.1/go.mod h1:Rzhy75vD3FqQo/SV6lypnxIwjWac6IOWzI5BYj3tYMU=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 golang.org/x/sys v0.40.0 h1:DBZZqJ2Rkml6QMQsZywtnjnnGvHza6BTfYFWY9kjEWQ=
