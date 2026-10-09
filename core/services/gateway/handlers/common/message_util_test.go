@@ -26,6 +26,7 @@ func unsignedMessage() api.Message {
 }
 
 func TestValidatedMessageFromReq(t *testing.T) {
+	t.Parallel()
 	validMsg := unsignedMessage()
 	key, err := crypto.HexToECDSA(privateKey)
 	require.NoError(t, err)
@@ -36,6 +37,7 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	rawParams := json.RawMessage(params)
 
 	t.Run("valid request", func(t *testing.T) {
+		t.Parallel()
 		req := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
@@ -50,6 +52,7 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	})
 
 	t.Run("invalid message", func(t *testing.T) {
+		t.Parallel()
 		invalidMsg := unsignedMessage()
 		invalidParams, err := json.Marshal(invalidMsg)
 		require.NoError(t, err)
@@ -66,6 +69,7 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	})
 
 	t.Run("incorrect jsonrpc version", func(t *testing.T) {
+		t.Parallel()
 		req := &jsonrpc.Request[json.RawMessage]{
 			Version: "1.0",
 			ID:      "msg-123",
@@ -78,6 +82,7 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	})
 
 	t.Run("empty method field", func(t *testing.T) {
+		t.Parallel()
 		req := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
@@ -90,6 +95,7 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	})
 
 	t.Run("missing params attribute", func(t *testing.T) {
+		t.Parallel()
 		req := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
@@ -102,6 +108,7 @@ func TestValidatedMessageFromReq(t *testing.T) {
 	})
 
 	t.Run("invalid params json", func(t *testing.T) {
+		t.Parallel()
 		rawParams := json.RawMessage([]byte(`{invalid json}`))
 		req := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
@@ -117,6 +124,7 @@ func TestValidatedMessageFromReq(t *testing.T) {
 }
 
 func TestValidatedMessageFromResp(t *testing.T) {
+	t.Parallel()
 	validMsg := unsignedMessage()
 	key, err := crypto.HexToECDSA(privateKey)
 	require.NoError(t, err)
@@ -127,6 +135,7 @@ func TestValidatedMessageFromResp(t *testing.T) {
 	rawResult := json.RawMessage(result)
 
 	t.Run("valid response", func(t *testing.T) {
+		t.Parallel()
 		resp := &jsonrpc.Response[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
@@ -140,6 +149,7 @@ func TestValidatedMessageFromResp(t *testing.T) {
 	})
 
 	t.Run("response with error", func(t *testing.T) {
+		t.Parallel()
 		resp := &jsonrpc.Response[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
@@ -151,6 +161,7 @@ func TestValidatedMessageFromResp(t *testing.T) {
 	})
 
 	t.Run("nil result", func(t *testing.T) {
+		t.Parallel()
 		resp := &jsonrpc.Response[json.RawMessage]{
 			Version: "2.0",
 			ID:      "msg-123",
@@ -162,6 +173,7 @@ func TestValidatedMessageFromResp(t *testing.T) {
 	})
 
 	t.Run("invalid result json", func(t *testing.T) {
+		t.Parallel()
 		rawResult := json.RawMessage([]byte(`{invalid json}`))
 		resp := &jsonrpc.Response[json.RawMessage]{
 			Version: "2.0",
@@ -174,6 +186,7 @@ func TestValidatedMessageFromResp(t *testing.T) {
 	})
 
 	t.Run("invalid message", func(t *testing.T) {
+		t.Parallel()
 		invalidMsg := unsignedMessage()
 		result, err := json.Marshal(invalidMsg)
 		require.NoError(t, err)
@@ -190,9 +203,11 @@ func TestValidatedMessageFromResp(t *testing.T) {
 }
 
 func TestValidatedResponseFromMessage(t *testing.T) {
+	t.Parallel()
 	validMsg := unsignedMessage()
 
 	t.Run("valid message", func(t *testing.T) {
+		t.Parallel()
 		resp, err := ValidatedResponseFromMessage(&validMsg)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -208,12 +223,14 @@ func TestValidatedResponseFromMessage(t *testing.T) {
 	})
 
 	t.Run("nil message", func(t *testing.T) {
+		t.Parallel()
 		resp, err := ValidatedResponseFromMessage(nil)
 		require.Nil(t, resp)
 		require.EqualError(t, err, "nil message")
 	})
 
 	t.Run("empty message ID", func(t *testing.T) {
+		t.Parallel()
 		msg := validMsg
 		msg.Body.MessageID = ""
 		resp, err := ValidatedResponseFromMessage(&msg)
@@ -223,9 +240,11 @@ func TestValidatedResponseFromMessage(t *testing.T) {
 }
 
 func TestValidatedRequestFromMessage(t *testing.T) {
+	t.Parallel()
 	validMsg := unsignedMessage()
 
 	t.Run("valid message", func(t *testing.T) {
+		t.Parallel()
 		req, err := ValidatedRequestFromMessage(&validMsg)
 		require.NoError(t, err)
 		require.NotNil(t, req)
@@ -242,12 +261,14 @@ func TestValidatedRequestFromMessage(t *testing.T) {
 	})
 
 	t.Run("nil message", func(t *testing.T) {
+		t.Parallel()
 		req, err := ValidatedRequestFromMessage(nil)
 		require.Nil(t, req)
 		require.EqualError(t, err, "nil message")
 	})
 
 	t.Run("empty message ID", func(t *testing.T) {
+		t.Parallel()
 		msg := validMsg
 		msg.Body.MessageID = ""
 		req, err := ValidatedRequestFromMessage(&msg)
@@ -256,6 +277,7 @@ func TestValidatedRequestFromMessage(t *testing.T) {
 	})
 
 	t.Run("empty method", func(t *testing.T) {
+		t.Parallel()
 		msg := validMsg
 		msg.Body.Method = ""
 		req, err := ValidatedRequestFromMessage(&msg)

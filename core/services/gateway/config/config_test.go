@@ -8,6 +8,7 @@ import (
 )
 
 func TestServiceConfig_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		config  ServiceConfig
@@ -51,6 +52,7 @@ func TestServiceConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.config.Validate()
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -63,6 +65,7 @@ func TestServiceConfig_Validate(t *testing.T) {
 }
 
 func TestShardedDONConfig_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		config  ShardedDONConfig
@@ -155,6 +158,7 @@ func TestShardedDONConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.config.Validate()
 			if tt.wantErr != "" {
 				require.Error(t, err)
@@ -167,6 +171,7 @@ func TestShardedDONConfig_Validate(t *testing.T) {
 }
 
 func TestGatewayConfig_Validate(t *testing.T) {
+	t.Parallel()
 	validDON := ShardedDONConfig{
 		DonName: "don1",
 		F:       0,
@@ -303,6 +308,7 @@ func TestGatewayConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.config.Validate()
 			if tt.wantErr != "" {
 				require.Error(t, err)

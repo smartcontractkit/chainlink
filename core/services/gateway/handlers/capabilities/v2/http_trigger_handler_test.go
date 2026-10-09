@@ -51,6 +51,7 @@ func requireUserErrorSent(t *testing.T, payload handlers.UserCallbackPayload, er
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
+	t.Parallel()
 	triggerReq := createTestTriggerRequest(workflowID)
 	reqBytes, err := json.Marshal(triggerReq)
 	require.NoError(t, err)
@@ -66,6 +67,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	req.Auth = createTestJWTToken(t, req, privateKey)
 
 	t.Run("successful trigger request", func(t *testing.T) {
+		t.Parallel()
 		handler, mockDon := createTestTriggerHandler(t)
 		registerWorkflow(t, handler, triggerReq.Workflow.WorkflowID, privateKey)
 		callback := hc.NewCallback()
@@ -88,6 +90,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 
 	t.Run("successful trigger request with missing 0x prefix", func(t *testing.T) {
+		t.Parallel()
 		handler, mockDon := createTestTriggerHandler(t)
 		registerWorkflow(t, handler, workflowID, privateKey)
 		callback := hc.NewCallback()
@@ -123,6 +126,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 
 	t.Run("successful trigger request with padded workflow ID", func(t *testing.T) {
+		t.Parallel()
 		handler, mockDon := createTestTriggerHandler(t)
 		workflowID := "0x00001234567890abcdef1234567890abcdef12345678901234567890abcdef12"
 		registerWorkflow(t, handler, workflowID, privateKey)
@@ -159,6 +163,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 
 	t.Run("successful trigger request with padded workflow ID and missing 0x prefix", func(t *testing.T) {
+		t.Parallel()
 		handler, mockDon := createTestTriggerHandler(t)
 		workflowID := "0x00001234567890abcdef1234567890abcdef12345678901234567890abcdef12"
 		registerWorkflow(t, handler, workflowID, privateKey)
@@ -195,6 +200,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 
 	t.Run("invalid JSON params", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestTriggerHandler(t)
 		callback := hc.NewCallback()
 
@@ -214,6 +220,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 
 	t.Run("null JSON params", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestTriggerHandler(t)
 		callback := hc.NewCallback()
 
@@ -233,6 +240,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 
 	t.Run("empty request ID", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestTriggerHandler(t)
 		callback := hc.NewCallback()
 
@@ -258,6 +266,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 
 	t.Run("request ID contains slash", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestTriggerHandler(t)
 		callback := hc.NewCallback()
 
@@ -288,6 +297,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 
 	t.Run("invalid method", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestTriggerHandler(t)
 		callback := hc.NewCallback()
 
@@ -318,6 +328,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 
 	t.Run("duplicate request ID", func(t *testing.T) {
+		t.Parallel()
 		handler, mockDon := createTestTriggerHandler(t)
 		privateKey := createTestPrivateKey(t)
 		registerWorkflow(t, handler, workflowID, privateKey)
@@ -358,6 +369,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 
 	t.Run("duplicate JWT token and request ID", func(t *testing.T) {
+		t.Parallel()
 		handler, mockDon := createTestTriggerHandler(t)
 		privateKey := createTestPrivateKey(t)
 		registerWorkflow(t, handler, workflowID, privateKey)
@@ -397,6 +409,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	})
 
 	t.Run("invalid input JSON", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestTriggerHandler(t)
 		callback := hc.NewCallback()
 
@@ -414,7 +427,9 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
+	t.Parallel()
 	t.Run("successful aggregation", func(t *testing.T) {
+		t.Parallel()
 		handler, mockDon := createTestTriggerHandler(t)
 		privateKey := createTestPrivateKey(t)
 		registerWorkflow(t, handler, workflowID, privateKey)
@@ -474,6 +489,7 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 	})
 
 	t.Run("callback not found", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestTriggerHandler(t)
 
 		rawRes := json.RawMessage(`{"result": "success"}`)
@@ -490,7 +506,9 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_ServiceLifecycle(t *testing.T) {
+	t.Parallel()
 	t.Run("start and stop", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestTriggerHandler(t)
 
 		ctx := t.Context()
@@ -502,6 +520,7 @@ func TestHttpTriggerHandler_ServiceLifecycle(t *testing.T) {
 	})
 
 	t.Run("double start and close should errors", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestTriggerHandler(t)
 
 		ctx := t.Context()
@@ -565,32 +584,34 @@ func registerWorkflowOnShards(t *testing.T, handler *httpTriggerHandler, workflo
 }
 
 func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
+	t.Parallel()
 	requestID := "test-request-id"
-	triggerReq := gateway_common.HTTPTriggerRequest{
-		Workflow: gateway_common.WorkflowSelector{
-			WorkflowID: workflowID,
-		},
-		Input: []byte(`{"key": "value"}`),
-	}
-	reqBytes, err := json.Marshal(triggerReq)
-	require.NoError(t, err)
-
-	rawParams := json.RawMessage(reqBytes)
-	req := &jsonrpc.Request[json.RawMessage]{
-		Version: "2.0",
-		ID:      requestID,
-		Method:  gateway_common.MethodWorkflowExecute,
-		Params:  &rawParams,
-	}
 	privateKey := createTestPrivateKey(t)
 	cfg := ServiceConfig{
 		CleanUpPeriodMs:             100,
 		MaxTriggerRequestDurationMs: 50,
 	}
-	handler, mockDon := createTestTriggerHandlerWithConfig(t, cfg)
-	registerWorkflow(t, handler, workflowID, privateKey)
 
 	t.Run("reap expired callbacks", func(t *testing.T) {
+		t.Parallel()
+		handler, mockDon := createTestTriggerHandlerWithConfig(t, cfg)
+		registerWorkflow(t, handler, workflowID, privateKey)
+
+		triggerReq := gateway_common.HTTPTriggerRequest{
+			Workflow: gateway_common.WorkflowSelector{
+				WorkflowID: workflowID,
+			},
+			Input: []byte(`{"key": "value"}`),
+		}
+		reqBytes, err := json.Marshal(triggerReq)
+		require.NoError(t, err)
+		rawParams := json.RawMessage(reqBytes)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      requestID,
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &rawParams,
+		}
 		req.Auth = createTestJWTToken(t, req, privateKey)
 		callback := hc.NewCallback()
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
@@ -616,6 +637,25 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 	})
 
 	t.Run("keep non-expired callbacks", func(t *testing.T) {
+		t.Parallel()
+		handler, mockDon := createTestTriggerHandlerWithConfig(t, cfg)
+		registerWorkflow(t, handler, workflowID, privateKey)
+
+		triggerReq := gateway_common.HTTPTriggerRequest{
+			Workflow: gateway_common.WorkflowSelector{
+				WorkflowID: workflowID,
+			},
+			Input: []byte(`{"key": "value"}`),
+		}
+		reqBytes, err := json.Marshal(triggerReq)
+		require.NoError(t, err)
+		rawParams := json.RawMessage(reqBytes)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      requestID,
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &rawParams,
+		}
 		req.Auth = createTestJWTToken(t, req, privateKey)
 		callback := hc.NewCallback()
 
@@ -643,6 +683,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 }
 
 func TestIsValidJSON(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    []byte
@@ -682,6 +723,7 @@ func TestIsValidJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := isValidJSON(tt.input)
 			require.Equal(t, tt.expected, result)
 		})
@@ -689,6 +731,7 @@ func TestIsValidJSON(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -1003,6 +1046,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_DeliversOnlyToRegisteredSha
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing.T) {
+	t.Parallel()
 	handler, mockDon := createTestTriggerHandler(t)
 	ctx := t.Context()
 
@@ -1032,6 +1076,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 	assignWorkflowToAllShards(handler.workflowMetadataHandler, workflowID)
 
 	t.Run("successful JWT authorization", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 
 		triggerReq := createTestTriggerRequest(workflowID)
@@ -1066,6 +1111,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 	})
 
 	t.Run("invalid JWT token", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 
 		triggerReq := createTestTriggerRequest(workflowID)
@@ -1091,6 +1137,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 	})
 
 	t.Run("unauthorized signer", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		unauthorizedKey := createTestPrivateKey(t)
 
@@ -1119,6 +1166,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 	})
 
 	t.Run("workflow not found", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
@@ -1152,6 +1200,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T) {
+	t.Parallel()
 	handler, mockDon := createTestTriggerHandler(t)
 	ctx := t.Context()
 
@@ -1184,6 +1233,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	assignWorkflowToAllShards(handler.workflowMetadataHandler, workflowID)
 
 	t.Run("successful workflow lookup by name", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
@@ -1219,6 +1269,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	})
 
 	t.Run("successful workflow lookup by name with missing 0x prefix", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
@@ -1254,6 +1305,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	})
 
 	t.Run("successful workflow lookup by name with padded workflow owner", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
@@ -1289,6 +1341,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	})
 
 	t.Run("successful workflow lookup by name with padded workflow owner and missing 0x prefix", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
@@ -1324,6 +1377,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	})
 
 	t.Run("workflow not found by name", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
@@ -1359,9 +1413,11 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
+	t.Parallel()
 	handler, mockDon := createTestTriggerHandler(t)
 
 	t.Run("workflowID uppercase", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1390,6 +1446,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("workflowOwner uppercase", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1420,6 +1477,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("nil input should fail", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1448,6 +1506,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("empty input should fail", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1476,6 +1535,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("empty JSON input should pass", func(t *testing.T) {
+		t.Parallel()
 		handler, mockDon = createTestTriggerHandler(t)
 		privateKey := createTestPrivateKey(t)
 		registerWorkflow(t, handler, workflowID, privateKey)
@@ -1508,6 +1568,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("null JSON input should fail", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1536,6 +1597,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("workflowID invalid hex odd length", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1564,6 +1626,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("workflowOwner invalid hex odd length", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1594,6 +1657,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("workflowName too long", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		longName := strings.Repeat("a", 65)
 		triggerReq := gateway_common.HTTPTriggerRequest{
@@ -1625,6 +1689,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("workflowTag too long", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		longTag := strings.Repeat("a", 33)
 		triggerReq := gateway_common.HTTPTriggerRequest{
@@ -1656,6 +1721,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("missing workflowName when workflowID not provided", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1684,6 +1750,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("missing workflowOwner when workflowID not provided", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1713,6 +1780,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("missing workflowTag when workflowID not provided", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1742,6 +1810,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("invalid hex in workflowID", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1770,6 +1839,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("invalid hex in workflowOwner", func(t *testing.T) {
+		t.Parallel()
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -1917,6 +1987,7 @@ func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpT
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) {
+	t.Parallel()
 	cfg := ServiceConfig{
 		CleanUpPeriodMs:             60000,
 		MaxTriggerRequestDurationMs: 300000,
@@ -1932,12 +2003,13 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 		},
 	}
 
-	mockDon := handlermocks.NewDON(t)
 	lggr := logger.Test(t)
-	metadataHandler := createTestMetadataHandler(t)
-	testMetrics := createTestMetrics(t, donConfig)
 
 	t.Run("successful rate limit check with CRE context", func(t *testing.T) {
+		t.Parallel()
+		mockDon := handlermocks.NewDON(t)
+		metadataHandler := createTestMetadataHandler(t)
+		testMetrics := createTestMetrics(t, donConfig)
 		userRateLimiter := createTestUserRateLimiter() // Unlimited
 		handler := newTestTriggerHandler(t, lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 
@@ -1983,6 +2055,10 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 	})
 
 	t.Run("rate limit exceeded returns proper error", func(t *testing.T) {
+		t.Parallel()
+		mockDon := handlermocks.NewDON(t)
+		metadataHandler := createTestMetadataHandler(t)
+		testMetrics := createTestMetrics(t, donConfig)
 		// Create a rate limiter with very restrictive limits
 		restrictiveRateLimiter := limits.WorkflowRateLimiter(1, 0)
 		handler := newTestTriggerHandler(t, lggr, cfg, donConfig, mockDon, metadataHandler, restrictiveRateLimiter, testMetrics)
@@ -2111,6 +2187,7 @@ func TestHttpTriggerHandler_CheckRateLimit_PerOrgOverride(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := WithDefaults(ServiceConfig{})
 
