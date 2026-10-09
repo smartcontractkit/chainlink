@@ -796,23 +796,27 @@ func assertValidSecretsSignature(
 
 func TestHandler_Lifecycle(t *testing.T) {
 	t.Parallel()
-	gwConn := &mockGatewayConnector{}
-	h := newTestHandler(t, &mockCapRegistry{}, gwConn)
 
 	t.Run("start registers handler", func(t *testing.T) {
 		t.Parallel()
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, &mockCapRegistry{}, gwConn)
 		require.NoError(t, h.Start(t.Context()))
 		assert.Equal(t, h.Methods(), gwConn.addedMethods)
 	})
 
 	t.Run("close removes handler", func(t *testing.T) {
 		t.Parallel()
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, &mockCapRegistry{}, gwConn)
+		require.NoError(t, h.Start(t.Context()))
 		require.NoError(t, h.Close())
 		assert.True(t, gwConn.removed)
 	})
 
 	t.Run("ID returns handler name", func(t *testing.T) {
 		t.Parallel()
+		h := newTestHandler(t, &mockCapRegistry{}, &mockGatewayConnector{})
 		id, err := h.ID(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, HandlerName, id)
