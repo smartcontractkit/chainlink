@@ -98,6 +98,10 @@ UseBatchSend = true
 ChipIngressEnabled = false
 ChipIngressEndpoint = 'legacy-telemetry.prod.telemetry.chain.link:443'
 ChipIngressInsecureConnection = false
+ChipIngressBufferSize = 10000
+ChipIngressMaxBatchSize = 1000
+ChipIngressMaxConcurrentSends = 10
+ChipIngressDrainTimeout = '5s'
 
 [AuditLogger]
 Enabled = false

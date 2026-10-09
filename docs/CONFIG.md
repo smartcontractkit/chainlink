@@ -283,6 +283,10 @@ UseBatchSend = true # Default
 ChipIngressEnabled = false # Default
 ChipIngressEndpoint = 'legacy-telemetry.prod.telemetry.chain.link:443' # Default
 ChipIngressInsecureConnection = false # Default
+ChipIngressBufferSize = 10000 # Default
+ChipIngressMaxBatchSize = 1000 # Default
+ChipIngressMaxConcurrentSends = 10 # Default
+ChipIngressDrainTimeout = '5s' # Default
 ```
 
 
@@ -314,13 +318,13 @@ MaxBatchSize is the maximum number of messages to batch into one telemetry reque
 ```toml
 SendInterval = '500ms' # Default
 ```
-SendInterval determines how often batched telemetry is sent to the ingress server.
+SendInterval determines how often batched telemetry is sent to the ingress server. With ChipIngressEnabled, it is the max wait before flushing an incomplete batch.
 
 ### SendTimeout
 ```toml
 SendTimeout = '10s' # Default
 ```
-SendTimeout is the max duration to wait for the request to complete when sending batch telemetry.
+SendTimeout is the max duration to wait for the request to complete when sending batch telemetry. With ChipIngressEnabled, it is the per-RPC timeout for PublishBatch.
 
 ### UseBatchSend
 ```toml
@@ -345,6 +349,30 @@ ChipIngressEndpoint is the host:port of the chip-ingress legacy telemetry endpoi
 ChipIngressInsecureConnection = false # Default
 ```
 ChipIngressInsecureConnection disables TLS to ChipIngressEndpoint. Only for local/test setups.
+
+### ChipIngressBufferSize
+```toml
+ChipIngressBufferSize = 10000 # Default
+```
+ChipIngressBufferSize is the number of telemetry messages buffered for chip-ingress across all jobs; new messages are dropped when it is full.
+
+### ChipIngressMaxBatchSize
+```toml
+ChipIngressMaxBatchSize = 1000 # Default
+```
+ChipIngressMaxBatchSize is the max number of messages per chip-ingress PublishBatch request.
+
+### ChipIngressMaxConcurrentSends
+```toml
+ChipIngressMaxConcurrentSends = 10 # Default
+```
+ChipIngressMaxConcurrentSends limits parallel chip-ingress PublishBatch requests.
+
+### ChipIngressDrainTimeout
+```toml
+ChipIngressDrainTimeout = '5s' # Default
+```
+ChipIngressDrainTimeout is the max time to flush buffered chip-ingress telemetry on shutdown.
 
 ## TelemetryIngress.Endpoints
 ```toml

@@ -108,9 +108,9 @@ Logging = false # Default
 BufferSize = 100 # Default
 # MaxBatchSize is the maximum number of messages to batch into one telemetry request. Ignored when ChipIngressEnabled is true.
 MaxBatchSize = 50 # Default
-# SendInterval determines how often batched telemetry is sent to the ingress server.
+# SendInterval determines how often batched telemetry is sent to the ingress server. With ChipIngressEnabled, it is the max wait before flushing an incomplete batch.
 SendInterval = '500ms' # Default
-# SendTimeout is the max duration to wait for the request to complete when sending batch telemetry.
+# SendTimeout is the max duration to wait for the request to complete when sending batch telemetry. With ChipIngressEnabled, it is the per-RPC timeout for PublishBatch.
 SendTimeout = '10s' # Default
 # UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 UseBatchSend = true # Default
@@ -120,6 +120,14 @@ ChipIngressEnabled = false # Default
 ChipIngressEndpoint = 'legacy-telemetry.prod.telemetry.chain.link:443' # Default
 # ChipIngressInsecureConnection disables TLS to ChipIngressEndpoint. Only for local/test setups.
 ChipIngressInsecureConnection = false # Default
+# ChipIngressBufferSize is the number of telemetry messages buffered for chip-ingress across all jobs; new messages are dropped when it is full.
+ChipIngressBufferSize = 10000 # Default
+# ChipIngressMaxBatchSize is the max number of messages per chip-ingress PublishBatch request.
+ChipIngressMaxBatchSize = 1000 # Default
+# ChipIngressMaxConcurrentSends limits parallel chip-ingress PublishBatch requests.
+ChipIngressMaxConcurrentSends = 10 # Default
+# ChipIngressDrainTimeout is the max time to flush buffered chip-ingress telemetry on shutdown.
+ChipIngressDrainTimeout = '5s' # Default
 
 [[TelemetryIngress.Endpoints]] # Example
 # Network aka EVM, Solana, Starknet

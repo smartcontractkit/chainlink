@@ -67,6 +67,96 @@ func (_c *TelemetryIngress_BufferSize_Call) RunAndReturn(run func() uint) *Telem
 	return _c
 }
 
+// ChipIngressBufferSize provides a mock function with no fields
+func (_m *TelemetryIngress) ChipIngressBufferSize() uint {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChipIngressBufferSize")
+	}
+
+	var r0 uint
+	if rf, ok := ret.Get(0).(func() uint); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint)
+	}
+
+	return r0
+}
+
+// TelemetryIngress_ChipIngressBufferSize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChipIngressBufferSize'
+type TelemetryIngress_ChipIngressBufferSize_Call struct {
+	*mock.Call
+}
+
+// ChipIngressBufferSize is a helper method to define mock.On call
+func (_e *TelemetryIngress_Expecter) ChipIngressBufferSize() *TelemetryIngress_ChipIngressBufferSize_Call {
+	return &TelemetryIngress_ChipIngressBufferSize_Call{Call: _e.mock.On("ChipIngressBufferSize")}
+}
+
+func (_c *TelemetryIngress_ChipIngressBufferSize_Call) Run(run func()) *TelemetryIngress_ChipIngressBufferSize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressBufferSize_Call) Return(_a0 uint) *TelemetryIngress_ChipIngressBufferSize_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressBufferSize_Call) RunAndReturn(run func() uint) *TelemetryIngress_ChipIngressBufferSize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ChipIngressDrainTimeout provides a mock function with no fields
+func (_m *TelemetryIngress) ChipIngressDrainTimeout() time.Duration {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChipIngressDrainTimeout")
+	}
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// TelemetryIngress_ChipIngressDrainTimeout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChipIngressDrainTimeout'
+type TelemetryIngress_ChipIngressDrainTimeout_Call struct {
+	*mock.Call
+}
+
+// ChipIngressDrainTimeout is a helper method to define mock.On call
+func (_e *TelemetryIngress_Expecter) ChipIngressDrainTimeout() *TelemetryIngress_ChipIngressDrainTimeout_Call {
+	return &TelemetryIngress_ChipIngressDrainTimeout_Call{Call: _e.mock.On("ChipIngressDrainTimeout")}
+}
+
+func (_c *TelemetryIngress_ChipIngressDrainTimeout_Call) Run(run func()) *TelemetryIngress_ChipIngressDrainTimeout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressDrainTimeout_Call) Return(_a0 time.Duration) *TelemetryIngress_ChipIngressDrainTimeout_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressDrainTimeout_Call) RunAndReturn(run func() time.Duration) *TelemetryIngress_ChipIngressDrainTimeout_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ChipIngressEnabled provides a mock function with no fields
 func (_m *TelemetryIngress) ChipIngressEnabled() bool {
 	ret := _m.Called()
@@ -198,6 +288,96 @@ func (_c *TelemetryIngress_ChipIngressInsecureConnection_Call) Return(_a0 bool) 
 }
 
 func (_c *TelemetryIngress_ChipIngressInsecureConnection_Call) RunAndReturn(run func() bool) *TelemetryIngress_ChipIngressInsecureConnection_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ChipIngressMaxBatchSize provides a mock function with no fields
+func (_m *TelemetryIngress) ChipIngressMaxBatchSize() uint {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChipIngressMaxBatchSize")
+	}
+
+	var r0 uint
+	if rf, ok := ret.Get(0).(func() uint); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint)
+	}
+
+	return r0
+}
+
+// TelemetryIngress_ChipIngressMaxBatchSize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChipIngressMaxBatchSize'
+type TelemetryIngress_ChipIngressMaxBatchSize_Call struct {
+	*mock.Call
+}
+
+// ChipIngressMaxBatchSize is a helper method to define mock.On call
+func (_e *TelemetryIngress_Expecter) ChipIngressMaxBatchSize() *TelemetryIngress_ChipIngressMaxBatchSize_Call {
+	return &TelemetryIngress_ChipIngressMaxBatchSize_Call{Call: _e.mock.On("ChipIngressMaxBatchSize")}
+}
+
+func (_c *TelemetryIngress_ChipIngressMaxBatchSize_Call) Run(run func()) *TelemetryIngress_ChipIngressMaxBatchSize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressMaxBatchSize_Call) Return(_a0 uint) *TelemetryIngress_ChipIngressMaxBatchSize_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressMaxBatchSize_Call) RunAndReturn(run func() uint) *TelemetryIngress_ChipIngressMaxBatchSize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ChipIngressMaxConcurrentSends provides a mock function with no fields
+func (_m *TelemetryIngress) ChipIngressMaxConcurrentSends() int {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChipIngressMaxConcurrentSends")
+	}
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// TelemetryIngress_ChipIngressMaxConcurrentSends_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChipIngressMaxConcurrentSends'
+type TelemetryIngress_ChipIngressMaxConcurrentSends_Call struct {
+	*mock.Call
+}
+
+// ChipIngressMaxConcurrentSends is a helper method to define mock.On call
+func (_e *TelemetryIngress_Expecter) ChipIngressMaxConcurrentSends() *TelemetryIngress_ChipIngressMaxConcurrentSends_Call {
+	return &TelemetryIngress_ChipIngressMaxConcurrentSends_Call{Call: _e.mock.On("ChipIngressMaxConcurrentSends")}
+}
+
+func (_c *TelemetryIngress_ChipIngressMaxConcurrentSends_Call) Run(run func()) *TelemetryIngress_ChipIngressMaxConcurrentSends_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressMaxConcurrentSends_Call) Return(_a0 int) *TelemetryIngress_ChipIngressMaxConcurrentSends_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressMaxConcurrentSends_Call) RunAndReturn(run func() int) *TelemetryIngress_ChipIngressMaxConcurrentSends_Call {
 	_c.Call.Return(run)
 	return _c
 }

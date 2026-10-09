@@ -20,11 +20,6 @@ const (
 	// legacyTelemetryBatchClientName is the client_name label on chip_ingress.batch.* metrics.
 	legacyTelemetryBatchClientName = "legacy_telemetry"
 
-	// Shared-buffer sizing mirrors chainlink-common beholder.DefaultConfig() chip batch defaults.
-	chipIngressMessageBufferSize  = 10_000
-	chipIngressMaxBatchSize       = 1_000
-	chipIngressMaxConcurrentSends = 10
-
 	healthPingInterval = 5 * time.Second
 	healthPingTimeout  = 2 * time.Second
 )
@@ -45,15 +40,28 @@ type chipIngressBatchClient struct {
 	errorCount   atomic.Uint32
 }
 
+// ChipIngressBatchConfig sizes the shared chip-ingress batch client. Values come from
+// [TelemetryIngress] (ChipIngress* fields plus SendInterval/SendTimeout).
+type ChipIngressBatchConfig struct {
+	BufferSize         uint          // messages buffered across all jobs before new ones are dropped
+	MaxBatchSize       uint          // messages per PublishBatch request
+	MaxConcurrentSends int           // PublishBatch requests in flight
+	SendInterval       time.Duration // max wait before flushing an incomplete batch
+	SendTimeout        time.Duration // per-request PublishBatch timeout
+	DrainTimeout       time.Duration // max time to flush the buffer on Close
+	Logging            bool          // debug-log every successful send
+}
+
 // NewChipIngressBatchClient wraps chipClient in the chainlink-common batch client.
 // The batch client owns chipClient: Close flushes the buffer, then closes the connection.
-func NewChipIngressBatchClient(chipClient chipingress.Client, csaPubKeyHex string, logging bool, lggr logger.Logger, sendInterval, sendTimeout time.Duration) (ChipIngressService, error) {
+func NewChipIngressBatchClient(chipClient chipingress.Client, csaPubKeyHex string, cfg ChipIngressBatchConfig, lggr logger.Logger) (ChipIngressService, error) {
 	batchClient, err := batch.NewBatchClient(chipClient,
-		batch.WithMessageBuffer(chipIngressMessageBufferSize),
-		batch.WithBatchSize(chipIngressMaxBatchSize),
-		batch.WithMaxConcurrentSends(chipIngressMaxConcurrentSends),
-		batch.WithBatchInterval(sendInterval),
-		batch.WithMaxPublishTimeout(sendTimeout),
+		batch.WithMessageBuffer(int(cfg.BufferSize)),
+		batch.WithBatchSize(int(cfg.MaxBatchSize)),
+		batch.WithMaxConcurrentSends(cfg.MaxConcurrentSends),
+		batch.WithBatchInterval(cfg.SendInterval),
+		batch.WithMaxPublishTimeout(cfg.SendTimeout),
+		batch.WithShutdownTimeout(cfg.DrainTimeout),
 		batch.WithClientName(legacyTelemetryBatchClientName),
 		// Send builds a fresh event per message and never touches it after queueing,
 		// so skip the defensive per-message proto.Clone.
@@ -67,7 +75,7 @@ func NewChipIngressBatchClient(chipClient chipingress.Client, csaPubKeyHex strin
 		chipClient:   chipClient,
 		batchClient:  batchClient,
 		csaPubKeyHex: csaPubKeyHex,
-		logging:      logging,
+		logging:      cfg.Logging,
 	}
 	c.Service, c.eng = services.Config{
 		Name:  "ChipIngressBatchClient",

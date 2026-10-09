@@ -68,6 +68,22 @@ func (t *telemetryIngressConfig) ChipIngressInsecureConnection() bool {
 	return *t.c.ChipIngressInsecureConnection
 }
 
+func (t *telemetryIngressConfig) ChipIngressBufferSize() uint {
+	return *t.c.ChipIngressBufferSize
+}
+
+func (t *telemetryIngressConfig) ChipIngressMaxBatchSize() uint {
+	return *t.c.ChipIngressMaxBatchSize
+}
+
+func (t *telemetryIngressConfig) ChipIngressMaxConcurrentSends() int {
+	return *t.c.ChipIngressMaxConcurrentSends
+}
+
+func (t *telemetryIngressConfig) ChipIngressDrainTimeout() time.Duration {
+	return t.c.ChipIngressDrainTimeout.Duration()
+}
+
 func (t *telemetryIngressEndpointConfig) Network() string {
 	return *t.c.Network
 }

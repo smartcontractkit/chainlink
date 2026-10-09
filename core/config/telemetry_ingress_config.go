@@ -17,6 +17,10 @@ type TelemetryIngress interface {
 	ChipIngressEnabled() bool
 	ChipIngressEndpoint() string
 	ChipIngressInsecureConnection() bool
+	ChipIngressBufferSize() uint
+	ChipIngressMaxBatchSize() uint
+	ChipIngressMaxConcurrentSends() int
+	ChipIngressDrainTimeout() time.Duration
 }
 
 type TelemetryIngressEndpoint interface {

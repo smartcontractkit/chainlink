@@ -553,7 +553,15 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if chipErr != nil {
 			return nil, fmt.Errorf("failed to create telemetry chip-ingress client: %w", chipErr)
 		}
-		telemChipService, chipErr = synchronization.NewChipIngressBatchClient(chipClient, csaPubKeyHex, ti.Logging(), globalLogger, ti.SendInterval(), ti.SendTimeout())
+		telemChipService, chipErr = synchronization.NewChipIngressBatchClient(chipClient, csaPubKeyHex, synchronization.ChipIngressBatchConfig{
+			BufferSize:         ti.ChipIngressBufferSize(),
+			MaxBatchSize:       ti.ChipIngressMaxBatchSize(),
+			MaxConcurrentSends: ti.ChipIngressMaxConcurrentSends(),
+			SendInterval:       ti.SendInterval(),
+			SendTimeout:        ti.SendTimeout(),
+			DrainTimeout:       ti.ChipIngressDrainTimeout(),
+			Logging:            ti.Logging(),
+		}, globalLogger)
 		if chipErr != nil {
 			_ = chipClient.Close() // the batch client never took ownership of chipClient
 			return nil, fmt.Errorf("failed to create telemetry chip-ingress batch client: %w", chipErr)

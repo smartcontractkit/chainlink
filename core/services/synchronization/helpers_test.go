@@ -28,9 +28,17 @@ func NewTestTelemetryIngressBatchClient(t *testing.T, url *url.URL, serverPubKey
 	return tc
 }
 
-// NewTestChipIngressBatchClient calls NewChipIngressBatchClient with a fixed test CSA key.
+// NewTestChipIngressBatchClient calls NewChipIngressBatchClient with a fixed test CSA key and default sizing.
 func NewTestChipIngressBatchClient(t *testing.T, chipClient chipingress.Client, logging bool, sendInterval time.Duration) ChipIngressService {
-	c, err := NewChipIngressBatchClient(chipClient, "deadbeef", logging, logger.TestLogger(t), sendInterval, time.Second)
+	c, err := NewChipIngressBatchClient(chipClient, "deadbeef", ChipIngressBatchConfig{
+		BufferSize:         10_000,
+		MaxBatchSize:       1_000,
+		MaxConcurrentSends: 10,
+		SendInterval:       sendInterval,
+		SendTimeout:        time.Second,
+		DrainTimeout:       5 * time.Second,
+		Logging:            logging,
+	}, logger.TestLogger(t))
 	require.NoError(t, err)
 	return c
 }

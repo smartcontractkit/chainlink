@@ -256,6 +256,10 @@ func TestConfig_Marshal(t *testing.T) {
 		ChipIngressEnabled:            new(false),
 		ChipIngressEndpoint:           new("legacy-telemetry.example:443"),
 		ChipIngressInsecureConnection: new(true),
+		ChipIngressBufferSize:         new(uint(2000)),
+		ChipIngressMaxBatchSize:       new(uint(200)),
+		ChipIngressMaxConcurrentSends: new(4),
+		ChipIngressDrainTimeout:       commonconfig.MustNewDuration(3 * time.Second),
 		Endpoints: []toml.TelemetryIngressEndpoint{
 			{
 				Network:      new("EVM"),
@@ -943,6 +947,10 @@ UseBatchSend = true
 ChipIngressEnabled = false
 ChipIngressEndpoint = 'legacy-telemetry.example:443'
 ChipIngressInsecureConnection = true
+ChipIngressBufferSize = 2000
+ChipIngressMaxBatchSize = 200
+ChipIngressMaxConcurrentSends = 4
+ChipIngressDrainTimeout = '3s'
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'
@@ -1515,6 +1523,18 @@ func TestConfig_Validate(t *testing.T) {
 ChipIngressEnabled = true
 ChipIngressEndpoint = ''
 `, exp: `invalid configuration: TelemetryIngress.ChipIngressEndpoint: missing: must be set when ChipIngressEnabled is true`},
+		{name: "TelemetryIngress chip batching must be positive", toml: `
+[TelemetryIngress]
+ChipIngressEnabled = true
+ChipIngressBufferSize = 0
+ChipIngressMaxBatchSize = 0
+ChipIngressMaxConcurrentSends = 0
+ChipIngressDrainTimeout = '0s'
+`, exp: `invalid configuration: TelemetryIngress: 4 errors:
+		- ChipIngressBufferSize: invalid value (0): must be greater than 0
+		- ChipIngressMaxBatchSize: invalid value (0): must be greater than 0
+		- ChipIngressMaxConcurrentSends: invalid value (0): must be greater than 0
+		- ChipIngressDrainTimeout: invalid value (0s): must be greater than 0`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config
