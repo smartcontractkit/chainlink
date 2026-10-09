@@ -15,6 +15,12 @@ type TelemetryIngress interface {
 	UseBatchSend() bool
 	Endpoints() []TelemetryIngressEndpoint
 	ChipIngressEnabled() bool
+	ChipIngressEndpoint() string
+	ChipIngressInsecureConnection() bool
+	ChipIngressBufferSize() uint
+	ChipIngressMaxBatchSize() uint
+	ChipIngressMaxConcurrentSends() int
+	ChipIngressDrainTimeout() time.Duration
 }
 
 type TelemetryIngressEndpoint interface {

@@ -973,15 +973,21 @@ func (d *DatabaseBackup) setFrom(f *DatabaseBackup) {
 }
 
 type TelemetryIngress struct {
-	UniConn            *bool
-	Logging            *bool
-	BufferSize         *uint16
-	MaxBatchSize       *uint16
-	SendInterval       *commonconfig.Duration
-	SendTimeout        *commonconfig.Duration
-	UseBatchSend       *bool
-	Endpoints          []TelemetryIngressEndpoint `toml:",omitempty"`
-	ChipIngressEnabled *bool
+	UniConn                       *bool
+	Logging                       *bool
+	BufferSize                    *uint16
+	MaxBatchSize                  *uint16
+	SendInterval                  *commonconfig.Duration
+	SendTimeout                   *commonconfig.Duration
+	UseBatchSend                  *bool
+	Endpoints                     []TelemetryIngressEndpoint `toml:",omitempty"`
+	ChipIngressEnabled            *bool
+	ChipIngressEndpoint           *string
+	ChipIngressInsecureConnection *bool
+	ChipIngressBufferSize         *uint
+	ChipIngressMaxBatchSize       *uint
+	ChipIngressMaxConcurrentSends *int
+	ChipIngressDrainTimeout       *commonconfig.Duration
 }
 
 type TelemetryIngressEndpoint struct {
@@ -1019,6 +1025,46 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	if v := f.ChipIngressEnabled; v != nil {
 		t.ChipIngressEnabled = v
 	}
+	if v := f.ChipIngressEndpoint; v != nil {
+		t.ChipIngressEndpoint = v
+	}
+	if v := f.ChipIngressInsecureConnection; v != nil {
+		t.ChipIngressInsecureConnection = v
+	}
+	if v := f.ChipIngressBufferSize; v != nil {
+		t.ChipIngressBufferSize = v
+	}
+	if v := f.ChipIngressMaxBatchSize; v != nil {
+		t.ChipIngressMaxBatchSize = v
+	}
+	if v := f.ChipIngressMaxConcurrentSends; v != nil {
+		t.ChipIngressMaxConcurrentSends = v
+	}
+	if v := f.ChipIngressDrainTimeout; v != nil {
+		t.ChipIngressDrainTimeout = v
+	}
+}
+
+func (t *TelemetryIngress) ValidateConfig() (err error) {
+	if t.ChipIngressEnabled == nil || !*t.ChipIngressEnabled {
+		return nil
+	}
+	if t.ChipIngressEndpoint == nil || *t.ChipIngressEndpoint == "" {
+		err = errors.Join(err, configutils.MissingError{Name: "ChipIngressEndpoint", Msg: "must be set when ChipIngressEnabled is true"})
+	}
+	if v := t.ChipIngressBufferSize; v != nil && *v == 0 {
+		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressBufferSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := t.ChipIngressMaxBatchSize; v != nil && *v == 0 {
+		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressMaxBatchSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := t.ChipIngressMaxConcurrentSends; v != nil && *v <= 0 {
+		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressMaxConcurrentSends", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := t.ChipIngressDrainTimeout; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressDrainTimeout", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	return err
 }
 
 type AuditLogger struct {
