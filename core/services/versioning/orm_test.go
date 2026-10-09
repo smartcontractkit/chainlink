@@ -17,6 +17,7 @@ func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	t.Run("With App Version Check", func(t *testing.T) {
+		t.Parallel()
 		orm := NewORM(db, logger.TestLogger(t))
 
 		err := orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.8"))
@@ -87,6 +88,7 @@ func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 }
 
 func Test_Version_CheckVersion(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 
@@ -131,6 +133,7 @@ func Test_Version_CheckVersion(t *testing.T) {
 }
 
 func TestORM_CheckVersion_CCIP(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 
@@ -194,7 +197,7 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
+	for _, test := range tests { //nolint:paralleltest // subtests share one database schema and TRUNCATE node_versions between cases, so they must run sequentially
 		t.Run(test.name, func(t *testing.T) {
 			_, err := db.ExecContext(ctx, `TRUNCATE node_versions;`)
 			require.NoError(t, err)
@@ -211,6 +214,7 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 }
 
 func TestORM_NodeVersion_FindLatestNodeVersion(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(db, logger.TestLogger(t))

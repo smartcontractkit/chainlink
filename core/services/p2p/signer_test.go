@@ -11,6 +11,7 @@ import (
 )
 
 func TestSigner_InitializeAndSign(t *testing.T) {
+	t.Parallel()
 	keystoreP2P := ksmocks.NewP2P(t)
 	key, err := p2pkey.NewV2()
 	require.NoError(t, err)

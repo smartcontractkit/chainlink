@@ -190,6 +190,7 @@ func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
 }
 
 func TestReader_Integration(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
@@ -364,6 +365,7 @@ func TestReader_Integration(t *testing.T) {
 }
 
 func TestSyncer_DBIntegration(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
@@ -482,6 +484,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 }
 
 func TestSyncer_LocalNode(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
 

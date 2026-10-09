@@ -25,7 +25,9 @@ type mockDelegateConfig struct{}
 func (m *mockDelegateConfig) MaxSuccessfulRuns() uint64     { return 0 }
 func (m *mockDelegateConfig) ResultWriteQueueDepth() uint64 { return 0 }
 
+//nolint:paralleltest // parent mutates the shared jb (sets StreamID) between subtests and subtests share one mock runner/delegate, so they must run sequentially
 func Test_Delegate(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	registry := &mockRegistry{}
 	runner := &mockRunner{}
@@ -56,6 +58,7 @@ func Test_Delegate(t *testing.T) {
 }
 
 func Test_ValidatedStreamSpec(t *testing.T) {
+	t.Parallel()
 	tt := []struct {
 		name      string
 		toml      string
@@ -173,6 +176,7 @@ answer1      [type=median index=0];
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			s, err := ValidatedStreamSpec(tc.toml)
 			tc.assertion(t, s, err)
 		})

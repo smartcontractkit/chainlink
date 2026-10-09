@@ -30,7 +30,9 @@ func (m *mockPipeline) StreamIDs() []StreamID {
 	return m.streamIDs
 }
 
+//nolint:paralleltest // nested subtests share and mutate one stream registry instance, so they must run sequentially
 func Test_Registry(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	runner := &mockRunner{}
 

@@ -84,9 +84,8 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	}
 }
 
+//nolint:paralleltest // subtests share one keystore; the missing-EnabledKeysForChain case deletes the shared sending key, so parallel subtests would race on it
 func TestDelegate_ServicesForSpec(t *testing.T) {
-	t.Parallel()
-
 	delegate, testData := createTestDelegate(t)
 
 	require.NotEmpty(t, testData.legacyChains.Slice())

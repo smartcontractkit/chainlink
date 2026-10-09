@@ -18,6 +18,7 @@ import (
 )
 
 func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
+	t.Parallel()
 	type testCase struct {
 		name          string
 		tomlString    string
@@ -125,6 +126,7 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			jobSpec, err := ValidatedStandardCapabilitiesSpec(tc.tomlString)
 
 			if tc.expectedError != "" {
@@ -141,7 +143,9 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 }
 
 func Test_ServicesForSpec_AllowlistEnforcement(t *testing.T) {
+	t.Parallel()
 	t.Run("allowlisted consensus capability is rejected", func(t *testing.T) {
+		t.Parallel()
 		d := &Delegate{
 			localCfg: &stubLocalCapabilities{allowlisted: map[string]bool{"consensus@1.0.0-alpha": true}},
 		}
@@ -157,6 +161,7 @@ func Test_ServicesForSpec_AllowlistEnforcement(t *testing.T) {
 	})
 
 	t.Run("allowlisted cron trigger is rejected", func(t *testing.T) {
+		t.Parallel()
 		d := &Delegate{
 			localCfg: &stubLocalCapabilities{allowlisted: map[string]bool{"cron-trigger@1.0.0": true}},
 		}
@@ -171,6 +176,7 @@ func Test_ServicesForSpec_AllowlistEnforcement(t *testing.T) {
 	})
 
 	t.Run("allowlisted http trigger is rejected", func(t *testing.T) {
+		t.Parallel()
 		d := &Delegate{
 			localCfg: &stubLocalCapabilities{allowlisted: map[string]bool{"http-trigger@1.0.0-alpha": true}},
 		}
@@ -184,6 +190,7 @@ func Test_ServicesForSpec_AllowlistEnforcement(t *testing.T) {
 	})
 
 	t.Run("non-allowlisted capability passes through", func(t *testing.T) {
+		t.Parallel()
 		d := &Delegate{
 			localCfg: &stubLocalCapabilities{allowlisted: map[string]bool{}},
 		}
@@ -199,6 +206,7 @@ func Test_ServicesForSpec_AllowlistEnforcement(t *testing.T) {
 	})
 
 	t.Run("nil localCfg allows all capabilities", func(t *testing.T) {
+		t.Parallel()
 		d := &Delegate{}
 		spec := job.Job{
 			ExternalJobID:            uuid.New(),
@@ -210,6 +218,7 @@ func Test_ServicesForSpec_AllowlistEnforcement(t *testing.T) {
 	})
 
 	t.Run("unknown command bypasses allowlist check", func(t *testing.T) {
+		t.Parallel()
 		d := &Delegate{
 			localCfg: &stubLocalCapabilities{allowlisted: map[string]bool{"consensus@1.0.0-alpha": true}},
 		}

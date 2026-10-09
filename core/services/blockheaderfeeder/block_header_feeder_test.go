@@ -34,6 +34,7 @@ type testCase struct {
 }
 
 func TestFeeder(t *testing.T) {
+	t.Parallel()
 	tests := []testCase{
 		{
 			name:                "single missing block",
@@ -181,12 +182,13 @@ func TestFeeder(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
+	for _, test := range tests { //nolint:paralleltest // t.Run body is a shared method value (testCase method); each case builds its own simulated chain, and the subtest methods do call t.Parallel()
 		t.Run(test.name, test.testFeeder)
 	}
 }
 
 func (test testCase) testFeeder(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	lggr.Debugf("running test case: %s", test.name)
 	coordinator := &blockhashstore.TestCoordinator{
@@ -232,6 +234,7 @@ func (test testCase) testFeeder(t *testing.T) {
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
+	t.Parallel()
 	coordinator := &blockhashstore.TestCoordinator{
 		RequestEvents: []blockhashstore.Event{{Block: 74, ID: "request"}},
 	}

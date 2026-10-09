@@ -56,7 +56,9 @@ func (m *MockTask) TaskRetries() uint32                { return 0 }
 func (m *MockTask) TaskMinBackoff() time.Duration      { return 0 }
 func (m *MockTask) TaskMaxBackoff() time.Duration      { return 0 }
 
+//nolint:paralleltest // subtests share and mutate one mockRunner (run, trrs, err fields), so they must run sequentially
 func Test_Stream(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	runner := &mockRunner{}
 	ctx := t.Context()
