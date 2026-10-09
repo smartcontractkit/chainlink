@@ -149,6 +149,7 @@ func TestShell_CreateBridge(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			set := flag.NewFlagSet("bridge", 0)
 			flagSetApplyFromAction(client.CreateBridge, set, "")
 
@@ -192,6 +193,7 @@ func TestShell_RemoveBridge(t *testing.T) {
 	assert.Equal(t, bt.URL.String(), p.URL)
 	assert.Equal(t, bt.Confirmations, p.Confirmations)
 }
+
 func TestShell_UpdateBridge(t *testing.T) {
 	t.Parallel()
 
@@ -219,6 +221,7 @@ func TestShell_UpdateBridge(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			set := flag.NewFlagSet("bridge", 0)
 			flagSetApplyFromAction(client.UpdateBridge, set, "")
 

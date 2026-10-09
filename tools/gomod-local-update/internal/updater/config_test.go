@@ -6,6 +6,7 @@ import (
 )
 
 func TestConfig_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		config  *Config
@@ -88,6 +89,7 @@ func TestConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.config.Validate()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
@@ -97,6 +99,7 @@ func TestConfig_Validate(t *testing.T) {
 }
 
 func TestConfig_ValidateErrorType(t *testing.T) {
+	t.Parallel()
 	cfg := &Config{
 		RepoRemote:  "invalid*remote",
 		BranchTrunk: "develop",
@@ -116,6 +119,7 @@ func TestConfig_ValidateErrorType(t *testing.T) {
 }
 
 func TestParseFlags(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		args    []string
@@ -154,6 +158,7 @@ func TestParseFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := ParseFlags(tt.args, "test-version")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseFlags() error = %v, wantErr %v", err, tt.wantErr)

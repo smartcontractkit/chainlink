@@ -54,6 +54,7 @@ func TestSolanaKeyPresenter_RenderTable(t *testing.T) {
 }
 
 func TestShell_SolanaKeys(t *testing.T) {
+	t.Parallel()
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Solana()
 	cleanup := func() {
@@ -66,7 +67,7 @@ func TestShell_SolanaKeys(t *testing.T) {
 		requireSolanaKeyCount(t, app, 0)
 	}
 
-	t.Run("ListSolanaKeys", func(tt *testing.T) {
+	t.Run("ListSolanaKeys", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		ctx := t.Context()
 		client, r := app.NewShellAndRenderer()
@@ -79,7 +80,7 @@ func TestShell_SolanaKeys(t *testing.T) {
 		assert.Equal(t, key.PublicKeyStr(), keys[0].PubKey)
 	})
 
-	t.Run("CreateSolanaKey", func(tt *testing.T) {
+	t.Run("CreateSolanaKey", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		client, _ := app.NewShellAndRenderer()
 		require.NoError(t, cmd.NewSolanaKeysClient(client).CreateKey(nilContext))
@@ -88,7 +89,7 @@ func TestShell_SolanaKeys(t *testing.T) {
 		require.Len(t, keys, 1)
 	})
 
-	t.Run("DeleteSolanaKey", func(tt *testing.T) {
+	t.Run("DeleteSolanaKey", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		ctx := t.Context()
 		client, _ := app.NewShellAndRenderer()
@@ -109,7 +110,7 @@ func TestShell_SolanaKeys(t *testing.T) {
 		requireSolanaKeyCount(t, app, 0)
 	})
 
-	t.Run("ImportExportSolanaKey", func(tt *testing.T) {
+	t.Run("ImportExportSolanaKey", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		defer deleteKeyExportFile(t)
 		ctx := t.Context()

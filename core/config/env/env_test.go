@@ -7,6 +7,7 @@ import (
 )
 
 func TestNewPlugin(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct {
 		name string
 		kind string
@@ -17,6 +18,7 @@ func TestNewPlugin(t *testing.T) {
 		{"mixed", "Baz", Plugin{Cmd: "CL_BAZ_CMD", Env: "CL_BAZ_ENV", CmdDefault: "chainlink-baz"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := NewPlugin(tt.kind)
 			require.Equal(t, tt.exp, got)
 		})

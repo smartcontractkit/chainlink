@@ -80,6 +80,7 @@ func (p provider) Codec() types.Codec {
 }
 
 func TestNewPlugin(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	p := NewPlugin(lggr)
 

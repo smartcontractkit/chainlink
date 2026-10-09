@@ -16,6 +16,7 @@ import (
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
+//nolint:paralleltest // asserts consecutive freeport allocations (+1); concurrent freeport.Take from parallel tests would interleave and break the assertion
 func TestPluginPortManager(t *testing.T) {
 	// register one
 	m := NewTestLoopRegistry(logger.Test(t))
@@ -221,6 +222,7 @@ func (t mockCfgTransmitter) ReaperFrequency() time.Duration { return time.Hour }
 func (t mockCfgTransmitter) ReaperMaxAge() time.Duration { return time.Minute }
 
 func TestLoopRegistry_Register(t *testing.T) {
+	t.Parallel()
 	mockCfgDatabase := &mockCfgDatabase{}
 	mockCfgMercury := &mockCfgMercury{}
 	mockCfgTracing := &mockCfgTracing{}

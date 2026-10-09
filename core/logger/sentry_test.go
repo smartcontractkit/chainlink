@@ -7,7 +7,9 @@ import (
 )
 
 func Test_toMap(t *testing.T) {
+	t.Parallel()
 	t.Run("with even number of keys/values", func(t *testing.T) {
+		t.Parallel()
 		keysAndValues := []any{
 			"foo", 1, "bar", 42.43, "boggly", "str",
 		}
@@ -18,6 +20,7 @@ func Test_toMap(t *testing.T) {
 	})
 
 	t.Run("with odd number of keys/values, drops the last one", func(t *testing.T) {
+		t.Parallel()
 		keysAndValues := []any{
 			"foo", 1, "bar", 42.43, "boggly", "str", "odd",
 		}

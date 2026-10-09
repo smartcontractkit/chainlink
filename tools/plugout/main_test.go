@@ -62,6 +62,7 @@ func yamlMissingGitRefFor(module string) string {
 // -----------------------------
 
 func TestContains(t *testing.T) {
+	t.Parallel()
 	if !contains([]string{"a", "b"}, "a") {
 		t.Fatal("expected contains to find element")
 	}
@@ -71,6 +72,7 @@ func TestContains(t *testing.T) {
 }
 
 func TestModuleSubdir(t *testing.T) {
+	t.Parallel()
 	cases := map[string]string{
 		"github.com/org/repo":         "",
 		"github.com/org/repo/relayer": "relayer",
@@ -89,6 +91,7 @@ func TestModuleSubdir(t *testing.T) {
 }
 
 func TestShaEqual(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		a, b string
 		want bool
@@ -108,7 +111,9 @@ func TestShaEqual(t *testing.T) {
 }
 
 func TestNormalizeVersion(t *testing.T) {
+	t.Parallel()
 	t.Run("plain tag", func(t *testing.T) {
+		t.Parallel()
 		mv := normalizeVersion("v1.2.3")
 		if mv.Tag != "v1.2.3" || mv.SHA != "" || mv.TagPrefix != "" || mv.Raw != "v1.2.3" {
 			t.Fatalf("unexpected mv: %+v", mv)
@@ -116,6 +121,7 @@ func TestNormalizeVersion(t *testing.T) {
 	})
 
 	t.Run("prefixed tag", func(t *testing.T) {
+		t.Parallel()
 		mv := normalizeVersion("sub/dir/v1.2.3")
 		if mv.Raw != "sub/dir/v1.2.3" || mv.Tag != "v1.2.3" || mv.TagPrefix != "sub/dir" || mv.SHA != "" {
 			t.Fatalf("unexpected mv: %+v", mv)
@@ -123,6 +129,7 @@ func TestNormalizeVersion(t *testing.T) {
 	})
 
 	t.Run("pseudo with sha (go style)", func(t *testing.T) {
+		t.Parallel()
 		valids := []string{
 			"v0.0.0-20251013133428-62ab1091a563",
 			"v1.2.3-0.20250102030405-abcdef123456",
@@ -137,6 +144,7 @@ func TestNormalizeVersion(t *testing.T) {
 	})
 
 	t.Run("bad pseudos should not match", func(t *testing.T) {
+		t.Parallel()
 		invalids := []string{
 			"v1.2.3--20240102030405-deadbeef",   // extra hyphen
 			"v1.2.3-20240102030405g-deadbeef",   // junk in timestamp
@@ -152,6 +160,7 @@ func TestNormalizeVersion(t *testing.T) {
 	})
 
 	t.Run("raw sha", func(t *testing.T) {
+		t.Parallel()
 		mv := normalizeVersion("abcdef1234567890")
 		if mv.SHA != "abcdef1234567890" || mv.Tag != "" || mv.Raw != "abcdef1234567890" {
 			t.Fatalf("unexpected mv: %+v", mv)
@@ -160,6 +169,7 @@ func TestNormalizeVersion(t *testing.T) {
 }
 
 func TestDesiredYAMLRefForModule(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		module string
 		mv     ModuleVersion
@@ -182,6 +192,7 @@ func TestDesiredYAMLRefForModule(t *testing.T) {
 }
 
 func TestTagsMatchWithSubdir(t *testing.T) {
+	t.Parallel()
 	// root modules: tag equality only
 	if !tagsMatchWithSubdir("github.com/example/repo",
 		ModuleVersion{Tag: "v1.2.3", Raw: "v1.2.3"},
@@ -219,9 +230,11 @@ func TestTagsMatchWithSubdir(t *testing.T) {
 }
 
 func TestVersionsMatchForModule(t *testing.T) {
+	t.Parallel()
 	module := "github.com/example/repo/sub"
 
 	t.Run("SHA equality (prefix)", func(t *testing.T) {
+		t.Parallel()
 		a := ModuleVersion{SHA: "abcdef1234", Raw: "v0.0.0-...-abcdef1234"}
 		b := ModuleVersion{SHA: "abcdef", Raw: "abcdef"}
 		if !versionsMatchForModule(module, a, b) {
@@ -230,6 +243,7 @@ func TestVersionsMatchForModule(t *testing.T) {
 	})
 
 	t.Run("YAML raw contains go.mod SHA", func(t *testing.T) {
+		t.Parallel()
 		a := ModuleVersion{SHA: "deadbeef", Raw: "v0.0.0-...-deadbeef"}
 		b := ModuleVersion{Raw: "v0.0.0-20250102030405-deadbeef"}
 		if !versionsMatchForModule(module, a, b) {
@@ -238,6 +252,7 @@ func TestVersionsMatchForModule(t *testing.T) {
 	})
 
 	t.Run("Tag with subdir equivalence", func(t *testing.T) {
+		t.Parallel()
 		a := ModuleVersion{Tag: "v1.2.3", Raw: "v1.2.3"}
 		b := ModuleVersion{Raw: "sub/v1.2.3"}
 		if !versionsMatchForModule(module, a, b) {
@@ -246,6 +261,7 @@ func TestVersionsMatchForModule(t *testing.T) {
 	})
 
 	t.Run("Raw equality fallback", func(t *testing.T) {
+		t.Parallel()
 		a := ModuleVersion{Raw: "weird-form-1"}
 		b := ModuleVersion{Raw: "weird-form-1"}
 		if !versionsMatchForModule(module, a, b) {
@@ -259,6 +275,7 @@ func TestVersionsMatchForModule(t *testing.T) {
 // -----------------------------
 
 func TestDiscoverPluginVersions(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	yamlPath := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 
@@ -278,6 +295,7 @@ func TestDiscoverPluginVersions(t *testing.T) {
 }
 
 func TestUpdateGitRefInYAML_SuccessAndPreserveFormatting(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	yamlPath := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 
@@ -305,6 +323,7 @@ func TestUpdateGitRefInYAML_SuccessAndPreserveFormatting(t *testing.T) {
 }
 
 func TestUpdateGitRefInYAML_ModuleNotFound(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	yamlPath := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 	err := updateGitRefInYAML(yamlPath, "github.com/does/not/exist", ModuleVersion{Tag: "v0.1.0", Raw: "exist/v0.1.0"})
@@ -314,6 +333,7 @@ func TestUpdateGitRefInYAML_ModuleNotFound(t *testing.T) {
 }
 
 func TestUpdateGitRefInYAML_NoGitRefLineToReplace(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mod := "github.com/example/repo"
 	yamlPath := writeFile(t, dir, "plugins.yaml", yamlMissingGitRefFor(mod))
@@ -328,6 +348,7 @@ func TestUpdateGitRefInYAML_NoGitRefLineToReplace(t *testing.T) {
 // -----------------------------
 
 func TestRunSync_CheckMode_WithMismatch(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	// go.mod only needs to exist
 	goMod := writeFile(t, dir, "go.mod", "module github.com/example/repo\n")
@@ -363,6 +384,7 @@ func TestRunSync_CheckMode_WithMismatch(t *testing.T) {
 }
 
 func TestRunSync_UpdateMode_AppliesChanges(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	goMod := writeFile(t, dir, "go.mod", "module github.com/example/repo\n")
 	plugins := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
@@ -404,6 +426,7 @@ func TestRunSync_UpdateMode_AppliesChanges(t *testing.T) {
 }
 
 func TestRunSync_IgnoreModules_SkipsChecks(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	goMod := writeFile(t, dir, "go.mod", "module github.com/example/repo\n")
 	plugins := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
@@ -430,10 +453,12 @@ func TestRunSync_IgnoreModules_SkipsChecks(t *testing.T) {
 }
 
 func TestRunSync_SkipsIndirectDependencies(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	goMod := writeFile(t, dir, "go.mod", "module github.com/example/repo\n")
 
 	t.Run("CheckMode_NoMismatch", func(t *testing.T) {
+		t.Parallel()
 		plugins := writeFile(t, dir, "plugins-check.yaml", samplePluginsYAML())
 		opts := Options{
 			GoModPath:   goMod,
@@ -455,6 +480,7 @@ func TestRunSync_SkipsIndirectDependencies(t *testing.T) {
 	})
 
 	t.Run("UpdateMode_LeavesFileUnchanged", func(t *testing.T) {
+		t.Parallel()
 		plugins := writeFile(t, dir, "plugins-update.yaml", samplePluginsYAML())
 		before := readFile(t, plugins)
 		opts := Options{
@@ -475,6 +501,7 @@ func TestRunSync_SkipsIndirectDependencies(t *testing.T) {
 }
 
 func TestRunSync_FileValidation(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	// Missing go.mod
 	_, err := runSync(Options{

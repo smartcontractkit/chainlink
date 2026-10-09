@@ -13,6 +13,7 @@ import (
 )
 
 func TestConfig(t *testing.T) {
+	t.Parallel()
 	// no sampling
 	assert.Nil(t, newZapConfigBase().Sampling)
 	assert.Nil(t, newZapConfigProd(false, false).Sampling)
@@ -23,6 +24,7 @@ func TestConfig(t *testing.T) {
 }
 
 func TestStderrWriter(t *testing.T) {
+	t.Parallel()
 	sw := stderrWriter{}
 
 	// Test Write
@@ -36,6 +38,7 @@ func TestStderrWriter(t *testing.T) {
 }
 
 func TestOtelCore(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name       string
 		enableOtel bool
@@ -52,6 +55,7 @@ func TestOtelCore(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			cfg := Config{
 				LogLevel: zapcore.InfoLevel,
 			}
@@ -91,6 +95,7 @@ func TestOtelCore(t *testing.T) {
 
 // TestAtomicCoreSwap tests the atomic core swap functionality after logger creation.
 func TestAtomicCoreSwap(t *testing.T) {
+	t.Parallel()
 	ac := NewUpdatableCore()
 	setOtelCore := ac.Update
 

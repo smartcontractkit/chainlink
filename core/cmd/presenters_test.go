@@ -14,8 +14,12 @@ func TestJAID(t *testing.T) {
 
 	jaid := cmd.JAID{ID: "1"}
 
-	t.Run("GetID", func(t *testing.T) { assert.Equal(t, "1", jaid.GetID()) })
+	t.Run("GetID", func(t *testing.T) {
+		t.Parallel()
+		assert.Equal(t, "1", jaid.GetID())
+	})
 	t.Run("SetID", func(t *testing.T) {
+		t.Parallel()
 		err := jaid.SetID("2")
 		require.NoError(t, err)
 		assert.Equal(t, "2", jaid.GetID())

@@ -9,5 +9,6 @@ import (
 )
 
 func TestDocsTOMLComplete(t *testing.T) {
+	t.Parallel()
 	configtest.AssertDocsTOMLComplete[chainlink.Config](t, docs.DocsTOML)
 }
