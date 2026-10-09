@@ -35,6 +35,7 @@ func setupDB(t *testing.T) *sqlx.DB {
 }
 
 func Test_DB_ReadWriteConfig(t *testing.T) {
+	t.Parallel()
 	sqlDB := setupDB(t)
 
 	config := ocrtypes.ContractConfig{
@@ -51,6 +52,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes config", func(t *testing.T) {
+		t.Parallel()
 		db := ocrbootstrap.NewDB(sqlDB, spec.ID, lggr)
 
 		err := db.WriteConfig(t.Context(), config)
@@ -63,6 +65,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("updates config", func(t *testing.T) {
+		t.Parallel()
 		db := ocrbootstrap.NewDB(sqlDB, spec.ID, lggr)
 
 		newConfig := ocrtypes.ContractConfig{
@@ -81,6 +84,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
+		t.Parallel()
 		db := ocrbootstrap.NewDB(sqlDB, spec.ID, lggr)
 
 		err := db.WriteConfig(t.Context(), config)

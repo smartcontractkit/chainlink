@@ -15,6 +15,7 @@ import (
 )
 
 func Test_ReportsGeneratedGauge(t *testing.T) {
+	t.Parallel()
 	pluginObservationSize := 5
 	pluginOutcomeSize := 3
 
@@ -77,33 +78,39 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	require.Error(t, err)
 
 	g1 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues(
-		"evm", "1", "empty", "reports"),
+		"evm", "1", "empty", "reports",
+	),
 	)
 	require.Equal(t, 2, int(g1-initG1))
 
 	g2 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues(
-		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "reports"),
+		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "reports",
+	),
 	)
 	require.Equal(t, 100, int(g2-initG2))
 
 	g3 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues(
-		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "shouldAccept"),
+		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "shouldAccept",
+	),
 	)
 	require.Equal(t, 1, int(g3-initG3))
 
 	g4 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues(
-		"aptos", "1", "empty", "reports"),
+		"aptos", "1", "empty", "reports",
+	),
 	)
 	require.Equal(t, 0, int(g4-initG4))
 
 	pluginHealth := testutil.ToFloat64(promOCR3PluginStatus.WithLabelValues(
-		"aptos", "1", "empty", "abc"),
+		"aptos", "1", "empty", "abc",
+	),
 	)
 	require.Equal(t, 1, int(pluginHealth))
 
 	require.NoError(t, plugin1.Close())
 	pluginHealth = testutil.ToFloat64(promOCR3PluginStatus.WithLabelValues(
-		"evm", "1", "empty", "abc"),
+		"evm", "1", "empty", "abc",
+	),
 	)
 	require.Equal(t, 0, int(pluginHealth))
 
@@ -116,16 +123,19 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	require.NoError(t, err1)
 
 	outcomesLen := testutil.ToFloat64(promOCR3Sizes.WithLabelValues(
-		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "outcome"),
+		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "outcome",
+	),
 	)
 	require.Equal(t, pluginOutcomeSize*iterations, int(outcomesLen-initOutcomesLen))
 	observationLen := testutil.ToFloat64(promOCR3Sizes.WithLabelValues(
-		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "observation"),
+		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "observation",
+	),
 	)
 	require.Equal(t, pluginObservationSize, int(observationLen-initObservationLen))
 }
 
 func Test_DurationHistograms(t *testing.T) {
+	t.Parallel()
 	// Capture initial histogram sample counts (accumulate across -count=N)
 	initEvmQueryTrue := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "query", "true")
 	initEvmQueryFalse := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "query", "false")

@@ -30,6 +30,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	require.NoError(t, peerID.UnmarshalText([]byte(configtest.DefaultPeerID)))
 
 	t.Run("with no p2p keys returns error", func(t *testing.T) {
+		t.Parallel()
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V2.Enabled = new(true)
 		})
@@ -39,6 +40,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with one p2p key and matching P2P.PeerID returns nil", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		keyStore := cltest.NewKeyStore(t, db)
 		k, err := keyStore.P2P().Create(ctx)
@@ -56,6 +58,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with one p2p key and mismatching P2P.PeerID returns error", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V2.Enabled = new(true)
@@ -72,6 +75,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with multiple p2p keys and valid P2P.PeerID returns nil", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		keyStore := cltest.NewKeyStore(t, db)
 		k2, err := keyStore.P2P().Create(ctx)
@@ -90,6 +94,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with multiple p2p keys and mismatching P2P.PeerID returns error", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.P2P.V2.Enabled = new(true)

@@ -12,6 +12,7 @@ import (
 )
 
 func TestRunSaver(t *testing.T) {
+	t.Parallel()
 	pipelineRunner := mocks.NewRunner(t)
 	rs := NewResultRunSaver(
 		pipelineRunner,

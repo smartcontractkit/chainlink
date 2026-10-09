@@ -16,6 +16,7 @@ import (
 )
 
 func Test_DiscovererDatabase(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 
 	localPeerID1 := mustRandomP2PPeerID(t)
@@ -47,6 +48,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 		ctx := t.Context()
 
 		t.Run(tt.name+" StoreAnnouncement writes a value", func(t *testing.T) {
+			t.Parallel()
 			ann := []byte{1, 2, 3}
 			err := dd1.StoreAnnouncement(ctx, "remote1", ann)
 			require.NoError(t, err)
@@ -63,6 +65,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 		})
 
 		t.Run(tt.name+" ReadAnnouncements reads values filtered by given peerIDs", func(t *testing.T) {
+			t.Parallel()
 			announcements, err := dd1.ReadAnnouncements(ctx, []string{"remote1", "remote2"})
 			require.NoError(t, err)
 
@@ -78,6 +81,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 		})
 
 		t.Run(tt.name+" is scoped to local peer ID", func(t *testing.T) {
+			t.Parallel()
 			ann := []byte{10, 11, 12}
 			err := dd2.StoreAnnouncement(ctx, "remote1", ann)
 			require.NoError(t, err)
@@ -94,6 +98,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 		})
 
 		t.Run(tt.name+" persists data across restarts", func(t *testing.T) {
+			t.Parallel()
 			dd3 := ocrcommon.NewOCRDiscovererDatabase(db, localPeerID1.Raw())
 
 			announcements, err := dd3.ReadAnnouncements(ctx, []string{"remote1"})

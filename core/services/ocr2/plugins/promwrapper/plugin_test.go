@@ -42,22 +42,27 @@ func (fakeReportingPlugin) Query(context.Context, types.ReportTimestamp) (types.
 	time.Sleep(qDuration)
 	return nil, nil
 }
+
 func (fakeReportingPlugin) Observation(context.Context, types.ReportTimestamp, types.Query) (types.Observation, error) {
 	time.Sleep(oDuration)
 	return nil, nil
 }
+
 func (fakeReportingPlugin) Report(context.Context, types.ReportTimestamp, types.Query, []types.AttributedObservation) (bool, types.Report, error) {
 	time.Sleep(rDuration)
 	return false, nil, nil
 }
+
 func (fakeReportingPlugin) ShouldAcceptFinalizedReport(context.Context, types.ReportTimestamp, types.Report) (bool, error) {
 	time.Sleep(aDuration)
 	return false, nil
 }
+
 func (fakeReportingPlugin) ShouldTransmitAcceptedReport(context.Context, types.ReportTimestamp, types.Report) (bool, error) {
 	time.Sleep(tDuration)
 	return false, nil
 }
+
 func (fakeReportingPlugin) Close() error {
 	time.Sleep(cDuration)
 	return nil
@@ -66,8 +71,9 @@ func (fakeReportingPlugin) Close() error {
 var _ types.ReportingPlugin = &fakeReportingPlugin{}
 
 func TestPlugin_MustInstantiate(t *testing.T) {
+	t.Parallel()
 	// Ensure instantiation without panic for no override backend.
-	var reportingPlugin = &fakeReportingPlugin{}
+	reportingPlugin := &fakeReportingPlugin{}
 	promPlugin := New(reportingPlugin, "test", "EVM", big.NewInt(1), types.ReportingPluginConfig{}, nil)
 	require.NotNil(t, promPlugin)
 
@@ -78,6 +84,7 @@ func TestPlugin_MustInstantiate(t *testing.T) {
 }
 
 func TestPlugin_GetLatencies(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		{
 			// Use arbitrary report timestamp and label values.
@@ -87,7 +94,7 @@ func TestPlugin_GetLatencies(t *testing.T) {
 				Epoch:        1,
 				Round:        1,
 			}
-			var assertCorrectLabelValues = func(labelValues []string) {
+			assertCorrectLabelValues := func(labelValues []string) {
 				require.Equal(
 					t,
 					[]string{
@@ -96,7 +103,8 @@ func TestPlugin_GetLatencies(t *testing.T) {
 						"test-plugin",
 						"0",
 						common.Bytes2Hex(configDigest[:]),
-					}, labelValues)
+					}, labelValues,
+				)
 			}
 
 			// Instantiate prometheus backend mock.
@@ -181,17 +189,18 @@ func TestPlugin_GetLatencies(t *testing.T) {
 						"test-plugin",
 						"0",
 						common.Bytes2Hex(configDigest[:]),
-					}, labelValues)
+					}, labelValues,
+				)
 				require.Equal(t, latency, cDuration)
 				require.Less(t, latency, ceiling)
 			}).Return()
 
 			// Create promPlugin with mocked prometheus backend.
-			var reportingPlugin = &fakeReportingPlugin{}
+			reportingPlugin := &fakeReportingPlugin{}
 			// Zero defaultCleanupInterval to disable gc in "github.com/patrickmn/go-cache", since gc is not compatible
 			// with synctest. See https://github.com/patrickmn/go-cache/issues/185.
 			defaultCleanupInterval = 0
-			var promPlugin = New(
+			promPlugin := New(
 				reportingPlugin,
 				"test-plugin",
 				"EVM",

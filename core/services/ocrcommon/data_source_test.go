@@ -33,6 +33,7 @@ var (
 )
 
 func Test_InMemoryDataSource(t *testing.T) {
+	t.Parallel()
 	runner := pipelinemocks.NewRunner(t)
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
 		Return(&pipeline.Run{}, pipeline.TaskRunResults{
@@ -52,6 +53,7 @@ func Test_InMemoryDataSource(t *testing.T) {
 }
 
 func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -78,6 +80,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		}
 	}
 	t.Run("test normal cache updater fail recovery", func(t *testing.T) {
+		t.Parallel()
 		runner := pipelinemocks.NewRunner(t)
 		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
 		mockKVStore := mocks.KVStore{}
@@ -113,6 +116,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 	})
 
 	t.Run("test total updater fail with persisted value recovery", func(t *testing.T) {
+		t.Parallel()
 		runner := pipelinemocks.NewRunner(t)
 		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
 
@@ -136,6 +140,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 	})
 
 	t.Run("test total updater fail with no persisted value ", func(t *testing.T) {
+		t.Parallel()
 		runner := pipelinemocks.NewRunner(t)
 		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
 
@@ -155,6 +160,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 }
 
 func Test_InMemoryDataSourceWithProm(t *testing.T) {
+	t.Parallel()
 	runner := pipelinemocks.NewRunner(t)
 
 	jsonParseTask := pipeline.JSONParseTask{
@@ -211,6 +217,7 @@ func (ms *mockSaver) Save(r *pipeline.Run) {
 }
 
 func Test_NewDataSourceV2(t *testing.T) {
+	t.Parallel()
 	runner := pipelinemocks.NewRunner(t)
 	ms := &mockSaver{}
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
@@ -232,6 +239,7 @@ func Test_NewDataSourceV2(t *testing.T) {
 }
 
 func Test_NewDataSourceV1(t *testing.T) {
+	t.Parallel()
 	runner := pipelinemocks.NewRunner(t)
 	ms := &mockSaver{}
 	runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).

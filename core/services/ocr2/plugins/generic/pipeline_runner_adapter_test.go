@@ -35,6 +35,7 @@ answer;
 `
 
 func TestAdapter_Integration(t *testing.T) {
+	t.Parallel()
 	testutils.SkipShortDB(t)
 	ctx := t.Context()
 	logger := logger.TestLogger(t)
@@ -104,6 +105,7 @@ func (m *mockPipelineRunner) ExecuteAndInsertFinishedRun(ctx context.Context, sp
 }
 
 func TestAdapter_AddsDefaultVars(t *testing.T) {
+	t.Parallel()
 	logger := logger.TestLogger(t)
 	mpr := newMockPipelineRunner()
 	jobID, externalJobID, name := int32(100), uuid.New(), null.StringFrom("job-name")
@@ -126,6 +128,7 @@ func TestAdapter_AddsDefaultVars(t *testing.T) {
 }
 
 func TestPipelineRunnerAdapter_SetsVarsOnSpec(t *testing.T) {
+	t.Parallel()
 	logger := logger.TestLogger(t)
 	mpr := newMockPipelineRunner()
 	jobID, externalJobID, name, jobType := int32(100), uuid.New(), null.StringFrom("job-name"), job.Type("generic")
