@@ -3,6 +3,7 @@ package telem
 import (
 	"encoding/hex"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -1191,5 +1192,88 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 		}
 		assert.Equal(t, map[uint32]struct{}{10: {}, 20: {}, 30: {}}, received,
 			"each per-channel report should be admitted (distinct sampler fingerprints)")
+	})
+}
+
+func Test_Telemeter_attributedObservationTelemetry(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	donID := uint32(1)
+
+	t.Run("returns nil channel if CaptureAttributedObservationTelemetry is false", func(t *testing.T) {
+		t.Parallel()
+		tm := newTelemeter(TelemeterParams{
+			Logger: lggr,
+			DonID:  donID,
+		})
+		assert.Nil(t, tm.GetAttributedObservationTelemetryCh())
+		assert.Nil(t, NullTelemeter.GetAttributedObservationTelemetryCh())
+	})
+
+	t.Run("buffers every part and flushes on transmission", func(t *testing.T) {
+		t.Parallel()
+		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
+		tm := newTelemeter(TelemeterParams{
+			Logger:                                lggr,
+			MonitoringEndpoint:                    m,
+			DonID:                                 donID,
+			CaptureAttributedObservationTelemetry: true,
+		})
+		servicetest.Run(t, tm)
+		ch := tm.GetAttributedObservationTelemetryCh()
+		require.NotNil(t, ch)
+
+		opts := &mockOpts{}
+		cd := opts.ConfigDigest()
+		parts := []*lloprotocol.LLOAttributedObservationTelemetry{
+			{
+				ConfigDigest:                          cd[:],
+				SeqNr:                                 opts.SeqNr(),
+				DonId:                                 donID,
+				Observer:                              2,
+				Emitter:                               3,
+				OracleObservationTimestampNanoseconds: 4,
+				AgreedObservationTimestampNanoseconds: 5,
+				StreamValues:                          map[uint32]*lloprotocol.LLOStreamValue{1: {Type: 1, Value: []byte{6}}},
+				RemoveChannelIds:                      []uint32{7},
+			},
+			{
+				ConfigDigest:                          cd[:],
+				SeqNr:                                 opts.SeqNr(),
+				DonId:                                 donID,
+				Observer:                              2,
+				Emitter:                               3,
+				OracleObservationTimestampNanoseconds: 4,
+				AgreedObservationTimestampNanoseconds: 5,
+				StreamValues:                          map[uint32]*lloprotocol.LLOStreamValue{8: {Type: 1, Value: []byte{9}}},
+			},
+		}
+		for _, p := range parts {
+			ch <- p
+		}
+
+		testutils.RequireEventually(t, func() bool {
+			tm.telemetryBufferMu.Lock()
+			defer tm.telemetryBufferMu.Unlock()
+			return len(tm.telemetryBuffer[cd.Hex()][opts.SeqNr()]) == len(parts)
+		})
+
+		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
+
+		received := make([]*lloprotocol.LLOAttributedObservationTelemetry, 0, len(parts))
+		for range parts {
+			tLog := <-m.chTypedLogs
+			assert.Equal(t, synchronization.LLOAttributedObservation, tLog.telemType)
+			decoded := &lloprotocol.LLOAttributedObservationTelemetry{}
+			require.NoError(t, proto.Unmarshal(tLog.log, decoded))
+			received = append(received, decoded)
+		}
+		for i, want := range parts {
+			idx := slices.IndexFunc(received, func(got *lloprotocol.LLOAttributedObservationTelemetry) bool {
+				return proto.Equal(want, got)
+			})
+			assert.GreaterOrEqual(t, idx, 0, "part %d not flushed", i)
+		}
 	})
 }
