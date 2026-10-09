@@ -85,6 +85,7 @@ func TestEngine_Lifecycle(t *testing.T) {
 		{"Close_CancelsInFlightExecution", testLifecycleCloseCancelsInFlightExecution},
 		{"Close_WaitsForExecutionBeforeClosingModule", testLifecycleCloseWaitsForExecutionBeforeClosingModule},
 		{"ExecuteTrigger_AfterClose", testLifecycleExecuteTriggerAfterClose},
+		{"ExecuteTrigger_WhileDraining", testLifecycleExecuteTriggerWhileDraining},
 		{"Drain_KeepsInFlightExecutionRunning", testLifecycleDrainKeepsInFlightExecutionRunning},
 		{"Drain_ThenClose_CancelsInFlightExecution", testLifecycleDrainThenCloseCancelsInFlightExecution},
 	}
@@ -153,6 +154,21 @@ func testLifecycleExecuteTriggerAfterClose(t *testing.T, mode lifecycleEngineMod
 	err := h.engine.ExecuteTrigger(h.tenantCtx(), h.event("after-close"))
 
 	require.ErrorIs(t, err, v2.ErrEngineClosed, "ExecuteTrigger on a closed engine")
+	require.Equal(t, int32(0), h.moduleExecutions.Load(), "executions that reached the module")
+}
+
+// testLifecycleExecuteTriggerWhileDraining delivers a trigger event directly to a draining engine.
+// It asserts that the event is rejected without ever reaching the module. The gate is open, so an
+// engine that wrongly runs the event finishes it and is counted, rather than holding the test.
+func testLifecycleExecuteTriggerWhileDraining(t *testing.T, mode lifecycleEngineMode) {
+	h := newEngineLifecycleHarness(t, mode)
+	h.start()
+	require.True(t, h.engine.Drain(), "first Drain")
+	h.gate.open()
+
+	err := h.engine.ExecuteTrigger(h.tenantCtx(), h.event("while-draining"))
+
+	require.ErrorIs(t, err, v2.ErrEngineDraining, "ExecuteTrigger on a draining engine")
 	require.Equal(t, int32(0), h.moduleExecutions.Load(), "executions that reached the module")
 }
 
