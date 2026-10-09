@@ -143,6 +143,8 @@ ForwardersEnabled = false # Default
 #
 # 0 value disables the limit. Use with caution.
 MaxInFlight = 16 # Default
+# MaxUnknownErrorRetries is the number of times the Broadcaster retries sending transaction that keeps failing with an unknown (unclassified) RPC error before marking it as fatally errored. Since there can only one in-progress transaction per key, such as transaction otherwise blocks every transaction queued behind it until it is manually removed
+MaxUnknownErrorRetries = 0 # Default
 # MaxQueued is the maximum number of unbroadcast transactions per key that are allowed to be enqueued before jobs will start failing and rejecting send of any further transactions. This represents a sanity limit and generally indicates a problem with your ETH node (transactions are not getting mined).
 #
 # Do NOT blindly increase this value thinking it will fix things if you start hitting this limit because transactions are not getting mined, you will instead only make things worse.
@@ -157,6 +159,8 @@ ReaperInterval = '1h' # Default
 ReaperThreshold = '168h' # Default
 # ResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
 ResendAfterThreshold = '1m' # Default
+# UnknownErrorRetryTimeout is how long broadcaster keeps retrying a transaction that fails with unknown (unclassified) RPC errors, measured from the first such error, before marking it as fatally errored. The same caveats as MaxUnknownErrorRetries apply. If both are set, whichever limit is reached first, applies.
+UnknownErrorRetryTimeout = '0s' # Default
 
 [EVM.Transactions.AutoPurge]
 # Enabled enables or disables automatically purging transactions that have been identified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.

@@ -750,7 +750,9 @@ func TestConfig_Marshal(t *testing.T) {
 						ReadRequestsToMultipleNodes: new(false),
 						Bundles:                     new(false),
 					},
-					ConfirmationTimeout: &minute,
+					ConfirmationTimeout:      &minute,
+					MaxUnknownErrorRetries:   new(uint32(22)),
+					UnknownErrorRetryTimeout: &minute,
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
@@ -1139,6 +1141,8 @@ ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
 ConfirmationTimeout = '1m0s'
+MaxUnknownErrorRetries = 22
+UnknownErrorRetryTimeout = '1m0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false
@@ -1360,6 +1364,12 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.FeeBoost == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.FeeBoost = new(false)
+		}
+		if got.EVM[c].Transactions.MaxUnknownErrorRetries == nil {
+			got.EVM[c].Transactions.MaxUnknownErrorRetries = new(uint32(0))
+		}
+		if got.EVM[c].Transactions.UnknownErrorRetryTimeout == nil {
+			got.EVM[c].Transactions.UnknownErrorRetryTimeout = new(commonconfig.Duration)
 		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
 			got.EVM[c].Transactions.AutoPurge.Threshold = new(uint32(0))
