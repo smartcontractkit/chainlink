@@ -95,6 +95,7 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 }
 
 func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		apiFile    string
@@ -108,6 +109,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				s.Password.Keystore = commonconfig.NewSecretString("16charlengthp4SsW0rD1!@#_")
 				c.EVM[0].Nodes[0].Name = new("fake")
@@ -174,6 +176,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 }
 
 func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		logFileSize     func(t *testing.T) utils.FileSize
@@ -192,6 +195,7 @@ func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cfg := logger.Config{
 				Dir:           t.TempDir(),
 				FileMaxSizeMB: int(tt.logFileSize(t) / utils.MB), //nolint:gosec // test sizes won't exceed max int
@@ -447,6 +451,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 }
 
 func TestShell_CleanupChainTables(t *testing.T) {
+	t.Parallel()
 	// Just check if it doesn't error, command itself shouldn't be changed unless major schema changes were made.
 	// It would be really hard to write a test that accounts for schema changes, so this should be enough to alarm us that something broke.
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.Database.DriverName = pgcommon.DriverPostgres })
@@ -467,6 +472,7 @@ func TestShell_CleanupChainTables(t *testing.T) {
 }
 
 func TestShell_RemoveBlocks(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		s.Password.Keystore = commonconfig.NewSecretString("dummy")
@@ -490,6 +496,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 	}
 
 	t.Run("Returns error, if --start is not positive", func(t *testing.T) {
+		t.Parallel()
 		set := flag.NewFlagSet("test", 0)
 		flagSetApplyFromAction(shell.RemoveBlocks, set, "")
 		require.NoError(t, set.Set("start", "0"))
@@ -499,6 +506,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 		require.ErrorContains(t, err, "must pass a positive value in '--start' parameter")
 	})
 	t.Run("Returns error, if removal fails", func(t *testing.T) {
+		t.Parallel()
 		set := flag.NewFlagSet("test", 0)
 		flagSetApplyFromAction(shell.RemoveBlocks, set, "")
 		require.NoError(t, set.Set("start", "10000"))
@@ -510,6 +518,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 		require.ErrorContains(t, err, expectedError.Error())
 	})
 	t.Run("Happy path", func(t *testing.T) {
+		t.Parallel()
 		set := flag.NewFlagSet("test", 0)
 		flagSetApplyFromAction(shell.RemoveBlocks, set, "")
 		require.NoError(t, set.Set("start", "10000"))
@@ -522,6 +531,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 }
 
 func TestShell_BeforeNode(t *testing.T) {
+	t.Parallel()
 	testutils.SkipShortDB(t)
 	tests := []struct {
 		name            string
@@ -536,6 +546,7 @@ func TestShell_BeforeNode(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			cfg, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.DriverName = pgcommon.DriverPostgres
 				c.EVM = nil
@@ -600,6 +611,7 @@ func TestShell_BeforeNode(t *testing.T) {
 }
 
 func TestShell_BeholderLifecycle(t *testing.T) {
+	t.Parallel()
 	testutils.SkipShortDB(t)
 	rawDBURL, ok := os.LookupEnv("CL_DATABASE_URL")
 	if !ok {
@@ -644,6 +656,7 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 	}
 
 	t.Run("telemetry disabled assigns noop beholder client", func(t *testing.T) {
+		t.Parallel()
 		shell, c := newShell(t, nil, nil)
 		require.NoError(t, shell.BeforeNode(c))
 		require.NotNil(t, shell.BeholderClient, "BeholderClient should be a no-op client when telemetry is disabled")
@@ -651,6 +664,7 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 	})
 
 	t.Run("telemetry enabled starts and closes beholder", func(t *testing.T) {
+		t.Parallel()
 		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			trueVal := true
 			c.Telemetry.Enabled = &trueVal
@@ -665,6 +679,7 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 	})
 
 	t.Run("after node is idempotent", func(t *testing.T) {
+		t.Parallel()
 		shell, c := newShell(t, nil, nil)
 		require.NoError(t, shell.BeforeNode(c))
 		require.NoError(t, shell.AfterNode(c))
@@ -672,6 +687,7 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 	})
 
 	t.Run("log streaming sets otel core", func(t *testing.T) {
+		t.Parallel()
 		var setOtelCoreCalls int
 		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			trueVal := true
@@ -691,6 +707,7 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 	})
 
 	t.Run("log streaming fails when SetOtelCore is nil", func(t *testing.T) {
+		t.Parallel()
 		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			trueVal := true
 			c.Telemetry.Enabled = &trueVal
@@ -706,6 +723,7 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 }
 
 func TestShell_AfterNode_NilBeholderClient(t *testing.T) {
+	t.Parallel()
 	shell := cmd.Shell{
 		LDB:            stubLockedDB{},
 		Logger:         logger.TestLogger(t),
@@ -717,6 +735,7 @@ func TestShell_AfterNode_NilBeholderClient(t *testing.T) {
 }
 
 func TestShell_RunNode_WithBeforeNode(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		pwdfile     string
@@ -727,6 +746,7 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				s.Password.Keystore = commonconfig.NewSecretString("dummy")
 				c.EVM[0].Nodes[0].Name = new("fake")

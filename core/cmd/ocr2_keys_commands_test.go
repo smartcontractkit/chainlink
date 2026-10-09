@@ -80,7 +80,7 @@ func TestShell_OCR2Keys(t *testing.T) {
 		requireOCR2KeyCount(t, app, 0)
 	}
 
-	t.Run("ListOCR2KeyBundles", func(tt *testing.T) {
+	t.Run("ListOCR2KeyBundles", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		ctx := t.Context()
 		client, r := app.NewShellAndRenderer()
@@ -94,7 +94,7 @@ func TestShell_OCR2Keys(t *testing.T) {
 		require.Equal(t, key.ID(), output[0].ID)
 	})
 
-	t.Run("CreateOCR2KeyBundle", func(tt *testing.T) {
+	t.Run("CreateOCR2KeyBundle", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		client, r := app.NewShellAndRenderer()
 
@@ -113,7 +113,7 @@ func TestShell_OCR2Keys(t *testing.T) {
 		require.Equal(t, output.ID, keys[0].ID())
 	})
 
-	t.Run("DeleteOCR2KeyBundle", func(tt *testing.T) {
+	t.Run("DeleteOCR2KeyBundle", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		ctx := t.Context()
 		client, r := app.NewShellAndRenderer()
@@ -135,7 +135,7 @@ func TestShell_OCR2Keys(t *testing.T) {
 		assert.Equal(t, key.ID(), output.ID)
 	})
 
-	t.Run("ImportExportOCR2Key", func(tt *testing.T) {
+	t.Run("ImportExportOCR2Key", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		defer deleteKeyExportFile(t)
 		ctx := t.Context()

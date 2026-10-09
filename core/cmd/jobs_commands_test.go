@@ -94,6 +94,7 @@ func TestJobRenderer_GetTasks(t *testing.T) {
 	r := &cmd.JobPresenter{}
 
 	t.Run("gets the tasks from the DAG in reverse order", func(t *testing.T) {
+		t.Parallel()
 		r.PipelineSpec = presenters.PipelineSpec{
 			DotDAGSource: "ds1 [type=http method=GET url=\"example.com\" allowunrestrictednetworkaccess=\"true\"];\n    ds1_parse    [type=jsonparse path=\"USD\"];\n    ds1_multiply [type=multiply times=100];\n    ds1 -\u003e ds1_parse -\u003e ds1_multiply;\n",
 		}
@@ -109,6 +110,7 @@ func TestJobRenderer_GetTasks(t *testing.T) {
 	})
 
 	t.Run("parse error", func(t *testing.T) {
+		t.Parallel()
 		r.PipelineSpec = presenters.PipelineSpec{
 			DotDAGSource: "invalid dot",
 		}
@@ -126,6 +128,7 @@ func TestJob_FriendlyTasks(t *testing.T) {
 	r := &cmd.JobPresenter{}
 
 	t.Run("gets the tasks in a printable format", func(t *testing.T) {
+		t.Parallel()
 		r.PipelineSpec = presenters.PipelineSpec{
 			DotDAGSource: "    ds1          [type=http method=GET url=\"example.com\" allowunrestrictednetworkaccess=\"true\"];\n    ds1_parse    [type=jsonparse path=\"USD\"];\n    ds1_multiply [type=multiply times=100];\n    ds1 -\u003e ds1_parse -\u003e ds1_multiply;\n",
 		}
@@ -138,6 +141,7 @@ func TestJob_FriendlyTasks(t *testing.T) {
 	})
 
 	t.Run("parse error", func(t *testing.T) {
+		t.Parallel()
 		r.PipelineSpec = presenters.PipelineSpec{
 			DotDAGSource: "invalid dot",
 		}
@@ -238,6 +242,7 @@ func TestJob_FriendlyCreatedAt(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.result, tc.job.FriendlyCreatedAt())
 		})
 	}

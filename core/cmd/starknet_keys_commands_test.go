@@ -53,6 +53,7 @@ func TestStarkNetKeyPresenter_RenderTable(t *testing.T) {
 }
 
 func TestShell_StarkNetKeys(t *testing.T) {
+	t.Parallel()
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().StarkNet()
 	cleanup := func() {
@@ -65,7 +66,7 @@ func TestShell_StarkNetKeys(t *testing.T) {
 		requireStarkNetKeyCount(t, app, 0)
 	}
 
-	t.Run("ListStarkNetKeys", func(tt *testing.T) {
+	t.Run("ListStarkNetKeys", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		ctx := t.Context()
 		client, r := app.NewShellAndRenderer()
@@ -78,7 +79,7 @@ func TestShell_StarkNetKeys(t *testing.T) {
 		assert.Equal(t, key.StarkKeyStr(), keys[0].StarkKey)
 	})
 
-	t.Run("CreateStarkNetKey", func(tt *testing.T) {
+	t.Run("CreateStarkNetKey", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		client, _ := app.NewShellAndRenderer()
 		require.NoError(t, cmd.NewStarkNetKeysClient(client).CreateKey(nilContext))
@@ -87,7 +88,7 @@ func TestShell_StarkNetKeys(t *testing.T) {
 		require.Len(t, keys, 1)
 	})
 
-	t.Run("DeleteStarkNetKey", func(tt *testing.T) {
+	t.Run("DeleteStarkNetKey", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		ctx := t.Context()
 		client, _ := app.NewShellAndRenderer()
@@ -108,7 +109,7 @@ func TestShell_StarkNetKeys(t *testing.T) {
 		requireStarkNetKeyCount(t, app, 0)
 	})
 
-	t.Run("ImportExportStarkNetKey", func(tt *testing.T) {
+	t.Run("ImportExportStarkNetKey", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		defer deleteKeyExportFile(t)
 		ctx := t.Context()
