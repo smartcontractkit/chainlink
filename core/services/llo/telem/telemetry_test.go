@@ -1277,3 +1277,61 @@ func Test_Telemeter_attributedObservationTelemetry(t *testing.T) {
 		}
 	})
 }
+
+func Test_Telemeter_bufferedTelemetryPerDigest(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	outcome := func(digest ocr2types.ConfigDigest, seqNr uint64) *lloprotocol.LLOOutcomeTelemetry {
+		return &lloprotocol.LLOOutcomeTelemetry{ConfigDigest: digest[:], SeqNr: seqNr}
+	}
+	blue, green := ocr2types.ConfigDigest{0xb1}, ocr2types.ConfigDigest{0x91}
+
+	t.Run("a transmission of one digest keeps the other digest buffer", func(t *testing.T) {
+		t.Parallel()
+		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 10)}
+		tm := newTelemeter(TelemeterParams{Logger: lggr, MonitoringEndpoint: m})
+
+		tm.enqueueTelemetry(blue.Hex(), 10, synchronization.LLOOutcome, outcome(blue, 10))
+		tm.enqueueTelemetry(green.Hex(), 3, synchronization.LLOOutcome, outcome(green, 3))
+
+		tm.sendBufferedTelemetry(blue, 10)
+		<-m.chTypedLogs
+
+		tm.telemetryBufferMu.Lock()
+		require.Len(t, tm.telemetryBuffer[green.Hex()][3], 1, "green buffer must survive blue's transmission")
+		tm.telemetryBufferMu.Unlock()
+
+		tm.sendBufferedTelemetry(green, 3)
+		tLog := <-m.chTypedLogs
+		decoded := &lloprotocol.LLOOutcomeTelemetry{}
+		require.NoError(t, proto.Unmarshal(tLog.log, decoded))
+		assert.Equal(t, green[:], decoded.ConfigDigest)
+		assert.Equal(t, uint64(3), decoded.SeqNr)
+	})
+
+	t.Run("evicts a digest buffer idle for longer than the TTL", func(t *testing.T) {
+		t.Parallel()
+		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 10)}
+		tm := newTelemeter(TelemeterParams{Logger: lggr, MonitoringEndpoint: m})
+		tm.bufferTTL = time.Millisecond
+
+		tm.enqueueTelemetry(green.Hex(), 3, synchronization.LLOOutcome, outcome(green, 3))
+		tm.sendBufferedTelemetry(green, 2) // tracks green, keeps seqNr 3 buffered
+		time.Sleep(5 * time.Millisecond)
+
+		tm.enqueueTelemetry(blue.Hex(), 10, synchronization.LLOOutcome, outcome(blue, 10))
+		tm.sendBufferedTelemetry(blue, 10)
+		<-m.chTypedLogs
+
+		tm.telemetryBufferMu.Lock()
+		assert.NotContains(t, tm.telemetryBuffer, green.Hex())
+		assert.NotContains(t, tm.bufferFlushedAt, green.Hex())
+		assert.Contains(t, tm.bufferFlushedAt, blue.Hex())
+		tm.telemetryBufferMu.Unlock()
+
+		tm.currentSeqNrMu.Lock()
+		assert.NotContains(t, tm.currentSeqNr, green.Hex())
+		tm.currentSeqNrMu.Unlock()
+	})
+}

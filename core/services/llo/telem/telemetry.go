@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -25,6 +26,11 @@ import (
 )
 
 const adapterLWBAErrorName = "AdapterLWBAError"
+
+// bufferedTelemetryDigestTTL is how long the buffered telemetry of a config
+// digest is kept without a flush. A retired or removed instance stops
+// transmitting, so its buffer is evicted after this long.
+const bufferedTelemetryDigestTTL = time.Minute
 
 // DSOpts is the shared, version-agnostic LLO data-source options (llo/v30 and
 // llo/v31 both use llodatasource.DSOpts). Aliased here so the telemetry and
@@ -86,6 +92,8 @@ func newTelemeter(params TelemeterParams) *telemeter {
 		}, 10),
 		currentSeqNr:    make(map[string]uint64),
 		telemetryBuffer: make(map[string]map[uint64][]telemetryEntry),
+		bufferFlushedAt: make(map[string]time.Time),
+		bufferTTL:       bufferedTelemetryDigestTTL,
 		sampler:         newSampler(logger.Sugared(params.Logger), params.SampleTelemetry),
 	}
 	if params.CaptureOutcomeTelemetry {
@@ -159,6 +167,11 @@ type telemeter struct {
 	// for transmitting rounds sequence numbers
 	telemetryBufferMu sync.Mutex
 	telemetryBuffer   map[string]map[uint64][]telemetryEntry
+	// bufferFlushedAt is when each digest buffer was created or last flushed.
+	// Each digest is flushed by its own transmissions, so the buffers of
+	// concurrent instances (blue/green) are independent.
+	bufferFlushedAt map[string]time.Time
+	bufferTTL       time.Duration
 
 	sampler *sampler
 }
@@ -312,12 +325,23 @@ func (t *telemeter) sendBufferedTelemetry(digest types.ConfigDigest, seqNr uint6
 		}
 	}
 
-	// drop messages for config digests that are not transmitting
-	for d := range t.telemetryBuffer {
-		if d == cd {
-			continue
+	// evict the buffers of digests that stopped transmitting
+	now := time.Now()
+	t.bufferFlushedAt[cd] = now
+	var evicted []string
+	for d, flushedAt := range t.bufferFlushedAt {
+		if now.Sub(flushedAt) > t.bufferTTL {
+			delete(t.telemetryBuffer, d)
+			delete(t.bufferFlushedAt, d)
+			evicted = append(evicted, d)
 		}
-		delete(t.telemetryBuffer, d)
+	}
+	if len(evicted) > 0 {
+		t.currentSeqNrMu.Lock()
+		for _, d := range evicted {
+			delete(t.currentSeqNr, d)
+		}
+		t.currentSeqNrMu.Unlock()
 	}
 
 	go func() {
@@ -359,9 +383,7 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 		t.telemetryBufferMu.Lock()
 		defer t.telemetryBufferMu.Unlock()
 
-		if _, ok := t.telemetryBuffer[digest]; !ok {
-			t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
-		}
+		t.ensureDigestBuffer(digest)
 
 		// Sampling is applied at flush time for buffered telemetry
 		t.telemetryBuffer[digest][seqNr] = []telemetryEntry{{
@@ -374,14 +396,20 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 		t.telemetryBufferMu.Lock()
 		defer t.telemetryBufferMu.Unlock()
 
-		if _, ok := t.telemetryBuffer[digest]; !ok {
-			t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
-		}
+		t.ensureDigestBuffer(digest)
 		// Sampling is applied at flush time for buffered telemetry
 		t.telemetryBuffer[digest][seqNr] = append(t.telemetryBuffer[digest][seqNr], telemetryEntry{
 			telemType: typ,
 			msg:       msg,
 		})
+	}
+}
+
+// ensureDigestBuffer creates the buffer of digest. Callers hold telemetryBufferMu.
+func (t *telemeter) ensureDigestBuffer(digest string) {
+	if _, ok := t.telemetryBuffer[digest]; !ok {
+		t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
+		t.bufferFlushedAt[digest] = time.Now()
 	}
 }
 
