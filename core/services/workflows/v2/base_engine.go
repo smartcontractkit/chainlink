@@ -189,10 +189,13 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 }
 
 // ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
-// It rejects events with ErrEngineClosed once Close has begun.
+// It rejects events with ErrEngineClosed once Close has begun and with ErrEngineDraining once Drain has been called.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
 	if e.closing() {
 		return ErrEngineClosed
+	}
+	if e.Draining() {
+		return ErrEngineDraining
 	}
 
 	e.activeExecutions.Add(1)
@@ -969,8 +972,7 @@ func (e *baseEngine) donTimeRequestTimeout(ctx context.Context, limiter limits.T
 	return limit
 }
 
-// closing reports whether Close has begun. It reads the stop channel rather than the service state
-// machine, so it never blocks on Close, which holds the state lock while it waits for executions.
+// closing reports whether Close has begun.
 func (e *baseEngine) closing() bool {
 	select {
 	case <-e.srvcEng.StopChan:
