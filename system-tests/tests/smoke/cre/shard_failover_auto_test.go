@@ -67,18 +67,20 @@ const (
 	// cached trigger event itself after the failover window elapsed.
 	shardAutoFailoverExecutedLogNeedle = "secondary shard: auto failover executed cached trigger event"
 
-	// shardKillDrainGrace excludes executions that were already in flight
-	// when a shard was killed: the kill lands a second or two after the
-	// death timestamp is taken, an in-flight execution completes and emits
-	// its user log shortly after, and those tails belong to the pre-death
-	// world. Post-death record assertions measure from death+grace.
-	shardKillDrainGrace = 10 * time.Second
+	// shardInflightDrainGrace excludes executions that were already in
+	// flight when the observed boundary happened: an execution admitted just
+	// before a shard was killed (or just before a re-proposed assignment
+	// landed on it, demoting it mid-flight) completes and emits its user log
+	// a few seconds after the boundary, and those tails belong to the
+	// pre-boundary world. Record assertions on the far side of a boundary
+	// measure from boundary+grace.
+	shardInflightDrainGrace = 10 * time.Second
 
 	// shardStallObserveWindow is the fixed observe beat for the gate-closed
-	// stall: one cron tick past the death (plus the kill-drain grace), so at
-	// least one trigger fired and was cached with nothing executing it. The
-	// stall itself is about the gate, not the window - with the gate closed a
-	// cached event is never armed with a deadline at all.
+	// stall: one cron tick past the death (plus the in-flight drain grace),
+	// so at least one trigger fired and was cached with nothing executing
+	// it. The stall itself is about the gate, not the window - with the gate
+	// closed a cached event is never armed with a deadline at all.
 	shardStallObserveWindow = 45 * time.Second
 
 	// shardTickRecords is how many fresh user-log records an observation
@@ -408,7 +410,7 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	// window, reading the same secret from the shared vault. The post-death
 	// assertions measure from death+grace so executions already in flight
 	// when the kill landed are not counted as post-death activity.
-	postDeath := death.Add(shardKillDrainGrace)
+	postDeath := death.Add(shardInflightDrainGrace)
 	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardOneDON, secretValue, shardAutoExecAwaitTimeout)
 	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle, time.Minute, 5*time.Second)
 	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, postDeath, shardEventAwaitTimeout)
@@ -465,7 +467,7 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 	})
 
 	time.Sleep(shardStallObserveWindow)
-	collector.requireNoRecordsForWorkflows(t, []string{workflowID}, death.Add(shardKillDrainGrace))
+	collector.requireNoRecordsForWorkflows(t, []string{workflowID}, death.Add(shardInflightDrainGrace))
 	t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle)
 	testLogger.Info().Msg("Phase 2: gate closed, primary dead - workflow stalls, nothing auto-executes")
 
@@ -492,11 +494,14 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 	failbackLanded := time.Now()
 	testLogger.Info().Msg("Phase 4: former primary returned, re-synced and caching as secondary")
 
-	// Recovery assertions: from the failback landing on, fresh ticks arrive
-	// only from the promoted shard, and no executionID is seen on two DONs.
-	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, failbackLanded, shardEventAwaitTimeout)
-	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, failbackLanded)
-	collector.requireNoDuplicateExecutionIDsSince(t, failbackLanded)
+	// Recovery assertions: from the failback landing on (plus the in-flight
+	// drain grace, so gap executions admitted under the stale assignment just
+	// before the landing are not counted), fresh ticks arrive only from the
+	// promoted shard, and no executionID is seen on two DONs.
+	stableSince := failbackLanded.Add(shardInflightDrainGrace)
+	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, stableSince, shardEventAwaitTimeout)
+	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, stableSince)
+	collector.requireNoDuplicateExecutionIDsSince(t, stableSince)
 	testLogger.Info().Msg("Phase 5: recovered shard is cache-only, promoted shard is the sole executor, no duplicates")
 
 	// Fail back after recovery: re-propose the original order on both shards.
@@ -573,7 +578,7 @@ func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttyp
 	// Duplicates stay bounded: fresh ticks only from the secondary, and no
 	// executionID from two DONs after the death (+ the kill-drain grace, so
 	// executions already in flight when the kill landed are excluded).
-	postDeath := death.Add(shardKillDrainGrace)
+	postDeath := death.Add(shardInflightDrainGrace)
 	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, postDeath, shardEventAwaitTimeout)
 	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, postDeath)
 	collector.requireNoDuplicateExecutionIDsSince(t, postDeath)
