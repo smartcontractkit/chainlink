@@ -30,6 +30,7 @@ type ProposeGatewayJobInput struct {
 	DONs                        []DON             `yaml:"dons"`
 	Services                    []GatewayService  `yaml:"services"`
 	GatewayRequestTimeoutSec    pkg.Int           `yaml:"gatewayRequestTimeoutSec"`
+	PongTimeoutSec              pkg.Int           `yaml:"pongTimeoutSec"`
 	AllowedPorts                []pkg.Int         `yaml:"allowedPorts"`
 	AllowedSchemes              []string          `yaml:"allowedSchemes"`
 	AllowedIPsCIDR              []string          `yaml:"allowedIPsCIDR"`
@@ -214,6 +215,7 @@ func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobI
 		DONs:                        dons,
 		Services:                    services,
 		RequestTimeoutSec:           requestTimeoutSec,
+		PongTimeoutSec:              int(input.PongTimeoutSec),
 		AllowedPorts:                toIntSlice(input.AllowedPorts),
 		AllowedSchemes:              input.AllowedSchemes,
 		AllowedIPsCIDR:              input.AllowedIPsCIDR,
