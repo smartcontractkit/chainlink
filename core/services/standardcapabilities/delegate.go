@@ -184,7 +184,7 @@ func (d *Delegate) NewServices(
 	// The oracle factory will fail at startup if it can't find peers, so the error
 	// surfaces anyway — but logging here gives an earlier, clearer signal.
 	if oracleFactoryConfig != nil && oracleFactoryConfig.Enabled && len(oracleFactoryConfig.BootstrapPeers) == 0 && len(d.defaultBootstrappers) == 0 {
-		log.Warnw("no bootstrap peers found in job spec or Capabilities.Peering.V2.DefaultBootstrappers; the oracle factory may fail to start")
+		log.Warnw("no bootstrap peers found in job spec or P2P.V2.DefaultBootstrappers; the oracle factory may fail to start")
 	}
 
 	kvStore := job.NewKVStore(jobID, d.ds)
@@ -489,7 +489,7 @@ func ValidatedStandardCapabilitiesSpec(tomlString string) (job.Job, error) {
 	}
 
 	// Bootstrap peers may be omitted from the job spec; they are resolved at runtime
-	// from Capabilities.Peering.V2.DefaultBootstrappers when not set here.
+	// from P2P.V2.DefaultBootstrappers when not set here.
 	if len(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers) > 0 {
 		_, err = ocrcommon.ParseBootstrapPeers(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers)
 		if err != nil {
