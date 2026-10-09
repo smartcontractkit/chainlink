@@ -838,7 +838,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		rid.Network,
 		rid.ChainID,
 		spec.ContractID,
-		synchronization.TelemetryType(types.VaultPlugin),
+		synchronization.TelemetryType(types.ConsensusQueue),
 	)
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
