@@ -9,12 +9,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
@@ -313,6 +322,65 @@ func TestResolveCapabilityDonID(t *testing.T) {
 		assert.Equal(t, uint32(0), got)
 	})
 }
+
+func TestNewServices_MultiFamilyOCRSigner(t *testing.T) {
+	t.Parallel()
+
+	evmOther, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+	evm, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+	sol, err := ocr2key.New(corekeys.Solana)
+	require.NoError(t, err)
+	aptos, err := ocr2key.New(corekeys.Aptos)
+	require.NoError(t, err)
+	foreign, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+
+	nodeBundles := map[string]ocr2key.KeyBundle{"evm": evm, "solana": sol, "aptos": aptos}
+	signer, err := ocrcommon.MarshalMultichainKeyBundle(nodeBundles)
+	require.NoError(t, err)
+	otherSigner, err := ocrcommon.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{"evm": foreign})
+	require.NoError(t, err)
+	cc := &ocrtypes.ContractConfig{
+		Signers:      []ocrtypes.OnchainPublicKey{otherSigner, signer},
+		Transmitters: []ocrtypes.Account{"0x0000000000000000000000000000000000000001", "0x0000000000000000000000000000000000000002"},
+	}
+
+	ocr2KS := keystoremocks.NewOCR2(t)
+	ocr2KS.EXPECT().GetAll().Return([]ocr2key.KeyBundle{evmOther, evm, sol, aptos}, nil)
+	ks := keystoremocks.NewMaster(t)
+	ks.EXPECT().Workflow().Return(nil)
+	ks.EXPECT().P2P().Return(nil).Maybe()
+	ks.EXPECT().OCR2().Return(ocr2KS)
+	ks.EXPECT().Eth().Return(nil)
+
+	var got generic.OracleFactoryParams
+	d := &Delegate{
+		logger:   logger.Test(t),
+		ks:       ks,
+		relayers: stubRelayGetter{},
+		newOracleFactoryFn: func(p generic.OracleFactoryParams) (core.OracleFactory, error) {
+			got = p
+			return nil, nil
+		},
+	}
+
+	_, err = d.NewServices(t.Context(), "unknown-binary", "", 1, "job", uuid.New(),
+		&job.OracleFactoryConfig{Enabled: true}, 0, cc)
+	require.NoError(t, err)
+
+	assert.Equal(t, evm.ID(), got.KB.ID())
+	assert.Equal(t, "0x0000000000000000000000000000000000000002", got.Config.TransmitterID)
+	assert.Equal(t, "multi-chain", got.OnchainSigningStrategy.StrategyName)
+	assert.Equal(t, map[string]string{"evm": evm.ID(), "solana": sol.ID(), "aptos": aptos.ID()}, got.OnchainSigningStrategy.Config)
+}
+
+type stubRelayGetter struct{}
+
+func (stubRelayGetter) Get(types.RelayID) (loop.Relayer, error) { return nil, errors.New("not found") }
+
+func (stubRelayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer { return nil }
 
 func testPeerID(seed byte) p2ptypes.PeerID {
 	var id p2ptypes.PeerID

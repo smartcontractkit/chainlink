@@ -199,6 +199,111 @@ func TestSelectOCRKeyBundleForConfig(t *testing.T) {
 	assert.Equal(t, kb2.ID(), got.ID())
 }
 
+func TestSelectOCRKeyBundlesForConfig(t *testing.T) {
+	t.Parallel()
+
+	evm1, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+	evm2, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+	sol, err := ocr2key.New(corekeys.Solana)
+	require.NoError(t, err)
+	aptos, err := ocr2key.New(corekeys.Aptos)
+	require.NoError(t, err)
+	otherSol, err := ocr2key.New(corekeys.Solana)
+	require.NoError(t, err)
+
+	bundles := []ocr2key.KeyBundle{evm1, evm2, sol, aptos}
+
+	multichain := func(kbs map[string]ocr2key.KeyBundle) ocrtypes.OnchainPublicKey {
+		pk, mErr := ocrcommon.MarshalMultichainKeyBundle(kbs)
+		require.NoError(t, mErr)
+		return pk
+	}
+
+	t.Run("nil config", func(t *testing.T) {
+		t.Parallel()
+		_, idx, ok := SelectOCRKeyBundlesForConfig(bundles, nil)
+		assert.False(t, ok)
+		assert.Equal(t, -1, idx)
+	})
+
+	t.Run("raw EVM signer", func(t *testing.T) {
+		t.Parallel()
+		got, idx, ok := SelectOCRKeyBundlesForConfig(bundles, &ocrtypes.ContractConfig{
+			Signers: []ocrtypes.OnchainPublicKey{[]byte("other"), evm2.PublicKey()},
+		})
+		require.True(t, ok)
+		assert.Equal(t, 1, idx)
+		require.Len(t, got, 1)
+		assert.Equal(t, evm2.ID(), got["evm"].ID())
+	})
+
+	t.Run("multi-family signer", func(t *testing.T) {
+		t.Parallel()
+		want := map[string]ocr2key.KeyBundle{"evm": evm2, "solana": sol, "aptos": aptos}
+		other := multichain(map[string]ocr2key.KeyBundle{"evm": evm1, "solana": otherSol})
+		got, idx, ok := SelectOCRKeyBundlesForConfig(bundles, &ocrtypes.ContractConfig{
+			Signers: []ocrtypes.OnchainPublicKey{other, multichain(want)},
+		})
+		require.True(t, ok)
+		assert.Equal(t, 1, idx)
+		require.Len(t, got, 3)
+		for family, kb := range want {
+			assert.Equal(t, kb.ID(), got[family].ID(), family)
+		}
+		// The multichain keyring built from the matched bundles must reproduce the signer.
+		assert.Equal(t, multichain(want), multichain(got))
+	})
+
+	t.Run("non-EVM only signer", func(t *testing.T) {
+		t.Parallel()
+		got, idx, ok := SelectOCRKeyBundlesForConfig(bundles, &ocrtypes.ContractConfig{
+			Signers: []ocrtypes.OnchainPublicKey{multichain(map[string]ocr2key.KeyBundle{"solana": sol})},
+		})
+		require.True(t, ok)
+		assert.Equal(t, 0, idx)
+		require.Len(t, got, 1)
+		assert.Equal(t, sol.ID(), got["solana"].ID())
+	})
+
+	t.Run("missing family bundle", func(t *testing.T) {
+		t.Parallel()
+		_, _, ok := SelectOCRKeyBundlesForConfig(bundles, &ocrtypes.ContractConfig{
+			Signers: []ocrtypes.OnchainPublicKey{multichain(map[string]ocr2key.KeyBundle{"evm": evm1, "solana": otherSol})},
+		})
+		assert.False(t, ok)
+	})
+
+	t.Run("no match", func(t *testing.T) {
+		t.Parallel()
+		_, _, ok := SelectOCRKeyBundlesForConfig(bundles, &ocrtypes.ContractConfig{
+			Signers: []ocrtypes.OnchainPublicKey{[]byte("nope"), nil},
+		})
+		assert.False(t, ok)
+	})
+}
+
+func TestTransmitterAt(t *testing.T) {
+	t.Parallel()
+
+	cc := ocrtypes.ContractConfig{
+		Transmitters: []ocrtypes.Account{"x", "736ea02dd58a4eff74565801cb9cf1d13ceb9134"},
+	}
+	got, ok := TransmitterAt(cc, 0)
+	require.True(t, ok)
+	assert.Equal(t, "x", got)
+
+	got, ok = TransmitterAt(cc, 1)
+	require.True(t, ok)
+	assert.Equal(t, "0x736ea02Dd58A4EFF74565801cB9Cf1D13CEB9134", got)
+
+	_, ok = TransmitterAt(cc, 2)
+	assert.False(t, ok)
+	_, ok = TransmitterAt(cc, -1)
+	assert.False(t, ok)
+}
+
 func TestDefaultTransmitterForChain_InvalidChainID(t *testing.T) {
 	t.Parallel()
 
