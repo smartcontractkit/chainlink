@@ -227,11 +227,11 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 
 func TestFetch(t *testing.T) {
 	t.Parallel()
-	testMetrics := createCacheTestMetrics(t)
-	cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
 
 	t.Run("calls fetchFn when cache miss", func(t *testing.T) {
 		t.Parallel()
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
 		req := createTestRequest("GET", "https://example.com/miss")
 		expectedResp := createTestResponse(200, "fresh data")
 
@@ -249,6 +249,8 @@ func TestFetch(t *testing.T) {
 
 	t.Run("returns cached response when cache hit", func(t *testing.T) {
 		t.Parallel()
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
 		req := createTestRequest("GET", "https://example.com/hit")
 		cachedResp := createTestResponse(200, "cached data")
 
@@ -272,6 +274,8 @@ func TestFetch(t *testing.T) {
 
 	t.Run("calls fetchFn when cached entry is expired by MaxAgeMs", func(t *testing.T) {
 		t.Parallel()
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
 		req := createTestRequest("GET", "https://example.com/expired")
 		req.CacheSettings.MaxAgeMs = 100
 
@@ -295,6 +299,8 @@ func TestFetch(t *testing.T) {
 
 	t.Run("caches cacheable responses when storeOnFetch is true", func(t *testing.T) {
 		t.Parallel()
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
 		req := createTestRequest("GET", "https://example.com/cacheable")
 		response := createTestResponse(200, "cacheable response")
 
@@ -311,6 +317,8 @@ func TestFetch(t *testing.T) {
 
 	t.Run("does not cache when storeOnFetch is false", func(t *testing.T) {
 		t.Parallel()
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
 		req := createTestRequest("GET", "https://example.com/nostore")
 		response := createTestResponse(200, "should not be stored")
 
@@ -329,6 +337,8 @@ func TestFetch(t *testing.T) {
 
 	t.Run("does not cache non-cacheable responses", func(t *testing.T) {
 		t.Parallel()
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
 		req := createTestRequest("GET", "https://example.com/noncacheable")
 		response := createTestResponse(500, "server error")
 
@@ -517,11 +527,11 @@ func TestFetch_PanicInFetchFn_PropagatedToAllWaiters(t *testing.T) {
 
 func TestSet(t *testing.T) {
 	t.Parallel()
-	testMetrics := createCacheTestMetrics(t)
-	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 
 	t.Run("sets cacheable response", func(t *testing.T) {
 		t.Parallel()
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 		req := createTestRequest("GET", "https://example.com/set")
 		response := createTestResponse(200, "response to cache")
 
@@ -534,6 +544,8 @@ func TestSet(t *testing.T) {
 
 	t.Run("does not set non-cacheable response", func(t *testing.T) {
 		t.Parallel()
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 		req := createTestRequest("GET", "https://example.com/nonset")
 		response := createTestResponse(500, "server error")
 
@@ -545,6 +557,8 @@ func TestSet(t *testing.T) {
 
 	t.Run("does not overwrite non-expired entry", func(t *testing.T) {
 		t.Parallel()
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 		req := createTestRequest("GET", "https://example.com/nooverwrite")
 		originalResponse := createTestResponse(200, "original")
 		newResponse := createTestResponse(200, "new")
@@ -561,6 +575,8 @@ func TestSet(t *testing.T) {
 
 	t.Run("overwrites expired entry", func(t *testing.T) {
 		t.Parallel()
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 		req := createTestRequest("GET", "https://example.com/overwrite")
 
 		cache.cache[req.Hash()] = &cachedResponse{

@@ -1096,13 +1096,12 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.MatchedBy(func(r *jsonrpc.Request[json.RawMessage]) bool {
 			var params gateway_common.HTTPTriggerRequest
-			err = json.Unmarshal(*r.Params, &params)
-			return err == nil && params.Key.PublicKey == key.PublicKey
+			return json.Unmarshal(*r.Params, &params) == nil && params.Key.PublicKey == key.PublicKey
 		})).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
 
-		err = handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
+		err := handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
 		require.NoError(t, err)
 		handler.callbacksMu.Lock()
 		_, exists := handler.callbacks[req.ID]
@@ -1127,7 +1126,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 			Auth:    "invalid.jwt.token",
 		}
 
-		err = handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
+		err := handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "auth failure")
 
@@ -1156,7 +1155,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		jwtToken := createTestJWTToken(t, req, unauthorizedKey)
 		req.Auth = jwtToken
 
-		err = handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
+		err := handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "auth failure")
 
@@ -1189,7 +1188,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		jwtToken := createTestJWTToken(t, req, privateKey)
 		req.Auth = jwtToken
 
-		err = handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
+		err := handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflow not found")
 
@@ -1414,7 +1413,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	t.Parallel()
-	handler, mockDon := createTestTriggerHandler(t)
+	handler, _ := createTestTriggerHandler(t)
 
 	t.Run("workflowID uppercase", func(t *testing.T) {
 		t.Parallel()
@@ -1536,9 +1535,9 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 	t.Run("empty JSON input should pass", func(t *testing.T) {
 		t.Parallel()
-		handler, mockDon = createTestTriggerHandler(t)
+		subHandler, subMockDon := createTestTriggerHandler(t)
 		privateKey := createTestPrivateKey(t)
-		registerWorkflow(t, handler, workflowID, privateKey)
+		registerWorkflow(t, subHandler, workflowID, privateKey)
 
 		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
@@ -1559,11 +1558,11 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 		}
 		req.Auth = createTestJWTToken(t, req, privateKey)
 
-		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
-		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
-		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
+		subMockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
+		subMockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
+		subMockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
 
-		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
+		err = subHandler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.NoError(t, err)
 	})
 

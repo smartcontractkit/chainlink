@@ -62,9 +62,6 @@ func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON,
 
 func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	t.Parallel()
-	handler, httpClient, don, nodes := setupHandler(t)
-	ctx := t.Context()
-	nodeAddr := nodes[0].Address
 	payload := Request{
 		Method:    "GET",
 		URL:       "http://example.com",
@@ -74,26 +71,31 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	}
 	payloadBytes, err := json.Marshal(payload)
 	require.NoError(t, err)
-	msg := &api.Message{
-		Body: api.MessageBody{
-			MessageID: "123",
-			Method:    MethodWorkflowSyncer,
-			DonID:     "testDonId",
-			Payload:   json.RawMessage(payloadBytes),
-		},
+	setup := func(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON, string, *api.Message) {
+		t.Helper()
+		handler, httpClient, don, nodes := setupHandler(t)
+		msg := &api.Message{
+			Body: api.MessageBody{
+				MessageID: "123",
+				Method:    MethodWorkflowSyncer,
+				DonID:     "testDonId",
+				Payload:   json.RawMessage(payloadBytes),
+			},
+		}
+		require.NoError(t, msg.Sign(nodes[0].PrivateKey))
+		require.NoError(t, msg.Validate())
+		return handler, httpClient, don, nodes[0].Address, msg
 	}
-	err = msg.Sign(nodes[0].PrivateKey)
-	require.NoError(t, err)
-	err = msg.Validate()
-	require.NoError(t, err)
 	t.Run("happy case", func(t *testing.T) {
 		t.Parallel()
+		handler, httpClient, don, nodeAddr, msg := setup(t)
+		ctx := t.Context()
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
 			StatusCode: 200,
 			Body:       []byte("response body"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodeAddr, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
 			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
@@ -124,12 +126,14 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 
 	t.Run("http client non-HTTP error", func(t *testing.T) {
 		t.Parallel()
+		handler, httpClient, don, nodeAddr, msg := setup(t)
+		ctx := t.Context()
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
 			StatusCode: 404,
 			Body:       []byte("access denied"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodeAddr, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
 			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
@@ -161,9 +165,11 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 
 	t.Run("http client non-HTTP error", func(t *testing.T) {
 		t.Parallel()
+		handler, httpClient, don, nodeAddr, msg := setup(t)
+		ctx := t.Context()
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
-		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodeAddr, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
 			var m api.Message
 			err2 := json.Unmarshal(*req.Params, &m)
 			if err2 != nil {
