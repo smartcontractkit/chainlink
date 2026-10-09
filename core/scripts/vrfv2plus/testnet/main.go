@@ -621,7 +621,7 @@ func main() {
 		helpers.PanicErr(err)
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
 		helpers.PanicErr(err)
-		tx, err := coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y})
+		tx, err := coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y}) //nolint:staticcheck // SA1019: contract binding requires [2]*big.Int coordinates
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "coordinator-register-migratable-coordinator":
@@ -1161,7 +1161,7 @@ func main() {
 		helpers.PanicErr(err)
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
 		helpers.PanicErr(err)
-		fmt.Printf("PublicKey: %s, X: %s, Y: %s\n", *uncompressedPubKeyCLI, pk.X, pk.Y)
+		fmt.Printf("PublicKey: %s, X: %s, Y: %s\n", *uncompressedPubKeyCLI, pk.X, pk.Y) //nolint:staticcheck // SA1019: CLI diagnostic displaying public key coordinates
 	case "coordinator-reregister-proving-key":
 		coordinatorReregisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		coordinatorAddress := coordinatorReregisterKey.String("coordinator-address", "", "coordinator address")
@@ -1184,7 +1184,7 @@ func main() {
 
 		var deregisterTx *types.Transaction
 		if !*skipDeregister {
-			deregisterTx, err = coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y})
+			deregisterTx, err = coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y}) //nolint:staticcheck // SA1019: contract binding requires [2]*big.Int coordinates
 			helpers.PanicErr(err)
 			fmt.Println("Deregister transaction", helpers.ExplorerLink(e.ChainID, deregisterTx.Hash()))
 		}
@@ -1192,7 +1192,7 @@ func main() {
 		// Use a higher gas price for the register call
 		e.Owner.GasPrice.Mul(e.Owner.GasPrice, big.NewInt(2))
 		registerTx, err := coordinator.RegisterProvingKey(e.Owner,
-			[2]*big.Int{pk.X, pk.Y}, *gasLaneMaxGas)
+			[2]*big.Int{pk.X, pk.Y}, *gasLaneMaxGas) //nolint:staticcheck // SA1019: contract binding requires [2]*big.Int coordinates
 		helpers.PanicErr(err)
 		fmt.Println("Register transaction", helpers.ExplorerLink(e.ChainID, registerTx.Hash()))
 

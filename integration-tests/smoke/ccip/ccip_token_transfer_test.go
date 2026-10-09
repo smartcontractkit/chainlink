@@ -274,7 +274,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	require.NoError(t, err)
 
 	// testhelpers.AddLanesForAll(t, &tenv, state) TODO:, fixed for Solana now
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, sourceChain, destChain, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, sourceChain, destChain, false))
 
 	testhelpers.MintAndAllow(
 		t,
@@ -384,7 +384,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, sourceChain, destChain, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, sourceChain, destChain, false))
 
 	// TODO: handle in setup
 	solChains := e.BlockChains.SolanaChains()

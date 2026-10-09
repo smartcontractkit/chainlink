@@ -558,7 +558,7 @@ func main() {
 		helpers.PanicErr(err)
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
 		helpers.PanicErr(err)
-		tx, err := coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y})
+		tx, err := coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y}) //nolint:staticcheck // SA1019: contract binding requires [2]*big.Int coordinates
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "coordinator-subscription":
@@ -1203,7 +1203,7 @@ func main() {
 
 		var deregisterTx *types.Transaction
 		if !*skipDeregister {
-			deregisterTx, err = coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y})
+			deregisterTx, err = coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y}) //nolint:staticcheck // SA1019: contract binding requires [2]*big.Int coordinates
 			helpers.PanicErr(err)
 			fmt.Println("Deregister transaction", helpers.ExplorerLink(e.ChainID, deregisterTx.Hash()))
 		}
@@ -1212,7 +1212,7 @@ func main() {
 		e.Owner.GasPrice.Mul(e.Owner.GasPrice, big.NewInt(2))
 		registerTx, err := coordinator.RegisterProvingKey(e.Owner,
 			common.HexToAddress(*newOracleAddress),
-			[2]*big.Int{pk.X, pk.Y})
+			[2]*big.Int{pk.X, pk.Y}) //nolint:staticcheck // SA1019: contract binding requires [2]*big.Int coordinates
 		helpers.PanicErr(err)
 		fmt.Println("Register transaction", helpers.ExplorerLink(e.ChainID, registerTx.Hash()))
 
