@@ -315,8 +315,12 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	collector := startShardUserLogCollector(t, testEnv)
 
 	// Open the gate with a test-friendly window on BOTH shards while both are
-	// alive: the settings delivery changeset needs connected nodes.
-	t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(shardAutoFailoverOnTOML))
+	// alive: the settings delivery needs connected nodes. The auto-failover
+	// settings are defined inline in core, not in the chainlink-common
+	// cresettings catalog, so the delivery opts out of the catalog check.
+	t_helpers.ApplyCRESettings(t, testEnv,
+		t_helpers.AllowUncatalogedSettings(),
+		t_helpers.Global(shardAutoFailoverOnTOML))
 
 	// A live primary drains the secondary's cache through its
 	// ExecutionStatusUpdates, so the open gate alone must not fail anything
@@ -342,7 +346,9 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	// Close the gate: with the primary still dead, a fresh workflow must be
 	// synced and cached on the secondary but never executed - the flag is the
 	// sole enabler of automatic failover.
-	t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(shardAutoFailoverOffTOML))
+	t_helpers.ApplyCRESettings(t, testEnv,
+		t_helpers.AllowUncatalogedSettings(),
+		t_helpers.Global(shardAutoFailoverOffTOML))
 	gatedWorkflowID := deploySharedVaultWorkflow(t, testEnv, "auto-failover-gated", secretKey)
 	requireCachedEventForWorkflow(t, testEnv, shards.shardOneDON.Name, gatedWorkflowID)
 	collector.requireNoUserLogsForWorkflows(t, []string{gatedWorkflowID}, shardNoFalseFailoverWindow)
@@ -494,8 +500,12 @@ func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttyp
 
 	// Phase 4: an automatic failover leg (shard 0 dies silently, shard 1
 	// auto-executes) so the auto-failover counter is observable on the
-	// centralized metric pipeline.
-	t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(shardAutoFailoverOnTOML))
+	// centralized metric pipeline. The auto-failover settings are core-only
+	// (not in the chainlink-common cresettings catalog), so the delivery opts
+	// out of the catalog check.
+	t_helpers.ApplyCRESettings(t, testEnv,
+		t_helpers.AllowUncatalogedSettings(),
+		t_helpers.Global(shardAutoFailoverOnTOML))
 
 	t_helpers.StopNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	t.Cleanup(func() {
