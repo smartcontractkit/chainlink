@@ -7,5 +7,6 @@ import (
 )
 
 func TestCoreDefaults_notNil(t *testing.T) {
+	t.Parallel()
 	configtest.AssertFieldsNotNil(t, CoreDefaults())
 }

@@ -52,6 +52,7 @@ func TestBridgeType_Authenticate(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			ok, err := bridges.AuthenticateBridgeType(bt, test.token)
 			require.NoError(t, err)
 
@@ -106,17 +107,27 @@ func TestMarshalBridgeMetaData(t *testing.T) {
 		updatedAt    *big.Int
 		want         map[string]any
 	}{
-		{"nil", nil, nil,
-			map[string]any{"latestAnswer": nil, "updatedAt": nil}},
-		{"zero", big.NewInt(0), big.NewInt(0),
-			map[string]any{"latestAnswer": float64(0), "updatedAt": float64(0)}},
-		{"one", big.NewInt(1), big.NewInt(1),
-			map[string]any{"latestAnswer": float64(1), "updatedAt": float64(1)}},
-		{"negative", big.NewInt(-100), big.NewInt(-10),
-			map[string]any{"latestAnswer": float64(-100), "updatedAt": float64(-10)}},
+		{
+			"nil", nil, nil,
+			map[string]any{"latestAnswer": nil, "updatedAt": nil},
+		},
+		{
+			"zero", big.NewInt(0), big.NewInt(0),
+			map[string]any{"latestAnswer": float64(0), "updatedAt": float64(0)},
+		},
+		{
+			"one", big.NewInt(1), big.NewInt(1),
+			map[string]any{"latestAnswer": float64(1), "updatedAt": float64(1)},
+		},
+		{
+			"negative", big.NewInt(-100), big.NewInt(-10),
+			map[string]any{"latestAnswer": float64(-100), "updatedAt": float64(-10)},
+		},
 		// 9223372036854775807000
-		{"large", new(big.Int).Mul(big.NewInt(math.MaxInt64), big.NewInt(1000)), big.NewInt(1),
-			map[string]any{"latestAnswer": float64(9.223372036854776e+21), "updatedAt": float64(1)}},
+		{
+			"large", new(big.Int).Mul(big.NewInt(math.MaxInt64), big.NewInt(1000)), big.NewInt(1),
+			map[string]any{"latestAnswer": float64(9.223372036854776e+21), "updatedAt": float64(1)},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

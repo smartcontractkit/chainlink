@@ -88,6 +88,7 @@ func TestORM_FindBridge(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.description, func(t *testing.T) {
+			t.Parallel()
 			tt, err := orm.FindBridge(ctx, test.name)
 			tt.CreatedAt = test.want.CreatedAt
 			tt.UpdatedAt = test.want.UpdatedAt
@@ -100,6 +101,7 @@ func TestORM_FindBridge(t *testing.T) {
 		})
 	}
 }
+
 func TestORM_UpdateBridgeType(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
