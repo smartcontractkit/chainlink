@@ -51,9 +51,9 @@ func v2PlusEventABI(t *testing.T) abi.ABI {
 // packV2PlusRequestedData packs the non-indexed arguments of the V2Plus
 // RandomWordsRequested event, matching how an on-chain coordinator would
 // encode it.
-func packV2PlusRequestedData(t *testing.T, requestId, preSeed *big.Int, minConfs uint16, callbackGasLimit, numWords uint32, extraArgs []byte) []byte {
+func packV2PlusRequestedData(t *testing.T, requestID, preSeed *big.Int, minConfs uint16, callbackGasLimit, numWords uint32, extraArgs []byte) []byte {
 	data, err := v2PlusEventABI(t).Events["RandomWordsRequested"].Inputs.NonIndexed().Pack(
-		requestId, preSeed, minConfs, callbackGasLimit, numWords, extraArgs)
+		requestID, preSeed, minConfs, callbackGasLimit, numWords, extraArgs)
 	require.NoError(t, err)
 	return data
 }
@@ -286,7 +286,7 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *big.Int) {
 // syntheticV2PlusRequestedLog builds a logpoller.Log carrying a V2Plus
 // RandomWordsRequested event for the given request id, with the topics and
 // data encoded exactly as an on-chain coordinator would emit them.
-func syntheticV2PlusRequestedLog(t *testing.T, chainID *big.Int, listener *listenerV2, requestId *big.Int, blockNumber int64) logpoller.Log {
+func syntheticV2PlusRequestedLog(t *testing.T, chainID *big.Int, listener *listenerV2, requestID *big.Int, blockNumber int64) logpoller.Log {
 	keyHash := listener.job.VRFSpec.PublicKey.MustHash()
 	subID := big.NewInt(1)
 	extraArgs, err := extraargs.EncodeV1(false)
@@ -310,14 +310,14 @@ func syntheticV2PlusRequestedLog(t *testing.T, chainID *big.Int, listener *liste
 		EventSig:  listener.coordinator.RandomWordsRequestedTopic(),
 		Address:   common.Address{},
 		TxHash:    common.BigToHash(big.NewInt(blockNumber)),
-		Data:      packV2PlusRequestedData(t, requestId, big.NewInt(106), 10, 10000, 2, extraArgs),
+		Data:      packV2PlusRequestedData(t, requestID, big.NewInt(106), 10, 10000, 2, extraArgs),
 		CreatedAt: time.Now(),
 	}
 }
 
 // syntheticV2PlusFulfilledLog builds a logpoller.Log carrying a V2Plus
 // RandomWordsFulfilled event for the given request id.
-func syntheticV2PlusFulfilledLog(t *testing.T, chainID *big.Int, listener *listenerV2, requestId *big.Int, blockNumber int64) logpoller.Log {
+func syntheticV2PlusFulfilledLog(t *testing.T, chainID *big.Int, listener *listenerV2, requestID *big.Int, blockNumber int64) logpoller.Log {
 	subID := big.NewInt(1)
 
 	subIDTopic := common.BytesToHash(subID.Bytes())
@@ -332,7 +332,7 @@ func syntheticV2PlusFulfilledLog(t *testing.T, chainID *big.Int, listener *liste
 			// The listener parses fulfilled logs with the coordinator
 			// contract ABI, which requires the contract's event topic.
 			vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled{}.Topic().Bytes(),
-			common.BytesToHash(requestId.Bytes()).Bytes(),
+			common.BytesToHash(requestID.Bytes()).Bytes(),
 			subIDTopic.Bytes(),
 		},
 		// getUnfulfilled dispatches on the adapter's (interface) event topic.
