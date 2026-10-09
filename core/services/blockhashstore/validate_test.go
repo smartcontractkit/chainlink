@@ -12,10 +12,11 @@ import (
 )
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	v2PlusCoordinator := types.EIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
-	fromAddresses := []types.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
+	fromAddresses := []types.EIP55Address{"0x469aA2CD13e037DC5236320783dCfd0e641c0559"}
 
-	var tests = []struct {
+	tests := []struct {
 		name      string
 		toml      string
 		assertion func(t *testing.T, os job.Job, err error)
@@ -239,6 +240,7 @@ waitBlocks = "shouldBeInt"`,
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			s, err := ValidatedSpec(test.toml)
 			test.assertion(t, s, err)
 		})

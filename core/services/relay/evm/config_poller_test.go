@@ -41,7 +41,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+//nolint:paralleltest // subtests share one simulated backend, ethClient and log poller; setConfig and b.Commit mutate that shared state, so subtests must run sequentially
 func TestConfigPoller(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	var ethClient *client.SimulatedBackendClient
 	var lp logpoller.LogPoller

@@ -12,7 +12,8 @@ import (
 )
 
 func TestValidatedCronJobSpec(t *testing.T) {
-	var tt = []struct {
+	t.Parallel()
+	tt := []struct {
 		name      string
 		toml      string
 		assertion func(t *testing.T, os job.Job, err error)
@@ -79,6 +80,7 @@ ds -> ds_parse -> ds_multiply;
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			s, err := cron.ValidatedCronSpec(tc.toml)
 			tc.assertion(t, s, err)
 		})

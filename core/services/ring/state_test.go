@@ -11,6 +11,7 @@ import (
 )
 
 func TestStateTransitionDeterminism(t *testing.T) {
+	t.Parallel()
 	now := time.Unix(0, 0)
 	timeToSync := 5 * time.Minute
 
@@ -34,6 +35,7 @@ func TestStateTransitionDeterminism(t *testing.T) {
 
 // ∀ state, inputs: NextState(state, inputs).Id >= state.Id
 func TestFV_StateIDMonotonicity(t *testing.T) {
+	t.Parallel()
 	timeToSync := 5 * time.Minute
 	baseTime := time.Unix(0, 0)
 
@@ -57,6 +59,7 @@ func TestFV_StateIDMonotonicity(t *testing.T) {
 	for _, tc := range testCases {
 		for _, wantShards := range shardCounts {
 			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
 				result, err := NextState(tc.state, wantShards, tc.now, timeToSync)
 				require.NoError(t, err)
 
@@ -74,10 +77,12 @@ func TestFV_StateIDMonotonicity(t *testing.T) {
 //   - Transition → Transition (before safety period)
 //   - Transition → Steady (after safety period)
 func TestFV_ValidStateTransitions(t *testing.T) {
+	t.Parallel()
 	timeToSync := 5 * time.Minute
 	baseTime := time.Unix(0, 0)
 
 	t.Run("steady_to_steady_when_unchanged", func(t *testing.T) {
+		t.Parallel()
 		for _, shards := range []uint32{1, 2, 3, 5, 10} {
 			state := steadyState(1, shards)
 			result, err := NextState(state, shards, baseTime, timeToSync)
@@ -91,6 +96,7 @@ func TestFV_ValidStateTransitions(t *testing.T) {
 	})
 
 	t.Run("steady_to_transition_when_changed", func(t *testing.T) {
+		t.Parallel()
 		transitions := [][2]uint32{{1, 2}, {2, 1}, {3, 5}, {5, 3}, {1, 10}}
 		for _, tr := range transitions {
 			current, want := tr[0], tr[1]
@@ -108,6 +114,7 @@ func TestFV_ValidStateTransitions(t *testing.T) {
 	})
 
 	t.Run("transition_stays_before_safe_time", func(t *testing.T) {
+		t.Parallel()
 		safeAfter := baseTime.Add(1 * time.Hour)
 		for _, wantShards := range []uint32{1, 2, 5} {
 			state := transitionState(5, 2, wantShards, safeAfter)
@@ -121,6 +128,7 @@ func TestFV_ValidStateTransitions(t *testing.T) {
 	})
 
 	t.Run("transition_completes_after_safe_time", func(t *testing.T) {
+		t.Parallel()
 		safeAfter := baseTime.Add(-1 * time.Second)
 		for _, wantShards := range []uint32{1, 2, 5} {
 			state := transitionState(5, 2, wantShards, safeAfter)
@@ -137,6 +145,7 @@ func TestFV_ValidStateTransitions(t *testing.T) {
 
 // ∀ transition: completion occurs iff now >= safeAfter
 func TestFV_SafetyPeriodEnforcement(t *testing.T) {
+	t.Parallel()
 	timeToSync := 5 * time.Minute
 	baseTime := time.Unix(0, 0)
 
@@ -172,6 +181,7 @@ func TestFV_SafetyPeriodEnforcement(t *testing.T) {
 // When entering transition, WantShards equals the requested shard count
 // When completing transition, final shard count equals WantShards
 func TestFV_TransitionPreservesTarget(t *testing.T) {
+	t.Parallel()
 	timeToSync := 5 * time.Minute
 	baseTime := time.Unix(0, 0)
 
@@ -199,6 +209,7 @@ func TestFV_TransitionPreservesTarget(t *testing.T) {
 
 // ∀ transition: ∃ time t where transition completes (no infinite loops)
 func TestFV_EventualCompletion(t *testing.T) {
+	t.Parallel()
 	timeToSync := 5 * time.Minute
 	baseTime := time.Unix(0, 0)
 
@@ -219,6 +230,7 @@ func TestFV_EventualCompletion(t *testing.T) {
 
 // ∀ state: exactly one of (IsInSteadyState, IsInTransition) is true
 func TestFV_StateTypeExclusivity(t *testing.T) {
+	t.Parallel()
 	states := []*ringpb.RoutingState{
 		steadyState(0, 1),
 		steadyState(5, 3),
@@ -238,6 +250,7 @@ func TestFV_StateTypeExclusivity(t *testing.T) {
 // IsInSteadyState(nil) = false (safe handling of nil)
 // NextState(nil, ...) returns error (explicit failure)
 func TestFV_NilStateSafety(t *testing.T) {
+	t.Parallel()
 	require.False(t, IsInSteadyState(nil), "nil state must not be steady")
 
 	_, err := NextState(nil, 1, time.Now(), time.Minute)

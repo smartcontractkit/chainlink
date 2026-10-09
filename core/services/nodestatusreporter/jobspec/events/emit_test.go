@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec/events"
 )
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestEmitJobSpecEvent_RoundTrip(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 	emitter := beholder.GetEmitter()
@@ -43,6 +44,7 @@ func TestEmitJobSpecEvent_RoundTrip(t *testing.T) {
 	require.NotEmpty(t, decoded.Timestamp)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestEmitJobSpecEvent_SetsTimestampIfEmpty(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 	emitter := beholder.GetEmitter()

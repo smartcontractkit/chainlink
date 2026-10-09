@@ -49,6 +49,7 @@ func toShardStatus(m map[uint32]bool) map[uint32]*ringpb.ShardStatus {
 }
 
 func TestPlugin_Outcome(t *testing.T) {
+	t.Parallel()
 	t.Run("WithMultiNodeObservations", func(t *testing.T) {
 		lggr := logger.Test(t)
 		store := NewStore()
@@ -166,6 +167,7 @@ func TestPlugin_Outcome(t *testing.T) {
 }
 
 func TestPlugin_StateTransitions(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 
@@ -185,6 +187,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 
 	// Test 1: Initial state with no previous outcome
 	t.Run("initial_state", func(t *testing.T) {
+		t.Parallel()
 		outcomeCtx := ocr3types.OutcomeContext{
 			SeqNr:           1,
 			PreviousOutcome: nil,
@@ -212,6 +215,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 
 	// Test 2: Transition triggered when wantShards changes
 	t.Run("transition_triggered", func(t *testing.T) {
+		t.Parallel()
 		// Start with 1 shard in stable state
 		priorOutcome := &ringpb.Outcome{
 			State: &ringpb.RoutingState{
@@ -251,6 +255,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 
 	// Test 3: Stay in transition during safety period
 	t.Run("stay_in_transition", func(t *testing.T) {
+		t.Parallel()
 		safeAfter := now.Add(1 * time.Hour)
 		priorOutcome := &ringpb.Outcome{
 			State: &ringpb.RoutingState{
@@ -292,6 +297,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 
 	// Test 4: Complete transition after safety period
 	t.Run("complete_transition", func(t *testing.T) {
+		t.Parallel()
 		safeAfter := now.Add(-1 * time.Second) // Safety period already passed
 		priorOutcome := &ringpb.Outcome{
 			State: &ringpb.RoutingState{
@@ -332,6 +338,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 
 	// Test 5: Stay stable when wantShards matches current
 	t.Run("stay_stable", func(t *testing.T) {
+		t.Parallel()
 		priorOutcome := &ringpb.Outcome{
 			State: &ringpb.RoutingState{
 				Id: 3,
@@ -388,6 +395,7 @@ func makeObservationsWithWantShards(t *testing.T, shardStatuses []map[uint32]*ri
 }
 
 func TestPlugin_NewPlugin_NilArbiter(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	config := ocr3types.ReportingPluginConfig{N: 4, F: 1}
@@ -398,6 +406,7 @@ func TestPlugin_NewPlugin_NilArbiter(t *testing.T) {
 }
 
 func TestPlugin_getHealthyShards(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		votes map[uint32]int // donID -> vote count
@@ -412,6 +421,7 @@ func TestPlugin_getHealthyShards(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			plugin := &Plugin{
 				store:  NewStore(),
 				config: ocr3types.ReportingPluginConfig{F: tc.f},
@@ -423,6 +433,7 @@ func TestPlugin_getHealthyShards(t *testing.T) {
 }
 
 func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 
@@ -531,6 +542,7 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservation_RejectsWantShardsZero(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	config := ocr3types.ReportingPluginConfig{N: 4, F: 1}
@@ -551,6 +563,7 @@ func TestPlugin_ValidateObservation_RejectsWantShardsZero(t *testing.T) {
 }
 
 func TestPlugin_ObservationQuorum(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	config := ocr3types.ReportingPluginConfig{N: 4, F: 1}
@@ -561,6 +574,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 	outctx := ocr3types.OutcomeContext{}
 
 	t.Run("quorum_reached", func(t *testing.T) {
+		t.Parallel()
 		// Need 2F+1 = 3 observations for quorum with N=4, F=1
 		aos := make([]types.AttributedObservation, 3)
 		for i := range aos {
@@ -573,6 +587,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 	})
 
 	t.Run("quorum_not_reached", func(t *testing.T) {
+		t.Parallel()
 		// Only 2 observations - not enough for quorum
 		aos := make([]types.AttributedObservation, 2)
 		for i := range aos {
@@ -585,6 +600,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 	})
 
 	t.Run("exact_quorum", func(t *testing.T) {
+		t.Parallel()
 		// Exactly 2F+1 = 3 observations
 		aos := make([]types.AttributedObservation, 3)
 		for i := range aos {
@@ -597,6 +613,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 	})
 
 	t.Run("all_observations", func(t *testing.T) {
+		t.Parallel()
 		// All N=4 observations
 		aos := make([]types.AttributedObservation, 4)
 		for i := range aos {
@@ -610,28 +627,36 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 }
 
 func TestPlugin_RingStoreIntegration(t *testing.T) {
-	lggr := logger.Test(t)
-
-	ringStore := NewStore()
-	ringStore.SetAllShardHealth(map[uint32]bool{0: true, 1: true, 2: true})
-
-	config := ocr3types.ReportingPluginConfig{
-		N: 4, F: 1,
-	}
-
-	arbiter := &mockArbiter{}
-	plugin, err := NewPlugin(ringStore, arbiter, config, lggr, &ConsensusConfig{
-		BatchSize:  100,
-		TimeToSync: 1 * time.Second,
-	})
-	require.NoError(t, err)
-
-	transmitter := NewTransmitter(lggr, ringStore, arbiter, "test-account")
-
-	ctx := t.Context()
+	t.Parallel()
 	now := time.Now()
 
+	setup := func(t *testing.T) (*Plugin, *Transmitter, *Store) {
+		t.Helper()
+		lggr := logger.Test(t)
+
+		ringStore := NewStore()
+		ringStore.SetAllShardHealth(map[uint32]bool{0: true, 1: true, 2: true})
+
+		config := ocr3types.ReportingPluginConfig{
+			N: 4, F: 1,
+		}
+
+		arbiter := &mockArbiter{}
+		plugin, err := NewPlugin(ringStore, arbiter, config, lggr, &ConsensusConfig{
+			BatchSize:  100,
+			TimeToSync: 1 * time.Second,
+		})
+		require.NoError(t, err)
+
+		transmitter := NewTransmitter(lggr, ringStore, arbiter, "test-account")
+
+		return plugin, transmitter, ringStore
+	}
+
 	t.Run("initial_workflow_assignments", func(t *testing.T) {
+		t.Parallel()
+		plugin, transmitter, ringStore := setup(t)
+		ctx := t.Context()
 		workflows := []string{"wf-A", "wf-B", "wf-C"}
 		aos := makeObservationsWithWantShards(t, []map[uint32]*ringpb.ShardStatus{
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},
@@ -667,6 +692,9 @@ func TestPlugin_RingStoreIntegration(t *testing.T) {
 	})
 
 	t.Run("workflow_transition_detected", func(t *testing.T) {
+		t.Parallel()
+		plugin, transmitter, _ := setup(t)
+		ctx := t.Context()
 		baselineAos := makeObservationsWithWantShards(t, []map[uint32]*ringpb.ShardStatus{
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},
 			{0: {IsHealthy: true}, 1: {IsHealthy: true}, 2: {IsHealthy: true}},

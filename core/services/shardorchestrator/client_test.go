@@ -89,6 +89,7 @@ func createTestClient(t *testing.T, lis *bufconn.Listener) *Client {
 }
 
 func TestClient_GetWorkflowShardMapping(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	mock := &mockShardOrchestratorServer{
@@ -105,7 +106,7 @@ func TestClient_GetWorkflowShardMapping(t *testing.T) {
 	client := createTestClient(t, lis)
 	defer client.Close()
 
-	t.Run("successful mapping query", func(t *testing.T) {
+	t.Run("successful mapping query", func(t *testing.T) { //nolint:paralleltest // parent closes the shared gRPC client via defer when it returns, just as parallel subtests resume; subtests must run sequentially on the open connection
 		workflowIDs := []string{"workflow-1", "workflow-2", "workflow-3"}
 		resp, err := client.GetWorkflowShardMapping(ctx, workflowIDs)
 		require.NoError(t, err)
@@ -120,7 +121,7 @@ func TestClient_GetWorkflowShardMapping(t *testing.T) {
 		assert.Equal(t, uint64(1), resp.MappingVersion)
 	})
 
-	t.Run("partial workflow query", func(t *testing.T) {
+	t.Run("partial workflow query", func(t *testing.T) { //nolint:paralleltest // parent closes the shared gRPC client via defer when it returns, just as parallel subtests resume; subtests must run sequentially on the open connection
 		workflowIDs := []string{"workflow-1", "workflow-unknown"}
 		resp, err := client.GetWorkflowShardMapping(ctx, workflowIDs)
 		require.NoError(t, err)
@@ -133,7 +134,7 @@ func TestClient_GetWorkflowShardMapping(t *testing.T) {
 		assert.False(t, exists)
 	})
 
-	t.Run("empty workflow list", func(t *testing.T) {
+	t.Run("empty workflow list", func(t *testing.T) { //nolint:paralleltest // parent closes the shared gRPC client via defer when it returns, just as parallel subtests resume; subtests must run sequentially on the open connection
 		resp, err := client.GetWorkflowShardMapping(ctx, []string{})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -143,6 +144,7 @@ func TestClient_GetWorkflowShardMapping(t *testing.T) {
 }
 
 func TestClient_ReportWorkflowTriggerRegistration(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	mock := &mockShardOrchestratorServer{
@@ -175,6 +177,7 @@ func TestClient_ReportWorkflowTriggerRegistration(t *testing.T) {
 }
 
 func TestClient_Close(t *testing.T) {
+	t.Parallel()
 	mock := &mockShardOrchestratorServer{
 		mappings: map[string]uint32{},
 	}
@@ -196,6 +199,7 @@ func TestClient_Close(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 
 	t.Run("creates client successfully", func(t *testing.T) {
@@ -212,6 +216,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestLocalClient_GetWorkflowShardMapping(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.Test(t)
 	ringStore := ring.NewStore()
@@ -229,6 +234,7 @@ func TestLocalClient_GetWorkflowShardMapping(t *testing.T) {
 }
 
 func TestLocalClient_ReportWorkflowTriggerRegistration(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.Test(t)
 	ringStore := ring.NewStore()

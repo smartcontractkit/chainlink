@@ -7,6 +7,7 @@ import (
 )
 
 func Test_groupID(t *testing.T) {
+	t.Parallel()
 	g := &counter{}
 	assert.Equal(t, [32]byte{}, g.Bytes())
 	g.Inc()

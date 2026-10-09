@@ -42,7 +42,8 @@ decode_log->vrf
 `
 
 func TestValidateVRFJobSpec(t *testing.T) {
-	var tt = []struct {
+	t.Parallel()
+	tt := []struct {
 		name      string
 		toml      string
 		assertion func(t *testing.T, os job.Job, err error)
@@ -375,6 +376,7 @@ observationSource = """` + vrfV2Observation + `"""
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			s, err := ValidatedVRFSpec(tc.toml)
 			tc.assertion(t, s, err)
 		})

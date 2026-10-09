@@ -11,6 +11,7 @@ import (
 )
 
 func TestStore_DeterministicHashing(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 
 	// Set up healthy shards
@@ -40,6 +41,7 @@ func TestStore_DeterministicHashing(t *testing.T) {
 }
 
 func TestStore_ConsistentRingConsistency(t *testing.T) {
+	t.Parallel()
 	store1 := NewStore()
 	store2 := NewStore()
 	store3 := NewStore()
@@ -74,6 +76,7 @@ func TestStore_ConsistentRingConsistency(t *testing.T) {
 }
 
 func TestStore_Rebalancing(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 	ctx := t.Context()
 
@@ -115,6 +118,7 @@ func TestStore_Rebalancing(t *testing.T) {
 }
 
 func TestStore_GetHealthyShards(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 
 	store.SetAllShardHealth(map[uint32]bool{
@@ -130,6 +134,7 @@ func TestStore_GetHealthyShards(t *testing.T) {
 }
 
 func TestStore_DistributionAcrossShards(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 	ctx := t.Context()
 
@@ -171,6 +176,7 @@ func sum(distribution map[uint32]int) int {
 }
 
 func TestStore_GetShardForWorkflow_CacheHit(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 	ctx := t.Context()
 
@@ -190,6 +196,7 @@ func TestStore_GetShardForWorkflow_CacheHit(t *testing.T) {
 }
 
 func TestStore_GetShardForWorkflow_NoHealthyShards(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 	store.SetAllShardHealth(map[uint32]bool{})
 	store.SetRoutingState(&ringpb.RoutingState{
@@ -200,6 +207,7 @@ func TestStore_GetShardForWorkflow_NoHealthyShards(t *testing.T) {
 }
 
 func TestStore_GetShardForWorkflow_TransitionTimeoutFallback(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 	store.SetAllShardHealth(map[uint32]bool{0: true, 1: true})
 	store.SetRoutingState(&ringpb.RoutingState{
@@ -215,6 +223,7 @@ func TestStore_GetShardForWorkflow_TransitionTimeoutFallback(t *testing.T) {
 }
 
 func TestStore_GetShardForWorkflow_ContextCancelledDuringSend(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 
 	// Put store in transition state
@@ -240,6 +249,7 @@ func TestStore_GetShardForWorkflow_ContextCancelledDuringSend(t *testing.T) {
 }
 
 func TestStore_PendingAllocsDuringTransition(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 	store.SetAllShardHealth(map[uint32]bool{0: true, 1: true})
 
@@ -279,7 +289,9 @@ func TestStore_PendingAllocsDuringTransition(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // subtests mutate a shared store and assert on ordering-dependent state
 func TestStore_AccessorMethods(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 
 	store.SetAllShardHealth(map[uint32]bool{0: true, 1: true, 2: false})
@@ -339,6 +351,7 @@ func TestStore_AccessorMethods(t *testing.T) {
 }
 
 func TestStore_RegisterWorkflowsFromShard(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 
 	store.RegisterWorkflowsFromShard(1, []string{"wf-a", "wf-b"})
@@ -361,6 +374,7 @@ func TestStore_RegisterWorkflowsFromShard(t *testing.T) {
 }
 
 func TestStore_GetWorkflowMappingsBatch(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 	store.SetRoutingState(&ringpb.RoutingState{
 		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 2},
@@ -378,6 +392,7 @@ func TestStore_GetWorkflowMappingsBatch(t *testing.T) {
 }
 
 func TestStore_SyncRoutes_PrunesStaleEntries(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 	store.SetRoutingState(&ringpb.RoutingState{
 		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
@@ -401,6 +416,7 @@ func TestStore_SyncRoutes_PrunesStaleEntries(t *testing.T) {
 }
 
 func TestStore_SyncRoutes_EmptyPrunesAll(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 	store.SetRoutingState(&ringpb.RoutingState{
 		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 2},
@@ -416,6 +432,7 @@ func TestStore_SyncRoutes_EmptyPrunesAll(t *testing.T) {
 }
 
 func TestStore_SubmitWorkflowsForAllocation(t *testing.T) {
+	t.Parallel()
 	store := NewStore()
 
 	store.SubmitWorkflowsForAllocation([]string{"wf-new-1", "wf-new-2"})

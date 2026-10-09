@@ -22,12 +22,13 @@ func newLeaseLock(t *testing.T, db *sqlx.DB, cfg pg.LeaseLockConfig) pg.LeaseLoc
 }
 
 func Test_LeaseLock(t *testing.T) {
+	t.Parallel()
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true
 		c.Database.Lock.Enabled = &t
 	})
 
-	t.Run("on migrated database", func(t *testing.T) {
+	t.Run("on migrated database", func(t *testing.T) { //nolint:paralleltest // subtests share one database and contend on the same lease_lock row, so they must run sequentially
 		cfg := pg.LeaseLockConfig{
 			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
@@ -69,7 +70,7 @@ func Test_LeaseLock(t *testing.T) {
 		assert.Equal(t, leaseLock2.ClientID(), clientID)
 	})
 
-	t.Run("recovers and re-opens connection if it's closed externally on initial take wait", func(t *testing.T) {
+	t.Run("recovers and re-opens connection if it's closed externally on initial take wait", func(t *testing.T) { //nolint:paralleltest // subtests share one database and contend on the same lease_lock row, so they must run sequentially
 		cfg := pg.LeaseLockConfig{
 			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
@@ -126,7 +127,7 @@ func Test_LeaseLock(t *testing.T) {
 		leaseLock.Release()
 	})
 
-	t.Run("recovers and re-opens connection if it's closed externally while holding", func(t *testing.T) {
+	t.Run("recovers and re-opens connection if it's closed externally while holding", func(t *testing.T) { //nolint:paralleltest // subtests share one database and contend on the same lease_lock row, so they must run sequentially
 		cfg := pg.LeaseLockConfig{
 			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
@@ -159,7 +160,7 @@ func Test_LeaseLock(t *testing.T) {
 		assert.Greater(t, expiresAt.Unix(), prevExpiresAt.Unix())
 	})
 
-	t.Run("release lock with Release() func", func(t *testing.T) {
+	t.Run("release lock with Release() func", func(t *testing.T) { //nolint:paralleltest // subtests share one database and contend on the same lease_lock row, so they must run sequentially
 		cfg := pg.LeaseLockConfig{
 			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
@@ -178,7 +179,7 @@ func Test_LeaseLock(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("cancel TakeAndHold with ctx", func(t *testing.T) {
+	t.Run("cancel TakeAndHold with ctx", func(t *testing.T) { //nolint:paralleltest // subtests share one database and contend on the same lease_lock row, so they must run sequentially
 		ctx := t.Context()
 		cfg := pg.LeaseLockConfig{
 			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
@@ -201,6 +202,7 @@ func Test_LeaseLock(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	t.Run("on virgin database", func(t *testing.T) {
+		t.Parallel()
 		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 		cfg := pg.LeaseLockConfig{
 			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),

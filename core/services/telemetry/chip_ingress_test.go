@@ -47,7 +47,9 @@ func (m *MockChipIngressService) Ready() error {
 }
 
 func TestNewChipIngressAgent(t *testing.T) {
+	t.Parallel()
 	t.Run("Success - Ethereum Mainnet", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		chainID := "1"
@@ -71,6 +73,7 @@ func TestNewChipIngressAgent(t *testing.T) {
 	})
 
 	t.Run("Success - Polygon", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
@@ -88,6 +91,7 @@ func TestNewChipIngressAgent(t *testing.T) {
 	})
 
 	t.Run("Success - Arbitrum One", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
@@ -99,6 +103,7 @@ func TestNewChipIngressAgent(t *testing.T) {
 	})
 
 	t.Run("Error - nil telemetry service", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
 
 		adapter, err := NewChipIngressAgent(nil, "EVM", "1", "0x1234", synchronization.OCR2Median, lggr)
@@ -108,6 +113,7 @@ func TestNewChipIngressAgent(t *testing.T) {
 	})
 
 	t.Run("Error - invalid chainID", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
@@ -118,6 +124,7 @@ func TestNewChipIngressAgent(t *testing.T) {
 	})
 
 	t.Run("Error - invalid network family", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
@@ -128,6 +135,7 @@ func TestNewChipIngressAgent(t *testing.T) {
 	})
 
 	t.Run("Error - invalid telemetry type", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
@@ -139,7 +147,9 @@ func TestNewChipIngressAgent(t *testing.T) {
 }
 
 func TestNewChipIngressAgentMultitype(t *testing.T) {
+	t.Parallel()
 	t.Run("Success - creates multitype agent", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
@@ -159,6 +169,7 @@ func TestNewChipIngressAgentMultitype(t *testing.T) {
 	})
 
 	t.Run("Error - nil telemetry service", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
 
 		adapter, err := NewChipIngressAgentMultitype(nil, "EVM", "1", "0x1234", lggr)
@@ -168,6 +179,7 @@ func TestNewChipIngressAgentMultitype(t *testing.T) {
 	})
 
 	t.Run("Error - invalid chainID", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
@@ -179,7 +191,9 @@ func TestNewChipIngressAgentMultitype(t *testing.T) {
 }
 
 func TestChipIngressAgent_SendLog(t *testing.T) {
+	t.Parallel()
 	t.Run("Success - sends to telemetry service", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		contractID := "0x1234567890abcdef"
@@ -208,6 +222,7 @@ func TestChipIngressAgent_SendLog(t *testing.T) {
 	})
 
 	t.Run("SendLog continues even if send fails", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		contractID := "0xabcdef"
@@ -237,6 +252,7 @@ func TestChipIngressAgent_SendLog(t *testing.T) {
 	})
 
 	t.Run("Multiple SendLog calls", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		contractID := "0x999"
@@ -291,6 +307,7 @@ func TestChipIngressAgent_SendLog(t *testing.T) {
 	})
 
 	t.Run("SendLog on multitype agent logs warning", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
@@ -308,7 +325,9 @@ func TestChipIngressAgent_SendLog(t *testing.T) {
 }
 
 func TestChipIngressAgent_SendTypedLog(t *testing.T) {
+	t.Parallel()
 	t.Run("Success - sends typed log", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		contractID := "0x1234"
@@ -336,6 +355,7 @@ func TestChipIngressAgent_SendTypedLog(t *testing.T) {
 	})
 
 	t.Run("SendTypedLog with different types", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		contractID := "0x5678"
@@ -359,6 +379,7 @@ func TestChipIngressAgent_SendTypedLog(t *testing.T) {
 	})
 
 	t.Run("SendTypedLog with invalid type logs error", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
@@ -375,6 +396,7 @@ func TestChipIngressAgent_SendTypedLog(t *testing.T) {
 	})
 
 	t.Run("SendTypedLog works on single-type agent too", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		contractID := "0x1234"
@@ -395,6 +417,7 @@ func TestChipIngressAgent_SendTypedLog(t *testing.T) {
 }
 
 func TestChipIngressAgent_ExportedFields(t *testing.T) {
+	t.Parallel()
 	mockTelemService := new(MockChipIngressService)
 	lggr := logger.TestLogger(t)
 	contractID := "0x1234567890"
@@ -404,32 +427,40 @@ func TestChipIngressAgent_ExportedFields(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("ChainSelector", func(t *testing.T) {
+		t.Parallel()
 		assert.Equal(t, uint64(5009297550715157269), adapter.ChainSelector)
 	})
 
 	t.Run("Network", func(t *testing.T) {
+		t.Parallel()
 		assert.Equal(t, "EVM", adapter.Network)
 	})
 
 	t.Run("ChainID", func(t *testing.T) {
+		t.Parallel()
 		assert.Equal(t, "1", adapter.ChainID)
 	})
 
 	t.Run("ContractID", func(t *testing.T) {
+		t.Parallel()
 		assert.Equal(t, contractID, adapter.ContractID)
 	})
 
 	t.Run("Domain", func(t *testing.T) {
+		t.Parallel()
 		assert.Equal(t, "data-streams.telemetry.ocr3-mercury", adapter.Domain)
 	})
 
 	t.Run("Entity", func(t *testing.T) {
+		t.Parallel()
 		assert.Equal(t, "offchainreporting3.TelemetryWrapper", adapter.Entity)
 	})
 }
 
 func TestChipIngressAgent_InterfaceCompliance(t *testing.T) {
+	t.Parallel()
 	t.Run("single-type agent implements MonitoringEndpoint", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 
@@ -446,6 +477,7 @@ func TestChipIngressAgent_InterfaceCompliance(t *testing.T) {
 	})
 
 	t.Run("multitype agent implements MultitypeMonitoringEndpoint", func(t *testing.T) {
+		t.Parallel()
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 

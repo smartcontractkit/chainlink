@@ -31,6 +31,7 @@ import (
 )
 
 func Test_EVMTelemetryReporter_NewHead(t *testing.T) {
+	t.Parallel()
 	head := evmtypes.Head{
 		Number:     42,
 		EVMChainID: sqlutil.NewI(100),
@@ -73,6 +74,7 @@ func Test_EVMTelemetryReporter_NewHead(t *testing.T) {
 }
 
 func Test_EVMTelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
+	t.Parallel()
 	head := evmtypes.Head{
 		Number:     42,
 		EVMChainID: sqlutil.NewI(100),
@@ -103,6 +105,7 @@ func Test_EVMTelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
 }
 
 func Test_EVMTelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
+	t.Parallel()
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
 	monitoringEndpointGen.
 		On("GenMonitoringEndpoint", "EVM", "100", "", synchronization.HeadReport).
@@ -138,6 +141,7 @@ func (m *mockRelayer) FinalizedHead(_ context.Context) (types.Head, error) {
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
+	t.Parallel()
 	privKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	blockHash := [32]byte(privKey.PublicKey())
@@ -178,6 +182,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic_EmptyBlockHeight(t *testing.T) {
+	t.Parallel()
 	head := types.Head{
 		Height:    "",
 		Hash:      nil,
@@ -201,6 +206,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_EmptyBlockHeight(t *testing.T) 
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
+	t.Parallel()
 	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
 
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
@@ -219,6 +225,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic_WithFinalizedHead(t *testing.T) {
+	t.Parallel()
 	privKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	blockHash := [32]byte(privKey.PublicKey())
@@ -263,6 +270,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_WithFinalizedHead(t *testing.T)
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic_FinalizedHeadError(t *testing.T) {
+	t.Parallel()
 	privKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	blockHash := [32]byte(privKey.PublicKey())

@@ -26,21 +26,25 @@ func (m *mockGetter) Get(dest any, query string, args ...any) error {
 }
 
 func Test_checkVersion(t *testing.T) {
+	t.Parallel()
 	if time.Now().Year() > 2027 {
 		t.Fatal("Postgres version numbers only registered until 2028, please update the postgres version check using: https://www.postgresql.org/support/versioning/ then fix this test")
 	}
 	t.Run("when the version is too low", func(t *testing.T) {
+		t.Parallel()
 		m := &mockGetter{version: 100000}
 		err := checkVersion(m, 110000)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "the minimum required Postgres server version is 11, you are running: 10")
 	})
 	t.Run("when the version is at minimum", func(t *testing.T) {
+		t.Parallel()
 		m := &mockGetter{version: 110000}
 		err := checkVersion(m, 110000)
 		require.NoError(t, err)
 	})
 	t.Run("when the version is above minimum", func(t *testing.T) {
+		t.Parallel()
 		m := &mockGetter{version: 110001}
 		err := checkVersion(m, 110000)
 		require.NoError(t, err)
@@ -49,11 +53,13 @@ func Test_checkVersion(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("ignores wildly small versions, 0 etc", func(t *testing.T) {
+		t.Parallel()
 		m := &mockGetter{version: 9000}
 		err := checkVersion(m, 110001)
 		require.NoError(t, err)
 	})
 	t.Run("ignores errors", func(t *testing.T) {
+		t.Parallel()
 		m := &mockGetter{err: errors.New("some error")}
 		err := checkVersion(m, 110001)
 		require.NoError(t, err)

@@ -221,8 +221,10 @@ var (
 )
 
 func TestStartHeartbeats(t *testing.T) {
+	t.Parallel()
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Run("bhs_heartbeat_happy_path", func(t *testing.T) {
+		t.Parallel()
 		expectedDuration := 600 * time.Second
 		mockBHS := bhsmocks.NewBHS(t)
 		mockLogger := logger.NewMockLogger(t)
@@ -268,6 +270,7 @@ func TestStartHeartbeats(t *testing.T) {
 	})
 
 	t.Run("bhs_heartbeat_sad_path_store_earliest_err", func(t *testing.T) {
+		t.Parallel()
 		expectedDuration := 600 * time.Second
 		expectedError := errors.New("insufficient gas")
 		mockBHS := bhsmocks.NewBHS(t)
@@ -317,6 +320,7 @@ func TestStartHeartbeats(t *testing.T) {
 	})
 
 	t.Run("bhs_heartbeat_sad_path_heartbeat_0", func(t *testing.T) {
+		t.Parallel()
 		expectedDuration := 0 * time.Second
 		mockBHS := bhsmocks.NewBHS(t)
 		mockLogger := logger.NewMockLogger(t)
@@ -361,12 +365,14 @@ type testCase struct {
 }
 
 func TestFeeder(t *testing.T) {
-	for _, test := range tests {
+	t.Parallel()
+	for _, test := range tests { //nolint:paralleltest // t.Run body is a shared method value (testCase method); each case builds its own simulated chain, and the subtest methods do call t.Parallel()
 		t.Run(test.name, test.testFeeder)
 	}
 }
 
 func (test testCase) testFeeder(t *testing.T) {
+	t.Parallel()
 	coordinator := &TestCoordinator{
 		RequestEvents:     test.requests,
 		FulfillmentEvents: test.fulfillments,
@@ -399,12 +405,14 @@ func (test testCase) testFeeder(t *testing.T) {
 }
 
 func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
-	for _, test := range tests {
+	t.Parallel()
+	for _, test := range tests { //nolint:paralleltest // t.Run body is a shared method value (testCase method); each case builds its own simulated chain, and the subtest methods do call t.Parallel()
 		t.Run(test.name, test.testFeederWithLogPollerVRFv2Plus)
 	}
 }
 
 func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
+	t.Parallel()
 	coordinatorAddress := common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
 
 	// Instantiate log poller & coordinator.
@@ -498,6 +506,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
+	t.Parallel()
 	coordinator := &TestCoordinator{
 		RequestEvents: []Event{{Block: 100, ID: "1000"}},
 	}

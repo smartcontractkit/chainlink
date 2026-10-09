@@ -27,6 +27,7 @@ import (
 )
 
 func TestDon2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	k, err := keyStore.P2P().Create(t.Context())
@@ -57,11 +58,13 @@ func TestDon2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
 }
 
 func TestDon2DonSharedPeer_ErrorOnNilSingletonPeerWrapper(t *testing.T) {
+	t.Parallel()
 	sp := p2p.NewDon2DonSharedPeer(nil, nil, logger.TestLogger(t))
 	require.Error(t, sp.Start(t.Context()))
 }
 
 func TestDon2DonSharedPeer_UpdateConnectionsByDONs(t *testing.T) {
+	t.Parallel()
 	pw := ocrcommon.NewSingletonPeerWrapper(nil, nil, nil, nil, logger.TestLogger(t)) // nils are ok, we won't Start() it
 	_, myPeerID := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)

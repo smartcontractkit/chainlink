@@ -52,9 +52,11 @@ func (m *mockOpts) SeqNr() uint64        { return 1042 }
 func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
 	return ocr2types.ConfigDigest{6, 5, 4}
 }
+
 func (m *mockOpts) ObservationTimestamp() time.Time {
 	return time.Unix(1737936858, 0)
 }
+
 func (m *mockOpts) LifeCycleStage() llotypes.LifeCycleStage {
 	return lloprotocol.LifeCycleStageProduction
 }
@@ -134,8 +136,8 @@ var trrs = pipeline.TaskRunResults{
 	},
 }
 
+//nolint:paralleltest // subtests share one mockMonitoringEndpoint and mutate/range over the same chTypedLogs channel, so parallel execution would race and cross-contaminate telemetry
 func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
-	t.Parallel()
 	lggr := logger.TestLogger(t)
 	m := &mockMonitoringEndpoint{}
 
@@ -430,7 +432,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 		ch := tm.GetOutcomeTelemetryCh()
 		require.NotNil(t, ch)
 
-		t.Run("zero values", func(t *testing.T) {
+		t.Run("zero values", func(t *testing.T) { //nolint:paralleltest // sibling subtests share one telemeter and endpoint; identical config digest/seqNr means parallel runs overwrite each other in the telemetry buffer
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
 			orig := &lloprotocol.LLOOutcomeTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
@@ -459,7 +461,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 			assert.Zero(t, decoded.DonId)
 		})
 
-		t.Run("with values", func(t *testing.T) {
+		t.Run("with values", func(t *testing.T) { //nolint:paralleltest // sibling subtests share one telemeter and endpoint; identical config digest/seqNr means parallel runs overwrite each other in the telemetry buffer
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
 			orig := &lloprotocol.LLOOutcomeTelemetry{
@@ -645,7 +647,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 		ch := tm.GetReportTelemetryCh()
 		require.NotNil(t, ch)
 
-		t.Run("zero values", func(t *testing.T) {
+		t.Run("zero values", func(t *testing.T) { //nolint:paralleltest // sibling subtests share one telemeter and endpoint; identical config digest/seqNr means parallel runs overwrite each other in the telemetry buffer
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
 			orig := &lloprotocol.LLOReportTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
@@ -676,7 +678,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 			assert.Equal(t, cd[:], decoded.ConfigDigest)
 		})
 
-		t.Run("with values", func(t *testing.T) {
+		t.Run("with values", func(t *testing.T) { //nolint:paralleltest // sibling subtests share one telemeter and endpoint; identical config digest/seqNr means parallel runs overwrite each other in the telemetry buffer
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
 			orig := &lloprotocol.LLOReportTelemetry{
