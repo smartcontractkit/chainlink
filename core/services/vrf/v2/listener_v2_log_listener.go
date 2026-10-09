@@ -424,10 +424,14 @@ func (lsn *listenerV2) handleRequested(requested []RandomWordsRequested, request
 			"confirmedAt", confirmedAt,
 			"subID", req.SubID(),
 			"sender", req.Sender())
+		// restore backoff state from previous ticks, if any
+		rs := lsn.retries[req.RequestID().String()]
 		pendingRequests = append(pendingRequests, pendingRequest{
 			confirmedAtBlock: confirmedAt,
 			req:              req,
 			utcTimestamp:     requestedLP[i].CreatedAt.UTC(),
+			attempts:         rs.attempts,
+			lastTry:          rs.lastTry,
 		})
 		lsn.reqAdded()
 	}

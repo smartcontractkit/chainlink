@@ -102,6 +102,7 @@ func New(
 		aggregator:            aggregator,
 		inflightCache:         inflightCache,
 		fulfillmentLogDeduper: fulfillmentDeduper,
+		retries:               make(map[string]retryState),
 	}
 }
 
@@ -151,6 +152,13 @@ type listenerV2 struct {
 	// inflightCache is a cache of in-flight requests, used to prevent
 	// re-processing of requests that are in-flight or already fulfilled.
 	inflightCache vrfcommon.InflightCache
+
+	// retries holds backoff state (attempts, lastTry) by request ID for requests that were
+	// attempted but not processed. Pending requests are rebuilt from the log poller on every
+	// tick, so without this the backoff in ready() would never see a retry.
+	// Only accessed from the runLogListener goroutine, so it is not guarded by a mutex.
+	// Entries are pruned in updateRetryState, so it never outgrows the pending request set.
+	retries map[string]retryState
 }
 
 func (lsn *listenerV2) HealthReport() map[string]error {

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
@@ -515,4 +517,123 @@ func TestListener_Backoff(t *testing.T) {
 			require.Equal(t, test.expected, lsn.ready(req, 10))
 		})
 	}
+}
+
+func newRetryTestListener(t *testing.T, initial, maxDelay time.Duration) *listenerV2 {
+	t.Helper()
+	return &listenerV2{
+		l:             commonlogger.Sugared(commonlogger.Test(t)),
+		respCount:     map[string]uint64{},
+		inflightCache: vrfcommon.NewInflightCache(10),
+		reqAdded:      func() {},
+		retries:       make(map[string]retryState),
+		job: job.Job{
+			VRFSpec: &job.VRFSpec{
+				BackoffInitialDelay: initial,
+				BackoffMaxDelay:     maxDelay,
+			},
+		},
+	}
+}
+
+func newRetryTestRequest(id int64, confirmedAtBlock uint64) pendingRequest {
+	return pendingRequest{
+		confirmedAtBlock: confirmedAtBlock,
+		req: NewV2RandomWordsRequested(&vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+			RequestId: big.NewInt(id),
+			SubId:     1,
+			Raw:       types.Log{BlockNumber: 1},
+		}),
+	}
+}
+
+func TestListener_updateRetryState(t *testing.T) {
+	t.Parallel()
+	lsn := newRetryTestListener(t, time.Minute, time.Hour)
+
+	failed := newRetryTestRequest(1, 1)
+	done := newRetryTestRequest(2, 1)
+	gated := newRetryTestRequest(3, 1)
+	gated.attempts = 4
+	gatedLastTry := time.Now().UTC().Add(-time.Second)
+	gated.lastTry = gatedLastTry
+	lsn.retries["3"] = retryState{attempts: 4, lastTry: gatedLastTry}
+	lsn.retries["2"] = retryState{attempts: 1, lastTry: time.Now().UTC()}
+	lsn.retries["99"] = retryState{attempts: 1, lastTry: time.Now().UTC()} // no longer pending
+
+	pending := []pendingRequest{failed, done, gated}
+	// gated is pending but waiting out its backoff, so it is not part of confirmed.
+	confirmed := map[string][]pendingRequest{"1": {failed, done}}
+	processed := map[string]struct{}{"2": {}}
+
+	before := time.Now().UTC()
+	lsn.updateRetryState(pending, confirmed, processed)
+
+	// failed request: attempts incremented, lastTry set
+	require.Equal(t, 1, lsn.retries["1"].attempts)
+	require.False(t, lsn.retries["1"].lastTry.Before(before))
+	// processed request: dropped
+	require.NotContains(t, lsn.retries, "2")
+	// gated request: untouched
+	require.Equal(t, retryState{attempts: 4, lastTry: gatedLastTry}, lsn.retries["3"])
+	// request no longer pending: pruned
+	require.NotContains(t, lsn.retries, "99")
+	require.Len(t, lsn.retries, 2)
+
+	// the next tick sees the restored attempt count and increments it again
+	failed.attempts = lsn.retries["1"].attempts
+	lsn.updateRetryState([]pendingRequest{failed}, map[string][]pendingRequest{"1": {failed}}, map[string]struct{}{})
+	require.Equal(t, 2, lsn.retries["1"].attempts)
+	// gated request fell out of pending, so it is pruned
+	require.NotContains(t, lsn.retries, "3")
+
+	// once nothing is pending, nothing is retained
+	lsn.updateRetryState(nil, nil, nil)
+	require.Empty(t, lsn.retries)
+}
+
+func TestListener_updateRetryState_nilMap(t *testing.T) {
+	t.Parallel()
+	lsn := newRetryTestListener(t, 0, 0)
+	lsn.retries = nil
+	req := newRetryTestRequest(1, 1)
+	lsn.updateRetryState([]pendingRequest{req}, map[string][]pendingRequest{"1": {req}}, nil)
+	require.Equal(t, 1, lsn.retries["1"].attempts)
+}
+
+// TestListener_retryStatePersistsAcrossTicks is the regression test for requests being rebuilt
+// with zeroed attempts/lastTry on every poll, which made backoff a no-op.
+func TestListener_retryStatePersistsAcrossTicks(t *testing.T) {
+	t.Parallel()
+	lsn := newRetryTestListener(t, time.Minute, time.Hour)
+
+	requested := []RandomWordsRequested{newRetryTestRequest(1, 1).req}
+	requestedLP := []logpoller.Log{{CreatedAt: time.Now()}}
+
+	// tick 1: first attempt is ready, and fails.
+	pending := lsn.handleRequested(requested, requestedLP, 1)
+	require.Len(t, pending, 1)
+	require.Zero(t, pending[0].attempts)
+	require.True(t, lsn.ready(pending[0], 100))
+	lsn.updateRetryState(pending, map[string][]pendingRequest{"1": pending}, map[string]struct{}{})
+
+	// tick 2: the poll rebuilds the request, but it must come back with its retry state
+	// and must not be ready until the backoff has elapsed.
+	pending = lsn.handleRequested(requested, requestedLP, 1)
+	require.Len(t, pending, 1)
+	require.Equal(t, 1, pending[0].attempts)
+	require.False(t, pending[0].lastTry.IsZero())
+	require.False(t, lsn.ready(pending[0], 100))
+	// being gated must not wipe its state
+	lsn.updateRetryState(pending, map[string][]pendingRequest{}, map[string]struct{}{})
+	require.Equal(t, 1, lsn.retries["1"].attempts)
+
+	// once the backoff window has passed the request is ready again.
+	lsn.retries["1"] = retryState{attempts: 1, lastTry: time.Now().UTC().Add(-2 * time.Minute)}
+	pending = lsn.handleRequested(requested, requestedLP, 1)
+	require.True(t, lsn.ready(pending[0], 100))
+
+	// the request gets fulfilled: it is no longer pending and its state is released.
+	lsn.updateRetryState(nil, nil, nil)
+	require.Empty(t, lsn.retries)
 }
