@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5_optimism"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2plus_single_consumer"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2plus_sub_owner"
@@ -775,19 +774,6 @@ func main() {
 		helpers.ParseArgs(consumerDeployCmd, os.Args[2:], "coordinator-address", "link-address", "key-hash")
 
 		v2plusscripts.EoaDeployConsumer(e, *consumerCoordinator, *consumerLinkAddress)
-	case "eoa-load-test-consumer-deploy":
-		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-deploy", flag.ExitOnError)
-		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
-		consumerLinkAddress := loadTestConsumerDeployCmd.String("link-address", "", "link-address")
-		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address", "link-address")
-		_, tx, _, err := vrf_load_test_external_sub_owner.DeployVRFLoadTestExternalSubOwner(
-			e.Owner,
-			e.Ec,
-			common.HexToAddress(*consumerCoordinator),
-			common.HexToAddress(*consumerLinkAddress),
-		)
-		helpers.PanicErr(err)
-		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-load-test-consumer-with-metrics-deploy":
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-with-metrics-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
@@ -883,46 +869,6 @@ func main() {
 		r, err := bind.WaitMined(context.Background(), e.Ec, tx)
 		helpers.PanicErr(err)
 		fmt.Println("Receipt blocknumber:", r.BlockNumber)
-	case "eoa-load-test-read":
-		cmd := flag.NewFlagSet("eoa-load-test-read", flag.ExitOnError)
-		consumerAddress := cmd.String("consumer-address", "", "consumer address")
-		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
-		consumer, err := vrf_load_test_external_sub_owner.NewVRFLoadTestExternalSubOwner(
-			common.HexToAddress(*consumerAddress),
-			e.Ec,
-		)
-		helpers.PanicErr(err)
-		rc, err := consumer.SResponseCount(nil)
-		helpers.PanicErr(err)
-		fmt.Println("load tester", *consumerAddress, "response count:", rc)
-	case "eoa-load-test-request":
-		request := flag.NewFlagSet("eoa-load-test-request", flag.ExitOnError)
-		consumerAddress := request.String("consumer-address", "", "consumer address")
-		subID := request.Uint64("sub-id", 0, "subscription ID")
-		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
-		keyHash := request.String("key-hash", "", "key hash")
-		requests := request.Uint("requests", 10, "number of randomness requests to make per run")
-		runs := request.Uint("runs", 1, "number of runs to do. total randomness requests will be (requests * runs).")
-		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
-		keyHashBytes := common.HexToHash(*keyHash)
-		consumer, err := vrf_load_test_external_sub_owner.NewVRFLoadTestExternalSubOwner(
-			common.HexToAddress(*consumerAddress),
-			e.Ec,
-		)
-		helpers.PanicErr(err)
-		txes := make([]*types.Transaction, 0, *runs)
-		for i := range *runs {
-			tx, err := consumer.RequestRandomWords(e.Owner, *subID, uint16(*requestConfirmations), //nolint:gosec // request confirmations fits in uint16
-				keyHashBytes, uint16(*requests)) //nolint:gosec // requests fits in uint16
-			helpers.PanicErr(err)
-			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
-			txes = append(txes, tx)
-		}
-		fmt.Println("Total number of requests sent:", (*requests)*(*runs))
-		fmt.Println("fetching receipts for all transactions")
-		for i, tx := range txes {
-			helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("load test %d", i+1))
-		}
 	case "eoa-load-test-request-with-metrics":
 		request := flag.NewFlagSet("eoa-load-test-request-with-metrics", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")

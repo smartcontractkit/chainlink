@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -21,11 +20,10 @@ import (
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/vrf_log_emitter"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -35,29 +33,60 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
-var (
-	emitterABI, _    = abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
-	vrfEmitterABI, _ = abi.JSON(strings.NewReader(vrf_log_emitter.VRFLogEmitterABI))
-)
+var emitterABI, _ = abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
+
+// v2PlusEventABI returns the parsed VRF V2Plus coordinator ABI used to pack
+// synthetic RandomWordsRequested/RandomWordsFulfilled event data.
+func v2PlusEventABI(t *testing.T) abi.ABI {
+	parsed, err := vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalMetaData.GetAbi()
+	require.NoError(t, err)
+	return *parsed
+}
+
+// packV2PlusRequestedData packs the non-indexed arguments of the V2Plus
+// RandomWordsRequested event, matching how an on-chain coordinator would
+// encode it.
+func packV2PlusRequestedData(t *testing.T, requestID, preSeed *big.Int, minConfs uint16, callbackGasLimit, numWords uint32, extraArgs []byte) []byte {
+	data, err := v2PlusEventABI(t).Events["RandomWordsRequested"].Inputs.NonIndexed().Pack(
+		requestID, preSeed, minConfs, callbackGasLimit, numWords, extraArgs)
+	require.NoError(t, err)
+	return data
+}
+
+// packV2PlusFulfilledData packs the non-indexed arguments of the V2Plus
+// RandomWordsFulfilled event as emitted by the VRFCoordinatorV25 contract.
+// Note the coordinator contract's event carries an extra nativePayment
+// argument compared to the IVRFCoordinatorV2Plus interface declaration; the
+// listener parses fulfilled logs with the coordinator contract ABI, while it
+// registers log poller filters by the interface ABI (see
+// coordinatorV2_5.RandomWordsFulfilledTopic). The subId argument is indexed
+// (a topic), not part of the data.
+func packV2PlusFulfilledData(t *testing.T, outputSeed, payment *big.Int, success, onlyPremium bool) []byte {
+	parsed, err := vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.GetAbi()
+	require.NoError(t, err)
+	data, err := parsed.Events["RandomWordsFulfilled"].Inputs.NonIndexed().Pack(
+		outputSeed, payment, false, success, onlyPremium)
+	require.NoError(t, err)
+	return data
+}
 
 type vrfLogPollerListenerTH struct {
-	FinalityDepth     int64
-	Lggr              logger.Logger
-	ChainID           *big.Int
-	ORM               logpoller.ORM
-	LogPoller         logpoller.LogPollerTest
-	Backend           *simulated.Backend
-	Emitter           *log_emitter.LogEmitter
-	EmitterAddress    common.Address
-	VRFLogEmitter     *vrf_log_emitter.VRFLogEmitter
-	VRFEmitterAddress common.Address
-	Owner             *bind.TransactOpts
-	Db                *sqlx.DB
-	Listener          *listenerV2
+	FinalityDepth  int64
+	Lggr           logger.Logger
+	ChainID        *big.Int
+	ORM            logpoller.ORM
+	LogPoller      logpoller.LogPollerTest
+	Backend        *simulated.Backend
+	Emitter        *log_emitter.LogEmitter
+	EmitterAddress common.Address
+	Owner          *bind.TransactOpts
+	Db             *sqlx.DB
+	Listener       *listenerV2
 }
 
 func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
@@ -114,7 +143,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
-	vrfLogEmitterAddress, _, vrfLogEmitter, err := vrf_log_emitter.DeployVRFLogEmitter(owner, ec)
+	emitterAddress2, _, _, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -127,9 +156,12 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 	}).Toml())
 	require.NoError(t, err)
 
-	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(vrfLogEmitter.Address(), ec)
+	// Bind the V2Plus coordinator ABI at the second emitter's address, the
+	// same trick the V2-era version of this test used with the VRF log
+	// emitter: the listener only parses logs through this binding.
+	coordinatorV2_5, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(emitterAddress2, ec)
 	require.NoError(t, err)
-	coordinator := NewCoordinatorV2(coordinatorV2)
+	coordinator := NewCoordinatorV2_5(coordinatorV2_5)
 
 	chain := evmmocks.NewChain(t)
 	chain.On("ID").Maybe().Return(chainID)
@@ -148,14 +180,13 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 	// Filter registration is idempotent, so we can just call it every time
 	// and retry on errors using the ticker.
 	err = lp.RegisterFilter(ctx, logpoller.Filter{
-		Name: fmt.Sprintf("vrf_%s_keyhash_%s_job_%d", "v2", listener.job.VRFSpec.PublicKey.MustHash().String(), listener.job.ID),
+		Name: fmt.Sprintf("vrf_%s_keyhash_%s_job_%d", "v2plus", listener.job.VRFSpec.PublicKey.MustHash().String(), listener.job.ID),
 		EventSigs: evmtypes.HashArray{
-			vrf_log_emitter.VRFLogEmitterRandomWordsRequested{}.Topic(),
-			vrf_log_emitter.VRFLogEmitterRandomWordsFulfilled{}.Topic(),
+			coordinator.RandomWordsRequestedTopic(),
+			coordinator.RandomWordsFulfilledTopic(),
 		},
 		Addresses: evmtypes.AddressArray{
-			vrfLogEmitter.Address(),
-			// listener.job.VRFSpec.CoordinatorAddress.Address(),
+			coordinator.Address(),
 		},
 	})
 	require.NoError(t, err)
@@ -170,70 +201,19 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 	require.Len(t, lp.Filter(nil, nil, nil).Topics[0], 3)
 
 	th := &vrfLogPollerListenerTH{
-		FinalityDepth:     finalityDepth,
-		Lggr:              lggr,
-		ChainID:           chainID,
-		ORM:               o,
-		LogPoller:         lp,
-		Emitter:           emitter1,
-		EmitterAddress:    emitterAddress1,
-		VRFLogEmitter:     vrfLogEmitter,
-		VRFEmitterAddress: vrfLogEmitterAddress,
-		Backend:           backend,
-		Owner:             owner,
-		Db:                db,
-		Listener:          listener,
+		FinalityDepth:  finalityDepth,
+		Lggr:           lggr,
+		ChainID:        chainID,
+		ORM:            o,
+		LogPoller:      lp,
+		Emitter:        emitter1,
+		EmitterAddress: emitterAddress1,
+		Backend:        backend,
+		Owner:          owner,
+		Db:             db,
+		Listener:       listener,
 	}
 	return th
-}
-
-/* Tests for initializeLastProcessedBlock: BEGIN
- * TestInitProcessedBlock_NoVRFReqs
- * TestInitProcessedBlock_NoUnfulfilledVRFReqs
- * TestInitProcessedBlock_OneUnfulfilledVRFReq
- * TestInitProcessedBlock_SomeUnfulfilledVRFReqs
- * TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs
- */
-
-func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	t.Parallel()
-	ctx := t.Context()
-
-	th := setupVRFLogPollerListenerTH(t)
-
-	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(th.FinalityDepth); i++ {
-		th.Backend.Commit()
-	}
-
-	// Emit some logs from block 5 to 9 (Inclusive)
-	for i := range 5 {
-		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		th.Backend.Commit()
-	}
-
-	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 5 (EmitLog blocks) = 9
-
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	servicetest.Run(t, th.LogPoller)
-
-	// The poller starts on a new chain at latest-finality (finalityDepth + 5 in this case),
-	// Replaying from block 4 should guarantee we have block 4 immediately.  (We will also get
-	// block 3 once the backup poller runs, since it always starts 100 blocks behind.)
-	require.NoError(t, th.LogPoller.Replay(t.Context(), 4))
-
-	// Should return logs from block 5 to 7 (inclusive)
-	logs, err := th.LogPoller.Logs(t.Context(), 4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress)
-	require.NoError(t, err)
-	require.Len(t, logs, 3)
-
-	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
-	require.NoError(t, err)
-	require.Equal(t, int64(6), lastProcessedBlock)
 }
 
 func TestLogPollerFilterRegistered(t *testing.T) {
@@ -264,540 +244,13 @@ func TestLogPollerFilterRegistered(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	t.Parallel()
-	ctx := t.Context()
-
-	th := setupVRFLogPollerListenerTH(t)
-
-	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(th.FinalityDepth); i++ {
-		th.Backend.Commit()
-	}
-
-	// Create VRF request block and a fulfillment block
-	keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
-	preSeed := big.NewInt(105)
-	subID := uint64(1)
-	reqID := big.NewInt(1)
-	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		keyHash, reqID, preSeed, subID, 10, 10000, 2, th.Owner.From)
-	require.NoError(t, err2)
-	th.Backend.Commit()
-	_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID, preSeed, big.NewInt(10), true)
-	require.NoError(t, err2)
-	th.Backend.Commit()
-
-	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	n := 5
-	for i := range n {
-		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		th.Backend.Commit()
-	}
-
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(ctx))
-
-	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 2 (VRF req/resp block) + 5 (EmitLog blocks) = 11
-	latestBlock := int64(2 + 2 + 2 + 5)
-
-	// A replay is needed so that log poller has a latest block
-	// Replay from block 11 (latest) onwards, so that log poller has a latest block
-	// Then test if log poller is able to replay from finalizedBlockNumber (8 --> onwards)
-	// since there are no pending VRF requests
-	// Blocks: 1 2 3 4 [5;Request] [6;Fulfilment] 7 8 9 10 11
-	require.NoError(t, th.LogPoller.Replay(ctx, latestBlock))
-
-	// initializeLastProcessedBlock must return the finalizedBlockNumber (8) instead of
-	// VRF request block number (5), since all VRF requests are fulfilled
-	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
-	require.NoError(t, err)
-	require.Equal(t, int64(8), lastProcessedBlock)
-}
-
-func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	t.Parallel()
-	ctx := t.Context()
-
-	th := setupVRFLogPollerListenerTH(t)
-
-	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(th.FinalityDepth); i++ {
-		th.Backend.Commit()
-	}
-
-	// Make a VRF request without fulfilling it
-	keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
-	preSeed := big.NewInt(105)
-	subID := uint64(1)
-	reqID := big.NewInt(1)
-	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		keyHash, reqID, preSeed, subID, 10, 10000, 2, th.Owner.From)
-	require.NoError(t, err2)
-	th.Backend.Commit()
-
-	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	n := 5
-	th.Backend.Commit()
-	for i := range n {
-		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		th.Backend.Commit()
-	}
-
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(ctx))
-
-	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 1 (VRF req block) + 5 (EmitLog blocks) = 10
-	latestBlock := int64(2 + 2 + 1 + 5)
-
-	// A replay is needed so that log poller has a latest block
-	// Replay from block 10 (latest) onwards, so that log poller has a latest block
-	// Then test if log poller is able to replay from earliestUnprocessedBlock (5 --> onwards)
-	// Blocks: 1 2 3 4 [5;Request] 6 7 8 9 10
-	require.NoError(t, th.LogPoller.Replay(ctx, latestBlock))
-
-	// initializeLastProcessedBlock must return the unfulfilled VRF
-	// request block number (5) instead of finalizedBlockNumber (8)
-	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
-	require.NoError(t, err)
-	require.Equal(t, int64(5), lastProcessedBlock)
-}
-
-func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	t.Parallel()
-	ctx := t.Context()
-
-	th := setupVRFLogPollerListenerTH(t)
-
-	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(th.FinalityDepth); i++ {
-		th.Backend.Commit()
-	}
-
-	// Emit some logs in blocks with VRF reqs interspersed
-	// No fulfillment for any VRF requests
-	n := 5
-	for i := range n {
-		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		th.Backend.Commit()
-
-		// Create 2 blocks with VRF requests in each iteration
-		keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
-		preSeed := big.NewInt(105)
-		subID := uint64(1)
-		reqID1 := big.NewInt(int64(2 * i))
-		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
-		require.NoError(t, err2)
-		th.Backend.Commit()
-
-		reqID2 := big.NewInt(int64(2*i + 1))
-		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
-		require.NoError(t, err2)
-		th.Backend.Commit()
-	}
-
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(ctx))
-
-	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 3*5 (EmitLog + VRF req/resp blocks) = 19
-	latestBlock := int64(2 + 2 + 3*5)
-
-	// A replay is needed so that log poller has a latest block
-	// Replay from block 19 (latest) onwards, so that log poller has a latest block
-	// Then test if log poller is able to replay from earliestUnprocessedBlock (6 --> onwards)
-	// Blocks: 1 2 3 4 5 [6;Request] [7;Request] 8 [9;Request] [10;Request]
-	// 11 [12;Request] [13;Request] 14 [15;Request] [16;Request]
-	// 17 [18;Request] [19;Request]
-	require.NoError(t, th.LogPoller.Replay(ctx, latestBlock))
-
-	// initializeLastProcessedBlock must return the earliest unfulfilled VRF request block
-	// number instead of finalizedBlockNumber
-	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
-	require.NoError(t, err)
-	require.Equal(t, int64(6), lastProcessedBlock)
-}
-
-func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	t.Parallel()
-	ctx := t.Context()
-
-	th := setupVRFLogPollerListenerTH(t)
-
-	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(th.FinalityDepth); i++ {
-		th.Backend.Commit()
-	}
-
-	// Emit some logs in blocks with VRF reqs interspersed
-	// One VRF request in each iteration is fulfilled to imitate mixed workload
-	n := 5
-	for i := range n {
-		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		th.Backend.Commit()
-
-		// Create 2 blocks with VRF requests in each iteration and fulfill one
-		// of them. This creates a mixed workload of fulfilled and unfulfilled
-		// VRF requests for testing the VRF listener
-		keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
-		preSeed := big.NewInt(105)
-		subID := uint64(1)
-		reqID1 := big.NewInt(int64(2 * i))
-		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
-		require.NoError(t, err2)
-		th.Backend.Commit()
-
-		reqID2 := big.NewInt(int64(2*i + 1))
-		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
-		require.NoError(t, err2)
-
-		_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID1, preSeed, big.NewInt(10), true)
-		require.NoError(t, err2)
-		th.Backend.Commit()
-	}
-
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(ctx))
-
-	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 3*5 (EmitLog + VRF req/resp blocks) = 19
-	latestBlock := int64(2 + 2 + 3*5)
-	// A replay is needed so that log poller has a latest block
-	// Replay from block 19 (latest) onwards, so that log poller has a latest block
-	// Then test if log poller is able to replay from earliestUnprocessedBlock (7 --> onwards)
-	// Blocks: 1 2 3 4 5 [6;Request] [7;Request;6-Fulfilment] 8 [9;Request] [10;Request;9-Fulfilment]
-	// 11 [12;Request] [13;Request;12-Fulfilment] 14 [15;Request] [16;Request;15-Fulfilment]
-	// 17 [18;Request] [19;Request;18-Fulfilment]
-	require.NoError(t, th.LogPoller.Replay(ctx, latestBlock))
-
-	// initializeLastProcessedBlock must return the earliest unfulfilled VRF request block
-	// number instead of finalizedBlockNumber
-	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
-	require.NoError(t, err)
-	require.Equal(t, int64(7), lastProcessedBlock)
-}
-
-/* Tests for initializeLastProcessedBlock: END */
-
-/* Tests for updateLastProcessedBlock: BEGIN
- * TestUpdateLastProcessedBlock_NoVRFReqs
- * TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs
- * TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq
- * TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs
- * TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs
- */
-
-func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	t.Parallel()
-	ctx := t.Context()
-
-	th := setupVRFLogPollerListenerTH(t)
-
-	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(th.FinalityDepth); i++ {
-		th.Backend.Commit()
-	}
-
-	// Create VRF request logs
-	keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
-	preSeed := big.NewInt(105)
-	subID := uint64(1)
-	reqID1 := big.NewInt(int64(1))
-
-	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
-	require.NoError(t, err2)
-	th.Backend.Commit()
-
-	reqID2 := big.NewInt(int64(2))
-	_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
-	require.NoError(t, err2)
-	th.Backend.Commit()
-
-	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	n := 5
-	for i := range n {
-		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		th.Backend.Commit()
-	}
-
-	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 2 (VRF req blocks) + 5 (EmitLog blocks) = 11
-
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(ctx))
-
-	// We've to replay from before VRF request log, since updateLastProcessedBlock
-	// does not internally call LogPoller.Replay
-	require.NoError(t, th.LogPoller.Replay(ctx, 4))
-
-	// updateLastProcessedBlock must return the finalizedBlockNumber as there are
-	// no VRF requests, after currLastProcessedBlock (block 6). The VRF requests
-	// made above are before the currLastProcessedBlock (7) passed in below
-	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 7)
-	require.NoError(t, err)
-	require.Equal(t, int64(8), lastProcessedBlock)
-}
-
-func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	t.Parallel()
-	ctx := t.Context()
-
-	th := setupVRFLogPollerListenerTH(t)
-
-	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(th.FinalityDepth); i++ {
-		th.Backend.Commit()
-	}
-
-	// Create VRF request log block with a fulfillment log block
-	keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
-	preSeed := big.NewInt(105)
-	subID := uint64(1)
-	reqID1 := big.NewInt(int64(1))
-
-	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
-	require.NoError(t, err2)
-	th.Backend.Commit()
-
-	_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID1, preSeed, big.NewInt(10), true)
-	require.NoError(t, err2)
-	th.Backend.Commit()
-
-	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	n := 5
-	for i := range n {
-		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		th.Backend.Commit()
-	}
-
-	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 2 (VRF req/resp blocks) + 5 (EmitLog blocks) = 11
-
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(ctx))
-
-	// We've to replay from before VRF request log, since updateLastProcessedBlock
-	// does not internally call LogPoller.Replay
-	require.NoError(t, th.LogPoller.Replay(ctx, 4))
-
-	// updateLastProcessedBlock must return the finalizedBlockNumber (8) though we have
-	// a VRF req at block (5) after currLastProcessedBlock (4) passed below, because
-	// the VRF request is fulfilled
-	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
-	require.NoError(t, err)
-	require.Equal(t, int64(8), lastProcessedBlock)
-}
-
-func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	t.Parallel()
-	ctx := t.Context()
-
-	th := setupVRFLogPollerListenerTH(t)
-
-	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(th.FinalityDepth); i++ {
-		th.Backend.Commit()
-	}
-
-	// Create VRF request logs without a fulfillment log block
-	keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
-	preSeed := big.NewInt(105)
-	subID := uint64(1)
-	reqID1 := big.NewInt(int64(1))
-
-	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-		keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
-	require.NoError(t, err2)
-	th.Backend.Commit()
-
-	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	n := 5
-	for i := range n {
-		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		th.Backend.Commit()
-	}
-
-	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 1 (VRF req block) + 5 (EmitLog blocks) = 10
-
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(ctx))
-
-	// We've to replay from before VRF request log, since updateLastProcessedBlock
-	// does not internally call LogPoller.Replay
-	require.NoError(t, th.LogPoller.Replay(ctx, 4))
-
-	// updateLastProcessedBlock must return the VRF req at block (5) instead of
-	// finalizedBlockNumber (8) after currLastProcessedBlock (4) passed below,
-	// because the VRF request is unfulfilled
-	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
-	require.NoError(t, err)
-	require.Equal(t, int64(5), lastProcessedBlock)
-}
-
-func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	t.Parallel()
-	ctx := t.Context()
-
-	th := setupVRFLogPollerListenerTH(t)
-
-	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(th.FinalityDepth); i++ {
-		th.Backend.Commit()
-	}
-
-	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	n := 5
-	for i := range n {
-		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		th.Backend.Commit()
-
-		// Create 2 blocks with VRF requests in each iteration
-		keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
-		preSeed := big.NewInt(105)
-		subID := uint64(1)
-		reqID1 := big.NewInt(int64(2 * i))
-
-		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
-		require.NoError(t, err2)
-		th.Backend.Commit()
-
-		reqID2 := big.NewInt(int64(2*i + 1))
-		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
-		require.NoError(t, err2)
-		th.Backend.Commit()
-	}
-
-	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 3*5 (EmitLog + VRF req blocks) = 19
-
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(ctx))
-
-	// We've to replay from before VRF request log, since updateLastProcessedBlock
-	// does not internally call LogPoller.Replay
-	require.NoError(t, th.LogPoller.Replay(ctx, 4))
-
-	// updateLastProcessedBlock must return the VRF req at block (6) instead of
-	// finalizedBlockNumber (16) after currLastProcessedBlock (4) passed below,
-	// as block 6 contains the earliest unfulfilled VRF request
-	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
-	require.NoError(t, err)
-	require.Equal(t, int64(6), lastProcessedBlock)
-}
-
-func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	t.Parallel()
-	ctx := t.Context()
-
-	th := setupVRFLogPollerListenerTH(t)
-
-	// Block 3 to finalityDepth. Ensure we have finality number of blocks
-	for i := 1; i < int(th.FinalityDepth); i++ {
-		th.Backend.Commit()
-	}
-
-	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
-	n := 5
-	for i := range n {
-		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err1)
-		th.Backend.Commit()
-
-		// Create 2 blocks with VRF requests in each iteration and fulfill one
-		// of them. This creates a mixed workload of fulfilled and unfulfilled
-		// VRF requests for testing the VRF listener
-		keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
-		preSeed := big.NewInt(105)
-		subID := uint64(1)
-		reqID1 := big.NewInt(int64(2 * i))
-
-		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
-		require.NoError(t, err2)
-		th.Backend.Commit()
-
-		reqID2 := big.NewInt(int64(2*i + 1))
-		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
-			keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
-		require.NoError(t, err2)
-		_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID1, preSeed, big.NewInt(10), true)
-		require.NoError(t, err2)
-		th.Backend.Commit()
-	}
-
-	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 3*5 (EmitLog + VRF req blocks) = 19
-
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(ctx))
-
-	// We've to replay from before VRF request log, since updateLastProcessedBlock
-	// does not internally call LogPoller.Replay
-	require.NoError(t, th.LogPoller.Replay(ctx, 4))
-
-	// updateLastProcessedBlock must return the VRF req at block (7) instead of
-	// finalizedBlockNumber (16) after currLastProcessedBlock (4) passed below,
-	// as block 7 contains the earliest unfulfilled VRF request. VRF request
-	// in block 6 has been fulfilled in block 7.
-	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
-	require.NoError(t, err)
-	require.Equal(t, int64(7), lastProcessedBlock)
-}
-
-/* Tests for updateLastProcessedBlock: END */
-
-/* Tests for getUnfulfilled: BEGIN
- * TestGetUnfulfilled_NoVRFReqs
- * TestGetUnfulfilled_NoUnfulfilledVRFReqs
- * TestGetUnfulfilled_OneUnfulfilledVRFReq
- * TestGetUnfulfilled_SomeUnfulfilledVRFReqs
- * TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs
- */
-
-func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *sqlutil.Big) {
-	chainID := sqlutil.New(big.NewInt(12345))
+// SetupGetUnfulfilledTH returns a listener wired to a V2Plus coordinator ABI
+// binding, for exercising getUnfulfilled with synthetic logpoller logs.
+func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *big.Int) {
 	lggr := logger.Test(t)
+
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
-		EVMChainID:          chainID.String(),
 	}).Toml())
 	require.NoError(t, err)
 	chain := evmmocks.NewChain(t)
@@ -809,12 +262,16 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *sqlutil.Big) {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
 	}, simulated.WithBlockGasLimit(10e6))
-	_, _, vrfLogEmitter, err := vrf_log_emitter.DeployVRFLogEmitter(owner, b.Client())
-	require.NoError(t, err)
+	backend := b.Client()
 	b.Commit()
-	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(vrfLogEmitter.Address(), b.Client())
+	// The binding does not require a deployed coordinator: the listener only
+	// parses logs through it.
+	coordinatorV2_5, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(owner.From, backend)
 	require.NoError(t, err)
-	coordinator := NewCoordinatorV2(coordinatorV2)
+	coordinator := NewCoordinatorV2_5(coordinatorV2_5)
+
+	chainID := testutils.NewRandomEVMChainID()
+	chain.On("ID").Maybe().Return(chainID)
 
 	listener := &listenerV2{
 		respCount:   map[string]uint64{},
@@ -826,6 +283,85 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *sqlutil.Big) {
 	return listener, chainID
 }
 
+// syntheticV2PlusRequestedLog builds a logpoller.Log carrying a V2Plus
+// RandomWordsRequested event for the given request id, with the topics and
+// data encoded exactly as an on-chain coordinator would emit them.
+func syntheticV2PlusRequestedLog(t *testing.T, chainID *big.Int, listener *listenerV2, requestID *big.Int, blockNumber int64) logpoller.Log {
+	keyHash := listener.job.VRFSpec.PublicKey.MustHash()
+	subID := big.NewInt(1)
+	extraArgs, err := extraargs.EncodeV1(false)
+	require.NoError(t, err)
+
+	subIDTopic := common.BytesToHash(subID.Bytes())
+	senderTopic := common.BytesToHash(common.HexToAddress("0x5ee3b50502b5c4c9184dcb281471a0614d4b2ef9").Bytes())
+
+	return logpoller.Log{
+		EVMChainID:     (*sqlutil.Big)(chainID),
+		LogIndex:       0,
+		BlockHash:      common.BigToHash(big.NewInt(blockNumber)),
+		BlockNumber:    blockNumber,
+		BlockTimestamp: time.Now(),
+		Topics: [][]byte{
+			listener.coordinator.RandomWordsRequestedTopic().Bytes(),
+			keyHash.Bytes(),
+			subIDTopic.Bytes(),
+			senderTopic.Bytes(),
+		},
+		EventSig:  listener.coordinator.RandomWordsRequestedTopic(),
+		Address:   common.Address{},
+		TxHash:    common.BigToHash(big.NewInt(blockNumber)),
+		Data:      packV2PlusRequestedData(t, requestID, big.NewInt(106), 10, 10000, 2, extraArgs),
+		CreatedAt: time.Now(),
+	}
+}
+
+// syntheticV2PlusFulfilledLog builds a logpoller.Log carrying a V2Plus
+// RandomWordsFulfilled event for the given request id.
+func syntheticV2PlusFulfilledLog(t *testing.T, chainID *big.Int, listener *listenerV2, requestID *big.Int, blockNumber int64) logpoller.Log {
+	subID := big.NewInt(1)
+
+	subIDTopic := common.BytesToHash(subID.Bytes())
+
+	return logpoller.Log{
+		EVMChainID:     (*sqlutil.Big)(chainID),
+		LogIndex:       0,
+		BlockHash:      common.BigToHash(big.NewInt(blockNumber)),
+		BlockNumber:    blockNumber,
+		BlockTimestamp: time.Now(),
+		Topics: [][]byte{
+			// The listener parses fulfilled logs with the coordinator
+			// contract ABI, which requires the contract's event topic.
+			vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled{}.Topic().Bytes(),
+			common.BytesToHash(requestID.Bytes()).Bytes(),
+			subIDTopic.Bytes(),
+		},
+		// getUnfulfilled dispatches on the adapter's (interface) event topic.
+		EventSig: listener.coordinator.RandomWordsFulfilledTopic(),
+		Address:  common.Address{},
+		TxHash:   common.BigToHash(big.NewInt(blockNumber)),
+		Data:     packV2PlusFulfilledData(t, big.NewInt(105), big.NewInt(10), true, false),
+	}
+}
+
+// syntheticIrrelevantLog builds a logpoller.Log for an unrelated event, to
+// prove getUnfulfilled ignores non-VRF logs.
+func syntheticIrrelevantLog(chainID *big.Int, blockNumber int64) logpoller.Log {
+	return logpoller.Log{
+		EVMChainID:     (*sqlutil.Big)(chainID),
+		LogIndex:       0,
+		BlockHash:      common.BigToHash(big.NewInt(blockNumber)),
+		BlockNumber:    blockNumber,
+		BlockTimestamp: time.Now(),
+		Topics: [][]byte{
+			common.FromHex("0x46692c0e59ca9cd1ad8f984a9d11715ec83424398b7eed4e05c8ce84662415a8"),
+		},
+		EventSig:  emitterABI.Events["Log1"].ID,
+		Address:   common.Address{},
+		TxHash:    common.BigToHash(big.NewInt(blockNumber)),
+		CreatedAt: time.Now(),
+	}
+}
+
 func TestGetUnfulfilled_NoVRFReqs(t *testing.T) {
 	t.Parallel()
 
@@ -833,21 +369,7 @@ func TestGetUnfulfilled_NoVRFReqs(t *testing.T) {
 
 	logs := make([]logpoller.Log, 0, 10)
 	for i := range 10 {
-		logs = append(logs, logpoller.Log{
-			EVMChainID:     chainID,
-			LogIndex:       0,
-			BlockHash:      common.BigToHash(big.NewInt(int64(i))),
-			BlockNumber:    int64(i),
-			BlockTimestamp: time.Now(),
-			Topics: [][]byte{
-				[]byte("0x46692c0e59ca9cd1ad8f984a9d11715ec83424398b7eed4e05c8ce84662415a8"),
-			},
-			EventSig:  emitterABI.Events["Log1"].ID,
-			Address:   common.Address{},
-			TxHash:    common.BigToHash(big.NewInt(int64(i))),
-			Data:      nil,
-			CreatedAt: time.Now(),
-		})
+		logs = append(logs, syntheticIrrelevantLog(chainID, int64(i)))
 	}
 
 	unfulfilled, _, fulfilled := listener.getUnfulfilled(logs, listener.l)
@@ -862,49 +384,10 @@ func TestGetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 
 	logs := []logpoller.Log{}
 	for i := range 10 {
-		eventSig := emitterABI.Events["Log1"].ID
-		topics := [][]byte{
-			common.FromHex("0x46692c0e59ca9cd1ad8f984a9d11715ec83424398b7eed4e05c8ce84662415a8"),
-		}
+		logs = append(logs, syntheticIrrelevantLog(chainID, int64(2*i)))
 		if i%2 == 0 {
-			eventSig = vrfEmitterABI.Events["RandomWordsRequested"].ID
-			topics = [][]byte{
-				common.FromHex("0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772"),
-				common.FromHex("0xc0a6c424ac7157ae408398df7e5f4552091a69125d5dfcb7b8c2659029395bdf"),
-				common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000001"),
-				common.FromHex("0x0000000000000000000000005ee3b50502b5c4c9184dcb281471a0614d4b2ef9"),
-			}
-		}
-		logs = append(logs, logpoller.Log{
-			EVMChainID:     chainID,
-			LogIndex:       0,
-			BlockHash:      common.BigToHash(big.NewInt(int64(2 * i))),
-			BlockNumber:    int64(2 * i),
-			BlockTimestamp: time.Now(),
-			Topics:         topics,
-			EventSig:       eventSig,
-			Address:        common.Address{},
-			TxHash:         common.BigToHash(big.NewInt(int64(2 * i))),
-			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
-			CreatedAt:      time.Now(),
-		})
-		if i%2 == 0 {
-			logs = append(logs, logpoller.Log{
-				EVMChainID:     chainID,
-				LogIndex:       0,
-				BlockHash:      common.BigToHash(big.NewInt(int64(2*i + 1))),
-				BlockNumber:    int64(2*i + 1),
-				BlockTimestamp: time.Now(),
-				Topics: [][]byte{
-					common.FromHex("0x7dffc5ae5ee4e2e4df1651cf6ad329a73cebdb728f37ea0187b9b17e036756e4"),
-					common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i)),
-				},
-				EventSig:  vrfEmitterABI.Events["RandomWordsFulfilled"].ID,
-				Address:   common.Address{},
-				TxHash:    common.BigToHash(big.NewInt(int64(2*i + 1))),
-				Data:      common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000069000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000001"),
-				CreatedAt: time.Now(),
-			})
+			logs = append(logs, syntheticV2PlusRequestedLog(t, chainID, listener, big.NewInt(int64(i)), int64(2*i)))
+			logs = append(logs, syntheticV2PlusFulfilledLog(t, chainID, listener, big.NewInt(int64(i)), int64(2*i+1)))
 		}
 	}
 
@@ -920,73 +403,31 @@ func TestGetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
 
 	logs := make([]logpoller.Log, 0, 10)
 	for i := range 10 {
-		eventSig := emitterABI.Events["Log1"].ID
-		topics := [][]byte{
-			common.FromHex("0x46692c0e59ca9cd1ad8f984a9d11715ec83424398b7eed4e05c8ce84662415a8"),
-		}
 		if i == 4 {
-			eventSig = vrfEmitterABI.Events["RandomWordsRequested"].ID
-			topics = [][]byte{
-				common.FromHex("0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772"),
-				common.FromHex("0xc0a6c424ac7157ae408398df7e5f4552091a69125d5dfcb7b8c2659029395bdf"),
-				common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000001"),
-				common.FromHex("0x0000000000000000000000005ee3b50502b5c4c9184dcb281471a0614d4b2ef9"),
-			}
+			logs = append(logs, syntheticV2PlusRequestedLog(t, chainID, listener, big.NewInt(int64(i)), int64(2*i)))
+			continue
 		}
-		logs = append(logs, logpoller.Log{
-			EVMChainID:     chainID,
-			LogIndex:       0,
-			BlockHash:      common.BigToHash(big.NewInt(int64(2 * i))),
-			BlockNumber:    int64(2 * i),
-			BlockTimestamp: time.Now(),
-			Topics:         topics,
-			EventSig:       eventSig,
-			Address:        common.Address{},
-			TxHash:         common.BigToHash(big.NewInt(int64(2 * i))),
-			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
-			CreatedAt:      time.Now(),
-		})
+		logs = append(logs, syntheticIrrelevantLog(chainID, int64(2*i)))
 	}
 
 	unfulfilled, _, fulfilled := listener.getUnfulfilled(logs, listener.l)
-	require.Equal(t, unfulfilled[0].RequestID().Int64(), big.NewInt(4).Int64())
 	require.Len(t, unfulfilled, 1)
+	require.Equal(t, unfulfilled[0].RequestID().Int64(), big.NewInt(4).Int64())
 	require.Empty(t, fulfilled)
 }
 
-func TestGetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
+func TestGetUnfulfilled_SomeUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
 
 	logs := make([]logpoller.Log, 0, 10)
 	for i := range 10 {
-		eventSig := emitterABI.Events["Log1"].ID
-		topics := [][]byte{
-			common.FromHex("0x46692c0e59ca9cd1ad8f984a9d11715ec83424398b7eed4e05c8ce84662415a8"),
-		}
 		if i%2 == 0 {
-			eventSig = vrfEmitterABI.Events["RandomWordsRequested"].ID
-			topics = [][]byte{
-				common.FromHex("0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772"),
-				common.FromHex("0xc0a6c424ac7157ae408398df7e5f4552091a69125d5dfcb7b8c2659029395bdf"),
-				common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000001"),
-				common.FromHex("0x0000000000000000000000005ee3b50502b5c4c9184dcb281471a0614d4b2ef9"),
-			}
+			logs = append(logs, syntheticV2PlusRequestedLog(t, chainID, listener, big.NewInt(int64(i)), int64(2*i)))
+			continue
 		}
-		logs = append(logs, logpoller.Log{
-			EVMChainID:     chainID,
-			LogIndex:       0,
-			BlockHash:      common.BigToHash(big.NewInt(int64(2 * i))),
-			BlockNumber:    int64(2 * i),
-			BlockTimestamp: time.Now(),
-			Topics:         topics,
-			EventSig:       eventSig,
-			Address:        common.Address{},
-			TxHash:         common.BigToHash(big.NewInt(int64(2 * i))),
-			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
-			CreatedAt:      time.Now(),
-		})
+		logs = append(logs, syntheticIrrelevantLog(chainID, int64(2*i)))
 	}
 
 	unfulfilled, _, fulfilled := listener.getUnfulfilled(logs, listener.l)
@@ -1008,49 +449,12 @@ func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 
 	logs := []logpoller.Log{}
 	for i := range 10 {
-		eventSig := emitterABI.Events["Log1"].ID
-		topics := [][]byte{
-			common.FromHex("0x46692c0e59ca9cd1ad8f984a9d11715ec83424398b7eed4e05c8ce84662415a8"),
-		}
+		logs = append(logs, syntheticIrrelevantLog(chainID, int64(2*i)))
 		if i%2 == 0 {
-			eventSig = vrfEmitterABI.Events["RandomWordsRequested"].ID
-			topics = [][]byte{
-				common.FromHex("0x63373d1c4696214b898952999c9aaec57dac1ee2723cec59bea6888f489a9772"),
-				common.FromHex("0xc0a6c424ac7157ae408398df7e5f4552091a69125d5dfcb7b8c2659029395bdf"),
-				common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000001"),
-				common.FromHex("0x0000000000000000000000005ee3b50502b5c4c9184dcb281471a0614d4b2ef9"),
-			}
+			logs = append(logs, syntheticV2PlusRequestedLog(t, chainID, listener, big.NewInt(int64(i)), int64(2*i)))
 		}
-		logs = append(logs, logpoller.Log{
-			EVMChainID:     chainID,
-			LogIndex:       0,
-			BlockHash:      common.BigToHash(big.NewInt(int64(2 * i))),
-			BlockNumber:    int64(2 * i),
-			BlockTimestamp: time.Now(),
-			Topics:         topics,
-			EventSig:       eventSig,
-			Address:        common.Address{},
-			TxHash:         common.BigToHash(big.NewInt(int64(2 * i))),
-			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
-			CreatedAt:      time.Now(),
-		})
 		if i%2 == 0 && i < 6 {
-			logs = append(logs, logpoller.Log{
-				EVMChainID:     chainID,
-				LogIndex:       0,
-				BlockHash:      common.BigToHash(big.NewInt(int64(2*i + 1))),
-				BlockNumber:    int64(2*i + 1),
-				BlockTimestamp: time.Now(),
-				Topics: [][]byte{
-					common.FromHex("0x7dffc5ae5ee4e2e4df1651cf6ad329a73cebdb728f37ea0187b9b17e036756e4"),
-					common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i)),
-				},
-				EventSig:  vrfEmitterABI.Events["RandomWordsFulfilled"].ID,
-				Address:   common.Address{},
-				TxHash:    common.BigToHash(big.NewInt(int64(2*i + 1))),
-				Data:      common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000069000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000001"),
-				CreatedAt: time.Now(),
-			})
+			logs = append(logs, syntheticV2PlusFulfilledLog(t, chainID, listener, big.NewInt(int64(i)), int64(2*i+1)))
 		}
 	}
 
@@ -1065,5 +469,3 @@ func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	}
 	require.Len(t, unfulfilled, len(expected))
 }
-
-/* Tests for getUnfulfilled: END */
