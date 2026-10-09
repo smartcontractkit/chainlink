@@ -352,6 +352,11 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 	belongsToAWorkflowDON := len(myWorkflowDONs) > 0
 	belongsToACapabilityDON := len(myCapabilityDONs) > 0
 
+	// Prefer capabilities hosted locally over remote ones. If this node serves a capability ID as
+	// part of a capability DON, never set up a remote shim for the same ID. This is a safety mechanism
+	// to prevent duplicate capability configs taking down the capability altogether.
+	remoteCapabilityDONs = filterLocalCapabilitiesFromRemote(remoteCapabilityDONs, myCapabilityDONs)
+
 	// Prune shims for capabilities/methods/DONs that are no longer wanted, before the create/update
 	// loops below run. This must happen first: if a capability moved to a different DON ID, its old
 	// CombinedClient must be removed from the registry before the replacement is added under the new
@@ -411,6 +416,34 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 	}
 	w.metrics.incrementCompletedUpdates(ctx)
 	return nil
+}
+
+// filterLocalCapabilitiesFromRemote returns remoteDONs with every capability ID that is hosted by one
+// of myCapabilityDONs removed from their capability configurations. The inputs are not mutated.
+// This method still leaves room for the same capability to exist on different remote DONs.
+func filterLocalCapabilitiesFromRemote(remoteDONs, myCapabilityDONs []registry.DON) []registry.DON {
+	local := map[string]struct{}{}
+	for _, d := range myCapabilityDONs {
+		for capID := range d.CapabilityConfigurations {
+			local[capID] = struct{}{}
+		}
+	}
+	if len(local) == 0 {
+		return remoteDONs
+	}
+	filtered := make([]registry.DON, 0, len(remoteDONs))
+	for _, d := range remoteDONs {
+		configs := make(map[string]registry.CapabilityConfiguration, len(d.CapabilityConfigurations))
+		for capID, c := range d.CapabilityConfigurations {
+			if _, isLocal := local[capID]; isLocal {
+				continue
+			}
+			configs[capID] = c
+		}
+		d.CapabilityConfigurations = configs
+		filtered = append(filtered, d)
+	}
+	return filtered
 }
 
 func filterDONsByFamilies(donList []registry.DON, myDONFamilies []string) []registry.DON {

@@ -1450,3 +1450,21 @@ func TestLauncher_ShardIdentityFromConfig(t *testing.T) {
 		require.NoError(t, l.Close())
 	})
 }
+
+func TestWithoutLocallyHostedCapabilities(t *testing.T) {
+	t.Parallel()
+
+	cfg := func() regpkg.CapabilityConfiguration { return regpkg.CapabilityConfiguration{Config: []byte{1}} }
+	mine := regpkg.DON{ID: 2, CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{"evm@1.0.0": cfg()}}
+	remote := regpkg.DON{ID: 1, CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{"evm@1.0.0": cfg(), "other@1.0.0": cfg()}}
+
+	got := filterLocalCapabilitiesFromRemote([]regpkg.DON{remote}, []regpkg.DON{mine})
+	require.Len(t, got, 1)
+	assert.Equal(t, uint32(1), got[0].ID)
+	assert.Contains(t, got[0].CapabilityConfigurations, "other@1.0.0")
+	assert.NotContains(t, got[0].CapabilityConfigurations, "evm@1.0.0")
+	assert.Contains(t, remote.CapabilityConfigurations, "evm@1.0.0", "input must not be mutated")
+
+	got = filterLocalCapabilitiesFromRemote([]regpkg.DON{remote}, nil)
+	assert.Len(t, got[0].CapabilityConfigurations, 2)
+}
