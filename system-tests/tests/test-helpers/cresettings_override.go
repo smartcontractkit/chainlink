@@ -30,6 +30,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -79,6 +80,13 @@ const (
 
 	// how often a failed revert delivery is retried within the revert budget.
 	creSettingsRevertRetryInterval = 5 * time.Second
+
+	// creSettingsSkipRevertEnv, when set to "true", skips the automatic
+	// baseline revert: throwaway environments (the CI runners tear the whole
+	// environment down after the test) gain nothing from it, and the revert
+	// delivery costs each test up to a minute. Local shared environments must
+	// NOT set it - they need the baseline restored for the next test.
+	creSettingsSkipRevertEnv = "CRE_SETTINGS_SKIP_REVERT"
 )
 
 // Only one CRE settings override may be active at a time. Overrides mutate settings on
@@ -291,8 +299,15 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option)
 
 	h := &CRESettingsHandle{env: env, owner: owner, allowUncataloged: allowUncataloged}
 	// Register cleanup up front, so the override is reverted and the slot released even if
-	// a delivery below fails partway through.
-	t.Cleanup(func() { h.restore(t, false /* not fatal: the test already finished */) })
+	// a delivery below fails partway through. Throwaway environments (CI) opt
+	// out of the revert via creSettingsSkipRevertEnv: they gain nothing from
+	// restoring a baseline that dies with the environment.
+	if os.Getenv(creSettingsSkipRevertEnv) == "true" {
+		t.Logf("[cresettings] %s set: skipping the automatic baseline revert (throwaway environment)", creSettingsSkipRevertEnv)
+		t.Cleanup(func() { releaseCRESettingsOverride(owner) })
+	} else {
+		t.Cleanup(func() { h.restore(t, false /* not fatal: the test already finished */) })
+	}
 
 	deliveredSince := time.Now()
 	for _, don := range targets {

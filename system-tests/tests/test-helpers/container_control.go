@@ -29,6 +29,23 @@ func StopNodesetContainers(t *testing.T, testEnv *ttypes.TestEnvironment, nodese
 	}
 }
 
+// KillNodesetContainers SIGKILLs every Chainlink node container of the named
+// nodeset. It is the instant form of StopNodesetContainers: no graceful
+// shutdown, nothing reported - a primary shard dying so silently that even a
+// shutdown-time failure report never leaves it.
+func KillNodesetContainers(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string) {
+	t.Helper()
+
+	client := newDockerClient(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	for _, name := range nodesetContainerNames(t, testEnv, nodesetName) {
+		_, err := client.ContainerKill(ctx, name, dc.ContainerKillOptions{})
+		require.NoErrorf(t, err, "failed to kill container %q of nodeset %q", name, nodesetName)
+	}
+}
+
 // StartNodesetContainers starts every Chainlink node container of the named
 // nodeset again, standing in for a recovered shard rejoining its DON family.
 func StartNodesetContainers(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string) {

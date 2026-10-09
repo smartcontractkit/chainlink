@@ -258,7 +258,7 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 			"triggerEventID", msg.TriggerEventId,
 			"workflowID", msg.WorkflowId,
 			"executionID", msg.ExecutionId)
-		if err := m.engine.ExecuteTrigger(context.Background(), event); err != nil {
+		if err := m.engine.ExecuteTrigger(m.replayExecCtx(), event); err != nil {
 			m.cfg.Logger.Errorw("failover: failed to replay cached trigger event",
 				"triggerEventID", msg.TriggerEventId,
 				"workflowID", msg.WorkflowId,
@@ -266,6 +266,18 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 				"err", err)
 		}
 	}
+}
+
+// replayExecCtx builds the context for executing a cached trigger event
+// outside the engine's normal ingestion path (the SYSTEM_ERROR replay and the
+// automatic failover). The engine's own queue path carries the workflow's
+// tenant identity (see baseEngine.startWith stamping contexts.WithCRE), and
+// downstream capability calls - e.g. the shared-vault secret fetch, whose
+// request auth derives from it - fail without it, so the direct execution
+// paths must stamp it the same way instead of using a bare background
+// context.
+func (m *ShardFailoverManager) replayExecCtx() context.Context {
+	return contexts.WithCRE(context.Background(), m.engine.Tenant())
 }
 
 // checkShardOwnership performs a dynamic per-trigger shard ownership check.
@@ -404,7 +416,7 @@ func (m *ShardFailoverManager) executeDueAutoFailovers(ctx context.Context) {
 			if m.autoExecCounter != nil {
 				m.autoExecCounter.Add(ctx, 1)
 			}
-			if err := m.engine.ExecuteTrigger(context.Background(), event); err != nil {
+			if err := m.engine.ExecuteTrigger(m.replayExecCtx(), event); err != nil {
 				m.cfg.Logger.Errorw("secondary shard: auto failover failed to execute cached trigger event",
 					"eventID", c.eventID,
 					"workflowID", m.cfg.WorkflowID,

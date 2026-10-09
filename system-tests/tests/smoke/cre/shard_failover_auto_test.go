@@ -15,6 +15,7 @@ import (
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	vaultsecretcron_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecretcron/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -35,35 +36,61 @@ import (
 // ExecutionStatusUpdate is ever sent), re-proposing the assignment, or
 // restarting a shard's containers all take effect on the next event without
 // restarting anything else.
+//
+// Budget: the CI smoke lane gives each test 7 minutes inside a 10-minute job,
+// so every wait here is event-driven and sized for the 10s cron schedule and
+// the 15s failover window below - observation phases wait for fresh platform
+// events to prove cron ticks passed (each tick is a full failover-window
+// cycle) instead of sleeping fixed windows, and each scenario reuses ONE
+// workflow across all its phases (one WASM compile, clean per-phase
+// attribution from the chip-sink records).
 
 const (
+	// shardFailoverSchedule is the fast cron schedule for the scenarios'
+	// workflows: every 10s instead of the 30s default, so each cron tick
+	// costs a third of the default and every tick-bound wait shrinks with it.
+	shardFailoverSchedule = "*/10 * * * * *"
+
 	// shardAutoFailoverOnTOML is the settings fragment applied via
 	// t_helpers.ApplyCRESettings (global scope, layered onto the boot
-	// CL_CRE_SETTINGS baseline). The 30s window is the test-friendly override
-	// of the 5m production default: with the 30s cron schedule the secondary
-	// then auto-executes within roughly a minute of the primary going silent.
-	// The gate is re-checked both when a secondary caches a trigger and when
-	// its failover deadline elapses, so the flip takes effect on the next
-	// event. The before-phase needs no fragment: the gate's default state is
-	// closed, and the boot baseline opens only ShardingFailoverEnabled.
-	shardAutoFailoverOnTOML = "ShardingFailoverAutoExecutionEnabled = 'true'\nShardingFailoverAutoWindow = '30s'"
+	// CL_CRE_SETTINGS baseline). The 15s window is the test-friendly override
+	// of the 5m production default: with the 10s cron schedule the secondary
+	// then auto-executes within roughly half a minute of the primary going
+	// silent. The gate is re-checked both when a secondary caches a trigger
+	// and when its failover deadline elapses, so the flip takes effect on the
+	// next event. The before-phase needs no fragment: the gate's default
+	// state is closed, and the boot baseline opens only ShardingFailoverEnabled.
+	shardAutoFailoverOnTOML = "ShardingFailoverAutoExecutionEnabled = 'true'\nShardingFailoverAutoWindow = '15s'"
 
 	// Log needle the secondary's ShardFailoverManager emits when it executes a
 	// cached trigger event itself after the failover window elapsed.
 	shardAutoFailoverExecutedLogNeedle = "secondary shard: auto failover executed cached trigger event"
 
-	// shardAutoFailoverAwaitTimeout covers one sync + up to two cron ticks +
-	// the failover window + slack for the auto-execution of a fresh workflow.
-	shardAutoFailoverAwaitTimeout = 4 * time.Minute
-	// shardNoFalseFailoverWindow is how long a healthy primary keeps serving
-	// after the automatic failover gate is opened before the primary is
-	// killed: window + two cron ticks + slack. No auto-execution in that
-	// window proves a live primary's ExecutionStatusUpdates drain the
-	// secondary's cache and no false failover fires.
-	shardNoFalseFailoverWindow = 2 * time.Minute
-	// shardRecoveryStableWindow is the observation window for the
-	// no-execution / no-duplicate assertions: at least two cron ticks.
-	shardRecoveryStableWindow = 90 * time.Second
+	// shardStallObserveWindow is the fixed observe beat for the gate-closed
+	// stall (phase 2 of the auto-failover scenario): failover-window + slack.
+	// The stall itself is about the gate, not the window - with the gate
+	// closed a cached event is never armed with a deadline at all - so a short
+	// beat plus the record assertions suffice; the rest of the scenario
+	// proves the armed path.
+	shardStallObserveWindow = 20 * time.Second
+
+	// shardTickRecords is how many fresh user-log records an observation
+	// phase waits for: each record is one cron tick, and each tick is a full
+	// failover-window cycle, so two records prove two whole cycles elapsed.
+	shardTickRecords = 2
+
+	// shardEventAwaitTimeout bounds the event-driven record waits (ticks
+	// arrive every 10s; generous for a slow first sync after a restart).
+	shardEventAwaitTimeout = 90 * time.Second
+
+	// shardFirstExecAwaitTimeout bounds waiting for a workflow's first
+	// execution after deployment (sync + first cron tick + execution).
+	shardFirstExecAwaitTimeout = 2 * time.Minute
+
+	// shardAutoExecAwaitTimeout bounds waiting for the secondary's first
+	// auto-executed user log after the primary's silent death (first post-death
+	// cron tick + failover window + execution).
+	shardAutoExecAwaitTimeout = 2 * time.Minute
 )
 
 // shardUserLogRecord is one user-log platform event observed by the collector,
@@ -147,57 +174,68 @@ func (c *shardUserLogCollector) recordsSince(cutoff time.Time) []shardUserLogRec
 	return records
 }
 
-// requireOnlyDONExecuted waits out window and then requires that every user
-// log for workflowIDs in the trailing window came from allowedDON, and that
-// at least one did - the alive check that separates "the forbidden shard is
-// silent" from "nothing is executing at all".
-func (c *shardUserLogCollector) requireOnlyDONExecuted(t *testing.T, workflowIDs []string, allowedDON *cre.Don, window time.Duration) {
+// awaitRecordsFromDON waits until minCount fresh records for workflowIDs
+// arrived from don at or after since - each record is one cron tick - and
+// returns the moment the count was reached, for the follow-up instant
+// assertions. Fails after timeout.
+func (c *shardUserLogCollector) awaitRecordsFromDON(t *testing.T, workflowIDs []string, don *cre.Don, minCount int, since time.Time, timeout time.Duration) time.Time {
 	t.Helper()
 
-	time.Sleep(window)
-	trailing := c.recordsSince(time.Now().Add(-window))
+	var reachedAt time.Time
+	require.Eventuallyf(t, func() bool {
+		count := 0
+		for _, r := range c.recordsSince(since) {
+			if workflowIDMatches(workflowIDs, r) && r.donID == int32(don.ID) { //nolint:gosec // G115: DON IDs are small
+				count++
+			}
+		}
+		if count >= minCount {
+			reachedAt = time.Now()
+			return true
+		}
+		return false
+	}, timeout, time.Second, "no %d fresh user-log records for workflows %v from DON %s within %s (the workflow family stopped ticking)",
+		minCount, workflowIDs, don.Name, timeout)
+	return reachedAt
+}
 
-	allowed := 0
-	for _, r := range trailing {
-		if !slices.Contains(workflowIDs, r.workflowID) {
+// requireNoRecordsForWorkflows requires that none of workflowIDs produced any
+// user-log record at or after since.
+func (c *shardUserLogCollector) requireNoRecordsForWorkflows(t *testing.T, workflowIDs []string, since time.Time) {
+	t.Helper()
+
+	for _, r := range c.recordsSince(since) {
+		require.NotContainsf(t, workflowIDs, r.workflowID,
+			"workflow %s executed on DON %d (%s) in a window where it must not execute at all", r.workflowID, r.donID, r.p2pID)
+	}
+}
+
+// requireNoRecordsFromDONs requires that no user-log record for workflowIDs
+// came from any of forbidden at or after since.
+func (c *shardUserLogCollector) requireNoRecordsFromDONs(t *testing.T, workflowIDs []string, forbidden []*cre.Don, since time.Time) {
+	t.Helper()
+
+	for _, r := range c.recordsSince(since) {
+		if !workflowIDMatches(workflowIDs, r) {
 			continue
 		}
-		require.Equal(t, int32(allowedDON.ID), r.donID, //nolint:gosec // G115: DON IDs are small
-			"workflow %s executed on DON %d (%s) but only DON %s may execute it",
-			r.workflowID, r.donID, r.p2pID, allowedDON.Name)
-		allowed++
-	}
-	require.NotEmpty(t, allowed,
-		"no user logs for workflows %v from DON %s within %s - the workflow family stopped executing, which voids the only-DON assertion",
-		workflowIDs, allowedDON.Name, window)
-}
-
-// requireNoUserLogsForWorkflows waits out window and then requires that none
-// of workflowIDs executed anywhere in the trailing window.
-func (c *shardUserLogCollector) requireNoUserLogsForWorkflows(t *testing.T, workflowIDs []string, window time.Duration) {
-	t.Helper()
-
-	time.Sleep(window)
-	trailing := c.recordsSince(time.Now().Add(-window))
-
-	for _, r := range trailing {
-		require.NotContains(t, workflowIDs, r.workflowID,
-			"workflow %s executed on DON %d (%s) during a window in which it must not execute at all", r.workflowID, r.donID, r.p2pID)
+		for _, don := range forbidden {
+			require.NotEqualf(t, int32(don.ID), r.donID, //nolint:gosec // G115: DON IDs are small
+				"workflow %s executed on DON %s (%s) in a window where only its assigned shard may execute",
+				r.workflowID, don.Name, r.p2pID)
+		}
 	}
 }
 
-// requireNoDuplicateExecutionIDs waits out window and then requires that no
-// executionID in the trailing window was observed from two different DONs -
-// the unbounded-duplicate-executions guard (a dual-primary would emit the same
+// requireNoDuplicateExecutionIDsSince requires that no executionID produced
+// user-log records from two different DONs at or after since - the
+// unbounded-duplicate-executions guard (a dual-primary would emit the same
 // deterministic executionID from both shards).
-func (c *shardUserLogCollector) requireNoDuplicateExecutionIDs(t *testing.T, window time.Duration) {
+func (c *shardUserLogCollector) requireNoDuplicateExecutionIDsSince(t *testing.T, since time.Time) {
 	t.Helper()
-
-	time.Sleep(window)
-	trailing := c.recordsSince(time.Now().Add(-window))
 
 	byExecution := make(map[string]map[int32]struct{})
-	for _, r := range trailing {
+	for _, r := range c.recordsSince(since) {
 		dons, ok := byExecution[r.executionID]
 		if !ok {
 			dons = make(map[int32]struct{})
@@ -206,47 +244,43 @@ func (c *shardUserLogCollector) requireNoDuplicateExecutionIDs(t *testing.T, win
 		dons[r.donID] = struct{}{}
 	}
 	for executionID, dons := range byExecution {
-		require.Len(t, dons, 1,
-			"execution %s was observed from %d different DONs within %s - duplicate (dual-primary) executions",
-			executionID, len(dons), window)
+		require.Lenf(t, dons, 1,
+			"execution %s was observed from %d different DONs - duplicate (dual-primary) executions", executionID, len(dons))
 	}
 }
 
 // requireDONTaggedEvents requires that the collector observed user logs for
-// each expected workflow on its expected DON, and that every record's DON tag
+// workflowID on every DON in wantDONs, and that every record's DON tag
 // (WorkflowMetadata.DonID) agrees with the DON derived from the emitting
-// node's P2P identity - the platform events are tagged with DON identity and
-// a consumer filtering on that tag routes them correctly (CRE-SHARD-M5-5).
-func (c *shardUserLogCollector) requireDONTaggedEvents(t *testing.T, expected map[string]*cre.Don, nodeP2PIDToShardIndex map[string]uint32) {
+// node's P2P identity - platform events are tagged with DON identity and a
+// consumer filtering on that tag routes them correctly (CRE-SHARD-M5-5).
+func (c *shardUserLogCollector) requireDONTaggedEvents(t *testing.T, workflowID string, wantDONs []*cre.Don, nodeP2PIDToShardIndex map[string]uint32) {
 	t.Helper()
 
-	all := c.recordsSince(time.Time{})
-
-	observed := make(map[string]map[uint32]int)
-	for _, r := range all {
-		if _, ok := expected[r.workflowID]; !ok {
+	observed := make(map[uint32]int)
+	for _, r := range c.recordsSince(time.Time{}) {
+		if r.workflowID != workflowID {
 			continue
 		}
 		donID := uint32(r.donID) //nolint:gosec // G115: DON IDs are small
-		if observed[r.workflowID] == nil {
-			observed[r.workflowID] = make(map[uint32]int)
-		}
-		observed[r.workflowID][donID]++
+		observed[donID]++
 
 		derivedDON, known := nodeP2PIDToShardIndex[r.p2pID]
-		require.True(t, known, "user log for workflow %s from unknown node %s", r.workflowID, r.p2pID)
-		require.Equal(t, donID, derivedDON,
+		require.Truef(t, known, "user log for workflow %s from unknown node %s", workflowID, r.p2pID)
+		require.Equalf(t, donID, derivedDON,
 			"platform event DON tag (%d) disagrees with the DON derived from node %s (%d) for workflow %s",
-			r.donID, r.p2pID, derivedDON, r.workflowID)
+			donID, r.p2pID, derivedDON, workflowID)
 	}
 
-	for workflowID, don := range expected {
-		require.NotEmpty(t, observed[workflowID],
-			"no user logs observed for workflow %s - cannot verify its DON tagging", workflowID)
-		require.Contains(t, observed[workflowID], uint32(don.ID), //nolint:gosec // G115: DON IDs are small
-			"workflow %s never executed on its expected DON %s (observed DONs: %v)",
-			workflowID, don.Name, observed[workflowID])
+	for _, don := range wantDONs {
+		require.NotEmptyf(t, observed[uint32(don.ID)], //nolint:gosec // G115: DON IDs are small
+			"workflow %s never executed on DON %s (observed DONs: %v) - its events are not attributable per DON",
+			workflowID, don.Name, observed)
 	}
+}
+
+func workflowIDMatches(workflowIDs []string, r shardUserLogRecord) bool {
+	return slices.Contains(workflowIDs, r.workflowID)
 }
 
 // shardFailoverAssignmentTOML builds the ordered per_owner assignment: the
@@ -265,6 +299,24 @@ hashed_default_assignment = false
 `, primary, secondary, shards.workflowOwner, primary, secondary)
 }
 
+// deployShardFailoverWorkflow deploys one fast-scheduled (10s cron)
+// vaultsecretcron workflow that reads the given secret from the shared vault
+// on every run. The scenario reuses this ONE workflow across all its phases -
+// every observation is attributed per phase from the chip-sink records, and
+// fresh cron ticks give every phase fresh trigger and execution IDs, so no
+// phase needs its own compiled workflow.
+func deployShardFailoverWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workflowBaseName, secretKey string) string {
+	t.Helper()
+
+	workflowConfig := vaultsecretcron_config.Config{
+		Schedule:        shardFailoverSchedule,
+		SecretNamespace: sharedVaultNamespace,
+		SecretKey:       secretKey,
+	}
+	return t_helpers.CompileAndDeployWorkflow(t, testEnv, framework.L,
+		t_helpers.UniqueWorkflowName(testEnv, workflowBaseName), &workflowConfig, sharedVaultWorkflowFileLocation)
+}
+
 // requireCachedEventForWorkflow requires that the nodeset logged a
 // cached-trigger line carrying the workflow's ID: the secondary holds a
 // standby engine for the workflow and denies (and caches) its triggers.
@@ -278,28 +330,31 @@ func requireCachedEventForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment
 			}
 		}
 		return false
-	}, 3*time.Minute, 5*time.Second, "nodeset %s never cached a trigger event for workflow %s", nodesetName, workflowID)
+	}, 2*time.Minute, 5*time.Second, "nodeset %s never cached a trigger event for workflow %s", nodesetName, workflowID)
 }
 
 // ExecuteShardFailoverAutoTest covers automatic failover on silent primary
 // death (CRE-SHARD-M5-3): with the ShardingFailoverAutoExecutionEnabled gate
 // open, a secondary shard executes a trigger event itself when no execution
 // outcome from the primary arrives within the (configurable) failover window.
-// A primary that dies silently - containers stopped, so neither SUCCESS nor
+// A primary that dies silently - containers killed, so neither SUCCESS nor
 // SYSTEM_ERROR is ever reported - would stall events forever under the
-// report-driven failover path; the window is what covers it.
+// report-driven failover path; the window is what covers it. The gate-closed
+// stall (the before) is covered by ExecuteShardFailoverPrimaryRecoveryTest.
 //
-// Phases: with the gate at its default CLOSED state, a silent primary death
-// leaves the workflow stalled (the before). The gate is then opened - with
-// both shards alive, because a settings delivery needs connected nodes - and
-// a healthy-primary window proves no false failover (the primary's
-// ExecutionStatusUpdates drain the secondary's cache). Only then does the
-// silent death repeat, and the secondary executes the workflow itself within
-// the window (the after), reading the same secret from the shared vault.
-// Every workflow deploys while both shards are alive - the deploy's artifact
-// copy targets every workflow shard's containers, and a stopped shard has no
-// running containers to copy into - and serves on the primary until it dies;
-// the failover assertions all measure post-death behavior.
+// Phases: the gate is opened with both shards alive - a settings delivery
+// needs connected nodes, and a healthy-primary phase then proves no false
+// failover: the primary's ExecutionStatusUpdates drain the secondary's cache,
+// so two fresh ticks (two full failover-window cycles) arrive from the
+// primary with zero executions and zero auto-failover needles from the
+// secondary. The primary then dies silently, and the secondary executes the
+// workflow itself within the window, reading the same secret from the shared
+// vault (the replay carries the workflow's tenant identity, so the secret
+// path works exactly as on the primary).
+// The workflow deploys once, while both shards are alive (the deploy's
+// artifact copy targets every workflow shard's containers), and serves on the
+// primary until the death; every failover assertion measures post-death
+// behavior.
 // Proof: the secondary's user logs through the chip sink, and the
 // "auto failover executed cached trigger event" log needle in the secondary's
 // container logs.
@@ -315,85 +370,65 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 
 	proposeSharedVaultAssignment(t, testEnv, shardFailoverAssignmentTOML(shards, true))
 
-	workflowID := deploySharedVaultWorkflow(t, testEnv, "auto-failover-primary", secretKey)
-	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardZeroDON, secretValue, 3*time.Minute)
-	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, sharedVaultTriggerCachedLogNeedle, 2*time.Minute, 5*time.Second)
+	workflowID := deployShardFailoverWorkflow(t, testEnv, "auto-failover", secretKey)
+	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardZeroDON, secretValue, shardFirstExecAwaitTimeout)
 	testLogger.Info().Msg("Phase 1: primary executes, secondary denies and caches")
 
 	collector := startShardUserLogCollector(t, testEnv)
 
-	// The before: a workflow is deployed while both shards are alive - the
-	// artifact copy on deploy targets every workflow shard's containers, and
-	// a stopped shard has no running containers to copy into - and serves on
-	// the primary until it dies. With the automatic failover gate at its
-	// default CLOSED state (the boot CL_CRE_SETTINGS baseline opens only
-	// ShardingFailoverEnabled), the silent primary death then stalls it: the
-	// secondary keeps caching every trigger but nothing ever executes it.
-	stalledWorkflowID := deploySharedVaultWorkflow(t, testEnv, "auto-failover-stalled", secretKey)
-
-	t_helpers.StopNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
-	t.Cleanup(func() {
-		t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
-	})
-
-	requireCachedEventForWorkflow(t, testEnv, shards.shardOneDON.Name, stalledWorkflowID)
-	collector.requireNoUserLogsForWorkflows(t, []string{stalledWorkflowID}, shardNoFalseFailoverWindow)
-	t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle)
-	testLogger.Info().Str("workflowID", stalledWorkflowID).Msg("Phase 2: gate closed, primary dead - secondary caches but never executes")
-
-	// Recover the primary so the settings delivery reaches connected nodes on
-	// both shards (the delivery targets every worker DON). The recovered
-	// shard returns as the primary - the assignment was never re-proposed.
-	t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
-	awaitShardDONsConnectedToJD(t, testEnv)
-
-	// Open the gate with a test-friendly window. The auto-failover settings
-	// are defined inline in core, not in the chainlink-common cresettings
-	// catalog, so the delivery opts out of the catalog check.
+	// Open the gate with a test-friendly window, with both shards alive (the
+	// delivery needs connected nodes). The auto-failover settings are defined
+	// inline in core, not in the chainlink-common cresettings catalog, so the
+	// delivery opts out of the catalog check.
 	t_helpers.ApplyCRESettings(t, testEnv,
 		t_helpers.AllowUncatalogedSettings(),
 		t_helpers.Global(shardAutoFailoverOnTOML))
 
-	// Deploy the auto-failover workflow while both shards are alive (the
-	// artifact copy again needs every workflow shard running): it serves on
-	// the primary until the silent death below, and the secondary then
-	// auto-executes its subsequent triggers.
-	autoWorkflowID := deploySharedVaultWorkflow(t, testEnv, "auto-failover-exec", secretKey)
-
-	// A live primary drains the secondary's cache through its
-	// ExecutionStatusUpdates, so the open gate alone must not fail anything
-	// over: the primary keeps executing every workflow and the secondary never
-	// auto-executes.
-	collector.requireOnlyDONExecuted(t, []string{workflowID, stalledWorkflowID, autoWorkflowID}, shards.shardZeroDON, shardNoFalseFailoverWindow)
+	// No false failover while the primary is healthy: its
+	// ExecutionStatusUpdates drain the secondary's cache, so two fresh ticks
+	// (two full failover-window cycles) arrive from the primary with zero
+	// executions and zero auto-failover needles from the secondary.
+	gateOpened := collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardZeroDON, shardTickRecords, time.Now(), shardEventAwaitTimeout)
+	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardOneDON}, gateOpened)
 	t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle)
-	testLogger.Info().Msg("Phase 3: gate open, primary healthy - no false failover")
+	testLogger.Info().Msg("Phase 2: gate open, primary healthy - no false failover")
 
-	// The after: the silent death repeats, and this time the secondary
-	// executes the cached triggers itself within the failover window.
-	t_helpers.StopNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
+	// The silent death: stopped-by-SIGKILL containers report nothing at all.
+	death := time.Now()
+	t_helpers.KillNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	t.Cleanup(func() {
 		t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	})
 
-	awaitSharedVaultWorkflowExecution(t, testEnv, []string{autoWorkflowID}, shards.shardOneDON, secretValue, shardAutoFailoverAwaitTimeout)
-	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle, 2*time.Minute, 5*time.Second)
-	collector.requireOnlyDONExecuted(t, []string{autoWorkflowID}, shards.shardOneDON, shardRecoveryStableWindow)
-	testLogger.Info().Str("workflowID", autoWorkflowID).Msg("Phase 4: primary died silently, secondary auto-executed within the window")
+	// The secondary executes the cached triggers itself within the failover
+	// window, reading the same secret from the shared vault.
+	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardOneDON, secretValue, shardAutoExecAwaitTimeout)
+	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle, time.Minute, 5*time.Second)
+	autoStable := collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, death, shardEventAwaitTimeout)
+	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, autoStable)
+	collector.requireNoDuplicateExecutionIDsSince(t, death)
+	testLogger.Info().Msg("Phase 3: primary died silently, secondary auto-executed within the window")
 }
 
 // ExecuteShardFailoverPrimaryRecoveryTest covers primary recovery
-// (CRE-SHARD-M5-4): the primary dies silently, the survivor is promoted by
+// (CRE-SHARD-M5-4) and the gate-closed stall (the before of CRE-SHARD-M5-3):
+// the primary dies silently and, with the automatic failover gate at its
+// default CLOSED state (the boot CL_CRE_SETTINGS baseline opens only
+// ShardingFailoverEnabled), the workflow stalls - the secondary keeps denying
+// and caching, nothing ever executes. The survivor is then promoted by
 // re-proposing the assignment while the old primary is dead, and the former
-// primary then returns as a secondary - it must stop executing and cache
+// primary later returns as a secondary - it must stop executing and cache
 // only. Without that failback the recovered shard would run on its stale
 // assignment copy as a second primary, and the two primaries would emit
 // unbounded duplicate executions.
 //
-// Proof: after the failback assignment reaches the recovered shard, a
-// stability window shows user logs only from the promoted shard (the
-// recovered one only caches), no executionID is observed from two DONs (the
-// duplicate guard), and a final fail-back moves execution to the recovered
-// shard again with the demoted shard returning to cache-only.
+// Proof: nothing executes between the death and the promotion (the stall);
+// after the failback assignment reaches the recovered shard, fresh ticks
+// arrive only from the promoted shard (the recovered one contributes nothing
+// but cached-trigger needles), no executionID is observed from two DONs, and
+// a final fail-back moves execution to the recovered shard again.
+// The workflow deploys once, while both shards are alive (the deploy's
+// artifact copy targets every workflow shard's containers).
 func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
@@ -406,67 +441,59 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 
 	proposeSharedVaultAssignment(t, testEnv, shardFailoverAssignmentTOML(shards, true))
 
-	workflowID := deploySharedVaultWorkflow(t, testEnv, "recovery-primary", secretKey)
-	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardZeroDON, secretValue, 3*time.Minute)
-	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, sharedVaultTriggerCachedLogNeedle, 2*time.Minute, 5*time.Second)
+	workflowID := deployShardFailoverWorkflow(t, testEnv, "recovery", secretKey)
+	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardZeroDON, secretValue, shardFirstExecAwaitTimeout)
 	testLogger.Info().Msg("Phase 1: primary executes, secondary denies and caches")
 
 	collector := startShardUserLogCollector(t, testEnv)
 
-	// The promoted-shard workflow deploys while both shards are alive (the
-	// deploy's artifact copy targets every workflow shard's containers, and a
-	// stopped shard has no running containers); it serves on the primary until
-	// the primary dies. A fresh workflow gives the promoted shard clean
-	// execution IDs, so its first execution after the swap cannot be a
-	// deduplicated replay of the old primary's executions.
-	promotedWorkflowID := deploySharedVaultWorkflow(t, testEnv, "recovery-promoted", secretKey)
-
-	// The primary dies silently.
-	t_helpers.StopNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
+	// The primary dies silently, and with the automatic failover gate at its
+	// default CLOSED state the workflow stalls - nothing executes it anywhere.
+	death := time.Now()
+	t_helpers.KillNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	t.Cleanup(func() {
 		t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	})
 
-	// Promote the survivor by re-proposing the swapped assignment on the
-	// alive shard only (a proposal to a dead shard's nodes fails with
-	// "node is not connected"). The promoted shard then executes the workflow,
-	// still reading the SAME secret from the shared vault.
-	proposeAndApproveShardAssignmentJob(t, testEnv, shards.shardOneDON, shardFailoverAssignmentTOML(shards, false), testLogger)
+	time.Sleep(shardStallObserveWindow)
+	collector.requireNoRecordsForWorkflows(t, []string{workflowID}, death)
+	t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle)
+	testLogger.Info().Msg("Phase 2: gate closed, primary dead - workflow stalls, nothing auto-executes")
 
-	awaitSharedVaultWorkflowExecution(t, testEnv, []string{promotedWorkflowID}, shards.shardOneDON, secretValue, 4*time.Minute)
-	testLogger.Info().Msg("Phase 2: primary dead, survivor promoted and executing")
+	// The survivor is promoted by re-proposing the swapped assignment on the
+	// alive shard only (a proposal to a dead shard's nodes fails with "node
+	// is not connected"). The promoted shard then executes the workflow, still
+	// reading the SAME secret from the shared vault.
+	proposeAndApproveShardAssignmentJob(t, testEnv, shards.shardOneDON, shardFailoverAssignmentTOML(shards, false), testLogger)
+	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardOneDON, secretValue, shardFirstExecAwaitTimeout)
+	testLogger.Info().Msg("Phase 3: primary dead, survivor promoted and executing")
 
 	// Primary recovery: the old primary returns - as a secondary, because the
 	// current assignment says so. Its engines restart fresh under the swapped
 	// assignment (the shard-assignment job is re-proposed to it once its nodes
 	// reconnected), so it resolves ownership per event, denies and caches.
+	// Between the restart and the swapped assignment landing on it, the
+	// recovered shard may briefly execute on its stale assignment copy - a
+	// bounded, at-least-once duplicate; the stability assertions below
+	// measure after the failback landed.
 	t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	awaitShardDONsConnectedToJD(t, testEnv)
 	proposeSharedVaultAssignment(t, testEnv, shardFailoverAssignmentTOML(shards, false))
 	requireCachedEventForWorkflow(t, testEnv, shards.shardZeroDON.Name, workflowID)
-	requireCachedEventForWorkflow(t, testEnv, shards.shardZeroDON.Name, promotedWorkflowID)
-	testLogger.Info().Msg("Phase 3: former primary returned, re-synced and caching as secondary")
+	testLogger.Info().Msg("Phase 4: former primary returned, re-synced and caching as secondary")
 
-	// Between the restart and the swapped assignment reaching the recovered
-	// shard it may briefly execute on its stale assignment copy - a bounded,
-	// at-least-once duplicate. What must NOT happen is that duplicate
-	// executions persist once the failback assignment landed: in the
-	// stability window below, only the promoted shard executes, no executionID
-	// shows up on two DONs, and the recovered shard contributes nothing but
-	// cached triggers.
-	collector.requireOnlyDONExecuted(t, []string{workflowID, promotedWorkflowID}, shards.shardOneDON, shardRecoveryStableWindow)
-	collector.requireNoDuplicateExecutionIDs(t, shardRecoveryStableWindow)
-	testLogger.Info().Msg("Phase 4: recovered shard is cache-only, promoted shard is the sole executor, no duplicates")
+	// Recovery assertions: fresh ticks only from the promoted shard, no
+	// executionID from two DONs.
+	stable := collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, time.Now(), shardEventAwaitTimeout)
+	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, stable)
+	collector.requireNoDuplicateExecutionIDsSince(t, stable)
+	testLogger.Info().Msg("Phase 5: recovered shard is cache-only, promoted shard is the sole executor, no duplicates")
 
 	// Fail back after recovery: re-propose the original order on both shards.
-	// The recovered shard executes again and the demoted shard returns to
-	// deny-and-cache.
+	// The recovered shard executes again.
 	proposeSharedVaultAssignment(t, testEnv, shardFailoverAssignmentTOML(shards, true))
-
-	failbackWorkflowID := deploySharedVaultWorkflow(t, testEnv, "recovery-failback", secretKey)
-	awaitSharedVaultWorkflowExecution(t, testEnv, []string{failbackWorkflowID}, shards.shardZeroDON, secretValue, 4*time.Minute)
-	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, sharedVaultTriggerCachedLogNeedle, 2*time.Minute, 5*time.Second)
-	testLogger.Info().Msg("Phase 5: fail-back complete, recovered shard executes again, demoted shard caches only")
+	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardZeroDON, secretValue, shardFirstExecAwaitTimeout)
+	testLogger.Info().Msg("Phase 6: fail-back complete, recovered shard executes again")
 }
 
 // ExecuteShardFailoverCentralizedEventRoutingTest covers DON-scoped event
@@ -474,19 +501,21 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 // tagged with the emitting DON, so a consumer filtering on that tag routes
 // each shard's events correctly - wrong-shard events are distinguishable
 // instead of looking like data loss or ghost executions - and duplicate
-// execution events, which failover's at-least-once semantics can produce
-// transiently at a swap, stay labeled by DON and bounded rather than silent
-// and unbounded.
+// execution events stay bounded rather than silent and unbounded.
 //
-// Proof: the chip-sink user-log events carry WorkflowMetadata.DonID, which
-// must agree with the DON derived from the emitting node's P2P identity and
-// with the shard that owned each phase's execution (shard 0, then shard 1
-// after a swap, then shard 1 again through an automatic failover); no
-// executionID is observed from two DONs in a stabilized window; and, with
-// the observability stack up (`env start --with-dashboards`), the metrics
-// ride the centralized pipeline (failover_auto_execution_total and
+// Phases: the workflow serves on the primary (shard 0), the gate is opened
+// with both shards alive, the primary dies silently and the secondary
+// auto-executes - the same workflow family executing on BOTH shards over the
+// test's lifetime, with the failover boundary in between. Proof: the
+// chip-sink user-log events carry WorkflowMetadata.DonID, which must agree
+// with the DON derived from the emitting node's P2P identity and cover both
+// shards; no executionID is observed from two DONs after the death; and, with
+// the observability stack up (`env start --with-dashboards`), the metrics ride
+// the centralized pipeline (failover_auto_execution_total and
 // platform_engine_workflow_execution_started_count) and the platform logs
 // reach Loki (beholder_data_type=zap_log_message).
+// The workflow deploys once, while both shards are alive (the deploy's
+// artifact copy targets every workflow shard's containers).
 func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
@@ -500,60 +529,44 @@ func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttyp
 	collector := startShardUserLogCollector(t, testEnv)
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 
-	// Phase 1: shard 0 primary - its events must be DON-tagged as shard 0.
 	proposeSharedVaultAssignment(t, testEnv, shardFailoverAssignmentTOML(shards, true))
 
-	primaryWorkflowID := deploySharedVaultWorkflow(t, testEnv, "centralized-routing-primary", secretKey)
-	awaitSharedVaultWorkflowExecution(t, testEnv, []string{primaryWorkflowID}, shards.shardZeroDON, secretValue, 3*time.Minute)
-	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, sharedVaultTriggerCachedLogNeedle, 2*time.Minute, 5*time.Second)
+	workflowID := deployShardFailoverWorkflow(t, testEnv, "centralized-routing", secretKey)
+	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardZeroDON, secretValue, shardFirstExecAwaitTimeout)
+	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, sharedVaultTriggerCachedLogNeedle, time.Minute, 5*time.Second)
 	testLogger.Info().Msg("Phase 1: shard 0 executing")
 
-	// Phase 2: swap both ways with both shards alive. The same workflow family
-	// now executes on shard 1, and the transient in-flight window at the swap
-	// is the duplicate-execution source a consumer must be able to see.
-	proposeSharedVaultAssignment(t, testEnv, shardFailoverAssignmentTOML(shards, false))
-
-	swapWorkflowID := deploySharedVaultWorkflow(t, testEnv, "centralized-routing-swap", secretKey)
-	awaitSharedVaultWorkflowExecution(t, testEnv, []string{swapWorkflowID}, shards.shardOneDON, secretValue, 4*time.Minute)
-	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardZeroDON.Name, sharedVaultTriggerCachedLogNeedle, 2*time.Minute, 5*time.Second)
-	testLogger.Info().Msg("Phase 2: swap, shard 1 executing")
-
-	// DON-scoped routing: every platform event is tagged with the emitting
-	// DON, the tag agrees with the node's P2P identity, and each workflow
-	// executed on the shard the assignment routed it to.
-	collector.requireDONTaggedEvents(t, map[string]*cre.Don{
-		primaryWorkflowID: shards.shardZeroDON,
-		swapWorkflowID:    shards.shardOneDON,
-	}, nodeP2PIDToShardIndex)
-
-	// Duplicates stay bounded: once both shards settled on the swapped
-	// assignment, no executionID is seen from two DONs.
-	collector.requireNoDuplicateExecutionIDs(t, shardRecoveryStableWindow)
-	testLogger.Info().Msg("Phase 3: platform events DON-tagged, duplicates bounded")
-
-	// Phase 4: an automatic failover leg (shard 0 dies silently, shard 1
-	// auto-executes) so the auto-failover counter is observable on the
-	// centralized metric pipeline. The auto-failover settings are core-only
-	// (not in the chainlink-common cresettings catalog), so the delivery opts
-	// out of the catalog check. The auto workflow deploys while both shards
-	// are alive (the deploy's artifact copy targets every workflow shard's
-	// containers, and a stopped shard has no running containers); it serves on
-	// shard 0 until the silent death, and shard 1 then auto-executes its
-	// subsequent triggers.
+	// Phase 2: open the gate with a test-friendly window, with both shards
+	// alive (the delivery needs connected nodes; the auto-failover settings
+	// are core-only, so the delivery opts out of the catalog check).
 	t_helpers.ApplyCRESettings(t, testEnv,
 		t_helpers.AllowUncatalogedSettings(),
 		t_helpers.Global(shardAutoFailoverOnTOML))
 
-	autoWorkflowID := deploySharedVaultWorkflow(t, testEnv, "centralized-routing-auto", secretKey)
-
-	t_helpers.StopNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
+	// Phase 3: the primary dies silently and the secondary auto-executes - the
+	// workflow family now executed on BOTH shards, across the failover
+	// boundary.
+	death := time.Now()
+	t_helpers.KillNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	t.Cleanup(func() {
 		t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	})
 
-	awaitSharedVaultWorkflowExecution(t, testEnv, []string{autoWorkflowID}, shards.shardOneDON, secretValue, shardAutoFailoverAwaitTimeout)
-	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle, 2*time.Minute, 5*time.Second)
-	testLogger.Info().Msg("Phase 4: automatic failover executed on shard 1")
+	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardOneDON, secretValue, shardAutoExecAwaitTimeout)
+	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle, time.Minute, 5*time.Second)
+	testLogger.Info().Msg("Phase 2: primary died silently, secondary auto-executing")
+
+	// DON-scoped routing: every platform event is tagged with the emitting
+	// DON, the tag agrees with the node's P2P identity, and both shards'
+	// executions are attributable - wrong-shard events distinguishable.
+	collector.requireDONTaggedEvents(t, workflowID, []*cre.Don{shards.shardZeroDON, shards.shardOneDON}, nodeP2PIDToShardIndex)
+
+	// Duplicates stay bounded: fresh ticks only from the secondary, and no
+	// executionID from two DONs after the death.
+	dupStable := collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, death, shardEventAwaitTimeout)
+	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, dupStable)
+	collector.requireNoDuplicateExecutionIDsSince(t, death)
+	testLogger.Info().Msg("Phase 3: platform events DON-tagged, duplicates bounded")
 
 	// Metric proof on the centralized pipeline: the auto-failover counter
 	// increased and the engine's execution counter is queryable.
@@ -563,7 +576,7 @@ func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttyp
 	t_helpers.RequirePrometheusQueryEventually(t, "platform_engine_workflow_execution_started_count", 2*time.Minute, 5*time.Second,
 		func(sum float64) bool { return sum > 0 },
 		"platform_engine_workflow_execution_started_count not observable on the centralized metric pipeline; is the observability stack up (--with-dashboards)?")
-	testLogger.Info().Msg("Phase 5: failover_auto_execution_total and execution counters observable via Prometheus")
+	testLogger.Info().Msg("Phase 4: failover_auto_execution_total and execution counters observable via Prometheus")
 
 	// Log proof on the centralized stack: the platform logs reached Loki.
 	require.Eventually(t, func() bool {
@@ -573,6 +586,6 @@ func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttyp
 			return false
 		}
 		return count > 0
-	}, 2*time.Minute, 5*time.Second, "Expected beholder zap_log_message logs in Loki while the observability stack is up")
-	testLogger.Info().Msg("Phase 6: platform logs flowing to Loki")
+	}, time.Minute, 5*time.Second, "Expected beholder zap_log_message logs in Loki while the observability stack is up")
+	testLogger.Info().Msg("Phase 5: platform logs flowing to Loki")
 }

@@ -13,6 +13,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
@@ -479,12 +480,14 @@ type recordingEngine struct {
 	mockEngine
 	mu       sync.Mutex
 	executed []string
+	tenants  []contexts.CRE
 }
 
-func (e *recordingEngine) ExecuteTrigger(_ context.Context, event triggers.CoordinatedEvent) error {
+func (e *recordingEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.executed = append(e.executed, event.Event.Event.ID)
+	e.tenants = append(e.tenants, contexts.CREValue(ctx))
 	return nil
 }
 
@@ -492,6 +495,17 @@ func (e *recordingEngine) executedIDs() []string {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return append([]string(nil), e.executed...)
+}
+
+func (e *recordingEngine) executionTenants() []contexts.CRE {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([]contexts.CRE(nil), e.tenants...)
+}
+
+// Tenant reports the engine's workflow tenant, so replay contexts carry it.
+func (e *recordingEngine) Tenant() contexts.CRE {
+	return contexts.CRE{Org: "org-1", Owner: "0xowner", Workflow: "wf-1"}
 }
 
 func autoFailoverTestEvent(id string) triggers.CoordinatedEvent {
@@ -560,6 +574,16 @@ func TestShardFailoverManager_AutoFailover_ExecutesCachedEventAfterWindow(t *tes
 	time.Sleep(60 * time.Millisecond)
 	m.executeDueAutoFailovers(t.Context())
 	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "cached event was not auto-executed after the failover window elapsed")
+
+	// The execution carries the workflow's tenant identity: the direct
+	// execution path bypasses the engine's queue, which stamps the tenant on
+	// the context (baseEngine.startWith), and capability calls - e.g. the
+	// shared-vault secret fetch - fail without it.
+	tenants := eng.executionTenants()
+	require.Len(t, tenants, 1, "auto-execution did not go through the recording engine")
+	wantTenant := contexts.CREValue(contexts.WithCRE(context.Background(), eng.Tenant()))
+	assert.Equal(t, wantTenant, tenants[0],
+		"auto-executed event ran without the workflow tenant on the context")
 
 	// The cached event is consumed: a second pass must not re-execute it.
 	m.executeDueAutoFailovers(t.Context())

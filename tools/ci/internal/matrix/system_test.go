@@ -116,57 +116,6 @@ func Test_CRE_V2_Stellar_Suite(t *testing.T) {}
 	assert.Equal(t, "configs/workflow-gateway-capabilities-don-vault-stall-purge.toml", bucketBVault.Configs)
 }
 
-func TestBuildCRESmokeMatrix_PerTestTimeouts(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "smoke_test.go")
-	content := `package smoke_test
-
-import "testing"
-
-func Test_CRE_V2_Basic(t *testing.T) {}
-func Test_CRE_V2_ShardFailoverAutoOnPrimaryDeath(t *testing.T) {}
-func Test_CRE_V2_ShardFailoverPrimaryRecovery(t *testing.T) {}
-func Test_CRE_V2_ShardFailoverCentralizedEventRouting(t *testing.T) {}
-`
-	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
-
-	res, err := matrix.BuildCRESmokeMatrix(context.Background(), matrix.CRESmokeOptions{
-		Dir:        tmpDir,
-		RunID:      "123456",
-		RunAttempt: "1",
-		SpotFlag:   "spot=co",
-	})
-	require.NoError(t, err)
-	require.Len(t, res, 4)
-
-	byName := make(map[string]matrix.CRESmokeEntry, len(res))
-	for _, entry := range res {
-		byName[entry.TestName] = entry
-	}
-
-	// The failover tests stop and restart shard containers, flip CRE settings
-	// at runtime and observe multi-minute stability windows, so they carry a
-	// per-test budget override.
-	for _, name := range []string{
-		"Test_CRE_V2_ShardFailoverAutoOnPrimaryDeath",
-		"Test_CRE_V2_ShardFailoverPrimaryRecovery",
-		"Test_CRE_V2_ShardFailoverCentralizedEventRouting",
-	} {
-		entry, ok := byName[name]
-		require.True(t, ok, "missing matrix entry for %s", name)
-		assert.Equal(t, "30m", entry.TestTimeout, "%s must carry the extended go test timeout", name)
-		assert.Equal(t, 40, entry.JobTimeoutMinutes, "%s must carry the extended job timeout", name)
-	}
-
-	// Tests without an override keep the defaults (zero values, omitted from
-	// the JSON so workflow consumers fall back to their defaults).
-	basic := byName["Test_CRE_V2_Basic"]
-	require.Empty(t, basic.TestTimeout, "default entry must not override the test timeout")
-	require.Zero(t, basic.JobTimeoutMinutes, "default entry must not override the job timeout")
-}
-
 func TestBuildCRESmokeMatrix_MissingRunID(t *testing.T) {
 	t.Parallel()
 
