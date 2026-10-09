@@ -37,17 +37,16 @@ import (
 // restarting anything else.
 
 const (
-	// Settings fragments applied via t_helpers.ApplyCRESettings (global
-	// scope, layered onto the boot CL_CRE_SETTINGS baseline). The 30s window
-	// is the test-friendly override of the 5m production default: with the
-	// 30s cron schedule the secondary then auto-executes within roughly a
-	// minute of the primary going silent. The gate is re-checked both when a
-	// secondary caches a trigger and when its failover deadline elapses, so a
-	// runtime flip takes effect on the next event.
+	// shardAutoFailoverOnTOML is the settings fragment applied via
+	// t_helpers.ApplyCRESettings (global scope, layered onto the boot
+	// CL_CRE_SETTINGS baseline). The 30s window is the test-friendly override
+	// of the 5m production default: with the 30s cron schedule the secondary
+	// then auto-executes within roughly a minute of the primary going silent.
+	// The gate is re-checked both when a secondary caches a trigger and when
+	// its failover deadline elapses, so the flip takes effect on the next
+	// event. The before-phase needs no fragment: the gate's default state is
+	// closed, and the boot baseline opens only ShardingFailoverEnabled.
 	shardAutoFailoverOnTOML = "ShardingFailoverAutoExecutionEnabled = 'true'\nShardingFailoverAutoWindow = '30s'"
-	// The window is kept in the off fragment too: window-only changes without
-	// the gate would still arm failover deadlines on freshly cached events.
-	shardAutoFailoverOffTOML = "ShardingFailoverAutoExecutionEnabled = 'false'\nShardingFailoverAutoWindow = '30s'"
 
 	// Log needle the secondary's ShardFailoverManager emits when it executes a
 	// cached trigger event itself after the failover window elapsed.
@@ -290,11 +289,16 @@ func requireCachedEventForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment
 // SYSTEM_ERROR is ever reported - would stall events forever under the
 // report-driven failover path; the window is what covers it.
 //
-// Proof: the secondary's user logs carry the secret (read via the shared
-// vault) through the chip sink, the "auto failover executed cached trigger
-// event" log needle in the secondary's container logs, and - with the gate
-// closed again - the absence of any execution for a fresh workflow, which
-// pins the feature flag as the sole enabler.
+// Phases: with the gate at its default CLOSED state, a silent primary death
+// leaves the workflow stalled (the before). The gate is then opened - with
+// both shards alive, because a settings delivery needs connected nodes - and
+// a healthy-primary window proves no false failover (the primary's
+// ExecutionStatusUpdates drain the secondary's cache). Only then does the
+// silent death repeat, and the secondary executes the workflow itself within
+// the window (the after), reading the same secret from the shared vault.
+// Proof: the secondary's user logs through the chip sink, and the
+// "auto failover executed cached trigger event" log needle in the secondary's
+// container logs.
 func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
@@ -314,10 +318,30 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 
 	collector := startShardUserLogCollector(t, testEnv)
 
-	// Open the gate with a test-friendly window on BOTH shards while both are
-	// alive: the settings delivery needs connected nodes. The auto-failover
-	// settings are defined inline in core, not in the chainlink-common
-	// cresettings catalog, so the delivery opts out of the catalog check.
+	// The before: with the automatic failover gate at its default CLOSED state
+	// (the boot CL_CRE_SETTINGS baseline opens only ShardingFailoverEnabled),
+	// a silent primary death stalls the workflow forever - the secondary
+	// caches every trigger but nothing ever executes it.
+	t_helpers.StopNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
+	t.Cleanup(func() {
+		t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
+	})
+
+	stalledWorkflowID := deploySharedVaultWorkflow(t, testEnv, "auto-failover-stalled", secretKey)
+	requireCachedEventForWorkflow(t, testEnv, shards.shardOneDON.Name, stalledWorkflowID)
+	collector.requireNoUserLogsForWorkflows(t, []string{stalledWorkflowID}, shardNoFalseFailoverWindow)
+	t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle)
+	testLogger.Info().Str("workflowID", stalledWorkflowID).Msg("Phase 2: gate closed, primary dead - secondary caches but never executes")
+
+	// Recover the primary so the settings delivery reaches connected nodes on
+	// both shards (the delivery targets every worker DON). The recovered
+	// shard returns as the primary - the assignment was never re-proposed.
+	t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
+	awaitShardDONsConnectedToJD(t, testEnv)
+
+	// Open the gate with a test-friendly window. The auto-failover settings
+	// are defined inline in core, not in the chainlink-common cresettings
+	// catalog, so the delivery opts out of the catalog check.
 	t_helpers.ApplyCRESettings(t, testEnv,
 		t_helpers.AllowUncatalogedSettings(),
 		t_helpers.Global(shardAutoFailoverOnTOML))
@@ -327,32 +351,21 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	// over: the primary keeps executing and the secondary never auto-executes.
 	collector.requireOnlyDONExecuted(t, []string{workflowID}, shards.shardZeroDON, shardNoFalseFailoverWindow)
 	t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle)
-	testLogger.Info().Msg("Phase 2: gate open, primary healthy - no false failover")
+	testLogger.Info().Msg("Phase 3: gate open, primary healthy - no false failover")
 
-	// Silent primary death: stopped containers report nothing at all.
+	// The after: the silent death repeats, and this time a workflow deployed
+	// while the primary is dead can only ever execute through the secondary's
+	// automatic failover.
 	t_helpers.StopNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	t.Cleanup(func() {
 		t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	})
 
-	// A workflow deployed while the primary is dead can only ever execute
-	// through the secondary's automatic failover.
 	autoWorkflowID := deploySharedVaultWorkflow(t, testEnv, "auto-failover-exec", secretKey)
 	awaitSharedVaultWorkflowExecution(t, testEnv, []string{autoWorkflowID}, shards.shardOneDON, secretValue, shardAutoFailoverAwaitTimeout)
 	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle, 2*time.Minute, 5*time.Second)
 	collector.requireOnlyDONExecuted(t, []string{autoWorkflowID}, shards.shardOneDON, shardRecoveryStableWindow)
-	testLogger.Info().Str("workflowID", autoWorkflowID).Msg("Phase 3: primary died silently, secondary auto-executed within the window")
-
-	// Close the gate: with the primary still dead, a fresh workflow must be
-	// synced and cached on the secondary but never executed - the flag is the
-	// sole enabler of automatic failover.
-	t_helpers.ApplyCRESettings(t, testEnv,
-		t_helpers.AllowUncatalogedSettings(),
-		t_helpers.Global(shardAutoFailoverOffTOML))
-	gatedWorkflowID := deploySharedVaultWorkflow(t, testEnv, "auto-failover-gated", secretKey)
-	requireCachedEventForWorkflow(t, testEnv, shards.shardOneDON.Name, gatedWorkflowID)
-	collector.requireNoUserLogsForWorkflows(t, []string{gatedWorkflowID}, shardNoFalseFailoverWindow)
-	testLogger.Info().Str("workflowID", gatedWorkflowID).Msg("Phase 4: gate closed, primary still dead - secondary caches but never executes")
+	testLogger.Info().Str("workflowID", autoWorkflowID).Msg("Phase 4: primary died silently, secondary auto-executed within the window")
 }
 
 // ExecuteShardFailoverPrimaryRecoveryTest covers primary recovery

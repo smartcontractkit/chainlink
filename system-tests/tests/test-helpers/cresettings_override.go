@@ -40,9 +40,9 @@ import (
 
 	"github.com/moby/moby/client"
 	"github.com/pelletier/go-toml/v2"
-	cldf_operations "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/stretchr/testify/require"
 
+	cldf_operations "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_job_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
@@ -73,8 +73,12 @@ const (
 	creSettingsLogScanTail = "50000"
 	creSettingsLogScanSkew = time.Minute
 
-	// how long reverting to the baseline may take across all targeted DONs.
+	// how long reverting to the baseline may take across all targeted DONs
+	// (including retries while a just-restarted DON's nodes reconnect to the JD).
 	creSettingsRevertTimeout = 5 * time.Minute
+
+	// how often a failed revert delivery is retried within the revert budget.
+	creSettingsRevertRetryInterval = 5 * time.Second
 )
 
 // Only one CRE settings override may be active at a time. Overrides mutate settings on
@@ -378,7 +382,22 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 	deliveredSince := time.Now()
 	for _, tg := range h.targets {
 		t.Logf("[cresettings] DON %q: reverting to baseline (hash %s)", tg.don.Name, shortHash(tg.baselineHash))
-		err := deliverCRESettings(ctx, h.env, tg.don, tg.baselineTOML, h.allowUncataloged)
+
+		// A node restarted moments ago - e.g. a failover test whose cleanup
+		// restarts stopped shard containers before this restore runs - may not
+		// have reconnected to the JD yet, and a proposal to a disconnected node
+		// fails with "node is not connected". Retry each delivery until the
+		// revert budget is spent so a just-restarted DON converges on its own.
+		var err error
+		deadline := time.Now().Add(creSettingsRevertTimeout)
+		for {
+			err = deliverCRESettings(ctx, h.env, tg.don, tg.baselineTOML, h.allowUncataloged)
+			if err == nil || time.Now().After(deadline) {
+				break
+			}
+			t.Logf("[cresettings] DON %q: reverting failed (%v), retrying until %s", tg.don.Name, err, deadline.Format(time.Kitchen))
+			time.Sleep(creSettingsRevertRetryInterval)
+		}
 		if err != nil {
 			if fatal {
 				require.NoErrorf(t, err, "failed to revert CRE settings on DON %q", tg.don.Name)
