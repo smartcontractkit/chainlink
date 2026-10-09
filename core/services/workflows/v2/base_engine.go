@@ -201,6 +201,11 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 	e.activeExecutions.Add(1)
 	defer e.activeExecutions.Add(-1)
 
+	// Tie the ExecuteTrigger call to the engine's stop signal so that Close
+	// stops the execution.
+	ctx, cancel := e.srvcEng.Ctx(ctx)
+	defer cancel()
+
 	eventID := event.Event.Event.ID
 	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 	creCtx := contexts.CREValue(ctx)
