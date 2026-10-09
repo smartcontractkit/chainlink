@@ -20,21 +20,16 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
+
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/confidentialvaultsecretcron/config"
 )
 
-type config struct {
-	Schedule            string `json:"schedule"`
-	SecretNamespace     string `json:"secret_namespace"`
-	SecretKey           string `json:"secret_key"`
-	ExpectedSecretValue string `json:"expected_secret_value"`
-}
-
 func main() {
-	wasm.NewRunner(cre.ParseJSON[config]).Run(initWorkflow)
+	wasm.NewRunner(cre.ParseJSON[config.Config]).Run(initWorkflow)
 }
 
-func initWorkflow(cfg *config, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[*config], error) {
-	return cre.Workflow[*config]{
+func initWorkflow(cfg *config.Config, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[*config.Config], error) {
+	return cre.Workflow[*config.Config]{
 		cre.HandlerInTee(
 			cron.Trigger(&cron.Config{Schedule: cfg.Schedule}),
 			onTrigger,
@@ -43,7 +38,7 @@ func initWorkflow(cfg *config, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workf
 	}, nil
 }
 
-func onTrigger(cfg *config, trt cre.TeeRuntime, _ *cron.Payload) (string, error) {
+func onTrigger(cfg *config.Config, trt cre.TeeRuntime, _ *cron.Payload) (string, error) {
 	if cfg.SecretKey == "" {
 		return "Confidential workflow executed in enclave", nil
 	}
