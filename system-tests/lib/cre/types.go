@@ -613,10 +613,7 @@ func donFamiliesRequired(donTypes []string) bool {
 	for _, donType := range donTypes {
 		switch donType {
 		case BootstrapDON, GatewayDON:
-			// public-URL only: may omit don_families
 		default:
-			// workflow/capabilities/shard route by family; unknown types may,
-			// so keep the requirement.
 			return true
 		}
 	}
