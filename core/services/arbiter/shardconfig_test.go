@@ -56,7 +56,7 @@ func (m *mockShardConfigContractReader) Unbind(ctx context.Context, bindings []t
 	return nil
 }
 
-func (m *mockShardConfigContractReader) GetLatestValue(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) error {
+func (m *mockShardConfigContractReader) GetLatestValue(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
 	if m.err != nil {
 		return m.err
 	}
@@ -66,7 +66,7 @@ func (m *mockShardConfigContractReader) GetLatestValue(ctx context.Context, read
 	return nil
 }
 
-func (m *mockShardConfigContractReader) GetLatestValueWithHeadData(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *types.Head, err error) {
+func (m *mockShardConfigContractReader) GetLatestValueWithHeadData(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) (head *types.Head, err error) {
 	err = m.GetLatestValue(ctx, readIdentifier, confidenceLevel, params, returnVal)
 	return nil, err
 }
@@ -90,6 +90,7 @@ func mockShardConfigReaderFactory(reader *mockShardConfigContractReader) Contrac
 }
 
 func TestShardConfigSyncer_New(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)
@@ -101,6 +102,7 @@ func TestShardConfigSyncer_New(t *testing.T) {
 }
 
 func TestShardConfigSyncer_GetDesiredShardCount_BeforeFetch(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)
@@ -115,6 +117,7 @@ func TestShardConfigSyncer_GetDesiredShardCount_BeforeFetch(t *testing.T) {
 }
 
 func TestShardConfigSyncer_GetDesiredShardCount_AfterFetch(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -140,6 +143,7 @@ func TestShardConfigSyncer_GetDesiredShardCount_AfterFetch(t *testing.T) {
 }
 
 func TestShardConfigSyncer_StartClose(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)
@@ -156,6 +160,7 @@ func TestShardConfigSyncer_StartClose(t *testing.T) {
 }
 
 func TestShardConfigSyncer_HealthReport(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)
@@ -180,6 +185,7 @@ func TestShardConfigSyncer_HealthReport(t *testing.T) {
 }
 
 func TestShardConfigSyncer_DoubleStart(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)
@@ -197,6 +203,7 @@ func TestShardConfigSyncer_DoubleStart(t *testing.T) {
 }
 
 func TestShardConfigSyncer_DoubleClose(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigContractReader{shardCount: 10}
 	factory := mockShardConfigReaderFactory(mockReader)

@@ -25,6 +25,7 @@ Password = "password2"
 )
 
 func TestMercuryConfig(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		SecretsStrings: []string{secretsMercury},
 	}
@@ -37,6 +38,7 @@ func TestMercuryConfig(t *testing.T) {
 }
 
 func TestMercuryTLS(t *testing.T) {
+	t.Parallel()
 	certPath := "/path/to/cert.pem"
 	transmission := toml.Mercury{
 		TLS: toml.MercuryTLS{

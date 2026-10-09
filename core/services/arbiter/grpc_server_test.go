@@ -47,6 +47,7 @@ func (m *mockShardConfigReaderForGRPC) GetDesiredShardCount(ctx context.Context)
 }
 
 func TestGRPCServer_GetDesiredReplicas_Success(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigReaderForGRPC{shardCount: 5}
 	state := NewState()
@@ -69,6 +70,7 @@ func TestGRPCServer_GetDesiredReplicas_Success(t *testing.T) {
 }
 
 func TestGRPCServer_GetDesiredReplicas_EmptyRequest(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigReaderForGRPC{shardCount: 3}
 	state := NewState()
@@ -87,6 +89,7 @@ func TestGRPCServer_GetDesiredReplicas_EmptyRequest(t *testing.T) {
 }
 
 func TestGRPCServer_GetDesiredReplicas_ShardConfigError(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigReaderForGRPC{
 		err: errors.New("contract read failed"),
@@ -112,6 +115,7 @@ func TestGRPCServer_GetDesiredReplicas_ShardConfigError(t *testing.T) {
 }
 
 func TestGRPCServer_GetDesiredReplicas_ZeroShards(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigReaderForGRPC{shardCount: 0}
 	state := NewState()
@@ -130,6 +134,7 @@ func TestGRPCServer_GetDesiredReplicas_ZeroShards(t *testing.T) {
 }
 
 func TestGRPCServer_GetDesiredReplicas_LargeShardCount(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigReaderForGRPC{shardCount: 100}
 	state := NewState()

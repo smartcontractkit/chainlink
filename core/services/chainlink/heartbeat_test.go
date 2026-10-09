@@ -33,6 +33,7 @@ func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			// Create test logger
 			lggr := logger.TestLogger(t)
 
@@ -52,6 +53,7 @@ func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 }
 
 func TestHeartbeat_MeterEvents(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}

@@ -12,6 +12,7 @@ import (
 )
 
 func TestJobPipelineConfigTest(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}

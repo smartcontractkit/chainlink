@@ -8,6 +8,7 @@ import (
 )
 
 func TestOCRConfig(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}

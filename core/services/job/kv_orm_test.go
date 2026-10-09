@@ -22,6 +22,7 @@ import (
 )
 
 func TestJobKVStore(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -74,6 +75,7 @@ func TestJobKVStore(t *testing.T) {
 }
 
 func TestJobKVStore_PruneExpiredEntries(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
@@ -131,7 +133,7 @@ func TestJobKVStore_PruneExpiredEntries(t *testing.T) {
 		require.NoError(t, kvStore2.Store(ctx, testData[i].key, testData[i].value))
 	}
 
-	t.Run("PruneExpiredEntries for specific job", func(t *testing.T) {
+	t.Run("PruneExpiredEntries for specific job", func(t *testing.T) { //nolint:paralleltest // subtests prune shared kv stores with different maxAge thresholds; results depend on sequential execution
 		maxAge := 1 * time.Hour
 		deletedCount, err := kvStore1.PruneExpiredEntries(ctx, maxAge)
 		require.NoError(t, err)
@@ -150,7 +152,7 @@ func TestJobKVStore_PruneExpiredEntries(t *testing.T) {
 		require.Equal(t, []byte("old_value_1"), val)
 	})
 
-	t.Run("PruneExpiredEntries for job 2", func(t *testing.T) {
+	t.Run("PruneExpiredEntries for job 2", func(t *testing.T) { //nolint:paralleltest // subtests prune shared kv stores with different maxAge thresholds; results depend on sequential execution
 		maxAge := 1 * time.Hour
 		deletedCount, err := kvStore2.PruneExpiredEntries(ctx, maxAge)
 		require.NoError(t, err)
@@ -165,7 +167,7 @@ func TestJobKVStore_PruneExpiredEntries(t *testing.T) {
 		require.Equal(t, []byte("new_value_1"), val)
 	})
 
-	t.Run("PruneExpiredEntries with no expired entries", func(t *testing.T) {
+	t.Run("PruneExpiredEntries with no expired entries", func(t *testing.T) { //nolint:paralleltest // subtests prune shared kv stores with different maxAge thresholds; results depend on sequential execution
 		maxAge := 5 * time.Hour
 		deletedCount, err := kvStore1.PruneExpiredEntries(ctx, maxAge)
 		require.NoError(t, err)

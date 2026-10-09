@@ -49,10 +49,13 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	t.Run("insecure config ignore override on non-dev builds", func(t *testing.T) {
 		config, err := GeneralConfigOpts{
 			OverrideFn: func(c *Config, s *Secrets) {
-				*c.Insecure.DevWebServer = true
-				*c.Insecure.DisableRateLimiting = true
-				*c.Insecure.InfiniteDepthQueries = true
-				*c.AuditLogger.Enabled = true
+				// Replace the pointers instead of writing through them: after setDefaults
+				// these fields alias the package-global docs.CoreDefaults() singleton, and
+				// deref-writes would leak into every other test in the process.
+				c.Insecure.DevWebServer = new(true)
+				c.Insecure.DisableRateLimiting = new(true)
+				c.Insecure.InfiniteDepthQueries = new(true)
+				c.AuditLogger.Enabled = new(true)
 			},
 		}.New()
 		require.NoError(t, err)

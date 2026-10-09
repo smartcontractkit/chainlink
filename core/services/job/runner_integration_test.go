@@ -50,6 +50,7 @@ import (
 var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
@@ -101,7 +102,7 @@ func TestRunner(t *testing.T) {
 
 	servicetest.Run(t, runner)
 
-	t.Run("gets the election result winner", func(t *testing.T) {
+	t.Run("gets the election result winner", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		var httpURL string
 		mockElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`,
 			func(header http.Header, s string) {
@@ -177,7 +178,7 @@ func TestRunner(t *testing.T) {
 		}
 	})
 
-	t.Run("must delete job before deleting bridge", func(t *testing.T) {
+	t.Run("must delete job before deleting bridge", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		ctx := t.Context()
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
@@ -201,7 +202,7 @@ func TestRunner(t *testing.T) {
 		require.Empty(t, jids)
 	})
 
-	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
+	t.Run("referencing a non-existent bridge should error", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		ctx := t.Context()
 		// Create a random bridge name
 		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
@@ -312,7 +313,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 	})
 
-	t.Run("handles the case where the parsed value is literally null", func(t *testing.T) {
+	t.Run("handles the case where the parsed value is literally null", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		ctx := t.Context()
 		var httpURL string
 		resp := `{"USD": null}`
@@ -361,7 +362,7 @@ answer1      [type=median index=0];
 		}
 	})
 
-	t.Run("handles the case where the jsonparse lookup path is missing from the http response", func(t *testing.T) {
+	t.Run("handles the case where the jsonparse lookup path is missing from the http response", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		var httpURL string
 		resp := "{\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}"
 		{
@@ -407,7 +408,7 @@ answer1      [type=median index=0];
 		}
 	})
 
-	t.Run("handles the case where the jsonparse lookup path is missing from the http response and lax is enabled", func(t *testing.T) {
+	t.Run("handles the case where the jsonparse lookup path is missing from the http response and lax is enabled", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		var httpURL string
 		resp := "{\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}"
 		{
@@ -452,7 +453,7 @@ answer1      [type=median index=0];
 		}
 	})
 
-	t.Run("minimal bootstrap", func(t *testing.T) {
+	t.Run("minimal bootstrap", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		ctx := t.Context()
 		s := `
 		type               = "offchainreporting"
@@ -492,7 +493,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 	})
 
-	t.Run("test min non-bootstrap", func(t *testing.T) {
+	t.Run("test min non-bootstrap", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		ctx := t.Context()
 		kb, err := keyStore.OCR().Create(ctx)
 		require.NoError(t, err)
@@ -528,7 +529,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 	})
 
-	t.Run("test min bootstrap", func(t *testing.T) {
+	t.Run("test min bootstrap", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), testutils.FixtureChainID.String())
 		jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, s)
 		require.NoError(t, err)
@@ -557,7 +558,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 	})
 
-	t.Run("test enhanced telemetry service creation", func(t *testing.T) {
+	t.Run("test enhanced telemetry service creation", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		ctx := t.Context()
 		testCases := []struct {
 			jbCaptureEATelemetry   bool
@@ -635,7 +636,7 @@ answer1      [type=median index=0];
 		}
 	})
 
-	t.Run("test job spec error is created", func(t *testing.T) {
+	t.Run("test job spec error is created", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		ctx := t.Context()
 		// Create a keystore with an ocr key bundle and p2p key.
 		kb, err := keyStore.OCR().Create(ctx)
@@ -703,7 +704,7 @@ answer1      [type=median index=0];
 		// require.Len(t, se, 0)
 	})
 
-	t.Run("timeouts", func(t *testing.T) {
+	t.Run("timeouts", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		ctx := t.Context()
 		// There are 4 timeouts:
 		// - ObservationTimeout = how long the whole OCR time needs to run, or it fails (default 10 seconds)
@@ -753,7 +754,7 @@ answer1      [type=median index=0];
 		assert.Error(t, resultsNoFatalErrs.FatalErrors[0])
 	})
 
-	t.Run("deleting jobs", func(t *testing.T) {
+	t.Run("deleting jobs", func(t *testing.T) { //nolint:paralleltest // subtests share one runner, database and keystore whose state they mutate, so they must run sequentially
 		ctx := t.Context()
 		var httpURL string
 		{

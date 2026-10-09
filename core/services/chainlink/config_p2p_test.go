@@ -11,6 +11,7 @@ import (
 )
 
 func TestP2PConfig(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}

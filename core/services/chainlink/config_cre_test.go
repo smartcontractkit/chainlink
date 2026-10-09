@@ -35,6 +35,7 @@ URL = "file:///path/to/workflows"
 )
 
 func TestCREConfig(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		SecretsStrings: []string{secretsCRE},
 		ConfigStrings:  []string{configCRE},
@@ -57,6 +58,7 @@ func TestCREConfig(t *testing.T) {
 }
 
 func TestCREConfigWithFileURL(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{configCREWithFileURL},
 	}
@@ -71,6 +73,7 @@ func TestCREConfigWithFileURL(t *testing.T) {
 }
 
 func TestEmptyCREConfig(t *testing.T) {
+	t.Parallel()
 	cfg := creConfig{s: toml.CreSecrets{}, c: toml.CreConfig{}}
 	assert.Empty(t, cfg.StreamsAPIKey())
 	assert.Empty(t, cfg.StreamsAPISecret())
@@ -85,6 +88,7 @@ func TestEmptyCREConfig(t *testing.T) {
 }
 
 func TestWorkflowFetcherConfig(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		config   string
@@ -118,6 +122,7 @@ URL = "file:///local/path/to/workflows"
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			opts := GeneralConfigOpts{
 				ConfigStrings: []string{tc.config},
 			}

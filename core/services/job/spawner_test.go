@@ -92,7 +92,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		ListenerConfig: config.Database().Listener(),
 		KeyStore:       ethKeyStore,
 	})
-	t.Run("should respect its dependents", func(t *testing.T) {
+	t.Run("should respect its dependents", func(t *testing.T) { //nolint:paralleltest // subtests share one spawner, database and mock services; the spawner watches the shared DB, so parallel job creation breaks mock call counts
 		lggr := logger.TestLogger(t)
 		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db), keyStore)
 		a := utils.NewDependentAwaiter()
@@ -112,7 +112,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		assert.True(t, <-result, "failed to signal to dependents")
 	})
 
-	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
+	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) { //nolint:paralleltest // subtests share one spawner, database and mock services; the spawner watches the shared DB, so parallel job creation breaks mock call counts
 		cronJobTmp, cronErr := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 		require.NoError(t, cronErr)
 		jobA := &cronJobTmp
@@ -175,7 +175,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	clearDB(t, db)
 
-	t.Run("starts and stops job services from the DB when .Start()/.Stop() is called", func(t *testing.T) {
+	t.Run("starts and stops job services from the DB when .Start()/.Stop() is called", func(t *testing.T) { //nolint:paralleltest // subtests share one spawner, database and mock services; the spawner watches the shared DB, so parallel job creation breaks mock call counts
 		jobA := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 		eventually := cltest.NewAwaiter()
@@ -210,7 +210,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	clearDB(t, db)
 
-	t.Run("closes job services on 'DeleteJob()'", func(t *testing.T) {
+	t.Run("closes job services on 'DeleteJob()'", func(t *testing.T) { //nolint:paralleltest // subtests share one spawner, database and mock services; the spawner watches the shared DB, so parallel job creation breaks mock call counts
 		jobA := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 		eventuallyStart := cltest.NewAwaiter()

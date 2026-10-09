@@ -69,6 +69,7 @@ func eip55AddressPtr(raw string) *evmtypes.EIP55Address {
 }
 
 func TestNewNodePlatformBuildInfoConfig_UsesThreeMinuteBeat(t *testing.T) {
+	t.Parallel()
 	csaStore := &keystoremocks.CSA{}
 	keyStore := &keystoremocks.Master{}
 	keyStore.EXPECT().CSA().Return(csaStore).Once()
@@ -87,6 +88,7 @@ func TestNewNodePlatformBuildInfoConfig_UsesThreeMinuteBeat(t *testing.T) {
 	require.Same(t, csaStore, buildInfoCfg.CSAKeyStore)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestNodePlatformBuildInfo_EmitsNodeBuildInfo(t *testing.T) {
 	obs := beholdertest.NewObserver(t)
 
@@ -120,6 +122,7 @@ func TestNodePlatformBuildInfo_EmitsNodeBuildInfo(t *testing.T) {
 	require.Equal(t, "1.2.3", payload.Version)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) {
 	obs := beholdertest.NewObserver(t)
 
@@ -275,6 +278,7 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 	require.Truef(t, proto.Equal(expected, &payload), "expected:\n%sgot:\n%s", prototext.Format(expected), prototext.Format(&payload))
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCIPJobs(t *testing.T) {
 	obs := beholdertest.NewObserver(t)
 
@@ -330,6 +334,7 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCIPJobs(t *testing.T) {
 	require.Truef(t, proto.Equal(expected, &payload), "expected:\n%sgot:\n%s", prototext.Format(expected), prototext.Format(&payload))
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestNodePlatformJobInfo_DoesNotEmitSubmitterAddressesForCCIPBootstrapJobs(t *testing.T) {
 	obs := beholdertest.NewObserver(t)
 
@@ -362,6 +367,7 @@ func TestNodePlatformJobInfo_DoesNotEmitSubmitterAddressesForCCIPBootstrapJobs(t
 	require.Empty(t, payload.SubmitterAddresses)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCVExecutorJobs(t *testing.T) {
 	obs := beholdertest.NewObserver(t)
 
@@ -409,6 +415,7 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCVExecutorJobs(t *testin
 	require.Truef(t, proto.Equal(expected, &payload), "expected:\n%sgot:\n%s", prototext.Format(expected), prototext.Format(&payload))
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
@@ -460,6 +467,7 @@ func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
 	}, time.Second, 100*time.Millisecond)
 }
 
+//nolint:paralleltest // beholdertest.NewObserver swaps the process-global beholder client and calls t.Setenv in cleanup
 func TestNodePlatformBuildInfo_ResolvesCSAKeyOnStart(t *testing.T) {
 	obs := beholdertest.NewObserver(t)
 	csaStore := &keystoremocks.CSA{}

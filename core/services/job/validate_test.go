@@ -8,7 +8,8 @@ import (
 )
 
 func TestValidate(t *testing.T) {
-	var tt = []struct {
+	t.Parallel()
+	tt := []struct {
 		name      string
 		spec      string
 		assertion func(t *testing.T, err error)
@@ -106,6 +107,7 @@ ds [type=http]
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			_, err := ValidateSpec(tc.spec)
 			tc.assertion(t, err)
 		})

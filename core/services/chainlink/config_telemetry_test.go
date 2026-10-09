@@ -14,6 +14,7 @@ import (
 )
 
 func TestTelemetryConfig_Enabled(t *testing.T) {
+	t.Parallel()
 	trueVal := true
 	falseVal := false
 
@@ -28,6 +29,7 @@ func TestTelemetryConfig_Enabled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.Enabled())
 		})
@@ -35,6 +37,7 @@ func TestTelemetryConfig_Enabled(t *testing.T) {
 }
 
 func TestTelemetryConfig_InsecureConnection(t *testing.T) {
+	t.Parallel()
 	trueVal := true
 	falseVal := false
 
@@ -49,6 +52,7 @@ func TestTelemetryConfig_InsecureConnection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.InsecureConnection())
 		})
@@ -56,6 +60,7 @@ func TestTelemetryConfig_InsecureConnection(t *testing.T) {
 }
 
 func TestTelemetryConfig_CACertFile(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -67,6 +72,7 @@ func TestTelemetryConfig_CACertFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.CACertFile())
 		})
@@ -74,6 +80,7 @@ func TestTelemetryConfig_CACertFile(t *testing.T) {
 }
 
 func TestTelemetryConfig_OtelExporterGRPCEndpoint(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -85,6 +92,7 @@ func TestTelemetryConfig_OtelExporterGRPCEndpoint(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.OtelExporterGRPCEndpoint())
 		})
@@ -92,6 +100,7 @@ func TestTelemetryConfig_OtelExporterGRPCEndpoint(t *testing.T) {
 }
 
 func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -122,6 +131,7 @@ func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.ResourceAttributes())
 		})
@@ -129,6 +139,7 @@ func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
 }
 
 func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -139,6 +150,7 @@ func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.InEpsilon(t, tt.expected, tc.TraceSampleRatio(), 0.0001)
 		})
@@ -146,6 +158,7 @@ func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
 }
 
 func TestTelemetryConfig_EmitterBatchProcessor(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -157,6 +170,7 @@ func TestTelemetryConfig_EmitterBatchProcessor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.EmitterBatchProcessor())
 		})
@@ -164,6 +178,7 @@ func TestTelemetryConfig_EmitterBatchProcessor(t *testing.T) {
 }
 
 func TestTelemetryConfig_EmitterExportTimeout(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -176,6 +191,7 @@ func TestTelemetryConfig_EmitterExportTimeout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.EmitterExportTimeout())
 		})
@@ -183,6 +199,7 @@ func TestTelemetryConfig_EmitterExportTimeout(t *testing.T) {
 }
 
 func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -195,6 +212,7 @@ func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.ChipIngressEndpoint())
 		})
@@ -202,6 +220,7 @@ func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
 }
 
 func TestTelemetryConfig_ChipIngressInsecureConnection(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -213,6 +232,7 @@ func TestTelemetryConfig_ChipIngressInsecureConnection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.ChipIngressInsecureConnection())
 		})
@@ -220,6 +240,7 @@ func TestTelemetryConfig_ChipIngressInsecureConnection(t *testing.T) {
 }
 
 func TestTelemetryConfig_ChipIngressBatchEmitterEnabled(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -232,6 +253,7 @@ func TestTelemetryConfig_ChipIngressBatchEmitterEnabled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.ChipIngressBatchEmitterEnabled())
 		})
@@ -405,6 +427,7 @@ func TestTelemetryConfig_ChipIngressMaxGRPCRequestSize(t *testing.T) {
 }
 
 func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -417,6 +440,7 @@ func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.HeartbeatInterval())
 		})
@@ -424,6 +448,7 @@ func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogStreamingEnabled(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -435,6 +460,7 @@ func TestTelemetryConfig_LogStreamingEnabled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.LogStreamingEnabled())
 		})
@@ -442,6 +468,7 @@ func TestTelemetryConfig_LogStreamingEnabled(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogLevel(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -457,6 +484,7 @@ func TestTelemetryConfig_LogLevel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.LogLevel())
 		})
@@ -464,6 +492,7 @@ func TestTelemetryConfig_LogLevel(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogBatchProcessor(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -476,6 +505,7 @@ func TestTelemetryConfig_LogBatchProcessor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.LogBatchProcessor())
 		})
@@ -483,6 +513,7 @@ func TestTelemetryConfig_LogBatchProcessor(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -494,6 +525,7 @@ func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.LogExportTimeout())
 		})
@@ -501,6 +533,7 @@ func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -512,6 +545,7 @@ func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.LogExportMaxBatchSize())
 		})
@@ -519,6 +553,7 @@ func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogExportInterval(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -530,6 +565,7 @@ func TestTelemetryConfig_LogExportInterval(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.LogExportInterval())
 		})
@@ -537,6 +573,7 @@ func TestTelemetryConfig_LogExportInterval(t *testing.T) {
 }
 
 func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
@@ -548,6 +585,7 @@ func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.LogMaxQueueSize())
 		})

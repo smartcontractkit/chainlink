@@ -9,6 +9,7 @@ import (
 )
 
 func TestState_NewState(t *testing.T) {
+	t.Parallel()
 	state := NewState()
 
 	require.NotNil(t, state)
@@ -17,6 +18,7 @@ func TestState_NewState(t *testing.T) {
 }
 
 func TestState_SetCurrentReplicas(t *testing.T) {
+	t.Parallel()
 	state := NewState()
 
 	replicas := map[string]ShardReplica{
@@ -31,6 +33,7 @@ func TestState_SetCurrentReplicas(t *testing.T) {
 }
 
 func TestState_SetConsensusWantShards(t *testing.T) {
+	t.Parallel()
 	state := NewState()
 
 	state.SetConsensusWantShards(7)
@@ -39,6 +42,7 @@ func TestState_SetConsensusWantShards(t *testing.T) {
 }
 
 func TestState_GetRoutableShards(t *testing.T) {
+	t.Parallel()
 	state := NewState()
 
 	replicas := map[string]ShardReplica{
@@ -56,6 +60,7 @@ func TestState_GetRoutableShards(t *testing.T) {
 }
 
 func TestState_GetRoutableShards_Empty(t *testing.T) {
+	t.Parallel()
 	state := NewState()
 
 	routable := state.GetRoutableShards()
@@ -65,6 +70,7 @@ func TestState_GetRoutableShards_Empty(t *testing.T) {
 }
 
 func TestState_Concurrency(t *testing.T) {
+	t.Parallel()
 	state := NewState()
 	var wg sync.WaitGroup
 
@@ -103,6 +109,7 @@ func TestState_Concurrency(t *testing.T) {
 }
 
 func TestState_SetCurrentReplicas_Empty(t *testing.T) {
+	t.Parallel()
 	state := NewState()
 
 	// Start with some replicas
@@ -118,6 +125,7 @@ func TestState_SetCurrentReplicas_Empty(t *testing.T) {
 }
 
 func TestState_SetCurrentReplicas_WithMetrics(t *testing.T) {
+	t.Parallel()
 	state := NewState()
 
 	replicas := map[string]ShardReplica{
