@@ -1092,9 +1092,23 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, executionID string, computeDuration time.Duration) {
 	// Consume the confidential mark unconditionally: the module stores one per
 	// delegated execution whether or not a usage meter is configured.
-	confidential := e.cfg.ConfidentialExecutions != nil && e.cfg.ConfidentialExecutions.TookExecution(executionID)
-	if e.cfg.UsageMeter == nil || confidential {
+	var conf ConfidentialExecution
+	confidential := false
+	if e.cfg.ConfidentialExecutions != nil {
+		conf, confidential = e.cfg.ConfidentialExecutions.TookExecution(executionID)
+	}
+	if e.cfg.UsageMeter == nil {
 		return
+	}
+	if confidential {
+		// The engine's own computeDuration is the enclave round trip, not
+		// the customer's compute. Bill the enclave-measured run instead,
+		// and nothing at all if the enclave did not report one.
+		if !conf.Measured {
+			lggr.Warnw("Compute usage meter record not emitted: enclave did not report execution duration")
+			return
+		}
+		computeDuration = conf.Duration
 	}
 	resourceID, err := resourcemanager.WorkflowUsageResourceID(e.cfg.WorkflowID, executionID)
 	if err != nil {

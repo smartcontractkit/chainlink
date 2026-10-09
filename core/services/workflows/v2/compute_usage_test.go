@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -46,9 +47,15 @@ func (r *recordingEmitter) all() []*meteringpb.MeterRecord {
 	return append([]*meteringpb.MeterRecord(nil), r.records...)
 }
 
-type staticTracker struct{ confidential bool }
+type staticTracker struct {
+	confidential bool
+	measured     bool
+	duration     time.Duration
+}
 
-func (s staticTracker) TookExecution(string) bool { return s.confidential }
+func (s staticTracker) TookExecution(string) (v2.ConfidentialExecution, bool) {
+	return v2.ConfidentialExecution{Measured: s.measured, Duration: s.duration}, s.confidential
+}
 
 // runOneExecution starts an engine with cfg, fires one trigger event whose
 // module execution returns execErr, and returns the execution id.
@@ -155,9 +162,26 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		require.Len(t, emitter.all(), 1)
 	})
 
-	t.Run("skips executions delegated to the confidential module", func(t *testing.T) {
+	t.Run("bills the enclave-measured duration for confidential executions", func(t *testing.T) {
 		t.Parallel()
 		cfg := defaultTestConfig(t, nil)
+		rm, emitter := newUsageMeter(t)
+		cfg.UsageMeter = rm
+		cfg.UsageIdentity = identity
+		cfg.ConfidentialExecutions = staticTracker{confidential: true, measured: true, duration: 1234 * time.Millisecond}
+
+		runOneExecution(t, cfg, nil)
+
+		records := emitter.all()
+		require.Len(t, records, 1)
+		require.Equal(t, "1234", records[0].GetUtilizations()[0].GetValue())
+	})
+
+	t.Run("skips confidential executions the enclave did not measure", func(t *testing.T) {
+		t.Parallel()
+		lggr, obs := logger.TestObserved(t, zapcore.WarnLevel)
+		cfg := defaultTestConfig(t, nil)
+		cfg.Lggr = lggr
 		rm, emitter := newUsageMeter(t)
 		cfg.UsageMeter = rm
 		cfg.UsageIdentity = identity
@@ -166,6 +190,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		runOneExecution(t, cfg, nil)
 
 		require.Empty(t, emitter.all())
+		require.Len(t, obs.FilterMessage("Compute usage meter record not emitted: enclave did not report execution duration").All(), 1)
 	})
 
 	t.Run("emits nothing when no usage meter is configured", func(t *testing.T) {
