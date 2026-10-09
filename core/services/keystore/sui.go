@@ -105,7 +105,7 @@ func (ks *sui) Import(ctx context.Context, keyJSON []byte, password string) (sui
 		return suikey.Key{}, err
 	}
 	if _, found := ks.keyRing.Sui[key.ID()]; found {
-		return suikey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
+		return suikey.Key{}, fmt.Errorf("%w: key with ID %s already exists", ErrKeyExists, key.ID())
 	}
 	err = ks.safeAddKey(ctx, key)
 	return key, err
