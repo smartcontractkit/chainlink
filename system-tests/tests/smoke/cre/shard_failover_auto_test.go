@@ -67,12 +67,19 @@ const (
 	// cached trigger event itself after the failover window elapsed.
 	shardAutoFailoverExecutedLogNeedle = "secondary shard: auto failover executed cached trigger event"
 
+	// shardKillDrainGrace excludes executions that were already in flight
+	// when a shard was killed: the kill lands a second or two after the
+	// death timestamp is taken, an in-flight execution completes and emits
+	// its user log shortly after, and those tails belong to the pre-death
+	// world. Post-death record assertions measure from death+grace.
+	shardKillDrainGrace = 10 * time.Second
+
 	// shardStallObserveWindow is the fixed observe beat for the gate-closed
-	// stall: one cron tick past the death, so at least one trigger fired and
-	// was cached with nothing executing it. The stall itself is about the
-	// gate, not the window - with the gate closed a cached event is never
-	// armed with a deadline at all.
-	shardStallObserveWindow = 35 * time.Second
+	// stall: one cron tick past the death (plus the kill-drain grace), so at
+	// least one trigger fired and was cached with nothing executing it. The
+	// stall itself is about the gate, not the window - with the gate closed a
+	// cached event is never armed with a deadline at all.
+	shardStallObserveWindow = 45 * time.Second
 
 	// shardTickRecords is how many fresh user-log records an observation
 	// phase waits for: each record is one cron tick, and each tick is a full
@@ -398,12 +405,15 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	})
 
 	// The secondary executes the cached triggers itself within the failover
-	// window, reading the same secret from the shared vault.
+	// window, reading the same secret from the shared vault. The post-death
+	// assertions measure from death+grace so executions already in flight
+	// when the kill landed are not counted as post-death activity.
+	postDeath := death.Add(shardKillDrainGrace)
 	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardOneDON, secretValue, shardAutoExecAwaitTimeout)
 	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle, time.Minute, 5*time.Second)
-	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, death, shardEventAwaitTimeout)
-	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, death)
-	collector.requireNoDuplicateExecutionIDsSince(t, death)
+	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, postDeath, shardEventAwaitTimeout)
+	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, postDeath)
+	collector.requireNoDuplicateExecutionIDsSince(t, postDeath)
 	testLogger.Info().Msg("Phase 3: primary died silently, secondary auto-executed within the window")
 }
 
@@ -446,6 +456,8 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 
 	// The primary dies silently, and with the automatic failover gate at its
 	// default CLOSED state the workflow stalls - nothing executes it anywhere.
+	// The stall assertion measures from death+grace so executions already in
+	// flight when the kill landed are not counted as post-death activity.
 	death := time.Now()
 	t_helpers.KillNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	t.Cleanup(func() {
@@ -453,7 +465,7 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 	})
 
 	time.Sleep(shardStallObserveWindow)
-	collector.requireNoRecordsForWorkflows(t, []string{workflowID}, death)
+	collector.requireNoRecordsForWorkflows(t, []string{workflowID}, death.Add(shardKillDrainGrace))
 	t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle)
 	testLogger.Info().Msg("Phase 2: gate closed, primary dead - workflow stalls, nothing auto-executes")
 
@@ -559,18 +571,23 @@ func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttyp
 	collector.requireDONTaggedEvents(t, workflowID, []*cre.Don{shards.shardZeroDON, shards.shardOneDON}, nodeP2PIDToShardIndex)
 
 	// Duplicates stay bounded: fresh ticks only from the secondary, and no
-	// executionID from two DONs after the death.
-	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, death, shardEventAwaitTimeout)
-	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, death)
-	collector.requireNoDuplicateExecutionIDsSince(t, death)
+	// executionID from two DONs after the death (+ the kill-drain grace, so
+	// executions already in flight when the kill landed are excluded).
+	postDeath := death.Add(shardKillDrainGrace)
+	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, postDeath, shardEventAwaitTimeout)
+	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, postDeath)
+	collector.requireNoDuplicateExecutionIDsSince(t, postDeath)
 	testLogger.Info().Msg("Phase 3: platform events DON-tagged, duplicates bounded")
 
 	// Metric proof on the centralized pipeline: the scenario's own
 	// auto-failover counter is observable and non-zero after the secondary
-	// auto-executed.
+	// auto-executed. Locally the stack comes up with the suite entry's
+	// --with-dashboards env-start flag; in CI the workflow's observability
+	// step starts it (the CI env start happens in the workflow, before the
+	// test, so the in-test flag never reaches it).
 	t_helpers.RequirePrometheusQueryEventually(t, "failover_auto_execution_total", 2*time.Minute, 5*time.Second,
 		func(sum float64) bool { return sum > 0 },
-		"failover_auto_execution_total did not increase after the secondary auto-executed; is the observability stack up (--with-dashboards)?")
+		"failover_auto_execution_total did not increase after the secondary auto-executed; is the observability stack up?")
 	testLogger.Info().Msg("Phase 4: failover_auto_execution_total observable via Prometheus")
 
 	// Log proof on the centralized stack: the platform logs reached Loki.

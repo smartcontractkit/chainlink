@@ -274,8 +274,8 @@ jobs:
         with:
           version: "7.8.0"
 
-      - name: Start observability stack (Beholder suite)
-        if: contains(matrix.tests.test_name, 'Beholder_Suite')
+      - name: Start observability stack (Beholder suite, shard failover routing)
+        if: contains(matrix.tests.test_name, 'Beholder_Suite') || matrix.tests.test_name == 'Test_CRE_V2_ShardFailoverCentralizedEventRouting'
         shell: bash
         working-directory: core/scripts/cre/environment
         env:
