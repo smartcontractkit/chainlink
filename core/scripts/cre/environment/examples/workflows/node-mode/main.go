@@ -92,13 +92,12 @@ func testMedianConsensusWithErrors(cfg None, runtime cre.Runtime) error {
 	offchainValue, err := mathPromise.Await()
 	if err == nil {
 		runtime.Logger().Warn("expected median consensus error", "error", err)
-		return err
-	} else {
-		expectedInMessage := "simulated error"
-		if !strings.Contains(err.Error(), expectedInMessage) {
-			runtime.Logger().Warn("expected median consensus error", "error", err)
-			return fmt.Errorf("expected error to contain '%s', got '%s'", expectedInMessage, err.Error())
-		}
+		return errors.New("expected median consensus error, got nil")
+	}
+	expectedInMessage := "simulated error"
+	if !strings.Contains(err.Error(), expectedInMessage) {
+		runtime.Logger().Warn("expected median consensus error", "error", err)
+		return fmt.Errorf("expected error to contain '%s', got '%s'", expectedInMessage, err.Error())
 	}
 
 	runtime.Logger().Info("Successfully tested consensus errors", "result", offchainValue)
@@ -131,13 +130,12 @@ func testIdenticalConsensus(cfg None, runtime cre.Runtime) error {
 		return err
 	}
 
-	if string(resultBytes) == sameValueStr {
-		runtime.Logger().Info("Identical consensus on a []byte succeeded", "result", resultBytes)
-	} else {
+	if string(resultBytes) != sameValueStr {
 		msg := fmt.Sprintf("Identical consensus on a []byte failed, expected '%s', got '%s'", sameValueStr, resultBytes)
 		runtime.Logger().Error(msg)
 		return errors.New(msg)
 	}
+	runtime.Logger().Info("Identical consensus on a []byte succeeded", "result", resultBytes)
 
 	return nil
 }
@@ -152,7 +150,7 @@ func testIdenticalConsensusFailure(cfg None, runtime cre.Runtime) error {
 	resultBytes, err := byteSlicePromise.Await()
 	if err == nil {
 		runtime.Logger().Warn("Expected consensus to fail but it succeeded", "result", resultBytes)
-		return errors.New("Expected consensus to fail but it succeeded")
+		return errors.New("expected consensus to fail but it succeeded")
 	}
 
 	errString := err.Error()
@@ -177,20 +175,18 @@ func testIdenticalConsensusFailureWithDefault(cfg None, runtime cre.Runtime) err
 		return err
 	}
 
-	if string(resultBytes) == defaultStr {
-		runtime.Logger().Info("Identical consensus on a []byte with default succeeded", "result", resultBytes)
-	} else {
+	if string(resultBytes) != defaultStr {
 		msg := fmt.Sprintf("Identical consensus on a []byte with default failed, expected '%s', got '%s'", defaultStr, resultBytes)
 		runtime.Logger().Error(msg)
 		return errors.New(msg)
 	}
+	runtime.Logger().Info("Identical consensus on a []byte with default succeeded", "result", resultBytes)
 
 	return nil
 }
 
 func fetchData(cfg None, nodeRuntime cre.NodeRuntime) (int, error) {
-
-	randomValue := rand.Intn(10000)
+	randomValue := rand.Intn(10000) //nolint:gosec // G404: pseudo-random data generation for example workflow
 	nodeRuntime.Logger().Info("Generate random value", "randomValue", randomValue)
 
 	// Generate a random int64

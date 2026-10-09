@@ -24,6 +24,7 @@ type DonFamilyGatewayPair struct {
 type gatewayDonFamilyPairingState struct {
 	gatewayDONNamesByFamily  map[string][]string // don_family → gateway nodesets.name
 	workflowDONNamesByFamily map[string][]string // don_family → workflow nodesets.name
+	unscopedGatewayDONs      []string
 	pairs                    []DonFamilyGatewayPair
 }
 
@@ -95,7 +96,8 @@ func (t *Topology) buildDonFamilyPairingState() (*gatewayDonFamilyPairingState, 
 			continue
 		}
 		if len(d.DonFamilies) == 0 {
-			return nil, fmt.Errorf("gateway DON %q has no don_family; set nodesets.don_families on every nodeset", d.Name)
+			state.unscopedGatewayDONs = append(state.unscopedGatewayDONs, d.Name)
+			continue
 		}
 		for _, family := range d.DonFamilies {
 			state.gatewayDONNamesByFamily[family] = append(state.gatewayDONNamesByFamily[family], d.Name)
@@ -121,6 +123,17 @@ func (t *Topology) buildDonFamilyPairingState() (*gatewayDonFamilyPairingState, 
 					GatewayDONName:  gwName,
 				})
 			}
+		}
+		for _, gwName := range state.unscopedGatewayDONs {
+			if _, ok := pairedGateways[gwName]; ok {
+				continue
+			}
+			pairedGateways[gwName] = struct{}{}
+			state.pairs = append(state.pairs, DonFamilyGatewayPair{
+				DonFamily:       wf.DonFamilies[0],
+				WorkflowDONName: wf.Name,
+				GatewayDONName:  gwName,
+			})
 		}
 		if len(pairedGateways) == 0 {
 			return nil, fmt.Errorf("workflow DON %q is in don_families %v but no gateway DON shares any of them", wf.Name, wf.DonFamilies)
@@ -180,8 +193,51 @@ func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnec
 		return GatewayConnectors{}
 	}
 
-	configs := make([]*DonGatewayConfiguration, 0, len(t.gatewayDonFamilyPairing.gatewayDONNamesByFamily[donFamily]))
-	for _, gwName := range t.gatewayDonFamilyPairing.gatewayDONNamesByFamily[donFamily] {
+	gatewayNames := slices.Clone(t.gatewayDonFamilyPairing.gatewayDONNamesByFamily[donFamily])
+	gatewayNames = append(gatewayNames, t.gatewayDonFamilyPairing.unscopedGatewayDONs...)
+
+	configs := make([]*DonGatewayConfiguration, 0, len(gatewayNames))
+	for _, gwName := range gatewayNames {
+		if cfg, ok := t.gatewayConnectorsByDon[gwName]; ok {
+			configs = append(configs, cfg)
+		}
+	}
+	return GatewayConnectors{Configurations: configs}
+}
+
+func (t *Topology) GatewayConnectorsForCapabilitiesDon(don *DonMetadata) GatewayConnectors {
+	if t.GatewayConnectors == nil || t.gatewayDonFamilyPairing == nil || don == nil {
+		return GatewayConnectors{}
+	}
+
+	donFamilies := make(map[string]struct{}, len(don.DonFamilies))
+	for _, family := range don.DonFamilies {
+		donFamilies[family] = struct{}{}
+	}
+
+	seen := make(map[string]struct{})
+	gatewayNames := make([]string, 0)
+	for _, pair := range t.gatewayDonFamilyPairing.pairs {
+		if _, ok := seen[pair.GatewayDONName]; ok {
+			continue
+		}
+		wf := t.donByName(pair.WorkflowDONName)
+		if wf == nil {
+			continue
+		}
+		sharesFamily := slices.ContainsFunc(wf.DonFamilies, func(family string) bool {
+			_, ok := donFamilies[family]
+			return ok
+		})
+		if !sharesFamily {
+			continue
+		}
+		seen[pair.GatewayDONName] = struct{}{}
+		gatewayNames = append(gatewayNames, pair.GatewayDONName)
+	}
+
+	configs := make([]*DonGatewayConfiguration, 0, len(gatewayNames))
+	for _, gwName := range gatewayNames {
 		if cfg, ok := t.gatewayConnectorsByDon[gwName]; ok {
 			configs = append(configs, cfg)
 		}

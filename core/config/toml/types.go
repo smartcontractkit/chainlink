@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -502,7 +503,14 @@ func (e *EthKeys) ValidateConfig() (err error) {
 }
 
 func dbURLPasswordComplexity(err error) string {
-	return fmt.Sprintf("missing or insufficiently complex password: %s. Database should be secured by a password matching the following complexity requirements: "+utils.PasswordComplexityRequirements, err)
+	msg := err.Error()
+	// Keep the separator off when the underlying error already starts on a
+	// new line, so the message contains no trailing whitespace.
+	sep := " "
+	if strings.HasPrefix(msg, "\n") {
+		sep = ""
+	}
+	return fmt.Sprintf("missing or insufficiently complex password:%s%s. Database should be secured by a password matching the following complexity requirements:%s", sep, msg, utils.PasswordComplexityRequirements)
 }
 
 type DatabaseSecrets struct {
@@ -2817,16 +2825,10 @@ type LocalCapabilities struct {
 	//   - "^http-action@.*$" matches any version of http-action
 	//   - ".*" matches all capabilities
 	RegistryBasedLaunchAllowlist []string `toml:",omitempty"`
-	// Capabilities contains per-capability node configuration, keyed by capability ID.
-	Capabilities map[string]CapabilityNodeConfig `toml:",omitempty"`
-}
-
-// CapabilityNodeConfig contains node-specific configuration for a capability.
-type CapabilityNodeConfig struct {
-	// BinaryPathOverride overrides the default binary path for a LOOP capability.
-	BinaryPathOverride *string `toml:",omitempty"`
-	// Config contains capability-specific configuration as key-value pairs.
-	Config map[string]string `toml:",omitempty"`
+	// UseOffchainRegistry gates the offchain capabilities registry cutover. Default false: the
+	// offchain registry is cross-validation telemetry only. When true, offchain capability config
+	// takes precedence over the on-chain registry config.
+	UseOffchainRegistry *bool `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
@@ -2844,27 +2846,8 @@ func (l *LocalCapabilities) setFrom(f *LocalCapabilities) {
 	if f.RegistryBasedLaunchAllowlist != nil {
 		l.RegistryBasedLaunchAllowlist = f.RegistryBasedLaunchAllowlist
 	}
-	if f.Capabilities != nil {
-		if l.Capabilities == nil {
-			l.Capabilities = make(map[string]CapabilityNodeConfig)
-		}
-		for k, v := range f.Capabilities {
-			existing := l.Capabilities[k]
-			existing.setFrom(&v)
-			l.Capabilities[k] = existing
-		}
-	}
-}
-
-func (c *CapabilityNodeConfig) setFrom(f *CapabilityNodeConfig) {
-	if f.BinaryPathOverride != nil {
-		c.BinaryPathOverride = f.BinaryPathOverride
-	}
-	if f.Config != nil {
-		if c.Config == nil {
-			c.Config = make(map[string]string)
-		}
-		maps.Copy(c.Config, f.Config)
+	if f.UseOffchainRegistry != nil {
+		l.UseOffchainRegistry = f.UseOffchainRegistry
 	}
 }
 
@@ -2889,11 +2872,6 @@ func (l *LocalCapabilities) ValidateConfig() (err error) {
 	for _, pattern := range l.RegistryBasedLaunchAllowlist {
 		if _, regexErr := regexp.Compile(pattern); regexErr != nil {
 			err = errors.Join(err, fmt.Errorf("Capabilities.Local.RegistryBasedLaunchAllowlist: invalid regex pattern %q: %w", pattern, regexErr))
-		}
-	}
-	for capID := range l.Capabilities {
-		if capErr := ValidateCapabilityID(capID); capErr != nil {
-			err = errors.Join(err, fmt.Errorf("Capabilities.Local.Capabilities: %w", capErr))
 		}
 	}
 	return err
@@ -3301,7 +3279,7 @@ func isValidLocalURI(uri string) bool {
 		}
 
 		// Validating port
-		if _, err := net.LookupPort("tcp", port); err != nil {
+		if _, err := net.DefaultResolver.LookupPort(context.Background(), "tcp", port); err != nil {
 			return false
 		}
 

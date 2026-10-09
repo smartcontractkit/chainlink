@@ -8,12 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_plus_upgradeable_example"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_malicious_consumer_v2_plus"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_reverting_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_consumer_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_reverting_example"
 )
@@ -39,46 +35,24 @@ type VRFConsumerContract interface {
 type ConsumerType string
 
 const (
-	VRFConsumerV2           ConsumerType = "VRFConsumerV2"
 	VRFV2PlusConsumer       ConsumerType = "VRFV2PlusConsumer"
-	MaliciousConsumer       ConsumerType = "MaliciousConsumer"
 	MaliciousConsumerPlus   ConsumerType = "MaliciousConsumerPlus"
-	RevertingConsumer       ConsumerType = "RevertingConsumer"
 	RevertingConsumerPlus   ConsumerType = "RevertingConsumerPlus"
-	UpgradeableConsumer     ConsumerType = "UpgradeableConsumer"
 	UpgradeableConsumerPlus ConsumerType = "UpgradeableConsumerPlus"
 )
 
 type vrfConsumerContract struct {
 	consumerType            ConsumerType
-	vrfConsumerV2           *vrf_consumer_v2.VRFConsumerV2
 	vrfV2PlusConsumer       *vrfv2plus_consumer_example.VRFV2PlusConsumerExample
-	maliciousConsumer       *vrf_malicious_consumer_v2.VRFMaliciousConsumerV2
 	maliciousConsumerPlus   *vrf_malicious_consumer_v2_plus.VRFMaliciousConsumerV2Plus
-	revertingConsumer       *vrfv2_reverting_example.VRFV2RevertingExample
 	revertingConsumerPlus   *vrfv2plus_reverting_example.VRFV2PlusRevertingExample
-	upgradeableConsumer     *vrf_consumer_v2_upgradeable_example.VRFConsumerV2UpgradeableExample
 	upgradeableConsumerPlus *vrf_consumer_v2_plus_upgradeable_example.VRFConsumerV2PlusUpgradeableExample
-}
-
-func NewVRFConsumerV2(consumer *vrf_consumer_v2.VRFConsumerV2) *vrfConsumerContract {
-	return &vrfConsumerContract{
-		consumerType:  VRFConsumerV2,
-		vrfConsumerV2: consumer,
-	}
 }
 
 func NewVRFV2PlusConsumer(consumer *vrfv2plus_consumer_example.VRFV2PlusConsumerExample) *vrfConsumerContract {
 	return &vrfConsumerContract{
 		consumerType:      VRFV2PlusConsumer,
 		vrfV2PlusConsumer: consumer,
-	}
-}
-
-func NewMaliciousConsumer(consumer *vrf_malicious_consumer_v2.VRFMaliciousConsumerV2) *vrfConsumerContract {
-	return &vrfConsumerContract{
-		consumerType:      MaliciousConsumer,
-		maliciousConsumer: consumer,
 	}
 }
 
@@ -89,24 +63,10 @@ func NewMaliciousConsumerPlus(consumer *vrf_malicious_consumer_v2_plus.VRFMalici
 	}
 }
 
-func NewRevertingConsumer(consumer *vrfv2_reverting_example.VRFV2RevertingExample) *vrfConsumerContract {
-	return &vrfConsumerContract{
-		consumerType:      RevertingConsumer,
-		revertingConsumer: consumer,
-	}
-}
-
 func NewRevertingConsumerPlus(consumer *vrfv2plus_reverting_example.VRFV2PlusRevertingExample) *vrfConsumerContract {
 	return &vrfConsumerContract{
 		consumerType:          RevertingConsumerPlus,
 		revertingConsumerPlus: consumer,
-	}
-}
-
-func NewUpgradeableConsumer(consumer *vrf_consumer_v2_upgradeable_example.VRFConsumerV2UpgradeableExample) *vrfConsumerContract {
-	return &vrfConsumerContract{
-		consumerType:        UpgradeableConsumer,
-		upgradeableConsumer: consumer,
 	}
 }
 
@@ -118,26 +78,14 @@ func NewUpgradeableConsumerPlus(consumer *vrf_consumer_v2_plus_upgradeable_examp
 }
 
 func (c *vrfConsumerContract) CreateSubscriptionAndFund(opts *bind.TransactOpts, fundingJuels *big.Int) (*gethtypes.Transaction, error) {
-	if c.consumerType == VRFConsumerV2 {
-		return c.vrfConsumerV2.CreateSubscriptionAndFund(opts, fundingJuels)
-	}
 	if c.consumerType == VRFV2PlusConsumer {
 		return c.vrfV2PlusConsumer.CreateSubscriptionAndFund(opts, fundingJuels)
-	}
-	if c.consumerType == UpgradeableConsumer {
-		return c.upgradeableConsumer.CreateSubscriptionAndFund(opts, fundingJuels)
 	}
 	if c.consumerType == UpgradeableConsumerPlus {
 		return c.upgradeableConsumerPlus.CreateSubscriptionAndFund(opts, fundingJuels)
 	}
-	if c.consumerType == MaliciousConsumer {
-		return c.maliciousConsumer.CreateSubscriptionAndFund(opts, fundingJuels)
-	}
 	if c.consumerType == MaliciousConsumerPlus {
 		return c.maliciousConsumerPlus.CreateSubscriptionAndFund(opts, fundingJuels)
-	}
-	if c.consumerType == RevertingConsumer {
-		return c.revertingConsumer.CreateSubscriptionAndFund(opts, fundingJuels)
 	}
 	if c.consumerType == RevertingConsumerPlus {
 		return c.revertingConsumerPlus.CreateSubscriptionAndFund(opts, fundingJuels)
@@ -146,32 +94,11 @@ func (c *vrfConsumerContract) CreateSubscriptionAndFund(opts *bind.TransactOpts,
 }
 
 func (c *vrfConsumerContract) SSubID(opts *bind.CallOpts) (*big.Int, error) {
-	if c.consumerType == VRFConsumerV2 {
-		subID, err := c.vrfConsumerV2.SSubId(opts)
-		if err != nil {
-			return nil, err
-		}
-		return new(big.Int).SetUint64(subID), nil
-	}
 	if c.consumerType == VRFV2PlusConsumer {
 		return c.vrfV2PlusConsumer.SSubId(opts)
 	}
-	if c.consumerType == UpgradeableConsumer {
-		subID, err := c.upgradeableConsumer.SSubId(opts)
-		if err != nil {
-			return nil, err
-		}
-		return new(big.Int).SetUint64(subID), nil
-	}
 	if c.consumerType == UpgradeableConsumerPlus {
 		return c.upgradeableConsumerPlus.SSubId(opts)
-	}
-	if c.consumerType == RevertingConsumer {
-		subID, err := c.revertingConsumer.SSubId(opts)
-		if err != nil {
-			return nil, err
-		}
-		return new(big.Int).SetUint64(subID), nil
 	}
 	if c.consumerType == RevertingConsumerPlus {
 		return c.revertingConsumerPlus.SSubId(opts)
@@ -180,26 +107,14 @@ func (c *vrfConsumerContract) SSubID(opts *bind.CallOpts) (*big.Int, error) {
 }
 
 func (c *vrfConsumerContract) SRequestID(opts *bind.CallOpts) (*big.Int, error) {
-	if c.consumerType == VRFConsumerV2 {
-		return c.vrfConsumerV2.SRequestId(opts)
-	}
 	if c.consumerType == VRFV2PlusConsumer {
 		return c.vrfV2PlusConsumer.SRecentRequestId(opts)
-	}
-	if c.consumerType == UpgradeableConsumer {
-		return c.upgradeableConsumer.SRequestId(opts)
 	}
 	if c.consumerType == UpgradeableConsumerPlus {
 		return c.upgradeableConsumerPlus.SRequestId(opts)
 	}
-	if c.consumerType == MaliciousConsumer {
-		return c.maliciousConsumer.SRequestId(opts)
-	}
 	if c.consumerType == MaliciousConsumerPlus {
 		return c.maliciousConsumerPlus.SRequestId(opts)
-	}
-	if c.consumerType == RevertingConsumer {
-		return c.revertingConsumer.SRequestId(opts)
 	}
 	if c.consumerType == RevertingConsumerPlus {
 		return c.revertingConsumerPlus.SRequestId(opts)
@@ -214,23 +129,11 @@ func (c *vrfConsumerContract) RequestRandomness(opts *bind.TransactOpts, keyHash
 	if payInEth {
 		return nil, errors.New("eth payment not supported")
 	}
-	if c.consumerType == VRFConsumerV2 {
-		return c.vrfConsumerV2.RequestRandomness(opts, keyHash, subID.Uint64(), minReqConfs, callbackGasLimit, numWords)
-	}
-	if c.consumerType == UpgradeableConsumer {
-		return c.upgradeableConsumer.RequestRandomness(opts, keyHash, subID.Uint64(), minReqConfs, callbackGasLimit, numWords)
-	}
 	if c.consumerType == UpgradeableConsumerPlus {
 		return c.upgradeableConsumerPlus.RequestRandomness(opts, keyHash, subID, minReqConfs, callbackGasLimit, numWords)
 	}
-	if c.consumerType == MaliciousConsumer {
-		return c.maliciousConsumer.RequestRandomness(opts, keyHash)
-	}
 	if c.consumerType == MaliciousConsumerPlus {
 		return c.maliciousConsumerPlus.RequestRandomness(opts, keyHash)
-	}
-	if c.consumerType == RevertingConsumer {
-		return c.revertingConsumer.RequestRandomness(opts, keyHash, subID.Uint64(), minReqConfs, callbackGasLimit, numWords)
 	}
 	if c.consumerType == RevertingConsumerPlus {
 		return c.revertingConsumerPlus.RequestRandomness(opts, keyHash, subID, minReqConfs, callbackGasLimit, numWords)
@@ -239,9 +142,6 @@ func (c *vrfConsumerContract) RequestRandomness(opts *bind.TransactOpts, keyHash
 }
 
 func (c *vrfConsumerContract) SRandomWords(opts *bind.CallOpts, randomwordIdx *big.Int) (*big.Int, error) {
-	if c.consumerType == VRFConsumerV2 {
-		return c.vrfConsumerV2.SRandomWords(opts, randomwordIdx)
-	}
 	if c.consumerType == VRFV2PlusConsumer {
 		requestID, err := c.vrfV2PlusConsumer.SRecentRequestId(opts)
 		if err != nil {
@@ -253,9 +153,6 @@ func (c *vrfConsumerContract) SRandomWords(opts *bind.CallOpts, randomwordIdx *b
 		}
 		return randomWord, nil
 	}
-	if c.consumerType == UpgradeableConsumer {
-		return c.upgradeableConsumer.SRandomWords(opts, randomwordIdx)
-	}
 	if c.consumerType == UpgradeableConsumerPlus {
 		return c.upgradeableConsumerPlus.SRandomWords(opts, randomwordIdx)
 	}
@@ -263,12 +160,6 @@ func (c *vrfConsumerContract) SRandomWords(opts *bind.CallOpts, randomwordIdx *b
 }
 
 func (c *vrfConsumerContract) TopUpSubscription(opts *bind.TransactOpts, fundingJuels *big.Int) (*gethtypes.Transaction, error) {
-	if c.consumerType == VRFConsumerV2 {
-		return c.vrfConsumerV2.TopUpSubscription(opts, fundingJuels)
-	}
-	if c.consumerType == RevertingConsumer {
-		return c.revertingConsumer.TopUpSubscription(opts, fundingJuels)
-	}
 	if c.consumerType == RevertingConsumerPlus {
 		return c.revertingConsumerPlus.TopUpSubscription(opts, fundingJuels)
 	}
@@ -279,12 +170,6 @@ func (c *vrfConsumerContract) TopUpSubscription(opts *bind.TransactOpts, funding
 }
 
 func (c *vrfConsumerContract) SGasAvailable(opts *bind.CallOpts) (*big.Int, error) {
-	if c.consumerType == VRFConsumerV2 {
-		return c.vrfConsumerV2.SGasAvailable(opts)
-	}
-	if c.consumerType == UpgradeableConsumer {
-		return c.upgradeableConsumer.SGasAvailable(opts)
-	}
 	if c.consumerType == UpgradeableConsumerPlus {
 		return c.upgradeableConsumerPlus.SGasAvailable(opts)
 	}
@@ -292,9 +177,6 @@ func (c *vrfConsumerContract) SGasAvailable(opts *bind.CallOpts) (*big.Int, erro
 }
 
 func (c *vrfConsumerContract) UpdateSubscription(opts *bind.TransactOpts, consumers []common.Address) (*gethtypes.Transaction, error) {
-	if c.consumerType == VRFConsumerV2 {
-		return c.vrfConsumerV2.UpdateSubscription(opts, consumers)
-	}
 	if c.consumerType == VRFV2PlusConsumer {
 		return c.vrfV2PlusConsumer.UpdateSubscription(opts, consumers)
 	}

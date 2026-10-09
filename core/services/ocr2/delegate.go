@@ -911,7 +911,7 @@ func (d *Delegate) ensureKeyValueStorePath(subPath string) (fullPath string, err
 	if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
 		err = fmt.Errorf("failed to create key value store directory: %w", err)
 	}
-	return
+	return fullPath, err
 }
 
 func (d *Delegate) maybeWrapConfigService(id, key string, lggr logger.Logger, configTracker ocrtypes.ContractConfigTracker, configDigester ocrtypes.OffchainConfigDigester, localConfig ocrtypes.LocalConfig) (ocrtypes.ContractConfigTracker, ocrtypes.OffchainConfigDigester, ocrtypes.LocalConfig, error) {
@@ -1810,7 +1810,7 @@ func (d *Delegate) newServicesLLO(
 		CaptureEATelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
 		// NOTE: These can be turned off/on, or made configurable in future if
 		// necessary
-		CaptureObservationTelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
+		CaptureObservationTelemetry: false,
 		CaptureOutcomeTelemetry:     jb.OCR2OracleSpec.CaptureEATelemetry,
 		CaptureReportTelemetry:      false,
 

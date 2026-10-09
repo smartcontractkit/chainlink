@@ -492,13 +492,13 @@ func isChainCapability(flag string) bool {
 }
 
 func parseChainCapabilityFlag(flag string) (CapabilityFlag, uint64, bool, error) {
-	lastIdx := strings.LastIndex(flag, "-")
-	if lastIdx == -1 {
+	before, after, ok := strings.CutLast(flag, "-")
+	if !ok {
 		return "", 0, false, nil
 	}
 
-	base := flag[:lastIdx]
-	chainPart := flag[lastIdx+1:]
+	base := before
+	chainPart := after
 
 	if base == "" {
 		return "", 0, true, fmt.Errorf("capability flag %q is missing a capability name before the chain suffix", flag)
@@ -586,7 +586,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	c.CapabilityConfigs = capConfigs
 
 	donFamilies := normalizedDonFamilies(c.DonFamilies)
-	if len(donFamilies) == 0 {
+	if len(donFamilies) == 0 && donFamiliesRequired(c.DONTypes) {
 		return nil, fmt.Errorf("nodeset %q has no don_families; set don_families on every nodeset", c.Name)
 	}
 
@@ -604,6 +604,20 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	}
 
 	return out, nil
+}
+
+func donFamiliesRequired(donTypes []string) bool {
+	if len(donTypes) == 0 {
+		return true
+	}
+	for _, donType := range donTypes {
+		switch donType {
+		case BootstrapDON, GatewayDON:
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 // normalizedDonFamilies trims, drops empty entries and de-duplicates, preserving
@@ -662,12 +676,12 @@ func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (Capabilit
 		}
 
 		// Extract base capability name and copy its defaults to the chain-specific key
-		lastIdx := strings.LastIndex(flag, "-")
-		if lastIdx == -1 {
+		before, _, ok := strings.CutLast(flag, "-")
+		if !ok {
 			continue
 		}
 
-		flagWithoutChainID := flag[:lastIdx]
+		flagWithoutChainID := before
 		defaults[flag] = defaults[flagWithoutChainID]
 
 		chainCapabilitiesFound = append(chainCapabilitiesFound, flagWithoutChainID)

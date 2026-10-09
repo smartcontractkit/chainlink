@@ -127,6 +127,16 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				}
 				ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
 			})
+			t.Run("reshare_flags_read", func(t *testing.T) {
+				if parallelEnabled {
+					t.Parallel()
+				}
+				reshareEnv := fixture.TestEnv
+				if parallelEnabled {
+					reshareEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+				}
+				ExecuteVaultReadSecretsWithReshareFlagsTest(t, fixture, reshareEnv)
+			})
 		})
 	case suite_config.SuiteScenarioCronChipIngressStack:
 		t.Run("Cron Beholder - "+topology, func(t *testing.T) {
@@ -403,4 +413,22 @@ func Test_CRE_V2_FailoverManualSwap(t *testing.T) {
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-failover-don.toml"),
 	)
 	ExecuteFailoverManualSwapTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardManualAssignmentSharedVault(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-manual.toml"),
+	)
+	ExecuteManualShardAssignmentSharedVaultTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-failover.toml"),
+	)
+	ExecuteShardFailoverSharedVaultTest(t, testEnv)
 }

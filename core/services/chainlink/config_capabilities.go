@@ -410,15 +410,8 @@ func (l *localCapabilities) RegistryBasedLaunchAllowlist() []string {
 	return l.c.RegistryBasedLaunchAllowlist
 }
 
-func (l *localCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
-	if l.c.Capabilities == nil {
-		return nil
-	}
-	result := make(map[string]config.CapabilityNodeConfig, len(l.c.Capabilities))
-	for k, v := range l.c.Capabilities {
-		result[k] = &capabilityNodeConfig{c: v}
-	}
-	return result
+func (l *localCapabilities) UseOffchainRegistry() bool {
+	return l.c.UseOffchainRegistry != nil && *l.c.UseOffchainRegistry
 }
 
 func (l *localCapabilities) compileRegexes() {
@@ -440,31 +433,4 @@ func (l *localCapabilities) IsAllowlisted(capabilityID string) bool {
 		}
 	}
 	return false
-}
-
-func (l *localCapabilities) GetCapabilityConfig(capabilityID string) config.CapabilityNodeConfig {
-	if l.c.Capabilities == nil {
-		return nil
-	}
-	if c, ok := l.c.Capabilities[capabilityID]; ok {
-		return &capabilityNodeConfig{c: c}
-	}
-	return nil
-}
-
-var _ config.CapabilityNodeConfig = (*capabilityNodeConfig)(nil)
-
-type capabilityNodeConfig struct {
-	c toml.CapabilityNodeConfig
-}
-
-func (c *capabilityNodeConfig) BinaryPathOverride() string {
-	if c.c.BinaryPathOverride == nil {
-		return ""
-	}
-	return *c.c.BinaryPathOverride
-}
-
-func (c *capabilityNodeConfig) Config() map[string]string {
-	return c.c.Config
 }

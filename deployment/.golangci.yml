@@ -68,6 +68,9 @@ linters:
               desc: Use the standard library instead
     exhaustive:
       default-signifies-exhaustive: true
+    modernize:
+      disable:
+        - embedlit
     gosec:
       excludes:
         - G101

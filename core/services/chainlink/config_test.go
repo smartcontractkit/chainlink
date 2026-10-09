@@ -506,16 +506,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 		Local: toml.LocalCapabilities{
 			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-action@.*$`},
-			Capabilities: map[string]toml.CapabilityNodeConfig{
-				"http-action@1.0.0": {
-					BinaryPathOverride: new("/opt/chainlink/binaries/http_action"),
-					Config:             map[string]string{"proxyMode": "gateway", "allowedPorts": "443,8443"},
-				},
-				"cron@1.0.0": {
-					BinaryPathOverride: new("/opt/chainlink/binaries/cron"),
-					Config:             map[string]string{"fastestScheduleIntervalSeconds": "60"},
-				},
-			},
+			UseOffchainRegistry:          new(true),
 		},
 	}
 	full.Workflows = toml.Workflows{
@@ -1690,12 +1681,12 @@ BackupURL = "foo-bar?password=asdf"
 AllowSimplePasswords = false`,
 			exp: `invalid secrets: 2 errors:
 	- Database: 2 errors:
-		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
+		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 	
-		- BackupURL: invalid value (*****): missing or insufficiently complex password: 
+		- BackupURL: invalid value (*****): missing or insufficiently complex password:
 	Expected password complexity:
 	Must be at least 16 characters long
 	Must not comprise:
@@ -1704,7 +1695,7 @@ AllowSimplePasswords = false`,
 	
 	Faults:
 		password is less than 16 characters long
-	. Database should be secured by a password matching the following complexity requirements: 
+	. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)

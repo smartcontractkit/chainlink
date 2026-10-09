@@ -153,6 +153,20 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 			hex.EncodeToString(m.ConfigDigest),
 		}
 		return strings.Join(traits, samplerDelimiter), nanosToSec(int64(m.ObservationTimestampNanoseconds)), nil //nolint:gosec // G115
+	case synchronization.LLOAttributedObservation:
+		m, ok := msg.(*lloprotocol.LLOAttributedObservationTelemetry)
+		if !ok || m == nil {
+			return "", 0, errors.New("invalid telemetry type, expected LLOAttributedObservationTelemetry")
+		}
+		// A large observation is split in parts sharing the observer: key on the
+		// lowest stream id so each part is sampled on its own.
+		traits := []string{
+			strconv.FormatUint(uint64(m.DonId), 10),
+			strconv.FormatUint(uint64(m.Observer), 10),
+			hex.EncodeToString(m.ConfigDigest),
+			strconv.FormatUint(uint64(lowestStreamID(m.StreamValues)), 10),
+		}
+		return strings.Join(traits, samplerDelimiter), nanosToSec(int64(m.AgreedObservationTimestampNanoseconds)), nil //nolint:gosec // G115
 	case synchronization.PipelineBridge:
 		m, ok := msg.(*LLOBridgeTelemetry)
 		if !ok || m == nil {
@@ -169,6 +183,18 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 	default:
 		return "", 0, errUnsupportedTelemetryType
 	}
+}
+
+// lowestStreamID returns the lowest key of values, or 0 when empty.
+func lowestStreamID(values map[uint32]*lloprotocol.LLOStreamValue) uint32 {
+	var lowest uint32
+	first := true
+	for id := range values {
+		if first || id < lowest {
+			lowest, first = id, false
+		}
+	}
+	return lowest
 }
 
 func nanosToSec(n int64) int32 {

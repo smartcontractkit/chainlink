@@ -681,7 +681,7 @@ func getOptionalSimBlock(simBlock *string) (string, error) {
 	return optionalSimBlock, nil
 }
 
-// VRFV2TxPipelineSpec VRFv2 request with tx callback
+// VRFV2PlusTxPipelineSpec VRFv2Plus request with tx callback
 type VRFV2PlusTxPipelineSpec struct {
 	Address               string
 	EstimateGasMultiplier float64
@@ -728,55 +728,6 @@ decode_log->generate_proof->estimate_gas->simulate_fulfillment`
 
 	sourceString := fmt.Sprintf(sourceTemplate, optionalSimBlock, optionalSimBlock)
 	return MarshallTemplate(d, "VRFV2 Plus pipeline template", sourceString)
-}
-
-// VRFV2TxPipelineSpec VRFv2 request with tx callback
-type VRFV2TxPipelineSpec struct {
-	Address               string
-	EstimateGasMultiplier float64
-	FromAddress           string
-	SimulationBlock       *string // can be nil, "latest" or "pending".
-}
-
-// Type returns the type of the pipeline
-func (d *VRFV2TxPipelineSpec) Type() string {
-	return "vrf_pipeline_v2"
-}
-
-// String representation of the pipeline
-func (d *VRFV2TxPipelineSpec) String() (string, error) {
-	optionalSimBlock, err := getOptionalSimBlock(d.SimulationBlock)
-	if err != nil {
-		return "", err
-	}
-	sourceTemplate := `
-decode_log   [type=ethabidecodelog
-             abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
-             data="$(jobRun.logData)"
-             topics="$(jobRun.logTopics)"]
-vrf          [type=vrfv2
-             publicKey="$(jobSpec.publicKey)"
-             requestBlockHash="$(jobRun.logBlockHash)"
-             requestBlockNumber="$(jobRun.logBlockNumber)"
-             topics="$(jobRun.logTopics)"]
-estimate_gas [type=estimategaslimit
-             to="{{ .Address }}"
-             multiplier="{{ .EstimateGasMultiplier }}"
-             data="$(vrf.output)"
-			 %s]
-simulate [type=ethcall
-          from="{{ .FromAddress }}"
-          to="{{ .Address }}"
-          gas="$(estimate_gas)"
-          gasPrice="$(jobSpec.maxGasPrice)"
-          extractRevertReason=true
-          contract="{{ .Address }}"
-          data="$(vrf.output)"
-		  %s]
-decode_log->vrf->estimate_gas->simulate`
-
-	sourceString := fmt.Sprintf(sourceTemplate, optionalSimBlock, optionalSimBlock)
-	return MarshallTemplate(d, "VRFV2 pipeline template", sourceString)
 }
 
 // DirectRequestTxPipelineSpec oracle request with tx callback
@@ -1141,7 +1092,7 @@ observationSource                      = """
 	return MarshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }
 
-// VRFV2PlusJobSpec represents a VRFV2 job
+// VRFV2PlusJobSpec represents a VRFV2Plus job
 type VRFV2PlusJobSpec struct {
 	Name                          string        `toml:"name"`
 	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
@@ -1188,61 +1139,6 @@ observationSource = """
 """
 `
 	return MarshallTemplate(v, "VRFV2 PLUS Job", vrfTemplateString)
-}
-
-// VRFV2JobSpec represents a VRFV2 job
-type VRFV2JobSpec struct {
-	Name                          string        `toml:"name"`
-	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	BatchCoordinatorAddress       string        `toml:"batchCoordinatorAddress"`
-	PublicKey                     string        `toml:"publicKey"` // Public key of the proving key
-	ExternalJobID                 string        `toml:"externalJobID"`
-	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
-	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
-	FromAddresses                 []string      `toml:"fromAddresses"`
-	EVMChainID                    string        `toml:"evmChainID"`
-	UseVRFOwner                   bool          `toml:"useVRFOwner"`
-	VRFOwner                      string        `toml:"vrfOwnerAddress"`
-	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
-	CustomRevertsPipelineEnabled  bool          `toml:"customRevertsPipelineEnabled"`
-	PollPeriod                    time.Duration `toml:"pollPeriod"`
-	RequestTimeout                time.Duration `toml:"requestTimeout"`
-	BatchFulfillmentEnabled       bool          `toml:"batchFulfillmentEnabled"`
-	BatchFulfillmentGasMultiplier float64       `toml:"batchFulfillmentGasMultiplier"`
-	BackOffInitialDelay           time.Duration `toml:"backOffInitialDelay"`
-	BackOffMaxDelay               time.Duration `toml:"backOffMaxDelay"`
-}
-
-// Type returns the type of the job
-func (v *VRFV2JobSpec) Type() string { return "vrf" }
-
-// String representation of the job
-func (v *VRFV2JobSpec) String() (string, error) {
-	vrfTemplateString := `
-type                     = "vrf"
-schemaVersion            = 1
-name                     = "{{.Name}}"
-forwardingAllowed        = {{.ForwardingAllowed}}
-coordinatorAddress       = "{{.CoordinatorAddress}}"
-{{ if .BatchFulfillmentEnabled }}batchCoordinatorAddress                = "{{.BatchCoordinatorAddress}}"{{ else }}{{ end }}
-fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
-evmChainID               = "{{.EVMChainID}}"
-minIncomingConfirmations = {{.MinIncomingConfirmations}}
-publicKey                = "{{.PublicKey}}"
-externalJobID            = "{{.ExternalJobID}}"
-batchFulfillmentEnabled = {{.BatchFulfillmentEnabled}}
-batchFulfillmentGasMultiplier = {{.BatchFulfillmentGasMultiplier}}
-backoffInitialDelay     = "{{.BackOffInitialDelay}}"
-backoffMaxDelay         = "{{.BackOffMaxDelay}}"
-pollPeriod              = "{{.PollPeriod}}"
-requestTimeout          = "{{.RequestTimeout}}"
-customRevertsPipelineEnabled = true
-{{ if .UseVRFOwner }}vrfOwnerAddress                = "{{.VRFOwner}}"{{ else }}{{ end }}
-observationSource = """
-{{.ObservationSource}}
-"""
-`
-	return MarshallTemplate(v, "VRFV2 Job", vrfTemplateString)
 }
 
 // VRFJobSpec represents a VRF job
