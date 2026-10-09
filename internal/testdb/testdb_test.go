@@ -10,6 +10,7 @@ func TestMigrator_Hash(t *testing.T) {
 	t.Parallel()
 
 	t.Run("empty returns empty", func(t *testing.T) {
+		t.Parallel()
 		m := migratorConfig(false)
 		hash, err := m.Hash()
 		require.NoError(t, err)
@@ -17,6 +18,7 @@ func TestMigrator_Hash(t *testing.T) {
 	})
 
 	t.Run("withTemplate hashes successfully", func(t *testing.T) {
+		t.Parallel()
 		m := migratorConfig(true)
 		hash, err := m.Hash()
 		require.NoError(t, err)
@@ -25,6 +27,7 @@ func TestMigrator_Hash(t *testing.T) {
 	})
 
 	t.Run("withTemplate returns same hash from new migrator instances", func(t *testing.T) {
+		t.Parallel()
 		hash1, err := migratorConfig(true).Hash()
 		require.NoError(t, err)
 
@@ -34,6 +37,7 @@ func TestMigrator_Hash(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // testing.AllocsPerRun panics if called while other parallel tests are running
 func TestMigrator_HashCachedNoAllocs(t *testing.T) {
 	m := migratorConfig(true)
 	_, err := m.Hash()
