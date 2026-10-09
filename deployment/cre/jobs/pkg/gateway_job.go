@@ -23,6 +23,7 @@ const (
 	ServiceNameConfidential = "confidential"
 
 	minimumRequestTimeoutSec = 5
+	heartbeatIntervalSec     = 20
 )
 
 // HandlerServiceName returns the service name for a given handler type.
@@ -70,6 +71,7 @@ type GatewayJob struct {
 
 	JobName             string
 	RequestTimeoutSec   int
+	PongTimeoutSec      int // 0 leaves the gateway pong deadline disabled
 	AllowedPorts        []int
 	AllowedSchemes      []string
 	AllowedIPsCIDR      []string
@@ -109,6 +111,11 @@ func (g GatewayJob) Validate() error {
 	// including Read/WriteTimeoutMillis, and handler-specific timeouts like the vault handler timeout.
 	if g.RequestTimeoutSec < minimumRequestTimeoutSec {
 		return errors.New("request timeout must be at least" + strconv.Itoa(minimumRequestTimeoutSec) + " seconds")
+	}
+
+	// The gateway rejects a non-zero pong timeout that is not above the heartbeat interval.
+	if g.PongTimeoutSec < 0 || (g.PongTimeoutSec != 0 && g.PongTimeoutSec <= heartbeatIntervalSec) {
+		return errors.New("pong timeout must be 0 or greater than the heartbeat interval of " + strconv.Itoa(heartbeatIntervalSec) + " seconds")
 	}
 
 	for _, port := range g.AllowedPorts {
@@ -162,7 +169,8 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 		AuthChallengeLen:          10,
 		AuthGatewayID:             g.authGatewayIDForNode(gatewayNodeIdx),
 		AuthTimestampToleranceSec: 5,
-		HeartbeatIntervalSec:      20,
+		HeartbeatIntervalSec:      heartbeatIntervalSec,
+		PongTimeoutSec:            g.PongTimeoutSec,
 	}
 	nodeCfg := nodeServerConfig{
 		HandshakeTimeoutMillis: 1_000,
