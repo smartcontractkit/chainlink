@@ -201,11 +201,9 @@ func testLifecycleExecuteTriggerConcurrentWithClose(t *testing.T, mode lifecycle
 	errs := make([]error, callers)
 	var wg sync.WaitGroup
 	for i := range callers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			errs[i] = h.engine.ExecuteTrigger(h.tenantCtx(), h.event(fmt.Sprintf("racing-%d", i)))
-		}()
+		})
 	}
 	closeErr := h.close()
 	wg.Wait()
