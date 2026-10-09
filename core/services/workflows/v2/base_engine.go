@@ -55,6 +55,7 @@ var (
 	ErrAdmissionCache          = errors.New("admission: event cached for failover")
 
 	ErrEngineDraining = errors.New("engine is draining")
+	ErrEngineClosed   = errors.New("engine is closed")
 	ErrQueueFull      = errors.New("trigger event queue is full")
 	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
 
@@ -188,9 +189,22 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 }
 
 // ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
+// It rejects events with ErrEngineClosed once Close has begun and with ErrEngineDraining once Drain has been called.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	if e.closing() {
+		return ErrEngineClosed
+	}
+	if e.Draining() {
+		return ErrEngineDraining
+	}
+
 	e.activeExecutions.Add(1)
 	defer e.activeExecutions.Add(-1)
+
+	// Tie the ExecuteTrigger call to the engine's stop signal so that Close
+	// stops the execution.
+	ctx, cancel := e.srvcEng.Ctx(ctx)
+	defer cancel()
 
 	eventID := event.Event.Event.ID
 	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
@@ -961,6 +975,16 @@ func (e *baseEngine) donTimeRequestTimeout(ctx context.Context, limiter limits.T
 		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.DONTime.RequestTimeout.Key)
 	}
 	return limit
+}
+
+// closing reports whether Close has begun.
+func (e *baseEngine) closing() bool {
+	select {
+	case <-e.srvcEng.StopChan:
+		return true
+	default:
+		return false
+	}
 }
 
 // shutdownCtx builds the close context: bounded by the shutdown timeout and
