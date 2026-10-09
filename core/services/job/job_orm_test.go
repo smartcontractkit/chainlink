@@ -449,6 +449,8 @@ executorConfig = "Foo = 'Bar'"
 }
 
 func TestORM_CreateJob_VRF(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
