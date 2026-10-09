@@ -13,6 +13,7 @@ import (
 )
 
 func Test_WrapperFactory(t *testing.T) {
+	t.Parallel()
 	validFactory := NewReportingPluginFactory[uint](
 		&fakeFactory[uint]{},
 		logger.TestLogger(t),
@@ -36,6 +37,7 @@ func Test_WrapperFactory(t *testing.T) {
 }
 
 func Test_MetricViews(t *testing.T) {
+	t.Parallel()
 	views := MetricViews()
 	require.Len(t, views, 2)
 }

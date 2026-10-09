@@ -16,6 +16,7 @@ import (
 )
 
 func TestRelayerSet_List(t *testing.T) {
+	t.Parallel()
 	testRelayersMap := map[types.RelayID]loop.Relayer{}
 	testRelayersMap[types.RelayID{Network: "N1", ChainID: "C1"}] = &TestRelayer{}
 	testRelayersMap[types.RelayID{Network: "N2", ChainID: "C2"}] = &TestRelayer{}
@@ -43,6 +44,7 @@ func TestRelayerSet_List(t *testing.T) {
 }
 
 func TestRelayerSet_Get(t *testing.T) {
+	t.Parallel()
 	testRelayersMap := map[types.RelayID]loop.Relayer{}
 	testRelayersMap[types.RelayID{Network: "N1", ChainID: "C1"}] = &TestRelayer{}
 	testRelayersMap[types.RelayID{Network: "N2", ChainID: "C2"}] = &TestRelayer{}
@@ -61,6 +63,7 @@ func TestRelayerSet_Get(t *testing.T) {
 }
 
 func TestRelayerSet_NewPluginProvider(t *testing.T) {
+	t.Parallel()
 	testRelayersMap := map[types.RelayID]loop.Relayer{}
 	testRelayer := &TestRelayer{}
 	testRelayersMap[types.RelayID{Network: "N1", ChainID: "C1"}] = testRelayer

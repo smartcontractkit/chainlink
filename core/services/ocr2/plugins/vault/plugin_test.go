@@ -86,6 +86,7 @@ func assertLimit[N limits.Number](t *testing.T, expected int, limiter limits.Bou
 }
 
 func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
@@ -178,6 +179,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 }
 
 func TestPlugin_ReportingPluginFactory_PassesValidate(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
@@ -206,6 +208,7 @@ func TestPlugin_ReportingPluginFactory_PassesValidate(t *testing.T) {
 }
 
 func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
@@ -263,6 +266,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 }
 
 func TestPlugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
@@ -285,6 +289,7 @@ func TestPlugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
 }
 
 func TestPlugin_Observation_NothingInBatch(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t)
 
 	seqNr := uint64(1)
@@ -327,6 +332,7 @@ func TestPlugin_Observation_GetSecretsRequest_OmitsRequest(t *testing.T) {
 }
 
 func TestPlugin_Observation_PendingQueueEnabled_EmptyPendingQueue(t *testing.T) {
+	t.Parallel()
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := newTestReportingPlugin(t, withStore(store))
 
@@ -386,6 +392,7 @@ func TestPlugin_Observation_PendingQueueEnabled_EmptyPendingQueue(t *testing.T) 
 }
 
 func TestPlugin_Observation_PendingQueueEnabled_WithPendingQueueProvided(t *testing.T) {
+	t.Parallel()
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := newTestReportingPlugin(t, withStore(store))
 
@@ -465,6 +472,7 @@ func TestPlugin_Observation_PendingQueueEnabled_WithPendingQueueProvided(t *test
 }
 
 func TestPlugin_Observation_PendingQueueEnabled_ItemBothInPendingQueueAndLocalQueue(t *testing.T) {
+	t.Parallel()
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := newTestReportingPlugin(t, withStore(store))
 
@@ -578,6 +586,7 @@ func assertPendingQueueItemsContain(t *testing.T, gotItems [][]byte, expected ma
 }
 
 func TestPendingQueueBlobMarshalUnmarshal_legacyAndBatch(t *testing.T) {
+	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "o", Namespace: "n", Key: "k"}
 	req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id}}}
 	any1, err := anypb.New(req)
@@ -604,6 +613,7 @@ func TestPendingQueueBlobMarshalUnmarshal_legacyAndBatch(t *testing.T) {
 }
 
 func TestPrepareObservationPendingQueueBlobs_packsManySmallItemsInOneObservation(t *testing.T) {
+	t.Parallel()
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := newTestReportingPlugin(t, withStore(store))
 
@@ -651,6 +661,7 @@ func TestPrepareObservationPendingQueueBlobs_packsManySmallItemsInOneObservation
 }
 
 func TestPrepareObservationPendingQueueBlobs_flushesAndContinuesWhenBatchFull(t *testing.T) {
+	t.Parallel()
 	// Items are larger than half maxBlobBytes so only one fits per blob.
 	// The loop must flush the current batch and start a new one for each item.
 	store := requests.NewStore[*vaulttypes.Request]()
@@ -699,6 +710,7 @@ func TestPrepareObservationPendingQueueBlobs_flushesAndContinuesWhenBatchFull(t 
 }
 
 func TestPrepareObservationPendingQueueBlobs_truncatesWhenHandleCountExceeded(t *testing.T) {
+	t.Parallel()
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := newTestReportingPlugin(t, withStore(store))
 
@@ -811,6 +823,7 @@ func (e *errorBlobBroadcastFetcher) FetchBlob(context.Context, ocr3_1types.BlobH
 }
 
 func TestPlugin_Observation_PendingQueueEnabled_BroadcastsPendingQueueBlobsInParallel(t *testing.T) {
+	t.Parallel()
 	store := requests.NewStore[*vaulttypes.Request]()
 	// Blob payload cap: one pending item fits in a blob, two batched items do not — two BroadcastBlob calls.
 	// Blob cap between one item (155B) and two batched (316B) so two BroadcastBlob calls occur.
@@ -870,6 +883,7 @@ func TestPlugin_Observation_PendingQueueEnabled_BroadcastsPendingQueueBlobsInPar
 }
 
 func TestPlugin_Observation_PendingQueueEnabled_BroadcastBlobError(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := newTestReportingPlugin(t, withStore(store), withLggr(lggr))
@@ -908,6 +922,7 @@ func TestPlugin_Observation_PendingQueueEnabled_BroadcastBlobError(t *testing.T)
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
+	t.Parallel()
 	tcs := []struct {
 		name            string
 		id              *vaultcommon.SecretIdentifier
@@ -1023,6 +1038,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 }
 
 func TestPlugin_Observation_GetSecretsRequest_ResponseUsesCanonicalIdentifier(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
@@ -1096,6 +1112,7 @@ func TestPlugin_Observation_GetSecretsRequest_ResponseUsesCanonicalIdentifier(t 
 }
 
 func TestPlugin_Observation_GetSecretsRequest_WorkflowOwnerLabelAccepted(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
@@ -1156,6 +1173,7 @@ func TestPlugin_Observation_GetSecretsRequest_WorkflowOwnerLabelAccepted(t *test
 }
 
 func TestPlugin_Observation_GetSecretsRequest_WrongOwnerLabelRejected(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
@@ -1215,6 +1233,7 @@ func TestPlugin_Observation_GetSecretsRequest_WrongOwnerLabelRejected(t *testing
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t)
 
 	seqNr := uint64(1)
@@ -1266,6 +1285,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -1335,6 +1355,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 }
 
 func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
@@ -1400,6 +1421,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
@@ -1473,6 +1495,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T)
 }
 
 func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
@@ -1660,6 +1683,7 @@ func TestPlugin_Observation_GetSecretsRequest_BinaryShares(t *testing.T) {
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
+	t.Parallel()
 	tcs := []struct {
 		name            string
 		id              *vaultcommon.SecretIdentifier
@@ -1775,6 +1799,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t)
 
 	seqNr := uint64(1)
@@ -1860,6 +1885,7 @@ func TestPlugin_Observation_GetSecretsRequest_DisallowsDuplicateRequests(t *test
 }
 
 func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withBatchSize(10), withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]))
@@ -1967,6 +1993,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t)
 
 	seqNr := uint64(1)
@@ -2011,6 +2038,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxCiphertextLengthBytes(10))
 
 	seqNr := uint64(1)
@@ -2056,6 +2084,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {
+	t.Parallel()
 	// Wrong key
 	_, wrongPublicKey, _, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -2112,6 +2141,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_SecretLabelIsInvalid(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
@@ -2171,6 +2201,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretLabelIsInvalid(t *testing
 }
 
 func TestPlugin_Observation_UpdateSecretsRequest_SecretLabelIsInvalid(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
@@ -2230,6 +2261,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretLabelIsInvalid(t *testing
 }
 
 func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withBatchSize(10), withKeys(pk, shares[0]))
@@ -2309,6 +2341,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 }
 
 func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
@@ -2382,6 +2415,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
@@ -2441,6 +2475,7 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_WorkflowOwnerLabelAccepted(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
@@ -2485,6 +2520,7 @@ func TestPlugin_Observation_CreateSecretsRequest_WorkflowOwnerLabelAccepted(t *t
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_WrongOwnerLabelRejected(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
@@ -2682,6 +2718,7 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 }
 
 func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -2739,6 +2776,7 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(4, 10)
 	require.NoError(t, err)
 
@@ -2818,6 +2856,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 }
 
 func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -2888,6 +2927,7 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -3106,6 +3146,7 @@ func TestPlugin_ValidateObservation_RejectsExcessObservations(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -3149,6 +3190,7 @@ func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T)
 }
 
 func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -3225,6 +3267,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -3286,6 +3329,7 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -3778,6 +3822,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_DeterministicAcrossInvocations
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -3906,6 +3951,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testin
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_CapsSharesAtTwoFPlusOne(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -4052,6 +4098,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_OmitsOutcomeRequest(t *testing
 }
 
 func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -4138,6 +4185,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 }
 
 func TestPlugin_StateTransition_CreateSecretsRequest_PerOwnerLimitEnforcedWhenAtCapacity(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxSecretsPerOwner(1), withOnchainCfg(4, 1))
 
 	const owner = "0x2222222222222222222222222222222222222222"
@@ -4210,6 +4258,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_PerOwnerLimitEnforcedWhenAt
 }
 
 func TestPlugin_StateTransition_CreateSecrets_ResponseOwnerMatchesStoredIdentifier(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -4300,6 +4349,7 @@ func TestPlugin_StateTransition_CreateSecrets_ResponseOwnerMatchesStoredIdentifi
 }
 
 func TestPlugin_Reports(t *testing.T) {
+	t.Parallel()
 	value := "encrypted-value"
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
@@ -4466,6 +4516,7 @@ func TestPlugin_Reports_JSONReportOmitUnpopulated(t *testing.T) {
 }
 
 func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
+	t.Parallel()
 	tcs := []struct {
 		name            string
 		id              *vaultcommon.SecretIdentifier
@@ -4581,6 +4632,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 }
 
 func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
 
 	seqNr := uint64(1)
@@ -4628,6 +4680,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *t
 }
 
 func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t)
 
 	seqNr := uint64(1)
@@ -4672,6 +4725,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T)
 }
 
 func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxCiphertextLengthBytes(10))
 
 	seqNr := uint64(1)
@@ -4717,6 +4771,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *te
 }
 
 func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {
+	t.Parallel()
 	// Wrong key
 	_, wrongPublicKey, _, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -4773,6 +4828,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWith
 }
 
 func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -4858,6 +4914,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 }
 
 func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -4959,6 +5016,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 }
 
 func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
+	t.Parallel()
 	value := "encrypted-value"
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
@@ -5029,6 +5087,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 }
 
 func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
 
 	id := &vaultcommon.SecretIdentifier{
@@ -5096,6 +5155,7 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 }
 
 func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
 
 	seqNr := uint64(1)
@@ -5142,6 +5202,7 @@ func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
 }
 
 func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
 
 	seqNr := uint64(1)
@@ -5184,6 +5245,7 @@ func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.
 }
 
 func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -5280,6 +5342,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -5365,6 +5428,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 }
 
 func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
+	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
@@ -5430,6 +5494,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 }
 
 func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
 
 	seqNr := uint64(1)
@@ -5464,6 +5529,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
 }
 
 func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withMaxSecretsPerOwner(3))
 
 	md := &vaultcommon.StoredMetadata{
@@ -5548,6 +5614,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 }
 
 func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withMaxSecretsPerOwner(3))
 
 	md := &vaultcommon.StoredMetadata{
@@ -5628,6 +5695,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 }
 
 func TestPlugin_Observation_ListSecretIdentifiers_ListsSecretsForRequestOwner(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(
 		t,
 		withMaxSecretsPerOwner(5),
@@ -5670,6 +5738,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_ListsSecretsForRequestOwner(t 
 }
 
 func TestPlugin_Observation_ListSecretIdentifiers_DoesNotFallbackWhenGateDisabled(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxSecretsPerOwner(5), withMaxIdentifierLengths(50, 50, 50))
 
 	const (
@@ -5709,6 +5778,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_DoesNotFallbackWhenGateDisable
 }
 
 func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
+	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
@@ -5770,6 +5840,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -5877,6 +5948,7 @@ func (f *ctxCallbackBlobFetcher) FetchBlob(context.Context, ocr3_1types.BlobHand
 }
 
 func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(
@@ -6020,6 +6092,7 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_StoresPendingQueue_AllConsensusItems(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
@@ -6163,6 +6236,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_AllConsensusItems(t *testing.
 }
 
 func TestPlugin_StateTransition_OutcomesStoppedByPrecursorWireSize(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -6431,6 +6505,7 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservationsFromOneNode(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -6503,6 +6578,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 // TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation verifies that an observation
 // with exactly 2*batchSize pending queue items (the maximum Observation can produce) is accepted.
 func TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
@@ -6559,6 +6635,7 @@ func TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation(t *testin
 }
 
 func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -6906,6 +6983,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservation_GetSecrets_MismatchedResponseOwnerRejected(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
@@ -6963,6 +7041,7 @@ func TestPlugin_ValidateObservation_GetSecrets_MismatchedResponseOwnerRejected(t
 }
 
 func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -7053,6 +7132,7 @@ func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -7227,6 +7307,7 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			rdr := &kv{m: make(map[string]response)}
 
 			anyp, err := anypb.New(tc.obs.GetGetSecretsRequest())
@@ -7279,6 +7360,7 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservation_CiphertextSize(t *testing.T) {
+	t.Parallel()
 	_, _, _, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
@@ -7442,6 +7524,7 @@ func TestPlugin_ValidateObservation_CiphertextSize(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			rdr := &kv{m: make(map[string]response)}
 
 			var anyp *anypb.Any
@@ -7489,6 +7572,7 @@ func TestPlugin_ValidateObservation_CiphertextSize(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
+	t.Parallel()
 	validID := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	validCiphertext := hex.EncodeToString(make([]byte, 5))
 
@@ -7745,6 +7829,7 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			// Use small limits (10 bytes) to trigger length errors on identifiers above.
 			r := newTestReportingPlugin(
 				t,
@@ -7800,6 +7885,7 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -7868,6 +7954,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *te
 }
 
 func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -7944,6 +8031,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
 }
 
 func TestPlugin_MaxShareSize(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
@@ -8039,6 +8127,7 @@ func makeObservation(t *testing.T, reqType vaultcommon.RequestType, count int) *
 }
 
 func TestPlugin_ValidateObservation_RequestBatchLimit(t *testing.T) {
+	t.Parallel()
 	maxRequestBatchSize := 2
 
 	tests := []struct {
@@ -8075,6 +8164,7 @@ func TestPlugin_ValidateObservation_RequestBatchLimit(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 			require.NoError(t, err)
 			r := newTestReportingPlugin(
@@ -8129,6 +8219,7 @@ func TestPlugin_ValidateObservation_RequestBatchLimit(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservation_ListSecretIdentifiersExceedsMaxSecretsPerOwner(t *testing.T) {
+	t.Parallel()
 	maxSecretsPerOwner := 3
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -8231,7 +8322,9 @@ func TestCheckRequestBatchSize_UserErrorSurfacesRealMessage(t *testing.T) {
 }
 
 func TestLogUserErrorAware(t *testing.T) {
+	t.Parallel()
 	t.Run("logs at debug level for userError", func(t *testing.T) {
+		t.Parallel()
 		lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 		err := vaulttypes.NewUserError("key does not exist")
 
@@ -8250,6 +8343,7 @@ func TestLogUserErrorAware(t *testing.T) {
 	})
 
 	t.Run("logs at error level for internal error", func(t *testing.T) {
+		t.Parallel()
 		lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 		err := errors.New("database connection lost")
 
@@ -8268,6 +8362,7 @@ func TestLogUserErrorAware(t *testing.T) {
 	})
 
 	t.Run("logs at debug level for wrapped userError", func(t *testing.T) {
+		t.Parallel()
 		lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 		err := fmt.Errorf("validation: %w", vaulttypes.NewUserError("bad input"))
 
@@ -8280,6 +8375,7 @@ func TestLogUserErrorAware(t *testing.T) {
 	})
 
 	t.Run("includes all key-value pairs in log entry", func(t *testing.T) {
+		t.Parallel()
 		lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 		err := errors.New("internal error")
 
@@ -8294,11 +8390,13 @@ func TestLogUserErrorAware(t *testing.T) {
 }
 
 func TestPlugin_broadcastBlobPayloads(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
 
 	t.Run("empty payloads returns empty slice", func(t *testing.T) {
+		t.Parallel()
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
 		}
@@ -8311,6 +8409,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("all payloads broadcast successfully", func(t *testing.T) {
+		t.Parallel()
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
 		}
@@ -8329,6 +8428,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("does not exceed max concurrent broadcasts", func(t *testing.T) {
+		t.Parallel()
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
 		}
@@ -8408,6 +8508,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("failed broadcast is skipped and logged", func(t *testing.T) {
+		t.Parallel()
 		lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
@@ -8437,6 +8538,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("all broadcasts fail returns empty slice", func(t *testing.T) {
+		t.Parallel()
 		lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
@@ -8456,6 +8558,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("marshal blob failure skips item and logs warning", func(t *testing.T) {
+		t.Parallel()
 		lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return nil, errors.New("marshal error")
@@ -8475,6 +8578,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("mix of broadcast and marshal failures", func(t *testing.T) {
+		t.Parallel()
 		lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 
 		marshalCallCount := atomic.Int32{}
@@ -8508,6 +8612,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("context cancellation propagates error", func(t *testing.T) {
+		t.Parallel()
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
 		}
@@ -8529,6 +8634,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("context deadline exceeded propagates error", func(t *testing.T) {
+		t.Parallel()
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
 		}
@@ -8551,6 +8657,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 	})
 
 	t.Run("slow broadcast hits per-call timeout and is skipped", func(t *testing.T) {
+		t.Parallel()
 		lggr, observed := logger.TestObserved(t, zapcore.WarnLevel)
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
@@ -8694,6 +8801,7 @@ func TestProperty_broadcastBlobPayloads_MaxSizeRequestBlobCapBoundaries(t *testi
 
 	for _, rt := range requestTypes {
 		t.Run(rt.name, func(t *testing.T) {
+			t.Parallel()
 			anyMsg, err := anypb.New(rt.payload)
 			require.NoError(t, err)
 

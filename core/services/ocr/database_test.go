@@ -21,6 +21,7 @@ import (
 )
 
 func Test_DB_ReadWriteState(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 
 	configDigest := cltest.MakeConfigDigest(t)
@@ -29,6 +30,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
 
 	t.Run("reads and writes state", func(t *testing.T) {
+		t.Parallel()
 		t.Log("creating DB")
 		odb := ocr.NewTestDB(t, db, spec.ID)
 		state := ocrtypes.PersistentState{
@@ -47,6 +49,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("updates state", func(t *testing.T) {
+		t.Parallel()
 		odb := ocr.NewTestDB(t, db, spec.ID)
 		newState := ocrtypes.PersistentState{
 			Epoch:                2,
@@ -64,6 +67,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
+		t.Parallel()
 		odb := ocr.NewTestDB(t, db, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                3,
@@ -84,6 +88,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong config digest", func(t *testing.T) {
+		t.Parallel()
 		odb := ocr.NewTestDB(t, db, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                4,
@@ -102,6 +107,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 }
 
 func Test_DB_ReadWriteConfig(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 
@@ -119,6 +125,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	transmitterAddress := key.Address
 
 	t.Run("reads and writes config", func(t *testing.T) {
+		t.Parallel()
 		db := ocr.NewTestDB(t, sqlDB, spec.ID)
 
 		err := db.WriteConfig(t.Context(), config)
@@ -131,6 +138,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("updates config", func(t *testing.T) {
+		t.Parallel()
 		db := ocr.NewTestDB(t, sqlDB, spec.ID)
 
 		newConfig := ocrtypes.ContractConfig{
@@ -152,6 +160,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
+		t.Parallel()
 		db := ocr.NewTestDB(t, sqlDB, spec.ID)
 
 		err := db.WriteConfig(t.Context(), config)
@@ -183,6 +192,7 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 }
 
 func Test_DB_PendingTransmissions(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -206,6 +216,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	}
 
 	t.Run("stores and retrieves pending transmissions", func(t *testing.T) {
+		t.Parallel()
 		p := ocrtypes.PendingTransmission{
 			Time:             time.Now(),
 			Median:           ocrtypes.Observation(big.NewInt(41)),
@@ -291,6 +302,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	})
 
 	t.Run("deletes pending transmission by key", func(t *testing.T) {
+		t.Parallel()
 		p := ocrtypes.PendingTransmission{
 			Time:             time.Unix(100, 0),
 			Median:           ocrtypes.Observation(big.NewInt(44)),
@@ -318,6 +330,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	})
 
 	t.Run("allows multiple duplicate keys for different spec ID", func(t *testing.T) {
+		t.Parallel()
 		p := ocrtypes.PendingTransmission{
 			Time:             time.Unix(100, 0),
 			Median:           ocrtypes.Observation(big.NewInt(44)),
@@ -336,6 +349,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	})
 
 	t.Run("deletes pending transmission older than", func(t *testing.T) {
+		t.Parallel()
 		p := ocrtypes.PendingTransmission{
 			Time:             time.Unix(100, 0),
 			Median:           ocrtypes.Observation(big.NewInt(41)),
@@ -387,6 +401,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 }
 
 func Test_DB_LatestRoundRequested(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 
@@ -406,6 +421,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	}
 
 	t.Run("saves latest round requested", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		err := odb.SaveLatestRoundRequested(ctx, rr)
 		require.NoError(t, err)
@@ -426,6 +442,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	})
 
 	t.Run("loads latest round requested", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		// There is no round for db2
 		lrr, err := odb2.LoadLatestRoundRequested(ctx)
@@ -439,6 +456,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	})
 
 	t.Run("spec with latest round requested can be deleted", func(t *testing.T) {
+		t.Parallel()
 		_, err := sqlDB.Exec(`DELETE FROM ocr_oracle_specs`)
 		assert.NoError(t, err)
 	})

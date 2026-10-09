@@ -13,6 +13,7 @@ import (
 )
 
 func Test_ReportingPlugin_WrapsAllMethods(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -69,6 +70,7 @@ func Test_ReportingPlugin_WrapsAllMethods(t *testing.T) {
 }
 
 func Test_ReportingPlugin_PropagatesErrors(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -110,6 +112,7 @@ func Test_ReportingPlugin_PropagatesErrors(t *testing.T) {
 }
 
 func Test_InstrumentedBlobBroadcastFetcher(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -140,6 +143,7 @@ func Test_InstrumentedBlobBroadcastFetcher(t *testing.T) {
 }
 
 func Test_InstrumentedBlobBroadcastFetcher_PropagatesErrors(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -162,6 +166,7 @@ func Test_InstrumentedBlobBroadcastFetcher_PropagatesErrors(t *testing.T) {
 }
 
 func Test_InstrumentedBlobFetcher(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -175,6 +180,7 @@ func Test_InstrumentedBlobFetcher(t *testing.T) {
 }
 
 func Test_InstrumentedBlobFetcher_PropagatesErrors(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -187,6 +193,7 @@ func Test_InstrumentedBlobFetcher_PropagatesErrors(t *testing.T) {
 }
 
 func Test_ReportingPlugin_WrapsBlobs(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -228,6 +235,7 @@ func Test_ReportingPlugin_WrapsBlobs(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReader(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -247,6 +255,7 @@ func Test_InstrumentedKVStateReader(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReader_PropagatesErrors(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -259,6 +268,7 @@ func Test_InstrumentedKVStateReader_PropagatesErrors(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReadWriter(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -290,6 +300,7 @@ func Test_InstrumentedKVStateReadWriter(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReadWriter_PropagatesErrors(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -311,6 +322,7 @@ func Test_InstrumentedKVStateReadWriter_PropagatesErrors(t *testing.T) {
 }
 
 func Test_ReportingPlugin_WrapsKV(t *testing.T) {
+	t.Parallel()
 	metrics, err := newPluginMetrics("test", "abc")
 	require.NoError(t, err)
 
@@ -372,7 +384,7 @@ type fakeKVStateReadWriter struct {
 	deleteCalls int
 }
 
-func (f *fakeKVStateReadWriter) Write(key []byte, value []byte) error {
+func (f *fakeKVStateReadWriter) Write(key, value []byte) error {
 	f.writeCalls++
 	if f.err != nil {
 		return f.err

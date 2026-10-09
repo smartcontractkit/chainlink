@@ -31,6 +31,7 @@ func testPeerIDProvider() PeerIDProvider {
 }
 
 func TestOCRConfigService_StartClose(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -40,6 +41,7 @@ func TestOCRConfigService_StartClose(t *testing.T) {
 }
 
 func TestOCRConfigService_Start_NilPeerIDProvider(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, nil, 1, "0x1234567890abcdef")
 
@@ -50,6 +52,7 @@ func TestOCRConfigService_Start_NilPeerIDProvider(t *testing.T) {
 }
 
 func TestOCRConfigService_OnNewRegistry(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -166,6 +169,7 @@ func TestOCRConfigService_GetContractConfig(t *testing.T) {
 }
 
 func TestOCRConfigService_GetConfigTracker(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -184,6 +188,7 @@ func TestOCRConfigService_GetConfigTracker(t *testing.T) {
 }
 
 func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -248,6 +253,7 @@ func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 }
 
 func TestOCRConfigService_GetConfigDigester(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -266,6 +272,7 @@ func TestOCRConfigService_GetConfigDigester(t *testing.T) {
 }
 
 func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -322,6 +329,7 @@ func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 }
 
 func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -417,6 +425,7 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 }
 
 func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -475,6 +484,7 @@ func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 }
 
 func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -536,6 +546,7 @@ func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 }
 
 func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -593,6 +604,7 @@ func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 }
 
 func TestOCRConfigService_LegacyFallbackAfterRegistryReceived(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -640,14 +652,17 @@ func (m *mockConfigTracker) Notify() <-chan struct{} { return nil }
 func (m *mockConfigTracker) LatestConfigDetails(ctx context.Context) (uint64, ocrtypes.ConfigDigest, error) {
 	return m.configCount, m.configDigest, nil
 }
+
 func (m *mockConfigTracker) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
 	return ocrtypes.ContractConfig{ConfigCount: m.configCount, ConfigDigest: m.configDigest}, nil
 }
+
 func (m *mockConfigTracker) LatestBlockHeight(ctx context.Context) (uint64, error) {
 	return m.configCount, nil
 }
 
 func TestOCRConfigService_MultipleOCRKeys(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
@@ -716,6 +731,7 @@ func TestOCRConfigService_MultipleOCRKeys(t *testing.T) {
 }
 
 func TestOCRConfigService_DONMembershipFiltering(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 
 	// Create a peer ID for this node.

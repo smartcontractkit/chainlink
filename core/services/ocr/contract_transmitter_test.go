@@ -17,6 +17,7 @@ import (
 )
 
 func Test_ContractTransmitter_ChainID(t *testing.T) {
+	t.Parallel()
 	chainID := big.NewInt(42)
 	contractABI, err := abi.JSON(strings.NewReader(offchainaggregator.OffchainAggregatorABI))
 	require.NoError(t, err)

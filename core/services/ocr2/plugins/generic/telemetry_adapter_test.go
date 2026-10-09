@@ -25,7 +25,7 @@ func (m *mockEndpoint) SendLog(payload []byte) { m.payload = payload }
 
 type mockGenerator struct{}
 
-func (m *mockGenerator) GenMonitoringEndpoint(network string, chainID string, contractID string, telemetryType synchronization.TelemetryType) commontypes.MonitoringEndpoint {
+func (m *mockGenerator) GenMonitoringEndpoint(network, chainID, contractID string, telemetryType synchronization.TelemetryType) commontypes.MonitoringEndpoint {
 	return &mockEndpoint{
 		network:       network,
 		chainID:       chainID,
@@ -34,11 +34,12 @@ func (m *mockGenerator) GenMonitoringEndpoint(network string, chainID string, co
 	}
 }
 
-func (m *mockGenerator) GenMultitypeMonitoringEndpoint(network string, chainID string, contractID string) telemetry.MultitypeMonitoringEndpoint {
+func (m *mockGenerator) GenMultitypeMonitoringEndpoint(network, chainID, contractID string) telemetry.MultitypeMonitoringEndpoint {
 	return nil
 }
 
 func TestTelemetryAdapter(t *testing.T) {
+	t.Parallel()
 	ta := generic.NewTelemetryAdapter(&mockGenerator{})
 
 	tests := []struct {
@@ -93,6 +94,7 @@ func TestTelemetryAdapter(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			err := ta.Send(t.Context(), test.networkID, test.chainID, test.contractID, test.telemetryType, test.payload)
 			if test.errorMsg != "" {
 				assert.ErrorContains(t, err, test.errorMsg)

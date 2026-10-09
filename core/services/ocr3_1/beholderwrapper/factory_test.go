@@ -15,6 +15,7 @@ import (
 )
 
 func Test_WrapperFactory(t *testing.T) {
+	t.Parallel()
 	validFactory := NewReportingPluginFactory(
 		&fakeFactory[uint]{},
 		logger.TestLogger(t),
