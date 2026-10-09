@@ -199,11 +199,6 @@ func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	}
 }
 
-// WithSpecMeter supplies the SpecMeter that emits metering.v1.MeterRecord
-// events for the workflow_specs_v2 storage lifecycle. The handler runs it as a
-// sub-service and reports storage transitions through EmitSpecDelta; all other
-// metering concerns (ResourceManager lifecycle, identity, snapshots) live on
-// the meter. A nil meter (metering disabled) is a valid no-op.
 // WithUsageMeter supplies the ResourceManager and base identity used by engines
 // to emit cre:workflow:compute usage MeterRecords. The handler owns the
 // ResourceManager lifecycle as a sub-service.
@@ -214,6 +209,11 @@ func WithUsageMeter(rm *resourcemanager.ResourceManager, identity resourcemanage
 	}
 }
 
+// WithSpecMeter supplies the SpecMeter that emits metering.v1.MeterRecord
+// events for the workflow_specs_v2 storage lifecycle. The handler runs it as a
+// sub-service and reports storage transitions through EmitSpecDelta; all other
+// metering concerns (ResourceManager lifecycle, identity, snapshots) live on
+// the meter. A nil meter (metering disabled) is a valid no-op.
 func WithSpecMeter(sm *SpecMeter) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.specMeter = sm

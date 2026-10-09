@@ -738,10 +738,6 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 			"computeMs", computeDuration.Milliseconds())
 	}
 
-	// Capability usage record for ordinary compute. Emitted for successful and
-	// failed executions alike (the compute happened), outside the legacy
-	// metering block so a legacy metering failure cannot suppress it, and
-	// skipped when the enclave ran the execution (metered on that path).
 	e.emitComputeUsage(ctx, executionLogger, executionID, computeDuration)
 
 	if isMetering {
@@ -1094,10 +1090,10 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 // billing reconciler (fields: executionID, eventID, resourceType, value, orgID)
 // and must stay stable. Fail-open: never returns an error to the execution.
 func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, executionID string, computeDuration time.Duration) {
-	if e.cfg.UsageMeter == nil {
-		return
-	}
-	if e.cfg.ConfidentialExecutions != nil && e.cfg.ConfidentialExecutions.TookExecution(executionID) {
+	// Consume the confidential mark unconditionally: the module stores one per
+	// delegated execution whether or not a usage meter is configured.
+	confidential := e.cfg.ConfidentialExecutions != nil && e.cfg.ConfidentialExecutions.TookExecution(executionID)
+	if e.cfg.UsageMeter == nil || confidential {
 		return
 	}
 	resourceID, err := resourcemanager.WorkflowUsageResourceID(e.cfg.WorkflowID, executionID)

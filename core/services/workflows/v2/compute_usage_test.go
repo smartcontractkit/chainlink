@@ -15,9 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
+	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	meteringpb "github.com/smartcontractkit/chainlink-protos/metering/go"
 
-	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
@@ -108,6 +108,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 	identity := resourcemanager.WithWorkflowUsagePool(resourcemanager.ResourceIdentity{Product: "cre", Service: resourcemanager.EmittingServiceWorkflowEngine}, resourcemanager.ResourceTypeWorkflowCompute)
 
 	t.Run("emits one compute record per execution and logs the contract line", func(t *testing.T) {
+		t.Parallel()
 		lggr, obs := logger.TestObserved(t, zapcore.InfoLevel)
 		cfg := defaultTestConfig(t, nil)
 		cfg.Lggr = lggr
@@ -143,6 +144,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 	})
 
 	t.Run("emits for failed executions too", func(t *testing.T) {
+		t.Parallel()
 		cfg := defaultTestConfig(t, nil)
 		rm, emitter := newUsageMeter(t)
 		cfg.UsageMeter = rm
@@ -154,6 +156,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 	})
 
 	t.Run("skips executions delegated to the confidential module", func(t *testing.T) {
+		t.Parallel()
 		cfg := defaultTestConfig(t, nil)
 		rm, emitter := newUsageMeter(t)
 		cfg.UsageMeter = rm
@@ -166,6 +169,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 	})
 
 	t.Run("emits nothing when no usage meter is configured", func(t *testing.T) {
+		t.Parallel()
 		lggr, obs := logger.TestObserved(t, zapcore.InfoLevel)
 		cfg := defaultTestConfig(t, nil)
 		cfg.Lggr = lggr
