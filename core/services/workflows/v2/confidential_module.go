@@ -58,7 +58,9 @@ func ParseWorkflowAttributes(data []byte) (WorkflowAttributes, error) {
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
 type ConfidentialModule struct {
-	// handled marks executions delegated to the enclave; see TookExecution.
+	// handled records executions delegated to the enclave, keyed by execution
+	// id, with the enclave-reported duration when the enclave supplied one;
+	// see TookExecution.
 	handled           sync.Map
 	capRegistry       registry.CapabilitiesRegistry
 	binaryURL         string
@@ -153,7 +155,7 @@ func (m *ConfidentialModule) Execute(
 	}
 	m.executionHandlers.AddExecution(m.workflowID, workflowExecutionID, rawSecretsHelper)
 	defer m.executionHandlers.RemoveExecution(m.workflowID, workflowExecutionID)
-	m.handled.Store(workflowExecutionID, struct{}{})
+	m.handled.Store(workflowExecutionID, ConfidentialExecution{})
 
 	requirements := loadAndDelete[*sdkpb.Requirements](&m.requirements, workflowExecutionID)
 	restrictions := loadAndDelete[*sdkpb.Restrictions](&m.restritions, workflowExecutionID)
@@ -188,20 +190,41 @@ func (m *ConfidentialModule) Execute(
 		return nil, err
 	}
 
+	// Presence distinguishes an enclave that measured the run from an older
+	// enclave that does not report it; a measured zero is still a measurement.
+	if capOutput.ExecutionDurationMs != nil {
+		m.handled.Store(workflowExecutionID, ConfidentialExecution{
+			Measured: true,
+			Duration: time.Duration(capOutput.GetExecutionDurationMs()) * time.Millisecond,
+		})
+	}
+
 	return capOutput.SdkExecutionResult, nil
 }
 
-// ConfidentialExecutionTracker answers whether an execution ran in the enclave.
-// TookExecution consumes the mark, so it must be called at most once per
-// execution, after the module's Execute has returned.
+// ConfidentialExecution describes an execution the enclave ran. Measured is
+// true when the enclave reported execution_duration_ms; Duration is that value
+// (wall-clock of the WASM run, same unit as ordinary compute).
+type ConfidentialExecution struct {
+	Measured bool
+	Duration time.Duration
+}
+
+// ConfidentialExecutionTracker answers whether an execution ran in the enclave
+// and, if so, what the enclave measured. TookExecution consumes the record, so
+// it must be called at most once per execution, after the module's Execute has
+// returned.
 type ConfidentialExecutionTracker interface {
-	TookExecution(executionID string) bool
+	TookExecution(executionID string) (ConfidentialExecution, bool)
 }
 
 // TookExecution implements ConfidentialExecutionTracker.
-func (m *ConfidentialModule) TookExecution(executionID string) bool {
-	_, ok := m.handled.LoadAndDelete(executionID)
-	return ok
+func (m *ConfidentialModule) TookExecution(executionID string) (ConfidentialExecution, bool) {
+	v, ok := m.handled.LoadAndDelete(executionID)
+	if !ok {
+		return ConfidentialExecution{}, false
+	}
+	return v.(ConfidentialExecution), true
 }
 
 func (m *ConfidentialModule) SetRequirements(executionID string, requirements *sdkpb.Requirements) {
