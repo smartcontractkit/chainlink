@@ -215,11 +215,18 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 		))
 	defer span.End()
 
-	var err error
-	if notStarted := e.srvcEng.IfStarted(func() error { err = e.startExecution(ctx, event); return nil }); notStarted != nil {
-		return ErrEngineClosed
+	// The closure always returns nil, so a non-nil IfStarted return can only
+	// mean "not started". Join the sentinel so callers can errors.Is it and
+	// treat shutdown races as expected.
+	var execErr error
+	runIfStarted := func() error {
+		execErr = e.startExecution(ctx, event)
+		return nil
 	}
-	return err
+	if err := e.srvcEng.IfStarted(runIfStarted); err != nil {
+		return errors.Join(ErrEngineClosed, err)
+	}
+	return execErr
 }
 
 // Trigger subscription source labels for the
