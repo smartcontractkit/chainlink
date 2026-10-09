@@ -417,6 +417,7 @@ func secretsGetTestParams(t *testing.T) confidentialrelaytypes.SecretsRequestPar
 }
 
 func TestHandler_HandleGatewayMessage(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		registry        func(t *testing.T) *mockCapRegistry
@@ -740,6 +741,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			gwConn := &mockGatewayConnector{}
 			reg := tt.registry(t)
 			h := newTestHandler(t, reg, gwConn)
@@ -793,20 +795,28 @@ func assertValidSecretsSignature(
 }
 
 func TestHandler_Lifecycle(t *testing.T) {
-	gwConn := &mockGatewayConnector{}
-	h := newTestHandler(t, &mockCapRegistry{}, gwConn)
+	t.Parallel()
 
 	t.Run("start registers handler", func(t *testing.T) {
+		t.Parallel()
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, &mockCapRegistry{}, gwConn)
 		require.NoError(t, h.Start(t.Context()))
 		assert.Equal(t, h.Methods(), gwConn.addedMethods)
 	})
 
 	t.Run("close removes handler", func(t *testing.T) {
+		t.Parallel()
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, &mockCapRegistry{}, gwConn)
+		require.NoError(t, h.Start(t.Context()))
 		require.NoError(t, h.Close())
 		assert.True(t, gwConn.removed)
 	})
 
 	t.Run("ID returns handler name", func(t *testing.T) {
+		t.Parallel()
+		h := newTestHandler(t, &mockCapRegistry{}, &mockGatewayConnector{})
 		id, err := h.ID(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, HandlerName, id)
@@ -941,6 +951,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 }
 
 func TestTranslateVaultResponse_BinaryShares(t *testing.T) {
+	t.Parallel()
 	enclaveKey := "aabbcc"
 	shareBytes := []byte("share-1")
 	vaultResp := &vault.GetSecretsResponse{
@@ -969,6 +980,7 @@ func TestTranslateVaultResponse_BinaryShares(t *testing.T) {
 }
 
 func TestTranslateVaultResponse_HexShares(t *testing.T) {
+	t.Parallel()
 	enclaveKey := "aabbcc"
 	shareBytes := []byte("share-1")
 	vaultResp := &vault.GetSecretsResponse{

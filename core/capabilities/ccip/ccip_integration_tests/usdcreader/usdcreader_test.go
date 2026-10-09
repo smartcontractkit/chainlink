@@ -43,6 +43,7 @@ import (
 const ChainID = 1337
 
 func Test_USDCReader_MessageHashes(t *testing.T) {
+	t.Parallel()
 	finalityDepth := 5
 
 	ctx := t.Context()
@@ -210,6 +211,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			hashes, err1 := usdcReader.MessagesByTokenID(ctx, tc.sourceChain, tc.destChain, tc.tokens)
 			require.NoError(t, err1)
 

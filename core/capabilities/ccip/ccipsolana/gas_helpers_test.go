@@ -14,6 +14,7 @@ import (
 )
 
 func Test_calculateMessageMaxGas(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		dataLen          int
 		numTokens        int
@@ -49,6 +50,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			msg := ccipocr3.Message{
 				Data:         make([]byte, tt.args.dataLen),
 				TokenAmounts: getTokenAmounts(t, tt.args.numTokens, tt.args.tokenGasOverhead),
@@ -71,6 +73,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 // TestCalculateMaxGas is taken from the ccip repo where the CalculateMerkleTreeGas and CalculateMessageMaxGas values
 // are combined to one function.
 func TestCalculateMaxGas(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name             string
 		numRequests      int
@@ -93,6 +96,7 @@ func TestCalculateMaxGas(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			msg := ccipocr3.Message{
 				Data:         make([]byte, tt.dataLength),
 				TokenAmounts: getTokenAmounts(t, tt.numberOfTokens, tt.tokenGasOverhead),

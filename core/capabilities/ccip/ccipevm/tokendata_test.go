@@ -11,6 +11,7 @@ import (
 )
 
 func Test_EVMTokenDataEncoder(t *testing.T) {
+	t.Parallel()
 	var empty usdcAttestationPayload
 	encoder := NewEVMTokenDataEncoder()
 
@@ -45,6 +46,7 @@ func Test_EVMTokenDataEncoder(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := encoder.EncodeUSDC(t.Context(), tc.message, tc.attestation)
 			require.NoError(t, err)
 

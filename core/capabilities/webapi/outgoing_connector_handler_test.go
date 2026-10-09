@@ -31,6 +31,7 @@ const (
 )
 
 func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
+	t.Parallel()
 	gateways := []string{"gateway1", "gateway2"}
 
 	type testCase struct {
@@ -113,6 +114,7 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			mockConnector := gcmocks.NewGatewayConnector(t)
 			lggr := logger.Test(t)
 
@@ -145,7 +147,9 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 }
 
 func TestHandleSingleNodeRequest(t *testing.T) {
+	t.Parallel()
 	t.Run("uses default timeout if no timeout is provided", func(t *testing.T) {
+		t.Parallel()
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		connector, connectorHandler := newFunctionWithDefaultConfig(
@@ -188,6 +192,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 	})
 
 	t.Run("uses timeout", func(t *testing.T) {
+		t.Parallel()
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		connector, connectorHandler := newFunctionWithDefaultConfig(
@@ -233,6 +238,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 	})
 
 	t.Run("cleans up in event of a timeout", func(t *testing.T) {
+		t.Parallel()
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		connector, connectorHandler := newFunctionWithDefaultConfig(
@@ -277,6 +283,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 	})
 
 	t.Run("rate limits outgoing traffic", func(t *testing.T) {
+		t.Parallel()
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		config := ServiceConfig{
@@ -409,6 +416,7 @@ func gatewayResponse(t *testing.T, msgID, privateKey string) *jsonrpc.Request[js
 }
 
 func TestServiceConfigDefaults(t *testing.T) {
+	t.Parallel()
 	t.Run("fills default RateLimiterConfigs", func(t *testing.T) {
 		var cfg ServiceConfig
 
@@ -430,6 +438,7 @@ func TestServiceConfigDefaults(t *testing.T) {
 }
 
 func TestOutgoingConnectorHandler_HandleGatewayMessage_InvalidMessage(t *testing.T) {
+	t.Parallel()
 	_, handler := newFunctionWithDefaultConfig(
 		t,
 		func(gc *gcmocks.GatewayConnector) {},

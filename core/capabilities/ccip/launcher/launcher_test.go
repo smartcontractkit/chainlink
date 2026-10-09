@@ -21,6 +21,7 @@ import (
 )
 
 func Test_createDON(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		lggr            logger.Logger
 		p2pID           ragep2ptypes.PeerID
@@ -226,6 +227,7 @@ func Test_createDON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if tt.expect != nil {
 				tt.expect(t, tt.args, tt.args.oracleCreator, tt.args.homeChainReader)
 			}
@@ -244,6 +246,7 @@ func Test_createDON(t *testing.T) {
 }
 
 func Test_updateDON(t *testing.T) {
+	t.Parallel()
 	var (
 		digest1 = utils.RandomBytes32()
 		digest2 = utils.RandomBytes32()
@@ -487,6 +490,7 @@ func Test_updateDON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if tt.expect != nil {
 				tt.expect(t, tt.args, tt.args.oracleCreator, tt.args.homeChainReader)
 			}
@@ -508,6 +512,7 @@ func Test_updateDON(t *testing.T) {
 }
 
 func Test_launcher_processDiff(t *testing.T) {
+	t.Parallel()
 	var (
 		digest1 = utils.RandomBytes32()
 		digest2 = utils.RandomBytes32()
@@ -803,6 +808,7 @@ func Test_launcher_processDiff(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			l := &launcher{
 				instances:       tt.fields.instances,
 				regState:        tt.fields.regState,

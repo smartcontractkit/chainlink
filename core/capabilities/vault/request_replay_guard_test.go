@@ -10,6 +10,7 @@ import (
 )
 
 func TestRequestReplayGuard_FirstCallSucceeds(t *testing.T) {
+	t.Parallel()
 	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 
@@ -18,6 +19,7 @@ func TestRequestReplayGuard_FirstCallSucceeds(t *testing.T) {
 }
 
 func TestRequestReplayGuard_DuplicateRejected(t *testing.T) {
+	t.Parallel()
 	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 
@@ -29,6 +31,7 @@ func TestRequestReplayGuard_DuplicateRejected(t *testing.T) {
 }
 
 func TestRequestReplayGuard_DifferentDigestsIndependent(t *testing.T) {
+	t.Parallel()
 	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 
@@ -41,6 +44,7 @@ func TestRequestReplayGuard_DifferentDigestsIndependent(t *testing.T) {
 }
 
 func TestRequestReplayGuard_ExpiredEntryCleaned(t *testing.T) {
+	t.Parallel()
 	guard := NewRequestReplayGuard()
 	now := time.Now()
 	guard.nowFunc = func() time.Time { return now }
@@ -58,6 +62,7 @@ func TestRequestReplayGuard_ExpiredEntryCleaned(t *testing.T) {
 }
 
 func TestRequestReplayGuard_NonExpiredEntryRetained(t *testing.T) {
+	t.Parallel()
 	guard := NewRequestReplayGuard()
 	now := time.Now()
 	guard.nowFunc = func() time.Time { return now }
@@ -73,6 +78,7 @@ func TestRequestReplayGuard_NonExpiredEntryRetained(t *testing.T) {
 }
 
 func TestRequestReplayGuard_MixedExpiryCleanup(t *testing.T) {
+	t.Parallel()
 	guard := NewRequestReplayGuard()
 	now := time.Now()
 	guard.nowFunc = func() time.Time { return now }
@@ -94,6 +100,7 @@ func TestRequestReplayGuard_MixedExpiryCleanup(t *testing.T) {
 }
 
 func TestRequestReplayGuard_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 
@@ -126,6 +133,7 @@ func TestRequestReplayGuard_ConcurrentAccess(t *testing.T) {
 }
 
 func TestRequestReplayGuard_ConcurrentDifferentDigests(t *testing.T) {
+	t.Parallel()
 	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 
@@ -149,6 +157,7 @@ func TestRequestReplayGuard_ConcurrentDifferentDigests(t *testing.T) {
 }
 
 func TestRequestReplayGuard_ClearExpiredIndependently(t *testing.T) {
+	t.Parallel()
 	guard := NewRequestReplayGuard()
 	now := time.Now()
 	guard.nowFunc = func() time.Time { return now }
@@ -175,6 +184,7 @@ func TestRequestReplayGuard_ClearExpiredIndependently(t *testing.T) {
 }
 
 func TestRequestReplayGuard_EmptyDigest(t *testing.T) {
+	t.Parallel()
 	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 

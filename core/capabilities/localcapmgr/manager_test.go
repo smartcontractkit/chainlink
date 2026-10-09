@@ -20,12 +20,15 @@ import (
 )
 
 func TestConfigHash(t *testing.T) {
+	t.Parallel()
 	t.Run("empty config returns empty string", func(t *testing.T) {
+		t.Parallel()
 		assert.Empty(t, configHash(nil))
 		assert.Empty(t, configHash([]byte{}))
 	})
 
 	t.Run("same config produces same hash", func(t *testing.T) {
+		t.Parallel()
 		cfg := []byte(`{"key": "value"}`)
 		h1 := configHash(cfg)
 		h2 := configHash(cfg)
@@ -34,6 +37,7 @@ func TestConfigHash(t *testing.T) {
 	})
 
 	t.Run("different config produces different hash", func(t *testing.T) {
+		t.Parallel()
 		h1 := configHash([]byte(`{"key": "value1"}`))
 		h2 := configHash([]byte(`{"key": "value2"}`))
 		assert.NotEqual(t, h1, h2)
@@ -41,6 +45,7 @@ func TestConfigHash(t *testing.T) {
 }
 
 func TestRunningKey(t *testing.T) {
+	t.Parallel()
 	assert.Equal(t, "cron@1.0.0:1", runningKey("cron@1.0.0", 1))
 	assert.Equal(t, "consensus@1.0.0:42", runningKey("consensus@1.0.0", 42))
 }
@@ -50,6 +55,7 @@ func testLogger(t *testing.T) corelogger.Logger {
 }
 
 func TestBuildDesiredState(t *testing.T) {
+	t.Parallel()
 	lggr := testLogger(t)
 	mgr := &localCapabilityManager{
 		lggr:     lggr,
@@ -83,6 +89,7 @@ func TestBuildDesiredState(t *testing.T) {
 }
 
 func TestBuildDesiredState_NilLocalConfig(t *testing.T) {
+	t.Parallel()
 	lggr := testLogger(t)
 	mgr := &localCapabilityManager{
 		lggr:     lggr,
@@ -138,15 +145,16 @@ func TestExtractDefaultOCR3Config(t *testing.T) {
 	})
 }
 
-func noopServiceBuilder(_ context.Context, _ string, _ uint32, _ string, _ string, _ *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
+func noopServiceBuilder(_ context.Context, _ string, _ uint32, _, _ string, _ *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
 	return []job.ServiceCtx{&mockService{}}, nil
 }
 
-func failingServiceBuilder(_ context.Context, _ string, _ uint32, _ string, _ string, _ *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
+func failingServiceBuilder(_ context.Context, _ string, _ uint32, _, _ string, _ *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
 	return nil, assert.AnError
 }
 
 func TestReconcile_StartsNewCapabilities(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := testLogger(t)
 	metrics, err := newMetrics()
@@ -180,6 +188,7 @@ func TestReconcile_StartsNewCapabilities(t *testing.T) {
 }
 
 func TestReconcile_StopsRemovedCapabilities(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := testLogger(t)
 	metrics, err := newMetrics()
@@ -229,6 +238,7 @@ func TestReconcile_StopsRemovedCapabilities(t *testing.T) {
 }
 
 func TestReconcile_DetectsConfigChange(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := testLogger(t)
 	metrics, err := newMetrics()
@@ -278,6 +288,7 @@ func TestReconcile_DetectsConfigChange(t *testing.T) {
 }
 
 func TestReconcile_ContinuesOnStartFailure(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := testLogger(t)
 	metrics, err := newMetrics()
@@ -312,6 +323,7 @@ func TestReconcile_ContinuesOnStartFailure(t *testing.T) {
 }
 
 func TestClose_StopsAllRunningCapabilities(t *testing.T) {
+	t.Parallel()
 	lggr := testLogger(t)
 	metrics, err := newMetrics()
 	require.NoError(t, err)
