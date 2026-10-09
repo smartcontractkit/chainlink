@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
-	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	meteringpb "github.com/smartcontractkit/chainlink-protos/metering/go"
 
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
