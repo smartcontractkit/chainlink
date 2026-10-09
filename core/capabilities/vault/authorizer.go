@@ -145,6 +145,106 @@ func (a *authorizer) authorizeJWTBasedAuth(ctx context.Context, req jsonrpc.Requ
 	return a.jwtBasedAuth.AuthorizeRequest(ctx, req)
 }
 
+// extractRequestOwner returns the single workflow owner declared in the request payload.
+// It is used to scope the allowlist lookup so an entry registered under a different owner
+// cannot authorize the request. It rejects requests whose payload declares no owner or more
+// than one distinct owner (owner binding separately requires every secret to share the owner).
+func extractRequestOwner(req jsonrpc.Request[json.RawMessage]) (string, error) {
+	switch req.Method {
+	case vaulttypes.MethodSecretsCreate:
+		if req.Params == nil {
+			return "", errors.New("request params must not be nil")
+		}
+		var createReq vaultcommon.CreateSecretsRequest
+		if err := json.Unmarshal(*req.Params, &createReq); err != nil {
+			return "", err
+		}
+		return singleEncryptedSecretOwner(createReq.EncryptedSecrets)
+	case vaulttypes.MethodSecretsUpdate:
+		if req.Params == nil {
+			return "", errors.New("request params must not be nil")
+		}
+		var updateReq vaultcommon.UpdateSecretsRequest
+		if err := json.Unmarshal(*req.Params, &updateReq); err != nil {
+			return "", err
+		}
+		return singleEncryptedSecretOwner(updateReq.EncryptedSecrets)
+	case vaulttypes.MethodSecretsDelete:
+		if req.Params == nil {
+			return "", errors.New("request params must not be nil")
+		}
+		var deleteReq vaultcommon.DeleteSecretsRequest
+		if err := json.Unmarshal(*req.Params, &deleteReq); err != nil {
+			return "", err
+		}
+		return singleSecretIdentifierOwner(deleteReq.Ids)
+	case vaulttypes.MethodSecretsList:
+		if req.Params == nil {
+			return "", errors.New("request params must not be nil")
+		}
+		var listReq vaultcommon.ListSecretIdentifiersRequest
+		if err := json.Unmarshal(*req.Params, &listReq); err != nil {
+			return "", err
+		}
+		if listReq.Owner == "" {
+			return "", errors.New("list secrets owner must not be empty")
+		}
+		return listReq.Owner, nil
+	default:
+		return "", fmt.Errorf("owner scoping not implemented for method %q", req.Method)
+	}
+}
+
+// singleEncryptedSecretOwner returns the owner shared by every encrypted secret in the batch,
+// erroring if the batch is empty, malformed, or declares more than one distinct owner.
+func singleEncryptedSecretOwner(encryptedSecrets []*vaultcommon.EncryptedSecret) (string, error) {
+	if len(encryptedSecrets) == 0 {
+		return "", errors.New("request batch must contain at least 1 item")
+	}
+	owner := ""
+	for idx, encryptedSecret := range encryptedSecrets {
+		if encryptedSecret == nil || encryptedSecret.Id == nil {
+			return "", fmt.Errorf("secret ID must not be nil at index %d", idx)
+		}
+		if encryptedSecret.Id.Owner == "" {
+			return "", fmt.Errorf("secret owner must not be empty at index %d", idx)
+		}
+		if owner == "" {
+			owner = encryptedSecret.Id.Owner
+			continue
+		}
+		if vaultutils.NormalizeOwner(encryptedSecret.Id.Owner) != vaultutils.NormalizeOwner(owner) {
+			return "", fmt.Errorf("all secrets in a request must share the same owner; got %q and %q", owner, encryptedSecret.Id.Owner)
+		}
+	}
+	return owner, nil
+}
+
+// singleSecretIdentifierOwner returns the owner shared by every identifier in the batch,
+// erroring if the batch is empty, malformed, or declares more than one distinct owner.
+func singleSecretIdentifierOwner(ids []*vaultcommon.SecretIdentifier) (string, error) {
+	if len(ids) == 0 {
+		return "", errors.New("request batch must contain at least 1 item")
+	}
+	owner := ""
+	for idx, id := range ids {
+		if id == nil {
+			return "", fmt.Errorf("secret ID must not be nil at index %d", idx)
+		}
+		if id.Owner == "" {
+			return "", fmt.Errorf("secret owner must not be empty at index %d", idx)
+		}
+		if owner == "" {
+			owner = id.Owner
+			continue
+		}
+		if vaultutils.NormalizeOwner(id.Owner) != vaultutils.NormalizeOwner(owner) {
+			return "", fmt.Errorf("all secrets in a request must share the same owner; got %q and %q", owner, id.Owner)
+		}
+	}
+	return owner, nil
+}
+
 // validateSecretOwnersMatchAuthorized checks that secret identifiers in the request payload
 // match the authorized workflow owner. This is read-only validation; owner prefixing and
 // param stamping happen later in GatewayVaultRequestProcessor.

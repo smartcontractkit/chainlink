@@ -154,6 +154,33 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		executeVaultSecretsUpdateOwnerMismatchRejectedTest(t, auth, authorizedOwner, mismatchedOwner, encryptedSecret, secretID, gwURL, "main")
 	})
 
+	// Regression test for the allowlist digest-collision griefing threat: when a second
+	// owner (attacker) allowlists the victim's public request digest under their own owner,
+	// owner-scoped matching must still serve the victim rather than resolving the request to
+	// the attacker's identity. Needs a second funded key for the attacker.
+	t.Run("allowlist_owner_scoped_lookup_serves_victim_despite_poison_entry", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		const attackerKeyNum = 1
+		if len(sc.Addresses) <= attackerKeyNum || len(sc.PrivateKeys) <= attackerKeyNum {
+			t.Skipf("requires at least %d funded keys (victim + attacker)", attackerKeyNum+1)
+		}
+		victimOwner := sc.MustGetRootKeyAddress().Hex()
+		attackerOwner := sc.Addresses[attackerKeyNum].Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		version := testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]
+		// allowlistRequest requires a linked msg.sender, so link both the victim and the attacker.
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), version)
+		requireVaultLinkOwnerKey(t, sc, attackerKeyNum, common.HexToAddress(wfRegAddr), version)
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		secretID := uniqueVaultSecretID("allowlistownerscope")
+		// Secret is labeled for the victim so the request passes structural validation.
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-allowlist-owner-scope", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		executeVaultAllowlistOwnerScopedLookupTest(t, victimOwner, attackerOwner, encryptedSecret, secretID, gwURL, attackerKeyNum, sc, wfReg)
+	})
+
 	t.Run("allowlist_crud_with_workflow_owner_identity", func(t *testing.T) {
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		workflowOwnerAddress := sc.MustGetRootKeyAddress()
