@@ -11,7 +11,7 @@ import (
 func TestDelegate_JobSpecValidator(t *testing.T) {
 	t.Parallel()
 
-	var tt = []struct {
+	tt := []struct {
 		name  string
 		toml  string
 		valid bool
@@ -45,6 +45,7 @@ schemaVersion = 1
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			_, err := gateway.ValidatedGatewaySpec(tc.toml)
 			if tc.valid {
 				require.NoError(t, err)
