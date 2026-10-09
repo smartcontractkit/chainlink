@@ -57,7 +57,8 @@ type EngineMetrics struct {
 	// family can serve as both numerator and denominator without vector(0) joins.
 	workflowExecutionFinishedCounter metric.Int64Counter
 
-	getSecretsDuration metric.Int64Histogram
+	getSecretsDuration  metric.Int64Histogram
+	getSecretsSkewRetry metric.Int64Counter
 
 	executionTimestampAssignedCounter metric.Int64Counter
 	executionTimestampFallbackCounter metric.Int64Counter
@@ -305,6 +306,14 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create platform_engine_get_secrets_duration_ms metric: %w", err)
+	}
+
+	em.getSecretsSkewRetry, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_get_secrets_version_skew_retry_total",
+		metric.WithDescription("Direct GetSecrets requests retried because Vault nodes disagreed on a secret's version, by retry outcome"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create platform_engine_get_secrets_version_skew_retry_total metric: %w", err)
 	}
 
 	em.executionTimestampAssignedCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_timestamp_assigned")
@@ -741,6 +750,11 @@ func (c WorkflowsMetricLabeler) UpdateWorkflowMeteringModeGauge(ctx context.Cont
 func (c WorkflowsMetricLabeler) RecordGetSecretsDuration(ctx context.Context, duration int64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.getSecretsDuration.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementGetSecretsSkewRetryCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.getSecretsSkewRetry.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionFailedCounter(ctx context.Context) {

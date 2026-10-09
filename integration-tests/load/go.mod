@@ -24,7 +24,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20261001213322-a2d686f610ca
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260916222901-720a003dab50
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260916222901-720a003dab50
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261007174852-7fabc093ff84
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261008131804-f1c026ee8443
 	github.com/smartcontractkit/chainlink-deployments-framework v0.123.3
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20261005112317-b723176adfe8
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.8
@@ -526,7 +526,7 @@ require (
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
 	github.com/smartcontractkit/go-daml v0.0.0-20260702101944-3a593d4e8e19 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
-	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342 // indirect
+	github.com/smartcontractkit/libocr v0.0.0-20260917135550-38019a378d1f // indirect
 	github.com/smartcontractkit/mcms v0.55.2 // indirect
 	github.com/smartcontractkit/smdkg v0.0.0-20260819115032-4afa3ab56bc4 // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c // indirect

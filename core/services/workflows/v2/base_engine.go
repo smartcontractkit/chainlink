@@ -694,7 +694,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	}
 	execHelper = &ExecutionHelper{
 		base: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
-		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID, executionTimestamp),
 		executionProfile: newExecutionProfileCollector(),
 		suspension:       suspension,
 	}
@@ -800,7 +800,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	return nil
 }
 
-func (e *baseEngine) secretsFetcher(executionID string) SecretsFetcher {
+func (e *baseEngine) secretsFetcher(executionID string, executionTimestamp time.Time) SecretsFetcher {
 	if e.cfg.SecretsFetcher != nil {
 		return e.cfg.SecretsFetcher
 	}
@@ -817,6 +817,7 @@ func (e *baseEngine) secretsFetcher(executionID string) SecretsFetcher {
 		e.cfg.WorkflowName.String(),
 		e.cfg.WorkflowID,
 		executionID,
+		executionTimestamp,
 		e.cfg.WorkflowEncryptionKey,
 		e.cfg.OverrideFetcher,
 	)

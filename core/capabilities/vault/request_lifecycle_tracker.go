@@ -71,6 +71,7 @@ type requestLifecycleMetrics struct {
 	requestsReceivedTotal       metric.Int64Counter
 	pendingQueueNotInLocalQueue metric.Int64Counter
 	transmitNotInLocalQueue     metric.Int64Counter
+	directGetSecretsLatencyMs   metric.Int64Histogram
 }
 
 func newRequestLifecycleMetrics() (*requestLifecycleMetrics, error) {
@@ -134,6 +135,15 @@ func newRequestLifecycleMetrics() (*requestLifecycleMetrics, error) {
 		return nil, fmt.Errorf("vault transmit not in local Queue counter: %w", err)
 	}
 
+	directLat, err := beholder.GetMeter().Int64Histogram(
+		"platform_vault_get_secrets_direct_latency_ms",
+		metric.WithDescription("Latency of GetSecrets requests served from local replicated state, by outcome."),
+		metric.WithUnit("ms"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("vault get secrets direct latency histogram: %w", err)
+	}
+
 	return &requestLifecycleMetrics{
 		stageLatencyMs:              lat,
 		roundDelta:                  rounds,
@@ -144,6 +154,7 @@ func newRequestLifecycleMetrics() (*requestLifecycleMetrics, error) {
 		requestsReceivedTotal:       received,
 		pendingQueueNotInLocalQueue: pqNoLocal,
 		transmitNotInLocalQueue:     txNoLocal,
+		directGetSecretsLatencyMs:   directLat,
 	}, nil
 }
 
@@ -173,6 +184,21 @@ func NewRequestLifecycleTracker(lggr logger.Logger) (*RequestLifecycleTracker, e
 	}
 	t.digest.Store("")
 	return t, nil
+}
+
+// RecordDirectGetSecrets records a GetSecrets request served without OCR.
+func (t *RequestLifecycleTracker) RecordDirectGetSecrets(ctx context.Context, d time.Duration, err error) {
+	if t == nil {
+		return
+	}
+	outcome := "success"
+	switch {
+	case errors.Is(err, ErrDirectReadNotReady):
+		outcome = "not_ready"
+	case err != nil:
+		outcome = "error"
+	}
+	t.metrics.directGetSecretsLatencyMs.Record(ctx, d.Milliseconds(), metric.WithAttributes(attribute.String("outcome", outcome)))
 }
 
 // SetConfigDigest updates the config digest label used on emitted metrics (OCR config).

@@ -104,7 +104,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	}
 	cfgb, err := proto.Marshal(&cfg)
 	require.NoError(t, err)
-	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb, N: 10, F: 3}, nil)
+	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb, N: 10, F: 3}, nil, nil)
 	require.NoError(t, err)
 
 	typedRP := rp.(*ReportingPlugin)
@@ -153,7 +153,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	cfgb, err = proto.Marshal(&cfg)
 	require.NoError(t, err)
 
-	rp, info, err = rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb, N: 10, F: 3}, nil)
+	rp, info, err = rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb, N: 10, F: 3}, nil, nil)
 	require.NoError(t, err)
 
 	typedRP = rp.(*ReportingPlugin)
@@ -196,7 +196,7 @@ func TestPlugin_ReportingPluginFactory_PassesValidate(t *testing.T) {
 	}
 	cfgb, err := proto.Marshal(&cfg)
 	require.NoError(t, err)
-	_, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb, N: 10, F: 3}, nil)
+	_, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb, N: 10, F: 3}, nil, nil)
 	require.NoError(t, err)
 
 	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
@@ -232,7 +232,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	}
 	cfgBytes, err := proto.Marshal(&rpCfg)
 	require.NoError(t, err)
-	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgBytes, N: 10, F: 3}, nil)
+	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgBytes, N: 10, F: 3}, nil, nil)
 	require.NoError(t, err)
 
 	typedRP := rp.(*ReportingPlugin)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -142,6 +143,7 @@ func TestSecretsFetcher_PrefersRawVaultPublicKeyFromResponse(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)

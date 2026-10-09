@@ -982,7 +982,8 @@ func (d *Delegate) newServicesVaultPlugin(
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
 	lpk := vaultcap.NewLazyPublicKey()
-	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, limitsFactory, requestLifecycle)
+	directReader := vaultcap.NewLazyDirectSecretsReader()
+	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, directReader, limitsFactory, requestLifecycle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault capability: %w", err)
 	}
@@ -1059,7 +1060,8 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, err
 	}
 
-	oracleArgs := libocr2.OCR3_1OracleArgs2[[]byte]{
+	// WARNING: libocr alpha, MUST NOT be used in production.
+	oracleArgs := libocr2.OCR3_1OracleArgs109Alpha[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
@@ -1091,7 +1093,8 @@ func (d *Delegate) newServicesVaultPlugin(
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
 	}
-	wrappedRpf := beholderwrapper.NewReportingPluginFactory(
+	rpf.SetDirectSecretsReader(directReader)
+	wrappedRpf := beholderwrapper.NewReportingPluginFactory2(
 		rpf,
 		lggr,
 		"vault",
