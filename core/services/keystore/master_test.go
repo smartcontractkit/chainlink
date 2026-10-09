@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
+//nolint:paralleltest // subtests share one keystore and DB; reset() mutates shared state and subtests depend on sequential shared state
 func TestMasterKeystore_Unlock_Save(t *testing.T) {
 	t.Parallel()
 

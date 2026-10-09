@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
+//nolint:paralleltest // subtests share one keystore and DB; reset() mutates shared state and subtests depend on sequential shared state
 func Test_EthKeyStore(t *testing.T) {
 	t.Parallel()
 
@@ -238,6 +239,7 @@ func Test_EthKeyStore(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // subtests share one keystore and DB; reset() mutates shared state and subtests depend on sequential shared state
 func Test_EthKeyStore_ListKeys(t *testing.T) {
 	t.Parallel()
 
@@ -402,6 +404,7 @@ func Test_EthKeyStore_ListKeys(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // subtests share one keystore and DB; reset() mutates shared state and subtests depend on sequential shared state
 func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	ctx := t.Context()
 	t.Parallel()
@@ -523,6 +526,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // subtests share one keystore and DB; reset() mutates shared state and subtests depend on sequential shared state
 func Test_EthKeyStore_E2E(t *testing.T) {
 	t.Parallel()
 
@@ -657,6 +661,7 @@ func Test_EthKeyStore_Enable(t *testing.T) {
 	ks := keyStore.Eth()
 
 	t.Run("already existing disabled key gets enabled", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		k, _ := cltest.MustInsertRandomKeyNoChains(t, ks)
 		require.NoError(t, ks.Add(ctx, k.Address, testutils.SimulatedChainID))
@@ -668,6 +673,7 @@ func Test_EthKeyStore_Enable(t *testing.T) {
 	})
 
 	t.Run("creates key, deletes it unsafely and then enable creates it again", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		k, _ := cltest.MustInsertRandomKeyNoChains(t, ks)
 		require.NoError(t, ks.Add(ctx, k.Address, testutils.SimulatedChainID))
@@ -680,6 +686,7 @@ func Test_EthKeyStore_Enable(t *testing.T) {
 	})
 
 	t.Run("creates key and enables it if it exists in the keystore, but is missing from key states db table", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		k, _ := cltest.MustInsertRandomKeyNoChains(t, ks)
 		require.NoError(t, ks.Enable(ctx, k.Address, testutils.SimulatedChainID))
@@ -689,6 +696,7 @@ func Test_EthKeyStore_Enable(t *testing.T) {
 	})
 
 	t.Run("errors if key is not present in keystore", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		addrNotInKs := testutils.NewAddress()
 		require.Error(t, ks.Enable(ctx, addrNotInKs, testutils.SimulatedChainID))
@@ -701,6 +709,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 	t.Parallel()
 
 	t.Run("creates one unique key per chain if none exist", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		db := pgtest.NewSqlxDB(t)
 		keyStore := cltest.NewKeyStore(t, db)
@@ -716,6 +725,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 	})
 
 	t.Run("does nothing if a key exists for a chain", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		db := pgtest.NewSqlxDB(t)
 		keyStore := cltest.NewKeyStore(t, db)
@@ -739,6 +749,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 	})
 
 	t.Run("does nothing if a key exists but is disabled for a chain", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		db := pgtest.NewSqlxDB(t)
 		keyStore := cltest.NewKeyStore(t, db)
@@ -854,6 +865,7 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	require.NoError(t, ks.Enable(ctx, k3.Address, testutils.SimulatedChainID))
 
 	t.Run("enabling the same key multiple times does not create duplicate states", func(t *testing.T) {
+		t.Parallel()
 		ctx2 := t.Context()
 		require.NoError(t, ks.Enable(ctx2, k1.Address, testutils.FixtureChainID))
 		require.NoError(t, ks.Enable(ctx2, k1.Address, testutils.FixtureChainID))
@@ -877,6 +889,7 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	})
 
 	t.Run("returns nil when key is enabled for given chain", func(t *testing.T) {
+		t.Parallel()
 		err := ks.CheckEnabled(ctx, addr1, testutils.FixtureChainID)
 		require.NoError(t, err)
 		err = ks.CheckEnabled(ctx, addr1, testutils.SimulatedChainID)
@@ -884,6 +897,7 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	})
 
 	t.Run("returns error when key does not exist", func(t *testing.T) {
+		t.Parallel()
 		addr := utils.RandomAddress()
 		err := ks.CheckEnabled(ctx, addr, testutils.FixtureChainID)
 		require.Error(t, err)
@@ -891,12 +905,14 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	})
 
 	t.Run("returns error when key exists but has never been enabled (no state) for the given chain", func(t *testing.T) {
+		t.Parallel()
 		err := ks.CheckEnabled(ctx, addr3, testutils.FixtureChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("eth key with address %s exists but is has not been enabled for chain %s (enabled only for chain IDs: 1337)", addr3.Hex(), testutils.FixtureChainID.String()))
 	})
 
 	t.Run("returns error when key exists but is disabled for the given chain", func(t *testing.T) {
+		t.Parallel()
 		err := ks.CheckEnabled(ctx, addr2, testutils.SimulatedChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("eth key with address %s exists but is disabled for chain 1337 (enabled only for chain IDs: %s)", addr2.Hex(), testutils.FixtureChainID.String()))
@@ -911,6 +927,7 @@ func Test_EthKeyStore_Disable(t *testing.T) {
 	ks := keyStore.Eth()
 
 	t.Run("creates key, deletes it unsafely and then enable creates it again", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		k, _ := cltest.MustInsertRandomKeyNoChains(t, ks)
 		require.NoError(t, ks.Add(ctx, k.Address, testutils.SimulatedChainID))
@@ -923,6 +940,7 @@ func Test_EthKeyStore_Disable(t *testing.T) {
 	})
 
 	t.Run("creates key and enables it if it exists in the keystore, but is missing from key states db table", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		k, _ := cltest.MustInsertRandomKeyNoChains(t, ks)
 		require.NoError(t, ks.Disable(ctx, k.Address, testutils.SimulatedChainID))
@@ -932,6 +950,7 @@ func Test_EthKeyStore_Disable(t *testing.T) {
 	})
 
 	t.Run("errors if key is not present in keystore", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		addrNotInKs := testutils.NewAddress()
 		require.Error(t, ks.Disable(ctx, addrNotInKs, testutils.SimulatedChainID))

@@ -12,6 +12,7 @@ import (
 )
 
 func Test_OCR2KeyStore_Import_RejectsDuplicateWithoutDelete(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	master := keystore.ExposedNewMaster(t, db)
 	require.NoError(t, master.Unlock(t.Context(), cltest.Password))

@@ -18,7 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
+//nolint:paralleltest // subtests share one keystore and DB; reset() mutates shared state and subtests depend on sequential shared state
 func Test_P2PKeyStore_E2E(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db)
