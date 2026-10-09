@@ -441,7 +441,7 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 
 	proposeSharedVaultAssignment(t, testEnv, shardFailoverAssignmentTOML(shards, true))
 
-	workflowID := deployShardFailoverWorkflow(t, testEnv, "recovery", secretKey)
+	workflowID := deployShardFailoverWorkflow(t, testEnv, "shard-recovery", secretKey)
 	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardZeroDON, secretValue, shardFirstExecAwaitTimeout)
 	testLogger.Info().Msg("Phase 1: primary executes, secondary denies and caches")
 
