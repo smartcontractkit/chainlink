@@ -1,10 +1,4 @@
 # Static shard assignment (manual-only) with shard failover and a single shared vault DON.
-#
-# CL_CRE_SETTINGS on the workflow shards opens ShardingFailoverEnabled (secondary shards
-# keep standby engines that deny and cache triggers) and lifts the cron trigger's
-# PerWorkflow.CRONTrigger.FastestScheduleInterval floor to 1s, so the shard failover
-# system tests can run their workflows on a 10s cron schedule (every observation phase
-# is tick-bound; the default 30s floor would triple each phase's latency).
 
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
@@ -45,7 +39,7 @@
   http_port_range_start = 14100
   supported_evm_chains = [1337, 2337]
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true"},"PerOrg":{"BaseTriggerRetransmitEnabled":"true"},"PerWorkflow":{"CRONTrigger":{"FastestScheduleInterval":"1s"}}}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true","PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
@@ -99,7 +93,7 @@
   http_port_range_start = 14400
   supported_evm_chains = [1337, 2337]
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true"},"PerOrg":{"BaseTriggerRetransmitEnabled":"true"},"PerWorkflow":{"CRONTrigger":{"FastestScheduleInterval":"1s"}}}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true","PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
 
