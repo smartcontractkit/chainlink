@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -26,6 +27,11 @@ import (
 
 const adapterLWBAErrorName = "AdapterLWBAError"
 
+// bufferedTelemetryDigestTTL is how long the buffered telemetry of a config
+// digest is kept without a flush. A retired or removed instance stops
+// transmitting, so its buffer is evicted after this long.
+const bufferedTelemetryDigestTTL = time.Minute
+
 // DSOpts is the shared, version-agnostic LLO data-source options (llo/v30 and
 // llo/v31 both use llodatasource.DSOpts). Aliased here so the telemetry and
 // observation paths keep referring to telem.DSOpts.
@@ -36,6 +42,7 @@ type Telemeter interface {
 	MakeObservationScopedTelemetryCh(opts DSOpts, size int) (ch chan<- any)
 	GetOutcomeTelemetryCh() chan<- *lloprotocol.LLOOutcomeTelemetry
 	GetReportTelemetryCh() chan<- *lloprotocol.LLOReportTelemetry
+	GetAttributedObservationTelemetryCh() chan<- *lloprotocol.LLOAttributedObservationTelemetry
 	CaptureEATelemetry() bool
 	CaptureObservationTelemetry() bool
 	TrackSeqNr(digest types.ConfigDigest, seqNr uint64)
@@ -55,6 +62,8 @@ type TelemeterParams struct {
 	CaptureOutcomeTelemetry     bool
 	CaptureReportTelemetry      bool
 	SampleTelemetry             bool
+	// CaptureAttributedObservationTelemetry is only honoured by llo/v31.
+	CaptureAttributedObservationTelemetry bool
 }
 
 func NewTelemeterService(params TelemeterParams) TelemeterService {
@@ -83,6 +92,8 @@ func newTelemeter(params TelemeterParams) *telemeter {
 		}, 10),
 		currentSeqNr:    make(map[string]uint64),
 		telemetryBuffer: make(map[string]map[uint64][]telemetryEntry),
+		bufferFlushedAt: make(map[string]time.Time),
+		bufferTTL:       bufferedTelemetryDigestTTL,
 		sampler:         newSampler(logger.Sugared(params.Logger), params.SampleTelemetry),
 	}
 	if params.CaptureOutcomeTelemetry {
@@ -90,6 +101,11 @@ func newTelemeter(params TelemeterParams) *telemeter {
 	}
 	if params.CaptureReportTelemetry {
 		t.chReportTelemetry = make(chan *lloprotocol.LLOReportTelemetry, (2+2)*lloprotocol.MaxReportCount) // 2 instances+2x size safety buffer
+	}
+	if params.CaptureAttributedObservationTelemetry {
+		// One per observer per round from f+1 rotating emitters, more when
+		// large observations are split.
+		t.chAttributedObservationTelemetry = make(chan *lloprotocol.LLOAttributedObservationTelemetry, 1000)
 	}
 	t.Service, t.eng = services.Config{
 		Name:  "LLOTelemeterService",
@@ -106,6 +122,9 @@ func newTelemeter(params TelemeterParams) *telemeter {
 			}
 			if t.chReportTelemetry != nil {
 				close(t.chReportTelemetry)
+			}
+			if t.chAttributedObservationTelemetry != nil {
+				close(t.chAttributedObservationTelemetry)
 			}
 
 			close(t.chTransmissionSeqNr)
@@ -135,6 +154,8 @@ type telemeter struct {
 	chOutcomeTelemetry          chan *lloprotocol.LLOOutcomeTelemetry
 	chReportTelemetry           chan *lloprotocol.LLOReportTelemetry
 
+	chAttributedObservationTelemetry chan *lloprotocol.LLOAttributedObservationTelemetry
+
 	currentSeqNrMu      sync.Mutex
 	currentSeqNr        map[string]uint64
 	chTransmissionSeqNr chan struct {
@@ -146,6 +167,11 @@ type telemeter struct {
 	// for transmitting rounds sequence numbers
 	telemetryBufferMu sync.Mutex
 	telemetryBuffer   map[string]map[uint64][]telemetryEntry
+	// bufferFlushedAt is when each digest buffer was created or last flushed.
+	// Each digest is flushed by its own transmissions, so the buffers of
+	// concurrent instances (blue/green) are independent.
+	bufferFlushedAt map[string]time.Time
+	bufferTTL       time.Duration
 
 	sampler *sampler
 }
@@ -216,6 +242,10 @@ func (t *telemeter) GetReportTelemetryCh() chan<- *lloprotocol.LLOReportTelemetr
 	return t.chReportTelemetry
 }
 
+func (t *telemeter) GetAttributedObservationTelemetryCh() chan<- *lloprotocol.LLOAttributedObservationTelemetry {
+	return t.chAttributedObservationTelemetry
+}
+
 func (t *telemeter) CaptureEATelemetry() bool {
 	return t.captureEATelemetry
 }
@@ -251,6 +281,8 @@ func (t *telemeter) start(_ context.Context) error {
 				t.enqueueTelemetry(types.ConfigDigest(rt.ConfigDigest).Hex(), rt.SeqNr, synchronization.LLOOutcome, rt)
 			case rt := <-t.chReportTelemetry:
 				t.enqueueTelemetry(types.ConfigDigest(rt.ConfigDigest).Hex(), rt.SeqNr, synchronization.LLOReport, rt)
+			case at := <-t.chAttributedObservationTelemetry:
+				t.enqueueTelemetry(types.ConfigDigest(at.ConfigDigest).Hex(), at.SeqNr, synchronization.LLOAttributedObservation, at)
 			case tx := <-t.chTransmissionSeqNr:
 				// Drain any pending outcome or report telemetry before sending buffered telemetry
 				t.sendBufferedTelemetry(tx.digest, tx.seqNr)
@@ -293,12 +325,23 @@ func (t *telemeter) sendBufferedTelemetry(digest types.ConfigDigest, seqNr uint6
 		}
 	}
 
-	// drop messages for config digests that are not transmitting
-	for d := range t.telemetryBuffer {
-		if d == cd {
-			continue
+	// evict the buffers of digests that stopped transmitting
+	now := time.Now()
+	t.bufferFlushedAt[cd] = now
+	var evicted []string
+	for d, flushedAt := range t.bufferFlushedAt {
+		if now.Sub(flushedAt) > t.bufferTTL {
+			delete(t.telemetryBuffer, d)
+			delete(t.bufferFlushedAt, d)
+			evicted = append(evicted, d)
 		}
-		delete(t.telemetryBuffer, d)
+	}
+	if len(evicted) > 0 {
+		t.currentSeqNrMu.Lock()
+		for _, d := range evicted {
+			delete(t.currentSeqNr, d)
+		}
+		t.currentSeqNrMu.Unlock()
 	}
 
 	go func() {
@@ -340,9 +383,7 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 		t.telemetryBufferMu.Lock()
 		defer t.telemetryBufferMu.Unlock()
 
-		if _, ok := t.telemetryBuffer[digest]; !ok {
-			t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
-		}
+		t.ensureDigestBuffer(digest)
 
 		// Sampling is applied at flush time for buffered telemetry
 		t.telemetryBuffer[digest][seqNr] = []telemetryEntry{{
@@ -355,14 +396,20 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 		t.telemetryBufferMu.Lock()
 		defer t.telemetryBufferMu.Unlock()
 
-		if _, ok := t.telemetryBuffer[digest]; !ok {
-			t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
-		}
+		t.ensureDigestBuffer(digest)
 		// Sampling is applied at flush time for buffered telemetry
 		t.telemetryBuffer[digest][seqNr] = append(t.telemetryBuffer[digest][seqNr], telemetryEntry{
 			telemType: typ,
 			msg:       msg,
 		})
+	}
+}
+
+// ensureDigestBuffer creates the buffer of digest. Callers hold telemetryBufferMu.
+func (t *telemeter) ensureDigestBuffer(digest string) {
+	if _, ok := t.telemetryBuffer[digest]; !ok {
+		t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
+		t.bufferFlushedAt[digest] = time.Now()
 	}
 }
 
@@ -500,6 +547,9 @@ func (t *nullTelemeter) GetOutcomeTelemetryCh() chan<- *lloprotocol.LLOOutcomeTe
 	return nil
 }
 func (t *nullTelemeter) GetReportTelemetryCh() chan<- *lloprotocol.LLOReportTelemetry {
+	return nil
+}
+func (t *nullTelemeter) GetAttributedObservationTelemetryCh() chan<- *lloprotocol.LLOAttributedObservationTelemetry {
 	return nil
 }
 func (t *nullTelemeter) CaptureEATelemetry() bool {
