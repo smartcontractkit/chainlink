@@ -20,6 +20,7 @@ import (
 )
 
 func TestAllowListBasedAuth_CreateSecrets(t *testing.T) {
+	t.Parallel()
 	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
@@ -60,6 +61,7 @@ func TestAllowListBasedAuth_CreateSecrets(t *testing.T) {
 }
 
 func TestAllowListBasedAuth_UpdateSecrets(t *testing.T) {
+	t.Parallel()
 	params, err := json.Marshal(vaultcommon.UpdateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
@@ -99,6 +101,7 @@ func TestAllowListBasedAuth_UpdateSecrets(t *testing.T) {
 }
 
 func TestAllowListBasedAuth_DeleteSecrets(t *testing.T) {
+	t.Parallel()
 	params, err := json.Marshal(vaultcommon.DeleteSecretsRequest{
 		Ids: []*vaultcommon.SecretIdentifier{
 			{
@@ -132,6 +135,7 @@ func TestAllowListBasedAuth_DeleteSecrets(t *testing.T) {
 }
 
 func TestAllowListBasedAuth_ListSecrets(t *testing.T) {
+	t.Parallel()
 	params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
 		Namespace: "b",
 	})
@@ -208,6 +212,7 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 }
 
 func TestAllowListBasedAuth_RetriesUntilRequestIsAllowlisted(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	owner := common.Address{1, 2, 3}
 	req := makeListSecretsRequest(t, "123", "b")
@@ -241,6 +246,7 @@ func TestAllowListBasedAuth_RetriesUntilRequestIsAllowlisted(t *testing.T) {
 }
 
 func TestAllowListBasedAuth_FailsAfterAllowlistReadRetries(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	req := makeListSecretsRequest(t, "123", "b")
 
@@ -257,6 +263,7 @@ func TestAllowListBasedAuth_FailsAfterAllowlistReadRetries(t *testing.T) {
 }
 
 func TestAllowListBasedAuth_StopsRetriesWhenContextCanceled(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	req := makeListSecretsRequest(t, "123", "b")
 

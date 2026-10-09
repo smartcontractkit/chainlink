@@ -14,6 +14,7 @@ import (
 )
 
 func TestBaseTrigger_CRE_MissingOrgID_DoesNotPersistOrResend(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}

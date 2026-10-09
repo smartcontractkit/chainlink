@@ -93,6 +93,7 @@ func requiresMasterPublicKey(method string) bool {
 }
 
 func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 	authResult := func(orgID, workflowOwner string) *vaultcap.AuthResult {
@@ -649,6 +650,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			secretsService := vaulttypesmocks.NewSecretsService(t)
 			gwConnector := connector_mocks.NewGatewayConnector(t)
 			allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
@@ -838,6 +840,7 @@ func TestGatewayHandler_CreateUpdateReusesCachedPublicKey(t *testing.T) {
 }
 
 func TestGatewayHandler_Lifecycle(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -857,18 +860,21 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("start", func(t *testing.T) {
+		t.Parallel()
 		gwConnector.On("AddHandler", mock.Anything, vaulttypes.Methods, handler).Return(nil).Once()
 		err := handler.Start(ctx)
 		require.NoError(t, err)
 	})
 
 	t.Run("close", func(t *testing.T) {
+		t.Parallel()
 		gwConnector.On("RemoveHandler", mock.Anything, vaulttypes.Methods).Return(nil).Once()
 		err := handler.Close()
 		require.NoError(t, err)
 	})
 
 	t.Run("id", func(t *testing.T) {
+		t.Parallel()
 		id, err := handler.ID(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, vaultcap.HandlerName, id)
@@ -876,6 +882,7 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 }
 
 func TestGatewayHandler_Lifecycle_DefaultAuthorizer_NoJWTConfig(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
