@@ -1810,7 +1810,7 @@ func (d *Delegate) newServicesLLO(
 		CaptureEATelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
 		// NOTE: These can be turned off/on, or made configurable in future if
 		// necessary
-		CaptureObservationTelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
+		CaptureObservationTelemetry: false,
 		CaptureOutcomeTelemetry:     jb.OCR2OracleSpec.CaptureEATelemetry,
 		CaptureReportTelemetry:      false,
 
