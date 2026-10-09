@@ -66,6 +66,14 @@ var (
 // to validation on the forwarder side. What matters is DON ID and the set of signer public keys.
 const pinnedWorkflowDonConfigVersion = 1
 
+// keyEngineMode and its values label only the active-executions gauge, distinguishing
+// legacy from coordinated executions.
+const (
+	keyEngineMode              = "engineMode"
+	valueEngineModeLegacy      = "legacy"
+	valueEngineModeCoordinated = "coordinated"
+)
+
 // baseEngine holds the execution machinery shared by every workflow engine:
 // module execution, metering, secrets, labels, the heartbeat, drain state, and
 // DON sync.
@@ -111,6 +119,10 @@ type baseEngine struct {
 	draining         atomic.Bool
 	activeExecutions atomic.Int32
 	drainStartedAtNs atomic.Int64
+
+	// engineMode labels only the active-executions gauge, distinguishing legacy
+	// from coordinated executions. It is fixed at construction.
+	engineMode string
 }
 
 // newBaseEngine builds the execution machinery shared by every workflow engine.
@@ -120,7 +132,7 @@ type baseEngine struct {
 // Start and Close are supplied by the outer type, because the lifecycle differs
 // per engine, but srvcEng itself lives here — base methods spawn the execution
 // goroutines on it, and Drain sets its health condition.
-func newBaseEngine(cfg *EngineConfig) (*baseEngine, logger.SugaredLogger, error) {
+func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.SugaredLogger, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("invalid config: %w", err)
 	}
@@ -142,6 +154,7 @@ func newBaseEngine(cfg *EngineConfig) (*baseEngine, logger.SugaredLogger, error)
 	engine := &baseEngine{
 		cfg:               cfg,
 		capCallsSemaphore: cfg.LocalLimiters.CapabilityConcurrency,
+		engineMode:        engineMode,
 	}
 
 	// Build labels using the helper method
@@ -189,8 +202,13 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 
 // ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	e.activeExecutions.Add(1)
-	defer e.activeExecutions.Add(-1)
+	// engineMode labels only this gauge, so the migration can compare legacy and
+	// coordinated in-flight load without changing every other engine metric.
+	gaugeMetrics := e.metrics.With(keyEngineMode, e.engineMode)
+	gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(1)))
+	defer func() {
+		gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(-1)))
+	}()
 
 	eventID := event.Event.Event.ID
 	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
