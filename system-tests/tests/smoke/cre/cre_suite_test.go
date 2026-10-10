@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
@@ -179,8 +182,22 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			if parallelEnabled {
 				t.Parallel()
 			}
-			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
-			ExecuteDonTimeTest(t, testEnv)
+			for _, tc := range []struct {
+				name      string
+				sequenced bool
+			}{
+				{"sequenced", true},
+				{"unsequenced", false},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
+					if tc.sequenced {
+						t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(fmt.Sprintf(`DonTimeSequencedTimestampsActivePeriod = '%s'`,
+							settings.Range[config.Timestamp]{Lower: config.NewTimestamp(time.Now()), Upper: config.NewTimestamp(time.Now().Add(1 * time.Hour))}.String())))
+					}
+					ExecuteDonTimeTest(t, testEnv)
+				})
+			}
 		})
 	case suite_config.SuiteScenarioConsensus:
 		t.Run("Consensus - "+topology, func(t *testing.T) {
