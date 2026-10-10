@@ -125,9 +125,8 @@ func TestStandardCapabilities_InitialiseDependenciesRoundTrip(t *testing.T) {
 
 // TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP asserts that the
 // host-resolved capability DON ID is carried on the dependencies delivered to
-// the capability LOOP at Initialise. Without this, a trigger producer silently
-// falls back to the consumer workflow's DON for metering identity and event
-// labels even when the node knows which DON it is serving.
+// the capability LOOP at Initialise. Without this, a trigger producer emits
+// events without its DON ID even when the node knows which DON it is serving.
 func TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP(t *testing.T) {
 	t.Parallel()
 	t.Run("nonzero DON ID round-trips when the DON is known", func(t *testing.T) {
@@ -160,7 +159,54 @@ func TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP(t *testing.T) {
 		got := std.initialiseDependencies()
 
 		require.Zero(t, got.CapabilityDonID,
-			"an unresolved DON ID stays zero so the LOOP can fall back to the workflow DON")
+			"an unresolved DON ID stays zero")
+	})
+}
+
+func TestStandardCapabilities_MaybeResolveCapabilityDonID(t *testing.T) {
+	t.Parallel()
+	newStd := func(t *testing.T, deps core.StandardCapabilitiesDependencies) *StandardCapabilities {
+		return NewStandardCapabilities(logger.TestLogger(t), "not/found/path/to/binary", "{}", &capturingRegistrar{}, deps)
+	}
+
+	t.Run("resolved DON ID reaches the LOOP", func(t *testing.T) {
+		t.Parallel()
+		std := newStd(t, core.StandardCapabilitiesDependencies{})
+		std.resolveCapabilityDonID = func(context.Context) uint32 { return 7 }
+
+		std.maybeResolveCapabilityDonID(t.Context())
+
+		require.Equal(t, uint32(7), std.initialiseDependencies().CapabilityDonID)
+	})
+
+	t.Run("does not resolve when the DON ID is already known", func(t *testing.T) {
+		t.Parallel()
+		std := newStd(t, core.StandardCapabilitiesDependencies{CapabilityDonID: 42})
+		std.resolveCapabilityDonID = func(context.Context) uint32 {
+			t.Fatal("resolver must not be called when the DON ID is known")
+			return 0
+		}
+
+		std.maybeResolveCapabilityDonID(t.Context())
+
+		require.Equal(t, uint32(42), std.initialiseDependencies().CapabilityDonID)
+	})
+
+	t.Run("resolution leaves part of the start timeout for Initialise", func(t *testing.T) {
+		t.Parallel()
+		std := newStd(t, core.StandardCapabilitiesDependencies{})
+		std.startTimeout = 10 * time.Second
+		var deadline time.Time
+		std.resolveCapabilityDonID = func(ctx context.Context) uint32 {
+			deadline, _ = ctx.Deadline()
+			return 0
+		}
+
+		start := time.Now()
+		std.maybeResolveCapabilityDonID(t.Context())
+
+		require.WithinDuration(t, start.Add(5*time.Second), deadline, time.Second)
+		require.Zero(t, std.initialiseDependencies().CapabilityDonID)
 	})
 }
 
