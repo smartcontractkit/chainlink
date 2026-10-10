@@ -278,7 +278,11 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	// actor from sending a different payload with the same message id
 	requestID := messageID + hex.EncodeToString(msgHash[:])
 
-	r.lggr.Debugw("received request", "msgId", msg.MessageId, "requestID", requestID)
+	// Info-level so container logs prove which DON served each executable
+	// request: sharded-capability routing is otherwise unobservable (the
+	// client picks the target DON silently via its family-filtered routing
+	// table, so a mis-route only manifests as missing/wrong responses).
+	r.lggr.Infow("received request", "msgId", msg.MessageId, "requestID", requestID, "capabilityId", r.capabilityID, "method", r.capMethodName, "callerDonId", msg.CallerDonId)
 
 	requestIDs, requestIDsOK := r.messageIDToRequestIDsCount[messageID]
 	if requestIDsOK {
