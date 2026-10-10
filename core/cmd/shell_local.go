@@ -342,8 +342,16 @@ func (s *Shell) EmitNodeConfig(ctx context.Context) {
 	// Get the effective TOML configuration (with defaults applied)
 	_, effectiveTOML := s.Config.ConfigTOML()
 
-	// Emit the configuration as a message
-	err := emitter.Emit(ctx, effectiveTOML)
+	// Remove credentials and query/fragment secrets from URL values before
+	// emitting the configuration to beholder.
+	sanitizedTOML, err := beholderServices.SanitizeConfigTOML(effectiveTOML)
+	if err != nil {
+		s.Logger.Errorf("failed to sanitize node configuration for beholder, not emitting: %v", err)
+		return
+	}
+
+	// Emit the sanitized configuration as a message
+	err = emitter.Emit(ctx, sanitizedTOML)
 	if err != nil {
 		s.Logger.Errorf("failed to emit node configuration through beholder: %v", err)
 	} else {

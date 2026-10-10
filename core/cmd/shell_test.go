@@ -587,7 +587,8 @@ func TestShell_emitNodeConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		// use defaults
+		c.EVM[0].Nodes[0].WSURL = commoncfg.MustParseURL("wss://user:pass@rpc.example.com/ws?key=secret")
+		c.EVM[0].Nodes[0].HTTPURL = commoncfg.MustParseURL("https://user:pass@rpc.example.com?key=secret")
 	})
 
 	shell := &cmd.Shell{
@@ -615,6 +616,12 @@ func TestShell_emitNodeConfig(t *testing.T) {
 	require.Contains(t, baseMsg.Msg, "[Log]", "Configuration should contain Log section")
 	require.Contains(t, baseMsg.Msg, "[Database]", "Configuration should contain Database section")
 	require.Contains(t, baseMsg.Msg, "[WebServer]", "Configuration should contain WebServer section")
+
+	// Verify credentials and query secrets are not leaked
+	require.NotContains(t, baseMsg.Msg, "user:pass", "Credential user:pass should not leak in emitted config")
+	require.NotContains(t, baseMsg.Msg, "key=secret", "Query secret should not leak in emitted config")
+	require.Contains(t, baseMsg.Msg, "userxxx:passwordxxx", "Credentials should be redacted to userxxx:passwordxxx")
+	require.Contains(t, baseMsg.Msg, "?<QUERY>", "Query should be replaced with placeholder")
 
 	// Verify labels are set correctly
 	require.Equal(t, "Application", baseMsg.Labels["system"])
