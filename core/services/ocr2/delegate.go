@@ -806,7 +806,11 @@ func (d *Delegate) newServicesConsensusQueue(
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	// TODO ticket validate job spec
+	cfg := &queue.PluginConfig{}
+	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal plugin config: %w", err)
+	}
 
 	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
@@ -834,7 +838,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		rid.Network,
 		rid.ChainID,
 		spec.ContractID,
-		synchronization.TelemetryType(types.VaultPlugin),
+		synchronization.TelemetryType(types.ConsensusQueue),
 	)
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
@@ -877,19 +881,20 @@ func (d *Delegate) newServicesConsensusQueue(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
-		ContractTransmitter:          nil, // TODO ticket transmitter
-		Database:                     ocrDB,
-		KeyValueDatabaseFactory:      kvFactory,
-		LocalConfig:                  lc,
-		Logger:                       ocrLogger,
-		MonitoringEndpoint:           oracleEndpoint,
-		OffchainConfigDigester:       configDigester,
-		OffchainKeyring:              kb,
-		OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
-		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+		//TODO pass engine as EventSink
+		ContractTransmitter:     queue.NewTransmitter(lggr, ocrtypes.Account(spec.TransmitterID.String), nil),
+		Database:                ocrDB,
+		KeyValueDatabaseFactory: kvFactory,
+		LocalConfig:             lc,
+		Logger:                  ocrLogger,
+		MonitoringEndpoint:      oracleEndpoint,
+		OffchainConfigDigester:  configDigester,
+		OffchainKeyring:         kb,
+		OnchainKeyring:          ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
+		MetricsRegisterer:       prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
-	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, d.limitsFactory)
+	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, cfg, d.limitsFactory)
 	if err != nil {
 		return nil, err
 	}
