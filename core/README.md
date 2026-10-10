@@ -21,7 +21,7 @@ for interacting with Ethereum contracts.
 
 ## Installation
 
-See the [root README](../README.md#install)
+See the [root README](../README.md#build-chainlink)
 for instructions on how to build the full Chainlink node.
 
 ## Directory Structure
