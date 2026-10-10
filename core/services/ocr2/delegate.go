@@ -601,25 +601,31 @@ func (d *Delegate) NewServices(
 
 	// Resolve the OCR key from the registry signer set. Nodes launched without a
 	// job spec do not necessarily configure OCR2.KeyBundleID.
-	kb, err := registryOCRKeyBundle(d.ks, registryOCRConfig)
+	match, matched, err := registryOCRSignerMatch(d.ks, registryOCRConfig)
 	if err != nil {
 		return nil, err
 	}
-	if kb == nil {
+	kb := match.PrimaryKeyBundle()
+	if !matched {
 		kbID, keyIDErr := d.cfg.OCR2().KeyBundleID()
 		if keyIDErr != nil {
 			return nil, fmt.Errorf("failed to get default OCR2 key bundle ID: %w", keyIDErr)
 		}
 		if kbID == "" {
-			return nil, errors.New("no EVM OCR2 key matches the registry config and OCR2.KeyBundleID is not configured")
+			return nil, errors.New("no OCR2 key matches the registry config and OCR2.KeyBundleID is not configured")
 		}
 		configuredKB, getErr := d.ks.Get(kbID)
 		if getErr != nil {
 			return nil, fmt.Errorf("failed to get OCR2 key bundle: %w", getErr)
 		}
 		kb = configuredKB
+		match.KeyBundles = map[string]ocr2key.KeyBundle{string(corekeys.EVM): kb}
 	}
 	kbID := kb.ID()
+	signingConfig := make(map[string]any, len(match.KeyBundles))
+	for family, familyKB := range match.KeyBundles {
+		signingConfig[family] = familyKB.ID()
+	}
 
 	// Resolve bootstrap peers from TOML config defaults.
 	bootstrapPeers := d.defaultBootstrappers
@@ -630,8 +636,8 @@ func (d *Delegate) NewServices(
 	// Resolve transmitter from the on-chain OCR config when available,
 	// falling back to a keystore round-robin address.
 	var transmitterID string
-	if registryOCRConfig != nil {
-		if t, ok := generic.TransmitterForSigner(*registryOCRConfig, kb.PublicKey()); ok {
+	if matched {
+		if t, ok := generic.TransmitterAt(*registryOCRConfig, match.Index); ok {
 			transmitterID = t
 		}
 	}
@@ -657,7 +663,7 @@ func (d *Delegate) NewServices(
 		OCRKeyBundleID:     null.StringFrom(kbID),
 		OnchainSigningStrategy: job.JSONConfig{
 			"strategyName": "multi-chain",
-			"config":       map[string]any{"evm": kbID},
+			"config":       signingConfig,
 		},
 		PluginConfig: job.JSONConfig{},
 	}
@@ -715,17 +721,19 @@ func registryOCR2RelayConfig(chainID string, pluginType types.OCR2PluginType, tr
 	}
 }
 
-func registryOCRKeyBundle(ks keystore.OCR2, registryOCRConfig *ocrtypes.ContractConfig) (ocr2key.KeyBundle, error) {
+// registryOCRSignerMatch locates this node's signer in the registry OCR config,
+// considering bundles of every chain family so multichain signers are supported.
+func registryOCRSignerMatch(ks keystore.OCR2, registryOCRConfig *ocrtypes.ContractConfig) (generic.OCRSignerMatch, bool, error) {
 	if registryOCRConfig == nil {
-		return nil, nil
+		return generic.OCRSignerMatch{}, false, nil
 	}
 
-	bundles, err := ks.GetAllOfType(corekeys.EVM)
+	bundles, err := ks.GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get EVM OCR2 key bundles: %w", err)
+		return generic.OCRSignerMatch{}, false, fmt.Errorf("failed to get OCR2 key bundles: %w", err)
 	}
-	kb, _ := generic.SelectOCRKeyBundleForConfig(bundles, registryOCRConfig)
-	return kb, nil
+	match, ok := generic.MatchOCRSigner(bundles, registryOCRConfig)
+	return match, ok, nil
 }
 
 // bootstrapPeersToStrings converts BootstrapperLocator slice to string slice
