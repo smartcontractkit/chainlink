@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -16,10 +17,14 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vault "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Regression tests for the pre-auth owner-scoped ciphertext limiter issue: checking
@@ -28,6 +33,7 @@ import (
 // must never be consulted before the request is authorized.
 
 type recordedCiphertextCheck struct {
+	org    string
 	owner  string
 	amount commonconfig.Size
 }
@@ -46,7 +52,7 @@ func (r *recordingCiphertextLimiter) Check(ctx context.Context, amount commoncon
 	cre := contexts.CREValue(ctx)
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.checks = append(r.checks, recordedCiphertextCheck{owner: cre.Owner, amount: amount})
+	r.checks = append(r.checks, recordedCiphertextCheck{org: cre.Org, owner: cre.Owner, amount: amount})
 	if r.errFor != nil {
 		return r.errFor(amount)
 	}
@@ -244,7 +250,7 @@ func TestRequestValidator_ValidateCiphertextSizes_UsesAuthorizedOwnerPerItem(t *
 	validator, recorder := mustNewRecordingValidator(t)
 	owner := "0xauthorized"
 
-	err := validator.ValidateCiphertextSizes(t.Context(), owner, []*vaultcommon.EncryptedSecret{
+	err := validator.ValidateCiphertextSizes(t.Context(), "", owner, []*vaultcommon.EncryptedSecret{
 		{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k1"}, EncryptedValue: "00"},
 		{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k2"}, EncryptedValue: "abab"},
 	})
@@ -271,7 +277,7 @@ func TestRequestValidator_ValidateCiphertextSizes_RejectsOversizedItemWithIndex(
 		return nil
 	}
 
-	err := validator.ValidateCiphertextSizes(t.Context(), "0xauthorized", []*vaultcommon.EncryptedSecret{
+	err := validator.ValidateCiphertextSizes(t.Context(), "", "0xauthorized", []*vaultcommon.EncryptedSecret{
 		{Id: &vaultcommon.SecretIdentifier{Owner: "0xauthorized", Key: "k1"}, EncryptedValue: "00"},
 		{Id: &vaultcommon.SecretIdentifier{Owner: "0xauthorized", Key: "k2"}, EncryptedValue: "abab"},
 	})
@@ -285,7 +291,7 @@ func TestRequestValidator_ValidateCiphertextSizes_RejectsNonHexValue(t *testing.
 
 	validator, _ := mustNewRecordingValidator(t)
 
-	err := validator.ValidateCiphertextSizes(t.Context(), "0xauthorized", []*vaultcommon.EncryptedSecret{
+	err := validator.ValidateCiphertextSizes(t.Context(), "", "0xauthorized", []*vaultcommon.EncryptedSecret{
 		{Id: &vaultcommon.SecretIdentifier{Owner: "0xauthorized", Key: "k"}, EncryptedValue: "zz"},
 	})
 	require.Error(t, err)
@@ -297,10 +303,135 @@ func TestRequestValidator_ValidateCiphertextSizes_RejectsNilItem(t *testing.T) {
 
 	validator, _ := mustNewRecordingValidator(t)
 
-	err := validator.ValidateCiphertextSizes(t.Context(), "0xauthorized", []*vaultcommon.EncryptedSecret{
+	err := validator.ValidateCiphertextSizes(t.Context(), "", "0xauthorized", []*vaultcommon.EncryptedSecret{
 		{Id: &vaultcommon.SecretIdentifier{Owner: "0xauthorized", Key: "k1"}, EncryptedValue: "00"},
 		nil,
 	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "encrypted secret must not be nil at index 1")
+}
+
+// stubOrgResolver maps owners to orgs from a static table, or fails with err if set.
+type stubOrgResolver struct {
+	services.Service
+	orgByOwner map[string]string
+	err        error
+	calls      atomic.Int32
+}
+
+func (s *stubOrgResolver) Get(_ context.Context, owner string) (string, error) {
+	s.calls.Add(1)
+	if s.err != nil {
+		return "", s.err
+	}
+	return s.orgByOwner[owner], nil
+}
+
+func mustNewGatewayVaultRequestProcessorWithOrgResolver(t *testing.T, validator *vault.RequestValidator, authorizer vault.Authorizer, orgResolver orgresolver.OrgResolver) *vault.GatewayVaultRequestProcessor {
+	t.Helper()
+	processor, err := vault.NewGatewayVaultRequestProcessor(validator, authorizer, orgResolver, false, logger.TestLogger(t))
+	require.NoError(t, err)
+	return processor
+}
+
+func TestGatewayVaultRequestProcessor_ProcessRequest_CiphertextLimiterOrg(t *testing.T) {
+	t.Parallel()
+
+	const owner = "0xauthorized"
+	tests := []struct {
+		name        string
+		jwtOrgID    string
+		orgResolver *stubOrgResolver
+		expectedOrg string
+	}{
+		{name: "JWT org claim wins over resolver", jwtOrgID: "org-jwt", orgResolver: &stubOrgResolver{orgByOwner: map[string]string{owner: "org-resolved"}}, expectedOrg: "org-jwt"},
+		{name: "resolver used without JWT org claim", orgResolver: &stubOrgResolver{orgByOwner: map[string]string{owner: "org-resolved"}}, expectedOrg: "org-resolved"},
+		{name: "resolver error continues without org", orgResolver: &stubOrgResolver{err: errors.New("linking service down")}, expectedOrg: ""},
+		{name: "nil resolver continues without org", expectedOrg: ""},
+	}
+	for _, tc := range tests {
+		for _, method := range []string{vaulttypes.MethodSecretsCreate, vaulttypes.MethodSecretsUpdate} {
+			t.Run(tc.name+"/"+method, func(t *testing.T) {
+				t.Parallel()
+
+				validator, recorder := mustNewRecordingValidator(t)
+				req := mustWriteRequest(t, method, []*vaultcommon.EncryptedSecret{
+					{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k"}, EncryptedValue: "00"},
+				})
+
+				authorizer := vaultcapmocks.NewAuthorizer(t)
+				authorizer.EXPECT().AuthorizeRequest(t.Context(), mock.Anything).Return(vault.NewAuthResult(tc.jwtOrgID, owner, "digest", 0), nil)
+
+				var resolver orgresolver.OrgResolver
+				if tc.orgResolver != nil {
+					resolver = tc.orgResolver
+				}
+				processor := mustNewGatewayVaultRequestProcessorWithOrgResolver(t, validator, authorizer, resolver)
+				authorized, err := processor.ProcessRequest(t.Context(), &req, nil)
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedOrg, authorized.OrgID)
+
+				checks := recorder.recorded()
+				require.Len(t, checks, 1)
+				require.Equal(t, tc.expectedOrg, checks[0].org)
+			})
+		}
+	}
+}
+
+func TestGatewayVaultRequestProcessor_ProcessRequest_UnauthorizedWriteNeverResolvesOrg(t *testing.T) {
+	t.Parallel()
+
+	validator, _ := mustNewRecordingValidator(t)
+	req := mustWriteRequest(t, vaulttypes.MethodSecretsCreate, []*vaultcommon.EncryptedSecret{
+		{Id: &vaultcommon.SecretIdentifier{Owner: "0xnewowner", Key: "k"}, EncryptedValue: "00"},
+	})
+
+	authorizer := vaultcapmocks.NewAuthorizer(t)
+	authorizer.EXPECT().AuthorizeRequest(t.Context(), mock.Anything).Return(nil, errors.New("not authorized"))
+
+	orgResolver := &stubOrgResolver{orgByOwner: map[string]string{"0xnewowner": "org-1"}}
+	processor := mustNewGatewayVaultRequestProcessorWithOrgResolver(t, validator, authorizer, orgResolver)
+	_, err := processor.ProcessRequest(t.Context(), &req, nil)
+	require.ErrorContains(t, err, "request not authorized")
+	require.Zero(t, orgResolver.calls.Load(), "org must not be resolved before authorization")
+}
+
+// TestGatewayVaultRequestProcessor_ProcessRequest_CiphertextLimitOrgOverride proves end-to-end
+// that an org-level settings override of the owner-scoped VaultCiphertextSizeLimit is applied
+// once the org of the authorized owner is resolved.
+func TestGatewayVaultRequestProcessor_ProcessRequest_CiphertextLimitOrgOverride(t *testing.T) {
+	t.Parallel()
+
+	const (
+		raisedOwner = "0x1111111111111111111111111111111111aaaa"
+		normalOwner = "0x2222222222222222222222222222222222bbbb"
+	)
+	getter, err := settings.NewJSONGetter([]byte(`{
+		"global": {"PerOwner": {"VaultCiphertextSizeLimit": "2kb"}},
+		"org": {"org-raised": {"PerOwner": {"VaultCiphertextSizeLimit": "5kb"}}}
+	}`))
+	require.NoError(t, err)
+	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: getter})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, validator.Close()) })
+
+	orgResolver := &stubOrgResolver{orgByOwner: map[string]string{raisedOwner: "org-raised", normalOwner: "org-normal"}}
+	threeKB := strings.Repeat("00", 3*1024)
+
+	for owner, wantErr := range map[string]bool{raisedOwner: false, normalOwner: true} {
+		req := mustWriteRequest(t, vaulttypes.MethodSecretsCreate, []*vaultcommon.EncryptedSecret{
+			{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k"}, EncryptedValue: threeKB},
+		})
+		authorizer := vaultcapmocks.NewAuthorizer(t)
+		authorizer.EXPECT().AuthorizeRequest(t.Context(), mock.Anything).Return(vault.NewAuthResult("", owner, "digest", 0), nil)
+
+		processor := mustNewGatewayVaultRequestProcessorWithOrgResolver(t, validator, authorizer, orgResolver)
+		_, err := processor.ProcessRequest(t.Context(), &req, nil)
+		if wantErr {
+			require.ErrorContains(t, err, "ciphertext size exceeds maximum allowed size", owner)
+		} else {
+			require.NoError(t, err, owner)
+		}
+	}
 }

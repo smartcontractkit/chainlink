@@ -1,6 +1,7 @@
 package vault_test
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -676,6 +678,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				limits.Factory{Settings: cresettings.DefaultGetter},
 				vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
 				nil,
+				nil,
 			)
 			require.NoError(t, err)
 
@@ -767,6 +770,7 @@ func TestGatewayHandler_DeleteListWithoutPublicKeyFetch(t *testing.T) {
 				limits.Factory{Settings: cresettings.DefaultGetter},
 				vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
 				nil,
+				nil,
 			)
 			require.NoError(t, err)
 
@@ -803,6 +807,7 @@ func TestGatewayHandler_CreateUpdateReusesCachedPublicKey(t *testing.T) {
 		limits.Factory{Settings: cresettings.DefaultGetter},
 		vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
 		nil,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -837,6 +842,55 @@ func TestGatewayHandler_CreateUpdateReusesCachedPublicKey(t *testing.T) {
 	}
 }
 
+// TestGatewayHandler_CreatePassesResolvedOrgToSecretsService checks that the org resolved for an
+// authorized write reaches the secrets service, which re-checks owner-scoped limits.
+func TestGatewayHandler_CreatePassesResolvedOrgToSecretsService(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	secretsService := vaulttypesmocks.NewSecretsService(t)
+	gwConnector := connector_mocks.NewGatewayConnector(t)
+	allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
+
+	pk, pkHex := testMasterPublicKey(t)
+	secretsService.EXPECT().GetPublicKey(mock.Anything, mock.Anything).
+		Return(&vaultcommon.GetPublicKeyResponse{PublicKey: pkHex}, nil).Once()
+
+	orgResolver := &stubOrgResolver{orgByOwner: map[string]string{"0xabc": "org-1"}}
+	handler, err := vaultcap.NewGatewayHandler(
+		secretsService,
+		gwConnector,
+		nil,
+		lggr,
+		limits.Factory{Settings: cresettings.DefaultGetter},
+		vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
+		nil,
+		orgResolver,
+	)
+	require.NoError(t, err)
+
+	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{{
+			Id:             &vaultcommon.SecretIdentifier{Key: "test_secret", Owner: "0xAbC"},
+			EncryptedValue: encryptSecretForOwner(t, pk, "0xAbC"),
+		}},
+	})
+	require.NoError(t, err)
+	raw := json.RawMessage(params)
+	req := &jsonrpc.Request[json.RawMessage]{Method: vaulttypes.MethodSecretsCreate, ID: "1", Params: &raw}
+
+	allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).
+		Return(vaultcap.NewAuthResult("", "0xabc", "digest-1", time.Now().Add(time.Minute).Unix()), nil).Once()
+	secretsService.EXPECT().CreateSecrets(mock.MatchedBy(func(ctx context.Context) bool {
+		return contexts.CREValue(ctx).Org == "org-1"
+	}), mock.Anything).Return(&vaulttypes.Response{ID: "test_secret"}, nil).Once()
+	gwConnector.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+		return resp.Error == nil
+	})).Return(nil).Once()
+
+	require.NoError(t, handler.HandleGatewayMessage(t.Context(), "gateway-1", req))
+}
+
 func TestGatewayHandler_Lifecycle(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
@@ -852,6 +906,7 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 		lggr,
 		limits.Factory{Settings: cresettings.DefaultGetter},
 		vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
+		nil,
 		nil,
 	)
 	require.NoError(t, err)
@@ -888,6 +943,7 @@ func TestGatewayHandler_Lifecycle_DefaultAuthorizer_NoJWTConfig(t *testing.T) {
 		nil,
 		lggr,
 		limits.Factory{Settings: cresettings.DefaultGetter},
+		nil,
 		nil,
 		nil,
 	)
