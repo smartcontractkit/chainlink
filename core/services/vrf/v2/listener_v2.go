@@ -16,11 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2plus"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -35,11 +32,8 @@ import (
 
 var (
 	_                         job.ServiceCtx = &listenerV2{}
-	coordinatorV2ABI                         = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
 	coordinatorV2PlusABI                     = evmtypes.MustGetABI(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI)
-	batchCoordinatorV2ABI                    = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 	batchCoordinatorV2PlusABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusABI)
-	vrfOwnerABI                              = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
 	// These are the transaction states used when summing up already reserved subscription funds that are about to be used in in-flight transactions
 	reserveEthLinkQueryStates = []txmgrtypes.TxState{txmgrcommon.TxUnconfirmed, txmgrcommon.TxUnstarted, txmgrcommon.TxInProgress}
 )
@@ -59,7 +53,6 @@ const (
 	// backoffFactor is the factor by which to increase the delay each time a request fails.
 	backoffFactor = 1.3
 
-	txMetaFieldSubID  = "SubId"
 	txMetaGlobalSubID = "GlobalSubId"
 )
 
@@ -71,8 +64,7 @@ func New(
 	chainID *big.Int,
 	ds sqlutil.DataSource,
 	coordinator CoordinatorV2_X,
-	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
-	vrfOwner vrf_owner.VRFOwnerInterface,
+	batchCoordinator batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusInterface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
@@ -89,7 +81,6 @@ func New(
 		chainID:               chainID,
 		coordinator:           coordinator,
 		batchCoordinator:      batchCoordinator,
-		vrfOwner:              vrfOwner,
 		pipelineRunner:        pipelineRunner,
 		job:                   job,
 		ds:                    ds,
@@ -114,8 +105,7 @@ type listenerV2 struct {
 	chainID *big.Int
 
 	coordinator      CoordinatorV2_X
-	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface
-	vrfOwner         vrf_owner.VRFOwnerInterface
+	batchCoordinator batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusInterface
 
 	pipelineRunner pipeline.Runner
 	job            job.Job
@@ -189,13 +179,6 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 			return err
 		}
 		lsn.respCount = respCount
-
-		if lsn.job.VRFSpec.CustomRevertsPipelineEnabled && lsn.vrfOwner != nil && lsn.job.VRFSpec.VRFOwnerAddress != nil {
-			// Start reverted txns handler in background
-			lsn.wg.Go(func() {
-				lsn.runRevertedTxnsHandler(spec.PollPeriod)
-			})
-		}
 
 		// Log listener gathers request logs and processes them
 		lsn.wg.Go(func() {

@@ -42,7 +42,7 @@ func WaitForMined(lggr logger.Logger, client ethereum.TransactionReader, hash co
 
 		time.Sleep(RetryTiming)
 	}
-	return errors.New("No tx found within the given timeout")
+	return errors.New("no tx found within the given timeout")
 }
 
 func RequireNoError(t *testing.T, err error) {

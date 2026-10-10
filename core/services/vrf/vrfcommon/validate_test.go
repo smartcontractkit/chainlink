@@ -12,7 +12,22 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-// vrfV2Observation is a minimal valid VRF v2 pipeline for validation tests.
+// vrfV2PlusObservation is a minimal valid VRF v2plus pipeline for validation tests.
+const vrfV2PlusObservation = `
+decode_log   [type=ethabidecodelog
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint256 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bytes extraArgs,address indexed sender)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrfv2plus
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+decode_log->vrf
+`
+
+// vrfV2Observation is a legacy VRF v2 pipeline. The vrfv2 task has been removed,
+// so specs using it are expected to fail validation.
 const vrfV2Observation = `
 decode_log   [type=ethabidecodelog
               abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
@@ -46,7 +61,7 @@ chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
@@ -69,7 +84,7 @@ schemaVersion   = 1
 minIncomingConfirmations = 10
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
@@ -88,7 +103,7 @@ requestTimeout = "168h" # 7 days
 chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
@@ -103,7 +118,7 @@ schemaVersion   = 1
 minIncomingConfirmations = 10
 publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
@@ -120,7 +135,7 @@ publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F817980
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
@@ -137,7 +152,7 @@ publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F817980
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
@@ -155,7 +170,7 @@ publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F817980
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
@@ -173,7 +188,7 @@ publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F817980
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -190,7 +205,7 @@ publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F817980
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
@@ -209,7 +224,7 @@ publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F817980
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
@@ -228,7 +243,7 @@ publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F817980
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -247,7 +262,7 @@ publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F817980
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
@@ -267,7 +282,7 @@ chunkSize = 25
 backoffInitialDelay = "1h"
 backoffMaxDelay = "30m"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
@@ -287,7 +302,7 @@ backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
 gasLanePrice = "200 gwei"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
@@ -316,7 +331,7 @@ backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
 gasLanePrice = "-200"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
-observationSource = """` + vrfV2Observation + `"""
+observationSource = """` + vrfV2PlusObservation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
@@ -335,6 +350,21 @@ chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
 gasLanePrice = "0 gwei"
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2PlusObservation + `"""
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "legacy vrfv2 observation source is rejected",
+			toml: `
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 fromAddresses = ["0x1111111111111111111111111111111111111111"]
 observationSource = """` + vrfV2Observation + `"""
 `,

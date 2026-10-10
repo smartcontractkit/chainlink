@@ -11,11 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
-
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/devenv/products/cron"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
-	"github.com/smartcontractkit/chainlink/devenv/products/vrfv2"
 	"github.com/smartcontractkit/chainlink/devenv/products/vrfv2plus"
 )
 
@@ -40,8 +38,6 @@ func newProduct(name string) (Product, error) {
 		return ocr2.NewConfigurator(), nil
 	case "vrfv2_plus":
 		return vrfv2plus.NewConfigurator(), nil
-	case "vrfv2":
-		return vrfv2.NewConfigurator(), nil
 
 	default:
 		return nil, fmt.Errorf("unknown product type: %s", name)

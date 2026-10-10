@@ -1,8 +1,11 @@
 package vrfv2plus
 
 import (
+	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,8 +14,9 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/contracts"
 	"github.com/smartcontractkit/chainlink/devenv/products"
@@ -60,6 +64,9 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	bhs, err := contracts.LoadBlockhashStore(chainClient, c.DeployedContracts.BHS)
 	require.NoError(t, err, "failed to load BlockhashStore")
 
+	cl, err := clclient.New(in.NodeSets[0].Out.CLNodes)
+	require.NoError(t, err, "failed to connect to Chainlink nodes")
+
 	t.Run("BHS stores blockhash for unfulfilled request", func(t *testing.T) {
 		// Deploy consumer and create a subscription with 0 funds so the request gets stuck.
 		consumer, dErr := contracts.DeployVRFv2PlusLoadTestConsumer(chainClient, coord.Address())
@@ -95,6 +102,22 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		require.NoError(t, cErr)
 		require.Equal(t, 0, reqCount.Cmp(big.NewInt(1)), "request count should be 1")
 		require.Equal(t, 0, respCount.Cmp(big.NewInt(0)), "fulfillment count should stay 0")
+
+		gom := gomega.NewGomegaWithT(t)
+		var bhsNodeTxHash string
+		gom.Eventually(func(g gomega.Gomega) {
+			txs, _, rErr := cl[1].ReadTransactions()
+			g.Expect(rErr).ShouldNot(gomega.HaveOccurred())
+			h, ok := findBHSStoreTxHashForBlock(txs.Data, c.DeployedContracts.BHS, requestBlock)
+			g.Expect(ok).Should(gomega.BeTrue(), "expected BHS node tx storing block %d (got %d node txs)", requestBlock, len(txs.Data))
+			bhsNodeTxHash = h
+		}, "2m", "1s").Should(gomega.Succeed())
+
+		tx, _, tErr := chainClient.Client.TransactionByHash(ctx, common.HexToHash(bhsNodeTxHash))
+		require.NoError(t, tErr, "failed to load BHS node store transaction")
+		storedBlock, dErr := decodeBHSStoreBlockNumber(tx.Data())
+		require.NoError(t, dErr, "failed to decode store block number from BHS tx calldata")
+		require.Equal(t, requestBlock, storedBlock, "BHS store tx should target request block %d", requestBlock)
 
 		var storedHash [32]byte
 		gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -176,4 +199,50 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			"stuck VRF request should be fulfilled after funding and BHS blockhash storage")
 		require.True(t, fulfilledSuccess, "RandomWordsFulfilled.Success should be true")
 	})
+}
+
+func decodeBHSStoreBlockNumber(data []byte) (uint64, error) {
+	parsed, err := blockhash_store.BlockhashStoreMetaData.GetAbi()
+	if err != nil {
+		return 0, err
+	}
+	if len(data) < 4 {
+		return 0, errors.New("short calldata")
+	}
+	m, err := parsed.MethodById(data[:4])
+	if err != nil {
+		return 0, err
+	}
+	args, err := m.Inputs.Unpack(data[4:])
+	if err != nil {
+		return 0, err
+	}
+	if len(args) != 1 {
+		return 0, fmt.Errorf("expected 1 arg, got %d", len(args))
+	}
+	bn, ok := args[0].(*big.Int)
+	if !ok {
+		return 0, errors.New("expected *big.Int")
+	}
+	return bn.Uint64(), nil
+}
+
+// findBHSStoreTxHashForBlock returns the hash of a finalized node tx that calls BHS store for wantBlock.
+// With fast chains the node may list multiple BHS store txs; we match by decoded calldata block number.
+func findBHSStoreTxHashForBlock(txs []clclient.TransactionData, bhsAddr string, wantBlock uint64) (txHash string, ok bool) {
+	for _, tx := range txs {
+		if !strings.EqualFold(tx.Attributes.To, bhsAddr) {
+			continue
+		}
+		data := common.FromHex(tx.Attributes.Data)
+		if len(data) < 4 {
+			continue
+		}
+		stored, err := decodeBHSStoreBlockNumber(data)
+		if err != nil || stored != wantBlock {
+			continue
+		}
+		return tx.Attributes.Hash, true
+	}
+	return "", false
 }
