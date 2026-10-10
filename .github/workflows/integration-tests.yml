@@ -1,5 +1,3 @@
-# N/B: ci-core, which runs on PRs, will trigger linting for affected directories/modules
-# no need to run lint twice
 name: Integration Tests
 run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 on:
@@ -284,7 +282,7 @@ jobs:
       matrix:
         image:
           - name: ""
-            runner: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
+            runner: ubuntu-latest
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
             cache-scope: core
@@ -295,7 +293,7 @@ jobs:
               }}
 
           - name: (plugins)
-            runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-8cores-32GB' }}
+            runner: ubuntu-latest
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
             cache-scope: plugins
