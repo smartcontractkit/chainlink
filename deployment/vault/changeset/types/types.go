@@ -266,3 +266,49 @@ type EthBalMonAcceptOwnershipInput struct {
 	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
 	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
+
+
+//***********************************************//
+//  CCIP native / wrapped-native bridge input    //
+//***********************************************//
+
+// CCIP bridge token-type values for CCIPBridgeConfig.TokenType.
+const (
+	// TokenTypeNative: the source Timelock holds native (ETH); the changeset wraps via WETH
+	// deposit() before the CCIP send.
+	TokenTypeNative = "native"
+	// TokenTypeWrappedNative: the source Timelock already holds WETH; no wrap, approve + send only.
+	TokenTypeWrappedNative = "wrappedNative"
+)
+
+// CCIPBridgeTransfer is a single destination for a native/wrapped-native bridge from the source Timelock.
+type CCIPBridgeTransfer struct {
+	// ToChainSelector is the CCIP destination chain selector.
+	ToChainSelector uint64 `json:"to_chain_selector"`
+	// Amount is the value to bridge, in wei (WETH units).
+	Amount *big.Int `json:"amount"`
+	// DestinationAddress is the final native recipient address on the destination chain.
+	DestinationAddress string `json:"destination_address"`
+	// MaxCCIPFee optionally caps the buffered native fee actually sent for this transfer (wei).
+	MaxCCIPFee *big.Int `json:"max_ccip_fee,omitempty"`
+}
+
+// CCIPBridgeConfig configures a CCIP bridge of native/wrapped-native value from one source chain's
+// Timelock to one or more destination chains, delivering native value via an EtherSenderReceiver.
+type CCIPBridgeConfig struct {
+	// FromChainSelector is the source chain whose Timelock holds the funds and executes the proposal.
+	FromChainSelector uint64 `json:"from_chain_selector"`
+	// TokenType is TokenTypeNative or TokenTypeWrappedNative; it describes what the Timelock holds.
+	TokenType string `json:"token_type"`
+	// TestNeeded, when true, splits each transfer into a test proposal (TestBridgeAmount) and a
+	// remainder proposal (amount - TestBridgeAmount), produced as two separate timelock proposals.
+	TestNeeded bool `json:"test_needed"`
+	// GasLimit is the destination execution gas limit encoded in CCIP extraArgs (default used if 0).
+	GasLimit uint64 `json:"gas_limit,omitempty"`
+	// Transfers is the list of destinations.
+	Transfers []CCIPBridgeTransfer `json:"transfers"`
+	// MCMSConfig is the timelock/MCMS configuration; injected by the pipeline.
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config"`
+	// Description for the generated MCMS proposal(s).
+	Description string `json:"description"`
+}
