@@ -2,6 +2,8 @@ package cre
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"slices"
 	"strings"
@@ -338,6 +340,34 @@ func requireCachedEventForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment
 	}, 2*time.Minute, 5*time.Second, "nodeset %s never cached a trigger event for workflow %s", nodesetName, workflowID)
 }
 
+// shardAssignmentUpdateHashNeedle returns the log needle proving a node
+// applied the shard-assignment spec built from toml: the job template stamps
+// the spec with sha256(toml) and every node logs it on apply
+// ("Updated shard assignment config", "hash", ...). Waiting for this needle
+// on EVERY worker container of a shard is the node-complete landing proof -
+// a single node's behavioral evidence (e.g. a cached-trigger needle) can
+// appear while the shard's other nodes still run the stale assignment.
+func shardAssignmentUpdateHashNeedle(toml string) string {
+	sum := sha256.Sum256([]byte(toml))
+	return hex.EncodeToString(sum[:])
+}
+
+// requireAssignmentLandedOnShard requires every worker container of the DON
+// to have logged the assignment update carrying the given hash needle.
+func requireAssignmentLandedOnShard(t *testing.T, testEnv *ttypes.TestEnvironment, don *cre.Don, hashNeedle string) {
+	t.Helper()
+
+	workers, err := don.Workers()
+	require.NoErrorf(t, err, "failed to get worker nodes of DON %q", don.Name)
+	require.NotEmpty(t, workers)
+
+	require.Eventuallyf(t, func() bool {
+		return t_helpers.CountNodesetContainersWithLog(t, testEnv, don.Name, hashNeedle) >= len(workers)
+	}, 2*time.Minute, 3*time.Second,
+		"the shard-assignment update (hash %s) did not land on all %d worker containers of DON %s",
+		hashNeedle, len(workers), don.Name)
+}
+
 // ExecuteShardFailoverAutoTest covers automatic failover on silent primary
 // death (CRE-SHARD-M5-3): with the ShardingFailoverAutoExecutionEnabled gate
 // open, a secondary shard executes a trigger event itself when no execution
@@ -480,24 +510,28 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 	testLogger.Info().Msg("Phase 3: primary dead, survivor promoted and executing")
 
 	// Primary recovery: the old primary returns - as a secondary, because the
-	// current assignment says so. Its engines restart fresh under the swapped
-	// assignment (the shard-assignment job is re-proposed to it once its nodes
-	// reconnected), so it resolves ownership per event, denies and caches.
-	// Between the restart and the swapped assignment landing on it, the
-	// recovered shard may briefly execute on its stale assignment copy - a
-	// bounded, at-least-once duplicate; the stability assertions below
-	// measure after the failback landed.
+	// current assignment says so. Its engines restart fresh, first under their
+	// stale assignment copy (the recovered shard briefly executes as a second
+	// primary - a bounded, at-least-once duplicate), then the swapped
+	// assignment is re-proposed to it once its nodes reconnected. Landing on
+	// ONE node is not landing on the shard: the job distributor delivers to
+	// each node independently, so the first node's cached-trigger needle can
+	// appear while the other nodes still execute the stale assignment - wait
+	// for the update to land on EVERY worker container (each logs the spec's
+	// hash) before measuring the recovered shard's behavior.
+	swappedAssignmentTOML := shardFailoverAssignmentTOML(shards, false)
 	t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	awaitShardDONsConnectedToJD(t, testEnv)
-	proposeSharedVaultAssignment(t, testEnv, shardFailoverAssignmentTOML(shards, false))
+	proposeSharedVaultAssignment(t, testEnv, swappedAssignmentTOML)
+	requireAssignmentLandedOnShard(t, testEnv, shards.shardZeroDON, shardAssignmentUpdateHashNeedle(swappedAssignmentTOML))
 	requireCachedEventForWorkflow(t, testEnv, shards.shardZeroDON.Name, workflowID)
 	failbackLanded := time.Now()
 	testLogger.Info().Msg("Phase 4: former primary returned, re-synced and caching as secondary")
 
-	// Recovery assertions: from the failback landing on (plus the in-flight
-	// drain grace, so gap executions admitted under the stale assignment just
-	// before the landing are not counted), fresh ticks arrive only from the
-	// promoted shard, and no executionID is seen on two DONs.
+	// Recovery assertions: from the failback landing on every node (plus the
+	// in-flight drain grace, so gap executions admitted under the stale
+	// assignment just before the landing are not counted), fresh ticks arrive
+	// only from the promoted shard, and no executionID is seen on two DONs.
 	stableSince := failbackLanded.Add(shardInflightDrainGrace)
 	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, stableSince, shardEventAwaitTimeout)
 	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, stableSince)

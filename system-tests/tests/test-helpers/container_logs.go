@@ -130,6 +130,43 @@ func ContainerLogLinesForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, 
 	return containerLogLines(t, nodesetContainerNames(t, testEnv, nodesetName), needle)
 }
 
+// CountNodesetContainersWithLog returns how many of the nodeset's containers
+// currently contain needle in their logs. Use it for per-node convergence
+// proofs, where a single container's log line is not enough (e.g. a settings
+// or assignment update delivered by the job distributor lands on each node
+// independently).
+func CountNodesetContainersWithLog(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string) int {
+	t.Helper()
+
+	targetNames := make(map[string]struct{})
+	for _, name := range nodesetContainerNames(t, testEnv, nodesetName) {
+		targetNames[name] = struct{}{}
+	}
+
+	logStreams, err := framework.StreamContainerLogs(
+		client.ContainerListOptions{All: true},
+		client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true},
+	)
+	require.NoError(t, err)
+
+	count := 0
+	for containerName, reader := range logStreams {
+		if _, ok := targetNames[containerName]; !ok {
+			_ = reader.Close()
+			continue
+		}
+		content, readErr := readContainerLogs(reader)
+		if readErr != nil {
+			framework.L.Warn().Str("container", containerName).Err(readErr).Msg("could not read container logs")
+			continue
+		}
+		if strings.Contains(content, needle) {
+			count++
+		}
+	}
+	return count
+}
+
 // AssertNodeLogs requires needle to appear in at least one Chainlink node container log.
 func AssertNodeLogs(t *testing.T, testEnv *ttypes.TestEnvironment, needle string) {
 	t.Helper()
