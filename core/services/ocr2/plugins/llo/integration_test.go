@@ -598,7 +598,8 @@ lloConfigMode = "mercury"
 		// Channel definitions
 		channelDefinitions := llotypes.ChannelDefinitions{
 			1: {
-				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				ReportFormat:           llotypes.ReportFormatEVMPremiumLegacy,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -616,7 +617,8 @@ lloConfigMode = "mercury"
 				Opts: llotypes.ChannelOpts(fmt.Appendf(nil, `{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID1, multiplier.String())),
 			},
 			2: {
-				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				ReportFormat:           llotypes.ReportFormatEVMPremiumLegacy,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -877,7 +879,8 @@ lloConfigMode = "bluegreen"
 		channelDefinitions := llotypes.ChannelDefinitions{
 			// Sample DEX-based asset schema
 			1: {
-				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+				ReportFormat:           llotypes.ReportFormatEVMABIEncodeUnpacked,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -913,7 +916,8 @@ lloConfigMode = "bluegreen"
 			},
 			// Sample RWA schema
 			2: {
-				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+				ReportFormat:           llotypes.ReportFormatEVMABIEncodeUnpacked,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -939,7 +943,8 @@ lloConfigMode = "bluegreen"
 			},
 			// Sample Benchmark price schema
 			3: {
-				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+				ReportFormat:           llotypes.ReportFormatEVMABIEncodeUnpacked,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -965,7 +970,8 @@ lloConfigMode = "bluegreen"
 			},
 			// Sample funding rate schema
 			4: {
-				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+				ReportFormat:           llotypes.ReportFormatEVMABIEncodeUnpacked,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -1016,7 +1022,8 @@ lloConfigMode = "bluegreen"
 			},
 			// Simple sample streamlined schema
 			simpleStreamlinedChannelID: {
-				ReportFormat: llotypes.ReportFormatEVMStreamlined,
+				ReportFormat:           llotypes.ReportFormatEVMStreamlined,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -1031,7 +1038,8 @@ lloConfigMode = "bluegreen"
 			},
 			// Complex sample streamlined schema
 			complexStreamlinedChannelID: {
-				ReportFormat: llotypes.ReportFormatEVMStreamlined,
+				ReportFormat:           llotypes.ReportFormatEVMStreamlined,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -1056,7 +1064,8 @@ lloConfigMode = "bluegreen"
 			},
 			// Sample timestamped stock price schema/RWA
 			sampleTimestampsStockPriceChannelID: {
-				ReportFormat: llotypes.ReportFormatJSON,
+				ReportFormat:           llotypes.ReportFormatJSON,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   timestampedStonkPriceStreamID,
@@ -1074,7 +1083,8 @@ lloConfigMode = "bluegreen"
 			},
 			// Sample timestamped stream value schema
 			sampleTimestampedStreamValueChannelID: {
-				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+				ReportFormat:           llotypes.ReportFormatEVMABIEncodeUnpacked,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -1621,7 +1631,8 @@ lloConfigMode = "bluegreen"
 		channelDefinitions := llotypes.ChannelDefinitions{}
 		for i := range uint32(nChannels) {
 			channelDefinitions[i] = llotypes.ChannelDefinition{
-				ReportFormat: llotypes.ReportFormatJSON,
+				ReportFormat:           llotypes.ReportFormatJSON,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -1849,7 +1860,8 @@ lloConfigMode = "bluegreen"
 		channelDefinitions := llotypes.ChannelDefinitions{}
 		for i := range uint32(nChannels) {
 			channelDefinitions[i] = llotypes.ChannelDefinition{
-				ReportFormat: llotypes.ReportFormatJSON,
+				ReportFormat:           llotypes.ReportFormatJSON,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -2082,7 +2094,8 @@ lloConfigMode = "bluegreen"
 		// Channel definitions
 		channelDefinitions := llotypes.ChannelDefinitions{
 			1: {
-				ReportFormat: llotypes.ReportFormatJSON,
+				ReportFormat:           llotypes.ReportFormatJSON,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   ethStreamID,
@@ -2340,7 +2353,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		// adding a new channel definition is picked up on the fly
 		{
 			channelDefinitions[2] = llotypes.ChannelDefinition{
-				ReportFormat: llotypes.ReportFormatJSON,
+				ReportFormat:           llotypes.ReportFormatJSON,
+				DisableNilStreamValues: true,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   linkStreamID,
@@ -2551,7 +2565,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		t.Run("Owner adds initial channels", func(t *testing.T) {
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   ethStreamID,
@@ -2560,7 +2575,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					},
 				},
 				2: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   ethStreamID,
@@ -2569,7 +2585,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					},
 				},
 				3: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   linkStreamID,
@@ -2612,7 +2629,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// Adder1 adds channels
 			adder1Definitions := llotypes.ChannelDefinitions{
 				10: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   ethStreamID,
@@ -2623,7 +2641,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					Tombstone: false,
 				},
 				11: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   linkStreamID,
@@ -2657,7 +2676,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// Adder2 adds channels
 			adder2Definitions := llotypes.ChannelDefinitions{
 				20: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   ethStreamID,
@@ -2666,7 +2686,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					},
 				},
 				21: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   linkStreamID,
@@ -2710,7 +2731,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// Owner updates definitions, add tombstone to channel 2 and 21
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   ethStreamID,
@@ -2719,8 +2741,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					},
 				},
 				2: {
-					ReportFormat: llotypes.ReportFormatJSON,
-					Tombstone:    true,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
+					Tombstone:              true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   ethStreamID,
@@ -2729,7 +2752,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					},
 				},
 				3: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   linkStreamID,
@@ -2738,8 +2762,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					},
 				},
 				21: {
-					ReportFormat: llotypes.ReportFormatJSON,
-					Tombstone:    true,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
+					Tombstone:              true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   linkStreamID,
@@ -2790,7 +2815,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// Owner sets a channel definition with same ID as adder1's channel 10
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   ethStreamID,
@@ -2799,7 +2825,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					},
 				},
 				3: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   linkStreamID,
@@ -2808,7 +2835,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					},
 				},
 				10: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   linkStreamID, // Changed from ethStreamID to linkStreamID
@@ -2854,7 +2882,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// Adder1 tries to set definitions that exclude channel 11 (which they previously added)
 			adder1NewDefinitions := llotypes.ChannelDefinitions{
 				10: {
-					ReportFormat: llotypes.ReportFormatJSON,
+					ReportFormat:           llotypes.ReportFormatJSON,
+					DisableNilStreamValues: true,
 					Streams: []llotypes.Stream{
 						{
 							StreamID:   ethStreamID,
@@ -3008,13 +3037,15 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 	channelDefinitions := llotypes.ChannelDefinitions{
 		1: {
-			ReportFormat: llotypes.ReportFormatJSON,
+			ReportFormat:           llotypes.ReportFormatJSON,
+			DisableNilStreamValues: true,
 			Streams: []llotypes.Stream{
 				{StreamID: streamIDActive, Aggregator: llotypes.AggregatorMedian},
 			},
 		},
 		2: {
-			ReportFormat: llotypes.ReportFormatJSON,
+			ReportFormat:           llotypes.ReportFormatJSON,
+			DisableNilStreamValues: true,
 			Streams: []llotypes.Stream{
 				{StreamID: streamIDTombstone, Aggregator: llotypes.AggregatorMedian},
 			},
@@ -3058,14 +3089,16 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	// Tombstone channel 2 only; channel 1 keeps observing streamIDActive.
 	tombstonedDefs := llotypes.ChannelDefinitions{
 		1: {
-			ReportFormat: llotypes.ReportFormatJSON,
+			ReportFormat:           llotypes.ReportFormatJSON,
+			DisableNilStreamValues: true,
 			Streams: []llotypes.Stream{
 				{StreamID: streamIDActive, Aggregator: llotypes.AggregatorMedian},
 			},
 		},
 		2: {
-			ReportFormat: llotypes.ReportFormatJSON,
-			Tombstone:    true,
+			ReportFormat:           llotypes.ReportFormatJSON,
+			DisableNilStreamValues: true,
+			Tombstone:              true,
 			Streams: []llotypes.Stream{
 				{StreamID: streamIDTombstone, Aggregator: llotypes.AggregatorMedian},
 			},
@@ -3207,7 +3240,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 	channelDefinitions := llotypes.ChannelDefinitions{
 		1: {
-			ReportFormat: llotypes.ReportFormatJSON,
+			ReportFormat:           llotypes.ReportFormatJSON,
+			DisableNilStreamValues: true,
 			Streams: []llotypes.Stream{
 				{StreamID: streamID, Aggregator: llotypes.AggregatorMedian},
 			},
@@ -3459,13 +3493,15 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 
 	channelDefinitions := llotypes.ChannelDefinitions{
 		channelFull: {
-			ReportFormat: llotypes.ReportFormatJSON,
+			ReportFormat:           llotypes.ReportFormatJSON,
+			DisableNilStreamValues: true,
 			Streams: []llotypes.Stream{
 				{StreamID: streamIDFull, Aggregator: llotypes.AggregatorMedian},
 			},
 		},
 		channelPartial: {
-			ReportFormat: llotypes.ReportFormatJSON,
+			ReportFormat:           llotypes.ReportFormatJSON,
+			DisableNilStreamValues: true,
 			Streams: []llotypes.Stream{
 				{StreamID: streamIDPartial, Aggregator: llotypes.AggregatorMedian},
 			},
@@ -3659,7 +3695,8 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 
 	channelDefinitions := llotypes.ChannelDefinitions{
 		channelID: {
-			ReportFormat: llotypes.ReportFormatJSON,
+			ReportFormat:           llotypes.ReportFormatJSON,
+			DisableNilStreamValues: true,
 			Streams: []llotypes.Stream{
 				{StreamID: streamID, Aggregator: llotypes.AggregatorMedian},
 			},
@@ -3829,7 +3866,8 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 
 	channelDefinitions := llotypes.ChannelDefinitions{
 		channelID: {
-			ReportFormat: llotypes.ReportFormatJSON,
+			ReportFormat:           llotypes.ReportFormatJSON,
+			DisableNilStreamValues: true,
 			Streams: []llotypes.Stream{
 				{StreamID: streamID, Aggregator: llotypes.AggregatorMedian},
 			},
