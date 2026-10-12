@@ -588,13 +588,27 @@ func proposeAndApproveShardAssignmentJob(t *testing.T, testEnv *ttypes.TestEnvir
 		require.NoError(t, err, "Failed to propose shard assignment job")
 	}
 
-	if err := jobs.Approve(t.Context(), testEnv.CreEnvironment.CldfEnvironment.Offchain, testEnv.Dons, report.Output.Specs); err != nil {
-		if strings.Contains(err.Error(), "cannot approve an approved spec") {
-			testLogger.Info().Msg("Shard assignment job already approved (from previous run), continuing...")
-			return
+	// The node's proposal list updates asynchronously after the job
+	// distributor accepts the proposal (it is delivered over the node stream
+	// and auto-approved by the node on arrival), so an immediate approve can
+	// race into "no job proposal found for job spec" - retry until the
+	// proposal shows up instead of failing the delivery race.
+	require.Eventuallyf(t, func() bool {
+		approveErr := jobs.Approve(t.Context(), testEnv.CreEnvironment.CldfEnvironment.Offchain, testEnv.Dons, report.Output.Specs)
+		if approveErr == nil {
+			return true
 		}
-		require.NoError(t, err, "Failed to approve shard assignment job")
-	}
+		if strings.Contains(approveErr.Error(), "cannot approve an approved spec") {
+			testLogger.Info().Msg("Shard assignment job already approved, continuing...")
+			return true
+		}
+		if strings.Contains(approveErr.Error(), "no job proposal found") {
+			testLogger.Info().Msg("Shard assignment proposal not yet visible to the node, retrying...")
+			return false
+		}
+		require.NoError(t, approveErr, "Failed to approve shard assignment job")
+		return false
+	}, 30*time.Second, 2*time.Second, "shard assignment proposal never became visible to the target nodes")
 
 	testLogger.Info().Msg("Shard assignment job proposed and approved")
 }
