@@ -21,7 +21,51 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
-func EmitWorkflowStatusChangedEvent(
+// Emitter emits workflow platform events to beholder (and the durable emitter, if configured).
+// Its zero value and a nil *Emitter both emit to the global beholder client and
+// the global durable emitter, each resolved at emit time.
+type Emitter struct {
+	beholder beholder.Emitter
+	durable  func(ctx context.Context, body []byte, attrKVs ...any) error
+}
+
+// EmitterOption configures an Emitter.
+type EmitterOption func(*Emitter)
+
+// WithDurableEmit overrides the durable emit func (default durableemitter.GlobalEmit).
+func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) error) EmitterOption {
+	return func(e *Emitter) { e.durable = fn }
+}
+
+// NewEmitter returns an Emitter writing to e. A nil e uses beholder.GlobalEmitter().
+func NewEmitter(e beholder.Emitter, opts ...EmitterOption) *Emitter {
+	if e == nil {
+		e = beholder.GlobalEmitter()
+	}
+	em := &Emitter{beholder: e}
+	for _, opt := range opts {
+		opt(em)
+	}
+	return em
+}
+
+// DefaultEmitter returns NewEmitter(nil): the global beholder emitter and the
+// global durable emitter, both resolved at emit time.
+func DefaultEmitter() *Emitter {
+	return NewEmitter(nil)
+}
+
+// defaultEmitter backs nil *Emitter receivers, which behave like DefaultEmitter().
+var defaultEmitter = &Emitter{beholder: beholder.GlobalEmitter()}
+
+func (e *Emitter) get() *Emitter {
+	if e == nil {
+		return defaultEmitter
+	}
+	return e
+}
+
+func (e *Emitter) EmitWorkflowStatusChangedEvent(
 	ctx context.Context,
 	labels map[string]string,
 	status string,
@@ -32,10 +76,10 @@ func EmitWorkflowStatusChangedEvent(
 		Status: status,
 	}
 
-	return emitProtoMessage(ctx, event)
+	return e.emitProtoMessage(ctx, event)
 }
 
-func EmitWorkflowStatusChangedEventV2(
+func (e *Emitter) EmitWorkflowStatusChangedEventV2(
 	ctx context.Context,
 	labels map[string]string,
 	head *types.Head,
@@ -46,7 +90,7 @@ func EmitWorkflowStatusChangedEventV2(
 ) error {
 	// Emit v1 event
 	var multiErr error
-	if err := EmitWorkflowStatusChangedEvent(ctx, labels, status); err != nil {
+	if err := e.EmitWorkflowStatusChangedEvent(ctx, labels, status); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
 
@@ -94,14 +138,14 @@ func EmitWorkflowStatusChangedEventV2(
 	}
 
 	// Emit v2 event
-	if err := emitProtoMessage(ctx, v2Event); err != nil {
+	if err := e.emitProtoMessage(ctx, v2Event); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
 
 	return multiErr
 }
 
-func EmitWorkflowActivationAbandonedV2(
+func (e *Emitter) EmitWorkflowActivationAbandonedV2(
 	ctx context.Context,
 	labels map[string]string,
 	binaryURL string,
@@ -124,10 +168,10 @@ func EmitWorkflowActivationAbandonedV2(
 		RetryCount:   retryCount,
 	}
 
-	return emitProtoMessage(ctx, event)
+	return e.emitProtoMessage(ctx, event)
 }
 
-func EmitExecutionStartedEvent(
+func (e *Emitter) EmitExecutionStartedEvent(
 	ctx context.Context,
 	labels map[string]string,
 	triggerEventID string,
@@ -155,10 +199,10 @@ func EmitExecutionStartedEvent(
 
 	// Emit both v1 and v2 events
 	var multiErr error
-	if err := emitProtoMessage(ctx, event); err != nil {
+	if err := e.emitProtoMessage(ctx, event); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
-	if err := emitProtoMessage(ctx, v2Event); err != nil {
+	if err := e.emitProtoMessage(ctx, v2Event); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
 	return multiErr
@@ -204,7 +248,7 @@ func buildExecutionProfile(
 	}
 }
 
-func EmitExecutionProfile(
+func (e *Emitter) EmitExecutionProfile(
 	ctx context.Context,
 	workflowID, executionID string,
 	startTime, endTime time.Time,
@@ -212,7 +256,7 @@ func EmitExecutionProfile(
 	steps []ExecutionProfileStepInput,
 ) (*eventsv2.ExecutionProfile, error) {
 	profile := buildExecutionProfile(workflowID, executionID, startTime, endTime, status, steps)
-	return profile, emitProtoMessage(ctx, profile)
+	return profile, e.emitProtoMessage(ctx, profile)
 }
 
 // ErrorClassification attributes a failed workflow execution to its root cause:
@@ -269,7 +313,7 @@ func classifiedExecutionStatus(status eventsv2.ExecutionStatus, errClass ErrorCl
 	}
 }
 
-func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status, executionID string, execErr error, errClass ErrorClassification, lggr logger.Logger) error {
+func (e *Emitter) EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status, executionID string, execErr error, errClass ErrorClassification, lggr logger.Logger) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.WorkflowExecutionFinished{
@@ -310,16 +354,16 @@ func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, s
 
 	// Emit both v1 and v2 events
 	var multiErr error
-	if err := emitProtoMessage(ctx, event); err != nil {
+	if err := e.emitProtoMessage(ctx, event); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
-	if err := emitProtoMessage(ctx, v2Event); err != nil {
+	if err := e.emitProtoMessage(ctx, v2Event); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
 	return multiErr
 }
 
-func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, method string) error {
+func (e *Emitter) EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, method string) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.CapabilityExecutionStarted{
@@ -353,16 +397,16 @@ func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, e
 
 	// Emit both v1 and v2 events
 	var multiErr error
-	if err := emitProtoMessage(ctx, event); err != nil {
+	if err := e.emitProtoMessage(ctx, event); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
-	if err := emitProtoMessage(ctx, v2Event); err != nil {
+	if err := e.emitProtoMessage(ctx, v2Event); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
 	return multiErr
 }
 
-func EmitTriggerExecutionStarted(ctx context.Context, labels map[string]string, triggerID, workflowExecutionID string) error {
+func (e *Emitter) EmitTriggerExecutionStarted(ctx context.Context, labels map[string]string, triggerID, workflowExecutionID string) error {
 	// Emit v2 event
 	creInfo := buildCREMetadataV2(labels)
 	workflowKey := buildWorkflowKeyV2(labels)
@@ -375,10 +419,10 @@ func EmitTriggerExecutionStarted(ctx context.Context, labels map[string]string, 
 		TriggerID:           triggerID,
 	}
 
-	return emitProtoMessage(ctx, v2Event)
+	return e.emitProtoMessage(ctx, v2Event)
 }
 
-func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status, method string, capErr error) error {
+func (e *Emitter) EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status, method string, capErr error) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.CapabilityExecutionFinished{
@@ -431,22 +475,22 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 
 	// Emit both v1 and v2 events
 	var multiErr error
-	if err := emitProtoMessage(ctx, event); err != nil {
+	if err := e.emitProtoMessage(ctx, event); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
-	if err := emitProtoMessage(ctx, v2Event); err != nil {
+	if err := e.emitProtoMessage(ctx, v2Event); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
 	return multiErr
 }
 
-func EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport) error {
+func (e *Emitter) EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport) error {
 	rpt.Metadata = buildWorkflowMetadata(labels, labels[platform.KeyWorkflowExecutionID])
 
-	return emitProtoMessage(ctx, rpt)
+	return e.emitProtoMessage(ctx, rpt)
 }
 
-func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*events.LogLine, executionID string) error {
+func (e *Emitter) EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*events.LogLine, executionID string) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 	event := &events.UserLogs{
 		M:        metadata,
@@ -459,7 +503,7 @@ func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*eve
 
 	// Emit v1 event
 	var multiErr error
-	if err := emitProtoMessage(ctx, event); err != nil {
+	if err := e.emitProtoMessage(ctx, event); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
 
@@ -474,7 +518,7 @@ func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*eve
 			Labels:              make(map[string]string), // Empty for now
 		}
 
-		if err := emitProtoMessage(ctx, v2Event); err != nil {
+		if err := e.emitProtoMessage(ctx, v2Event); err != nil {
 			multiErr = errors.Join(multiErr, err)
 		}
 	}
@@ -482,12 +526,12 @@ func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*eve
 	return multiErr
 }
 
-func EmitUserMetric(ctx context.Context, labels map[string]string, metric *eventsv2.WorkflowUserMetric) error {
+func (e *Emitter) EmitUserMetric(ctx context.Context, labels map[string]string, metric *eventsv2.WorkflowUserMetric) error {
 	metric.CreInfo = buildCREMetadataV2(labels)
 	metric.Workflow = buildWorkflowKeyV2(labels)
 	metric.Timestamp = time.Now().Format(time.RFC3339)
 
-	return emitProtoMessage(ctx, metric)
+	return e.emitProtoMessage(ctx, metric)
 }
 
 // GenerateExecutionID generates a deterministic execution ID from workflowID and triggerEventID
@@ -509,8 +553,12 @@ func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	return hex.EncodeToString(s.Sum(nil)), nil
 }
 
-// EmitProtoMessage marshals a proto.Message and emits it via beholder.
-func emitProtoMessage(ctx context.Context, msg proto.Message) error {
+// emitProtoMessage marshals a proto.Message and emits it via the emitter's
+// beholder emitter and durable emitter, both late-bound. A nil *Emitter
+// receiver behaves like DefaultEmitter().
+func (e *Emitter) emitProtoMessage(ctx context.Context, msg proto.Message) error {
+	e = e.get()
+
 	b, err := proto.Marshal(msg)
 	if err != nil {
 		return err
@@ -582,18 +630,26 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 		return fmt.Errorf("unknown message type: %T", msg)
 	}
 
-	return emitRawMessage(ctx, b, schema, entity)
+	return e.emitRawMessage(ctx, b, schema, entity)
 }
 
-func emitRawMessage(ctx context.Context, body []byte, schema, entity string) error {
-	if err := beholder.GetEmitter().Emit(ctx, body,
+func (e *Emitter) emitRawMessage(ctx context.Context, body []byte, schema, entity string) error {
+	beholderEmitter := e.beholder
+	if beholderEmitter == nil {
+		beholderEmitter = beholder.GlobalEmitter()
+	}
+	if err := beholderEmitter.Emit(ctx, body,
 		"beholder_data_schema", schema, // required
 		"beholder_domain", "platform", // required
 		"beholder_entity", entity); err != nil { // required
 		return err
 	}
 
-	err := durableemitter.GlobalEmit(ctx, body, "source", "platform", "type", entity)
+	durable := e.durable
+	if durable == nil {
+		durable = durableemitter.GlobalEmit
+	}
+	err := durable(ctx, body, "source", "platform", "type", entity)
 	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
 		return err
 	}

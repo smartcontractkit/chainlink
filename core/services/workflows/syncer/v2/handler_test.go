@@ -59,6 +59,7 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
@@ -1907,13 +1908,14 @@ func (m *mockLinkingService) GetOrganizationFromWorkflowOwner(ctx context.Contex
 	}, nil
 }
 
-//nolint:paralleltest // beholdertest.NewObserver(t) cannot be used in parallel tests because it relies on global state
 func Test_Handler_OrganizationID(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
 
-	observer := beholdertest.NewObserver(t)
+	rec := beholdertest.NewRecorder()
 	emitter := custmsg.NewLabeler()
 	ctx := t.Context()
 
@@ -1930,7 +1932,8 @@ func Test_Handler_OrganizationID(t *testing.T) {
 			}
 		}
 	}()
-	defer s.Stop()
+	// t.Cleanup (not defer) so parallel subtests can still use the server.
+	t.Cleanup(s.Stop)
 	linkingURL := lis.Addr().String()
 
 	var (
@@ -1986,7 +1989,8 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	// Create gRPC client and orgResolver
 	conn, err := grpc.NewClient(linkingURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
-	defer conn.Close()
+	// t.Cleanup (not defer) so parallel subtests can still use the connection.
+	t.Cleanup(func() { conn.Close() })
 
 	linkingClient := linkingclient.NewLinkingServiceClient(conn)
 	orgResolverConfig := orgresolver.Config{
@@ -1997,12 +2001,14 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	}
 	orgResolver, err := orgresolver.NewOrgResolverWithClient(orgResolverConfig, linkingClient, lggr)
 	require.NoError(t, err)
-	defer orgResolver.Close()
+	// t.Cleanup (not defer) so parallel subtests can still use the resolver.
+	t.Cleanup(func() { orgResolver.Close() })
 
 	h, err := NewEventHandler(lggr, store, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 		WithEngineRegistry(er),
 		WithEngineFactoryFn(mockEngineFactory),
 		WithOrgResolver(orgResolver),
+		WithEventEmitter(events.NewEmitter(rec)),
 	)
 	require.NoError(t, err)
 
@@ -2030,7 +2036,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify that WorkflowActivated message was emitted with orgID
-	allMessages := observer.Messages(t)
+	allMessages := rec.Messages(t, "beholder_entity", "workflows.v2.WorkflowActivated")
 
 	var orgIDFound bool
 	for _, msg := range allMessages {
@@ -2048,7 +2054,9 @@ func Test_Handler_OrganizationID(t *testing.T) {
 
 	// Test deletion event
 	t.Run("WorkflowDeleted event includes org ID in labels", func(t *testing.T) {
-		deleteObserver := beholdertest.NewObserver(t)
+		t.Parallel()
+
+		deleteRec := beholdertest.NewRecorder()
 		deleteEmitter := custmsg.NewLabeler()
 
 		mockDeleteORM := mocks.NewORM(t)
@@ -2070,6 +2078,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(mockEngineFactory),
 			WithOrgResolver(orgResolver),
+			WithEventEmitter(events.NewEmitter(deleteRec)),
 		)
 		require.NoError(t, err)
 
@@ -2085,7 +2094,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify that WorkflowDeleted message was emitted with orgID
-		deleteMessages := deleteObserver.Messages(t)
+		deleteMessages := deleteRec.Messages(t, "beholder_entity", "workflows.v2.WorkflowDeleted")
 		var deleteOrgIDFound bool
 		for _, msg := range deleteMessages {
 			if msg.Attrs["beholder_entity"] == "workflows.v2.WorkflowDeleted" {
