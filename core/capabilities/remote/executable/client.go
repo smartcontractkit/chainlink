@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -32,6 +33,10 @@ type client struct {
 	cfg           atomic.Pointer[dynamicConfig]
 	lggr          logger.Logger
 
+	// emitter receives transmission schedule events emitted by requests
+	// created through this client. Defaults to beholder.GlobalEmitter().
+	emitter beholder.Emitter
+
 	requestIDToCallerRequest map[string]*request.ClientRequest
 	mutex                    sync.Mutex
 	stopCh                   services.StopChan
@@ -55,9 +60,11 @@ type Client interface {
 	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, signers [][]byte, minResponsesToAggregate uint32) error
 }
 
-var _ Client = &client{}
-var _ types.Receiver = &client{}
-var _ services.Service = &client{}
+var (
+	_ Client           = &client{}
+	_ types.Receiver   = &client{}
+	_ services.Service = &client{}
+)
 
 const defaultExpiryCheckInterval = 30 * time.Second
 
@@ -66,8 +73,18 @@ var (
 	ErrContextDoneBeforeResponseQuorum = errors.New("context done before remote client received a quorum of responses")
 )
 
-func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *client {
-	return &client{
+// ClientOption configures a client.
+type ClientOption func(*client)
+
+// WithEmitter sets the beholder emitter used for transmission schedule events
+// emitted by requests created through this client. The default is
+// beholder.GlobalEmitter(), which resolves the global client at emit time.
+func WithEmitter(e beholder.Emitter) ClientOption {
+	return func(c *client) { c.emitter = e }
+}
+
+func NewClient(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger, opts ...ClientOption) *client {
+	c := &client{
 		capabilityID:             capabilityID,
 		capMethodName:            capMethodName,
 		dispatcher:               dispatcher,
@@ -75,6 +92,13 @@ func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispa
 		requestIDToCallerRequest: make(map[string]*request.ClientRequest),
 		stopCh:                   make(services.StopChan),
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	if c.emitter == nil {
+		c.emitter = beholder.GlobalEmitter()
+	}
+	return c
 }
 
 // SetConfig sets the remote capability configuration dynamically
@@ -235,7 +259,7 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	}
 
 	req, err := request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
-		cfg.requestTimeout, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate)
+		cfg.requestTimeout, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate, request.WithEmitter(c.emitter))
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to create client request: %w", err)
 	}
