@@ -46,7 +46,7 @@ func newRemoteCapabilityExecuteError(transportErr types.Error, errMsg string) er
 	}
 }
 
-func newRemoteCapabilityExecuteErrorWithMessage(display string, errMsg string) error {
+func newRemoteCapabilityExecuteErrorWithMessage(display, errMsg string) error {
 	return &errRemoteCapabilityExecuteError{
 		s:    display,
 		wrap: caperrors.DeserializeErrorFromString(errMsg),
@@ -97,6 +97,26 @@ type ClientRequest struct {
 	respSent bool
 	mux      sync.Mutex
 	wg       *sync.WaitGroup
+
+	// emitter receives the transmission schedule event; durable receives the
+	// durable copy. Both default to the late-bound globals.
+	emitter beholder.Emitter
+	durable func(ctx context.Context, body []byte, attrKVs ...any) error
+}
+
+// ClientRequestOption configures a ClientRequest.
+type ClientRequestOption func(*ClientRequest)
+
+// WithEmitter sets the beholder emitter used for the transmission schedule
+// event. A nil emitter defaults to beholder.GlobalEmitter(), which resolves
+// the global client at emit time.
+func WithEmitter(e beholder.Emitter) ClientRequestOption {
+	return func(c *ClientRequest) { c.emitter = e }
+}
+
+// WithDurableEmit overrides the durable emit func (default durableemitter.GlobalEmit).
+func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) error) ClientRequestOption {
+	return func(c *ClientRequest) { c.durable = fn }
 }
 
 // NewClientExecuteRequest creates a new client request for a remote executable capability.
@@ -104,7 +124,7 @@ type ClientRequest struct {
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, capMethodName string,
-	signers [][]byte, minResponsesToAggregate uint32,
+	signers [][]byte, minResponsesToAggregate uint32, opts ...ClientRequestOption,
 ) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
 	if err != nil {
@@ -121,7 +141,23 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	requestID := types.MethodExecute + ":" + workflowExecutionID + ":" + req.Metadata.ReferenceID
 
 	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate)
+
+	// Apply options and default the emitters before the transmission schedule
+	// event is emitted inside newClientRequest, so overrides apply to it.
+	// A nil emitter defaults to beholder.GlobalEmitter(), which resolves the
+	// global client at emit time, matching the previous direct global read.
+	optsReq := &ClientRequest{}
+	for _, opt := range opts {
+		opt(optsReq)
+	}
+	emitter, durableEmit := optsReq.emitter, optsReq.durable
+	if emitter == nil {
+		emitter = beholder.GlobalEmitter()
+	}
+	if durableEmit == nil {
+		durableEmit = durableemitter.GlobalEmit
+	}
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate, emitter, durableEmit)
 }
 
 var (
@@ -143,8 +179,9 @@ func requiredConfirmations(f uint8, minResponsesToAggregate uint32) int {
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
+	methodType string, rawRequest []byte, workflowExecutionID, stepRef, capMethodName string,
 	signers [][]byte, minResponsesToAggregate uint32,
+	emitter beholder.Emitter, durableEmit func(ctx context.Context, body []byte, attrKVs ...any) error,
 ) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
@@ -154,7 +191,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 	peerIDToTransmissionDelay := getPeerIDToTransmissionDelays(remoteCapabilityDonInfo.Members)
 
 	// send schedule through beholder for single execution performance tracking
-	if err := emitTransmissionScheduleEvent(ctx,
+	if err := emitTransmissionScheduleEvent(ctx, emitter, durableEmit,
 		workflowExecutionID,
 		requestID,
 		remoteCapabilityInfo.ID,
@@ -252,6 +289,8 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		signers:                       signers,
 		workflowExecutionID:           workflowExecutionID,
 		referenceID:                   stepRef,
+		emitter:                       emitter,
+		durable:                       durableEmit,
 	}, nil
 }
 
@@ -267,7 +306,9 @@ func getPeerIDToTransmissionDelays(donPeerIDs []p2ptypes.PeerID) map[p2ptypes.Pe
 	return peerIDToTransmissionDelay
 }
 
-func emitTransmissionScheduleEvent(ctx context.Context, workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration) error {
+func emitTransmissionScheduleEvent(ctx context.Context, emitter beholder.Emitter, durableEmit func(ctx context.Context, body []byte, attrKVs ...any) error,
+	workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration,
+) error {
 	// map of peer IDs to their transmission delays in milliseconds
 	peerDelaysMap := make(map[string]int64, len(peerIDToTransmissionDelay))
 	for peerID, delay := range peerIDToTransmissionDelay {
@@ -291,14 +332,14 @@ func emitTransmissionScheduleEvent(ctx context.Context, workflowExecutionID, tra
 
 	// emit transmission schedule event to track which nodes are successful when called to emit
 	entity := fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)
-	if err = beholder.GetEmitter().Emit(ctx, b,
+	if err = emitter.Emit(ctx, b,
 		"beholder_data_schema", TransmissionEventSchema, // required
 		"beholder_domain", "platform", // required
 		"beholder_entity", entity); err != nil { // required
 		return err
 	}
 
-	err = durableemitter.GlobalEmit(ctx, b, "source", "platform", "type", entity)
+	err = durableEmit(ctx, b, "source", "platform", "type", entity)
 	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
 		return err
 	}
