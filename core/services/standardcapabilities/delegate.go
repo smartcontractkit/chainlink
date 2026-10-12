@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -25,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/retry"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	triggercap "github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -147,13 +149,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		}
 	}
 
-	// Job-spec boot path: capability DON ID is not carried in the spec, so the
-	// host best-effort resolves it from the capability registry inside NewServices.
+	// Job-spec boot path: capability DON ID is not carried in the spec, so it is
+	// resolved from the capability registry at startup (see resolveCapabilityDonID).
 	// On a node that belongs to multiple DONs running the same capability, the
-	// registry lookup cannot disambiguate which DON this plugin serves, so it
-	// resolves to 0 and the plugin falls back to the consumer workflow's DON ID
-	// for event labeling. Carrying the DON ID in the job spec would close that
-	// gap; tracked as a follow-up. See CRE-4409.
+	// lookup cannot disambiguate which DON this plugin serves and it stays
+	// unresolved. Carrying the DON ID in the job spec would close that gap.
 	// The job-spec launch path has no registry OCR3 config to thread; NewServices falls
 	// back to the cached OCRConfigService when available.
 	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, &spec.StandardCapabilitiesSpec.OracleFactory, 0, nil)
@@ -274,17 +274,6 @@ func (d *Delegate) NewServices(
 		}
 	}
 
-	// Best-effort resolve the authoritative capability DON ID for this plugin
-	// process when the caller did not provide one (job-spec boot path). The LOOP
-	// uses this to label emitted events with the sending DON ID rather than the
-	// consumer workflow's DON. Resolution can return 0 (e.g. on a node that
-	// belongs to multiple DONs for this capability); in that case the plugin
-	// falls back to the workflow DON ID. See CRE-4409.
-	if capabilityDonID == 0 && capabilityID != "" {
-		capabilityDonID = resolveCapabilityDonID(ctx, log, d.registry, d.getPeerID, capabilityID)
-		log.Debugw("Resolved capability DON ID from registry", "capabilityID", capabilityID, "donID", capabilityDonID)
-	}
-
 	// Extract the transmitter paired with this node's signer from the on-chain OCR config.
 	// The caller passes it to ResolveOracleFactoryConfig so the node uses exactly the
 	// transmitter the OCR config expects. Empty when no registry config is available.
@@ -396,41 +385,64 @@ func (d *Delegate) NewServices(
 		CapabilityDonID:    capabilityDonID,
 	}
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, dependencies)
+	// Job-spec boot path: resolve the capability DON ID at startup rather than
+	// here, because on node boot the registry syncer may not have populated the
+	// metadata registry yet.
+	if capabilityDonID == 0 && capabilityID != "" {
+		standardCapability.resolveCapabilityDonID = func(ctx context.Context) uint32 {
+			return resolveCapabilityDonID(ctx, log, d.registry, d.getPeerID, capabilityID)
+		}
+	}
 
 	return []job.ServiceCtx{standardCapability}, nil
 }
 
-// resolveCapabilityDonID best-effort resolves the on-chain DON ID this node is
-// running the given capability for, by looking up DONsForCapability and filtering
-// by the local node's PeerID.
+// resolveCapabilityDonID resolves the on-chain DON ID this node is running the
+// given capability for, by looking up DONsForCapability and filtering by the
+// local node's PeerID.
 //
-// This is always best-effort: it never returns an error. Any failure — including
-// infrastructure issues like getPeerID failing or the registry being unavailable —
-// results in returning 0 with a warning logged. The caller then falls back to
-// labeling events with the consumer workflow's DON ID. See CRE-4409.
-func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry registry.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) uint32 {
-	if registry == nil {
-		lggr.Warnw("Capabilities registry is nil; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID)
+// Lookup errors (e.g. "metadataRegistry information not available" before the
+// registry syncer's first sync) are retried until ctx is done. It never returns
+// an error: if the DON ID can't be resolved it returns 0, logs an error and sets
+// the capabilityDonIDUnresolved metric, but does not block startup.
+func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry registry.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) (donID uint32) {
+	defer func() {
+		unresolved := 0.0
+		if donID == 0 {
+			unresolved = 1
+		}
+		capabilityDonIDUnresolved.WithLabelValues(capabilityID).Set(unresolved)
+	}()
+
+	if registry == nil || getPeerID == nil {
+		lggr.Warnw("Capabilities registry or getPeerID is nil; capability DON ID unresolved", "capabilityID", capabilityID)
 		return 0
 	}
-	if getPeerID == nil {
-		lggr.Warnw("getPeerID is nil; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID)
-		return 0
+
+	type lookup struct {
+		peerID p2ptypes.PeerID
+		dons   []capabilities.DONWithNodes
 	}
-	peerID, err := getPeerID()
+	res, err := retry.Do(ctx, lggr, func(ctx context.Context) (lookup, error) {
+		peerID, err := getPeerID()
+		if err != nil {
+			return lookup{}, fmt.Errorf("failed to get local peer ID: %w", err)
+		}
+		dons, err := registry.DONsForCapability(ctx, capabilityID)
+		if err != nil {
+			return lookup{}, fmt.Errorf("failed to get DONs for capability: %w", err)
+		}
+		return lookup{peerID: peerID, dons: dons}, nil
+	})
 	if err != nil {
-		lggr.Warnw("Failed to get local peer ID; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID, "err", err)
+		lggr.Errorw("Failed to look up capability DON ID before timeout; capability DON ID unresolved", "capabilityID", capabilityID, "err", err)
 		return 0
 	}
-	dwns, err := registry.DONsForCapability(ctx, capabilityID)
-	if err != nil {
-		lggr.Warnw("DONsForCapability failed; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID, "err", err)
-		return 0
-	}
+
 	var matched []uint32
-	for _, d := range dwns {
+	for _, d := range res.dons {
 		for _, n := range d.Nodes {
-			if n.PeerID != nil && *n.PeerID == peerID {
+			if n.PeerID != nil && *n.PeerID == res.peerID {
 				matched = append(matched, d.DON.ID)
 				break
 			}
@@ -438,14 +450,15 @@ func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry re
 	}
 	switch len(matched) {
 	case 1:
+		lggr.Infow("Resolved capability DON ID", "capabilityID", capabilityID, "donID", matched[0])
 		return matched[0]
 	case 0:
-		lggr.Warnw("No DON found for local peer on capability; falling back to workflow DON ID for event labeling",
-			"peerID", peerID, "capabilityID", capabilityID)
+		lggr.Errorw("No DON found for local peer on capability; capability DON ID unresolved",
+			"peerID", res.peerID, "capabilityID", capabilityID)
 		return 0
 	default:
-		lggr.Warnw("Local peer belongs to multiple DONs for capability; cannot disambiguate, falling back to workflow DON ID for event labeling",
-			"peerID", peerID, "capabilityID", capabilityID, "matched", matched)
+		lggr.Errorw("Local peer belongs to multiple DONs for capability; cannot disambiguate, capability DON ID unresolved",
+			"peerID", res.peerID, "capabilityID", capabilityID, "matched", matched)
 		return 0
 	}
 }
