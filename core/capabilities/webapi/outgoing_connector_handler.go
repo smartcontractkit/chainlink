@@ -40,6 +40,10 @@ const (
 	errorIncomingRatelimitSender   = "message from gateway exceeded per sender rate limit"
 )
 
+// rateLimitedError marks an error as caused by the node's local outgoing rate limiter,
+// so it can be reported as its own status distinct from a downstream transport/gateway failure.
+type rateLimitedError struct{ error }
+
 var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 
 type OutgoingConnectorHandler struct {
@@ -97,10 +101,12 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	totalDuration := time.Since(start)
 	status := "fail"
 	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		status = "timeout"
 	case err == nil:
 		status = "success"
+	case errors.Is(err, context.DeadlineExceeded):
+		status = "timeout"
+	case errors.As(err, &rateLimitedError{}):
+		status = "rate_limited"
 	}
 	c.metrics.recordSingleNodeRequestDuration(ctx, totalDuration, status, req.WorkflowID)
 
@@ -111,10 +117,10 @@ func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, 
 	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", req.WorkflowID)
 	workflowAllow, globalAllow := c.outgoingRateLimiter.AllowVerbose(req.WorkflowID)
 	if !workflowAllow {
-		return nil, errors.New(errorOutgoingRatelimitWorkflow)
+		return nil, rateLimitedError{errors.New(errorOutgoingRatelimitWorkflow)}
 	}
 	if !globalAllow {
-		return nil, errors.New(errorOutgoingRatelimitGlobal)
+		return nil, rateLimitedError{errors.New(errorOutgoingRatelimitGlobal)}
 	}
 
 	// set default timeout if not provided for all outgoing requests
@@ -147,8 +153,8 @@ func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, 
 	lggr.Debugw("sending request to gateway")
 
 	body := &api.MessageBody{
-		MessageId: messageID,
-		DonId:     donID,
+		MessageID: messageID,
+		DonID:     donID,
 		Method:    c.method,
 		Payload:   payload,
 	}
@@ -170,8 +176,8 @@ func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, 
 
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: body.MessageId,
-			DonId:     body.DonId,
+			MessageID: body.MessageID,
+			DonID:     body.DonID,
 			Method:    body.Method,
 			Payload:   body.Payload,
 			Receiver:  body.Receiver,
@@ -307,9 +313,9 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 		return nil
 	}
 	body := &msg.Body
-	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageId)
+	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageID)
 
-	ch, ok := c.responses.get(body.MessageId)
+	ch, ok := c.responses.get(body.MessageID)
 	if !ok {
 		l.Warnw("no response channel found; this may indicate that the node timed out the request")
 		return nil
@@ -339,7 +345,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 		}
 		errMsg := api.Message{
 			Body: api.MessageBody{
-				MessageId: body.MessageId,
+				MessageID: body.MessageID,
 				Method:    api.MethodInternalError,
 				Payload:   errPayload,
 			},
@@ -350,7 +356,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 
 	l.Debugw("handling gateway request")
 	switch body.Method {
-	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction, capabilities.MethodWorkflowSyncer:
+	case capabilities.MethodWorkflowSyncer:
 		body := &msg.Body
 		var payload capabilities.Response
 		err := json.Unmarshal(body.Payload, &payload)
@@ -409,6 +415,7 @@ func incomingRateLimiterConfigDefaults(config ratelimit.RateLimiterConfig) ratel
 	}
 	return config
 }
+
 func outgoingRateLimiterConfigDefaults(config ratelimit.RateLimiterConfig) ratelimit.RateLimiterConfig {
 	if config.GlobalBurst == 0 {
 		config.GlobalBurst = DefaultGlobalBurst
@@ -427,7 +434,7 @@ func outgoingRateLimiterConfigDefaults(config ratelimit.RateLimiterConfig) ratel
 
 func validMethod(method string) bool {
 	switch method {
-	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction, capabilities.MethodWorkflowSyncer:
+	case capabilities.MethodWorkflowSyncer:
 		return true
 	default:
 		return false
@@ -480,7 +487,7 @@ type metrics struct {
 	method            string
 }
 
-func (m *metrics) recordSingleNodeRequestDuration(ctx context.Context, d time.Duration, status string, wid string) {
+func (m *metrics) recordSingleNodeRequestDuration(ctx context.Context, d time.Duration, status, wid string) {
 	m.handleDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
 		attribute.String("status", status),
 		attribute.String("workflowID", wid),
@@ -488,7 +495,7 @@ func (m *metrics) recordSingleNodeRequestDuration(ctx context.Context, d time.Du
 	))
 }
 
-func (m *metrics) recordAwaitConnectionDuration(ctx context.Context, d time.Duration, wid string, gateway string, success bool) {
+func (m *metrics) recordAwaitConnectionDuration(ctx context.Context, d time.Duration, wid, gateway string, success bool) {
 	successStr := "false"
 	if success {
 		successStr = "true"
@@ -512,5 +519,5 @@ func newMetrics(method string) (*metrics, error) {
 		return nil, err
 	}
 
-	return &metrics{handleDuration: h, awaitConnDuration: a}, nil
+	return &metrics{handleDuration: h, awaitConnDuration: a, method: method}, nil
 }

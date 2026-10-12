@@ -113,7 +113,7 @@ func Test_EVMTelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
 	head := evmtypes.Head{Number: 42, EVMChainID: sqlutil.NewI(100)}
 
 	err := reporter.ReportNewHead(t.Context(), &head)
-	assert.Errorf(t, err, "No monitoring endpoint provided chain_id=100")
+	assert.Errorf(t, err, "no monitoring endpoint provided chain_id=100")
 }
 
 type mockRelayer struct {
@@ -215,7 +215,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
 
 	err := reporter.ReportPeriodic(t.Context())
-	assert.Errorf(t, err, "No monitoring endpoint provided chain_id=testchain")
+	assert.Errorf(t, err, "no monitoring endpoint provided chain_id=testchain")
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic_WithFinalizedHead(t *testing.T) {

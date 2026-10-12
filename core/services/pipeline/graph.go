@@ -145,7 +145,7 @@ func (n *GraphNode) SetAttribute(attr encoding.Attribute) error {
 }
 
 func (n *GraphNode) Attributes() []encoding.Attribute {
-	var r []encoding.Attribute
+	r := make([]encoding.Attribute, 0, len(n.attrs))
 	for k, v := range n.attrs {
 		r = append(r, encoding.Attribute{Key: k, Value: v})
 	}

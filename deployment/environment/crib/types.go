@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	CRIB_ENV_NAME = "Crib Environment"
+	CribEnvName = "Crib Environment"
 )
 
 type DeployOutput struct {
@@ -33,7 +33,7 @@ func NewDeployEnvironmentFromCribOutput(ctx context.Context, lggr logger.Logger,
 	}
 
 	return cldf.NewEnvironment(
-		CRIB_ENV_NAME,
+		CribEnvName,
 		lggr,
 		output.AddressBook,
 		datastore.NewMemoryDataStore().Seal(),

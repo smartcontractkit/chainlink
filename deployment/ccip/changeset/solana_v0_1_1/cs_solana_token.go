@@ -14,6 +14,7 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
@@ -187,9 +188,10 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 	}
 
 	newAddresses := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 	tv := cldf.NewTypeAndVersion(cfg.TokenProgramName, deployment.Version1_0_0)
 	tv.AddLabel(cfg.TokenSymbol)
-	err = newAddresses.Save(cfg.ChainSelector, mint.String(), tv)
+	err = shared.RecordAddress(newAddresses, ds, cfg.ChainSelector, mint.String(), tv, cfg.TokenSymbol)
 	if err != nil {
 		e.Logger.Errorw("Failed to save token", "chain", chain.String(), "err", err)
 		return cldf.ChangesetOutput{}, err
@@ -204,11 +206,6 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
-	}
-
-	ds, err := shared.PopulateDataStore(newAddresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
@@ -226,7 +223,7 @@ type MintSolanaTokenConfig struct {
 func (cfg MintSolanaTokenConfig) Validate(e cldf.Environment) error {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return err
 	}
@@ -259,7 +256,7 @@ func MintSolanaToken(e cldf.Environment, cfg MintSolanaTokenConfig) (cldf.Change
 	}
 	// get chain
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainStateSolana(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	// get addresses
 	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
@@ -285,7 +282,7 @@ type CreateSolanaTokenATAConfig struct {
 
 func CreateSolanaTokenATA(e cldf.Environment, cfg CreateSolanaTokenATAConfig) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
+	state, _ := stateview.LoadOnchainStateSolana(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 
 	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
@@ -391,7 +388,8 @@ func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.Ch
 
 	if len(mcmsTxs) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to SetTokenAuthority in Solana", cfg.MCMS, mcmsTxs)
+			e, cfg.ChainSelector, "proposal to SetTokenAuthority in Solana", cfg.MCMS, mcmsTxs,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -517,7 +515,8 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 		}
 		e.Logger.Infow("Updating token metadata authority", "metadataPDA", metadataPDA, "authority", mintMetadata.UpdateAuthority, "data", newData)
 		instruction, err := modifyTokenMetadataIx(
-			metadataPDA, mintMetadata.UpdateAuthority, &newUpdateAuthority, &newData)
+			metadataPDA, mintMetadata.UpdateAuthority, &newUpdateAuthority, &newData,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating modify metadata ix: %w", err)
 		}
@@ -551,7 +550,8 @@ func modifyTokenMetadataIx(
 	ix := tokenMetadata.NewUpdateMetadataAccountV2Instruction(
 		args,
 		metadataPDA,
-		authority).Build()
+		authority,
+	).Build()
 	data, err := ix.Data()
 	if err != nil {
 		return solana.GenericInstruction{}, fmt.Errorf("error building update metadata account data: %w", err)

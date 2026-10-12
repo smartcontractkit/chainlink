@@ -20,8 +20,8 @@ import (
 func TestFingerprint(t *testing.T) {
 	t.Parallel()
 
-	observationTime := time.Now()
-	bytes32 := sha256.Sum256([]byte(observationTime.String()))
+	ot := time.Now()
+	bytes32 := sha256.Sum256([]byte(ot.String()))
 	configDigest := bytes32[:]
 	donID := uint32(2)
 	streamID := uint32(123)
@@ -41,11 +41,11 @@ func TestFingerprint(t *testing.T) {
 				DonId:                donID,
 				StreamId:             streamID,
 				ConfigDigest:         configDigest,
-				ObservationTimestamp: observationTime.UnixNano(),
+				ObservationTimestamp: ot.UnixNano(),
 			},
 			typ:         synchronization.LLOObservation,
 			fingerprint: fmt.Sprintf("%d-%d-%x", donID, streamID, configDigest),
-			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
+			ts:          int32(ot.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
@@ -53,11 +53,11 @@ func TestFingerprint(t *testing.T) {
 			msg: &lloprotocol.LLOOutcomeTelemetry{
 				DonId:                           donID,
 				ConfigDigest:                    configDigest,
-				ObservationTimestampNanoseconds: uint64(observationTime.UnixNano()),
+				ObservationTimestampNanoseconds: uint64(ot.UnixNano()),
 			},
 			typ:         synchronization.LLOOutcome,
 			fingerprint: fmt.Sprintf("%d-%x", donID, configDigest),
-			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
+			ts:          int32(ot.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
@@ -66,11 +66,38 @@ func TestFingerprint(t *testing.T) {
 				DonId:                           donID,
 				ChannelId:                       channelID,
 				ConfigDigest:                    configDigest,
-				ObservationTimestampNanoseconds: uint64(observationTime.UnixNano()),
+				ObservationTimestampNanoseconds: uint64(ot.UnixNano()),
 			},
 			typ:         synchronization.LLOReport,
 			fingerprint: fmt.Sprintf("%d-%d-%x", donID, channelID, configDigest),
-			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
+			ts:          int32(ot.Unix()), //nolint:gosec // G115
+			err:         nil,
+		},
+		{
+			name: "successful attributed observation",
+			msg: &lloprotocol.LLOAttributedObservationTelemetry{
+				DonId:                                 donID,
+				Observer:                              3,
+				ConfigDigest:                          configDigest,
+				AgreedObservationTimestampNanoseconds: uint64(ot.UnixNano()),
+				StreamValues:                          map[uint32]*lloprotocol.LLOStreamValue{streamID: {}, streamID + 7: {}},
+			},
+			typ:         synchronization.LLOAttributedObservation,
+			fingerprint: fmt.Sprintf("%d-%d-%x-%d", donID, 3, configDigest, streamID),
+			ts:          int32(ot.Unix()), //nolint:gosec // G115
+			err:         nil,
+		},
+		{
+			name: "attributed observation without values",
+			msg: &lloprotocol.LLOAttributedObservationTelemetry{
+				DonId:                                 donID,
+				Observer:                              3,
+				ConfigDigest:                          configDigest,
+				AgreedObservationTimestampNanoseconds: uint64(ot.UnixNano()),
+			},
+			typ:         synchronization.LLOAttributedObservation,
+			fingerprint: fmt.Sprintf("%d-%d-%x-%d", donID, 3, configDigest, 0),
+			ts:          int32(ot.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
@@ -81,11 +108,11 @@ func TestFingerprint(t *testing.T) {
 				SpecId:               345,
 				BridgeAdapterName:    "bridge-adapter",
 				ConfigDigest:         configDigest,
-				ObservationTimestamp: observationTime.UnixNano(),
+				ObservationTimestamp: ot.UnixNano(),
 			},
 			typ:         synchronization.PipelineBridge,
 			fingerprint: fmt.Sprintf("%d-%d-%d-%s-%x", donID, streamID, 345, "bridge-adapter", configDigest),
-			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
+			ts:          int32(ot.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
@@ -137,6 +164,33 @@ func TestSample(t *testing.T) {
 	assert.True(t, shouldSend)
 	shouldSend = samplr.Sample(synchronization.LLOOutcome, msg1)
 	assert.False(t, shouldSend)
+}
+
+// TestSample_AttributedObservationParts ensures the parts of a split
+// observation are sampled independently, and a repeated part is deduplicated.
+func TestSample_AttributedObservationParts(t *testing.T) {
+	t.Parallel()
+
+	samplr := newSampler(logger.TestSugared(t), true)
+	ts := uint64(time.Unix(1600000000, 0).UnixNano())
+	part := func(observer uint32, ids ...uint32) *lloprotocol.LLOAttributedObservationTelemetry {
+		m := &lloprotocol.LLOAttributedObservationTelemetry{
+			DonId:                                 2,
+			Observer:                              observer,
+			ConfigDigest:                          []byte("digest"),
+			AgreedObservationTimestampNanoseconds: ts,
+			StreamValues:                          map[uint32]*lloprotocol.LLOStreamValue{},
+		}
+		for _, id := range ids {
+			m.StreamValues[id] = &lloprotocol.LLOStreamValue{}
+		}
+		return m
+	}
+
+	assert.True(t, samplr.Sample(synchronization.LLOAttributedObservation, part(1, 1, 2)))
+	assert.True(t, samplr.Sample(synchronization.LLOAttributedObservation, part(1, 3, 4)), "second part of the same observation")
+	assert.True(t, samplr.Sample(synchronization.LLOAttributedObservation, part(2, 1, 2)), "another observer")
+	assert.False(t, samplr.Sample(synchronization.LLOAttributedObservation, part(1, 1, 2)), "repeated part")
 }
 
 // TestPruningLoop ensures the pruning loop works as expected.

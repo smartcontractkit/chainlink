@@ -11,46 +11,40 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type testPluginOption func(*testPluginBuildOpts)
 
 type testPluginBuildOpts struct {
-	lggr                                    logger.Logger
-	store                                   *requests.Store[*vaulttypes.Request]
-	publicKey                               *tdh2easy.PublicKey
-	privateKeyShare                         *tdh2easy.PrivateShare
-	onchainCfg                              ocr3types.ReportingPluginConfig
-	maxSecretsPerOwner                      int
-	maxCiphertextLengthBytes                int
-	maxIdentifierOwnerLengthBytes           int
-	maxIdentifierNamespaceLengthBytes       int
-	maxIdentifierKeyLengthBytes             int
-	maxRequestBatchSize                     int
-	batchSize                               int
-	maxBlobPayloadBytes                     int
-	vaultOptimizationsEnabled               bool
-	vaultJSONOmitUnpopulatedEnabled         bool
-	vaultSignedResponseRequestIDEnabled     bool
-	vaultShareAggregationIncludesPublicKeys bool
-	vaultGetSecretsRelaxedConsensusEnabled  bool
-	vaultIncludeInvalidPendingItemsEnabled  bool
-	vaultPendingQueueStallThreshold         int
-	marshalBlob                             func(ocr3_1types.BlobHandle) ([]byte, error)
-	unmarshalBlob                           func([]byte) (ocr3_1types.BlobHandle, error)
-	maxObservationBytesOverride             int
-	maxReportsPlusPrecursorBytesOverride    int
+	lggr                                 logger.SugaredLogger
+	store                                *requests.Store[*vaulttypes.Request]
+	publicKey                            *tdh2easy.PublicKey
+	privateKeyShare                      *tdh2easy.PrivateShare
+	onchainCfg                           ocr3types.ReportingPluginConfig
+	maxSecretsPerOwner                   int
+	maxCiphertextLengthBytes             int
+	maxIdentifierOwnerLengthBytes        int
+	maxIdentifierNamespaceLengthBytes    int
+	maxIdentifierKeyLengthBytes          int
+	maxRequestBatchSize                  int
+	batchSize                            int
+	maxBlobPayloadBytes                  int
+	vaultPendingQueueStallThreshold      int
+	marshalBlob                          func(ocr3_1types.BlobHandle) ([]byte, error)
+	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
+	maxObservationBytesOverride          int
+	maxReportsPlusPrecursorBytesOverride int
 }
 
 func withLggr(lggr logger.Logger) testPluginOption {
-	return func(o *testPluginBuildOpts) { o.lggr = lggr }
+	return func(o *testPluginBuildOpts) { o.lggr = logger.Sugared(lggr) }
 }
 
 func withStore(store *requests.Store[*vaulttypes.Request]) testPluginOption {
@@ -80,35 +74,11 @@ func withMaxSecretsPerOwner(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.maxSecretsPerOwner = n }
 }
 
-func withVaultOptimizationsEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
-}
-
-func withVaultGetSecretsShareAggregationIncludesPublicKeys() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultShareAggregationIncludesPublicKeys = true }
-}
-
-func withVaultJSONOmitUnpopulatedEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultJSONOmitUnpopulatedEnabled = true }
-}
-
-func withVaultGetSecretsRelaxedConsensusEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultGetSecretsRelaxedConsensusEnabled = true }
-}
-
-func withVaultIncludeInvalidPendingItemsEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultIncludeInvalidPendingItemsEnabled = true }
-}
-
 func withVaultPendingQueueStallThreshold(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultPendingQueueStallThreshold = n }
 }
 
-func withVaultSignedResponseRequestIDEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultSignedResponseRequestIDEnabled = true }
-}
-
-func withOnchainCfg(n int, f int) testPluginOption {
+func withOnchainCfg(n, f int) testPluginOption {
 	return func(o *testPluginBuildOpts) {
 		o.onchainCfg = ocr3types.ReportingPluginConfig{N: n, F: f}
 	}
@@ -134,14 +104,10 @@ func withMaxObservationBytes(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.maxObservationBytesOverride = n }
 }
 
-func withMaxReportsPlusPrecursorBytes(n int) testPluginOption {
-	return func(o *testPluginBuildOpts) { o.maxReportsPlusPrecursorBytesOverride = n }
-}
-
 func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPlugin {
 	t.Helper()
 	o := testPluginBuildOpts{
-		lggr:                              logger.TestLogger(t),
+		lggr:                              logger.TestSugared(t),
 		store:                             requests.NewStore[*vaulttypes.Request](),
 		onchainCfg:                        ocr3types.ReportingPluginConfig{N: 0, F: 0},
 		maxSecretsPerOwner:                1,
@@ -158,21 +124,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		opt(&o)
 	}
 	cfg := makeReportingPluginConfig(t, o.batchSize, o.publicKey, o.privateKeyShare, o.maxSecretsPerOwner, o.maxBlobPayloadBytes)
-	if o.vaultOptimizationsEnabled {
-		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
-	}
-	if o.vaultShareAggregationIncludesPublicKeys {
-		cfg.VaultGetSecretsShareAggregationIncludesPublicKeys = limits.NewGateLimiter(true)
-	}
-	if o.vaultJSONOmitUnpopulatedEnabled {
-		cfg.VaultJSONOmitUnpopulatedEnabled = limits.NewGateLimiter(true)
-	}
-	if o.vaultGetSecretsRelaxedConsensusEnabled {
-		cfg.VaultGetSecretsRelaxedConsensusEnabled = limits.NewGateLimiter(true)
-	}
-	if o.vaultIncludeInvalidPendingItemsEnabled {
-		cfg.VaultIncludeInvalidPendingItemsEnabled = limits.NewGateLimiter(true)
-	}
 	if o.vaultPendingQueueStallThreshold > 0 {
 		stallLimiter, err := limits.MakeUpperBoundLimiter(
 			limits.Factory{Settings: cresettings.DefaultGetter},
@@ -180,9 +131,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		)
 		require.NoError(t, err)
 		cfg.VaultPendingQueueStallThreshold = stallLimiter
-	}
-	if o.vaultSignedResponseRequestIDEnabled {
-		cfg.VaultSignedResponseRequestIDEnabled = limits.NewGateLimiter(true)
 	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
@@ -228,16 +176,16 @@ func makeTestValidator(
 ) *vaultcap.RequestValidator {
 	t.Helper()
 
-	cipherTextLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxCipherTextLengthBytes)*pkgconfig.Byte))
+	cipherTextLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxCipherTextLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
-	ownerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierOwnerLengthBytes)*pkgconfig.Byte))
+	ownerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxIdentifierOwnerLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
-	namespaceOwnerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierNamespaceOwnerLengthBytes)*pkgconfig.Byte))
+	namespaceOwnerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxIdentifierNamespaceOwnerLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
-	keyLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierKeyLengthBytes)*pkgconfig.Byte))
+	keyLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxIdentifierKeyLengthBytes)*commonconfig.Byte))
 	require.NoError(t, err)
 
 	requestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxRequestBatchSize))
@@ -275,30 +223,25 @@ func makeReportingPluginConfig(
 	pendingQueueStallThresholdLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(0))
 	require.NoError(t, err)
 
-	var maxBlobPayloadLimiter limits.BoundLimiter[pkgconfig.Size]
+	var maxBlobPayloadLimiter limits.BoundLimiter[commonconfig.Size]
 	if maxBlobPayloadBytes > 0 {
-		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxBlobPayloadBytes)*pkgconfig.Byte))
+		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(commonconfig.Size(maxBlobPayloadBytes)*commonconfig.Byte))
 	} else {
 		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
 	}
 	require.NoError(t, err)
 
 	return &ReportingPluginConfig{
-		MaxBatchSize:                                      bsl,
-		MaxPendingQueueWriteSize:                          maxPendingQueueWriteSizeLimiter,
-		PublicKey:                                         publicKey,
-		PrivateKeyShare:                                   privateKeyShare,
-		MaxSecretsPerOwner:                                msl,
-		MaxShareLengthBytes:                               shareLimiter,
-		MaxBlobPayloadBytes:                               maxBlobPayloadLimiter,
-		VaultForceEmptyOCRRounds:                          limits.NewGateLimiter(false),
-		VaultOptimizationsEnabled:                         limits.NewGateLimiter(false),
-		VaultJSONOmitUnpopulatedEnabled:                   limits.NewGateLimiter(false),
-		VaultSignedResponseRequestIDEnabled:               limits.NewGateLimiter(false),
-		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
-		VaultGetSecretsRelaxedConsensusEnabled:            limits.NewGateLimiter(false),
-		VaultIncludeInvalidPendingItemsEnabled:            limits.NewGateLimiter(false),
-		VaultPendingQueueStallThreshold:                   pendingQueueStallThresholdLimiter,
+		MaxBatchSize:                    bsl,
+		MaxPendingQueueWriteSize:        maxPendingQueueWriteSizeLimiter,
+		PublicKey:                       publicKey,
+		PrivateKeyShare:                 privateKeyShare,
+		MaxSecretsPerOwner:              msl,
+		MaxShareLengthBytes:             shareLimiter,
+		MaxBlobPayloadBytes:             maxBlobPayloadLimiter,
+		VaultForceEmptyOCRRounds:        limits.NewGateLimiter(false),
+		VaultGetSecretsIncludePublicKey: limits.NewGateLimiter(false),
+		VaultPendingQueueStallThreshold: pendingQueueStallThresholdLimiter,
 	}
 }
 

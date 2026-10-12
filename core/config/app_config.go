@@ -22,7 +22,6 @@ type AppConfig interface {
 	ShutdownGracePeriod() time.Duration
 	InsecureFastScrypt() bool
 	EVMEnabled() bool
-	CosmosEnabled() bool
 	SolanaEnabled() bool
 	StarkNetEnabled() bool
 	AptosEnabled() bool

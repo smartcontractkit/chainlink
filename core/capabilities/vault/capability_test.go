@@ -2,6 +2,7 @@ package vault
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -19,11 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -41,7 +43,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -140,7 +142,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -237,38 +239,25 @@ func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
 	execID := "exec-id"
 	refID := "ref-id"
 
-	newCapability := func(t *testing.T) *Capability {
+	newCapability := func(t *testing.T) (*Capability, *requests.Store[*vaulttypes.Request]) {
 		t.Helper()
 		lggr := logger.TestLogger(t)
 		clock := clockwork.NewFakeClock()
 		expiry := 10 * time.Second
 		store := requests.NewStore[*vaulttypes.Request]()
 		handler := requests.NewHandler(lggr, store, clock, expiry)
-		reg := coreCapabilities.NewRegistry(lggr)
+		reg := registry.NewRegistry(lggr)
 		lf := limits.Factory{Settings: cresettings.DefaultGetter}
 		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 		require.NoError(t, err)
 		servicetest.Run(t, capability)
-		return capability
+		return capability, store
 	}
 
-	t.Run("rejects batch when request count reaches MaxBatchSize", func(t *testing.T) {
-		capability := newCapability(t)
-		reqs := make([]*vault.SecretRequest, vaulttypes.MaxBatchSize)
-		for i := range reqs {
-			reqs[i] = &vault.SecretRequest{
-				Id: &vault.SecretIdentifier{
-					Key:       fmt.Sprintf("key%d", i),
-					Namespace: "Bar",
-					Owner:     workflowOwner,
-				},
-				EncryptionKeys: []string{"k"},
-			}
-		}
-		gsr := &vault.GetSecretsRequest{Requests: reqs}
+	execute := func(t *testing.T, capability *Capability, gsr *vault.GetSecretsRequest) error {
+		t.Helper()
 		anyproto, err := anypb.New(gsr)
 		require.NoError(t, err)
-
 		_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
 			Payload: anyproto,
 			Method:  vault.MethodGetSecrets,
@@ -279,13 +268,93 @@ func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
 				ReferenceID:         refID,
 			},
 		})
+		return err
+	}
+
+	batchRequests := func(count int) []*vault.SecretRequest {
+		reqs := make([]*vault.SecretRequest, count)
+		for i := range reqs {
+			reqs[i] = &vault.SecretRequest{
+				Id: &vault.SecretIdentifier{
+					Key:       fmt.Sprintf("key%d", i),
+					Namespace: "Bar",
+					Owner:     workflowOwner,
+				},
+				EncryptionKeys: []string{"k"},
+			}
+		}
+		return reqs
+	}
+
+	t.Run("rejects batch above the limit with a user error classification", func(t *testing.T) {
+		t.Parallel()
+		capability, _ := newCapability(t)
+		err := execute(t, capability, &vault.GetSecretsRequest{Requests: batchRequests(vaulttypes.MaxBatchSize + 1)})
 		require.Error(t, err)
 		require.ErrorContains(t, err, "could not validate get secrets request")
 		require.ErrorContains(t, err, "request batch size exceeds maximum of")
+
+		// Must cross the remote boundary as a user error.
+		capErr, ok := errors.AsType[caperrors.Error](err)
+		require.True(t, ok, "expected a caperrors.Error, got %T", err)
+		assert.Equal(t, caperrors.OriginUser, capErr.Origin())
+		assert.Equal(t, caperrors.LimitExceeded, capErr.Code())
+		assert.Equal(t, caperrors.VisibilityPublic, capErr.Visibility())
+	})
+
+	t.Run("accepts batch at the limit", func(t *testing.T) {
+		t.Parallel()
+		capability, store := newCapability(t)
+		requestID := vault.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+			WorkflowOwner:       workflowOwner,
+			WorkflowID:          workflowID,
+			WorkflowExecutionID: execID,
+			ReferenceID:         refID,
+		})
+
+		expectedResponse := &vault.GetSecretsResponse{
+			Responses: make([]*vault.SecretResponse, vaulttypes.MaxBatchSize),
+		}
+		for i := range expectedResponse.Responses {
+			expectedResponse.Responses[i] = &vault.SecretResponse{
+				Id: &vault.SecretIdentifier{
+					Key:       fmt.Sprintf("key%d", i),
+					Namespace: "Bar",
+					Owner:     workflowOwner,
+				},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
+				},
+			}
+		}
+		data, err := proto.Marshal(expectedResponse)
+		require.NoError(t, err)
+
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			for {
+				select {
+				case <-t.Context().Done():
+					return
+				default:
+					reqs := store.GetByIDs([]string{requestID})
+					if len(reqs) == 1 {
+						reqs[0].SendResponse(t.Context(), &vaulttypes.Response{
+							ID:      requestID,
+							Payload: data,
+						})
+						return
+					}
+				}
+			}
+		})
+
+		require.NoError(t, execute(t, capability, &vault.GetSecretsRequest{Requests: batchRequests(vaulttypes.MaxBatchSize)}))
+		wg.Wait()
 	})
 
 	t.Run("rejects key with invalid characters on a later batched item", func(t *testing.T) {
-		capability := newCapability(t)
+		capability, _ := newCapability(t)
 		gsr := &vault.GetSecretsRequest{
 			Requests: []*vault.SecretRequest{
 				{
@@ -323,6 +392,13 @@ func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
 		require.ErrorContains(t, err, "could not validate get secrets request")
 		require.ErrorContains(t, err, "invalid secret identifier at index 1")
 		require.ErrorContains(t, err, "must only contain alphanumeric characters")
+
+		// Structural rejections must cross the remote boundary as user errors.
+		capErr, ok := errors.AsType[caperrors.Error](err)
+		require.True(t, ok, "expected a caperrors.Error, got %T", err)
+		assert.Equal(t, caperrors.OriginUser, capErr.Origin())
+		assert.Equal(t, caperrors.InvalidArgument, capErr.Code())
+		assert.Equal(t, caperrors.VisibilityPublic, capErr.Visibility())
 	})
 
 	t.Run("rejects key that exceeds configured max length on a later batched item", func(t *testing.T) {
@@ -335,7 +411,7 @@ func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
 		expiry := 10 * time.Second
 		store := requests.NewStore[*vaulttypes.Request]()
 		handler := requests.NewHandler(lggr, store, clock, expiry)
-		reg := coreCapabilities.NewRegistry(lggr)
+		reg := registry.NewRegistry(lggr)
 		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 		require.NoError(t, err)
 		servicetest.Run(t, capability)
@@ -460,7 +536,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 			expiry := 10 * time.Second
 			store := requests.NewStore[*vaulttypes.Request]()
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-			reg := coreCapabilities.NewRegistry(lggr)
+			reg := registry.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
 			capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 			require.NoError(t, err)
@@ -539,7 +615,7 @@ func TestCapability_CapabilityCall_UsesMetadataWorkflowOwner(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -612,7 +688,7 @@ func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -704,7 +780,7 @@ func TestCapability_CapabilityCall_BackfillsGetSecretsWorkflowOwnerFromFirstSecr
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -797,7 +873,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -873,7 +949,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, fakeClock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, fakeClock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -1587,7 +1663,7 @@ func TestCapability_CRUD(t *testing.T) {
 			expiry := 10 * time.Second
 			store := requests.NewStore[*vaulttypes.Request]()
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-			reg := coreCapabilities.NewRegistry(lggr)
+			reg := registry.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
 			capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, lf, newTestRequestLifecycleTracker(t))
 			require.NoError(t, err)
@@ -1633,7 +1709,7 @@ func TestCapability_Lifecycle(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
@@ -1663,7 +1739,7 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	lpk := NewLazyPublicKey()
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, lf, newTestRequestLifecycleTracker(t))

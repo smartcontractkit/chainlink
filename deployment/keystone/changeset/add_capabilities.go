@@ -84,7 +84,7 @@ func (r *AddCapabilitiesRequest) Validate(env cldf.Environment) error {
 func shouldUseDatastore(env cldf.Environment, ref datastore.AddressRefKey) error {
 	if addrs, err := env.DataStore.Addresses().Fetch(); err == nil {
 		if len(addrs) != 0 && ref == nil {
-			return errors.New("This environment has been migrated to DataStore: address ref key must not be nil")
+			return errors.New("this environment has been migrated to DataStore: address ref key must not be nil")
 		}
 	}
 	return nil

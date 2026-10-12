@@ -53,14 +53,15 @@ import (
 	ccipsolstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
@@ -111,8 +112,7 @@ var (
 func Context(tb testing.TB) context.Context {
 	ctx := context.Background()
 	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
+	if t, ok := tb.(*testing.T); ok {
 		if d, ok := t.Deadline(); ok {
 			ctx, cancel = context.WithDeadline(ctx, d)
 		}
@@ -285,16 +285,79 @@ func WaitForEventFilterRegistrationOnLane(t *testing.T, onchainState stateview.C
 	t.Logf("%s, %s, and %s filters registered", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
 }
 
+// isLogFilterRegisteredQuorum is the quorum-tolerant counterpart of isLogFilterRegistered:
+// it returns true once at least f+1 non-bootstrap nodes have the filter registered, instead
+// of requiring every node. See JobClient.IsLogFilterRegisteredQuorum.
+func isLogFilterRegisteredQuorum(t *testing.T, oc cldf_offchain.Client, chainSel uint64, eventName string, address []byte) (bool, error) {
+	switch oc := oc.(type) {
+	case *jdtestutils.JobClient:
+		return oc.IsLogFilterRegisteredQuorum(t.Context(), chainSel, eventName, address)
+	default:
+		return false, fmt.Errorf("unsupported offchain client type %T", oc)
+	}
+}
+
+// WaitForEventFilterRegistrationQuorum waits for at least f+1 non-bootstrap nodes (not all
+// nodes) to have registered the given event filter. Use this for lanes where one node being
+// environmentally slow to bind contracts should not block the send — the DON only needs f+1
+// observations to commit/execute. Aptos and Sui are no-ops (they do not use a LogPoller).
+func WaitForEventFilterRegistrationQuorum(t *testing.T, oc cldf_offchain.Client, chainSel uint64, eventName string, address []byte) error {
+	family, err := chainsel.GetSelectorFamily(chainSel)
+	require.NoError(t, err)
+	switch family {
+	case chainsel.FamilyEVM, chainsel.FamilySolana:
+		// fall through to the wait below
+	case chainsel.FamilyAptos, chainsel.FamilySui:
+		// Aptos and Sui do not use a LogPoller.
+		return nil
+	default:
+		return fmt.Errorf("unsupported chain family; %v", family)
+	}
+
+	require.Eventually(t, func() bool {
+		registered, err := isLogFilterRegisteredQuorum(t, oc, chainSel, eventName, address)
+		require.NoError(t, err)
+		return registered
+	}, tests.WaitTimeout(t), 5*time.Second)
+
+	return nil
+}
+
+// WaitForEventFilterRegistrationQuorumOnLane is the quorum-tolerant variant of
+// WaitForEventFilterRegistrationOnLane: it only requires f+1 nodes (not all) to have
+// registered the source OnRamp CCIPMessageSent filter before sending. The dest-side waits
+// are no-ops when the destination does not use a LogPoller (e.g. Sui). Use when the DON has
+// spare capacity (f >= 1) and a single slow/unhealthy node should not block the send.
+func WaitForEventFilterRegistrationQuorumOnLane(t *testing.T, onchainState stateview.CCIPOnChainState, onchainClient cldf_offchain.Client, sourceChainSel, destChainSel uint64) {
+	onRampAddr, err := onchainState.GetOnRampAddressBytes(sourceChainSel)
+	require.NoError(t, err)
+	// Ensure CCIPMessageSent event filter is registered on a quorum of nodes.
+	// Sending message too early could result in LogPoller missing the send event.
+	err = WaitForEventFilterRegistrationQuorum(t, onchainClient, sourceChainSel, consts.EventNameCCIPMessageSent, onRampAddr)
+	require.NoError(t, err)
+	// Ensure CommitReportAccepted and ExecutionStateChanged event filters are registered for the offramp
+	// The LogPoller could pick up the message sent event but miss the commit or execute event
+	offRampAddr, err := onchainState.GetOffRampAddressBytes(destChainSel)
+	require.NoError(t, err)
+	err = WaitForEventFilterRegistrationQuorum(t, onchainClient, destChainSel, consts.EventNameCommitReportAccepted, offRampAddr)
+	require.NoError(t, err)
+	err = WaitForEventFilterRegistrationQuorum(t, onchainClient, destChainSel, consts.EventNameExecutionStateChanged, offRampAddr)
+	require.NoError(t, err)
+
+	t.Logf("%s, %s, and %s filters registered (quorum)", consts.EventNameCCIPMessageSent, consts.EventNameCommitReportAccepted, consts.EventNameExecutionStateChanged)
+}
+
 func DeployTestContracts(t *testing.T,
 	lggr logger.Logger,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	homeChainSel,
 	feedChainSel uint64,
 	chains map[uint64]cldf_evm.Chain,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
-) deployment.CapabilityRegistryConfig {
-	capReg, err := cldf.DeployContract(lggr, chains[homeChainSel], ab,
+) (deployment.CapabilityRegistryConfig, map[shared.TokenSymbol]common.Address) {
+	capReg, err := shared.DeployContractAndRecord(lggr, chains[homeChainSel], ab, ds, cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0), "",
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 				chain.DeployerKey,
@@ -306,7 +369,7 @@ func DeployTestContracts(t *testing.T,
 		})
 	require.NoError(t, err)
 
-	_, err = DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
+	feedSymbolToAddress, err := DeployFeeds(lggr, ab, ds, chains[feedChainSel], linkPrice, wethPrice)
 	require.NoError(t, err)
 
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
@@ -316,7 +379,7 @@ func DeployTestContracts(t *testing.T,
 		EVMChainID:  evmChainID,
 		Contract:    capReg.Address,
 		NetworkType: relay.NetworkEVM,
-	}
+	}, feedSymbolToAddress
 }
 
 func LatestBlock(ctx context.Context, env cldf.Environment, chainSelector uint64) (uint64, error) {
@@ -624,7 +687,7 @@ func SendRequestSol(
 	if feeToken.IsZero() {
 		// If the fee token is native SOL (i.e. message.FeeToken is the zero address), then we will
 		// leave message.FeeToken as it is, but specify the WSOL mint account in the accounts list
-		feeToken = solana.SolMint
+		feeToken = solana.WrappedSol
 	} else {
 		feeTokenInfo, err := client.GetAccountInfo(ctx, feeToken)
 		if err != nil {
@@ -794,7 +857,7 @@ func SendRequestSol(
 		if idx > math.MaxUint8 {
 			return nil, fmt.Errorf("too many token accounts, overflows uint8: %d", idx)
 		}
-		tokenIndexes = append(tokenIndexes, byte(idx)) //nolint:gosec // G115
+		tokenIndexes = append(tokenIndexes, byte(idx)) //nolint:gosec // G115: guarded above
 		base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
 		maps.Copy(addressTables, tokenAddressTables)
 	}
@@ -985,6 +1048,14 @@ func AddLane(
 
 	if fromFamily == chainsel.FamilyAptos || toFamily == chainsel.FamilyAptos {
 		return addAptosMixedLane(t, e, state, from, to, fromFamily, toFamily, isTestRouter, gasPrices, tokenPrices, fqCfg)
+	}
+
+	// Sui<->Solana lanes use the family-agnostic lanes.ConnectChains (SuiAdapter + SolanaAdapter),
+	// mirroring the Aptos mixed lane. Scoped to Sui<->Solana only so Sui<->EVM, EVM<->Solana and
+	// Solana<->Solana paths are untouched.
+	if (fromFamily == chainsel.FamilySui && toFamily == chainsel.FamilySolana) ||
+		(fromFamily == chainsel.FamilySolana && toFamily == chainsel.FamilySui) {
+		return addSuiSolanaMixedLane(t, e, state, from, to, fromFamily, toFamily, isTestRouter, gasPrices, tokenPrices, fqCfg)
 	}
 
 	switch fromFamily {
@@ -1318,7 +1389,7 @@ func AddLanesForAll(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainSta
 	for _, source := range chains {
 		for _, dest := range chains {
 			if source != dest {
-				AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false)
+				require.NoError(t, AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false))
 			}
 		}
 	}
@@ -1332,10 +1403,11 @@ func ToPackedFee(execFee, daFee *big.Int) *big.Int {
 func DeployFeeds(
 	lggr logger.Logger,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	chain cldf_evm.Chain,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
-) (map[string]common.Address, error) {
+) (map[shared.TokenSymbol]common.Address, error) {
 	linkTV := cldf.NewTypeAndVersion(shared.PriceFeed, deployment.Version1_0_0)
 	mockLinkFeed := func(chain cldf_evm.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
@@ -1364,33 +1436,33 @@ func DeployFeeds(
 		}
 	}
 
-	linkFeedAddress, linkFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockLinkFeed, shared.LinkSymbol)
+	linkFeedAddress, _, err := deploySingleFeed(lggr, ab, ds, chain, mockLinkFeed, shared.LinkSymbol)
 	if err != nil {
 		return nil, err
 	}
 
-	wethFeedAddress, wethFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockWethFeed, shared.WethSymbol)
+	wethFeedAddress, _, err := deploySingleFeed(lggr, ab, ds, chain, mockWethFeed, shared.WethSymbol)
 	if err != nil {
 		return nil, err
 	}
 
-	descriptionToAddress := map[string]common.Address{
-		linkFeedDescription: linkFeedAddress,
-		wethFeedDescription: wethFeedAddress,
-	}
-
-	return descriptionToAddress, nil
+	return map[shared.TokenSymbol]common.Address{
+		shared.LinkSymbol: linkFeedAddress,
+		shared.WethSymbol: wethFeedAddress,
+	}, nil
 }
 
 func deploySingleFeed(
 	lggr logger.Logger,
 	ab cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	chain cldf_evm.Chain,
 	deployFunc func(cldf_evm.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
 	symbol shared.TokenSymbol,
 ) (common.Address, string, error) {
 	// tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
-	mockTokenFeed, err := cldf.DeployContract(lggr, chain, ab, deployFunc)
+	mockTokenFeed, err := shared.DeployContractAndRecord(lggr, chain, ab, ds,
+		cldf.NewTypeAndVersion(shared.PriceFeed, deployment.Version1_0_0), string(symbol), deployFunc)
 	if err != nil {
 		lggr.Errorw("Failed to deploy token feed", "err", err, "symbol", symbol)
 		return common.Address{}, "", err
@@ -1421,37 +1493,43 @@ func deploySingleFeed(
 	return mockTokenFeed.Address, desc, nil
 }
 
+// DeployTransferableToken deploys and configures token/pool pairs on both EVM chains.
 func DeployTransferableToken(
 	lggr logger.Logger,
 	chains map[uint64]cldf_evm.Chain,
 	src, dst uint64,
 	srcActor, dstActor *bind.TransactOpts,
 	state stateview.CCIPOnChainState,
-	addresses cldf.AddressBook,
+	e *cldf.Environment,
 	token string,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	// Deploy token and pools
-	srcToken, srcPool, dstToken, dstPool, err := deployTokenPoolsInParallel(lggr, chains, src, dst, srcActor, dstActor, state, addresses, token)
+	srcDS := datastore.NewMemoryDataStore()
+	dstDS := datastore.NewMemoryDataStore()
+	srcToken, srcPool, dstToken, dstPool, err := deployTokenPoolsInParallel(lggr, chains, src, dst, srcActor, dstActor, state, e.ExistingAddresses, srcDS, dstDS, token)
 	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := mergeDataStoreIntoEnv(e, srcDS); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := mergeDataStoreIntoEnv(e, dstDS); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	// Configure pools in parallel
 	configurePoolGrp := errgroup.Group{}
 	configurePoolGrp.Go(func() error {
-		err := setTokenPoolCounterPart(chains[src], srcPool, srcActor, dst, dstToken.Address().Bytes(), dstPool.Address().Bytes())
-		if err != nil {
+		if err := setTokenPoolCounterPart(chains[src], srcPool, srcActor, dst, dstToken.Address().Bytes(), dstPool.Address().Bytes()); err != nil {
 			return fmt.Errorf("failed to set token pool counter part chain %d: %w", src, err)
 		}
-		err = grantMintBurnPermissions(lggr, chains[src], srcToken, srcActor, srcPool.Address())
-		if err != nil {
+		if err := grantMintBurnPermissions(lggr, chains[src], srcToken, srcActor, srcPool.Address()); err != nil {
 			return fmt.Errorf("failed to grant mint burn permissions chain %d: %w", src, err)
 		}
 		return nil
 	})
 	configurePoolGrp.Go(func() error {
-		err := setTokenPoolCounterPart(chains[dst], dstPool, dstActor, src, srcToken.Address().Bytes(), srcPool.Address().Bytes())
-		if err != nil {
+		if err := setTokenPoolCounterPart(chains[dst], dstPool, dstActor, src, srcToken.Address().Bytes(), srcPool.Address().Bytes()); err != nil {
 			return fmt.Errorf("failed to set token pool counter part chain %d: %w", dst, err)
 		}
 		if err := grantMintBurnPermissions(lggr, chains[dst], dstToken, dstActor, dstPool.Address()); err != nil {
@@ -1472,16 +1550,11 @@ func deployTokenPoolsInParallel(
 	srcActor, dstActor *bind.TransactOpts,
 	state stateview.CCIPOnChainState,
 	addresses cldf.AddressBook,
+	srcDS, dstDS datastore.MutableDataStore,
 	token string,
-) (
-	*burn_mint_erc677.BurnMintERC677,
-	*burn_mint_token_pool.BurnMintTokenPool,
-	*burn_mint_erc677.BurnMintERC677,
-	*burn_mint_token_pool.BurnMintTokenPool,
-	error,
-) {
-	deployGrp := errgroup.Group{}
+) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	// Deploy token and pools
+	deployGrp := errgroup.Group{}
 	var srcToken *burn_mint_erc677.BurnMintERC677
 	var srcPool *burn_mint_token_pool.BurnMintTokenPool
 	var dstToken *burn_mint_erc677.BurnMintERC677
@@ -1489,21 +1562,19 @@ func deployTokenPoolsInParallel(
 
 	deployGrp.Go(func() error {
 		var err error
-		srcToken, srcPool, err = deployTransferTokenOneEnd(lggr, chains[src], srcActor, addresses, token)
+		srcToken, srcPool, err = deployTransferTokenOneEnd(lggr, chains[src], srcActor, addresses, srcDS, token)
 		if err != nil {
 			return err
 		}
-		err = attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
-		return err
+		return attachTokenToTheRegistry(chains[src], state.MustGetEVMChainState(src), srcActor, srcToken.Address(), srcPool.Address())
 	})
 	deployGrp.Go(func() error {
 		var err error
-		dstToken, dstPool, err = deployTransferTokenOneEnd(lggr, chains[dst], dstActor, addresses, token)
+		dstToken, dstPool, err = deployTransferTokenOneEnd(lggr, chains[dst], dstActor, addresses, dstDS, token)
 		if err != nil {
 			return err
 		}
-		err = attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
-		return err
+		return attachTokenToTheRegistry(chains[dst], state.MustGetEVMChainState(dst), dstActor, dstToken.Address(), dstPool.Address())
 	})
 	if err := deployGrp.Wait(); err != nil {
 		return nil, nil, nil, nil, err
@@ -1653,6 +1724,7 @@ func deployTransferTokenOneEnd(
 	chain cldf_evm.Chain,
 	deployer *bind.TransactOpts,
 	addressBook cldf.AddressBook,
+	ds datastore.MutableDataStore,
 	tokenSymbol string,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
 	var rmnAddress, routerAddress string
@@ -1674,7 +1746,8 @@ func deployTransferTokenOneEnd(
 
 	tokenDecimals := uint8(18)
 
-	tokenContract, err := cldf.DeployContract(lggr, chain, addressBook,
+	tokenContract, err := shared.DeployContractAndRecord(lggr, chain, addressBook, ds,
+		cldf.NewTypeAndVersion(shared.BurnMintToken, deployment.Version1_0_0), tokenSymbol,
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
 			tokenAddress, tx, token, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				deployer,
@@ -1702,7 +1775,8 @@ func deployTransferTokenOneEnd(
 		return nil, nil, err
 	}
 
-	tokenPool, err := cldf.DeployContract(lggr, chain, addressBook,
+	tokenPool, err := shared.DeployContractAndRecord(lggr, chain, addressBook, ds,
+		cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_5_1), tokenSymbol,
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
 			tokenPoolAddress, tx, tokenPoolContract, err2 := burn_mint_token_pool.DeployBurnMintTokenPool(
 				deployer,
@@ -1950,7 +2024,7 @@ func TransferMultiple(
 
 	for _, tt := range requests {
 		t.Run(tt.Name, func(t *testing.T) {
-			pairId := SourceDestPair{
+			pairID := SourceDestPair{
 				SourceChainSelector: tt.SourceChain,
 				DestChainSelector:   tt.DestChain,
 			}
@@ -1997,22 +2071,22 @@ func TransferMultiple(
 			msg, blocks := Transfer(
 				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs, tt.FeeToken,
 			)
-			if _, ok := expectedExecutionStates[pairId]; !ok {
-				expectedExecutionStates[pairId] = make(map[uint64]int)
+			if _, ok := expectedExecutionStates[pairID]; !ok {
+				expectedExecutionStates[pairID] = make(map[uint64]int)
 			}
-			expectedExecutionStates[pairId][msg.SequenceNumber] = tt.ExpectedStatus
+			expectedExecutionStates[pairID][msg.SequenceNumber] = tt.ExpectedStatus
 
 			if prev, ok := startBlocks[tt.DestChain]; !ok || *blocks[tt.DestChain] < *prev {
 				startBlocks[tt.DestChain] = blocks[tt.DestChain]
 			}
 
-			seqNr, ok := expectedSeqNums[pairId]
+			seqNr, ok := expectedSeqNums[pairID]
 			if ok {
-				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+				expectedSeqNums[pairID] = cciptypes.NewSeqNumRange(
 					seqNr.Start(), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			} else {
-				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
+				expectedSeqNums[pairID] = cciptypes.NewSeqNumRange(
 					cciptypes.SeqNum(msg.SequenceNumber), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			}
@@ -2172,7 +2246,7 @@ func WaitForTheTokenBalanceSol(
 			"token", token,
 			"receiver", receiver,
 		)
-		return uint64(balance) == expected //nolint:gosec // value is always unsigned
+		return uint64(balance) == expected //nolint:gosec // G115: token balances are always non-negative
 	}, tests.WaitTimeout(t), 100*time.Millisecond)
 }
 
@@ -2210,62 +2284,36 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 }
 
 // TODO: this should be linked to the solChain function
-func SavePreloadedSolAddresses(e cldf.Environment, solChainSelector uint64) error {
-	tv := cldf.NewTypeAndVersion(shared.Router, deployment.Version1_0_0)
-	err := e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCIPRouter), tv)
-	if err != nil {
-		return err
+func SavePreloadedSolAddresses(e *cldf.Environment, solChainSelector uint64) error {
+	ds := datastore.NewMemoryDataStore()
+	if e.DataStore != nil {
+		if err := ds.Merge(e.DataStore); err != nil {
+			return fmt.Errorf("merge environment datastore: %w", err)
+		}
 	}
-	tv = cldf.NewTypeAndVersion(shared.Receiver, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgTestCCIPReceiver), tv)
-	if err != nil {
-		return err
+
+	preloaded := []struct {
+		tv      cldf.TypeAndVersion
+		address string
+	}{
+		{cldf.NewTypeAndVersion(shared.Router, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgCCIPRouter)},
+		{cldf.NewTypeAndVersion(shared.Receiver, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgTestCCIPReceiver)},
+		{cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgFeeQuoter)},
+		{cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgCCIPOfframp)},
+		{cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgBurnMintTokenPool)},
+		{cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgLockReleaseTokenPool)},
+		{cldf.NewTypeAndVersion(shared.CCTPTokenPool, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgCCTPTokenPool)},
+		{cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgMCM)},
+		{cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgAccessController)},
+		{cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgTimelock)},
+		{cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_0_0), solutils.GetProgramID(solutils.ProgRMNRemote)},
 	}
-	tv = cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgFeeQuoter), tv)
-	if err != nil {
-		return err
+	for _, item := range preloaded {
+		if err := shared.RecordAddress(e.ExistingAddresses, ds, solChainSelector, item.address, item.tv, ""); err != nil {
+			return err
+		}
 	}
-	tv = cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCIPOfframp), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgBurnMintTokenPool), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgLockReleaseTokenPool), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.CCTPTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgCCTPTokenPool), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgMCM), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgAccessController), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgTimelock), tv)
-	if err != nil {
-		return err
-	}
-	tv = cldf.NewTypeAndVersion(shared.RMNRemote, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solutils.GetProgramID(solutils.ProgRMNRemote), tv)
-	if err != nil {
-		return err
-	}
+	e.DataStore = ds.Seal()
 	return nil
 }
 

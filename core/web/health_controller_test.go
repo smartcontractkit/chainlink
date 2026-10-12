@@ -22,7 +22,7 @@ import (
 
 func TestHealthController_Readyz(t *testing.T) {
 	t.Parallel()
-	var tt = []struct {
+	tt := []struct {
 		name   string
 		ready  bool
 		status int
@@ -60,7 +60,7 @@ func TestHealthController_Readyz(t *testing.T) {
 
 func TestHealthController_PublicReadyz(t *testing.T) {
 	t.Parallel()
-	var tt = []struct {
+	tt := []struct {
 		name   string
 		ready  bool
 		status int
@@ -111,7 +111,7 @@ func TestHealthController_PublicReadyz(t *testing.T) {
 
 func TestHealthController_Health_status(t *testing.T) {
 	t.Parallel()
-	var tt = []struct {
+	tt := []struct {
 		name   string
 		ready  bool
 		status int

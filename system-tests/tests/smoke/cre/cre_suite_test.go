@@ -88,23 +88,13 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			if parallelEnabled {
 				t.Parallel()
 			}
-			allowlistSubtestName := "allowlist_auth_when_jwt_auth_disabled"
-			jwtSubtestName := "jwt_auth_rejected_when_jwt_auth_disabled"
+			allowlistSubtestName := "allowlist_auth"
 			vaultConfig := getVaultDefaultTestConfig(t)
-			if isVaultJWTAuthEnabledTopology(topology) {
-				vaultConfig = getVaultJWTAuthEnabledTestConfig(t)
-				allowlistSubtestName = "allowlist_auth_when_jwt_auth_enabled"
-				jwtSubtestName = "jwt_auth_when_jwt_auth_enabled"
-			} else if isVaultOptimizationsEnabledTopology(topology) {
-				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
-				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
-			} else if isVaultIncludeInvalidEnabledTopology(topology) {
-				vaultConfig = getVaultIncludeInvalidEnabledTestConfig(t)
-				allowlistSubtestName = "allowlist_auth_when_vault_include_invalid_enabled"
-			} else if isVaultStallPurgeTopology(topology) {
+			switch {
+			case isVaultStallPurgeTopology(topology):
 				vaultConfig = getVaultStallPurgeTestConfig(t)
 				allowlistSubtestName = "pending_queue_stall_purge"
-			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
+			case isVaultWorkflowDONBindingEnabledTopology(topology):
 				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
 			}
@@ -115,7 +105,7 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 					t.Parallel()
 				}
 				allowlistEnv := fixture.TestEnv
-				if parallelEnabled && isVaultJWTAuthEnabledTopology(topology) {
+				if parallelEnabled {
 					allowlistEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
 				}
 				if isVaultStallPurgeTopology(topology) {
@@ -124,27 +114,28 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				}
 				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
 			})
-			if isVaultJWTAuthEnabledTopology(topology) {
-				t.Run(jwtSubtestName, func(t *testing.T) {
-					if parallelEnabled {
-						t.Parallel()
-					}
-					jwtEnv := fixture.TestEnv
-					if parallelEnabled {
-						jwtEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
-					}
-					ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
-				})
-				return
-			}
 			if isVaultStallPurgeTopology(topology) {
 				return
 			}
-			t.Run(jwtSubtestName, func(t *testing.T) {
+			t.Run("jwt_auth", func(t *testing.T) {
 				if parallelEnabled {
 					t.Parallel()
 				}
-				ExecuteVaultJWTDisabledTest(t, fixture)
+				jwtEnv := fixture.TestEnv
+				if parallelEnabled {
+					jwtEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+				}
+				ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
+			})
+			t.Run("reshare_flags_read", func(t *testing.T) {
+				if parallelEnabled {
+					t.Parallel()
+				}
+				reshareEnv := fixture.TestEnv
+				if parallelEnabled {
+					reshareEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+				}
+				ExecuteVaultReadSecretsWithReshareFlagsTest(t, fixture, reshareEnv)
 			})
 		})
 	case suite_config.SuiteScenarioCronChipIngressStack:
@@ -184,6 +175,7 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 		})
 	case suite_config.SuiteScenarioDONTime:
 		t.Run("DON Time - "+topology, func(t *testing.T) {
+			t_helpers.SkipIfMixedEnv(t, "DONTime registry launch requires all nodes to support jobless capability startup")
 			if parallelEnabled {
 				t.Parallel()
 			}
@@ -300,7 +292,6 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 	})
 }
 
-//nolint:paralleltest // isolate local cre env run
 func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
 
@@ -320,6 +311,12 @@ func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 		t.Parallel()
 		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
 		executeStellarWriteTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
+
+	t.Run("StellarDataFeedsWrite", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarDataFeedsWriteTest(t, env, chain, userLogsCh, baseMessageCh)
 	})
 }
 
@@ -382,6 +379,24 @@ func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
 	ExecuteManualShardAssignmentTest(t, testEnv)
 }
 
+//nolint:paralleltest // mutates CRE settings and shard assignment on the shared environment
+func Test_CRE_V2_ShardManualAssignmentBothSpecs(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
+	)
+	ExecuteManualShardAssignmentBothSpecs(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-sharded-capabilities-don.toml"),
+	)
+	ExecuteManualShardAssignmentWithEVMLogTriggerTest(t, testEnv)
+}
+
 //nolint:paralleltest // subtests share the same sharding config
 func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
@@ -389,4 +404,31 @@ func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-ringocr-overrides.toml"),
 	)
 	ExecuteRingOCROverridesTest(t, testEnv)
+}
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_FailoverManualSwap(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-failover-don.toml"),
+	)
+	ExecuteFailoverManualSwapTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardManualAssignmentSharedVault(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-manual.toml"),
+	)
+	ExecuteManualShardAssignmentSharedVaultTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-failover.toml"),
+	)
+	ExecuteShardFailoverSharedVaultTest(t, testEnv)
 }

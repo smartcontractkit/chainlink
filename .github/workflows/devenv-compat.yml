@@ -116,7 +116,7 @@ jobs:
         secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -162,6 +162,7 @@ jobs:
           cache-dependency-path: ${{ env.WORKING_DIR }}/go.sum
 
       - name: Download Go dependencies
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           go mod download
 

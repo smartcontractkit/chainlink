@@ -1,16 +1,19 @@
 package generate
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
-	"sync"
 
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/githooks/internal/modules"
@@ -42,7 +45,7 @@ func defaultRunner(ctx context.Context, dir string, args ...string) error {
 	}
 
 	if len(args) > 0 && args[0] == "mockery" {
-		cmd := exec.CommandContext(ctx, "mockery", args[1:]...) // #nosec G204 -- args come from the local hook pipeline, not remote input
+		cmd := exec.CommandContext(ctx, resolveMockeryBin(ctx), args[1:]...) //nolint:gosec // args come from the local hook pipeline, not remote input
 		cmd.Dir = dir
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("mockery %v in %s failed: %w (output: %s)", args[1:], dir, err, string(out))
@@ -56,6 +59,38 @@ func defaultRunner(ctx context.Context, dir string, args ...string) error {
 		return fmt.Errorf("go %v in %s failed: %w (output: %s)", args, dir, err, string(out))
 	}
 	return nil
+}
+
+// resolveMockeryBin finds the mockery binary the same way GNUmakefile's
+// MOCKERY_BIN does, so the hook and `make generate` never run different
+// mockery versions. MOCKERY_BIN itself is honored first as an override.
+func resolveMockeryBin(ctx context.Context) string {
+	if bin := os.Getenv("MOCKERY_BIN"); bin != "" {
+		return bin
+	}
+	if path, err := exec.LookPath("mockery"); err == nil {
+		return path
+	}
+	if out, err := exec.CommandContext(ctx, "go", "env", "GOBIN").Output(); err == nil {
+		if gobin := strings.TrimSpace(string(out)); gobin != "" {
+			if p := filepath.Join(gobin, "mockery"); isFile(p) {
+				return p
+			}
+		}
+	}
+	if out, err := exec.CommandContext(ctx, "go", "env", "GOPATH").Output(); err == nil {
+		if gopath := strings.TrimSpace(string(out)); gopath != "" {
+			if p := filepath.Join(gopath, "bin", "mockery"); isFile(p) {
+				return p
+			}
+		}
+	}
+	return "mockery"
+}
+
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 // genTarget is a go generate invocation scoped to a module directory.
@@ -248,6 +283,16 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 			continue
 		}
 
+		baseName := filepath.Base(file)
+		ext := filepath.Ext(file)
+
+		// Fast pre-filter: skip files that cannot trigger generators or mockery
+		if ext != ".go" && ext != ".proto" && ext != ".yaml" && ext != ".yml" &&
+			baseName != "go.mod" && baseName != "go.sum" && baseName != "TAG" &&
+			!strings.Contains(filepath.ToSlash(file), "core/config") {
+			continue
+		}
+
 		absFile := file
 		if !filepath.IsAbs(absFile) {
 			absFile = filepath.Join(absRoot, file)
@@ -260,7 +305,7 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 		cleanRel := filepath.ToSlash(filepath.Clean(relFromRoot))
 		cleanRel = strings.TrimPrefix(cleanRel, "./")
 
-		baseName := filepath.Base(cleanRel)
+		baseName = filepath.Base(cleanRel)
 		fileDir := filepath.Dir(absFile)
 
 		// Check if go.mod / go.sum changed -> trigger go.md modgraph generation
@@ -273,17 +318,32 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 			runConfigDocs = true
 		}
 
+		// Check if operator UI tag changed -> trigger core/web asset generation
+		if cleanRel == "operator_ui/TAG" {
+			genTargets[genTarget{modDir: absRoot, pattern: "./core/web"}] = struct{}{}
+		}
+
 		// Check proto or generate files
-		if strings.HasSuffix(cleanRel, ".proto") ||
-			baseName == "generate.go" ||
-			baseName == "gen.go" {
-			modDir, targetModErr := modules.FindModuleDir(absRoot, absFile)
+		var (
+			modDir       string
+			modResolved  bool
+			targetModErr error
+		)
+
+		isGoFile := filepath.Ext(absFile) == ".go"
+		isProto := strings.HasSuffix(cleanRel, ".proto")
+		isGenFile := baseName == "generate.go" || baseName == "gen.go"
+		isDirectiveGo := isGoFile && hasGoGenerateDirective(absFile)
+
+		if isProto || isGenFile || isDirectiveGo {
+			modDir, targetModErr = modules.FindModuleDir(absRoot, absFile)
 			if targetModErr != nil {
 				return fmt.Errorf("failed to find Go module for %s: %w", file, targetModErr)
 			}
 			if modDir == "" {
 				modDir = absRoot
 			}
+			modResolved = true
 
 			relPkg, relPkgErr := filepath.Rel(modDir, filepath.Dir(absFile))
 			if relPkgErr != nil {
@@ -309,16 +369,18 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 		}
 
 		// Check Go file or dependency changes for mockery coverage
-		if filepath.Ext(file) != ".go" && baseName != "go.mod" && baseName != "go.sum" {
+		if !isGoFile && baseName != "go.mod" && baseName != "go.sum" {
 			continue
 		}
 
-		modDir, modErr := modules.FindModuleDir(absRoot, absFile)
-		if modErr != nil {
-			return fmt.Errorf("failed to find Go module for %s: %w", file, modErr)
-		}
-		if modDir == "" {
-			continue
+		if !modResolved {
+			modDir, targetModErr = modules.FindModuleDir(absRoot, absFile)
+			if targetModErr != nil {
+				return fmt.Errorf("failed to find Go module for %s: %w", file, targetModErr)
+			}
+			if modDir == "" {
+				continue
+			}
 		}
 
 		modulePath, pathErr := modules.ReadModulePath(modDir)
@@ -381,44 +443,44 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 		return nil
 	}
 
-	var (
-		wg   sync.WaitGroup
-		mu   sync.Mutex
-		errs []error
-	)
+	g, gCtx := errgroup.WithContext(ctx)
+	g.SetLimit(runtime.GOMAXPROCS(0))
 
 	for _, t := range targets {
-		wg.Go(func() {
-			if err := runner(ctx, t.modDir, "generate", t.pattern); err != nil {
-				mu.Lock()
-				errs = append(errs, fmt.Errorf("go generate %s: %w", t.pattern, err))
-				mu.Unlock()
+		g.Go(func() error {
+			if err := runner(gCtx, t.modDir, "generate", t.pattern); err != nil {
+				return fmt.Errorf("go generate %s: %w", t.pattern, err)
 			}
+			return nil
 		})
 	}
 
 	if runConfigDocs {
-		wg.Go(func() {
-			if err := runner(ctx, absRoot, "run", "./core/config/docs/cmd/generate", "-o", "./docs/"); err != nil {
-				mu.Lock()
-				errs = append(errs, fmt.Errorf("generate config docs: %w", err))
-				mu.Unlock()
+		g.Go(func() error {
+			if err := runner(gCtx, absRoot, "run", "./core/config/docs/cmd/generate", "-o", "./docs/"); err != nil {
+				return fmt.Errorf("generate config docs: %w", err)
 			}
+			return nil
 		})
 	}
 
 	if runModGraph {
-		wg.Go(func() {
-			if err := runner(ctx, absRoot, "modgraph"); err != nil {
-				mu.Lock()
-				errs = append(errs, fmt.Errorf("generate go.md: %w", err))
-				mu.Unlock()
+		g.Go(func() error {
+			if err := runner(gCtx, absRoot, "modgraph"); err != nil {
+				return fmt.Errorf("generate go.md: %w", err)
 			}
+			return nil
 		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	// Mockery runs: scoped per-package configs for changed packages, full runs
 	// for config-file or dependency changes matching CI's `make generate`.
+	// Mockery internally uses all CPU cores, so configs are run sequentially to
+	// avoid thread oversubscription and memory contention.
 	if len(mockeryTargets) > 0 {
 		mockeryDirs := make([]string, 0, len(mockeryTargets))
 		for dir := range mockeryTargets {
@@ -451,14 +513,9 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 			}
 
 			if target.full {
-				dir := dir
-				wg.Go(func() {
-					if err := runner(ctx, dir, "mockery"); err != nil {
-						mu.Lock()
-						errs = append(errs, fmt.Errorf("mockery in %s: %w", dir, err))
-						mu.Unlock()
-					}
-				})
+				if err := runner(ctx, dir, "mockery"); err != nil {
+					return fmt.Errorf("mockery in %s: %w", dir, err)
+				}
 				continue
 			}
 
@@ -497,22 +554,34 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 				return fmt.Errorf("failed to close scoped mockery config: %w", closeErr)
 			}
 
-			runDir := dir
-			wg.Go(func() {
-				if err := runner(ctx, runDir, "mockery", "--config", tmpConfig); err != nil {
-					mu.Lock()
-					errs = append(errs, fmt.Errorf("mockery in %s: %w", runDir, err))
-					mu.Unlock()
-				}
-			})
+			if err := runner(ctx, dir, "mockery", "--config", tmpConfig); err != nil {
+				return fmt.Errorf("mockery in %s: %w", dir, err)
+			}
 		}
 	}
 
-	wg.Wait()
-
-	if len(errs) > 0 {
-		return errors.Join(errs...)
-	}
-
 	return nil
+}
+
+// hasGoGenerateDirective checks if a Go source file contains a //go:generate directive.
+func hasGoGenerateDirective(filePath string) bool {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 64*1024), 10*1024*1024)
+	for scanner.Scan() {
+		if bytes.Contains(scanner.Bytes(), []byte("//go:generate")) {
+			return true
+		}
+	}
+	if scanner.Err() != nil {
+		// Fail open: assume a directive may be present rather than silently
+		// skipping generation for a file we couldn't fully scan.
+		return true
+	}
+	return false
 }

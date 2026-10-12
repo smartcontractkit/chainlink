@@ -62,10 +62,10 @@ func (s *Server) GetWorkflowShardMapping(_ context.Context, req *ringpb.GetWorkf
 	mappingStates := make(map[string]*ringpb.WorkflowMappingState, len(mappings))
 
 	for workflowID, meta := range mappings {
-		simpleMappings[workflowID] = meta.NewShardID
+		simpleMappings[workflowID] = meta.NewDonID
 		mappingStates[workflowID] = &ringpb.WorkflowMappingState{
-			OldShardId:   meta.OldShardID,
-			NewShardId:   meta.NewShardID,
+			OldDonId:     meta.OldDonID,
+			NewDonId:     meta.NewDonID,
 			InTransition: meta.InTransition,
 		}
 	}
@@ -87,7 +87,7 @@ func (s *Server) GetWorkflowShardMapping(_ context.Context, req *ringpb.GetWorkf
 // Shards call this to inform shard zero about which workflows they have loaded
 func (s *Server) ReportWorkflowTriggerRegistration(_ context.Context, req *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
 	s.logger.Debugw("ReportWorkflowTriggerRegistration called",
-		"shardID", req.SourceShardId,
+		"donID", req.SourceDonId,
 		"workflowCount", len(req.RegisteredWorkflows),
 		"totalActive", req.TotalActiveWorkflows,
 	)
@@ -97,10 +97,10 @@ func (s *Server) ReportWorkflowTriggerRegistration(_ context.Context, req *ringp
 		workflowIDs = append(workflowIDs, workflowID)
 	}
 
-	s.ringStore.RegisterWorkflowsFromShard(req.SourceShardId, workflowIDs)
+	s.ringStore.RegisterWorkflowsFromShard(req.SourceDonId, workflowIDs)
 
 	s.logger.Infow("Successfully registered workflows",
-		"shardID", req.SourceShardId,
+		"donID", req.SourceDonId,
 		"workflowCount", len(workflowIDs),
 	)
 

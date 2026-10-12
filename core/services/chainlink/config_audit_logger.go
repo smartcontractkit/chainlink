@@ -15,7 +15,7 @@ func (a auditLoggerConfig) Enabled() bool {
 	return *a.c.Enabled
 }
 
-func (a auditLoggerConfig) ForwardToUrl() (commonconfig.URL, error) {
+func (a auditLoggerConfig) ForwardToUrl() (commonconfig.URL, error) { //nolint:revive // method name required by core/config.AuditLogger interface
 	return *a.c.ForwardToUrl, nil
 }
 
@@ -26,7 +26,7 @@ func (a auditLoggerConfig) Environment() string {
 	return "production"
 }
 
-func (a auditLoggerConfig) JsonWrapperKey() string {
+func (a auditLoggerConfig) JsonWrapperKey() string { //nolint:revive // method name required by core/config.AuditLogger interface
 	return *a.c.JsonWrapperKey
 }
 

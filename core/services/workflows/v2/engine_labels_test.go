@@ -15,7 +15,7 @@ func TestEngine_EventLabelsPreservedAfterLabelRebuild(t *testing.T) {
 		WorkflowID:    "wf-1",
 		WorkflowOwner: "owner-1",
 	}
-	engine := &Engine{cfg: cfg, orgID: "test-org"}
+	engine := &baseEngine{cfg: cfg, orgID: "test-org"}
 	base := map[string]string{platform.KeyWorkflowID: "wf-1"}
 	engine.storeLoggerLabels(base)
 

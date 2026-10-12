@@ -46,13 +46,13 @@ type NodePresenter struct {
 }
 
 // ToRow presents the EVMNodeResource as a slice of strings.
-func (p *NodePresenter) ToRow() []string {
+func (p NodePresenter) ToRow() []string {
 	return []string{p.Name, p.ChainID, p.State, p.Config}
 }
 
 // RenderTable implements TableRenderer
 func (p NodePresenter) RenderTable(rt RendererTable) error {
-	var rows [][]string
+	rows := make([][]string, 0, 1)
 	rows = append(rows, p.ToRow())
 	renderList(nodeHeaders, rows, rt.Writer)
 
@@ -64,7 +64,7 @@ type NodePresenters []NodePresenter
 
 // RenderTable implements TableRenderer
 func (ps NodePresenters) RenderTable(rt RendererTable) error {
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

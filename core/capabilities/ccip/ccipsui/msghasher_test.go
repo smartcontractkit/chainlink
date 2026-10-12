@@ -9,19 +9,19 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 func TestParseExtraDataMap(t *testing.T) {
 	tokenReceiverExample := [32]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20}
 
-	solanaSelector := ccipocr3common.ChainSelector(chainsel.SOLANA_DEVNET.Selector)
-	nonSolanaSelector := ccipocr3common.ChainSelector(chainsel.SUI_TESTNET.Selector)
+	solanaSelector := ccipocr3.ChainSelector(chainsel.SOLANA_DEVNET.Selector)
+	nonSolanaSelector := ccipocr3.ChainSelector(chainsel.SUI_TESTNET.Selector)
 
 	tests := []struct {
 		name           string
 		input          map[string]any
-		sourceSelector ccipocr3common.ChainSelector
+		sourceSelector ccipocr3.ChainSelector
 		want           *struct {
 			gasLimit      *big.Int
 			tokenReceiver [32]byte
@@ -106,6 +106,43 @@ func TestParseExtraDataMap(t *testing.T) {
 			}{
 				gasLimit:      new(big.Int).SetInt64(1000000),
 				tokenReceiver: [32]byte{0x0A},
+			},
+			expectErr: false,
+		},
+		{
+			// Solana SuiExtraArgsV1 (chainlink-ccip PR #2239) decodes via Borsh, so the
+			// receiver surfaces under the capital struct field name "TokenReceiver". Token
+			// transfers must return that receiver verbatim, not silently zero it.
+			name: "Solana SuiExtraArgsV1: capital TokenReceiver is returned",
+			input: map[string]any{
+				"GasLimit":      new(big.Int).SetInt64(1000000),
+				"TokenReceiver": [32]byte{0x0A},
+			},
+			sourceSelector: solanaSelector,
+			want: &struct {
+				gasLimit      *big.Int
+				tokenReceiver [32]byte
+			}{
+				gasLimit:      new(big.Int).SetInt64(1000000),
+				tokenReceiver: [32]byte{0x0A},
+			},
+			expectErr: false,
+		},
+		{
+			// SuiExtraArgsV1 message-only carries an explicit zero TokenReceiver; the capital
+			// key is found and the zero value is returned (no error, no zero-default needed).
+			name: "Solana SuiExtraArgsV1 message-only: capital zero TokenReceiver returned",
+			input: map[string]any{
+				"GasLimit":      new(big.Int).SetInt64(1000000),
+				"TokenReceiver": [32]byte{},
+			},
+			sourceSelector: solanaSelector,
+			want: &struct {
+				gasLimit      *big.Int
+				tokenReceiver [32]byte
+			}{
+				gasLimit:      new(big.Int).SetInt64(1000000),
+				tokenReceiver: [32]byte{},
 			},
 			expectErr: false,
 		},

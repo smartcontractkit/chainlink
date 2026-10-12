@@ -15,48 +15,10 @@ import (
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	stellarcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/stellar"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
-
-// V1 Capabilities only need a hasher for the ChainWrite Target.
-// This hasher excludes signatures from the Inputs map when hashing the request.
-type v1Hasher struct {
-	requestHashExcludedAttributes []string
-}
-
-func (r *v1Hasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byte, error) {
-	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
-	}
-
-	// An attribute called StepDependency is used to define a data dependency between steps,
-	// and not to provide input values; we should therefore disregard it when hashing the request
-	if len(r.requestHashExcludedAttributes) == 0 {
-		r.requestHashExcludedAttributes = []string{"StepDependency"}
-	}
-
-	for _, path := range r.requestHashExcludedAttributes {
-		if req.Inputs != nil {
-			req.Inputs.DeleteAtPath(path)
-		}
-	}
-
-	reqBytes, err := pb.MarshalCapabilityRequest(req)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
-	}
-	hash := sha256.Sum256(reqBytes)
-	return hash, nil
-}
-
-func NewV1Hasher(requestHashExcludedAttributes []string) types.MessageHasher {
-	return &v1Hasher{
-		requestHashExcludedAttributes: requestHashExcludedAttributes,
-	}
-}
 
 // V2 Capabilities (Executables) default to a simple hasher that hashes an
 // explicit allowlist of metadata fields. WriteReport methods use a hasher that
@@ -214,9 +176,9 @@ func NewWriteReportExcludeSignaturesHasher(cfg OptInHasherConfig) types.MessageH
 // metadata fields are included in the request hash beyond the base allowlist.
 //
 // To opt in a new field in the future:
-//  1. Add a feature flag (Setting[Range[config.Timestamp]]) in cresettings,
+//  1. Add a feature flag (Setting[Range[commonconfig.Timestamp]]) in cresettings,
 //     named FeatureRequestHashInclude<Field>ActivePeriod.
-//  2. Add a field of type limits.RangeLimiter[config.Timestamp] to this struct.
+//  2. Add a field of type limits.RangeLimiter[commonconfig.Timestamp] to this struct.
 //  3. Add the conditional copy in applyMetadataFields.
 //  4. Construct the limiter in launcher.NewLauncher and pass it via OptInHasherConfig.
 //
@@ -232,7 +194,7 @@ type OptInHasherConfig struct {
 	// IncludeWorkflowTag is ON by default (window covers all timestamps including
 	// zero time.Time{}), so WorkflowTag is included in the hash matching current
 	// prod behavior. After rollout, set to far-future window to exclude it.
-	IncludeWorkflowTag limits.RangeLimiter[config.Timestamp]
+	IncludeWorkflowTag limits.RangeLimiter[commonconfig.Timestamp]
 }
 
 // baseMetadataFields returns a copy of the metadata containing only the
@@ -260,8 +222,9 @@ func baseMetadataFields(md capabilities.RequestMetadata) capabilities.RequestMet
 // active for the given ExecutionTimestamp.
 func applyMetadataFields(ctx context.Context, md capabilities.RequestMetadata, cfg OptInHasherConfig) capabilities.RequestMetadata {
 	result := baseMetadataFields(md)
-	ts := config.Timestamp(md.ExecutionTimestamp.Unix())
+	ts := commonconfig.Timestamp(md.ExecutionTimestamp.Unix())
 
+	ctx = md.ContextWithCRE(ctx)
 	if cfg.IncludeWorkflowTag != nil {
 		if err := cfg.IncludeWorkflowTag.Check(ctx, ts); err == nil {
 			result.WorkflowTag = md.WorkflowTag

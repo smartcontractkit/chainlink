@@ -22,6 +22,7 @@ type pluginMetrics struct {
 	observationPrefixCoverageSpread metric.Int64Histogram
 	pendingQueueStallSignals        metric.Int64Counter
 	pendingQueuePurges              metric.Int64Counter
+	pendingQueueItemOversized       metric.Int64Counter
 }
 
 func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
@@ -101,6 +102,15 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create pending queue purge counter: %w", err)
 	}
 
+	pendingQueueItemOversized, err := beholder.GetMeter().Int64Counter(
+		"platform_vault_plugin_pending_queue_item_oversized",
+		metric.WithUnit("{request}"),
+		metric.WithDescription("Count of local-queue requests skipped in Observation because their marshaled blob payload exceeds VaultMaxBlobPayloadSizeLimit. Nonzero means a request was admitted that can never enter the pending queue and will expire unanswered."),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pending queue item oversized counter: %w", err)
+	}
+
 	return &pluginMetrics{
 		configDigest:                    configDigest,
 		queueOverflow:                   queueOverflow,
@@ -112,6 +122,7 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		observationPrefixCoverageSpread: observationPrefixCoverageSpread,
 		pendingQueueStallSignals:        pendingQueueStallSignals,
 		pendingQueuePurges:              pendingQueuePurges,
+		pendingQueueItemOversized:       pendingQueueItemOversized,
 	}, nil
 }
 
@@ -198,5 +209,16 @@ func (m *pluginMetrics) trackPendingQueuePurge(ctx context.Context) {
 	}
 	m.pendingQueuePurges.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("configDigest", m.configDigest),
+	))
+}
+
+func (m *pluginMetrics) trackPendingQueueItemOversized(ctx context.Context, payloadBytes int, maxBlobBytes int) {
+	if m == nil {
+		return
+	}
+	m.pendingQueueItemOversized.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("configDigest", m.configDigest),
+		attribute.Int("payloadBytes", payloadBytes),
+		attribute.Int("maxBlobBytes", maxBlobBytes),
 	))
 }

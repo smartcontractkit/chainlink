@@ -23,6 +23,13 @@ const (
 	AttrErrorString   = "error_string"
 	AttrMethodName    = "method_name"
 	AttrHTTPErrorCode = "http_error_code"
+	AttrBound         = "bound"
+)
+
+// Values for AttrBound, identifying which concurrency bound rejected a request.
+const (
+	BoundGlobal          = "global"
+	BoundPerWorkflowNode = "per_workflow_node"
 )
 
 // CommonMetrics contains shared metrics between action and trigger handlers
@@ -36,6 +43,7 @@ type ActionMetrics struct {
 	requestCount                   metric.Int64Counter
 	requestFailures                metric.Int64Counter
 	requestLatency                 metric.Int64Histogram
+	responseSendLatency            metric.Int64Histogram
 	customerEndpointRequestLatency metric.Int64Histogram
 	customerEndpointResponseCount  metric.Int64Counter
 	cacheReadCount                 metric.Int64Counter
@@ -47,6 +55,7 @@ type ActionMetrics struct {
 	blockedRequestCount            metric.Int64Counter
 	httpSendErrorCount             metric.Int64Counter
 	httpReadErrorCount             metric.Int64Counter
+	outboundConcurrencyThrottled   metric.Int64Counter
 }
 
 // TriggerMetrics contains metrics for HTTP triggers
@@ -82,8 +91,10 @@ type Metrics struct {
 // NewMetrics creates a new instance of Metrics with all metrics initialized.
 // members is the union of node configs across all DON shards.
 func NewMetrics(members []config.NodeConfig) (*Metrics, error) {
-	meter := beholder.GetMeter()
+	return NewMetricsWithMeter(members, beholder.GetMeter())
+}
 
+func NewMetricsWithMeter(members []config.NodeConfig, meter metric.Meter) (*Metrics, error) {
 	common, err := newCommonMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create common metrics: %w", err)
@@ -159,15 +170,23 @@ func newActionMetrics(meter metric.Meter) (*ActionMetrics, error) {
 
 	m.requestLatency, err = meter.Int64Histogram(
 		"http_action_gateway_request_latency_ms",
-		metric.WithDescription("HTTP action request latency in milliseconds in the gateway"),
+		metric.WithDescription("HTTP action request latency in milliseconds in the gateway, measured inside the async worker: cache/HTTP processing plus response send for each admitted request. Parsing, admission, and goroutine scheduling are excluded; synchronously rejected requests appear in failure counters, not here"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP action gateway request latency metric: %w", err)
 	}
 
+	m.responseSendLatency, err = meter.Int64Histogram(
+		"http_action_gateway_response_send_latency_ms",
+		metric.WithDescription("Time in milliseconds for the gateway to send an HTTP action response to the node (sendResponseToNode), including send failures. Separates response-write contention from cache/HTTP processing"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP action gateway response send latency metric: %w", err)
+	}
+
 	m.customerEndpointRequestLatency, err = meter.Int64Histogram(
 		"http_action_customer_endpoint_request_latency_ms",
-		metric.WithDescription("Request latency while calling customer endpoint in milliseconds"),
+		metric.WithDescription("Request latency while calling customer endpoint in milliseconds, including failed calls. Cache hits make no outbound call and emit no observation"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP action customer endpoint request latency metric: %w", err)
@@ -251,6 +270,14 @@ func newActionMetrics(meter metric.Meter) (*ActionMetrics, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP action HTTP read error count metric: %w", err)
+	}
+
+	m.outboundConcurrencyThrottled, err = meter.Int64Counter(
+		"http_action_outbound_concurrency_throttled",
+		metric.WithDescription("Number of outbound HTTP action requests rejected by an in-flight concurrency bound"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP action outbound concurrency throttled metric: %w", err)
 	}
 
 	return m, nil
@@ -437,12 +464,41 @@ func (m *Metrics) IncrementActionRequestFailures(ctx context.Context, nodeAddres
 	))
 }
 
-func (m *Metrics) RecordActionRequestLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
-	m.action.requestLatency.Record(ctx, latencyMs)
+// IncrementOutboundConcurrencyThrottled records a request rejected by an in-flight concurrency
+// bound; bound is either BoundGlobal or BoundPerWorkflowNode.
+func (m *Metrics) IncrementOutboundConcurrencyThrottled(ctx context.Context, nodeAddress string, bound string, lggr logger.Logger) {
+	m.action.outboundConcurrencyThrottled.Add(ctx, 1, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
+		attribute.String(AttrBound, bound),
+	))
 }
 
-func (m *Metrics) RecordCustomerEndpointRequestLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
-	m.action.customerEndpointRequestLatency.Record(ctx, latencyMs)
+// RecordActionRequestLatency records the async work duration of one admitted
+// HTTP action request: from callback construction (inside the makeOutgoingRequest
+// goroutine) until sendResponseToNode returns. Synchronously rejected requests
+// produce no sample here.
+func (m *Metrics) RecordActionRequestLatency(ctx context.Context, nodeAddress string, latencyMs int64, lggr logger.Logger) {
+	m.action.requestLatency.Record(ctx, latencyMs, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+	))
+}
+
+// RecordActionResponseSendLatency records the duration of sendResponseToNode,
+// including send failures.
+func (m *Metrics) RecordActionResponseSendLatency(ctx context.Context, nodeAddress string, latencyMs int64, lggr logger.Logger) {
+	m.action.responseSendLatency.Record(ctx, latencyMs, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+	))
+}
+
+// RecordCustomerEndpointRequestLatency records the duration of an actual
+// outbound call to the customer endpoint, including failures. Cache hits make
+// no outbound call and emit no observation.
+func (m *Metrics) RecordCustomerEndpointRequestLatency(ctx context.Context, nodeAddress string, latencyMs int64, lggr logger.Logger) {
+	m.action.customerEndpointRequestLatency.Record(ctx, latencyMs, metric.WithAttributes(
+		attribute.String(AttrNodeAddress, nodeAddress),
+	))
 }
 
 func (m *Metrics) IncrementCustomerEndpointResponseCount(ctx context.Context, statusCode string, lggr logger.Logger) {
@@ -499,7 +555,7 @@ func (m *Metrics) IncrementTriggerRequestCount(ctx context.Context, lggr logger.
 
 func (m *Metrics) IncrementRequestErrors(ctx context.Context, errorCode int64, lggr logger.Logger) {
 	errCode := api.FromJSONRPCErrorCode(errorCode)
-	httpErrorCode := api.ToHttpErrorCode(errCode)
+	httpErrorCode := api.ToHTTPErrorCode(errCode)
 	m.trigger.requestErrors.Add(ctx, 1, metric.WithAttributes(
 		attribute.Int64(AttrErrorCode, errorCode),
 		attribute.String(AttrErrorString, errCode.String()),
@@ -527,7 +583,7 @@ func (m *Metrics) RecordRequestHandlerLatency(ctx context.Context, latencyMs int
 	m.trigger.requestHandlerLatency.Record(ctx, latencyMs)
 }
 
-func (m *Metrics) IncrementTriggerCapabilityRequestCount(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) IncrementTriggerCapabilityRequestCount(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.capabilityRequestCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -535,7 +591,7 @@ func (m *Metrics) IncrementTriggerCapabilityRequestCount(ctx context.Context, no
 	))
 }
 
-func (m *Metrics) IncrementTriggerCapabilityRequestFailures(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) IncrementTriggerCapabilityRequestFailures(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.capabilityRequestFailures.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -543,7 +599,7 @@ func (m *Metrics) IncrementTriggerCapabilityRequestFailures(ctx context.Context,
 	))
 }
 
-func (m *Metrics) RecordGatewayToNodeLatency(ctx context.Context, latencyMs int64, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) RecordGatewayToNodeLatency(ctx context.Context, latencyMs int64, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.gatewayToNodeLatency.Record(ctx, latencyMs, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -551,7 +607,7 @@ func (m *Metrics) RecordGatewayToNodeLatency(ctx context.Context, latencyMs int6
 	))
 }
 
-func (m *Metrics) IncrementMetadataProcessingFailures(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) IncrementMetadataProcessingFailures(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.metadataProcessingFailures.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -559,7 +615,7 @@ func (m *Metrics) IncrementMetadataProcessingFailures(ctx context.Context, nodeA
 	))
 }
 
-func (m *Metrics) IncrementMetadataRequestCount(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) IncrementMetadataRequestCount(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.metadataRequestCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -594,13 +650,19 @@ func (m *Metrics) RecordLoadedMetadataSize(ctx context.Context, size int64, lggr
 // MetricViews returns histogram bucket definitions for this package's metrics.
 // Due to the OTEL specification, all histogram buckets must be defined when the beholder client is created.
 func MetricViews() []sdkmetric.View {
-	return []sdkmetric.View{
-		sdkmetric.NewView(
-			sdkmetric.Instrument{Name: "http_trigger_gateway_capability_request_latency_ms"},
+	latencyBoundaries := []float64{10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 90000}
+	histogramView := func(name string) sdkmetric.View {
+		return sdkmetric.NewView(
+			sdkmetric.Instrument{Name: name},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				// 10ms up to 90s (max trigger request duration is on this order), with finer granularity at the lower end
-				Boundaries: []float64{10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 90000},
+				Boundaries: latencyBoundaries,
 			}},
-		),
+		)
+	}
+	return []sdkmetric.View{
+		histogramView("http_trigger_gateway_capability_request_latency_ms"),
+		histogramView("http_action_gateway_request_latency_ms"),
+		histogramView("http_action_gateway_response_send_latency_ms"),
+		histogramView("http_action_customer_endpoint_request_latency_ms"),
 	}
 }

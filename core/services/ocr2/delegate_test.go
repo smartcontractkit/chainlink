@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -17,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmrelayer "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -148,7 +148,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			DS:                   db,
 			EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
 			CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
-			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+			CapabilitiesRegistry: registry.NewRegistry(lggr),
 		})
 		require.NoError(t, err)
 
@@ -173,7 +173,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 				DS:                   db,
 				EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
 				CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
-				CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+				CapabilitiesRegistry: registry.NewRegistry(lggr),
 			})
 			require.NoError(t, err)
 

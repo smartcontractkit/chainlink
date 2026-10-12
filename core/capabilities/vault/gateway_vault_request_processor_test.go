@@ -2,6 +2,7 @@ package vault_test
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -81,6 +82,58 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_NodeReauthPreservesDigest(t
 	authorized, err := processor.ProcessRequest(t.Context(), &req, nil)
 	require.NoError(t, err)
 	require.Equal(t, prefixedRequestID, authorized.Req.ID)
+}
+
+func TestGatewayVaultRequestProcessor_ProcessRequest_NodeModeRestoresEnvelopeIDOnError(t *testing.T) {
+	t.Parallel()
+
+	owner := "0xabc"
+	originalRequestID := "req-1"
+	prefixedRequestID := owner + vaulttypes.RequestIDSeparator + originalRequestID
+
+	t.Run("authorization failure", func(t *testing.T) {
+		t.Parallel()
+
+		validator := mustNewTestRequestValidator(t)
+		params := gatewaySecretsMethodParamsForStripPrefixDigest(t, vaulttypes.MethodSecretsList, owner, prefixedRequestID)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     prefixedRequestID,
+			Method: vaulttypes.MethodSecretsList,
+			Params: params,
+		}
+
+		authorizer := vaultcapmocks.NewAuthorizer(t)
+		authorizer.EXPECT().AuthorizeRequest(t.Context(), mock.MatchedBy(func(got jsonrpc.Request[json.RawMessage]) bool {
+			return got.ID == originalRequestID
+		})).Return(nil, errors.New("not allowlisted"))
+
+		processor := mustNewGatewayVaultRequestProcessor(t, validator, authorizer, true)
+		_, err := processor.ProcessRequest(t.Context(), &req, nil)
+		require.ErrorContains(t, err, "request not authorized")
+		require.Equal(t, prefixedRequestID, req.ID)
+	})
+
+	t.Run("pre-auth validation failure", func(t *testing.T) {
+		t.Parallel()
+
+		validator := mustNewTestRequestValidator(t)
+		raw := json.RawMessage(`{"request_id":"req-1","ids":[]}`)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     prefixedRequestID,
+			Method: vaulttypes.MethodSecretsDelete,
+			Params: &raw,
+		}
+
+		authorizer := vaultcapmocks.NewAuthorizer(t)
+
+		processor := mustNewGatewayVaultRequestProcessor(t, validator, authorizer, true)
+		_, err := processor.ProcessRequest(t.Context(), &req, nil)
+		require.ErrorContains(t, err, "request batch must contain at least 1 item")
+		require.True(t, vault.IsInvalidVaultParamsError(err))
+		require.Equal(t, prefixedRequestID, req.ID)
+	})
 }
 
 func mustListNamespace(t *testing.T, params *json.RawMessage) string {

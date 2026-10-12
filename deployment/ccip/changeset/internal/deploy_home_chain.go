@@ -22,8 +22,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -38,9 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
-var (
-	CCIPHomeABI *abi.ABI
-)
+var CCIPHomeABI *abi.ABI
 
 func init() {
 	var err error
@@ -638,7 +636,7 @@ func BuildOCR3ConfigForCCIPHome(
 					return nil, fmt.Errorf("failed to parse TON address '%s'", transmitter)
 				}
 				// TODO: this reimplements addrCodec's ToRawAddr helper
-				parsed = binary.BigEndian.AppendUint32(nil, uint32(pk.Workchain())) //nolint:gosec // G115
+				parsed = binary.BigEndian.AppendUint32(nil, uint32(pk.Workchain())) //nolint:gosec // G115: TON workchain -1 intentionally wraps to 0xFFFFFFFF in raw address serialization
 				parsed = append(parsed, pk.Data()...)
 			case chain_selectors.FamilyAptos:
 				parsed, err = hex.DecodeString(strings.TrimPrefix(string(transmitter), "0x"))

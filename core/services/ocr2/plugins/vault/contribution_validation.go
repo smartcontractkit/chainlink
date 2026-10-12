@@ -8,7 +8,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
-	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
@@ -78,7 +79,6 @@ func observationToErrContribution(o *vaultcommon.Observation, msg string) *vault
 // StateTransition-only and are intentionally not checked here.
 func (r *ReportingPlugin) validateContribution(
 	ctx context.Context,
-	_ ReadKVStore,
 	pendingItem *vaultcommon.StoredPendingQueueItem,
 	o *vaultcommon.Observation,
 ) error {
@@ -332,11 +332,40 @@ func (r *ReportingPlugin) validateEncryptedShareSize(ctx context.Context, es *va
 	if err != nil {
 		return err
 	}
-	if err := r.cfg.MaxShareLengthBytes.Check(ctx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
-		if _, ok := errors.AsType[limits.ErrorBoundLimited[pkgconfig.Size]](err); ok {
+	if err := r.cfg.MaxShareLengthBytes.Check(ctx, commonconfig.Size(shareSize)*commonconfig.Byte); err != nil {
+		if _, ok := errors.AsType[limits.ErrorBoundLimited[commonconfig.Size]](err); ok {
 			return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
 		}
 		return errors.New("failed to check share size")
 	}
+	return nil
+}
+
+// validateGetSecretsResponseShares checks TDH2 share labels and per-share size
+// limits for every GetSecrets response carrying data.
+func (r *ReportingPlugin) validateGetSecretsResponseShares(ctx context.Context, req *vaultcommon.GetSecretsRequest, respMap map[string]*vaultcommon.SecretResponse) error {
+	for _, rsp := range respMap {
+		d := rsp.GetData()
+		if d == nil {
+			continue
+		}
+
+		secretReq, err := secretRequestForID(req, rsp.Id)
+		if err != nil {
+			return fmt.Errorf("GetSecrets response id not found in pending queue request: %w", err)
+		}
+		if err := validateGetSecretsShareLabels(secretReq, d); err != nil {
+			return err
+		}
+
+		// TODO orgID https://smartcontractkit-it.atlassian.net/browse/CRE-1707
+		innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
+		for _, ds := range d.GetEncryptedDecryptionKeyShares() {
+			if err := r.validateEncryptedShareSize(innerCtx, ds); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }

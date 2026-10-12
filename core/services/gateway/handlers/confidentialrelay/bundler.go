@@ -46,6 +46,7 @@ type BundleSummary struct {
 	undecodable int
 	total       int
 	nodeErrors  map[string]string
+	userError   *jsonrpc.WireError
 }
 
 func (s *BundleSummary) Response() *jsonrpc.Response[json.RawMessage] { return s.response }
@@ -53,6 +54,16 @@ func (s *BundleSummary) Signed() int                                  { return s
 func (s *BundleSummary) Error() int                                   { return s.errorCount }
 func (s *BundleSummary) Undecodable() int                             { return s.undecodable }
 func (s *BundleSummary) Total() int                                   { return s.total }
+
+// UserError returns the first user-level (ErrInvalidParams) node error observed,
+// or nil if there was none. A user error is deterministic across the DON, so a
+// single node reporting one identifies the cause for the whole request.
+func (s *BundleSummary) UserError() *jsonrpc.WireError {
+	if s == nil {
+		return nil
+	}
+	return s.userError
+}
 
 // NodeErrorsFormatted returns a stable, compact sample of node error messages
 // for structured logs.
@@ -74,6 +85,9 @@ func (s *BundleSummary) NodeErrorsFormatted() string {
 
 func (s *BundleSummary) addError(nodeAddr string, wireErr *jsonrpc.WireError) {
 	s.errorCount++
+	if wireErr != nil && wireErr.Code == jsonrpc.ErrInvalidParams && s.userError == nil {
+		s.userError = wireErr
+	}
 	if s.nodeErrors == nil {
 		s.nodeErrors = make(map[string]string)
 	}

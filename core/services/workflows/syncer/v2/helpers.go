@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -13,8 +14,37 @@ import (
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	shardownershiptypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
+
+// ExpandWorkflowFamilies returns families with an extra entry added for every
+// family ending in shardownershiptypes.WorkflowFamilySuffix (e.g.
+// "zone-a_workflows"): the base family name with that suffix stripped (e.g.
+// "zone-a"). This lets a DON belonging to a "<name>_workflows" family also
+// fetch workflows registered directly under the bare "<name>" family. Order
+// is preserved and duplicates are dropped.
+func ExpandWorkflowFamilies(families []string) []string {
+	seen := make(map[string]bool, len(families))
+	expanded := make([]string, 0, len(families))
+
+	add := func(family string) {
+		if seen[family] {
+			return
+		}
+		seen[family] = true
+		expanded = append(expanded, family)
+	}
+
+	for _, family := range families {
+		add(family)
+		if base, ok := strings.CutSuffix(family, shardownershiptypes.WorkflowFamilySuffix); ok {
+			add(base)
+		}
+	}
+
+	return expanded
+}
 
 var rlConfig = ratelimiter.Config{
 	GlobalRPS:      1000.0,

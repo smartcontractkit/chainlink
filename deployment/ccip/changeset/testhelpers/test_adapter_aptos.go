@@ -109,7 +109,8 @@ func AptosEventEmitter[T any](
 ) (<-chan struct {
 	Event   T
 	Version uint64
-}, <-chan error) {
+}, <-chan error,
+) {
 	ch := make(chan struct {
 		Event   T
 		Version uint64
@@ -299,7 +300,7 @@ func confirmExecWithExpectedSeqNrsAptos(
 				t.Logf("(Aptos) received ExecutionStateChanged (state %s) on chain %d (offramp %s) with expected sequence number %d (tx %d)",
 					executionStateToString(event.Event.State), dest.Selector, offRampAddress.String(), event.Event.SequenceNumber, event.Version,
 				)
-				if event.Event.State == EXECUTION_STATE_INPROGRESS {
+				if event.Event.State == ExecutionStateInProgress {
 					continue
 				}
 				executionStates[event.Event.SequenceNumber] = int(event.Event.State)

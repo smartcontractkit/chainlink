@@ -6,8 +6,8 @@ import (
 
 	"github.com/robfig/cron/v3"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -25,14 +25,14 @@ type Cron struct {
 func NewCronFromJobSpec(
 	jobSpec job.Job,
 	pipelineRunner pipeline.Runner,
-	logger logger.Logger,
+	lggr logger.Logger,
 ) (*Cron, error) {
-	cronLogger := logger.Named("Cron").With(
+	cronLogger := logger.With(logger.Named(lggr, "Cron"),
 		"jobID", jobSpec.ID,
 		"schedule", jobSpec.CronSpec.CronSchedule,
 	)
 	if id := jobSpec.CronSpec.EVMChainID; id != nil {
-		cronLogger = logger.With("evmChainID", id)
+		cronLogger = logger.With(cronLogger, "evmChainID", id)
 	}
 
 	return &Cron{

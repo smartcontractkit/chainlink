@@ -11,16 +11,27 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
+// engineType label values for the running-engines gauge.
+const (
+	engineTypeCoordinated = "coordinated"
+	engineTypeLegacy      = "legacy"
+)
+
 type metrics struct {
 	handleDuration    metric.Int64Histogram
 	fetchedWorkflows  metric.Int64Gauge
 	runningWorkflows  metric.Int64Gauge
 	drainingWorkflows metric.Int64Gauge
-	completedSyncs    metric.Int64Counter
-	drainStarted      metric.Int64Counter
-	drainCompleted    metric.Int64Counter
-	drainDuration     metric.Int64Histogram
-	deleteDeferred    metric.Int64Counter
+	// runningEngines counts the engines currently in the registry, split by
+	// engineType ("coordinated" or "legacy"). Both series are always reported,
+	// including the zeroes, so an absent series means the node stopped
+	// reporting rather than "no engines of that type".
+	runningEngines metric.Int64Gauge
+	completedSyncs metric.Int64Counter
+	drainStarted   metric.Int64Counter
+	drainCompleted metric.Int64Counter
+	drainDuration  metric.Int64Histogram
+	deleteDeferred metric.Int64Counter
 
 	// Per-source metrics for multi-source observability
 	sourceHealth        metric.Int64Gauge     // 1=healthy, 0=unhealthy per source
@@ -37,6 +48,10 @@ type metrics struct {
 
 	// On-disk WASM cache write (sync); duration tails indicate IO contention vs typical skew.
 	moduleStoreDuration metric.Int64Histogram
+
+	// Backfill of workflow_specs_v2.workflow_tag; "reason" is
+	// "filled_empty" (row had an empty tag) or "refreshed" (row had a stale tag).
+	workflowTagBackfill metric.Int64Counter
 }
 
 func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, event string, success bool) {
@@ -56,6 +71,19 @@ func (m *metrics) recordRunningWorkflows(ctx context.Context, count int) {
 
 func (m *metrics) recordDrainingWorkflows(ctx context.Context, count int) {
 	m.drainingWorkflows.Record(ctx, int64(count))
+}
+
+// recordRunningEngines reports the engine-type split of the registry. Called
+// once per reconciliation tick, with both counts, so the two series stay in
+// lockstep and "coordinated == 0" is an assertion the alert can rely on rather
+// than the absence of a sample.
+func (m *metrics) recordRunningEngines(ctx context.Context, coordinated, legacy int) {
+	m.runningEngines.Record(ctx, int64(coordinated), metric.WithAttributes(
+		attribute.String("engineType", engineTypeCoordinated),
+	))
+	m.runningEngines.Record(ctx, int64(legacy), metric.WithAttributes(
+		attribute.String("engineType", engineTypeLegacy),
+	))
 }
 
 func (m *metrics) incrementCompletedSyncs(ctx context.Context) {
@@ -128,6 +156,15 @@ func (m *metrics) recordModuleStore(ctx context.Context, d time.Duration, succes
 	}
 	m.moduleStoreDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
 		attribute.String("success", strconv.FormatBool(success)),
+	))
+}
+
+func (m *metrics) incrementWorkflowTagBackfill(ctx context.Context, reason string) {
+	if m == nil {
+		return
+	}
+	m.workflowTagBackfill.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("reason", reason),
 	))
 }
 
@@ -275,6 +312,11 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	runningEngines, err := beholder.GetMeter().Int64Gauge("platform_workflow_registry_syncer_running_engines")
+	if err != nil {
+		return nil, err
+	}
+
 	completedSyncs, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_completed_syncs_total")
 	if err != nil {
 		return nil, err
@@ -351,11 +393,17 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	workflowTagBackfill, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_workflow_tag_backfill_total")
+	if err != nil {
+		return nil, err
+	}
+
 	return &metrics{
 		handleDuration:            handleDuration,
 		fetchedWorkflows:          fetchedWorkflows,
 		runningWorkflows:          runningWorkflows,
 		drainingWorkflows:         drainingWorkflows,
+		runningEngines:            runningEngines,
 		completedSyncs:            completedSyncs,
 		drainStarted:              drainStarted,
 		drainCompleted:            drainCompleted,
@@ -371,5 +419,6 @@ func newMetrics() (*metrics, error) {
 		activationDropped:         activationDropped,
 		activationAbandoned:       activationAbandoned,
 		moduleStoreDuration:       moduleStoreDuration,
+		workflowTagBackfill:       workflowTagBackfill,
 	}, nil
 }

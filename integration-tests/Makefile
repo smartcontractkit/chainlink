@@ -62,15 +62,6 @@ lint:
 build:
 	@go build ./... go test -run=^# ./...
 
-# Builds the test image
-# tag: the tag for the test image being built, example: tag=tate
-# base_tag: the tag for the base-test-image to use, example: base_tag=latest
-# suite: the test suites to build into the image, example: suite="chaos soak smoke reorg migration"
-# push: set to true if you want the image pushed or leave blank if not, example: push=true
-.PHONY: build_test_image
-build_test_image:
-	./scripts/buildTestImage $(tag) $(base_tag) "$(suite)" $(push)
-
 #Build a chainlink docker image for local testing and push to k3d registry
 .PHONY: build_push_docker_image
 build_push_docker_image: build_docker_image
@@ -83,37 +74,8 @@ run_tracing:
 	cd ../.github/tracing
 	docker compose -f ../.github/tracing/local-smoke-docker-compose.yaml up
 
-## Test Runner
-.PHONY: run
-run:
-	go run .
-
 ## All commands will use 16 threads to run tests in parallel. To change this, use -test.parallel n
 ## Remember to set selected_networks and CL image in the TOML file (e.g. overrides.toml)
-
-# Smoke
-.PHONY: test_smoke_product
-test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product product="cron" args="--focus @cron -p"
-	ARGS="$(args)" PRODUCT=$(product) ./scripts/run_product_tests
-
-# Migrations
-.PHONY: test_node_migrations
-test_node_migrations: install_gotestloghelper ## Run all node migration tests.
-	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -json -tlogprefix -color -singlepackage -hidepassinglogs
-
-.PHONY: test_node_migrations_simulated
-test_node_migrations_simulated: install_gotestloghelper
-	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -json -tlogprefix -color -singlepackage -hidepassinglogs
-
-.PHONY: test_node_migrations_verbose
-test_node_migrations_verbose:
-	go test -timeout 1h -count=1 -v $(args) ./migration
-
-.PHONY: test_node_migrations_simulated_verbose
-test_node_migrations_simulated_verbose:
-	go test -timeout 1h -count=1 -v $(args) ./migration
 
 .PHONY: check_github_token
 check_github_token:
@@ -134,18 +96,6 @@ build_docker_image: check_github_token
 		--build-arg CHAINLINK_USER=chainlink \
 		--secret id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN \
 		-t $(image):$(tag) ../
-
-# image: the name for the chainlink image being built, example: image=chainlink
-# tag: the tag for the chainlink image being built, example: tag=latest
-# args: the args to pass to the test runner, example: args="--focus @cron -p"
-# product: the product to run tests for, example: product=cron
-# example usage: make run_test_with_local_image image=chainlink tag=latest-dev product=cron
-# remember to put the case CL image name and tag in the TOML config (and don't forget about selected network configuration)
-.PHONY: run_test_with_local_image
-run_test_with_local_image: build_docker_image
-	ARGS="$(args)" \
-	PRODUCT=$(product) 	\
-	./scripts/run_product_tests
 
 # removes all occurrences of .run.id file in current folder and it's subdirectories
 # before making any changes lists all file locations and awaits user confirmation

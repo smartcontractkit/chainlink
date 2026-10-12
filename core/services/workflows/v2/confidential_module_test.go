@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -45,6 +47,10 @@ func (s *stubExecutionHelper) GetSecrets(context.Context, *sdkpb.GetSecretsReque
 }
 
 func (s *stubExecutionHelper) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vaultcommon.SecretResponse, error) {
+	return nil, nil
+}
+
+func (s *stubExecutionHelper) GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vaultcommon.GetSecretsResponse, error) {
 	return nil, nil
 }
 
@@ -292,6 +298,32 @@ func collectMetric(t *testing.T, reader *sdkmetric.ManualReader, name string) (i
 	return 0, false
 }
 
+// collectCounterAttr returns the value of attribute key on the named counter's
+// single data point, so tests can assert the failure classification label.
+func collectCounterAttr(t *testing.T, reader *sdkmetric.ManualReader, name, key string) (string, bool) {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != name {
+				continue
+			}
+			d, ok := m.Data.(metricdata.Sum[int64])
+			if !ok {
+				continue
+			}
+			require.Len(t, d.DataPoints, 1, "expected a single data point for %s", name)
+			v, found := d.DataPoints[0].Attributes.Value(attribute.Key(key))
+			if !found {
+				return "", false
+			}
+			return v.String(), true
+		}
+	}
+	return "", false
+}
+
 func TestConfidentialModule_Execute_Metrics(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -311,12 +343,15 @@ func TestConfidentialModule_Execute_Metrics(t *testing.T) {
 	meteredModule := func(t *testing.T, capReg *regmocks.CapabilitiesRegistry) (*ConfidentialModule, *sdkmetric.ManualReader) {
 		reader := sdkmetric.NewManualReader()
 		mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+		t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
 		mod := mustNewConfidentialModule(t, capReg, &confidentialrelay.ExecutionHandlers{},
 			"https://example.com/binary.wasm", []byte("h"), "wf-123", "owner-abc", "my-workflow", "v1",
 			limits.NewGateLimiter(true), lggr)
-		m, mErr := newConfidentialModuleMetrics(mp.Meter("test"))
+		m, mErr := newConfidentialModuleMetrics(mp.Meter("test"), mod.workflowID, mod.workflowOwner, mod.workflowName)
 		require.NoError(t, mErr)
+		mod.Close()
 		mod.metrics = m
+		mod.Start()
 		return mod, reader
 	}
 
@@ -338,6 +373,7 @@ func TestConfidentialModule_Execute_Metrics(t *testing.T) {
 
 		_, failPresent := collectMetric(t, reader, "enclave_execution_failures")
 		assert.False(t, failPresent, "no failure counter on success")
+		assert.Equal(t, map[string]int64{"system": 0, "user": 0}, collectLastFailures(t, reader))
 	})
 
 	t.Run("failure increments counter and still records duration", func(t *testing.T) {
@@ -349,6 +385,7 @@ func TestConfidentialModule_Execute_Metrics(t *testing.T) {
 			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
 
 		mod, reader := meteredModule(t, capReg)
+		before := time.Now().Unix()
 		_, execErr := mod.Execute(ctx, execReq, &stubExecutionHelper{})
 		require.Error(t, execErr)
 
@@ -356,9 +393,76 @@ func TestConfidentialModule_Execute_Metrics(t *testing.T) {
 		require.True(t, ok, "enclave_execution_failures should be present")
 		assert.Equal(t, int64(1), failTotal)
 
+		errType, ok := collectCounterAttr(t, reader, "enclave_execution_failures", "error_type")
+		require.True(t, ok, "enclave_execution_failures should carry error_type")
+		assert.Equal(t, "system", errType, "an untyped error is the platform's")
+		failures := collectLastFailures(t, reader)
+		assert.GreaterOrEqual(t, failures["system"], before)
+		assert.LessOrEqual(t, failures["system"], time.Now().Unix())
+		assert.Zero(t, failures["user"])
+
 		durCount, ok := collectMetric(t, reader, "enclave_execution_time_ms")
 		require.True(t, ok, "duration recorded even on failure")
 		assert.Equal(t, int64(1), durCount)
+	})
+
+	t.Run("user-origin failure is labelled user", func(t *testing.T) {
+		t.Parallel()
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).Return(execCap, nil).Once()
+		// Mirrors the executor's wasm-timeout classification: a workflow that runs
+		// over its execution budget is the author's problem, not the platform's.
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{}, caperrors.NewPublicUserError(
+				errors.New("enclave wasm execution timed out"), caperrors.DeadlineExceeded)).Once()
+
+		mod, reader := meteredModule(t, capReg)
+		_, execErr := mod.Execute(ctx, execReq, &stubExecutionHelper{})
+		require.Error(t, execErr)
+
+		failTotal, ok := collectMetric(t, reader, "enclave_execution_failures")
+		require.True(t, ok, "enclave_execution_failures should be present")
+		assert.Equal(t, int64(1), failTotal)
+
+		errType, ok := collectCounterAttr(t, reader, "enclave_execution_failures", "error_type")
+		require.True(t, ok, "enclave_execution_failures should carry error_type")
+		assert.Equal(t, "user", errType)
+		failures := collectLastFailures(t, reader)
+		assert.Positive(t, failures["user"])
+		assert.Zero(t, failures["system"])
+	})
+
+	t.Run("SDK error is not a failed enclave round-trip and success preserves prior failure", func(t *testing.T) {
+		t.Parallel()
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).Return(execCap, nil).Times(3)
+		mod, reader := meteredModule(t, capReg)
+		applicationError := &sdkpb.ExecutionResult{Result: &sdkpb.ExecutionResult_Error{Error: "pending: HTTP 404"}}
+		payload, marshalErr := anypb.New(&confworkflowtypes.ConfidentialWorkflowResponse{SdkExecutionResult: applicationError})
+		require.NoError(t, marshalErr)
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{Payload: payload}, nil).Once()
+		result, execErr := mod.Execute(ctx, execReq, &stubExecutionHelper{})
+		require.NoError(t, execErr)
+		assert.Equal(t, applicationError.GetError(), result.GetError())
+		assert.Equal(t, map[string]int64{"system": 0, "user": 0}, collectLastFailures(t, reader))
+		_, present := collectMetric(t, reader, "enclave_execution_failures")
+		assert.False(t, present)
+
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{}, errors.New("transport failure")).Once()
+		_, execErr = mod.Execute(ctx, execReq, &stubExecutionHelper{})
+		require.Error(t, execErr)
+		failed := collectLastFailures(t, reader)
+		require.Positive(t, failed["system"])
+
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+		_, execErr = mod.Execute(ctx, execReq, &stubExecutionHelper{})
+		require.NoError(t, execErr)
+		assert.Equal(t, failed, collectLastFailures(t, reader))
 	})
 }
 
@@ -762,18 +866,19 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 
 func TestConfidentialModule_InterfaceMethods(t *testing.T) {
 	t.Parallel()
-	mod := &ConfidentialModule{}
-
-	// These are no-ops but should not panic.
+	mod := mustNewConfidentialModule(t, regmocks.NewCapabilitiesRegistry(t), &confidentialrelay.ExecutionHandlers{},
+		"", nil, "wf", "owner", "name", "tag", limits.NewGateLimiter(true), logger.Test(t))
 	mod.Start()
 	mod.Close()
-	assert.False(t, mod.IsLegacyDAG())
+	mod.Close()
+	mod.Start()
 }
 
 func mustNewConfidentialModule(t *testing.T, capRegistry *regmocks.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) *ConfidentialModule {
 	t.Helper()
 	m, err := NewConfidentialModule(capRegistry, executionHandlers, binaryURL, binaryHash, workflowID, workflowOwner, workflowName, workflowTag, func(context.Context, string) (string, error) { return "org-test", nil }, enabledGate, nil, lggr)
 	require.NoError(t, err)
+	t.Cleanup(m.Close)
 	return m
 }
 

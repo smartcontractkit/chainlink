@@ -57,7 +57,7 @@ func (k *kv) Delete(key []byte) error {
 	return nil
 }
 
-func (k *kv) Write(key []byte, data []byte) error {
+func (k *kv) Write(key, data []byte) error {
 	k.m[string(key)] = response{
 		data: data,
 	}
@@ -97,9 +97,9 @@ func (b *blobber) unmarshalBlob(data []byte) (ocr3_1types.BlobHandle, error) {
 	return ocr3_1types.BlobHandle{}, nil
 }
 
-var _ (ocr3_1types.BlobBroadcastFetcher) = (*blobber)(nil)
+var _ ocr3_1types.BlobBroadcastFetcher = (*blobber)(nil)
 
-var _ (ocr3_1types.KeyValueReadWriter) = (*kv)(nil)
+var _ ocr3_1types.KeyValueStateReadWriter = (*kv)(nil)
 
 func TestKVStore_Secrets(t *testing.T) {
 	kv := &kv{
@@ -277,12 +277,12 @@ func TestKVStore_Metadata_Delete(t *testing.T) {
 	assert.Empty(t, m.SecretIdentifiers)
 
 	err = store.removeIDFromMetadata(t.Context(), id)
-	require.ErrorContains(t, err, "not found in metadata for owner owner")
+	require.ErrorContains(t, err, "not found in metadata for owner")
 
 	delete(kv.m, "Metadata::owner")
 
 	err = store.removeIDFromMetadata(t.Context(), id)
-	require.ErrorContains(t, err, "no metadata found for owner owner")
+	require.ErrorContains(t, err, "no metadata found for owner")
 }
 
 func TestKVStore_InconsistentWrites(t *testing.T) {

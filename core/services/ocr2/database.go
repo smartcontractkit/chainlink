@@ -23,12 +23,10 @@ type db struct {
 	lggr         logger.SugaredLogger
 }
 
-var (
-	_ ocrtypes.Database = &db{}
-)
+var _ ocrtypes.Database = &db{}
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(ds sqlutil.DataSource, oracleSpecID int32, pluginID int32, lggr logger.Logger) *db {
+func NewDB(ds sqlutil.DataSource, oracleSpecID, pluginID int32, lggr logger.Logger) *db {
 	return &db{
 		ds:           ds,
 		oracleSpecID: oracleSpecID,
@@ -57,17 +55,17 @@ func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrty
 		return nil, errors.Wrap(err, "ReadState failed")
 	}
 
-	ps.HighestSentEpoch = uint32(highestSentEpochTmp)
+	ps.HighestSentEpoch = uint32(highestSentEpochTmp) //nolint:gosec // G115: epoch is a uint32 persisted as int64
 
 	for _, v := range tmp {
-		ps.HighestReceivedEpoch = append(ps.HighestReceivedEpoch, uint32(v))
+		ps.HighestReceivedEpoch = append(ps.HighestReceivedEpoch, uint32(v)) //nolint:gosec // G115: epoch is a uint32 persisted as int64
 	}
 
 	return ps, nil
 }
 
 func (d *db) WriteState(ctx context.Context, cd ocrtypes.ConfigDigest, state ocrtypes.PersistentState) error {
-	var highestReceivedEpoch []int64
+	highestReceivedEpoch := make([]int64, 0, len(state.HighestReceivedEpoch))
 	for _, v := range state.HighestReceivedEpoch {
 		highestReceivedEpoch = append(highestReceivedEpoch, int64(v))
 	}
@@ -156,11 +154,11 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 		c.Transmitters = append(c.Transmitters, transmitter)
 	}
 
-	return
+	return c, err
 }
 
 func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
-	var signers [][]byte
+	signers := make([][]byte, 0, len(c.Signers))
 	for _, s := range c.Signers {
 		signers = append(signers, []byte(s))
 	}
@@ -208,7 +206,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 }
 
 func (d *db) StorePendingTransmission(ctx context.Context, t ocrtypes.ReportTimestamp, tx ocrtypes.PendingTransmission) error {
-	var signatures [][]byte
+	signatures := make([][]byte, 0, 2*len(tx.AttributedSignatures))
 	for _, s := range tx.AttributedSignatures {
 		signatures = append(signatures, s.Signature)
 		buffer := make([]byte, binary.MaxVarintLen64)
@@ -228,12 +226,12 @@ func (d *db) StorePendingTransmission(ctx context.Context, t ocrtypes.ReportTime
 		config_digest,
 		epoch,
 		round,
-	
+
 		time,
 		extra_hash,
 		report,
 		attributed_signatures,
-	
+
 		created_at,
 		updated_at
 	)
@@ -243,12 +241,12 @@ func (d *db) StorePendingTransmission(ctx context.Context, t ocrtypes.ReportTime
 		config_digest = EXCLUDED.config_digest,
 		epoch = EXCLUDED.epoch,
 		round = EXCLUDED.round,
-	
+
 		time = EXCLUDED.time,
 		extra_hash = EXCLUDED.extra_hash,
 		report = EXCLUDED.report,
 		attributed_signatures = EXCLUDED.attributed_signatures,
-	
+
 		updated_at = NOW()
 	`
 
@@ -310,7 +308,7 @@ func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtyp
 			signer, _ := binary.Varint(signatures[index+1])
 			sig := ocrtypes.AttributedOnchainSignature{
 				Signature: signature,
-				Signer:    ocrcommon.OracleID(signer),
+				Signer:    ocrcommon.OracleID(signer), //nolint:gosec // G115: signer is an OracleID encoded as a varint
 			}
 			p.AttributedSignatures = append(p.AttributedSignatures, sig)
 		}
@@ -334,7 +332,7 @@ WHERE ocr2_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round 
 
 	err = errors.Wrap(err, "DeletePendingTransmission failed")
 
-	return
+	return err
 }
 
 func (d *db) DeletePendingTransmissionsOlderThan(ctx context.Context, t time.Time) (err error) {
@@ -347,7 +345,7 @@ WHERE ocr2_oracle_spec_id = $1 AND time < $2
 
 	err = errors.Wrap(err, "DeletePendingTransmissionsOlderThan failed")
 
-	return
+	return err
 }
 
 func (d *db) ReadProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string) (value []byte, err error) {
@@ -362,7 +360,7 @@ WHERE config_digest = $1 AND key = $2;
 
 	err = errors.Wrapf(err, "ReadProtocolState failed for job %d", d.oracleSpecID)
 
-	return
+	return value, err
 }
 
 func (d *db) WriteProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string, value []byte) (err error) {
@@ -376,7 +374,7 @@ ON CONFLICT (config_digest, key) DO UPDATE SET value = $3;`, configDigest, key, 
 
 	err = errors.Wrapf(err, "WriteProtocolState failed for job %d", d.oracleSpecID)
 
-	return
+	return err
 }
 
 // Defined for LibOCR 3.1, see: https://github.com/smartcontractkit/libocr/blob/babe0ec4e358262c3be15ea5bd24bb42370a0863/offchainreporting2plus/ocr3_1types/db.go#L10
@@ -392,7 +390,7 @@ WHERE config_digest = $1 and seq_nr = $2`,
 
 	err = errors.Wrapf(err, "ReadBlock failed for job %d", d.oracleSpecID)
 
-	return
+	return block, err
 }
 
 // Defined for LibOCR 3.1, see: https://github.com/smartcontractkit/libocr/blob/babe0ec4e358262c3be15ea5bd24bb42370a0863/offchainreporting2plus/ocr3_1types/db.go#L10
@@ -407,5 +405,5 @@ ON CONFLICT (config_digest, seq_nr) DO UPDATE SET block = $3;`, configDigest, se
 
 	err = errors.Wrapf(err, "WriteBlock failed for job %d", d.oracleSpecID)
 
-	return
+	return err
 }

@@ -64,8 +64,8 @@ func TestTransmitter_Transmit(t *testing.T) {
 			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 		},
 		Routes: map[string]*ringpb.WorkflowRoute{
-			"wf-1": {Shard: 0},
-			"wf-2": {Shard: 1},
+			"wf-1": {DonId: 0},
+			"wf-2": {DonId: 1},
 		},
 	}
 	outcomeBytes, err := proto.Marshal(outcome)
@@ -96,7 +96,7 @@ func TestTransmitter_Transmit_NilArbiter(t *testing.T) {
 			Id:    1,
 			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 2},
 		},
-		Routes: map[string]*ringpb.WorkflowRoute{"wf-1": {Shard: 0}},
+		Routes: map[string]*ringpb.WorkflowRoute{"wf-1": {DonId: 0}},
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 
@@ -166,9 +166,9 @@ func TestTransmitter_Transmit_StaleEntriesPruned(t *testing.T) {
 			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 		},
 		Routes: map[string]*ringpb.WorkflowRoute{
-			"wf-1": {Shard: 0},
-			"wf-2": {Shard: 1},
-			"wf-3": {Shard: 2},
+			"wf-1": {DonId: 0},
+			"wf-2": {DonId: 1},
+			"wf-3": {DonId: 2},
 		},
 	}
 	outcomeBytes, err := proto.Marshal(outcome1)
@@ -184,7 +184,7 @@ func TestTransmitter_Transmit_StaleEntriesPruned(t *testing.T) {
 			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
 		},
 		Routes: map[string]*ringpb.WorkflowRoute{
-			"wf-1": {Shard: 0},
+			"wf-1": {DonId: 0},
 		},
 	}
 	outcomeBytes, err = proto.Marshal(outcome2)
@@ -207,7 +207,7 @@ func TestTransmitter_Transmit_NilState(t *testing.T) {
 
 	outcome := &ringpb.Outcome{
 		State:  nil,
-		Routes: map[string]*ringpb.WorkflowRoute{"wf-1": {Shard: 0}},
+		Routes: map[string]*ringpb.WorkflowRoute{"wf-1": {DonId: 0}},
 	}
 	outcomeBytes, _ := proto.Marshal(outcome)
 

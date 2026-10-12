@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -8,9 +10,34 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
+
+type loadViaCTFEnvTestConfig struct {
+	Value string
+}
+
+func TestLoadViaCTFEnv_RestoresPresenceAndValue(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cfg.toml")
+	require.NoError(t, os.WriteFile(path, []byte("Value = \"hello\"\n"), 0o600))
+
+	t.Cleanup(func() {
+		_ = os.Unsetenv("CTF_CONFIGS")
+	})
+
+	require.NoError(t, os.Unsetenv("CTF_CONFIGS"))
+	in, err := loadViaCTFEnv[loadViaCTFEnvTestConfig](path)
+	require.NoError(t, err)
+	require.Equal(t, "hello", in.Value)
+	_, ok := os.LookupEnv("CTF_CONFIGS")
+	require.False(t, ok, "CTF_CONFIGS must remain unset after load when it was unset before")
+
+	t.Setenv("CTF_CONFIGS", "pre-existing")
+	in, err = loadViaCTFEnv[loadViaCTFEnvTestConfig](path)
+	require.NoError(t, err)
+	require.Equal(t, "hello", in.Value)
+	require.Equal(t, "pre-existing", os.Getenv("CTF_CONFIGS"))
+}
 
 func TestTransformHostDockerInternalReferences(t *testing.T) {
 	t.Parallel()

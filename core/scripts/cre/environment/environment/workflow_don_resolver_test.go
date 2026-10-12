@@ -36,7 +36,7 @@ func TestResolveWorkflowDONMetadata_singleDON(t *testing.T) {
 	t.Parallel()
 
 	resolver := testStateResolver(t, testTopologyWithWorkflowDONs(t,
-		&cre.DonMetadata{Name: "workflow", ID: 1, DonFamily: envconfig.DefaultDONFamily, Flags: []string{cre.WorkflowDON}},
+		&cre.DonMetadata{Name: "workflow", ID: 1, DonFamilies: []string{envconfig.DefaultDONFamily}, Flags: []string{cre.WorkflowDON}},
 	))
 
 	don, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{})
@@ -48,7 +48,7 @@ func TestResolveWorkflowDONMetadata_singleDONByFamily(t *testing.T) {
 	t.Parallel()
 
 	resolver := testStateResolver(t, testTopologyWithWorkflowDONs(t,
-		&cre.DonMetadata{Name: "workflow", ID: 1, DonFamily: envconfig.DefaultDONFamily, Flags: []string{cre.WorkflowDON}},
+		&cre.DonMetadata{Name: "workflow", ID: 1, DonFamilies: []string{envconfig.DefaultDONFamily}, Flags: []string{cre.WorkflowDON}},
 	))
 
 	don, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{DonFamily: envconfig.DefaultDONFamily})
@@ -178,8 +178,8 @@ func TestResolveWorkflowDONMetadata_nonShardDuplicateFamily(t *testing.T) {
 	t.Parallel()
 
 	resolver := testStateResolver(t, testTopologyWithWorkflowDONs(t,
-		&cre.DonMetadata{Name: "wf-a", ID: 1, DonFamily: "shared-family", Flags: []string{cre.WorkflowDON}},
-		&cre.DonMetadata{Name: "wf-b", ID: 2, DonFamily: "shared-family", Flags: []string{cre.WorkflowDON}},
+		&cre.DonMetadata{Name: "wf-a", ID: 1, DonFamilies: []string{"shared-family"}, Flags: []string{cre.WorkflowDON}},
+		&cre.DonMetadata{Name: "wf-b", ID: 2, DonFamilies: []string{"shared-family"}, Flags: []string{cre.WorkflowDON}},
 	))
 
 	_, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{DonFamily: "shared-family"})
@@ -192,9 +192,9 @@ func TestResolveWorkflowDONByFamily(t *testing.T) {
 	t.Parallel()
 
 	wfDONs := []*cre.DonMetadata{
-		{Name: "shard0", DonFamily: envconfig.DefaultDONFamily, ShardIndex: 0, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
-		{Name: "shard1", DonFamily: envconfig.DefaultDONFamily, ShardIndex: 1, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
-		{Name: "feeds-zone-a", DonFamily: "feeds-zone-a", Flags: []string{cre.WorkflowDON}},
+		{Name: "shard0", DonFamilies: []string{envconfig.DefaultDONFamily}, ShardIndex: 0, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
+		{Name: "shard1", DonFamilies: []string{envconfig.DefaultDONFamily}, ShardIndex: 1, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
+		{Name: "feeds-zone-a", DonFamilies: []string{"feeds-zone-a"}, Flags: []string{cre.WorkflowDON}},
 	}
 
 	tests := []struct {
@@ -259,8 +259,8 @@ func multiWorkflowDONTestTopology(t *testing.T) *cre.Topology {
 	t.Helper()
 
 	return testTopologyWithWorkflowDONs(t,
-		&cre.DonMetadata{Name: "feeds-zone-a", ID: 1, DonFamily: "feeds-zone-a", Flags: []string{cre.WorkflowDON}},
-		&cre.DonMetadata{Name: "feeds-zone-b", ID: 2, DonFamily: "feeds-zone-b", Flags: []string{cre.WorkflowDON}},
+		&cre.DonMetadata{Name: "feeds-zone-a", ID: 1, DonFamilies: []string{"feeds-zone-a"}, Flags: []string{cre.WorkflowDON}},
+		&cre.DonMetadata{Name: "feeds-zone-b", ID: 2, DonFamilies: []string{"feeds-zone-b"}, Flags: []string{cre.WorkflowDON}},
 	)
 }
 
@@ -268,15 +268,15 @@ func shardedWorkflowDONTestTopology(t *testing.T) *cre.Topology {
 	t.Helper()
 
 	return testTopologyWithWorkflowDONs(t,
-		&cre.DonMetadata{Name: "shard0", ID: 1, DonFamily: envconfig.DefaultDONFamily, ShardIndex: 0, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
-		&cre.DonMetadata{Name: "shard1", ID: 2, DonFamily: envconfig.DefaultDONFamily, ShardIndex: 1, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
+		&cre.DonMetadata{Name: "shard0", ID: 1, DonFamilies: []string{envconfig.DefaultDONFamily}, ShardIndex: 0, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
+		&cre.DonMetadata{Name: "shard1", ID: 2, DonFamilies: []string{envconfig.DefaultDONFamily}, ShardIndex: 1, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
 	)
 }
 
 func bootstrapDONMetadata() *cre.DonMetadata {
 	return &cre.DonMetadata{
 		Name:          "bootstrap",
-		DonFamily:     envconfig.DefaultDONFamily,
+		DonFamilies:   []string{envconfig.DefaultDONFamily},
 		NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.BootstrapNode}}},
 	}
 }

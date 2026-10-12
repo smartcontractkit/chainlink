@@ -7,25 +7,31 @@ import (
 
 const defaultAuthTimestampToleranceSec = 5
 
-type ConnectorConfig struct {
+type Config struct {
 	NodeAddress               string
-	DonId                     string
-	Gateways                  []ConnectorGatewayConfig
+	DonID                     string
+	Gateways                  []GatewayConfig
 	WsClientConfig            network.WebSocketClientConfig
 	AuthMinChallengeLen       int
 	AuthTimestampToleranceSec uint32
 }
 
-type ConnectorGatewayConfig struct {
+type GatewayConfig struct {
 	ID    string `toml:"Id"`
 	DonID string `toml:"DonId"`
 	URL   string
 }
 
-func (ConnectorConfig) From(c config.GatewayConnector) ConnectorConfig {
-	r := ConnectorConfig{
+// Deprecated: Use Config instead.
+type ConnectorConfig = Config //nolint:revive // backward compatibility alias
+
+// Deprecated: Use GatewayConfig instead.
+type ConnectorGatewayConfig = GatewayConfig //nolint:revive // backward compatibility alias
+
+func (Config) From(c config.GatewayConnector) Config {
+	r := Config{
 		NodeAddress:               c.NodeAddress(),
-		DonId:                     c.DonID(),
+		DonID:                     c.DonID(),
 		WsClientConfig:            network.WebSocketClientConfig{HandshakeTimeoutMillis: c.WSHandshakeTimeoutMillis()},
 		AuthMinChallengeLen:       c.AuthMinChallengeLen(),
 		AuthTimestampToleranceSec: c.AuthTimestampToleranceSec(),
@@ -40,9 +46,9 @@ func (ConnectorConfig) From(c config.GatewayConnector) ConnectorConfig {
 	}
 
 	if len(c.Gateways()) != 0 {
-		r.Gateways = make([]ConnectorGatewayConfig, len(c.Gateways()))
+		r.Gateways = make([]GatewayConfig, len(c.Gateways()))
 		for i, gateway := range c.Gateways() {
-			r.Gateways[i] = ConnectorGatewayConfig{
+			r.Gateways[i] = GatewayConfig{
 				ID:    gateway.ID(),
 				DonID: gateway.DonID(),
 				URL:   gateway.URL(),

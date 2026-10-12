@@ -168,7 +168,6 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = true
 AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
@@ -299,9 +298,7 @@ BytesRateLimiterRate = 5000000.0
 BytesRateLimiterCapacity = 10000000
 
 [Capabilities.Dispatcher]
-SupportedVersion = 1
 ReceiverBufferSize = 10000
-SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -321,7 +318,6 @@ NetworkID = 'evm'
 ChainID = '1'
 ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
-MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 MaxConcurrency = 12
@@ -350,6 +346,9 @@ WSHandshakeTimeoutMillis = 0
 AuthMinChallengeLen = 0
 AuthTimestampToleranceSec = 0
 
+[Capabilities.Local]
+UseOffchainRegistry = false
+
 [Telemetry]
 Enabled = false
 CACertFile = ''
@@ -371,7 +370,7 @@ ChipIngressDrainTimeout = '30s'
 ChipIngressMaxGRPCRequestSize = 10485760
 DurableEmitterEnabled = true
 DurableEmitterRetransmitBatchSize = 500
-DurableEmitterEventTTL = '1h0m0s'
+DurableEmitterEventTTL = '6h0m0s'
 DurableEmitterMaxQueuePayloadBytes = 1073741824
 DurableEmitterInsertBatchFlushInterval = '50ms'
 HeartbeatInterval = '1s'
@@ -408,6 +407,7 @@ PerOwner = 200
 UseLocalTimeProvider = true
 EnableDKGRecipient = false
 DebugMode = false
+CachedTriggerSubscriptionsEnabled = false
 
 [CRE.Streams]
 WsURL = ''
@@ -420,6 +420,7 @@ URL = ''
 URL = ''
 TLSEnabled = true
 RequestTimeout = '2s'
+DurableCacheEnabled = true
 
 [CRE.ConfidentialRelay]
 Enabled = false
@@ -458,4 +459,3 @@ GRPCServerMaxRecvMsgSize = '32.00mb'
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty
-

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -17,80 +16,52 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
 const (
-	// NOTE: more methods will go here. HTTP trigger/action/target; etc.
-	// Any changes to this list of methods should be reflected in the
-	// handler's Methods() function.
-	MethodWebAPITarget   = "web_api_target"
-	MethodWebAPITrigger  = "web_api_trigger"
-	MethodComputeAction  = "compute_action"
 	MethodWorkflowSyncer = "workflow_syncer"
 
 	// Error messages
 	ErrTransformingMessageToRequest = "error transforming message to request"
-	ErrDecodingPayload              = "error decoding payload"
 
 	handlerName = "WebAPIHandler"
-
-	defaultCallbackMaxAgeSec        = 120   // 2 minutes
-	defaultMaxSavedCallbacks        = 20000 // could briefly exceed under heavy load
-	defaultCallbackPruneIntervalSec = 30
 )
 
 type handler struct {
 	services.StateMachine
 	config          HandlerConfig
-	don             handlers.DON
-	donConfig       *config.DONConfig
-	savedCallbacks  map[string]*savedCallback
-	mu              sync.Mutex
+	nodeAddrToShard map[string]*handlers.ShardEndpoint
 	lggr            logger.Logger
 	httpClient      network.HTTPClient
 	nodeRateLimiter *ratelimit.RateLimiter
 	wg              sync.WaitGroup
-	stopCh          services.StopChan
 	metrics         *metrics
 }
 
 type HandlerConfig struct {
-	NodeRateLimiter         ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
-	MaxAllowedMessageAgeSec uint                        `json:"maxAllowedMessageAgeSec"`
-
-	CallbackMaxAgeSec        int `json:"callbackMaxAgeSec"`
-	MaxSavedCallbacks        int `json:"maxSavedCallbacks"`
-	CallbackPruneIntervalSec int `json:"callbackPruneIntervalSec"`
-}
-
-type savedCallback struct {
-	id        string
-	createdAt time.Time
-	handlers.Callback
+	NodeRateLimiter ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
 }
 
 var _ handlers.Handler = (*handler)(nil)
 
-func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger) (*handler, error) {
+func NewHandler(handlerConfig json.RawMessage, dons *handlers.ShardedDONs, httpClient network.HTTPClient, lggr logger.Logger) (*handler, error) {
 	var cfg HandlerConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
 		return nil, err
 	}
-	if cfg.CallbackMaxAgeSec == 0 {
-		cfg.CallbackMaxAgeSec = defaultCallbackMaxAgeSec
+
+	_, nodeAddrToShard, err := dons.BuildShardEndpoints()
+	if err != nil {
+		return nil, err
 	}
-	if cfg.MaxSavedCallbacks == 0 {
-		cfg.MaxSavedCallbacks = defaultMaxSavedCallbacks
-	}
-	if cfg.CallbackPruneIntervalSec == 0 {
-		cfg.CallbackPruneIntervalSec = defaultCallbackPruneIntervalSec
+	defaultDonID := ""
+	if len(dons.DONs) > 0 {
+		defaultDonID = dons.DONs[0].DonName
 	}
 
 	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
@@ -105,13 +76,10 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 
 	return &handler{
 		config:          cfg,
-		don:             don,
-		donConfig:       donConfig,
-		lggr:            logger.Named(lggr, "WebAPIHandler."+donConfig.DonId),
+		nodeAddrToShard: nodeAddrToShard,
+		lggr:            logger.Named(lggr, "WebAPIHandler."+defaultDonID),
 		httpClient:      httpClient,
 		nodeRateLimiter: nodeRateLimiter,
-		savedCallbacks:  make(map[string]*savedCallback),
-		stopCh:          make(services.StopChan),
 		metrics:         metrics,
 	}, nil
 }
@@ -127,7 +95,7 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 	payload = Response{
 		ExecutionError: false,
 		StatusCode:     resp.StatusCode,
-		Headers:        resp.Headers,
+		Headers:        resp.Headers, //nolint:staticcheck // SA1019: forward deprecated Headers for backward compatibility with the v1 wire format, which only supports single-valued headers
 		Body:           resp.Body,
 	}
 	payloadBytes, err := json.Marshal(payload)
@@ -137,32 +105,17 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 
 	return &api.Message{
 		Body: api.MessageBody{
-			MessageId: msg.Body.MessageId,
+			MessageID: msg.Body.MessageID,
 			Method:    msg.Body.Method,
-			DonId:     msg.Body.DonId,
+			DonID:     msg.Body.DonID,
 			Payload:   payloadBytes,
 		},
 	}, nil
 }
 
-func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
-	h.mu.Lock()
-	savedCb, found := h.savedCallbacks[msg.Body.MessageId]
-	delete(h.savedCallbacks, msg.Body.MessageId)
-	h.mu.Unlock()
-
-	if found {
-		// Send first response from a node back to the user, ignore any other ones.
-		// TODO: in practice, we should wait for at least 2F+1 nodes to respond and then return an aggregated response
-		// back to the user.
-		codec := api.JsonRPCCodec{}
-		return savedCb.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
-	}
-	return nil
-}
-
 func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
-	h.lggr.Debugw("handling webAPI outgoing message", "messageId", msg.Body.MessageId, "nodeAddr", nodeAddr)
+	h.lggr.Debugw("handling webAPI outgoing message", "messageId", msg.Body.MessageID, "nodeAddr", nodeAddr)
+	h.metrics.recordArtifactFetchRequestReceived(ctx, msg.Body.Method)
 	if !h.nodeRateLimiter.Allow(nodeAddr) {
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
@@ -176,7 +129,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 	req := network.HTTPRequest{
 		Method:           payload.Method,
 		URL:              payload.URL,
-		Headers:          payload.Headers,
+		Headers:          payload.Headers, //nolint:staticcheck // SA1019: forward deprecated Headers from the v1 wire format, which only supports single-valued headers
 		Body:             payload.Body,
 		MaxResponseBytes: payload.MaxResponseBytes,
 		Timeout:          timeout,
@@ -188,9 +141,17 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 		newCtx := context.WithoutCancel(ctx)
 		newCtx, cancel := context.WithTimeout(newCtx, timeout)
 		defer cancel()
-		l := logger.With(h.lggr, "url", payload.URL, "messageId", msg.Body.MessageId, "method", payload.Method, "timeout", payload.TimeoutMs)
+		l := logger.With(h.lggr, "url", payload.URL, "messageId", msg.Body.MessageID, "method", payload.Method, "timeout", payload.TimeoutMs, "workflowID", payload.WorkflowID)
 		l.Debug("Sending request to client")
 		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
+		switch {
+		case err == nil:
+			h.metrics.recordArtifactFetchOutcome(newCtx, fetchOutcomeSuccess)
+		case errors.Is(err, context.DeadlineExceeded):
+			h.metrics.recordArtifactFetchOutcome(newCtx, fetchOutcomeTimeout)
+		default:
+			h.metrics.recordArtifactFetchOutcome(newCtx, fetchOutcomeExternalError)
+		}
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
 			payload := Response{
@@ -205,9 +166,9 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 			}
 			respMsg = &api.Message{
 				Body: api.MessageBody{
-					MessageId: msg.Body.MessageId,
+					MessageID: msg.Body.MessageID,
 					Method:    msg.Body.Method,
-					DonId:     msg.Body.DonId,
+					DonID:     msg.Body.DonID,
 					Payload:   payloadBytes,
 				},
 			}
@@ -226,7 +187,13 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 			l.Errorw(ErrTransformingMessageToRequest, "err", err)
 			return
 		}
-		err = h.don.SendToNode(newCtx, nodeAddr, req)
+		shard, ok := h.nodeAddrToShard[nodeAddr]
+		if !ok {
+			l.Errorw("no connection manager found for node", "to", nodeAddr)
+			return
+		}
+		err = shard.ConnMgr.SendToNode(newCtx, nodeAddr, req)
+		h.metrics.recordArtifactFetchResponseDelivery(newCtx, err == nil)
 		if err != nil {
 			l.Errorw("failed to send to node", "err", err, "to", nodeAddr)
 			return
@@ -238,9 +205,6 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 
 func (h *handler) Methods() []string {
 	return []string{
-		MethodWebAPITrigger,
-		MethodWebAPITarget,
-		MethodComputeAction,
 		MethodWorkflowSyncer,
 	}
 }
@@ -255,9 +219,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 	start := time.Now()
 	switch msg.Body.Method {
-	case MethodWebAPITrigger:
-		err = h.handleWebAPITriggerMessage(ctx, msg, nodeAddr)
-	case MethodWebAPITarget, MethodComputeAction, MethodWorkflowSyncer:
+	case MethodWorkflowSyncer:
 		err = h.handleWebAPIOutgoingMessage(ctx, msg, nodeAddr)
 	default:
 		err = fmt.Errorf("unsupported method: %s", msg.Body.Method)
@@ -268,25 +230,12 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 func (h *handler) Start(context.Context) error {
 	return h.StartOnce(handlerName, func() error {
-		h.wg.Go(func() {
-			ticker := time.NewTicker(time.Duration(h.config.CallbackPruneIntervalSec) * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					h.pruneCallbacks()
-				case <-h.stopCh:
-					return
-				}
-			}
-		})
 		return nil
 	})
 }
 
 func (h *handler) Close() error {
 	return h.StopOnce(handlerName, func() error {
-		close(h.stopCh)
 		h.wg.Wait()
 		return nil
 	})
@@ -296,132 +245,21 @@ func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[
 	return errors.New("capabilities handler does not support JSON-RPC user messages")
 }
 
-func (h *handler) pruneCallbacks() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	// First, remove expired callbacks.
-	maxAge := time.Duration(h.config.CallbackMaxAgeSec) * time.Second
-	now := time.Now()
-	var expired int
-	for id, cb := range h.savedCallbacks {
-		if now.Sub(cb.createdAt) > maxAge {
-			delete(h.savedCallbacks, id)
-			expired++
-		}
-	}
-
-	// If there are still too many callbacks, sort them by creation time and remove the oldest ones.
-	maxSize := h.config.MaxSavedCallbacks
-	var evicted int
-	if len(h.savedCallbacks) > maxSize {
-		type entry struct {
-			id        string
-			createdAt time.Time
-		}
-		entries := make([]entry, 0, len(h.savedCallbacks))
-		for id, cb := range h.savedCallbacks {
-			entries = append(entries, entry{id, cb.createdAt})
-		}
-		sort.Slice(entries, func(i, j int) bool {
-			return entries[i].createdAt.Before(entries[j].createdAt)
-		})
-		// Trim to maxSize/2 to avoid sorting the list too frequently.
-		for _, e := range entries[:len(entries)-maxSize/2] {
-			delete(h.savedCallbacks, e.id)
-			evicted++
-		}
-	}
-
-	if expired > 0 || evicted > 0 {
-		h.lggr.Infow("Pruned savedCallbacks", "expired", expired, "evicted", evicted, "remaining", len(h.savedCallbacks))
-	}
+func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ handlers.Callback) error {
+	return errors.New("capabilities handler does not support legacy user messages")
 }
 
-func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
-	body := msg.Body
-	var payload webapicap.TriggerRequestPayload
-	codec := api.JsonRPCCodec{}
-	err := json.Unmarshal(body.Payload, &payload)
-	if err != nil {
-		h.lggr.Errorw(ErrDecodingPayload, "err", err)
-		return callback.SendResponse(handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageId,
-				api.ToJSONRPCErrorCode(api.UserMessageParseError),
-				ErrDecodingPayload+" "+err.Error(),
-				nil,
-			),
-			ErrorCode: api.UserMessageParseError,
-		})
-	}
-
-	if payload.Timestamp == 0 {
-		h.lggr.Errorw(ErrDecodingPayload)
-		return callback.SendResponse(handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageId,
-				api.ToJSONRPCErrorCode(api.UserMessageParseError),
-				ErrDecodingPayload,
-				nil,
-			),
-			ErrorCode: api.UserMessageParseError,
-		})
-	}
-
-	if uint(time.Now().Unix())-h.config.MaxAllowedMessageAgeSec > uint(payload.Timestamp) {
-		h.lggr.Errorw("stale message")
-		return callback.SendResponse(handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageId,
-				api.ToJSONRPCErrorCode(api.HandlerError),
-				"stale message",
-				nil,
-			),
-			ErrorCode: api.HandlerError,
-		})
-	}
-	// TODO: apply allowlist and rate-limiting here
-	if msg.Body.Method != MethodWebAPITrigger {
-		h.lggr.Errorw("unsupported method", "method", body.Method)
-		return callback.SendResponse(handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageId,
-				api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
-				"invalid method "+msg.Body.Method,
-				nil,
-			),
-			ErrorCode: api.UnsupportedMethodError,
-		})
-	}
-	req, err := common.ValidatedRequestFromMessage(msg)
-	if err != nil {
-		h.lggr.Errorw(ErrTransformingMessageToRequest)
-		return callback.SendResponse(handlers.UserCallbackPayload{
-			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageId,
-				api.ToJSONRPCErrorCode(api.UserMessageParseError),
-				ErrTransformingMessageToRequest,
-				nil,
-			),
-			ErrorCode: api.UserMessageParseError,
-		})
-	}
-
-	h.mu.Lock()
-	h.savedCallbacks[msg.Body.MessageId] = &savedCallback{id: msg.Body.MessageId, createdAt: time.Now(), Callback: callback}
-	don := h.don
-	h.mu.Unlock()
-
-	// Send original request to all nodes
-	for _, member := range h.donConfig.Members {
-		err = errors.Join(err, don.SendToNode(ctx, member.Address, req))
-	}
-	return err
-}
+const (
+	fetchOutcomeSuccess       = "success"
+	fetchOutcomeTimeout       = "timeout"
+	fetchOutcomeExternalError = "external_error"
+)
 
 type metrics struct {
-	handleDuration metric.Int64Histogram
+	handleDuration    metric.Int64Histogram
+	requestsTotal     metric.Int64Counter
+	fetchOutcomeTotal metric.Int64Counter
+	deliveryTotal     metric.Int64Counter
 }
 
 func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, method string, success bool) {
@@ -435,11 +273,59 @@ func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, met
 	))
 }
 
+// recordArtifactFetchRequestReceived counts every artifact-fetch request the gateway
+// receives from a node, independent of whether it is later rate-limited or fails.
+func (m *metrics) recordArtifactFetchRequestReceived(ctx context.Context, method string) {
+	m.requestsTotal.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("method", method),
+	))
+}
+
+// recordArtifactFetchOutcome counts the result of the outbound HTTP call the gateway
+// makes to the external endpoint on behalf of the node.
+func (m *metrics) recordArtifactFetchOutcome(ctx context.Context, outcome string) {
+	m.fetchOutcomeTotal.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("outcome", outcome),
+	))
+}
+
+// recordArtifactFetchResponseDelivery counts whether the gateway succeeded in delivering
+// the fetch result back to the requesting node over the DON connection.
+func (m *metrics) recordArtifactFetchResponseDelivery(ctx context.Context, success bool) {
+	successStr := "false"
+	if success {
+		successStr = "true"
+	}
+	m.deliveryTotal.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("success", successStr),
+	))
+}
+
 func newMetrics() (*metrics, error) {
 	h, err := beholder.GetMeter().Int64Histogram("platform_gateway_capabilities_handle_node_message_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	return &metrics{handleDuration: h}, nil
+	requestsTotal, err := beholder.GetMeter().Int64Counter("platform_gateway_capabilities_artifact_fetch_requests_total")
+	if err != nil {
+		return nil, err
+	}
+
+	fetchOutcomeTotal, err := beholder.GetMeter().Int64Counter("platform_gateway_capabilities_artifact_fetch_outcome_total")
+	if err != nil {
+		return nil, err
+	}
+
+	deliveryTotal, err := beholder.GetMeter().Int64Counter("platform_gateway_capabilities_response_delivery_total")
+	if err != nil {
+		return nil, err
+	}
+
+	return &metrics{
+		handleDuration:    h,
+		requestsTotal:     requestsTotal,
+		fetchOutcomeTotal: fetchOutcomeTotal,
+		deliveryTotal:     deliveryTotal,
+	}, nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"

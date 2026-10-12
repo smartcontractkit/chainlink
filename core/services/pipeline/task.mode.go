@@ -65,48 +65,48 @@ func (t *ModeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []R
 	}
 
 	var (
-		m     = make(map[string]entry, len(values))
-		max   uint64
-		modes []any
+		m        = make(map[string]entry, len(values))
+		maxCount uint64
+		modes    []any
 	)
 	for _, val := range values {
-		var comparable string
+		var comparableStr string
 		switch v := val.(type) {
 		case []byte:
-			comparable = string(v)
+			comparableStr = string(v)
 		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float64, float32,
 			string, bool:
-			comparable = fmt.Sprintf("%v", v)
+			comparableStr = fmt.Sprintf("%v", v)
 		case *big.Int:
-			comparable = v.String()
+			comparableStr = v.String()
 		case big.Int:
-			comparable = v.String()
+			comparableStr = v.String()
 		case *decimal.Decimal:
-			comparable = v.String()
+			comparableStr = v.String()
 		case decimal.Decimal:
-			comparable = v.String()
+			comparableStr = v.String()
 		default:
 			bs, err := json.Marshal(v)
 			if err != nil {
 				return Result{Error: errors.Wrapf(ErrBadInput, "could not json stringify value: %v", err)}, runInfo
 			}
-			comparable = string(bs)
+			comparableStr = string(bs)
 		}
 
-		m[comparable] = entry{
-			count:    m[comparable].count + 1,
+		m[comparableStr] = entry{
+			count:    m[comparableStr].count + 1,
 			original: val,
 		}
 
-		if m[comparable].count > max {
+		if m[comparableStr].count > maxCount {
 			modes = []any{val}
-			max = m[comparable].count
-		} else if m[comparable].count == max {
+			maxCount = m[comparableStr].count
+		} else if m[comparableStr].count == maxCount {
 			modes = append(modes, val)
 		}
 	}
 	return Result{Value: map[string]any{
 		"results":     modes,
-		"occurrences": max,
+		"occurrences": maxCount,
 	}}, runInfo
 }

@@ -115,25 +115,39 @@ type Don struct {
 	ID         uint64 `toml:"id" json:"id"`
 	F          uint8  `toml:"f" json:"f"` // max faulty nodes
 	ShardIndex uint   `toml:"shard_index" json:"shard_index"`
-	DonFamily  string `toml:"don_family" json:"don_family"` // propagated from DonMetadata for feature PostEnvStartup scoping
+	// DonFamilies is propagated from DonMetadata for feature PostEnvStartup scoping.
+	// Use DonFamily() for the primary (first) entry.
+	DonFamilies []string `toml:"don_families" json:"don_families"`
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
 	Flags []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
 
+	// RegistryBasedLaunchAllowlist is propagated from DonMetadata so feature
+	// PostEnvStartup hooks can skip job spec proposal for capabilities that
+	// the node launches from the on-chain registry instead.
+	RegistryBasedLaunchAllowlist []string `toml:"registry_based_launch_allowlist,omitempty" json:"registry_based_launch_allowlist,omitempty"`
+
 	capabilityConfigs    map[CapabilityFlag]CapabilityConfig
 	chainCapabilityIndex map[CapabilityFlag][]uint64
 }
 
+// DonFamily returns the primary family: the first entry of DonFamilies, or ""
+// when there are none.
+func (d *Don) DonFamily() string {
+	return primaryDonFamily(d.DonFamilies)
+}
+
 func (d *Don) Metadata() *DonMetadata {
 	dm := &DonMetadata{
-		Name:              d.Name,
-		ID:                d.ID,
-		Flags:             d.Flags,
-		ShardIndex:        d.ShardIndex,
-		DonFamily:         d.DonFamily,
-		NodesMetadata:     make([]*NodeMetadata, len(d.Nodes)),
-		CapabilityConfigs: d.capabilityConfigs,
+		Name:                         d.Name,
+		ID:                           d.ID,
+		Flags:                        d.Flags,
+		ShardIndex:                   d.ShardIndex,
+		DonFamilies:                  d.DonFamilies,
+		NodesMetadata:                make([]*NodeMetadata, len(d.Nodes)),
+		CapabilityConfigs:            d.capabilityConfigs,
+		RegistryBasedLaunchAllowlist: d.RegistryBasedLaunchAllowlist,
 		// caution: missing NodeSet field, since we don't have it here
 	}
 
@@ -236,14 +250,15 @@ func (d *Don) GetName() string {
 
 func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*Don, error) {
 	don := &Don{
-		Nodes:                make([]*Node, len(donMetadata.NodesMetadata)),
-		Name:                 donMetadata.Name,
-		ID:                   donMetadata.ID,
-		Flags:                donMetadata.Flags,
-		ShardIndex:           donMetadata.ShardIndex,
-		DonFamily:            donMetadata.DonFamily,
-		capabilityConfigs:    donMetadata.ns.CapabilityConfigs,
-		chainCapabilityIndex: donMetadata.ns.chainCapabilityIndex,
+		Nodes:                        make([]*Node, len(donMetadata.NodesMetadata)),
+		Name:                         donMetadata.Name,
+		ID:                           donMetadata.ID,
+		Flags:                        donMetadata.Flags,
+		ShardIndex:                   donMetadata.ShardIndex,
+		DonFamilies:                  donMetadata.DonFamilies,
+		RegistryBasedLaunchAllowlist: donMetadata.RegistryBasedLaunchAllowlist,
+		capabilityConfigs:            donMetadata.ns.CapabilityConfigs,
+		chainCapabilityIndex:         donMetadata.ns.chainCapabilityIndex,
 	}
 
 	errgroup := errgroup.Group{}
@@ -775,7 +790,7 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd *jd.JobDistributor) 
 	}
 	return n.Clients.GQLClient.CreateJobDistributor(ctx, client.JobDistributorInput{
 		Name:      "Job Distributor",
-		Uri:       jd.WSRPC,
+		URI:       jd.WSRPC,
 		PublicKey: csaKey,
 	})
 }
@@ -872,7 +887,10 @@ func (n *Node) ApproveProposals(ctx context.Context, proposalIDs []string) error
 }
 
 func (n *Node) ExportOCR2Keys(id string) (*clclient.ExportedOCR2Key, error) {
-	keys, _, err := n.Clients.RestClient.ExportOCR2Key(id)
+	keys, resp, err := n.Clients.RestClient.ExportOCR2Key(id)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -125,7 +125,7 @@ func (s *Shell) ListOCRKeyBundles(_ *cli.Context) error {
 // RenderTable implements TableRenderer
 func (ps OCRKeyBundlePresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey"}
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

@@ -13,7 +13,7 @@ import (
 const (
 	templateName = "cre-settings.tmpl"
 	// We expect there to only be 1 CRESettings job per node, and they share a fixed UUID for clarity.
-	externalJobUUID = "8561c20c-7d06-421e-a155-3baf21b1622b"
+	externalJobUUID        = "8561c20c-7d06-421e-a155-3baf21b1622b"
 	shardAssignmentJobUUID = "a3f8c1d2-4e5b-6a7c-8d9e-0f1a2b3c4d5e"
 )
 

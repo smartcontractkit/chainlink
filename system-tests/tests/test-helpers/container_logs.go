@@ -8,13 +8,13 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -62,8 +62,10 @@ func nodesetContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment, nodese
 	return names
 }
 
-// assertContainerLogs scans stdout/stderr of containerNames and checks whether needle appears.
-func assertContainerLogs(t *testing.T, containerNames []string, needle string, wantFound bool) {
+// containerLogLines returns every log line containing needle from the current logs
+// of containerNames. It is the shared scanning core: the needle assertions check for
+// a non-empty result, and callers that need the lines themselves filter them further.
+func containerLogLines(t *testing.T, containerNames []string, needle string) []string {
 	t.Helper()
 
 	targetNames := make(map[string]struct{}, len(containerNames))
@@ -77,7 +79,7 @@ func assertContainerLogs(t *testing.T, containerNames []string, needle string, w
 	)
 	require.NoError(t, err)
 
-	found := false
+	var matches []string
 	for containerName, reader := range logStreams {
 		if _, ok := targetNames[containerName]; !ok {
 			_ = reader.Close()
@@ -88,17 +90,44 @@ func assertContainerLogs(t *testing.T, containerNames []string, needle string, w
 			framework.L.Warn().Str("container", containerName).Err(readErr).Msg("could not read container logs")
 			continue
 		}
-		if strings.Contains(content, needle) {
-			found = true
-			framework.L.Info().Str("container", containerName).Str("needle", needle).Bool("want_found", wantFound).Msg("container log match")
+		for line := range strings.Lines(content) {
+			if strings.Contains(line, needle) {
+				matches = append(matches, line)
+				framework.L.Info().Str("container", containerName).Str("needle", needle).Msg("container log match")
+			}
 		}
 	}
+	return matches
+}
 
+// containerLogsContain reports whether needle appears in the logs of any of containerNames,
+// as they stand at the moment of the call.
+func containerLogsContain(t *testing.T, containerNames []string, needle string) bool {
+	t.Helper()
+
+	return len(containerLogLines(t, containerNames, needle)) > 0
+}
+
+// assertContainerLogs scans stdout/stderr of containerNames and checks whether needle appears.
+func assertContainerLogs(t *testing.T, containerNames []string, needle string, wantFound bool) {
+	t.Helper()
+
+	found := containerLogsContain(t, containerNames, needle)
 	if wantFound {
 		assert.True(t, found, "expected at least one of %v to contain %q", containerNames, needle)
 		return
 	}
 	assert.False(t, found, "expected none of %v to contain %q", containerNames, needle)
+}
+
+// ContainerLogLinesForNodeset returns every log line containing needle from the
+// current logs of the nodeset's containers. Unlike the needle assertions, it returns
+// the lines so callers can filter further (e.g. by a workflow ID whose position in the
+// line is not stable).
+func ContainerLogLinesForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string) []string {
+	t.Helper()
+
+	return containerLogLines(t, nodesetContainerNames(t, testEnv, nodesetName), needle)
 }
 
 // AssertNodeLogs requires needle to appear in at least one Chainlink node container log.
@@ -117,6 +146,18 @@ func AssertContainerLogsForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment
 func AssertContainerLogsAbsentForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string) {
 	t.Helper()
 	assertContainerLogs(t, nodesetContainerNames(t, testEnv, nodesetName), needle, false)
+}
+
+// RequireContainerLogsForNodesetEventually waits for needle to appear in at least one container
+// log of nodesetName, rescanning until timeout. Use it instead of AssertContainerLogsForNodeset
+// when the line is written asynchronously and may still be in flight when the test reaches it.
+func RequireContainerLogsForNodesetEventually(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string, timeout, interval time.Duration) {
+	t.Helper()
+
+	containerNames := nodesetContainerNames(t, testEnv, nodesetName)
+	require.Eventually(t, func() bool {
+		return containerLogsContain(t, containerNames, needle)
+	}, timeout, interval, "expected at least one of %v to contain %q within %s", containerNames, needle, timeout)
 }
 
 // readContainerLogs decodes a Docker multiplexed log stream into plain text.

@@ -149,9 +149,7 @@ func (ks *p2p) EnsureKey(ctx context.Context) error {
 	return ks.safeAddKey(ctx, key)
 }
 
-var (
-	ErrNoP2PKey = errors.New("no p2p keys exist")
-)
+var ErrNoP2PKey = errors.New("no p2p keys exist")
 
 func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	ks.lock.RLock()
@@ -159,13 +157,14 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	if ks.isLocked() {
 		return p2pkey.KeyV2{}, ErrLocked
 	}
-	if id != (p2pkey.PeerID{}) {
+	switch {
+	case id != (p2pkey.PeerID{}):
 		return ks.getByID(id)
-	} else if len(ks.keyRing.P2P) == 1 {
+	case len(ks.keyRing.P2P) == 1:
 		for _, key := range ks.keyRing.P2P {
 			return key, nil
 		}
-	} else if len(ks.keyRing.P2P) == 0 {
+	case len(ks.keyRing.P2P) == 0:
 		return p2pkey.KeyV2{}, ErrNoP2PKey
 	}
 	possibleKeys := make([]string, 0, len(ks.keyRing.P2P))

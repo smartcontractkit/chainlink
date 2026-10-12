@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # requires a path to a test file to compare the test list against
-# requires a matrix job name to be passed in, for example "automation"
+# requires a matrix job name to be passed in, for example "ccip"
 # requires a node label to be passed in, for example "ubuntu-latest"
 
 set -e

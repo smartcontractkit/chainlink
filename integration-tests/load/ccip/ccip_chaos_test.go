@@ -10,7 +10,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
@@ -56,7 +55,8 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 	config, cr, _ := prepareChaos(t)
 	cfg := config.Chaos
 
-	labelValues := []string{"geth-1337", "geth-2337"}
+	labelValues := make([]string, 0, 2+(numChains-2))
+	labelValues = append(labelValues, "geth-1337", "geth-2337")
 	for i := range numChains - 2 {
 		labelValues = append(labelValues, fmt.Sprintf("geth-%d", 90000001+i))
 	}
@@ -110,10 +110,14 @@ type cribNetworkConfig []struct {
 func readCRIBConfig(t *testing.T, cfg *ccip.Config) cribNetworkConfig {
 	t.Helper()
 	f, err := os.ReadFile(*cfg.Load.CribEnvDirectory + "/ccip-v2-scripts-chains-details.json")
-	require.NoError(t, err, "Failed to read CRIB config file")
+	if !assert.NoError(t, err, "Failed to read CRIB config file") { //nolint:testifylint // go-require: this runs in a goroutine via runFullChaosSuite, so require is unsafe here
+		return nil
+	}
 	var cribConfig cribNetworkConfig
 	err = json.Unmarshal(f, &cribConfig)
-	require.NoError(t, err, "Failed to unmarshal CRIB config")
+	if !assert.NoError(t, err, "Failed to unmarshal CRIB config") {
+		return nil
+	}
 	return cribConfig
 }
 

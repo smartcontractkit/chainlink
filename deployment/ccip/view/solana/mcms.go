@@ -60,11 +60,17 @@ type MCMSConfig struct {
 }
 
 func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]cldf.TypeAndVersion) (MCMSWithTimelockView, error) {
-	view := MCMSWithTimelockView{}
 	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
-		return view, fmt.Errorf("failed to load mcms with timelock solana chain state: %w", err)
+		return MCMSWithTimelockView{}, fmt.Errorf("failed to load mcms with timelock solana chain state: %w", err)
 	}
+	return GenerateMCMSWithTimelockViewFromState(chain, mcmState)
+}
+
+// GenerateMCMSWithTimelockViewFromState builds the MCMS view from an already-resolved
+// datastore-backed MCMS state.
+func GenerateMCMSWithTimelockViewFromState(chain cldf_solana.Chain, mcmState *solstate.MCMSWithTimelockState) (MCMSWithTimelockView, error) {
+	view := MCMSWithTimelockView{}
 	timelockConfigPDA := pdasol.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	progDataAddr, err := solutils.GetProgramDataAddress(chain.Client, mcmState.TimelockProgram)
 	if err != nil {

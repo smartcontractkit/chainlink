@@ -49,13 +49,6 @@ ChainID = '4'
 Name = 'primary'
 URL = 'http://aptos.blockchain'
 
-[[Cosmos]]
-ChainID = 'Foo'
-
-[[Cosmos.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://tender.mint'
-
 [[EVM]]
 ChainID = '1'
 
@@ -123,13 +116,6 @@ ok Aptos.4.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmi
 ok BridgeStatusReporter
 ok CRE
 ok CRE.DispatcherWrapper
-ok Cosmos.Foo.RelayerService
-ok Cosmos.Foo.RelayerService.PluginRelayerClient
-ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos
-ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain
-ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.PluginRelayerConfigEmitter
-ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Relayer
-ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Txm
 ok EVM.1.RelayerService
 ok EVM.1.RelayerService.PluginRelayerClient
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM
@@ -277,69 +263,6 @@ ok WorkflowStore
       "id": "CRE.DispatcherWrapper",
       "attributes": {
         "name": "CRE.DispatcherWrapper",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Cosmos.Foo.RelayerService",
-      "attributes": {
-        "name": "Cosmos.Foo.RelayerService",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient",
-      "attributes": {
-        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos",
-      "attributes": {
-        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain",
-      "attributes": {
-        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.PluginRelayerConfigEmitter",
-      "attributes": {
-        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.PluginRelayerConfigEmitter",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Relayer",
-      "attributes": {
-        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Relayer",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Txm",
-      "attributes": {
-        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Txm",
         "status": "passing",
         "output": ""
       }

@@ -3,11 +3,13 @@ package v2
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 func TestEngineRegistry(t *testing.T) {
@@ -168,3 +170,156 @@ func (f fakeService) Ready() error { return nil }
 func (f fakeService) HealthReport() map[string]error { return map[string]error{} }
 
 func (f fakeService) Name() string { return "" }
+
+// fakeDrainableService reports a fixed drain state; it is otherwise a fakeService.
+type fakeDrainableService struct {
+	fakeService
+	draining bool
+}
+
+func (f *fakeDrainableService) Drain() bool { return false }
+
+func (f *fakeDrainableService) ActiveExecutions() int32 { return 0 }
+
+func (f *fakeDrainableService) DrainStartedAt() (time.Time, bool) {
+	if !f.draining {
+		return time.Time{}, false
+	}
+	return time.Unix(1, 0), true
+}
+
+// fakeCoordinatedDrainableEngine is a v2.WorkflowEngine that reports as
+// coordinated and drainable. Only the methods ServiceWithMetadata.Coordinated
+// and the DrainableService assertion touch are implemented.
+type fakeCoordinatedDrainableEngine struct {
+	v2.WorkflowEngine
+	draining bool
+}
+
+func (f *fakeCoordinatedDrainableEngine) IsCoordinated() bool { return true }
+
+func (f *fakeCoordinatedDrainableEngine) Drain() bool { return false }
+
+func (f *fakeCoordinatedDrainableEngine) ActiveExecutions() int32 { return 0 }
+
+func (f *fakeCoordinatedDrainableEngine) DrainStartedAt() (time.Time, bool) {
+	if !f.draining {
+		return time.Time{}, false
+	}
+	return time.Unix(1, 0), true
+}
+
+func TestEngineRegistry_Coordinated(t *testing.T) {
+	t.Parallel()
+	legacyID := types.WorkflowID([32]byte{1})
+	coordinatedID := types.WorkflowID([32]byte{2})
+
+	er := NewEngineRegistry()
+	require.NoError(t, er.AddWithReconcileKey(legacyID, "TestSource", "legacy-key", &fakeService{}))
+	require.NoError(t, er.AddWithReconcileKey(coordinatedID, "TestSource", "coordinated-key", &fakeCoordinatedDrainableEngine{}))
+	require.ErrorIs(t, er.AddWithReconcileKey(coordinatedID, "TestSource", "coordinated-key", &fakeCoordinatedDrainableEngine{}), ErrAlreadyExists)
+
+	entry, ok := er.Get(coordinatedID)
+	require.True(t, ok)
+	require.True(t, entry.Coordinated())
+	require.Equal(t, "coordinated-key", entry.ReconcileKey)
+
+	entry, ok = er.Get(legacyID)
+	require.True(t, ok)
+	require.False(t, entry.Coordinated())
+
+	byID := map[types.WorkflowID]bool{}
+	for _, e := range er.GetAll() {
+		byID[e.WorkflowID] = e.Coordinated()
+	}
+	require.Equal(t, map[types.WorkflowID]bool{legacyID: false, coordinatedID: true}, byID)
+
+	for _, e := range er.GetBySource("TestSource") {
+		require.Equal(t, e.WorkflowID == coordinatedID, e.Coordinated())
+	}
+
+	popped, err := er.Pop(coordinatedID)
+	require.NoError(t, err)
+	require.True(t, popped.Coordinated())
+
+	for _, e := range er.PopAll() {
+		require.False(t, e.Coordinated())
+	}
+}
+
+func TestCountEngines(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty registry", func(t *testing.T) {
+		t.Parallel()
+		require.Equal(t, engineCounts{}, countEngines(nil))
+	})
+
+	t.Run("mixed engine types", func(t *testing.T) {
+		t.Parallel()
+		engines := []ServiceWithMetadata{
+			{Service: &fakeCoordinatedDrainableEngine{}},
+			{Service: &fakeCoordinatedDrainableEngine{draining: true}},
+			{Service: &fakeDrainableService{}},
+			{Service: &fakeDrainableService{draining: true}},
+			{Service: &fakeService{}},
+			{Service: newTestShardFailoverManager(t, &mockEngine{})},
+		}
+		require.Equal(t, engineCounts{draining: 2, coordinated: 2, legacy: 4}, countEngines(engines))
+	})
+
+	t.Run("a sharded wrapper follows the engine it wraps", func(t *testing.T) {
+		t.Parallel()
+		engines := []ServiceWithMetadata{
+			{Service: newTestShardFailoverManager(t, &fakeCoordinatedDrainableEngine{})},
+		}
+		require.Equal(t, engineCounts{coordinated: 1}, countEngines(engines))
+	})
+}
+
+func TestTriggerEngineRegistry(t *testing.T) {
+	t.Parallel()
+	wfID := types.WorkflowID([32]byte{9})
+
+	tests := []struct {
+		name            string
+		registered      services.Service // nil registers nothing
+		wantOK          bool
+		wantCoordinated bool
+	}{
+		{
+			name:       "unregistered workflow",
+			registered: nil,
+			wantOK:     false,
+		},
+		{
+			name:       "service that is not a RegisteredEngine",
+			registered: &fakeService{},
+			wantOK:     false,
+		},
+		{
+			name:            "coordinated engine",
+			registered:      &fakeCoordinatedDrainableEngine{},
+			wantOK:          true,
+			wantCoordinated: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			er := NewEngineRegistry()
+			if tt.registered != nil {
+				require.NoError(t, er.Add(wfID, "src", tt.registered))
+			}
+
+			got, ok := NewTriggerEngineRegistry(er).Get(wfID)
+			require.Equal(t, tt.wantOK, ok)
+			if !tt.wantOK {
+				require.Nil(t, got)
+				return
+			}
+			require.Equal(t, tt.wantCoordinated, got.IsCoordinated())
+		})
+	}
+}

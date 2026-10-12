@@ -14,38 +14,32 @@ import (
 	"testing"
 	"time"
 
+	retry "github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	retry "github.com/avast/retry-go/v4"
-
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
+	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
+	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
-
-	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
-	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
-	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
-	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 )
 
 // ExecuteVaultAllowListBasedTests covers vault gateway + workflows with allow-listed JSON-RPC auth
@@ -62,6 +56,10 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 
 	gwURL := fixture.GatewayURL.String()
 	vaultPublicKey := fixture.VaultPublicKey
+
+	// Shared by all subtests; checks are passed per HTTP trigger. Safe for the
+	// parallel identifier_validation subtest since its checks are negative-only.
+	verifier := deployVaultVerifierWorkflow(t, testEnv, fixture.TriggerAuth, "allowlist-verifier")
 
 	t.Run("allowlist_delete_batch_at_limit", func(t *testing.T) {
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
@@ -189,11 +187,9 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		namespaces := []string{"main", "alt"}
 
 		executeVaultAllowListSecretsCreateTest(t, createEnc, secretID, owner, owner, gwURL, namespaces, sc, wfReg)
-		if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
-			t.Run("binary_encoded_shares", func(t *testing.T) {
-				executeVaultBinaryEncodedSharesSmokeTest(t, testEnv, secretID, "main", createValue, ulCh, bmCh)
-			})
-		}
+		t.Run("binary_encoded_shares", func(t *testing.T) {
+			executeVaultBinaryEncodedSharesSmokeTest(t, verifier, secretID, "main", createValue, ulCh, bmCh)
+		})
 		executeVaultSecretsUpdateTest(t, updateEnc, secretID, owner, owner, gwURL, namespaces, sc, wfReg)
 		executeVaultSecretsListTest(t, secretID, owner, owner, gwURL, "main", sc, wfReg)
 		executeVaultSecretsListTest(t, secretID, owner, owner, gwURL, "alt", sc, wfReg)
@@ -205,55 +201,51 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 			{Name: "allowlist-main-not-found", SecretKey: secretID, SecretNamespace: "main", ExpectNotFound: true},
 			{Name: "allowlist-alt-updated", SecretKey: secretID, SecretNamespace: "alt", ExpectedValue: updateValue},
 		}
-		workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "allowlist-lifecycle", []vaultWorkflowPhase{
-			{Name: "allowlist-updated", Checks: updatedChecks},
-			{Name: "allowlist-final-verify", Checks: finalChecks},
-		})
-		waitForVaultWorkflowPhase(t, workflowID, "allowlist-updated", ulCh, bmCh)
+		triggerAndAwaitVaultWorkflowPhase(t, verifier, vaultWorkflowPhase{
+			Name:   "allowlist-updated",
+			Checks: updatedChecks,
+		}, ulCh, bmCh)
 		executeVaultSecretsDeleteTest(t, secretID, owner, owner, gwURL, []string{"main"}, sc, wfReg)
-		waitForVaultWorkflowPhase(t, workflowID, "allowlist-final-verify", ulCh, bmCh)
+		triggerAndAwaitVaultWorkflowPhase(t, verifier, vaultWorkflowPhase{
+			Name:   "allowlist-final-verify",
+			Checks: finalChecks,
+		}, ulCh, bmCh)
 		executeVaultSecretsDeleteTest(t, secretID, owner, owner, gwURL, []string{"alt"}, sc, wfReg)
 	})
 
-	if isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
-		t.Run("identifier_validation", func(t *testing.T) {
-			if parallelEnabled {
-				t.Parallel()
-			}
-			subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
-			sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
-			owner := sc.MustGetRootKeyAddress().Hex()
-			wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-			wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
-			require.NoError(t, err)
-			require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
-			vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
-			enc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-basic", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
-			require.NoError(t, err)
-			ulCh := make(chan *workflowevents.UserLogs, 1000)
-			bmCh := make(chan *commonevents.BaseMessage, 1000)
-			sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
-			t.Cleanup(func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
-			})
-			executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
-			executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
+	t.Run("identifier_validation", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
+		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		enc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-basic", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		ulCh := make(chan *workflowevents.UserLogs, 1000)
+		bmCh := make(chan *commonevents.BaseMessage, 1000)
+		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+		t.Cleanup(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
 		})
-	}
+		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
+		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, verifier, ulCh, bmCh)
+		executeVaultSecretsGetBatchTooBigViaWorkflowTest(t, verifier, ulCh, bmCh)
+	})
 
-	if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
-		t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
-			ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
-		})
-	}
-
-	if isVaultIncludeInvalidEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
-		t.Run("include_invalid_pending_items_liveness", func(t *testing.T) {
-			ExecuteVaultIncludeInvalidLivenessSmokeTest(t, fixture, testEnv)
-		})
-	}
+	t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
+		ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
+	})
+	t.Run("include_invalid_pending_items_liveness", func(t *testing.T) {
+		ExecuteVaultIncludeInvalidLivenessSmokeTest(t, fixture, testEnv, verifier)
+	})
 }
 
 func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
@@ -298,6 +290,9 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	jwtAuth := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, false)
 	workflowOwnerAddress := common.HexToAddress(workflowOwner)
 
+	// Shared by all mixed-auth phase checks below.
+	verifier := deployVaultVerifierWorkflow(t, testEnv, fixture.TriggerAuth, "mixed-auth-verifier")
+
 	t.Run("jwt_crud_with_workflow_owner", func(t *testing.T) {
 		secretID := uniqueVaultSecretID("jwt")
 		createValue := "secret-jwt-workflow-owner"
@@ -331,7 +326,7 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		prepareVaultUserJSONRPCRequestLikeGateway(t, &jsonRequest, vaultParsedPublicKey, false)
 		jsonRequest.Auth = mintVaultJWTDigestForPreparedRequest(t, issuer, &jsonRequest, orgID, nil)
 
-		jsonResponse := sendVaultSignedOCRRequestToGateway(t, gwURL, jsonRequest, uniqueRequestID)
+		jsonResponse := sendVaultSignedOCRRequestToGateway(t, gwURL, jsonRequest, derivedJWTWorkflowOwner)
 		require.Equal(t, uniqueRequestID, jsonResponse.ID)
 		require.Nil(t, jsonResponse.Error)
 		require.Equal(t, vaulttypes.MethodSecretsCreate, jsonResponse.Method)
@@ -416,39 +411,34 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 			executeVaultSecretsCreateWithAuth(t, allowlistAuth, allowlistCreateEnc, allowlistSecretID, workflowOwner, gwURL, []string{"main"})
 			executeVaultSecretsCreateWithAuth(t, jwtAuth, jwtCreateEnc, jwtSecretID, derivedJWTWorkflowOwner, gwURL, []string{"main"})
 			// Workflow phases validate only allow-listed reads (workflow runs as EOA). JWT-backed keys are exercised via Gateway SecretsList.
-			workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "mixed-lifecycle", []vaultWorkflowPhase{
-				{
-					Name: "mixed-created",
-					Checks: []vaultWorkflowCheck{
-						{Name: "mixed-allowlist-create-get-main", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectedValue: allowlistCreateValue},
-					},
+			triggerAndAwaitVaultWorkflowPhase(t, verifier, vaultWorkflowPhase{
+				Name: "mixed-created",
+				Checks: []vaultWorkflowCheck{
+					{Name: "mixed-allowlist-create-get-main", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectedValue: allowlistCreateValue},
 				},
-				{
-					Name: "mixed-updated",
-					Checks: []vaultWorkflowCheck{
-						{Name: "mixed-allowlist-own-update-main", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectedValue: allowlistUpdateValue},
-					},
-				},
-				{
-					Name: "mixed-deleted",
-					Checks: []vaultWorkflowCheck{
-						{Name: "mixed-allowlist-delete-not-found", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectNotFound: true},
-					},
-				},
-			})
-			waitForVaultWorkflowPhase(t, workflowID, "mixed-created", ulCh, bmCh)
+			}, ulCh, bmCh)
 			executeVaultSecretsListWithAuth(t, jwtAuth, []string{jwtSecretID}, derivedJWTWorkflowOwner, gwURL, "main")
 
 			executeVaultSecretsUpdateWithAuth(t, allowlistAuth, allowlistUpdateEnc, allowlistSecretID, workflowOwner, gwURL, []string{"main"})
 			executeVaultSecretsUpdateWithAuth(t, jwtAuth, jwtUpdateEnc, jwtSecretID, derivedJWTWorkflowOwner, gwURL, []string{"main"})
-			waitForVaultWorkflowPhase(t, workflowID, "mixed-updated", ulCh, bmCh)
+			triggerAndAwaitVaultWorkflowPhase(t, verifier, vaultWorkflowPhase{
+				Name: "mixed-updated",
+				Checks: []vaultWorkflowCheck{
+					{Name: "mixed-allowlist-own-update-main", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectedValue: allowlistUpdateValue},
+				},
+			}, ulCh, bmCh)
 
 			executeVaultSecretsListWithAuth(t, allowlistAuth, []string{allowlistSecretID}, workflowOwner, gwURL, "main")
 			executeVaultSecretsListWithAuth(t, jwtAuth, []string{jwtSecretID}, derivedJWTWorkflowOwner, gwURL, "main")
 
 			executeVaultSecretsDeleteWithAuth(t, allowlistAuth, allowlistSecretID, workflowOwner, gwURL, []string{"main"})
 			executeVaultSecretsDeleteWithAuth(t, jwtAuth, jwtSecretID, derivedJWTWorkflowOwner, gwURL, []string{"main"})
-			waitForVaultWorkflowPhase(t, workflowID, "mixed-deleted", ulCh, bmCh)
+			triggerAndAwaitVaultWorkflowPhase(t, verifier, vaultWorkflowPhase{
+				Name: "mixed-deleted",
+				Checks: []vaultWorkflowCheck{
+					{Name: "mixed-allowlist-delete-not-found", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectNotFound: true},
+				},
+			}, ulCh, bmCh)
 			executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, vaultParsedPublicKey, jwtSecretID, orgID, derivedJWTWorkflowOwner, gwURL, "main")
 		})
 
@@ -462,23 +452,18 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 			require.NoError(t, err)
 
 			executeVaultSecretsCreateWithAuth(t, allowlistAuth, createEncAllow, sharedKey, workflowOwner, gwURL, []string{"main"})
-			// Vault workflow returns after the FIRST phase whose checks succeed (see vaultsecret/main.go).
-			// Two phases cannot share the same success predicate; otherwise the later phase never emits
-			// "Vault secret workflow phase completed: ..." and waits time out (4m).
-			crossWorkflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "mixed-cross-isolation", []vaultWorkflowPhase{
-				{
-					Name: "cross-isolation-stable",
-					Checks: []vaultWorkflowCheck{
-						{Name: "cross-share-key-allowlist-value", SecretKey: sharedKey, SecretNamespace: "main", ExpectedValue: allowlistValue},
-					},
+			crossPhase := vaultWorkflowPhase{
+				Name: "cross-isolation-stable",
+				Checks: []vaultWorkflowCheck{
+					{Name: "cross-share-key-allowlist-value", SecretKey: sharedKey, SecretNamespace: "main", ExpectedValue: allowlistValue},
 				},
-			})
-			waitForVaultWorkflowPhase(t, crossWorkflowID, "cross-isolation-stable", ulCh, bmCh)
+			}
+			triggerAndAwaitVaultWorkflowPhase(t, verifier, crossPhase, ulCh, bmCh)
 
 			// JWT cannot overwrite the allow-listed row: identifiers + labels are partitioned by owner address.
 			tryJWTSignedVaultSecretsUpdate(t, jwtAuth, jwtAuth.requestOwner, jwtCrossEnc, sharedKey, gwURL, []string{"main"})
-			// Confirm on a subsequent cron tick that secrets still satisfy the same invariant.
-			waitForVaultWorkflowPhase(t, crossWorkflowID, "cross-isolation-stable", ulCh, bmCh)
+			// Confirm on a subsequent trigger that secrets still satisfy the same invariant.
+			triggerAndAwaitVaultWorkflowPhase(t, verifier, crossPhase, ulCh, bmCh)
 
 			executeVaultSecretsDeleteWithAuth(t, allowlistAuth, sharedKey, workflowOwner, gwURL, []string{"main"})
 			// `sharedKey` only ever existed under the allowlisted workflow owner; JWT-targeted deletes use the
@@ -506,27 +491,75 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	})
 }
 
-func ExecuteVaultJWTDisabledTest(t *testing.T, fixture *vaultScenarioFixture) {
-	t.Helper()
-	issuer := fixture.Issuer
-	gatewayURL := fixture.GatewayURL
-	vaultPublicKey := fixture.VaultPublicKey
+// ExecuteVaultReadSecretsWithReshareFlagsTest runs the regular vault read-secret flow with the
+// reshare zero-downtime flags enabled for the whole environment:
+//   - VaultGetSecretsIncludePublicKeyEnabled: the Vault plugin includes the DKG instance's public
+//     key inline in the GetSecrets OCR response, and the workflow secrets reader (secrets.go) uses it.
+//   - VaultPublicKeyEncryptOnlyEnabled: the capability's GetPublicKey returns the stable encrypt-only
+//     key.
+//
+// A workflow secret read must still succeed with both gates on (proving the response-carried key path
+// works), which is the reshare-safe read path.
+func ExecuteVaultReadSecretsWithReshareFlagsTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+	// VaultGetSecretsIncludePublicKey changes the OCR GetSecrets outcome (it adds
+	// RawVaultPublicKey to the response). That code path does not exist in baseline
+	// images, so in a mixed-version environment nodes would produce divergent outcomes
+	// (non-determinism). Skip until this PR is merged and baseline images carry it, then
+	// remove this SkipIfMixedEnv call.
+	t_helpers.SkipIfMixedEnv(t, "VaultGetSecretsIncludePublicKey changes OCR GetSecrets behavior absent in baseline images; causes non-determinism in mixed-version envs")
 
-	orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	gwURL := gatewayURL.String()
+	testLogger := framework.L
 
-	t.Run("jwt_with_workflow_owner_rejected_when_jwt_auth_disabled", func(t *testing.T) {
-		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, gwURL, "JWTBasedAuth is disabled")
+	// Enable both reshare zero-downtime gates env-wide (top-level / global scope). Reverted on cleanup.
+	handle := t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(`
+VaultGetSecretsIncludePublicKeyEnabled = 'true'
+VaultPublicKeyEncryptOnlyEnabled = 'true'`))
+	t.Cleanup(func() { handle.Reset(t) })
+
+	gwURL := fixture.GatewayURL.String()
+	vaultParsedPublicKey := mustVaultPublicKey(t, fixture.VaultPublicKey)
+
+	sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+	owner := sc.MustGetRootKeyAddress().Hex()
+	wfRegAddr := crecontracts.MustGetAddressFromDataStore(
+		testEnv.CreEnvironment.CldfEnvironment.DataStore,
+		testEnv.CreEnvironment.Blockchains[0].ChainSelector(),
+		keystone_changeset.WorkflowRegistry.String(),
+		testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
+		"",
+	)
+	wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+	require.NoError(t, err)
+	requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+	auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
+
+	ulCh := make(chan *workflowevents.UserLogs, 1000)
+	bmCh := make(chan *commonevents.BaseMessage, 1000)
+	sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
 	})
 
-	t.Run("jwt_without_workflow_owner_rejected_when_jwt_auth_disabled", func(t *testing.T) {
-		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, gwURL, "JWTBasedAuth is disabled")
-	})
+	secretID := uniqueVaultSecretID("reshareflags")
+	secretValue := "secret-reshare-flags-on"
+	enc, err := vaultutils.EncryptSecretWithWorkflowOwner(secretValue, vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+	require.NoError(t, err)
+	executeVaultSecretsCreateWithAuth(t, auth, enc, secretID, owner, gwURL, []string{"main"})
+
+	verifier := deployVaultVerifierWorkflow(t, testEnv, fixture.TriggerAuth, "reshare-flags-verifier")
+	triggerAndAwaitVaultWorkflowPhase(t, verifier, vaultWorkflowPhase{
+		Name: "reshare-flags-created",
+		Checks: []vaultWorkflowCheck{
+			{Name: "reshare-flags-get-main", SecretKey: secretID, SecretNamespace: "main", ExpectedValue: secretValue},
+		},
+	}, ulCh, bmCh)
 }
 
 // ExecuteVaultIncludeInvalidLivenessSmokeTest verifies that an erroring workflow GetSecrets for a
 // deleted secret does not stall concurrent valid gateway creates while include-invalid is enabled.
-func ExecuteVaultIncludeInvalidLivenessSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+func ExecuteVaultIncludeInvalidLivenessSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment, verifier *vaultVerifierHandle) {
 	t.Helper()
 	testLogger := framework.L
 
@@ -560,15 +593,6 @@ func ExecuteVaultIncludeInvalidLivenessSmokeTest(t *testing.T, fixture *vaultSce
 		t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
 	})
 
-	workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "include-invalid-liveness", []vaultWorkflowPhase{
-		{
-			Name: "deleted-secret-not-found",
-			Checks: []vaultWorkflowCheck{
-				{Name: "get-deleted-not-found", SecretKey: deletedSecretID, SecretNamespace: "main", ExpectNotFound: true},
-			},
-		},
-	})
-
 	liveCreateRequestID := uuid.New().String()
 	liveCreateRequest := newVaultJSONRequest(t, liveCreateRequestID, vaulttypes.MethodSecretsCreate, &vault_helpers.CreateSecretsRequest{
 		RequestId:        liveCreateRequestID,
@@ -583,9 +607,28 @@ func ExecuteVaultIncludeInvalidLivenessSmokeTest(t *testing.T, fixture *vaultSce
 		createErrCh <- tryValidateVaultSecretsCreateResponse(gwURL, liveCreateRequest, liveCreateRequestID, liveSecretID, []string{owner}, namespaces)
 	}()
 
-	waitForVaultWorkflowPhase(t, workflowID, "deleted-secret-not-found", ulCh, bmCh)
+	waitForDeletedSecretNotFoundPhase(t, verifier, deletedSecretID, ulCh, bmCh)
 	<-createDone
 	require.NoError(t, <-createErrCh)
+}
+
+// waitForDeletedSecretNotFoundPhase asserts the verifier workflow sees
+// deletedSecretID as not found.
+func waitForDeletedSecretNotFoundPhase(
+	t *testing.T,
+	verifier *vaultVerifierHandle,
+	deletedSecretID string,
+	ulCh chan *workflowevents.UserLogs,
+	bmCh chan *commonevents.BaseMessage,
+) {
+	t.Helper()
+
+	triggerAndAwaitVaultWorkflowPhase(t, verifier, vaultWorkflowPhase{
+		Name: "deleted-secret-not-found",
+		Checks: []vaultWorkflowCheck{
+			{Name: "get-deleted-not-found", SecretKey: deletedSecretID, SecretNamespace: "main", ExpectNotFound: true},
+		},
+	}, ulCh, bmCh)
 }
 
 // local pending queue and exercises batched pending-queue blobs (beyond the legacy per-blob single-item cap).
@@ -602,16 +645,9 @@ func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixtu
 	owner := workflowOwnerAddress.Hex()
 	expectedResponseOwner := owner
 	orgID := ""
-	orgIDAsSecretOwnerEnabled := isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath)
 	if linkingService != nil {
 		orgID = "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
 		linkingService.SetOwnerOrg(owner, orgID)
-		if orgIDAsSecretOwnerEnabled {
-			expectedResponseOwner = orgID
-		}
-	}
-	if orgIDAsSecretOwnerEnabled {
-		require.NotEmpty(t, orgID, "JWT auth enabled topology must link the workflow owner to an org ID")
 	}
 
 	wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
@@ -945,119 +981,6 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 	}
 }
 
-func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
-	t.Parallel()
-	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
-}
-
-func TestVaultJSONOmitUnpopulatedEnabled_CRESettingDefaultsDisabled(t *testing.T) {
-	t.Parallel()
-	require.False(t, cresettings.Default.VaultJSONOmitUnpopulatedEnabled.DefaultValue)
-}
-
-func TestVaultIncludeInvalidPendingItemsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
-	t.Parallel()
-	require.False(t, cresettings.Default.VaultIncludeInvalidPendingItemsEnabled.DefaultValue)
-}
-
-func TestVaultSignedResponseRequestIDEnabled_CRESettingDefaultsDisabled(t *testing.T) {
-	t.Parallel()
-	require.False(t, cresettings.Default.VaultSignedResponseRequestIDEnabled.DefaultValue)
-}
-
-func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
-	t.Parallel()
-	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
-
-	testCases := []struct {
-		name                   string
-		configPath             string
-		wantJWTGate            string
-		wantLinking            bool
-		wantOptimizationsGate  string
-		wantIncludeInvalidGate string
-	}{
-		{
-			name:        "enabled",
-			configPath:  vaultJWTAuthEnabledConfigPath,
-			wantJWTGate: "true",
-			wantLinking: false,
-		},
-		{
-			name:        "default",
-			configPath:  vaultDefaultConfigPath,
-			wantJWTGate: "false",
-			wantLinking: false,
-		},
-		{
-			name:                  "optimizations_enabled",
-			configPath:            vaultOptimizationsEnabledConfigPath,
-			wantJWTGate:           "false",
-			wantLinking:           false,
-			wantOptimizationsGate: "true",
-		},
-		{
-			name:                   "include_invalid_enabled",
-			configPath:             vaultIncludeInvalidEnabledConfigPath,
-			wantJWTGate:            "false",
-			wantLinking:            false,
-			wantIncludeInvalidGate: "true",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := &envconfig.Config{}
-			require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, tc.configPath).EnvironmentConfigPath))
-
-			for _, nodeSet := range cfg.NodeSets {
-				switch nodeSet.Name {
-				case "workflow", "capabilities":
-				case "bootstrap-gateway":
-					if tc.wantOptimizationsGate != "true" && tc.wantIncludeInvalidGate != "true" {
-						continue
-					}
-				default:
-					continue
-				}
-				settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
-				if settingsRaw == "" {
-					require.Equal(t, "false", tc.wantJWTGate)
-					if tc.wantOptimizationsGate != "" {
-						require.Equal(t, "false", tc.wantOptimizationsGate)
-					}
-					if tc.wantIncludeInvalidGate != "" {
-						require.Equal(t, "false", tc.wantIncludeInvalidGate)
-					}
-				} else {
-					var settings map[string]string
-					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
-					if tc.wantOptimizationsGate == "true" {
-						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
-					} else if tc.wantIncludeInvalidGate == "true" {
-						require.Equal(t, "true", settings["VaultIncludeInvalidPendingItemsEnabled"])
-						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
-					} else {
-						require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
-						if v, ok := settings["VaultOptimizationsEnabled"]; ok {
-							require.Equal(t, "false", v)
-						}
-					}
-				}
-
-				for _, nodeSpec := range nodeSet.NodeSpecs {
-					if tc.wantLinking {
-						require.Contains(t, nodeSpec.Node.UserConfigOverrides, "[CRE.Linking]")
-						require.Contains(t, nodeSpec.Node.UserConfigOverrides, dockerHost+":18124")
-						continue
-					}
-					require.Empty(t, nodeSpec.Node.UserConfigOverrides)
-				}
-			}
-		})
-	}
-}
-
 func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
 
@@ -1072,8 +995,6 @@ func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {
 		require.NotEmpty(t, settingsRaw)
 		var configuredSettings map[string]json.RawMessage
 		require.NoError(t, json.Unmarshal([]byte(settingsRaw), &configuredSettings))
-		require.JSONEq(t, `"true"`, string(configuredSettings["VaultIncludeInvalidPendingItemsEnabled"]))
-		require.JSONEq(t, `"false"`, string(configuredSettings["VaultOptimizationsEnabled"]))
 		require.JSONEq(t, `"3"`, string(configuredSettings["VaultPendingQueueStallThreshold"]))
 		require.JSONEq(t, `"4kb"`, string(configuredSettings["VaultMaxObservationSizeLimit"]))
 		var perOwner map[string]string
@@ -1138,29 +1059,46 @@ func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
 }
 
 func executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(
-	t *testing.T, testEnv *ttypes.TestEnvironment,
-	workflowBaseName string,
+	t *testing.T, verifier *vaultVerifierHandle,
 	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
 ) {
 	testLogger := framework.L
 	testLogger.Info().Msg("Verifying get secret is rejected for invalid identifier via workflow...")
 
-	const workflowFileLocation = "./vaultsecret/main.go"
-
-	workflowName := t_helpers.UniqueWorkflowName(testEnv, workflowBaseName)
-	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &vaultsecret_config.Config{
+	// Success is logged only after both the invalid key and invalid namespace are rejected.
+	triggerAndAwaitVaultVerifierLog(t, verifier, vaultsecret_config.TriggerInput{
+		ExpectInvalidIdentifier: true,
 		SecretKey:               "invalid-key-with-hyphens", // hyphen not in [a-zA-Z0-9_]; tests invalid key
 		SecretNamespace:         "main",
 		SecretKey2:              "validkey",
 		SecretNamespace2:        "invalid-namespace-with-hyphens", // hyphen not in [a-zA-Z0-9_]; tests invalid namespace
-		ExpectInvalidIdentifier: true,
-	}, workflowFileLocation)
-
-	// Both invalid-key and invalid-namespace checks run in the same cron trigger; a single
-	// success log is emitted only after both GetSecret calls are correctly rejected.
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog,
-		"Vault get correctly rejected invalid identifier", 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	}, "Vault get correctly rejected invalid identifier", userLogsCh, baseMessageCh)
 	testLogger.Info().Msg("Vault get invalid identifier via workflow test completed")
+}
+
+// executeVaultSecretsGetBatchTooBigViaWorkflowTest verifies an oversized
+// GetSecrets batch is rejected with the real user-facing cause, asserting the
+// message survives the workflow-DON -> vault-DON remote capability hop.
+func executeVaultSecretsGetBatchTooBigViaWorkflowTest(
+	t *testing.T, verifier *vaultVerifierHandle,
+	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
+) {
+	testLogger := framework.L
+	testLogger.Info().Msg("Verifying get secret is rejected for oversized batch via workflow...")
+
+	// One over the limit; keys are valid identifiers so the batch size check
+	// fires, not identifier validation.
+	keys := make([]string, vaulttypes.MaxBatchSize+1)
+	for i := range keys {
+		keys[i] = fmt.Sprintf("batchkey%d", i)
+	}
+
+	triggerAndAwaitVaultVerifierLog(t, verifier, vaultsecret_config.TriggerInput{
+		ExpectBatchTooBig: true,
+		SecretNamespace:   "main",
+		BatchSecretKeys:   keys,
+	}, "Vault get correctly rejected oversized batch", userLogsCh, baseMessageCh)
+	testLogger.Info().Msg("Vault get oversized batch via workflow test completed")
 }
 
 // executeVaultSecretsIdentifierValidationTest verifies that the gateway rejects requests whose

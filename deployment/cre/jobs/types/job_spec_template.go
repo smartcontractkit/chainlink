@@ -25,8 +25,6 @@ const (
 	Gateway
 	BootstrapVault
 	Consensus
-	WebAPITrigger
-	WebAPITarget
 	CRESettings
 	Ring
 )
@@ -59,10 +57,6 @@ func (jt JobSpecTemplate) String() string {
 		return "bootstrap-vault"
 	case Consensus:
 		return "consensus"
-	case WebAPITrigger:
-		return "web-api-trigger"
-	case WebAPITarget:
-		return "web-api-target"
 	case CRESettings:
 		return "cre-settings"
 	case Ring:
@@ -101,10 +95,6 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return BootstrapVault, nil
 	case "consensus":
 		return Consensus, nil
-	case "web-api-trigger":
-		return WebAPITrigger, nil
-	case "web-api-target":
-		return WebAPITarget, nil
 	case "cre-settings":
 		return CRESettings, nil
 	case "ring":

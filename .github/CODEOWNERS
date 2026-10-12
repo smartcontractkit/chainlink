@@ -42,13 +42,8 @@
 /core/services/vrf/ @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/blockhashstore/ @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/blockheaderfeeder/ @smartcontractkit/dev-services @smartcontractkit/core
-/core/services/pipeline/task.vrf.go @smartcontractkit/dev-services
-/core/services/pipeline/task.vrfv2.go @smartcontractkit/dev-services
 /core/services/pipeline/task.vrfv2plus.go @smartcontractkit/dev-services
 /core/scripts/vrf*/ @smartcontractkit/dev-services
-
-# Keeper/Automation-related services
-/core/services/ocr2/plugins/ocr2keeper/ @smartcontractkit/dev-services
 
 # Keystone
 /core/services/registrysyncer/ @smartcontractkit/keystone
@@ -64,8 +59,6 @@
 
 # Tests
 /integration-tests/ @smartcontractkit/devex-tooling @smartcontractkit/core
-/integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
-/integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 /devenv/ @smartcontractkit/devex-tooling
 /devenv/products/ocr2/ @smartcontractkit/devex-tooling
@@ -89,6 +82,7 @@
 /tools/plugout/ @smartcontractkit/devex-cicd @smartcontractkit/core
 /tools/test/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 /tools/githooks/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
+/tools/ci/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 

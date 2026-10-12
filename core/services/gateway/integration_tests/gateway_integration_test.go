@@ -104,9 +104,9 @@ func parseGatewayConfig(t *testing.T, tomlConfig string) *config.GatewayConfig {
 	return &cfg
 }
 
-func parseConnectorConfig(t *testing.T, tomlConfig, nodeAddress, nodeURL string) *connector.ConnectorConfig {
+func parseConnectorConfig(t *testing.T, tomlConfig, nodeAddress, nodeURL string) *connector.Config {
 	nodeConfig := fmt.Sprintf(tomlConfig, nodeAddress, nodeURL)
-	var cfg connector.ConnectorConfig
+	var cfg connector.Config
 	require.NoError(t, toml.Unmarshal([]byte(nodeConfig), &cfg))
 	return &cfg
 }
@@ -130,7 +130,7 @@ func (c *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req
 	rawPayload := json.RawMessage(payload)
 	resp := &jsonrpc.Response[json.RawMessage]{
 		Version: "2.0",
-		ID:      msg.Body.MessageId,
+		ID:      msg.Body.MessageID,
 		Result:  &rawPayload,
 		Method:  req.Method,
 	}
@@ -138,9 +138,9 @@ func (c *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req
 	_ = c.connector.SendToGateway(ctx, gatewayID, resp)
 	// send back a correct response
 	responseMsg := &api.Message{Body: api.MessageBody{
-		MessageId: msg.Body.MessageId,
+		MessageID: msg.Body.MessageID,
 		Method:    "test",
-		DonId:     "test_don",
+		DonID:     "test_don",
 		Receiver:  msg.Body.Sender,
 		Payload:   []byte(nodeResponsePayload),
 	}}
@@ -189,12 +189,14 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	}, lggr)
 	require.NoError(t, err)
 	lf := limits.Factory{Logger: lggr}
-	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, c, nil, nil, lggr, lf, nil), lggr, lf)
+	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, c, nil, nil, lggr, lf, nil, nil), lggr, lf)
 	require.NoError(t, err)
 	servicetest.Run(t, gateway)
 	userPort, nodePort := gateway.GetUserPort(), gateway.GetNodePort()
 	userURL := fmt.Sprintf("http://localhost:%d/user", userPort)
 	nodeURL := fmt.Sprintf("ws://localhost:%d/node", nodePort)
+	require.Equal(t, http.StatusServiceUnavailable, getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", userPort)))
+	require.Equal(t, http.StatusOK, getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", nodePort)))
 
 	// Launch Connector
 	client := &client{privateKey: nodeKeys.PrivateKey}
@@ -204,12 +206,18 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	require.NoError(t, connector.AddHandler(t.Context(), []string{"test"}, client))
 	client.connector = connector
 	servicetest.Run(t, connector)
+	require.Eventually(t, func() bool {
+		return getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", userPort)) == http.StatusOK
+	}, testutils.WaitTimeout(t), testutils.TestInterval)
 
 	// Send requests until one of them reaches Connector (i.e. the node)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		req := newJSONRPCHTTPRequestObject(t, messageID1, userURL, userKeys.PrivateKey)
 		httpClient := &http.Client{}
-		_, _ = httpClient.Do(req) // could initially return error if Gateway is not fully initialized yet
+		resp, doErr := httpClient.Do(req) // could initially return error if Gateway is not fully initialized yet
+		if doErr == nil {
+			resp.Body.Close()
+		}
 		return client.done.Load()
 	}, testutils.WaitTimeout(t), testutils.TestInterval).Should(gomega.BeTrue())
 
@@ -218,21 +226,32 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	rawResp, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	respMsg, err := codec.DecodeLegacyResponse(rawResp)
 	require.NoError(t, err)
 	require.NoError(t, respMsg.Validate())
 	require.Equal(t, strings.ToLower(nodeKeys.Address), respMsg.Body.Sender)
-	require.Equal(t, messageID2, respMsg.Body.MessageId)
+	require.Equal(t, messageID2, respMsg.Body.MessageID)
 	require.JSONEq(t, nodeResponsePayload, string(respMsg.Body.Payload))
 }
 
+func getHTTPStatus(t *testing.T, url string) int {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	return resp.StatusCode
+}
+
 func newJSONRPCHTTPRequestObject(t *testing.T, messageID, userURL string, signerKey *ecdsa.PrivateKey) *http.Request {
-	msg := &api.Message{Body: api.MessageBody{MessageId: messageID, Method: "test"}}
+	msg := &api.Message{Body: api.MessageBody{MessageID: messageID, Method: "test"}}
 	require.NoError(t, msg.Sign(signerKey))
 	msgBytes, err := json.Marshal(msg)
 	require.NoError(t, err)

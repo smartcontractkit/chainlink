@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
@@ -45,6 +46,10 @@ func testDeployPrerequisitesWithEnv(t *testing.T, e cldf.Environment) {
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(e.DataStore))
+	require.NoError(t, ds.Merge(output.DataStore.Seal()))
+	e.DataStore = ds.Seal()
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 	chainState, _ := state.EVMChainState(newChain)

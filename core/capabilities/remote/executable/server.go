@@ -102,8 +102,7 @@ func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableCon
 		remoteExecutableConfig = &commoncap.RemoteExecutableConfig{}
 	}
 	if messageHasher == nil {
-		r.lggr.Warn("no message hasher provided, using default V1 hasher")
-		messageHasher = NewV1Hasher(remoteExecutableConfig.RequestHashExcludedAttributes)
+		return errors.New("message hasher must be provided")
 	}
 	if capInfo.ID == "" || capInfo.ID != r.capabilityID {
 		return fmt.Errorf("capability info provided does not match the server's capabilityID: %s != %s", capInfo.ID, r.capabilityID)
@@ -281,17 +280,14 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	r.lggr.Debugw("received request", "msgId", msg.MessageId, "requestID", requestID)
 
-	if requestIDs, ok := r.messageIDToRequestIDsCount[messageID]; ok {
+	requestIDs, requestIDsOK := r.messageIDToRequestIDsCount[messageID]
+	if requestIDsOK {
 		requestIDs[requestID]++
-	} else {
-		r.messageIDToRequestIDsCount[messageID] = map[string]int{requestID: 1}
-	}
-
-	requestIDs := r.messageIDToRequestIDsCount[messageID]
-	if len(requestIDs) > 1 {
-		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
-		// so a warning is logged
-		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
+		if len(requestIDs) > 1 {
+			// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
+			// so a warning is logged
+			r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
+		}
 	}
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
@@ -312,6 +308,11 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 			request:   sr,
 			messageID: messageID,
 		}
+	}
+
+	if !requestIDsOK {
+		// This is separate from inverse case because we want to wait until after the early returns in between.
+		r.messageIDToRequestIDsCount[messageID] = map[string]int{requestID: 1}
 	}
 
 	reqAndMsgID := r.requestIDToRequest[requestID]

@@ -1,7 +1,0 @@
-type CosmosKey {
-	id: ID!
-}
-
-type CosmosKeysPayload {
-	results: [CosmosKey!]!
-}

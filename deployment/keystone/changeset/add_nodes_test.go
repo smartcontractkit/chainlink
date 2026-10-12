@@ -41,7 +41,7 @@ func TestAddNodes(t *testing.T) {
 		mcmsConfig *changeset.MCMSConfig
 	}
 
-	var mcCases = []mcmsCase{
+	mcCases := []mcmsCase{
 		{name: "no mcms", mcmsConfig: nil},
 		{name: "with mcms", mcmsConfig: &changeset.MCMSConfig{MinDelay: 0}},
 	}
@@ -56,16 +56,14 @@ func TestAddNodes(t *testing.T) {
 				UseMCMS:         mcmsConfig != nil,
 			})
 
-			var cases = []testCase{
+			cases := []testCase{
 				{
 					name: "error - unregistered nop",
 					input: input{
 						te: te,
 						CreateNodeRequests: map[string]*changeset.CreateNodeRequest{
-							"test-node": &changeset.CreateNodeRequest{
-								NOPIdentity: changeset.NOPIdentity{
-									RegistrationID: math.MaxUint32,
-								},
+							"test-node": {
+								RegistrationID:      math.MaxUint32,
 								Signer:              [32]byte{0: 4},
 								EncryptionPublicKey: [32]byte{0: 23},
 								P2PID:               testPeerID(t, "test-peer-id"),

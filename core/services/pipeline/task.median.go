@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	stderrors "errors"
+	"math"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -63,7 +64,11 @@ func (t *MedianTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 	}
 
 	if allowed, isSet := maybeAllowedFaults.Uint64(); isSet {
-		allowedFaults = int(allowed)
+		if allowed > math.MaxInt {
+			allowedFaults = math.MaxInt
+		} else {
+			allowedFaults = int(allowed)
+		}
 	} else {
 		allowedFaults = max(len(valuesAndErrs)-1, 0)
 	}
@@ -78,11 +83,12 @@ func (t *MedianTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		faults += nilCount
 	}
 
-	if faults > allowedFaults {
+	switch {
+	case faults > allowedFaults:
 		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to median task > number allowed faults %v", faults, allowedFaults)}, runInfo
-	} else if len(values) == 0 && (bool(lax) || bool(countNilsAsFaults)) {
+	case len(values) == 0 && (bool(lax) || bool(countNilsAsFaults)):
 		return Result{}, runInfo // if lax is enabled, return nil result with no error
-	} else if len(values) == 0 {
+	case len(values) == 0:
 		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no values to medianize")}, runInfo
 	}
 

@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -36,31 +35,12 @@ func workflowCmds() *cobra.Command {
 		Long:  `Commands to manage workflows`,
 	}
 
-	workflowCmd.AddCommand(deployAndVerifyExampleWorkflowCmd())
 	workflowCmd.AddCommand(deleteWorkflowCmd())
 	workflowCmd.AddCommand(deleteAllWorkflowsCmd())
 	workflowCmd.AddCommand(compileWorkflowCmd())
 	workflowCmd.AddCommand(deployWorkflowCmd())
 
 	return workflowCmd
-}
-
-func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress string, contractsVersion *semver.Version) error {
-	sethClient, err := newSethClient(rpcURL)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("\n⚙️ Deleting all workflows from the workflow registry\n\n")
-
-	deleteErr := creworkflow.DeleteAllWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), contractsVersion)
-	if deleteErr != nil {
-		return errors.Wrapf(deleteErr, "❌ failed to delete all workflows from the registry %s", workflowRegistryAddress)
-	}
-
-	fmt.Printf("\n✅ All workflows deleted from the workflow registry\n\n")
-
-	return nil
 }
 
 func compileWorkflowCmd() *cobra.Command {
@@ -515,28 +495,6 @@ func deployWorkflow(
 	return nil
 }
 
-func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, workflowDonNameFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL string, workflowRegistryVersion, capabilitiesRegistryVersion *semver.Version, donIDFlag uint32, donFamily string) error {
-	compressedWorkflowWasmPath, compileErr := compileWorkflow(ctx, workflowFilePathFlag, workflowNameFlag)
-	if compileErr != nil {
-		return errors.Wrap(compileErr, "❌ failed to compile workflow")
-	}
-
-	resolver, resolverErr := TryLoadLocalCREStateResolver()
-	if resolverErr != nil {
-		return errors.Wrap(resolverErr, "failed to load local CRE state")
-	}
-	donSelector := workflowDONSelector{
-		ExplicitName: workflowDonNameFlag,
-		DonFamily:    donFamily,
-	}
-	nodeDBPort, nodeCount, nodeInfoErr := resolveWorkflowDONNodeInfo(resolver, donSelector)
-	if nodeInfoErr != nil {
-		return nodeInfoErr
-	}
-
-	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, donFamily, true, nodeDBPort, nodeCount)
-}
-
 // newSethClient creates a Seth client for rpcURL, ensuring PRIVATE_KEY is set in the
 // environment and falling back to blockchain.DefaultAnvilPrivateKey when it is not.
 func newSethClient(rpcURL string) (*seth.Client, error) {
@@ -581,7 +539,7 @@ func resolveWorkflowDONNodeInfo(resolver *LocalCREStateResolver, sel workflowDON
 	port, count, nodeErr := resolver.workflowDONNodeInfoFor(donMeta)
 	if nodeErr != nil {
 		// Kubernetes and other providers without direct DB access fall back to a static wait.
-		return 0, 0, nil
+		return 0, 0, nil //nolint:nilerr // providers without direct DB access fall back to static wait
 	}
 	return port, count, nil
 }

@@ -24,9 +24,10 @@ type configureForwarderContractsResponse struct {
 	Config             map[uint64]ForwarderConfig
 }
 
-// Depreciated: use [changeset.configureForwardContracts] instead
 // configureForwardContracts configures the forwarder contracts on all chains for the given DONS
 // the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
+//
+// Deprecated: use changeset.ConfigureForwardContracts instead.
 func configureForwardContracts(env *cldf.Environment, req configureForwarderContractsRequest) (*configureForwarderContractsResponse, error) {
 	evmChains := env.BlockChains.EVMChains()
 	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{

@@ -13,42 +13,42 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
-var randomBlessedCommitReport = func() cciptypes.CommitPluginReport {
+var randomBlessedCommitReport = func() ccipocr3.CommitPluginReport {
 	pubkey, err := solanago.NewRandomPrivateKey()
 	if err != nil {
 		panic(err)
 	}
 
-	return cciptypes.CommitPluginReport{
-		BlessedMerkleRoots: []cciptypes.MerkleRootChain{
+	return ccipocr3.CommitPluginReport{
+		BlessedMerkleRoots: []ccipocr3.MerkleRootChain{
 			{
-				OnRampAddress: cciptypes.UnknownAddress(pubkey.PublicKey().String()),
-				ChainSel:      cciptypes.ChainSelector(rand.Uint64()),
-				SeqNumsRange: cciptypes.NewSeqNumRange(
-					cciptypes.SeqNum(rand.Uint64()),
-					cciptypes.SeqNum(rand.Uint64()),
+				OnRampAddress: ccipocr3.UnknownAddress(pubkey.PublicKey().String()),
+				ChainSel:      ccipocr3.ChainSelector(rand.Uint64()),
+				SeqNumsRange: ccipocr3.NewSeqNumRange(
+					ccipocr3.SeqNum(rand.Uint64()),
+					ccipocr3.SeqNum(rand.Uint64()),
 				),
 				MerkleRoot: utils.RandomBytes32(),
 			},
 		},
-		PriceUpdates: cciptypes.PriceUpdates{
-			TokenPriceUpdates: []cciptypes.TokenPrice{
+		PriceUpdates: ccipocr3.PriceUpdates{
+			TokenPriceUpdates: []ccipocr3.TokenPrice{
 				{
 					TokenID: "C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8",
-					Price:   cciptypes.NewBigInt(big.NewInt(rand.Int63())),
+					Price:   ccipocr3.NewBigInt(big.NewInt(rand.Int63())),
 				},
 			},
-			GasPriceUpdates: []cciptypes.GasPriceChain{
-				{GasPrice: cciptypes.NewBigInt(big.NewInt(rand.Int63())), ChainSel: cciptypes.ChainSelector(rand.Uint64())},
-				{GasPrice: cciptypes.NewBigInt(big.NewInt(rand.Int63())), ChainSel: cciptypes.ChainSelector(rand.Uint64())},
-				{GasPrice: cciptypes.NewBigInt(big.NewInt(rand.Int63())), ChainSel: cciptypes.ChainSelector(rand.Uint64())},
+			GasPriceUpdates: []ccipocr3.GasPriceChain{
+				{GasPrice: ccipocr3.NewBigInt(big.NewInt(rand.Int63())), ChainSel: ccipocr3.ChainSelector(rand.Uint64())},
+				{GasPrice: ccipocr3.NewBigInt(big.NewInt(rand.Int63())), ChainSel: ccipocr3.ChainSelector(rand.Uint64())},
+				{GasPrice: ccipocr3.NewBigInt(big.NewInt(rand.Int63())), ChainSel: ccipocr3.ChainSelector(rand.Uint64())},
 			},
 		},
-		RMNSignatures: []cciptypes.RMNECDSASignature{
+		RMNSignatures: []ccipocr3.RMNECDSASignature{
 			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
 		},
 	}
@@ -57,18 +57,18 @@ var randomBlessedCommitReport = func() cciptypes.CommitPluginReport {
 func TestCommitPluginCodecV1(t *testing.T) {
 	testCases := []struct {
 		name   string
-		report func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport
+		report func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport
 		expErr bool
 	}{
 		{
 			name: "base report blessed",
-			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
 				return report
 			},
 		},
 		{
 			name: "base report unblessed",
-			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
 				report.RMNSignatures = nil
 				report.UnblessedMerkleRoots = report.BlessedMerkleRoots
 				report.BlessedMerkleRoots = nil
@@ -77,7 +77,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 		},
 		{
 			name: "blessed report with no rmn signatures",
-			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
 				report.RMNSignatures = nil
 				return report
 			},
@@ -85,7 +85,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 		},
 		{
 			name: "rmn signature included without any blessed root",
-			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
 				report.UnblessedMerkleRoots = report.BlessedMerkleRoots
 				report.BlessedMerkleRoots = nil
 				return report
@@ -94,7 +94,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 		},
 		{
 			name: "empty token address",
-			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
 				report.PriceUpdates.TokenPriceUpdates[0].TokenID = ""
 				return report
 			},
@@ -102,38 +102,39 @@ func TestCommitPluginCodecV1(t *testing.T) {
 		},
 		{
 			name: "empty merkle root",
-			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-				report.BlessedMerkleRoots[0].MerkleRoot = cciptypes.Bytes32{}
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
+				report.BlessedMerkleRoots[0].MerkleRoot = ccipocr3.Bytes32{}
 				return report
 			},
 		},
 		{
 			name: "both blessed and unblessed merkle roots",
-			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-				report.UnblessedMerkleRoots = []cciptypes.MerkleRootChain{
-					report.BlessedMerkleRoots[0]}
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
+				report.UnblessedMerkleRoots = []ccipocr3.MerkleRootChain{
+					report.BlessedMerkleRoots[0],
+				}
 				return report
 			},
 			expErr: true,
 		},
 		{
 			name: "zero token price",
-			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-				report.PriceUpdates.TokenPriceUpdates[0].Price = cciptypes.NewBigInt(big.NewInt(0))
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
+				report.PriceUpdates.TokenPriceUpdates[0].Price = ccipocr3.NewBigInt(big.NewInt(0))
 				return report
 			},
 		},
 		{
 			name: "zero gas price",
-			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-				report.PriceUpdates.GasPriceUpdates[0].GasPrice = cciptypes.NewBigInt(big.NewInt(0))
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
+				report.PriceUpdates.GasPriceUpdates[0].GasPrice = ccipocr3.NewBigInt(big.NewInt(0))
 				return report
 			},
 		},
 		{
 			name: "empty gas price",
-			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-				report.PriceUpdates.GasPriceUpdates[0].GasPrice = cciptypes.NewBigInt(nil)
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
+				report.PriceUpdates.GasPriceUpdates[0].GasPrice = ccipocr3.NewBigInt(nil)
 				return report
 			},
 			expErr: true,
@@ -197,7 +198,7 @@ func BenchmarkCommitPluginCodecV1_Encode_Decode(b *testing.B) {
 
 func Test_DecodingCommitReport(t *testing.T) {
 	t.Run("decode on-chain commit report", func(t *testing.T) {
-		chainSel := cciptypes.ChainSelector(rand.Uint64())
+		chainSel := ccipocr3.ChainSelector(rand.Uint64())
 		minSeqNr := rand.Uint64()
 		maxSeqNr := minSeqNr + 10
 		onRampAddr, err := solanago.NewRandomPrivateKey()
@@ -248,13 +249,13 @@ func Test_DecodingCommitReport(t *testing.T) {
 		// check decoded ocr report merkle root matches with on-chain report
 		require.Equal(t, strconv.FormatUint(minSeqNr, 10), mr.SeqNumsRange.Start().String())
 		require.Equal(t, strconv.FormatUint(maxSeqNr, 10), mr.SeqNumsRange.End().String())
-		require.Equal(t, cciptypes.UnknownAddress(onRampAddr.PublicKey().Bytes()), mr.OnRampAddress)
-		require.Equal(t, cciptypes.Bytes32(merkleRoot), mr.MerkleRoot)
+		require.Equal(t, ccipocr3.UnknownAddress(onRampAddr.PublicKey().Bytes()), mr.OnRampAddress)
+		require.Equal(t, ccipocr3.Bytes32(merkleRoot), mr.MerkleRoot)
 
 		// check decoded ocr report token price update matches with on-chain report
 		pu := decode.PriceUpdates.TokenPriceUpdates[0]
 		require.Equal(t, decodeBEToBigInt(tokenPrice), pu.Price)
-		require.Equal(t, cciptypes.UnknownEncodedAddress(tokenSource.String()), pu.TokenID)
+		require.Equal(t, ccipocr3.UnknownEncodedAddress(tokenSource.String()), pu.TokenID)
 
 		// check decoded ocr report gas price update matches with on-chain report
 		gu := decode.PriceUpdates.GasPriceUpdates[0]
@@ -263,7 +264,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 	})
 
 	t.Run("decode on-chain commit report with no MerkleRoot", func(t *testing.T) {
-		chainSel := cciptypes.ChainSelector(rand.Uint64())
+		chainSel := ccipocr3.ChainSelector(rand.Uint64())
 
 		tokenSource := solanago.MustPublicKeyFromBase58("C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8")
 		tokenPrice := encodeBigIntToFixedLengthBE(big.NewInt(rand.Int63()), 28)
@@ -304,7 +305,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 		// check decoded ocr report token price update matches with on-chain report
 		pu := decode.PriceUpdates.TokenPriceUpdates[0]
 		require.Equal(t, decodeBEToBigInt(tokenPrice), pu.Price)
-		require.Equal(t, cciptypes.UnknownEncodedAddress(tokenSource.String()), pu.TokenID)
+		require.Equal(t, ccipocr3.UnknownEncodedAddress(tokenSource.String()), pu.TokenID)
 
 		// check decoded ocr report gas price update matches with on-chain report
 		gu := decode.PriceUpdates.GasPriceUpdates[0]
@@ -324,14 +325,14 @@ func Test_DecodingCommitReport(t *testing.T) {
 		require.NoError(t, err)
 
 		reportMerkleRoot := rep.BlessedMerkleRoots[0]
-		require.Equal(t, reportMerkleRoot.MerkleRoot, cciptypes.Bytes32(decodedReport.MerkleRoot.MerkleRoot))
+		require.Equal(t, reportMerkleRoot.MerkleRoot, ccipocr3.Bytes32(decodedReport.MerkleRoot.MerkleRoot))
 
 		tu := rep.PriceUpdates.TokenPriceUpdates[0]
-		require.Equal(t, tu.TokenID, cciptypes.UnknownEncodedAddress(decodedReport.PriceUpdates.TokenPriceUpdates[0].SourceToken.String()))
+		require.Equal(t, tu.TokenID, ccipocr3.UnknownEncodedAddress(decodedReport.PriceUpdates.TokenPriceUpdates[0].SourceToken.String()))
 		require.Equal(t, tu.Price, decodeBEToBigInt(decodedReport.PriceUpdates.TokenPriceUpdates[0].UsdPerToken[:]))
 
 		gu := rep.PriceUpdates.GasPriceUpdates[0]
-		require.Equal(t, gu.ChainSel, cciptypes.ChainSelector(decodedReport.PriceUpdates.GasPriceUpdates[0].DestChainSelector))
+		require.Equal(t, gu.ChainSel, ccipocr3.ChainSelector(decodedReport.PriceUpdates.GasPriceUpdates[0].DestChainSelector))
 		require.Equal(t, gu.GasPrice, decodeBEToBigInt(decodedReport.PriceUpdates.GasPriceUpdates[0].UsdPerUnitGas[:]))
 	})
 }

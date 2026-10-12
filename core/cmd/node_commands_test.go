@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -31,15 +31,15 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	chainID := newRandChainID()
 	node1 := configtoml.Node{
 		Name:     new("Test node 1"),
-		WSURL:    config.MustParseURL("ws://localhost:8546"),
-		HTTPURL:  config.MustParseURL("http://localhost:8546"),
+		WSURL:    commonconfig.MustParseURL("ws://localhost:8546"),
+		HTTPURL:  commonconfig.MustParseURL("http://localhost:8546"),
 		SendOnly: new(false),
 		Order:    new(int32(15)),
 	}
 	node2 := configtoml.Node{
 		Name:     new("Test node 2"),
-		WSURL:    config.MustParseURL("ws://localhost:8547"),
-		HTTPURL:  config.MustParseURL("http://localhost:8547"),
+		WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
+		HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
 		SendOnly: new(false),
 		Order:    new(int32(36)),
 	}

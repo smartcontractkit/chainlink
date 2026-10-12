@@ -109,12 +109,12 @@ type RMNNopConfig struct {
 	NodeIndex           uint64
 	OffchainPublicKey   [32]byte
 	EVMOnChainPublicKey common.Address
-	PeerId              p2pkey.PeerID
+	PeerID              p2pkey.PeerID `json:"PeerId"`
 }
 
 func (c RMNNopConfig) ToRMNHomeNode() rmn_home.RMNHomeNode {
 	return rmn_home.RMNHomeNode{
-		PeerId:            c.PeerId,
+		PeerId:            c.PeerID,
 		OffchainPublicKey: c.OffchainPublicKey,
 	}
 }
@@ -172,15 +172,15 @@ func (c SetRMNHomeCandidateConfig) Validate(state stateview.CCIPOnChainState) er
 	}
 
 	var (
-		peerIds            = make(map[[32]byte]struct{})
+		peerIDs            = make(map[[32]byte]struct{})
 		offchainPublicKeys = make(map[[32]byte]struct{})
 	)
 
 	for _, node := range c.RMNStaticConfig.Nodes {
-		if _, exists := peerIds[node.PeerId]; exists {
+		if _, exists := peerIDs[node.PeerId]; exists {
 			return fmt.Errorf("peerId %x is duplicated", node.PeerId)
 		}
-		peerIds[node.PeerId] = struct{}{}
+		peerIDs[node.PeerId] = struct{}{}
 
 		if _, exists := offchainPublicKeys[node.OffchainPublicKey]; exists {
 			return fmt.Errorf("offchainPublicKey %x is duplicated", node.OffchainPublicKey)
@@ -529,7 +529,6 @@ func SetRMNHomeDynamicConfigChangeset(e cldf.Environment, cfg SetRMNHomeDynamicC
 	}
 
 	_, err = rmnHome.SetDynamicConfig(deployer, cfg.RMNDynamicConfig, cfg.ActiveDigest)
-
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set RMNHome dynamic config for chain %s: %w", chain.String(), err)
 	}

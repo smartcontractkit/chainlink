@@ -76,8 +76,8 @@ func resolveWorkflowDeployTargets(
 		targets.donID = libc.MustSafeUint32FromUint64(donMeta.ID)
 	}
 	// Infer registry family from the selected DON when --don-family was omitted.
-	if !cmd.Flags().Changed("don-family") && donMeta.DonFamily != "" {
-		targets.donFamily = donMeta.DonFamily
+	if !cmd.Flags().Changed("don-family") && donMeta.DonFamily() != "" {
+		targets.donFamily = donMeta.DonFamily()
 	}
 
 	family, err := finalizeWorkflowDonFamily(targets.donFamily)
@@ -118,15 +118,15 @@ func validateWorkflowDeployFlags(cmd *cobra.Command, donMeta *cre.DonMetadata, s
 	if !cmd.Flags().Changed("workflow-don-name") || !cmd.Flags().Changed("don-family") {
 		return nil
 	}
-	if donMeta.DonFamily == "" {
+	if donMeta.DonFamily() == "" {
 		return nil
 	}
 	// CLI don_family must match the selected DON's topology value.
-	if donFamilyFlag != donMeta.DonFamily {
+	if donFamilyFlag != donMeta.DonFamily() {
 		return fmt.Errorf(
 			"❌ --don-family %q does not match don_family %q for workflow DON %q in local CRE state",
 			donFamilyFlag,
-			donMeta.DonFamily,
+			donMeta.DonFamily(),
 			donMeta.Name,
 		)
 	}

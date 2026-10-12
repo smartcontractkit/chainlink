@@ -38,11 +38,12 @@ func (auth TerminalKeyStoreAuthenticator) Authenticate(ctx context.Context, keyS
 		return keyStore.Unlock(ctx, pw)
 	}
 	interactive := auth.Prompter.IsTerminal()
-	if !interactive {
+	switch {
+	case !interactive:
 		return errors.New("no password provided")
-	} else if !isEmpty {
+	case !isEmpty:
 		pw = auth.promptExistingPassword()
-	} else {
+	default:
 		pw, err = auth.promptNewPassword()
 	}
 	if err != nil {

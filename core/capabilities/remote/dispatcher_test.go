@@ -56,13 +56,8 @@ func (c testRateLimitConfig) PerSenderBurst() int {
 }
 
 type testConfig struct {
-	supportedVersion   int
 	receiverBufferSize int
 	rateLimit          testRateLimitConfig
-}
-
-func (c testConfig) SupportedVersion() int {
-	return c.supportedVersion
 }
 
 func (c testConfig) ReceiverBufferSize() int {
@@ -71,10 +66,6 @@ func (c testConfig) ReceiverBufferSize() int {
 
 func (c testConfig) RateLimit() config.DispatcherRateLimit {
 	return c.rateLimit
-}
-
-func (c testConfig) SendToSharedPeer() bool {
-	return true
 }
 
 func TestDispatcher_CleanStartClose(t *testing.T) {
@@ -158,7 +149,6 @@ func TestDispatcher_ReceiveForMethod(t *testing.T) {
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
 	dispatcher, err := remote.NewDispatcher(testConfig{
-		supportedVersion:   1,
 		receiverBufferSize: 10000,
 		rateLimit: testRateLimitConfig{
 			globalRPS:   800.0,
@@ -319,7 +309,6 @@ func TestDispatcher_ReceiverPanicDoesNotKillLoop(t *testing.T) {
 
 func newTestConfig() testConfig {
 	return testConfig{
-		supportedVersion:   1,
 		receiverBufferSize: 10000,
 		rateLimit: testRateLimitConfig{
 			globalRPS:   800.0,

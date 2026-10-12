@@ -100,7 +100,7 @@ func TestJobRenderer_GetTasks(t *testing.T) {
 
 		tasks, err := r.GetTasks()
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, []string{
 			"ds1 http",
 			"ds1_parse jsonparse",
@@ -115,7 +115,7 @@ func TestJobRenderer_GetTasks(t *testing.T) {
 
 		tasks, err := r.GetTasks()
 
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, tasks)
 	})
 }

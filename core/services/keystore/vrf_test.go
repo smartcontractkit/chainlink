@@ -100,7 +100,7 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		err = ks.Add(ctx, k)
 
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Equal(t, fmt.Sprintf("key with ID %s already exists", k.ID()), err.Error())
 	})
 
@@ -142,7 +142,7 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 		k, err := ks.Import(ctx, []byte(exportedKey), "p4SsW0rD1!@#_")
 
 		assert.Zero(t, k)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Equal(t, fmt.Sprintf("key with ID %s already exists", importedKey.ID()), err.Error())
 	})
 

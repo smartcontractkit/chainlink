@@ -233,11 +233,9 @@ var SetCallAllowedProposalOperation = operations.NewOperation(
 			ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
 			Transactions: []mcmstypes.Transaction{
 				{
-					OperationMetadata: mcmstypes.OperationMetadata{
-						ContractType: vaulttypes.AutomationReceiverContractType,
-						Tags: []string{
-							"setCallAllowed",
-						},
+					ContractType: vaulttypes.AutomationReceiverContractType,
+					Tags: []string{
+						"setCallAllowed",
 					},
 					To:               automationReceiverAddr,
 					Data:             setCallAllowedTx.Data(),

@@ -371,7 +371,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	// create many transmitters but only need to fund one, rest are to get
 	// setOCR3Config to pass.
 	chainStore := keys.NewChainStore(keyStore, big.NewInt(1337))
-	var transmitters []common.Address
+	transmitters := make([]common.Address, 0, 4)
 	for range 4 {
 		addr, err := keyStore.Create()
 		require.NoError(t, err, "failed to create key")
@@ -512,7 +512,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 }
 
 func (uni testUniverse[RI]) SignReport(t *testing.T, configDigest ocrtypes.ConfigDigest, rwi ocr3types.ReportWithInfo[RI], seqNum uint64) []ocrtypes.AttributedOnchainSignature {
-	var attributedSigs []ocrtypes.AttributedOnchainSignature
+	attributedSigs := make([]ocrtypes.AttributedOnchainSignature, 0, uni.f+1)
 	for i := range uni.f + 1 {
 		t.Log("signing report with", hexutil.Encode(uni.keyrings[i].PublicKey()))
 		sig, err := uni.keyrings[i].Sign(configDigest, seqNum, rwi)
@@ -538,8 +538,8 @@ func (uni testUniverse[RI]) TransmittedEvents(t *testing.T) []*multi_ocr3_helper
 	return events
 }
 
-func randomReport(t *testing.T, len int) []byte {
-	report := make([]byte, len)
+func randomReport(t *testing.T, n int) []byte {
+	report := make([]byte, n)
 	_, err := rand.Reader.Read(report)
 	require.NoError(t, err, "failed to read random bytes")
 	return report
@@ -734,7 +734,7 @@ type TestEvmConfig struct {
 	Enabled              bool
 	Threshold            uint32
 	MinAttempts          uint32
-	DetectionApiUrl      *url.URL
+	DetectionAPIURL      *url.URL
 }
 
 func (e *TestEvmConfig) FinalityTagEnabled() bool {
@@ -877,7 +877,7 @@ func (a *autoPurgeConfig) Enabled() bool { return false }
 
 type MockConfig struct {
 	EvmConfig           *TestEvmConfig
-	RpcDefaultBatchSize uint32
+	rpcDefaultBatchSize uint32
 	finalityDepth       uint32
 	finalityTagEnabled  bool
 }
@@ -891,7 +891,7 @@ func (c *MockConfig) ChainType() chaintype.ChainType { return "" }
 func (c *MockConfig) FinalityDepth() uint32          { return c.finalityDepth }
 func (c *MockConfig) SetFinalityDepth(fd uint32)     { c.finalityDepth = fd }
 func (c *MockConfig) FinalityTagEnabled() bool       { return c.finalityTagEnabled }
-func (c *MockConfig) RPCDefaultBatchSize() uint32    { return c.RpcDefaultBatchSize }
+func (c *MockConfig) RPCDefaultBatchSize() uint32    { return c.rpcDefaultBatchSize }
 
 func MakeTestConfigs(t *testing.T) (*MockConfig, *TestDatabaseConfig, *TestEvmConfig) {
 	db := &TestDatabaseConfig{defaultQueryTimeout: utils.DefaultQueryTimeout}

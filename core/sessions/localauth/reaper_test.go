@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -32,7 +32,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	config := sessionReaperConfig{}
-	lggr := logger.TestLogger(t)
+	lggr := logger.TestSugared(t)
 	orm := localauth.NewORM(db, config.SessionTimeout().Duration(), lggr, audit.NoopLogger)
 
 	r := localauth.NewSessionReaper(db, config, lggr)

@@ -8,8 +8,6 @@ import (
 	"slices"
 	"strings"
 
-	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
-	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"golang.org/x/sync/errgroup"
 
@@ -25,11 +23,13 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 )
 
 type DeployerGroup struct {
@@ -118,9 +118,15 @@ func (d *DeploymentContext) Fork(description string) *DeploymentContext {
 	}
 }
 
-type DeployerGroupWithContext interface {
+type WithContext interface {
 	WithDeploymentContext(description string) *DeployerGroup
 }
+
+// DeployerGroupWithContext is a deprecated alias for WithContext, retained so
+// existing external consumers keep compiling.
+//
+// Deprecated: use WithContext.
+type DeployerGroupWithContext = WithContext //nolint:revive // stutter accepted to preserve the pre-rename API
 
 type deployerGroupBuilder struct {
 	e               cldf.Environment
@@ -153,7 +159,7 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 //	state.Chains[selector].RMNRemote.Curse()
 //	# Execute the transaction or create the proposal
 //	deployerGroup.Enact("Curse RMNRemote")
-func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmConfig *cldfproposalutils.TimelockConfig) DeployerGroupWithContext {
+func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmConfig *cldfproposalutils.TimelockConfig) WithContext {
 	addresses, _ := e.ExistingAddresses.Addresses()
 	d := &deployerGroupBuilder{
 		e:               e,
@@ -269,23 +275,13 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 type DeployerForSVM func(solana.PublicKey) (solana.Instruction, string, cldf.ContractType, error)
 
 func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (solana.Instruction, error), error) {
-	var authority = d.e.BlockChains.SolanaChains()[chain].DeployerKey.PublicKey()
-	var addresses map[string]cldf.TypeAndVersion
-	var err error
+	authority := d.e.BlockChains.SolanaChains()[chain].DeployerKey.PublicKey()
 	if d.mcmConfig != nil {
+		qualifier := shared.DefaultMCMSQualifier
 		if d.mcmConfig.TimelockQualifierPerChain != nil && d.mcmConfig.TimelockQualifierPerChain[chain] != "" {
-			addresses, err = addressForChainFromDatastore(d.e, chain, d.mcmConfig.TimelockQualifierPerChain[chain])
-			if err != nil {
-				return nil, fmt.Errorf("failed to load addresses for chain %d: %w", chain, err)
-			}
-		} else {
-			addresses, err = addressForChain(d.e, chain)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load addresses for chain %d: %w", chain, err)
-			}
+			qualifier = d.mcmConfig.TimelockQualifierPerChain[chain]
 		}
-
-		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(d.e.BlockChains.SolanaChains()[chain], addresses)
+		mcmState, err := solanastateview.LoadMCMSWithTimelockFromDataStore(&d.e, d.e.BlockChains.SolanaChains()[chain], qualifier)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load mcm state: %w", err)
 		}
@@ -356,7 +352,7 @@ func ValidateMCMSWithState(env cldf.Environment, selector uint64, mcmConfig *cld
 			return fmt.Errorf("mcm config is invalid for chain %d: %w", selector, err)
 		}
 	case chain_selectors.FamilySolana:
-		if err := mcmConfig.ValidateSolana(env, selector); err != nil {
+		if err := stateview.ValidateSolanaTimelockConfig(env, selector, mcmConfig); err != nil {
 			return fmt.Errorf("mcm config is invalid for chain %d: %w", selector, err)
 		}
 	case chain_selectors.FamilyTon:
@@ -516,22 +512,16 @@ func BuildTimelockAddressPerChain(e cldf.Environment, onchainState stateview.CCI
 		addressPerChain[chain.Selector] = onchainState.MustGetEVMChainState(chain.Selector).Timelock.Address().Hex()
 	}
 
-	// TODO: This should come from the Solana chain state which should be enhanced to contain timlock and MCMS address
+	// TODO: expose MCMS addresses in the Solana chain state.
 	for selector, chain := range e.BlockChains.SolanaChains() {
-		var addresses map[string]cldf.TypeAndVersion
-		var err error
-		// if we have a qualifier, we load the address from datastore
-		// this is useful when we want to use a different timelock than the one in the onchain state
-		// e.g. when a specific contract is owned by a different timelock
+		qualifier := shared.DefaultMCMSQualifier
 		if addressQualifierPerChain != nil && addressQualifierPerChain[selector] != "" {
-			addresses, err = addressForChainFromDatastore(e, selector, addressQualifierPerChain[selector])
-		} else {
-			addresses, err = addressForChain(e, selector)
+			qualifier = addressQualifierPerChain[selector]
 		}
+		mcmState, err := solanastateview.LoadMCMSWithTimelockFromDataStore(&e, chain, qualifier)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
 		}
-		mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		addressPerChain[selector] = mcmsSolana.ContractAddress(mcmState.TimelockProgram, mcmsSolana.PDASeed(mcmState.TimelockSeed))
 	}
 
@@ -551,27 +541,15 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 		addressPerChain[chain.Selector] = mcmContract.Address().Hex()
 	}
 
-	// TODO: This should come from the Solana chain state which should be enhanced to contain timlock and MCMS address
+	// TODO: expose MCMS addresses in the Solana chain state.
 	for selector, chain := range e.BlockChains.SolanaChains() {
-		var addresses map[string]cldf.TypeAndVersion
-		var err error
-		// if we have a qualifier, we load the address from datastore
-		// this is useful when we want to use a different mcm than the one in the onchain state
-		// e.g. when a specific contract is owned by a different mcm
+		qualifier := shared.DefaultMCMSQualifier
 		if mcmQualifier != nil && mcmQualifier[selector] != "" {
-			addresses, err = addressForChainFromDatastore(e, selector, mcmQualifier[selector])
-		} else {
-			addresses, err = addressForChain(e, selector)
+			qualifier = mcmQualifier[selector]
 		}
+		mcmState, err := solanastateview.LoadMCMSWithTimelockFromDataStore(&e, chain, qualifier)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
-		}
-		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load mcm state: %w", err)
 		}
 		address, err := mcmCfg.MCMBasedOnActionSolana(*mcmState)
 		if err != nil {
@@ -581,12 +559,4 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 	}
 
 	return addressPerChain, nil
-}
-
-func addressForChain(e cldf.Environment, selector uint64) (map[string]cldf.TypeAndVersion, error) {
-	return e.ExistingAddresses.AddressesForChain(selector)
-}
-
-func addressForChainFromDatastore(e cldf.Environment, selector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
-	return evmstate.LoadAddressesFromDataStore(e.DataStore, selector, qualifier) //nolint:staticcheck // will be refactored once usages are removed
 }

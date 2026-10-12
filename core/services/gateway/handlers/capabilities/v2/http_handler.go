@@ -13,11 +13,11 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -44,22 +44,26 @@ const (
 
 type gatewayHandler struct {
 	services.StateMachine
-	config                 ServiceConfig
-	shards                 []*shardEndpoint          // all DON shards served by this handler, across the full DON×shard matrix
-	nodeAddrToShard        map[string]*shardEndpoint // node address -> owning shard, for routing responses back to the correct shard conn manager
-	lggr                   logger.Logger
-	httpClient             network.HTTPClient
-	globalNodeRateLimiter  limits.RateLimiter            // Global rate limiter shared across all incoming node requests from workflow DON
-	perNodeRateLimiters    map[string]limits.RateLimiter // Per-node rate limiters keyed by node address, one independent bucket per DON member
-	mtlsRequestRateLimiter limits.RateLimiter
-	mtlsConcurrencyLimiter limits.ResourcePoolLimiter[int] // Bounds the number of in-flight outbound mTLS requests
-	wg                     sync.WaitGroup
-	stopCh                 services.StopChan
-	responseCache          ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
-	triggerHandler         HTTPTriggerHandler
-	metadataHandler        *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
-	metrics                *metrics.Metrics
-	httpClientFactory      network.HTTPClientFactory
+	config            ServiceConfig
+	shards            []*handlers.ShardEndpoint          // all DON shards served by this handler, across the full DON×shard matrix
+	nodeAddrToShard   map[string]*handlers.ShardEndpoint // node address -> owning shard, for routing responses back to the correct shard conn manager
+	lggr              logger.Logger
+	httpClient        network.HTTPClient
+	wg                sync.WaitGroup
+	stopCh            services.StopChan
+	responseCache     ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
+	triggerHandler    HTTPTriggerHandler
+	metadataHandler   *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
+	metrics           *metrics.Metrics
+	httpClientFactory network.HTTPClientFactory
+
+	// Limiters. "Node" throughout means a workflow DON node calling this gateway.
+	globalNodeRateLimiter      limits.RateLimiter                         // Rate across all incoming node requests
+	perNodeRateLimiters        map[string]limits.RateLimiter              // Rate per node, one independent bucket per DON member
+	mtlsRequestRateLimiter     limits.RateLimiter                         // Rate across outbound mTLS requests
+	mtlsConcurrencyLimiter     limits.ResourcePoolLimiter[int]            // In-flight outbound mTLS requests
+	outboundConcurrencyLimiter limits.ResourcePoolLimiter[int]            // In-flight outbound HTTP action requests across all nodes
+	perNodeOutboundLimiters    map[string]limits.ResourcePoolLimiter[int] // Same, per node, so one node cannot take every slot
 }
 
 type ResponseCache interface {
@@ -117,7 +121,7 @@ type RetryConfig struct {
 	Multiplier float64 `json:"multiplier"`
 }
 
-func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory) (*gatewayHandler, error) {
+func NewGatewayHandler(handlerConfig json.RawMessage, dons *handlers.ShardedDONs, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver) (*gatewayHandler, error) {
 	var cfg ServiceConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -125,11 +129,11 @@ func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.Shard
 	}
 	cfg = WithDefaults(cfg)
 
-	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, shardsConnMgrs)
+	shards, nodeAddrToShard, err := dons.BuildShardEndpoints()
 	if err != nil {
 		return nil, fmt.Errorf("failed to build shard endpoints: %w", err)
 	}
-	members := allMembers(shards)
+	members := handlers.AllMembers(shards)
 
 	globalNodeRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPGlobalRate)
 	if err != nil {
@@ -160,13 +164,27 @@ func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.Shard
 		return nil, fmt.Errorf("failed to create mtls concurrency limiter: %w", err)
 	}
 
+	outboundConcurrencyLimiter, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.GatewayHTTPActionOutboundConcurrencyLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create outbound concurrency limiter: %w", err)
+	}
+	perNodeOutboundLimiters := make(map[string]limits.ResourcePoolLimiter[int], len(members))
+	for _, member := range members {
+		var pl limits.ResourcePoolLimiter[int]
+		pl, err = limits.MakeResourcePoolLimiter(lf, cresettings.Default.GatewayHTTPActionOutboundPerNodeConcurrencyLimit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create per-node outbound concurrency limiter for %s: %w", member.Address, err)
+		}
+		perNodeOutboundLimiters[member.Address] = pl
+	}
+
 	metrics, err := metrics.NewMetrics(members)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
 	}
 
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, metrics)
-	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, metrics)
+	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, metrics, orgResolver)
 	return &gatewayHandler{
 		config:                 cfg,
 		shards:                 shards,
@@ -177,12 +195,16 @@ func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.Shard
 		perNodeRateLimiters:    perNodeRateLimiters,
 		mtlsRequestRateLimiter: mtlsRequestRateLimiter,
 		mtlsConcurrencyLimiter: mtlsConcurrencyLimiter,
-		stopCh:                 make(services.StopChan),
-		responseCache:          newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
-		triggerHandler:         triggerHandler,
-		metadataHandler:        metadataHandler,
-		metrics:                metrics,
-		httpClientFactory:      httpClientFactory,
+
+		outboundConcurrencyLimiter: outboundConcurrencyLimiter,
+		perNodeOutboundLimiters:    perNodeOutboundLimiters,
+
+		stopCh:            make(services.StopChan),
+		responseCache:     newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
+		triggerHandler:    triggerHandler,
+		metadataHandler:   metadataHandler,
+		metrics:           metrics,
+		httpClientFactory: httpClientFactory,
 	}, nil
 }
 
@@ -265,13 +287,11 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 		methodName := parts[0]
 		switch methodName {
 		case gateway_common.MethodHTTPAction:
-			start := time.Now()
 			h.metrics.IncrementActionRequestCount(ctx, nodeAddr, h.lggr)
 			err := h.makeOutgoingRequest(ctx, resp, nodeAddr)
 			if err != nil {
 				h.metrics.IncrementActionRequestFailures(ctx, nodeAddr, h.lggr)
 			}
-			h.metrics.RecordActionRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 			return err
 		case gateway_common.MethodPushWorkflowMetadata:
 			h.metrics.IncrementMetadataRequestCount(ctx, nodeAddr, gateway_common.MethodPushWorkflowMetadata, h.lggr)
@@ -337,13 +357,20 @@ func (h *gatewayHandler) send(ctx context.Context, httpReq network.HTTPRequest, 
 }
 
 // createHTTPRequestCallback creates a callback function that makes the actual HTTP request
-func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestID string, httpReq network.HTTPRequest, req gateway_common.OutboundHTTPRequest) func() gateway_common.OutboundHTTPResponse {
+func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestID string, httpReq network.HTTPRequest, req gateway_common.OutboundHTTPRequest, nodeAddr string) func() gateway_common.OutboundHTTPResponse {
 	return func() gateway_common.OutboundHTTPResponse {
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
-		l.Debugw("Sending request to client", "requestBodySize", len(httpReq.Body), "numHeaders", len(httpReq.Headers))
+		numHeaders := len(httpReq.MultiHeaders)
+		if numHeaders == 0 {
+			numHeaders = len(httpReq.Headers) //nolint:staticcheck // SA1019: legacy requests carry deprecated Headers when MultiHeaders is not set
+		}
+		l.Debugw("Sending request to client", "requestBodySize", len(httpReq.Body), "numHeaders", numHeaders)
 		start := time.Now()
 		resp, err := h.send(ctx, httpReq, req)
 		externalEndpointLatency := time.Since(start)
+		// Record the actual outbound-call duration for both success and failure.
+		// Cache hits never invoke this callback, so they emit no observation here.
+		h.metrics.RecordCustomerEndpointRequestLatency(ctx, nodeAddr, externalEndpointLatency.Milliseconds(), h.lggr)
 		if err != nil {
 			isBlockedRequest := errors.Is(err, network.ErrBlockedRequest)
 			isHTTPSendError := errors.Is(err, network.ErrHTTPSend)
@@ -371,12 +398,15 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 				ExternalEndpointLatency: externalEndpointLatency,
 			}
 		}
-		l.Debugw("Received HTTP response", "responseBodySize", len(resp.Body), "statusCode", resp.StatusCode, "numHeaders", len(resp.Headers))
+		numHeaders = len(resp.MultiHeaders)
+		if numHeaders == 0 {
+			numHeaders = len(resp.Headers) //nolint:staticcheck // SA1019: legacy responses carry deprecated Headers when MultiHeaders is not set
+		}
+		l.Debugw("Received HTTP response", "responseBodySize", len(resp.Body), "statusCode", resp.StatusCode, "numHeaders", numHeaders)
 		h.metrics.IncrementCustomerEndpointResponseCount(ctx, strconv.Itoa(resp.StatusCode), h.lggr)
-		h.metrics.RecordCustomerEndpointRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 		return gateway_common.OutboundHTTPResponse{
 			StatusCode:              resp.StatusCode,
-			Headers:                 resp.Headers,
+			Headers:                 resp.Headers, //nolint:staticcheck // Headers is deprecated in OutboundHTTPResponse, but populated for backwards compatibility
 			MultiHeaders:            resp.MultiHeaders,
 			Body:                    resp.Body,
 			ExternalEndpointLatency: externalEndpointLatency,
@@ -421,15 +451,29 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 
 	sendResponseTimeout := time.Duration(defaultSendResponseTimeoutMs) * time.Millisecond
 
+	// Reserve a slot before dispatching, so a rejected request never buffers a response. The rejection is logged, not sent to the node
+	release, err := h.acquireOutboundSlot(ctx, nodeAddr)
+	if err != nil {
+		return err
+	}
+
 	// send response to node async
 	h.wg.Go(func() {
 		// not cancelled when parent is cancelled to ensure the goroutine can finish
 		baseCtx := context.WithoutCancel(ctx)
+		defer release(baseCtx)
 		httpCtx, httpCancel := context.WithTimeout(baseCtx, timeout)
 		defer httpCancel()
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
 		var outboundResp gateway_common.OutboundHTTPResponse
-		callback := h.createHTTPRequestCallback(httpCtx, requestID, httpReq, req)
+		// The gateway-side request timer starts here, immediately before the
+		// callback is created: it covers cache/HTTP processing plus the response
+		// send for each admitted request. Parsing, admission, and goroutine
+		// scheduling happen earlier and are intentionally excluded. Requests
+		// rejected synchronously (before this goroutine runs) are represented by
+		// the failure counters, not by request-duration samples.
+		requestStart := time.Now()
+		callback := h.createHTTPRequestCallback(httpCtx, requestID, httpReq, req, nodeAddr)
 		if req.CacheSettings.MaxAgeMs > 0 {
 			h.metrics.IncrementCacheReadCount(ctx, h.lggr)
 			outboundResp = h.responseCache.Fetch(httpCtx, req, callback, req.CacheSettings.Store)
@@ -444,13 +488,46 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		// expired HTTP request timeout does not prevent delivering the result.
 		sendCtx, sendCancel := context.WithTimeout(baseCtx, sendResponseTimeout)
 		defer sendCancel()
+		sendStart := time.Now()
 		err := h.sendResponseToNode(sendCtx, requestID, outboundResp, nodeAddr)
+		h.metrics.RecordActionResponseSendLatency(ctx, nodeAddr, time.Since(sendStart).Milliseconds(), h.lggr)
+		h.metrics.RecordActionRequestLatency(ctx, nodeAddr, time.Since(requestStart).Milliseconds(), h.lggr)
 		if err != nil {
 			l.Errorw("error sending response to node", "err", err, "nodeAddr", nodeAddr, "requestID", requestID)
 			h.metrics.IncrementActionCapabilityFailures(ctx, nodeAddr, h.lggr)
 		}
 	})
 	return nil
+}
+
+// acquireOutboundSlot reserves a slot against the global and per-node bounds, rolling back the
+// global one if the per-node bound rejects. Non-blocking; release MUST be called exactly once.
+func (h *gatewayHandler) acquireOutboundSlot(ctx context.Context, nodeAddr string) (release func(context.Context), err error) {
+	perNode, ok := h.perNodeOutboundLimiters[nodeAddr]
+	if !ok {
+		return nil, fmt.Errorf("received outbound request from unexpected node %s", nodeAddr)
+	}
+
+	if err = h.outboundConcurrencyLimiter.Use(ctx, 1); err != nil {
+		h.metrics.IncrementOutboundConcurrencyThrottled(ctx, nodeAddr, metrics.BoundGlobal, h.lggr)
+		return nil, fmt.Errorf("gateway outbound concurrency limit reached: %w", err)
+	}
+	if err = perNode.Use(ctx, 1); err != nil {
+		if freeErr := h.outboundConcurrencyLimiter.Free(ctx, 1); freeErr != nil {
+			h.lggr.Errorw("failed to release global outbound slot after per-node rejection", "err", freeErr, "nodeAddr", nodeAddr)
+		}
+		h.metrics.IncrementOutboundConcurrencyThrottled(ctx, nodeAddr, metrics.BoundPerWorkflowNode, h.lggr)
+		return nil, fmt.Errorf("outbound concurrency limit reached for node %s: %w", nodeAddr, err)
+	}
+
+	return func(releaseCtx context.Context) {
+		if freeErr := perNode.Free(releaseCtx, 1); freeErr != nil {
+			h.lggr.Errorw("failed to release per-node outbound slot", "err", freeErr, "nodeAddr", nodeAddr)
+		}
+		if freeErr := h.outboundConcurrencyLimiter.Free(releaseCtx, 1); freeErr != nil {
+			h.lggr.Errorw("failed to release global outbound slot", "err", freeErr, "nodeAddr", nodeAddr)
+		}
+	}, nil
 }
 
 func (h *gatewayHandler) HealthReport() map[string]error {
@@ -513,6 +590,14 @@ func (h *gatewayHandler) Close() error {
 		if err = h.mtlsConcurrencyLimiter.Close(); err != nil {
 			h.lggr.Errorw("failed to close mtls concurrency limiter", "err", err)
 		}
+		if err = h.outboundConcurrencyLimiter.Close(); err != nil {
+			h.lggr.Errorw("failed to close outbound concurrency limiter", "err", err)
+		}
+		for nodeAddr, pl := range h.perNodeOutboundLimiters {
+			if err = pl.Close(); err != nil {
+				h.lggr.Errorw("failed to close per-node outbound concurrency limiter", "nodeAddr", nodeAddr, "err", err)
+			}
+		}
 		close(h.stopCh)
 		h.wg.Wait()
 		return nil
@@ -536,11 +621,11 @@ func (h *gatewayHandler) sendResponseToNode(ctx context.Context, requestID strin
 	if !ok {
 		return fmt.Errorf("cannot route response to unknown node %s (no owning shard)", nodeAddr)
 	}
-	err = shard.connMgr.SendToNode(ctx, nodeAddr, req)
+	err = shard.ConnMgr.SendToNode(ctx, nodeAddr, req)
 	if err != nil {
 		return err
 	}
 
-	h.lggr.Debugw("sent response to node", "to", nodeAddr, "shard", shard.donID)
+	h.lggr.Debugw("sent response to node", "to", nodeAddr, "shard", shard.DonID)
 	return nil
 }

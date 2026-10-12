@@ -58,7 +58,7 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 			k, err2 := ks.Create(ctx)
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
+			require.Error(t, err2)
 			assert.True(t, errors.Is(err2, keystore.ErrCSAKeyExists))
 		})
 	})
@@ -85,7 +85,7 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 			k, err2 := ks.Import(t.Context(), exportJSON, cltest.Password)
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
+			require.Error(t, err2)
 			assert.Equal(t, fmt.Sprintf("key with ID %s already exists", key.ID()), err2.Error())
 		})
 
@@ -99,7 +99,7 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		t.Run("fails to export non-existent key", func(t *testing.T) {
 			exportJSON, err = ks.Export("non-existent", cltest.Password)
 
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Empty(t, exportJSON)
 		})
 	})
@@ -129,7 +129,7 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 
 			err = ks.Add(ctx, newKey)
 
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.True(t, errors.Is(err, keystore.ErrCSAKeyExists))
 		})
 
@@ -146,14 +146,14 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		ctx := t.Context()
 
 		newKey, err := csakey.NewV2()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = keyStore.CSA().EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		keys, err2 := ks.GetAll()
-		assert.NoError(t, err2)
+		require.NoError(t, err2)
 
 		require.Len(t, keys, 1)
 		require.Equal(t, newKey.ID(), keys[0].ID())
@@ -166,11 +166,11 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		ctx := t.Context()
 
 		keys, err := ks.GetAll()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Empty(t, keys)
 
 		err = keyStore.CSA().EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		keys, err = ks.GetAll()
 		assert.NoError(t, err)

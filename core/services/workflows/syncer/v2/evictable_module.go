@@ -220,10 +220,6 @@ func (m *EvictableModule) Close() {
 	}
 }
 
-func (m *EvictableModule) IsLegacyDAG() bool {
-	return false
-}
-
 func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteRequest, handler host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
 	// Each loaded module is held behind a refcounted loadedModule. Pinning is
 	// a CAS-conditional refcount increment: it succeeds only if the holder is

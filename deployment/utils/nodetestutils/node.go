@@ -29,7 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
@@ -46,11 +47,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/internal/evmtestutils"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -395,8 +394,8 @@ func NewNode(
 
 		// P2P V2 configs.
 		c.P2P.V2.Enabled = new(true)
-		c.P2P.V2.DeltaDial = config.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = config.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", nodecfg.Port)}
 
 		// Enable Capabilities, This is a pre-requisite for registrySyncer to work.
@@ -410,7 +409,7 @@ func NewNode(
 		c.OCR.Enabled = new(false)
 		c.OCR.DefaultTransactionQueueDepth = new(uint32(200))
 		c.OCR2.Enabled = new(true)
-		c.OCR2.ContractPollInterval = config.MustNewDuration(5 * time.Second)
+		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(5 * time.Second)
 
 		c.Log.Level = new(configv2.LogLevel(nodecfg.LogLevel))
 
@@ -492,12 +491,10 @@ func NewNode(
 	require.NoError(t, master.OCR2().EnsureKeys(ctx, corekeys.EVM, corekeys.Solana, corekeys.Aptos, corekeys.Stellar))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		Opts: cre.Opts{
-			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
-		},
-		Config:   cfg,
-		DS:       db,
-		KeyStore: master,
+		CapabilitiesRegistry: capreg.NewRegistry(lggr),
+		Config:               cfg,
+		DS:                   db,
+		KeyStore:             master,
 		// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
 		EVMFactoryConfigFn: func(fc *chainlink.EVMFactoryConfig) {
 			// Create ChainStores that always sign with 1337
@@ -759,7 +756,7 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	chainIDBig := sqlutil.New(big.NewInt(0).SetUint64(chainID))
 	chain := v2toml.Defaults(chainIDBig)
 	chain.GasEstimator.LimitDefault = new(uint64(5e6))
-	chain.LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
+	chain.LogPollInterval = commonconfig.MustNewDuration(500 * time.Millisecond)
 	chain.Transactions.ForwardersEnabled = new(false)
 	chain.FinalityDepth = new(uint32(2))
 	return &v2toml.EVMConfig{

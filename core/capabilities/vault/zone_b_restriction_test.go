@@ -9,17 +9,18 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -45,6 +46,15 @@ const (
 	// zoneBMixedCaseDonID is a zone-b DON whose registry family casing differs
 	// from the zoneBFamily constant, guarding the case-insensitive match.
 	zoneBMixedCaseDonID = uint32(30)
+	// zoneBShardDonID is a non-zero-index zone-b workflow shard DON that
+	// belongs to the base "zone-b" family.
+	zoneBShardDonID = uint32(40)
+	// zoneBWorkflowsShardDonID is a zone-b workflow shard DON that belongs only
+	// to the dedicated "zone-b_workflows" family.
+	zoneBWorkflowsShardDonID = uint32(50)
+	// zoneAWorkflowsShardDonID is a zone-a workflow shard DON in the dedicated
+	// "zone-a_workflows" family; it must not be treated as zone-b.
+	zoneAWorkflowsShardDonID = uint32(60)
 )
 
 func newZoneBTestCapability(t *testing.T, settingsJSON string) *Capability {
@@ -55,11 +65,14 @@ func newZoneBTestCapability(t *testing.T, settingsJSON string) *Capability {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler(lggr, store, clock, expiry)
 
-	reg := coreCapabilities.NewRegistry(lggr)
-	reg.SetLocalRegistry(&fakeMetadataRegistry{dons: map[uint32]capabilities.DON{
-		zoneBDonID:          {ID: zoneBDonID, Name: "workflow_1_zone-b", Families: []string{"zone-b"}},
-		zoneADonID:          {ID: zoneADonID, Name: "workflow_1_zone-a", Families: []string{"zone-a"}},
-		zoneBMixedCaseDonID: {ID: zoneBMixedCaseDonID, Name: "workflow_1_zone-b_mixed", Families: []string{"Zone-B"}},
+	reg := registry.NewRegistry(lggr)
+	reg.SetRegistryMetadata(&fakeMetadataRegistry{dons: map[uint32]capabilities.DON{
+		zoneBDonID:               {ID: zoneBDonID, Name: "workflow_1_zone-b", Families: []string{"zone-b"}},
+		zoneADonID:               {ID: zoneADonID, Name: "workflow_1_zone-a", Families: []string{"zone-a"}},
+		zoneBMixedCaseDonID:      {ID: zoneBMixedCaseDonID, Name: "workflow_1_zone-b_mixed", Families: []string{"Zone-B"}},
+		zoneBShardDonID:          {ID: zoneBShardDonID, Name: "workflow-1-zone-b-shard-1", Families: []string{"zone-b"}},
+		zoneBWorkflowsShardDonID: {ID: zoneBWorkflowsShardDonID, Name: "workflow-1-zone-b-shard-2", Families: []string{"zone-b_workflows"}},
+		zoneAWorkflowsShardDonID: {ID: zoneAWorkflowsShardDonID, Name: "workflow-1-zone-a-shard-1", Families: []string{"zone-a_workflows"}},
 	}})
 
 	getter, err := settings.NewJSONGetter([]byte(settingsJSON))
@@ -187,6 +200,40 @@ func TestCapability_enforceZoneBWorkflowRestriction(t *testing.T) {
 		require.ErrorContains(t, err, "allowlisted workflow owners")
 	})
 
+	// Sharding: every shard of a zone-b workflow DON is its own DON in the
+	// registry, possibly in the dedicated "zone-b_workflows" family. Each must be
+	// restricted exactly like the base zone-b DON, while shards of other zones
+	// (e.g. "zone-a_workflows") must remain unrestricted.
+	for _, tc := range []struct {
+		name  string
+		donID uint32
+	}{
+		{"zone-b shard in base family", zoneBShardDonID},
+		{"zone-b shard in _workflows family", zoneBWorkflowsShardDonID},
+	} {
+		t.Run("gate enabled: denies "+tc.name+" with non-allowlisted owner", func(t *testing.T) {
+			t.Parallel()
+			capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`)
+			ctx, donID := ctxWithOwner(tc.donID, "0x"+allowlistedOwner)
+			err := capability.zoneBRestrictor.enforce(ctx, donID)
+			require.ErrorContains(t, err, "allowlisted workflow owners")
+		})
+
+		t.Run("gate enabled: allows "+tc.name+" with allowlisted owner", func(t *testing.T) {
+			t.Parallel()
+			capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"},"owner":{"`+allowlistedOwner+`":{"PerOwner":{"VaultZoneBGetSecretsAllowed":"true"}}}}`)
+			ctx, donID := ctxWithOwner(tc.donID, "0x"+allowlistedOwner)
+			require.NoError(t, capability.zoneBRestrictor.enforce(ctx, donID))
+		})
+	}
+
+	t.Run("gate enabled: allows zone-a shard in _workflows family", func(t *testing.T) {
+		t.Parallel()
+		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`)
+		ctx, donID := ctxWithOwner(zoneAWorkflowsShardDonID, "0xdeadbeef")
+		require.NoError(t, capability.zoneBRestrictor.enforce(ctx, donID))
+	})
+
 	// MUST-4: the allowlist is keyed by the normalized owner (0x stripped,
 	// lowercased), while callers supply the standard "0x"-prefixed, possibly
 	// mixed-case address. If owner matching regressed to a bare string compare,
@@ -227,12 +274,12 @@ func (f *toggleableMetadataRegistry) DONByID(_ context.Context, donID uint32) (c
 func newOutageTestRestrictor(t *testing.T, settingsJSON string) (*zoneBRestrictor, *toggleableMetadataRegistry) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
-	reg := coreCapabilities.NewRegistry(lggr)
+	reg := registry.NewRegistry(lggr)
 	fake := &toggleableMetadataRegistry{dons: map[uint32]capabilities.DON{
 		zoneADonID: {ID: zoneADonID, Name: "workflow_1_zone-a", Families: []string{"zone-a"}},
 		zoneBDonID: {ID: zoneBDonID, Name: "workflow_1_zone-b", Families: []string{"zone-b"}},
 	}}
-	reg.SetLocalRegistry(fake)
+	reg.SetRegistryMetadata(fake)
 
 	getter, err := settings.NewJSONGetter([]byte(settingsJSON))
 	require.NoError(t, err)
@@ -291,4 +338,23 @@ func TestZoneBRestrictor_RegistryOutageUsesCachedMembership(t *testing.T) {
 		err := z.enforce(md.ContextWithCRE(t.Context()), zoneBDonID)
 		require.ErrorContains(t, err, "could not resolve caller workflow DON")
 	})
+}
+
+func TestIsZoneBFamily(t *testing.T) {
+	t.Parallel()
+	for family, want := range map[string]bool{
+		"zone-b":           true,
+		"Zone-B":           true,
+		"zone-b_workflows": true,
+		"ZONE-B_Workflows": true,
+		"zone-a":           false,
+		"zone-a_workflows": false,
+		"zone-b-shard-1":   true,
+		"zone-b_other":     true,
+		"a-zone-b":         false,
+		"zone":             false,
+		"":                 false,
+	} {
+		assert.Equal(t, want, isZoneBFamily(family), family)
+	}
 }

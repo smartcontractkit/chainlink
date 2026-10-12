@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -287,7 +286,7 @@ func RepoSetup(e cldf.Environment, chain cldfsolana.Chain, gitCommitSha string) 
 }
 
 // update IDL with program ID
-func updateIDL(e cldf.Environment, idlFile string, programID string) error {
+func updateIDL(e cldf.Environment, idlFile, programID string) error {
 	e.Logger.Debug("Reading IDL")
 	idlBytes, err := os.ReadFile(idlFile)
 	if err != nil {
@@ -310,14 +309,14 @@ func updateIDL(e cldf.Environment, idlFile string, programID string) error {
 	}
 	e.Logger.Debug("Writing updated IDL")
 	// Write updated IDL back to file
-	if err := os.WriteFile(idlFile, updatedIDLBytes, 0600); err != nil {
+	if err := os.WriteFile(idlFile, updatedIDLBytes, 0o600); err != nil {
 		return fmt.Errorf("failed to write updated IDL: %w", err)
 	}
 	return nil
 }
 
 // get IDL file and update with program ID
-func getIDL(e cldf.Environment, programsPath, programID string, programName string) (string, error) {
+func getIDL(e cldf.Environment, programsPath, programID, programName string) (string, error) {
 	idlFile := filepath.Join(programsPath, programName+".json")
 	if _, err := os.Stat(idlFile); err != nil {
 		return "", fmt.Errorf("idl file not found: %w", err)
@@ -417,13 +416,13 @@ const DefaultIDLMaxSize = 10000 // This is using the max value of creating an ID
 
 // Number ids of the operations: copied from https://github.com/solana-foundation/anchor/blob/v0.29.0/lang/src/idl.rs#L36
 const (
-	IdlInstructionCreate       int = iota // One time initializer for creating the program's idl account.
-	IdlInstructionCreateBuffer            // Creates a new IDL account buffer. Can be called several times.
-	IdlInstructionWrite                   // Appends the given data to the end of the idl account buffer.
-	IdlInstructionSetBuffer               // Sets a new data buffer for the IdlAccount.
-	IdlInstructionSetAuthority            // Sets a new authority on the IdlAccount.
-	IdlInstructionClose                   // Closes the IDL pda Account
-	IdlInstructionResize                  // Increases account size for accounts that need over 10kb.
+	IdlInstructionCreate       byte = iota // One time initializer for creating the program's idl account.
+	IdlInstructionCreateBuffer             // Creates a new IDL account buffer. Can be called several times.
+	IdlInstructionWrite                    // Appends the given data to the end of the idl account buffer.
+	IdlInstructionSetBuffer                // Sets a new data buffer for the IdlAccount.
+	IdlInstructionSetAuthority             // Sets a new authority on the IdlAccount.
+	IdlInstructionClose                    // Closes the IDL pda Account
+	IdlInstructionResize                   // Increases account size for accounts that need over 10kb.
 )
 
 // changeset to set idl authority for a program to timelock
@@ -594,13 +593,10 @@ func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastate
 }
 
 // Build instruction to interact with Anchor IDL using the list of ids above for each message
-func buildIdlInstruction(programID solana.PublicKey, accountsForIx solana.AccountMetaSlice, idlInstruction int, params []byte) (solana.GenericInstruction, error) {
+func buildIdlInstruction(programID solana.PublicKey, accountsForIx solana.AccountMetaSlice, idlInstruction byte, params []byte) (solana.GenericInstruction, error) {
 	data := binary.LittleEndian.AppendUint64([]byte{}, IdlIxTag) // 8-byte Extend instruction identifier
-	if idlInstruction > math.MaxUint8 {
-		return solana.GenericInstruction{}, fmt.Errorf("invalid idl instruction: does not fit in byte: %d", idlInstruction)
-	}
-	data = append(data, byte(idlInstruction)) //nolint:gosec //G115 // Append the numeric ID of the operation
-	data = append(data, params...)            // Append any additional parameters
+	data = append(data, idlInstruction)                          // Append the numeric ID of the operation
+	data = append(data, params...)                               // Append any additional parameters
 
 	instruction := solana.NewInstruction(
 		programID,
@@ -622,7 +618,7 @@ func calculateAuthority(e cldf.Environment, c IDLConfig) (solana.PublicKey, erro
 	return authority, err
 }
 
-func getTxIfMCMSExecuteIfNot(e cldf.Environment, programID string, programName string, c IDLConfig, instruction solana.GenericInstruction) (*mcmsTypes.Transaction, error) {
+func getTxIfMCMSExecuteIfNot(e cldf.Environment, programID, programName string, c IDLConfig, instruction solana.GenericInstruction) (*mcmsTypes.Transaction, error) {
 	if c.MCMS != nil {
 		upgradeTx, err := BuildMCMSTxn(&instruction, programID, cldf.ContractType(programName))
 		if err != nil {
@@ -697,7 +693,7 @@ func getAccountsForCreateIdlInstruction(
 	return accounts, solana.GenericInstruction{}, nil
 }
 
-func getAccountsForSetBufferIdlInstruction(e cldf.Environment, programID solana.PublicKey, buffer solana.PublicKey, authority solana.PublicKey) (solana.AccountMetaSlice, solana.GenericInstruction, error) {
+func getAccountsForSetBufferIdlInstruction(e cldf.Environment, programID, buffer, authority solana.PublicKey) (solana.AccountMetaSlice, solana.GenericInstruction, error) {
 	idlAddress, err := getIDLAddress(e, programID)
 	if err != nil {
 		return nil, solana.GenericInstruction{}, fmt.Errorf("error getting idl address for %s: %w", programID.String(), err)
@@ -806,7 +802,7 @@ func closeIdlInstruction(e cldf.Environment, programID solana.PublicKey, program
 	return getTxIfMCMSExecuteIfNot(e, programID.String(), programName, c, instruction)
 }
 
-func getAccountsForCloseIdlInstruction(e cldf.Environment, programID solana.PublicKey, authority solana.PublicKey, spillAddress solana.PublicKey) (solana.AccountMetaSlice, error) {
+func getAccountsForCloseIdlInstruction(e cldf.Environment, programID, authority, spillAddress solana.PublicKey) (solana.AccountMetaSlice, error) {
 	idlAddress, err := getIDLAddress(e, programID)
 	accounts := solana.AccountMetaSlice{
 		solana.Meta(idlAddress).WRITE(),
@@ -833,7 +829,7 @@ func setAuthorityIDLIx(e cldf.Environment, programID solana.PublicKey, programNa
 	return getTxIfMCMSExecuteIfNot(e, programID.String(), programName, c, instruction)
 }
 
-func getAccountsForSetAuthorityIdlInstruction(e cldf.Environment, programID solana.PublicKey, authority solana.PublicKey) (solana.AccountMetaSlice, error) {
+func getAccountsForSetAuthorityIdlInstruction(e cldf.Environment, programID, authority solana.PublicKey) (solana.AccountMetaSlice, error) {
 	idlAddress, err := getIDLAddress(e, programID)
 	if err != nil {
 		return nil, fmt.Errorf("error getting idl address for %s: %w", programID.String(), err)

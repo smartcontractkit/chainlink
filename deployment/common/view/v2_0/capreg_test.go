@@ -256,12 +256,14 @@ func assertTest(t *testing.T, f fields, want []v2_0.DonDenormalizedView, wantErr
 		t.Errorf("CapRegView.Denormalize() error = %v, wantErr %v", err, wantErr)
 		return
 	}
+	require.Len(t, got, len(want))
 	for i := range got {
-		assert.Equal(t, want[i].Don, got[i].Don)
+		assert.Equal(t, want[i].Don, got[i].Don)         //nolint:gosec // G602 - require.Len above guarantees len(want) == len(got)
+		require.Len(t, got[i].Nodes, len(want[i].Nodes)) //nolint:gosec // G602 - require.Len above guarantees len(want) == len(got)
 		for j := range got[i].Nodes {
-			assert.Equal(t, want[i].Nodes[j].NodeUniversalMetadata, got[i].Nodes[j].NodeUniversalMetadata, "NodeUniversalMetadata mismatch at index %d for don %d", j, i)
-			assert.Equal(t, want[i].Nodes[j].Nop, got[i].Nodes[j].Nop, "Nop mismatch at index %d for don %d", j, i)
+			assert.Equal(t, want[i].Nodes[j].NodeUniversalMetadata, got[i].Nodes[j].NodeUniversalMetadata, "NodeUniversalMetadata mismatch at index %d for don %d", j, i) //nolint:gosec // G602 - require.Len above guarantees len(want[i].Nodes) == len(got[i].Nodes)
+			assert.Equal(t, want[i].Nodes[j].Nop, got[i].Nodes[j].Nop, "Nop mismatch at index %d for don %d", j, i)                                                       //nolint:gosec // G602 - require.Len above guarantees len(want[i].Nodes) == len(got[i].Nodes)
 		}
-		assert.Equal(t, want[i].Capabilities, got[i].Capabilities)
+		assert.Equal(t, want[i].Capabilities, got[i].Capabilities) //nolint:gosec // G602 - require.Len above guarantees len(want) == len(got)
 	}
 }

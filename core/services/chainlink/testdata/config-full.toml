@@ -162,7 +162,6 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
-CaptureAutomationCustomTelemetry = true
 AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
@@ -297,9 +296,7 @@ BytesRateLimiterRate = 5000000.0
 BytesRateLimiterCapacity = 10000000
 
 [Capabilities.Dispatcher]
-SupportedVersion = 1
 ReceiverBufferSize = 10000
-SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -319,7 +316,6 @@ NetworkID = 'evm'
 ChainID = '1'
 ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
-MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 MaxConcurrency = 12
@@ -358,20 +354,7 @@ URL = 'wss://localhost:8081/node'
 
 [Capabilities.Local]
 RegistryBasedLaunchAllowlist = ['^cron@1\.0\.0$', '^http-action@.*$']
-
-[Capabilities.Local.Capabilities]
-[Capabilities.Local.Capabilities.'cron@1.0.0']
-BinaryPathOverride = '/opt/chainlink/binaries/cron'
-
-[Capabilities.Local.Capabilities.'cron@1.0.0'.Config]
-fastestScheduleIntervalSeconds = '60'
-
-[Capabilities.Local.Capabilities.'http-action@1.0.0']
-BinaryPathOverride = '/opt/chainlink/binaries/http_action'
-
-[Capabilities.Local.Capabilities.'http-action@1.0.0'.Config]
-allowedPorts = '443,8443'
-proxyMode = 'gateway'
+UseOffchainRegistry = true
 
 [Telemetry]
 Enabled = true
@@ -394,7 +377,7 @@ ChipIngressDrainTimeout = '30s'
 ChipIngressMaxGRPCRequestSize = 10485760
 DurableEmitterEnabled = false
 DurableEmitterRetransmitBatchSize = 500
-DurableEmitterEventTTL = '1h0m0s'
+DurableEmitterEventTTL = '6h0m0s'
 DurableEmitterMaxQueuePayloadBytes = 1073741824
 DurableEmitterInsertBatchFlushInterval = '50ms'
 HeartbeatInterval = '1s'
@@ -435,6 +418,7 @@ PerOwner = 200
 UseLocalTimeProvider = true
 EnableDKGRecipient = false
 DebugMode = false
+CachedTriggerSubscriptionsEnabled = false
 
 [CRE.Streams]
 WsURL = 'streams.url'
@@ -447,6 +431,7 @@ URL = 'https://workflow.fetcher.url'
 URL = ''
 TLSEnabled = true
 RequestTimeout = '2s'
+DurableCacheEnabled = true
 
 [CRE.ConfidentialRelay]
 Enabled = false
@@ -558,7 +543,6 @@ OCR2 = 1006
 DR = 1002
 VRF = 1003
 FM = 1004
-Keeper = 1005
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
@@ -629,10 +613,6 @@ DatabaseTimeout = '1s'
 DeltaCOverride = '1h0m0s'
 DeltaCJitterOverride = '1s'
 ObservationGracePeriod = '1s'
-
-[EVM.OCR2]
-[EVM.OCR2.Automation]
-GasLimit = 540
 
 [EVM.Workflow]
 GasLimitDefault = 400000

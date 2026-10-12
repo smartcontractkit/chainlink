@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -172,10 +171,8 @@ func TestBuildConfigs(t *testing.T) {
 	chains := make([]v1_6.ChainDefinition, len(selectors))
 	for i, selector := range selectors {
 		chains[i] = v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
+			RMNVerificationDisabled:  true,
+			AllowListEnabled:         false,
 			Selector:                 selector,
 			GasPrice:                 big.NewInt(1e17),
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
@@ -363,10 +360,8 @@ func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
 			chains := make([]v1_6.ChainDefinition, len(selectors))
 			for i, selector := range selectors {
 				chains[i] = v1_6.ChainDefinition{
-					ConnectionConfig: v1_6.ConnectionConfig{
-						RMNVerificationDisabled: true,
-						AllowListEnabled:        false,
-					},
+					RMNVerificationDisabled:  true,
+					AllowListEnabled:         false,
 					Selector:                 selector,
 					GasPrice:                 big.NewInt(1e17),
 					FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
@@ -455,10 +450,10 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 	_, err = evmChain.Confirm(tx)
 	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
 
-	// AddressBook does NOT contain FeeQuoter v2
-	// Add FeeQuoter v2 only to the DataStore
-	ds, err := shared.PopulateDataStore(e.ExistingAddresses)
-	require.NoError(t, err, "must populate datastore from existing addresses")
+	// AddressBook does NOT contain FeeQuoter v2. Preserve the environment datastore and add
+	// the extra qualified FeeQuoter ref to it.
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(e.DataStore))
 
 	err = ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: v2FQChainSel,
@@ -474,10 +469,8 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 	chains := make([]v1_6.ChainDefinition, len(selectors))
 	for i, selector := range selectors {
 		chains[i] = v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
+			RMNVerificationDisabled:  true,
+			AllowListEnabled:         false,
 			Selector:                 selector,
 			GasPrice:                 big.NewInt(1e17),
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
@@ -594,8 +587,10 @@ func TestUpdateBidirectionalLanesIdempotentWithV2FeeQuoter(t *testing.T) {
 	_, err = evmChain.Confirm(tx)
 	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
 
-	ds, err := shared.PopulateDataStore(e.ExistingAddresses)
-	require.NoError(t, err, "must populate datastore from existing addresses")
+	// AddressBook does NOT contain FeeQuoter v2. Preserve the environment datastore and add
+	// the extra qualified FeeQuoter ref to it.
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(e.DataStore))
 
 	err = ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: v2FQChainSel,
@@ -611,10 +606,8 @@ func TestUpdateBidirectionalLanesIdempotentWithV2FeeQuoter(t *testing.T) {
 	chains := make([]v1_6.ChainDefinition, len(selectors))
 	for i, selector := range selectors {
 		chains[i] = v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
+			RMNVerificationDisabled:  true,
+			AllowListEnabled:         false,
 			Selector:                 selector,
 			GasPrice:                 big.NewInt(1e17),
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
@@ -836,10 +829,10 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 	_, err = evmChain.Confirm(tx)
 	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
 
-	// AddressBook does NOT contain FeeQuoter v2
-	// Add FeeQuoter v2 only to the DataStore
-	ds, err := shared.PopulateDataStore(e.ExistingAddresses)
-	require.NoError(t, err, "must populate datastore from existing addresses")
+	// AddressBook does NOT contain FeeQuoter v2. Preserve the environment datastore and add
+	// the extra qualified FeeQuoter ref to it.
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(e.DataStore))
 
 	err = ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: v2FQChainSel,
@@ -891,10 +884,8 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 	chains := make([]v1_6.ChainDefinition, len(selectors))
 	for i, selector := range selectors {
 		chains[i] = v1_6.ChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-				AllowListEnabled:        false,
-			},
+			RMNVerificationDisabled:  true,
+			AllowListEnabled:         false,
 			Selector:                 selector,
 			GasPrice:                 big.NewInt(1e17),
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),

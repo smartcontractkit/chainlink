@@ -23,6 +23,7 @@ import (
 	sol_binary "github.com/gagliardetto/binary"
 	sol_rpc "github.com/gagliardetto/solana-go/rpc"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
@@ -55,6 +56,7 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 	chain := e.BlockChains.SolanaChains()[chainSel]
 
 	newAddresses := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	programFileName := solutils.ProgBaseSignerRegistry + ".so"
 	programFilePath := filepath.Join(chain.ProgramsPath, programFileName)
@@ -69,14 +71,9 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to download release artifacts: %w", err)
 		}
 	}
-	_, err = deployBaseSignerRegistryContract(e, chain, newAddresses, c)
+	_, err = deployBaseSignerRegistryContract(e, chain, newAddresses, ds, c)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy base signer registry contract: %w", err)
-	}
-
-	ds, err := shared.PopulateDataStore(newAddresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
@@ -124,7 +121,7 @@ func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c Initial
 	return cldf.ChangesetOutput{}, nil
 }
 
-func deployBaseSignerRegistryContract(e cldf.Environment, chain cldf_solana.Chain, ab cldf.AddressBook, config DeployBaseSignerRegistryContractConfig,
+func deployBaseSignerRegistryContract(e cldf.Environment, chain cldf_solana.Chain, ab cldf.AddressBook, ds datastore.MutableDataStore, config DeployBaseSignerRegistryContractConfig,
 ) (solana.PublicKey, error) {
 	contractType := shared.SVMSignerRegistry
 	programName := solutils.ProgBaseSignerRegistry
@@ -140,7 +137,7 @@ func deployBaseSignerRegistryContract(e cldf.Environment, chain cldf_solana.Chai
 
 	e.Logger.Infow("Deployed program", "Program", contractType, "addr", programID, "chain", chain.String())
 	tv := cldf.NewTypeAndVersion(contractType, config.Version)
-	err = ab.Save(chain.Selector, programID, tv)
+	err = shared.RecordAddress(ab, ds, chain.Selector, programID, tv, "")
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to save address: %w", err)
 	}

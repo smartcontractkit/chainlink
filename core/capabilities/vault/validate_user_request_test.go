@@ -315,6 +315,53 @@ func TestRequestValidator_ValidateDeleteSecretsRequest_RejectsBatchAboveLimit(t 
 	require.ErrorContains(t, err, fmt.Sprintf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize))
 }
 
+func TestRequestValidator_ValidateGetSecretsRequest_AcceptsBatchAtLimit(t *testing.T) {
+	t.Parallel()
+
+	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+
+	owner := "0xabc"
+	requests := make([]*vaultcommon.SecretRequest, vaulttypes.MaxBatchSize)
+	for i := range requests {
+		requests[i] = &vaultcommon.SecretRequest{
+			Id: &vaultcommon.SecretIdentifier{
+				Key:   fmt.Sprintf("key%d", i),
+				Owner: owner,
+			},
+		}
+	}
+
+	err = validator.ValidateGetSecretsRequest(t.Context(), &vaultcommon.GetSecretsRequest{
+		Requests: requests,
+	})
+	require.NoError(t, err)
+}
+
+func TestRequestValidator_ValidateGetSecretsRequest_RejectsBatchAboveLimit(t *testing.T) {
+	t.Parallel()
+
+	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+
+	owner := "0xabc"
+	requests := make([]*vaultcommon.SecretRequest, vaulttypes.MaxBatchSize+1)
+	for i := range requests {
+		requests[i] = &vaultcommon.SecretRequest{
+			Id: &vaultcommon.SecretIdentifier{
+				Key:   fmt.Sprintf("key%d", i),
+				Owner: owner,
+			},
+		}
+	}
+
+	err = validator.ValidateGetSecretsRequest(t.Context(), &vaultcommon.GetSecretsRequest{
+		Requests: requests,
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, fmt.Sprintf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize))
+}
+
 func TestGatewayVaultRequestProcessor_ProcessRequest_InvalidParamsParityWithStripPrefix(t *testing.T) {
 	t.Parallel()
 

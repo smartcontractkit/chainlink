@@ -26,8 +26,7 @@ const defaultEthBalMonMinWaitPeriodSeconds uint64 = 60
 
 var DeployEthBalMonChangeSet cldf.ChangeSetV2[vaulttypes.DeployEthBalMonInput] = deployEthBalMon{}
 
-type deployEthBalMon struct {
-}
+type deployEthBalMon struct{}
 
 func effectiveMinWaitPeriodSeconds(v uint64) uint64 {
 	if v == 0 {
@@ -599,7 +598,6 @@ var DeployEthBalMonContractOperation = operations.NewOperation(
 		)
 
 		return out, nil
-
 	},
 )
 
@@ -673,7 +671,6 @@ var TransferOwnershipOperation = operations.NewOperation(
 		)
 
 		return out, nil
-
 	},
 )
 
@@ -742,10 +739,8 @@ func BuildAcceptOwnershipTimelockProposal(
 			ChainSelector: mcmstypes.ChainSelector(chainSelector),
 			Transactions: []mcmstypes.Transaction{
 				{
-					OperationMetadata: mcmstypes.OperationMetadata{
-						ContractType: vaulttypes.EthBalMonContractType,
-						Tags:         []string{"acceptOwnership"},
-					},
+					ContractType:     vaulttypes.EthBalMonContractType,
+					Tags:             []string{"acceptOwnership"},
 					To:               contractAddr,
 					Data:             acceptOwnershipTx.Data(),
 					AdditionalFields: json.RawMessage(`{"value": 0}`),

@@ -1,0 +1,25 @@
+name: Setup gotestsum
+description: Installs and caches gotestsum binary
+inputs:
+  version:
+    description: Version of gotestsum to install
+    default: v1.13.0
+
+runs:
+  using: composite
+  steps:
+    - name: Cache gotestsum
+      id: cache-gotestsum
+      uses: actions/cache@v6
+      with:
+        path: ~/go/bin/gotestsum
+        key: ${{ runner.os }}-${{ runner.arch }}-gotestsum-${{ inputs.version }}
+
+    - name: Install gotestsum
+      if: steps.cache-gotestsum.outputs.cache-hit != 'true'
+      shell: bash
+      run: go install gotest.tools/gotestsum@${{ inputs.version }}
+
+    - name: Add go bin to path
+      shell: bash
+      run: echo "$HOME/go/bin" | tee -a "$GITHUB_PATH"

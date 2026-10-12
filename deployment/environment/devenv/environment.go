@@ -43,7 +43,7 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		if err != nil {
 			return nil, nil, err
 		}
-		nodeIDs = jd.don.NodeIds()
+		nodeIDs = jd.don.NodeIDs()
 	}
 
 	return cldf.NewEnvironment(

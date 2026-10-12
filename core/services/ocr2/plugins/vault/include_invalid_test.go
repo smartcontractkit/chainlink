@@ -26,9 +26,9 @@ func writeUnobservablePendingQueueItem(t *testing.T, rdr *kv, id string) *vaultc
 }
 
 // Regression: appendPendingQueueObservations walks the full pending queue and emits
-// error contributions for unobservable items when include-invalid is on, but
-// validatePendingQueueObservationsPrefix used observablePendingQueueItems which
-// drops those items — rejecting every honest observation and stalling the round.
+// error contributions for unobservable items, and validatePendingQueueObservationsPrefix
+// uses the same full walk — so honest observations are accepted rather than rejected
+// and stalling the round.
 func TestIncludeInvalid_UnobservableQueueItemObservationRoundTrip(t *testing.T) {
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -36,7 +36,6 @@ func TestIncludeInvalid_UnobservableQueueItemObservationRoundTrip(t *testing.T) 
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -77,7 +76,6 @@ func TestIncludeInvalid_UnobservableHeadWithValidTailAlignsByQueuePosition(t *te
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -108,7 +106,6 @@ func TestValidateObservation_AcceptsErrContributionForQueueItem(t *testing.T) {
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -142,43 +139,6 @@ func TestValidateObservation_AcceptsErrContributionForQueueItem(t *testing.T) {
 	))
 }
 
-// Regression: A Byzantine node submitting a GetSecrets error observation without include-invalid
-// should be rejected during validation, preventing a panic in shaForObservation when
-// dereferencing the nil response.
-func TestValidateObservation_RejectsErrContributionWhenIncludeInvalidDisabled(t *testing.T) {
-	t.Parallel()
-	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
-	require.NoError(t, err)
-	r := newTestReportingPlugin(t,
-		withKeys(pk, shares[0]),
-		withOnchainCfg(4, 1),
-		// include-invalid is disabled (the default)
-	)
-
-	obs := &vaultcommon.Observations{
-		SortNonce: make([]byte, sortNonceLength),
-		Observations: []*vaultcommon.Observation{
-			observationToErrContribution(&vaultcommon.Observation{
-				Id:          "request-1",
-				RequestType: vaultcommon.RequestType_GET_SECRETS,
-			}, "request is not valid"),
-		},
-	}
-	obsb, err := proto.Marshal(obs)
-	require.NoError(t, err)
-
-	err = r.ValidateObservation(
-		t.Context(),
-		1,
-		types.AttributedQuery{},
-		types.AttributedObservation{Observer: 0, Observation: types.Observation(obsb)},
-		&kv{m: make(map[string]response)},
-		nil,
-	)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "error contribution not allowed when include-invalid is disabled")
-}
-
 func TestValidateObservation_IncludeInvalid_AcceptsNonMaximalPrefix(t *testing.T) {
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -186,8 +146,6 @@ func TestValidateObservation_IncludeInvalid_AcceptsNonMaximalPrefix(t *testing.T
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultOptimizationsEnabled(),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 		withMaxObservationBytes(10*1024*1024),
 	)
 
@@ -211,7 +169,6 @@ func TestObservationQuorum_IncludeInvalid_RequiresHeadContribution(t *testing.T)
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -277,7 +234,6 @@ func TestStateTransition_IncludeInvalid_ProcessesHeadBeforeStoppingOnTail(t *tes
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -339,7 +295,6 @@ func TestStateTransition_IncludeInvalid_RejectsItemOnFPlusOneErr(t *testing.T) {
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -444,7 +399,6 @@ func TestStateTransition_IncludeInvalid_RejectsMultiItemBatchOnFPlusOneErr(t *te
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -496,7 +450,7 @@ func TestStateTransition_IncludeInvalid_RejectsMultiItemBatchOnFPlusOneErr(t *te
 // core desync regression: an honest node stamps a GetSecrets item OK in the
 // Observation self-check, and every peer's ValidateObservation must accept that
 // same observation. Before unification, checkContribution skipped the response
-// share checks that validateGetSecretsObservation enforced, so a valid
+// share checks that validateGetSecretsContribution enforced, so a valid
 // self-checked OK could be rejected wholesale by peers and stall head-of-queue
 // quorum. Both phases now call validateContribution, so the verdicts agree.
 func TestValidateContribution_GetSecretsSelfCheckedObsPassesValidateObservation(t *testing.T) {
@@ -506,7 +460,6 @@ func TestValidateContribution_GetSecretsSelfCheckedObsPassesValidateObservation(
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	rdr := &kv{m: make(map[string]response)}
@@ -534,7 +487,6 @@ func TestValidateContribution_GetSecretsOversizedShareRejected(t *testing.T) {
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	owner := "0x0001020304050607080900010203040506070809"
@@ -570,7 +522,7 @@ func TestValidateContribution_GetSecretsOversizedShareRejected(t *testing.T) {
 		},
 	}
 
-	err = r.validateContribution(t.Context(), newTestReadStore(t, &kv{m: make(map[string]response)}), pendingItem, o)
+	err = r.validateContribution(t.Context(), pendingItem, o)
 	require.Error(t, err, "validateContribution must reject oversized shares so the self-check stamps an error contribution")
 	require.ErrorContains(t, err, "exceeds maximum size allowed")
 }
@@ -586,7 +538,6 @@ func TestStateTransition_IncludeInvalid_GuardAcceptsValidGetSecrets(t *testing.T
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	rdr := &kv{m: make(map[string]response)}

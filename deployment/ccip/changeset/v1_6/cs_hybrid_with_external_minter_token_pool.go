@@ -5,19 +5,28 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/hybrid_with_external_minter_token_pool"
 
+	cldfevm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 )
 
 var _ cldf.ChangeSet[ConfigureHybridWithExternalMinterTokenPoolConfig] = UpdateGroupsOnHybridWithExternalMinterTokenPool
+
+// Group values as defined by HybridTokenPoolAbstract.Group.
+const (
+	groupLockAndRelease uint8 = 0
+	groupBurnAndMint    uint8 = 1
+)
 
 type HybridGroupConfig struct {
 	// Type is the type of the token pool.
@@ -27,6 +36,10 @@ type HybridGroupConfig struct {
 	Version semver.Version `json:"version"`
 
 	Updates []hybrid_with_external_minter_token_pool.HybridTokenPoolAbstractGroupUpdate
+
+	// RemoteSupplies is keyed by remote chain selector and is required for every update
+	// carrying a non-zero RemoteChainSupply.
+	RemoteSupplies map[uint64]shared.RemoteSupply `json:"remoteSupplies"`
 }
 
 type ConfigureHybridWithExternalMinterTokenPoolConfig struct {
@@ -82,7 +95,12 @@ func (c ConfigureHybridWithExternalMinterTokenPoolConfig) Validate(env cldf.Envi
 			}
 		}
 
-		if err := poolUpdate.Validate(); err != nil {
+		pool, err := c.resolvePool(chainState, chain)
+		if err != nil {
+			return fmt.Errorf("failed to resolve pool on %s: %w", chain.String(), err)
+		}
+
+		if err := poolUpdate.Validate(env, pool, chain.String()); err != nil {
 			return fmt.Errorf("invalid pool update on %s: %w", chain.String(), err)
 		}
 	}
@@ -90,7 +108,32 @@ func (c ConfigureHybridWithExternalMinterTokenPoolConfig) Validate(env cldf.Envi
 	return nil
 }
 
-func (c HybridGroupConfig) Validate() error {
+// resolvePool returns the pool addressed by c, looked up by token symbol in state or bound
+// directly to the configured address.
+func (c ConfigureHybridWithExternalMinterTokenPoolConfig) resolvePool(
+	chainState evm.CCIPChainState,
+	chain cldfevm.Chain,
+) (*hybrid_with_external_minter_token_pool.HybridWithExternalMinterTokenPool, error) {
+	if c.TokenSymbol != "" {
+		pool, ok := chainState.HybridWithExternalMinterTokenPool[c.TokenSymbol][deployment.Version1_6_0]
+		if !ok {
+			return nil, fmt.Errorf("token pool does not exist with symbol %s", c.TokenSymbol)
+		}
+		return pool, nil
+	}
+
+	pool, err := hybrid_with_external_minter_token_pool.NewHybridWithExternalMinterTokenPool(c.Address, chain.Client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create hybrid with external minter pool: %w", err)
+	}
+	return pool, nil
+}
+
+func (c HybridGroupConfig) Validate(
+	env cldf.Environment,
+	pool *hybrid_with_external_minter_token_pool.HybridWithExternalMinterTokenPool,
+	chainName string,
+) error {
 	if _, ok := shared.TokenPoolTypes[c.Type]; !ok {
 		return fmt.Errorf("%s is not a known token pool type", c.Type)
 	}
@@ -101,6 +144,91 @@ func (c HybridGroupConfig) Validate() error {
 
 	if c.Type != shared.HybridWithExternalMinterTokenPool {
 		return fmt.Errorf("token pool type %s is not supported", c.Type)
+	}
+
+	if len(c.Updates) == 0 {
+		return fmt.Errorf("no group updates specified for %s", chainName)
+	}
+
+	opts := &bind.CallOpts{Context: env.GetContext()}
+
+	localDecimals, err := pool.GetTokenDecimals(opts)
+	if err != nil {
+		return fmt.Errorf("failed to fetch local token decimals from pool %s: %w", pool.Address(), err)
+	}
+
+	seen := make(map[uint64]struct{}, len(c.Updates))
+
+	for _, update := range c.Updates {
+		if err := cldf.IsValidChainSelector(update.RemoteChainSelector); err != nil {
+			return fmt.Errorf("invalid remote chain selector %d: %w", update.RemoteChainSelector, err)
+		}
+
+		// updateGroups applies updates in order, so a duplicate would depend on the state
+		// left by the first entry.
+		if _, duplicate := seen[update.RemoteChainSelector]; duplicate {
+			return fmt.Errorf("remote chain %d appears more than once in the group updates", update.RemoteChainSelector)
+		}
+		seen[update.RemoteChainSelector] = struct{}{}
+
+		if update.Group != groupLockAndRelease && update.Group != groupBurnAndMint {
+			return fmt.Errorf("invalid group %d for remote chain %d, must be %d (LOCK_AND_RELEASE) or %d (BURN_AND_MINT)",
+				update.Group, update.RemoteChainSelector, groupLockAndRelease, groupBurnAndMint)
+		}
+
+		supported, err := pool.IsSupportedChain(opts, update.RemoteChainSelector)
+		if err != nil {
+			return fmt.Errorf("failed to check if chain %d is supported: %w", update.RemoteChainSelector, err)
+		}
+
+		if !supported {
+			return fmt.Errorf("remote chain %d is not supported by the token pool", update.RemoteChainSelector)
+		}
+
+		// The contract reverts with InvalidGroupUpdate on a no-op transition.
+		currentGroup, err := pool.GetGroup(opts, update.RemoteChainSelector)
+		if err != nil {
+			return fmt.Errorf("failed to read current group for chain %d: %w", update.RemoteChainSelector, err)
+		}
+
+		if currentGroup == update.Group {
+			return fmt.Errorf("remote chain %d is already in group %d", update.RemoteChainSelector, update.Group)
+		}
+
+		// A group change that migrates no liquidity needs no remote supply.
+		if update.RemoteChainSupply == nil || update.RemoteChainSupply.Sign() == 0 {
+			continue
+		}
+
+		if update.RemoteChainSupply.Sign() < 0 {
+			return fmt.Errorf("remote chain %d: RemoteChainSupply must not be negative", update.RemoteChainSelector)
+		}
+
+		remoteSupply, ok := c.RemoteSupplies[update.RemoteChainSelector]
+		if !ok {
+			return fmt.Errorf("remote chain %d: RemoteChainSupply is non-zero but no RemoteSupply was given, so the local amount cannot be derived", update.RemoteChainSelector)
+		}
+
+		remoteToken, err := pool.GetRemoteToken(opts, update.RemoteChainSelector)
+		if err != nil {
+			return fmt.Errorf("failed to read remote token for chain %d: %w", update.RemoteChainSelector, err)
+		}
+
+		verified, err := shared.VerifyRemoteDecimals(env.GetContext(), env, update.RemoteChainSelector, remoteToken, remoteSupply.Decimals)
+		if err != nil {
+			return err
+		}
+
+		if !verified {
+			env.Logger.Warnw("Remote token decimals could not be verified on chain, relying on the supplied value",
+				"remoteChainSelector", update.RemoteChainSelector,
+				"declaredDecimals", remoteSupply.Decimals,
+			)
+		}
+
+		if err := shared.ValidateRemoteChainSupply(remoteSupply, update.RemoteChainSupply, localDecimals, update.RemoteChainSelector); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -132,20 +260,9 @@ func UpdateGroupsOnHybridWithExternalMinterTokenPool(env cldf.Environment, c Con
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
 		}
 
-		var pool *hybrid_with_external_minter_token_pool.HybridWithExternalMinterTokenPool
-
-		if c.TokenSymbol != "" {
-			poolFromTokenSymbol, ok := chainState.HybridWithExternalMinterTokenPool[c.TokenSymbol][deployment.Version1_6_0]
-			if !ok {
-				return cldf.ChangesetOutput{}, fmt.Errorf("token pool does not exist on %s with symbol %s", chain, c.TokenSymbol)
-			}
-
-			pool = poolFromTokenSymbol
-		} else {
-			pool, err = hybrid_with_external_minter_token_pool.NewHybridWithExternalMinterTokenPool(c.Address, chain.Client)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create hybrid with external minter pool: %w", err)
-			}
+		pool, err := c.resolvePool(chainState, chain)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to resolve pool on %s: %w", chain, err)
 		}
 
 		if _, err := pool.UpdateGroups(opts, tokenPool.Updates); err != nil {
