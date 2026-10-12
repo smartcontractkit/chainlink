@@ -98,70 +98,79 @@ type EngineMetrics struct {
 	activeExecutionsGauge metric.Int64Gauge
 }
 
-func InitMonitoringResources() (em *EngineMetrics, err error) {
+// InitMonitoringResources returns engine metrics registered on the global
+// beholder meter. Prefer InitMonitoringResourcesWithMeter with an explicitly
+// injected meter; this reads the global meter at call time, as before.
+func InitMonitoringResources() (*EngineMetrics, error) {
+	return InitMonitoringResourcesWithMeter(beholder.GetMeter())
+}
+
+// InitMonitoringResourcesWithMeter registers all engine metrics on meter.
+// A nil meter is not supported; pass beholder.GetMeter() explicitly instead.
+func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, err error) {
 	em = &EngineMetrics{}
 
-	em.workflowExecutionRateLimitGlobalCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_ratelimit_global")
+	em.workflowExecutionRateLimitGlobalCounter, err = meter.Int64Counter("platform_engine_execution_ratelimit_global")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution rate limit global counter: %w", err)
 	}
 
-	em.workflowExecutionRateLimitPerUserCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_ratelimit_peruser")
+	em.workflowExecutionRateLimitPerUserCounter, err = meter.Int64Counter("platform_engine_execution_ratelimit_peruser")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution rate limit per user counter: %w", err)
 	}
 
-	em.workflowLimitGlobalCounter, err = beholder.GetMeter().Int64Counter("platform_engine_limit_global")
+	em.workflowLimitGlobalCounter, err = meter.Int64Counter("platform_engine_limit_global")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution limit global counter: %w", err)
 	}
 
-	em.workflowLimitPerOwnerCounter, err = beholder.GetMeter().Int64Counter("platform_engine_limit_perowner")
+	em.workflowLimitPerOwnerCounter, err = meter.Int64Counter("platform_engine_limit_perowner")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution limit per owner counter: %w", err)
 	}
 
-	em.registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_registertrigger_failures")
+	em.registerTriggerFailureCounter, err = meter.Int64Counter("platform_engine_registertrigger_failures")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger failure counter: %w", err)
 	}
 
-	em.triggerWorkflowStarterErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_triggerworkflow_starter_errors")
+	em.triggerWorkflowStarterErrorCounter, err = meter.Int64Counter("platform_engine_triggerworkflow_starter_errors")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger workflow starter error counter: %w", err)
 	}
 
-	em.workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_count")
+	em.workflowsRunningGauge, err = meter.Int64Gauge("platform_engine_workflow_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflows running gauge: %w", err)
 	}
 
-	em.capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("platform_engine_capabilities_count")
+	em.capabilityInvocationCounter, err = meter.Int64Counter("platform_engine_capabilities_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register capability invocation counter: %w", err)
 	}
 
-	em.capabilityFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_capabilities_failures")
+	em.capabilityFailureCounter, err = meter.Int64Counter("platform_engine_capabilities_failures")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register capability failure counter: %w", err)
 	}
 
-	em.capabilityUserErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_capabilities_user_errors")
+	em.capabilityUserErrorCounter, err = meter.Int64Counter("platform_engine_capabilities_user_errors")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register capability user errors counter: %w", err)
 	}
 
-	em.workflowRegisteredCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_registered_count")
+	em.workflowRegisteredCounter, err = meter.Int64Counter("platform_engine_workflow_registered_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow registered counter: %w", err)
 	}
 
-	em.workflowUnregisteredCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_unregistered_count")
+	em.workflowUnregisteredCounter, err = meter.Int64Counter("platform_engine_workflow_unregistered_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow unregistered counter: %w", err)
 	}
 
-	em.workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge(
+	em.workflowExecutionLatencyGauge, err = meter.Int64Gauge(
 		"platform_engine_workflow_time",
 		metric.WithUnit("ms"),
 	)
@@ -169,12 +178,12 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register workflow execution latency gauge: %w", err)
 	}
 
-	em.workflowInitializationCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_initializations")
+	em.workflowInitializationCounter, err = meter.Int64Counter("platform_engine_workflow_initializations")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow initialization counter: %w", err)
 	}
 
-	em.workflowInitializationFailureCounter, err = beholder.GetMeter().Int64Counter(
+	em.workflowInitializationFailureCounter, err = meter.Int64Counter(
 		"platform_engine_workflow_initialization_failures_total",
 		metric.WithDescription("Count of failed engine initializations by failure reason"),
 	)
@@ -182,44 +191,45 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register workflow initialization failure counter: %w", err)
 	}
 
-	em.triggerSubscriptionSourceCounter, err = beholder.GetMeter().Int64Counter(
+	em.triggerSubscriptionSourceCounter, err = meter.Int64Counter(
 		"platform_engine_trigger_subscription_source_total",
-		metric.WithDescription("Count of engine starts by trigger subscription source: cache or wasm"))
+		metric.WithDescription("Count of engine starts by trigger subscription source: cache or wasm"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger subscription source counter: %w", err)
 	}
 
-	em.workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_errors")
+	em.workflowStepErrorCounter, err = meter.Int64Counter("platform_engine_workflow_errors")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow step error counter: %w", err)
 	}
 
-	em.workflowTriggerEventErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_trigger_event_errors")
+	em.workflowTriggerEventErrorCounter, err = meter.Int64Counter("platform_engine_workflow_trigger_event_errors")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow trigger event error counter: %w", err)
 	}
 
-	em.workflowTriggerEventQueueFullCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_trigger_event_queue_full")
+	em.workflowTriggerEventQueueFullCounter, err = meter.Int64Counter("platform_engine_workflow_trigger_event_queue_full")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow trigger event queue full counter: %w", err)
 	}
 
-	em.workflowExecutionStartedCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_execution_started_count")
+	em.workflowExecutionStartedCounter, err = meter.Int64Counter("platform_engine_workflow_execution_started_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow execution started counter: %w", err)
 	}
 
-	em.workflowExecutionFailedCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_execution_failed_count")
+	em.workflowExecutionFailedCounter, err = meter.Int64Counter("platform_engine_workflow_execution_failed_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow execution failed counter: %w", err)
 	}
 
-	em.workflowExecutionSucceededCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_execution_succeeded_count")
+	em.workflowExecutionSucceededCounter, err = meter.Int64Counter("platform_engine_workflow_execution_succeeded_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow execution succeeded counter: %w", err)
 	}
 
-	em.workflowExecutionFinishedCounter, err = beholder.GetMeter().Int64Counter(
+	em.workflowExecutionFinishedCounter, err = meter.Int64Counter(
 		"platform_engine_workflow_execution_finished_count",
 		metric.WithDescription("Count of workflow executions that reached a terminal status (completed, error, or timeout)"),
 	)
@@ -228,17 +238,17 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	}
 
 	// Deprecated: use the gauge below
-	em.engineHeartbeatCounter, err = beholder.GetMeter().Int64Counter("platform_engine_heartbeat")
+	em.engineHeartbeatCounter, err = meter.Int64Counter("platform_engine_heartbeat")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register engine heartbeat counter: %w", err)
 	}
 
-	em.engineHeartbeatGauge, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_heartbeat")
+	em.engineHeartbeatGauge, err = meter.Int64Gauge("platform_engine_workflow_heartbeat")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register engine heartbeat gauge: %w", err)
 	}
 
-	em.workflowCompletedDurationSeconds, err = beholder.GetMeter().Float64Histogram(
+	em.workflowCompletedDurationSeconds, err = meter.Float64Histogram(
 		"platform_engine_workflow_completed_time_seconds",
 		metric.WithDescription("Distribution of completed execution latencies"),
 		metric.WithUnit("seconds"),
@@ -247,7 +257,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register completed duration histogram: %w", err)
 	}
 
-	em.workflowErrorDurationSeconds, err = beholder.GetMeter().Float64Histogram(
+	em.workflowErrorDurationSeconds, err = meter.Float64Histogram(
 		"platform_engine_workflow_error_time_seconds",
 		metric.WithDescription("Distribution of error execution latencies"),
 		metric.WithUnit("seconds"),
@@ -256,7 +266,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register error duration histogram: %w", err)
 	}
 
-	em.workflowTimeoutDurationSeconds, err = beholder.GetMeter().Float64Histogram(
+	em.workflowTimeoutDurationSeconds, err = meter.Float64Histogram(
 		"platform_engine_workflow_timeout_time_seconds",
 		metric.WithDescription("Distribution of timeout execution latencies"),
 		metric.WithUnit("seconds"),
@@ -265,7 +275,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register timeout duration histogram: %w", err)
 	}
 
-	em.workflowStepDurationSeconds, err = beholder.GetMeter().Float64Histogram(
+	em.workflowStepDurationSeconds, err = meter.Float64Histogram(
 		"platform_engine_workflow_step_time_seconds",
 		metric.WithDescription("Distribution of step execution times"),
 		metric.WithUnit("seconds"),
@@ -274,7 +284,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register step execution time histogram: %w", err)
 	}
 
-	em.capabilityExecutionDurationSeconds, err = beholder.GetMeter().Float64Histogram(
+	em.capabilityExecutionDurationSeconds, err = meter.Float64Histogram(
 		"platform_engine_capability_execution_time_seconds",
 		metric.WithDescription("Distribution of capability execution times"),
 		metric.WithUnit("seconds"),
@@ -283,12 +293,12 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register capability execution time histogram: %w", err)
 	}
 
-	em.workflowMissingMeteringReport, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_missing_metering_report")
+	em.workflowMissingMeteringReport, err = meter.Int64Counter("platform_engine_workflow_missing_metering_report")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow metering missing counter: %w", err)
 	}
 
-	em.workflowMeteringMode, err = beholder.GetMeter().Int64Gauge(
+	em.workflowMeteringMode, err = meter.Int64Gauge(
 		"platform_engine_workflow_metering_mode",
 		metric.WithUnit("active"),
 	)
@@ -296,7 +306,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register workflow metering mode gauge: %w", err)
 	}
 
-	em.getSecretsDuration, err = beholder.GetMeter().Int64Histogram(
+	em.getSecretsDuration, err = meter.Int64Histogram(
 		"platform_engine_get_secrets_duration_ms",
 		metric.WithDescription("Duration of GetSecrets calls in ms"),
 		metric.WithUnit("ms"),
@@ -305,37 +315,37 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to create platform_engine_get_secrets_duration_ms metric: %w", err)
 	}
 
-	em.executionTimestampAssignedCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_timestamp_assigned")
+	em.executionTimestampAssignedCounter, err = meter.Int64Counter("platform_engine_execution_timestamp_assigned")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution timestamp assigned counter: %w", err)
 	}
 
-	em.executionTimestampFallbackCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_timestamp_fallback")
+	em.executionTimestampFallbackCounter, err = meter.Int64Counter("platform_engine_execution_timestamp_fallback")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution timestamp fallback counter: %w", err)
 	}
 
-	em.executionIDFullCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_id_full")
+	em.executionIDFullCounter, err = meter.Int64Counter("platform_engine_execution_id_full")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution id full counter: %w", err)
 	}
 
-	em.executionIDLegacyCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_id_legacy")
+	em.executionIDLegacyCounter, err = meter.Int64Counter("platform_engine_execution_id_legacy")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution id legacy counter: %w", err)
 	}
 
-	em.shardExecutionDeniedNotOwnerCounter, err = beholder.GetMeter().Int64Counter("platform_engine_shard_execution_denied_not_owner")
+	em.shardExecutionDeniedNotOwnerCounter, err = meter.Int64Counter("platform_engine_shard_execution_denied_not_owner")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register shard execution denied not owner counter: %w", err)
 	}
 
-	em.shardExecutionDeniedOrchestratorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_shard_execution_denied_orchestrator_error")
+	em.shardExecutionDeniedOrchestratorCounter, err = meter.Int64Counter("platform_engine_shard_execution_denied_orchestrator_error")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register shard execution denied orchestrator error counter: %w", err)
 	}
 
-	em.triggerEventReceivedCounter, err = beholder.GetMeter().Int64Counter(
+	em.triggerEventReceivedCounter, err = meter.Int64Counter(
 		"platform_engine_trigger_event_received_total",
 		metric.WithDescription("Trigger events read from the capability trigger channel (one per receive)"),
 	)
@@ -343,7 +353,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger event received counter: %w", err)
 	}
 
-	em.triggerEventAckSuccessCounter, err = beholder.GetMeter().Int64Counter(
+	em.triggerEventAckSuccessCounter, err = meter.Int64Counter(
 		"platform_engine_trigger_event_ack_success_total",
 		metric.WithDescription("Trigger events successfully acknowledged to the trigger capability"),
 	)
@@ -351,7 +361,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger event ack success counter: %w", err)
 	}
 
-	em.triggerEventAckFailureCounter, err = beholder.GetMeter().Int64Counter(
+	em.triggerEventAckFailureCounter, err = meter.Int64Counter(
 		"platform_engine_trigger_event_ack_failure_total",
 		metric.WithDescription("Trigger event ACK attempts that failed (registration missing or capability AckEvent error)"),
 	)
@@ -359,7 +369,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger event ack failure counter: %w", err)
 	}
 
-	em.triggerEventEnqueuedCounter, err = beholder.GetMeter().Int64Counter(
+	em.triggerEventEnqueuedCounter, err = meter.Int64Counter(
 		"platform_engine_trigger_event_enqueued_total",
 		metric.WithDescription("Trigger events accepted into the engine ingress queue"),
 	)
@@ -367,7 +377,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger event enqueued counter: %w", err)
 	}
 
-	em.triggerEventEnqueueDroppedCounter, err = beholder.GetMeter().Int64Counter(
+	em.triggerEventEnqueueDroppedCounter, err = meter.Int64Counter(
 		"platform_engine_trigger_event_enqueue_dropped_total",
 		metric.WithDescription("Trigger events dropped because enqueue to the engine's ingress queue failed"),
 	)
@@ -375,7 +385,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger event enqueue dropped counter: %w", err)
 	}
 
-	em.triggerEventDequeueDroppedCounter, err = beholder.GetMeter().Int64Counter(
+	em.triggerEventDequeueDroppedCounter, err = meter.Int64Counter(
 		"platform_engine_trigger_event_dequeue_dropped_total",
 		metric.WithDescription("Trigger events dropped after dequeue before execution (e.g. engine draining)"),
 	)
@@ -383,7 +393,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger event dequeue dropped counter: %w", err)
 	}
 
-	em.triggerEventDroppedTotal, err = beholder.GetMeter().Int64Counter(
+	em.triggerEventDroppedTotal, err = meter.Int64Counter(
 		"platform_engine_trigger_event_dropped_total",
 		metric.WithDescription("Trigger events that never reached Module.Execute, by drop_reason"),
 	)
@@ -391,7 +401,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger event dropped total counter: %w", err)
 	}
 
-	em.triggerEventExpiredCounter, err = beholder.GetMeter().Int64Counter(
+	em.triggerEventExpiredCounter, err = meter.Int64Counter(
 		"platform_engine_trigger_event_expired_total",
 		metric.WithDescription("Trigger events dropped for exceeding max queue wait time"),
 	)
@@ -399,7 +409,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger event expired counter: %w", err)
 	}
 
-	em.triggerExecutionDeduplicatedCounter, err = beholder.GetMeter().Int64Counter(
+	em.triggerExecutionDeduplicatedCounter, err = meter.Int64Counter(
 		"platform_engine_trigger_execution_deduplicated_total",
 		metric.WithDescription("Trigger events skipped because execution ID already exists"),
 	)
@@ -407,7 +417,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger execution deduplicated counter: %w", err)
 	}
 
-	em.triggerEventQueueWaitSeconds, err = beholder.GetMeter().Float64Histogram(
+	em.triggerEventQueueWaitSeconds, err = meter.Float64Histogram(
 		"platform_engine_trigger_event_queue_wait_seconds",
 		metric.WithDescription("Time from enqueue timestamp until dequeue from the trigger event queue"),
 		metric.WithUnit("s"),
@@ -416,7 +426,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger event queue wait histogram: %w", err)
 	}
 
-	em.triggerQueueToExecutionStartSeconds, err = beholder.GetMeter().Float64Histogram(
+	em.triggerQueueToExecutionStartSeconds, err = meter.Float64Histogram(
 		"platform_engine_trigger_queue_to_execution_start_seconds",
 		metric.WithDescription("Time from trigger enqueue until the workflow module is ready to run WASM (includes cache load); attribute source: loaded | weak_ref | disk | direct"),
 		metric.WithUnit("s"),
@@ -425,7 +435,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger queue to execution start histogram: %w", err)
 	}
 
-	em.triggerPayloadBytes, err = beholder.GetMeter().Int64Histogram(
+	em.triggerPayloadBytes, err = meter.Int64Histogram(
 		"platform_engine_trigger_payload_bytes",
 		metric.WithDescription("Byte length of trigger payloads passed to module execution"),
 		metric.WithUnit("By"),
@@ -434,7 +444,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger payload bytes histogram: %w", err)
 	}
 
-	em.executionSemaphoreWaitSeconds, err = beholder.GetMeter().Float64Histogram(
+	em.executionSemaphoreWaitSeconds, err = meter.Float64Histogram(
 		"platform_engine_execution_semaphore_wait_seconds",
 		metric.WithDescription("Time spent waiting for an execution slot from the executions semaphore"),
 		metric.WithUnit("s"),
@@ -443,7 +453,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register execution semaphore wait histogram: %w", err)
 	}
 
-	em.donTimeCallsCounter, err = beholder.GetMeter().Int64Counter(
+	em.donTimeCallsCounter, err = meter.Int64Counter(
 		"platform_engine_dontime_calls_total",
 		metric.WithDescription("Total GetDONTime calls made by the workflow engine"),
 	)
@@ -451,7 +461,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register don time calls counter: %w", err)
 	}
 
-	em.donTimeTimeoutsCounter, err = beholder.GetMeter().Int64Counter(
+	em.donTimeTimeoutsCounter, err = meter.Int64Counter(
 		"platform_engine_dontime_timeouts_total",
 		metric.WithDescription("GetDONTime calls that timed out waiting for a response"),
 	)
@@ -459,7 +469,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register don time timeouts counter: %w", err)
 	}
 
-	em.donTimeErrorsCounter, err = beholder.GetMeter().Int64Counter(
+	em.donTimeErrorsCounter, err = meter.Int64Counter(
 		"platform_engine_dontime_errors_total",
 		metric.WithDescription("GetDONTime calls that failed without DON consensus recovery"),
 	)
@@ -467,7 +477,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register don time errors counter: %w", err)
 	}
 
-	em.orgIDMissingCounter, err = beholder.GetMeter().Int64Counter(
+	em.orgIDMissingCounter, err = meter.Int64Counter(
 		"platform_engine_org_id_missing_total",
 		metric.WithDescription("Count of beholder events emitted by the engine without a resolved organization ID"),
 	)
@@ -475,7 +485,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register org id missing counter: %w", err)
 	}
 
-	em.limitReadFallbackTotal, err = beholder.GetMeter().Int64Counter(
+	em.limitReadFallbackTotal, err = meter.Int64Counter(
 		"platform_engine_limit_read_fallback_total",
 		metric.WithDescription("Limit reads that failed and fell back to the static default, by limitKey"),
 	)
@@ -483,7 +493,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register limit read fallback counter: %w", err)
 	}
 
-	em.limitCheckUnenforcedTotal, err = beholder.GetMeter().Int64Counter(
+	em.limitCheckUnenforcedTotal, err = meter.Int64Counter(
 		"platform_engine_limit_check_unenforced_total",
 		metric.WithDescription("Limit checks that could not be evaluated, so the limit went unenforced (failed open), by limitKey"),
 	)

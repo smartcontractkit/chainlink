@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -61,6 +62,12 @@ type EngineConfig struct {
 
 	// EventEmitter emits workflow platform events. Defaults to events.DefaultEmitter().
 	EventEmitter *events.Emitter
+
+	// Meter is the OTel meter the engine registers its metrics on. If nil,
+	// newBaseEngine falls back to beholder.GetMeter() at engine construction
+	// time, preserving the default read timing. It is deliberately NOT
+	// resolved in Validate.
+	Meter metric.Meter
 
 	Hooks         LifecycleHooks
 	BillingClient metering.BillingClient
