@@ -341,14 +341,17 @@ func requireCachedEventForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment
 }
 
 // shardAssignmentUpdateHashNeedle returns the log needle proving a node
-// applied the shard-assignment spec built from toml: the job template stamps
-// the spec with sha256(toml) and every node logs it on apply
+// applied the shard-assignment spec built from toml. The job template
+// (deployment/cre/jobs/pkg/cre_settings_job.go, ShardAssignmentJob.ResolveJob)
+// prefixes the assignment with the config_type marker and stamps the spec
+// with sha256 of that composite; every node logs the hash on apply
 // ("Updated shard assignment config", "hash", ...). Waiting for this needle
 // on EVERY worker container of a shard is the node-complete landing proof -
 // a single node's behavioral evidence (e.g. a cached-trigger needle) can
 // appear while the shard's other nodes still run the stale assignment.
 func shardAssignmentUpdateHashNeedle(toml string) string {
-	sum := sha256.Sum256([]byte(toml))
+	settings := "config_type = \"shard_assignment\"\n" + toml
+	sum := sha256.Sum256([]byte(settings))
 	return hex.EncodeToString(sum[:])
 }
 
