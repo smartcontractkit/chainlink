@@ -232,6 +232,7 @@ func (s *Services) newSubservices(
 				opts.CapabilitiesRegistry,
 				opts.ExecutionHandlers,
 				keyStore.P2P(),
+				// [P2P].PeerID is not set on any node in practice; GetOrFirst falls back to the node's single P2P key.
 				cfg.P2P().PeerID(),
 				lggr,
 				opts.LimitsFactory,
