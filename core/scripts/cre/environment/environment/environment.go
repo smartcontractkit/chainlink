@@ -348,6 +348,14 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to validate test configuration")
 			}
 
+			var extensionsDonFamily string
+			if in.Extensions != nil {
+				var extErr error
+				if extensionsDonFamily, extErr = validateExtensions(cmdContext, in); extErr != nil {
+					return errors.Wrap(extErr, "invalid extensions config")
+				}
+			}
+
 			topologySummary, _, topErr := generateTopologyArtifactsForLoadedConfig(in)
 			if topErr != nil {
 				framework.L.Warn().Err(topErr).Msg("failed to generate topology visualization artifacts")
@@ -402,7 +410,7 @@ func startCmd() *cobra.Command {
 			}
 
 			if in.Extensions != nil {
-				if err := startExtensions(cmdContext, in.Extensions, output); err != nil {
+				if err := startExtensions(cmdContext, in.Extensions, extensionsDonFamily, output); err != nil {
 					return errors.Wrap(err, "failed to start extensions")
 				}
 			}

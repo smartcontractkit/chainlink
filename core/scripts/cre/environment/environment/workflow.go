@@ -126,6 +126,9 @@ func deployWorkflowCmd() *cobra.Command {
 			if resolverErr != nil {
 				return errors.Wrap(resolverErr, "failed to load local CRE state")
 			}
+			if resolver != nil && resolver.cfg.Extensions != nil {
+				return errors.New("❌ this environment reads workflows from its extensions, not the file fetcher; deploy through cre-deploy-api instead (see configs/extensions/README.md)")
+			}
 
 			defer func() {
 				metaData := map[string]any{}

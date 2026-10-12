@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -20,6 +21,8 @@ import (
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
+// Role aliases the extension stacks answer to on ctf. They are a contract with those stacks' compose files; keep them in
+// step with configs/extensions/README.md and cre-storage-service local-stack/README.md.
 const (
 	extensionsStackName = "cre-extensions"
 
@@ -65,17 +68,66 @@ func extensionsNodeConfig(input cre.GenerateConfigsInput, configs cre.NodeIndexT
 	return out, nil
 }
 
+// validateExtensions rejects, before the environment starts, extensions config that can't work: a non-Docker provider,
+// a missing compose file, other than one workflow DON family, or stack images that are neither local nor pullable. It
+// returns the workflow DON family the stacks serve.
+func validateExtensions(ctx context.Context, in *envconfig.Config) (string, error) {
+	if in.Infra == nil || !in.Infra.IsDocker() {
+		return "", errors.New("extensions require the docker infra provider")
+	}
+	if _, err := os.Stat(in.Extensions.StorageCompose); err != nil {
+		return "", errors.Wrap(err, "extensions.storage_compose")
+	}
+
+	var families []string
+	for _, ns := range in.NodeSets {
+		if slices.Contains(ns.DONTypes, cre.WorkflowDON) && len(ns.DonFamilies) > 0 && !slices.Contains(families, ns.DonFamilies[0]) {
+			families = append(families, ns.DonFamilies[0])
+		}
+	}
+	if len(families) != 1 {
+		return "", errors.Errorf("extensions support exactly one workflow DON family, found %v", families)
+	}
+
+	return families[0], ensureExtensionsImages(ctx, in.Extensions)
+}
+
+// ensureExtensionsImages pulls the stacks' images that aren't local, and names the ones that can't be pulled (images
+// built from the stack's repo) instead of failing later in docker compose up.
+func ensureExtensionsImages(ctx context.Context, ext *envconfig.Extensions) error {
+	cmd := docker(ctx, "compose", "-f", ext.StorageCompose, "config", "--images")
+	cmd.Env = append(os.Environ(), extensionsEnv("http://placeholder:8545", 0, "0x0000000000000000000000000000000000000000", "placeholder")...)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return errors.Wrapf(err, "failed to list images in %s", ext.StorageCompose)
+	}
+
+	images := strings.Fields(string(out))
+	slices.Sort(images)
+	var missing []string
+	for _, image := range slices.Compact(images) {
+		if docker(ctx, "image", "inspect", image).Run() != nil && docker(ctx, "pull", "-q", image).Run() != nil {
+			missing = append(missing, image)
+		}
+	}
+	if len(missing) > 0 {
+		return errors.Errorf("images %v are neither local nor pullable; build them as described in the README next to %s", missing, ext.StorageCompose)
+	}
+	return nil
+}
+
 // startExtensions starts the extension stacks on the environment's network, with the registry chain, its
 // CapabilitiesRegistry and the workflow DON family as inputs.
-func startExtensions(ctx context.Context, ext *envconfig.Extensions, output *creenv.SetupOutput) error {
-	inputs, err := extensionsInputs(output)
+func startExtensions(ctx context.Context, ext *envconfig.Extensions, donFamily string, output *creenv.SetupOutput) error {
+	inputs, err := extensionsInputs(output, donFamily)
 	if err != nil {
 		return err
 	}
 
 	_ = framework.RemoveTestStack(extensionsStackName)
 
-	cmd := exec.CommandContext(ctx, "docker", "compose", "-p", extensionsStackName, "-f", ext.StorageCompose, "up", "-d", "--wait") //nolint:gosec // G204: compose file path from the developer's TOML config
+	cmd := docker(ctx, "compose", "-p", extensionsStackName, "-f", ext.StorageCompose, "up", "-d", "--wait")
 	cmd.Env = append(os.Environ(), inputs...)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	return errors.Wrapf(cmd.Run(), "failed to start %s", ext.StorageCompose)
@@ -85,7 +137,7 @@ func stopExtensions() error {
 	return framework.RemoveTestStack(extensionsStackName)
 }
 
-func extensionsInputs(output *creenv.SetupOutput) ([]string, error) {
+func extensionsInputs(output *creenv.SetupOutput, donFamily string) ([]string, error) {
 	creEnv := output.CreEnvironment
 	selector := creEnv.RegistryChainSelector
 
@@ -105,22 +157,20 @@ func extensionsInputs(output *creenv.SetupOutput) ([]string, error) {
 		return nil, errors.Errorf("no CapabilitiesRegistry on registry chain %d", selector)
 	}
 
-	var families []string
-	for _, don := range output.Dons.DonsWithFlag(cre.WorkflowDON) {
-		if f := don.DonFamily(); f != "" && !slices.Contains(families, f) {
-			families = append(families, f)
-		}
-	}
-	if len(families) != 1 {
-		return nil, errors.Errorf("extensions support exactly one workflow DON family, found %v", families)
-	}
+	return extensionsEnv(rpcURL, selector, capReg.Hex(), donFamily), nil
+}
 
+func extensionsEnv(rpcURL string, selector uint64, registry, donFamily string) []string {
 	return []string{
 		"CRE_NETWORK=" + framework.DefaultNetworkName,
 		"CRE_NETWORK_EXTERNAL=true",
 		"CRE_LOCAL_REGISTRY_RPC_URL=" + rpcURL,
 		"CRE_LOCAL_REGISTRY_CHAIN_SELECTOR=" + strconv.FormatUint(selector, 10),
-		"CRE_LOCAL_REGISTRY_ADDRESS=" + capReg.Hex(),
-		"CRE_LOCAL_DON_FAMILY=" + families[0],
-	}, nil
+		"CRE_LOCAL_REGISTRY_ADDRESS=" + registry,
+		"CRE_LOCAL_DON_FAMILY=" + donFamily,
+	}
+}
+
+func docker(ctx context.Context, args ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, "docker", args...)
 }

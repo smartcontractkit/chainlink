@@ -1,12 +1,16 @@
 package environment
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -53,4 +57,41 @@ func TestExtensionsNodeConfig_otherDONsUnchanged(t *testing.T) {
 
 func extensionsTestInput(flag cre.CapabilityFlag) cre.GenerateConfigsInput {
 	return cre.GenerateConfigsInput{DonMetadata: &cre.DonMetadata{Name: "don", Flags: []string{flag}}}
+}
+
+func TestValidateExtensions_rejectsBeforeStart(t *testing.T) {
+	t.Parallel()
+
+	compose := filepath.Join(t.TempDir(), "compose.yaml")
+	require.NoError(t, os.WriteFile(compose, []byte("services: {}\n"), 0o600))
+	workflowNodeSet := func(family string) *cre.NodeSet {
+		return &cre.NodeSet{DONTypes: []string{cre.WorkflowDON}, DonFamilies: []string{family}}
+	}
+
+	tests := []struct {
+		name string
+		in   *envconfig.Config
+		want string
+	}{
+		{"kubernetes", &envconfig.Config{
+			Infra:      &infra.Provider{Type: infra.Kubernetes},
+			Extensions: &envconfig.Extensions{StorageCompose: compose},
+		}, "docker infra provider"},
+		{"missing compose file", &envconfig.Config{
+			Infra:      &infra.Provider{Type: infra.Docker},
+			Extensions: &envconfig.Extensions{StorageCompose: filepath.Join(t.TempDir(), "missing.yaml")},
+		}, "extensions.storage_compose"},
+		{"two workflow DON families", &envconfig.Config{
+			Infra:      &infra.Provider{Type: infra.Docker},
+			NodeSets:   []*cre.NodeSet{workflowNodeSet("zone-a"), workflowNodeSet("zone-b")},
+			Extensions: &envconfig.Extensions{StorageCompose: compose},
+		}, "exactly one workflow DON family"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := validateExtensions(t.Context(), tt.in)
+			require.ErrorContains(t, err, tt.want)
+		})
+	}
 }
