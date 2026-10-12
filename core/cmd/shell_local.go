@@ -329,9 +329,18 @@ func initCCVCommand(s *Shell) cli.Command {
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0o700)
 
+// beholderEmitter returns the shell's own beholder emitter when the client is
+// configured, falling back to the global one (resolved at emit time) otherwise.
+func (s *Shell) beholderEmitter() beholder.Emitter {
+	if s.BeholderClient != nil && s.BeholderClient.Emitter != nil {
+		return s.BeholderClient.Emitter
+	}
+	return beholder.GlobalEmitter()
+}
+
 // EmitNodeConfig emits the node configuration through beholder as a pb.BaseMessage
 func (s *Shell) EmitNodeConfig(ctx context.Context) {
-	cme := custmsg.NewLabeler()
+	cme := custmsg.NewLabelerWithEmitter(s.beholderEmitter())
 	labels := map[string]string{
 		"system":  "Application",
 		"version": static.Version,

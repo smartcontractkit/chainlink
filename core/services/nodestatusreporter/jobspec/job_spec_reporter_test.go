@@ -114,12 +114,13 @@ func makeNonOCR2Job() job.Job {
 	}
 }
 
-// newTestReporter returns a Service wired to the current global beholder emitter.
-// The caller must set up the test emitter via beholdertest.NewObserver(t) first.
-func newTestReporter(t *testing.T, cfg *stubConfig, feedsORM feeds.ORM) *jobspec.Service {
+// newTestReporter returns a Service wired to a per-test recorder emitter, so
+// its emissions can be asserted without touching process-global beholder state.
+func newTestReporter(t *testing.T, cfg *stubConfig, feedsORM feeds.ORM) (*jobspec.Service, *beholdertest.Recorder) {
 	t.Helper()
 	spawner := jobmocks.NewSpawner(t)
-	return jobspec.NewJobSpecReporter(cfg, spawner, feedsORM, beholder.GetEmitter(), "csa-key", "1.0.0", "test-host", logger.TestLogger(t))
+	rec := beholdertest.NewRecorder()
+	return jobspec.NewJobSpecReporter(cfg, spawner, feedsORM, rec, "csa-key", "1.0.0", "test-host", logger.TestLogger(t)), rec
 }
 
 // newFeedsORMWithoutProposal returns a feeds ORM mock that behaves as if the
@@ -131,10 +132,10 @@ func newFeedsORMWithoutProposal(t *testing.T, jb job.Job) *feedsmocks.ORM {
 	return feedsORM
 }
 
-func requireSingleJobSpecEvent(t *testing.T, observer beholdertest.Observer) *events.JobSpecEvent {
+func requireSingleJobSpecEvent(t *testing.T, rec *beholdertest.Recorder) *events.JobSpecEvent {
 	t.Helper()
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
+	msgs := rec.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
 	require.Len(t, msgs, 1)
 
 	ev := new(events.JobSpecEvent)
@@ -143,8 +144,9 @@ func requireSingleJobSpecEvent(t *testing.T, observer beholdertest.Observer) *ev
 }
 
 func TestShouldEmit_DefaultConfig(t *testing.T) {
-	beholdertest.NewObserver(t)
-	svc := newTestReporter(t, defaultConfig(), nil)
+	t.Parallel()
+
+	svc, _ := newTestReporter(t, defaultConfig(), nil)
 
 	median := makeMedianJob()
 	nonMedian := makeNonMedianOCR2Job()
@@ -162,17 +164,19 @@ func TestShouldEmit_DefaultConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, svc.ShouldEmit(tc.jb))
 		})
 	}
 }
 
 func TestShouldEmit_NoOCR2Types(t *testing.T) {
-	beholdertest.NewObserver(t)
+	t.Parallel()
+
 	cfg := defaultConfig()
 	cfg.enabledOCR2PluginTypes = []string{} // empty allowlist = disable all
 
-	svc := newTestReporter(t, cfg, nil)
+	svc, _ := newTestReporter(t, cfg, nil)
 
 	median := makeMedianJob()
 	nonMedian := makeNonMedianOCR2Job()
@@ -184,11 +188,12 @@ func TestShouldEmit_NoOCR2Types(t *testing.T) {
 }
 
 func TestShouldEmit_AllOCR2Types(t *testing.T) {
-	beholdertest.NewObserver(t)
+	t.Parallel()
+
 	cfg := defaultConfig()
 	cfg.enabledOCR2PluginTypes = []string{"all"}
 
-	svc := newTestReporter(t, cfg, nil)
+	svc, _ := newTestReporter(t, cfg, nil)
 
 	median := makeMedianJob()
 	nonMedian := makeNonMedianOCR2Job()
@@ -200,10 +205,9 @@ func TestShouldEmit_AllOCR2Types(t *testing.T) {
 }
 
 func TestShouldEmit_NonOCR2Skipped(t *testing.T) {
-	beholdertest.NewObserver(t)
-	cfg := defaultConfig()
+	t.Parallel()
 
-	svc := newTestReporter(t, cfg, nil)
+	svc, _ := newTestReporter(t, defaultConfig(), nil)
 
 	median := makeMedianJob()
 	nonOCR2 := makeNonOCR2Job()
@@ -213,15 +217,15 @@ func TestShouldEmit_NonOCR2Skipped(t *testing.T) {
 }
 
 func TestBuildEvent_MedianJob(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
+	t.Parallel()
 
 	jb := makeMedianJob()
-	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
+	svc, rec := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
-	ev := requireSingleJobSpecEvent(t, observer)
+	ev := requireSingleJobSpecEvent(t, rec)
 	assert.Equal(t, jb.ExternalJobID.String(), ev.ExternalJobId)
 	assert.Equal(t, "test-median-job", ev.Name)
 	assert.Equal(t, "offchainreporting2", ev.JobType)
@@ -243,48 +247,48 @@ func TestBuildEvent_MedianJob(t *testing.T) {
 }
 
 func TestBuildEvent_MedianJobBridgeNamesFromPipelineSpec(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
+	t.Parallel()
 
 	jb := makeMedianJob()
 	jb.Pipeline = pipeline.Pipeline{}
-	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
+	svc, rec := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
-	ev := requireSingleJobSpecEvent(t, observer)
+	ev := requireSingleJobSpecEvent(t, rec)
 	assert.Equal(t, []string{"my-bridge"}, ev.BridgeNames)
 }
 
 func TestBuildEvent_MedianJobNumericRelayConfigChainID(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
+	t.Parallel()
 
 	jb := makeMedianJob()
 	jb.OCR2OracleSpec.ChainID = ""
 	jb.OCR2OracleSpec.RelayConfig["chainID"] = int64(11155111)
-	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
+	svc, rec := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
-	ev := requireSingleJobSpecEvent(t, observer)
+	ev := requireSingleJobSpecEvent(t, rec)
 	require.NotNil(t, ev.Ocr2OracleSpec)
 	require.NotNil(t, ev.Ocr2OracleSpec.EvmRelayConfig)
 	assert.Equal(t, "11155111", ev.Ocr2OracleSpec.EvmRelayConfig.GetChainId())
 }
 
 func TestBuildEvent_EVMRelayConfigEmitsExplicitFalseBooleans(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
+	t.Parallel()
 
 	jb := makeMedianJob()
 	jb.OCR2OracleSpec.RelayConfig["enableDualTransmission"] = false
 	jb.OCR2OracleSpec.RelayConfig["enableTriggerCapability"] = false
-	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
+	svc, rec := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
-	ev := requireSingleJobSpecEvent(t, observer)
+	ev := requireSingleJobSpecEvent(t, rec)
 	require.NotNil(t, ev.Ocr2OracleSpec)
 	require.NotNil(t, ev.Ocr2OracleSpec.EvmRelayConfig)
 	assert.False(t, ev.Ocr2OracleSpec.EvmRelayConfig.GetEnableDualTransmission())
@@ -294,15 +298,15 @@ func TestBuildEvent_EVMRelayConfigEmitsExplicitFalseBooleans(t *testing.T) {
 }
 
 func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
+	t.Parallel()
 
 	jb := makeNonMedianOCR2Job()
-	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
+	svc, rec := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_CREATE)
 	require.NoError(t, err)
 
-	ev := requireSingleJobSpecEvent(t, observer)
+	ev := requireSingleJobSpecEvent(t, rec)
 	require.NotNil(t, ev.Ocr2OracleSpec)
 	assert.Equal(t, "llo", ev.Ocr2OracleSpec.PluginType)
 	assert.Nil(t, ev.Ocr2OracleSpec.MedianPluginConfig)
@@ -310,53 +314,54 @@ func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
 }
 
 func TestBuildEvent_NonOCR2Job(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
+	t.Parallel()
 
-	svc := newTestReporter(t, defaultConfig(), nil)
+	svc, rec := newTestReporter(t, defaultConfig(), nil)
 
 	jb := makeNonOCR2Job()
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.ErrorContains(t, err, "unsupported job type")
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
+	msgs := rec.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
 	require.Empty(t, msgs)
 }
 
 func TestAfterJobStarted_EmitsCreate(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
+	t.Parallel()
 
 	jb := makeMedianJob()
-	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
+	svc, rec := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 	svc.AfterJobStarted(context.Background(), jb)
 
-	ev := requireSingleJobSpecEvent(t, observer)
+	ev := requireSingleJobSpecEvent(t, rec)
 	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_CREATE, ev.EmissionTrigger)
 }
 
 func TestAfterJobStopped_EmitsDelete(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
+	t.Parallel()
 
 	jb := makeMedianJob()
-	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
+	svc, rec := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 	svc.AfterJobStopped(context.Background(), jb)
 
-	ev := requireSingleJobSpecEvent(t, observer)
+	ev := requireSingleJobSpecEvent(t, rec)
 	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_DELETE, ev.EmissionTrigger)
 }
 
 func TestAfterJobStarted_SkippedWhenGateFails(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
+	t.Parallel()
 
 	// default config only allows median, so a non-OCR2 job should be skipped
-	svc := newTestReporter(t, defaultConfig(), nil)
+	svc, rec := newTestReporter(t, defaultConfig(), nil)
 	svc.AfterJobStarted(context.Background(), makeNonOCR2Job())
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
+	msgs := rec.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
 	require.Empty(t, msgs)
 }
 
 func TestBuildEvent_ProposalLifecycle(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
+	t.Parallel()
+
 	feedsORM := feedsmocks.NewORM(t)
 
 	jb := makeMedianJob()
@@ -378,11 +383,11 @@ func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 	feedsORM.On("GetJobProposalByExternalJobID", mock.Anything, jb.ExternalJobID).Return(prop, nil)
 	feedsORM.On("GetApprovedSpec", mock.Anything, prop.ID).Return(spec, nil)
 
-	svc := newTestReporter(t, defaultConfig(), feedsORM)
+	svc, rec := newTestReporter(t, defaultConfig(), feedsORM)
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
-	ev := requireSingleJobSpecEvent(t, observer)
+	ev := requireSingleJobSpecEvent(t, rec)
 	assert.Equal(t, int64(7), ev.FeedsManagerId)
 	assert.Equal(t, prop.RemoteUUID.String(), ev.RemoteUuid)
 	assert.Equal(t, int32(3), ev.SpecVersion)
@@ -393,19 +398,17 @@ func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 
 // Pins the split: CLJobInfo needs no per-node opt-in, the legacy OCR2 track
 // stays behind JobSpecReporter.Enabled.
-//
-//nolint:paralleltest // installs a process-global beholder emitter
 func TestAfterJobStarted_CLJobInfoIgnoresEnabledGate(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
+	t.Parallel()
 
 	cfg := defaultConfig()
 	cfg.enabled = false // legacy track off
 
 	jb := makeMedianJob()
-	reporter := newTestReporter(t, cfg, newFeedsORMWithoutProposal(t, jb))
+	reporter, rec := newTestReporter(t, cfg, newFeedsORMWithoutProposal(t, jb))
 	reporter.AfterJobStarted(t.Context(), jb)
 
-	clMsgs := observer.Messages(t, beholder.AttrKeyEntity, jobspec.Entity)
+	clMsgs := rec.Messages(t, beholder.AttrKeyEntity, jobspec.Entity)
 	require.Len(t, clMsgs, 1, "CLJobInfo must be emitted even with JobSpecReporter disabled")
 
 	var payload commonv1.CLJobInfo
@@ -413,6 +416,6 @@ func TestAfterJobStarted_CLJobInfoIgnoresEnabledGate(t *testing.T) {
 	require.Equal(t, commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, payload.Trigger)
 	require.NotEmpty(t, payload.SpecToml)
 
-	legacy := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
+	legacy := rec.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
 	require.Empty(t, legacy, "legacy JobSpecEvent must stay gated by Enabled")
 }
