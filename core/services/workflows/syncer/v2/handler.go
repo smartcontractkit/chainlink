@@ -86,6 +86,7 @@ type eventHandler struct {
 	engineRegistry       *EngineRegistry
 	emitter              custmsg.MessageEmitter
 	emitterMu            sync.RWMutex
+	eventEmitter         *events.Emitter
 	engineFactory        engineFactoryFn
 	engineLimiters       *v2.EngineLimiters
 	featureFlags         *v2.EngineFeatureFlags
@@ -154,6 +155,14 @@ type EventHandlerOption = func(*eventHandler)
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.engineRegistry = er
+	}
+}
+
+// WithEventEmitter sets the emitter used for workflow status events.
+// Defaults to events.DefaultEmitter().
+func WithEventEmitter(e *events.Emitter) func(*eventHandler) {
+	return func(eh *eventHandler) {
+		eh.eventEmitter = e
 	}
 }
 
@@ -402,6 +411,10 @@ func NewEventHandler(
 		o(eh)
 	}
 
+	if eh.eventEmitter == nil {
+		eh.eventEmitter = events.DefaultEmitter()
+	}
+
 	eh.Service, eh.eng = services.Config{
 		Name: "EventHandler",
 		// The workflow store, the spec meter and the trigger coordinator are
@@ -510,7 +523,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
+			if err2 := h.eventEmitter.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -553,7 +566,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
+			if err2 := h.eventEmitter.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -610,7 +623,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var herr error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), "", "", herr); err2 != nil {
+			if err2 := h.eventEmitter.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), "", "", herr); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -1500,6 +1513,7 @@ func (h *eventHandler) newV2EngineConfig(
 			defer h.emitterMu.RUnlock()
 			return h.emitter
 		}(),
+		EventEmitter:  h.eventEmitter,
 		BillingClient: h.billingClient,
 
 		WorkflowRegistryAddress:           h.workflowRegistryAddress,
@@ -1625,7 +1639,7 @@ func (h *eventHandler) EmitActivationAbandoned(
 	)
 	h.emitterMu.RUnlock()
 
-	return events.EmitWorkflowActivationAbandonedV2(
+	return h.eventEmitter.EmitWorkflowActivationAbandonedV2(
 		ctx,
 		cma.Labels(),
 		payload.BinaryURL,
