@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	bridgeSrcSel  = uint64(5009297550715157269)  // chain selector ethereum-mainnet
-	bridgeDstSel  = uint64(3734403246176062136)  // chain selector optimism-mainnet
-	bridgeDstSel2 = uint64(15971525489660198786) // chain selector base-mainnet
+	bridgeSrcSel  = uint64(5009297550715157269)                  // chain selector ethereum-mainnet
+	bridgeDstSel  = uint64(3734403246176062136)                  // chain selector optimism-mainnet
+	bridgeDstSel2 = uint64(15971525489660198786)                 // chain selector base-mainnet
 	bridgeRecip   = "0x66598216D8E4d9AFE0F06d525B335b762229842f" // EtherSenderReceiver contract address
 )
 
@@ -100,7 +100,7 @@ func TestBuildExtraArgsV2(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, vals, 2)
 	require.Equal(t, big.NewInt(100_000), vals[0].(*big.Int))
-	require.Equal(t, true, vals[1].(bool), "allowOutOfOrderExecution must be true")
+	require.True(t, vals[1].(bool), "allowOutOfOrderExecution must be true")
 }
 
 // --- CCIP message construction logic ---
@@ -137,7 +137,6 @@ func TestBuildCCIPMessage(t *testing.T) {
 	dat, err := args.Unpack(msg.Data)
 	require.NoError(t, err)
 	require.Equal(t, recipient, dat[0].(common.Address), "data must abi-encode the final recipient")
-
 
 	require.Equal(t, common.FromHex(genericExtraArgsV2Tag), msg.ExtraArgs[:4])
 }

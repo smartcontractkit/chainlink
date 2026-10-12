@@ -6,7 +6,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
@@ -14,8 +13,11 @@ import (
 // `type`  of the address in the datastore and the (type, version) keys registered in the proposal ABI
 // registry (treasury-cld-changesets VaultEVMAbiRegistry), otherwise lookups or proposal decoding fail.
 const (
-	WETHContractType                cldf.ContractType = "WETH"
-	RouterContractType              cldf.ContractType = "Router"
+	// WETHContractType is the datastore type label for the wrapped-native (WETH) token.
+	WETHContractType cldf.ContractType = "WETH"
+	// RouterContractType is the datastore type label for the CCIP Router.
+	RouterContractType cldf.ContractType = "Router"
+	// EtherSenderReceiverContractType is the datastore type label for the CCIP EtherSenderReceiver.
 	EtherSenderReceiverContractType cldf.ContractType = "EtherSenderReceiver"
 )
 

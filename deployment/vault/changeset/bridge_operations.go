@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -10,19 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	router "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/router"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
-
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -220,7 +217,7 @@ func buildBridgeProposal(
 	}
 	routerAddrStr, err := GetContractAddress(deps.DataStore, src, RouterContractType)
 	if err != nil {
-		return nil, fmt.Errorf("Router not found for source chain %d: %w", src, err)
+		return nil, fmt.Errorf("router not found for source chain %d: %w", src, err)
 	}
 
 	wethAddr := common.HexToAddress(wethAddrStr)
@@ -398,12 +395,12 @@ func assertTimelockBalances(
 // readWETHBalance reads WETH.balanceOf(owner) via a bound contract call.
 func readWETHBalance(ctx context.Context, backend bind.ContractCaller, weth, owner common.Address) (*big.Int, error) {
 	bc := bind.NewBoundContract(weth, wethABI, backend, nil, nil)
-	var out []interface{}
+	var out []any
 	if err := bc.Call(&bind.CallOpts{Context: ctx}, &out, "balanceOf", owner); err != nil {
 		return nil, err
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("empty balanceOf result")
+		return nil, errors.New("empty balanceOf result")
 	}
 	bal, ok := out[0].(*big.Int)
 	if !ok {

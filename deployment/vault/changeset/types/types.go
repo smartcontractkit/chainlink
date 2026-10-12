@@ -267,10 +267,9 @@ type EthBalMonAcceptOwnershipInput struct {
 	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
-
-//***********************************************//
-//  CCIP native / wrapped-native bridge input    //
-//***********************************************//
+// ---------------------------------------------- //
+//  CCIP native / wrapped-native bridge input     //
+// ---------------------------------------------- //
 
 // CCIP bridge token-type values for CCIPBridgeConfig.TokenType.
 const (

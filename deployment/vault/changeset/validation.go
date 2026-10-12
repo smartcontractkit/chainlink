@@ -8,15 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainSel "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
-	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
-
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
@@ -508,9 +505,9 @@ func ValidateEthBalMonSetWatchListConfig(ctx context.Context, env cldf.Environme
 	return nil
 }
 
-//***********************************************//
-//           CCIP Bridge Validation              //
-//***********************************************//
+// ---------------------------------------------- //
+//           CCIP Bridge Validation               //
+// ---------------------------------------------- //
 
 // ValidateCCIPBridgeConfig validates a CCIPBridgeConfig before any proposal is built. It checks the
 // static config, that the source chain + its Timelock/MCM/WETH/Router exist (and WETH/Router have
