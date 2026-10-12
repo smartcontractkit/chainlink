@@ -401,6 +401,12 @@ func startCmd() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
 
+			if in.Extensions != nil {
+				if err := startExtensions(cmdContext, in.Extensions, output); err != nil {
+					return errors.Wrap(err, "failed to start extensions")
+				}
+			}
+
 			if withChipIngressStack {
 				startChipIngressStackErr := startChipIngressStack(
 					cmdContext,
@@ -643,6 +649,10 @@ func stopCmd() *cobra.Command {
 				return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
 			}
 
+			if err := stopExtensions(); err != nil {
+				framework.L.Warn().Msgf("failed to stop extensions: %s", err)
+			}
+
 			if allFlag {
 				stopChipIngressStackErr := stopChipIngressStack()
 				if stopChipIngressStackErr != nil {
@@ -814,6 +824,9 @@ func defaultGatewayWhitelistConfig(in *envconfig.Config, extraAllowedPorts []int
 	if in.FakeHTTP != nil {
 		ports = append(ports, in.FakeHTTP.Port)
 	}
+	if in.Extensions != nil {
+		ports = append(ports, artifactStorePort)
+	}
 
 	return gateway.WhitelistConfig{
 		ExtraAllowedPorts:   ports,
@@ -860,6 +873,9 @@ func StartCLIEnvironment(
 		GatewayWhitelistConfig:  gatewayWhitelistConfig,
 		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
 		ContractVersions:        env.ContractVersions(),
+	}
+	if in.Extensions != nil {
+		universalSetupInput.ConfigFactoryFunctions = append(universalSetupInput.ConfigFactoryFunctions, extensionsNodeConfig)
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 20*time.Minute)

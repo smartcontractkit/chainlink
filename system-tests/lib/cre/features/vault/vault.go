@@ -145,14 +145,13 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
 	}
 
-	// enable workflow registry syncer
-	typedConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-		Address:         new(workflowRegistryAddress.Hex()),
-		NetworkID:       new("evm"),
-		ChainID:         new(strconv.FormatUint(registryChainID, 10)),
-		SyncStrategy:    new("reconciliation"),
-		ContractVersion: new(wfRegVersion.String()),
-	}
+	// enable workflow registry syncer, keeping other WorkflowRegistry settings (e.g. WorkflowStorage, AdditionalSources)
+	wfReg := &typedConfig.Capabilities.WorkflowRegistry
+	wfReg.Address = new(workflowRegistryAddress.Hex())
+	wfReg.NetworkID = new("evm")
+	wfReg.ChainID = new(strconv.FormatUint(registryChainID, 10))
+	wfReg.SyncStrategy = new("reconciliation")
+	wfReg.ContractVersion = new(wfRegVersion.String())
 	typedConfig.CRE.Linking = &coretoml.LinkingConfig{
 		URL:        new(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":18124"),
 		TLSEnabled: new(false),

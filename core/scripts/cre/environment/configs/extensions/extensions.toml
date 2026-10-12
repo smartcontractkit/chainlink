@@ -1,0 +1,3 @@
+# Starts the extension stacks (README.md) with any topology. Add it after the topology in CTF_CONFIGS.
+[extensions]
+  storage_compose = "../../../../../cre-storage-service/local-stack/compose.yaml"
