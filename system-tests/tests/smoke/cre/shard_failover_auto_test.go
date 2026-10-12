@@ -108,7 +108,13 @@ const (
 // shardUserLogRecord is one user-log platform event observed by the collector,
 // attributed to the DON whose node emitted it.
 type shardUserLogRecord struct {
-	at          time.Time
+	// emittedAt is the emitting node's own clock at emission (LogLine
+	// node_timestamp, RFC3339Nano). All boundary logic uses it, NOT the
+	// receive time: a node whose chip connection is still warming (e.g. right
+	// after a container restart) can queue its user logs and deliver them
+	// tens of seconds late, and a record received after a boundary may have
+	// been emitted well before it.
+	emittedAt   time.Time
 	workflowID  string
 	executionID string
 	donID       int32
@@ -149,19 +155,31 @@ func startShardUserLogCollector(t *testing.T, testEnv *ttypes.TestEnvironment) *
 			if userLogs.M == nil {
 				continue
 			}
+			emittedAt := time.Time{}
 			hasUserLog := false
 			for _, line := range userLogs.LogLines {
-				if strings.Contains(line.Message, sharedVaultUserLogPrefix) {
-					hasUserLog = true
+				if !strings.Contains(line.Message, sharedVaultUserLogPrefix) {
+					continue
+				}
+				hasUserLog = true
+				// The node stamps each user log line with its own clock at
+				// emission (RFC3339Nano); prefer the first matching line's
+				// stamp and fall back to the receive time when absent or
+				// unparseable.
+				if ts, err := time.Parse(time.RFC3339Nano, line.NodeTimestamp); err == nil {
+					emittedAt = ts
 					break
 				}
 			}
 			if !hasUserLog {
 				continue
 			}
+			if emittedAt.IsZero() {
+				emittedAt = time.Now()
+			}
 			c.mu.Lock()
 			c.records = append(c.records, shardUserLogRecord{
-				at:          time.Now(),
+				emittedAt:   emittedAt,
 				workflowID:  userLogs.M.WorkflowID,
 				executionID: userLogs.M.WorkflowExecutionID,
 				donID:       userLogs.M.DonID,
@@ -173,13 +191,14 @@ func startShardUserLogCollector(t *testing.T, testEnv *ttypes.TestEnvironment) *
 	return c
 }
 
-// recordsSince returns the records captured at or after cutoff.
+// recordsSince returns the records emitted at or after cutoff (by the
+// emitting node's clock).
 func (c *shardUserLogCollector) recordsSince(cutoff time.Time) []shardUserLogRecord {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	records := make([]shardUserLogRecord, 0, len(c.records))
 	for _, r := range c.records {
-		if !r.at.Before(cutoff) {
+		if !r.emittedAt.Before(cutoff) {
 			records = append(records, r)
 		}
 	}
