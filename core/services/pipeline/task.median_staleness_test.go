@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -141,6 +142,17 @@ func TestMedianTask_StalenessGate(t *testing.T) {
 			},
 			allowedFaults:        "1",
 			stalenessGateSeconds: "",
+			want:                 "2",
+		},
+		{
+			name: "absurdly large gate seconds never overflow into a small gate",
+			timestamps: map[string]uint64{
+				"ds1": nowMs,
+				"ds2": nowMs - 10_000,
+				"ds3": nowMs - 120_000,
+			},
+			allowedFaults:        "0",
+			stalenessGateSeconds: "18446744073709551615",
 			want:                 "2",
 		},
 		{
@@ -347,4 +359,93 @@ func TestScheduler_TimestampPropagation(t *testing.T) {
 	require.Equal(t, uint64(1000), s.results[p.ByDotID("b").ID()].Result.Timestamp)
 	// tasks receive copies of the scheduler's vars, which carry the registry
 	require.Equal(t, uint64(1000), s.vars.GetTimestamp("b"))
+}
+
+func TestScheduler_TimestampPropagation_ImplicitEdge(t *testing.T) {
+	t.Parallel()
+
+	// b consumes a through a var reference, which creates an implicit edge
+	// (PropagateResult=false) — timestamps must still flow.
+	spec := `
+	a [type=median]
+	b [type=median values="$(a)" index=0]`
+	p, err := Parse(spec)
+	require.NoError(t, err)
+	vars := NewVarsFrom(nil)
+	run := NewRun(Spec{}, vars)
+	s := newScheduler(p, run, vars, logger.TestLogger(t))
+
+	go s.Run()
+
+	report := func(taskRun *memoryTaskRun, result Result) {
+		now := time.Now()
+		s.report(t.Context(), TaskRunResult{
+			ID:         uuid.New(),
+			Task:       taskRun.task,
+			Result:     result,
+			FinishedAt: null.TimeFrom(now),
+			CreatedAt:  now,
+		})
+	}
+
+	select {
+	case taskRun := <-s.taskCh:
+		require.Equal(t, "a", taskRun.task.DotID())
+		report(taskRun, Result{Value: 1, Timestamp: 1000})
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for task run")
+	}
+
+	select {
+	case taskRun := <-s.taskCh:
+		require.Equal(t, "b", taskRun.task.DotID())
+		report(taskRun, Result{Value: 2})
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for task run")
+	}
+
+	select {
+	case _, ok := <-s.taskCh:
+		require.Falsef(t, ok, "scheduler has more tasks to schedule")
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for scheduler to halt")
+	}
+
+	require.Equal(t, uint64(1000), s.results[p.ByDotID("b").ID()].Result.Timestamp)
+	require.Equal(t, uint64(1000), s.vars.GetTimestamp("b"))
+}
+
+func TestScheduler_ReconstructTimestamps(t *testing.T) {
+	t.Parallel()
+
+	// A resumed run: the bridge completed pre-suspension (its output is the
+	// raw response body), the median downstream of it completed too. Both
+	// timestamps must be recovered on reconstruction.
+	spec := `
+	ds1 [type=bridge name=foo]
+	m  [type=median values="$(ds1.result)" index=0]`
+	p, err := Parse(spec)
+	require.NoError(t, err)
+
+	run := NewRun(Spec{}, NewVarsFrom(nil))
+	run.PipelineTaskRuns = []TaskRun{
+		{
+			DotID:  "ds1",
+			Type:   TaskTypeBridge,
+			Output: jsonserializable.JSONSerializable{Val: `{"data":{"mid":1},"timestamps":{"providerIndicatedTimeUnixMs":1000}}`, Valid: true},
+		},
+		{
+			DotID:  "m",
+			Type:   TaskTypeMedian,
+			Output: jsonserializable.JSONSerializable{Val: "1", Valid: true},
+		},
+	}
+
+	vars := NewVarsFrom(nil)
+	s := newScheduler(p, run, vars, logger.TestLogger(t))
+
+	require.Equal(t, uint64(1000), s.results[p.ByDotID("ds1").ID()].Result.Timestamp)
+	require.Equal(t, uint64(1000), s.results[p.ByDotID("m").ID()].Result.Timestamp)
+	require.Equal(t, uint64(1000), s.vars.GetTimestamp("ds1"))
+	require.Equal(t, uint64(1000), s.vars.GetTimestamp("m"))
 }

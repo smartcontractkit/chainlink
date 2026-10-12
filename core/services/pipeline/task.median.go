@@ -233,7 +233,12 @@ func applyStalenessGate(lggr logger.Logger, values SliceParam, ts []uint64, faul
 		return values, faults
 	}
 
-	stalenessGateMs := stalenessGateSec * 1_000
+	// Guard against overflow: gate seconds near the uint64 maximum mean an
+	// effectively unbounded tolerance, so nothing is ever excluded.
+	stalenessGateMs := uint64(math.MaxUint64)
+	if stalenessGateSec <= math.MaxUint64/1_000 {
+		stalenessGateMs = stalenessGateSec * 1_000
+	}
 	var freshest uint64
 	for _, ms := range ts {
 		if ms > freshest {

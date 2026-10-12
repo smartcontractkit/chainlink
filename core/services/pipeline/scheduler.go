@@ -158,6 +158,37 @@ func (s *scheduler) reconstructResults() {
 			s.dependencies[id]--
 		}
 	}
+
+	s.reconstructTimestamps()
+}
+
+// reconstructTimestamps recovers source timestamps for reconstructed task
+// results: bridge tasks re-parse their stored response body, everything else
+// inherits the freshest timestamp among its dependencies (the same rule as
+// resolveTimestamp at runtime). Tasks are stored in topological order, so
+// dependencies are reconstructed before their dependents. Without this, any
+// resumed run (e.g. an async bridge callback) would lose its timestamps and a
+// staleness gate would silently fail open.
+func (s *scheduler) reconstructTimestamps() {
+	for _, task := range s.pipeline.Tasks {
+		tr, ok := s.results[task.ID()]
+		if !ok {
+			continue // still pending
+		}
+
+		own := uint64(0)
+		if _, isBridge := task.(*BridgeTask); isBridge {
+			if body, isStr := tr.Result.Value.(string); isStr {
+				own = bridgeResponseTimestamp([]byte(body))
+			}
+		}
+
+		if ts := s.resolveTimestamp(task, own); ts != 0 {
+			tr.Result.Timestamp = ts
+			s.results[task.ID()] = tr
+			s.vars.SetTimestamp(task.DotID(), ts)
+		}
+	}
 }
 
 func (s *scheduler) Run() {
@@ -281,18 +312,20 @@ func (s *scheduler) Run() {
 }
 
 // resolveTimestamp returns the task's own source timestamp when set, otherwise
-// the freshest timestamp among its propagatable inputs. Timestamps propagate
-// through intermediate tasks (jsonparse, multiply, merge, ...) without those
-// tasks needing to be aware of them.
+// the freshest timestamp among its dependencies, so timestamps flow through
+// intermediate tasks (jsonparse, multiply, merge, ...) without those tasks
+// needing to be aware of them.
+//
+// All dependencies count, including implicit ones (var references like
+// data="$(ds1)"): PropagateResult only governs whether the Result value is
+// passed into the task, not timestamp lineage, and in typical specs every hop
+// from a bridge to the median is an implicit edge.
 func (s *scheduler) resolveTimestamp(task Task, own uint64) uint64 {
 	if own != 0 {
 		return own
 	}
 	var freshest uint64
 	for _, dep := range task.Inputs() {
-		if !dep.PropagateResult {
-			continue
-		}
 		if r, ok := s.results[dep.InputTask.ID()]; ok && r.Result.Timestamp > freshest {
 			freshest = r.Result.Timestamp
 		}
