@@ -55,6 +55,7 @@ var (
 	ErrAdmissionCache          = errors.New("admission: event cached for failover")
 
 	ErrEngineDraining = errors.New("engine is draining")
+	ErrEngineClosed   = errors.New("engine is closed")
 	ErrQueueFull      = errors.New("trigger event queue is full")
 	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
 
@@ -65,6 +66,14 @@ var (
 // Config Version set in CapabilitiesRegistry is included in every report but is irrelevant
 // to validation on the forwarder side. What matters is DON ID and the set of signer public keys.
 const pinnedWorkflowDonConfigVersion = 1
+
+// keyEngineMode and its values label only the active-executions gauge, distinguishing
+// legacy from coordinated executions.
+const (
+	keyEngineMode              = "engineMode"
+	valueEngineModeLegacy      = "legacy"
+	valueEngineModeCoordinated = "coordinated"
+)
 
 // baseEngine holds the execution machinery shared by every workflow engine:
 // module execution, metering, secrets, labels, the heartbeat, drain state, and
@@ -111,6 +120,10 @@ type baseEngine struct {
 	draining         atomic.Bool
 	activeExecutions atomic.Int32
 	drainStartedAtNs atomic.Int64
+
+	// engineMode labels only the active-executions gauge, distinguishing legacy
+	// from coordinated executions. It is fixed at construction.
+	engineMode string
 }
 
 // newBaseEngine builds the execution machinery shared by every workflow engine.
@@ -120,7 +133,7 @@ type baseEngine struct {
 // Start and Close are supplied by the outer type, because the lifecycle differs
 // per engine, but srvcEng itself lives here — base methods spawn the execution
 // goroutines on it, and Drain sets its health condition.
-func newBaseEngine(cfg *EngineConfig) (*baseEngine, logger.SugaredLogger, error) {
+func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.SugaredLogger, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("invalid config: %w", err)
 	}
@@ -142,6 +155,7 @@ func newBaseEngine(cfg *EngineConfig) (*baseEngine, logger.SugaredLogger, error)
 	engine := &baseEngine{
 		cfg:               cfg,
 		capCallsSemaphore: cfg.LocalLimiters.CapabilityConcurrency,
+		engineMode:        engineMode,
 	}
 
 	// Build labels using the helper method
@@ -188,10 +202,53 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 }
 
 // ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
+// It rejects events with ErrEngineClosed unless the engine is started and with ErrEngineDraining once Drain has been called.
+//
+// An admitted execution runs on the service engine's WaitGroup, so Close cancels it and waits for it. The lock is released before
+// the execution runs, since holding it would block Close, and therefore the cancellation, until the execution
+// finished on its own.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	e.activeExecutions.Add(1)
-	defer e.activeExecutions.Add(-1)
+	// engineMode labels only this gauge, so the migration can compare legacy and
+	// coordinated in-flight load without changing every other engine metric.
+	gaugeMetrics := e.metrics.With(keyEngineMode, e.engineMode)
 
+	done := make(chan error, 1)
+
+	// only admit if engine is started and not draining
+	admitErr := e.srvcEng.IfStarted(func() error {
+		if e.Draining() {
+			return ErrEngineDraining
+		}
+
+		// execute in a goroutine tied to the service engine's context
+		// launch async to release the lock held by IfStarted to prevent deadlock
+		// with Close
+		gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(1)))
+		e.srvcEng.GoCtx(ctx, func(ctx context.Context) {
+			// Always send a result, even if executeTrigger panics or calls
+			// runtime.Goexit, so the caller never blocks on done.
+			err := errors.New("execution exited without a result")
+			defer func() {
+				// ctx may already be canceled by Close, so the decrement is recorded without its cancellation.
+				gaugeMetrics.UpdateActiveExecutionsGauge(context.WithoutCancel(ctx), int64(e.activeExecutions.Add(-1)))
+				done <- err
+			}()
+
+			err = e.executeTrigger(ctx, event)
+		})
+		return nil
+	})
+	if admitErr != nil {
+		if errors.Is(admitErr, ErrEngineDraining) {
+			return admitErr
+		}
+		return fmt.Errorf("%w: %w", ErrEngineClosed, admitErr)
+	}
+	return <-done
+}
+
+// executeTrigger runs an admitted event. ctx is canceled when the engine is closed.
+func (e *baseEngine) executeTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
 	eventID := event.Event.Event.ID
 	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 	creCtx := contexts.CREValue(ctx)

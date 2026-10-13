@@ -29,7 +29,6 @@ import (
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
-
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/topologyviz"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -884,31 +883,6 @@ func StartCLIEnvironment(
 	}
 
 	return universalSetupOutput, nil
-}
-
-func isBlockscoutRunning(cmdContext context.Context) bool {
-	dockerClient, err := mobyclient.New()
-	if err != nil {
-		return false
-	}
-
-	ctx, cancel := context.WithTimeout(cmdContext, 15*time.Second)
-	defer cancel()
-	listRes, err := dockerClient.ContainerList(ctx, mobyclient.ContainerListOptions{All: true})
-	if err != nil {
-		return false
-	}
-
-	for _, ctr := range listRes.Items {
-		if len(ctr.Names) == 0 {
-			continue
-		}
-		if strings.Contains(strings.ToLower(ctr.Names[0]), "blockscout") {
-			return true
-		}
-	}
-
-	return false
 }
 
 func PrintCRELogo() {

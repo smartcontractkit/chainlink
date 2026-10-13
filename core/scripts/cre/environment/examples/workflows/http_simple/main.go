@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	nethttp "net/http"
+
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	http "github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
-	"github.com/smartcontractkit/cre-sdk-go/cre"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type Config struct {
@@ -26,10 +27,10 @@ func main() {
 			return Config{}, fmt.Errorf("failed to unmarshal config: %w", err)
 		}
 		return config, nil
-	}).Run(RunSimpleHttpWorkflow)
+	}).Run(RunSimpleHTTPWorkflow)
 }
 
-func RunSimpleHttpWorkflow(config Config, _ *slog.Logger, _ cre.SecretsProvider) (sdk.Workflow[Config], error) {
+func RunSimpleHTTPWorkflow(config Config, _ *slog.Logger, _ sdk.SecretsProvider) (sdk.Workflow[Config], error) {
 	workflows := sdk.Workflow[Config]{
 		sdk.Handler(
 			http.Trigger(&http.Config{
@@ -64,9 +65,9 @@ func onTrigger(cfg Config, runtime sdk.Runtime, trigger *http.Payload) (string, 
 
 			req := &http.Request{
 				Url:    cfg.URL,
-				Method: "POST",
+				Method: nethttp.MethodPost,
 				Body:   trigger.Input,
-				Headers: map[string]string{
+				Headers: map[string]string{ //nolint:staticcheck // SA1019: example workflow uses legacy single-value headers
 					"Content-Type": "application/json",
 				},
 				Timeout: &durationpb.Duration{
@@ -85,7 +86,7 @@ func onTrigger(cfg Config, runtime sdk.Runtime, trigger *http.Payload) (string, 
 			}
 
 			if orderResp.Status == "success" {
-				return fmt.Sprintf("Order placed successfully! Order ID: %s", orderResp.OrderID), nil
+				return "Order placed successfully! Order ID: " + orderResp.OrderID, nil
 			}
 
 			return "Order completed", nil

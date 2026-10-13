@@ -53,10 +53,6 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vault
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread => ./smoke/cre/solana/solread
 
-// chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
-// (pulled in transitively by mcms v0.47.x). Pin to the version the rest of the repo uses.
-replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
-
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/andybalholm/brotli v1.2.2
@@ -628,7 +624,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20261001213322-a2d686f610ca // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.14.0 // indirect
 	github.com/smartcontractkit/chainlink-common/x/config v0.0.0-20260928140953-a9b0d3a04daa // indirect
-	github.com/smartcontractkit/chainlink-data-streams v1.1.2-0.20261002081259-6c2163b21db9 // indirect
+	github.com/smartcontractkit/chainlink-data-streams v1.1.2-0.20261009064810-68424c714170 // indirect
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20261005112317-b723176adfe8 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260724153515-bb6a2de39bcb // indirect

@@ -330,21 +330,6 @@ GlobalBurst = 200
 PerSenderRPS = 200.0
 PerSenderBurst = 200
 
-[Capabilities.Peering]
-IncomingMessageBufferSize = 10
-OutgoingMessageBufferSize = 10
-PeerID = ''
-TraceLogging = false
-EnableExperimentalRageP2P = false
-
-[Capabilities.Peering.V2]
-Enabled = false
-AnnounceAddresses = []
-DefaultBootstrappers = []
-DeltaDial = '15s'
-DeltaReconcile = '1m0s'
-ListenAddresses = []
-
 [Capabilities.SharedPeering]
 Enabled = false
 Bootstrappers = []

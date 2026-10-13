@@ -102,6 +102,12 @@ type coordinator struct {
 	drainTimeout time.Duration
 
 	workflows *workflowRegistry
+
+	// Gauge backings for the coordinator's node-level load metrics. Readers and
+	// workflows are tracked separately: a workflow has one registry entry but N
+	// reader goroutines (one per subscribed trigger).
+	readersGauge   atomic.Int64
+	workflowsGauge atomic.Int64
 }
 
 // coordinatedWorkflow represents the state of a workflow's triggers within the coordinator.
@@ -227,12 +233,15 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 	cw.readers.Add(len(eventChans))
 
 	c.workflows.set(workflowID, cw)
+	c.deps.Metrics.UpdateTriggerCoordinatorWorkflowsGauge(ctx, c.workflowsGauge.Add(1))
+	c.deps.Metrics.UpdateTriggerCoordinatorReadersGauge(ctx, c.readersGauge.Add(int64(len(eventChans))))
 
 	deliverFn := c.buildDeliverFn(cw.wid, cw.lggr)
 	for idx, eventCh := range eventChans {
 		triggerCapID := triggerCapIDs[idx]
 		c.eng.GoCtx(readerCtx, func(ctx context.Context) {
 			defer cw.readers.Done()
+			defer c.deps.Metrics.UpdateTriggerCoordinatorReadersGauge(ctx, c.readersGauge.Add(-1))
 			ReadLoop(ctx, lggr, wfMetrics, c.clock, workflowID, triggerCapID, idx, eventCh, deliverFn)
 		})
 	}
@@ -262,6 +271,7 @@ func (c *coordinator) UnregisterTriggers(ctx context.Context, workflowID string)
 	ctx = contexts.WithCRE(ctx, cw.cre)
 
 	if failCount := Unregister(ctx, cw.lggr, workflowID, cw.donID, cw.handles); failCount > 0 {
+		cw.metrics.IncrementTriggerCoordinatorUnregisterFailuresCounter(ctx, int64(failCount))
 		return fmt.Errorf("failed to unregister %d of %d triggers", failCount, len(cw.handles))
 	}
 
@@ -299,6 +309,7 @@ func (c *coordinator) close() error {
 	for workflowID, cw := range pending {
 		cw.cancel()
 		if failCount := Unregister(contexts.WithCRE(ctx, cw.cre), cw.lggr, workflowID, cw.donID, cw.handles); failCount > 0 {
+			cw.metrics.IncrementTriggerCoordinatorUnregisterFailuresCounter(ctx, int64(failCount))
 			errs = errors.Join(errs, fmt.Errorf("workflow %s: failed to unregister %d of %d triggers", workflowID, failCount, len(cw.handles)))
 		}
 	}
@@ -342,6 +353,7 @@ func (c *coordinator) releaseWhenDrained(ctx context.Context, cw *coordinatedWor
 	}
 
 	c.workflows.deleteIf(cw.wid.Hex(), cw)
+	c.deps.Metrics.UpdateTriggerCoordinatorWorkflowsGauge(ctx, c.workflowsGauge.Add(-1))
 
 	c.freeWorkflowLimit(ctx, cw.lggr)
 	cw.lggr.Infow("Released trigger handles")
