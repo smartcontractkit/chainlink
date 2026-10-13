@@ -211,10 +211,6 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 	// engineMode labels only this gauge, so the migration can compare legacy and
 	// coordinated in-flight load without changing every other engine metric.
 	gaugeMetrics := e.metrics.With(keyEngineMode, e.engineMode)
-	gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(1)))
-	defer func() {
-		gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(-1)))
-	}()
 
 	done := make(chan error, 1)
 
@@ -227,14 +223,20 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 		// execute in a goroutine tied to the service engine's context
 		// launch async to release the lock held by IfStarted to prevent deadlock
 		// with Close
-		e.activeExecutions.Add(1)
+		gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(1)))
 		e.srvcEng.GoCtx(ctx, func(ctx context.Context) {
-			defer e.activeExecutions.Add(-1)
-
 			// Always send a result, even if executeTrigger panics or calls
 			// runtime.Goexit, so the caller never blocks on done.
 			err := errors.New("execution exited without a result")
 			defer func() { done <- err }()
+
+			// Deferred after the send so it runs first: the count is final by the time
+			// ExecuteTrigger returns. ctx may already be canceled by Close, so the
+			// decrement is recorded without its cancellation.
+			defer func() {
+				gaugeMetrics.UpdateActiveExecutionsGauge(context.WithoutCancel(ctx), int64(e.activeExecutions.Add(-1)))
+			}()
+
 			err = e.executeTrigger(ctx, event)
 		})
 		return nil
