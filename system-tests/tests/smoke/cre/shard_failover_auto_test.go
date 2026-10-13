@@ -311,6 +311,16 @@ func workflowIDMatches(workflowIDs []string, r shardUserLogRecord) bool {
 
 // shardFailoverAssignmentTOML builds the ordered per_owner assignment: the
 // first shard is the primary, the second the secondary.
+//
+// Every built spec carries a unique comment: every shard-assignment proposal
+// uses the same fixed job UUID, and a proposal byte-identical to an earlier
+// proposal of that job is a no-op - nothing is delivered, and the spec never
+// shows up in the nodes' proposal lists (which carry the job's latest spec).
+// A failback re-proposes an order an earlier phase (or, on a shared local
+// environment, an earlier run) already proposed, so without a distinguishing
+// string the proposal silently no-ops. The comment changes the spec's hash -
+// making it a genuinely new proposal - while parsing to the identical
+// assignment.
 func shardFailoverAssignmentTOML(shards sharedVaultShardPair, primaryFirst bool) string {
 	primary, secondary := shards.shardZeroIdx, shards.shardOneIdx
 	if !primaryFirst {
@@ -322,7 +332,9 @@ hashed_default_assignment = false
 
 [per_owner_assignment]
   %q = [%d,%d]
-`, primary, secondary, shards.workflowOwner, primary, secondary)
+
+# proposed %s
+`, primary, secondary, shards.workflowOwner, primary, secondary, time.Now().Format(time.RFC3339Nano))
 }
 
 // deployShardFailoverWorkflow deploys one fast-scheduled (10s cron)
@@ -560,9 +572,14 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 	collector.requireNoDuplicateExecutionIDsSince(t, stableSince)
 	testLogger.Info().Msg("Phase 5: recovered shard is cache-only, promoted shard is the sole executor, no duplicates")
 
-	// Fail back after recovery: re-propose the original order on both shards.
-	// The recovered shard executes again.
-	proposeSharedVaultAssignment(t, testEnv, shardFailoverAssignmentTOML(shards, true))
+	// Fail back after recovery: re-propose the original order on both shards;
+	// the recovered shard executes again. shardFailoverAssignmentTOML stamps
+	// each proposal with a unique comment, so this re-propose of the phase-1
+	// order is a genuinely new spec (a byte-identical re-proposal of the same
+	// fixed shard-assignment job UUID is a silent no-op) while parsing to the
+	// identical assignment.
+	failbackTOML := shardFailoverAssignmentTOML(shards, true)
+	proposeSharedVaultAssignment(t, testEnv, failbackTOML)
 	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardZeroDON, secretValue, shardFirstExecAwaitTimeout)
 	testLogger.Info().Msg("Phase 6: fail-back complete, recovered shard executes again")
 }
