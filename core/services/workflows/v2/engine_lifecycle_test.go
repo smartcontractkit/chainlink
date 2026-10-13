@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -86,8 +87,8 @@ func TestEngine_Lifecycle(t *testing.T) {
 		{"Close_CancelsInFlightExecution", testLifecycleCloseCancelsInFlightExecution},
 		{"Close_WaitsForExecutionBeforeClosingModule", testLifecycleCloseWaitsForExecutionBeforeClosingModule},
 		{"ExecuteTrigger_AfterClose", testLifecycleExecuteTriggerAfterClose},
-		{"ExecuteTrigger_DuringClose", testLifecycleExecuteTriggerDuringClose},
 		{"ExecuteTrigger_ConcurrentWithClose", testLifecycleExecuteTriggerConcurrentWithClose},
+		{"ExecuteTrigger_ConcurrentWithDrainThenClose", testLifecycleExecuteTriggerConcurrentWithDrainThenClose},
 		{"ExecuteTrigger_WhileDraining", testLifecycleExecuteTriggerWhileDraining},
 		{"Drain_KeepsInFlightExecutionRunning", testLifecycleDrainKeepsInFlightExecutionRunning},
 		{"Drain_ThenClose_CancelsInFlightExecution", testLifecycleDrainThenCloseCancelsInFlightExecution},
@@ -158,41 +159,6 @@ func testLifecycleExecuteTriggerAfterClose(t *testing.T, mode lifecycleEngineMod
 	require.Equal(t, int32(0), h.moduleExecutions.Load(), "executions that reached the module")
 }
 
-// testLifecycleExecuteTriggerDuringClose delivers a trigger event directly to an engine whose Close
-// is pending. Asserts that only the inflight execution finishes and that executions
-// started during the pending Close are rejected.
-func testLifecycleExecuteTriggerDuringClose(t *testing.T, mode lifecycleEngineMode) {
-	h := newEngineLifecycleHarness(t, mode)
-	h.start()
-	h.startExecution()
-
-	// Keep the execution inflight despite call to Close
-	h.blocker.holdCanceled()
-
-	// Call close async
-	closed := make(chan error, 1)
-	go func() {
-		err := h.engine.Close()
-		h.log.record(eventCloseReturned)
-		closed <- err
-	}()
-
-	// wait for inflight execution to see close was called
-	awaitLifecycle(t, h.blocker.canceled, "Close to cancel the in-flight execution")
-
-	// assert that close still not returned a value (i.e., engine close is pending)
-	require.Empty(t, closed, "Close returned while an execution was still in flight")
-
-	// fire another execution and expect it to fail without reaching the module
-	err := h.engine.ExecuteTrigger(h.tenantCtx(), h.event("during-close"))
-	require.ErrorIs(t, err, v2.ErrEngineClosed, "ExecuteTrigger while the engine is closing")
-	require.Equal(t, int32(1), h.moduleExecutions.Load(), "executions that reached the module")
-
-	// release the inflight execution and assert that close continues without error
-	h.blocker.finishCanceled()
-	require.NoError(t, awaitLifecycle(t, closed, "engine Close to return"))
-}
-
 // testLifecycleExecuteTriggerConcurrentWithClose delivers trigger events from many goroutines
 // while the engine is closed. Every call races Close, so each may run to completion or be rejected.
 // It asserts that Close returns, that a rejected call reports the engine is closed, and that the
@@ -221,6 +187,91 @@ func testLifecycleExecuteTriggerConcurrentWithClose(t *testing.T, mode lifecycle
 		}
 	}
 	require.Equal(t, int32(1), h.moduleCloses.Load(), "module Close calls")
+}
+
+// testLifecycleExecuteTriggerConcurrentWithDrainThenClose runs the standard shutdown, Drain then
+// Close, while many ExecuteTrigger calls are in flight or arriving. The executions are held in the
+// module, so Close has to cancel them. A first wave is held in the module before shutdown begins. A
+// second wave races the shutdown, so each of its calls may be admitted and canceled, or rejected as
+// draining or closed. It asserts that Close cancels the held executions, that no call fails any
+// way but a rejection (a canceled execution reports through its status, not its error), that every execution
+// that reached the module finishes before the module is closed, and that Close returns.
+//
+// It is meant to be run with the race detector.
+func testLifecycleExecuteTriggerConcurrentWithDrainThenClose(t *testing.T, mode lifecycleEngineMode) {
+	const (
+		inflight = 50
+		racing   = inflight * 2
+	)
+
+	h := newEngineLifecycleHarness(t, mode, withSignalBuffer(inflight+racing))
+	h.start()
+
+	inflightErrs := make([]error, inflight)
+	var inflightWG sync.WaitGroup
+	for i := range inflight {
+		inflightWG.Go(func() {
+			inflightErrs[i] = h.engine.ExecuteTrigger(h.tenantCtx(), h.event(fmt.Sprintf("inflight-%d", i)))
+		})
+	}
+	for range inflight {
+		awaitLifecycle(h.t, h.blocker.started, "in-flight execution to start")
+	}
+
+	// Release the racing callers and the shutdown together.
+	begin := make(chan struct{})
+	racingErrs := make([]error, racing)
+	var racingWG sync.WaitGroup
+	for i := range racing {
+		racingWG.Go(func() {
+			<-begin
+			racingErrs[i] = h.engine.ExecuteTrigger(h.tenantCtx(), h.event(fmt.Sprintf("racing-%d", i)))
+		})
+	}
+	var drained bool
+	var closeErr error
+	var shutdownWG sync.WaitGroup
+	shutdownWG.Go(func() {
+		<-begin
+		drained = h.engine.Drain()
+		closeErr = h.close()
+	})
+	close(begin)
+
+	shutdownWG.Wait()
+	racingWG.Wait()
+	inflightWG.Wait()
+
+	require.True(t, drained, "Drain")
+	require.NoError(t, closeErr)
+	require.Equal(t, int32(1), h.moduleCloses.Load(), "module Close calls")
+
+	for i, err := range inflightErrs {
+		require.NoError(t, err, "in-flight ExecuteTrigger call %d", i)
+	}
+	for i, err := range racingErrs {
+		if err != nil && !errors.Is(err, v2.ErrEngineDraining) && !errors.Is(err, v2.ErrEngineClosed) {
+			require.NoError(t, err, "racing ExecuteTrigger call %d must succeed or be rejected", i)
+		}
+	}
+
+	executions := h.moduleExecutions.Load()
+	require.GreaterOrEqual(t, executions, int32(inflight), "executions that reached the module")
+	require.LessOrEqual(t, executions, int32(inflight+racing), "executions that reached the module")
+
+	// The blocker is never released, so every execution that reached the module was held until
+	// Close canceled it, which the engine reports as an errored status.
+	statuses := h.finishedStatuses()
+	require.Len(t, statuses, int(executions), "executions that finished")
+	for i, status := range statuses {
+		require.Equal(t, store.StatusErrored, status, "status of finished execution %d", i)
+	}
+	require.Equal(t, int32(0), h.engine.ActiveExecutions(), "active executions after Close")
+
+	events := h.log.events()
+	require.Contains(t, events, eventExecutionCanceled)
+	requireAllBefore(t, events, eventExecutionFinished, eventModuleClosed)
+	requireEventOrder(t, events, eventModuleClosed, eventCloseReturned)
 }
 
 // testLifecycleExecuteTriggerWhileDraining delivers a trigger event directly to a draining engine.
@@ -295,12 +346,36 @@ type engineLifecycleHarness struct {
 	moduleCloses     atomic.Int32
 	moduleExecutions atomic.Int32 // executions that reached the module, subscribe calls excluded
 	nextEvent        atomic.Int32
+
+	finishedMu  sync.Mutex
+	finishedLog []string // status of every OnExecutionFinished call, which finishedCh drops when full
+}
+
+// defaultSignalBuffer is the capacity of the channels that carry finished and blocker signals.
+// Sends never block, so a scenario that expects more signals than this must raise it.
+const defaultSignalBuffer = 16
+
+type harnessOptions struct {
+	signalBuffer int
+}
+
+// harnessOption configures newEngineLifecycleHarness.
+type harnessOption func(*harnessOptions)
+
+// withSignalBuffer sets the capacity of the finished and blocker signal channels.
+func withSignalBuffer(n int) harnessOption {
+	return func(o *harnessOptions) { o.signalBuffer = n }
 }
 
 // newEngineLifecycleHarness builds the engine for mode without starting it. Whatever the test
 // leaves running is released and closed at cleanup.
-func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode) *engineLifecycleHarness {
+func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...harnessOption) *engineLifecycleHarness {
 	t.Helper()
+
+	o := harnessOptions{signalBuffer: defaultSignalBuffer}
+	for _, opt := range opts {
+		opt(&o)
+	}
 
 	log := &lifecycleLog{}
 	h := &engineLifecycleHarness{
@@ -308,11 +383,11 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode) *engineLi
 		mode:         mode,
 		engines:      &lifecycleEngineRegistry{},
 		eventCh:      make(chan capabilities.TriggerResponse),
-		blocker:      newExecutionBlocker(t, log),
+		blocker:      newExecutionBlocker(t, log, o.signalBuffer),
 		log:          log,
 		initDoneCh:   make(chan error, 1),
 		subscribedCh: make(chan []string, 1),
-		finishedCh:   make(chan string, 16),
+		finishedCh:   make(chan string, o.signalBuffer),
 	}
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -332,6 +407,7 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode) *engineLi
 		OnSubscribedToTriggers: func(ids []string) { nonBlockingSend(h.subscribedCh, ids) },
 		OnExecutionFinished: func(_, status string) {
 			h.log.record(eventExecutionFinished)
+			h.recordFinished(status)
 			nonBlockingSend(h.finishedCh, status)
 		},
 	}
@@ -455,6 +531,20 @@ func (h *engineLifecycleHarness) close() error {
 	return awaitLifecycle(h.t, done, "engine Close to return")
 }
 
+// recordFinished is the OnExecutionFinished hook's record of an execution's status.
+func (h *engineLifecycleHarness) recordFinished(status string) {
+	h.finishedMu.Lock()
+	defer h.finishedMu.Unlock()
+	h.finishedLog = append(h.finishedLog, status)
+}
+
+// finishedStatuses returns the status of every execution that has finished, in finishing order.
+func (h *engineLifecycleHarness) finishedStatuses() []string {
+	h.finishedMu.Lock()
+	defer h.finishedMu.Unlock()
+	return append([]string(nil), h.finishedLog...)
+}
+
 // waitExecutionFinished returns the status of the next execution to finish.
 func (h *engineLifecycleHarness) waitExecutionFinished() string {
 	h.t.Helper()
@@ -505,6 +595,25 @@ func requireEventOrder(t *testing.T, got []lifecycleEvent, want ...lifecycleEven
 	require.Equal(t, len(want), next, "events %v do not contain %v in order", got, want)
 }
 
+// requireAllBefore fails the test unless every occurrence of before in got precedes the first
+// occurrence of after, and after appears.
+func requireAllBefore(t *testing.T, got []lifecycleEvent, before, after lifecycleEvent) {
+	t.Helper()
+	afterAt := -1
+	for i, e := range got {
+		if e == after {
+			afterAt = i
+			break
+		}
+	}
+	require.NotEqual(t, -1, afterAt, "events %v do not contain %v", got, after)
+	for i, e := range got {
+		if e == before {
+			require.Less(t, i, afterAt, "%v at %d follows %v at %d in %v", before, i, after, afterAt, got)
+		}
+	}
+}
+
 // lifecycleLog records the events a scenario orders its assertions on.
 type lifecycleLog struct {
 	mu     sync.Mutex
@@ -547,33 +656,22 @@ type executionBlocker struct {
 	started  chan struct{}
 	canceled chan struct{} // signaled when a held execution observes its context's cancellation
 	released chan struct{}
-	finish   chan struct{} // holds a canceled execution, once holdCanceled is set, until it is closed
 	once     sync.Once
-	finOnce  sync.Once
-	hold     atomic.Bool
 	log      *lifecycleLog
 
 	mu           sync.Mutex
 	errAtRelease error // the context's error when a released execution resumed
 }
 
-func newExecutionBlocker(t *testing.T, log *lifecycleLog) *executionBlocker {
+func newExecutionBlocker(t *testing.T, log *lifecycleLog, signalBuffer int) *executionBlocker {
 	return &executionBlocker{
 		t:        t,
-		started:  make(chan struct{}, 16),
-		canceled: make(chan struct{}, 16),
+		started:  make(chan struct{}, signalBuffer),
+		canceled: make(chan struct{}, signalBuffer),
 		released: make(chan struct{}),
-		finish:   make(chan struct{}),
 		log:      log,
 	}
 }
-
-// holdCanceled makes the next execution that observes its context's cancellation stay held, after
-// signaling canceled, until finishCanceled or release is called.
-func (b *executionBlocker) holdCanceled() { b.hold.Store(true) }
-
-// finishCanceled lets executions held by holdCanceled return.
-func (b *executionBlocker) finishCanceled() { b.finOnce.Do(func() { close(b.finish) }) }
 
 // block signals that an execution started and holds it. It returns nil once the blocker is
 // released, and the context's error, after logging the cancellation, if the context is canceled
@@ -594,16 +692,6 @@ func (b *executionBlocker) block(ctx context.Context) error {
 	case <-ctx.Done():
 		b.log.record(eventExecutionCanceled)
 		nonBlockingSend(b.canceled, struct{}{})
-
-		// if hold is true, wait until finish has been closed
-		if b.hold.CompareAndSwap(true, false) {
-			select {
-			case <-b.finish:
-			case <-backstop.C:
-				b.t.Errorf("canceled execution was held for %s without finishCanceled or release", blockerBackstop)
-			case <-b.t.Context().Done():
-			}
-		}
 		return ctx.Err()
 	case <-backstop.C:
 		b.t.Errorf("execution was held for %s without release or cancellation", blockerBackstop)
@@ -613,10 +701,9 @@ func (b *executionBlocker) block(ctx context.Context) error {
 	}
 }
 
-// release lets every held execution return, including ones held after cancellation.
+// release lets every held execution return.
 func (b *executionBlocker) release() {
 	b.once.Do(func() { close(b.released) })
-	b.finishCanceled()
 }
 
 // contextErrAtRelease returns the context's error as seen by an execution that resumed when the
