@@ -228,13 +228,10 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 			// Always send a result, even if executeTrigger panics or calls
 			// runtime.Goexit, so the caller never blocks on done.
 			err := errors.New("execution exited without a result")
-			defer func() { done <- err }()
-
-			// Deferred after the send so it runs first: the count is final by the time
-			// ExecuteTrigger returns. ctx may already be canceled by Close, so the
-			// decrement is recorded without its cancellation.
 			defer func() {
+				// ctx may already be canceled by Close, so the decrement is recorded without its cancellation.
 				gaugeMetrics.UpdateActiveExecutionsGauge(context.WithoutCancel(ctx), int64(e.activeExecutions.Add(-1)))
+				done <- err
 			}()
 
 			err = e.executeTrigger(ctx, event)
