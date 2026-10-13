@@ -94,7 +94,7 @@ func ExecuteShardingTestWithEVMLogTrigger(t *testing.T, testEnv *ttypes.TestEnvi
 
 	workflowFileLocation := "./evm/logtrigger/main.go"
 
-	const numWorkflows = 5
+	const numWorkflows = 10
 	workflowNames := make([]string, numWorkflows)
 	for i := range numWorkflows {
 		workflowNames[i] = fmt.Sprintf("shardtest-evmlogtrigger-%d", i)
@@ -690,7 +690,7 @@ func waitForWorkflowsDistributed(t *testing.T, client ringpb.ShardOrchestratorSe
 			Bool("routingSteady", steady).
 			Msg("Waiting for distribution + steady")
 		return len(shardsSeen) >= minShards && steady
-	}, 5*time.Minute, 5*time.Second, "Workflows not distributed across %d shards (with RoutingSteady) within timeout", minShards)
+	}, 2*time.Minute, 5*time.Second, "Workflows not distributed across %d shards (with RoutingSteady) within timeout", minShards)
 }
 
 func buildNodeP2PIDToShardIndex(t *testing.T, testEnv *ttypes.TestEnvironment) map[string]uint32 {
