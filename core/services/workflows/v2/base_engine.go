@@ -189,23 +189,46 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 }
 
 // ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
-// It rejects events with ErrEngineClosed once Close has begun and with ErrEngineDraining once Drain has been called.
+// It rejects events with ErrEngineClosed unless the engine is started and with ErrEngineDraining once Drain has been called.
+//
+// An admitted execution runs on the service engine's WaitGroup, so Close cancels it and waits for it. The lock is released before
+// the execution runs, since holding it would block Close, and therefore the cancellation, until the execution
+// finished on its own.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	if e.closing() {
-		return ErrEngineClosed
+	done := make(chan error, 1)
+
+	// only admit if engine is started and not draining
+	admitErr := e.srvcEng.IfStarted(func() error {
+		if e.Draining() {
+			return ErrEngineDraining
+		}
+
+		// execute in a goroutine tied to the service engine's context
+		// launch async to release the lock held by IfStarted to prevent deadlock
+		// with Close
+		e.activeExecutions.Add(1)
+		e.srvcEng.GoCtx(ctx, func(ctx context.Context) {
+			defer e.activeExecutions.Add(-1)
+
+			// Always send a result, even if executeTrigger panics or calls
+			// runtime.Goexit, so the caller never blocks on done.
+			err := errors.New("execution exited without a result")
+			defer func() { done <- err }()
+			err = e.executeTrigger(ctx, event)
+		})
+		return nil
+	})
+	if admitErr != nil {
+		if errors.Is(admitErr, ErrEngineDraining) {
+			return admitErr
+		}
+		return fmt.Errorf("%w: %w", ErrEngineClosed, admitErr)
 	}
-	if e.Draining() {
-		return ErrEngineDraining
-	}
+	return <-done
+}
 
-	e.activeExecutions.Add(1)
-	defer e.activeExecutions.Add(-1)
-
-	// Tie the ExecuteTrigger call to the engine's stop signal so that Close
-	// stops the execution.
-	ctx, cancel := e.srvcEng.Ctx(ctx)
-	defer cancel()
-
+// executeTrigger runs an admitted event. ctx is canceled when the engine is closed.
+func (e *baseEngine) executeTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
 	eventID := event.Event.Event.ID
 	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 	creCtx := contexts.CREValue(ctx)
@@ -975,16 +998,6 @@ func (e *baseEngine) donTimeRequestTimeout(ctx context.Context, limiter limits.T
 		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.DONTime.RequestTimeout.Key)
 	}
 	return limit
-}
-
-// closing reports whether Close has begun.
-func (e *baseEngine) closing() bool {
-	select {
-	case <-e.srvcEng.StopChan:
-		return true
-	default:
-		return false
-	}
 }
 
 // shutdownCtx builds the close context: bounded by the shutdown timeout and
