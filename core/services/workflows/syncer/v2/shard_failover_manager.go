@@ -400,6 +400,7 @@ func (m *ShardFailoverManager) executeDueAutoFailovers(ctx context.Context) {
 					"eventID", c.eventID,
 					"workflowID", m.cfg.WorkflowID)
 			}
+		case shardownership.DenyOrchestratorError:
 		}
 	}
 }
