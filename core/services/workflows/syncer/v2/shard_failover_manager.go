@@ -30,12 +30,8 @@ import (
 // cachedExpiry is how long a cached trigger event is kept for potential failover replay.
 const cachedExpiry = 10 * time.Minute
 
-// autoFailoverTick is how often the auto-failover loop re-examines cached events
-// whose failover window has elapsed.
 const autoFailoverTick = time.Second
 
-// failoverAutoExecutionTotalMetric counts trigger events a secondary shard
-// executed itself after the primary shard stayed silent past the failover window.
 const failoverAutoExecutionTotalMetric = "failover_auto_execution_total"
 
 // ErrCoordinatedShardingUnsupported is returned by the coordinator-facing
@@ -91,17 +87,13 @@ type ShardFailoverManagerConfig struct {
 	ShardRoutingSteady      *shardownership.SteadySignal
 
 	FailoverGate limits.GateLimiter
-	// FailoverAutoGate opens the automatic failover path: when open, a
-	// secondary shard executes a cached trigger event itself if no execution
-	// outcome from the primary shard arrives within FailoverAutoWindow. It
-	// covers the silent-primary-death case, where the primary never sends an
-	// ExecutionStatusUpdate (neither SUCCESS nor SYSTEM_ERROR) because its
-	// nodes are gone, so the SYSTEM_ERROR replay path never fires.
+	// FailoverAutoGate opens the automatic failover path: a secondary executes
+	// a cached trigger event itself if no execution outcome from the primary
+	// arrives within FailoverAutoWindow (the silent-primary-death case).
 	FailoverAutoGate limits.GateLimiter
 	// FailoverAutoWindow is how long a cached trigger event waits for the
-	// primary shard's execution outcome before the secondary executes it
-	// itself. A nil limiter (or a closed FailoverAutoGate) disables automatic
-	// failover; cached events then only replay on a SYSTEM_ERROR report.
+	// primary's execution outcome before the secondary executes it itself.
+	// A nil limiter (or closed gate) disables automatic failover.
 	FailoverAutoWindow limits.TimeLimiter
 	Communicator       *sharding.ShardFailoverCommunicator
 	// ShardDonLookup resolves a DON ID to the current DON, e.g. via
@@ -268,14 +260,8 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 	}
 }
 
-// replayExecCtx builds the context for executing a cached trigger event
-// outside the engine's normal ingestion path (the SYSTEM_ERROR replay and the
-// automatic failover). The engine's own queue path carries the workflow's
-// tenant identity (see baseEngine.startWith stamping contexts.WithCRE), and
-// downstream capability calls - e.g. the shared-vault secret fetch, whose
-// request auth derives from it - fail without it, so the direct execution
-// paths must stamp it the same way instead of using a bare background
-// context.
+// replayExecCtx stamps the workflow's tenant identity onto the replay context,
+// matching the engine's queue path (capability calls fail without it).
 func (m *ShardFailoverManager) replayExecCtx() context.Context {
 	return contexts.WithCRE(context.Background(), m.engine.Tenant())
 }
@@ -321,9 +307,6 @@ func (m *ShardFailoverManager) cacheEvent(ctx context.Context, event triggers.Co
 
 // autoFailoverDeadline returns the instant after which this node may execute a
 // just-cached event itself, or the zero time if automatic failover is disabled.
-// A primary shard that is alive and completing drains the cache through
-// HandleExecutionStatusUpdate long before the deadline, so the deadline only
-// matters when the primary is silent (dead or partitioned).
 func (m *ShardFailoverManager) autoFailoverDeadline(ctx context.Context) time.Time {
 	if m.cfg.FailoverAutoGate == nil || m.cfg.FailoverAutoWindow == nil {
 		return time.Time{}
@@ -346,15 +329,7 @@ func (m *ShardFailoverManager) autoFailoverDeadline(ctx context.Context) time.Ti
 }
 
 // autoFailoverLoop periodically executes cached trigger events whose failover
-// window has elapsed without an execution outcome from the primary shard. It
-// is the automatic failover path (CRE-SHARD-M5-3): the SYSTEM_ERROR replay in
-// HandleExecutionStatusUpdate only fires when the primary reports a failure,
-// which never happens when the primary dies silently.
-//
-// Ownership is re-resolved per event at deadline time: a shard that became the
-// owner again (assignment failback, recovered primary) drops its cached copy
-// instead of executing it, which is the guard against dual-primary unbounded
-// duplicate executions (CRE-SHARD-M5-4).
+// window elapsed without an execution outcome from the primary shard.
 func (m *ShardFailoverManager) autoFailoverLoop(ctx context.Context) {
 	if m.cfg.FailoverAutoGate == nil || m.cfg.FailoverAutoWindow == nil {
 		return
@@ -371,9 +346,8 @@ func (m *ShardFailoverManager) autoFailoverLoop(ctx context.Context) {
 	}
 }
 
-// executeDueAutoFailovers runs one auto-failover pass: it collects cached
-// events whose failover deadline has elapsed, re-checks shard ownership for
-// each, and executes the ones this shard still does not own.
+// executeDueAutoFailovers runs one auto-failover pass over cached events whose
+// failover deadline has elapsed.
 func (m *ShardFailoverManager) executeDueAutoFailovers(ctx context.Context) {
 	if m.engine == nil {
 		return
@@ -395,8 +369,6 @@ func (m *ShardFailoverManager) executeDueAutoFailovers(ctx context.Context) {
 	m.mu.RUnlock()
 
 	for _, c := range due {
-		// The gate may have closed after the event was cached; a runtime flag
-		// flip must stop pending automatic failovers, so re-check it here.
 		if m.cfg.FailoverAutoGate.AllowErr(ctx) != nil {
 			return
 		}
@@ -405,7 +377,6 @@ func (m *ShardFailoverManager) executeDueAutoFailovers(ctx context.Context) {
 		case shardownership.DenyNotOwner:
 			event, ok := m.popCachedEvent(c.eventID)
 			if !ok {
-				// Drained by an ExecutionStatusUpdate between collection and pop.
 				continue
 			}
 			m.cfg.Logger.Infow("secondary shard: auto failover executed cached trigger event",
@@ -424,16 +395,11 @@ func (m *ShardFailoverManager) executeDueAutoFailovers(ctx context.Context) {
 					"err", err)
 			}
 		case shardownership.Allow:
-			// This shard owns the workflow again; the engine executes new events
-			// on its own, so the cached copy must not add a duplicate execution.
 			if _, ok := m.popCachedEvent(c.eventID); ok {
 				m.cfg.Logger.Infow("secondary shard: dropped cached trigger event, shard is owner again",
 					"eventID", c.eventID,
 					"workflowID", m.cfg.WorkflowID)
 			}
-		default:
-			// Orchestrator error: ownership unknown, keep the event cached and
-			// retry on the next pass until it is pruned by cachedExpiry.
 		}
 	}
 }

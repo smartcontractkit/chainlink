@@ -131,10 +131,8 @@ func ContainerLogLinesForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, 
 }
 
 // CountNodesetContainersWithLog returns how many of the nodeset's containers
-// currently contain needle in their logs. Use it for per-node convergence
-// proofs, where a single container's log line is not enough (e.g. a settings
-// or assignment update delivered by the job distributor lands on each node
-// independently).
+// currently contain needle in their logs - for per-node convergence proofs,
+// where a single container's log line is not enough.
 func CountNodesetContainersWithLog(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string) int {
 	t.Helper()
 

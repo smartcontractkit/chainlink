@@ -13,9 +13,9 @@ import (
 
 // RequirePrometheusQueryEventually polls an instant PromQL query against the
 // local observability stack's Prometheus (framework.LocalPrometheusBaseURL,
-// deployed by `env start --with-dashboards`) until accept returns true for the
-// sum of the query's result values. An empty result sums to 0, so a query for
-// a metric that has not been emitted yet keeps polling instead of failing -
+// deployed by `env start --with-dashboards` / the CI observability step) until
+// accept returns true for the sum of the query's result values. An empty
+// result sums to 0, so a metric that has not been emitted yet keeps polling -
 // pair it with an accept that requires a positive value.
 func RequirePrometheusQueryEventually(t *testing.T, query string, timeout, interval time.Duration, accept func(sum float64) bool, msg string, msgArgs ...any) {
 	t.Helper()

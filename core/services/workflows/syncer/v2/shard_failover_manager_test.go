@@ -393,8 +393,6 @@ func TestShardFailoverManager_CoordinatorMethodsUnsupported(t *testing.T) {
 
 // --- automatic failover (CRE-SHARD-M5-3) test doubles ---
 
-// fakeAutoGateLimiter is a limits.GateLimiter whose state can be flipped at
-// runtime, standing in for the ShardingFailoverAutoExecutionEnabled setting.
 type fakeAutoGateLimiter struct {
 	mu   sync.Mutex
 	open bool
@@ -427,8 +425,6 @@ func (g *fakeAutoGateLimiter) setOpen(open bool) {
 	g.open = open
 }
 
-// fakeAutoWindowLimiter is a limits.TimeLimiter standing in for the
-// ShardingFailoverAutoWindow setting.
 type fakeAutoWindowLimiter struct {
 	window time.Duration
 }
@@ -445,8 +441,6 @@ func (w *fakeAutoWindowLimiter) WithTimeout(ctx context.Context) (context.Contex
 
 func (w *fakeAutoWindowLimiter) Close() error { return nil }
 
-// switchableShardResolver is a shardownership.ShardResolver whose owner can be
-// flipped at runtime, standing in for a re-proposed shard assignment.
 type switchableShardResolver struct {
 	mu       sync.Mutex
 	ownerDON uint32
@@ -475,7 +469,6 @@ func (r *switchableShardResolver) setOwner(donID uint32) {
 	r.ownerDON = donID
 }
 
-// recordingEngine records every trigger event executed on it.
 type recordingEngine struct {
 	mockEngine
 	mu       sync.Mutex
@@ -503,7 +496,6 @@ func (e *recordingEngine) executionTenants() []contexts.CRE {
 	return append([]contexts.CRE(nil), e.tenants...)
 }
 
-// Tenant reports the engine's workflow tenant, so replay contexts carry it.
 func (e *recordingEngine) Tenant() contexts.CRE {
 	return contexts.CRE{Org: "org-1", Owner: "0xowner", Workflow: "wf-1"}
 }
@@ -516,10 +508,8 @@ func autoFailoverTestEvent(id string) triggers.CoordinatedEvent {
 	}
 }
 
-// newAutoFailoverManager builds a secondary-shard manager (DON 2, owner DON 1)
-// with automatic failover controlled by gate and window, wrapping eng. A nil
-// gate or window leaves the corresponding limiter unconfigured (automatic
-// failover disabled).
+// newAutoFailoverManager builds a secondary-shard manager (DON 2, owner DON 1);
+// a nil gate or window leaves automatic failover unconfigured.
 func newAutoFailoverManager(t *testing.T, eng *recordingEngine, gate *fakeAutoGateLimiter, window *fakeAutoWindowLimiter, resolver *switchableShardResolver) *ShardFailoverManager {
 	t.Helper()
 
@@ -548,12 +538,6 @@ func newAutoFailoverManager(t *testing.T, eng *recordingEngine, gate *fakeAutoGa
 	return m
 }
 
-// TestShardFailoverManager_AutoFailover_ExecutesCachedEventAfterWindow covers
-// the automatic failover path: a secondary shard caches a denied trigger event
-// with a failover deadline, and once the deadline elapses without an execution
-// outcome from the primary (the primary died silently, so no
-// ExecutionStatusUpdate ever arrives), the secondary executes the cached event
-// itself, exactly once.
 func TestShardFailoverManager_AutoFailover_ExecutesCachedEventAfterWindow(t *testing.T) {
 	t.Parallel()
 
@@ -566,35 +550,23 @@ func TestShardFailoverManager_AutoFailover_ExecutesCachedEventAfterWindow(t *tes
 	err := m.admissionCheck(t.Context(), autoFailoverTestEvent("evt-1"))
 	require.ErrorIs(t, err, v2.ErrAdmissionCache, "a secondary with the failover gate open must cache, not drop")
 
-	// Before the window elapses the event must not execute.
 	m.executeDueAutoFailovers(t.Context())
 	assert.Empty(t, eng.executedIDs(), "cached event executed before the failover window elapsed")
 
-	// After the window elapses with a silent primary, the secondary executes.
 	time.Sleep(60 * time.Millisecond)
 	m.executeDueAutoFailovers(t.Context())
 	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "cached event was not auto-executed after the failover window elapsed")
 
-	// The execution carries the workflow's tenant identity: the direct
-	// execution path bypasses the engine's queue, which stamps the tenant on
-	// the context (baseEngine.startWith), and capability calls - e.g. the
-	// shared-vault secret fetch - fail without it.
 	tenants := eng.executionTenants()
 	require.Len(t, tenants, 1, "auto-execution did not go through the recording engine")
 	wantTenant := contexts.CREValue(contexts.WithCRE(context.Background(), eng.Tenant()))
 	assert.Equal(t, wantTenant, tenants[0],
 		"auto-executed event ran without the workflow tenant on the context")
 
-	// The cached event is consumed: a second pass must not re-execute it.
 	m.executeDueAutoFailovers(t.Context())
 	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "auto-executed event was executed twice")
 }
 
-// TestShardFailoverManager_AutoFailover_DropsCachedEventWhenOwnerAgain covers
-// the primary-recovery guard (CRE-SHARD-M5-4): when ownership flips back to
-// this shard (assignment failback or recovered primary), a cached event past
-// its failover deadline must be dropped, not executed, so recovery cannot turn
-// into a dual-primary with unbounded duplicate executions.
 func TestShardFailoverManager_AutoFailover_DropsCachedEventWhenOwnerAgain(t *testing.T) {
 	t.Parallel()
 
@@ -615,10 +587,6 @@ func TestShardFailoverManager_AutoFailover_DropsCachedEventWhenOwnerAgain(t *tes
 	assert.Empty(t, m.cacheIDs(), "cached event was not dropped after this shard became the owner")
 }
 
-// TestShardFailoverManager_AutoFailover_GateClosed covers the feature flag:
-// with ShardingFailoverAutoExecutionEnabled closed, a secondary still caches
-// denied triggers but never auto-executes them, neither when the gate was
-// already closed at cache time nor when it was closed after the fact.
 func TestShardFailoverManager_AutoFailover_GateClosed(t *testing.T) {
 	t.Parallel()
 
@@ -655,10 +623,6 @@ func TestShardFailoverManager_AutoFailover_GateClosed(t *testing.T) {
 	})
 }
 
-// TestShardFailoverManager_AutoFailover_CompletionDrainsCache covers the
-// no-false-failover side: an execution outcome arriving from the primary
-// (SUCCESS or USER_ERROR) drains the cached event, so a live primary that
-// simply was slow never triggers an automatic failover duplicate.
 func TestShardFailoverManager_AutoFailover_CompletionDrainsCache(t *testing.T) {
 	t.Parallel()
 
@@ -681,10 +645,6 @@ func TestShardFailoverManager_AutoFailover_CompletionDrainsCache(t *testing.T) {
 	assert.Empty(t, eng.executedIDs(), "cached event was auto-executed although the primary reported success")
 }
 
-// TestShardFailoverManager_AutoFailover_DisabledByDefault covers backward
-// compatibility: with no auto gate or window limiters configured (every
-// deployment that has not enabled automatic failover), a secondary still
-// caches denied triggers but the auto-failover pass never executes them.
 func TestShardFailoverManager_AutoFailover_DisabledByDefault(t *testing.T) {
 	t.Parallel()
 
@@ -704,7 +664,6 @@ func TestShardFailoverManager_AutoFailover_DisabledByDefault(t *testing.T) {
 	assert.True(t, stillCached, "cached event should remain for the SYSTEM_ERROR replay path when automatic failover is unconfigured")
 }
 
-// cacheIDs returns the event IDs currently held in the failover cache.
 func (m *ShardFailoverManager) cacheIDs() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

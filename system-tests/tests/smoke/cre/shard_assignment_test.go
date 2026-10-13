@@ -589,10 +589,8 @@ func proposeAndApproveShardAssignmentJob(t *testing.T, testEnv *ttypes.TestEnvir
 	}
 
 	// The node's proposal list updates asynchronously after the job
-	// distributor accepts the proposal (it is delivered over the node stream
-	// and auto-approved by the node on arrival), so an immediate approve can
-	// race into "no job proposal found for job spec" - retry until the
-	// proposal shows up instead of failing the delivery race.
+	// distributor accepts the proposal, so an immediate approve can race into
+	// "no job proposal found for job spec" - retry until it shows up.
 	require.Eventuallyf(t, func() bool {
 		approveErr := jobs.Approve(t.Context(), testEnv.CreEnvironment.CldfEnvironment.Offchain, testEnv.Dons, report.Output.Specs)
 		if approveErr == nil {

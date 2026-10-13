@@ -14,8 +14,7 @@ import (
 // StopNodesetContainers stops every Chainlink node container of the named
 // nodeset. A stopped shard sends nothing at all - no trigger events, no
 // execution status updates, no error reports - so it is how tests simulate a
-// primary shard dying silently: a failover path that only reacts to an
-// explicit failure report can never fire.
+// primary shard dying silently.
 func StopNodesetContainers(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string) {
 	t.Helper()
 
@@ -30,9 +29,7 @@ func StopNodesetContainers(t *testing.T, testEnv *ttypes.TestEnvironment, nodese
 }
 
 // KillNodesetContainers SIGKILLs every Chainlink node container of the named
-// nodeset. It is the instant form of StopNodesetContainers: no graceful
-// shutdown, nothing reported - a primary shard dying so silently that even a
-// shutdown-time failure report never leaves it.
+// nodeset - the instant form of StopNodesetContainers.
 func KillNodesetContainers(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string) {
 	t.Helper()
 
@@ -59,11 +56,4 @@ func StartNodesetContainers(t *testing.T, testEnv *ttypes.TestEnvironment, nodes
 		_, err := client.ContainerStart(ctx, name, dc.ContainerStartOptions{})
 		require.NoErrorf(t, err, "failed to start container %q of nodeset %q", name, nodesetName)
 	}
-}
-
-// NodesetContainerNames returns the container names backing the named nodeset.
-func NodesetContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string) []string {
-	t.Helper()
-
-	return nodesetContainerNames(t, testEnv, nodesetName)
 }

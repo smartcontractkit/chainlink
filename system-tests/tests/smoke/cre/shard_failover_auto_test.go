@@ -22,98 +22,45 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-// Automatic failover, primary recovery and centralized DON-scoped event
-// routing on the static shard assignment stack (CRE-SHARD-M5-3/4/5).
+// Shard failover scenarios on the sharded shared-vault topology
+// (configs/workflow-gateway-sharded-shared-vault-failover.toml), covering
+// CRE-SHARD-M5-3 (automatic failover on silent primary death),
+// CRE-SHARD-M5-4 (primary recovery) and CRE-SHARD-M5-5 (DON-scoped event
+// routing on the centralized stack). The ShardingFailoverEnabled gate is open
+// on both workflow shards from boot, so the secondary keeps a standby engine
+// per workflow that denies and caches every trigger it does not own.
 //
-// All three run on the sharded shared-vault failover topology (see
-// configs/workflow-gateway-sharded-shared-vault-failover.toml): two workflow
-// shard DONs (4 nodes each, no vault capability of their own), the one shared
-// vault DON reachable by both shards, and the bootstrap gateway. The
-// ShardingFailoverEnabled gate is open on both workflow shards from boot, so
-// the secondary shard keeps a standby engine per workflow that denies and
-// caches every trigger it does not own.
-//
-// The scenarios share one mechanism: ownership is re-resolved per event from
-// the shard assignment job, so killing a shard's containers (silent death: no
-// ExecutionStatusUpdate is ever sent), re-proposing the assignment, or
-// restarting a shard's containers all take effect on the next event without
-// restarting anything else.
-//
-// Budget: the CI smoke lane gives each test 7 minutes inside a 10-minute job,
-// so every wait here is event-driven and sized for the 10s cron schedule and
-// the 15s failover window below - observation phases wait for fresh platform
-// events to prove cron ticks passed (each tick is a full failover-window
-// cycle) instead of sleeping fixed windows, and each scenario reuses ONE
-// workflow across all its phases (one WASM compile, clean per-phase
-// attribution from the chip-sink records).
+// All waits are event-driven and sized for the 30s cron cadence (the cron
+// trigger's by-design floor) to fit the 7-minute CI test budget: observation
+// phases wait for fresh platform events instead of sleeping fixed windows,
+// and each scenario reuses one workflow across its phases.
 
 const (
-	// shardFailoverSchedule is the cron schedule for the scenarios' workflows.
-	// The 30s cadence is the cron trigger's by-design floor: a faster schedule
-	// is rejected at trigger registration and the workflow engine fails to
-	// initialize, so every tick-bound wait costs at least 30s.
 	shardFailoverSchedule = "*/30 * * * * *"
 
-	// shardAutoFailoverOnTOML is the settings fragment applied via
-	// t_helpers.ApplyCRESettings (global scope, layered onto the boot
-	// CL_CRE_SETTINGS baseline). The 30s window is the test-friendly override
-	// of the 5m production default: with the 30s cron schedule the secondary
-	// then auto-executes within roughly a minute of the primary going silent.
-	// The gate is re-checked both when a secondary caches a trigger and when
-	// its failover deadline elapses, so the flip takes effect on the next
-	// event. The before-phase needs no fragment: the gate's default state is
-	// closed, and the boot baseline opens only ShardingFailoverEnabled.
 	shardAutoFailoverOnTOML = "ShardingFailoverAutoExecutionEnabled = 'true'\nShardingFailoverAutoWindow = '30s'"
 
-	// Log needle the secondary's ShardFailoverManager emits when it executes a
-	// cached trigger event itself after the failover window elapsed.
 	shardAutoFailoverExecutedLogNeedle = "secondary shard: auto failover executed cached trigger event"
 
-	// shardInflightDrainGrace excludes executions that were already in
-	// flight when the observed boundary happened: an execution admitted just
-	// before a shard was killed (or just before a re-proposed assignment
-	// landed on it, demoting it mid-flight) completes and emits its user log
-	// a few seconds after the boundary, and those tails belong to the
-	// pre-boundary world. Record assertions on the far side of a boundary
-	// measure from boundary+grace.
 	shardInflightDrainGrace = 10 * time.Second
 
-	// shardStallObserveWindow is the fixed observe beat for the gate-closed
-	// stall: one cron tick past the death (plus the in-flight drain grace),
-	// so at least one trigger fired and was cached with nothing executing
-	// it. The stall itself is about the gate, not the window - with the gate
-	// closed a cached event is never armed with a deadline at all.
 	shardStallObserveWindow = 45 * time.Second
 
-	// shardTickRecords is how many fresh user-log records an observation
-	// phase waits for: each record is one cron tick, and each tick is a full
-	// failover-window cycle, so one fresh record proves a whole window cycle
-	// elapsed under the condition being observed.
 	shardTickRecords = 1
 
-	// shardEventAwaitTimeout bounds the event-driven record waits (ticks
-	// arrive every 30s; generous for a slow first sync after a restart).
 	shardEventAwaitTimeout = 2 * time.Minute
 
-	// shardFirstExecAwaitTimeout bounds waiting for a workflow's first
-	// execution after deployment (sync + first cron tick + execution).
 	shardFirstExecAwaitTimeout = 2 * time.Minute
 
-	// shardAutoExecAwaitTimeout bounds waiting for the secondary's first
-	// auto-executed user log after the primary's silent death (first post-death
-	// cron tick + failover window + execution).
 	shardAutoExecAwaitTimeout = 2 * time.Minute
 )
 
-// shardUserLogRecord is one user-log platform event observed by the collector,
-// attributed to the DON whose node emitted it.
+// shardUserLogRecord is one user-log platform event, attributed to the DON
+// whose node emitted it. emittedAt is the node's own clock at emission
+// (LogLine node_timestamp); boundary logic uses it rather than the receive
+// time, because a node with a warming chip connection (e.g. right after a
+// container restart) can deliver its user logs tens of seconds late.
 type shardUserLogRecord struct {
-	// emittedAt is the emitting node's own clock at emission (LogLine
-	// node_timestamp, RFC3339Nano). All boundary logic uses it, NOT the
-	// receive time: a node whose chip connection is still warming (e.g. right
-	// after a container restart) can queue its user logs and deliver them
-	// tens of seconds late, and a record received after a boundary may have
-	// been emitted well before it.
 	emittedAt   time.Time
 	workflowID  string
 	executionID string
@@ -121,17 +68,14 @@ type shardUserLogRecord struct {
 	p2pID       string
 }
 
-// shardUserLogCollector consumes the chip test sink's user-log events for the
-// whole test and records, per event, the emitting node's DON identity as
-// tagged on the platform event itself (WorkflowMetadata.DonID) plus its P2P
-// identity. It is the per-DON attribution every assertion below is built on.
+// shardUserLogCollector records every vaultsecretcron user log with its
+// platform-event DON tagging; it is the per-DON attribution every assertion
+// below is built on.
 type shardUserLogCollector struct {
 	mu      sync.Mutex
 	records []shardUserLogRecord
 }
 
-// startShardUserLogCollector starts a chip sink and records every vaultsecretcron
-// user log (sharedVaultUserLogPrefix) with its platform-event DON tagging.
 func startShardUserLogCollector(t *testing.T, testEnv *ttypes.TestEnvironment) *shardUserLogCollector {
 	t.Helper()
 	testLogger := framework.L
@@ -162,10 +106,6 @@ func startShardUserLogCollector(t *testing.T, testEnv *ttypes.TestEnvironment) *
 					continue
 				}
 				hasUserLog = true
-				// The node stamps each user log line with its own clock at
-				// emission (RFC3339Nano); prefer the first matching line's
-				// stamp and fall back to the receive time when absent or
-				// unparseable.
 				if ts, err := time.Parse(time.RFC3339Nano, line.NodeTimestamp); err == nil {
 					emittedAt = ts
 					break
@@ -191,8 +131,6 @@ func startShardUserLogCollector(t *testing.T, testEnv *ttypes.TestEnvironment) *
 	return c
 }
 
-// recordsSince returns the records emitted at or after cutoff (by the
-// emitting node's clock).
 func (c *shardUserLogCollector) recordsSince(cutoff time.Time) []shardUserLogRecord {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -205,11 +143,6 @@ func (c *shardUserLogCollector) recordsSince(cutoff time.Time) []shardUserLogRec
 	return records
 }
 
-// awaitRecordsFromDON waits until minCount fresh records for workflowIDs
-// arrived from don at or after since - each record is one cron tick, and each
-// tick is a full failover-window cycle. Fails after timeout; follow-up instant
-// assertions use the caller's own base times (a phase's flip, death or
-// failback-landed moment), so they span the whole observed phase.
 func (c *shardUserLogCollector) awaitRecordsFromDON(t *testing.T, workflowIDs []string, don *cre.Don, minCount int, since time.Time, timeout time.Duration) {
 	t.Helper()
 
@@ -225,8 +158,6 @@ func (c *shardUserLogCollector) awaitRecordsFromDON(t *testing.T, workflowIDs []
 		minCount, workflowIDs, don.Name, timeout)
 }
 
-// requireNoRecordsForWorkflows requires that none of workflowIDs produced any
-// user-log record at or after since.
 func (c *shardUserLogCollector) requireNoRecordsForWorkflows(t *testing.T, workflowIDs []string, since time.Time) {
 	t.Helper()
 
@@ -236,8 +167,6 @@ func (c *shardUserLogCollector) requireNoRecordsForWorkflows(t *testing.T, workf
 	}
 }
 
-// requireNoRecordsFromDONs requires that no user-log record for workflowIDs
-// came from any of forbidden at or after since.
 func (c *shardUserLogCollector) requireNoRecordsFromDONs(t *testing.T, workflowIDs []string, forbidden []*cre.Don, since time.Time) {
 	t.Helper()
 
@@ -253,10 +182,6 @@ func (c *shardUserLogCollector) requireNoRecordsFromDONs(t *testing.T, workflowI
 	}
 }
 
-// requireNoDuplicateExecutionIDsSince requires that no executionID produced
-// user-log records from two different DONs at or after since - the
-// unbounded-duplicate-executions guard (a dual-primary would emit the same
-// deterministic executionID from both shards).
 func (c *shardUserLogCollector) requireNoDuplicateExecutionIDsSince(t *testing.T, since time.Time) {
 	t.Helper()
 
@@ -275,11 +200,9 @@ func (c *shardUserLogCollector) requireNoDuplicateExecutionIDsSince(t *testing.T
 	}
 }
 
-// requireDONTaggedEvents requires that the collector observed user logs for
-// workflowID on every DON in wantDONs, and that every record's DON tag
-// (WorkflowMetadata.DonID) agrees with the DON derived from the emitting
-// node's P2P identity - platform events are tagged with DON identity and a
-// consumer filtering on that tag routes them correctly (CRE-SHARD-M5-5).
+// requireDONTaggedEvents requires user logs for workflowID on every DON in
+// wantDONs, with every record's DON tag (WorkflowMetadata.DonID) agreeing with
+// the DON derived from the emitting node's P2P identity.
 func (c *shardUserLogCollector) requireDONTaggedEvents(t *testing.T, workflowID string, wantDONs []*cre.Don, nodeP2PIDToShardIndex map[string]uint32) {
 	t.Helper()
 
@@ -310,17 +233,11 @@ func workflowIDMatches(workflowIDs []string, r shardUserLogRecord) bool {
 }
 
 // shardFailoverAssignmentTOML builds the ordered per_owner assignment: the
-// first shard is the primary, the second the secondary.
-//
-// Every built spec carries a unique comment: every shard-assignment proposal
-// uses the same fixed job UUID, and a proposal byte-identical to an earlier
-// proposal of that job is a no-op - nothing is delivered, and the spec never
-// shows up in the nodes' proposal lists (which carry the job's latest spec).
-// A failback re-proposes an order an earlier phase (or, on a shared local
-// environment, an earlier run) already proposed, so without a distinguishing
-// string the proposal silently no-ops. The comment changes the spec's hash -
-// making it a genuinely new proposal - while parsing to the identical
-// assignment.
+// first shard is the primary, the second the secondary. Every spec carries a
+// unique comment: every shard-assignment proposal uses the same fixed job
+// UUID, and a proposal byte-identical to an earlier proposal of that job is a
+// silent no-op, so repeated orders (a failback, or re-runs on a shared local
+// environment) must be distinct spec strings.
 func shardFailoverAssignmentTOML(shards sharedVaultShardPair, primaryFirst bool) string {
 	primary, secondary := shards.shardZeroIdx, shards.shardOneIdx
 	if !primaryFirst {
@@ -337,12 +254,6 @@ hashed_default_assignment = false
 `, primary, secondary, shards.workflowOwner, primary, secondary, time.Now().Format(time.RFC3339Nano))
 }
 
-// deployShardFailoverWorkflow deploys one fast-scheduled (10s cron)
-// vaultsecretcron workflow that reads the given secret from the shared vault
-// on every run. The scenario reuses this ONE workflow across all its phases -
-// every observation is attributed per phase from the chip-sink records, and
-// fresh cron ticks give every phase fresh trigger and execution IDs, so no
-// phase needs its own compiled workflow.
 func deployShardFailoverWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workflowBaseName, secretKey string) string {
 	t.Helper()
 
@@ -355,9 +266,6 @@ func deployShardFailoverWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, 
 		t_helpers.UniqueWorkflowName(testEnv, workflowBaseName), &workflowConfig, sharedVaultWorkflowFileLocation)
 }
 
-// requireCachedEventForWorkflow requires that the nodeset logged a
-// cached-trigger line carrying the workflow's ID: the secondary holds a
-// standby engine for the workflow and denies (and caches) its triggers.
 func requireCachedEventForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, workflowID string) {
 	t.Helper()
 
@@ -371,23 +279,17 @@ func requireCachedEventForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment
 	}, 2*time.Minute, 5*time.Second, "nodeset %s never cached a trigger event for workflow %s", nodesetName, workflowID)
 }
 
-// shardAssignmentUpdateHashNeedle returns the log needle proving a node
-// applied the shard-assignment spec built from toml. The job template
-// (deployment/cre/jobs/pkg/cre_settings_job.go, ShardAssignmentJob.ResolveJob)
-// prefixes the assignment with the config_type marker and stamps the spec
-// with sha256 of that composite; every node logs the hash on apply
-// ("Updated shard assignment config", "hash", ...). Waiting for this needle
-// on EVERY worker container of a shard is the node-complete landing proof -
-// a single node's behavioral evidence (e.g. a cached-trigger needle) can
-// appear while the shard's other nodes still run the stale assignment.
+// shardAssignmentUpdateHashNeedle returns the log needle proving a node applied
+// the shard-assignment spec built from toml: the job template stamps the spec
+// with sha256 of the config_type marker plus the TOML, and every node logs the
+// hash on apply. Waiting for it on every worker container of a shard is the
+// node-complete landing proof.
 func shardAssignmentUpdateHashNeedle(toml string) string {
 	settings := "config_type = \"shard_assignment\"\n" + toml
 	sum := sha256.Sum256([]byte(settings))
 	return hex.EncodeToString(sum[:])
 }
 
-// requireAssignmentLandedOnShard requires every worker container of the DON
-// to have logged the assignment update carrying the given hash needle.
 func requireAssignmentLandedOnShard(t *testing.T, testEnv *ttypes.TestEnvironment, don *cre.Don, hashNeedle string) {
 	t.Helper()
 
@@ -406,27 +308,6 @@ func requireAssignmentLandedOnShard(t *testing.T, testEnv *ttypes.TestEnvironmen
 // death (CRE-SHARD-M5-3): with the ShardingFailoverAutoExecutionEnabled gate
 // open, a secondary shard executes a trigger event itself when no execution
 // outcome from the primary arrives within the (configurable) failover window.
-// A primary that dies silently - containers killed, so neither SUCCESS nor
-// SYSTEM_ERROR is ever reported - would stall events forever under the
-// report-driven failover path; the window is what covers it. The gate-closed
-// stall (the before) is covered by ExecuteShardFailoverPrimaryRecoveryTest.
-//
-// Phases: the gate is opened with both shards alive - a settings delivery
-// needs connected nodes, and a healthy-primary phase then proves no false
-// failover: the primary's ExecutionStatusUpdates drain the secondary's cache,
-// so two fresh ticks (two full failover-window cycles) arrive from the
-// primary with zero executions and zero auto-failover needles from the
-// secondary. The primary then dies silently, and the secondary executes the
-// workflow itself within the window, reading the same secret from the shared
-// vault (the replay carries the workflow's tenant identity, so the secret
-// path works exactly as on the primary).
-// The workflow deploys once, while both shards are alive (the deploy's
-// artifact copy targets every workflow shard's containers), and serves on the
-// primary until the death; every failover assertion measures post-death
-// behavior.
-// Proof: the secondary's user logs through the chip sink, and the
-// "auto failover executed cached trigger event" log needle in the secondary's
-// container logs.
 func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
@@ -445,35 +326,22 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 
 	collector := startShardUserLogCollector(t, testEnv)
 
-	// Open the gate with a test-friendly window, with both shards alive (the
-	// delivery needs connected nodes). The auto-failover settings are defined
-	// inline in core, not in the chainlink-common cresettings catalog, so the
-	// delivery opts out of the catalog check.
 	t_helpers.ApplyCRESettings(t, testEnv,
 		t_helpers.AllowUncatalogedSettings(),
 		t_helpers.Global(shardAutoFailoverOnTOML))
 
-	// No false failover while the primary is healthy: its
-	// ExecutionStatusUpdates drain the secondary's cache, so a fresh tick (a
-	// full failover-window cycle) arrives from the primary with zero
-	// executions and zero auto-failover needles from the secondary.
 	gateArmed := time.Now()
 	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardZeroDON, shardTickRecords, gateArmed, shardEventAwaitTimeout)
 	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardOneDON}, gateArmed)
 	t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle)
 	testLogger.Info().Msg("Phase 2: gate open, primary healthy - no false failover")
 
-	// The silent death: stopped-by-SIGKILL containers report nothing at all.
 	death := time.Now()
 	t_helpers.KillNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	t.Cleanup(func() {
 		t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	})
 
-	// The secondary executes the cached triggers itself within the failover
-	// window, reading the same secret from the shared vault. The post-death
-	// assertions measure from death+grace so executions already in flight
-	// when the kill landed are not counted as post-death activity.
 	postDeath := death.Add(shardInflightDrainGrace)
 	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardOneDON, secretValue, shardAutoExecAwaitTimeout)
 	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle, time.Minute, 5*time.Second)
@@ -485,23 +353,11 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 
 // ExecuteShardFailoverPrimaryRecoveryTest covers primary recovery
 // (CRE-SHARD-M5-4) and the gate-closed stall (the before of CRE-SHARD-M5-3):
-// the primary dies silently and, with the automatic failover gate at its
-// default CLOSED state (the boot CL_CRE_SETTINGS baseline opens only
-// ShardingFailoverEnabled), the workflow stalls - the secondary keeps denying
-// and caching, nothing ever executes. The survivor is then promoted by
-// re-proposing the assignment while the old primary is dead, and the former
-// primary later returns as a secondary - it must stop executing and cache
-// only. Without that failback the recovered shard would run on its stale
-// assignment copy as a second primary, and the two primaries would emit
-// unbounded duplicate executions.
-//
-// Proof: nothing executes between the death and the promotion (the stall);
-// after the failback assignment reaches the recovered shard, fresh ticks
-// arrive only from the promoted shard (the recovered one contributes nothing
-// but cached-trigger needles), no executionID is observed from two DONs, and
-// a final fail-back moves execution to the recovered shard again.
-// The workflow deploys once, while both shards are alive (the deploy's
-// artifact copy targets every workflow shard's containers).
+// the primary dies silently and the workflow stalls with the automatic
+// failover gate at its default closed state; the survivor is promoted by
+// re-proposing the assignment while the old primary is dead; the former
+// primary returns as a secondary - it must stop executing and cache only -
+// and a final fail-back moves execution back to it.
 func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
@@ -520,10 +376,6 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 
 	collector := startShardUserLogCollector(t, testEnv)
 
-	// The primary dies silently, and with the automatic failover gate at its
-	// default CLOSED state the workflow stalls - nothing executes it anywhere.
-	// The stall assertion measures from death+grace so executions already in
-	// flight when the kill landed are not counted as post-death activity.
 	death := time.Now()
 	t_helpers.KillNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	t.Cleanup(func() {
@@ -535,24 +387,14 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 	t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle)
 	testLogger.Info().Msg("Phase 2: gate closed, primary dead - workflow stalls, nothing auto-executes")
 
-	// The survivor is promoted by re-proposing the swapped assignment on the
-	// alive shard only (a proposal to a dead shard's nodes fails with "node
-	// is not connected"). The promoted shard then executes the workflow, still
-	// reading the SAME secret from the shared vault.
 	proposeAndApproveShardAssignmentJob(t, testEnv, shards.shardOneDON, shardFailoverAssignmentTOML(shards, false), testLogger)
 	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardOneDON, secretValue, shardFirstExecAwaitTimeout)
 	testLogger.Info().Msg("Phase 3: primary dead, survivor promoted and executing")
 
-	// Primary recovery: the old primary returns - as a secondary, because the
-	// current assignment says so. Its engines restart fresh, first under their
-	// stale assignment copy (the recovered shard briefly executes as a second
-	// primary - a bounded, at-least-once duplicate), then the swapped
-	// assignment is re-proposed to it once its nodes reconnected. Landing on
-	// ONE node is not landing on the shard: the job distributor delivers to
-	// each node independently, so the first node's cached-trigger needle can
-	// appear while the other nodes still execute the stale assignment - wait
-	// for the update to land on EVERY worker container (each logs the spec's
-	// hash) before measuring the recovered shard's behavior.
+	// The recovered shard restarts under its stale assignment copy and briefly
+	// executes as a second primary; the swap lands on each node independently,
+	// so wait for it on every worker container before measuring the recovered
+	// shard's behavior.
 	swappedAssignmentTOML := shardFailoverAssignmentTOML(shards, false)
 	t_helpers.StartNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	awaitShardDONsConnectedToJD(t, testEnv)
@@ -562,22 +404,12 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 	failbackLanded := time.Now()
 	testLogger.Info().Msg("Phase 4: former primary returned, re-synced and caching as secondary")
 
-	// Recovery assertions: from the failback landing on every node (plus the
-	// in-flight drain grace, so gap executions admitted under the stale
-	// assignment just before the landing are not counted), fresh ticks arrive
-	// only from the promoted shard, and no executionID is seen on two DONs.
 	stableSince := failbackLanded.Add(shardInflightDrainGrace)
 	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, stableSince, shardEventAwaitTimeout)
 	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, stableSince)
 	collector.requireNoDuplicateExecutionIDsSince(t, stableSince)
 	testLogger.Info().Msg("Phase 5: recovered shard is cache-only, promoted shard is the sole executor, no duplicates")
 
-	// Fail back after recovery: re-propose the original order on both shards;
-	// the recovered shard executes again. shardFailoverAssignmentTOML stamps
-	// each proposal with a unique comment, so this re-propose of the phase-1
-	// order is a genuinely new spec (a byte-identical re-proposal of the same
-	// fixed shard-assignment job UUID is a silent no-op) while parsing to the
-	// identical assignment.
 	failbackTOML := shardFailoverAssignmentTOML(shards, true)
 	proposeSharedVaultAssignment(t, testEnv, failbackTOML)
 	awaitSharedVaultWorkflowExecution(t, testEnv, []string{workflowID}, shards.shardZeroDON, secretValue, shardFirstExecAwaitTimeout)
@@ -586,23 +418,10 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 
 // ExecuteShardFailoverCentralizedEventRoutingTest covers DON-scoped event
 // routing on the centralized stack (CRE-SHARD-M5-5): platform events are
-// tagged with the emitting DON, so a consumer filtering on that tag routes
-// each shard's events correctly - wrong-shard events are distinguishable
-// instead of looking like data loss or ghost executions - and duplicate
-// execution events stay bounded rather than silent and unbounded.
-//
-// Phases: the workflow serves on the primary (shard 0), the gate is opened
-// with both shards alive, the primary dies silently and the secondary
-// auto-executes - the same workflow family executing on BOTH shards over the
-// test's lifetime, with the failover boundary in between. Proof: the
-// chip-sink user-log events carry WorkflowMetadata.DonID, which must agree
-// with the DON derived from the emitting node's P2P identity and cover both
-// shards; no executionID is observed from two DONs after the death; and, with
-// the observability stack up (`env start --with-dashboards`), the scenario's
-// own metric rides the centralized pipeline (failover_auto_execution_total)
-// and the platform logs reach Loki (beholder_data_type=zap_log_message).
-// The workflow deploys once, while both shards are alive (the deploy's
-// artifact copy targets every workflow shard's containers).
+// tagged with the emitting DON so a consumer filtering on that tag routes each
+// shard's events correctly, and duplicate execution events stay bounded.
+// Requires the observability stack (`env start --with-dashboards` locally; in
+// CI the workflow's observability step starts it).
 func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
@@ -623,16 +442,10 @@ func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttyp
 	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, sharedVaultTriggerCachedLogNeedle, time.Minute, 5*time.Second)
 	testLogger.Info().Msg("Phase 1: shard 0 executing")
 
-	// Phase 2: open the gate with a test-friendly window, with both shards
-	// alive (the delivery needs connected nodes; the auto-failover settings
-	// are core-only, so the delivery opts out of the catalog check).
 	t_helpers.ApplyCRESettings(t, testEnv,
 		t_helpers.AllowUncatalogedSettings(),
 		t_helpers.Global(shardAutoFailoverOnTOML))
 
-	// Phase 3: the primary dies silently and the secondary auto-executes - the
-	// workflow family now executed on BOTH shards, across the failover
-	// boundary.
 	death := time.Now()
 	t_helpers.KillNodesetContainers(t, testEnv, shards.shardZeroDON.Name)
 	t.Cleanup(func() {
@@ -643,32 +456,19 @@ func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttyp
 	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, shardAutoFailoverExecutedLogNeedle, time.Minute, 5*time.Second)
 	testLogger.Info().Msg("Phase 2: primary died silently, secondary auto-executing")
 
-	// DON-scoped routing: every platform event is tagged with the emitting
-	// DON, the tag agrees with the node's P2P identity, and both shards'
-	// executions are attributable - wrong-shard events distinguishable.
 	collector.requireDONTaggedEvents(t, workflowID, []*cre.Don{shards.shardZeroDON, shards.shardOneDON}, nodeP2PIDToShardIndex)
 
-	// Duplicates stay bounded: fresh ticks only from the secondary, and no
-	// executionID from two DONs after the death (+ the kill-drain grace, so
-	// executions already in flight when the kill landed are excluded).
 	postDeath := death.Add(shardInflightDrainGrace)
 	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardOneDON, shardTickRecords, postDeath, shardEventAwaitTimeout)
 	collector.requireNoRecordsFromDONs(t, []string{workflowID}, []*cre.Don{shards.shardZeroDON}, postDeath)
 	collector.requireNoDuplicateExecutionIDsSince(t, postDeath)
 	testLogger.Info().Msg("Phase 3: platform events DON-tagged, duplicates bounded")
 
-	// Metric proof on the centralized pipeline: the scenario's own
-	// auto-failover counter is observable and non-zero after the secondary
-	// auto-executed. Locally the stack comes up with the suite entry's
-	// --with-dashboards env-start flag; in CI the workflow's observability
-	// step starts it (the CI env start happens in the workflow, before the
-	// test, so the in-test flag never reaches it).
 	t_helpers.RequirePrometheusQueryEventually(t, "failover_auto_execution_total", 2*time.Minute, 5*time.Second,
 		func(sum float64) bool { return sum > 0 },
 		"failover_auto_execution_total did not increase after the secondary auto-executed; is the observability stack up?")
 	testLogger.Info().Msg("Phase 4: failover_auto_execution_total observable via Prometheus")
 
-	// Log proof on the centralized stack: the platform logs reached Loki.
 	require.Eventually(t, func() bool {
 		count, err := queryLokiForBeholderLogs(t.Context(), framework.LocalLokiBaseURL, 600)
 		if err != nil {
