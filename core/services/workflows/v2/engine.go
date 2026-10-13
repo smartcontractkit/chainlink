@@ -47,7 +47,7 @@ type engine struct {
 // triggers, holds the handles, acknowledges through itself, and owns the
 // workflow-count limit.
 func NewEngine(cfg *EngineConfig) (WorkflowEngine, error) {
-	base, lggr, err := newBaseEngine(cfg)
+	base, lggr, err := newBaseEngine(cfg, valueEngineModeLegacy)
 	if err != nil {
 		return nil, err
 	}
