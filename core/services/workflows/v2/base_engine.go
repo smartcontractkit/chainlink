@@ -711,12 +711,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
 
-	// computeDuration is what we meter as compute. The module that ran the
-	// workflow reports the run's duration on the result (the guest run for
-	// WASM, the enclave-measured run for confidential workflows), so the engine
-	// does not care which module executed it; the engine's own wall-clock is
-	// only a fallback for a module that reported none. Operational latency
-	// metrics below intentionally keep using executionDuration.
+	// Metered compute: the module's reported duration, else wall-clock.
 	computeDuration := executionDuration
 	if result != nil && result.ComputeDurationMs != nil {
 		computeDuration = time.Duration(result.GetComputeDurationMs()) * time.Millisecond

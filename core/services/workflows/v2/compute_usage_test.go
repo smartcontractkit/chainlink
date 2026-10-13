@@ -47,8 +47,8 @@ func (r *recordingEmitter) all() []*meteringpb.MeterRecord {
 }
 
 // runOneExecution starts an engine with cfg, fires one trigger event whose
-// module execution returns execErr, and returns the execution id. When
-// computeDurationMs is non-nil the module reports it on its ExecutionResult.
+// module execution returns execErr (reporting computeDurationMs if set), and
+// returns the execution id.
 func runOneExecution(t *testing.T, cfg *v2.EngineConfig, execErr error, computeDurationMs *int64) string {
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()

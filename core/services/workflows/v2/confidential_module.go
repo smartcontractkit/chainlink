@@ -186,8 +186,6 @@ func (m *ConfidentialModule) Execute(
 	}
 
 	result := capOutput.SdkExecutionResult
-	// Report the enclave-measured duration so the engine meters the WASM run
-	// rather than the node-observed round trip; older enclaves leave it unset.
 	if result != nil && capOutput.ExecutionDurationMs != nil {
 		ms := capOutput.GetExecutionDurationMs()
 		result.ComputeDurationMs = &ms
