@@ -589,24 +589,26 @@ func proposeAndApproveShardAssignmentJob(t *testing.T, testEnv *ttypes.TestEnvir
 	}
 
 	// The node's proposal list updates asynchronously after the job
-	// distributor accepts the proposal, so an immediate approve can race into
-	// "no job proposal found for job spec" - retry until it shows up.
-	require.Eventuallyf(t, func() bool {
+	// distributor accepts the proposal, and a just-restarted node's API can
+	// still reset connections right after its JD stream is up, so an immediate
+	// approve can fail transiently - retry until it succeeds.
+	deadline := time.Now().Add(30 * time.Second)
+	for {
 		approveErr := jobs.Approve(t.Context(), testEnv.CreEnvironment.CldfEnvironment.Offchain, testEnv.Dons, report.Output.Specs)
 		if approveErr == nil {
-			return true
+			break
 		}
 		if strings.Contains(approveErr.Error(), "cannot approve an approved spec") {
 			testLogger.Info().Msg("Shard assignment job already approved, continuing...")
-			return true
+			break
 		}
-		if strings.Contains(approveErr.Error(), "no job proposal found") {
-			testLogger.Info().Msg("Shard assignment proposal not yet visible to the node, retrying...")
-			return false
+		if time.Now().After(deadline) {
+			require.NoError(t, approveErr, "Failed to approve shard assignment job")
+			break
 		}
-		require.NoError(t, approveErr, "Failed to approve shard assignment job")
-		return false
-	}, 30*time.Second, 2*time.Second, "shard assignment proposal never became visible to the target nodes")
+		testLogger.Info().Msgf("Shard assignment approve failed (%v), retrying...", approveErr)
+		time.Sleep(2 * time.Second)
+	}
 
 	testLogger.Info().Msg("Shard assignment job proposed and approved")
 }
