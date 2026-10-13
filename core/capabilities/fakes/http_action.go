@@ -173,7 +173,7 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	// Create response
 	response := &customhttp.Response{
 		StatusCode:   uint32(resp.StatusCode), //nolint:gosec // status code is always in valid range
-		Headers:      headers,
+		Headers:      headers,                 //nolint:staticcheck // SA1019
 		MultiHeaders: multiHeaders,
 		Body:         respBody,
 	}

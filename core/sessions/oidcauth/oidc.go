@@ -23,12 +23,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -47,8 +47,8 @@ type oidcAuthenticator struct {
 	provider     *oidc.Provider
 	oidcConfig   *oidc.Config
 	oauth2Config *oauth2.Config
-	lggr         logger.Logger
-	auditLogger  audit.AuditLogger
+	lggr         logger.SugaredLogger
+	auditLogger  audit.Logger
 }
 
 // ExchangeTokenRequest represents the expected JSON payload from the frontend
@@ -70,7 +70,7 @@ func NewOIDCAuthenticator(
 	ds sqlutil.DataSource,
 	oidcCfg config.OIDC,
 	lggr logger.Logger,
-	auditLogger audit.AuditLogger,
+	auditLogger audit.Logger,
 ) (*oidcAuthenticator, error) {
 	// Ensure all RBAC role mappings to OIDC Id claims are defined, and required fields populated, or error on startup
 	lggr.Debugf("OIDC CFG:\n %#v\n", oidcCfg)
@@ -124,7 +124,7 @@ func NewOIDCAuthenticator(
 		provider:     provider,
 		oidcConfig:   oidcConfig,
 		oauth2Config: oauth2Config,
-		lggr:         lggr.Named("OIDCAuthenticationProvider"),
+		lggr:         logger.Sugared(lggr).Named("OIDCAuthenticationProvider"),
 		auditLogger:  auditLogger,
 	}
 
@@ -454,7 +454,7 @@ func (oi *oidcAuthenticator) CreateUser(ctx context.Context, user *clsessions.Us
 }
 
 // UpdateRole is not supported for read only OIDC
-func (oi *oidcAuthenticator) UpdateRole(ctx context.Context, email string, newRole string) (clsessions.User, error) {
+func (oi *oidcAuthenticator) UpdateRole(ctx context.Context, email, newRole string) (clsessions.User, error) {
 	return clsessions.User{}, clsessions.ErrNotSupported
 }
 
@@ -485,7 +485,7 @@ func (oi *oidcAuthenticator) SetPassword(ctx context.Context, user *clsessions.U
 }
 
 // TestPassword only supports the potential local admin user, as there is no queryable identity server for the OIDC implementation
-func (oi *oidcAuthenticator) TestPassword(ctx context.Context, email string, password string) error {
+func (oi *oidcAuthenticator) TestPassword(ctx context.Context, email, password string) error {
 	// Fall back to test local users table in case of supported local CLI users as well
 	var hashedPassword string
 	if err := oi.ds.GetContext(ctx, &hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
@@ -563,7 +563,7 @@ func (oi *oidcAuthenticator) Sessions(ctx context.Context, offset, limit int) ([
 	var sessions []clsessions.Session
 	sql := `SELECT * FROM oidc_sessions ORDER BY created_at, id LIMIT $1 OFFSET $2;`
 	if err := oi.ds.SelectContext(ctx, &sessions, sql, limit, offset); err != nil {
-		return sessions, nil
+		return nil, err
 	}
 	return sessions, nil
 }
@@ -596,7 +596,7 @@ func (oi *oidcAuthenticator) localLoginFallback(ctx context.Context, sr clsessio
 	return user, nil
 }
 
-func (oi *oidcAuthenticator) IDClaimsToUserRole(idClaims []string, adminClaim string, editClaim string, runClaim string, readClaim string) (clsessions.UserRole, error) {
+func (oi *oidcAuthenticator) IDClaimsToUserRole(idClaims []string, adminClaim, editClaim, runClaim, readClaim string) (clsessions.UserRole, error) {
 	// If defined Admin group name is present in id claims, return UserRoleAdmin
 	if slices.Contains(idClaims, adminClaim) {
 		return clsessions.UserRoleAdmin, nil

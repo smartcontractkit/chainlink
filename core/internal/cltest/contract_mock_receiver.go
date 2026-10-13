@@ -104,11 +104,12 @@ func (receiver contractMockReceiver) mustEncodeResponse(funcName string, respons
 	firstArg := responseArgs[0]
 	isStruct := reflect.TypeOf(firstArg).Kind() == reflect.Struct
 
-	if isStruct && len(responseArgs) > 1 {
+	switch {
+	case isStruct && len(responseArgs) > 1:
 		receiver.t.Fatal("cannot encode response with struct and multiple return values")
-	} else if isStruct {
+	case isStruct:
 		outputList = structToInterfaceSlice(firstArg)
-	} else {
+	default:
 		outputList = responseArgs
 	}
 
@@ -120,7 +121,7 @@ func (receiver contractMockReceiver) mustEncodeResponse(funcName string, respons
 func structToInterfaceSlice(structArg any) []any {
 	v := reflect.ValueOf(structArg)
 	values := make([]any, v.NumField())
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		values[i] = v.Field(i).Interface()
 	}
 	return values

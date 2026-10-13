@@ -191,6 +191,9 @@ FeeBoost = false # Default
 [EVM.BalanceMonitor]
 # Enabled balance monitoring for all keys.
 Enabled = true # Default
+# ERC20TokenAddress is the address of an ERC-20 type token that a chain supports as a fee token.
+ERC20TokenAddress = "0x20C0000000000000000000000000000000000000" # Example
+
 
 [EVM.GasEstimator]
 # Mode controls what type of gas estimator is used.

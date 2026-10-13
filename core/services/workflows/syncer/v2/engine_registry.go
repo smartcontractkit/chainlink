@@ -9,10 +9,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
-var ErrNotFound = errors.New("engine not found")
-var ErrAlreadyExists = errors.New("attempting to register duplicate engine")
+var (
+	ErrNotFound      = errors.New("engine not found")
+	ErrAlreadyExists = errors.New("attempting to register duplicate engine")
+)
 
 type ServiceWithMetadata struct {
 	WorkflowID types.WorkflowID
@@ -21,6 +25,13 @@ type ServiceWithMetadata struct {
 	// Empty when the engine was registered without identity metadata (e.g. via Add).
 	ReconcileKey string
 	services.Service
+}
+
+// Coordinated is true for an engine that leaves trigger registration,
+// dequeuing and acknowledgement to the TriggerCoordinator.
+func (e ServiceWithMetadata) Coordinated() bool {
+	engine, ok := e.Service.(v2.WorkflowEngine)
+	return ok && engine.IsCoordinated()
 }
 
 // engineEntry holds the engine and its associated source for internal storage.
@@ -156,4 +167,26 @@ func (r *EngineRegistry) PopAll() []ServiceWithMetadata {
 	}
 	r.engines = make(map[[32]byte]engineEntry)
 	return engines
+}
+
+// triggerEngineRegistry adapts EngineRegistry to triggers.EngineRegistry.
+type triggerEngineRegistry struct {
+	registry *EngineRegistry
+}
+
+var _ triggers.EngineRegistry = (*triggerEngineRegistry)(nil)
+
+func NewTriggerEngineRegistry(r *EngineRegistry) triggers.EngineRegistry {
+	return &triggerEngineRegistry{registry: r}
+}
+
+// Get reports false for engines that are not registered or do not satisfy
+// triggers.RegisteredEngine.
+func (a *triggerEngineRegistry) Get(workflowID types.WorkflowID) (triggers.RegisteredEngine, bool) {
+	e, ok := a.registry.Get(workflowID)
+	if !ok {
+		return nil, false
+	}
+	engine, ok := e.Service.(triggers.RegisteredEngine)
+	return engine, ok
 }

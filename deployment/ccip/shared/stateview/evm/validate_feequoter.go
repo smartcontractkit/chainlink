@@ -427,7 +427,7 @@ func (c CCIPChainState) validateV16DestChainConfig(
 			errs = append(errs, fmt.Errorf("failed to get staleness threshold from v1.5 PriceRegistry: %w", stErr))
 		} else if !st.IsUint64() || st.Uint64() > uint64(^uint32(0)) {
 			errs = append(errs, fmt.Errorf("v1.5 PriceRegistry StalenessThreshold %s overflows uint32", st.String()))
-		} else if want := uint32(st.Uint64()); want != destCfg.GasPriceStalenessThreshold { //nolint:gosec // G115: safe, verified <= MaxUint32
+		} else if want := st.Uint64(); want != uint64(destCfg.GasPriceStalenessThreshold) {
 			errs = append(errs, fmt.Errorf("v1.5<->v1.6:\n  GasPriceStalenessThreshold: got=%d, want=%d",
 				destCfg.GasPriceStalenessThreshold, want))
 		}

@@ -55,7 +55,7 @@ func NewDelegateBootstrap(
 	ds sqlutil.DataSource,
 	jobORM job.ORM,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
-	lggr logger.Logger,
+	lggr logger.SugaredLogger,
 	ocr2Cfg validate.OCR2Config,
 	insecureCfg validate.InsecureConfig,
 	relayers RelayGetter,

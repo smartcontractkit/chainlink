@@ -48,6 +48,7 @@ type triggerPublisher struct {
 	bqMu             sync.Mutex // protects batchingQueue
 	stopCh           services.StopChan
 	wg               sync.WaitGroup
+	closeOnce        sync.Once
 	ackExecutor      *ParallelExecutor
 	registerExecutor *ParallelExecutor
 	lggr             logger.Logger
@@ -103,8 +104,10 @@ type TriggerPublisher interface {
 	SetConfig(config *commoncap.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON) error
 }
 
-var _ TriggerPublisher = &triggerPublisher{}
-var _ types.ReceiverService = &triggerPublisher{}
+var (
+	_ TriggerPublisher      = &triggerPublisher{}
+	_ types.ReceiverService = &triggerPublisher{}
+)
 
 const (
 	minAllowedBatchCollectionPeriod = 10 * time.Millisecond
@@ -112,7 +115,7 @@ const (
 	defaultMaxParallelRegisters     = 100 // TODO: make this configurable https://smartcontract-it.atlassian.net/browse/PLEX-3266
 )
 
-func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+func NewTriggerPublisher(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
 	slotUsageAttrs := []attribute.KeyValue{
 		attribute.String("capabilityID", capabilityID),
 		attribute.String("capMethodName", capMethodName),
@@ -496,8 +499,8 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.messageCache.Delete(key)
 		p.mu.Unlock()
 
-		ctx, cancel := p.stopCh.NewCtx()
-		err = p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
+		unregisterCtx, cancel := p.stopCh.NewCtx()
+		err = p.cfg.Load().underlying.UnregisterTrigger(unregisterCtx, reg.request)
 		if err != nil {
 			unregisterOutcome = "error"
 			p.lggr.Errorw("failed to unregister trigger on underlying", "workflowID", key.workflowID, "triggerID", key.triggerID, "err", err)
@@ -927,22 +930,27 @@ func (p *triggerPublisher) batchingLoop() {
 }
 
 func (p *triggerPublisher) Close() error {
-	close(p.stopCh)
+	var err error
+	p.closeOnce.Do(func() {
+		close(p.stopCh)
 
-	if p.ackExecutor != nil {
-		if err := p.ackExecutor.Close(); err != nil {
-			return fmt.Errorf("failed to close ack executor: %w", err)
+		if p.ackExecutor != nil {
+			if e := p.ackExecutor.Close(); e != nil {
+				err = fmt.Errorf("failed to close ack executor: %w", e)
+				return
+			}
 		}
-	}
-	if p.registerExecutor != nil {
-		if err := p.registerExecutor.Close(); err != nil {
-			return fmt.Errorf("failed to close register executor: %w", err)
+		if p.registerExecutor != nil {
+			if e := p.registerExecutor.Close(); e != nil {
+				err = fmt.Errorf("failed to close register executor: %w", e)
+				return
+			}
 		}
-	}
 
-	p.wg.Wait()
-	p.lggr.Info("TriggerPublisher closed")
-	return nil
+		p.wg.Wait()
+		p.lggr.Info("TriggerPublisher closed")
+	})
+	return err
 }
 
 func (p *triggerPublisher) Ready() error {

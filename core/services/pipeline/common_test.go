@@ -137,12 +137,19 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 		require.EqualError(t, err, `UnmarshalTaskFromMap: unknown task type: "xxx"`)
 	})
 
-	t.Run("legacy vrf pipeline task type is rejected", func(t *testing.T) {
+	t.Run("legacy vrf pipeline task types are rejected", func(t *testing.T) {
+		t.Parallel()
+
 		taskMap := map[string]string{}
 		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskTypeVRF, taskMap, 0, "foo-dot-id")
 		require.ErrorContains(t, err, `UnmarshalTaskFromMap: pipeline task type "vrf"`)
 		require.ErrorContains(t, err, "has been removed")
-		require.ErrorContains(t, err, "vrfv2 or vrfv2plus")
+		require.ErrorContains(t, err, "vrfv2plus")
+
+		_, err = pipeline.UnmarshalTaskFromMap(pipeline.TaskTypeVRFV2, taskMap, 0, "foo-dot-id")
+		require.ErrorContains(t, err, `UnmarshalTaskFromMap: pipeline task type "vrfv2"`)
+		require.ErrorContains(t, err, "has been removed")
+		require.ErrorContains(t, err, "vrfv2plus")
 	})
 
 	tests := []struct {
@@ -162,7 +169,6 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 		{pipeline.TaskTypeJSONParse, &pipeline.JSONParseTask{}},
 		{pipeline.TaskTypeCBORParse, &pipeline.CBORParseTask{}},
 		{pipeline.TaskTypeAny, &pipeline.AnyTask{}},
-		{pipeline.TaskTypeVRFV2, &pipeline.VRFTaskV2{}},
 		{pipeline.TaskTypeVRFV2Plus, &pipeline.VRFTaskV2Plus{}},
 		{pipeline.TaskTypeEstimateGasLimit, &pipeline.EstimateGasLimitTask{}},
 		{pipeline.TaskTypeETHCall, &pipeline.ETHCallTask{}},

@@ -69,8 +69,10 @@ func runCCIPTopologiesTest(t *testing.T, fChainSource, fChainDest int) {
 		", dest chain selector:", destChainSel,
 	)
 	// connect a single lane, source to dest
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(
-		t, &e, state, sourceChainSel, destChainSel, false)
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(
+		t, &e, state, sourceChainSel, destChainSel, false,
+	)
+	require.NoError(t, err)
 
 	var (
 		nonce  uint64
@@ -98,8 +100,8 @@ func runCCIPTopologiesTest(t *testing.T, fChainSource, fChainDest int) {
 				Nonce:                  &nonce,
 				Receiver:               common.HexToAddress("0xdead").Bytes(),
 				MsgData:                []byte("hello eoa"),
-				ExtraArgs:              nil,                                 // default extraArgs
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+				ExtraArgs:              nil,                               // default extraArgs
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess, // success because offRamp won't call an EOA
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
 					},

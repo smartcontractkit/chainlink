@@ -87,6 +87,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 	headers[webauth.APISecret] = secret
 
 	resp, cleanup := cltest.UnauthenticatedGet(t, url, headers)
+	defer resp.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 }
@@ -101,8 +102,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, types.Backend, common.
 	b := cltest.NewSimulatedBackend(t, genesisData, 2*ethconfig.Defaults.Miner.GasCeil)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b.Client())
 	require.NoError(t, err)
-	accessAddress, _, _, err :=
-		testoffchainaggregator.DeploySimpleWriteAccessController(owner, b.Client())
+	accessAddress, _, _, err := testoffchainaggregator.DeploySimpleWriteAccessController(owner, b.Client())
 	require.NoError(t, err, "failed to deploy test access controller contract")
 	b.Commit()
 
@@ -349,7 +349,7 @@ isBootstrapPeer    = true
 			b.Commit()
 
 			jids := make([]int32, 0, numOracles)
-			var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
+			servers, slowServers := make([]*httptest.Server, 4), make([]*httptest.Server, 4)
 			// We expect metadata of:
 			//  latestAnswer:nil // First call
 			//  latestAnswer:0
@@ -584,7 +584,7 @@ isBootstrapPeer    = true
 		b.Commit()
 
 		jids := make([]int32, 0, numOracles)
-		var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
+		servers, slowServers := make([]*httptest.Server, 4), make([]*httptest.Server, 4)
 		// We expect metadata of:
 		//  latestAnswer:nil // First call
 		//  latestAnswer:0

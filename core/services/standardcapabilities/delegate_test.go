@@ -12,9 +12,8 @@ import (
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -87,7 +86,7 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			forwardingAllowed = false
 			command = "path/to/binary"
 			config = """"""
-			
+
 			[oracle_factory]
 			enabled = true
 			bootstrap_peers = ["12D3KooWBAzThfs9pD4WcsFKCi68EUz2fZgZskDBT6JcJRndPss5@cl-keystone-two-bt-0:5001"]
@@ -129,7 +128,7 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			jobSpec, err := ValidatedStandardCapabilitiesSpec(tc.tomlString)
 
 			if tc.expectedError != "" {
-				assert.ErrorContains(t, err, tc.expectedError)
+				require.ErrorContains(t, err, tc.expectedError)
 			} else {
 				require.NoError(t, err)
 			}
@@ -251,7 +250,7 @@ func TestResolveCapabilityDonID(t *testing.T) {
 			donWithNodes(20, node(localPeerID)),
 		}, nil)
 
-		got := resolveCapabilityDonID(ctx, logger.TestLogger(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
@@ -266,7 +265,7 @@ func TestResolveCapabilityDonID(t *testing.T) {
 			donWithNodes(10, node(testPeerID(2))),
 		}, nil)
 
-		got := resolveCapabilityDonID(ctx, logger.TestLogger(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
@@ -282,7 +281,7 @@ func TestResolveCapabilityDonID(t *testing.T) {
 			donWithNodes(20, node(localPeerID)),
 		}, nil)
 
-		got := resolveCapabilityDonID(ctx, logger.TestLogger(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
@@ -294,7 +293,7 @@ func TestResolveCapabilityDonID(t *testing.T) {
 
 		registry := mocks.NewCapabilitiesRegistry(t)
 
-		got := resolveCapabilityDonID(ctx, logger.TestLogger(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return p2ptypes.PeerID{}, errors.New("dispatcher not ready")
 		}, capabilityID)
 
@@ -307,7 +306,7 @@ func TestResolveCapabilityDonID(t *testing.T) {
 		registry := mocks.NewCapabilitiesRegistry(t)
 		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return(nil, errors.New("registry unavailable"))
 
-		got := resolveCapabilityDonID(ctx, logger.TestLogger(t), registry, func() (p2ptypes.PeerID, error) {
+		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
@@ -326,13 +325,10 @@ type stubLocalCapabilities struct {
 	allowlisted map[string]bool
 }
 
+func (s *stubLocalCapabilities) UseOffchainRegistry() bool { return false }
+
 func (s *stubLocalCapabilities) RegistryBasedLaunchAllowlist() []string { return nil }
-func (s *stubLocalCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
-	return nil
-}
+
 func (s *stubLocalCapabilities) IsAllowlisted(capabilityID string) bool {
 	return s.allowlisted[capabilityID]
-}
-func (s *stubLocalCapabilities) GetCapabilityConfig(string) config.CapabilityNodeConfig {
-	return nil
 }

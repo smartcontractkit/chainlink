@@ -115,7 +115,8 @@ func SuiEventEmitter[T any](
 ) (<-chan struct {
 	Event   T
 	Version string
-}, <-chan error) {
+}, <-chan error,
+) {
 	startTime := time.Now()
 	t.Logf("[DEBUG] SuiEventEmitter: Starting at %s - polling checkpoints for events", startTime.Format(time.RFC3339))
 	ch := make(chan struct {
@@ -384,7 +385,7 @@ func confirmExecWithExpectedSeqNrsSui(
 				t.Logf("(Sui) received ExecutionStateChanged (state %s) on chain %d (offramp %s) with expected sequence number %d (tx %s)",
 					executionStateToString(event.Event.State), dest.Selector, offRampAddress, event.Event.SequenceNumber, event.Version,
 				)
-				if event.Event.State == EXECUTION_STATE_INPROGRESS {
+				if event.Event.State == ExecutionStateInProgress {
 					continue
 				}
 				executionStates[event.Event.SequenceNumber] = int(event.Event.State)

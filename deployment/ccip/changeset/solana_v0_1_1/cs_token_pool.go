@@ -87,7 +87,7 @@ func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, po
 }
 
 // get diff of pool addresses
-func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAddresses []solBaseTokenPool.RemoteAddress) []solBaseTokenPool.RemoteAddress {
+func poolDiff(existingPoolAddresses, newPoolAddresses []solBaseTokenPool.RemoteAddress) []solBaseTokenPool.RemoteAddress {
 	var result []solBaseTokenPool.RemoteAddress
 	// for every new address, check if it exists in the existing pool addresses
 	for _, newAddr := range newPoolAddresses {
@@ -107,8 +107,8 @@ func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAdd
 
 // get pool pdas
 func getPoolPDAs(
-	solTokenPubKey solana.PublicKey, poolAddress solana.PublicKey, remoteChainSelector uint64,
-) (poolConfigPDA solana.PublicKey, remoteChainConfigPDA solana.PublicKey) {
+	solTokenPubKey, poolAddress solana.PublicKey, remoteChainSelector uint64,
+) (poolConfigPDA, remoteChainConfigPDA solana.PublicKey) {
 	poolConfigPDA, _ = solTokenUtil.TokenPoolConfigAddress(solTokenPubKey, poolAddress)
 	remoteChainConfigPDA, _, _ = solTokenUtil.TokenPoolChainConfigPDA(remoteChainSelector, solTokenPubKey, poolAddress)
 	return poolConfigPDA, remoteChainConfigPDA
@@ -235,7 +235,7 @@ func (cfg AddTokenPoolAndLookupTableConfig) Validate(e cldf.Environment, chainSt
 }
 
 func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTableConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -432,7 +432,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool lookup table: %w", err)
 		}
-		err = addressBook.Merge(csOutput.AddressBook) //nolint:staticcheck // SA1019: AddressBook is deprecated, migration to DataStore pending
+		err = addressBook.Merge(csOutput.AddressBook)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
 		}
@@ -446,7 +446,8 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to initialize token pools", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to initialize token pools", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -625,7 +626,7 @@ func getOnChainEVMPoolConfig(e cldf.Environment, state stateview.CCIPOnChainStat
 func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Setting up token pool global config", "cfg", cfg)
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -722,7 +723,8 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -747,7 +749,7 @@ func DisableSelfServedInTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfig
 }
 
 func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enabled bool) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -837,7 +839,8 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -890,7 +893,7 @@ func (cfg CreateTokenMultisigConfig) Validate(e cldf.Environment, chainState sol
 func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Create Token Multisig with", "cfg", cfg)
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -951,7 +954,12 @@ func recordTokenMultisig(
 		return fmt.Errorf("failed to save new token multisig to address book: %w", err)
 	}
 
-	datastoreTV := cldf.NewTypeAndVersion("TOKEN_MULTISIG", deployment.Version1_6_0)
+	// PascalCase, matching every other Solana contract type in the datastore. 374 of the
+	// 380 existing Solana rows already use it; SCREAMING_SNAKE was the outlier here and in
+	// the 2.0 writer, and two spellings for one concept means a lookup by type resolves
+	// only half the population. The address-book identity above keeps its own legacy
+	// spelling -- that store is being retired, and changing it would rewrite history.
+	datastoreTV := cldf.NewTypeAndVersion("TokenMultisig", deployment.Version1_6_0)
 	datastoreTV.AddLabel(mint.String())
 	return shared.RecordAddress(nil, ds, chainSelector, address, datastoreTV, qualifier)
 }
@@ -1024,7 +1032,7 @@ func (cfg TransferMintAuthorityToSignerPDAConfig) Validate(e cldf.Environment, c
 func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthorityToSignerPDAConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Transfer mint authority to signer PDA", "cfg", cfg)
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -1109,7 +1117,8 @@ func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthor
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 	}
 	proposal, err := BuildProposalsForTxnsWithConfig(
-		e, cfg.ChainSelector, "proposal to transfer mint authority to signer PDA", cfg.MCMS, txns)
+		e, cfg.ChainSelector, "proposal to transfer mint authority to signer PDA", cfg.MCMS, txns,
+	)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
@@ -1121,7 +1130,7 @@ func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthor
 func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Use multisig as mint authority", "cfg", cfg)
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -1181,7 +1190,8 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			timelockSigner,
 			newMintAuthority,
 			tokenPool,
-			programData.Address)
+			programData.Address,
+		)
 		// Old mint authority is required only if the current mint authority is a multisig
 		if (cfg.OldMintAuthority != solana.PublicKey{}) {
 			builder.AccountMetaSlice = append(builder.AccountMetaSlice, solana.Meta(cfg.OldMintAuthority))
@@ -1203,7 +1213,8 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			chain.DeployerKey.PublicKey(),
 			newMintAuthority,
 			tokenPool,
-			programData.Address)
+			programData.Address,
+		)
 		// Old mint authority is required only if the current mint authority is a multisig
 		if (cfg.OldMintAuthority != solana.PublicKey{}) {
 			builder.AccountMetaSlice = append(builder.AccountMetaSlice, solana.Meta(cfg.OldMintAuthority))
@@ -1219,7 +1230,8 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -1326,7 +1338,8 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to edit token pools in Solana", cfg.MCMS, txns)
+			e, cfg.SolChainSelector, "proposal to edit token pools in Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -1339,7 +1352,7 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 }
 
 // checks if the evmChainSelector is supported for the given token and pool type
-func isSupportedChain(chain cldf_solana.Chain, solTokenPubKey solana.PublicKey, solPoolAddress solana.PublicKey, poolType cldf.ContractType, evmChainSelector uint64) (bool, solBaseTokenPool.BaseChain, error) {
+func isSupportedChain(chain cldf_solana.Chain, solTokenPubKey, solPoolAddress solana.PublicKey, poolType cldf.ContractType, evmChainSelector uint64) (bool, solBaseTokenPool.BaseChain, error) {
 	// check if this remote chain is already configured for this token
 	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(evmChainSelector, solTokenPubKey, solPoolAddress)
 	if err != nil {
@@ -2019,7 +2032,7 @@ func (cfg TokenPoolLookupTableConfig) Validate(e cldf.Environment, chainState so
 // AddTokenPoolAndLookupTable should be called instead
 func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Adding token pool lookup table", "cfg", cfg)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2170,7 +2183,7 @@ func (cfg ConfigureTokenPoolAllowListConfig) Validate(e cldf.Environment, chainS
 
 func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllowListConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infof("Configuring token pool allowlist for token %s", cfg.SolTokenPubKey)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2203,7 +2216,6 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 	)
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
-		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		runSafely(func() {
 			solBurnMintTokenPool.SetProgramID(tokenPool)
 		})
@@ -2219,7 +2231,6 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 	case shared.LockReleaseTokenPool:
-		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		runSafely(func() {
 			solLockReleaseTokenPool.SetProgramID(tokenPool)
 		})
@@ -2258,7 +2269,8 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to ConfigureTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
+			e, cfg.SolChainSelector, "proposal to ConfigureTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx},
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -2302,7 +2314,7 @@ func (cfg RemoveFromAllowListConfig) Validate(e cldf.Environment, chainState sol
 
 func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infof("Removing from token pool allowlist for token %s", cfg.SolTokenPubKey)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2334,7 +2346,6 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 	)
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
-		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		runSafely(func() {
 			solBurnMintTokenPool.SetProgramID(tokenPool)
 		})
@@ -2349,7 +2360,6 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 	case shared.LockReleaseTokenPool:
-		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 		runSafely(func() {
 			solLockReleaseTokenPool.SetProgramID(tokenPool)
 		})
@@ -2386,7 +2396,8 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to RemoveFromTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
+			e, cfg.SolChainSelector, "proposal to RemoveFromTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx},
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -2449,7 +2460,7 @@ func (cfg LockReleaseLiquidityOpsConfig) Validate(e cldf.Environment, chainState
 
 func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infof("Locking/Unlocking liquidity for token %s", cfg.SolTokenPubKey)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2508,7 +2519,8 @@ func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConf
 				e.GetContext(),
 				chain.Client,
 				cfg.LiquidityCfg.RemoteTokenAccount,
-				cldf_solana.SolDefaultCommitment)
+				cldf_solana.SolDefaultCommitment,
+			)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token balance: %w", err)
 			}
@@ -2583,7 +2595,8 @@ func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConf
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 		}
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to RemoveFromTokenPoolAllowList in Solana", cfg.MCMS, txns)
+			e, cfg.SolChainSelector, "proposal to RemoveFromTokenPoolAllowList in Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -2668,7 +2681,7 @@ func (cfg TokenPoolOpsCfg) Validate(e cldf.Environment, state stateview.CCIPOnCh
 // set router address on token pool config pda
 func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput, error) {
 	e.Logger.Infof("Setting pool config for token %s", cfg.SolTokenPubKey)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2808,7 +2821,8 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to ConfigureTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
+			e, cfg.SolChainSelector, "proposal to ConfigureTokenPoolAllowList in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx},
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -2827,7 +2841,7 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Init state version for old tp", "cfg", cfg)
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -2854,14 +2868,16 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 			})
 			initializeStateVersionIx, err = solBurnMintTokenPool.NewInitializeStateVersionInstruction(
 				tokenPubKey,
-				poolConfig).ValidateAndBuild()
+				poolConfig,
+			).ValidateAndBuild()
 		case shared.LockReleaseTokenPool:
 			runSafely(func() {
 				solLockReleaseTokenPool.SetProgramID(tokenPool)
 			})
 			initializeStateVersionIx, err = solLockReleaseTokenPool.NewInitializeStateVersionInstruction(
 				tokenPubKey,
-				poolConfig).ValidateAndBuild()
+				poolConfig,
+			).ValidateAndBuild()
 		default:
 			return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
 		}
@@ -2894,7 +2910,8 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -2952,7 +2969,7 @@ func (cfg SyncDomainConfig) Validate(e cldf.Environment, chainState solanastatev
 // SyncDomain adds or removes CCTP domain configs from the Solana CCTP token pool
 func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Syncing USDC domains", "cfg", cfg)
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -3031,7 +3048,8 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.ChainSelector, "proposal to edit USDC token pool CCTP config in Solana", cfg.MCMS, txns)
+			e, cfg.ChainSelector, "proposal to edit USDC token pool CCTP config in Solana", cfg.MCMS, txns,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -3137,7 +3155,7 @@ func ExtendTokenPoolLookupTable(e cldf.Environment, cfg ExtendTokenPoolLookupTab
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	chainState, err := stateview.LoadOnchainState(e)
+	chainState, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -3243,7 +3261,7 @@ func (cfg SetRateLimitAdminConfig) Validate(e cldf.Environment, chainState solan
 }
 
 func SetRateLimitAdmin(e cldf.Environment, cfg SetRateLimitAdminConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainStateSolana(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -3335,7 +3353,8 @@ func SetRateLimitAdmin(e cldf.Environment, cfg SetRateLimitAdminConfig) (cldf.Ch
 
 	if len(mcmsTxs) > 0 {
 		proposal, err := BuildProposalsForTxnsWithConfig(
-			e, cfg.SolChainSelector, "proposal to SetRateLimitAdmin in Solana", cfg.MCMS, mcmsTxs)
+			e, cfg.SolChainSelector, "proposal to SetRateLimitAdmin in Solana", cfg.MCMS, mcmsTxs,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

@@ -25,6 +25,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newChangesetCmd())
 	rootCmd.AddCommand(newCCIPCmd())
 	rootCmd.AddCommand(newRunnerCmd())
+	rootCmd.AddCommand(newMatrixCmd())
 
 	return rootCmd
 }

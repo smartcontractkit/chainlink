@@ -326,13 +326,14 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 
 	// Deploy a new MCMS with qualifier and transfer the ownership of the link token to it
 	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), mcmsCfg))
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), mcmsCfg,
+	))
 	require.NoError(t, err)
 
 	// Delete the newly deployed MCMS addresses from addressbook so that the state loader does not pick them up
 	// otherwise the mcms state will throw an error for duplicate MCMS contracts
 	addressBookToDelete := cldf.NewMemoryAddressBook()
-	addressesToDelete, err := evmstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier) //nolint:staticcheck // will be refactored once usages are removed
+	addressesToDelete, err := evmstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier) //nolint:staticcheck // SA1019: to be refactored once remaining usages are removed
 	require.NoError(t, err)
 	for addr, tv := range addressesToDelete {
 		require.NoError(t, addressBookToDelete.Save(chain, addr, tv))

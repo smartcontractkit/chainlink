@@ -53,11 +53,11 @@ func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return r.NewMedianProvider(ctx, rargs, pargs)
 	case types.Functions:
 		return r.NewFunctionsProvider(ctx, rargs, pargs)
-	case types.OCR3Capability, types.DonTimePlugin, types.RingPlugin:
+	case types.OCR3Capability, types.DonTimePlugin, types.RingPlugin, types.ConsensusQueue:
 		return r.NewOCR3CapabilityProvider(ctx, rargs, pargs)
-	case types.DKG, types.GenericPlugin, types.VaultPlugin:
+	case types.DKG, types.OCR2VRF, types.GenericPlugin, types.Mercury, types.SecureMint, types.VaultPlugin, types.CCIPCommit, types.CCIPExecution:
 		return r.Relayer.NewPluginProvider(ctx, rargs, pargs)
-	case types.LLO:
+	case types.LLO, types.OCR2Keeper:
 		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
 	}
 	return nil, fmt.Errorf("provider type not recognized: %s", rargs.ProviderType)

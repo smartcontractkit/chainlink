@@ -404,21 +404,6 @@ GlobalBurst = 200
 PerSenderRPS = 200.0
 PerSenderBurst = 200
 
-[Capabilities.Peering]
-IncomingMessageBufferSize = 10
-OutgoingMessageBufferSize = 10
-PeerID = ''
-TraceLogging = false
-EnableExperimentalRageP2P = false
-
-[Capabilities.Peering.V2]
-Enabled = false
-AnnounceAddresses = []
-DefaultBootstrappers = []
-DeltaDial = '15s'
-DeltaReconcile = '1m0s'
-ListenAddresses = []
-
 [Capabilities.SharedPeering]
 Enabled = false
 Bootstrappers = []
@@ -433,9 +418,7 @@ BytesRateLimiterRate = 5000000.0
 BytesRateLimiterCapacity = 10000000
 
 [Capabilities.Dispatcher]
-SupportedVersion = 1
 ReceiverBufferSize = 10000
-SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -455,7 +438,6 @@ NetworkID = 'evm'
 ChainID = '1'
 ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
-MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 MaxConcurrency = 12
@@ -483,6 +465,9 @@ Gateways = []
 WSHandshakeTimeoutMillis = 0
 AuthMinChallengeLen = 0
 AuthTimestampToleranceSec = 0
+
+[Capabilities.Local]
+UseOffchainRegistry = false
 
 [Telemetry]
 Enabled = false
@@ -542,6 +527,7 @@ PerOwner = 200
 UseLocalTimeProvider = true
 EnableDKGRecipient = false
 DebugMode = false
+CachedTriggerSubscriptionsEnabled = false
 
 [CRE.Streams]
 WsURL = ''

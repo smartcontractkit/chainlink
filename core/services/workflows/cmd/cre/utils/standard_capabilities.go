@@ -30,9 +30,6 @@ var (
 			Config:  `{"fastestScheduleIntervalSeconds": 1}`,
 			Enabled: true,
 		},
-		"readcontract":  {},
-		"kvstore":       {},
-		"workflowevent": {},
 	}
 )
 

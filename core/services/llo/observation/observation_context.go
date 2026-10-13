@@ -147,15 +147,15 @@ func (oc *observationContext) enqueueObservationTelemetry(ctx context.Context, s
 	}
 	if val != nil {
 		ot.StreamValueType = int32(val.Type())
-		b, err := val.MarshalBinary()
-		if err != nil {
-			oc.l.Errorw("failed to MarshalBinary on stream value", "error", err)
+		b, bErr := val.MarshalBinary()
+		if bErr != nil {
+			oc.l.Errorw("failed to MarshalBinary on stream value", "error", bErr)
 		} else {
 			ot.StreamValueBinary = b
 		}
-		s, err := val.MarshalText()
-		if err != nil {
-			oc.l.Errorw("failed to MarshalText on stream value", "error", err)
+		s, sErr := val.MarshalText()
+		if sErr != nil {
+			oc.l.Errorw("failed to MarshalText on stream value", "error", sErr)
 		} else {
 			ot.StreamValueText = string(s)
 		}

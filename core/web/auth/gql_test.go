@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
@@ -26,7 +26,7 @@ func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 
 	r := gin.Default()
 	r.Use(sessions.Sessions(auth.SessionName, sessionStore))
-	r.Use(auth.AuthenticateGQL(sessionORM, logger.TestLogger(t)))
+	r.Use(auth.AuthenticateGQL(sessionORM, logger.Test(t)))
 
 	r.GET("/", func(c *gin.Context) {
 		session, ok := auth.GetGQLAuthenticatedSession(c)
@@ -50,7 +50,7 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 
 	r := gin.Default()
 	r.Use(sessions.Sessions(auth.SessionName, sessionStore))
-	r.Use(auth.AuthenticateGQL(sessionORM, logger.TestLogger(t)))
+	r.Use(auth.AuthenticateGQL(sessionORM, logger.Test(t)))
 
 	r.GET("/", func(c *gin.Context) {
 		session, ok := auth.GetGQLAuthenticatedSession(c.Request.Context())

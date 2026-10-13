@@ -172,6 +172,10 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
 	}
 
+	maxDurationInitialization := "<nil>"
+	if publicConfig.MaxDurationInitialization != nil {
+		maxDurationInitialization = publicConfig.MaxDurationInitialization.String()
+	}
 	i.lggr.Infow("Creating plugin using OCR3 settings",
 		"plugin", pluginType.String(),
 		"chainSelector", chainSelector,
@@ -185,7 +189,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		"deltaStage", publicConfig.DeltaStage,
 		"rMax", publicConfig.RMax,
 		"s", publicConfig.S,
-		"maxDurationInitialization", publicConfig.MaxDurationInitialization,
+		"maxDurationInitialization", maxDurationInitialization,
 		"maxDurationQuery", publicConfig.MaxDurationQuery,
 		"maxDurationObservation", publicConfig.MaxDurationObservation,
 		"maxDurationShouldAcceptAttestedReport", publicConfig.MaxDurationShouldAcceptAttestedReport,

@@ -34,7 +34,6 @@ import (
 	offrampops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_offramp"
 	onrampops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_onramp"
 	routerops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_router"
-	mcmsops "github.com/smartcontractkit/chainlink-sui/deployment/ops/mcms"
 	ownershipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ownership"
 	sui_utils "github.com/smartcontractkit/chainlink-sui/deployment/utils"
 
@@ -312,12 +311,10 @@ func completeSuiCCIPMCMSOwnership(t *testing.T, e *DeployedEnv, suiSel uint64) e
 	// unconditionally returns is discarded. (A composite literal in an if-init would need
 	// parenthesizing, so assign to a variable first, matching the AcceptOwnershipEOA{} convention.)
 	mcmsOut, err := sui_cs.ConfigureMCMS{}.Apply(e.Env, sui_cs.ConfigureMCMSConfig{
-		ConfigureMCMSSeqInput: mcmsops.ConfigureMCMSSeqInput{
-			ChainSelector: suiSel,
-			Proposer:      &proposerCfg,
-			Bypasser:      &bypasserCfg,
-			Canceller:     &cancellerCfg,
-		},
+		ChainSelector: suiSel,
+		Proposer:      &proposerCfg,
+		Bypasser:      &bypasserCfg,
+		Canceller:     &cancellerCfg,
 		// TimelockConfig nil -> SetConfig executes directly via the deployer signer.
 	})
 	if err != nil {
@@ -496,7 +493,9 @@ func addSuiSolanaLaneChangesets(
 
 	return []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
-			lanes.ConnectChains(lanes.GetLaneAdapterRegistry(), cs_ccip.GetRegistry()),
+			// These are v1.6.0 lanes, so no v2 lane version resolver is wired and the
+			// downgrade guard is disabled.
+			lanes.ConnectChains(lanes.GetLaneAdapterRegistry(), cs_ccip.GetRegistry(), nil),
 			lanes.ConnectChainsConfig{
 				MCMS: ccipmcms.Input{
 					ValidUntil:     validUntil,

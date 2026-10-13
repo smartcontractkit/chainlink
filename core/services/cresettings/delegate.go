@@ -1,12 +1,12 @@
 // cresettings jobs are used to distribute updates for CRE settings overrides.
 // See: https://pkg.go.dev/github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings
-// Only one Job of type CRESettings may run at a time. Attempts to create a second job will fail.
+// Only one Job of type CRESettings may run at a time per config type. Attempts to create a second job of the same config type will fail.
 package cresettings
 
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -29,7 +29,8 @@ type delegate struct {
 	atomicSettings          *loop.AtomicSettings
 	shardAssignmentSettings *loop.AtomicSettings
 
-	activeJobID atomic.Pointer[int32]
+	// activeJobIDs maps config type to the active job ID.
+	activeJobIDs sync.Map
 }
 
 func (d *delegate) JobType() job.Type {
@@ -39,18 +40,16 @@ func (d *delegate) JobType() job.Type {
 func (d *delegate) BeforeJobCreated(j job.Job) {}
 
 func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.ServiceCtx, error) {
-	if activeJobID := d.activeJobID.Load(); activeJobID != nil {
-		return nil, fmt.Errorf("another %s job is already active: %d", job.CRESettings, activeJobID)
+	spec := j.CRESettingsSpec
+	configType := d.configType(spec)
+	switch configType {
+	case ConfigTypeSettings, ConfigTypeShardAssignment:
+	default:
+		return nil, fmt.Errorf("unknown config_type %q", configType)
 	}
 
-	spec := j.CRESettingsSpec
-	configType := ConfigTypeSettings
-	if spec.Settings != "" {
-		if ct, ok := extractConfigType(spec.Settings); ok {
-			configType = ct
-		} else {
-			d.lggr.Infow("No config_type specified, defaulting to settings")
-		}
+	if activeJobID, loaded := d.activeJobIDs.LoadOrStore(configType, j.ID); loaded {
+		return nil, fmt.Errorf("another %s job with config_type %q is already active: %d", job.CRESettings, configType, activeJobID.(int32))
 	}
 
 	switch configType {
@@ -71,9 +70,6 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 			return nil, fmt.Errorf("failed to update settings: %w", err)
 		}
 		d.lggr.Infow("Updated settings", "hash", spec.Hash, "settings", spec.Settings)
-
-	default:
-		return nil, fmt.Errorf("unknown config_type %q", configType)
 	}
 
 	return nil, nil
@@ -84,8 +80,20 @@ func (d *delegate) AfterJobCreated(j job.Job) {}
 func (d *delegate) BeforeJobDeleted(j job.Job) {}
 
 func (d *delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
-	if !d.activeJobID.CompareAndSwap(&jb.ID, nil) {
-		d.lggr.Errorf("job %d was not active", jb.ID)
+	configType := d.configType(jb.CRESettingsSpec)
+	if !d.activeJobIDs.CompareAndDelete(configType, jb.ID) {
+		d.lggr.Errorf("job %d was not the active %s job for config_type %q", jb.ID, job.CRESettings, configType)
 	}
 	return nil
+}
+
+func (d *delegate) configType(spec *job.CRESettingsSpec) string {
+	if spec == nil || spec.Settings == "" {
+		return ConfigTypeSettings
+	}
+	if ct, ok := extractConfigType(spec.Settings); ok {
+		return ct
+	}
+	d.lggr.Infow("No config_type specified, defaulting to settings")
+	return ConfigTypeSettings
 }

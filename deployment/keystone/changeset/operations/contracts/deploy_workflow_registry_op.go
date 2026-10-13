@@ -40,7 +40,7 @@ var DeployWorkflowRegistryOp = operations.NewOperation[DeployWorkflowRegistryInp
 		}
 		return DeployWorkflowRegistryOutput{
 			Addresses:   workfloRegistryOutput.DataStore.Addresses(),
-			AddressBook: workfloRegistryOutput.AddressBook, //nolint:staticcheck // keeping the address book since not everything has been migrated to datastore
+			AddressBook: workfloRegistryOutput.AddressBook,
 		}, nil
 	},
 )

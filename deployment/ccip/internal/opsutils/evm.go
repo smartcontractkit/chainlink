@@ -57,7 +57,7 @@ type EVMCallOutput struct {
 
 // NewEVMCallOperation creates a new operation that performs an EVM call.
 // Any interfacing with gethwrappers should happen in the call function.
-func NewEVMCallOperation[IN any, C any](
+func NewEVMCallOperation[IN, C any](
 	name string,
 	version *semver.Version,
 	description string,
@@ -193,7 +193,7 @@ func AddEVMCallSequenceToCSOutput[IN any](
 			builder.WriteString(", ")
 		}
 	}
-	aggProposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 yet
+	aggProposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: AggregateProposalsV2 migration is tracked separately
 		e,
 		mcmsStateByChain,
 		nil,
@@ -321,7 +321,7 @@ func NewEVMDeployOperation[IN any](
 }
 
 // cloneTransactOptsWithGas ensures that we don't impact the transact opts used by other operations.
-func CloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice uint64) *bind.TransactOpts {
+func CloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit, gasPrice uint64) *bind.TransactOpts {
 	if opts == nil {
 		return nil
 	}
@@ -400,7 +400,7 @@ func RetryCallWithGasBoost[IN any](cfg *cldfproposalutils.GasBoostConfig) operat
 	})
 }
 
-func GetBoostedGasForAttempt(cfg cldfproposalutils.GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice uint64) {
+func GetBoostedGasForAttempt(cfg cldfproposalutils.GasBoostConfig, attempt uint) (gasLimit, gasPrice uint64) {
 	initialGasLimit := uint64(200_000)          // 200k
 	gasLimitIncrement := uint64(50_000)         // 50k
 	initialGasPrice := uint64(20_000_000_000)   // 20 Gwei
@@ -424,5 +424,5 @@ func GetBoostedGasForAttempt(cfg cldfproposalutils.GasBoostConfig, attempt uint)
 	gasLimit = initialGasLimit + uint64(attempt)*gasLimitIncrement
 	gasPrice = initialGasPrice + uint64(attempt)*gasPriceIncrement
 
-	return
+	return gasLimit, gasPrice
 }

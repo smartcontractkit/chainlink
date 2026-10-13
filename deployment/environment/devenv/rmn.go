@@ -66,12 +66,10 @@ func NewRage2ProxyComponent(
 	}
 
 	rmn := &RageProxy{
-		EnvComponent: test_env.EnvComponent{
-			ContainerName:    rageName,
-			ContainerImage:   imageName,
-			ContainerVersion: imageVersion,
-			Networks:         networks,
-		},
+		ContainerName:     rageName,
+		ContainerImage:    imageName,
+		ContainerVersion:  imageVersion,
+		Networks:          networks,
 		Passphrase:        DefaultAFNPassphrase,
 		proxyListenerPort: listenPort,
 		proxyPort:         proxyPort,
@@ -106,20 +104,18 @@ type RMNKeys struct {
 	EVMOnchainPublicKey common.Address
 }
 
-func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string, platform string) (keys RMNKeys, fileString string, passphrase string, err error) {
+func GenerateRMNKeyStore(lggr zerolog.Logger, image, version, platform string) (keys RMNKeys, fileString, passphrase string, err error) {
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
-		ContainerRequest: tc.ContainerRequest{
-			AutoRemove: false,
-			Image:      fmt.Sprintf("%s:%s", image, version),
-			Env: map[string]string{
-				"AFN_PASSPHRASE": DefaultAFNPassphrase,
-			},
-			Cmd:           []string{"afn2proxy", "--generate", "--keystore", RMNKeyStore},
-			WaitingFor:    tcwait.ForExit(),
-			ImagePlatform: platform,
+		AutoRemove: false,
+		Image:      fmt.Sprintf("%s:%s", image, version),
+		Env: map[string]string{
+			"AFN_PASSPHRASE": DefaultAFNPassphrase,
 		},
-		Started: true,
-		Logger:  &lggr,
+		Cmd:           []string{"afn2proxy", "--generate", "--keystore", RMNKeyStore},
+		WaitingFor:    tcwait.ForExit(),
+		ImagePlatform: platform,
+		Started:       true,
+		Logger:        &lggr,
 	})
 	defer func() {
 		if terminateErr := container.Terminate(context.Background()); terminateErr != nil {
@@ -161,27 +157,25 @@ func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string, plat
 	return keys, fileString, passphrase, nil
 }
 
-func GeneratePeerID(lggr zerolog.Logger, image string, version string, imagePlatform string) (peerID p2ptypes.PeerID, content string, passphrase string, err error) {
+func GeneratePeerID(lggr zerolog.Logger, image, version, imagePlatform string) (peerID p2ptypes.PeerID, content, passphrase string, err error) {
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
-		ContainerRequest: tc.ContainerRequest{
-			AutoRemove: false,
-			Image:      fmt.Sprintf("%s:%s", image, version),
-			Env: map[string]string{
-				"RAGEPROXY_PASSPHRASE": DefaultAFNPassphrase,
-			},
-			Cmd:           []string{"rageproxy", "--generate", "--keystore", ProxyKeyStore},
-			WaitingFor:    tcwait.ForExit(),
-			ImagePlatform: imagePlatform,
+		AutoRemove: false,
+		Image:      fmt.Sprintf("%s:%s", image, version),
+		Env: map[string]string{
+			"RAGEPROXY_PASSPHRASE": DefaultAFNPassphrase,
 		},
-		Started: true,
-		Logger:  &lggr,
+		Cmd:           []string{"rageproxy", "--generate", "--keystore", ProxyKeyStore},
+		WaitingFor:    tcwait.ForExit(),
+		ImagePlatform: imagePlatform,
+		Started:       true,
+		Logger:        &lggr,
 	})
-	defer (func() {
+	defer func() {
 		err := container.Terminate(context.Background())
 		if err != nil {
 			log.Printf("Failed to stop container: %v", err)
 		}
-	})()
+	}()
 
 	if err != nil {
 		return p2ptypes.PeerID{}, "", "", err
@@ -226,36 +220,34 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger, networks []stri
 		}
 	}
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
-		ContainerRequest: tc.ContainerRequest{
-			Name:     proxy.ContainerName,
-			Networks: networks,
-			Image:    fmt.Sprintf("%s:%s", proxy.ContainerImage, proxy.ContainerVersion),
-			Env: map[string]string{
-				"RAGEPROXY_PASSPHRASE": proxy.Passphrase,
+		Name:     proxy.ContainerName,
+		Networks: networks,
+		Image:    fmt.Sprintf("%s:%s", proxy.ContainerImage, proxy.ContainerVersion),
+		Env: map[string]string{
+			"RAGEPROXY_PASSPHRASE": proxy.Passphrase,
+		},
+		ExposedPorts: []string{
+			test_env.NatPortFormat(proxy.proxyPort),
+			test_env.NatPortFormat(proxy.proxyListenerPort),
+		},
+		Files: []tc.ContainerFile{
+			{
+				HostFilePath:      sharedRageProxy,
+				ContainerFilePath: "/app/cfg/rageproxy-shared.json",
+				FileMode:          0o644,
 			},
-			ExposedPorts: []string{
-				test_env.NatPortFormat(proxy.proxyPort),
-				test_env.NatPortFormat(proxy.proxyListenerPort),
+			{
+				HostFilePath:      localRageProxy,
+				ContainerFilePath: "/app/cfg/rageproxy-local.json",
+				FileMode:          0o644,
 			},
-			Files: []tc.ContainerFile{
-				{
-					HostFilePath:      sharedRageProxy,
-					ContainerFilePath: "/app/cfg/rageproxy-shared.json",
-					FileMode:          0644,
-				},
-				{
-					HostFilePath:      localRageProxy,
-					ContainerFilePath: "/app/cfg/rageproxy-local.json",
-					FileMode:          0644,
-				},
-			},
-			WaitingFor: tcwait.ForExec([]string{"cat", ProxyKeyStore}),
-			LifecycleHooks: []tc.ContainerLifecycleHooks{
-				{
-					PostStarts:    proxy.PostStartsHooks,
-					PostStops:     proxy.PostStopsHooks,
-					PreTerminates: proxy.PreTerminatesHooks,
-				},
+		},
+		WaitingFor: tcwait.ForExec([]string{"cat", ProxyKeyStore}),
+		LifecycleHooks: []tc.ContainerLifecycleHooks{
+			{
+				PostStarts:    proxy.PostStartsHooks,
+				PostStops:     proxy.PostStopsHooks,
+				PreTerminates: proxy.PreTerminatesHooks,
 			},
 		},
 		Started: true,
@@ -265,7 +257,8 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger, networks []stri
 		return nil, err
 	}
 	_, reader, err := container.Exec(context.Background(), []string{
-		"cat", ProxyKeyStore}, exec.Multiplexed())
+		"cat", ProxyKeyStore,
+	}, exec.Multiplexed())
 	if err != nil {
 		return nil, fmt.Errorf("unable to cat keystore: %w", err)
 	}
@@ -299,18 +292,17 @@ func NewAFN2ProxyComponent(
 	imageName,
 	imageVersion string,
 	shared SharedConfig,
-	local LocalConfig) (*AFN2Proxy, error) {
+	local LocalConfig,
+) (*AFN2Proxy, error) {
 	afnName := fmt.Sprintf("%s-%s", name, uuid.NewString()[0:8])
 	rmn := &AFN2Proxy{
-		EnvComponent: test_env.EnvComponent{
-			ContainerName:    afnName,
-			ContainerImage:   imageName,
-			ContainerVersion: imageVersion,
-			Networks:         networks,
-		},
-		AFNPassphrase: DefaultAFNPassphrase,
-		Shared:        shared,
-		Local:         local,
+		ContainerName:    afnName,
+		ContainerImage:   imageName,
+		ContainerVersion: imageVersion,
+		Networks:         networks,
+		AFNPassphrase:    DefaultAFNPassphrase,
+		Shared:           shared,
+		Local:            local,
 	}
 
 	return rmn, nil
@@ -358,32 +350,30 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool, netwo
 		}
 	}
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
-		ContainerRequest: tc.ContainerRequest{
-			Name:     rmn.ContainerName,
-			Networks: networks,
-			Image:    fmt.Sprintf("%s:%s", rmn.ContainerImage, rmn.ContainerVersion),
-			Env: map[string]string{
-				"AFN_PASSPHRASE": rmn.AFNPassphrase,
+		Name:     rmn.ContainerName,
+		Networks: networks,
+		Image:    fmt.Sprintf("%s:%s", rmn.ContainerImage, rmn.ContainerVersion),
+		Env: map[string]string{
+			"AFN_PASSPHRASE": rmn.AFNPassphrase,
+		},
+		Files: []tc.ContainerFile{
+			{
+				HostFilePath:      sharedAFN2Proxy,
+				ContainerFilePath: "/app/cfg/afn2proxy-shared.toml",
+				FileMode:          0o644,
 			},
-			Files: []tc.ContainerFile{
-				{
-					HostFilePath:      sharedAFN2Proxy,
-					ContainerFilePath: "/app/cfg/afn2proxy-shared.toml",
-					FileMode:          0644,
-				},
-				{
-					HostFilePath:      localAFN2Proxy,
-					ContainerFilePath: "/app/cfg/afn2proxy-local.toml",
-					FileMode:          0644,
-				},
+			{
+				HostFilePath:      localAFN2Proxy,
+				ContainerFilePath: "/app/cfg/afn2proxy-local.toml",
+				FileMode:          0o644,
 			},
-			WaitingFor: tcwait.ForExec([]string{"cat", RMNKeyStore}),
-			LifecycleHooks: []tc.ContainerLifecycleHooks{
-				{
-					PostStarts:    rmn.PostStartsHooks,
-					PostStops:     rmn.PostStopsHooks,
-					PreTerminates: rmn.PreTerminatesHooks,
-				},
+		},
+		WaitingFor: tcwait.ForExec([]string{"cat", RMNKeyStore}),
+		LifecycleHooks: []tc.ContainerLifecycleHooks{
+			{
+				PostStarts:    rmn.PostStartsHooks,
+				PostStops:     rmn.PostStopsHooks,
+				PreTerminates: rmn.PreTerminatesHooks,
 			},
 		},
 		Started: true,
@@ -394,7 +384,8 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool, netwo
 		return nil, err
 	}
 	_, reader, err := container.Exec(context.Background(), []string{
-		"cat", RMNKeyStore}, exec.Multiplexed())
+		"cat", RMNKeyStore,
+	}, exec.Multiplexed())
 	if err != nil {
 		return nil, fmt.Errorf("unable to cat keystore: %w", err)
 	}

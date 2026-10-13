@@ -198,7 +198,9 @@ func (p JobPresenter) RenderTable(rt RendererTable) error {
 		cfg.Behavior.Compact.Merge = tw.MergeHorizontal
 	})
 	for _, r := range p.ToRows() {
-		table.Append(r)
+		if err := table.Append(r); err != nil {
+			return err
+		}
 	}
 
 	return render("Jobs", table)
@@ -214,7 +216,9 @@ func (ps JobPresenters) RenderTable(rt RendererTable) error {
 	})
 	for _, p := range ps {
 		for _, r := range p.ToRows() {
-			table.Append(r)
+			if err := table.Append(r); err != nil {
+				return err
+			}
 		}
 	}
 

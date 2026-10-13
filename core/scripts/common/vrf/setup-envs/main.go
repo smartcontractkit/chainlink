@@ -15,11 +15,9 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
-	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/v2scripts"
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -76,13 +74,12 @@ func main() {
 	estimateGasMultiplier := flag.Float64("estimate-gas-multiplier", 1.1, "")
 	pollPeriod := flag.String("poll-period", "300ms", "")
 	requestTimeout := flag.String("request-timeout", "30m0s", "")
-	revertsPipelineEnabled := flag.Bool("reverts-pipeline-enabled", true, "")
 	bhsJobWaitBlocks := flag.Int("bhs-job-wait-blocks", 30, "")
 	bhsJobLookBackBlocks := flag.Int("bhs-job-look-back-blocks", 200, "")
 	bhsJobPollPeriod := flag.String("bhs-job-poll-period", "3s", "")
 	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
 
-	vrfVersion := flag.String("vrf-version", "v2", "VRF version to use")
+	vrfVersion := flag.String("vrf-version", "v2plus", "VRF version to use")
 	coordinatorType := flag.String("coordinator-type", "", "Specify which coordinator type to use: layer1, arbitrum, optimism")
 	deployContractsAndCreateJobs := flag.Bool("deploy-contracts-and-create-jobs", false, "whether to deploy contracts and create jobs")
 
@@ -99,8 +96,6 @@ func main() {
 	batchCoordinatorAddressString := flag.String("batch-coordinator-address", "", "address Batch VRF Coordinator contract")
 	registerVRFKeyAgainstAddress := flag.String("register-vrf-key-against-address", "", "VRF Key registration against address - "+
 		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
-	deployVRFOwner := flag.Bool("deploy-vrfv2-owner", true, "whether to deploy VRF owner contracts")
-	useTestCoordinator := flag.Bool("use-test-coordinator", true, "whether to use test coordinator contract or use the normal one")
 	maxGasLimit := flag.Int64("max-gas-limit", constants.MaxGasLimit, "max gas limit")
 	stalenessSeconds := flag.Int64("staleness-seconds", constants.StalenessSeconds, "staleness in seconds")
 	gasAfterPayment := flag.Int64("gas-after-payment", constants.GasAfterPayment, "gas after payment calculation")
@@ -118,8 +113,8 @@ func main() {
 	flag.Parse()
 	nodesMap := make(map[string]model.Node)
 
-	if *vrfVersion != "v2" && *vrfVersion != "v2plus" {
-		panic(fmt.Sprintf("Invalid VRF Version `%s`. Only `v2` and `v2plus` are supported", *vrfVersion))
+	if *vrfVersion != "v2plus" {
+		panic(fmt.Sprintf("Invalid VRF Version `%s`. Only `v2plus` is supported", *vrfVersion))
 	}
 	fmt.Println("Using VRF Version:", *vrfVersion)
 
@@ -225,56 +220,6 @@ func main() {
 		var jobSpecs model.JobSpecs
 
 		switch *vrfVersion {
-		case "v2":
-			feeConfigV2 := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-				FulfillmentFlatFeeLinkPPMTier1: uint32(constants.FlatFeeTier1),
-				FulfillmentFlatFeeLinkPPMTier2: uint32(constants.FlatFeeTier2),
-				FulfillmentFlatFeeLinkPPMTier3: uint32(constants.FlatFeeTier3),
-				FulfillmentFlatFeeLinkPPMTier4: uint32(constants.FlatFeeTier4),
-				FulfillmentFlatFeeLinkPPMTier5: uint32(constants.FlatFeeTier5),
-				ReqsForTier2:                   big.NewInt(constants.ReqsForTier2),
-				ReqsForTier3:                   big.NewInt(constants.ReqsForTier3),
-				ReqsForTier4:                   big.NewInt(constants.ReqsForTier4),
-				ReqsForTier5:                   big.NewInt(constants.ReqsForTier5),
-			}
-
-			coordinatorConfigV2 := v2scripts.CoordinatorConfigV2{
-				MinConfs:               *minConfs,
-				MaxGasLimit:            *maxGasLimit,
-				StalenessSeconds:       *stalenessSeconds,
-				GasAfterPayment:        *gasAfterPayment,
-				FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
-				FeeConfig:              feeConfigV2,
-			}
-
-			coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
-				BatchFulfillmentEnabled:       *batchFulfillmentEnabled,
-				BatchFulfillmentGasMultiplier: *batchFulfillmentGasMultiplier,
-				EstimateGasMultiplier:         *estimateGasMultiplier,
-				PollPeriod:                    *pollPeriod,
-				RequestTimeout:                *requestTimeout,
-				RevertsPipelineEnabled:        *revertsPipelineEnabled,
-			}
-
-			bhsJobSpecConfig := model.BHSJobSpecConfig{
-				RunTimeout:     *bhsJobRunTimeout,
-				WaitBlocks:     *bhsJobWaitBlocks,
-				LookBackBlocks: *bhsJobLookBackBlocks,
-				PollPeriod:     *bhsJobPollPeriod,
-			}
-			jobSpecs = v2scripts.VRFV2DeployUniverse(
-				e,
-				subscriptionBalanceJuels,
-				vrfKeyRegistrationConfig,
-				contractAddresses,
-				coordinatorConfigV2,
-				nodesMap,
-				*deployVRFOwner,
-				coordinatorJobSpecConfig,
-				bhsJobSpecConfig,
-				*useTestCoordinator,
-				*simulationBlock,
-			)
 		case "v2plus":
 			coordinatorConfigV2Plus := v2plusscripts.CoordinatorConfigV2Plus{
 				MinConfs:                          *minConfs,
@@ -282,10 +227,10 @@ func main() {
 				StalenessSeconds:                  *stalenessSeconds,
 				GasAfterPayment:                   *gasAfterPayment,
 				FallbackWeiPerUnitLink:            constants.FallbackWeiPerUnitLink,
-				FulfillmentFlatFeeNativePPM:       uint32(*flatFeeNativePPM),
-				FulfillmentFlatFeeLinkDiscountPPM: uint32(*flatFeeLinkDiscountPPM),
-				NativePremiumPercentage:           uint8(*nativePremiumPercentage),
-				LinkPremiumPercentage:             uint8(*linkPremiumPercentage),
+				FulfillmentFlatFeeNativePPM:       uint32(*flatFeeNativePPM),       //nolint:gosec // fee fits in uint32
+				FulfillmentFlatFeeLinkDiscountPPM: uint32(*flatFeeLinkDiscountPPM), //nolint:gosec // fee fits in uint32
+				NativePremiumPercentage:           uint8(*nativePremiumPercentage), //nolint:gosec // premium fits in uint8
+				LinkPremiumPercentage:             uint8(*linkPremiumPercentage),   //nolint:gosec // premium fits in uint8
 			}
 
 			coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
@@ -315,8 +260,8 @@ func main() {
 				bhsJobSpecConfig,
 				*simulationBlock,
 				*coordinatorType,
-				uint8(*optimismL1GasFeeCalculationMode),
-				uint8(*optimismL1GasFeeCoefficient),
+				uint8(*optimismL1GasFeeCalculationMode), //nolint:gosec // mode fits in uint8
+				uint8(*optimismL1GasFeeCoefficient),     //nolint:gosec // coefficient fits in uint8
 			)
 		}
 
@@ -401,7 +346,7 @@ func getVRFKeys(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) []prese
 }
 
 func createJob(jobSpec string, client *clcmd.Shell, app *cli.App, output *bytes.Buffer) {
-	if err := os.WriteFile("job-spec.toml", []byte(jobSpec), 0666); err != nil { //nolint:gosec
+	if err := os.WriteFile("job-spec.toml", []byte(jobSpec), 0600); err != nil {
 		helpers.PanicErr(err)
 	}
 	job := presenters.JobResource{}
@@ -415,7 +360,7 @@ func createJob(jobSpec string, client *clcmd.Shell, app *cli.App, output *bytes.
 }
 
 func exportVRFKey(client *clcmd.Shell, app *cli.App, vrfKey presenters.VRFKeyResource, output *bytes.Buffer) {
-	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil { //nolint:gosec
+	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0600); err != nil {
 		helpers.PanicErr(err)
 	}
 	flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
@@ -429,7 +374,7 @@ func exportVRFKey(client *clcmd.Shell, app *cli.App, vrfKey presenters.VRFKeyRes
 }
 
 func importVRFKey(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) {
-	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil { //nolint:gosec
+	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0600); err != nil {
 		helpers.PanicErr(err)
 	}
 	flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
@@ -456,7 +401,7 @@ func getAllJobIDs(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) []str
 	helpers.PanicErr(err)
 	jobs := clcmd.JobPresenters{}
 	helpers.PanicErr(json.Unmarshal(output.Bytes(), &jobs))
-	var jobIDs []string
+	jobIDs := make([]string, 0, len(jobs))
 	for _, job := range jobs {
 		jobIDs = append(jobIDs, job.ID)
 	}
@@ -476,7 +421,7 @@ func printETHKeyData(ethKeys []presenters.ETHKeyResource) {
 }
 
 func mapEthKeysToSendingKeyArr(ethKeys []presenters.ETHKeyResource) []model.SendingKey {
-	var sendingKeys []model.SendingKey
+	sendingKeys := make([]model.SendingKey, 0, len(ethKeys))
 	for _, ethKey := range ethKeys {
 		sendingKey := model.SendingKey{Address: ethKey.Address, BalanceEth: ethKey.EthBalance.ToInt()}
 		sendingKeys = append(sendingKeys, sendingKey)
@@ -485,7 +430,7 @@ func mapEthKeysToSendingKeyArr(ethKeys []presenters.ETHKeyResource) []model.Send
 }
 
 func mapVrfKeysToStringArr(vrfKeys []presenters.VRFKeyResource) []string {
-	var vrfKeysString []string
+	vrfKeysString := make([]string, 0, len(vrfKeys))
 	for _, vrfKey := range vrfKeys {
 		vrfKeysString = append(vrfKeysString, vrfKey.Uncompressed)
 	}
@@ -520,7 +465,6 @@ func connectToNode(nodeURL *string, output *bytes.Buffer, credFile string) (*clc
 }
 
 func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffer, numVRFKeys *int, nodeURL *string) []presenters.VRFKeyResource {
-	var allVRFKeys []presenters.VRFKeyResource
 	var newKeys []presenters.VRFKeyResource
 
 	vrfKeys := getVRFKeys(client, app, output)
@@ -548,6 +492,7 @@ func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffe
 		}(), ", "))
 	}
 	fmt.Println()
+	allVRFKeys := make([]presenters.VRFKeyResource, 0, len(vrfKeys)+len(newKeys))
 	allVRFKeys = append(allVRFKeys, vrfKeys...)
 	allVRFKeys = append(allVRFKeys, newKeys...)
 	return allVRFKeys
@@ -564,7 +509,6 @@ func createVRFKey(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) prese
 }
 
 func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffer, numEthKeys *int, nodeURL *string) []presenters.ETHKeyResource {
-	var allETHKeysNode []presenters.ETHKeyResource
 	var ethKeys []presenters.ETHKeyResource
 	var newKeys []presenters.ETHKeyResource
 	// check for ETH keys
@@ -602,6 +546,7 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 	}
 	output.Reset()
 	fmt.Println()
+	allETHKeysNode := make([]presenters.ETHKeyResource, 0, len(ethKeys)+len(newKeys))
 	allETHKeysNode = append(allETHKeysNode, ethKeys...)
 	allETHKeysNode = append(allETHKeysNode, newKeys...)
 	return allETHKeysNode

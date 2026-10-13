@@ -200,7 +200,7 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 			}
 
 			cfg := &commoncap.RemoteTriggerConfig{
-				RegistrationRefresh:     500 * time.Millisecond,
+				RegistrationRefresh:     time.Second,
 				RegistrationExpiry:      2 * time.Hour,
 				MinResponsesToAggregate: 1,
 				MessageExpiry:           time.Hour,
@@ -227,9 +227,10 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 			require.NoError(t, subscriber.Start(t.Context()))
 			t.Cleanup(func() { subscriber.Close() })
 
-			// Wait for exactly one tick (500ms refresh, wait 700ms to give time)
+			// Wait for the first tick (1s refresh, plus margin for the registrationLoop's
+			// fixed 1s poll width and scheduling slop under parallel subtests).
 			expectedSends := int64(tc.nRegistrations * tc.capDonSize)
-			deadline := time.Now().Add(2 * time.Second)
+			deadline := time.Now().Add(3 * time.Second)
 			for time.Now().Before(deadline) {
 				if dispatcher.Count(remotetypes.MethodRegisterTrigger) >= expectedSends {
 					break
@@ -244,14 +245,83 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 			t.Logf("Expected P2P sends per tick: %d, Actual: %d", expectedSends, registerCount)
 			t.Logf("Full snapshot: %v", snap)
 
-			// At least one tick's worth of sends must have occurred.
+			// At least one refresh window's worth of sends must have occurred.
+			// Jittered per-registration resends no longer land on an exact multiple of expectedSends.
 			require.GreaterOrEqual(t, registerCount, expectedSends,
-				"subscriber registrationLoop should send at least N*capDonMembers RegisterTrigger messages per tick")
-			// Verify it's a multiple of expectedSends (each tick sends exactly this many).
-			require.Equal(t, int64(0), registerCount%expectedSends,
-				"total sends should be an exact multiple of per-tick sends")
+				"subscriber registrationLoop should send at least N*capDonMembers RegisterTrigger messages per refresh window")
 		})
 	}
+}
+
+// TestRegistrationLoopSpreadsSendsOverRefreshWindow verifies registrations resend on a
+// jittered schedule, trickling in over the refresh window instead of bursting at once.
+// RegistrationRefresh must span several 1-second buckets for spreading to be observable
+// at all — at or below bucket width everything collapses into a single bucket by design.
+func TestRegistrationLoopSpreadsSendsOverRefreshWindow(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+	t.Parallel()
+	lggr := logger.Test(t)
+	dispatcher := newCountingDispatcher()
+
+	capDonMembers := generatePeers(t, 4)
+	capDon := commoncap.DON{ID: 1, Members: capDonMembers, F: 1}
+
+	workflowDonMembers := generatePeers(t, 7)
+	workflowDon := commoncap.DON{ID: 2, Members: workflowDonMembers, F: 2}
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "cap_id@1",
+		CapabilityType: commoncap.CapabilityTypeTrigger,
+		Description:    "Spread Test",
+	}
+
+	const n = 1000
+	const refresh = 5 * time.Second // several 1s buckets, so spreading is observable
+	cfg := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     refresh,
+		RegistrationExpiry:      2 * time.Hour,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           time.Hour,
+	}
+
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, lggr)
+	agg := aggregation.NewDefaultModeAggregator(cfg.MinResponsesToAggregate)
+	require.NoError(t, subscriber.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
+
+	for i := range n {
+		req := commoncap.TriggerRegistrationRequest{
+			TriggerID: fmt.Sprintf("trigger_%d", i),
+			Metadata:  commoncap.RequestMetadata{WorkflowID: generateWorkflowID(i)},
+		}
+		_, err := subscriber.RegisterTrigger(t.Context(), req)
+		require.NoError(t, err)
+	}
+	dispatcher.Reset()
+	require.NoError(t, subscriber.Start(t.Context()))
+	t.Cleanup(func() { subscriber.Close() })
+
+	expectedTotal := int64(n * 4)
+
+	// Sample partway through the refresh window; under the old unjittered design this
+	// would already equal expectedTotal since every registration fires on the first tick.
+	time.Sleep(refresh / 2)
+	early := dispatcher.Count(remotetypes.MethodRegisterTrigger)
+
+	deadline := time.Now().Add(refresh + 2*time.Second)
+	for time.Now().Before(deadline) {
+		if dispatcher.Count(remotetypes.MethodRegisterTrigger) >= expectedTotal {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	final := dispatcher.Count(remotetypes.MethodRegisterTrigger)
+
+	t.Logf("early (%v) sends: %d, final sends: %d, expectedTotal (1 window): %d", refresh/2, early, final, expectedTotal)
+	require.GreaterOrEqual(t, final, expectedTotal, "all registrations should eventually be sent within the refresh window")
+	require.Less(t, early, expectedTotal,
+		"sends should be spread across the refresh window, not fired all at once on the first tick")
 }
 
 // --- Test: Publisher sendRegistrationChecks traffic volume ---
@@ -597,8 +667,8 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	phase1Reg := subRegDisp.Count(remotetypes.MethodRegisterTrigger)
+	// Jittered per-registration resends no longer land on an exact multiple of perTickReg.
 	require.GreaterOrEqual(t, phase1Reg, perTickReg)
-	require.Equal(t, int64(0), phase1Reg%perTickReg)
 
 	// --- Phase 2: subscriber — one engine round-trip: deliver event + AckEvent (ACK fan-out to cap DON) ---
 	subAckDisp := newCountingDispatcher()

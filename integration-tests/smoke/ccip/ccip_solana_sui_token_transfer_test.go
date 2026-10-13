@@ -81,7 +81,7 @@ func prepareSolana2SuiTokenTransferTest(t *testing.T) solana2SuiTokenFixtures {
 	rpcClient := solChains[sourceChain].Client
 	ctx := testcontext.Get(t)
 
-	wSOL := solana.SolMint
+	wSOL := solana.WrappedSol
 	ixAtaUser, deployerWSOL, err := soltokens.CreateAssociatedTokenAccount(solana.TokenProgramID, wSOL, deployer.PublicKey(), deployer.PublicKey())
 	require.NoError(t, err)
 
@@ -172,7 +172,7 @@ func prepareSolana2SuiTokenTransferTest(t *testing.T) solana2SuiTokenFixtures {
 // 			// gas_limit = 0 (no receiver execution); token_receiver = Sui wallet (non-zero, required
 // 			// when tokens are present). receiverObjectIDs = nil (no ccip_receive, no receiver objects).
 // 			ExtraArgs:      testhelpers.MakeSolanaSuiExtraArgsV1(0, true, nil, fx.suiAddr),
-// 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+// 			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 // 		},
 // 	}
 

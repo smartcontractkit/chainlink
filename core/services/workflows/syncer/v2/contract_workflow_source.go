@@ -72,7 +72,7 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 	var headAtLastRead *commontypes.Head
 	var allWorkflows []WorkflowMetadataView
 
-	for _, family := range don.Families {
+	for _, family := range ExpandWorkflowFamilies(don.Families) {
 		params := GetWorkflowListByDONParams{
 			DonFamily: family,
 			Start:     big.NewInt(0),

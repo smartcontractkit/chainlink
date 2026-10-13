@@ -452,7 +452,8 @@ func TestSimpleHasher_IncludesWorkflowTag_WithScopedLimiterAndBareCtx(t *testing
 	// ON-by-default window, scoped like cresettings.Default.PerWorkflow.FeatureRequestHashIncludeWorkflowTagActivePeriod
 	flagSpec := settings.TimeRange(
 		time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC),
-		time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC))
+		time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	)
 	flagSpec.Scope = settings.ScopeWorkflow
 	flag, err := limits.MakeRangeLimiter[commonconfig.Timestamp](limits.Factory{}, flagSpec)
 	require.NoError(t, err)

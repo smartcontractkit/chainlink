@@ -43,16 +43,16 @@ func actionMessage(t *testing.T, url string) *jsonrpc.Response[json.RawMessage] 
 
 func okHTTPResponse() *network.HTTPResponse {
 	return &network.HTTPResponse{
-		StatusCode: 200,
-		Headers:    map[string]string{"Content-Type": "application/json"},
-		Body:       []byte(`{"ok": true}`),
+		StatusCode:   200,
+		MultiHeaders: map[string][]string{"Content-Type": {"application/json"}},
+		Body:         []byte(`{"ok": true}`),
 	}
 }
 
 // With every global slot taken, a further request must be refused before any outbound call.
 func TestMakeOutgoingRequest_RejectsWhenGlobalConcurrencyExhausted(t *testing.T) {
 	t.Parallel()
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	for range globalOutboundLimit {
 		require.NoError(t, handler.outboundConcurrencyLimiter.Use(t.Context(), 1))
 	}
@@ -64,7 +64,7 @@ func TestMakeOutgoingRequest_RejectsWhenGlobalConcurrencyExhausted(t *testing.T)
 // One node must not be able to occupy more than its share
 func TestMakeOutgoingRequest_RejectsWhenNodeLimitReached(t *testing.T) {
 	t.Parallel()
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	for range perNodeOutboundLimit {
 		require.NoError(t, handler.perNodeOutboundLimiters["node1"].Use(t.Context(), 1))
 	}
@@ -81,9 +81,9 @@ func TestMakeOutgoingRequest_RejectsWhenNodeLimitReached(t *testing.T) {
 // A node at its per-node bound must not consume capacity belonging to its peers.
 func TestMakeOutgoingRequest_NodeLimitIsolatesPeers(t *testing.T) {
 	t.Parallel()
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
-	mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
+	mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 
 	mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(okHTTPResponse(), nil).Once()
 	mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
@@ -104,9 +104,9 @@ func TestMakeOutgoingRequest_NodeLimitIsolatesPeers(t *testing.T) {
 // Slots must be returned when a request finishes
 func TestMakeOutgoingRequest_ReleasesSlotOnCompletion(t *testing.T) {
 	t.Parallel()
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
-	mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
+	mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 
 	mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(okHTTPResponse(), nil).Times(3)
 	mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
@@ -131,9 +131,9 @@ func TestMakeOutgoingRequest_ReleasesSlotOnCompletion(t *testing.T) {
 // A failed outbound request must still release its slots on both bounds
 func TestMakeOutgoingRequest_ReleasesSlotOnFailure(t *testing.T) {
 	t.Parallel()
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
-	mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
+	mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 
 	mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("upstream down")).Once()
 	mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
@@ -153,7 +153,7 @@ func TestMakeOutgoingRequest_ReleasesSlotOnFailure(t *testing.T) {
 // A node with no per-node limiter is not a DON member and must be refused
 func TestAcquireOutboundSlot_RejectsUnknownNode(t *testing.T) {
 	t.Parallel()
-	handler := createTestHandler(t)
+	handler, _ := createTestHandler(t)
 
 	release, err := handler.acquireOutboundSlot(t.Context(), "not-a-member")
 	require.ErrorContains(t, err, "unexpected node")

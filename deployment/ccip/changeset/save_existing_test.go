@@ -30,7 +30,8 @@ func TestSaveExisting(t *testing.T) {
 			map[uint64]cldf_chain.BlockChain{
 				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
 				chainsel.TEST_90000002.Selector: cldf_evm.Chain{},
-			}),
+			},
+		),
 	}
 	ExistingContracts := ExistingContractsConfig{
 		ExistingContracts: []Contract{
@@ -55,7 +56,7 @@ func TestSaveExisting(t *testing.T) {
 
 	output, err := SaveExistingContractsChangeset(dummyEnv, ExistingContracts)
 	require.NoError(t, err)
-	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // AddressBook is deprecated but still returned by this changeset.
+	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()
 	require.NoError(t, err)
 	require.Len(t, addresses, 2)
@@ -73,7 +74,8 @@ func TestSaveExistingAddressWithLabels(t *testing.T) {
 			map[uint64]cldf_chain.BlockChain{
 				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
 				chainsel.TEST_90000002.Selector: cldf_evm.Chain{},
-			}),
+			},
+		),
 	}
 	dummyType1 := cldf.TypeAndVersion{
 		Type:    "dummyType",
@@ -93,7 +95,7 @@ func TestSaveExistingAddressWithLabels(t *testing.T) {
 
 	output, err := SaveExistingContractsChangeset(dummyEnv, ExistingContracts)
 	require.NoError(t, err)
-	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // AddressBook is deprecated but still returned by this changeset.
+	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()
 	require.NoError(t, err)
 	require.Len(t, addresses, 1)
@@ -112,7 +114,8 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 			map[uint64]cldf_chain.BlockChain{
 				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
 				chainsel.TEST_90000002.Selector: cldf_evm.Chain{},
-			}),
+			},
+		),
 	}
 	mcmsContractTV := cldf.TypeAndVersion{
 		Type:    types.ManyChainMultisig,
@@ -133,7 +136,7 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 
 	output, err := SaveExistingContractsChangeset(dummyEnv, ExistingContracts)
 	require.NoError(t, err)
-	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // AddressBook is deprecated but still returned by this changeset.
+	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()
 	require.NoError(t, err)
 	require.Len(t, addresses, 1)
@@ -159,7 +162,8 @@ func TestSaveExistingContractsDualWrite(t *testing.T) {
 		BlockChains: cldf_chain.NewBlockChains(
 			map[uint64]cldf_chain.BlockChain{
 				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
-			}),
+			},
+		),
 	}
 	addr1 := common.BigToAddress(big.NewInt(1)).String()
 	addr2 := common.BigToAddress(big.NewInt(2)).String()
@@ -191,7 +195,7 @@ func TestSaveExistingContractsDualWrite(t *testing.T) {
 		output, err := SaveExistingContractsChangeset(dummyEnv, cfg)
 		require.NoError(t, err)
 
-		addresses, err := output.AddressBook.Addresses() //nolint:staticcheck // AddressBook is deprecated but still returned by this changeset.
+		addresses, err := output.AddressBook.Addresses()
 		require.NoError(t, err)
 		require.Len(t, addresses[chainsel.TEST_90000001.Selector], 2)
 

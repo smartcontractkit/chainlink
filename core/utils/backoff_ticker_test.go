@@ -12,9 +12,9 @@ func TestBackoffTicker_Bounds(t *testing.T) {
 	t.Parallel()
 
 	bt := NewBackoffTicker(1*time.Millisecond, 2*time.Second)
-	min, max := bt.Bounds()
-	assert.Equal(t, 1*time.Millisecond, min)
-	assert.Equal(t, 2*time.Second, max)
+	minVal, maxVal := bt.Bounds()
+	assert.Equal(t, 1*time.Millisecond, minVal)
+	assert.Equal(t, 2*time.Second, maxVal)
 }
 
 func TestBackoffTicker_StartTwice(t *testing.T) {
@@ -51,20 +51,20 @@ func TestBackoffTicker_NoTicksAfterStop(t *testing.T) {
 
 	t.Parallel()
 
-	min := 100 * time.Millisecond
-	max := 5 * time.Second
+	minVal := 100 * time.Millisecond
+	maxVal := 5 * time.Second
 
 	chTime := make(chan time.Time, 1)
 	defer close(chTime)
 
 	newFakeTimer := func(d time.Duration) *time.Timer {
-		assert.Equal(t, min, d)
-		realTimer := time.NewTimer(max)
+		assert.Equal(t, minVal, d)
+		realTimer := time.NewTimer(maxVal)
 		realTimer.C = chTime
 		return realTimer
 	}
 
-	bt := newBackoffTicker(newFakeTimer, min, max)
+	bt := newBackoffTicker(newFakeTimer, minVal, maxVal)
 
 	ok := bt.Start()
 	assert.True(t, ok)
@@ -75,7 +75,7 @@ func TestBackoffTicker_NoTicksAfterStop(t *testing.T) {
 	chTime <- time.Now()
 
 	select {
-	case <-time.After(2 * min):
+	case <-time.After(2 * minVal):
 	case <-bt.Ticks():
 		assert.FailNow(t, "received a tick after Stop()")
 	}
@@ -88,20 +88,20 @@ func TestBackoffTicker_Ticks(t *testing.T) {
 
 	t.Parallel()
 
-	min := 100 * time.Millisecond
-	max := 5 * time.Second
+	minVal := 100 * time.Millisecond
+	maxVal := 5 * time.Second
 
 	chTime := make(chan time.Time)
 	defer close(chTime)
 
 	newFakeTimer := func(d time.Duration) *time.Timer {
-		assert.Equal(t, min, d)
-		realTimer := time.NewTimer(max)
+		assert.Equal(t, minVal, d)
+		realTimer := time.NewTimer(maxVal)
 		realTimer.C = chTime
 		return realTimer
 	}
 
-	bt := newBackoffTicker(newFakeTimer, min, max)
+	bt := newBackoffTicker(newFakeTimer, minVal, maxVal)
 
 	ok := bt.Start()
 	assert.True(t, ok)
@@ -124,7 +124,7 @@ func TestBackoffTicker_Ticks(t *testing.T) {
 	}
 
 	select {
-	case <-time.After(2 * min):
+	case <-time.After(2 * minVal):
 	case <-bt.Ticks():
 		assert.FailNow(t, "received an unexpected tick")
 	}
@@ -133,18 +133,18 @@ func TestBackoffTicker_Ticks(t *testing.T) {
 func TestBackoffTicker_Restart(t *testing.T) {
 	t.Parallel()
 
-	min := 1 * time.Second
-	max := 10 * time.Second
+	minVal := 1 * time.Second
+	maxVal := 10 * time.Second
 
 	var newTimerCount atomic.Int32
 
 	newFakeTimer := func(d time.Duration) *time.Timer {
 		newTimerCount.Add(1)
-		assert.Equal(t, min, d)
-		return time.NewTimer(max)
+		assert.Equal(t, minVal, d)
+		return time.NewTimer(maxVal)
 	}
 
-	bt := newBackoffTicker(newFakeTimer, min, max)
+	bt := newBackoffTicker(newFakeTimer, minVal, maxVal)
 
 	ok := bt.Start()
 	assert.True(t, ok)
@@ -158,5 +158,5 @@ func TestBackoffTicker_Restart(t *testing.T) {
 
 	assert.Eventually(t, func() bool {
 		return newTimerCount.Load() == 2
-	}, min, min/100, "expected timer factory to be triggered twice")
+	}, minVal, minVal/100, "expected timer factory to be triggered twice")
 }

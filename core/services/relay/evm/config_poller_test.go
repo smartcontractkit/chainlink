@@ -24,14 +24,12 @@ import (
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
-	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -66,7 +64,8 @@ func TestConfigPoller(t *testing.T) {
 		user, err = bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 		require.NoError(t, err)
 		b = simulated.NewBackend(types.GenesisAlloc{
-			user.From: {Balance: big.NewInt(1000000000000000000)}},
+			user.From: {Balance: big.NewInt(1000000000000000000)},
+		},
 			simulated.WithBlockGasLimit(5*ethconfig.Defaults.Miner.GasCeil))
 		require.NotNil(t, b)
 		ec = b.Client()
@@ -91,7 +90,7 @@ func TestConfigPoller(t *testing.T) {
 		b.Commit()
 
 		db := testutils.NewSqlxDB(t)
-		ethClient = evmclient.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
+		ethClient = client.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
 		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr)
 
@@ -195,8 +194,8 @@ func TestConfigPoller(t *testing.T) {
 				changedInBlock, configDigest, err := cp.LatestConfigDetails(t.Context())
 				require.NoError(t, err)
 
-				assert.Equal(t, 0, int(changedInBlock))
-				assert.Equal(t, ocrtypes.ConfigDigest{}, configDigest)
+				assert.Equal(t, uint64(0), changedInBlock)
+				assert.Equal(t, ocrtypes2.ConfigDigest{}, configDigest)
 			})
 			t.Run("when config has been set, returns config details", func(t *testing.T) {
 				setConfig(t, median.OffchainConfig{
@@ -217,7 +216,7 @@ func TestConfigPoller(t *testing.T) {
 				onchainDetails, err := ocrContract.LatestConfigDetails(nil)
 				require.NoError(t, err)
 
-				assert.Equal(t, latest.Number().Int64(), int64(changedInBlock))
+				assert.Equal(t, latest.Number().Uint64(), changedInBlock)
 				assert.Equal(t, onchainDetails.ConfigDigest, [32]byte(configDigest))
 			})
 		})
@@ -229,7 +228,7 @@ func TestConfigPoller(t *testing.T) {
 			require.NoError(t, err)
 
 			_, _, err = cp.LatestConfigDetails(t.Context())
-			assert.EqualError(t, err, "something exploded")
+			require.EqualError(t, err, "something exploded")
 
 			failingClient.AssertExpectations(t)
 		})
@@ -327,7 +326,7 @@ func TestConfigPoller(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = cp.LatestConfig(t.Context(), 0)
-			assert.EqualError(t, err, "failed to get latest config details: something exploded")
+			require.EqualError(t, err, "failed to get latest config details: something exploded")
 
 			failingClient.AssertExpectations(t)
 		})
@@ -336,7 +335,7 @@ func TestConfigPoller(t *testing.T) {
 
 func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *ocr2aggregator.OCR2Aggregator, user *bind.TransactOpts) ocrtypes2.ContractConfig {
 	// Create minimum number of nodes.
-	var oracles []confighelper2.OracleIdentityExtra
+	oracles := make([]confighelper2.OracleIdentityExtra, 0, 4)
 	for range 4 {
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{

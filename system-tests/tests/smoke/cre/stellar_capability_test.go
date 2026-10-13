@@ -6,15 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stellar/go-stellar-sdk/xdr"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
-	"github.com/stellar/go-stellar-sdk/xdr"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	stellarfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"

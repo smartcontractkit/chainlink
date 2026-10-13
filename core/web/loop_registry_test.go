@@ -16,12 +16,12 @@ import (
 
 	"github.com/smartcontractkit/freeport"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
@@ -48,7 +48,7 @@ func configurePromRegistry() {
 func newMockLoopImpl(t *testing.T, port int) *mockLoopImpl {
 	return &mockLoopImpl{
 		t:       t,
-		Service: loop.WebServerOpts{Handler: testHandler}.New(logger.TestLogger(t).Named("mock-loop"), port),
+		Service: loop.WebServerOpts{Handler: testHandler}.New(logger.Named(logger.Test(t), "mock-loop"), port),
 	}
 }
 

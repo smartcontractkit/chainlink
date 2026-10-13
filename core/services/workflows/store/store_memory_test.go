@@ -70,7 +70,7 @@ func TestInMemoryStore_Get(t *testing.T) {
 func TestInMemoryStore_FinishedExecution(t *testing.T) {
 	t.Parallel()
 	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),
-		10*time.Millisecond, 1*time.Hour)
+		10*time.Millisecond, 10*time.Millisecond, 1*time.Hour)
 	servicetest.Run(t, store)
 
 	_, err := store.Add(t.Context(), map[string]*WorkflowExecutionStep{
@@ -84,6 +84,41 @@ func TestInMemoryStore_FinishedExecution(t *testing.T) {
 	assert.Equal(t, "completed", updatedState.Status)
 
 	// Assert eventually that the execution is no longer in the store
+	require.Eventually(t, func() bool {
+		_, err := store.Get(t.Context(), "test-id")
+		return err != nil
+	}, 10*time.Second, 10*time.Millisecond)
+}
+
+// TestInMemoryStore_RetainsCompletedExecutionsUntilRetentionCutoff verifies a completed
+// execution survives sweeps until it's older than completedExecutionRetention, rather than
+// being pruned on the very next sweep after finishing. This is what gives Add's dedup check a
+// window to catch a duplicate execution ID arriving shortly after the original completed (e.g.
+// a duplicate CRON trigger event, CRE-5715).
+func TestInMemoryStore_RetainsCompletedExecutionsUntilRetentionCutoff(t *testing.T) {
+	t.Parallel()
+
+	completedExecutionRetention := 20 * time.Minute
+	fakeClock := clockwork.NewFakeClock()
+	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), fakeClock,
+		time.Millisecond, completedExecutionRetention, time.Hour)
+	servicetest.Run(t, store)
+
+	_, err := store.Add(t.Context(), nil, "test-id", "w1", StatusStarted)
+	require.NoError(t, err)
+	_, err = store.FinishExecution(t.Context(), "test-id", StatusCompleted)
+	require.NoError(t, err)
+
+	// Sweeps run every millisecond on the real clock underneath the ticker, but the sweep
+	// itself compares against the fake clock's time, so the entry must survive many sweeps
+	// until the fake clock is advanced past the retention cutoff.
+	fakeClock.Advance(completedExecutionRetention - time.Second)
+	require.Never(t, func() bool {
+		_, err := store.Get(t.Context(), "test-id")
+		return err != nil
+	}, 100*time.Millisecond, 10*time.Millisecond)
+
+	fakeClock.Advance(2 * time.Second)
 	require.Eventually(t, func() bool {
 		_, err := store.Get(t.Context(), "test-id")
 		return err != nil
@@ -121,8 +156,9 @@ func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
 	t.Parallel()
 	expirationDuration := 50 * time.Millisecond
 
+	// completedExecutionRetention is irrelevant here: the execution is never finished.
 	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),
-		10*time.Millisecond, expirationDuration)
+		10*time.Millisecond, time.Hour, expirationDuration)
 
 	servicetest.Run(t, store)
 
@@ -139,7 +175,7 @@ func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
 
 	// Now repeat the test but with a longer expiration duration and check that the state is not expired
 	store = NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),
-		10*time.Millisecond, 30*time.Second)
+		10*time.Millisecond, time.Hour, 30*time.Second)
 
 	_, err = store.Add(t.Context(), map[string]*WorkflowExecutionStep{
 		"step-1": {Ref: "step-1"},
@@ -160,16 +196,19 @@ func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
 func TestInMemoryStore_PruneRebuildsMapOnlyWhenPruning(t *testing.T) {
 	t.Parallel()
 
-	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewFakeClock(),
-		defaultPruneInterval, 24*time.Hour)
+	completedExecutionRetention := time.Minute
+	fakeClock := clockwork.NewFakeClock()
+	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), fakeClock,
+		defaultPruneInterval, completedExecutionRetention, 24*time.Hour)
 
-	// active stays; done is completed and should be pruned.
+	// active stays; done is completed and should be pruned once past completedExecutionRetention.
 	_, err := store.Add(t.Context(), nil, "active", "wf-1", StatusStarted)
 	require.NoError(t, err)
 	_, err = store.Add(t.Context(), nil, "done", "wf-1", StatusStarted)
 	require.NoError(t, err)
 	_, err = store.FinishExecution(t.Context(), "done", StatusCompleted)
 	require.NoError(t, err)
+	fakeClock.Advance(completedExecutionRetention + time.Second)
 
 	mapBefore := reflect.ValueOf(store.idToExecution).Pointer()
 	store.pruneCompletedAndExpiredExecutions()

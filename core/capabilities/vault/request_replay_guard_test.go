@@ -137,7 +137,7 @@ func TestRequestReplayGuard_ConcurrentDifferentDigests(t *testing.T) {
 	for i := range goroutines {
 		go func(idx int) {
 			defer wg.Done()
-			digest := "digest-" + string(rune('A'+idx))
+			digest := "digest-" + string(rune('A'+idx)) //nolint:gosec // idx bounded 0..49, within rune range
 			errors[idx] = guard.CheckAndRecord(digest, futureExpiry)
 		}(i)
 	}

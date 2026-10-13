@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
-
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	ring_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -29,7 +28,6 @@ import (
 	ocr3_contracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	shard_config_changeset "github.com/smartcontractkit/chainlink/deployment/cre/shard_config/v1/changeset"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
@@ -179,12 +177,12 @@ func getBootstrapURLs(dons *cre.Dons) ([]string, error) {
 		return nil, errors.New("no bootstrap node found in dons")
 	}
 
-	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
+	peeringCfg, err := cre.PeeringCfgs(bootstrap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peering configs: %w", err)
 	}
 
-	bootstrapURL := ocrPeeringCfg.OCRBootstrapperPeerID + "@" + ocrPeeringCfg.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)
+	bootstrapURL := peeringCfg.BootstrapperPeerID + "@" + peeringCfg.BootstrapperHost + ":" + strconv.Itoa(peeringCfg.Port)
 	return []string{bootstrapURL}, nil
 }
 

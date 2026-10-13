@@ -1424,7 +1424,6 @@ NetworkID = 'evm' # Default
 ChainID = '1' # Default
 ContractVersion = '1.0.0' # Default
 MaxBinarySize = '20.00mb' # Default
-MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
 MaxConcurrency = 12 # Default
@@ -1461,12 +1460,6 @@ ContractVersion identifies semantic version of the WorkflowRegistry contract.
 MaxBinarySize = '20.00mb' # Default
 ```
 MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
-
-### MaxEncryptedSecretsSize
-```toml
-MaxEncryptedSecretsSize = '26.40kb' # Default
-```
-MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
 
 ### MaxConfigSize
 ```toml
@@ -1664,29 +1657,15 @@ ContractVersion identifies semantic version of the CapabilitiesRegistry contract
 ## Capabilities.Dispatcher
 ```toml
 [Capabilities.Dispatcher]
-SupportedVersion = 1 # Default
 ReceiverBufferSize = 10000 # Default
-SendToSharedPeer = false # Default
 ```
 
-
-### SupportedVersion
-```toml
-SupportedVersion = 1 # Default
-```
-SupportedVersion is the version of the version of message schema.
 
 ### ReceiverBufferSize
 ```toml
 ReceiverBufferSize = 10000 # Default
 ```
 ReceiverBufferSize is the size of the buffer for incoming messages.
-
-### SendToSharedPeer
-```toml
-SendToSharedPeer = false # Default
-```
-SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
 
 ## Capabilities.Dispatcher.RateLimit
 ```toml
@@ -1721,102 +1700,6 @@ PerSenderRPS is the per-sender rate limit for the dispatcher.
 PerSenderBurst = 50 # Default
 ```
 PerSenderBurst is the per-sender burst limit for the dispatcher.
-
-## Capabilities.Peering
-```toml
-[Capabilities.Peering]
-IncomingMessageBufferSize = 10 # Default
-OutgoingMessageBufferSize = 10 # Default
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
-TraceLogging = false # Default
-EnableExperimentalRageP2P = false # Default
-```
-
-
-### IncomingMessageBufferSize
-```toml
-IncomingMessageBufferSize = 10 # Default
-```
-IncomingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
-capabilities P2P host are not configurable; for shared peering, use
-`Capabilities.SharedPeering.StreamConfig`.
-
-### OutgoingMessageBufferSize
-```toml
-OutgoingMessageBufferSize = 10 # Default
-```
-OutgoingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
-capabilities P2P host are not configurable; for shared peering, use
-`Capabilities.SharedPeering.StreamConfig`.
-
-### PeerID
-```toml
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
-```
-PeerID is the peer ID to use for the capabilities P2P host; see
-[`P2P.PeerID`](#p2p).
-
-### TraceLogging
-```toml
-TraceLogging = false # Default
-```
-TraceLogging **DEPRECATED**: has no effect.
-
-### EnableExperimentalRageP2P
-```toml
-EnableExperimentalRageP2P = false # Default
-```
-EnableExperimentalRageP2P currently has no effect in this section; the
-capabilities P2P host always uses the production ragep2p stack.
-
-## Capabilities.Peering.V2
-```toml
-[Capabilities.Peering.V2]
-Enabled = false # Default
-AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
-DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
-DeltaDial = '15s' # Default
-DeltaReconcile = '1m' # Default
-ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
-```
-
-
-### Enabled
-```toml
-Enabled = false # Default
-```
-Enabled enables a dedicated P2P V2 host for capabilities (DON-to-DON)
-communication, independent of the top-level `P2P` host.
-
-### AnnounceAddresses
-```toml
-AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
-```
-AnnounceAddresses: see [`P2P.V2.AnnounceAddresses`](#p2pv2).
-
-### DefaultBootstrappers
-```toml
-DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
-```
-DefaultBootstrappers: see [`P2P.V2.DefaultBootstrappers`](#p2pv2).
-
-### DeltaDial
-```toml
-DeltaDial = '15s' # Default
-```
-DeltaDial: see [`P2P.V2.DeltaDial`](#p2pv2).
-
-### DeltaReconcile
-```toml
-DeltaReconcile = '1m' # Default
-```
-DeltaReconcile: see [`P2P.V2.DeltaReconcile`](#p2pv2).
-
-### ListenAddresses
-```toml
-ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
-```
-ListenAddresses: see [`P2P.V2.ListenAddresses`](#p2pv2).
 
 ## Capabilities.GatewayConnector
 ```toml
@@ -1972,6 +1855,7 @@ BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
 ```toml
 [Capabilities.Local]
 RegistryBasedLaunchAllowlist = [] # Default
+UseOffchainRegistry = false # Default
 ```
 
 
@@ -1991,15 +1875,15 @@ Examples (using single-quoted TOML strings where backslashes are literal):
 - '^http-action@.*$' matches any version of http-action
 - '.*' matches all capabilities
 
-Per-capability configuration. Each capability ID can have its own configuration section.
-Capability IDs must be in the format "name@version".
-[Capabilities.Local.Capabilities."http-action@1.0.0"]
-BinaryPathOverride overrides the default binary path for a LOOP capability.
-BinaryPathOverride = '/opt/chainlink/binaries/http_action' # Example
-[Capabilities.Local.Capabilities."http-action@1.0.0".Config]
-Capability-specific configuration as key-value pairs.
-proxyMode = 'gateway' # Example
-allowedPorts = '443,8443' # Example
+### UseOffchainRegistry
+```toml
+UseOffchainRegistry = false # Default
+```
+UseOffchainRegistry gates the offchain capabilities registry cutover. When false (default),
+capability config is sourced from the on-chain registry and the offchain registry is used for
+cross-validation telemetry only. When true, offchain capability config takes precedence over the
+on-chain config, key by key. Binary paths, the launch allowlist and OCR3 config are unaffected.
+The gate is per-node and reversible.
 
 ## AutoPprof
 ```toml
@@ -2889,6 +2773,7 @@ An empty list disables all OCR2 telemetry. Use ["all"] to enable all OCR2 plugin
 UseLocalTimeProvider = true # Default
 EnableDKGRecipient = false # Default
 DebugMode = false # Default
+CachedTriggerSubscriptionsEnabled = false # Default
 ```
 
 
@@ -2909,6 +2794,12 @@ EnableDKGRecipient should be set to true if the DON runs a capability that uses 
 DebugMode = false # Default
 ```
 DebugMode enables additional tracing and logging for workflow engines.
+
+### CachedTriggerSubscriptionsEnabled
+```toml
+CachedTriggerSubscriptionsEnabled = false # Default
+```
+CachedTriggerSubscriptionsEnabled makes workflow engines reuse a previously-persisted trigger subscription payload instead of executing the workflow's WASM Subscribe() call on every engine start.
 
 ## CRE.ConfidentialRelay
 ```toml
@@ -3077,7 +2968,7 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
-LimitTransfer = 21000
+LimitTransfer = 200000
 EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
@@ -9228,6 +9119,126 @@ AcceptanceTimeout = '30s'
 
 </p></details>
 
+<details><summary>Tempo Mainnet (4217)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+SafeDepth = 0
+FinalityTagEnabled = true
+SafeTagSupported = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '1s'
+LogPollerSkipEmptyBlocks = false
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = false
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 2
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+ERC20TokenAddress = '0x20C0000000000000000000000000000000000000'
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '1 gwei'
+PriceMax = '1 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 30
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '4s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
+PersistenceEnabled = false
+PersistenceBatchSize = 100
+
+[NodePool]
+PollFailureThreshold = 5
+PollSuccessThreshold = 0
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 15
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '1s'
+VerifyChainID = true
+ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[Workflow]
+GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
+```
+
+</p></details>
+
 <details><summary>Worldchain Testnet (4801)</summary><p>
 
 ```toml
@@ -10809,6 +10820,126 @@ FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
+ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[Workflow]
+GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
+```
+
+</p></details>
+
+<details><summary>Tempo Testnet Moderato (42431)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+SafeDepth = 0
+FinalityTagEnabled = true
+SafeTagSupported = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '1s'
+LogPollerSkipEmptyBlocks = false
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = false
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 2
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+ERC20TokenAddress = '0x20C0000000000000000000000000000000000000'
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '1 gwei'
+PriceMax = '1 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '4'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 30
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '4s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
+PersistenceEnabled = false
+PersistenceBatchSize = 100
+
+[NodePool]
+PollFailureThreshold = 5
+PollSuccessThreshold = 0
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 15
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '1s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
 
@@ -15179,7 +15310,7 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
-LimitTransfer = 21000
+LimitTransfer = 200000
 EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
@@ -16403,6 +16534,7 @@ FeeBoost enables node to immediately boost txs to the max gas price configured
 ```toml
 [EVM.BalanceMonitor]
 Enabled = true # Default
+ERC20TokenAddress = "0x20C0000000000000000000000000000000000000" # Example
 ```
 
 
@@ -16411,6 +16543,12 @@ Enabled = true # Default
 Enabled = true # Default
 ```
 Enabled balance monitoring for all keys.
+
+### ERC20TokenAddress
+```toml
+ERC20TokenAddress = "0x20C0000000000000000000000000000000000000" # Example
+```
+ERC20TokenAddress is the address of an ERC-20 type token that a chain supports as a fee token.
 
 ## EVM.GasEstimator
 ```toml
@@ -17858,4 +17996,3 @@ URL is the base HTTP(S) endpoint for this node.
 APIKey = 'key' # Example
 ```
 APIKey Header is optional and only required for Nethermind RPCs
-

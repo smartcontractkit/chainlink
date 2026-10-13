@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
@@ -39,11 +39,11 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 	id := "starknet chain ID"
 	node1 := map[string]any{
 		"Name": new("first"),
-		"URL":  config.MustParseURL("https://starknet1.example"),
+		"URL":  commonconfig.MustParseURL("https://starknet1.example"),
 	}
 	node2 := map[string]any{
 		"Name": new("second"),
-		"URL":  config.MustParseURL("https://starknet2.example"),
+		"URL":  commonconfig.MustParseURL("https://starknet2.example"),
 	}
 	chain := chainlink.RawConfig{
 		"ChainID": &id,
@@ -98,12 +98,12 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	id := solanatest.RandomChainID()
 	node1 := map[string]any{
 		"Name":     new("first"),
-		"URL":      config.MustParseURL("https://solana1.example"),
+		"URL":      commonconfig.MustParseURL("https://solana1.example"),
 		"SendOnly": false,
 	}
 	node2 := map[string]any{
 		"Name":     new("second"),
-		"URL":      config.MustParseURL("https://solana2.example"),
+		"URL":      commonconfig.MustParseURL("https://solana2.example"),
 		"SendOnly": false,
 	}
 	chain := chainlink.RawConfig{

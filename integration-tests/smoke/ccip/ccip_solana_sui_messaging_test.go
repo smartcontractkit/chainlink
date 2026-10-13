@@ -16,7 +16,7 @@ import (
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
@@ -169,7 +169,7 @@ func Test_CCIP_Messaging_Solana2Sui_Success(t *testing.T) {
 				MsgData:                message,
 				FeeToken:               "", // native SOL, converted to wSOL via Sync Native
 				ExtraArgs:              testhelpers.MakeSolanaSuiExtraArgsV1(1_000_000, true, fx.receiverObjectIDs, [32]byte{}),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 			},
 		)
 	})
@@ -233,8 +233,8 @@ func prepareSui2SolanaMessagingTest(t *testing.T) sui2SolanaMessagingFixtures {
 		testhelpers.WithSuiChains(1),
 		testhelpers.WithSolChains(1),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Minute)
-			params.ExecuteOffChainConfig.MessageVisibilityInterval = *config.MustNewDuration(1 * time.Hour)
+			params.ExecuteOffChainConfig.InflightCacheExpiry = *commonconfig.MustNewDuration(1 * time.Minute)
+			params.ExecuteOffChainConfig.MessageVisibilityInterval = *commonconfig.MustNewDuration(1 * time.Hour)
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
@@ -344,7 +344,7 @@ func Test_CCIP_Messaging_Sui2Solana_Success(t *testing.T) {
 				MsgData:                message,
 				FeeToken:               fx.suiLinkFeeToken,
 				ExtraArgs:              extraArgs,
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExpectedExecutionState: testhelpers.ExecutionStateSuccess,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
 						var after soltesthelpers.ReceiverCounter

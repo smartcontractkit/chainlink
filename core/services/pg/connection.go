@@ -114,7 +114,7 @@ func checkVersion(db Getter, minVersion int) error {
 		return nil
 	}
 	if version < minVersion {
-		return fmt.Errorf("The minimum required Postgres server version is %d, you are running: %d, which is EOL (see: https://www.postgresql.org/support/versioning/). It is recommended to upgrade your Postgres server. To forcibly override this check, set SKIP_PG_VERSION_CHECK=true", minVersion/10000, version/10000)
+		return fmt.Errorf("the minimum required Postgres server version is %d, you are running: %d, which is EOL (see: https://www.postgresql.org/support/versioning/). It is recommended to upgrade your Postgres server. To forcibly override this check, set SKIP_PG_VERSION_CHECK=true", minVersion/10000, version/10000)
 	}
 	return nil
 }

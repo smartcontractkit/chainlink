@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/json"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"maps"
 	"net/url"
@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
 
@@ -296,7 +295,7 @@ type ServiceHeaders []ServiceHeader
 
 func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 	if sh == nil {
-		return errors.New("Cannot unmarshal to a nil receiver")
+		return errors.New("cannot unmarshal to a nil receiver")
 	}
 
 	headers := string(input)
@@ -307,7 +306,7 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 		for header := range headerLines {
 			keyValue := strings.Split(header, "||")
 			if len(keyValue) != 2 {
-				return errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
+				return fmt.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
 			}
 			h := ServiceHeader{
 				Header: keyValue[0],
@@ -327,7 +326,7 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 
 func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
 	if sh == nil {
-		return nil, errors.New("Cannot marshal to a nil receiver")
+		return nil, errors.New("cannot marshal to a nil receiver")
 	}
 
 	sb := strings.Builder{}
@@ -356,13 +355,13 @@ var (
 	headerValueRegex = regexp.MustCompile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
 )
 
-func (h ServiceHeader) Validate() (err error) {
+func (h *ServiceHeader) Validate() (err error) {
 	if !headerNameRegex.MatchString(h.Header) {
-		err = stderrors.Join(err, errors.Errorf("invalid header name: %s", h.Header))
+		err = errors.Join(err, fmt.Errorf("invalid header name: %s", h.Header))
 	}
 
 	if !headerValueRegex.MatchString(h.Value) {
-		err = stderrors.Join(err, errors.Errorf("invalid header value: %s", h.Value))
+		err = errors.Join(err, fmt.Errorf("invalid header value: %s", h.Value))
 	}
-	return
+	return err
 }

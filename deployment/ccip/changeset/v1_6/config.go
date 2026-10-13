@@ -3,11 +3,11 @@ package v1_6
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	ccipocr3 "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -51,8 +51,8 @@ var (
 			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
 		},
 		CommitOffChainConfig: &pluginconfig.CommitOffchainConfig{
-			RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(globals.RemoteGasPriceBatchWriteFrequency),
-			TokenPriceBatchWriteFrequency:      *config.MustNewDuration(globals.TokenPriceBatchWriteFrequency),
+			RemoteGasPriceBatchWriteFrequency:  *commonconfig.MustNewDuration(globals.RemoteGasPriceBatchWriteFrequency),
+			TokenPriceBatchWriteFrequency:      *commonconfig.MustNewDuration(globals.TokenPriceBatchWriteFrequency),
 			NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
 			MaxReportTransmissionCheckAttempts: 5,
 			RMNEnabled:                         false,
@@ -68,9 +68,9 @@ var (
 		},
 		ExecuteOffChainConfig: &pluginconfig.ExecuteOffchainConfig{
 			BatchGasLimit:             globals.BatchGasLimit,
-			InflightCacheExpiry:       *config.MustNewDuration(globals.InflightCacheExpiry),
-			RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
-			MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThreshold),
+			InflightCacheExpiry:       *commonconfig.MustNewDuration(globals.InflightCacheExpiry),
+			RootSnoozeTime:            *commonconfig.MustNewDuration(globals.RootSnoozeTime),
+			MessageVisibilityInterval: *commonconfig.MustNewDuration(globals.PermissionLessExecutionThreshold),
 			BatchingStrategyID:        globals.BatchingStrategyID,
 			MaxCommitReportsToFetch:   globals.MaxCommitReportsToFetch,
 		},
@@ -116,7 +116,7 @@ func (c OCRConfigChainType) ExecuteOCRParams() CCIPOCRParams {
 func DeriveOCRParamsForCommit(
 	ocrChainType OCRConfigChainType,
 	feedChain uint64,
-	feeTokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
+	feeTokenInfo map[ccipocr3.UnknownEncodedAddress]ccipocr3.TokenInfo,
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
 	params := ocrChainType.CommitOCRParams()

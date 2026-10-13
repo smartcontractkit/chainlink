@@ -144,8 +144,8 @@ func noreplyLogin(email string) string {
 		return ""
 	}
 	local := strings.TrimSuffix(email, suffix)
-	if i := strings.LastIndex(local, "+"); i >= 0 {
-		return local[i+1:]
+	if _, after, ok := strings.CutLast(local, "+"); ok {
+		return after
 	}
 	return local
 }

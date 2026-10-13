@@ -108,7 +108,7 @@ func (w workload) String() string {
 // full set of stream IDs referenced.
 func (w workload) channelDefinitions() (llotypes.ChannelDefinitions, []llotypes.StreamID) {
 	defs := make(llotypes.ChannelDefinitions, w.numChannels)
-	var streamIDs []llotypes.StreamID
+	streamIDs := make([]llotypes.StreamID, 0, w.streamsPerChannel*w.numChannels)
 	var sid llotypes.StreamID
 	for c := range w.numChannels {
 		streams := make([]llotypes.Stream, 0, w.streamsPerChannel)
@@ -183,10 +183,14 @@ func reportCodecs() map[llotypes.ReportFormat]lloprotocol.ReportCodec {
 // to whole seconds, which would prevent reporting within a single wall-clock
 // second and diverge from v31). The 1ns interval effectively reports every
 // round while keeping both plugins on identical reportability rules.
-func benchOffchainConfig() []byte {
+// aggregationFaultTolerance is set to consensus F, the maximum the v31 factory
+// accepts, so both plugins aggregate over the same observation set.
+func benchOffchainConfig(f int) []byte {
+	aft := uint32(f) //nolint:gosec // bench F is a small positive constant
 	b, err := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: 1,
+		AggregationFaultTolerance:           &aft,
 	}.Encode()
 	if err != nil {
 		panic(err)
@@ -200,14 +204,14 @@ func pluginConfig(n, f int) ocr3types.ReportingPluginConfig {
 		N:                      n,
 		F:                      f,
 		MaxDurationObservation: maxDurationObservation,
-		OffchainConfig:         benchOffchainConfig(),
+		OffchainConfig:         benchOffchainConfig(f),
 	}
 }
 
 func buildV30(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) ocr3types.ReportingPlugin[llotypes.ReportInfo] {
 	tb.Helper()
 	factory := llov30.NewPluginFactory(llov30.PluginFactoryParams{
-		Config:                 llov30.Config{VerboseLogging: false},
+		VerboseLogging:         false,
 		ShouldRetireCache:      mockShouldRetireCache{},
 		RetirementReportCodec:  lloprotocol.StandardRetirementReportCodec{},
 		ChannelDefinitionCache: &mockChannelDefinitionCache{defs: defs},
@@ -221,10 +225,11 @@ func buildV30(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) ocr3typ
 	return p
 }
 
-func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1types.ReportingPlugin[llotypes.ReportInfo], ocr3_1types.KeyValueDatabase, *llotest.BlobBroadcastFetcher) {
-	tb.Helper()
-	factory := llov31.NewPluginFactory(llov31.PluginFactoryParams{
-		Config:                 llov31.Config{VerboseLogging: false},
+// newV31Factory builds the v31 plugin factory over the given definitions. opts
+// mutate the factory params, e.g. to override the blob pump knobs.
+func newV31Factory(defs llotypes.ChannelDefinitions, opts ...func(*llov31.PluginFactoryParams)) *llov31.PluginFactory {
+	params := llov31.PluginFactoryParams{
+		VerboseLogging:         false,
 		ShouldRetireCache:      mockShouldRetireCache{},
 		RetirementReportCodec:  lloprotocol.StandardRetirementReportCodec{},
 		ChannelDefinitionCache: &mockChannelDefinitionCache{defs: defs},
@@ -232,26 +237,38 @@ func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1
 		Logger:                 logger.Nop(),
 		OnchainConfigCodec:     mockOnchainConfigCodec{},
 		ReportCodecs:           reportCodecs(),
-	})
+	}
+	for _, opt := range opts {
+		opt(&params)
+	}
+	return llov31.NewPluginFactory(params)
+}
+
+// newKVDB returns libocr's in-memory KeyValueDatabase (the same helper v31's
+// integration tests use): a btree behind the production KeyValueDatabaseFactory
+// interface, whose Commit applies to memory with no WAL/fsync. This isolates
+// the plugin's CPU/allocation cost from storage-engine cost, so the v31 numbers
+// are directly comparable to v30's in-memory Outcome blob.
+func newKVDB(tb testing.TB) ocr3_1types.KeyValueDatabase {
+	tb.Helper()
+	dbFactory := memkvdb.NewStatelessInMemoryKeyValueDatabaseFactory()
+	db, err := dbFactory.NewKeyValueDatabase(benchConfigDigest)
+	require.NoError(tb, err)
+	tb.Cleanup(func() { _ = db.Close() })
+	return db
+}
+
+func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1types.ReportingPlugin[llotypes.ReportInfo], ocr3_1types.KeyValueDatabase, *llotest.BlobBroadcastFetcher) {
+	tb.Helper()
 	// v31 disseminates stream values exclusively through blobs, so the plugin
 	// needs a BlobBroadcastFetcher both at construction (the blob pump
 	// broadcasts through it) and on every Observation/StateTransition call (the
 	// round decodes observations by fetching the blobs they reference). A nil
 	// fetcher yields a plugin whose observations never carry stream values.
 	bbf := llotest.NewBlobBroadcastFetcher()
-	p, _, err := factory.NewReportingPlugin(context.Background(), pluginConfig(n, f), bbf)
+	p, _, err := newV31Factory(defs).NewReportingPlugin(context.Background(), pluginConfig(n, f), bbf)
 	require.NoError(tb, err)
-
-	// libocr's in-memory KeyValueDatabase (the same helper v31's integration
-	// tests use): a btree behind the production KeyValueDatabaseFactory
-	// interface, whose Commit applies to memory with no WAL/fsync. This isolates
-	// the plugin's CPU/allocation cost from storage-engine cost, so the v31
-	// numbers are directly comparable to v30's in-memory Outcome blob.
-	dbFactory := memkvdb.NewStatelessInMemoryKeyValueDatabaseFactory()
-	db, err := dbFactory.NewKeyValueDatabase(benchConfigDigest)
-	require.NoError(tb, err)
-	tb.Cleanup(func() { _ = db.Close() })
-	return p, db, bbf
+	return p, newKVDB(tb), bbf
 }
 
 // ---------------------------------------------------------------------------

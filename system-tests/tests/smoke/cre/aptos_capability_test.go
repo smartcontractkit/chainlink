@@ -22,15 +22,13 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	aptosbind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
-	aptosdatafeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
-	aptosplatformsecondary "github.com/smartcontractkit/chainlink-aptos/bindings/platform_secondary"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-
+	aptosbind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"                            //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
+	aptosdatafeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"                 //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
+	aptosplatformsecondary "github.com/smartcontractkit/chainlink-aptos/bindings/platform_secondary" //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -59,8 +57,10 @@ const (
 	aptosScenarioOverrideEnv = "CRE_APTOS_SCENARIOS"
 )
 
-var aptosForwarderVersion = semver.MustParse("1.0.0")
-var aptosWorkflowNameSeq atomic.Uint64
+var (
+	aptosForwarderVersion = semver.MustParse("1.0.0")
+	aptosWorkflowNameSeq  atomic.Uint64
+)
 
 // ExecuteAptosTest runs the Aptos CRE suite with the current CI scenario set by
 // default. Individual scenarios still remain available for local/manual
@@ -660,7 +660,7 @@ func assertAptosWriteFailureTxOnChain(t *testing.T, aptosChain blockchains.Block
 	require.False(t, tx.Success, "Aptos tx must fail in expected-failure workflow; vm_status=%s", tx.VmStatus)
 }
 
-func assertAptosWriteTxOnChain(t *testing.T, aptosChain blockchains.Blockchain, txHash string, expectedReceiver string) {
+func assertAptosWriteTxOnChain(t *testing.T, aptosChain blockchains.Blockchain, txHash, expectedReceiver string) {
 	t.Helper()
 
 	bc, ok := aptosChain.(*blockchains_aptos.Blockchain)

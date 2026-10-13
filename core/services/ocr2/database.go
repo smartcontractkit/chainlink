@@ -55,17 +55,17 @@ func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrty
 		return nil, errors.Wrap(err, "ReadState failed")
 	}
 
-	ps.HighestSentEpoch = uint32(highestSentEpochTmp)
+	ps.HighestSentEpoch = uint32(highestSentEpochTmp) //nolint:gosec // G115: epoch is a uint32 persisted as int64
 
 	for _, v := range tmp {
-		ps.HighestReceivedEpoch = append(ps.HighestReceivedEpoch, uint32(v))
+		ps.HighestReceivedEpoch = append(ps.HighestReceivedEpoch, uint32(v)) //nolint:gosec // G115: epoch is a uint32 persisted as int64
 	}
 
 	return ps, nil
 }
 
 func (d *db) WriteState(ctx context.Context, cd ocrtypes.ConfigDigest, state ocrtypes.PersistentState) error {
-	var highestReceivedEpoch []int64
+	highestReceivedEpoch := make([]int64, 0, len(state.HighestReceivedEpoch))
 	for _, v := range state.HighestReceivedEpoch {
 		highestReceivedEpoch = append(highestReceivedEpoch, int64(v))
 	}
@@ -158,7 +158,7 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 }
 
 func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
-	var signers [][]byte
+	signers := make([][]byte, 0, len(c.Signers))
 	for _, s := range c.Signers {
 		signers = append(signers, []byte(s))
 	}
@@ -206,7 +206,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 }
 
 func (d *db) StorePendingTransmission(ctx context.Context, t ocrtypes.ReportTimestamp, tx ocrtypes.PendingTransmission) error {
-	var signatures [][]byte
+	signatures := make([][]byte, 0, 2*len(tx.AttributedSignatures))
 	for _, s := range tx.AttributedSignatures {
 		signatures = append(signatures, s.Signature)
 		buffer := make([]byte, binary.MaxVarintLen64)
@@ -226,12 +226,12 @@ func (d *db) StorePendingTransmission(ctx context.Context, t ocrtypes.ReportTime
 		config_digest,
 		epoch,
 		round,
-	
+
 		time,
 		extra_hash,
 		report,
 		attributed_signatures,
-	
+
 		created_at,
 		updated_at
 	)
@@ -241,12 +241,12 @@ func (d *db) StorePendingTransmission(ctx context.Context, t ocrtypes.ReportTime
 		config_digest = EXCLUDED.config_digest,
 		epoch = EXCLUDED.epoch,
 		round = EXCLUDED.round,
-	
+
 		time = EXCLUDED.time,
 		extra_hash = EXCLUDED.extra_hash,
 		report = EXCLUDED.report,
 		attributed_signatures = EXCLUDED.attributed_signatures,
-	
+
 		updated_at = NOW()
 	`
 
@@ -308,7 +308,7 @@ func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtyp
 			signer, _ := binary.Varint(signatures[index+1])
 			sig := ocrtypes.AttributedOnchainSignature{
 				Signature: signature,
-				Signer:    ocrcommon.OracleID(signer),
+				Signer:    ocrcommon.OracleID(signer), //nolint:gosec // G115: signer is an OracleID encoded as a varint
 			}
 			p.AttributedSignatures = append(p.AttributedSignatures, sig)
 		}

@@ -1016,7 +1016,7 @@ func TestJob(t *testing.T) {
 			},
 			want: `
 			{
-				"data": {	
+				"data": {
 					"type": "jobs",
 					"id": "1",
 					"attributes": {
@@ -1054,7 +1054,7 @@ func TestJob(t *testing.T) {
 							"jobID": 0,
 							"dotDagSource": ""
 						},
-						"errors": []						
+						"errors": []
 					}
 				}
 			}`,

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -260,8 +260,8 @@ func TestTelemetryConfig_DurableEmitterMaxQueuePayloadBytes(t *testing.T) {
 	}
 }
 
-func ptrDuration(d time.Duration) *config.Duration {
-	return config.MustNewDuration(d)
+func ptrDuration(d time.Duration) *commonconfig.Duration {
+	return commonconfig.MustNewDuration(d)
 }
 
 func TestTelemetryConfig_ChipIngressBufferSize(t *testing.T) {
@@ -499,6 +499,7 @@ func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
 		})
 	}
 }
+
 func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
 	tests := []struct {
 		name      string

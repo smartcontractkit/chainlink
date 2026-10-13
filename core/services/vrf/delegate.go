@@ -11,16 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -34,7 +32,7 @@ type Delegate struct {
 	porm         pipeline.ORM
 	ks           keystore.Master
 	legacyChains legacyevm.LegacyChainContainer
-	lggr         logger.Logger
+	lggr         logger.SugaredLogger
 	mailMon      *mailbox.Monitor
 }
 
@@ -45,14 +43,15 @@ func NewDelegate(
 	porm pipeline.ORM,
 	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
-	mailMon *mailbox.Monitor) *Delegate {
+	mailMon *mailbox.Monitor,
+) *Delegate {
 	return &Delegate{
 		ds:           ds,
 		ks:           ks,
 		pr:           pr,
 		porm:         porm,
 		legacyChains: legacyChains,
-		lggr:         lggr.Named("VRF"),
+		lggr:         logger.Sugared(logger.Named(lggr, "VRF")),
 		mailMon:      mailMon,
 	}
 }
@@ -96,32 +95,19 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if !ok {
 		return nil, fmt.Errorf("vrf is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
-	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
-	if err != nil {
-		return nil, err
-	}
 	coordinatorV2Plus, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, err
 	}
 
 	// If the batch coordinator address is not provided, we will fall back to non-batched
-	var batchCoordinatorV2 *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
+	var batchCoordinatorV2Plus *batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2Plus
 	if jb.VRFSpec.BatchCoordinatorAddress != nil {
-		batchCoordinatorV2, err = batch_vrf_coordinator_v2.NewBatchVRFCoordinatorV2(
-			jb.VRFSpec.BatchCoordinatorAddress.Address(), chain.Client())
-		if err != nil {
-			return nil, errors.Wrap(err, "create batch coordinator wrapper")
-		}
-	}
-
-	var vrfOwner *vrf_owner.VRFOwner
-	if jb.VRFSpec.VRFOwnerAddress != nil {
-		vrfOwner, err = vrf_owner.NewVRFOwner(
-			jb.VRFSpec.VRFOwnerAddress.Address(), chain.Client(),
+		batchCoordinatorV2Plus, err = batch_vrf_coordinator_v2plus.NewBatchVRFCoordinatorV2Plus(
+			jb.VRFSpec.BatchCoordinatorAddress.Address(), chain.Client(),
 		)
 		if err != nil {
-			return nil, errors.Wrap(err, "create vrf owner wrapper")
+			return nil, errors.Wrap(err, "create batch coordinator wrapper")
 		}
 	}
 
@@ -130,7 +116,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
 	)
-	lV2 := l.Named("VRFListenerV2")
 	lV2Plus := l.Named("VRFListenerV2Plus")
 
 	for _, task := range pl.Tasks {
@@ -146,7 +131,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 			if err2 := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
 				return nil, err2
 			}
-			if vrfOwner != nil {
+			if jb.VRFSpec.VRFOwnerAddress != nil {
 				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
 			}
 			if jb.VRFSpec.CustomRevertsPipelineEnabled {
@@ -179,8 +164,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 					chain.ID(),
 					d.ds,
 					v2.NewCoordinatorV2_5(coordinatorV2Plus),
-					batchCoordinatorV2,
-					vrfOwner,
+					batchCoordinatorV2Plus,
 					aggregator,
 					d.pr,
 					d.ks.Eth(),
@@ -193,62 +177,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 				),
 			}, nil
 		}
-		if _, ok := task.(*pipeline.VRFTaskV2); ok {
-			if err2 := CheckFromAddressesExist(ctx, jb, d.ks.Eth()); err != nil {
-				return nil, err2
-			}
-
-			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
-				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
-			}
-
-			if err2 := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
-				return nil, err2
-			}
-
-			// Get the LINKETHFEED address with retries
-			// This is needed because the RPC endpoint may be down so we need to
-			// switch over to another one.
-			var linkEthFeedAddress common.Address
-			err = retry.Do(func() error {
-				linkEthFeedAddress, err = coordinatorV2.LINKETHFEED(nil)
-				return err
-			}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
-			if err != nil {
-				return nil, errors.Wrap(err, "LINKETHFEED")
-			}
-			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
-			if err != nil {
-				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
-			}
-			if vrfOwner == nil {
-				lV2.Infow("Running without VRFOwnerAddress set on the spec")
-			}
-
-			return []job.ServiceCtx{v2.New(
-				chain.Config().EVM(),
-				chain.Config().EVM().GasEstimator(),
-				lV2,
-				chain,
-				chain.ID(),
-				d.ds,
-				v2.NewCoordinatorV2(coordinatorV2),
-				batchCoordinatorV2,
-				vrfOwner,
-				aggregator,
-				d.pr,
-				d.ks.Eth(),
-				jb,
-				func() {},
-				// the lookback in the deduper must be >= the lookback specified for the log poller
-				// otherwise we will end up re-delivering logs that were already delivered.
-				vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth())),
-				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
-			),
-			}, nil
-		}
 	}
-	return nil, errors.New("invalid job spec expected a vrfv2 or vrfv2plus task")
+	return nil, errors.New("invalid job spec expected a vrfv2plus task")
 }
 
 // CheckFromAddressesExist returns an error if and only if one of the addresses
@@ -258,7 +188,7 @@ func CheckFromAddressesExist(ctx context.Context, jb job.Job, gethks keystore.Et
 		_, err2 := gethks.Get(ctx, a.Hex())
 		err = stderrors.Join(err, err2)
 	}
-	return
+	return err
 }
 
 // CheckFromAddressMaxGasPrices checks if the provided gas price in the job spec gas lane parameter
@@ -272,11 +202,12 @@ func CheckFromAddressMaxGasPrices(jb job.Job, keySpecificMaxGas keySpecificMaxGa
 				err = stderrors.Join(err,
 					fmt.Errorf(
 						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
-						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))
+						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String(),
+					))
 			}
 		}
 	}
-	return
+	return err
 }
 
 type keySpecificMaxGasFn func(common.Address) *assets.Wei
@@ -291,5 +222,5 @@ func FromAddressMaxGasPricesAllEqual(jb job.Job, keySpecificMaxGasPriceWei keySp
 			keySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
 		)
 	}
-	return
+	return allEqual
 }

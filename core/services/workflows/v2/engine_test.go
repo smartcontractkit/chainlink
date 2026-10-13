@@ -10,6 +10,7 @@ import (
 	"maps"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -62,13 +63,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
 const triggerID = "basic-test-trigger@1.0.0"
 
+//nolint:paralleltest // swaps the global beholder client to assert the trigger subscription source metric
 func TestEngine_Init(t *testing.T) {
-	t.Parallel()
+	reader := setupInitFailureTestMeter(t)
 
 	module := modulemocks.NewModuleV2(t)
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -89,10 +92,19 @@ func TestEngine_Init(t *testing.T) {
 	require.NoError(t, err)
 
 	module.EXPECT().Start().Once()
-	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(make(chan capabilities.TriggerResponse), nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 	require.NoError(t, engine.Start(t.Context()))
 
 	require.NoError(t, <-initDoneCh)
+
+	// count may include foreign increments from parallel engine tests sharing
+	// the swapped meter; just confirm a "wasm" source was recorded
+	_, gotSources := collectCounterByAttr(t, reader, "platform_engine_trigger_subscription_source_total", "source")
+	require.Contains(t, gotSources, "wasm")
 
 	module.EXPECT().Close().Once()
 	require.NoError(t, engine.Close())
@@ -119,8 +131,12 @@ func TestEngine_DrainSetsStateAndHealth(t *testing.T) {
 	require.NoError(t, err)
 
 	module.EXPECT().Start().Once()
-	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
 	module.EXPECT().Close().Once()
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(make(chan capabilities.TriggerResponse), nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 
 	require.NoError(t, engine.Start(t.Context()))
 	require.NoError(t, <-initDoneCh)
@@ -229,13 +245,18 @@ WorkflowLimit = "1"
 		PerOwner: 0,
 	}, limits.Factory{Settings: getter})
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, sLimiter.Close()) })
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
-	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Times(2)
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Times(2)
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Twice()
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(make(chan capabilities.TriggerResponse), nil).Twice()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Twice()
 	initDoneCh := make(chan error)
 	hooks := v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -248,7 +269,7 @@ WorkflowLimit = "1"
 	cfg.CapRegistry = capreg
 	cfg.GlobalWorkflowLimit = sLimiter
 	cfg.Hooks = hooks
-	var engine1, engine2, engine3, engine4 *v2.Engine
+	var engine1, engine2, engine3, engine4 v2.WorkflowEngine
 
 	t.Run("engine 1 inits successfully", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		engine1, err = v2.NewEngine(cfg)
@@ -430,6 +451,46 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	})
 }
 
+func TestEngine_TriggerSubscriptionPhase_DisallowsSecretsCalls(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+
+	initDoneCh := make(chan error)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Start().Once()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, _ *sdkpb.ExecuteRequest, helper host.ExecutionHelper) {
+			_, err := helper.GetSecrets(context.Background(), &sdkpb.GetSecretsRequest{})
+			assert.ErrorContains(t, err, "secrets calls cannot be made during trigger subscription")
+		}).
+		Return(newTriggerSubs(1), nil).Once()
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(make(chan capabilities.TriggerResponse), nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+	require.NoError(t, engine.Start(t.Context()))
+
+	require.NoError(t, <-initDoneCh)
+
+	module.EXPECT().Close().Once()
+	require.NoError(t, engine.Close())
+}
+
 func TestEngine_TriggerRegistrationLogging(t *testing.T) {
 	t.Parallel()
 
@@ -506,6 +567,122 @@ func wantExecutionID(t *testing.T, workflowID, triggerEventID string, triggerInd
 	return id
 }
 
+func TestEngine_Subscribe_CachedTriggerSubscriptions(t *testing.T) {
+	t.Parallel()
+
+	cachedSubs := []*sdkpb.TriggerSubscription{
+		{Id: "id_0", Method: "method"},
+		{Id: "id_1", Method: "method"},
+	}
+
+	//nolint:paralleltest // swaps the global beholder client to assert the trigger subscription source metric
+	t.Run("gate enabled: cache is used, WASM never executed", func(t *testing.T) {
+		reader := setupInitFailureTestMeter(t)
+
+		module := modulemocks.NewModuleV2(t)
+		module.EXPECT().Start()
+		module.EXPECT().Close()
+		// No module.EXPECT().Execute(...): the mock fails the test if Subscribe()
+		// falls through to WASM instead of using the cache.
+		capreg := regmocks.NewCapabilitiesRegistry(t)
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+		trigger0, trigger1 := capmocks.NewTriggerCapability(t), capmocks.NewTriggerCapability(t)
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger0, nil).Once()
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_1").Return(trigger1, nil).Once()
+		tr0Ch, tr1Ch := make(chan capabilities.TriggerResponse), make(chan capabilities.TriggerResponse)
+		trigger0.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(tr0Ch, nil).Once()
+		trigger1.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(tr1Ch, nil).Once()
+		trigger0.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+		trigger1.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+		cfg := defaultTestConfig(t, nil)
+		cfg.Module = module
+		cfg.CapRegistry = capreg
+		cfg.CachedTriggerSubscriptions = cachedSubs
+		cfg.CachedTriggerSubscriptionsEnabled = true
+		initDoneCh := make(chan error, 1)
+		cfg.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) { initDoneCh <- err },
+		}
+
+		engine, err := v2.NewEngine(cfg)
+		require.NoError(t, err)
+		servicetest.Run(t, engine)
+		require.NoError(t, <-initDoneCh)
+
+		// count may include foreign increments from parallel engine tests
+		// sharing the swapped meter; just confirm a "cache" source was recorded
+		_, gotSources := collectCounterByAttr(t, reader, "platform_engine_trigger_subscription_source_total", "source")
+		require.Contains(t, gotSources, "cache")
+	})
+
+	t.Run("gate disabled: cache is ignored, falls back to WASM", func(t *testing.T) {
+		t.Parallel()
+
+		module := modulemocks.NewModuleV2(t)
+		module.EXPECT().Start()
+		module.EXPECT().Close()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
+		capreg := regmocks.NewCapabilitiesRegistry(t)
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+		trigger0, trigger1 := capmocks.NewTriggerCapability(t), capmocks.NewTriggerCapability(t)
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger0, nil).Once()
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_1").Return(trigger1, nil).Once()
+		tr0Ch, tr1Ch := make(chan capabilities.TriggerResponse), make(chan capabilities.TriggerResponse)
+		trigger0.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(tr0Ch, nil).Once()
+		trigger1.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(tr1Ch, nil).Once()
+		trigger0.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+		trigger1.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+		cfg := defaultTestConfig(t, nil) // CachedTriggerSubscriptionsEnabled defaults to false
+		cfg.Module = module
+		cfg.CapRegistry = capreg
+		cfg.CachedTriggerSubscriptions = cachedSubs // present, but must be ignored: CachedTriggerSubscriptionsEnabled defaults to false
+		initDoneCh := make(chan error, 1)
+		cfg.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) { initDoneCh <- err },
+		}
+
+		engine, err := v2.NewEngine(cfg)
+		require.NoError(t, err)
+		servicetest.Run(t, engine)
+		require.NoError(t, <-initDoneCh)
+	})
+
+	t.Run("gate enabled but subscription count exceeds the limit: init fails, WASM never executed", func(t *testing.T) {
+		t.Parallel()
+
+		module := modulemocks.NewModuleV2(t)
+		module.EXPECT().Start()
+		module.EXPECT().Close()
+		// No module.EXPECT().Execute(...): the mock fails the test if the limit
+		// check is bypassed and Subscribe() falls through to WASM.
+		capreg := regmocks.NewCapabilitiesRegistry(t)
+		capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+
+		cfg := defaultTestConfig(t, func(cfg *cresettings.Workflows) {
+			cfg.TriggerSubscriptionLimit.DefaultValue = 1
+		})
+		cfg.Module = module
+		cfg.CapRegistry = capreg
+		cfg.CachedTriggerSubscriptions = cachedSubs // len(cachedSubs) == 2, above the limit of 1
+		cfg.CachedTriggerSubscriptionsEnabled = true
+		initDoneCh := make(chan error, 1)
+		cfg.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) { initDoneCh <- err },
+		}
+
+		engine, err := v2.NewEngine(cfg)
+		require.NoError(t, err)
+		servicetest.Run(t, engine)
+		var errLimited limits.ErrorBoundLimited[int]
+		if assert.ErrorAs(t, <-initDoneCh, &errLimited) {
+			assert.Equal(t, 1, errLimited.Limit)
+			assert.Equal(t, 2, errLimited.Amount)
+		}
+	})
+}
+
 func newTriggerSubs(n int) *sdkpb.ExecutionResult {
 	subs := make([]*sdkpb.TriggerSubscription, 0, n)
 	for i := range n {
@@ -555,7 +732,7 @@ func TestEngine_OrganizationIdLogger(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -641,7 +818,7 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -751,7 +928,7 @@ func TestEngine_OrganizationIdPreservedAfterLocalNodeSync(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnNodeSynced: func(node capabilities.Node, err error) {
@@ -887,7 +1064,7 @@ func TestEngine_Execution(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -916,7 +1093,7 @@ func TestEngine_Execution(t *testing.T) {
 		require.NoError(t, <-initDoneCh) // successful trigger registration
 		require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 
-		require.Equal(t, v2.TriggerRegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
+		require.Equal(t, triggers.RegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
 		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
 		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
 		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
@@ -1004,7 +1181,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			// Verify the execution status is timeout
 			require.Equal(t, "timeout", status)
 			executionFinishedCh <- executionID
@@ -1095,7 +1272,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -1488,7 +1665,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			// Verify the execution status is errored due to capability timeout
 			require.Equal(t, "errored", status)
 			executionFinishedCh <- executionID
@@ -1616,7 +1793,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnResultReceived: func(er *sdkpb.ExecutionResult) {
@@ -1709,7 +1886,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnResultReceived: func(er *sdkpb.ExecutionResult) {
@@ -1902,7 +2079,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnResultReceived: func(er *sdkpb.ExecutionResult) {
@@ -1999,7 +2176,7 @@ func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -2090,7 +2267,7 @@ func TestEngine_DeduplicatesSameEventID(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -2203,7 +2380,11 @@ func TestEngine_HandleNewDON(t *testing.T) {
 		require.NoError(t, err)
 
 		module.EXPECT().Start().Once()
-		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+		trigger := capmocks.NewTriggerCapability(t)
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+		trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(make(chan capabilities.TriggerResponse), nil).Once()
+		trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 		require.NoError(t, engine.Start(t.Context()))
 
 		require.NoError(t, <-initDoneCh)
@@ -2227,7 +2408,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 		// module mocks
 		module := modulemocks.NewModuleV2(t)
 		module.EXPECT().Start().Once()
-		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
 		module.EXPECT().Close().Once()
 
 		// capabilities registry mocks
@@ -2236,6 +2417,10 @@ func TestEngine_HandleNewDON(t *testing.T) {
 			n.WorkflowDON.ConfigVersion = 1
 		})
 		capreg.EXPECT().LocalNode(matches.AnyContext).Return(initialNode, nil).Twice()
+		trigger := capmocks.NewTriggerCapability(t)
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+		trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(make(chan capabilities.TriggerResponse), nil).Once()
+		trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 
 		subscriberMock := capmocks.NewDonSubscriber(t)
 		subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(donCh, func() {}, nil)
@@ -2311,7 +2496,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 
 		module := modulemocks.NewModuleV2(t)
 		module.EXPECT().Start().Once()
-		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
 		module.EXPECT().Close().Once()
 
 		capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -2324,6 +2509,10 @@ func TestEngine_HandleNewDON(t *testing.T) {
 		capreg.EXPECT().LocalNode(matches.AnyContext).Return(initialNode, nil).Once()
 		capreg.EXPECT().LocalNode(matches.AnyContext).Return(capabilities.Node{}, assert.AnError).Once()
 		capreg.EXPECT().LocalNode(matches.AnyContext).Return(updatedNode, nil).Once()
+		trigger := capmocks.NewTriggerCapability(t)
+		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+		trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(make(chan capabilities.TriggerResponse), nil).Once()
+		trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 
 		subscriberMock := capmocks.NewDonSubscriber(t)
 		subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(donCh, func() {}, nil)
@@ -2500,8 +2689,8 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		Workflow: baseCfg.WorkflowID,
 	})
 
-	makeEvent := func(eventID string) v2.RoutedTriggerEvent {
-		return v2.RoutedTriggerEvent{
+	makeEvent := func(eventID string) triggers.CoordinatedEvent {
+		return triggers.CoordinatedEvent{
 			WorkflowID:   baseCfg.WorkflowID,
 			TriggerCapID: "id_0",
 			TriggerIndex: 0,
@@ -2514,51 +2703,9 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 			},
 		}
 	}
-
-	// newTestEngine creates a fresh engine + hooks for each subtest.
-	// setupModule is called to set module expectations BEFORE NewEngine.
-	// Optional cfgFn overrides are applied to the per-subtest config copy
-	// (e.g. sharding, billing) before the engine is constructed.
-	type engineWithChans struct {
-		engine              *v2.Engine
-		executionFinishedCh chan string // receives status
-		executionErrorCh    chan string // receives error message
-		resultReceivedCh    chan *sdkpb.ExecutionResult
-	}
-	newTestEngine := func(t *testing.T, setupModule func(module *modulemocks.ModuleV2), cfgFn ...func(*v2.EngineConfig)) engineWithChans {
-		t.Helper()
-		module := modulemocks.NewModuleV2(t)
-		setupModule(module)
-
-		executionFinishedCh := make(chan string, 1)
-		executionErrorCh := make(chan string, 1)
-		resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
-
-		testCfg := *baseCfg
-		testCfg.Module = module
-		testCfg.Hooks = v2.LifecycleHooks{
-			OnExecutionFinished: func(_ string, status string) {
-				executionFinishedCh <- status
-			},
-			OnExecutionError: func(msg string) {
-				executionErrorCh <- msg
-			},
-			OnResultReceived: func(res *sdkpb.ExecutionResult) {
-				resultReceivedCh <- res
-			},
-		}
-		for _, fn := range cfgFn {
-			fn(&testCfg)
-		}
-
-		engine, err := v2.NewEngine(&testCfg)
-		require.NoError(t, err)
-		return engineWithChans{engine, executionFinishedCh, executionErrorCh, resultReceivedCh}
-	}
-
 	t.Run("happy path completes with status completed", func(t *testing.T) {
 		t.Parallel()
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(&sdkpb.ExecutionResult{
 					Result: &sdkpb.ExecutionResult_Value{},
@@ -2570,18 +2717,14 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, "completed", <-ew.executionFinishedCh)
-		select {
-		case msg := <-ew.executionErrorCh:
-			t.Fatalf("unexpected OnExecutionError: %s", msg)
-		default:
-		}
+		require.Equal(t, int32(0), ew.errorCalls.Load(), "OnExecutionError should not fire on the happy path")
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 
 	t.Run("module execution error returns errored status", func(t *testing.T) {
 		t.Parallel()
 		execErr := errors.New("wasm panic: out of memory")
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(nil, execErr).
 				Once()
@@ -2594,17 +2737,13 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 
 		require.Equal(t, "errored", <-ew.executionFinishedCh)
 		require.Contains(t, <-ew.executionErrorCh, "out of memory")
-		select {
-		case res := <-ew.resultReceivedCh:
-			t.Fatalf("OnResultReceived should not fire on error, got: %v", res)
-		default:
-		}
+		require.Equal(t, int32(0), ew.resultCalls.Load(), "OnResultReceived should not fire on error")
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 
 	t.Run("module result error returns errored status", func(t *testing.T) {
 		t.Parallel()
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(&sdkpb.ExecutionResult{
 					Result: &sdkpb.ExecutionResult_Error{
@@ -2619,17 +2758,13 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 
 		require.Equal(t, "errored", <-ew.executionFinishedCh)
 		require.Contains(t, <-ew.executionErrorCh, "assertion failed")
-		select {
-		case res := <-ew.resultReceivedCh:
-			t.Fatalf("OnResultReceived should not fire on result error, got: %v", res)
-		default:
-		}
+		require.Equal(t, int32(0), ew.resultCalls.Load(), "OnResultReceived should not fire on result error")
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 
 	t.Run("duplicate event ID is rejected with ErrDuplicateExecution", func(t *testing.T) {
 		t.Parallel()
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			// Only ONE execution should reach Module.Execute.
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(&sdkpb.ExecutionResult{
@@ -2649,85 +2784,16 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		err = ew.engine.ExecuteTrigger(ctx, event)
 		require.ErrorIs(t, err, v2.ErrDuplicateExecution)
 
-		// No second execution should have fired.
-		select {
-		case status := <-ew.executionFinishedCh:
-			t.Fatalf("unexpected second execution with status: %s", status)
-		case <-time.After(200 * time.Millisecond):
-			// expected — no second execution
-		}
-		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
-	})
-
-	t.Run("shard denial not owner returns ErrShardDeniedNotOwner", func(t *testing.T) {
-		t.Parallel()
-		ack := &recordingAcknowledger{}
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
-			// No Module.Execute expectation: the execution must never reach WASM.
-		}, func(cfg *v2.EngineConfig) {
-			cfg.TriggerAcknowledger = ack
-			cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ v2.RoutedTriggerEvent) error {
-				return v2.ErrShardDeniedNotOwner
-			}
-		})
-
-		err := ew.engine.Put(ctx, makeEvent("shard_not_owner_event"))
-		require.ErrorIs(t, err, v2.ErrShardDeniedNotOwner)
-
-		// The engine ACKs the skipped event before returning.
-		registrationID := v2.TriggerRegistrationID(baseCfg.WorkflowID, 0)
-		require.Equal(t, []string{registrationID + "/shard_not_owner_event"}, ack.ackCalls())
-
-		// No execution lifecycle hooks should have fired.
-		select {
-		case status := <-ew.executionFinishedCh:
-			t.Fatalf("unexpected OnExecutionFinished: %s", status)
-		default:
-		}
-		select {
-		case msg := <-ew.executionErrorCh:
-			t.Fatalf("unexpected OnExecutionError: %s", msg)
-		default:
-		}
-		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
-	})
-
-	t.Run("shard resolver error returns ErrShardDeniedOrchestrator", func(t *testing.T) {
-		t.Parallel()
-		ack := &recordingAcknowledger{}
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
-			// No Module.execute expectation: the execution must never reach WASM.
-		}, func(cfg *v2.EngineConfig) {
-			cfg.TriggerAcknowledger = ack
-			cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ v2.RoutedTriggerEvent) error {
-				return v2.ErrShardDeniedOrchestrator
-			}
-		})
-
-		err := ew.engine.Put(ctx, makeEvent("shard_orchestrator_error_event"))
-		require.ErrorIs(t, err, v2.ErrShardDeniedOrchestrator)
-
-		// The engine ACKs the skipped event before returning.
-		registrationID := v2.TriggerRegistrationID(baseCfg.WorkflowID, 0)
-		require.Equal(t, []string{registrationID + "/shard_orchestrator_error_event"}, ack.ackCalls())
-
-		select {
-		case status := <-ew.executionFinishedCh:
-			t.Fatalf("unexpected OnExecutionFinished: %s", status)
-		default:
-		}
-		select {
-		case msg := <-ew.executionErrorCh:
-			t.Fatalf("unexpected OnExecutionError: %s", msg)
-		default:
-		}
+		// ExecuteTrigger is synchronous, so after it returns the hook counts are
+		// final: the duplicate must not have produced a second execution.
+		require.Equal(t, int32(1), ew.finishedCalls.Load(), "duplicate event must not run a second execution")
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 
 	t.Run("metering reserve failure returns ErrMeteringReserveFailed", func(t *testing.T) {
 		t.Parallel()
 		ack := &recordingAcknowledger{}
-		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			// No Module.Execute expectation: the execution must never reach WASM.
 		}, func(cfg *v2.EngineConfig) {
 			cfg.BillingClient = setupFailingReserveBillingClient(t)
@@ -2740,18 +2806,97 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		// No ACK is sent on metering reserve failure; the caller may retry.
 		require.Empty(t, ack.ackCalls())
 
-		select {
-		case status := <-ew.executionFinishedCh:
-			t.Fatalf("unexpected OnExecutionFinished: %s", status)
-		default:
-		}
-		select {
-		case msg := <-ew.executionErrorCh:
-			t.Fatalf("unexpected OnExecutionError: %s", msg)
-		default:
-		}
+		// The execution never started, so neither execution hook fired.
+		require.Equal(t, int32(0), ew.finishedCalls.Load(), "OnExecutionFinished should not fire when reserve fails")
+		require.Equal(t, int32(0), ew.errorCalls.Load(), "OnExecutionError should not fire when reserve fails")
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
+}
+
+// TestEngine_ShardDenial verifies that when the OnTriggerAdmission lifecycle hook
+// denies admission of a trigger, the engine correctly acknowledges and drops the trigger.
+func TestEngine_ShardDenial(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		wantErr error
+	}{
+		{name: "not owner", wantErr: v2.ErrShardDeniedNotOwner},
+		{name: "orchestrator error", wantErr: v2.ErrShardDeniedOrchestrator},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			capreg := regmocks.NewCapabilitiesRegistry(t)
+			capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+
+			trigger := capmocks.NewTriggerCapability(t)
+			capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+			eventCh := make(chan capabilities.TriggerResponse)
+			trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+			trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+			baseCfg := defaultTestConfig(t, nil)
+			baseCfg.CapRegistry = capreg
+
+			var admissionCalls atomic.Int32
+
+			ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+				module.EXPECT().Start()
+				module.EXPECT().Close()
+				module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+			}, func(cfg *v2.EngineConfig) {
+				cfg.Hooks.OnTriggerAdmission = func(_ context.Context, _ triggers.CoordinatedEvent) error {
+					admissionCalls.Add(1)
+					return tc.wantErr
+				}
+			})
+
+			registrationID := triggers.RegistrationID(baseCfg.WorkflowID, 0)
+			ackedCh := make(chan struct{}, 1)
+			event := capabilities.TriggerEvent{
+				TriggerType: "basic-trigger@1.0.0",
+				ID:          "shard_denial_event",
+			}
+			trigger.EXPECT().
+				AckEvent(matches.AnyContext, registrationID, event.ID, mock.Anything).
+				Run(func(context.Context, string, string, string) { close(ackedCh) }).
+				Return(nil).
+				Once()
+
+			require.NoError(t, ew.engine.Start(t.Context()))
+			require.NoError(t, <-ew.initializedCh)
+			require.Equal(t, []string{"id_0"}, <-ew.subscribedToTriggersCh)
+
+			// fire the trigger by writing to the channel returned by the mock
+			// trigger registration
+			eventCh <- capabilities.TriggerResponse{
+				Event: event,
+			}
+
+			select {
+			case <-ackedCh:
+			case <-time.After(5 * time.Second):
+				t.Fatal("expected the denied event to be ACKed")
+			}
+
+			// shutdown the engine after acknowledgement
+			require.NoError(t, ew.engine.Close())
+
+			// The admission hook is the wiring under test: it must have been
+			// consulted exactly once for the denied event.
+			require.Equal(t, int32(1), admissionCalls.Load())
+
+			// Assert that no other hooks were called and no active executions
+			// remain
+			require.Equal(t, int32(0), ew.finishedCalls.Load(), "OnExecutionFinished should not fire for a denied event")
+			require.Equal(t, int32(0), ew.errorCalls.Load(), "OnExecutionError should not fire for a denied event")
+			require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+		})
+	}
 }
 
 // setupMockBillingClient creates a mock billing client with default expectations.
@@ -2824,11 +2969,11 @@ type stubShardResolver struct {
 
 var _ shardownership.ShardResolver = (*stubShardResolver)(nil)
 
-func (s *stubShardResolver) ResolveShard(_ context.Context, _ string, _ string) (uint32, bool, error) {
+func (s *stubShardResolver) ResolveShard(_ context.Context, _, _ string) (uint32, bool, error) {
 	return s.shardID, s.found, s.err
 }
 
-func (s *stubShardResolver) ResolveShards(_ context.Context, _ []string, _ []string) (map[string]uint32, error) {
+func (s *stubShardResolver) ResolveShards(_ context.Context, _, _ []string) (map[string]uint32, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -2842,9 +2987,9 @@ type recordingAcknowledger struct {
 	calls []string
 }
 
-var _ v2.Acknowledger = (*recordingAcknowledger)(nil)
+var _ triggers.Acknowledger = (*recordingAcknowledger)(nil)
 
-func (a *recordingAcknowledger) Ack(_ context.Context, _ string, triggerRegistrationID, eventID string) error {
+func (a *recordingAcknowledger) Ack(_ context.Context, _, triggerRegistrationID, eventID string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.calls = append(a.calls, triggerRegistrationID+"/"+eventID)
@@ -2855,6 +3000,98 @@ func (a *recordingAcknowledger) ackCalls() []string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return append([]string(nil), a.calls...)
+}
+
+// testEngine wraps a WorkflowEngine with a default implementation of every
+// lifecycle hook, recording how many times each fired, alongside channels
+// carrying the payloads of the ones tests commonly need to wait on.
+type testEngine struct {
+	engine v2.WorkflowEngine
+
+	initializedCh              chan error
+	subscribedToTriggersCh     chan []string
+	executionFinishedCh        chan string // receives status
+	executionErrorCh           chan string // receives error message
+	resultReceivedCh           chan *sdkpb.ExecutionResult
+	triggerEventDroppedCalls   atomic.Int32
+	finishedCalls              atomic.Int32
+	errorCalls                 atomic.Int32
+	executionStatusUpdateCalls atomic.Int32
+	resultCalls                atomic.Int32
+	rateLimitedCalls           atomic.Int32
+	nodeSyncedCalls            atomic.Int32
+	triggerAdmissionCalls      atomic.Int32
+	requirementsSetCalls       atomic.Int32
+}
+
+func newTestEngine(
+	t *testing.T,
+	baseCfg *v2.EngineConfig,
+	newEngine func(*v2.EngineConfig) (v2.WorkflowEngine, error),
+	setupModule func(module *modulemocks.ModuleV2),
+	cfgFn ...func(*v2.EngineConfig),
+) *testEngine {
+	t.Helper()
+	module := modulemocks.NewModuleV2(t)
+	setupModule(module)
+
+	e := &testEngine{
+		initializedCh:          make(chan error, 1),
+		subscribedToTriggersCh: make(chan []string, 1),
+		executionFinishedCh:    make(chan string, 1),
+		executionErrorCh:       make(chan string, 1),
+		resultReceivedCh:       make(chan *sdkpb.ExecutionResult, 1),
+	}
+
+	testCfg := *baseCfg
+	testCfg.Module = module
+	testCfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			e.initializedCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			e.subscribedToTriggersCh <- triggerIDs
+		},
+		OnTriggerEventDropped: func(_, _, _ string) {
+			e.triggerEventDroppedCalls.Add(1)
+		},
+		OnExecutionFinished: func(_, status string) {
+			e.finishedCalls.Add(1)
+			e.executionFinishedCh <- status
+		},
+		OnExecutionError: func(msg string) {
+			e.errorCalls.Add(1)
+			e.executionErrorCh <- msg
+		},
+		OnExecutionStatusUpdate: func(_, _, _ string, _ int, _ string, _ workflowEvents.ErrorClassification) {
+			e.executionStatusUpdateCalls.Add(1)
+		},
+		OnResultReceived: func(res *sdkpb.ExecutionResult) {
+			e.resultCalls.Add(1)
+			e.resultReceivedCh <- res
+		},
+		OnRateLimited: func(_ string) {
+			e.rateLimitedCalls.Add(1)
+		},
+		OnNodeSynced: func(_ capabilities.Node, _ error) {
+			e.nodeSyncedCalls.Add(1)
+		},
+		OnTriggerAdmission: func(_ context.Context, _ triggers.CoordinatedEvent) error {
+			e.triggerAdmissionCalls.Add(1)
+			return nil
+		},
+		OnRequirementsSet: func(_ string, _ *sdkpb.Requirements) {
+			e.requirementsSetCalls.Add(1)
+		},
+	}
+	for _, fn := range cfgFn {
+		fn(&testCfg)
+	}
+
+	engine, err := newEngine(&testCfg)
+	require.NoError(t, err)
+	e.engine = engine
+	return e
 }
 
 type observedBaseMessage struct {
@@ -2931,7 +3168,7 @@ func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, w
 
 // eventMessagesMatchStatus returns observed BaseMessage texts and which expected
 // messages are still missing. Order does not matter.
-func eventMessagesMatchStatus(msgs []beholder.Message, expected []string) (observed []string, missing []string) {
+func eventMessagesMatchStatus(msgs []beholder.Message, expected []string) (observed, missing []string) {
 	want := make(map[string]struct{}, len(expected))
 	for _, e := range expected {
 		want[e] = struct{}{}
@@ -2983,7 +3220,7 @@ func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer,
 
 // userLogMatchStatus returns user log lines observed via beholder and which expected
 // substrings (matched in order) are still missing.
-func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (observed []string, missing []string) {
+func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (observed, missing []string) {
 	nextToFind := 0
 	for _, msg := range msgs {
 		if msg.Attrs["beholder_entity"] != "workflows.v1.UserLogs" {
@@ -3109,7 +3346,8 @@ func (c *MockCapabilityWrapper) Execute(ctx context.Context, request capabilitie
 
 func (c *MockCapabilityWrapper) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
 	return capabilities.NewCapabilityInfo(
-		c.ID(), capabilities.CapabilityTypeCombined, "Mock of capability %s"+c.ID())
+		c.ID(), capabilities.CapabilityTypeCombined, "Mock of capability %s"+c.ID(),
+	)
 }
 
 type TriggerCapabilityWrapper struct {
@@ -3119,7 +3357,7 @@ type TriggerCapabilityWrapper struct {
 
 var _ capabilities.TriggerCapability = &TriggerCapabilityWrapper{}
 
-func (c *TriggerCapabilityWrapper) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+func (c *TriggerCapabilityWrapper) AckEvent(ctx context.Context, triggerID, eventID, method string) error {
 	return nil
 }
 
@@ -3228,7 +3466,7 @@ func createTestEngineForDonVersionTest(
 	registry *capreg.Registry,
 	donNotifier coreCap.DonNotifyWaitSubscriber,
 	emitter custmsg.MessageEmitter,
-) (*v2.Engine, *v2.EngineConfig) {
+) (v2.WorkflowEngine, *v2.EngineConfig) {
 	lf := limits.Factory{Logger: lggr}
 
 	name, err := types.NewWorkflowName("test-don-update-workflow")
@@ -3236,6 +3474,7 @@ func createTestEngineForDonVersionTest(
 
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, lf)
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, sLimiter.Close()) })
 
 	// Use a mock WASM module (only mock we need!)
 	wasmModule := modulemocks.NewModuleV2(t)

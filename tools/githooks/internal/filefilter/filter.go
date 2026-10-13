@@ -115,6 +115,23 @@ var eligibleExactFilenames = map[string]bool{
 	"rakefile":      true,
 }
 
+// goldenExtensions are machine-generated golden/snapshot fixtures whose
+// content must mirror program output byte-for-byte. Rewriting their content
+// (e.g. stripping trailing whitespace the program actually emits) breaks the
+// corresponding tests, so content-mutating fixers must leave them alone.
+// End-of-file fixers may still enforce the single trailing newline convention.
+var goldenExtensions = map[string]bool{
+	".txtar": true,
+}
+
+// IsGoldenPath returns true for machine-generated golden fixture files whose
+// content must not be rewritten.
+func IsGoldenPath(relPath string) bool {
+	clean := filepath.ToSlash(filepath.Clean(relPath))
+	ext := strings.ToLower(filepath.Ext(clean))
+	return goldenExtensions[ext]
+}
+
 // IsBinary checks whether the byte slice contains a NUL byte within the first 8KB.
 func IsBinary(data []byte) bool {
 	checkLen := min(len(data), maxBinaryCheckBytes)

@@ -52,7 +52,7 @@ func Test_FeedsManagers(t *testing.T) {
 						Status:         feeds.JobProposalStatusApproved,
 					},
 				}, nil)
-				f.Mocks.feedsSvc.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{
+				f.Mocks.feedsSvc.On("ListManagers", mock.Anything).Return([]feeds.Manager{
 					{
 						ID:                 1,
 						Name:               "manager1",
@@ -119,7 +119,7 @@ func Test_FeedsManager(t *testing.T) {
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(&feeds.FeedsManager{
+				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(&feeds.Manager{
 					ID:                 mgrID,
 					Name:               "manager1",
 					URI:                "localhost:2000",
@@ -228,7 +228,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 					URI:       uri,
 					PublicKey: *pubKey,
 				}).Return(mgrID, nil)
-				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(&feeds.FeedsManager{
+				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(&feeds.Manager{
 					ID:                 mgrID,
 					Name:               name,
 					URI:                uri,
@@ -389,13 +389,13 @@ func Test_UpdateFeedsManager(t *testing.T) {
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, feeds.FeedsManager{
+				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, feeds.Manager{
 					ID:        mgrID,
 					Name:      name,
 					URI:       uri,
 					PublicKey: *pubKey,
 				}).Return(nil)
-				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(&feeds.FeedsManager{
+				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(&feeds.Manager{
 					ID:                 mgrID,
 					Name:               name,
 					URI:                uri,
@@ -425,7 +425,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, mock.IsType(feeds.FeedsManager{})).Return(nil)
+				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, mock.IsType(feeds.Manager{})).Return(nil)
 				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,
@@ -510,7 +510,7 @@ func Test_EnableFeedsManager(t *testing.T) {
 			before: func(ctx context.Context, f *gqlTestFramework) {
 				disabledAt := f.Timestamp()
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("EnableManager", mock.Anything, mgrID).Return(&feeds.FeedsManager{
+				f.Mocks.feedsSvc.On("EnableManager", mock.Anything, mgrID).Return(&feeds.Manager{
 					ID:                 mgrID,
 					Name:               name,
 					URI:                uri,
@@ -618,7 +618,7 @@ func Test_DisableFeedsManager(t *testing.T) {
 			before: func(ctx context.Context, f *gqlTestFramework) {
 				disabledAt := f.Timestamp()
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("DisableManager", mock.Anything, mgrID).Return(&feeds.FeedsManager{
+				f.Mocks.feedsSvc.On("DisableManager", mock.Anything, mgrID).Return(&feeds.Manager{
 					ID:                 mgrID,
 					Name:               name,
 					URI:                uri,

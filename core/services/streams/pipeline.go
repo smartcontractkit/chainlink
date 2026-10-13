@@ -74,7 +74,7 @@ func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 	vars := func() pipeline.Vars {
 		return pipeline.NewVarsFrom(map[string]any{
 			"pipelineSpec": map[string]any{
-				"id": jb.PipelineSpecID,
+				"id": spec.ID,
 			},
 			"jb": map[string]any{
 				"streamID":      jb.StreamID,
@@ -91,7 +91,8 @@ func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 		runner,
 		rrs,
 		streamIDs,
-		vars}, nil
+		vars,
+	}, nil
 }
 
 func validateStreamIDs(streamIDs []StreamID) error {
@@ -107,7 +108,6 @@ func validateStreamIDs(streamIDs []StreamID) error {
 
 func (s *multiStreamPipeline) Run(ctx context.Context) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error) {
 	run, trrs, err = s.executeRun(ctx)
-
 	if err != nil {
 		return nil, nil, fmt.Errorf("Run failed: %w", err)
 	}
@@ -115,7 +115,7 @@ func (s *multiStreamPipeline) Run(ctx context.Context) (run *pipeline.Run, trrs 
 		s.rrs.Save(run)
 	}
 
-	return
+	return run, trrs, err
 }
 
 func (s *multiStreamPipeline) StreamIDs() []StreamID {

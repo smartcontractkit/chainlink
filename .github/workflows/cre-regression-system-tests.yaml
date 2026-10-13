@@ -90,7 +90,8 @@ jobs:
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/regression/cre/*_test.go)
 
           per_test_configs='{
-            "Test_CRE_V2_Stellar_Regression": "configs/workflow-gateway-don-stellar.toml"
+            "Test_CRE_V2_Stellar_Regression": "configs/workflow-gateway-don-stellar.toml",
+            "Test_CRE_V2_Solana_Regression": "configs/workflow-don-solana.toml"
           }'
 
           tests=$(echo "$test_names" | jq -c -R -s \

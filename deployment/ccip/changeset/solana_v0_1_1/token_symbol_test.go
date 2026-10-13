@@ -52,7 +52,7 @@ func TestRecordTokenMultisig(t *testing.T) {
 	refs, err := ds.Addresses().Fetch()
 	require.NoError(t, err)
 	require.Len(t, refs, 1)
-	require.Equal(t, datastore.ContractType("TOKEN_MULTISIG"), refs[0].Type)
+	require.Equal(t, datastore.ContractType("TokenMultisig"), refs[0].Type)
 	require.Equal(t, deployment.Version1_6_0, *refs[0].Version)
 	require.Equal(t, "TEST_TOKEN", refs[0].Qualifier)
 	require.Equal(t, datastore.NewLabelSet(mint.String()), refs[0].Labels)

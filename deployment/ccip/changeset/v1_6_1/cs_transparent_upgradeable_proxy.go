@@ -228,7 +228,6 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 						config.PreMint,
 						chain.DeployerKey.From,
 					)
-
 					if err != nil {
 						errs = append(errs, fmt.Errorf("failed to pack initialize data: %w", err))
 					}
@@ -247,7 +246,6 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 					}
 				},
 			)
-
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy TransparentUpgradeableProxy for %s token on %s: %w", token, chain.Name(), err)
 			}

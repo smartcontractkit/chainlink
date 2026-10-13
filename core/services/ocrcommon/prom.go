@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	PromBridgeJsonParseValues = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	PromBridgeJSONParseValues = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "bridge_json_parse_values",
 		Help: "Values returned by json_parse for bridge task",
 	},
@@ -38,7 +38,7 @@ func promSetBridgeParseMetrics(ds *inMemoryDataSource, trrs *pipeline.TaskRunRes
 			if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 				fetchedValue := cast.ToFloat64(nextTask.Result.Value)
 
-				PromBridgeJsonParseValues.WithLabelValues(strconv.Itoa(int(ds.jb.ID)), ds.jb.Name.String, trr.Task.(*pipeline.BridgeTask).Name, trr.Task.DotID()).Set(fetchedValue)
+				PromBridgeJSONParseValues.WithLabelValues(strconv.Itoa(int(ds.jb.ID)), ds.jb.Name.String, trr.Task.(*pipeline.BridgeTask).Name, trr.Task.DotID()).Set(fetchedValue)
 			}
 		}
 	}

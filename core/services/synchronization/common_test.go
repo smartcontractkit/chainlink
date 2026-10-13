@@ -94,6 +94,12 @@ func TestTelemetryTypeToDomainAndEntity(t *testing.T) {
 			expectedEntity: "telem.LLOOutcomeTelemetry",
 		},
 		{
+			name:           "LLOAttributedObservation",
+			telemType:      LLOAttributedObservation,
+			expectedDomain: "data-streams.telemetry.llo-attributed-observation",
+			expectedEntity: "telem.LLOAttributedObservationTelemetry",
+		},
+		{
 			name:           "FunctionsRequests",
 			telemType:      FunctionsRequests,
 			expectedDomain: "functions.telemetry.functions-requests",

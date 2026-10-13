@@ -9,18 +9,18 @@ import (
 	"golang.org/x/oauth2"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 )
 
 // Returns an instantiated OIDCAuthenticator struct without validation for testing
 func NewTestOIDCAuthenticator(
 	ds sqlutil.DataSource,
-	oidcCfg config.OIDC,
+	oidcCfg coreconfig.OIDC,
 	lggr logger.Logger,
-	auditLogger audit.AuditLogger,
+	auditLogger audit.Logger,
 ) (*oidcAuthenticator, error) {
 	var provider *oidc.Provider
 	var oidcConfig *oidc.Config
@@ -51,7 +51,7 @@ func NewTestOIDCAuthenticator(
 		provider:     provider,
 		oidcConfig:   oidcConfig,
 		oauth2Config: oauth2Config,
-		lggr:         lggr.Named("OIDCAuthenticationProvider"),
+		lggr:         logger.Sugared(lggr).Named("OIDCAuthenticationProvider"),
 		auditLogger:  auditLogger,
 	}
 
@@ -81,9 +81,8 @@ const (
 	ReadClaim   = "NodeReadOnly"
 )
 
-// Implements config.OIDC
-type TestConfig struct {
-}
+// Implements coreconfig.OIDC
+type TestConfig struct{}
 
 func (t *TestConfig) ClientID() string {
 	return "abcd1234"

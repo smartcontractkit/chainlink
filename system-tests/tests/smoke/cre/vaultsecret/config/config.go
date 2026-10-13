@@ -1,63 +1,33 @@
 package config
 
+// Check is a single secret assertion evaluated by the workflow.
 type Check struct {
-	Name            string `yaml:"name,omitempty"`
-	SecretKey       string `yaml:"secretKey"`
-	SecretNamespace string `yaml:"secretNamespace"`
-	ExpectedValue   string `yaml:"expectedValue,omitempty"`
-	ExpectNotFound  bool   `yaml:"expectNotFound"`
+	Name            string `yaml:"name,omitempty" json:"name,omitempty"`
+	SecretKey       string `yaml:"secretKey" json:"secretKey"`
+	SecretNamespace string `yaml:"secretNamespace" json:"secretNamespace"`
+	ExpectedValue   string `yaml:"expectedValue,omitempty" json:"expectedValue,omitempty"`
+	ExpectNotFound  bool   `yaml:"expectNotFound" json:"expectNotFound"`
 }
 
 type Phase struct {
-	Name   string  `yaml:"name"`
-	Checks []Check `yaml:"checks"`
+	Name   string  `yaml:"name" json:"name"`
+	Checks []Check `yaml:"checks" json:"checks"`
 }
 
 type Config struct {
-	Phases []Phase `yaml:"phases"`
-	Checks []Check `yaml:"checks"`
-
-	// Legacy single-check fields kept for compatibility with any older callers.
-	SecretKey               string   `yaml:"secretKey,omitempty"`
-	SecretNamespace         string   `yaml:"secretNamespace,omitempty"`
-	SecretKey2              string   `yaml:"secretKey2"`
-	SecretNamespace2        string   `yaml:"secretNamespace2"`
-	ExpectedValue           string   `yaml:"expectedValue,omitempty"`
-	ExpectNotFound          bool     `yaml:"expectNotFound,omitempty"`
-	ExpectInvalidIdentifier bool     `yaml:"expectInvalidIdentifier"`
-	ExpectBatchTooBig       bool     `yaml:"expectBatchTooBig,omitempty"`
-	BatchSecretKeys         []string `yaml:"batchSecretKeys,omitempty"`
+	// AuthorizedKey is the EVM address allowed to sign HTTP trigger requests.
+	AuthorizedKey string `yaml:"authorizedKey" json:"authorizedKey"`
 }
 
-func (c Config) EffectiveChecks() []Check {
-	if len(c.Checks) > 0 {
-		return c.Checks
-	}
+type TriggerInput struct {
+	// Phases are evaluated in order; the first whose checks all pass logs completion.
+	Phases []Phase `json:"phases,omitempty"`
 
-	if c.SecretKey == "" && c.SecretNamespace == "" {
-		return nil
-	}
-
-	return []Check{{
-		SecretKey:       c.SecretKey,
-		SecretNamespace: c.SecretNamespace,
-		ExpectedValue:   c.ExpectedValue,
-		ExpectNotFound:  c.ExpectNotFound,
-	}}
-}
-
-func (c Config) EffectivePhases() []Phase {
-	if len(c.Phases) > 0 {
-		return c.Phases
-	}
-
-	checks := c.EffectiveChecks()
-	if len(checks) == 0 {
-		return nil
-	}
-
-	return []Phase{{
-		Name:   "default",
-		Checks: checks,
-	}}
+	ExpectInvalidIdentifier bool     `json:"expectInvalidIdentifier,omitempty"`
+	SecretKey               string   `json:"secretKey,omitempty"`
+	SecretNamespace         string   `json:"secretNamespace,omitempty"`
+	SecretKey2              string   `json:"secretKey2,omitempty"`
+	SecretNamespace2        string   `json:"secretNamespace2,omitempty"`
+	ExpectBatchTooBig       bool     `json:"expectBatchTooBig,omitempty"`
+	BatchSecretKeys         []string `json:"batchSecretKeys,omitempty"`
 }

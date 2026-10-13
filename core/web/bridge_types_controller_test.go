@@ -100,7 +100,8 @@ func TestValidateBridgeType(t *testing.T) {
 				URL:  cltest.WebURL(t, "https://denergy.eth"),
 			},
 			nil,
-		}}
+		},
+	}
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {

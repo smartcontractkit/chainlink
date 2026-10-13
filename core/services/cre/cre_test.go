@@ -54,7 +54,6 @@ func (w wfRegTestStub) Address() string                         { return w.addr 
 func (w wfRegTestStub) NetworkID() string                       { return "" }
 func (w wfRegTestStub) ChainID() string                         { return "" }
 func (w wfRegTestStub) ContractVersion() string                 { return "" }
-func (w wfRegTestStub) MaxEncryptedSecretsSize() utils.FileSize { return 0 }
 func (w wfRegTestStub) MaxBinarySize() utils.FileSize           { return 0 }
 func (w wfRegTestStub) MaxConfigSize() utils.FileSize           { return 0 }
 func (w wfRegTestStub) RelayID() commontypes.RelayID            { return commontypes.RelayID{} }
@@ -75,40 +74,13 @@ func testWorkflowRegistry(addr string, urls ...string) config.CapabilitiesWorkfl
 	return wfRegTestStub{addr: addr, additionalURLs: urls}
 }
 
-func TestWorkflowRegistrySemverMajor(t *testing.T) {
-	t.Parallel()
-
-	major, err := workflowRegistrySemverMajor("")
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), major)
-
-	major, err = workflowRegistrySemverMajor("   ")
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), major)
-
-	major, err = workflowRegistrySemverMajor("2.0.0")
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), major)
-
-	major, err = workflowRegistrySemverMajor("1.0.0")
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), major)
-
-	_, err = workflowRegistrySemverMajor("not-a-version")
-	require.Error(t, err)
-}
-
 func TestWorkflowRegistryConfigured(t *testing.T) {
 	t.Parallel()
 
-	require.False(t, workflowRegistryConfigured(testWorkflowRegistry(""), 1))
-	require.False(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "  "), 1))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xabc"), 1))
-
-	require.False(t, workflowRegistryConfigured(testWorkflowRegistry(""), 2))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xdef"), 2))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "https://example"), 2))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "grpc://x"), 2))
+	require.False(t, workflowRegistryConfigured(testWorkflowRegistry("")))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xabc")))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "https://example")))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "grpc://x")))
 }
 
 func TestWireRegistrySyncerV2(t *testing.T) {
@@ -118,20 +90,14 @@ func TestWireRegistrySyncerV2(t *testing.T) {
 	ocrConfigService := registrysyncerV2Mocks.NewRegistrySyncer(t)
 	ocrConfigListener := &registryListenerStub{name: "OCR config service"}
 	wfLauncher := &registryListenerStub{name: "workflow launcher"}
+	shardIndexMapper := &registryListenerStub{name: "shard index mapper"}
 
-	registrySyncer.EXPECT().AddListener(ocrConfigListener, wfLauncher)
+	registrySyncer.EXPECT().AddListener(ocrConfigListener, wfLauncher, shardIndexMapper)
 
-	services := wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigListener, wfLauncher)
+	services := wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigListener, wfLauncher, shardIndexMapper)
 	require.Len(t, services, 2)
 	require.Same(t, ocrConfigService, services[0])
 	require.Same(t, registrySyncer, services[1])
 
 	var _ registrysyncerV2.Listener = (*registryListenerStub)(nil)
-}
-
-func TestNewLocalTestMetadataRegistry(t *testing.T) {
-	t.Parallel()
-
-	registry := newLocalTestMetadataRegistry(nil)
-	require.Equal(t, uint8(0), registry.WorkflowDONF)
 }

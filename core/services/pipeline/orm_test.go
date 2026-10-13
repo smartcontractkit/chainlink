@@ -146,7 +146,7 @@ func mustInsertAsyncRun(t *testing.T, orm pipeline.ORM, jobORM job.ORM) *pipelin
 	require.NoError(t, err)
 
 	run := &pipeline.Run{
-		PipelineSpecID: jb.PipelineSpecID,
+		PipelineSpecID: jb.PipelineSpecID, //nolint:staticcheck // SA1019: legacy column scanned back by CreateJob; used to link the pipeline run
 		PruningKey:     jb.ID,
 		State:          pipeline.RunStatusRunning,
 		Outputs:        jsonserializable.JSONSerializable{},

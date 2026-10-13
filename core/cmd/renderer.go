@@ -73,11 +73,13 @@ func (rt RendererTable) Render(v any, headers ...string) error {
 func (rt RendererTable) renderLogPkgConfig(serviceLevelLog webpresenters.ServiceLogConfigResource) error {
 	table := rt.newTable([]string{"ID", "Service", "LogLevel"})
 	for i, svcName := range serviceLevelLog.ServiceName {
-		table.Append([]string{
+		if err := table.Append([]string{
 			serviceLevelLog.ID,
 			svcName,
 			serviceLevelLog.LogLevel[i],
-		})
+		}); err != nil {
+			return err
+		}
 	}
 
 	return render("ServiceLogConfig", table)
@@ -150,14 +152,16 @@ func renderList(fields []string, items [][]string, writer io.Writer) {
 
 func (rt RendererTable) renderExternalInitiatorAuthentication(eia webpresenters.ExternalInitiatorAuthentication) error {
 	table := rt.newTable([]string{"Name", "URL", "AccessKey", "Secret", "OutgoingToken", "OutgoingSecret"})
-	table.Append([]string{
+	if err := table.Append([]string{
 		eia.Name,
 		eia.URL.String(),
 		eia.AccessKey,
 		eia.Secret,
 		eia.OutgoingToken,
 		eia.OutgoingSecret,
-	})
+	}); err != nil {
+		return err
+	}
 	return render("External Initiator Credentials:", table)
 }
 
@@ -180,7 +184,9 @@ func (rt RendererTable) renderPipelineRun(run webpresenters.PipelineRunResource)
 		run.CreatedAt.String(),
 		finishedAt,
 	}
-	table.Append(row)
+	if err := table.Append(row); err != nil {
+		return err
+	}
 
 	return render("Pipeline Run", table)
 }

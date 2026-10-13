@@ -267,21 +267,6 @@ GlobalBurst = 200
 PerSenderRPS = 200.0
 PerSenderBurst = 200
 
-[Capabilities.Peering]
-IncomingMessageBufferSize = 13
-OutgoingMessageBufferSize = 17
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
-TraceLogging = true
-EnableExperimentalRageP2P = true
-
-[Capabilities.Peering.V2]
-Enabled = false
-AnnounceAddresses = ['a', 'b', 'c']
-DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
-DeltaDial = '1m0s'
-DeltaReconcile = '2s'
-ListenAddresses = ['foo', 'bar']
-
 [Capabilities.SharedPeering]
 Enabled = false
 Bootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
@@ -296,9 +281,7 @@ BytesRateLimiterRate = 5000000.0
 BytesRateLimiterCapacity = 10000000
 
 [Capabilities.Dispatcher]
-SupportedVersion = 1
 ReceiverBufferSize = 10000
-SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -318,7 +301,6 @@ NetworkID = 'evm'
 ChainID = '1'
 ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
-MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 MaxConcurrency = 12
@@ -350,6 +332,9 @@ AuthTimestampToleranceSec = 10
 ID = 'example_gateway'
 DonID = 'example_gateway_don'
 URL = 'wss://localhost:8081/node'
+
+[Capabilities.Local]
+UseOffchainRegistry = false
 
 [Telemetry]
 Enabled = true
@@ -413,6 +398,7 @@ PerOwner = 200
 UseLocalTimeProvider = true
 EnableDKGRecipient = false
 DebugMode = false
+CachedTriggerSubscriptionsEnabled = false
 
 [CRE.Streams]
 WsURL = 'streams.url'

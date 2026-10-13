@@ -24,7 +24,7 @@
 // # Store
 //
 // The Store is the persistence layer for the application. It saves the
-// the application state and most interaction with the node needs to occur
+// application state and most interaction with the node needs to occur
 // through the store.
 //
 // # Tx Manager

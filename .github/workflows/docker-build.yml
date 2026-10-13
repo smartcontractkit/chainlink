@@ -36,6 +36,7 @@ jobs:
       runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
       checked-out-sha: ${{ steps.checkout-sha.outputs.checked-out-sha }}
       version-tag: ${{ steps.version-info.outputs.version-tag }}
+      apt-cache-bust: ${{ steps.version-info.outputs.apt-cache-bust }}
       spot_flag: ${{ steps.spot.outputs.spot_flag }}
       spot_param: ${{ steps.spot.outputs.spot_param }}
     steps:
@@ -77,6 +78,8 @@ jobs:
           pkg_version=$(jq -r '.version' ./package.json)
           version_tag="${pkg_version}-dev"
           echo "version-tag=${version_tag}" | tee -a "$GITHUB_OUTPUT"
+          # Daily key so the final-stage apt layer (incl. `apt-get upgrade`) isn't served stale from cache.
+          echo "apt-cache-bust=$(date -u +%Y-%m-%d)" | tee -a "$GITHUB_OUTPUT"
 
   docker-core:
     needs: [init]
@@ -96,6 +99,7 @@ jobs:
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
+        APT_CACHE_BUST=${{ needs.init.outputs.apt-cache-bust }}
       docker-manifest-sign: true
       docker-cache-behaviour: "write-on-trunk"
       # go-build-cache only; see integration-tests.yml build-chainlink for rationale.
@@ -133,6 +137,7 @@ jobs:
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
+        APT_CACHE_BUST=${{ needs.init.outputs.apt-cache-bust }}
         CL_INSTALL_PRIVATE_PLUGINS=true
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
@@ -172,6 +177,7 @@ jobs:
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
+        APT_CACHE_BUST=${{ needs.init.outputs.apt-cache-bust }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_INSTALL_TESTING_PLUGINS=true
       docker-manifest-sign: true
@@ -212,6 +218,7 @@ jobs:
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
+        APT_CACHE_BUST=${{ needs.init.outputs.apt-cache-bust }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
@@ -252,6 +259,7 @@ jobs:
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
+        APT_CACHE_BUST=${{ needs.init.outputs.apt-cache-bust }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
       docker-manifest-sign: true

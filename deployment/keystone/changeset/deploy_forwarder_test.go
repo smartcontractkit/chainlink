@@ -97,7 +97,7 @@ func TestConfigureForwarders(t *testing.T) {
 				return nil, iterator.Error()
 			}
 		}
-		return
+		return result, err
 	}
 
 	requireConfigUpdate := func(t *testing.T, forwarder *forwarder.KeystoneForwarder, skippedConfigSet bool) {

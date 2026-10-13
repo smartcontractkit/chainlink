@@ -28,7 +28,7 @@ func (r PluginsResolver) Mercury() bool {
 	return r.plugins.Mercury
 }
 
-// Rebalancer returns the the status of the rebalancer plugin.
+// Rebalancer returns the status of the rebalancer plugin.
 func (r PluginsResolver) Rebalancer() bool {
 	return r.plugins.Rebalancer
 }

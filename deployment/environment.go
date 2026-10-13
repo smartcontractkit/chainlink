@@ -234,7 +234,8 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	// if nodeIDs starts with `p2p_` lookup by p2p_id instead
 	filterByPeerIDs := strings.HasPrefix(nodeIDs[0], "p2p_")
 	var filter *nodev1.ListNodesRequest_Filter
-	if filterByPeerIDs {
+	switch {
+	case filterByPeerIDs:
 		selector := strings.Join(nodeIDs, ",")
 		filter = &nodev1.ListNodesRequest_Filter{
 			Enabled: 1,
@@ -246,12 +247,12 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 				},
 			},
 		}
-	} else if strings.HasPrefix(nodeIDs[0], "node_") {
+	case strings.HasPrefix(nodeIDs[0], "node_"):
 		filter = &nodev1.ListNodesRequest_Filter{
 			Enabled: 1,
 			Ids:     nodeIDs,
 		}
-	} else {
+	default:
 		filter = &nodev1.ListNodesRequest_Filter{
 			Enabled:    1,
 			PublicKeys: nodeIDs,

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -49,7 +49,7 @@ type HTTPServerConfig struct {
 	WriteTimeoutMillis     uint32
 	RequestTimeoutMillis   uint32
 	MaxRequestBytes        int64
-	MaxRequestBytesLimiter limits.BoundLimiter[config.Size] // supersedes MaxRequestBytes, if set
+	MaxRequestBytesLimiter limits.BoundLimiter[commonconfig.Size] // supersedes MaxRequestBytes, if set
 	CORSEnabled            bool
 	CORSAllowedOrigins     []string
 }
@@ -57,7 +57,7 @@ type HTTPServerConfig struct {
 func (c *HTTPServerConfig) ensureLimiters(lf limits.Factory) (err error) {
 	if c.MaxRequestBytesLimiter == nil {
 		limit := cresettings.Default.GatewayIncomingPayloadSizeLimit
-		limit.DefaultValue = config.Size(c.MaxRequestBytes)
+		limit.DefaultValue = commonconfig.Size(c.MaxRequestBytes)
 		c.MaxRequestBytesLimiter, err = limits.MakeUpperBoundLimiter(lf, limit)
 	}
 	return err

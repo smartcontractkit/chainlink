@@ -21,7 +21,7 @@ func TestDecodeInput(t *testing.T) {
 			name: "success",
 			args: args{&JobDistributorInput{
 				Name:      "name",
-				Uri:       "uri",
+				URI:       "uri",
 				PublicKey: "publicKey",
 			}, &generated.CreateFeedsManagerInput{}},
 			wantErr:    false,
@@ -31,7 +31,7 @@ func TestDecodeInput(t *testing.T) {
 			name: "non-pointer",
 			args: args{&JobDistributorInput{
 				Name:      "name",
-				Uri:       "uri",
+				URI:       "uri",
 				PublicKey: "publicKey",
 			}, generated.CreateFeedsManagerInput{}},
 			wantErr:    true,
@@ -41,7 +41,7 @@ func TestDecodeInput(t *testing.T) {
 			name: "incorrect type",
 			args: args{&JobDistributorInput{
 				Name:      "name",
-				Uri:       "uri",
+				URI:       "uri",
 				PublicKey: "publicKey",
 			}, generated.CreateFeedsManagerChainConfigInput{}},
 			wantErr:    true,
@@ -51,7 +51,7 @@ func TestDecodeInput(t *testing.T) {
 			name: "success",
 			args: args{&JobDistributorInput{
 				Name:      "name",
-				Uri:       "uri",
+				URI:       "uri",
 				PublicKey: "publicKey",
 			}, &generated.UpdateFeedsManagerInput{}},
 			wantErr: false,

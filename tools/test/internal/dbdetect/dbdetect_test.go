@@ -86,6 +86,7 @@ func TestNeedsPostgres(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}
+	t.Parallel()
 
 	repoRoot := findRepoRoot(t)
 	t.Logf("repoRoot: %q", repoRoot)
@@ -172,6 +173,7 @@ func TestNeedsPostgres(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := NeedsPostgres(repoRoot, tt.args)
 			if tt.wantErr {
 				assert.Error(t, err)

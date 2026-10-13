@@ -69,6 +69,40 @@ These lines are **silent** when every node runs the same code, so a single occur
 - It flags **any** divergence from `develop` — including **intentional** report/payload changes. Those are genuine incompatibilities: if the change is deliberate and will be rolled out safely, bypass the check with the [`skip-mixed-env` label](#required-check--emergency-bypass) rather than "fixing" it.
 - It compares against the `develop` commit your PR is based on — not the very latest `develop`. So a change that only conflicts with `develop` commits landed **after** you branched is caught by the nightly full-matrix sweep (which pins the latest `develop`), not by the per-PR run. Keep your branch reasonably current for the tightest signal.
 
+## Skipping a single test
+
+Sometimes a test *legitimately* cannot pass under mixed-env because it deliberately
+exercises behavior that exists in the PR image but **not** the baseline image — most commonly
+a **brand-new `cresettings` flag** (added, and enabled via `ApplyCRESettings`, in the same PR)
+or a **newly added capability**. The 2 PR nodes act on it while the 2 baseline nodes cannot,
+so the DON diverges 2-vs-2 and the check fires — even though the PR is correct. (See the
+[CRE settings override caveat](./cresettings-override-README.md#mixed-env-caveat-a-new-flag-will-diverge-guard-the-test).)
+
+For that case, guard the individual test with the helper in the test-helpers package:
+
+```go
+func Test_CRE_MyNewThing(t *testing.T) {
+    t_helpers.SkipIfMixedEnv(t, "enables <NewFlag>, new in this PR; baseline nodes lack it "+
+        "and would diverge. Remove once <NewFlag> is in the release baseline.")
+    // ... rest of the test ...
+}
+```
+
+It skips **only** under mixed-env (it keys on `TOPOLOGY_NAME`); the test still runs in full
+under the normal single-image suite, and mixed-env covers it again automatically once the
+flag/behavior lands in the baseline image. Place the call at the top of the test/scenario,
+before any deploy/register/`ApplyCRESettings`, so the skipped test emits no divergent traffic.
+For one scenario inside a bucket suite, put it inside that scenario's `t.Run(...)` closure.
+
+> **⚠️ Do not reach for `SkipIfMixedEnv` unless you know precisely why *this* test must skip
+> mixed-env.** Every skip is a hole in a required cross-version gate. Use it **only** when a
+> 2-vs-2 split is unavoidable and expected (new-in-PR flag or capability) — **never** to
+> silence a real divergence a reviewer should see. If the divergence is an *intentional but
+> already-in-baseline* report/payload change affecting a whole run, prefer the
+> [`skip-mixed-env` label](#required-check--emergency-bypass) instead. To drop a test from
+> mixed-env entirely (not just skip at runtime), remove its name from `defaultCREMixedEnvTests`
+> in `tools/ci/internal/matrix/mixedenv.go`.
+
 ## When it runs
 
 - **CI:** automatically on CRE-affecting PRs, in its **own** workflow `.github/workflows/cre-mixed-env-tests.yaml` (kept separate from `cre-system-tests.yaml` so that file stays simple). It runs the OCR3/DON2DON-heavy tests — `Test_CRE_V2_Suite_Bucket_A`, `Test_CRE_V2_Suite_Bucket_B`, and the `Test_CRE_V2_EVM_Read_*` suite — under mixed-env. The PR image and the develop image are both already built (per-PR and nightly), so no extra image builds are added. A dedicated **Check for non-determinism** step scans the live node containers after the suite and fails the job on any marker — kept separate from the auto-quarantined test step so the failure can't be swallowed.

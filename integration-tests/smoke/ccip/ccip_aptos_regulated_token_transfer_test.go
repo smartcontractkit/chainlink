@@ -35,7 +35,7 @@ func Test_CCIP_RegulatedTokenTransfer_EVM2Aptos(t *testing.T) {
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 
 	// Deploy the dummy receiver contract
-	testhelpers.DeployAptosCCIPReceiver(t, e.Env)
+	testhelpers.DeployAptosCCIPReceiver(t, &e.Env)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ func Test_CCIP_RegulatedTokenTransfer_EVM2Aptos(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	evmToken, _, aptosToken, _, err := testhelpers.DeployRegulatedTransferableTokenAptos(t, lggr, e.Env, sourceChain, destChain, "Regulated Token", nil)
+	evmToken, _, aptosToken, _, err := testhelpers.DeployRegulatedTransferableTokenAptos(t, lggr, &e.Env, sourceChain, destChain, "Regulated Token", nil)
 	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
@@ -71,7 +71,7 @@ func Test_CCIP_RegulatedTokenTransfer_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -91,7 +91,7 @@ func Test_CCIP_RegulatedTokenTransfer_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -111,7 +111,7 @@ func Test_CCIP_RegulatedTokenTransfer_EVM2Aptos(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipChainState.ReceiverAddress[:],
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -172,14 +172,14 @@ func Test_CCIP_RegulatedTokenTransfer_Aptos2EVM(t *testing.T) {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	evmToken, _, aptosToken, _, err := testhelpers.DeployRegulatedTransferableTokenAptos(t, lggr, e.Env, destChain, sourceChain, "Regulated Token", &config.TokenMint{
+	evmToken, _, aptosToken, _, err := testhelpers.DeployRegulatedTransferableTokenAptos(t, lggr, &e.Env, destChain, sourceChain, "Regulated Token", &config.TokenMint{
 		To:     deployerSourceChain,
 		Amount: 10e8,
 	})
 	require.NoError(t, err)
 
 	// Fee Tokens
-	var NativeFeeToken = "0xa" // coin
+	NativeFeeToken := "0xa" // coin
 
 	// Invalid Fee Token
 	var aptosInvalidToken aptos.AccountAddress
@@ -190,7 +190,7 @@ func Test_CCIP_RegulatedTokenTransfer_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -211,7 +211,7 @@ func Test_CCIP_RegulatedTokenTransfer_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -232,7 +232,7 @@ func Test_CCIP_RegulatedTokenTransfer_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Data:           []byte("Hello, World!"),
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
@@ -254,7 +254,7 @@ func Test_CCIP_RegulatedTokenTransfer_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       deployerDestChain.From.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			Data:           []byte("Hello, World!"),
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
@@ -275,7 +275,7 @@ func Test_CCIP_RegulatedTokenTransfer_Aptos2EVM(t *testing.T) {
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipReceiverAddress.Bytes(),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 			AptosTokens: []testhelpers.AptosTokenAmount{
 				{
 					Token:  aptosToken,
@@ -324,7 +324,8 @@ func Test_CCIP_RegulatedTokenTransfer_Aptos2EVM(t *testing.T) {
 
 	aptosFeeQuoter := aptos_feequoter.NewFeeQuoter(
 		state.AptosChains[sourceChain].CCIPAddress,
-		e.Env.BlockChains.AptosChains()[sourceChain].Client)
+		e.Env.BlockChains.AptosChains()[sourceChain].Client,
+	)
 
 	aptosFeeQuoterDestChainConfig, err := aptosFeeQuoter.GetDestChainConfig(aptosCallOpts, destChain)
 	require.NoError(t, err, "Failed to get destination chain fee quoter config")
@@ -340,7 +341,8 @@ func Test_CCIP_RegulatedTokenTransfer_Aptos2EVM(t *testing.T) {
 					Token:  aptosToken,
 					Amount: 1e8,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -365,7 +367,8 @@ func Test_CCIP_RegulatedTokenTransfer_Aptos2EVM(t *testing.T) {
 					Token:  aptosToken,
 					Amount: 0,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -390,7 +393,8 @@ func Test_CCIP_RegulatedTokenTransfer_Aptos2EVM(t *testing.T) {
 					Token:  aptosInvalidToken,
 					Amount: 1e8,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),

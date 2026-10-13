@@ -68,6 +68,9 @@ linters:
               desc: Use the standard library instead
     exhaustive:
       default-signifies-exhaustive: true
+    modernize:
+      disable:
+        - embedlit
     gosec:
       excludes:
         - G101
@@ -174,6 +177,9 @@ linters:
       - linters:
           - staticcheck
         text: "SA1019: (.*).ExistingAddresses is deprecated: AddressBook is deprecated"
+      - linters:
+          - staticcheck
+        text: "SA1019: (.*).AddressBook is deprecated"
       - linters:
           - revive
         text: "^var-naming: don't use an underscore in package name"

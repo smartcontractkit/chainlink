@@ -76,6 +76,24 @@ func TestIsEligible(t *testing.T) {
 	}
 }
 
+func TestIsGoldenPath(t *testing.T) {
+	t.Parallel()
+
+	t.Run("txtar golden fixture is golden", func(t *testing.T) {
+		t.Parallel()
+		// Still eligible for end-of-file fixing; only content-mutating
+		// fixers must skip it.
+		assert.True(t, filefilter.IsEligiblePath("testdata/scripts/node/validate/invalid.txtar"))
+		assert.True(t, filefilter.IsGoldenPath("testdata/scripts/node/validate/invalid.txtar"))
+	})
+
+	t.Run("regular text file is not golden", func(t *testing.T) {
+		t.Parallel()
+		assert.False(t, filefilter.IsGoldenPath("docs/CONFIG.md"))
+		assert.False(t, filefilter.IsGoldenPath("config.yaml"))
+	})
+}
+
 func TestIsEligibleFile(t *testing.T) {
 	t.Parallel()
 

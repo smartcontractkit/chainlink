@@ -3,11 +3,11 @@ package webapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pelletier/go-toml"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -436,7 +436,7 @@ func TestOutgoingConnectorHandler_HandleGatewayMessage_InvalidMessage(t *testing
 	)
 	invalidMsg := api.Message{
 		Body: api.MessageBody{
-			// MessageId is empty, which should fail Validate()
+			// MessageID is empty, which should fail Validate()
 			Method: "some-method",
 		},
 	}

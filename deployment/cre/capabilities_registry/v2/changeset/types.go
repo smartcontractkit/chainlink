@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -179,4 +180,35 @@ func (don CapabilitiesRegistryNewDONParams) applyModifiersToCapabilityConfigs(e 
 	}
 
 	return capabilityConfigurations, nil
+}
+
+// getExistingDONsForPreconditionCheck reads the current on-chain DONs for the capabilities
+// registry identified by chainSel/qualifier, so preconditions can check a proposed capability
+// assignment against what other DONs already have configured.
+func getExistingDONsForPreconditionCheck(
+	e cldf.Environment, chainSel uint64, qualifier string,
+) ([]capabilities_registry_v2.CapabilitiesRegistryDONInfo, error) {
+	chain, ok := e.BlockChains.EVMChains()[chainSel]
+	if !ok {
+		return nil, fmt.Errorf("chain not found for selector %d", chainSel)
+	}
+
+	registryAddressRef, err := e.DataStore.Addresses().Get(pkg.GetCapRegV2AddressRefKey(chainSel, qualifier))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registry address: %w", err)
+	}
+
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		common.HexToAddress(registryAddressRef.Address), chain.Client,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
+	}
+
+	existingDONs, err := pkg.GetDONs(&bind.CallOpts{}, capReg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get existing DONs: %w", err)
+	}
+
+	return existingDONs, nil
 }

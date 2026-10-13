@@ -224,12 +224,12 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 	case job.OffchainReporting:
 		jb, err = ocr.ValidatedOracleSpecToml(config, jc.App.GetRelayers().LegacyEVMChains(), tomlString) //nolint:staticcheck // LegacyEVMChains is deprecated but refactoring to new relayer interface requires larger architectural changes
 		if !config.OCR().Enabled() {
-			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
+			return jb, http.StatusNotImplemented, errors.New("the Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
 		jb, err = validate.ValidatedOracleSpecToml(ctx, config.OCR2(), config.Insecure(), tomlString, jc.App.GetLoopRegistrarConfig())
 		if !config.OCR2().Enabled() {
-			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
+			return jb, http.StatusNotImplemented, errors.New("the Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
 		return jb, http.StatusUnprocessableEntity, errors.New("job type directrequest has been removed and is no longer supported")

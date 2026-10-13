@@ -142,7 +142,7 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 		sequences.ConfigureCapabilitiesRegistryInput{
 			RegistryChainSel: config.ChainSelector,
 			MCMSConfig:       config.MCMSConfig,
-			ContractAddress:  contractAddr,
+			ContractAddress:  contractAddr, //nolint:staticcheck // ContractAddress is deprecated in favor of RegistryRef
 			RegistryRef:      registryRef,
 			Nops:             nops,
 			Capabilities:     capabilities,

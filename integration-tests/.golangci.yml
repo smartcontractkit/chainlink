@@ -63,6 +63,9 @@ linters:
               desc: Use github.com/smartcontractkit/chainlink-evm instead
     exhaustive:
       default-signifies-exhaustive: true
+    modernize:
+      disable:
+        - embedlit
     gosec:
       excludes:
         - G101

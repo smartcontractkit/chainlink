@@ -12,8 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // DefaultMissingChainsReportInterval is the time between two reports of the same missing chain.
@@ -45,7 +45,7 @@ func newMissingChainsMetrics() (*missingChainsMetrics, error) {
 // job.
 type MissingChainsMonitor struct {
 	services.StateMachine
-	lggr     logger.Logger
+	lggr     logger.SugaredLogger
 	name     string
 	metrics  *missingChainsMetrics
 	missing  []protocol.ChainSelector
@@ -74,7 +74,7 @@ func NewMissingChainsMonitor(
 		return nil, err
 	}
 	return &MissingChainsMonitor{
-		lggr:     lggr.Named("MissingChainsMonitor"),
+		lggr:     logger.Sugared(lggr).Named("MissingChainsMonitor"),
 		name:     name,
 		metrics:  m,
 		missing:  missing,

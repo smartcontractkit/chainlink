@@ -47,6 +47,13 @@ type WorkflowSpecsDS interface {
 
 	// DeleteWorkflowSpecs deletes workflow specs for the given workflow IDs in a single query.
 	DeleteWorkflowSpecs(ctx context.Context, ids []string) error
+
+	// SaveTriggerSubscriptions persists the marshaled trigger subscription
+	// payload for id, so future engine starts can skip re-executing the WASM
+	// binary's Subscribe() call. A missing row is a no-op, not an error: the
+	// spec may have been deleted/paused concurrently with this best-effort
+	// cache write.
+	SaveTriggerSubscriptions(ctx context.Context, id string, payload []byte) error
 }
 
 type ORM interface {
@@ -209,5 +216,11 @@ func (orm *orm) DeleteWorkflowSpecs(ctx context.Context, ids []string) error {
 
 	query := `DELETE FROM workflow_specs_v2 WHERE workflow_id = ANY($1)`
 	_, err := orm.ds.ExecContext(ctx, query, pq.Array(ids))
+	return err
+}
+
+func (orm *orm) SaveTriggerSubscriptions(ctx context.Context, id string, payload []byte) error {
+	query := `UPDATE workflow_specs_v2 SET trigger_subscriptions = $2 WHERE workflow_id = $1`
+	_, err := orm.ds.ExecContext(ctx, query, id, payload)
 	return err
 }
