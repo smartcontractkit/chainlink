@@ -49,7 +49,7 @@
   don_types = ["workflow", "shard"]
   shard_index = 0
   override_mode = "each"
-  http_port_range_start = 14100
+  http_port_range_start = 14700
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true","PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true","PerWorkflow":{"ConfidentialWorkflows":{"Enabled":"true"}}}' }
@@ -59,7 +59,7 @@
 
   [nodesets.db]
     image = "postgres:15.0"
-    port = 17010
+    port = 19700
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -67,7 +67,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["62051:50051", "23876:9876"]
+      custom_ports = ["62051:50051", "24876:9876"]
       user_config_overrides = """
       [P2P]
       EnableExperimentalRageP2P = true
@@ -89,7 +89,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["23877:9876"]
+      custom_ports = ["24877:9876"]
       user_config_overrides = """
       [P2P]
       EnableExperimentalRageP2P = true
@@ -111,7 +111,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["23878:9876"]
+      custom_ports = ["24878:9876"]
       user_config_overrides = """
       [P2P]
       EnableExperimentalRageP2P = true
@@ -133,7 +133,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["23879:9876"]
+      custom_ports = ["24879:9876"]
       user_config_overrides = """
       [P2P]
       EnableExperimentalRageP2P = true
@@ -156,7 +156,7 @@
   don_types = ["workflow", "shard"]
   shard_index = 1
   override_mode = "all"
-  http_port_range_start = 14400
+  http_port_range_start = 14800
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true","PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true","PerWorkflow":{"ConfidentialWorkflows":{"Enabled":"true"}}}' }
@@ -166,7 +166,7 @@
 
   [nodesets.db]
     image = "postgres:15.0"
-    port = 17400
+    port = 19800
 
 [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -196,7 +196,7 @@
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
   override_mode = "all"
-  http_port_range_start = 14600
+  http_port_range_start = 14900
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true"}' }
@@ -204,7 +204,7 @@
 
   [nodesets.db]
     image = "postgres:15.0"
-    port = 17600
+    port = 19900
 
 [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -219,14 +219,14 @@
   name = "bootstrap-gateway"
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
-  http_port_range_start = 14300
+  http_port_range_start = 14750
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
 
   [nodesets.db]
     image = "postgres:15.0"
-    port = 17200
+    port = 19750
 
   [[nodesets.node_specs]]
     roles = ["bootstrap", "gateway"]
