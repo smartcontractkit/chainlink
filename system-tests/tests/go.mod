@@ -80,7 +80,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260916222901-720a003dab50
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261007174852-7fabc093ff84
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d
-	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261005132539-b7d63d5fd549
+	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261013152246-8ce51b3803fe
 	github.com/smartcontractkit/chainlink-confidential-compute v1.3.0
 	github.com/smartcontractkit/chainlink-confidential-compute/tests/testhelpers v0.0.0-20260812145307-d77342c53d7d
 	github.com/smartcontractkit/chainlink-deployments-framework v0.123.3
