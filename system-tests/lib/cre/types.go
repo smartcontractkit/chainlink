@@ -444,8 +444,7 @@ type GenerateConfigsInput struct {
 	Blockchains               map[uint64]blockchains.Blockchain
 	RegistryChainSelector     uint64
 	Flags                     []string
-	CapabilitiesPeeringData   CapabilitiesPeeringData
-	OCRPeeringData            OCRPeeringData
+	PeeringData               PeeringData
 	ContractVersions          map[ContractType]*semver.Version
 	Topology                  *Topology
 	Provider                  infra.Provider
@@ -466,11 +465,8 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(g.Flags) == 0 {
 		return errors.New("flags not set")
 	}
-	if g.CapabilitiesPeeringData == (CapabilitiesPeeringData{}) {
+	if g.PeeringData == (PeeringData{}) {
 		return errors.New("peering data not set")
-	}
-	if g.OCRPeeringData == (OCRPeeringData{}) {
-		return errors.New("ocr peering data not set")
 	}
 	_, dsErr := g.Datastore.Addresses().Fetch()
 	if dsErr != nil {
@@ -1431,16 +1427,10 @@ func (c *NodeSet) EVMChains() []uint64 {
 	return c.chainCapabilityIDs()
 }
 
-type CapabilitiesPeeringData struct {
-	GlobalBootstrapperPeerID string `toml:"global_bootstraper_peer_id" json:"global_bootstraper_peer_id"` // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	GlobalBootstrapperHost   string `toml:"global_bootstraper_host" json:"global_bootstraper_host"`       // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	Port                     int    `toml:"port" json:"port"`
-}
-
-type OCRPeeringData struct {
-	OCRBootstrapperPeerID string `toml:"ocr_bootstraper_peer_id" json:"ocr_bootstraper_peer_id"` // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	OCRBootstrapperHost   string `toml:"ocr_bootstraper_host" json:"ocr_bootstraper_host"`       // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	Port                  int    `toml:"port" json:"port"`
+type PeeringData struct {
+	BootstrapperPeerID string `toml:"bootstrapper_peer_id" json:"bootstrapper_peer_id"`
+	BootstrapperHost   string `toml:"bootstrapper_host" json:"bootstrapper_host"`
+	Port               int    `toml:"port" json:"port"`
 }
 
 func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
