@@ -735,8 +735,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		opts.DS, jobORM,
 		opts.CapabilitiesRegistry,
 		loopRegistrarConfig,
-		telemetryManager,
-		pipelineRunner,
 		relayChainInterops,
 		creServices.GatewayConnectorWrapper,
 		keyStore,
