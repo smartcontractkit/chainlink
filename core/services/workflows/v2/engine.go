@@ -401,8 +401,8 @@ func (e *engine) handleAllTriggerEvents(ctx context.Context) {
 			defer free()
 
 			if err := e.ExecuteTrigger(ctx, queueHead); err != nil {
-				// Dedup is an expected outcome (the event is handled, just not executed here), so it's logged at info rather than error level.
-				if errors.Is(err, ErrDuplicateExecution) {
+				// Dedup, a concurrent Close and a concurrent Drain are expected outcomes (the event is handled elsewhere or the engine is going away), so they're logged at info rather than error level.
+				if errors.Is(err, ErrDuplicateExecution) || errors.Is(err, ErrEngineClosed) || errors.Is(err, ErrEngineDraining) {
 					e.base.logger().Infow("Skipping trigger event execution", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
 				} else {
 					e.base.logger().Errorw("Failed to execute trigger event", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
