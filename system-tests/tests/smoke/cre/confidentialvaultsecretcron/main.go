@@ -1,16 +1,8 @@
 //go:build wasip1
 
-// Package main is the confidential counterpart of vaultsecretcron: the cron
-// trigger's handler runs inside a TEE (cre.HandlerInTee) instead of on the DON,
-// so the secret it reads is fetched by the enclave through the confidential
-// relay rather than the workflow-DON -> vault-DON remote hop.
-//
-// An empty secret_key skips the secret leg, so one binary serves both phases of
-// the sharded confidential tests: the phase whose executing shard hosts the
-// confidential relay proves the enclave -> relay -> shared vault fetch returned
-// the exact expected value, while the phase that moved to the other shard
-// proves execution alone (see shard_confidential_workflows_test.go for why the
-// secret leg cannot follow the swap).
+// Confidential counterpart of vaultsecretcron: the cron trigger's handler runs
+// in a TEE, so the secret it reads is fetched by the enclave through the
+// confidential relay. An empty secret_key skips the secret leg.
 package main
 
 import (

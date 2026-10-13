@@ -83,26 +83,8 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		//    addresses have to be known before the enclaves start, because they are
 		//    baked into the settings the enclave receives at startup. The gateway
 		//    URL is not known until the CRE environment is up, hence the proxy.
-		gwProxy := newDeferredGatewayProxy(t, confidentialGatewayProxyPort)
 		enclaveHost := confidentialEnclaveHostAddr(fake)
-		storageAddr, storageSvc := startFakeStorageService(t, enclaveHost)
-		// Both env vars below configure the enclave *host servers*, not this repo:
-		// the harness launches them with this process's environment inherited
-		// (testhelpers.MustSetupEnclaveWithEnv appends to os.Environ())
-		// REQUIRE_BFT_QUORUM makes each host demand a 2f+1 BFT supermajority of node
-		// signatures instead of f+1 (enclave/nitro/host), matching the relay's
-		// requireBFTQuorum = true in the topology TOML.
-		t.Setenv("REQUIRE_BFT_QUORUM", "true")
-		// The vsock outbound proxy blocks loopback and local interface IPs by
-		// default; the fake storage service and artifact server are host-local, so
-		// opt the test host servers into allowing local destinations.
-		t.Setenv("OUTBOUND_ALLOW_LOCAL_FOR_TESTS", "true")
-		t.Setenv("ENCLAVE_SETTINGS", fmt.Sprintf(
-			`{"storageKey":%q,"storageServiceUrl":%q,"storageServiceTls":false,"gatewayUrl":%q}`,
-			confidentialStorageKeyHex,
-			storageAddr,
-			fmt.Sprintf("http://%s:%d", enclaveHost, confidentialGatewayProxyPort),
-		))
+		hostServices := startConfidentialHostServices(t, enclaveHost)
 
 		// 2. Start the enclaves. This is the whole point of depending on
 		//    chainlink-confidential-compute's harness from this repository.
@@ -127,9 +109,7 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		publishEnclaves(t, testEnv, testLogger, testEnv.Dons.MustWorkflowDON().Name, enclaves.Enclaves)
 
 		// 5. Point the proxy at the real gateway now that it exists.
-		gatewayURL := confidentialGatewayURL(t, testEnv)
-		require.NoError(t, gwProxy.SetTarget(gatewayURL), "failed to set gateway proxy target")
-		testLogger.Info().Str("gatewayURL", gatewayURL).Msg("Gateway proxy target set")
+		gatewayURL := hostServices.targetGateway(t, testEnv)
 
 		// 6. The vault DON only serves its public key once DKG has produced a
 		//    result package on every worker. Fetching before then times out, and
@@ -164,7 +144,7 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		// different host than Docker does, so swap only the host portion.
 		parsed, pErr := url.Parse(artifacts.BinaryURL)
 		require.NoError(t, pErr, "parsing workflow binary URL")
-		storageSvc.setArtifactURL(artifacts.BinaryFilename, fmt.Sprintf("http://%s:%s%s", enclaveHost, parsed.Port(), parsed.Path))
+		hostServices.storageSvc.setArtifactURL(artifacts.BinaryFilename, fmt.Sprintf("http://%s:%s%s", enclaveHost, parsed.Port(), parsed.Path))
 
 		// 8. The syncer reads the binary and config from disk (see the topology's
 		//    CRE.WorkflowFetcher override), so copy them into the containers.
@@ -223,9 +203,6 @@ func confidentialGatewayURL(t *testing.T, testEnv *ttypes.TestEnvironment) strin
 
 // publishEnclaves writes the enclave list into the named DON's on-chain
 // capability config and waits for the capability to pick it up.
-//
-// The capability config is per DON, so a sharded topology publishes each
-// shard's enclave group in that shard DON's own config.
 //
 // The capability refreshes from the registry on a ticker
 // (DefaultEnclaveRefreshIntervalSeconds, 10s), so this waits two intervals
@@ -379,11 +356,11 @@ func registerConfidentialWorkflow(
 	return workflowID
 }
 
-// waitForConfidentialWorkflowExecution waits for the engine of the given workflow
-// DONs (all workflow DONs when none are named) to log a successful execution for
-// this workflow. The engine emits that line once per successful trigger execution,
-// not for the Subscribe-phase call at engine startup, so finding it means the cron
-// trigger fired and the whole enclave path succeeded on that DON.
+// waitForConfidentialWorkflowExecution waits for the engine to log a successful
+// execution for this workflow on the named DONs (all workflow DONs when none are
+// named). The engine emits that line once per successful trigger execution, not
+// for the Subscribe-phase call at engine startup, so finding it means the cron
+// trigger fired and the whole enclave path succeeded.
 func waitForConfidentialWorkflowExecution(
 	t *testing.T,
 	testEnv *ttypes.TestEnvironment,
@@ -474,7 +451,7 @@ func truncateForLog(line []byte, maxLen int) string {
 
 // confidentialWorkflowDONContainers returns the chainlink container names for
 // every nodeset whose DON carries the workflow DON flag, filtered to the named
-// DONs when any are given (all workflow DONs otherwise).
+// DONs when any are given.
 func confidentialWorkflowDONContainers(testEnv *ttypes.TestEnvironment, donNames ...string) []string {
 	workflowDONNames := map[string]bool{}
 	for _, don := range testEnv.Dons.List() {

@@ -1,50 +1,17 @@
-# Static shard assignment (manual-only) with a single shared vault DON and
-# confidential workflows engine integration.
-#
-# Same shape as workflow-gateway-sharded-shared-vault-manual.toml, plus the
-# confidential deltas from workflow-gateway-capabilities-don-confidential-workflows.toml:
-#   - both workflow shards host "confidential-workflows" (routes engine execution
-#     into the enclaves) and "confidential-relay" (the gateway handler the
-#     enclaves call back through for secrets)
-#   - PerWorkflow.ConfidentialWorkflows is enabled so the engine honours a
-#     workflow registered with {"confidential":true} attributes
-#   - the shards expose remote capabilities and enable the DKG recipient so the
-#     pre-enclave secret fetch can reach the vault DON
-#   - the syncer reads workflow binaries from disk ([CRE.WorkflowFetcher]); the
-#     test copies them into the containers
-#
-# Enclaves are per shard: the test starts one enclave group per shard and
-# publishes each group's address in that shard DON's own on-chain
-# confidential-workflows capability config, so whichever shard the assignment
-# routes a confidential workflow to executes it through enclaves whose signer
-# set is that shard's DON. The gateway's confidential relay handler serves the
-# first shard declared here (workflow-1-zone-a), so the enclave -> relay ->
-# shared vault secrets leg is exercised on shard-0 executions.
-#
-# Family layout (see don_families):
-#   workflow-1-zone-a         : don_families=["zone-a_workflows", "zone-a_shard-0"]   (shard 0; no vault capability)
-#   workflow-1-zone-a-shard-1 : don_families=["zone-a_workflows", "zone-a_shard-1"]   (shard 1; no vault capability)
-#   chain-capabilities-zone-a : don_families=["zone-a_shard-0", "zone-a_shard-1"]   (hosts vault; reachable by all shards)
-#   bootstrap-gateway         : no don_families (gateways are reached over public URLs, not by don-family routing)
-#
-# ShardingFailoverEnabled is deliberately NOT set here: in this topology
-# only the assigned shard syncs and runs each workflow.
+# workflow-gateway-sharded-shared-vault-manual.toml plus the confidential deltas from
+# workflow-gateway-capabilities-don-confidential-workflows.toml.
 
-# Fake enclaves emit a sentinel attestation document rather than real PCRs, so
-# attestation validation is relaxed. INSECURE; for tests only.
+# INSECURE: relaxes TEE attestation validation; for tests only.
 [capability_configs.confidential-relay]
   [capability_configs.confidential-relay.values]
     trustEnclaves = true
     requireBFTQuorum = true
 
-# The "enclaves" value is a JSON array of enclaves the capability routes to.
-# The test starts one enclave group per shard and publishes each group in its
-# own shard DON's capability config; absent that, a shard registers an empty
-# list.
 [capability_configs.confidential-workflows]
   binary_name = "confidential-workflows"
   [capability_configs.confidential-workflows.values]
     version = "1.0.0-alpha"
+
 
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
@@ -75,7 +42,6 @@
 [infra]
   type = "docker"
 
-# --- Workflow shard 0 --------------------------------------------------------
 [[nodesets]]
   nodes = 4
   name = "workflow-1-zone-a"
@@ -83,7 +49,7 @@
   don_types = ["workflow", "shard"]
   shard_index = 0
   override_mode = "each"
-  http_port_range_start = 12700
+  http_port_range_start = 12100
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true","PerWorkflow":{"ConfidentialWorkflows":{"Enabled":"true"}}}' }
@@ -93,7 +59,7 @@
 
   [nodesets.db]
     image = "postgres:15.0"
-    port = 18700
+    port = 16010
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -101,30 +67,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["13876:9876"]
-      user_config_overrides = """
-      [P2P]
-      EnableExperimentalRageP2P = true
-
-      [CRE]
-      EnableDKGRecipient = true
-
-      [Sharding]
-      ShardAssignmentMode = "manual-only"
-
-      # The test copies the workflow binary and config into the containers, so the
-      # syncer reads them from disk rather than fetching them remotely.
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-      """
-
-  [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["13877:9876"]
+      custom_ports = ["12876:9876"]
       user_config_overrides = """
       [P2P]
       EnableExperimentalRageP2P = true
@@ -145,7 +88,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["13878:9876"]
+      custom_ports = ["12877:9876"]
       user_config_overrides = """
       [P2P]
       EnableExperimentalRageP2P = true
@@ -166,7 +109,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["13879:9876"]
+      custom_ports = ["12878:9876"]
       user_config_overrides = """
       [P2P]
       EnableExperimentalRageP2P = true
@@ -181,7 +124,27 @@
       URL = "file:///home/chainlink/workflows"
       """
 
-# --- Workflow shard 1 --------------------------------------------------------
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["12879:9876"]
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      [Sharding]
+      ShardAssignmentMode = "manual-only"
+
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
 [[nodesets]]
   nodes = 4
   name = "workflow-1-zone-a-shard-1"
@@ -189,7 +152,7 @@
   don_types = ["workflow", "shard"]
   shard_index = 1
   override_mode = "all"
-  http_port_range_start = 12800
+  http_port_range_start = 12400
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true","PerWorkflow":{"ConfidentialWorkflows":{"Enabled":"true"}}}' }
@@ -199,7 +162,7 @@
 
   [nodesets.db]
     image = "postgres:15.0"
-    port = 18800
+    port = 16400
 
 [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -221,7 +184,6 @@
       URL = "file:///home/chainlink/workflows"
       """
 
-# --- Shared (non-sharded) vault DON, reachable by every workflow shard --------
 [[nodesets]]
   nodes = 4
   name = "chain-capabilities-zone-a"
@@ -229,7 +191,7 @@
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
   override_mode = "all"
-  http_port_range_start = 12900
+  http_port_range_start = 12600
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true"}' }
@@ -237,7 +199,7 @@
 
   [nodesets.db]
     image = "postgres:15.0"
-    port = 18900
+    port = 16600
 
 [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -245,28 +207,21 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      user_config_overrides = """
-      [P2P]
-      EnableExperimentalRageP2P = true
+      user_config_overrides = ""
 
-      [CRE]
-      EnableDKGRecipient = true
-      """
-
-# --- Bootstrap + gateway -----------------------------------------------------
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
-  http_port_range_start = 12750
+  http_port_range_start = 12300
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
 
   [nodesets.db]
     image = "postgres:15.0"
-    port = 18750
+    port = 16200
 
   [[nodesets.node_specs]]
     roles = ["bootstrap", "gateway"]

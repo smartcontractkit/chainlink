@@ -40,7 +40,7 @@ const (
 
 type sharedVaultShardFixture struct {
 	gatewayURL     string
-	vaultPublicKey string // hex; the raw form enclave configs need
+	vaultPublicKey string
 	parsedVaultKey *tdh2easy.PublicKey
 	sc             *seth.Client
 	owner          string
@@ -223,8 +223,6 @@ func proposeSharedVaultAssignment(t *testing.T, testEnv *ttypes.TestEnvironment,
 func ExecuteManualShardAssignmentSharedVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	// Topology guard first (see mustSharedVaultShardPair): a mismatched environment
-	// fails in seconds with an actionable message, before the vault setup waits.
 	shards := mustSharedVaultShardPair(t, testEnv,
 		"configs/workflow-gateway-sharded-shared-vault-manual.toml / configs/workflow-gateway-sharded-shared-vault-failover.toml")
 
@@ -274,8 +272,6 @@ hashed_default_assignment = false
 func ExecuteShardFailoverSharedVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	// Topology guard first (see mustSharedVaultShardPair): a mismatched environment
-	// fails in seconds with an actionable message, before the vault setup waits.
 	shards := mustSharedVaultShardPair(t, testEnv,
 		"configs/workflow-gateway-sharded-shared-vault-manual.toml / configs/workflow-gateway-sharded-shared-vault-failover.toml")
 
