@@ -40,6 +40,10 @@ func NewChipIngressClient(cfg ChipIngressClientConfig) (chipingress.Client, erro
 	if auth != nil { // nil only when there are no headers and no TTL
 		opts = append(opts, chipingress.WithTokenAuth(auth))
 	}
+	// Load-bearing: chip-ingress derives the legacy telemetry identity headers
+	// (ce_nodeoperatorname/node-operator-name, ce_nodename/node-name) from the
+	// NOP info this option requests via x-include-nop-info. The node does not
+	// send them itself, so removing this silently blanks those headers downstream.
 	opts = append(opts, chipingress.WithNOPLookup())
 
 	// grpc.NewClient connects lazily: an unreachable endpoint does not fail
