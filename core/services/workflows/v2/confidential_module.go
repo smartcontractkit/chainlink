@@ -58,8 +58,6 @@ func ParseWorkflowAttributes(data []byte) (WorkflowAttributes, error) {
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
 type ConfidentialModule struct {
-	// handled marks executions delegated to the enclave; see TookExecution.
-	handled           sync.Map
 	capRegistry       registry.CapabilitiesRegistry
 	binaryURL         string
 	binaryHash        []byte
@@ -153,7 +151,6 @@ func (m *ConfidentialModule) Execute(
 	}
 	m.executionHandlers.AddExecution(m.workflowID, workflowExecutionID, rawSecretsHelper)
 	defer m.executionHandlers.RemoveExecution(m.workflowID, workflowExecutionID)
-	m.handled.Store(workflowExecutionID, struct{}{})
 
 	requirements := loadAndDelete[*sdkpb.Requirements](&m.requirements, workflowExecutionID)
 	restrictions := loadAndDelete[*sdkpb.Restrictions](&m.restritions, workflowExecutionID)
@@ -188,20 +185,14 @@ func (m *ConfidentialModule) Execute(
 		return nil, err
 	}
 
-	return capOutput.SdkExecutionResult, nil
-}
-
-// ConfidentialExecutionTracker answers whether an execution ran in the enclave.
-// TookExecution consumes the mark, so it must be called at most once per
-// execution, after the module's Execute has returned.
-type ConfidentialExecutionTracker interface {
-	TookExecution(executionID string) bool
-}
-
-// TookExecution implements ConfidentialExecutionTracker.
-func (m *ConfidentialModule) TookExecution(executionID string) bool {
-	_, ok := m.handled.LoadAndDelete(executionID)
-	return ok
+	result := capOutput.SdkExecutionResult
+	// Report the enclave-measured duration so the engine meters the WASM run
+	// rather than the node-observed round trip; older enclaves leave it unset.
+	if result != nil && capOutput.ExecutionDurationMs != nil {
+		ms := capOutput.GetExecutionDurationMs()
+		result.ComputeDurationMs = &ms
+	}
+	return result, nil
 }
 
 func (m *ConfidentialModule) SetRequirements(executionID string, requirements *sdkpb.Requirements) {

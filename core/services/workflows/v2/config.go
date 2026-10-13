@@ -73,14 +73,11 @@ type EngineConfig struct {
 
 	// UsageMeter, when non-nil, emits one METER_ACTION_USAGE MeterRecord per
 	// execution for ordinary compute (cre:workflow:compute, milliseconds). It is
-	// nil unless [Metering].CapabilityUsageEnabled is set. UsageIdentity is the
+	// nil unless [Metering].MeterRecordsEnabled is set. UsageIdentity is the
 	// base metering identity stamped on those records; the DON id is added per
 	// record from the local node. Fail-open: emission never affects execution.
 	UsageMeter    *resourcemanager.ResourceManager
 	UsageIdentity resourcemanager.ResourceIdentity
-	// ConfidentialExecutions reports whether an execution was delegated to the
-	// confidential module, whose compute is metered by the enclave path instead.
-	ConfidentialExecutions ConfidentialExecutionTracker
 
 	// includes additional logging of events internal to user workflows
 	DebugMode bool

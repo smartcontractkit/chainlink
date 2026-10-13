@@ -109,7 +109,7 @@ type eventHandler struct {
 	specMeter *SpecMeter
 
 	// usageMeter emits per-capability workflow usage records (compute) from the
-	// engines this handler creates. Nil when [Metering].CapabilityUsageEnabled
+	// engines this handler creates. Nil when [Metering].MeterRecordsEnabled
 	// is off; engines then emit nothing.
 	usageMeter    *resourcemanager.ResourceManager
 	usageIdentity resourcemanager.ResourceIdentity
@@ -985,7 +985,6 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 		}},
 	)
 	cfg := h.newV2EngineConfig(ctx, selectingModule, workflowID, owner, tag, sdkName, name, config)
-	cfg.ConfidentialExecutions = confidential
 
 	cfg.CachedTriggerSubscriptions = h.parseCachedTriggerSubscriptions(workflowID, cachedTriggerSubs)
 	h.wireTriggerSubscriptionCacheHook(cfg, workflowID)

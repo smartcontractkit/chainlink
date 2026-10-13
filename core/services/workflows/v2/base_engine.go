@@ -664,13 +664,6 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		}
 	}
 
-	// Track time the guest spends blocked in DON-time host calls so it can be
-	// excluded from metered compute (see compute_metering.go). The wrapper is
-	// always installed; whether the recorded wait is subtracted is gated by
-	// e.cfg.MeterComputeExcludingHostWait below.
-	suspension := &suspensionTracker{}
-	timeProvider = newMeasuredTimeProvider(timeProvider, e.cfg.Clock, suspension)
-
 	// Limit is always usable even on a read failure; err is advisory.
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
@@ -697,7 +690,6 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		base: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 		executionProfile: newExecutionProfileCollector(),
-		suspension:       suspension,
 	}
 
 	execHelper.initLimiters(e.cfg.LocalLimiters)
@@ -719,23 +711,15 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
 
-	// computeDuration is what we meter as RESOURCE_TYPE_COMPUTE. We start from the
-	// end-to-end wall-clock and subtract time the guest spent blocked in DON-time
-	// host calls: that wait is not compute and is non-deterministic across nodes
-	// (a node whose DON-time request lands in the current consensus round returns
-	// in microseconds; one whose request slips to the next round blocks ~a full
-	// round). Operational latency metrics below intentionally keep using
-	// executionDuration.
+	// computeDuration is what we meter as compute. The module that ran the
+	// workflow reports the run's duration on the result (the guest run for
+	// WASM, the enclave-measured run for confidential workflows), so the engine
+	// does not care which module executed it; the engine's own wall-clock is
+	// only a fallback for a module that reported none. Operational latency
+	// metrics below intentionally keep using executionDuration.
 	computeDuration := executionDuration
-	if hostWait := suspension.total(); hostWait > 0 {
-		computeDuration -= hostWait
-		if computeDuration < 0 {
-			computeDuration = 0
-		}
-		executionLogger.Debugw("Excluding DON-time wait from metered compute",
-			"wallClockMs", executionDuration.Milliseconds(),
-			"hostWaitMs", hostWait.Milliseconds(),
-			"computeMs", computeDuration.Milliseconds())
+	if result != nil && result.ComputeDurationMs != nil {
+		computeDuration = time.Duration(result.GetComputeDurationMs()) * time.Millisecond
 	}
 
 	e.emitComputeUsage(ctx, executionLogger, executionID, computeDuration)
@@ -1090,10 +1074,7 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 // billing reconciler (fields: executionID, eventID, resourceType, value, orgID)
 // and must stay stable. Fail-open: never returns an error to the execution.
 func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, executionID string, computeDuration time.Duration) {
-	// Consume the confidential mark unconditionally: the module stores one per
-	// delegated execution whether or not a usage meter is configured.
-	confidential := e.cfg.ConfidentialExecutions != nil && e.cfg.ConfidentialExecutions.TookExecution(executionID)
-	if e.cfg.UsageMeter == nil || confidential {
+	if e.cfg.UsageMeter == nil {
 		return
 	}
 	resourceID, err := resourcemanager.WorkflowUsageResourceID(e.cfg.WorkflowID, executionID)

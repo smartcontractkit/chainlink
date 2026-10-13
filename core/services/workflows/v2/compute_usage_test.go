@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	meteringpb "github.com/smartcontractkit/chainlink-protos/metering/go"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -45,13 +46,10 @@ func (r *recordingEmitter) all() []*meteringpb.MeterRecord {
 	return append([]*meteringpb.MeterRecord(nil), r.records...)
 }
 
-type staticTracker struct{ confidential bool }
-
-func (s staticTracker) TookExecution(string) bool { return s.confidential }
-
 // runOneExecution starts an engine with cfg, fires one trigger event whose
-// module execution returns execErr, and returns the execution id.
-func runOneExecution(t *testing.T, cfg *v2.EngineConfig, execErr error) string {
+// module execution returns execErr, and returns the execution id. When
+// computeDurationMs is non-nil the module reports it on its ExecutionResult.
+func runOneExecution(t *testing.T, cfg *v2.EngineConfig, execErr error, computeDurationMs *int64) string {
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
 	module.EXPECT().Close()
@@ -86,7 +84,11 @@ func runOneExecution(t *testing.T, cfg *v2.EngineConfig, execErr error) string {
 	require.NoError(t, <-initDoneCh)
 	require.Equal(t, []string{"id_0"}, <-subscribedCh)
 
-	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(nil, execErr).Once()
+	var execRes *sdkpb.ExecutionResult
+	if computeDurationMs != nil {
+		execRes = &sdkpb.ExecutionResult{ComputeDurationMs: computeDurationMs}
+	}
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(execRes, execErr).Once()
 	eventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "usage_event"}}
 	executionID := <-finishedCh
 	require.NoError(t, engine.Close())
@@ -115,7 +117,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		cfg.UsageMeter = rm
 		cfg.UsageIdentity = identity
 
-		executionID := runOneExecution(t, cfg, nil)
+		executionID := runOneExecution(t, cfg, nil, nil)
 
 		records := emitter.all()
 		require.Len(t, records, 1)
@@ -149,22 +151,24 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		cfg.UsageMeter = rm
 		cfg.UsageIdentity = identity
 
-		runOneExecution(t, cfg, errors.New("module failed"))
+		runOneExecution(t, cfg, errors.New("module failed"), nil)
 
 		require.Len(t, emitter.all(), 1)
 	})
 
-	t.Run("skips executions delegated to the confidential module", func(t *testing.T) {
+	t.Run("bills the compute duration the module reports", func(t *testing.T) {
 		t.Parallel()
 		cfg := defaultTestConfig(t, nil)
 		rm, emitter := newUsageMeter(t)
 		cfg.UsageMeter = rm
 		cfg.UsageIdentity = identity
-		cfg.ConfidentialExecutions = staticTracker{confidential: true}
+		computeDurationMs := int64(1234)
 
-		runOneExecution(t, cfg, nil)
+		runOneExecution(t, cfg, nil, &computeDurationMs)
 
-		require.Empty(t, emitter.all())
+		records := emitter.all()
+		require.Len(t, records, 1)
+		require.Equal(t, "1234", records[0].GetUtilizations()[0].GetValue())
 	})
 
 	t.Run("emits nothing when no usage meter is configured", func(t *testing.T) {
@@ -173,7 +177,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		cfg := defaultTestConfig(t, nil)
 		cfg.Lggr = lggr
 
-		runOneExecution(t, cfg, nil)
+		runOneExecution(t, cfg, nil, nil)
 
 		require.Empty(t, obs.FilterMessage("Emitted capability usage meter record").All())
 	})
