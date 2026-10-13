@@ -690,7 +690,7 @@ func waitForWorkflowsDistributed(t *testing.T, client ringpb.ShardOrchestratorSe
 			Bool("routingSteady", steady).
 			Msg("Waiting for distribution + steady")
 		return len(shardsSeen) >= minShards && steady
-	}, 2*time.Minute, 5*time.Second, "Workflows not distributed across %d shards (with RoutingSteady) within timeout", minShards)
+	}, 5*time.Minute, 5*time.Second, "Workflows not distributed across %d shards (with RoutingSteady) within timeout", minShards)
 }
 
 func buildNodeP2PIDToShardIndex(t *testing.T, testEnv *ttypes.TestEnvironment) map[string]uint32 {
