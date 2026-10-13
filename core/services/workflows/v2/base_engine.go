@@ -55,6 +55,7 @@ var (
 	ErrAdmissionCache          = errors.New("admission: event cached for failover")
 
 	ErrEngineDraining = errors.New("engine is draining")
+	ErrEngineClosed   = errors.New("engine is closed")
 	ErrQueueFull      = errors.New("trigger event queue is full")
 	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
 
@@ -201,6 +202,11 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 }
 
 // ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
+// It rejects events with ErrEngineClosed unless the engine is started and with ErrEngineDraining once Drain has been called.
+//
+// An admitted execution runs on the service engine's WaitGroup, so Close cancels it and waits for it. The lock is released before
+// the execution runs, since holding it would block Close, and therefore the cancellation, until the execution
+// finished on its own.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
 	// engineMode labels only this gauge, so the migration can compare legacy and
 	// coordinated in-flight load without changing every other engine metric.
@@ -210,6 +216,40 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 		gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(-1)))
 	}()
 
+	done := make(chan error, 1)
+
+	// only admit if engine is started and not draining
+	admitErr := e.srvcEng.IfStarted(func() error {
+		if e.Draining() {
+			return ErrEngineDraining
+		}
+
+		// execute in a goroutine tied to the service engine's context
+		// launch async to release the lock held by IfStarted to prevent deadlock
+		// with Close
+		e.activeExecutions.Add(1)
+		e.srvcEng.GoCtx(ctx, func(ctx context.Context) {
+			defer e.activeExecutions.Add(-1)
+
+			// Always send a result, even if executeTrigger panics or calls
+			// runtime.Goexit, so the caller never blocks on done.
+			err := errors.New("execution exited without a result")
+			defer func() { done <- err }()
+			err = e.executeTrigger(ctx, event)
+		})
+		return nil
+	})
+	if admitErr != nil {
+		if errors.Is(admitErr, ErrEngineDraining) {
+			return admitErr
+		}
+		return fmt.Errorf("%w: %w", ErrEngineClosed, admitErr)
+	}
+	return <-done
+}
+
+// executeTrigger runs an admitted event. ctx is canceled when the engine is closed.
+func (e *baseEngine) executeTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
 	eventID := event.Event.Event.ID
 	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 	creCtx := contexts.CREValue(ctx)

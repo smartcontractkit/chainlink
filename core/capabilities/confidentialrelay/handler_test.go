@@ -117,8 +117,8 @@ func (m *mockGatewayConnector) RemoveHandler(_ context.Context, _ []string) erro
 type mockExecutionHelper struct {
 	host.ExecutionHelperWithRawSecrets
 
-	capResp    *sdkpb.CapabilityResponse
-	capErr     error
+	capResp      *sdkpb.CapabilityResponse
+	capErr       error
 	rawSecrets   []*vault.SecretResponse
 	rawPublicKey string
 	secretsErr   error

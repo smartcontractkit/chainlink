@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -26,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
-	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
@@ -80,31 +77,7 @@ type ConfidentialModule struct {
 	creSettingsGetter settings.Getter
 }
 
-// confidentialModuleMetrics are node-measured (and therefore trusted) metrics for
-// the enclave round-trip. They live in the enclave* namespace alongside the
-// enclave-reported enclave.* metrics (which are non-attested), keeping all
-// confidential-workflow metrics out of the classic platform_engine_* namespace.
-type confidentialModuleMetrics struct {
-	executionDuration metric.Int64Histogram
-	executionFailures metric.Int64Counter
-}
-
-func newConfidentialModuleMetrics(meter metric.Meter) (*confidentialModuleMetrics, error) {
-	executionDuration, err := meter.Int64Histogram("enclave_execution_time_ms")
-	if err != nil {
-		return nil, err
-	}
-	executionFailures, err := meter.Int64Counter("enclave_execution_failures")
-	if err != nil {
-		return nil, err
-	}
-	return &confidentialModuleMetrics{
-		executionDuration: executionDuration,
-		executionFailures: executionFailures,
-	}, nil
-}
-
-// errorTypeAttribute labels enclave_execution_failures with the failure's root
+// errorTypeAttribute labels enclave execution failures with the failure's root
 // cause, mirroring the enclave-side error_type convention so alerts can page on
 // system failures without firing on user-caused ones.
 const errorTypeAttribute = "error_type"
@@ -129,7 +102,7 @@ func NewConfidentialModule(capRegistry registry.CapabilitiesRegistry, executionH
 	if resolveOrgID == nil {
 		return nil, errors.New("resolveOrgID must not be nil")
 	}
-	metrics, err := newConfidentialModuleMetrics(beholder.GetMeter())
+	metrics, err := newConfidentialModuleMetrics(beholder.GetMeter(), workflowID, workflowOwner, workflowName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create confidential module metrics: %w", err)
 	}
@@ -150,8 +123,17 @@ func NewConfidentialModule(capRegistry registry.CapabilitiesRegistry, executionH
 	}, nil
 }
 
-func (m *ConfidentialModule) Start() {}
-func (m *ConfidentialModule) Close() {}
+func (m *ConfidentialModule) Start() {
+	if err := m.metrics.start(); err != nil {
+		m.lggr.Errorw("failed to start confidential module metrics", "error", err)
+	}
+}
+
+func (m *ConfidentialModule) Close() {
+	if err := m.metrics.close(); err != nil {
+		m.lggr.Errorw("failed to close confidential module metrics", "error", err)
+	}
+}
 
 func (m *ConfidentialModule) Execute(
 	ctx context.Context,
@@ -194,17 +176,12 @@ func (m *ConfidentialModule) Execute(
 
 	capOutput := &confworkflowtypes.ConfidentialWorkflowResponse{}
 	// Time the enclave round-trip (node-measured, trusted) and count failures.
-	attrs := metric.WithAttributes(
-		attribute.String(platform.KeyWorkflowID, m.workflowID),
-		attribute.String(platform.KeyWorkflowOwner, m.workflowOwner),
-		attribute.String(platform.KeyWorkflowName, m.workflowName),
-	)
 	start := time.Now()
 	err := doRequest(ctx, m, workflowExecutionID, "Execute", capInput, capOutput, orgID)
-	m.metrics.executionDuration.Record(ctx, time.Since(start).Milliseconds(), attrs)
+	completed := time.Now()
+	m.metrics.executionDuration.Record(ctx, completed.Sub(start).Milliseconds(), m.metrics.attrs)
 	if err != nil {
-		m.metrics.executionFailures.Add(ctx, 1, attrs,
-			metric.WithAttributes(attribute.String(errorTypeAttribute, errorTypeFor(err))))
+		m.metrics.recordFailure(ctx, err, completed)
 		return nil, err
 	}
 
