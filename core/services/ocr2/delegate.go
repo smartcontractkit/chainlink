@@ -621,11 +621,8 @@ func (d *Delegate) NewServices(
 	}
 	kbID := kb.ID()
 
-	// Resolve bootstrap peers from TOML config defaults.
+	// Resolve bootstrap peers from TOML config defaults (P2P.V2.DefaultBootstrappers).
 	bootstrapPeers := d.defaultBootstrappers
-	if len(bootstrapPeers) == 0 {
-		bootstrapPeers = d.peerWrapper.P2PConfig().V2().DefaultBootstrappers()
-	}
 
 	// Resolve transmitter from the on-chain OCR config when available,
 	// falling back to a keystore round-robin address.
