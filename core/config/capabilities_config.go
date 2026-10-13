@@ -81,7 +81,6 @@ type ConnectorGateway interface {
 
 type Capabilities interface {
 	RateLimit() EngineExecutionRateLimit
-	Peering() P2P
 	SharedPeering() SharedPeering
 	Dispatcher() Dispatcher
 	ExternalRegistry() CapabilitiesExternalRegistry
