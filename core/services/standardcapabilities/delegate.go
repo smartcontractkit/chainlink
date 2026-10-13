@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	triggercap "github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -35,9 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities/conversions"
-	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -52,15 +49,12 @@ type Delegate struct {
 	jobORM                  job.ORM
 	registry                registry.CapabilitiesRegistry
 	cfg                     plugins.RegistrarConfig
-	monitoringEndpointGen   telemetry.MonitoringEndpointGenerator
-	pipelineRunner          pipeline.Runner
 	relayers                RelayGetter
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	ks                      keystore.Master
 	getPeerID               func() (p2ptypes.PeerID, error)
 	ocrPeerWrapper          *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
-	selectorOpts            []func(*gateway.RoundRobinSelector)
 	orgResolver             orgresolver.OrgResolver
 	creSettings             core.SettingsBroadcaster
 	ocrConfigService        capregconfig.OCRConfigService
@@ -80,8 +74,6 @@ func NewDelegate(
 	jobORM job.ORM,
 	registry registry.CapabilitiesRegistry,
 	cfg plugins.RegistrarConfig,
-	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
-	pipelineRunner pipeline.Runner,
 	relayers RelayGetter,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	ks keystore.Master,
@@ -95,7 +87,6 @@ func NewDelegate(
 	defaultBootstrappers []ocrcommontypes.BootstrapperLocator,
 	capRegistryAddress string,
 	capRegistryChainID string,
-	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	return &Delegate{
 		logger:                  logger,
@@ -103,8 +94,6 @@ func NewDelegate(
 		jobORM:                  jobORM,
 		registry:                registry,
 		cfg:                     cfg,
-		monitoringEndpointGen:   monitoringEndpointGen,
-		pipelineRunner:          pipelineRunner,
 		relayers:                relayers,
 		isNewlyCreatedJob:       false,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
@@ -119,7 +108,6 @@ func NewDelegate(
 		defaultBootstrappers:    defaultBootstrappers,
 		capRegistryAddress:      capRegistryAddress,
 		capRegistryChainID:      capRegistryChainID,
-		selectorOpts:            opts,
 	}
 }
 
@@ -498,13 +486,4 @@ func ValidatedStandardCapabilitiesSpec(tomlString string) (job.Job, error) {
 	}
 
 	return jb, nil
-}
-
-type ErrorLog struct {
-	jobID       int32
-	recordError func(ctx context.Context, jobID int32, description string) error
-}
-
-func (l *ErrorLog) SaveError(ctx context.Context, msg string) error {
-	return l.recordError(ctx, l.jobID, msg)
 }
