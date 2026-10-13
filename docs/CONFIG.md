@@ -372,7 +372,7 @@ ChipIngressMaxConcurrentSends limits parallel chip-ingress PublishBatch requests
 ```toml
 ChipIngressDrainTimeout = '5s' # Default
 ```
-ChipIngressDrainTimeout is the max time to flush buffered chip-ingress telemetry on shutdown.
+ChipIngressDrainTimeout is the max time shutdown waits for in-flight chip-ingress sends to finish. Messages still queued behind them at shutdown are discarded.
 
 ## TelemetryIngress.Endpoints
 ```toml

@@ -48,12 +48,12 @@ type ChipIngressBatchConfig struct {
 	MaxConcurrentSends int           // PublishBatch requests in flight
 	SendInterval       time.Duration // max wait before flushing an incomplete batch
 	SendTimeout        time.Duration // per-request PublishBatch timeout
-	DrainTimeout       time.Duration // max time to flush the buffer on Close
+	DrainTimeout       time.Duration // max time Close waits for in-flight sends and callbacks
 	Logging            bool          // debug-log every successful send
 }
 
 // NewChipIngressBatchClient wraps chipClient in the chainlink-common batch client.
-// The batch client owns chipClient: Close flushes the buffer, then closes the connection.
+// The batch client owns chipClient: Close finishes in-flight sends, then closes the connection.
 func NewChipIngressBatchClient(chipClient chipingress.Client, csaPubKeyHex string, cfg ChipIngressBatchConfig, lggr logger.Logger) (ChipIngressService, error) {
 	batchClient, err := batch.NewBatchClient(chipClient,
 		batch.WithMessageBuffer(int(cfg.BufferSize)),
@@ -103,8 +103,10 @@ func (c *chipIngressBatchClient) start(ctx context.Context) error {
 	return nil
 }
 
-// close flushes queued messages (up to the batch client's shutdown timeout),
-// then closes the underlying chip-ingress client.
+// close sends the batch currently being filled, waits (up to the batch client's shutdown
+// timeout) for in-flight sends and callbacks, then closes the chip-ingress client.
+// With the pinned chainlink-common version, messages still queued behind in-flight sends
+// are discarded without a callback, so telemetry_client_messages_dropped does not count them.
 func (c *chipIngressBatchClient) close() error {
 	c.batchClient.Stop()
 	return nil

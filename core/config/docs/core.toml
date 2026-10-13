@@ -126,7 +126,7 @@ ChipIngressBufferSize = 10000 # Default
 ChipIngressMaxBatchSize = 1000 # Default
 # ChipIngressMaxConcurrentSends limits parallel chip-ingress PublishBatch requests.
 ChipIngressMaxConcurrentSends = 10 # Default
-# ChipIngressDrainTimeout is the max time to flush buffered chip-ingress telemetry on shutdown.
+# ChipIngressDrainTimeout is the max time shutdown waits for in-flight chip-ingress sends to finish. Messages still queued behind them at shutdown are discarded.
 ChipIngressDrainTimeout = '5s' # Default
 
 [[TelemetryIngress.Endpoints]] # Example
