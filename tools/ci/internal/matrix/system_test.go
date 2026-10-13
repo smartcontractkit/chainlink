@@ -262,7 +262,6 @@ func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {}
 	assert.Equal(t, "workflow-sharded-capabilities", shardedCapabilities.Topology)
 	assert.Equal(t, "configs/workflow-sharded-capabilities-don.toml", shardedCapabilities.Configs)
 
-	// The shared-vault sharding tests get their own sharded shared-vault topologies.
 	manualSharedVault := byName["Test_CRE_V2_ShardManualAssignmentSharedVault"]
 	assert.Equal(t, "workflow-gateway-sharded-shared-vault-manual", manualSharedVault.Topology)
 	assert.Equal(t, "configs/workflow-gateway-sharded-shared-vault-manual.toml", manualSharedVault.Configs)

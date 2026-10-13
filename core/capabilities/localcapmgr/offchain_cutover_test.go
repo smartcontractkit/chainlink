@@ -118,9 +118,6 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 	localCfg := func() *testLocalCapabilities {
 		return &testLocalCapabilities{
 			allowlisted: map[string]bool{"cron@1.0.0": true, "consensus@1.0.0": true},
-			configs: map[string]*testCapabilityNodeConfig{
-				"cron@1.0.0": {binaryPath: "/node/local/cron"},
-			},
 		}
 	}
 	onchain := onchainSpecConfig(t, map[string]any{"interval": "20", "onchainOnly": "oc"})
@@ -163,17 +160,6 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 		m, rec := newCutoverManager(t, localCfg(), globalconfig.New(), true)
 		require.NoError(t, m.Reconcile(t.Context(), dons))
 		assert.Equal(t, legacy, rec.configFor(t, "cron@1.0.0", 7))
-	})
-
-	t.Run("gate on: binary path stays node-local", func(t *testing.T) {
-		t.Parallel()
-		m, rec := newCutoverManager(t, localCfg(), newGC(t), true)
-		require.NoError(t, m.Reconcile(t.Context(), dons))
-		for _, l := range rec.all() {
-			if l.capID == "cron@1.0.0" {
-				assert.Equal(t, "/node/local/cron", l.command)
-			}
-		}
 	})
 
 	t.Run("gate on: launch allowlist stays node-local", func(t *testing.T) {

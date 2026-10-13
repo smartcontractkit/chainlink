@@ -365,18 +365,22 @@ func (c *ExecutionHelper) PossiblyWithRawSecrets() host.ExecutionHelper {
 	return c
 }
 
-var (
-	_ RawSecretsFetcher                  = (*executionHelperWithRawSecrets)(nil)
-	_ host.ExecutionHelperWithRawSecrets = (*executionHelperWithRawSecrets)(nil)
-)
+var _ RawSecretsFetcher = (*executionHelperWithRawSecrets)(nil)
 
 type executionHelperWithRawSecrets struct {
 	*ExecutionHelper
 }
 
-// Deprecated: use GetRawSecretsResponse.
+// GetRawSecrets exists only to satisfy chainlink-common's
+// host.ExecutionHelperWithRawSecrets interface, which still declares it. It
+// delegates to GetRawSecretsResponse and drops the response public key. Remove
+// once chainlink-common drops GetRawSecrets from the interface.
 func (e *executionHelperWithRawSecrets) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vaultcommon.SecretResponse, error) {
-	return e.SecretsFetcher.(RawSecretsFetcher).GetRawSecrets(ctx, request, fetcher)
+	resp, err := e.GetRawSecretsResponse(ctx, request, fetcher)
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetResponses(), nil
 }
 
 func (e *executionHelperWithRawSecrets) GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vaultcommon.GetSecretsResponse, error) {

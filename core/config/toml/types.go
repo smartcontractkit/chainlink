@@ -2805,7 +2805,6 @@ func (c *StreamConfig) setFrom(f *StreamConfig) {
 
 type Capabilities struct {
 	RateLimit        EngineExecutionRateLimit `toml:",omitempty"`
-	Peering          P2P                      `toml:",omitempty"`
 	SharedPeering    SharedPeering            `toml:",omitempty"`
 	Dispatcher       Dispatcher               `toml:",omitempty"`
 	ExternalRegistry ExternalRegistry         `toml:",omitempty"`
@@ -2829,19 +2828,10 @@ type LocalCapabilities struct {
 	// offchain registry is cross-validation telemetry only. When true, offchain capability config
 	// takes precedence over the on-chain registry config.
 	UseOffchainRegistry *bool `toml:",omitempty"`
-	// Capabilities contains per-capability node configuration, keyed by capability ID.
-	Capabilities map[string]CapabilityNodeConfig `toml:",omitempty"`
-}
-
-// CapabilityNodeConfig contains node-specific configuration for a capability.
-type CapabilityNodeConfig struct {
-	// BinaryPathOverride overrides the default binary path for a LOOP capability.
-	BinaryPathOverride *string `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.RateLimit.setFrom(&f.RateLimit)
-	c.Peering.setFrom(&f.Peering)
 	c.SharedPeering.setFrom(&f.SharedPeering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
 	c.WorkflowRegistry.setFrom(&f.WorkflowRegistry)
@@ -2856,22 +2846,6 @@ func (l *LocalCapabilities) setFrom(f *LocalCapabilities) {
 	}
 	if f.UseOffchainRegistry != nil {
 		l.UseOffchainRegistry = f.UseOffchainRegistry
-	}
-	if f.Capabilities != nil {
-		if l.Capabilities == nil {
-			l.Capabilities = make(map[string]CapabilityNodeConfig)
-		}
-		for k, v := range f.Capabilities {
-			existing := l.Capabilities[k]
-			existing.setFrom(&v)
-			l.Capabilities[k] = existing
-		}
-	}
-}
-
-func (c *CapabilityNodeConfig) setFrom(f *CapabilityNodeConfig) {
-	if f.BinaryPathOverride != nil {
-		c.BinaryPathOverride = f.BinaryPathOverride
 	}
 }
 
@@ -2896,11 +2870,6 @@ func (l *LocalCapabilities) ValidateConfig() (err error) {
 	for _, pattern := range l.RegistryBasedLaunchAllowlist {
 		if _, regexErr := regexp.Compile(pattern); regexErr != nil {
 			err = errors.Join(err, fmt.Errorf("Capabilities.Local.RegistryBasedLaunchAllowlist: invalid regex pattern %q: %w", pattern, regexErr))
-		}
-	}
-	for capID := range l.Capabilities {
-		if capErr := ValidateCapabilityID(capID); capErr != nil {
-			err = errors.Join(err, fmt.Errorf("Capabilities.Local.Capabilities: %w", capErr))
 		}
 	}
 	return err

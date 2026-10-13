@@ -336,7 +336,7 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	// binary (e.g. consensus, cron). OCR2-based capabilities (e.g. dontime) run
 	// in-process and do not need a binary, so an empty command is allowed there;
 	// the newServicesFn routes on capability ID and ignores it.
-	command := m.resolveCapabilityBinary(info.capID)
+	command := conversions.GetCommandFromCapabilityID(info.capID)
 	if info.configErr != nil {
 		return nil, fmt.Errorf("build config for %s: %w", info.capID, info.configErr)
 	}
@@ -344,7 +344,7 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	configJSON := info.configJSON
 	if len(info.config.Config) > 0 {
 		if _, err := info.config.Unmarshal(); err != nil {
-			m.lggr.Warnw("Failed to unmarshal onchain config, launching without on-chain spec config",
+			m.lggr.Warnw("Failed to unmarshal cap registry config, launching without on-chain spec config",
 				"capID", info.capID, "donID", info.donID, "error", err)
 		}
 	}
@@ -383,19 +383,6 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	}, nil
 }
 
-func (m *localCapabilityManager) resolveCapabilityBinary(capID string) string {
-	if m.localCfg != nil {
-		capCfg := m.localCfg.GetCapabilityConfig(capID)
-		if capCfg != nil && capCfg.BinaryPathOverride() != "" {
-			m.lggr.Debugw("Using binary path override from TOML", "capID", capID, "path", capCfg.BinaryPathOverride())
-			return capCfg.BinaryPathOverride()
-		}
-	}
-
-	// fall back to default command based on capability ID
-	return conversions.GetCommandFromCapabilityID(capID)
-}
-
 // buildConfigJSON merges capability config into a flat JSON object, in increasing order of
 // precedence:
 //  1. on-chain SpecConfig,
@@ -410,10 +397,9 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 	if len(info.config.Config) > 0 {
 		capCfg, err := info.config.Unmarshal()
 		if err != nil {
-			// Logged at launch (startCapability); this runs on every reconcile.
-			m.lggr.Debugw("Failed to unmarshal onchain config, launching without on-chain spec config",
-				"capID", info.capID, "error", err)
-		} else if capCfg.SpecConfig != nil {
+			return "", fmt.Errorf("failed to unmarshal cap registry config for %s: %w", info.capID, err)
+		}
+		if capCfg.SpecConfig != nil {
 			unwrapped, err := capCfg.SpecConfig.Unwrap()
 			if err != nil {
 				return "", fmt.Errorf("unwrap onchain spec config for %s: %w", info.capID, err)

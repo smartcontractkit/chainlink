@@ -621,11 +621,8 @@ func (d *Delegate) NewServices(
 	}
 	kbID := kb.ID()
 
-	// Resolve bootstrap peers from TOML config defaults.
+	// Resolve bootstrap peers from TOML config defaults (P2P.V2.DefaultBootstrappers).
 	bootstrapPeers := d.defaultBootstrappers
-	if len(bootstrapPeers) == 0 {
-		bootstrapPeers = d.peerWrapper.P2PConfig().V2().DefaultBootstrappers()
-	}
 
 	// Resolve transmitter from the on-chain OCR config when available,
 	// falling back to a keystore round-robin address.
@@ -1810,7 +1807,7 @@ func (d *Delegate) newServicesLLO(
 		CaptureEATelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
 		// NOTE: These can be turned off/on, or made configurable in future if
 		// necessary
-		CaptureObservationTelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
+		CaptureObservationTelemetry: false,
 		CaptureOutcomeTelemetry:     jb.OCR2OracleSpec.CaptureEATelemetry,
 		CaptureReportTelemetry:      false,
 

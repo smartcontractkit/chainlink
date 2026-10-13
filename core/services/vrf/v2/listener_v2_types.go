@@ -178,20 +178,10 @@ func (lsn *listenerV2) processBatch(
 	var (
 		payload           []byte
 		err               error
-		txMetaSubID       *uint64
 		txMetaGlobalSubID *string
 	)
 
 	switch batch.version {
-	case vrfcommon.V2:
-		payload, err = batchCoordinatorV2ABI.Pack("fulfillRandomWords", ToV2Proofs(batch.proofs), ToV2Commitments(batch.commitments))
-		if err != nil {
-			// should never happen
-			l.Errorw("Failed to pack batch fulfillRandomWords payload",
-				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
-			return processedRequestIDs
-		}
-		txMetaSubID = new(subID.Uint64())
 	case vrfcommon.V2Plus:
 		payload, err = batchCoordinatorV2PlusABI.Pack("fulfillRandomWords", ToV2PlusProofs(batch.proofs), ToV2PlusCommitments(batch.commitments))
 		if err != nil {
@@ -202,7 +192,7 @@ func (lsn *listenerV2) processBatch(
 		}
 		txMetaGlobalSubID = new(subID.String())
 	default:
-		panic("batch version should be v2 or v2plus")
+		panic("batch version should be v2plus")
 	}
 
 	// Bump the total gas limit by a bit so that we account for the overhead of the batch
@@ -247,7 +237,6 @@ func (lsn *listenerV2) processBatch(
 				RequestIDs:      reqIDHashes,
 				MaxLink:         &maxLink,
 				MaxEth:          &maxEth,
-				SubID:           txMetaSubID,
 				GlobalSubID:     txMetaGlobalSubID,
 				RequestTxHashes: txHashes,
 			},
@@ -268,7 +257,7 @@ func (lsn *listenerV2) processBatch(
 	// to the txm.
 	for _, reqID := range batch.reqIDs {
 		processedRequestIDs = append(processedRequestIDs, reqID.String())
-		vrfcommon.IncProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, vrfcommon.V2)
+		vrfcommon.IncProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version())
 	}
 
 	ll.Infow("Successfully enqueued batch", "duration", time.Since(start))
@@ -286,7 +275,7 @@ func (lsn *listenerV2) getReadyAndExpired(l logger.Logger, reqs []pendingRequest
 				"reqID", req.req.RequestID().String(),
 				"txHash", req.req.Raw().TxHash)
 			expired = append(expired, req.req.RequestID().String())
-			vrfcommon.IncDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, vrfcommon.V2, vrfcommon.ReasonAge)
+			vrfcommon.IncDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version(), vrfcommon.ReasonAge)
 			continue
 		}
 		// we always check if the requests are already fulfilled prior to trying to fulfill them again
@@ -309,16 +298,11 @@ func accumulateMaxLinkAndMaxEth(batch *batchFulfillment) (maxLinkStr, maxEthStr 
 	maxLink := big.NewInt(0)
 	maxEth := big.NewInt(0)
 	for i := range batch.commitments {
-		if batch.commitments[i].VRFVersion == vrfcommon.V2 {
-			// v2 always bills in link
-			maxLink.Add(maxLink, batch.maxFees[i])
+		// v2plus can bill in link or eth, depending on the commitment
+		if batch.commitments[i].NativePayment() {
+			maxEth.Add(maxEth, batch.maxFees[i])
 		} else {
-			// v2plus can bill in link or eth, depending on the commitment
-			if batch.commitments[i].NativePayment() {
-				maxEth.Add(maxEth, batch.maxFees[i])
-			} else {
-				maxLink.Add(maxLink, batch.maxFees[i])
-			}
+			maxLink.Add(maxLink, batch.maxFees[i])
 		}
 	}
 	return maxLink.String(), maxEth.String()

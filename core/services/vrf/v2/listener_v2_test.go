@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
@@ -71,8 +71,6 @@ func txMetaSubIDs(t *testing.T, vrfVersion vrfcommon.Version, subID *big.Int) (*
 	switch vrfVersion {
 	case vrfcommon.V2Plus:
 		txMetaGlobalSubID = new(subID.String())
-	case vrfcommon.V2:
-		txMetaSubID = new(subID.Uint64())
 	default:
 		t.Errorf("unsupported vrf version: %s", vrfVersion)
 	}
@@ -266,11 +264,6 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 	require.Equal(t, "70000", start.String())
 }
 
-func TestMaybeSubtractReservedLinkV2(t *testing.T) {
-	t.Parallel()
-	testMaybeSubtractReservedLink(t, vrfcommon.V2)
-}
-
 func TestMaybeSubtractReservedLinkV2Plus(t *testing.T) {
 	t.Parallel()
 	testMaybeSubtractReservedLink(t, vrfcommon.V2Plus)
@@ -354,35 +347,6 @@ func TestMaybeSubtractReservedNativeV2Plus(t *testing.T) {
 	testMaybeSubtractReservedNative(t, vrfcommon.V2Plus)
 }
 
-func TestMaybeSubtractReservedNativeV2(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	db := pgtest.NewSqlxDB(t)
-	lggr := logger.TestLogger(t)
-	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
-	require.NoError(t, ks.Unlock(ctx, "blah"))
-	chainID := testutils.SimulatedChainID
-	subID := new(big.Int).SetUint64(1)
-
-	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-		RequestedConfsDelay: 10,
-	}).Toml())
-	require.NoError(t, err)
-	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
-	txm := makeTestTxm(t, txstore, ks)
-	chain := evmmocks.NewChain(t)
-	chain.On("TxManager").Return(txm).Maybe()
-	listener := &listenerV2{
-		respCount: map[string]uint64{},
-		job:       j,
-		chain:     chain,
-	}
-	// returns error because native payment is not supported for V2
-	start, err := listener.MaybeSubtractReservedEth(t.Context(), big.NewInt(100_000), chainID, subID, vrfcommon.V2)
-	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(0), start)
-}
-
 func TestListener_GetConfirmedAt(t *testing.T) {
 	t.Parallel()
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
@@ -398,7 +362,7 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 	// Requester asks for 100 confirmations, we have a delay of 10,
 	// so we should wait for max(nodeMinConfs, requestedConfs + requestedConfsDelay) = 110 confirmations
 	nodeMinConfs := 10
-	confirmedAt := listener.getConfirmedAt(NewV2RandomWordsRequested(&vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+	confirmedAt := listener.getConfirmedAt(NewV2_5RandomWordsRequested(&vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested{
 		RequestId:                   big.NewInt(1),
 		MinimumRequestConfirmations: 100,
 		Raw: types.Log{
@@ -414,7 +378,7 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 	}).Toml())
 	require.NoError(t, err)
 	listener.job = j
-	confirmedAt = listener.getConfirmedAt(NewV2RandomWordsRequested(&vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+	confirmedAt = listener.getConfirmedAt(NewV2_5RandomWordsRequested(&vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested{
 		RequestId:                   big.NewInt(1),
 		MinimumRequestConfirmations: 100,
 		Raw: types.Log{

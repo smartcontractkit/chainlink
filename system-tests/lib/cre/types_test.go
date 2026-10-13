@@ -36,16 +36,16 @@ func TestDonFamiliesRequired(t *testing.T) {
 		donTypes []string
 		want     bool
 	}{
-		{nil, true},                                 // no DON types: keep the requirement
-		{[]string{}, true},                          // no DON types: keep the requirement
-		{[]string{WorkflowDON}, true},               // routes by family
-		{[]string{CapabilitiesDON}, true},           // routes by family
-		{[]string{ShardDON}, true},                  // routes by family
-		{[]string{WorkflowDON, ShardDON}, true},     // any family-routing type requires it
-		{[]string{BootstrapDON}, false},             // public-URL only
-		{[]string{GatewayDON}, false},               // public-URL only
-		{[]string{BootstrapDON, GatewayDON}, false}, // public-URL only (the usual gateway nodeset)
-		{[]string{"unknown"}, true},                 // unknown types: keep the requirement
+		{nil, true},
+		{[]string{}, true},
+		{[]string{WorkflowDON}, true},
+		{[]string{CapabilitiesDON}, true},
+		{[]string{ShardDON}, true},
+		{[]string{WorkflowDON, ShardDON}, true},
+		{[]string{BootstrapDON}, false},
+		{[]string{GatewayDON}, false},
+		{[]string{BootstrapDON, GatewayDON}, false},
+		{[]string{"unknown"}, true},
 	} {
 		assert.Equal(t, tc.want, donFamiliesRequired(tc.donTypes), tc.donTypes)
 	}

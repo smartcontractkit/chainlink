@@ -8,14 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	v2plus "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 )
 
 var (
 	_ Coordinator = MultiCoordinator{}
-	_ Coordinator = &V2Coordinator{}
 	_ Coordinator = &V2PlusCoordinator{}
 )
 
@@ -61,113 +59,13 @@ func (m MultiCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([
 	return fuls, nil
 }
 
-// V2Coordinator fetches request and fulfillment logs from a VRF V2 coordinator contract.
-type V2Coordinator struct {
-	c  v2.VRFCoordinatorV2Interface
-	lp logpoller.LogPoller
-}
-
-// NewV2Coordinator creates a new V2Coordinator from the given contract.
-func NewV2Coordinator(ctx context.Context, c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) (*V2Coordinator, error) {
-	err := lp.RegisterFilter(ctx, logpoller.Filter{
-		Name: logpoller.FilterName("VRFv2CoordinatorFeeder", c.Address()),
-		EventSigs: []common.Hash{
-			v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
-			v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
-		}, Addresses: []common.Address{c.Address()},
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &V2Coordinator{c, lp}, err
-}
-
-// Requests satisfies the Coordinator interface.
-func (v *V2Coordinator) Requests(
-	ctx context.Context,
-	fromBlock uint64,
-	toBlock uint64,
-) ([]Event, error) {
-	if fromBlock > math.MaxInt64 {
-		return nil, errors.Errorf("fromBlock %d overflows int64", fromBlock)
-	}
-	if toBlock > math.MaxInt64 {
-		return nil, errors.Errorf("toBlock %d overflows int64", toBlock)
-	}
-	logs, err := v.lp.LogsWithSigs(
-		ctx,
-		int64(fromBlock),
-		int64(toBlock),
-		[]common.Hash{
-			v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
-		},
-		v.c.Address())
-	if err != nil {
-		return nil, errors.Wrap(err, "filter v2 requests")
-	}
-
-	var reqs []Event
-	for _, l := range logs {
-		requestLog, err := v.c.ParseLog(l.ToGethLog())
-		if err != nil {
-			continue // malformed log should not break flow
-		}
-		request, ok := requestLog.(*v2.VRFCoordinatorV2RandomWordsRequested)
-		if !ok {
-			continue // malformed log should not break flow
-		}
-		reqs = append(reqs, Event{ID: request.RequestId.String(), Block: request.Raw.BlockNumber})
-	}
-
-	return reqs, nil
-}
-
-// Fulfillments satisfies the Coordinator interface.
-func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	if fromBlock > math.MaxInt64 {
-		return nil, errors.Errorf("fromBlock %d overflows int64", fromBlock)
-	}
-	toBlock, err := v.lp.LatestBlock(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetching latest block")
-	}
-
-	logs, err := v.lp.LogsWithSigs(
-		ctx,
-		int64(fromBlock),
-		toBlock.BlockNumber,
-		[]common.Hash{
-			v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
-		},
-		v.c.Address())
-	if err != nil {
-		return nil, errors.Wrap(err, "filter v2 fulfillments")
-	}
-
-	var fuls []Event
-	for _, l := range logs {
-		requestLog, err := v.c.ParseLog(l.ToGethLog())
-		if err != nil {
-			continue // malformed log should not break flow
-		}
-		request, ok := requestLog.(*v2.VRFCoordinatorV2RandomWordsFulfilled)
-		if !ok {
-			continue // malformed log should not break flow
-		}
-		fuls = append(fuls, Event{ID: request.RequestId.String(), Block: request.Raw.BlockNumber})
-	}
-	return fuls, nil
-}
-
 // V2PlusCoordinator fetches request and fulfillment logs from a VRF V2Plus coordinator contract.
 type V2PlusCoordinator struct {
 	c  v2plus.IVRFCoordinatorV2PlusInternalInterface
 	lp logpoller.LogPoller
 }
 
-// NewV2Coordinator creates a new V2Coordinator from the given contract.
+// NewV2PlusCoordinator creates a new V2PlusCoordinator from the given contract.
 func NewV2PlusCoordinator(ctx context.Context, c v2plus.IVRFCoordinatorV2PlusInternalInterface, lp logpoller.LogPoller) (*V2PlusCoordinator, error) {
 	err := lp.RegisterFilter(ctx, logpoller.Filter{
 		Name: logpoller.FilterName("VRFv2PlusCoordinatorFeeder", c.Address()),

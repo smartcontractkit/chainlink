@@ -38,8 +38,8 @@ const (
 	EngineVersionV1 = "v1"
 	EngineVersionV2 = "v2"
 
-	// defaultBillingCallTimeout bounds the blocking billing-service RPCs made on
-	// the execution-start path (GetWorkflowExecutionRates, ReserveCredits). The
+	// defaultBillingCallTimeout bounds the blocking billing-service RPCs
+	// (GetWorkflowExecutionRates, ReserveCredits, SubmitWorkflowReceipt). The
 	// billing client itself sets no deadline, so without this a slow or hung
 	// billing call (e.g. an upstream proxy returning a 524) can stall workflow
 	// executions long enough to fall behind peer nodes and fail consensus. We
@@ -656,7 +656,9 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	var err error
 
 	for attempt := 0; ; attempt++ {
-		resp, err = r.client.SubmitWorkflowReceipt(ctx, &req)
+		receiptCtx, cancel := context.WithTimeout(ctx, defaultBillingCallTimeout)
+		resp, err = r.client.SubmitWorkflowReceipt(receiptCtx, &req)
+		cancel()
 		if err == nil {
 			break
 		}
