@@ -1087,52 +1087,78 @@ func TestProposeGatewayJob_ShardedDON(t *testing.T) {
 		} `toml:"gatewayConfig"`
 	}
 
+	zoneB := []string{"workflow_1_zone-b", "workflow_1_zone-b_shard-1"}
+
 	testCases := []struct {
 		name     string
 		services []GatewayService
 		errorMsg string
 	}{
 		{
-			name: "shard DONs are grouped under the base DON",
+			name: "shards are emitted under one sharded DON",
 			services: []GatewayService{
 				{
 					ServiceName: "workflows",
 					Handlers:    []string{"http-capabilities"},
-					DONs:        []string{"workflow_1_zone-b", "workflow_1_zone-b_shard-1"},
+					ShardedDONs: [][]string{zoneB},
 				},
 			},
 		},
 		{
-			name: "shard order in input does not matter",
+			name: "same sharded DON referenced by multiple services",
 			services: []GatewayService{
 				{
 					ServiceName: "workflows",
 					Handlers:    []string{"http-capabilities"},
-					DONs:        []string{"workflow_1_zone-b_shard-1", "workflow_1_zone-b"},
+					ShardedDONs: [][]string{zoneB},
+				},
+				{
+					ServiceName: "workflows-2",
+					Handlers:    []string{"http-capabilities"},
+					ShardedDONs: [][]string{zoneB},
 				},
 			},
 		},
 		{
-			name: "fail - missing shard 0",
+			name: "fail - DON referenced with different shards",
 			services: []GatewayService{
 				{
 					ServiceName: "workflows",
 					Handlers:    []string{"http-capabilities"},
-					DONs:        []string{"workflow_1_zone-b_shard-1"},
+					ShardedDONs: [][]string{zoneB},
+				},
+				{
+					ServiceName: "workflows-2",
+					Handlers:    []string{"http-capabilities"},
+					DONs:        []string{"workflow_1_zone-b"},
 				},
 			},
-			errorMsg: "shards must be contiguous starting from 0",
+			errorMsg: "is referenced with different shards",
 		},
 		{
-			name: "fail - explicit shard-0 suffix",
+			name: "fail - JD DON is a shard of two DONs",
 			services: []GatewayService{
 				{
 					ServiceName: "workflows",
 					Handlers:    []string{"http-capabilities"},
-					DONs:        []string{"workflow_1_zone-b_shard-0"},
+					ShardedDONs: [][]string{
+						zoneB,
+						{"other", "workflow_1_zone-b_shard-1"},
+					},
 				},
 			},
-			errorMsg: "shard 0 must use the bare DON name",
+			errorMsg: "is used as a shard of both DON",
+		},
+		{
+			name: "fail - no shards",
+			services: []GatewayService{
+				{
+					ServiceName: "workflows",
+					Handlers:    []string{"http-capabilities"},
+					ShardedDONs: [][]string{{}},
+				},
+			},
+			errorMsg: "must have at least one shard",
 		},
 	}
 
@@ -1172,25 +1198,33 @@ func TestProposeGatewayJob_ShardedDON(t *testing.T) {
 			assert.Equal(t, "0x04-shard-1", dons[0].Shards[1].Nodes[0].Address)
 			assert.Equal(t, "cl-cre-one-zone-b-shard-1-0 (DON workflow_1_zone-b_shard-1)", dons[0].Shards[1].Nodes[0].Name)
 
-			require.Len(t, spec.GatewayConfig.Services, 1)
-			assert.Equal(t, []string{"workflow_1_zone-b"}, spec.GatewayConfig.Services[0].DONs)
+			require.Len(t, spec.GatewayConfig.Services, len(tc.services))
+			for _, svc := range spec.GatewayConfig.Services {
+				assert.Equal(t, []string{"workflow_1_zone-b"}, svc.DONs)
+			}
 		})
 	}
 }
 
-func TestGroupShardedDONs(t *testing.T) {
+func TestCollectShardedDONs(t *testing.T) {
 	t.Parallel()
 
-	shardedDONs, err := groupShardedDONs([]string{"wf_b_shard-2", "vault", "wf_b", "wf_a", "wf_b_shard-1", "wf_a", "vault"})
+	shardedDONs, err := collectShardedDONs([]GatewayService{
+		{
+			ServiceName: "a",
+			DONs:        []string{"vault", "wf_a"},
+			ShardedDONs: [][]string{{"wf_b", "wf_b_shard-1", "wf_b_shard-2"}},
+		},
+		{
+			ServiceName: "b",
+			DONs:        []string{"vault"},
+			ShardedDONs: [][]string{{"wf_a"}},
+		},
+	})
 	require.NoError(t, err)
-	assert.Equal(t, []shardedDON{
-		{donName: "vault", shardDONNames: []string{"vault"}},
-		{donName: "wf_a", shardDONNames: []string{"wf_a"}},
-		{donName: "wf_b", shardDONNames: []string{"wf_b", "wf_b_shard-1", "wf_b_shard-2"}},
+	assert.Equal(t, [][]string{
+		{"vault"},
+		{"wf_a"},
+		{"wf_b", "wf_b_shard-1", "wf_b_shard-2"},
 	}, shardedDONs)
-
-	_, err = groupShardedDONs([]string{"wf", "wf_shard-2"})
-	require.ErrorContains(t, err, "shards must be contiguous")
-
-	assert.Equal(t, []string{"wf_b", "vault"}, baseDONNames([]string{"wf_b_shard-1", "wf_b", "vault"}))
 }

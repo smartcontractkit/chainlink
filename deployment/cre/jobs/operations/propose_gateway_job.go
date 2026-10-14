@@ -3,9 +3,8 @@ package operations
 import (
 	"errors"
 	"fmt"
-	"regexp"
+	"maps"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -50,10 +49,28 @@ type DON struct {
 }
 
 type GatewayService struct {
-	ServiceName string           `yaml:"servicename"`
-	Handlers    []string         `yaml:"handlers"`
-	DONs        []string         `yaml:"dons"`
+	ServiceName string   `yaml:"servicename"`
+	Handlers    []string `yaml:"handlers"`
+	// Deprecated: use ShardedDONs. Each entry is treated as a single-shard DON.
+	DONs []string `yaml:"dons"`
+	// ShardedDONs lists the DONs served by this service. Each entry holds the JD DON names
+	// of the DON's shards, ordered by shard index, and must follow the format
+	// ["<don-name>", "<don-name>_shard-1", "<don-name>_shard-2", ...]. The first one is used
+	// as the DonName in the gateway job spec, and the gateway derives the DON ID of shard N
+	// from it with config.GatewayDONIDForShard; the shard's nodes can only connect if that ID
+	// matches the DonID in their GatewayConnector config. A non-sharded DON has a single shard.
+	ShardedDONs [][]string       `yaml:"shardedDONs"`
 	Auth0       *pkg.Auth0Config `yaml:"auth0,omitempty"`
+}
+
+// allShardedDONs returns the service's ShardedDONs followed by its deprecated DONs,
+// each converted to a single-shard DON.
+func (s GatewayService) allShardedDONs() [][]string {
+	out := slices.Clone(s.ShardedDONs)
+	for _, donName := range s.DONs {
+		out = append(out, []string{donName})
+	}
+	return out
 }
 
 type ProposeGatewayJobDeps struct {
@@ -148,20 +165,17 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 }
 
 func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobInput, requestTimeoutSec int) (pkg.GatewayJob, error) {
-	var donNames []string
-	for _, svc := range input.Services {
-		donNames = append(donNames, svc.DONs...)
-	}
-	shardedDONs, err := groupShardedDONs(donNames)
+	shardedDONs, err := collectShardedDONs(input.Services)
 	if err != nil {
 		return pkg.GatewayJob{}, err
 	}
 
 	dons := make([]pkg.TargetDON, 0, len(shardedDONs))
-	for _, sd := range shardedDONs {
-		shards := make([][]pkg.TargetDONMember, len(sd.shardDONNames))
+	for _, shardDONNames := range shardedDONs {
+		donName := shardDONNames[0]
+		shards := make([][]pkg.TargetDONMember, len(shardDONNames))
 		var f int
-		for shardIdx, shardDONName := range sd.shardDONNames {
+		for shardIdx, shardDONName := range shardDONNames {
 			members, shardF, err := resolveDONMembers(deps, input, shardDONName)
 			if err != nil {
 				return pkg.GatewayJob{}, err
@@ -169,12 +183,12 @@ func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobI
 			if shardIdx == 0 {
 				f = shardF
 			} else if shardF != f {
-				return pkg.GatewayJob{}, fmt.Errorf("DON %s: shard %d (%s) has F=%d, but shard 0 has F=%d; all shards must have the same size", sd.donName, shardIdx, shardDONName, shardF, f)
+				return pkg.GatewayJob{}, fmt.Errorf("DON %s: shard %d (%s) has F=%d, but shard 0 has F=%d; all shards must have the same size", donName, shardIdx, shardDONName, shardF, f)
 			}
 			shards[shardIdx] = members
 		}
 		dons = append(dons, pkg.TargetDON{
-			ID:     sd.donName,
+			ID:     donName,
 			F:      f,
 			Shards: shards,
 		})
@@ -182,10 +196,14 @@ func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobI
 
 	services := make([]pkg.GatewayServiceConfig, len(input.Services))
 	for i, svc := range input.Services {
+		var donNames []string
+		for _, shardDONNames := range svc.allShardedDONs() {
+			donNames = append(donNames, shardDONNames[0])
+		}
 		services[i] = pkg.GatewayServiceConfig{
 			ServiceName: svc.ServiceName,
 			Handlers:    svc.Handlers,
-			DONs:        baseDONNames(svc.DONs),
+			DONs:        donNames,
 			Auth0:       svc.Auth0,
 		}
 	}
@@ -205,74 +223,40 @@ func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobI
 	}, nil
 }
 
-// shardDONNameRe matches the DON name of shard N>0 of a sharded DON. It mirrors
-// gateway config.GatewayDONIDForShard: shard 0 uses the bare DON name and shard N>0 uses "<base>_shard-N".
-var shardDONNameRe = regexp.MustCompile(`^(.+)_shard-([0-9]+)$`)
-
-// splitShardDONName returns the base DON name and shard index for a DON name.
-// Names without a "_shard-N" suffix are shard 0 of a DON with that name.
-func splitShardDONName(donName string) (string, int, error) {
-	m := shardDONNameRe.FindStringSubmatch(donName)
-	if m == nil {
-		return donName, 0, nil
-	}
-	idx, err := strconv.Atoi(m[2])
-	if err != nil {
-		return "", 0, fmt.Errorf("invalid shard index in DON name %s: %w", donName, err)
-	}
-	if idx == 0 {
-		return "", 0, fmt.Errorf("invalid DON name %s: shard 0 must use the bare DON name %s", donName, m[1])
-	}
-	return m[1], idx, nil
-}
-
-type shardedDON struct {
-	donName string
-	// shardDONNames holds the JD DON name of each shard, indexed by shard index.
-	shardDONNames []string
-}
-
-// groupShardedDONs groups DON names into sharded DONs keyed by base name, sorted by name.
-// Every sharded DON must have contiguous shards 0..N-1.
-func groupShardedDONs(donNames []string) ([]shardedDON, error) {
-	byBase := make(map[string]map[int]string)
-	for _, name := range donNames {
-		base, idx, err := splitShardDONName(name)
-		if err != nil {
-			return nil, err
-		}
-		if byBase[base] == nil {
-			byBase[base] = make(map[int]string)
-		}
-		byBase[base][idx] = name
-	}
-
-	shardedDONs := make([]shardedDON, 0, len(byBase))
-	for base, shards := range byBase {
-		shardDONNames := make([]string, len(shards))
-		for idx, name := range shards {
-			if idx >= len(shards) {
-				return nil, fmt.Errorf("DON %s: shards must be contiguous starting from 0, got shard %d (%s) with only %d shards referenced", base, idx, name, len(shards))
+// collectShardedDONs returns the unique DONs referenced by services as lists of shard
+// JD DON names, sorted by DON name (the first shard's name). A DON referenced by several
+// services must have the same shards everywhere, and a JD DON can be a shard of only one DON.
+func collectShardedDONs(services []GatewayService) ([][]string, error) {
+	byName := make(map[string][]string)
+	donByShard := make(map[string]string)
+	for _, svc := range services {
+		for _, shardDONNames := range svc.allShardedDONs() {
+			if len(shardDONNames) == 0 {
+				return nil, fmt.Errorf("service %s: sharded DON must have at least one shard", svc.ServiceName)
 			}
-			shardDONNames[idx] = name
+			donName := shardDONNames[0]
+			if existing, ok := byName[donName]; ok {
+				if !slices.Equal(existing, shardDONNames) {
+					return nil, fmt.Errorf("DON %s is referenced with different shards: %v and %v", donName, existing, shardDONNames)
+				}
+				continue
+			}
+			for _, shardDONName := range shardDONNames {
+				if shardDONName == "" {
+					return nil, fmt.Errorf("service %s: shard DON name must not be empty", svc.ServiceName)
+				}
+				if otherDON, ok := donByShard[shardDONName]; ok {
+					return nil, fmt.Errorf("JD DON %s is used as a shard of both DON %s and DON %s", shardDONName, otherDON, donName)
+				}
+				donByShard[shardDONName] = donName
+			}
+			byName[donName] = shardDONNames
 		}
-		shardedDONs = append(shardedDONs, shardedDON{donName: base, shardDONNames: shardDONNames})
 	}
-	slices.SortFunc(shardedDONs, func(a, b shardedDON) int { return strings.Compare(a.donName, b.donName) })
-	return shardedDONs, nil
-}
 
-// baseDONNames maps DON names to their base (sharded DON) names, deduplicated and order-preserving.
-// Callers must have validated the names with groupShardedDONs.
-func baseDONNames(donNames []string) []string {
-	out := make([]string, 0, len(donNames))
-	for _, name := range donNames {
-		base, _, _ := splitShardDONName(name)
-		if !slices.Contains(out, base) {
-			out = append(out, base)
-		}
-	}
-	return out
+	out := slices.Collect(maps.Values(byName))
+	slices.SortFunc(out, func(a, b []string) int { return strings.Compare(a[0], b[0]) })
+	return out, nil
 }
 
 func resolveDONMembers(deps ProposeGatewayJobDeps, input ProposeGatewayJobInput, donName string) ([]pkg.TargetDONMember, int, error) {
