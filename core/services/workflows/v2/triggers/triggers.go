@@ -29,6 +29,17 @@ import (
 
 const _prefix = "trigger_reg"
 
+var (
+	// ErrAdmissionDenied is returned when an admission check rejects a trigger
+	// event. The event will never be executed, so the caller ACKs and drops it.
+	ErrAdmissionDenied = errors.New("trigger admission denied")
+
+	// ErrAdmissionCached is returned when an admission check holds a trigger
+	// event back for possible replay (e.g. shard failover). The caller drops it
+	// without ACKing.
+	ErrAdmissionCached = errors.New("admission: event cached for failover")
+)
+
 // Handle is a registered trigger capability plus the registration
 // payload/method needed to unregister and re-deliver to it.
 type Handle struct {

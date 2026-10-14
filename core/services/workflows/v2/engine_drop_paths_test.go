@@ -430,3 +430,30 @@ func TestEngine_UserLog_LogEventCheckFailure_KeepsDraining(t *testing.T) { //nol
 		assert.Contains(c, lines, "second line")
 	}, 5*time.Second, 50*time.Millisecond)
 }
+
+// TestAdmissionErrors_MatchTriggerSentinels asserts that the coordinator
+// recognises admission outcomes through the defined error sentinels.
+func TestAdmissionErrors_MatchTriggerSentinels(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		err        error
+		wantDenied bool
+		wantCached bool
+	}{
+		{name: "not owner is denied", err: v2.ErrShardDeniedNotOwner, wantDenied: true},
+		{name: "orchestrator error is denied", err: v2.ErrShardDeniedOrchestrator, wantDenied: true},
+		{name: "cache is cached", err: v2.ErrAdmissionCache, wantCached: true},
+		{name: "unrelated error is neither", err: v2.ErrEngineDraining},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.wantDenied, errors.Is(tc.err, triggers.ErrAdmissionDenied),
+				"errors.Is(%v, ErrAdmissionDenied)", tc.err)
+			assert.Equal(t, tc.wantCached, errors.Is(tc.err, triggers.ErrAdmissionCached),
+				"errors.Is(%v, ErrAdmissionCached)", tc.err)
+		})
+	}
+}

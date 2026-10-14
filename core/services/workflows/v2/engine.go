@@ -309,7 +309,7 @@ func (e *engine) put(ctx context.Context, event triggers.CoordinatedEvent) error
 		if ackErr := e.base.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
 			e.base.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
 		}
-		e.base.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "admission_denied")
+		e.base.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
 		return err
 	}
 

@@ -49,10 +49,10 @@ var executingWorkflows atomic.Int64
 
 var (
 	ErrDuplicateExecution      = errors.New("duplicate execution")
-	ErrShardDeniedNotOwner     = errors.New("shard ownership denied: not owner")
-	ErrShardDeniedOrchestrator = errors.New("shard ownership denied: orchestrator error")
+	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", triggers.ErrAdmissionDenied)
+	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", triggers.ErrAdmissionDenied)
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
-	ErrAdmissionCache          = errors.New("admission: event cached for failover")
+	ErrAdmissionCache          = triggers.ErrAdmissionCached
 
 	ErrEngineDraining = errors.New("engine is draining")
 	ErrEngineClosed   = errors.New("engine is closed")
