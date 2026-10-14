@@ -30,6 +30,7 @@ func validCapParams(workflowID string) relaytypes.CapabilityRequestParams {
 		ReferenceID:  "ref-1",
 		CapabilityID: "cap-1",
 		Payload:      "in",
+		ShardIndex:   new(0),
 	}
 }
 
@@ -40,6 +41,7 @@ func validSecretsParams(workflowID string) relaytypes.SecretsRequestParams {
 		ExecutionID:      testExecutionID,
 		Secrets:          []relaytypes.SecretIdentifier{{Key: "k1", Namespace: "ns"}},
 		EnclavePublicKey: testEnclavePK,
+		ShardIndex:       new(0),
 	}
 }
 

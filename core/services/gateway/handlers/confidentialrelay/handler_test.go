@@ -883,7 +883,7 @@ func TestConfidentialRelayHandler_DuplicateRequestID(t *testing.T) {
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-dup",
 		Method: MethodCapabilityExec,
@@ -925,7 +925,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	cb := common.NewCallback()
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-ratelimit",
 		Method: MethodCapabilityExec,
@@ -1010,7 +1010,7 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("connection refused"))
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-allfail",
 		Method: MethodCapabilityExec,
@@ -1051,7 +1051,7 @@ func TestConfidentialRelayHandler_FanOutWaitsWhileQuorumStillPossible(t *testing
 		},
 	)
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-still-possible",
 		Method: MethodCapabilityExec,
@@ -1083,7 +1083,7 @@ func TestConfidentialRelayHandler_FanOutFailsWhenQuorumBecomesImpossible(t *test
 		},
 	)
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-quorum-impossible",
 		Method: MethodCapabilityExec,
@@ -1135,7 +1135,7 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 	require.NoError(t, err)
 
 	cb := common.NewCallback()
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-concurrent-fanout",
 		Method: MethodCapabilityExec,
@@ -1220,7 +1220,7 @@ func TestConfidentialRelayHandler_BlockedNodeDoesNotStallFanOut(t *testing.T) {
 	// Shortened so the test exercises the bound without waiting the production default.
 	h.nodeSendTimeout = 50 * time.Millisecond
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-blocked-node",
 		Method: MethodCapabilityExec,
@@ -1293,27 +1293,27 @@ func setupMultiShardHandler(t *testing.T, f int, shardSizes ...int) (*handler, *
 	return h, cb, mockConns, clock
 }
 
-func nodeErrorResponse(id string) *jsonrpc.Response[json.RawMessage] {
-	return &jsonrpc.Response[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      id,
-		Method:  MethodCapabilityExec,
-		Error:   &jsonrpc.WireError{Code: -32603, Message: "internal error"},
-	}
+// capParamsForShard returns capability-exec params targeting a specific shard index.
+func capParamsForShard(t *testing.T, workflowID string, shardIndex int) json.RawMessage {
+	t.Helper()
+	params := validCapParams(workflowID)
+	params.ShardIndex = new(shardIndex)
+	raw, err := json.Marshal(params)
+	require.NoError(t, err)
+	return raw
 }
 
-// First shard to reach quorum wins: shard 0 reaches 2F+1 while shard 1 has no
-// responses at all, and the forwarded bundle contains only shard 0's responses.
-func TestConfidentialRelayHandler_Sharded_FirstShardToReachQuorumWins(t *testing.T) {
+// A request naming shard 1 fans out only to shard 1's connection manager and ignores
+// shard 0 entirely: shard 0's mock DON has no expectations set, so mockery fails the
+// test if fan-out ever reaches it.
+func TestConfidentialRelayHandler_Sharded_RoutesToSelectedShardOnly(t *testing.T) {
 	t.Parallel()
 	h, cb, conns, _ := setupMultiShardHandler(t, 1, 4, 4) // F=1: minQuorum=2, earlyNeed=3 per shard
-	for _, conn := range conns {
-		conn.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	}
+	conns[1].On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	params := validCapParamsJSON("wf1")
+	params := capParamsForShard(t, "wf1", 1)
 	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-sharded-win",
+		ID:     "req-sharded-routed",
 		Method: MethodCapabilityExec,
 		Params: &params,
 	}
@@ -1336,60 +1336,16 @@ func TestConfidentialRelayHandler_Sharded_FirstShardToReachQuorumWins(t *testing
 		if !assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle)) {
 			return
 		}
-		assert.Len(t, bundle.Responses, 3, "only shard 0's signed responses are bundled")
+		assert.Len(t, bundle.Responses, 3)
 	})
 
-	// Shard 0 is nodes 0x0000-0x0003; reaching 3 signed responses hits 2F+1 there.
-	for i := range 3 {
-		require.NoError(t, h.HandleNodeMessage(t.Context(),
-			capExecSignedRespPtr(t, req.ID, result, fmt.Appendf(nil, "signer-%d", i)),
-			fmt.Sprintf("0x%04d", i)))
-	}
-	wg.Wait()
-	require.Nil(t, h.getActiveRequest(req.ID), "request completes once any shard reaches quorum")
-
-	// A late response from shard 1 (nodes 0x0004-0x0007) must be ignored: the request
-	// is already answered, and shard 1's quorum is irrelevant once shard 0 has won.
+	// A response from a shard 0 node address must not count toward this request's
+	// quorum, even though it shares a rate limiter map with shard 1's nodes.
 	require.NoError(t, h.HandleNodeMessage(t.Context(),
-		capExecSignedRespPtr(t, req.ID, result, []byte("signer-late")), "0x0004"))
-}
+		capExecSignedRespPtr(t, req.ID, result, []byte("signer-foreign")), "0x0000"))
+	require.NotNil(t, h.getActiveRequest(req.ID), "a foreign-shard response must not complete the request")
 
-// A shard whose own quorum becomes unreachable does not fail the request: another
-// shard can still complete it independently.
-func TestConfidentialRelayHandler_Sharded_DeadShardDoesNotFailRequest(t *testing.T) {
-	t.Parallel()
-	h, cb, conns, _ := setupMultiShardHandler(t, 1, 4, 4)
-	for _, conn := range conns {
-		conn.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	}
-
-	params := validCapParamsJSON("wf1")
-	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-sharded-dead",
-		Method: MethodCapabilityExec,
-		Params: &params,
-	}
-	result := relaytypes.CapabilityResponseResult{Payload: "result"}
-
-	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
-
-	// Shard 0 (nodes 0x0000-0x0003) answers entirely with errors: once every member
-	// has replied, signed stays 0 and this shard can never reach minQuorum=2.
-	for i := range 4 {
-		require.NoError(t, h.HandleNodeMessage(t.Context(), nodeErrorResponse(req.ID), fmt.Sprintf("0x%04d", i)))
-	}
-	require.NotNil(t, h.getActiveRequest(req.ID), "shard 1 can still reach quorum")
-
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		resp, err := cb.Wait(t.Context())
-		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
-			return
-		}
-		assert.Equal(t, api.NoError, resp.ErrorCode)
-	})
-
-	// Shard 1 (nodes 0x0004-0x0007) reaches 2F+1=3 signed responses.
+	// Shard 1 is nodes 0x0004-0x0007; reaching 3 signed responses hits 2F+1 there.
 	for i := 4; i < 7; i++ {
 		require.NoError(t, h.HandleNodeMessage(t.Context(),
 			capExecSignedRespPtr(t, req.ID, result, fmt.Appendf(nil, "signer-%d", i)),
@@ -1399,42 +1355,32 @@ func TestConfidentialRelayHandler_Sharded_DeadShardDoesNotFailRequest(t *testing
 	require.Nil(t, h.getActiveRequest(req.ID))
 }
 
-// Only once every shard's quorum is unreachable does the request fail.
-func TestConfidentialRelayHandler_Sharded_AllShardsDeadFailsRequest(t *testing.T) {
+func TestConfidentialRelayHandler_ShardIndexMissing(t *testing.T) {
 	t.Parallel()
-	h, cb, conns, _ := setupMultiShardHandler(t, 1, 4, 4)
-	for _, conn := range conns {
-		conn.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	}
+	h, cb, _, _ := setupHandler(t, 4)
 
-	params := validCapParamsJSON("wf1")
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-sharded-all-dead",
+		ID:     "req-no-shard",
 		Method: MethodCapabilityExec,
 		Params: &params,
 	}
 
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		resp, err := cb.Wait(t.Context())
-		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
-			return
-		}
-		assert.Equal(t, api.FatalError, resp.ErrorCode)
-		var jsonResp jsonrpc.Response[json.RawMessage]
-		if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) { //nolint:testifylint // require illegal inside wg.Go goroutine
-			return
-		}
-		if assert.NotNil(t, jsonResp.Error) {
-			assert.Contains(t, jsonResp.Error.Message, "relay quorum unreachable")
-		}
-	})
+	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
+	require.EqualError(t, err, "shard_index is required")
+}
 
-	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+func TestConfidentialRelayHandler_ShardIndexOutOfRange(t *testing.T) {
+	t.Parallel()
+	h, cb, _, _ := setupHandler(t, 4)
 
-	for i := range 8 {
-		require.NoError(t, h.HandleNodeMessage(t.Context(), nodeErrorResponse(req.ID), fmt.Sprintf("0x%04d", i)))
+	params := capParamsForShard(t, "wf1", 1)
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-shard-oor",
+		Method: MethodCapabilityExec,
+		Params: &params,
 	}
-	wg.Wait()
-	require.Nil(t, h.getActiveRequest(req.ID))
+
+	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
+	require.EqualError(t, err, "shard index 1 out of range: handler has 1 shard(s)")
 }
