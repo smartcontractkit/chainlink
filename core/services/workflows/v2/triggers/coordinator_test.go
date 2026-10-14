@@ -173,8 +173,7 @@ func TestCoordinator_NoDeliver(t *testing.T) {
 
 // TestCoordinator_DeliverAdmission covers what the coordinator does with an
 // admission error from the engine (e.g. the shard failover manager on a sharded
-// node). It takes the legacy engine's place after OnTriggerAdmission: a denied
-// event is ACKed and counted as an admission_denied drop, while a cached event
+// node). A denied event is ACKed and counted as an admission_denied drop, while a cached event
 // is left un-ACKed so the secondary can replay it.
 //
 //nolint:paralleltest // swaps the global beholder client

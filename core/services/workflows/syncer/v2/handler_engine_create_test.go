@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -21,7 +22,8 @@ import (
 )
 
 // fakeCoordinatedEngine is a v2.WorkflowEngine that reports as coordinated.
-// Only the lifecycle methods tryEngineCreate calls are implemented.
+// Only the lifecycle methods tryEngineCreate calls, and the drain state the
+// registry's engine counts read through a ShardFailoverManager, are implemented.
 type fakeCoordinatedEngine struct {
 	v2.WorkflowEngine
 	closed atomic.Bool
@@ -35,6 +37,8 @@ func (f *fakeCoordinatedEngine) Close() error {
 }
 
 func (f *fakeCoordinatedEngine) IsCoordinated() bool { return true }
+
+func (f *fakeCoordinatedEngine) DrainStartedAt() (time.Time, bool) { return time.Time{}, false }
 
 // recordingCoordinator records the subscribers handed to RegisterTriggers.
 type recordingCoordinator struct {
@@ -57,7 +61,9 @@ type nodeConfig struct {
 
 // engineCreateFixture is an eventHandler whose engine factory mirrors the real
 // one's contract: it reads the routing policy itself and returns the matching
-// engine, leaving tryEngineCreate to route on the engine's IsCoordinated.
+// engine, leaving tryEngineCreate to route on the engine's IsCoordinated. On a
+// sharded node it wraps whichever engine it picks in a ShardFailoverManager,
+// as the real factory does.
 type engineCreateFixture struct {
 	h                 *eventHandler
 	legacyEngine      v2.WorkflowEngine
@@ -77,11 +83,6 @@ func newEngineCreateFixture(t *testing.T, cfg nodeConfig) *engineCreateFixture {
 		legacyEngine:      &mockEngine{},
 		coordinatedEngine: &fakeCoordinatedEngine{},
 	}
-	// A sharded node gets the ShardFailoverManager wrapper, as the real factory
-	// builds it.
-	if cfg.sharded {
-		f.legacyEngine = newTestShardFailoverManager(t, &mockEngine{})
-	}
 
 	f.h = &eventHandler{
 		lggr:           lggr,
@@ -95,10 +96,14 @@ func newEngineCreateFixture(t *testing.T, cfg nodeConfig) *engineCreateFixture {
 				return nil, f.factoryErr
 			}
 			initDone <- nil
+			engine := f.legacyEngine
 			if f.h.useCoordinatedEngine(ctx, wfid) {
-				return f.coordinatedEngine, nil
+				engine = f.coordinatedEngine
 			}
-			return f.legacyEngine, nil
+			if cfg.sharded {
+				return newTestShardFailoverManager(t, engine), nil
+			}
+			return engine, nil
 		},
 	}
 	if cfg.withCoordinator {
@@ -176,7 +181,7 @@ func Test_tryEngineCreate_routing(t *testing.T) {
 		require.False(t, entry.Coordinated())
 	})
 
-	t.Run("a sharded node stays on the legacy path with the flag open", func(t *testing.T) {
+	t.Run("a sharded node takes the coordinated path with the flag open", func(t *testing.T) {
 		t.Parallel()
 		f := newEngineCreateFixture(t, nodeConfig{flagOpen: true, withCoordinator: true, sharded: true})
 		spec, wid := newTestWorkflowSpec(t)
@@ -185,9 +190,30 @@ func Test_tryEngineCreate_routing(t *testing.T) {
 
 		entry, ok := f.h.engineRegistry.Get(wid)
 		require.True(t, ok)
-		require.IsType(t, &ShardFailoverManager{}, entry.Service)
-		require.False(t, entry.Coordinated(), "a sharded engine must never classify as coordinated")
-		require.Empty(t, f.coordinator.registered, "the coordinator must not be used on a sharded node")
+		manager, ok := entry.Service.(*ShardFailoverManager)
+		require.True(t, ok, "a sharded node registers the ShardFailoverManager, got %T", entry.Service)
+		require.Same(t, f.coordinatedEngine, manager.engine, "the manager wraps the coordinated engine")
+		require.True(t, entry.Coordinated())
+		// The coordinator must subscribe and deliver through the manager, so
+		// every event passes its shard admission check.
+		require.Equal(t, []triggers.Subscriber{manager}, f.coordinator.registered)
+		require.Equal(t, engineCounts{coordinated: 1}, countEngines(f.h.engineRegistry.GetAll()))
+	})
+
+	t.Run("a sharded node takes the legacy path with the flag closed", func(t *testing.T) {
+		t.Parallel()
+		f := newEngineCreateFixture(t, nodeConfig{flagOpen: false, withCoordinator: true, sharded: true})
+		spec, wid := newTestWorkflowSpec(t)
+
+		require.NoError(t, f.h.tryEngineCreate(t.Context(), spec, "TestSource"))
+
+		entry, ok := f.h.engineRegistry.Get(wid)
+		require.True(t, ok)
+		manager, ok := entry.Service.(*ShardFailoverManager)
+		require.True(t, ok, "a sharded node registers the ShardFailoverManager, got %T", entry.Service)
+		require.Same(t, f.legacyEngine, manager.engine, "the manager wraps the legacy engine")
+		require.False(t, entry.Coordinated())
+		require.Empty(t, f.coordinator.registered)
 		require.Equal(t, engineCounts{legacy: 1}, countEngines(f.h.engineRegistry.GetAll()))
 	})
 
@@ -263,9 +289,14 @@ func Test_useCoordinatedEngine(t *testing.T) {
 		require.False(t, newHandler(true, false, false).useCoordinatedEngine(t.Context(), "wfid"))
 	})
 
-	t.Run("sharded nodes stay on the legacy engine", func(t *testing.T) {
+	t.Run("sharded node with the flag open", func(t *testing.T) {
 		t.Parallel()
-		require.False(t, newHandler(true, true, true).useCoordinatedEngine(t.Context(), "wfid"))
+		require.True(t, newHandler(true, true, true).useCoordinatedEngine(t.Context(), "wfid"))
+	})
+
+	t.Run("sharded node with the flag closed", func(t *testing.T) {
+		t.Parallel()
+		require.False(t, newHandler(false, true, true).useCoordinatedEngine(t.Context(), "wfid"))
 	})
 
 	t.Run("nil feature flags", func(t *testing.T) {
