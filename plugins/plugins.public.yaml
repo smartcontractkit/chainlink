@@ -84,12 +84,12 @@ plugins:
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "e6f512fbf3bdc3adaa96bfdd1d497c4507eab05d"
+      gitRef: "2951f2cf06c3c0d52fe8b738764218cdb571635c"
       installPath: "."
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "7ae963289733be8764d0b49e8e4c6233bd34680b"
+      gitRef: "2951f2cf06c3c0d52fe8b738764218cdb571635c"
       installPath: "."
 
   capability-aptos:
