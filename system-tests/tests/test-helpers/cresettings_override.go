@@ -372,7 +372,7 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 //
 // The CLDF environment is used with ctx in place of its own context, which is bound to
 // t.Context() of the test that built the environment.
-func deliverCRESettings(ctx context.Context, env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string, detachFromCallerContext bool) error {
+func deliverCRESettings(ctx context.Context, env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string) error {
 	cldfEnv := *env.CreEnvironment.CldfEnvironment
 	cldfEnv.GetContext = func() context.Context { return ctx }
 	cldfEnv.OperationsBundle.GetContext = cldfEnv.GetContext
