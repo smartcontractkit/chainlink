@@ -459,6 +459,8 @@ func Test_CRE_V2_ShardFailoverCentralizedEventRouting(t *testing.T) {
 		"--with-dashboards",
 	)
 	ExecuteShardFailoverCentralizedEventRoutingTest(t, testEnv)
+}
+
 //nolint:paralleltest // the test owns the sharded topology and the enclave host env it runs on
 func Test_CRE_V2_ShardManualAssignmentConfidentialWorkflows(t *testing.T) {
 	confidentialComputeRoot(t) // skip before standing up the environment when the checkout is missing

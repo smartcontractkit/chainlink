@@ -311,7 +311,7 @@ func requireAssignmentLandedOnShard(t *testing.T, testEnv *ttypes.TestEnvironmen
 func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	shards := mustSharedVaultShardPair(t, testEnv)
+	shards := mustSharedVaultShardPair(t, testEnv, "configs/workflow-gateway-sharded-shared-vault-failover.toml")
 	fixture := setupSharedVaultShardFixture(t, testEnv)
 	shards.workflowOwner = strings.ToLower(fixture.owner)
 
@@ -361,7 +361,7 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	shards := mustSharedVaultShardPair(t, testEnv)
+	shards := mustSharedVaultShardPair(t, testEnv, "configs/workflow-gateway-sharded-shared-vault-failover.toml")
 	fixture := setupSharedVaultShardFixture(t, testEnv)
 	shards.workflowOwner = strings.ToLower(fixture.owner)
 
@@ -425,7 +425,7 @@ func ExecuteShardFailoverPrimaryRecoveryTest(t *testing.T, testEnv *ttypes.TestE
 func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	shards := mustSharedVaultShardPair(t, testEnv)
+	shards := mustSharedVaultShardPair(t, testEnv, "configs/workflow-gateway-sharded-shared-vault-failover.toml")
 	fixture := setupSharedVaultShardFixture(t, testEnv)
 	shards.workflowOwner = strings.ToLower(fixture.owner)
 
