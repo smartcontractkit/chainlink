@@ -180,10 +180,11 @@ func TestComputeOffchainCrossCheck_ConfigMismatch(t *testing.T) {
 		offchain map[string]any
 		mismatch int64
 	}{
-		{"no spec_config", nil, 0},
-		{"same value as on-chain", map[string]any{"interval": "20"}, 0},
-		{"overrides on-chain value", map[string]any{"interval": "30"}, 1},
-		{"adds a key", map[string]any{"interval": "20", "extra": "e"}, 1},
+		{"same as on-chain", map[string]any{"interval": "20", "onchainOnly": "o"}, 0},
+		{"no spec_config", nil, 1},
+		{"omits a key", map[string]any{"interval": "20"}, 1},
+		{"different value", map[string]any{"interval": "30", "onchainOnly": "o"}, 1},
+		{"adds a key", map[string]any{"interval": "20", "onchainOnly": "o", "extra": "e"}, 1},
 		{"different type, same text", map[string]any{"interval": int64(20)}, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

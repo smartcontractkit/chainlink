@@ -95,7 +95,7 @@ func (g *GlobalConfig) Store(u Update) error {
 }
 
 // Clear withdraws the applied payload, e.g. after the capabilities_registry job is deleted, so
-// readers fall back to on-chain/TOML config. The version/hash high-water mark is kept, so a
+// readers see no offchain config. The version/hash high-water mark is kept, so a
 // later payload must still be newer than the last one applied (or be that same payload).
 // Subscribers are notified when a payload was actually withdrawn.
 func (g *GlobalConfig) Clear() {
@@ -196,7 +196,7 @@ func Parse(raw string) (*capabilitiespb.OffchainCapabilitiesRegistry, error) {
 // config a capability is launched with. A nil spec_config yields a nil map.
 //
 // The value tree is checked before conversion: a value with no type would otherwise become a
-// JSON null that silently overrides the on-chain/TOML value for that key, and some empty
+// JSON null in the launched config, and some empty
 // messages (e.g. a decimal without a coefficient) panic during conversion.
 func SpecConfigMap(sc *valuespb.Map) (map[string]any, error) {
 	if sc == nil {

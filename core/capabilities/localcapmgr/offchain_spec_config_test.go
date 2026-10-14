@@ -20,7 +20,7 @@ func specConfigCap(t *testing.T, kv map[string]any) *capabilitiespb.CapabilityCo
 	return &capabilitiespb.CapabilityConfig{SpecConfig: values.ProtoMap(vm)}
 }
 
-func TestOffchainOverrides(t *testing.T) {
+func TestOffchainSpecConfig(t *testing.T) {
 	t.Parallel()
 
 	m := newCrossCheckMgr(t)
@@ -34,13 +34,13 @@ func TestOffchainOverrides(t *testing.T) {
 
 	t.Run("returns offchain spec_config for the DON", func(t *testing.T) {
 		t.Parallel()
-		assert.Equal(t, map[string]any{"interval": "30"}, m.offchainOverrides(dons[7], "cron@1.0.0", 7))
+		assert.Equal(t, map[string]any{"interval": "30"}, m.offchainSpecConfig(dons[7], "cron@1.0.0", 7))
 	})
 
 	t.Run("nil for missing DON", func(t *testing.T) {
 		t.Parallel()
 		assert.NotContains(t, dons, uint32(99))
-		assert.Nil(t, m.offchainOverrides(dons[99], "cron@1.0.0", 99))
+		assert.Nil(t, m.offchainSpecConfig(dons[99], "cron@1.0.0", 99))
 	})
 
 	t.Run("DON without a usable name is left out", func(t *testing.T) {
@@ -50,12 +50,12 @@ func TestOffchainOverrides(t *testing.T) {
 
 	t.Run("nil for missing capability", func(t *testing.T) {
 		t.Parallel()
-		assert.Nil(t, m.offchainOverrides(dons[7], "missing@1.0.0", 7))
+		assert.Nil(t, m.offchainSpecConfig(dons[7], "missing@1.0.0", 7))
 	})
 
 	t.Run("nil for capability without spec_config", func(t *testing.T) {
 		t.Parallel()
-		assert.Nil(t, m.offchainOverrides(dons[7], "consensus@1.0.0", 7))
+		assert.Nil(t, m.offchainSpecConfig(dons[7], "consensus@1.0.0", 7))
 	})
 
 	t.Run("nil snapshot", func(t *testing.T) {
@@ -72,7 +72,7 @@ func TestOffchainOverrides(t *testing.T) {
 				"broken": {}, // a Value with no kind cannot be converted
 			}}},
 		}}
-		assert.Nil(t, m.offchainOverrides(bad, "cron@1.0.0", 7))
+		assert.Nil(t, m.offchainSpecConfig(bad, "cron@1.0.0", 7))
 	})
 }
 

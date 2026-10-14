@@ -120,8 +120,7 @@ func onchainDONWith(id uint32, caps map[string]registry.CapabilityConfiguration)
 
 // TestReconcile_EffectiveSpecConfigPrecedence drives the full launch path (Reconcile ->
 // buildDesiredState -> startCapability -> newServicesFn) and asserts the config the capability
-// is actually launched with: on-chain < offchain (gate on only), with any key the
-// offchain payload omits keeping its legacy value.
+// is actually launched with: on-chain only with the gate off, offchain only with the gate on.
 func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 	t.Parallel()
 
@@ -144,6 +143,7 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 		return gc
 	}
 	legacy := map[string]any{"interval": "20", "onchainOnly": "oc"}
+	empty := map[string]any{}
 
 	t.Run("gate off: offchain ignored, legacy behavior preserved", func(t *testing.T) {
 		t.Parallel()
@@ -153,23 +153,21 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 		assert.Equal(t, legacy, rec.configFor(t, "cron@1.0.0", 8))
 	})
 
-	t.Run("gate on: offchain wins per (DON, capability), omitted keys keep legacy value", func(t *testing.T) {
+	t.Run("gate on: offchain only, on-chain keys are not merged", func(t *testing.T) {
 		t.Parallel()
 		m, rec := newCutoverManager(t, localCfg(), newGC(t), true)
 		require.NoError(t, m.reconcile(t.Context(), dons))
-		assert.Equal(t, map[string]any{"interval": "30", "offchainOnly": "add", "onchainOnly": "oc"},
-			rec.configFor(t, "cron@1.0.0", 7))
-		// missing DON in the offchain payload -> legacy value
-		assert.Equal(t, legacy, rec.configFor(t, "cron@1.0.0", 8))
-		// missing capability on a present DON -> legacy value
-		assert.Equal(t, map[string]any{"interval": "20", "onchainOnly": "oc"}, rec.configFor(t, "consensus@1.0.0", 7))
+		assert.Equal(t, map[string]any{"interval": "30", "offchainOnly": "add"}, rec.configFor(t, "cron@1.0.0", 7))
+		// missing DON or capability in the offchain payload -> empty config
+		assert.Equal(t, empty, rec.configFor(t, "cron@1.0.0", 8))
+		assert.Equal(t, empty, rec.configFor(t, "consensus@1.0.0", 7))
 	})
 
-	t.Run("gate on, nothing applied yet: legacy behavior", func(t *testing.T) {
+	t.Run("gate on, nothing applied yet: empty config", func(t *testing.T) {
 		t.Parallel()
 		m, rec := newCutoverManager(t, localCfg(), globalconfig.New(), true)
 		require.NoError(t, m.reconcile(t.Context(), dons))
-		assert.Equal(t, legacy, rec.configFor(t, "cron@1.0.0", 7))
+		assert.Equal(t, empty, rec.configFor(t, "cron@1.0.0", 7))
 	})
 
 	t.Run("gate on: launch allowlist stays node-local", func(t *testing.T) {
@@ -268,11 +266,11 @@ func TestReconcile_OffchainOnlyUpdateRestartsCapability(t *testing.T) {
 		require.NoError(t, m.reconcile(t.Context(), dons))
 		require.Len(t, rec.all(), 3)
 
-		// Removing the offchain entry falls back to the on-chain value and restarts.
+		// Removing the offchain entry restarts with an empty config (no on-chain fallback).
 		storeOffchain(t, gc, 4, map[uint32]map[string]*capabilitiespb.CapabilityConfig{})
 		require.NoError(t, m.reconcile(t.Context(), dons))
 		require.Len(t, rec.all(), 4)
-		assert.Equal(t, map[string]any{"interval": "20"}, rec.configFor(t, "cron@1.0.0", 7))
+		assert.Equal(t, map[string]any{}, rec.configFor(t, "cron@1.0.0", 7))
 	})
 
 	t.Run("gate off: offchain-only update does not restart", func(t *testing.T) {
@@ -343,7 +341,7 @@ func TestReconcile_ConcurrentOffchainUpdates(t *testing.T) {
 
 // TestReconcile_OffchainMatchesByDONName covers the design's name-keyed DON map: offchain config
 // applies to the on-chain DON with that name, regardless of its ID; DONs without a usable name
-// (unnamed, or a name shared by two of this node's DONs) keep their legacy config.
+// (unnamed, or a name shared by two of this node's DONs) get no offchain config.
 func TestReconcile_OffchainMatchesByDONName(t *testing.T) {
 	t.Parallel()
 
@@ -372,7 +370,7 @@ func TestReconcile_OffchainMatchesByDONName(t *testing.T) {
 
 	assert.Equal(t, map[string]any{"interval": "30"}, rec.configFor(t, "cron@1.0.0", 42))
 	for _, id := range []uint32{43, 44, 45} {
-		assert.Equal(t, map[string]any{"interval": "20"}, rec.configFor(t, "cron@1.0.0", id), "DON %d must keep legacy config", id)
+		assert.Equal(t, map[string]any{}, rec.configFor(t, "cron@1.0.0", id), "DON %d must get no offchain config", id)
 	}
 
 	check := m.computeOffchainCrossCheck(func() *capabilitiespb.OffchainCapabilitiesRegistry { r, _ := gc.LoadParsed(); return r }(), 1, []registry.DON{

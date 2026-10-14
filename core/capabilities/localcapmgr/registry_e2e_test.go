@@ -21,7 +21,7 @@ import (
 )
 
 // configCapture records the configJSON each capability is launched with, so the test can assert
-// the effective (offchain-wins-with-fallback) config without a real plugin.
+// the effective config without a real plugin.
 type configCapture struct {
 	mu   sync.Mutex
 	last map[string]string // capID -> configJSON
@@ -64,8 +64,8 @@ func applyAsDelegate(t *testing.T, gc *globalconfig.GlobalConfig, raw string) {
 
 // TestOffchainRegistry_EndToEnd walks the full node-side path with the cutover ON:
 // validate a capabilities_registry spec -> apply it to the runtime GlobalConfig (as the
-// delegate would) -> the LocalCapabilityManager launches the capability with offchain-wins
-// config -> a newer payload takes effect on the next Reconcile.
+// delegate would) -> the LocalCapabilityManager launches the capability with the offchain
+// config only -> a newer payload takes effect on the next Reconcile.
 func TestOffchainRegistry_EndToEnd(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -94,8 +94,7 @@ func TestOffchainRegistry_EndToEnd(t *testing.T) {
 	require.NoError(t, m.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, m.Close()) })
 
-	// On-chain DON provides interval=20 and region=us. Offchain overrides interval->30;
-	// region has no offchain value, so it falls back to the on-chain value.
+	// On-chain DON provides interval=20 and region=us; offchain provides interval=30 only.
 	dons := []registry.DON{{
 		ID:   1,
 		Name: testDONName(1),
@@ -106,8 +105,8 @@ func TestOffchainRegistry_EndToEnd(t *testing.T) {
 	reg, v := gc.LoadParsed()
 	require.NoError(t, m.Reconcile(ctx, dons, reg))
 
-	// Offchain wins on interval; region falls back to on-chain. (json.Marshal sorts map keys.)
-	assert.JSONEq(t, `{"interval":"30","region":"us"}`, capture.get("cron@1.0.0"))
+	// Offchain only; on-chain keys are not merged in.
+	assert.JSONEq(t, `{"interval":"30"}`, capture.get("cron@1.0.0"))
 
 	// Cross-validation telemetry sees the capability as matched, and flags config_mismatch
 	// because turning the gate on changed the launch config.
@@ -124,12 +123,12 @@ func TestOffchainRegistry_EndToEnd(t *testing.T) {
 
 	reg, _ = gc.LoadParsed()
 	require.NoError(t, m.Reconcile(ctx, dons, reg))
-	assert.JSONEq(t, `{"interval":"99","region":"us"}`, capture.get("cron@1.0.0"))
+	assert.JSONEq(t, `{"interval":"99"}`, capture.get("cron@1.0.0"))
 }
 
 // TestOffchainRegistry_EndToEnd_GateOff confirms the backwards-compatible default: with the
 // cutover off, the same offchain payload is ignored for config and the capability launches with
-// the on-chain/TOML config unchanged.
+// the on-chain config unchanged.
 func TestOffchainRegistry_EndToEnd_GateOff(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

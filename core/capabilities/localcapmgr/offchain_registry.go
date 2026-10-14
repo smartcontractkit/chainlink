@@ -18,8 +18,8 @@ const (
 	divergenceExtraDON          = "extra_don"
 	divergenceExtraCapability   = "extra_capability"
 	// divergenceConfigMismatch means the capability is present in both registries but its
-	// offchain spec_config would change the config the capability is launched with, relative
-	// to the legacy TOML + on-chain config (i.e. turning the gate on changes this capability).
+	// offchain spec_config differs from the on-chain one (i.e. turning the gate on changes this
+	// capability's config).
 	divergenceConfigMismatch = "config_mismatch"
 )
 
@@ -112,20 +112,20 @@ func (m *localCapabilityManager) computeOffchainCrossCheck(reg *capabilitiespb.O
 	return check
 }
 
-// offchainChangesConfig reports whether applying offCap's spec_config on top of the legacy
-// (TOML + on-chain) config would change the config the capability is launched with. Keys the
-// offchain payload sets to the legacy value, and keys it omits, are not differences.
+// offchainChangesConfig reports whether launching with offCap's spec_config instead of the
+// on-chain SpecConfig would change the config the capability is launched with.
 func (m *localCapabilityManager) offchainChangesConfig(donID uint32, capID string, onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
-	overrides, err := globalconfig.SpecConfigMap(offCap.GetSpecConfig())
-	if err != nil || len(overrides) == 0 {
-		return false
+	offchain, err := globalconfig.SpecConfigMap(offCap.GetSpecConfig())
+	if err != nil {
+		offchain = nil // the launch path ignores an invalid spec_config the same way
 	}
 	info := &capabilityInfo{capID: capID, donID: donID, config: onchain}
 	legacy, err := m.buildConfigJSON(info)
 	if err != nil {
 		return false
 	}
-	info.offchainOverrides = overrides
+	info.useOffchain = true
+	info.offchainSpecConfig = offchain
 	cutover, err := m.buildConfigJSON(info)
 	if err != nil {
 		return false
@@ -148,10 +148,10 @@ func (m *localCapabilityManager) offchainDONsByID(reg *capabilitiespb.OffchainCa
 	return out
 }
 
-// offchainOverrides returns the offchain spec_config of capID on don, or nil when there is none.
+// offchainSpecConfig returns the offchain spec_config of capID on don, or nil when there is none.
 // A spec_config that cannot be converted is rejected at ingestion (globalconfig.Validate); if one
-// gets here anyway, it is ignored so the capability keeps its on-chain config.
-func (m *localCapabilityManager) offchainOverrides(don *capabilitiespb.DONConfig, capID string, donID uint32) map[string]any {
+// gets here anyway, it is treated as empty.
+func (m *localCapabilityManager) offchainSpecConfig(don *capabilitiespb.DONConfig, capID string, donID uint32) map[string]any {
 	out, err := globalconfig.SpecConfigMap(don.GetCapabilities()[capID].GetSpecConfig())
 	if err != nil {
 		m.lggr.Warnw("Invalid offchain spec_config, ignoring offchain override", "capID", capID, "donID", donID, "error", err)
@@ -163,8 +163,8 @@ func (m *localCapabilityManager) offchainOverrides(don *capabilitiespb.DONConfig
 // offchainDONNames maps this node's on-chain DON IDs to the DON names that key the offchain
 // registry. A DON without a name (e.g. from a registry version that does not record names), or
 // whose name is shared with another of this node's DONs, is left out: its offchain config
-// cannot be attributed unambiguously, so it keeps its legacy (on-chain/TOML) config and is
-// reported as missing_don by the cross-check.
+// cannot be attributed unambiguously, so with the gate on it gets an empty spec config, and it
+// is reported as missing_don by the cross-check.
 func (m *localCapabilityManager) offchainDONNames(dons []registry.DON) map[uint32]string {
 	byName := make(map[string][]uint32, len(dons))
 	for _, don := range dons {
