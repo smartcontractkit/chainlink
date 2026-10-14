@@ -67,7 +67,7 @@ func Test_StellarKeyStore_E2E(t *testing.T) {
 		importedKey, err := ks.Import(ctx, exportJSON, cltest.Password)
 		require.NoError(t, err)
 		_, err = ks.Import(ctx, exportJSON, cltest.Password)
-		require.Error(t, err)
+		require.ErrorIs(t, err, keystore.ErrKeyExists)
 		_, err = ks.Import(ctx, []byte(""), cltest.Password)
 		require.Error(t, err)
 		require.Equal(t, key.ID(), importedKey.ID())
