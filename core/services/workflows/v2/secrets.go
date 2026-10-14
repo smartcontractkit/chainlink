@@ -19,7 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/vaultcrypto"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -57,6 +59,7 @@ type secretsFetcher struct {
 	workflowName          string
 	workflowID            string
 	phaseID               string
+	executionTimestamp    time.Time
 	workflowEncryptionKey workflowkey.Key
 
 	metrics *monitoring.WorkflowsMetricLabeler
@@ -88,6 +91,7 @@ func NewSecretsFetcher(
 	workflowName string,
 	workflowID string,
 	phaseID string,
+	executionTimestamp time.Time,
 	workflowEncryptionKey workflowkey.Key,
 	overrideFetcher SecretsFetcher,
 ) RawSecretsFetcher {
@@ -105,6 +109,7 @@ func NewSecretsFetcher(
 		workflowName:          workflowName,
 		workflowID:            workflowID,
 		phaseID:               phaseID,
+		executionTimestamp:    executionTimestamp,
 		workflowEncryptionKey: workflowEncryptionKey,
 		metrics:               metrics,
 		overrideFetcher:       overrideFetcher,
@@ -356,12 +361,43 @@ func (s *secretsFetcher) getRawSecrets(ctx context.Context, request *sdkpb.GetSe
 		})
 	}
 
+	vp.GetSecretsDirectly = s.getSecretsDirectlyEnabled(ctx)
+
+	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "vaultRequestID", vaultRequestID, "metadata", metadata, "direct", vp.GetSecretsDirectly)
+	resps, err := s.executeGetSecrets(ctx, lggr, vaultCap, vp, metadata)
+	if !vp.GetSecretsDirectly || !vault.IsSecretVersionSkew(err) {
+		return resps, err
+	}
+
+	// Retry under a new request ID; the capability client and server both cache by it.
+	metadata.ReferenceID += "-retry1"
+	lggr = logger.With(lggr, "vaultRequestID", vault.BuildWorkflowGetSecretsRequestID(metadata))
+	lggr.Warnw("vault nodes disagreed on a secret version, retrying", "err", err)
+	resps, err = s.executeGetSecrets(ctx, lggr, vaultCap, vp, metadata)
+	s.metrics.With(
+		"workflowOwner", s.workflowOwner,
+		"workflowName", s.workflowName,
+		"success", strconv.FormatBool(err == nil),
+	).IncrementGetSecretsSkewRetryCounter(ctx)
+	return resps, err
+}
+
+// Gated on the execution timestamp so every workflow node makes the same choice.
+func (s *secretsFetcher) getSecretsDirectlyEnabled(ctx context.Context) bool {
+	activePeriod, err := cresettings.Default.PerWorkflow.FeatureVaultGetSecretsDirectlyActivePeriod.GetOrDefault(ctx, s.creSettingsGetter)
+	if err != nil {
+		s.lggr.Warnw("failed to read FeatureVaultGetSecretsDirectlyActivePeriod setting, using the OCR path", "err", err)
+		return false
+	}
+	return activePeriod.Contains(config.Timestamp(s.executionTimestamp.Unix()))
+}
+
+func (s *secretsFetcher) executeGetSecrets(ctx context.Context, lggr logger.Logger, vaultCap capabilities.ExecutableCapability, vp *vault.GetSecretsRequest, metadata capabilities.RequestMetadata) (*vault.GetSecretsResponse, error) {
 	anypbReq, err := anypb.New(vp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert vault request to any: %w", err)
 	}
 
-	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "vaultRequestID", vaultRequestID, "metadata", metadata)
 	lggr.Debugw("fetching secrets from vault")
 
 	capabilityResponse, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
@@ -578,45 +614,15 @@ func encryptedDecryptionShareBytes(binaryShares [][]byte, hexShares []string) ([
 func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares [][]byte, cfg *vaultConfig, vaultPublicKey *tdh2easy.PublicKey) (string, error) {
 	lggr.Debug("decrypting secret...")
 
-	cipherText := &tdh2easy.Ciphertext{}
-	errOuter := cipherText.UnmarshalVerify(encryptedSecretBytes, vaultPublicKey)
-	if errOuter != nil {
-		return "", errors.New("failed to unmarshal encrypted secret: " + errOuter.Error())
+	plaintext, rejected, err := vaultcrypto.DecryptSecret(encryptedSecretBytes, vaultPublicKey, cfg.Threshold, encryptedDecryptionShares, s.workflowEncryptionKey)
+	for _, r := range rejected {
+		lggr.Debugw("rejected decryption share", "err", r)
 	}
-
-	decryptionShares := make([]*tdh2easy.DecryptionShare, 0, len(encryptedDecryptionShares))
-	for i, encryptedDecryptionShareBytes := range encryptedDecryptionShares {
-		decryptionShareBytes, err := s.workflowEncryptionKey.Decrypt(encryptedDecryptionShareBytes)
-		if err != nil {
-			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i, "err", err)
-			continue
-		}
-		decryptionShare := &tdh2easy.DecryptionShare{}
-		err = decryptionShare.Unmarshal(decryptionShareBytes)
-		if err != nil {
-			lggr.Debugw("failed to unmarshal decryption share", "index", i, "err", err)
-			continue
-		}
-		err = tdh2easy.VerifyShare(cipherText, vaultPublicKey, decryptionShare)
-		if err != nil {
-			lggr.Debugw("failed to verify decryption share", "index", i, "err", err)
-			continue
-		}
-		decryptionShares = append(decryptionShares, decryptionShare)
-	}
-	lggr.Debugw("decryption shares collected", "count", len(decryptionShares), "expected", len(encryptedDecryptionShares), "threshold", cfg.Threshold)
-
-	if len(decryptionShares) < cfg.Threshold {
-		return "", fmt.Errorf("not enough decryption shares to decrypt the secret: have %d, need at least %d", len(decryptionShares), cfg.Threshold)
-	}
-
-	// Note that the last parameter 'n' to tdh2easy.Aggregate() isn't verified by the library at all.
-	// Thus, the len(encryptedDecryptionShares) set below is just an optional hint for memory allocation.
-	decryptedSecret, err := tdh2easy.Aggregate(cipherText, decryptionShares, len(encryptedDecryptionShares))
+	lggr.Debugw("decryption shares collected", "count", len(encryptedDecryptionShares)-len(rejected), "expected", len(encryptedDecryptionShares), "threshold", cfg.Threshold)
 	if err != nil {
-		return "", errors.New("failed to aggregate decryption shares: " + err.Error())
+		return "", err
 	}
-	return string(decryptedSecret), nil
+	return string(plaintext), nil
 }
 
 type VaultCapabilityRegistryConfig struct {

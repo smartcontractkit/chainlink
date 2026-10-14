@@ -158,6 +158,10 @@ func evaluatePhase(runtime cre.Runtime, phase config.Phase) error {
 		return fmt.Errorf("phase %s has no checks", phase.Name)
 	}
 
+	if phase.Batch {
+		return evaluateBatchPhase(runtime, phase)
+	}
+
 	for _, check := range phase.Checks {
 		runtime.Logger().Info("Vault secret workflow triggered",
 			"phaseName", phase.Name,
@@ -206,5 +210,31 @@ func evaluatePhase(runtime cre.Runtime, phase config.Phase) error {
 		)
 	}
 
+	return nil
+}
+
+func evaluateBatchPhase(runtime cre.Runtime, phase config.Phase) error {
+	reqs := make([]*cre.SecretRequest, len(phase.Checks))
+	for i, check := range phase.Checks {
+		if check.ExpectNotFound {
+			return fmt.Errorf("phase %s check %s: batch phases don't support expectNotFound", phase.Name, check.Name)
+		}
+		reqs[i] = &cre.SecretRequest{Namespace: check.SecretNamespace, Id: check.SecretKey}
+	}
+
+	secrets, err := runtime.GetSecrets(reqs).Await()
+	if err != nil {
+		return fmt.Errorf("phase %s failed to get secrets batch: %w", phase.Name, err)
+	}
+	if len(secrets) != len(phase.Checks) {
+		return fmt.Errorf("phase %s expected %d secrets, got %d", phase.Name, len(phase.Checks), len(secrets))
+	}
+	for i, check := range phase.Checks {
+		if check.ExpectedValue != "" && secrets[i].Value != check.ExpectedValue {
+			return fmt.Errorf("phase %s check %s secret value mismatch for key=%s namespace=%s", phase.Name, check.Name, check.SecretKey, check.SecretNamespace)
+		}
+	}
+
+	runtime.Logger().Info("Vault secrets batch retrieved successfully via workflow", "phaseName", phase.Name, "count", len(secrets))
 	return nil
 }

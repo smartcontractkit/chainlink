@@ -94,6 +94,9 @@ type ClientRequest struct {
 
 	requestTimeout time.Duration
 
+	// When set, replaces the identical-response quorum.
+	aggregator ResponseAggregator
+
 	respSent bool
 	mux      sync.Mutex
 	wg       *sync.WaitGroup
@@ -122,6 +125,22 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 
 	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
 	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate)
+}
+
+// NewClientExecuteRequestWithAggregator is NewClientExecuteRequest with the outcome decided by aggregator.
+func NewClientExecuteRequestWithAggregator(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
+	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
+	requestTimeout time.Duration, capMethodName string, aggregator ResponseAggregator,
+) (*ClientRequest, error) {
+	if aggregator == nil {
+		return nil, errors.New("aggregator cannot be nil")
+	}
+	cr, err := NewClientExecuteRequest(ctx, lggr, req, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, capMethodName, nil, 0)
+	if err != nil {
+		return nil, err
+	}
+	cr.aggregator = aggregator
+	return cr, nil
 }
 
 var (
@@ -357,6 +376,10 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 
 	c.responseReceived[sender] = true
 
+	if c.aggregator != nil {
+		return c.onMessageWithAggregator(sender, msg)
+	}
+
 	if msg.Error == types.Error_OK {
 		resp, err := pb.UnmarshalCapabilityResponse(msg.Payload)
 		if err != nil {
@@ -430,6 +453,39 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 				msg.ErrorMsg,
 			)})
 		}
+	}
+	return nil
+}
+
+// Must be called with c.mux held.
+func (c *ClientRequest) onMessageWithAggregator(sender p2ptypes.PeerID, msg *types.MessageBody) error {
+	var (
+		final *commoncap.CapabilityResponse
+		err   error
+	)
+	if msg.Error == types.Error_OK {
+		resp, uerr := pb.UnmarshalCapabilityResponse(msg.Payload)
+		if uerr != nil {
+			// Still counted, so the aggregator can conclude once every peer has replied.
+			final, err = c.aggregator.OnError(sender, "failed to unmarshal capability response: "+uerr.Error())
+		} else {
+			final, err = c.aggregator.OnResponse(sender, resp)
+		}
+	} else {
+		c.lggr.Debugw("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
+		final, err = c.aggregator.OnError(sender, msg.ErrorMsg)
+	}
+
+	switch {
+	case err != nil:
+		c.sendResponse(clientResponse{Err: err})
+	case final != nil:
+		payload, merr := pb.MarshalCapabilityResponse(*final)
+		if merr != nil {
+			c.sendResponse(clientResponse{Err: fmt.Errorf("failed to marshal aggregated response: %w", merr)})
+			return nil
+		}
+		c.sendResponse(clientResponse{Result: payload})
 	}
 	return nil
 }

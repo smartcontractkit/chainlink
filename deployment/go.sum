@@ -1409,8 +1409,8 @@ github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20261001213322-a2d6
 github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20261001213322-a2d686f610ca/go.mod h1:Dm/Abz0vr7F2v9TygUX947q8HIwJEJikDfSdanX1Cic=
 github.com/smartcontractkit/chainlink-ccv v0.14.0 h1:184WuWwWAOo8b5uTuxv8v+zI7UcjSQCKz5z2V1zHVPQ=
 github.com/smartcontractkit/chainlink-ccv v0.14.0/go.mod h1:k/RxmdtzRqqiNcl5X2Af7Q7R53ZAaMwgyd9ctMKtK6Q=
-github.com/smartcontractkit/chainlink-common v0.11.2-0.20261007174852-7fabc093ff84 h1:IvG1s9HGBjHtDayPBCKoeXVLsneIXEZhm5vF1X5d9bk=
-github.com/smartcontractkit/chainlink-common v0.11.2-0.20261007174852-7fabc093ff84/go.mod h1:37Mu0pbAnGmHPgOZ8bQvgP4hzXw/Wu7smKX4cN46UOs=
+github.com/smartcontractkit/chainlink-common v0.11.2-0.20261008131804-f1c026ee8443 h1:3+hmOAIrt6LBfyvgEy01azXiqc/3xOP7hgCDypgRPVA=
+github.com/smartcontractkit/chainlink-common v0.11.2-0.20261008131804-f1c026ee8443/go.mod h1:WPHLHsnsTkZ54+s2ZcC0KRXVQu+xz5+qvah5Gup5jFg=
 github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d h1:M9xuiIvdiHtim4nlxCVajyC/Mk63tAg9ESWb/biAhNA=
 github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d/go.mod h1:rI2njmTlyTvh+xhmORmK6qX3+V1ycDAqGJLu8LS8WpU=
 github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261005132539-b7d63d5fd549 h1:J4vYRJxkBO8Yf//17wScKjYWmS45VZaFWx0zt+4ETEU=
@@ -1515,8 +1515,8 @@ github.com/smartcontractkit/go-daml v0.0.0-20260702101944-3a593d4e8e19 h1:AMgphQ
 github.com/smartcontractkit/go-daml v0.0.0-20260702101944-3a593d4e8e19/go.mod h1:SqWfl3Bp9NleC9jhzFUaOGzOZeKfldpY4QOW6A6NSNM=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
-github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342 h1:pEcgcjTGA83MzpqbTbyIg9AJrOs62s77SooDdJGIg9w=
-github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342/go.mod h1:5JPtsRwjugpyfsdEALC4RopfvohqK/G+3DHaR8uv+Bc=
+github.com/smartcontractkit/libocr v0.0.0-20260917135550-38019a378d1f h1:2BgVJnMbUwYSJ32dHgIA4ZrTAYlR/0l/tOd58LGQEew=
+github.com/smartcontractkit/libocr v0.0.0-20260917135550-38019a378d1f/go.mod h1:5JPtsRwjugpyfsdEALC4RopfvohqK/G+3DHaR8uv+Bc=
 github.com/smartcontractkit/mcms v0.55.2 h1:5LoyAI+WN16N3q2l9vy+Ucz+2uv7PB66w0wTWjm+ql0=
 github.com/smartcontractkit/mcms v0.55.2/go.mod h1:xjHTnB9AB1NoQ81cCL9b6gnlvvx+QYOmgZlua7TvAgc=
 github.com/smartcontractkit/quarantine v0.0.0-20251203215908-fd0551c6adf9 h1:MOEuXYogv+RStASb8dWsyescu/xkigSi/Sv45NEjV7A=

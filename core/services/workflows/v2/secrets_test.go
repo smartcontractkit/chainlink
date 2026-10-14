@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -233,6 +234,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -353,6 +355,7 @@ func TestSecretsFetcher_DecryptsBinaryShares(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -415,6 +418,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -464,6 +468,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -525,6 +530,7 @@ func TestSecretsFetcher_VaultCapabilityRequestOmitsWorkflowIDMetadata(t *testing
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -591,6 +597,7 @@ func TestSecretsFetcher_VaultBatchLeavesOrgAndWorkflowIdentityUnset(t *testing.T
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -650,6 +657,7 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -726,6 +734,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -830,6 +839,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -1000,6 +1010,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 		"wf",
 		"wfID",
 		"phaseID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -1053,6 +1064,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimitOnRawSecrets(t *testing.T) {
 			"wf",
 			"wfID",
 			"phaseID",
+			time.Time{},
 			workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 			nil,
 		)
@@ -1179,6 +1191,7 @@ func TestSecretsFetcher_VaultFirstThenLocalOverridesForVaultFailures(t *testing.
 		"workflowName",
 		"workflowID",
 		"phaseID",
+		time.Time{},
 		workflowEncryptionKey,
 		local,
 	)
@@ -1262,6 +1275,7 @@ func TestSecretsFetcher_LocalOverridesWhenVaultExecuteFails(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"phaseID",
+		time.Time{},
 		workflowEncryptionKey,
 		local,
 	)
