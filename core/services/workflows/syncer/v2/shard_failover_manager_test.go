@@ -128,6 +128,7 @@ func (s *fakeDonSubscriber) NotifyDonSet(don commoncap.DON) { s.don = don }
 func (s *fakeDonSubscriber) WaitForDon(_ context.Context) (commoncap.DON, error) {
 	return s.don, nil
 }
+
 func (s *fakeDonSubscriber) Subscribe(_ context.Context) (<-chan commoncap.DON, func(), error) {
 	ch := make(chan commoncap.DON, 1)
 	ch <- s.don
@@ -169,8 +170,6 @@ func shardDonLookup(dons map[uint32]commoncap.DON) func(ctx context.Context, sha
 		return nil
 	}
 }
-
-// --- the test that proves the fix ---
 
 // TestShardFailoverManager_MultipleWorkflowsSharedDispatcher proves that
 // multiple ShardFailoverManager instances (one per workflow) sharing the same
@@ -433,6 +432,7 @@ var _ shardownership.ShardResolver = erroringShardResolver{}
 var (
 	// ownerResolver makes this node (testMyDONID) the primary shard.
 	ownerResolver = &fakeShardResolver{shards: []uint32{testMyDONID, testOtherDONID}}
+
 	// secondaryResolver makes this node the secondary shard: listed, but not the owner.
 	secondaryResolver = &fakeShardResolver{shards: []uint32{testOtherDONID, testMyDONID}}
 )
@@ -459,7 +459,7 @@ func testCoordinatedEvent(id string) triggers.CoordinatedEvent {
 }
 
 // TestShardFailoverManager_Subscribe covers trigger registration on the
-// coordinated path: the coordinator subscribes through the manager, which must
+// coordinated path. The coordinator subscribes through the manager, which must
 // hand back the wrapped engine's subscriptions.
 func TestShardFailoverManager_Subscribe(t *testing.T) {
 	t.Parallel()
@@ -486,9 +486,7 @@ func TestShardFailoverManager_Subscribe(t *testing.T) {
 
 // TestShardFailoverManager_ExecuteTrigger covers admission on the coordinated
 // path. The coordinated engine never calls OnTriggerAdmission, so the manager
-// must check shard ownership itself before delivering. It only decides: an
-// admission error is returned for the coordinator to act on (ACK a denial,
-// leave a cached event un-ACKed for replay).
+// must check shard ownership itself before delivering.
 func TestShardFailoverManager_ExecuteTrigger(t *testing.T) {
 	t.Parallel()
 
@@ -568,10 +566,9 @@ func TestShardFailoverManager_ExecuteTrigger(t *testing.T) {
 }
 
 // TestShardFailoverManager_CachedEventOnStatusUpdate covers failover on the
-// coordinated path: an event the secondary cached in ExecuteTrigger is dropped
+// coordinated path. An event the secondary cached in ExecuteTrigger is dropped
 // when the primary reports an outcome, and replayed on a system error. Replay
-// goes straight to the wrapped engine — the secondary is still not the owner,
-// so routing it back through admission would cache it again.
+// goes straight to the wrapped engine.
 func TestShardFailoverManager_CachedEventOnStatusUpdate(t *testing.T) {
 	t.Parallel()
 
