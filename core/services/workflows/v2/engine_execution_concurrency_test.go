@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -537,4 +538,98 @@ func TestEngine_TriggerEventDeadlineUsesDispatchTimeSetting(t *testing.T) {
 		t.Fatalf("unexpected execution of expired event %s (%s)", eid, execID)
 	case <-time.After(200 * time.Millisecond):
 	}
+}
+
+// admissionTimeout bounds how long a trigger capability may wait for the node to take an event.
+// Legacy never makes it wait, so a delivery that takes this long means the node stopped reading
+// the trigger's event channel.
+const admissionTimeout = 2 * time.Second
+
+// TestEngine_TriggerAdmission runs the same trigger admission scenarios against both engines, on
+// the lifecycle harness. The scenarios cover the path from the trigger's event channel to the
+// module: how the node reads events, and how many executions it runs at a time.
+func TestEngine_TriggerAdmission(t *testing.T) {
+	t.Parallel()
+
+	scenarios := []struct {
+		name string
+		run  func(*testing.T, lifecycleEngineMode)
+	}{
+		{"Reader_KeepsDrainingWhileExecutionRuns", testAdmissionReaderKeepsDraining},
+		{"OneTrigger_RunsUpToExecutionConcurrencyLimit", testAdmissionOneTriggerRunsUpToLimit},
+	}
+	for _, mode := range []lifecycleEngineMode{lifecycleLegacy, lifecycleCoordinated} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Parallel()
+			for _, s := range scenarios {
+				t.Run(s.name, func(t *testing.T) {
+					t.Parallel()
+					s.run(t, mode)
+				})
+			}
+		})
+	}
+}
+
+// testAdmissionReaderKeepsDraining asserts that the node keeps reading a trigger's event channel
+// while an execution of that trigger is in flight. The channel is unbuffered, so a delivery only
+// completes once the node's reader takes the event.
+//
+// If the reader waits for the execution instead, the trigger capability blocks.
+func testAdmissionReaderKeepsDraining(t *testing.T, mode lifecycleEngineMode) {
+	h := newEngineLifecycleHarness(t, mode)
+	h.start()
+
+	h.startExecution()
+
+	// The first execution is still held in the module. The node must keep taking events.
+	for range 3 {
+		h.deliver(admissionTimeout)
+	}
+
+	// Let every execution reach the module before the engine closes.
+	finishAdmission(t, h, 4)
+}
+
+// testAdmissionOneTriggerRunsUpToLimit asserts that executions of a single trigger overlap up to
+// the per-workflow ExecutionConcurrencyLimit, and not beyond it. The event channel is buffered so
+// that this scenario does not depend on the reader behavior covered above.
+func testAdmissionOneTriggerRunsUpToLimit(t *testing.T, mode lifecycleEngineMode) {
+	const limit = 3
+	h := newEngineLifecycleHarness(t, mode,
+		withEventBuffer(10),
+		withSettings(func(cfg *cresettings.Workflows) { cfg.ExecutionConcurrencyLimit.DefaultValue = limit }),
+	)
+	h.start()
+
+	for range limit + 1 {
+		h.deliver(admissionTimeout)
+	}
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Equal(c, int32(limit), h.moduleInFlight.Load(), "overlapping executions of one trigger")
+	}, admissionTimeout, 5*time.Millisecond)
+
+	// The extra event must wait for a free slot.
+	for range 10_000 {
+		runtime.Gosched()
+	}
+	require.Equal(t, int32(limit), h.moduleInFlight.Load(), "executions must not exceed ExecutionConcurrencyLimit")
+
+	finishAdmission(t, h, limit+1)
+}
+
+// finishAdmission releases the held executions and waits until all total events have run in the
+// module, so no execution is still being scheduled when the harness closes the engine.
+//
+// The legacy engine can deadlock if Close runs while an execution goroutine is spawned but has not
+// yet entered ExecuteTrigger: Close holds the service lock while it waits for that goroutine, and
+// ExecuteTrigger needs the same lock (IfStarted).
+func finishAdmission(t *testing.T, h *engineLifecycleHarness, total int32) {
+	t.Helper()
+	h.blocker.release()
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Equal(c, total, h.moduleExecutions.Load(), "executions that reached the module")
+		assert.Zero(c, h.moduleInFlight.Load(), "executions still running")
+	}, admissionTimeout, 5*time.Millisecond)
 }

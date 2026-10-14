@@ -20,6 +20,7 @@ import (
 	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -345,6 +346,7 @@ type engineLifecycleHarness struct {
 
 	moduleCloses     atomic.Int32
 	moduleExecutions atomic.Int32 // executions that reached the module, subscribe calls excluded
+	moduleInFlight   atomic.Int32 // executions currently held in the module
 	nextEvent        atomic.Int32
 
 	finishedMu  sync.Mutex
@@ -357,6 +359,8 @@ const defaultSignalBuffer = 16
 
 type harnessOptions struct {
 	signalBuffer int
+	eventBuffer  int
+	settings     func(*cresettings.Workflows)
 }
 
 // harnessOption configures newEngineLifecycleHarness.
@@ -365,6 +369,17 @@ type harnessOption func(*harnessOptions)
 // withSignalBuffer sets the capacity of the finished and blocker signal channels.
 func withSignalBuffer(n int) harnessOption {
 	return func(o *harnessOptions) { o.signalBuffer = n }
+}
+
+// withEventBuffer sets the capacity of the trigger capability's event channel. It is unbuffered
+// by default, so a delivery only completes once the node's reader takes the event.
+func withEventBuffer(n int) harnessOption {
+	return func(o *harnessOptions) { o.eventBuffer = n }
+}
+
+// withSettings overrides the CRE settings the engine's limiters are built from.
+func withSettings(fn func(*cresettings.Workflows)) harnessOption {
+	return func(o *harnessOptions) { o.settings = fn }
 }
 
 // newEngineLifecycleHarness builds the engine for mode without starting it. Whatever the test
@@ -382,7 +397,7 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 		t:            t,
 		mode:         mode,
 		engines:      &lifecycleEngineRegistry{},
-		eventCh:      make(chan capabilities.TriggerResponse),
+		eventCh:      make(chan capabilities.TriggerResponse, o.eventBuffer),
 		blocker:      newExecutionBlocker(t, log, o.signalBuffer),
 		log:          log,
 		initDoneCh:   make(chan error, 1),
@@ -398,7 +413,7 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Maybe()
 	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
-	cfg := defaultTestConfig(t, nil)
+	cfg := defaultTestConfig(t, o.settings)
 	cfg.CapRegistry = capreg
 	cfg.Module = h.newModule()
 	cfg.BillingClient = newLifecycleBillingClient(t)
@@ -446,6 +461,8 @@ func (h *engineLifecycleHarness) newModule() *modulemocks.ModuleV2 {
 				return newTriggerSubs(1), nil
 			}
 			h.moduleExecutions.Add(1)
+			h.moduleInFlight.Add(1)
+			defer h.moduleInFlight.Add(-1)
 			if err := h.blocker.block(ctx); err != nil {
 				return nil, err
 			}
@@ -509,13 +526,21 @@ func (h *engineLifecycleHarness) start() {
 // canceled.
 func (h *engineLifecycleHarness) startExecution() {
 	h.t.Helper()
-	event := h.event(fmt.Sprintf("event-%d", h.nextEvent.Add(1))).Event
-	select {
-	case h.eventCh <- event:
-	case <-time.After(testTimeout):
-		require.FailNow(h.t, "trigger event was not accepted")
-	}
+	h.deliver(testTimeout)
 	awaitLifecycle(h.t, h.blocker.started, "execution to start")
+}
+
+// deliver hands the next trigger event to the node as the trigger capability does, failing the
+// test if the node's reader does not take it within timeout.
+func (h *engineLifecycleHarness) deliver(timeout time.Duration) {
+	h.t.Helper()
+	id := fmt.Sprintf("event-%d", h.nextEvent.Add(1))
+	select {
+	case h.eventCh <- h.event(id).Event:
+	case <-time.After(timeout):
+		require.FailNowf(h.t, "trigger event was not accepted",
+			"%s was not read within %s: the node stopped draining the trigger's event channel", id, timeout)
+	}
 }
 
 // close closes the engine, logging when Close returns, and returns its error. Close runs on its
