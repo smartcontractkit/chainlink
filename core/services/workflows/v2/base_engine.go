@@ -201,7 +201,8 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 	}.NewServiceEngine(lggr)
 }
 
-// ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
+// ExecuteTrigger is the engine's public execution entry point; the legacy engine's own trigger queue uses
+// executeQueuedTrigger instead. It performs no admission control, the caller is responsible for those.
 // It rejects events with ErrEngineClosed unless the engine is started and with ErrEngineDraining once Drain has been called.
 //
 // An admitted execution runs on the service engine's WaitGroup, so Close cancels it and waits for it. The lock is released before
@@ -236,6 +237,23 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 		return fmt.Errorf("%w: %w", ErrEngineClosed, admitErr)
 	}
 	return <-done
+}
+
+// executeQueuedTrigger runs an event from the engine's own trigger queue. It rejects events with
+// ErrEngineClosed once ctx is canceled and with ErrEngineDraining once Drain has been called.
+//
+// Its caller runs it on the service engine's WaitGroup through GoCtx, which cancels ctx when the
+// engine is closed, so unlike ExecuteTrigger it does not take the service's state lock. Close holds
+// that lock while it waits for the WaitGroup, so taking it here would deadlock.
+func (e *baseEngine) executeQueuedTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	// The queue can still hand out an event after Close cancels ctx, so reject it rather than run it.
+	if ctx.Err() != nil {
+		return ErrEngineClosed
+	}
+	if e.Draining() {
+		return ErrEngineDraining
+	}
+	return e.executeTrigger(ctx, event)
 }
 
 // executeTrigger runs an admitted event, counting it as an active execution while it runs. It runs
