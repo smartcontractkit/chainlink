@@ -125,31 +125,38 @@ func capRegSettings(payload string) string {
 	return "config_type = \"capabilities_registry\"\noffchain_config = '''" + payload + "'''\n"
 }
 
-func TestServicesForSpecCapRegistryStoresAndClears(t *testing.T) {
+func TestServicesForSpecCapRegistry(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	gc := globalconfig.New()
 	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, gc)
-	jb := cresettingsJob(1, capRegSettings(capRegPayload))
+	capRegJob := func(id int32, payload string) job.Job {
+		jb := cresettingsJob(id, capRegSettings(payload))
+		jb.CRESettingsSpec.Hash = payload
+		return jb
+	}
+	jb := capRegJob(1, capRegPayload)
 
 	_, err := d.ServicesForSpec(ctx, jb)
 	require.NoError(t, err)
-	raw, version := gc.Load()
-	assert.JSONEq(t, capRegPayload, raw)
-	assert.Equal(t, uint64(1), version)
+	assert.Equal(t, uint64(1), gc.LoadParsed().GetVersion())
 
 	// A second capabilities_registry job is rejected; other config types are independent.
-	_, err = d.ServicesForSpec(ctx, cresettingsJob(2, capRegSettings(capRegPayload)))
+	_, err = d.ServicesForSpec(ctx, capRegJob(2, capRegPayload))
 	require.Error(t, err)
 	_, err = d.ServicesForSpec(ctx, cresettingsJob(3, settingsToml))
 	require.NoError(t, err)
 
-	// Deleting the active job clears the runtime config and frees the slot.
+	// Deleting the job frees the slot but keeps the payload, so a JD replace (delete + create)
+	// whose new payload is rejected leaves the node on the old one.
 	require.NoError(t, d.OnDeleteJob(ctx, jb))
-	raw, _ = gc.Load()
-	assert.Empty(t, raw)
-	_, err = d.ServicesForSpec(ctx, cresettingsJob(4, capRegSettings(capRegPayload)))
+	stale := `{"domain":"cre","env":"test","version":1,"dons":{}}`
+	_, err = d.ServicesForSpec(ctx, capRegJob(4, stale))
+	require.ErrorContains(t, err, "not newer")
+	assert.Contains(t, gc.LoadParsed().GetDons(), "don-a")
+
+	_, err = d.ServicesForSpec(ctx, capRegJob(5, capRegPayload))
 	require.NoError(t, err)
 }
 

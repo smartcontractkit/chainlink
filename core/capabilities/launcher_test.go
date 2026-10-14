@@ -1171,7 +1171,8 @@ func TestLauncher_OffchainRegistryUpdate(t *testing.T) {
 
 	storeVersion := func(t *testing.T, gc *globalconfig.GlobalConfig, v uint64) {
 		raw := fmt.Sprintf(`{"domain":"cre","env":"test","version":%d}`, v)
-		require.NoError(t, gc.Store(globalconfig.Update{Raw: raw}))
+		_, err := gc.Store(raw, raw)
+		require.NoError(t, err)
 	}
 	setup := func(t *testing.T, gate bool) (*launcher, *regpkg.RegistryMetadata, *globalconfig.GlobalConfig, <-chan uint64) {
 		lggr := logger.Test(t)

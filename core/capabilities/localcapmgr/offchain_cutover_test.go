@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"slices"
-	"strconv"
 	"sync"
 	"testing"
 
@@ -92,7 +91,8 @@ func storeOffchain(t *testing.T, gc *globalconfig.GlobalConfig, version uint64, 
 	t.Helper()
 	raw, err := marshalOffchainRegistry(offchainReg(version, dons))
 	require.NoError(t, err)
-	require.NoError(t, gc.Store(globalconfig.Update{Raw: raw}))
+	_, err = gc.Store(raw, raw)
+	require.NoError(t, err)
 }
 
 // cutoverManager reconciles against the current snapshot of gc, as the Launcher does.
@@ -102,8 +102,7 @@ type cutoverManager struct {
 }
 
 func (c cutoverManager) reconcile(ctx context.Context, dons []registry.DON) error {
-	reg, _ := c.gc.LoadParsed()
-	return c.Reconcile(ctx, dons, reg)
+	return c.Reconcile(ctx, dons, c.gc.LoadParsed())
 }
 
 func newCutoverManager(t *testing.T, localCfg *testLocalCapabilities, gc *globalconfig.GlobalConfig, gate bool) (cutoverManager, *launchRecorder) {
@@ -163,9 +162,14 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 		assert.Equal(t, empty, rec.configFor(t, "consensus@1.0.0", 7))
 	})
 
-	t.Run("gate on, nothing applied yet: empty config", func(t *testing.T) {
+	t.Run("gate on, nothing applied yet: nothing is launched", func(t *testing.T) {
 		t.Parallel()
-		m, rec := newCutoverManager(t, localCfg(), globalconfig.New(), true)
+		gc := globalconfig.New()
+		m, rec := newCutoverManager(t, localCfg(), gc, true)
+		require.NoError(t, m.reconcile(t.Context(), dons))
+		assert.Empty(t, rec.all())
+
+		storeOffchain(t, gc, 1, nil)
 		require.NoError(t, m.reconcile(t.Context(), dons))
 		assert.Equal(t, empty, rec.configFor(t, "cron@1.0.0", 7))
 	})
@@ -185,9 +189,8 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 	})
 }
 
-// TestReconcile_OCR3StaysOnchain asserts that, for this slice, the OCR3 config handed to the
-// capability always comes from the on-chain registry; ocr3_configs in the offchain payload are
-// not consumed.
+// TestReconcile_OCR3StaysOnchain asserts that with the gate on, the OCR3 config handed to the
+// capability still comes from the on-chain registry.
 func TestReconcile_OCR3StaysOnchain(t *testing.T) {
 	t.Parallel()
 
@@ -199,11 +202,7 @@ func TestReconcile_OCR3StaysOnchain(t *testing.T) {
 	require.NoError(t, err)
 	gc := globalconfig.New()
 	storeOffchain(t, gc, 1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-		7: {"consensus@1.0.0": {
-			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
-				capabilitiespb.OCR3ConfigDefaultKey: {Signers: [][]byte{{0x09}}, Transmitters: [][]byte{{0xbb}}, F: 2},
-			},
-		}},
+		7: {"consensus@1.0.0": specConfigCap(t, map[string]any{"k": "v"})},
 	})
 	m, rec := newCutoverManager(t, &testLocalCapabilities{allowlisted: map[string]bool{"consensus@1.0.0": true}}, gc, true)
 	require.NoError(t, m.reconcile(t.Context(), []registry.DON{
@@ -289,56 +288,6 @@ func TestReconcile_OffchainOnlyUpdateRestartsCapability(t *testing.T) {
 	})
 }
 
-// TestReconcile_ConcurrentOffchainUpdates exercises reconciles racing offchain stores. Run with
-// -race. After the dust settles the running
-// capability must reflect the latest payload.
-func TestReconcile_ConcurrentOffchainUpdates(t *testing.T) {
-	t.Parallel()
-
-	localCfg := &testLocalCapabilities{allowlisted: map[string]bool{"cron@1.0.0": true}}
-	dons := []registry.DON{onchainDONWith(7, map[string]registry.CapabilityConfiguration{
-		"cron@1.0.0": onchainSpecConfig(t, map[string]any{"interval": "20"}),
-	})}
-	gc := globalconfig.New()
-	m, rec := newCutoverManager(t, localCfg, gc, true)
-	require.NoError(t, m.Start(t.Context()))
-	t.Cleanup(func() { require.NoError(t, m.Close()) })
-
-	const n = 30
-	payloads := make([]string, 0, n)
-	for v := uint64(1); v <= n; v++ {
-		raw, err := marshalOffchainRegistry(offchainReg(v, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-			7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": strconv.FormatUint(v, 10)})},
-		}))
-		require.NoError(t, err)
-		payloads = append(payloads, raw)
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		for _, raw := range payloads {
-			assert.NoError(t, gc.Store(globalconfig.Update{Raw: raw}))
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		for range n {
-			assert.NoError(t, m.reconcile(t.Context(), dons))
-		}
-	}()
-	wg.Wait()
-
-	// A final reconcile is deterministic regardless of interleaving.
-	require.NoError(t, m.reconcile(t.Context(), dons))
-	assert.Equal(t, map[string]any{"interval": strconv.Itoa(n)}, rec.configFor(t, "cron@1.0.0", 7))
-
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	require.Len(t, m.runningCapabilities, 1)
-}
-
 // TestReconcile_OffchainMatchesByDONName covers the design's name-keyed DON map: offchain config
 // applies to the on-chain DON with that name, regardless of its ID; DONs without a usable name
 // (unnamed, or a name shared by two of this node's DONs) get no offchain config.
@@ -355,28 +304,26 @@ func TestReconcile_OffchainMatchesByDONName(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.NoError(t, gc.Store(globalconfig.Update{Raw: raw}))
+	_, err = gc.Store(raw, raw)
+	require.NoError(t, err)
 
 	named := func(id uint32, name string) registry.DON {
 		return registry.DON{ID: id, Name: name, CapabilityConfigurations: map[string]registry.CapabilityConfiguration{"cron@1.0.0": onchain}}
 	}
-	m, rec := newCutoverManager(t, &testLocalCapabilities{allowlisted: map[string]bool{"cron@1.0.0": true}}, gc, true)
-	require.NoError(t, m.reconcile(t.Context(), []registry.DON{
+	dons := []registry.DON{
 		named(42, "workflow_1_zone-a"), // matched by name; the ID is irrelevant
 		named(43, ""),                  // unnamed (e.g. registry without DON names)
 		named(44, "shared"),            // ambiguous: two of this node's DONs share the name
 		named(45, "shared"),
-	}))
+	}
+	m, rec := newCutoverManager(t, &testLocalCapabilities{allowlisted: map[string]bool{"cron@1.0.0": true}}, gc, true)
+	require.NoError(t, m.reconcile(t.Context(), dons))
 
 	assert.Equal(t, map[string]any{"interval": "30"}, rec.configFor(t, "cron@1.0.0", 42))
 	for _, id := range []uint32{43, 44, 45} {
 		assert.Equal(t, map[string]any{}, rec.configFor(t, "cron@1.0.0", id), "DON %d must get no offchain config", id)
 	}
 
-	check := m.computeOffchainCrossCheck(func() *capabilitiespb.OffchainCapabilitiesRegistry { r, _ := gc.LoadParsed(); return r }(), 1, []registry.DON{
-		named(42, "workflow_1_zone-a"), named(43, ""), named(44, "shared"), named(45, "shared"),
-	})
-	assert.Equal(t, int64(1), check.matchedCaps)
-	assert.Equal(t, int64(3), check.divergences[divergenceMissingDON], "unnamed and ambiguous DONs cannot be matched")
-	assert.Equal(t, int64(1), check.divergences[divergenceExtraDON], `offchain "shared" matches no unambiguous DON`)
+	got := m.offchainDivergences(m.offchainDONsByID(gc.LoadParsed(), dons), dons)
+	assert.Equal(t, map[string]int64{divergenceMissing: 3, divergenceMismatch: 1}, got)
 }

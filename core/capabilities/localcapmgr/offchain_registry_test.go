@@ -7,10 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 )
 
 func marshalOffchainRegistry(reg *capabilitiespb.OffchainCapabilitiesRegistry) (string, error) {
@@ -49,149 +51,78 @@ func newCrossCheckMgr(t *testing.T, allowlisted ...string) *localCapabilityManag
 	}
 }
 
-func TestComputeOffchainCrossCheck(t *testing.T) {
+func specConfigCap(t *testing.T, kv map[string]any) *capabilitiespb.CapabilityConfig {
+	t.Helper()
+	vm, err := values.NewMap(kv)
+	require.NoError(t, err)
+	return &capabilitiespb.CapabilityConfig{SpecConfig: values.ProtoMap(vm)}
+}
+
+// onchainSpecConfig builds a registry.CapabilityConfiguration whose SpecConfig unwraps to kv,
+// for exercising buildConfigJSON's on-chain layer.
+func onchainSpecConfig(t *testing.T, kv map[string]any) registry.CapabilityConfiguration {
+	t.Helper()
+	vm, err := values.NewMap(kv)
+	require.NoError(t, err)
+	cc := &capabilitiespb.CapabilityConfig{SpecConfig: values.ProtoMap(vm)}
+	b, err := proto.Marshal(cc)
+	require.NoError(t, err)
+	return registry.CapabilityConfiguration{Config: b}
+}
+
+func TestOffchainDivergences(t *testing.T) {
 	t.Parallel()
 
-	emptyCap := map[string]*capabilitiespb.CapabilityConfig{"cron@1.0.0": {}, "consensus@1.0.0": {}}
-
-	t.Run("nil offchain registry is empty", func(t *testing.T) {
-		t.Parallel()
-		mgr := newCrossCheckMgr(t, "cron@1.0.0")
-		got := mgr.computeOffchainCrossCheck(nil, 0, []registry.DON{onchainDON(1, "cron@1.0.0")})
-		assert.True(t, got.offchainEmpty)
-		assert.Equal(t, uint64(0), got.version)
-	})
-
-	t.Run("full match records matched caps and no divergence", func(t *testing.T) {
-		t.Parallel()
-		mgr := newCrossCheckMgr(t, "cron@1.0.0", "consensus@1.0.0")
-		reg := offchainReg(5, map[uint32]map[string]*capabilitiespb.CapabilityConfig{1: emptyCap})
-		got := mgr.computeOffchainCrossCheck(reg, 5, []registry.DON{onchainDON(1, "cron@1.0.0", "consensus@1.0.0")})
-
-		assert.False(t, got.offchainEmpty)
-		assert.Equal(t, uint64(5), got.version)
-		assert.Equal(t, int64(1), got.comparedDONs)
-		assert.Equal(t, int64(2), got.matchedCaps)
-		assert.Empty(t, got.divergences)
-	})
-
-	t.Run("only allowlisted caps are compared", func(t *testing.T) {
-		t.Parallel()
-		mgr := newCrossCheckMgr(t, "cron@1.0.0") // consensus not allowlisted
-		reg := offchainReg(1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{1: {"cron@1.0.0": {}}})
-		// on-chain DON offers both; only cron is allowlisted, and offchain has cron -> match.
-		got := mgr.computeOffchainCrossCheck(reg, 1, []registry.DON{onchainDON(1, "cron@1.0.0", "consensus@1.0.0")})
-		assert.Equal(t, int64(1), got.matchedCaps)
-		assert.Empty(t, got.divergences)
-	})
-
-	t.Run("missing DON", func(t *testing.T) {
-		t.Parallel()
-		mgr := newCrossCheckMgr(t, "cron@1.0.0")
-		reg := offchainReg(1, nil) // no DONs offchain
-		got := mgr.computeOffchainCrossCheck(reg, 1, []registry.DON{onchainDON(1, "cron@1.0.0")})
-		assert.Equal(t, int64(1), got.divergences[divergenceMissingDON])
-		assert.Equal(t, int64(0), got.matchedCaps)
-	})
-
-	t.Run("missing capability", func(t *testing.T) {
-		t.Parallel()
-		mgr := newCrossCheckMgr(t, "cron@1.0.0", "consensus@1.0.0")
-		reg := offchainReg(1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{1: {"cron@1.0.0": {}}})
-		got := mgr.computeOffchainCrossCheck(reg, 1, []registry.DON{onchainDON(1, "cron@1.0.0", "consensus@1.0.0")})
-		assert.Equal(t, int64(1), got.matchedCaps)
-		assert.Equal(t, int64(1), got.divergences[divergenceMissingCapability])
-	})
-
-	t.Run("extra DON and extra capability", func(t *testing.T) {
-		t.Parallel()
-		mgr := newCrossCheckMgr(t, "cron@1.0.0")
-		reg := offchainReg(1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-			1: {"cron@1.0.0": {}, "ghost@1.0.0": {}}, // ghost not on-chain
-			9: {"cron@1.0.0": {}},                    // DON 9 not on-chain for this node
+	m := newCrossCheckMgr(t, "cron@1.0.0", "consensus@1.0.0")
+	onchain := onchainSpecConfig(t, map[string]any{"interval": "20"})
+	don := func(id uint32) registry.DON {
+		return onchainDONWith(id, map[string]registry.CapabilityConfiguration{
+			"cron@1.0.0": onchain, "consensus@1.0.0": onchain, "other@1.0.0": onchain, // other is not allowlisted
 		})
-		got := mgr.computeOffchainCrossCheck(reg, 1, []registry.DON{onchainDON(1, "cron@1.0.0")})
-		assert.Equal(t, int64(1), got.matchedCaps)
-		assert.Equal(t, int64(1), got.divergences[divergenceExtraDON])
-		assert.Equal(t, int64(1), got.divergences[divergenceExtraCapability])
-	})
-
-	t.Run("DON with no allowlisted caps is skipped", func(t *testing.T) {
-		t.Parallel()
-		mgr := newCrossCheckMgr(t) // nothing allowlisted
-		reg := offchainReg(1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{1: emptyCap})
-		got := mgr.computeOffchainCrossCheck(reg, 1, []registry.DON{onchainDON(1, "cron@1.0.0")})
-		assert.Equal(t, int64(0), got.comparedDONs)
-		assert.Equal(t, int64(0), got.matchedCaps)
-		assert.Equal(t, int64(0), got.divergences[divergenceMissingDON])
-	})
-}
-
-func TestRecordOffchainCheck_FromStoredPayload(t *testing.T) {
-	t.Parallel()
-
-	gc := globalconfig.New()
-	// Store a proto-JSON payload via the same path the delegate uses.
-	raw, err := marshalOffchainRegistry(offchainReg(3, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-		1: {"cron@1.0.0": {}},
-	}))
-	require.NoError(t, err)
-	require.NoError(t, gc.Store(globalconfig.Update{Raw: raw, Hash: "h1"}))
-
-	metrics, err := newMetrics()
-	require.NoError(t, err)
-	mgr := newCrossCheckMgr(t, "cron@1.0.0")
-	mgr.metrics = metrics
-
-	// Exercises LoadParsed -> compute -> record without panicking.
-	reg, version := gc.LoadParsed()
-	require.NotNil(t, reg)
-	assert.Equal(t, uint64(3), version)
-	mgr.recordOffchainCheck(t.Context(), mgr.computeOffchainCrossCheck(reg, version, []registry.DON{onchainDON(1, "cron@1.0.0")}))
-}
-
-func TestComputeOffchainCrossCheck_ConfigMismatch(t *testing.T) {
-	t.Parallel()
-
-	mgr := &localCapabilityManager{
-		lggr: testLogger(t),
-		localCfg: &testLocalCapabilities{
-			allowlisted: map[string]bool{"cron@1.0.0": true},
-		},
 	}
-	onchain := []registry.DON{{
-		ID:   1,
-		Name: testDONName(1),
-		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
-			"cron@1.0.0": onchainSpecConfig(t, map[string]any{"interval": "20", "onchainOnly": "o"}),
-		},
-	}}
-	check := func(offchainSpec map[string]any) offchainCrossCheck {
-		cc := &capabilitiespb.CapabilityConfig{}
-		if offchainSpec != nil {
-			cc = specConfigCap(t, offchainSpec)
-		}
-		reg := offchainReg(1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{1: {"cron@1.0.0": cc}})
-		return mgr.computeOffchainCrossCheck(reg, 1, onchain)
-	}
+	dons := []registry.DON{don(1), don(2)}
 
 	for _, tc := range []struct {
 		name     string
-		offchain map[string]any
-		mismatch int64
+		offchain map[uint32]map[string]*capabilitiespb.CapabilityConfig
+		want     map[string]int64
 	}{
-		{"same as on-chain", map[string]any{"interval": "20", "onchainOnly": "o"}, 0},
-		{"no spec_config", nil, 1},
-		{"omits a key", map[string]any{"interval": "20"}, 1},
-		{"different value", map[string]any{"interval": "30", "onchainOnly": "o"}, 1},
-		{"adds a key", map[string]any{"interval": "20", "onchainOnly": "o", "extra": "e"}, 1},
-		{"different type, same text", map[string]any{"interval": int64(20)}, 1},
+		{"no payload", nil, map[string]int64{divergenceMissing: 4, divergenceMismatch: 0}},
+		{"same as on-chain", map[uint32]map[string]*capabilitiespb.CapabilityConfig{
+			1: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "20"}), "consensus@1.0.0": specConfigCap(t, map[string]any{"interval": "20"})},
+			2: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "20"}), "consensus@1.0.0": specConfigCap(t, map[string]any{"interval": "20"})},
+		}, map[string]int64{divergenceMissing: 0, divergenceMismatch: 0}},
+		{"missing DON, missing capability and mismatches", map[uint32]map[string]*capabilitiespb.CapabilityConfig{
+			1: {
+				"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30"}), // different value
+				"x@1.0.0":    {},                                                 // extra entries are ignored
+			},
+			3: {"cron@1.0.0": {}}, // DON this node is not in
+		}, map[string]int64{divergenceMissing: 3, divergenceMismatch: 1}},
+		{"omitted key and empty spec_config", map[uint32]map[string]*capabilitiespb.CapabilityConfig{
+			1: {"cron@1.0.0": specConfigCap(t, map[string]any{}), "consensus@1.0.0": {}},
+			2: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": int64(20)}), "consensus@1.0.0": specConfigCap(t, map[string]any{"interval": "20", "extra": "e"})},
+		}, map[string]int64{divergenceMissing: 0, divergenceMismatch: 4}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := check(tc.offchain)
-			assert.Equal(t, int64(1), got.matchedCaps)
-			assert.Equal(t, tc.mismatch, got.divergences[divergenceConfigMismatch])
+			var reg *capabilitiespb.OffchainCapabilitiesRegistry
+			if tc.offchain != nil {
+				reg = offchainReg(1, tc.offchain)
+			}
+			assert.Equal(t, tc.want, m.offchainDivergences(m.offchainDONsByID(reg, dons), dons))
 		})
 	}
+}
+
+func TestOffchainSpecConfig_MalformedIsIgnored(t *testing.T) {
+	t.Parallel()
+	// Unreachable from an applied payload (globalconfig.Validate rejects it at ingestion).
+	bad := &capabilitiespb.DONConfig{Capabilities: map[string]*capabilitiespb.CapabilityConfig{
+		"cron@1.0.0": {SpecConfig: &valuespb.Map{Fields: map[string]*valuespb.Value{
+			"ok":     valuespb.NewStringValue("x"),
+			"broken": {}, // a Value with no kind cannot be converted
+		}}},
+	}}
+	assert.Nil(t, newCrossCheckMgr(t).offchainSpecConfig(bad, "cron@1.0.0", 7))
 }

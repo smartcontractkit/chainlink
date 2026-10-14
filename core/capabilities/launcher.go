@@ -280,8 +280,7 @@ func (w *launcher) loadOffchainRegistry() *capabilitiespb.OffchainCapabilitiesRe
 	if w.offchainRegistry == nil {
 		return nil
 	}
-	reg, _ := w.offchainRegistry.LoadParsed()
-	return reg
+	return w.offchainRegistry.LoadParsed()
 }
 
 func (w *launcher) HealthReport() map[string]error {

@@ -153,19 +153,21 @@ func (m *localCapabilityManager) Name() string {
 
 // Reconcile compares running capabilities against the desired state from the registry.
 // It starts new capabilities, stops removed ones, and restarts those with changed config.
+// With the cutover on and no offchain payload applied, it leaves running capabilities untouched
+// rather than launching them without config.
 func (m *localCapabilityManager) Reconcile(
 	ctx context.Context,
 	allMyDONs []registry.DON,
 	offchainReg *capabilitiespb.OffchainCapabilitiesRegistry,
 ) error {
-	var offchainDONs map[uint32]*capabilitiespb.DONConfig
-	if m.useOffchainRegistry {
-		offchainDONs = m.offchainDONsByID(offchainReg, allMyDONs)
+	offchainDONs := m.offchainDONsByID(offchainReg, allMyDONs)
+	m.recordOffchainDivergences(ctx, m.offchainDivergences(offchainDONs, allMyDONs))
+
+	if m.useOffchainRegistry && offchainReg == nil {
+		m.lggr.Warn("Offchain capabilities registry cutover is enabled but no payload is applied; skipping reconcile")
+		return nil
 	}
 	desired := m.buildDesiredState(allMyDONs, offchainDONs)
-
-	// Telemetry only; does not influence desired state.
-	m.recordOffchainCheck(ctx, m.computeOffchainCrossCheck(offchainReg, offchainReg.GetVersion(), allMyDONs))
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -216,8 +218,8 @@ func (m *localCapabilityManager) Reconcile(
 
 // buildDesiredState extracts capabilities that should be running from DON configs, and
 // computes each one's effective config. Only includes capabilities that are in the
-// RegistryBasedLaunchAllowlist. offchainDONs holds the offchain config by on-chain DON ID; nil
-// when the cutover is off or no offchain payload is applied.
+// RegistryBasedLaunchAllowlist. offchainDONs holds the offchain config by on-chain DON ID; it is
+// only used when the cutover is on.
 func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registry.DON, offchainDONs map[uint32]*capabilitiespb.DONConfig) map[string]*capabilityInfo {
 	desired := make(map[string]*capabilityInfo)
 	for _, don := range myCapabilityDONs {
@@ -254,12 +256,6 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	}
 
 	configJSON := info.configJSON
-	if len(info.config.Config) > 0 {
-		if _, err := info.config.Unmarshal(); err != nil {
-			m.lggr.Warnw("Failed to unmarshal cap registry config, launching without on-chain spec config",
-				"capID", info.capID, "donID", info.donID, "error", err)
-		}
-	}
 
 	// newServicesFn derives OracleFactoryConfig.Enabled from whether ocr3Config is
 	// present; node config/keystore fill in chain ID, contract address, key bundle

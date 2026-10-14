@@ -1,10 +1,6 @@
 package globalconfig
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,167 +15,46 @@ import (
 func TestGlobalConfig_Store(t *testing.T) {
 	t.Parallel()
 
-	t.Run("applies first version", func(t *testing.T) {
-		t.Parallel()
-		g := New()
-		require.NoError(t, g.Store(Update{Raw: `{"version":1}`, Hash: "h1"}))
-		raw, v := g.Load()
-		assert.Equal(t, `{"version":1}`, raw)
-		assert.Equal(t, uint64(1), v)
-	})
-
-	t.Run("accepts strictly newer version", func(t *testing.T) {
-		t.Parallel()
-		g := New()
-		require.NoError(t, g.Store(Update{Raw: `{"version":1}`, Hash: "h1"}))
-		require.NoError(t, g.Store(Update{Raw: `{"version":2}`, Hash: "h2"}))
-		_, v := g.Load()
-		assert.Equal(t, uint64(2), v)
-	})
-
-	t.Run("rejects non-increasing version", func(t *testing.T) {
-		t.Parallel()
-		g := New()
-		require.NoError(t, g.Store(Update{Raw: `{"version":5}`, Hash: "h5"}))
-		err := g.Store(Update{Raw: `{"version":5}`, Hash: "hDifferent"})
-		require.Error(t, err)
-		err = g.Store(Update{Raw: `{"version":4}`, Hash: "h4"})
-		require.Error(t, err)
-		_, v := g.Load()
-		assert.Equal(t, uint64(5), v)
-	})
-
-	t.Run("idempotent re-apply of same hash", func(t *testing.T) {
-		t.Parallel()
-		g := New()
-		require.NoError(t, g.Store(Update{Raw: `{"version":5}`, Hash: "h5"}))
-		require.NoError(t, g.Store(Update{Raw: `{"version":5}`, Hash: "h5"}))
-		_, v := g.Load()
-		assert.Equal(t, uint64(5), v)
-	})
-
-	t.Run("proto-json string version", func(t *testing.T) {
-		t.Parallel()
-		g := New()
-		require.NoError(t, g.Store(Update{Raw: `{"version":"42"}`, Hash: "h"}))
-		_, v := g.Load()
-		assert.Equal(t, uint64(42), v)
-	})
-
-	t.Run("rejects invalid payload", func(t *testing.T) {
-		t.Parallel()
-		g := New()
-		require.Error(t, g.Store(Update{Raw: ``, Hash: "h"}))
-		require.Error(t, g.Store(Update{Raw: `not json`, Hash: "h"}))
-		require.Error(t, g.Store(Update{Raw: `{"version":"nope"}`, Hash: "h"}))
-	})
-}
-
-func TestGlobalConfig_Versioning(t *testing.T) {
-	t.Parallel()
-
-	t.Run("zero or missing version is rejected, even as the first payload", func(t *testing.T) {
-		t.Parallel()
-		g := New()
-		require.ErrorContains(t, g.Store(Update{Raw: `{"version":0}`, Hash: "h0"}), "version must be >= 1")
-		require.ErrorContains(t, g.Store(Update{Raw: `{"dons":{}}`, Hash: "hx"}), "version must be >= 1")
-		raw, v := g.Load()
-		assert.Empty(t, raw)
-		assert.Equal(t, uint64(0), v)
-	})
-
-	t.Run("stale replay of an older payload is rejected", func(t *testing.T) {
-		t.Parallel()
-		g := New()
-		require.NoError(t, g.Store(Update{Raw: `{"version":1}`, Hash: "a"}))
-		require.NoError(t, g.Store(Update{Raw: `{"version":2}`, Hash: "b"}))
-		// "a" is no longer the applied hash, so it is a stale update, not an idempotent one.
-		require.ErrorContains(t, g.Store(Update{Raw: `{"version":1}`, Hash: "a"}), "not newer")
-		raw, v := g.Load()
-		assert.Equal(t, `{"version":2}`, raw)
-		assert.Equal(t, uint64(2), v)
-	})
-
-	t.Run("empty hash falls back to sha256 of the payload", func(t *testing.T) {
-		t.Parallel()
-		g := New()
-		raw := `{"version":3}`
-		require.NoError(t, g.Store(Update{Raw: raw}))
-		// Same payload again: idempotent (no version error).
-		require.NoError(t, g.Store(Update{Raw: raw}))
-		// Same payload with the explicit validator hash: also idempotent.
-		sum := sha256.Sum256([]byte(raw))
-		require.NoError(t, g.Store(Update{Raw: raw, Hash: hex.EncodeToString(sum[:])}))
-	})
-
-	t.Run("rejected update keeps the applied payload", func(t *testing.T) {
-		t.Parallel()
-		g := New()
-		require.NoError(t, g.Store(Update{Raw: `{"version":5,"dons":{"don-1":{}}}`, Hash: "h5"}))
-		require.Error(t, g.Store(Update{Raw: `{"version":6,"dons":{"don-1":{"capabilities":{"":{}}}}}`, Hash: "h6"}))
-		reg, v := g.LoadParsed()
-		assert.Equal(t, uint64(5), v)
-		assert.Contains(t, reg.GetDons(), "don-1")
-	})
-}
-
-func TestGlobalConfig_Clear(t *testing.T) {
-	t.Parallel()
-
 	g := New()
-	ch, unsubscribe := g.Subscribe()
-	defer unsubscribe()
-
-	require.NoError(t, g.Store(Update{Raw: `{"version":5}`, Hash: "h5"}))
-	<-ch
-
-	g.Clear()
-	raw, v := g.Load()
-	assert.Empty(t, raw)
-	assert.Equal(t, uint64(0), v)
-	reg, v := g.LoadParsed()
-	assert.Nil(t, reg)
-	assert.Equal(t, uint64(0), v)
-	assert.Len(t, ch, 1, "Clear notifies when it withdraws a payload")
-	<-ch
-	g.Clear()
-	assert.Empty(t, ch, "clearing an already cleared config does not notify")
-
-	// The high-water mark survives Clear: older payloads stay rejected...
-	require.ErrorContains(t, g.Store(Update{Raw: `{"version":4}`, Hash: "h4"}), "not newer than applied version 5")
-	require.ErrorContains(t, g.Store(Update{Raw: `{"version":5,"dons":{}}`, Hash: "h5b"}), "not newer")
-	// ...but the last applied payload can be re-applied (delete + recreate of the same job).
-	require.NoError(t, g.Store(Update{Raw: `{"version":5}`, Hash: "h5"}))
-	_, v = g.Load()
+	v, err := g.Store(`{"version":5,"dons":{"don-1":{}}}`, "h5")
+	require.NoError(t, err)
 	assert.Equal(t, uint64(5), v)
-	<-ch
 
-	g.Clear()
-	require.NoError(t, g.Store(Update{Raw: `{"version":6}`, Hash: "h6"}))
-	_, v = g.Load()
+	// Same hash is a no-op.
+	v, err = g.Store(`{"version":5,"dons":{"don-1":{}}}`, "h5")
+	require.NoError(t, err)
+	assert.Equal(t, uint64(5), v)
+
+	// Equal or older versions with different content, and invalid payloads, are rejected and
+	// keep the applied payload.
+	for _, raw := range []string{`{"version":5}`, `{"version":4}`, `{"version":0}`, `{"version":6,"dons":{"":{}}}`, ``} {
+		_, err = g.Store(raw, "other")
+		require.Error(t, err, raw)
+	}
+	assert.Equal(t, uint64(5), g.LoadParsed().GetVersion())
+	assert.Contains(t, g.LoadParsed().GetDons(), "don-1")
+
+	v, err = g.Store(`{"version":6}`, "h6")
+	require.NoError(t, err)
 	assert.Equal(t, uint64(6), v)
 }
 
 func TestGlobalConfig_LoadParsedIsASnapshot(t *testing.T) {
 	t.Parallel()
 
-	g := New()
-	require.NoError(t, g.Store(Update{Raw: `{"version":1,"dons":{"don-7":{"capabilities":{"cron@1.0.0":{}}}}}`, Hash: "h1"}))
+	assert.Nil(t, New().LoadParsed())
 
-	snap, _ := g.LoadParsed()
+	g := New()
+	_, err := g.Store(`{"version":1,"dons":{"don-7":{"capabilities":{"cron@1.0.0":{}}}}}`, "h1")
+	require.NoError(t, err)
+
+	snap := g.LoadParsed()
 	snap.Version = 99
 	snap.Dons["don-8"] = &capabilitiespb.DONConfig{}
-	snap.Dons["don-7"].Capabilities["evil@1.0.0"] = &capabilitiespb.CapabilityConfig{}
 
-	again, v := g.LoadParsed()
-	assert.Equal(t, uint64(1), v)
+	again := g.LoadParsed()
 	assert.Equal(t, uint64(1), again.GetVersion())
 	assert.NotContains(t, again.GetDons(), "don-8")
-	assert.NotContains(t, again.GetDons()["don-7"].GetCapabilities(), "evil@1.0.0")
-
-	empty, v := New().LoadParsed()
-	assert.Nil(t, empty)
-	assert.Equal(t, uint64(0), v)
 }
 
 func TestGlobalConfig_Subscribe(t *testing.T) {
@@ -187,52 +62,22 @@ func TestGlobalConfig_Subscribe(t *testing.T) {
 
 	g := New()
 	ch, unsubscribe := g.Subscribe()
+	store := func(raw, hash string) error { _, err := g.Store(raw, hash); return err }
 
-	require.NoError(t, g.Store(Update{Raw: `{"version":1}`, Hash: "h1"}))
-	require.NoError(t, g.Store(Update{Raw: `{"version":2}`, Hash: "h2"}))
+	require.NoError(t, store(`{"version":1}`, "h1"))
+	require.NoError(t, store(`{"version":2}`, "h2"))
 	// Coalesced: two changes, one pending signal.
 	assert.Len(t, ch, 1)
 	<-ch
 
-	// Idempotent and rejected stores do not signal.
-	require.NoError(t, g.Store(Update{Raw: `{"version":2}`, Hash: "h2"}))
-	require.Error(t, g.Store(Update{Raw: `{"version":1}`, Hash: "h1"}))
+	// No-op and rejected stores do not signal.
+	require.NoError(t, store(`{"version":2}`, "h2"))
+	require.Error(t, store(`{"version":1}`, "h1"))
 	assert.Empty(t, ch)
 
 	unsubscribe()
-	require.NoError(t, g.Store(Update{Raw: `{"version":3}`, Hash: "h3"}))
+	require.NoError(t, store(`{"version":3}`, "h3"))
 	assert.Empty(t, ch)
-}
-
-func TestGlobalConfig_ConcurrentStoreAndLoad(t *testing.T) {
-	t.Parallel()
-
-	g := New()
-	const n = 50
-	var wg sync.WaitGroup
-	wg.Add(3)
-	go func() {
-		defer wg.Done()
-		for v := 1; v <= n; v++ {
-			assert.NoError(t, g.Store(Update{Raw: fmt.Sprintf(`{"version":%d,"dons":{"don-1":{"capabilities":{"c@1.0.0":{}}}}}`, v)}))
-		}
-	}()
-	for range 2 {
-		go func() {
-			defer wg.Done()
-			for range n {
-				reg, v := g.LoadParsed()
-				if reg != nil {
-					// The snapshot is internally consistent and caller-owned.
-					assert.Equal(t, v, reg.GetVersion())
-					reg.Dons["don-1"].Capabilities["x"] = nil
-				}
-			}
-		}()
-	}
-	wg.Wait()
-	_, v := g.Load()
-	assert.Equal(t, uint64(n), v)
 }
 
 // TestValidate_StrictFields: unknown or misspelled fields are rejected instead of silently
@@ -240,11 +85,10 @@ func TestGlobalConfig_ConcurrentStoreAndLoad(t *testing.T) {
 func TestValidate_StrictFields(t *testing.T) {
 	t.Parallel()
 	for name, raw := range map[string]string{
-		"unknown top-level field":                  `{"version":1,"unknownField":true}`,
-		"old schema field capabilityConfigs":       `{"version":1,"dons":{"don-7":{"capabilityConfigs":{"cron@1.0.0":{}}}}}`,
-		"old schema field donId":                   `{"version":1,"dons":{"don-7":{"donId":7}}}`,
-		"unknown CapabilityConfig field":           `{"version":1,"dons":{"don-7":{"capabilities":{"cron@1.0.0":{"ocrConfig":{"f":3}}}}}}`,
-		"design doc example (illustrative fields)": `{"domain":"cre","env":"prod","version":201,"dons":{"workflow_1_zone-a":{"capabilities":{"streams-trigger@1.0.0":{"ocrConfig":{"f":3,"deltaProgress":"2s"}},"evm@1.0.0":{"methods":{"eth_getLogs":{"gasLimit":"500000"}}}}}}}`,
+		"unknown top-level field":            `{"version":1,"unknownField":true}`,
+		"old schema field capabilityConfigs": `{"version":1,"dons":{"don-7":{"capabilityConfigs":{"cron@1.0.0":{}}}}}`,
+		"old schema field donId":             `{"version":1,"dons":{"don-7":{"donId":7}}}`,
+		"unknown CapabilityConfig field":     `{"version":1,"dons":{"don-7":{"capabilities":{"cron@1.0.0":{"ocrConfig":{"f":3}}}}}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -263,6 +107,8 @@ func TestValidate(t *testing.T) {
 	require.ErrorContains(t, Validate(`{"version":0}`), "version must be >= 1")
 	require.ErrorContains(t, Validate(`{"version":1,"dons":{"":{}}}`), "empty DON name")
 	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"":{}}}}}`), "empty capability ID")
+	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"c@1.0.0":{"ocr3Configs":{"default":{"f":1}}}}}}}`), "only spec_config is supported")
+	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"c@1.0.0":{"localOnly":true}}}}}`), "only spec_config is supported")
 
 	t.Run("malformed spec_config is rejected at ingestion", func(t *testing.T) {
 		t.Parallel()

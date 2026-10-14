@@ -8,8 +8,6 @@
 package globalconfig
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -23,26 +21,12 @@ import (
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 )
 
-// Update is a single offchain config delivery.
-type Update struct {
-	// Raw is the offchain_config payload (proto JSON) from the cresettings spec.
-	Raw string
-	// Hash is the spec hash; used to short-circuit idempotent re-applies. When empty, the
-	// sha256 of Raw is used (the same hash the cresettings validator computes).
-	Hash string
-}
-
 // GlobalConfig holds the latest applied offchain capabilities registry config.
 // The zero value is ready to use.
 type GlobalConfig struct {
 	mu     sync.RWMutex
-	raw    string
 	parsed *capabilitiespb.OffchainCapabilitiesRegistry
-	// version and hash describe the last applied payload. They are kept by Clear as a
-	// high-water mark, so a payload older than one already applied stays rejected after the
-	// job that carried it is deleted.
-	version uint64
-	hash    string
+	hash   string
 
 	subsMu sync.Mutex
 	subs   map[chan struct{}]struct{}
@@ -51,96 +35,46 @@ type GlobalConfig struct {
 // New returns an empty GlobalConfig.
 func New() *GlobalConfig { return &GlobalConfig{} }
 
-// Store validates and applies an update.
+// Store validates and applies a payload and returns the applied version.
 //
-//   - The payload must parse and pass Validate (version >= 1, well-formed spec_config, ...).
-//   - Re-applying the currently applied hash is a no-op (idempotent). After Clear, re-applying
-//     the last applied hash restores it.
-//   - Otherwise the version must be strictly greater than the applied version; a stale or
-//     equal version with different content is rejected and the applied payload is kept.
-//
+// Re-applying the currently applied hash is a no-op. Otherwise the version must be strictly
+// greater than the applied one; a rejected payload leaves the applied one in place.
 // Subscribers are notified after every update that changes the applied payload.
-func (g *GlobalConfig) Store(u Update) error {
-	reg, err := parse(u.Raw)
+//
+// There is no way to withdraw a payload: deleting the capabilities_registry job keeps the last
+// one applied until a newer one is stored or the node restarts.
+func (g *GlobalConfig) Store(raw, hash string) (uint64, error) {
+	reg, err := parse(raw)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	hash := u.Hash
-	if hash == "" {
-		sum := sha256.Sum256([]byte(u.Raw))
-		hash = hex.EncodeToString(sum[:])
-	}
-	version := reg.GetVersion()
 
 	g.mu.Lock()
-	if g.hash != "" && hash == g.hash {
-		if g.parsed != nil {
-			g.mu.Unlock()
-			return nil // idempotent re-apply of the same payload
-		}
-		// Same payload as the last applied one, re-applied after Clear: restore it.
-	} else if version <= g.version {
-		applied := g.version
+	applied := g.parsed.GetVersion()
+	if g.parsed != nil && hash == g.hash {
 		g.mu.Unlock()
-		return fmt.Errorf("offchain config version %d is not newer than applied version %d", version, applied)
+		return applied, nil
 	}
-	g.raw = u.Raw
+	if reg.GetVersion() <= applied {
+		g.mu.Unlock()
+		return 0, fmt.Errorf("offchain config version %d is not newer than applied version %d", reg.GetVersion(), applied)
+	}
 	g.parsed = reg
-	g.version = version
 	g.hash = hash
 	g.mu.Unlock()
 
 	g.notify()
-	return nil
+	return reg.GetVersion(), nil
 }
 
-// Clear withdraws the applied payload, e.g. after the capabilities_registry job is deleted, so
-// readers see no offchain config. The version/hash high-water mark is kept, so a
-// later payload must still be newer than the last one applied (or be that same payload).
-// Subscribers are notified when a payload was actually withdrawn.
-func (g *GlobalConfig) Clear() {
-	g.mu.Lock()
-	had := g.parsed != nil
-	g.raw = ""
-	g.parsed = nil
-	g.mu.Unlock()
-	if had {
-		g.notify()
-	}
-}
-
-// Load returns the current raw payload and its version. version is 0 when nothing is applied
-// (never, or since Clear).
-func (g *GlobalConfig) Load() (raw string, version uint64) {
+// LoadParsed returns a deep copy of the applied registry, or nil when nothing is applied.
+func (g *GlobalConfig) LoadParsed() *capabilitiespb.OffchainCapabilitiesRegistry {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	if g.parsed == nil {
-		return "", 0
+		return nil
 	}
-	return g.raw, g.version
-}
-
-// Info returns the domain, env and version of the applied payload; all zero values when
-// nothing is applied.
-func (g *GlobalConfig) Info() (domain, env string, version uint64) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	if g.parsed == nil {
-		return "", "", 0
-	}
-	return g.parsed.GetDomain(), g.parsed.GetEnv(), g.version
-}
-
-// LoadParsed returns a snapshot of the current parsed registry and its version. The registry
-// is nil and the version 0 when nothing is applied (never, or since Clear). The snapshot is a deep copy owned by the caller,
-// so mutating it cannot affect the applied config or other readers.
-func (g *GlobalConfig) LoadParsed() (reg *capabilitiespb.OffchainCapabilitiesRegistry, version uint64) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	if g.parsed == nil {
-		return nil, 0
-	}
-	return proto.Clone(g.parsed).(*capabilitiespb.OffchainCapabilitiesRegistry), g.version
+	return proto.Clone(g.parsed).(*capabilitiespb.OffchainCapabilitiesRegistry)
 }
 
 // Subscribe returns a channel that is signalled after each update that changes the applied
@@ -178,7 +112,8 @@ func (g *GlobalConfig) notify() {
 //   - version must be >= 1 (0 is the proto default, i.e. "unset", and would defeat the
 //     monotonic version check),
 //   - DON names (map keys) and capability IDs must be non-empty,
-//   - every spec_config must convert to a config map (the shape the launcher merges).
+//   - capabilities may only set spec_config (other fields are not consumed yet),
+//   - every spec_config must convert to a config map.
 //
 // It does not perform on-chain cross-validation, which happens in the LocalCapabilityManager
 // where the on-chain DON set is available.
@@ -187,13 +122,8 @@ func Validate(raw string) error {
 	return err
 }
 
-// Parse decodes and validates an offchain_config payload (proto JSON).
-func Parse(raw string) (*capabilitiespb.OffchainCapabilitiesRegistry, error) {
-	return parse(raw)
-}
-
-// SpecConfigMap converts an offchain spec_config into the flat config map merged into the
-// config a capability is launched with. A nil spec_config yields a nil map.
+// SpecConfigMap converts an offchain spec_config into the flat map a capability is launched
+// with. A nil spec_config yields a nil map.
 //
 // The value tree is checked before conversion: a value with no type would otherwise become a
 // JSON null in the launched config, and some empty
@@ -296,6 +226,9 @@ func validate(reg *capabilitiespb.OffchainCapabilitiesRegistry) error {
 		for capID, capCfg := range don.GetCapabilities() {
 			if capID == "" {
 				return fmt.Errorf("dons[%q]: empty capability ID", donName)
+			}
+			if !proto.Equal(capCfg, &capabilitiespb.CapabilityConfig{SpecConfig: capCfg.GetSpecConfig()}) {
+				return fmt.Errorf("dons[%q].capabilities[%q]: only spec_config is supported", donName, capID)
 			}
 			if _, err := SpecConfigMap(capCfg.GetSpecConfig()); err != nil {
 				return fmt.Errorf("dons[%q].capabilities[%q]: invalid spec_config: %w", donName, capID, err)

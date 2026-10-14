@@ -1,136 +1,48 @@
 package localcapmgr
 
 import (
-	"sort"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 )
 
-// Divergence kinds recorded when the offchain capabilities registry disagrees with the
-// on-chain registry. They are emitted as telemetry only and never affect which config is
-// applied (that is decided by the UseOffchainRegistry gate). "missing" means the on-chain registry has something the offchain payload lacks;
-// "extra" means the offchain payload describes something not present on-chain for this node.
+// Divergence kinds, per allowlisted capability of this node, between the offchain registry and
+// the on-chain one. Telemetry only; a non-zero count means turning the gate on changes config.
 const (
-	divergenceMissingDON        = "missing_don"
-	divergenceMissingCapability = "missing_capability"
-	divergenceExtraDON          = "extra_don"
-	divergenceExtraCapability   = "extra_capability"
-	// divergenceConfigMismatch means the capability is present in both registries but its
-	// offchain spec_config differs from the on-chain one (i.e. turning the gate on changes this
-	// capability's config).
-	divergenceConfigMismatch = "config_mismatch"
+	// divergenceMissing: the offchain registry has no entry for the capability on its DON.
+	divergenceMissing = "missing"
+	// divergenceMismatch: the offchain spec_config differs from the on-chain one.
+	divergenceMismatch = "mismatch"
 )
 
-// offchainCrossCheck is the outcome of comparing the parsed offchain registry against the
-// on-chain DON set this node belongs to.
-type offchainCrossCheck struct {
-	version       uint64
-	divergences   map[string]int64 // kind -> count
-	matchedCaps   int64
-	comparedDONs  int64
-	offchainEmpty bool // true when no offchain payload has been applied yet
-}
-
-// computeOffchainCrossCheck compares a parsed offchain registry against the on-chain DON set
-// and returns the divergence summary. It is pure (no metrics, no mutation); Reconcile records it.
-//
-// This is detection only: it never affects desired state. Only allowlisted capabilities are
-// compared, matching buildDesiredState.
-func (m *localCapabilityManager) computeOffchainCrossCheck(reg *capabilitiespb.OffchainCapabilitiesRegistry, version uint64, allMyDONs []registry.DON) offchainCrossCheck {
-	check := offchainCrossCheck{version: version, divergences: map[string]int64{}}
-
-	if reg == nil {
-		check.offchainEmpty = true
-		return check
-	}
-
-	offchainDONs := reg.GetDons()
-	donNames := m.offchainDONNames(allMyDONs)
-
-	// on-chain -> offchain: every allowlisted (DON, capability) on-chain should be present
-	// offchain.
+// offchainDivergences counts this node's allowlisted capabilities per divergence kind.
+func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*capabilitiespb.DONConfig, allMyDONs []registry.DON) map[string]int64 {
+	out := map[string]int64{divergenceMissing: 0, divergenceMismatch: 0}
 	for _, don := range allMyDONs {
-		allowlisted := m.allowlistedCapIDs(don)
-		if len(allowlisted) == 0 {
-			continue
-		}
-		check.comparedDONs++
-
-		donName, named := donNames[don.ID]
-		offDON, ok := offchainDONs[donName]
-		if !named || !ok {
-			check.divergences[divergenceMissingDON]++
-			m.lggr.Warnw("Offchain registry missing on-chain DON", "donID", don.ID, "donName", don.Name, "offchainVersion", version)
-			continue
-		}
-
-		offCaps := offDON.GetCapabilities()
-		for _, capID := range allowlisted {
-			if offCap, ok := offCaps[capID]; ok {
-				check.matchedCaps++
-				if m.offchainChangesConfig(don.ID, capID, don.CapabilityConfigurations[capID], offCap) {
-					check.divergences[divergenceConfigMismatch]++
-					m.lggr.Debugw("Offchain spec_config differs from legacy (TOML + on-chain) config",
-						"donID", don.ID, "capID", capID, "offchainVersion", version)
-				}
-			} else {
-				check.divergences[divergenceMissingCapability]++
-				m.lggr.Warnw("Offchain registry missing on-chain capability",
-					"donID", don.ID, "donName", donName, "capID", capID, "offchainVersion", version)
+		offDON := offchainDONs[don.ID]
+		for capID, onchain := range don.CapabilityConfigurations {
+			if m.localCfg == nil || !m.localCfg.IsAllowlisted(capID) {
+				continue
+			}
+			if _, ok := offDON.GetCapabilities()[capID]; !ok {
+				out[divergenceMissing]++
+				m.lggr.Debugw("Offchain registry has no config for capability", "donID", don.ID, "capID", capID)
+				continue
+			}
+			info := &capabilityInfo{capID: capID, donID: don.ID, config: onchain}
+			legacy, err := m.buildConfigJSON(info)
+			if err != nil {
+				continue
+			}
+			info.useOffchain = true
+			info.offchainSpecConfig = m.offchainSpecConfig(offDON, capID, don.ID)
+			if cutover, _ := m.buildConfigJSON(info); cutover != legacy {
+				out[divergenceMismatch]++
+				m.lggr.Debugw("Offchain spec_config differs from on-chain", "donID", don.ID, "capID", capID)
 			}
 		}
 	}
-
-	// offchain -> on-chain: offchain DONs/capabilities not present on-chain for this node.
-	onchainDONs := map[string]map[string]struct{}{}
-	for _, don := range allMyDONs {
-		name, ok := donNames[don.ID]
-		if !ok {
-			continue
-		}
-		caps := map[string]struct{}{}
-		for capID := range don.CapabilityConfigurations {
-			caps[capID] = struct{}{}
-		}
-		onchainDONs[name] = caps
-	}
-	for donName, offDON := range offchainDONs {
-		onCaps, ok := onchainDONs[donName]
-		if !ok {
-			check.divergences[divergenceExtraDON]++
-			continue
-		}
-		for capID := range offDON.GetCapabilities() {
-			if _, ok := onCaps[capID]; !ok {
-				check.divergences[divergenceExtraCapability]++
-			}
-		}
-	}
-
-	return check
-}
-
-// offchainChangesConfig reports whether launching with offCap's spec_config instead of the
-// on-chain SpecConfig would change the config the capability is launched with.
-func (m *localCapabilityManager) offchainChangesConfig(donID uint32, capID string, onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
-	offchain, err := globalconfig.SpecConfigMap(offCap.GetSpecConfig())
-	if err != nil {
-		offchain = nil // the launch path ignores an invalid spec_config the same way
-	}
-	info := &capabilityInfo{capID: capID, donID: donID, config: onchain}
-	legacy, err := m.buildConfigJSON(info)
-	if err != nil {
-		return false
-	}
-	info.useOffchain = true
-	info.offchainSpecConfig = offchain
-	cutover, err := m.buildConfigJSON(info)
-	if err != nil {
-		return false
-	}
-	return legacy != cutover
+	return out
 }
 
 // offchainDONsByID maps this node's on-chain DON IDs to their offchain config. DONs without a
@@ -164,7 +76,7 @@ func (m *localCapabilityManager) offchainSpecConfig(don *capabilitiespb.DONConfi
 // registry. A DON without a name (e.g. from a registry version that does not record names), or
 // whose name is shared with another of this node's DONs, is left out: its offchain config
 // cannot be attributed unambiguously, so with the gate on it gets an empty spec config, and it
-// is reported as missing_don by the cross-check.
+// is reported as missing by the cross-check.
 func (m *localCapabilityManager) offchainDONNames(dons []registry.DON) map[uint32]string {
 	byName := make(map[string][]uint32, len(dons))
 	for _, don := range dons {
@@ -183,18 +95,5 @@ func (m *localCapabilityManager) offchainDONNames(dons []registry.DON) map[uint3
 		}
 		out[ids[0]] = name
 	}
-	return out
-}
-
-// allowlistedCapIDs returns the capability IDs configured on a DON that this node is
-// allowlisted to launch, mirroring buildDesiredState's filter.
-func (m *localCapabilityManager) allowlistedCapIDs(don registry.DON) []string {
-	var out []string
-	for capID := range don.CapabilityConfigurations {
-		if m.localCfg != nil && m.localCfg.IsAllowlisted(capID) {
-			out = append(out, capID)
-		}
-	}
-	sort.Strings(out)
 	return out
 }
