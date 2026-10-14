@@ -208,10 +208,6 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 // the execution runs, since holding it would block Close, and therefore the cancellation, until the execution
 // finished on its own.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	// engineMode labels only this gauge, so the migration can compare legacy and
-	// coordinated in-flight load without changing every other engine metric.
-	gaugeMetrics := e.metrics.With(keyEngineMode, e.engineMode)
-
 	done := make(chan error, 1)
 
 	// only admit if engine is started and not draining
@@ -223,16 +219,11 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 		// execute in a goroutine tied to the service engine's context
 		// launch async to release the lock held by IfStarted to prevent deadlock
 		// with Close
-		gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(1)))
 		e.srvcEng.GoCtx(ctx, func(ctx context.Context) {
 			// Always send a result, even if executeTrigger panics or calls
 			// runtime.Goexit, so the caller never blocks on done.
 			err := errors.New("execution exited without a result")
-			defer func() {
-				// ctx may already be canceled by Close, so the decrement is recorded without its cancellation.
-				gaugeMetrics.UpdateActiveExecutionsGauge(context.WithoutCancel(ctx), int64(e.activeExecutions.Add(-1)))
-				done <- err
-			}()
+			defer func() { done <- err }()
 
 			err = e.executeTrigger(ctx, event)
 		})
@@ -247,8 +238,19 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 	return <-done
 }
 
-// executeTrigger runs an admitted event. ctx is canceled when the engine is closed.
+// executeTrigger runs an admitted event, counting it as an active execution while it runs. It runs
+// until the execution finishes or ctx is done; its callers run it through GoCtx, so Close cancels it.
 func (e *baseEngine) executeTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	// engineMode labels only this gauge, so the migration can compare legacy and
+	// coordinated in-flight load without changing every other engine metric.
+	gaugeMetrics := e.metrics.With(keyEngineMode, e.engineMode)
+
+	gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(1)))
+	defer func() {
+		// ctx may already be canceled by Close, so the decrement is recorded without its cancellation.
+		gaugeMetrics.UpdateActiveExecutionsGauge(context.WithoutCancel(ctx), int64(e.activeExecutions.Add(-1)))
+	}()
+
 	eventID := event.Event.Event.ID
 	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 	creCtx := contexts.CREValue(ctx)
