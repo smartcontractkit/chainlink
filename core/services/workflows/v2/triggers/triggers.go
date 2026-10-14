@@ -70,14 +70,20 @@ type Subscriber interface {
 
 // EventSink is how trigger events are delivered to an engine for execution.
 type EventSink interface {
-	// ExecuteTrigger implementations should perform no admission checks.  Calls
-	// should start a workflow execution.
+	// ExecuteTrigger should start a workflow execution. Engines perform no
+	// admission checks; a wrapper that does (e.g. the shard failover manager)
+	// reports the outcome with the admission errors below and leaves acting on
+	// it to the caller, which holds the trigger handles.
 	//
 	// Expected errors:
 	//   - ErrDuplicateExecution — the event was already executed.
 	//     The implementation should ACKs the duplicate internally before returning.
 	//   - ErrMeteringReserveFailed — metering report reservation failed.
 	//     Implementation should not ACK; the caller may retry.
+	//   - ErrAdmissionDenied — an admission check rejected the event; it will
+	//     never execute. The caller ACKs and drops it.
+	//   - ErrAdmissionCached — an admission check held the event back for
+	//     replay. The caller drops it without ACKing.
 	//
 	// Execution errors are NOT returned as errors.
 	// Implementations should expose errors and execution state via lifecycle hooks.

@@ -236,7 +236,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 	c.deps.Metrics.UpdateTriggerCoordinatorWorkflowsGauge(ctx, c.workflowsGauge.Add(1))
 	c.deps.Metrics.UpdateTriggerCoordinatorReadersGauge(ctx, c.readersGauge.Add(int64(len(eventChans))))
 
-	deliverFn := c.buildDeliverFn(cw.wid, cw.lggr)
+	deliverFn := c.buildDeliverFn(cw)
 	for idx, eventCh := range eventChans {
 		triggerCapID := triggerCapIDs[idx]
 		c.eng.GoCtx(readerCtx, func(ctx context.Context) {
@@ -318,9 +318,10 @@ func (c *coordinator) close() error {
 
 // buildDeliverFn creates a deliver function that looks up the engine fresh on every event
 // instead of caching it, since the engine for a workflow can change while this reader is running.
-func (c *coordinator) buildDeliverFn(wid types.WorkflowID, lggr logger.Logger) func(context.Context, CoordinatedEvent) {
+func (c *coordinator) buildDeliverFn(cw *coordinatedWorkflow) func(context.Context, CoordinatedEvent) {
+	lggr := cw.lggr
 	return func(ctx context.Context, event CoordinatedEvent) {
-		engine, found := c.engines.Get(wid)
+		engine, found := c.engines.Get(cw.wid)
 		if !found {
 			lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
 			return
@@ -330,11 +331,30 @@ func (c *coordinator) buildDeliverFn(wid types.WorkflowID, lggr logger.Logger) f
 			return
 		}
 
-		// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
-		if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
+		// WithoutCancel: unregistering stops ingress, it must not kill an execution already running,
+		// nor the ACK of an event that was denied.
+		ctx = context.WithoutCancel(ctx)
+		if err := engine.ExecuteTrigger(ctx, event); err != nil {
 			lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+			if errors.Is(err, ErrAdmissionDenied) {
+				c.dropDeniedEvent(ctx, cw, event)
+			}
 		}
 	}
+}
+
+// dropDeniedEvent handles an event the engine's admission check rejected, as the legacy
+// engine does after OnTriggerAdmission: the event will never execute, so it is ACKed and
+// counted as dropped. A cached event (ErrAdmissionCached) is deliberately left un-ACKed
+// so the secondary shard can replay it.
+func (c *coordinator) dropDeniedEvent(ctx context.Context, cw *coordinatedWorkflow, event CoordinatedEvent) {
+	eventID := event.Event.Event.ID
+	registrationID := RegistrationID(cw.wid.Hex(), event.TriggerIndex)
+	if err := Ack(ctx, cw.lggr, cw.metrics, event.TriggerCapID, registrationID, eventID, cw.handles[registrationID]); err != nil {
+		cw.lggr.Errorw("Failed to ACK trigger event after admission denial", "triggerID", event.TriggerCapID, "eventID", eventID, "err", err)
+	}
+	cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID).
+		IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
 }
 
 // releaseWhenDrained drops the registration and frees the workflow-count limit
