@@ -376,6 +376,43 @@ func TestNewServices_MultiFamilyOCRSigner(t *testing.T) {
 	assert.Equal(t, map[string]string{"evm": evm.ID(), "solana": sol.ID(), "aptos": aptos.ID()}, got.OnchainSigningStrategy.Config)
 }
 
+func TestNewServices_NoMatchingOCRSigner(t *testing.T) {
+	t.Parallel()
+
+	evm, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+	foreign, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+	otherSigner, err := ocrcommon.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{"evm": foreign})
+	require.NoError(t, err)
+	cc := &ocrtypes.ContractConfig{
+		Signers:      []ocrtypes.OnchainPublicKey{otherSigner},
+		Transmitters: []ocrtypes.Account{"0x0000000000000000000000000000000000000001"},
+	}
+
+	ocr2KS := keystoremocks.NewOCR2(t)
+	ocr2KS.EXPECT().GetAll().Return([]ocr2key.KeyBundle{evm}, nil)
+	ks := keystoremocks.NewMaster(t)
+	ks.EXPECT().Workflow().Return(nil).Maybe()
+	ks.EXPECT().P2P().Return(nil).Maybe()
+	ks.EXPECT().OCR2().Return(ocr2KS)
+	ks.EXPECT().Eth().Return(nil).Maybe()
+
+	d := &Delegate{
+		logger:   logger.Test(t),
+		ks:       ks,
+		relayers: stubRelayGetter{},
+		newOracleFactoryFn: func(p generic.OracleFactoryParams) (core.OracleFactory, error) {
+			t.Fatal("oracle factory must not be created when no OCR key bundle matches")
+			return nil, nil
+		},
+	}
+
+	_, err = d.NewServices(t.Context(), "unknown-binary", "", 1, "job", uuid.New(),
+		&job.OracleFactoryConfig{Enabled: true}, 0, cc)
+	require.ErrorContains(t, err, "none of the node's 1 OCR key bundles match the signers in the on-chain OCR config")
+}
+
 type stubRelayGetter struct{}
 
 func (stubRelayGetter) Get(types.RelayID) (loop.Relayer, error) { return nil, errors.New("not found") }

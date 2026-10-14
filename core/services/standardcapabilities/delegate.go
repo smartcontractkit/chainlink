@@ -256,14 +256,13 @@ func (d *Delegate) NewServices(
 		if err != nil {
 			return nil, err
 		}
-		if kbs, idx, ok := generic.SelectOCRKeyBundlesForConfig(allBundles, ocrContractConfig); ok {
-			ocrKeyBundles = kbs
-			signerIndex = idx
-			offchainKB = generic.OffchainKeyBundle(kbs)
-		} else {
-			log.Warnw("none of the node's OCR key bundles match the signers in the on-chain OCR config; using the first EVM bundle, which may cause unexpected behavior",
-				"numBundles", len(allBundles))
+		kbs, idx, ok := generic.SelectOCRKeyBundlesForConfig(allBundles, ocrContractConfig)
+		if !ok {
+			return nil, fmt.Errorf("none of the node's %d OCR key bundles match the signers in the on-chain OCR config", len(allBundles))
 		}
+		ocrKeyBundles = kbs
+		signerIndex = idx
+		offchainKB = generic.OffchainKeyBundle(kbs)
 	}
 	if offchainKB == nil {
 		var ocrEvmKeyBundles []ocr2key.KeyBundle
