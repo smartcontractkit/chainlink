@@ -185,12 +185,7 @@ func (m *ConfidentialModule) Execute(
 		return nil, err
 	}
 
-	result := capOutput.SdkExecutionResult
-	if result != nil && capOutput.ExecutionDurationMs != nil {
-		ms := capOutput.GetExecutionDurationMs()
-		result.ComputeDurationMs = &ms
-	}
-	return result, nil
+	return capOutput.SdkExecutionResult, nil
 }
 
 func (m *ConfidentialModule) SetRequirements(executionID string, requirements *sdkpb.Requirements) {
