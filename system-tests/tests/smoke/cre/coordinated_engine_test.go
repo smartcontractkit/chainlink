@@ -249,23 +249,37 @@ func Test_CRE_V2_CoordinatedEngine_RollbackToLegacy(t *testing.T) {
 // are registered through the coordinator.
 const coordinatorLogMessage = "Registered triggers via coordinator"
 
-// coordinatorLogLinesForWorkflow filters the coordinator registration lines on nodeset down
-// to one workflow. The message and the workflow ID are matched in two passes, so fields
+// logLinesForWorkflow returns the log lines on nodeset that contain message and mention
+// workflowID. The message and the workflow ID are matched in two passes, so fields
 // injected between them (e.g. the node logger's version field) do not break the match.
 // workflowID is lowercase hex with no 0x — the format CompileAndDeployWorkflow returns.
+func logLinesForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, nodeset, message, workflowID string) []string {
+	t.Helper()
+	lines := t_helpers.ContainerLogLinesForNodeset(t, testEnv, nodeset, message)
+	return slices.DeleteFunc(lines, func(line string) bool { return !strings.Contains(line, workflowID) })
+}
+
+// requireLogForWorkflow waits for a log line on nodeset that contains message and
+// mentions workflowID.
+func requireLogForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, nodeset, message, workflowID string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		return len(logLinesForWorkflow(t, testEnv, nodeset, message, workflowID)) > 0
+	}, time.Minute, 5*time.Second, "expected a %q line for workflow %s on nodeset %s", message, workflowID, nodeset)
+}
+
+// coordinatorLogLinesForWorkflow returns the coordinator registration lines of workflowID
+// on nodeset.
 func coordinatorLogLinesForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, nodeset, workflowID string) []string {
 	t.Helper()
-	lines := t_helpers.ContainerLogLinesForNodeset(t, testEnv, nodeset, coordinatorLogMessage)
-	return slices.DeleteFunc(lines, func(line string) bool { return !strings.Contains(line, workflowID) })
+	return logLinesForWorkflow(t, testEnv, nodeset, coordinatorLogMessage, workflowID)
 }
 
 // requireCoordinatorLogForWorkflow waits for the coordinator registration log of
 // workflowID to appear on nodeset.
 func requireCoordinatorLogForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, nodeset, workflowID string) {
 	t.Helper()
-	require.Eventually(t, func() bool {
-		return len(coordinatorLogLinesForWorkflow(t, testEnv, nodeset, workflowID)) > 0
-	}, time.Minute, 5*time.Second, "expected a %q line for workflow %s on nodeset %s", coordinatorLogMessage, workflowID, nodeset)
+	requireLogForWorkflow(t, testEnv, nodeset, coordinatorLogMessage, workflowID)
 }
 
 // countCoordinatorLogLinesForWorkflow counts the coordinator registration lines of

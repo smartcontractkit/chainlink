@@ -3,6 +3,7 @@ package cre
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -20,6 +21,38 @@ import (
 
 func ExecuteFailoverManualSwapTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	runFailoverManualSwap(t, testEnv, "failover")
+}
+
+// ExecuteFailoverManualSwapCoordinatedTest runs the manual failover swap on a topology
+// whose shard nodes boot with CoordinatedEngineEnabled on
+// (workflow-gateway-failover-coordinated-don.toml). The flag is set at boot rather than
+// with ApplyCRESettings: that delivers a settings job built from the topology's boot
+// settings, and the job validator rejects ShardingFailoverEnabled, which is not part of
+// the cresettings schema.
+//
+// With failover enabled a shard holds every workflow listed in its assignment, so by
+// the end both shards must have routed every workflow to the coordinated engine and
+// registered its triggers through the coordinator. Execution must still follow the
+// primary. Phase 1 only assigns the original primary, so the original secondary first
+// holds the workflows after the swap, as their new primary. The swap makes the original
+// primary the secondary for every workflow, phase 1 and phase 2, so it must cache their
+// events for failover: the proof that the shard failover manager's admission check runs
+// on the coordinated path.
+func ExecuteFailoverManualSwapCoordinatedTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	res := runFailoverManualSwap(t, testEnv, "failovercoord")
+
+	// Execution alone would also pass on the legacy engine; these prove it ran on the coordinated path.
+	allIDs := append(slices.Clone(res.phase1IDs), res.phase2IDs...)
+	for _, don := range []*cre.Don{res.primaryDON, res.secondaryDON} {
+		for _, workflowID := range allIDs {
+			requireLogForWorkflow(t, testEnv, don.Name, "Routing workflow to the coordinated engine", workflowID)
+			requireCoordinatorLogForWorkflow(t, testEnv, don.Name, workflowID)
+		}
+	}
+
+	for _, workflowID := range allIDs {
+		requireLogForWorkflow(t, testEnv, res.primaryDON.Name, sharedVaultTriggerCachedLogNeedle, workflowID)
+	}
 }
 
 // failoverSwapResult is what runFailoverManualSwap deployed and on which shards.
