@@ -8,14 +8,19 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -47,6 +52,8 @@ type fakeEngine struct {
 	coordinated bool
 	// execute, if set, runs inside ExecuteTrigger on the reader goroutine.
 	execute func(ctx context.Context, event CoordinatedEvent)
+	// err is returned from every ExecuteTrigger call.
+	err error
 
 	mu      sync.Mutex
 	events  []CoordinatedEvent
@@ -61,7 +68,7 @@ func (e *fakeEngine) ExecuteTrigger(ctx context.Context, event CoordinatedEvent)
 	if e.execute != nil {
 		e.execute(ctx, event)
 	}
-	return nil
+	return e.err
 }
 
 func (e *fakeEngine) IsCoordinated() bool { return e.coordinated }
@@ -211,4 +218,45 @@ func (f *coordinatorFixture) blockingExecution() (started chan struct{}, release
 		<-release
 	}
 	return started, release
+}
+
+// setupTestMeter swaps the global beholder client for one backed by a manual
+// meter reader, so the workflow metrics the coordinator records can be
+// collected. It must run before the fixture creates its metrics, and tests
+// using it must not run in parallel.
+func setupTestMeter(t *testing.T) *sdkmetric.ManualReader {
+	t.Helper()
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+
+	prevClient := beholder.GetClient()
+	t.Cleanup(func() { beholder.SetClient(prevClient) })
+
+	client := beholder.NoopClientConfig{Lggr: logger.Test(t)}.New()
+	client.Meter = mp.Meter("beholder")
+	beholder.SetClient(client)
+
+	return reader
+}
+
+// droppedTotal sums platform_engine_trigger_event_dropped_total over the data
+// points labelled with dropReason.
+func droppedTotal(t *testing.T, reader *sdkmetric.ManualReader, dropReason string) int64 {
+	t.Helper()
+	m := findMetric(t, reader, "platform_engine_trigger_event_dropped_total")
+	if m == nil {
+		return 0
+	}
+	sum, ok := m.Data.(metricdata.Sum[int64])
+	require.True(t, ok, "dropped total is not an int64 sum")
+
+	var total int64
+	for _, dp := range sum.DataPoints {
+		if v, ok := dp.Attributes.Value(platform.KeyTriggerDropReason); ok && v.AsString() == dropReason {
+			total += dp.Value
+		}
+	}
+	return total
 }
