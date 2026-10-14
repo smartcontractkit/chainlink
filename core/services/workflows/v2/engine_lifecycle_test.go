@@ -347,7 +347,12 @@ type engineLifecycleHarness struct {
 	moduleCloses     atomic.Int32
 	moduleExecutions atomic.Int32 // executions that reached the module, subscribe calls excluded
 	moduleInFlight   atomic.Int32 // executions currently held in the module
-	nextEvent        atomic.Int32
+	moduleMaxFlight  atomic.Int32 // the most executions ever held in the module at once
+
+	// slots counts requests for an execution-concurrency slot, made by whichever component
+	// admits events: the legacy engine or the coordinator.
+	slots     *slotCounter
+	nextEvent atomic.Int32
 
 	finishedMu  sync.Mutex
 	finishedLog []string // status of every OnExecutionFinished call, which finishedCh drops when full
@@ -414,6 +419,8 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	cfg := defaultTestConfig(t, o.settings)
+	h.slots = &slotCounter{ResourcePoolLimiter: cfg.LocalLimiters.ExecutionConcurrency}
+	cfg.LocalLimiters.ExecutionConcurrency = h.slots
 	cfg.CapRegistry = capreg
 	cfg.Module = h.newModule()
 	cfg.BillingClient = newLifecycleBillingClient(t)
@@ -461,8 +468,11 @@ func (h *engineLifecycleHarness) newModule() *modulemocks.ModuleV2 {
 				return newTriggerSubs(1), nil
 			}
 			h.moduleExecutions.Add(1)
-			h.moduleInFlight.Add(1)
+			inFlight := h.moduleInFlight.Add(1)
 			defer h.moduleInFlight.Add(-1)
+			for maxFlight := h.moduleMaxFlight.Load(); inFlight > maxFlight && !h.moduleMaxFlight.CompareAndSwap(maxFlight, inFlight); {
+				maxFlight = h.moduleMaxFlight.Load()
+			}
 			if err := h.blocker.block(ctx); err != nil {
 				return nil, err
 			}
@@ -681,6 +691,7 @@ type executionBlocker struct {
 	started  chan struct{}
 	canceled chan struct{} // signaled when a held execution observes its context's cancellation
 	released chan struct{}
+	step     chan struct{} // releases one held execution per receive
 	once     sync.Once
 	log      *lifecycleLog
 
@@ -694,6 +705,7 @@ func newExecutionBlocker(t *testing.T, log *lifecycleLog, signalBuffer int) *exe
 		started:  make(chan struct{}, signalBuffer),
 		canceled: make(chan struct{}, signalBuffer),
 		released: make(chan struct{}),
+		step:     make(chan struct{}),
 		log:      log,
 	}
 }
@@ -709,6 +721,8 @@ func (b *executionBlocker) block(ctx context.Context) error {
 	defer backstop.Stop()
 
 	select {
+	case <-b.step:
+		return nil
 	case <-b.released:
 		b.mu.Lock()
 		b.errAtRelease = ctx.Err()
@@ -726,6 +740,16 @@ func (b *executionBlocker) block(ctx context.Context) error {
 	}
 }
 
+// releaseOne lets exactly one held execution return, waiting until one takes the release.
+func (b *executionBlocker) releaseOne() {
+	b.t.Helper()
+	select {
+	case b.step <- struct{}{}:
+	case <-time.After(testTimeout):
+		require.FailNow(b.t, "no held execution to release")
+	}
+}
+
 // release lets every held execution return.
 func (b *executionBlocker) release() {
 	b.once.Do(func() { close(b.released) })
@@ -737,6 +761,18 @@ func (b *executionBlocker) contextErrAtRelease() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.errAtRelease
+}
+
+// slotCounter counts Wait calls on the execution-concurrency limiter, so a scenario can tell when
+// an event is waiting for a slot.
+type slotCounter struct {
+	limits.ResourcePoolLimiter[int]
+	waits atomic.Int32
+}
+
+func (s *slotCounter) Wait(ctx context.Context, amount int) (func(), error) {
+	s.waits.Add(1)
+	return s.ResourcePoolLimiter.Wait(ctx, amount)
 }
 
 // nonBlockingSend sends v on ch unless it is full, so a hook never stalls the engine.

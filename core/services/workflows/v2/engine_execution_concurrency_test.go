@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -575,7 +574,8 @@ func TestEngine_TriggerAdmission(t *testing.T) {
 // while an execution of that trigger is in flight. The channel is unbuffered, so a delivery only
 // completes once the node's reader takes the event.
 //
-// If the reader waits for the execution instead, the trigger capability blocks.
+// If the reader waits for the execution instead, the trigger capability blocks,
+// so one slow workflow would stall the capability for every workflow on the node.
 func testAdmissionReaderKeepsDraining(t *testing.T, mode lifecycleEngineMode) {
 	h := newEngineLifecycleHarness(t, mode)
 	h.start()
@@ -587,8 +587,13 @@ func testAdmissionReaderKeepsDraining(t *testing.T, mode lifecycleEngineMode) {
 		h.deliver(admissionTimeout)
 	}
 
-	// Let every execution reach the module before the engine closes.
-	finishAdmission(t, h, 4)
+	// Every delivered event runs: ExecutionConcurrencyLimit defaults to 5, so all four are held
+	// in the module together. Waiting for them also means none is still being scheduled when the
+	// harness closes the engine; the legacy engine deadlocks if Close races an execution
+	// goroutine that has been started but has not yet entered ExecuteTrigger.
+	for range 3 {
+		awaitLifecycle(t, h.blocker.started, "execution to start")
+	}
 }
 
 // testAdmissionOneTriggerRunsUpToLimit asserts that executions of a single trigger overlap up to
@@ -606,30 +611,18 @@ func testAdmissionOneTriggerRunsUpToLimit(t *testing.T, mode lifecycleEngineMode
 		h.deliver(admissionTimeout)
 	}
 
-	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		assert.Equal(c, int32(limit), h.moduleInFlight.Load(), "overlapping executions of one trigger")
-	}, admissionTimeout, 5*time.Millisecond)
-
-	// The extra event must wait for a free slot.
-	for range 10_000 {
-		runtime.Gosched()
+	// The first limit executions start and are held in the module.
+	for range limit {
+		awaitLifecycle(t, h.blocker.started, "execution to start")
 	}
-	require.Equal(t, int32(limit), h.moduleInFlight.Load(), "executions must not exceed ExecutionConcurrencyLimit")
 
-	finishAdmission(t, h, limit+1)
-}
+	// The extra event has asked for a slot, and every slot is held, so it is waiting.
+	require.Eventually(t, func() bool { return h.slots.waits.Load() == limit+1 }, admissionTimeout, 5*time.Millisecond,
+		"the extra event never asked for an execution-concurrency slot")
 
-// finishAdmission releases the held executions and waits until all total events have run in the
-// module, so no execution is still being scheduled when the harness closes the engine.
-//
-// The legacy engine can deadlock if Close runs while an execution goroutine is spawned but has not
-// yet entered ExecuteTrigger: Close holds the service lock while it waits for that goroutine, and
-// ExecuteTrigger needs the same lock (IfStarted).
-func finishAdmission(t *testing.T, h *engineLifecycleHarness, total int32) {
-	t.Helper()
-	h.blocker.release()
-	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		assert.Equal(c, total, h.moduleExecutions.Load(), "executions that reached the module")
-		assert.Zero(c, h.moduleInFlight.Load(), "executions still running")
-	}, admissionTimeout, 5*time.Millisecond)
+	// It starts only once one execution returns.
+	h.blocker.releaseOne()
+	awaitLifecycle(t, h.blocker.started, "the extra execution to start once a slot frees")
+
+	require.Equal(t, int32(limit), h.moduleMaxFlight.Load(), "executions must never exceed ExecutionConcurrencyLimit")
 }
