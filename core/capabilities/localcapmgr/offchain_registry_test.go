@@ -127,15 +127,7 @@ func TestComputeOffchainCrossCheck(t *testing.T) {
 	})
 }
 
-func TestCrossValidateOffchain_NilRegistryIsNoop(t *testing.T) {
-	t.Parallel()
-	mgr := newCrossCheckMgr(t, "cron@1.0.0")
-	mgr.offchainRegistry = nil
-	// Should not panic and should not require metrics to be set.
-	mgr.crossValidateOffchain(t.Context(), []registry.DON{onchainDON(1, "cron@1.0.0")})
-}
-
-func TestCrossValidateOffchain_EndToEndFromStoredPayload(t *testing.T) {
+func TestRecordOffchainCheck_FromStoredPayload(t *testing.T) {
 	t.Parallel()
 
 	gc := globalconfig.New()
@@ -150,14 +142,12 @@ func TestCrossValidateOffchain_EndToEndFromStoredPayload(t *testing.T) {
 	require.NoError(t, err)
 	mgr := newCrossCheckMgr(t, "cron@1.0.0")
 	mgr.metrics = metrics
-	mgr.offchainRegistry = gc
 
 	// Exercises LoadParsed -> compute -> record without panicking.
-	mgr.crossValidateOffchain(t.Context(), []registry.DON{onchainDON(1, "cron@1.0.0")})
-
 	reg, version := gc.LoadParsed()
 	require.NotNil(t, reg)
 	assert.Equal(t, uint64(3), version)
+	mgr.recordOffchainCheck(t.Context(), mgr.computeOffchainCrossCheck(reg, version, []registry.DON{onchainDON(1, "cron@1.0.0")}))
 }
 
 func TestComputeOffchainCrossCheck_ConfigMismatch(t *testing.T) {

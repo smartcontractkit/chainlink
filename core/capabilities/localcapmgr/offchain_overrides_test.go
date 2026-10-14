@@ -1,7 +1,6 @@
 package localcapmgr
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 )
 
 func specConfigCap(t *testing.T, kv map[string]any) *capabilitiespb.CapabilityConfig {
@@ -22,71 +20,59 @@ func specConfigCap(t *testing.T, kv map[string]any) *capabilitiespb.CapabilityCo
 	return &capabilitiespb.CapabilityConfig{SpecConfig: values.ProtoMap(vm)}
 }
 
-func storedRegistry(t *testing.T, version uint64, dons map[uint32]map[string]*capabilitiespb.CapabilityConfig) *globalconfig.GlobalConfig {
-	t.Helper()
-	raw, err := marshalOffchainRegistry(offchainReg(version, dons))
-	require.NoError(t, err)
-	gc := globalconfig.New()
-	require.NoError(t, gc.Store(globalconfig.Update{Raw: raw, Hash: fmt.Sprintf("h%d", version)}))
-	return gc
-}
-
-func TestOffchainCapabilityConfigProvider(t *testing.T) {
+func TestOffchainOverrides(t *testing.T) {
 	t.Parallel()
 
-	gc := storedRegistry(t, 1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
+	m := newCrossCheckMgr(t)
+	reg := offchainReg(1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
 		7: {
 			"cron@1.0.0":      specConfigCap(t, map[string]any{"interval": "30"}),
 			"consensus@1.0.0": {}, // present, but no spec_config
 		},
 	})
-	reg, version := gc.LoadParsed()
-	p := offchainCapabilityConfigProvider{reg: reg, donNames: map[uint32]string{7: testDONName(7), 99: testDONName(99)}, version: version}
+	dons := m.offchainDONsByID(reg, []registry.DON{onchainDON(7), onchainDON(99)})
 
 	t.Run("returns offchain spec_config for the DON", func(t *testing.T) {
 		t.Parallel()
-		assert.Equal(t, map[string]any{"interval": "30"}, p.LocalConfigOverrides("cron@1.0.0", 7))
+		assert.Equal(t, map[string]any{"interval": "30"}, m.offchainOverrides(dons[7], "cron@1.0.0", 7))
 	})
 
 	t.Run("nil for missing DON", func(t *testing.T) {
 		t.Parallel()
-		assert.Nil(t, p.LocalConfigOverrides("cron@1.0.0", 99))
+		assert.NotContains(t, dons, uint32(99))
+		assert.Nil(t, m.offchainOverrides(dons[99], "cron@1.0.0", 99))
 	})
 
-	t.Run("nil for DON without a usable name", func(t *testing.T) {
+	t.Run("DON without a usable name is left out", func(t *testing.T) {
 		t.Parallel()
-		unnamed := offchainCapabilityConfigProvider{reg: reg, donNames: map[uint32]string{}, version: version}
-		assert.Nil(t, unnamed.LocalConfigOverrides("cron@1.0.0", 7))
+		assert.Empty(t, m.offchainDONsByID(reg, []registry.DON{{ID: 7}}))
 	})
 
 	t.Run("nil for missing capability", func(t *testing.T) {
 		t.Parallel()
-		assert.Nil(t, p.LocalConfigOverrides("missing@1.0.0", 7))
+		assert.Nil(t, m.offchainOverrides(dons[7], "missing@1.0.0", 7))
 	})
 
 	t.Run("nil for capability without spec_config", func(t *testing.T) {
 		t.Parallel()
-		assert.Nil(t, p.LocalConfigOverrides("consensus@1.0.0", 7))
+		assert.Nil(t, m.offchainOverrides(dons[7], "consensus@1.0.0", 7))
 	})
 
 	t.Run("nil snapshot", func(t *testing.T) {
 		t.Parallel()
-		assert.Nil(t, offchainCapabilityConfigProvider{}.LocalConfigOverrides("cron@1.0.0", 7))
+		assert.Nil(t, m.offchainDONsByID(nil, []registry.DON{onchainDON(7)}))
 	})
 
 	t.Run("malformed spec_config is skipped, not partially applied", func(t *testing.T) {
 		t.Parallel()
-		// Unreachable from an applied payload (globalconfig.Validate rejects it at ingestion),
-		// but the provider must still degrade to "no offchain override" rather than panic or
-		// apply a partial map.
-		bad := offchainReg(1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-			7: {"cron@1.0.0": {SpecConfig: &valuespb.Map{Fields: map[string]*valuespb.Value{
+		// Unreachable from an applied payload (globalconfig.Validate rejects it at ingestion).
+		bad := &capabilitiespb.DONConfig{Capabilities: map[string]*capabilitiespb.CapabilityConfig{
+			"cron@1.0.0": {SpecConfig: &valuespb.Map{Fields: map[string]*valuespb.Value{
 				"ok":     valuespb.NewStringValue("x"),
 				"broken": {}, // a Value with no kind cannot be converted
-			}}}},
-		})
-		p := offchainCapabilityConfigProvider{reg: bad, donNames: map[uint32]string{7: testDONName(7)}, version: 1, lggr: testLogger(t)}
-		assert.Nil(t, p.LocalConfigOverrides("cron@1.0.0", 7))
+			}}},
+		}}
+		assert.Nil(t, m.offchainOverrides(bad, "cron@1.0.0", 7))
 	})
 }
 

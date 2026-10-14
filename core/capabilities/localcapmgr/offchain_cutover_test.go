@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -96,12 +95,23 @@ func storeOffchain(t *testing.T, gc *globalconfig.GlobalConfig, version uint64, 
 	require.NoError(t, gc.Store(globalconfig.Update{Raw: raw}))
 }
 
-func newCutoverManager(t *testing.T, localCfg *testLocalCapabilities, gc *globalconfig.GlobalConfig, gate bool) (*localCapabilityManager, *launchRecorder) {
+// cutoverManager reconciles against the current snapshot of gc, as the Launcher does.
+type cutoverManager struct {
+	*localCapabilityManager
+	gc *globalconfig.GlobalConfig
+}
+
+func (c cutoverManager) reconcile(ctx context.Context, dons []registry.DON) error {
+	reg, _ := c.gc.LoadParsed()
+	return c.Reconcile(ctx, dons, reg)
+}
+
+func newCutoverManager(t *testing.T, localCfg *testLocalCapabilities, gc *globalconfig.GlobalConfig, gate bool) (cutoverManager, *launchRecorder) {
 	t.Helper()
 	rec := &launchRecorder{}
-	m, err := NewLocalCapabilityManager(testLogger(t), localCfg, rec.newServices, gc, gate)
+	m, err := NewLocalCapabilityManager(testLogger(t), localCfg, rec.newServices, gate)
 	require.NoError(t, err)
-	return m.(*localCapabilityManager), rec
+	return cutoverManager{localCapabilityManager: m.(*localCapabilityManager), gc: gc}, rec
 }
 
 func onchainDONWith(id uint32, caps map[string]registry.CapabilityConfiguration) registry.DON {
@@ -138,7 +148,7 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 	t.Run("gate off: offchain ignored, legacy behavior preserved", func(t *testing.T) {
 		t.Parallel()
 		m, rec := newCutoverManager(t, localCfg(), newGC(t), false)
-		require.NoError(t, m.Reconcile(t.Context(), dons))
+		require.NoError(t, m.reconcile(t.Context(), dons))
 		assert.Equal(t, legacy, rec.configFor(t, "cron@1.0.0", 7))
 		assert.Equal(t, legacy, rec.configFor(t, "cron@1.0.0", 8))
 	})
@@ -146,7 +156,7 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 	t.Run("gate on: offchain wins per (DON, capability), omitted keys keep legacy value", func(t *testing.T) {
 		t.Parallel()
 		m, rec := newCutoverManager(t, localCfg(), newGC(t), true)
-		require.NoError(t, m.Reconcile(t.Context(), dons))
+		require.NoError(t, m.reconcile(t.Context(), dons))
 		assert.Equal(t, map[string]any{"interval": "30", "offchainOnly": "add", "onchainOnly": "oc"},
 			rec.configFor(t, "cron@1.0.0", 7))
 		// missing DON in the offchain payload -> legacy value
@@ -158,7 +168,7 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 	t.Run("gate on, nothing applied yet: legacy behavior", func(t *testing.T) {
 		t.Parallel()
 		m, rec := newCutoverManager(t, localCfg(), globalconfig.New(), true)
-		require.NoError(t, m.Reconcile(t.Context(), dons))
+		require.NoError(t, m.reconcile(t.Context(), dons))
 		assert.Equal(t, legacy, rec.configFor(t, "cron@1.0.0", 7))
 	})
 
@@ -170,7 +180,7 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 			7: {"other@1.0.0": specConfigCap(t, map[string]any{"k": "v"})},
 		})
 		m, rec := newCutoverManager(t, localCfg(), gc, true)
-		require.NoError(t, m.Reconcile(t.Context(), []registry.DON{
+		require.NoError(t, m.reconcile(t.Context(), []registry.DON{
 			onchainDONWith(7, map[string]registry.CapabilityConfiguration{"other@1.0.0": onchain}),
 		}))
 		assert.Empty(t, rec.all())
@@ -198,7 +208,7 @@ func TestReconcile_OCR3StaysOnchain(t *testing.T) {
 		}},
 	})
 	m, rec := newCutoverManager(t, &testLocalCapabilities{allowlisted: map[string]bool{"consensus@1.0.0": true}}, gc, true)
-	require.NoError(t, m.Reconcile(t.Context(), []registry.DON{
+	require.NoError(t, m.reconcile(t.Context(), []registry.DON{
 		onchainDONWith(7, map[string]registry.CapabilityConfiguration{"consensus@1.0.0": {Config: onchainRaw}}),
 	}))
 
@@ -227,7 +237,7 @@ func TestReconcile_OffchainOnlyUpdateRestartsCapability(t *testing.T) {
 			7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30"})},
 		})
 		m, rec := newCutoverManager(t, localCfg, gc, true)
-		require.NoError(t, m.Reconcile(t.Context(), dons))
+		require.NoError(t, m.reconcile(t.Context(), dons))
 		require.Len(t, rec.all(), 2)
 		first := map[string]launch{}
 		for _, l := range rec.all() {
@@ -235,14 +245,14 @@ func TestReconcile_OffchainOnlyUpdateRestartsCapability(t *testing.T) {
 		}
 
 		// Unchanged on-chain + unchanged offchain: nothing restarts.
-		require.NoError(t, m.Reconcile(t.Context(), dons))
+		require.NoError(t, m.reconcile(t.Context(), dons))
 		require.Len(t, rec.all(), 2)
 
 		// Offchain-only update for cron.
 		storeOffchain(t, gc, 2, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
 			7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "40"})},
 		})
-		require.NoError(t, m.Reconcile(t.Context(), dons))
+		require.NoError(t, m.reconcile(t.Context(), dons))
 
 		all := rec.all()
 		require.Len(t, all, 3, "only the affected capability is restarted")
@@ -255,12 +265,12 @@ func TestReconcile_OffchainOnlyUpdateRestartsCapability(t *testing.T) {
 		storeOffchain(t, gc, 3, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
 			7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "40"})},
 		})
-		require.NoError(t, m.Reconcile(t.Context(), dons))
+		require.NoError(t, m.reconcile(t.Context(), dons))
 		require.Len(t, rec.all(), 3)
 
 		// Removing the offchain entry falls back to the on-chain value and restarts.
 		storeOffchain(t, gc, 4, map[uint32]map[string]*capabilitiespb.CapabilityConfig{})
-		require.NoError(t, m.Reconcile(t.Context(), dons))
+		require.NoError(t, m.reconcile(t.Context(), dons))
 		require.Len(t, rec.all(), 4)
 		assert.Equal(t, map[string]any{"interval": "20"}, rec.configFor(t, "cron@1.0.0", 7))
 	})
@@ -272,66 +282,17 @@ func TestReconcile_OffchainOnlyUpdateRestartsCapability(t *testing.T) {
 			7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30"})},
 		})
 		m, rec := newCutoverManager(t, localCfg, gc, false)
-		require.NoError(t, m.Reconcile(t.Context(), dons))
+		require.NoError(t, m.reconcile(t.Context(), dons))
 		storeOffchain(t, gc, 2, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
 			7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "40"})},
 		})
-		require.NoError(t, m.Reconcile(t.Context(), dons))
+		require.NoError(t, m.reconcile(t.Context(), dons))
 		require.Len(t, rec.all(), 2)
 	})
 }
 
-// TestOffchainUpdateTriggersReconcile asserts that storing a new offchain payload reconfigures
-// running capabilities on its own, without waiting for a registry-driven Reconcile.
-func TestOffchainUpdateTriggersReconcile(t *testing.T) {
-	t.Parallel()
-
-	localCfg := &testLocalCapabilities{allowlisted: map[string]bool{"cron@1.0.0": true}}
-	dons := []registry.DON{onchainDONWith(7, map[string]registry.CapabilityConfiguration{
-		"cron@1.0.0": onchainSpecConfig(t, map[string]any{"interval": "20"}),
-	})}
-
-	t.Run("gate on", func(t *testing.T) {
-		t.Parallel()
-		gc := globalconfig.New()
-		m, rec := newCutoverManager(t, localCfg, gc, true)
-		require.NoError(t, m.Start(t.Context()))
-		t.Cleanup(func() { require.NoError(t, m.Close()) })
-
-		// Before the first registry-driven Reconcile there is no DON set: nothing launches.
-		storeOffchain(t, gc, 1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-			7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30"})},
-		})
-		require.Never(t, func() bool { return len(rec.all()) != 0 }, 200*time.Millisecond, 10*time.Millisecond)
-
-		require.NoError(t, m.Reconcile(t.Context(), dons))
-		require.Len(t, rec.all(), 1)
-		assert.Equal(t, map[string]any{"interval": "30"}, rec.configFor(t, "cron@1.0.0", 7))
-
-		storeOffchain(t, gc, 2, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-			7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "50"})},
-		})
-		require.Eventually(t, func() bool { return len(rec.all()) == 2 }, 5*time.Second, 10*time.Millisecond)
-		assert.Equal(t, map[string]any{"interval": "50"}, rec.configFor(t, "cron@1.0.0", 7))
-		assert.True(t, rec.all()[0].svc.isClosed())
-	})
-
-	t.Run("gate off: no subscription", func(t *testing.T) {
-		t.Parallel()
-		gc := globalconfig.New()
-		m, rec := newCutoverManager(t, localCfg, gc, false)
-		require.NoError(t, m.Start(t.Context()))
-		t.Cleanup(func() { require.NoError(t, m.Close()) })
-		require.NoError(t, m.Reconcile(t.Context(), dons))
-		storeOffchain(t, gc, 1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
-			7: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "50"})},
-		})
-		require.Never(t, func() bool { return len(rec.all()) != 1 }, 200*time.Millisecond, 10*time.Millisecond)
-	})
-}
-
-// TestReconcile_ConcurrentOffchainUpdates exercises registry-driven reconciles racing offchain
-// stores and offchain-triggered reconciles. Run with -race. After the dust settles the running
+// TestReconcile_ConcurrentOffchainUpdates exercises reconciles racing offchain stores. Run with
+// -race. After the dust settles the running
 // capability must reflect the latest payload.
 func TestReconcile_ConcurrentOffchainUpdates(t *testing.T) {
 	t.Parallel()
@@ -366,13 +327,13 @@ func TestReconcile_ConcurrentOffchainUpdates(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for range n {
-			assert.NoError(t, m.Reconcile(t.Context(), dons))
+			assert.NoError(t, m.reconcile(t.Context(), dons))
 		}
 	}()
 	wg.Wait()
 
 	// A final reconcile is deterministic regardless of interleaving.
-	require.NoError(t, m.Reconcile(t.Context(), dons))
+	require.NoError(t, m.reconcile(t.Context(), dons))
 	assert.Equal(t, map[string]any{"interval": strconv.Itoa(n)}, rec.configFor(t, "cron@1.0.0", 7))
 
 	m.mu.RLock()
@@ -402,7 +363,7 @@ func TestReconcile_OffchainMatchesByDONName(t *testing.T) {
 		return registry.DON{ID: id, Name: name, CapabilityConfigurations: map[string]registry.CapabilityConfiguration{"cron@1.0.0": onchain}}
 	}
 	m, rec := newCutoverManager(t, &testLocalCapabilities{allowlisted: map[string]bool{"cron@1.0.0": true}}, gc, true)
-	require.NoError(t, m.Reconcile(t.Context(), []registry.DON{
+	require.NoError(t, m.reconcile(t.Context(), []registry.DON{
 		named(42, "workflow_1_zone-a"), // matched by name; the ID is irrelevant
 		named(43, ""),                  // unnamed (e.g. registry without DON names)
 		named(44, "shared"),            // ambiguous: two of this node's DONs share the name

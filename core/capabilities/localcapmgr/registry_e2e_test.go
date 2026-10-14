@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -66,7 +65,7 @@ func applyAsDelegate(t *testing.T, gc *globalconfig.GlobalConfig, raw string) {
 // TestOffchainRegistry_EndToEnd walks the full node-side path with the cutover ON:
 // validate a capabilities_registry spec -> apply it to the runtime GlobalConfig (as the
 // delegate would) -> the LocalCapabilityManager launches the capability with offchain-wins
-// config -> a newer payload re-reconciles reactively via Subscribe, without a new Reconcile call.
+// config -> a newer payload takes effect on the next Reconcile.
 func TestOffchainRegistry_EndToEnd(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -84,13 +83,13 @@ func TestOffchainRegistry_EndToEnd(t *testing.T) {
 	_, version := gc.Load()
 	require.Equal(t, uint64(1), version)
 
-	// --- Launcher wired to the same GlobalConfig, cutover ON. ---
+	// --- LocalCapabilityManager reconciling against the same GlobalConfig, cutover ON. ---
 	capture := &configCapture{last: map[string]string{}}
 	localCfg := &testLocalCapabilities{
 		allowlisted: map[string]bool{"cron@1.0.0": true},
 		useOffchain: true,
 	}
-	m, err := NewLocalCapabilityManager(lggr, localCfg, capture.builder, gc, true)
+	m, err := NewLocalCapabilityManager(lggr, localCfg, capture.builder, true)
 	require.NoError(t, err)
 	require.NoError(t, m.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, m.Close()) })
@@ -104,28 +103,28 @@ func TestOffchainRegistry_EndToEnd(t *testing.T) {
 			"cron@1.0.0": onchainSpecConfig(t, map[string]any{"interval": "20", "region": "us"}),
 		},
 	}}
-	require.NoError(t, m.Reconcile(ctx, dons))
+	reg, v := gc.LoadParsed()
+	require.NoError(t, m.Reconcile(ctx, dons, reg))
 
 	// Offchain wins on interval; region falls back to on-chain. (json.Marshal sorts map keys.)
 	assert.JSONEq(t, `{"interval":"30","region":"us"}`, capture.get("cron@1.0.0"))
 
 	// Cross-validation telemetry sees the capability as matched, and flags config_mismatch
 	// because turning the gate on changed the launch config.
-	reg, v := gc.LoadParsed()
 	check := m.(*localCapabilityManager).computeOffchainCrossCheck(reg, v, dons)
 	assert.Equal(t, int64(1), check.matchedCaps)
 	assert.Equal(t, int64(1), check.divergences[divergenceConfigMismatch])
 
-	// --- Reactive path: a newer payload re-reconciles via Subscribe, with no new Reconcile. ---
+	// --- A newer payload takes effect on the next Reconcile. ---
 	rawV2, err := marshalOffchainRegistry(offchainReg(2, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
 		1: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "99"})},
 	}))
 	require.NoError(t, err)
 	applyAsDelegate(t, gc, rawV2)
 
-	require.Eventually(t, func() bool {
-		return capture.get("cron@1.0.0") == `{"interval":"99","region":"us"}`
-	}, 2*time.Second, 10*time.Millisecond, "launcher should re-reconcile to the v2 offchain config via Subscribe")
+	reg, _ = gc.LoadParsed()
+	require.NoError(t, m.Reconcile(ctx, dons, reg))
+	assert.JSONEq(t, `{"interval":"99","region":"us"}`, capture.get("cron@1.0.0"))
 }
 
 // TestOffchainRegistry_EndToEnd_GateOff confirms the backwards-compatible default: with the
@@ -148,7 +147,7 @@ func TestOffchainRegistry_EndToEnd_GateOff(t *testing.T) {
 		allowlisted: map[string]bool{"cron@1.0.0": true},
 		useOffchain: false, // gate OFF (default)
 	}
-	m, err := NewLocalCapabilityManager(lggr, localCfg, capture.builder, gc, false)
+	m, err := NewLocalCapabilityManager(lggr, localCfg, capture.builder, false)
 	require.NoError(t, err)
 	require.NoError(t, m.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, m.Close()) })
@@ -160,7 +159,8 @@ func TestOffchainRegistry_EndToEnd_GateOff(t *testing.T) {
 			"cron@1.0.0": onchainSpecConfig(t, map[string]any{"interval": "20", "region": "us"}),
 		},
 	}}
-	require.NoError(t, m.Reconcile(ctx, dons))
+	reg, _ := gc.LoadParsed()
+	require.NoError(t, m.Reconcile(ctx, dons, reg))
 
 	// Offchain ignored for config: on-chain values only.
 	assert.JSONEq(t, `{"interval":"20","region":"us"}`, capture.get("cron@1.0.0"))

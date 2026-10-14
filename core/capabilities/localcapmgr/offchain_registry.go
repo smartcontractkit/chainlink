@@ -1,7 +1,6 @@
 package localcapmgr
 
 import (
-	"context"
 	"sort"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -34,29 +33,11 @@ type offchainCrossCheck struct {
 	offchainEmpty bool // true when no offchain payload has been applied yet
 }
 
-// crossValidateOffchain compares a snapshot of the applied offchain capabilities registry
-// against the on-chain DON set and emits telemetry.
-//
-// This is detection only, not enforcement: it never mutates desired state and never blocks or
-// gates a capability. It compares presence (DON/capability keys) and, for capabilities present
-// in both, whether the offchain spec_config changes the effective launch config
-// (config_mismatch). Whether the offchain spec_config is applied is decided solely by the
-// UseOffchainRegistry gate; a divergence recorded here does not prevent it. Malformed payloads
-// are rejected earlier, at ingestion (globalconfig.Validate in the cresettings job).
-//
-// Only allowlisted capabilities are compared, matching buildDesiredState: those are the only
-// capabilities this node would run, so they are the only ones whose config matters here.
-func (m *localCapabilityManager) crossValidateOffchain(ctx context.Context, allMyDONs []registry.DON) {
-	if m.offchainRegistry == nil {
-		return // offchain registry not wired (e.g. feature off, or tests)
-	}
-	reg, version := m.offchainRegistry.LoadParsed()
-	m.recordOffchainCheck(ctx, m.computeOffchainCrossCheck(reg, version, allMyDONs))
-}
-
 // computeOffchainCrossCheck compares a parsed offchain registry against the on-chain DON set
-// and returns the divergence summary. It is pure (no metrics, no mutation) so it can be unit
-// tested; crossValidateOffchain wires it to telemetry.
+// and returns the divergence summary. It is pure (no metrics, no mutation); Reconcile records it.
+//
+// This is detection only: it never affects desired state. Only allowlisted capabilities are
+// compared, matching buildDesiredState.
 func (m *localCapabilityManager) computeOffchainCrossCheck(reg *capabilitiespb.OffchainCapabilitiesRegistry, version uint64, allMyDONs []registry.DON) offchainCrossCheck {
 	check := offchainCrossCheck{version: version, divergences: map[string]int64{}}
 
@@ -150,6 +131,33 @@ func (m *localCapabilityManager) offchainChangesConfig(donID uint32, capID strin
 		return false
 	}
 	return legacy != cutover
+}
+
+// offchainDONsByID maps this node's on-chain DON IDs to their offchain config. DONs without a
+// usable name (see offchainDONNames) or without an offchain entry are left out.
+func (m *localCapabilityManager) offchainDONsByID(reg *capabilitiespb.OffchainCapabilitiesRegistry, dons []registry.DON) map[uint32]*capabilitiespb.DONConfig {
+	if reg == nil {
+		return nil
+	}
+	out := map[uint32]*capabilitiespb.DONConfig{}
+	for id, name := range m.offchainDONNames(dons) {
+		if d, ok := reg.GetDons()[name]; ok {
+			out[id] = d
+		}
+	}
+	return out
+}
+
+// offchainOverrides returns the offchain spec_config of capID on don, or nil when there is none.
+// A spec_config that cannot be converted is rejected at ingestion (globalconfig.Validate); if one
+// gets here anyway, it is ignored so the capability keeps its on-chain config.
+func (m *localCapabilityManager) offchainOverrides(don *capabilitiespb.DONConfig, capID string, donID uint32) map[string]any {
+	out, err := globalconfig.SpecConfigMap(don.GetCapabilities()[capID].GetSpecConfig())
+	if err != nil {
+		m.lggr.Warnw("Invalid offchain spec_config, ignoring offchain override", "capID", capID, "donID", donID, "error", err)
+		return nil
+	}
+	return out
 }
 
 // offchainDONNames maps this node's on-chain DON IDs to the DON names that key the offchain

@@ -108,8 +108,7 @@ type Opts struct {
 	ShardAssignmentSettings *loop.AtomicSettings
 
 	// OffchainCapabilitiesRegistry holds the offchain capabilities registry config delivered
-	// via the cresettings job (config_type=capabilities_registry). The LocalCapabilityManager
-	// cross-validates it against the on-chain registry (Phase 2, telemetry only).
+	// via the cresettings job (config_type=capabilities_registry). Read by the Launcher.
 	OffchainCapabilitiesRegistry *globalconfig.GlobalConfig
 }
 
@@ -507,8 +506,10 @@ func (s *Services) newRegistrySyncer(
 	}
 	srvcs = append(srvcs, wfLauncher)
 
-	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	localCfg := cfg.Capabilities().Local()
+	wfLauncher.SetOffchainRegistry(opts.OffchainCapabilitiesRegistry, localCfg != nil && localCfg.UseOffchainRegistry())
+
+	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
 		// Both delegates are wired into a single LocalCapabilityManager.
 		// The newServicesFn routes to the correct delegate based on the capability ID:
@@ -531,7 +532,7 @@ func (s *Services) newRegistrySyncer(
 				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), oracleFactoryConfig, donID, ocr3Config)
 			}
 
-			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn, opts.OffchainCapabilitiesRegistry, localCfg.UseOffchainRegistry())
+			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn, localCfg.UseOffchainRegistry())
 			if lcmErr != nil {
 				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}

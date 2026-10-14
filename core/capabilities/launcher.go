@@ -11,12 +11,14 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
@@ -71,6 +73,19 @@ type launcher struct {
 
 	muSubServices sync.Mutex
 	subServices   []services.Service
+
+	// offchainRegistry is the offchain capabilities registry delivered via the cresettings job;
+	// nil when not wired. With useOffchainRegistry, a new payload re-runs onNewRegistry.
+	offchainRegistry    *globalconfig.GlobalConfig
+	useOffchainRegistry bool
+
+	// reconcileMu serializes onNewRegistry between registry syncs and offchain updates.
+	reconcileMu sync.Mutex
+	// lastRegistry is the registry from the most recent sync. Guarded by reconcileMu.
+	lastRegistry *registry.RegistryMetadata
+
+	stopCh services.StopChan
+	wg     sync.WaitGroup
 }
 
 // For V2 capabilities, shims are created once and their config is updated dynamically.
@@ -153,6 +168,7 @@ func NewLauncher(
 		workflowTagHashFlag:    workflowTagHashFlag,
 		shardingEnabled:        shardingEnabled,
 		shardIndex:             shardIndex,
+		stopCh:                 make(services.StopChan),
 	}, nil
 }
 
@@ -186,12 +202,48 @@ func (w *launcher) allDONs(localRegistry *registry.RegistryMetadata) []registry.
 func (w *launcher) Start(ctx context.Context) error {
 	return w.StartOnce("CapabilitiesLauncher", func() error {
 		w.myPeerID = w.don2donSharedPeer.ID()
+		if w.useOffchainRegistry && w.offchainRegistry != nil {
+			updates, unsubscribe := w.offchainRegistry.Subscribe()
+			w.wg.Go(func() {
+				defer unsubscribe()
+				w.watchOffchainUpdates(updates)
+			})
+		}
 		return nil
 	})
 }
 
+// watchOffchainUpdates re-runs onNewRegistry whenever a new offchain payload is applied, so an
+// offchain-only change takes effect without waiting for the next registry sync.
+func (w *launcher) watchOffchainUpdates(updates <-chan struct{}) {
+	ctx, cancel := w.stopCh.NewCtx()
+	defer cancel()
+	for {
+		select {
+		case <-w.stopCh:
+			return
+		case <-updates:
+			w.onOffchainUpdate(ctx)
+		}
+	}
+}
+
+func (w *launcher) onOffchainUpdate(ctx context.Context) {
+	w.reconcileMu.Lock()
+	defer w.reconcileMu.Unlock()
+	if w.lastRegistry == nil {
+		return // the first registry sync reads the latest offchain snapshot anyway
+	}
+	w.lggr.Info("Offchain capabilities registry updated, re-running launcher")
+	if err := w.onNewRegistry(ctx, w.lastRegistry); err != nil {
+		w.lggr.Errorw("Failed to apply offchain capabilities registry update", "error", err)
+	}
+}
+
 func (w *launcher) Close() error {
 	return w.StopOnce("CapabilitiesLauncher", func() error {
+		close(w.stopCh)
+		w.wg.Wait()
 		for _, s := range w.subServices {
 			if err := s.Close(); err != nil {
 				w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
@@ -214,6 +266,22 @@ func (w *launcher) Close() error {
 // LocalCapabilityManager is initialized after the Launcher is created
 func (w *launcher) SetLocalCapabilityManager(lcm localcapmgr.LocalCapabilityManager) {
 	w.localCapMgr = lcm
+}
+
+// SetOffchainRegistry wires the offchain capabilities registry. Must be called before Start.
+// useOffchainRegistry is the cutover gate; when false the registry is used for telemetry only.
+func (w *launcher) SetOffchainRegistry(reg *globalconfig.GlobalConfig, useOffchainRegistry bool) {
+	w.offchainRegistry = reg
+	w.useOffchainRegistry = useOffchainRegistry
+}
+
+// loadOffchainRegistry returns a snapshot of the offchain registry, or nil when none is applied.
+func (w *launcher) loadOffchainRegistry() *capabilitiespb.OffchainCapabilitiesRegistry {
+	if w.offchainRegistry == nil {
+		return nil
+	}
+	reg, _ := w.offchainRegistry.LoadParsed()
+	return reg
 }
 
 func (w *launcher) HealthReport() map[string]error {
@@ -263,6 +331,9 @@ func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *regist
 
 func (w *launcher) OnNewRegistry(ctx context.Context, metadataRegistry *registry.RegistryMetadata) (err error) {
 	if !w.IfNotStopped(func() {
+		w.reconcileMu.Lock()
+		defer w.reconcileMu.Unlock()
+		w.lastRegistry = metadataRegistry
 		err = w.onNewRegistry(ctx, metadataRegistry)
 	}) {
 		return errors.New("service has been stopped")
@@ -273,6 +344,8 @@ func (w *launcher) OnNewRegistry(ctx context.Context, metadataRegistry *registry
 func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry.RegistryMetadata) error {
 	w.lggr.Debug("CapabilitiesLauncher triggered...")
 	w.registry.SetRegistryMetadata(metadataRegistry)
+	// One offchain snapshot for the whole pass.
+	offchainReg := w.loadOffchainRegistry()
 
 	allDONIDs := w.allDONs(metadataRegistry)
 	w.lggr.Debugw("All DONs in the local registry", "allDONIDs", allDONIDs)
@@ -370,7 +443,7 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 		myDONs := make([]registry.DON, 0, len(myCapabilityDONs)+len(myWorkflowDONs))
 		myDONs = append(myDONs, myCapabilityDONs...)
 		myDONs = append(myDONs, myWorkflowDONs...)
-		if err := w.localCapMgr.Reconcile(ctx, myDONs); err != nil {
+		if err := w.localCapMgr.Reconcile(ctx, myDONs, offchainReg); err != nil {
 			w.lggr.Errorw("Failed to reconcile local capabilities", "error", err)
 		}
 	}
