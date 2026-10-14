@@ -106,6 +106,12 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	"Test_CRE_V2_ConfidentialWorkflows_Relay": {
 		{Topology: "workflow-gateway-capabilities-confidential-workflows", Configs: "configs/workflow-gateway-capabilities-don-confidential-workflows.toml"},
 	},
+	"Test_CRE_V2_ShardManualAssignmentConfidentialWorkflows": {
+		{Topology: "workflow-gateway-sharded-confidential-workflows-manual", Configs: "configs/workflow-gateway-sharded-confidential-workflows-manual.toml"},
+	},
+	"Test_CRE_V2_ShardFailoverConfidentialWorkflows": {
+		{Topology: "workflow-gateway-sharded-confidential-workflows-failover", Configs: "configs/workflow-gateway-sharded-confidential-workflows-failover.toml"},
+	},
 }
 
 var defaultCRERegressionPerTestConfigs = map[string]string{

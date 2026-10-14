@@ -214,12 +214,12 @@ type ApplicationOpts struct {
 }
 
 // safeDefaultBootstrappers returns the configured default bootstrappers from
-// Capabilities.Peering.V2, or nil when the config or sub-configs are not set.
+// P2P.V2, or nil when the config or sub-configs are not set.
 func safeDefaultBootstrappers(cfg GeneralConfig) []ocrcommontypes.BootstrapperLocator {
-	if cfg == nil || cfg.Capabilities() == nil || cfg.Capabilities().Peering() == nil || cfg.Capabilities().Peering().V2() == nil {
+	if cfg == nil || cfg.P2P() == nil || cfg.P2P().V2() == nil {
 		return nil
 	}
-	return cfg.Capabilities().Peering().V2().DefaultBootstrappers()
+	return cfg.P2P().V2().DefaultBootstrappers()
 }
 
 // safeExternalRegistryAddress returns the Capabilities ExternalRegistry address,
@@ -735,8 +735,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		opts.DS, jobORM,
 		opts.CapabilitiesRegistry,
 		loopRegistrarConfig,
-		telemetryManager,
-		pipelineRunner,
 		relayChainInterops,
 		creServices.GatewayConnectorWrapper,
 		keyStore,

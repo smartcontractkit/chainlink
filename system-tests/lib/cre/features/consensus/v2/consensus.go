@@ -201,7 +201,7 @@ func formatBootstrapPeer(bootstrap *cre.Node) string {
 	return fmt.Sprintf("%s@%s:%d",
 		strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"),
 		bootstrap.Host,
-		cre.OCRPeeringPort)
+		cre.PeeringPort)
 }
 
 func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, bootstrapPeers []string, configStr string) (map[string][]string, error) {

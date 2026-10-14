@@ -2805,7 +2805,6 @@ func (c *StreamConfig) setFrom(f *StreamConfig) {
 
 type Capabilities struct {
 	RateLimit        EngineExecutionRateLimit `toml:",omitempty"`
-	Peering          P2P                      `toml:",omitempty"`
 	SharedPeering    SharedPeering            `toml:",omitempty"`
 	Dispatcher       Dispatcher               `toml:",omitempty"`
 	ExternalRegistry ExternalRegistry         `toml:",omitempty"`
@@ -2833,7 +2832,6 @@ type LocalCapabilities struct {
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.RateLimit.setFrom(&f.RateLimit)
-	c.Peering.setFrom(&f.Peering)
 	c.SharedPeering.setFrom(&f.SharedPeering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
 	c.WorkflowRegistry.setFrom(&f.WorkflowRegistry)

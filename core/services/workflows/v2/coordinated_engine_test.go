@@ -47,7 +47,7 @@ func TestCoordinatedEngine_ExecuteTrigger(t *testing.T) {
 	baseCfg.TriggerAcknowledger = noopAcknowledger{}
 
 	// The execution must reach WASM and return a value.
-	re := newTestEngine(t, baseCfg, v2.NewCoordinatedEngine, func(module *modulemocks.ModuleV2) {
+	re := newStartedTestEngine(t, baseCfg, v2.NewCoordinatedEngine, func(module *modulemocks.ModuleV2) {
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 			Return(&sdkpb.ExecutionResult{
 				Result: &sdkpb.ExecutionResult_Value{},

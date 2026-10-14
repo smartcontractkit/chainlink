@@ -5,10 +5,6 @@ go 1.27.1
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
-// chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
-// (pulled in transitively by mcms v0.47.x). Pin to the version the rest of the repo uses.
-replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
-
 require (
 	dario.cat/mergo v1.0.2
 	github.com/AlekSi/pointer v1.2.0
