@@ -44,6 +44,21 @@ var NodeOne = config.NodeConfig{
 	Address: "0x1234",
 }
 
+// shardedDONsForTest builds a single-DON, single-shard ShardedDONs around don,
+// mirroring a legacy (unsharded) gateway config.
+func shardedDONsForTest(t *testing.T, donName string, members []config.NodeConfig, don handlers.DON) *handlers.ShardedDONs {
+	t.Helper()
+	shardedDONs := []config.ShardedDONConfig{
+		{
+			DonName: donName,
+			Shards:  []config.Shard{{Nodes: members}},
+		},
+	}
+	dons, err := handlers.NewShardedDONs(shardedDONs, [][]handlers.DON{{don}})
+	require.NoError(t, err)
+	return dons
+}
+
 func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
 	return setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
 }
@@ -54,10 +69,7 @@ func setupHandlerWithLimitsFactory(t *testing.T, limitsFactory limits.Factory) (
 
 func setupHandlerWithLogger(t *testing.T, lggr logger.Logger, limitsFactory limits.Factory) (handlers.Handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
 	don := mocks.NewDON(t)
-	donConfig := &config.DONConfig{
-		DonID:   "test_don_id",
-		Members: []config.NodeConfig{NodeOne},
-	}
+	dons := shardedDONsForTest(t, "test_don_id", []config.NodeConfig{NodeOne}, don)
 	handlerConfig := Config{
 		RequestTimeoutSec: 30,
 		NodeRateLimiter: ratelimit.RateLimiterConfig{
@@ -72,7 +84,7 @@ func setupHandlerWithLogger(t *testing.T, lggr logger.Logger, limitsFactory limi
 
 	clock := clockwork.NewFakeClock()
 	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clock}, nil, lggr)
-	handler, err := newHandlerWithAuthorizer(methodConfig, donConfig, don, nil, authorizer, nil, lggr, clock, limitsFactory)
+	handler, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	handler.aggregator = &mockAggregator{}
 	cb := common.NewCallback()
@@ -262,10 +274,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	t.Run("sets authorized request_id on forwarded create", func(t *testing.T) {
 		lggr := logger.Test(t)
 		don := mocks.NewDON(t)
-		donConfig := &config.DONConfig{
-			DonID:   "test_don_id",
-			Members: []config.NodeConfig{NodeOne},
-		}
+		dons := shardedDONsForTest(t, "test_don_id", []config.NodeConfig{NodeOne}, don)
 		handlerConfig := Config{
 			RequestTimeoutSec: 30,
 			NodeRateLimiter: ratelimit.RateLimiterConfig{
@@ -282,8 +291,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
 		h, err := newHandlerWithAuthorizer(
 			methodConfig,
-			donConfig,
-			don,
+			dons,
 			nil,
 			&stubAuthorizer{result: vaultcap.NewAuthResult("org-1", "0xworkflow", "digest-1", clock.Now().Add(time.Minute).Unix())},
 			nil,
@@ -1073,7 +1081,7 @@ func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknow
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
 		capabilitiesRegistry: mcr,
-		vaultHandlerDonID:    h.(*handler).donConfig.DonID,
+		vaultHandlerDonID:    h.(*handler).donID,
 	}
 
 	ocrContext, err := hex.DecodeString("000ec4f6a2ba011e909eccf64628855b848e08876a1edd938a1372a9e51adff100000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000")
@@ -1145,7 +1153,7 @@ func setupSignedResponseHandler(t *testing.T, requestID string) (handlers.Handle
 	h.(*handler).aggregator = &baseAggregator{
 		capabilitiesRegistry: mcr,
 		metrics:              h.(*handler).metrics,
-		vaultHandlerDonID:    h.(*handler).donConfig.DonID,
+		vaultHandlerDonID:    h.(*handler).donID,
 	}
 
 	req := jsonrpc.Request[json.RawMessage]{
@@ -1232,7 +1240,7 @@ func TestVaultHandler_HandleNodeMessage_StillAcceptsErrorOnlyResponses(t *testin
 	h.(*handler).aggregator = &baseAggregator{
 		capabilitiesRegistry: mcr,
 		metrics:              h.(*handler).metrics,
-		vaultHandlerDonID:    h.(*handler).donConfig.DonID,
+		vaultHandlerDonID:    h.(*handler).donID,
 	}
 
 	const requestID = "req-a2-err-only"
@@ -1318,7 +1326,7 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
 		capabilitiesRegistry: mcr,
-		vaultHandlerDonID:    h.(*handler).donConfig.DonID,
+		vaultHandlerDonID:    h.(*handler).donID,
 	}
 
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -1387,10 +1395,7 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 
 	lggr := logger.Test(t)
 	don := mocks.NewDON(t)
-	donConfig := &config.DONConfig{
-		DonID:   "test_don_id",
-		Members: []config.NodeConfig{NodeOne},
-	}
+	dons := shardedDONsForTest(t, "test_don_id", []config.NodeConfig{NodeOne}, don)
 	handlerConfig := Config{
 		RequestTimeoutSec: 30,
 		NodeRateLimiter: ratelimit.RateLimiterConfig{
@@ -1408,8 +1413,7 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 
 	h, err := newHandlerWithAuthorizer(
 		methodConfig,
-		donConfig,
-		don,
+		dons,
 		nil,
 		mockAuthorizer,
 		nil,
@@ -1482,4 +1486,53 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 	})
 
 	mockAuthorizer.AssertNotCalled(t, "AuthorizeRequest", mock.Anything, mock.Anything)
+}
+
+func TestVaultHandler_NewHandler_Shards(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	methodConfig, err := json.Marshal(Config{
+		RequestTimeoutSec: 30,
+		NodeRateLimiter:   ratelimit.RateLimiterConfig{GlobalRPS: 100, GlobalBurst: 100, PerSenderRPS: 10, PerSenderBurst: 10},
+	})
+	require.NoError(t, err)
+	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clockwork.NewFakeClock()}, nil, lggr)
+	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
+
+	t.Run("uses shard 0 only when DON has multiple shards", func(t *testing.T) {
+		t.Parallel()
+		don0, don1 := mocks.NewDON(t), mocks.NewDON(t)
+		dons, err := handlers.NewShardedDONs(
+			[]config.ShardedDONConfig{{
+				DonName: "test_don_id",
+				Shards:  []config.Shard{{Nodes: []config.NodeConfig{NodeOne}}, {Nodes: []config.NodeConfig{{Name: "two", Address: "0x5678"}}}},
+			}},
+			[][]handlers.DON{{don0, don1}},
+		)
+		require.NoError(t, err)
+
+		h, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clockwork.NewFakeClock(), limitsFactory)
+		require.NoError(t, err)
+		require.Len(t, h.shards, 1)
+		assert.Equal(t, "test_don_id", h.donID)
+		assert.Equal(t, []config.NodeConfig{NodeOne}, h.shards[0].Members)
+	})
+
+	t.Run("uses first DON when there are multiple DONs", func(t *testing.T) {
+		t.Parallel()
+		dons, err := handlers.NewShardedDONs(
+			[]config.ShardedDONConfig{
+				{DonName: "a", Shards: []config.Shard{{Nodes: []config.NodeConfig{NodeOne}}}},
+				{DonName: "b", Shards: []config.Shard{{Nodes: []config.NodeConfig{{Name: "two", Address: "0x5678"}}}}},
+			},
+			[][]handlers.DON{{mocks.NewDON(t)}, {mocks.NewDON(t)}},
+		)
+		require.NoError(t, err)
+
+		h, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clockwork.NewFakeClock(), limitsFactory)
+		require.NoError(t, err)
+		require.Len(t, h.shards, 1)
+		assert.Equal(t, "a", h.donID)
+	})
 }
