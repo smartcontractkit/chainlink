@@ -108,11 +108,9 @@ type eventHandler struct {
 	// disabled: its handler-facing methods are nil-receiver safe no-ops.
 	specMeter *SpecMeter
 
-	// usageMeter emits per-capability workflow usage records (compute) from the
-	// engines this handler creates. Nil when [Metering].MeterRecordsEnabled
-	// is off; engines then emit nothing.
-	usageMeter    *resourcemanager.ResourceManager
-	usageIdentity resourcemanager.ResourceIdentity
+	// meterRecordsEnabled gates the engines' compute usage records.
+	meterRecordsEnabled bool
+	usageIdentity       resourcemanager.ResourceIdentity
 
 	orgResolver    orgresolver.OrgResolver
 	secretsFetcher v2.SecretsFetcher
@@ -199,12 +197,10 @@ func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	}
 }
 
-// WithUsageMeter supplies the ResourceManager and base identity used by engines
-// to emit cre:workflow:compute usage MeterRecords. The handler owns the
-// ResourceManager lifecycle as a sub-service.
-func WithUsageMeter(rm *resourcemanager.ResourceManager, identity resourcemanager.ResourceIdentity) func(*eventHandler) {
+// WithUsageMetering enables compute usage records on the engines with identity.
+func WithUsageMetering(identity resourcemanager.ResourceIdentity) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.usageMeter = rm
+		e.meterRecordsEnabled = true
 		e.usageIdentity = identity
 	}
 }
@@ -432,9 +428,6 @@ func NewEventHandler(
 			}
 			if eh.triggerCoordinator != nil {
 				subs = append(subs, eh.triggerCoordinator)
-			}
-			if eh.usageMeter != nil {
-				subs = append(subs, eh.usageMeter)
 			}
 			return subs
 		},
@@ -1524,7 +1517,7 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowRegistryAddress:           h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector:     h.workflowRegistryChainSelector,
 		OrgResolver:                       h.orgResolver,
-		UsageMeter:                        h.usageMeter,
+		MeterRecordsEnabled:               h.meterRecordsEnabled,
 		UsageIdentity:                     h.usageIdentity,
 		SecretsFetcher:                    h.secretsFetcher,
 		OverrideFetcher:                   h.overrideFetcherForOwner(owner),

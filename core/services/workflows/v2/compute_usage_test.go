@@ -112,14 +112,6 @@ func runOneExecution(t *testing.T, cfg *v2.EngineConfig, run moduleRun) string {
 func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 	t.Parallel()
 
-	newUsageMeter := func(t *testing.T) (*resourcemanager.ResourceManager, *recordingEmitter) {
-		emitter := &recordingEmitter{}
-		rm := resourcemanager.NewResourceManager(logger.Test(t), resourcemanager.ResourceManagerConfig{
-			MeterRecordsEnabled: true,
-			Emitter:             emitter,
-		})
-		return rm, emitter
-	}
 	identity := resourcemanager.WithWorkflowUsagePool(resourcemanager.ResourceIdentity{Product: "cre", Service: resourcemanager.EmittingServiceWorkflowEngine}, resourcemanager.ResourceTypeWorkflowCompute)
 
 	t.Run("emits one compute record per execution and logs the contract line", func(t *testing.T) {
@@ -127,8 +119,9 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		lggr, obs := logger.TestObserved(t, zapcore.InfoLevel)
 		cfg := defaultTestConfig(t, nil)
 		cfg.Lggr = lggr
-		rm, emitter := newUsageMeter(t)
-		cfg.UsageMeter = rm
+		emitter := &recordingEmitter{}
+		cfg.MeterRecordsEnabled = true
+		cfg.UsageEmitter = emitter
 		cfg.UsageIdentity = identity
 
 		executionID := runOneExecution(t, cfg, moduleRun{})
@@ -161,8 +154,9 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 	t.Run("emits for failed executions too", func(t *testing.T) {
 		t.Parallel()
 		cfg := defaultTestConfig(t, nil)
-		rm, emitter := newUsageMeter(t)
-		cfg.UsageMeter = rm
+		emitter := &recordingEmitter{}
+		cfg.MeterRecordsEnabled = true
+		cfg.UsageEmitter = emitter
 		cfg.UsageIdentity = identity
 
 		runOneExecution(t, cfg, moduleRun{err: errors.New("module failed")})
@@ -173,8 +167,9 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 	t.Run("bills the compute duration the module reports", func(t *testing.T) {
 		t.Parallel()
 		cfg := defaultTestConfig(t, nil)
-		rm, emitter := newUsageMeter(t)
-		cfg.UsageMeter = rm
+		emitter := &recordingEmitter{}
+		cfg.MeterRecordsEnabled = true
+		cfg.UsageEmitter = emitter
 		cfg.UsageIdentity = identity
 		runOneExecution(t, cfg, moduleRun{result: &sdkpb.ExecutionResult{ComputeDurationMs: proto.Int64(1234)}})
 
@@ -186,8 +181,9 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 	t.Run("falls back to wall-clock when the module reports no duration", func(t *testing.T) {
 		t.Parallel()
 		cfg := defaultTestConfig(t, nil)
-		rm, emitter := newUsageMeter(t)
-		cfg.UsageMeter = rm
+		emitter := &recordingEmitter{}
+		cfg.MeterRecordsEnabled = true
+		cfg.UsageEmitter = emitter
 		cfg.UsageIdentity = identity
 
 		runOneExecution(t, cfg, moduleRun{onExecute: func() { time.Sleep(20 * time.Millisecond) }})
@@ -199,7 +195,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		require.GreaterOrEqual(t, ms, int64(20))
 	})
 
-	t.Run("emits nothing when no usage meter is configured", func(t *testing.T) {
+	t.Run("emits nothing when metering is disabled", func(t *testing.T) {
 		t.Parallel()
 		lggr, obs := logger.TestObserved(t, zapcore.InfoLevel)
 		cfg := defaultTestConfig(t, nil)
@@ -218,10 +214,8 @@ func TestEngine_ComputeUsageMeterRecord_ConfidentialRun(t *testing.T) {
 	lggr := logger.Test(t)
 	cfg := defaultTestConfig(t, nil)
 	emitter := &recordingEmitter{}
-	cfg.UsageMeter = resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
-		MeterRecordsEnabled: true,
-		Emitter:             emitter,
-	})
+	cfg.MeterRecordsEnabled = true
+	cfg.UsageEmitter = emitter
 	cfg.UsageIdentity = resourcemanager.WithWorkflowUsagePool(resourcemanager.ResourceIdentity{Product: "cre", Service: resourcemanager.EmittingServiceWorkflowEngine}, resourcemanager.ResourceTypeWorkflowCompute)
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)

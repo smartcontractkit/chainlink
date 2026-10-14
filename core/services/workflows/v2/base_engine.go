@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -102,7 +103,8 @@ type baseEngine struct {
 	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
 	tracer trace.Tracer
 
-	orgID string
+	usageMeter *resourcemanager.ResourceManager
+	orgID      string
 	// orgIDMissingReason records why orgID is empty ("resolver_nil",
 	// "resolver_error", or "empty_response"). It is set once in startWith() and
 	// read by startExecution() to label the org_id_missing counter. It is only
@@ -172,6 +174,13 @@ func newBaseEngine(cfg *EngineConfig) (*baseEngine, logger.SugaredLogger, error)
 	engine.setLogger(beholderLogger)
 	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2)
 	engine.metrics = metricsLabeler
+	if cfg.MeterRecordsEnabled {
+		emitter := cfg.UsageEmitter
+		if emitter == nil {
+			emitter = beholder.GetEmitter()
+		}
+		engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: true, Emitter: emitter})
+	}
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)
 
@@ -1069,7 +1078,7 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 // billing reconciler (fields: executionID, eventID, resourceType, value, orgID)
 // and must stay stable. Fail-open: never returns an error to the execution.
 func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, executionID string, computeDuration time.Duration) {
-	if e.cfg.UsageMeter == nil {
+	if e.usageMeter == nil {
 		return
 	}
 	resourceID, err := resourcemanager.WorkflowUsageResourceID(e.cfg.WorkflowID, executionID)
@@ -1084,7 +1093,7 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, e
 	valueMs := computeDuration.Milliseconds()
 	// The capability event id for compute is the execution id itself: one
 	// compute record per execution, identical on every node of the DON.
-	e.cfg.UsageMeter.EmitUsage(ctx, identity, executionID, valueMs, resourcemanager.UtilizationFields{
+	e.usageMeter.EmitUsage(ctx, identity, executionID, valueMs, resourcemanager.UtilizationFields{
 		ResourceType: resourcemanager.ResourceTypeWorkflowCompute,
 		ResourceID:   resourceID,
 		OrgID:        e.orgID,

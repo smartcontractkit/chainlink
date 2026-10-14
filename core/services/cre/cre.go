@@ -1023,18 +1023,12 @@ func newWorkflowRegistrySyncerV2(
 		handlerOpts = append(handlerOpts, syncerV2.WithSpecMeter(specMeter))
 	}
 
-	// Workflow compute usage records (gas comes from the chain-write plugins)
-	// share the [Metering].MeterRecordsEnabled gate with durable resource
-	// metering; there is no separate flag. Nil meter means engines emit nothing.
+	// Compute usage records share the [Metering].MeterRecordsEnabled gate.
 	if meterRecordsEnabled {
-		usageRM := resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
-			MeterRecordsEnabled: true,
-			Emitter:             beholder.GetEmitter(),
-		})
 		usageIdentity := meterIdentity
 		usageIdentity.Service = resourcemanager.EmittingServiceWorkflowEngine
 		usageIdentity = resourcemanager.WithWorkflowUsagePool(usageIdentity, resourcemanager.ResourceTypeWorkflowCompute)
-		handlerOpts = append(handlerOpts, syncerV2.WithUsageMeter(usageRM, usageIdentity))
+		handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(usageIdentity))
 	}
 
 	mc := capCfg.WorkflowRegistry().ModuleCache()

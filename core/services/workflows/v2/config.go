@@ -71,13 +71,11 @@ type EngineConfig struct {
 	// OrgResolver is used to resolve organization IDs from workflow owners
 	OrgResolver orgresolver.OrgResolver
 
-	// UsageMeter, when non-nil, emits one METER_ACTION_USAGE MeterRecord per
-	// execution for ordinary compute (cre:workflow:compute, milliseconds). It is
-	// nil unless [Metering].MeterRecordsEnabled is set. UsageIdentity is the
-	// base metering identity stamped on those records; the DON id is added per
-	// record from the local node. Fail-open: emission never affects execution.
-	UsageMeter    *resourcemanager.ResourceManager
-	UsageIdentity resourcemanager.ResourceIdentity
+	// MeterRecordsEnabled emits a cre:workflow:compute usage record per execution.
+	MeterRecordsEnabled bool
+	UsageIdentity       resourcemanager.ResourceIdentity
+	// UsageEmitter overrides beholder's emitter; nil uses beholder.GetEmitter().
+	UsageEmitter resourcemanager.Emitter
 
 	// includes additional logging of events internal to user workflows
 	DebugMode bool
