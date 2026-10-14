@@ -251,7 +251,7 @@ func Test_CRE_V2_ShardFailoverConfidentialWorkflows(t *testing.T) {}
 		RunID: "123456",
 	})
 	require.NoError(t, err)
-	require.Len(t, res, 6)
+	require.Len(t, res, 8)
 
 	byName := make(map[string]matrix.CRESmokeEntry, len(res))
 	for _, entry := range res {
