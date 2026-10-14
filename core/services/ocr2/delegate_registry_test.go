@@ -56,17 +56,13 @@ func TestRegistryOCRKeyBundles_NoMatch(t *testing.T) {
 	keyStore := keystoremocks.NewOCR2(t)
 	keyStore.EXPECT().GetAll().Return([]ocr2key.KeyBundle{key}, nil)
 
-	got, idx, err := registryOCRKeyBundles(keyStore, &ocrtypes.ContractConfig{
+	_, _, err = registryOCRKeyBundles(keyStore, &ocrtypes.ContractConfig{
 		Signers: []ocrtypes.OnchainPublicKey{[]byte("other-signer")},
 	})
-	require.NoError(t, err)
-	assert.Empty(t, got)
-	assert.Equal(t, -1, idx)
+	require.ErrorContains(t, err, "none of the node's 1 OCR key bundles match the signers in the registry OCR config")
 
-	got, idx, err = registryOCRKeyBundles(keystoremocks.NewOCR2(t), nil)
-	require.NoError(t, err)
-	assert.Empty(t, got)
-	assert.Equal(t, -1, idx)
+	_, _, err = registryOCRKeyBundles(keystoremocks.NewOCR2(t), nil)
+	require.ErrorContains(t, err, "no OCR config in the Capabilities Registry")
 }
 
 func TestRegistryOCR2SpecRelayID(t *testing.T) {

@@ -573,8 +573,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 // donID is the on-chain DON ID this plugin process is being spawned for.
 // pluginType identifies which OCR2 plugin to create (currently only DonTimePlugin).
 // configJSON is the per-capability config from the registry.
-// registryOCRConfig is the on-chain OCR3 config from the registry, or nil
-// when none is available yet.
+// registryOCRConfig is the on-chain OCR3 config from the registry. It is required:
+// the node's OCR key bundles and transmitter are taken from its signer in this config.
 func (d *Delegate) NewServices(
 	ctx context.Context,
 	capabilityID string,
@@ -599,26 +599,11 @@ func (d *Delegate) NewServices(
 	lggr := logger.Sugared(d.lggr.Named(string(job.OffchainReporting2)).Named(externalJobID.String()).With(lggrCtx.Args()...))
 	ctx = lggrCtx.ContextWithValues(ctx)
 
-	// Resolve the OCR key bundles from the registry signer set. Nodes launched without a
-	// job spec do not necessarily configure OCR2.KeyBundleID. The signer may be a
+	// Resolve the OCR key bundles from the registry signer set. The signer may be a
 	// multichain key covering several chain families, so all families are matched.
 	kbs, signerIndex, err := registryOCRKeyBundles(d.ks, registryOCRConfig)
 	if err != nil {
 		return nil, err
-	}
-	if len(kbs) == 0 {
-		configuredKBID, keyIDErr := d.cfg.OCR2().KeyBundleID()
-		if keyIDErr != nil {
-			return nil, fmt.Errorf("failed to get default OCR2 key bundle ID: %w", keyIDErr)
-		}
-		if configuredKBID == "" {
-			return nil, errors.New("no OCR2 key matches the registry config and OCR2.KeyBundleID is not configured")
-		}
-		configuredKB, getErr := d.ks.Get(configuredKBID)
-		if getErr != nil {
-			return nil, fmt.Errorf("failed to get OCR2 key bundle: %w", getErr)
-		}
-		kbs = map[string]ocr2key.KeyBundle{string(configuredKB.ChainType()): configuredKB}
 	}
 	kb := generic.OffchainKeyBundle(kbs)
 	kbID := kb.ID()
@@ -633,14 +618,9 @@ func (d *Delegate) NewServices(
 		bootstrapPeers = d.peerWrapper.P2PConfig().V2().DefaultBootstrappers()
 	}
 
-	// Resolve transmitter paired with this node's signer in the on-chain OCR config
-	// when available, falling back to a keystore round-robin address.
-	var transmitterID string
-	if registryOCRConfig != nil {
-		if t, ok := generic.TransmitterAt(*registryOCRConfig, signerIndex); ok {
-			transmitterID = t
-		}
-	}
+	// Resolve transmitter paired with this node's signer in the on-chain OCR config,
+	// falling back to a keystore round-robin address.
+	transmitterID, _ := generic.TransmitterAt(*registryOCRConfig, signerIndex)
 	if transmitterID == "" && d.ethKs != nil && d.capRegistryChainID != "" {
 		t, tErr := generic.DefaultTransmitterForChain(ctx, d.ethKs, d.capRegistryChainID)
 		if tErr != nil {
@@ -702,7 +682,7 @@ func (d *Delegate) NewServices(
 		"capRegistryAddress", d.capRegistryAddress,
 		"capRegistryChainID", d.capRegistryChainID,
 		"numBootstrapPeers", len(bootstrapPeers),
-		"hasOCRContractConfig", registryOCRConfig != nil)
+		"signerIndex", signerIndex)
 
 	switch pluginType {
 	case types.DonTimePlugin:
@@ -723,10 +703,10 @@ func registryOCR2RelayConfig(chainID string, pluginType types.OCR2PluginType, tr
 
 // registryOCRKeyBundles returns the node's OCR key bundles, keyed by chain family, that
 // make up its signer in the registry OCR config, along with the signer's index. It
-// returns no bundles and index -1 when there is no config or no signer matches.
+// returns an error when there is no config or none of the node's bundles match a signer.
 func registryOCRKeyBundles(ks keystore.OCR2, registryOCRConfig *ocrtypes.ContractConfig) (map[string]ocr2key.KeyBundle, int, error) {
 	if registryOCRConfig == nil {
-		return nil, -1, nil
+		return nil, -1, errors.New("no OCR config in the Capabilities Registry")
 	}
 
 	bundles, err := ks.GetAll()
@@ -735,7 +715,7 @@ func registryOCRKeyBundles(ks keystore.OCR2, registryOCRConfig *ocrtypes.Contrac
 	}
 	kbs, idx, ok := generic.SelectOCRKeyBundlesForConfig(bundles, registryOCRConfig)
 	if !ok {
-		return nil, -1, nil
+		return nil, -1, fmt.Errorf("none of the node's %d OCR key bundles match the signers in the registry OCR config", len(bundles))
 	}
 	return kbs, idx, nil
 }
