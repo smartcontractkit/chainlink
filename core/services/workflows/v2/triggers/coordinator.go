@@ -336,6 +336,10 @@ func (c *coordinator) buildDeliverFn(cw *coordinatedWorkflow) func(context.Conte
 		ctx = context.WithoutCancel(ctx)
 		if err := engine.ExecuteTrigger(ctx, event); err != nil {
 			lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+			if errors.Is(err, ErrAdmissionCached) {
+				// A cached event (ErrAdmissionCached) is deliberately left un-ACKed.
+				return
+			}
 			if errors.Is(err, ErrAdmissionDenied) {
 				c.dropDeniedEvent(ctx, cw, event)
 			}
@@ -343,10 +347,8 @@ func (c *coordinator) buildDeliverFn(cw *coordinatedWorkflow) func(context.Conte
 	}
 }
 
-// dropDeniedEvent handles an event the engine's admission check rejected, as the legacy
-// engine does after OnTriggerAdmission: the event will never execute, so it is ACKed and
-// counted as dropped. A cached event (ErrAdmissionCached) is deliberately left un-ACKed
-// so the secondary shard can replay it.
+// dropDeniedEvent handles an event the engine's admission check rejected.  The event will never execute, so it is ACKed and
+// counted as dropped.
 func (c *coordinator) dropDeniedEvent(ctx context.Context, cw *coordinatedWorkflow, event CoordinatedEvent) {
 	eventID := event.Event.Event.ID
 	registrationID := RegistrationID(cw.wid.Hex(), event.TriggerIndex)
