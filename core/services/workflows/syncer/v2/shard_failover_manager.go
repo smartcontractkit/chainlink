@@ -27,16 +27,18 @@ import (
 // cachedExpiry is how long a cached trigger event is kept for potential failover replay.
 const cachedExpiry = 10 * time.Minute
 
-// ErrCoordinatedShardingUnsupported is returned by the coordinator-facing
-// methods of ShardFailoverManager. Sharding and the coordinated engine are
-// currently not compatible, so nothing should reach them.
-var ErrCoordinatedShardingUnsupported = errors.New("coordinated engine is not supported on a sharded node")
-
 // ShardFailoverManager wraps a workflow Engine and handles shard ownership
 // decisions externally, keeping the Engine oblivious to sharding. On the
 // primary shard it allows all trigger events through. On a secondary shard
 // with failover enabled it caches trigger events so they can be replayed if
 // the primary reports a system failure.
+//
+// The ownership check runs wherever the wrapped engine receives events. A legacy
+// engine registers its own triggers and calls the OnTriggerAdmission hook before
+// enqueueing. A coordinated engine relies on the trigger coordinator, which
+// subscribes and delivers through this manager, so ExecuteTrigger runs the check
+// before delegating. Either way the manager only decides; whoever holds the
+// trigger handles acts on a denial (ACK and drop) or a cached event (no ACK).
 //
 // Lifecycle:
 //   - NewShardFailoverManager(cfg) creates the manager (no engine yet).
@@ -145,9 +147,10 @@ func (m *ShardFailoverManager) close() error {
 	return nil
 }
 
-// admissionCheck is wired as the engine's OnTriggerAdmission hook. It
-// checks shard ownership dynamically per-trigger and decides whether the
-// engine should process the event.
+// admissionCheck decides whether the engine should process a trigger event,
+// checking shard ownership dynamically per-trigger. It is wired as a legacy
+// engine's OnTriggerAdmission hook and called by ExecuteTrigger for a
+// coordinated engine.
 func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event triggers.CoordinatedEvent) error {
 	if !m.cfg.ShardingEnabled {
 		return nil
@@ -204,7 +207,9 @@ func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executi
 
 // HandleExecutionStatusUpdate is called on the secondary shard when the
 // primary reports an execution outcome. On system failure it replays the
-// cached trigger event through the engine.
+// cached trigger event through the engine. Replay calls the wrapped engine
+// directly, not ExecuteTrigger: this node is still not the owner, so the
+// admission check would only cache the event again.
 func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.ExecutionStatusUpdate) {
 	switch msg.Status {
 	case ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED:
@@ -416,26 +421,29 @@ func (m *ShardFailoverManager) ActiveExecutions() int32 { return m.engine.Active
 // DrainStartedAt delegates to the wrapped engine.
 func (m *ShardFailoverManager) DrainStartedAt() (time.Time, bool) { return m.engine.DrainStartedAt() }
 
-// ExecuteTrigger is unreachable on a sharded node: the coordinator is the only
-// caller of the EventSink path, and a sharded node never takes the coordinated
-// path. Failover replay calls the wrapped engine directly, not this method.
-func (m *ShardFailoverManager) ExecuteTrigger(context.Context, triggers.CoordinatedEvent) error {
-	return ErrCoordinatedShardingUnsupported
+// ExecuteTrigger is how the trigger coordinator delivers events to a
+// coordinated engine on a sharded node. The coordinated engine never calls
+// OnTriggerAdmission, so the shard ownership check runs here first. An
+// admission error (triggers.ErrAdmissionDenied or triggers.ErrAdmissionCached)
+// is returned for the coordinator to act on; otherwise the event is delegated.
+func (m *ShardFailoverManager) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	if err := m.admissionCheck(ctx, event); err != nil {
+		return err
+	}
+	return m.engine.ExecuteTrigger(ctx, event)
 }
 
-// Subscribe is unreachable on a sharded node: only the coordinator calls it,
+// Subscribe delegates to the wrapped engine. The trigger coordinator calls it
 // while registering triggers for a coordinated engine.
-func (m *ShardFailoverManager) Subscribe(context.Context) ([]*sdkpb.TriggerSubscription, error) {
-	return nil, ErrCoordinatedShardingUnsupported
+func (m *ShardFailoverManager) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
+	return m.engine.Subscribe(ctx)
 }
 
-// Tenant delegates to the wrapped engine. It has no error to return, and as a
-// plain getter it cannot half-work, so it stays a passthrough.
+// Tenant delegates to the wrapped engine.
 func (m *ShardFailoverManager) Tenant() contexts.CRE { return m.engine.Tenant() }
 
-// IsCoordinated delegates to the wrapped engine. Unlike the methods above this
-// is called on the legacy path — every reconciliation tick reads it to classify
-// the engine — so it must answer rather than fail.
+// IsCoordinated delegates to the wrapped engine, so the registry classifies the
+// manager as whichever engine it wraps.
 func (m *ShardFailoverManager) IsCoordinated() bool { return m.engine.IsCoordinated() }
 
 var (
