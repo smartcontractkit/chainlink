@@ -891,13 +891,11 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 }
 
 // useCoordinatedEngine reads the CoordinatedEngine flag. A node without a
-// TriggerCoordinator always takes the legacy path, and so does a sharded node:
-// sharding and the coordinated engine are not yet compatible.
+// TriggerCoordinator always takes the legacy path. On a sharded node the
+// coordinated engine is wrapped in a ShardFailoverManager, which the
+// coordinator delivers through, so shard admission still applies.
 func (h *eventHandler) useCoordinatedEngine(ctx context.Context, workflowID string) bool {
 	if h.triggerCoordinator == nil || h.featureFlags == nil || h.featureFlags.CoordinatedEngine == nil {
-		return false
-	}
-	if h.shardingEnabled && h.dispatcher != nil {
 		return false
 	}
 	open, err := h.featureFlags.CoordinatedEngine.IsOpen(ctx)
