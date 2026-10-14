@@ -426,8 +426,21 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	h.engines.engine = engine
 
 	// Close the engine before the mocks and limiters it uses go away. The test's context is
-	// already canceled by now, which returns any execution still held by the blocker.
-	t.Cleanup(func() { _ = engine.Close() })
+	// already canceled by now, which returns any execution still held by the blocker. Close is
+	// bounded so an engine that deadlocks fails the test instead of hanging it. A Close that never
+	// returns stays blocked in the background until the test binary exits.
+	t.Cleanup(func() {
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			_ = engine.Close()
+		}()
+		select {
+		case <-done:
+		case <-time.After(testTimeout):
+			t.Errorf("engine Close did not return within %s at cleanup", testTimeout)
+		}
+	})
 	return h
 }
 
