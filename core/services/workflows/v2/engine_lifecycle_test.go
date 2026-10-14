@@ -73,6 +73,22 @@ const (
 	eventCloseReturned lifecycleEvent = "close-returned"
 )
 
+// inFlightShutdown is how an InFlightTriggers scenario shuts the engine down while trigger events
+// are still arriving.
+type inFlightShutdown int
+
+const (
+	// shutdownClose closes the engine directly.
+	shutdownClose inFlightShutdown = iota + 1
+
+	// shutdownDrainThenClose drains the engine and closes it straight away.
+	shutdownDrainThenClose
+
+	// shutdownDrainWaitThenClose drains the engine, waits for its active executions to finish, then
+	// closes it.
+	shutdownDrainWaitThenClose
+)
+
 // TestEngine_Lifecycle runs the same Close and Drain scenarios against both engines. Each
 // scenario asserts the behavior every engine is expected to have, so the two must not diverge.
 //
@@ -91,6 +107,9 @@ func TestEngine_Lifecycle(t *testing.T) {
 		{"Close_WaitsForExecutionBeforeClosingModule", testLifecycleCloseWaitsForExecutionBeforeClosingModule},
 		{"ExecuteTrigger_AfterClose", testLifecycleExecuteTriggerAfterClose},
 		{"ExecuteTrigger_ConcurrentWithClose", testLifecycleExecuteTriggerConcurrentWithClose},
+		{"InFlightTriggers_Close", testLifecycleInFlightTriggersClose},
+		{"InFlightTriggers_DrainThenClose", testLifecycleInFlightTriggersDrainThenClose},
+		{"InFlightTriggers_DrainWaitThenClose", testLifecycleInFlightTriggersDrainWaitThenClose},
 		{"ExecuteTrigger_ConcurrentWithDrainThenClose", testLifecycleExecuteTriggerConcurrentWithDrainThenClose},
 		{"ExecuteTrigger_WhileDraining", testLifecycleExecuteTriggerWhileDraining},
 		{"Drain_KeepsInFlightExecutionRunning", testLifecycleDrainKeepsInFlightExecutionRunning},
@@ -190,6 +209,64 @@ func testLifecycleExecuteTriggerConcurrentWithClose(t *testing.T, mode lifecycle
 		}
 	}
 	require.Equal(t, int32(1), h.moduleCloses.Load(), "module Close calls")
+}
+
+// testLifecycleInFlightTriggersClose closes an engine while trigger events are still arriving
+// through its real delivery path, so Close races the executions the engine starts for itself rather
+// than calls from test goroutines.
+func testLifecycleInFlightTriggersClose(t *testing.T, mode lifecycleEngineMode) {
+	testLifecycleInFlightTriggersShutdown(t, mode, shutdownClose)
+}
+
+// testLifecycleInFlightTriggersDrainThenClose drains an engine and closes it straight away while
+// trigger events are still arriving through its real delivery path.
+func testLifecycleInFlightTriggersDrainThenClose(t *testing.T, mode lifecycleEngineMode) {
+	testLifecycleInFlightTriggersShutdown(t, mode, shutdownDrainThenClose)
+}
+
+// testLifecycleInFlightTriggersDrainWaitThenClose drains an engine, waits for its active executions
+// to finish, then closes it, while trigger events are still arriving through its real delivery path.
+func testLifecycleInFlightTriggersDrainWaitThenClose(t *testing.T, mode lifecycleEngineMode) {
+	testLifecycleInFlightTriggersShutdown(t, mode, shutdownDrainWaitThenClose)
+}
+
+// testLifecycleInFlightTriggersShutdown shuts an engine down as shutdown describes while a feeder
+// keeps sending trigger events through its real delivery path. Executions run to completion when
+// they reach the module, keeping the delivery path busy. It asserts that Drain, when called, reports
+// the transition, that Close returns, that the module is closed once and only after every execution
+// that reached it has finished, and that no execution is left active.
+func testLifecycleInFlightTriggersShutdown(t *testing.T, mode lifecycleEngineMode, shutdown inFlightShutdown) {
+	// executions that must reach the module before shutdown, so delivery is under way when it starts
+	const warmup = 4
+
+	h := newEngineLifecycleHarness(t, mode)
+	h.start()
+	h.blocker.release()
+
+	// The feeder also stops when the test ends, so a test that fails before closing stop doesn't
+	// leave it running.
+	stop := make(chan struct{})
+	fed := h.feedEvents(stop)
+	for range warmup {
+		awaitLifecycle(t, h.blocker.started, "fed execution to start")
+	}
+
+	if shutdown != shutdownClose {
+		require.True(t, h.engine.Drain(), "Drain")
+	}
+	if shutdown == shutdownDrainWaitThenClose {
+		require.Eventually(t, func() bool { return h.engine.ActiveExecutions() == 0 },
+			testTimeout, 10*time.Millisecond, "active executions to finish after Drain")
+	}
+	require.NoError(t, h.close())
+	close(stop)
+	awaitLifecycle(t, fed, "feeder to exit")
+
+	require.Equal(t, int32(1), h.moduleCloses.Load(), "module Close calls")
+	require.Equal(t, int32(0), h.engine.ActiveExecutions(), "active executions after Close")
+	events := h.log.events()
+	requireAllBefore(t, events, eventExecutionFinished, eventModuleClosed)
+	requireEventOrder(t, events, eventModuleClosed, eventCloseReturned)
 }
 
 // testLifecycleExecuteTriggerConcurrentWithDrainThenClose runs the standard shutdown, Drain then
@@ -532,6 +609,27 @@ func (h *engineLifecycleHarness) startExecution() {
 		require.FailNow(h.t, "trigger event was not accepted")
 	}
 	awaitLifecycle(h.t, h.blocker.started, "execution to start")
+}
+
+// feedEvents sends trigger events through the engine's real delivery path until stop is closed or
+// the test ends. Unlike startExecution, it neither waits for an execution nor stops on its own, so
+// delivery can overlap shutdown. The returned channel is closed once the feeder has exited.
+func (h *engineLifecycleHarness) feedEvents(stop <-chan struct{}) <-chan struct{} {
+	exited := make(chan struct{})
+	go func() {
+		defer close(exited)
+		for {
+			event := h.event(fmt.Sprintf("fed-%d", h.nextEvent.Add(1))).Event
+			select {
+			case h.eventCh <- event:
+			case <-stop:
+				return
+			case <-h.t.Context().Done():
+				return
+			}
+		}
+	}()
+	return exited
 }
 
 // close closes the engine, logging when Close returns, and returns its error. Close runs on its
