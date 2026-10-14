@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gwhandlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 )
 
@@ -107,9 +106,42 @@ func (h *handler) extractRequestLabels(req jsonrpc.Request[json.RawMessage]) req
 	return labels
 }
 
+// requestShardSelector is the shard-routing field both relay methods' params carry.
+// Unlike requestLabels, decoding this is not best-effort: a request that omits it, or
+// names a shard the handler does not have, is rejected rather than silently routed to
+// shard 0, since 0 is itself a valid shard and must not be indistinguishable from "not
+// set."
+type requestShardSelector struct {
+	ShardIndex *int `json:"shard_index"`
+}
+
+// extractShardIndex decodes the caller-selected shard index out of a request's params.
+func extractShardIndex(req jsonrpc.Request[json.RawMessage]) (int, error) {
+	if req.Params == nil {
+		return 0, errors.New("shard_index is required")
+	}
+	var sel requestShardSelector
+	if err := json.Unmarshal(*req.Params, &sel); err != nil {
+		return 0, fmt.Errorf("could not decode shard_index: %w", err)
+	}
+	if sel.ShardIndex == nil {
+		return 0, errors.New("shard_index is required")
+	}
+	return *sel.ShardIndex, nil
+}
+
+// shardAt resolves a caller-selected shard index to the shard it names.
+func (h *handler) shardAt(idx int) (*gwhandlers.ShardEndpoint, error) {
+	if idx < 0 || idx >= len(h.shards) {
+		return nil, fmt.Errorf("shard index %d out of range: handler has %d shard(s)", idx, len(h.shards))
+	}
+	return h.shards[idx], nil
+}
+
 type activeRequest struct {
 	req       jsonrpc.Request[json.RawMessage]
 	labels    requestLabels
+	shard     *gwhandlers.ShardEndpoint
 	responses map[string]*jsonrpc.Response[json.RawMessage]
 	mu        sync.Mutex
 	completed atomic.Bool
@@ -204,12 +236,16 @@ type Config struct {
 
 type handler struct {
 	services.StateMachine
-	donConfig *config.DONConfig
-	don       gwhandlers.DON
-	codec     api.JSONRPCCodec
-	lggr      logger.Logger
-	mu        sync.RWMutex
-	stopCh    services.StopChan
+	// shards is the DON×shard matrix this handler relays for. Quorum is evaluated
+	// independently per shard (each with its own F and members); the first shard to
+	// reach quorum produces the user response.
+	shards []*gwhandlers.ShardEndpoint
+	// donID names the handler for logging/metrics; it is the first shard's DON name.
+	donID  string
+	codec  api.JSONRPCCodec
+	lggr   logger.Logger
+	mu     sync.RWMutex
+	stopCh services.StopChan
 
 	globalNodeRateLimiter limits.RateLimiter
 	perNodeRateLimiters   map[string]limits.RateLimiter
@@ -233,7 +269,7 @@ func (h *handler) Name() string {
 	return h.lggr.Name()
 }
 
-func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+func NewHandler(methodConfig json.RawMessage, dons *gwhandlers.ShardedDONs, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -260,13 +296,23 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		cfg.QuorumGraceMillis = maxGraceMillis
 	}
 
+	shards, _, err := dons.BuildShardEndpoints()
+	if err != nil {
+		return nil, err
+	}
+	if len(shards) == 0 {
+		return nil, errors.New("confidential relay handler requires at least one shard")
+	}
+	donID := shards[0].DonName
+
 	globalNodeRateLimiter, err := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayGlobalRate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create global node rate limiter: %w", err)
 	}
 
-	perNodeRateLimiters := make(map[string]limits.RateLimiter, len(donConfig.Members))
-	for _, member := range donConfig.Members {
+	members := gwhandlers.AllMembers(shards)
+	perNodeRateLimiters := make(map[string]limits.RateLimiter, len(members))
+	for _, member := range members {
 		rl, makeErr := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayPerNodeRate)
 		if makeErr != nil {
 			return nil, fmt.Errorf("failed to create per-node rate limiter for %s: %w", member.Address, makeErr)
@@ -280,9 +326,9 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	}
 
 	return &handler{
-		donConfig:             donConfig,
-		don:                   don,
-		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonID),
+		shards:                shards,
+		donID:                 donID,
+		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donID),
 		requestTimeout:        time.Duration(cfg.RequestTimeoutSec) * time.Second,
 		nodeSendTimeout:       time.Duration(cfg.NodeSendTimeoutSec) * time.Second,
 		quorumGrace:           time.Duration(cfg.QuorumGraceMillis) * time.Millisecond,
@@ -346,25 +392,18 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	h.mu.RUnlock()
 
 	for _, er := range expiredRequests {
-		responses := er.copiedResponses()
 		l := h.requestLogger(er.req, er.labels)
+		collected := len(er.copiedResponses())
+		nodes := len(er.shard.Members)
 		l.Debugw("request expired, evaluating collected relay responses",
-			"collected", len(responses),
-			"nodes", len(h.donConfig.Members),
-			"unanswered", len(h.donConfig.Members)-len(responses),
+			"collected", collected,
+			"nodes", nodes,
+			"unanswered", nodes-collected,
 		)
-		summary, err := h.bundler.Bundle(er.req, responses, l)
-		if err != nil {
-			l.Errorw("failed to build relay response bundle", "error", err)
-			if sendErr := h.sendResponseAndClearRequest(ctx, er, h.constructErrorResponse(er.req, api.FatalError, err)); sendErr != nil {
-				l.Errorw("error returning bundle failure on expiry", "error", sendErr)
-			}
-			continue
-		}
 		// Expiry makes further responses unavailable to this request. The common
-		// readiness path forwards a viable partial bundle or returns a timeout.
-		if err := h.forwardBundleOrTerminateIfReady(ctx, l, er, summary, 0, true); err != nil {
-			l.Errorw("error forwarding bundle on expiry", "error", err)
+		// readiness path forwards a viable partial bundle, or returns a timeout.
+		if err := h.evaluateShard(ctx, l, er, true); err != nil {
+			l.Errorw("error evaluating relay response bundle on expiry", "error", err)
 		}
 	}
 }
@@ -399,11 +438,20 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request ID is too long: " + strconv.Itoa(len(req.ID)) + ". max is 200 characters")
 	}
 
+	shardIndex, err := extractShardIndex(req)
+	if err != nil {
+		return err
+	}
+	shard, err := h.shardAt(shardIndex)
+	if err != nil {
+		return err
+	}
+
 	labels := h.extractRequestLabels(req)
 	l := h.requestLogger(req, labels)
-	l.Debugw("handling confidential relay request", "nodes", len(h.donConfig.Members), "f", h.donConfig.F)
+	l.Debugw("handling confidential relay request", "shard", shard.DonID, "nodes", len(shard.Members))
 
-	ar, err := h.newActiveRequest(req, labels, callback)
+	ar, err := h.newActiveRequest(req, labels, shard, callback)
 	if err != nil {
 		return err
 	}
@@ -411,7 +459,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	return h.fanOutToNodes(ctx, l, ar)
 }
 
-func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], labels requestLabels, callback gwhandlers.Callback) (*activeRequest, error) {
+func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], labels requestLabels, shard *gwhandlers.ShardEndpoint, callback gwhandlers.Callback) (*activeRequest, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.activeRequests[req.ID] != nil {
@@ -422,6 +470,7 @@ func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], labels 
 		Callback:  callback,
 		req:       req,
 		labels:    labels,
+		shard:     shard,
 		createdAt: h.clock.Now(),
 		responses: map[string]*jsonrpc.Response[json.RawMessage]{},
 	}
@@ -467,29 +516,45 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
-	copiedResponses := ar.copiedResponses()
-	// Bundle readiness counts decodable signed responses, while the enclave remains
-	// responsible for signature and quorum verification. A collected response cannot
-	// be replaced by a later response from the same node.
-	summary, err := h.bundler.Bundle(ar.req, copiedResponses, l)
+	return h.evaluateShard(ctx, l, ar, false)
+}
+
+// filterResponses restricts a request's collected responses to one shard's members.
+// Node addresses are disjoint across shards (enforced by BuildShardEndpoints), so this
+// never pulls in a response from another shard.
+func filterResponses(all map[string]jsonrpc.Response[json.RawMessage], shard *gwhandlers.ShardEndpoint) map[string]jsonrpc.Response[json.RawMessage] {
+	out := make(map[string]jsonrpc.Response[json.RawMessage], len(shard.Members))
+	for _, m := range shard.Members {
+		if r, ok := all[m.Address]; ok {
+			out[m.Address] = r
+		}
+	}
+	return out
+}
+
+// evaluateShard applies the same completion rules to live and expired requests, using
+// the single shard this request was routed to. Remaining counts responses that can
+// still arrive; expiry passes zero because waiting can no longer improve the bundle.
+func (h *handler) evaluateShard(ctx context.Context, l logger.Logger, ar *activeRequest, expired bool) error {
+	shard := ar.shard
+	summary, err := h.bundler.Bundle(ar.req, filterResponses(ar.copiedResponses(), shard), l)
 	if err != nil {
 		l.Errorw("failed to build relay response bundle", "error", err)
 		return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
 	}
-	return h.forwardBundleOrTerminateIfReady(ctx, l, ar, summary, len(h.donConfig.Members)-summary.Total(), false)
-}
 
-// forwardBundleOrTerminateIfReady applies the same completion rules to live and
-// expired requests. Remaining counts responses that can still arrive; expiry
-// passes zero because waiting can no longer improve the bundle.
-func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.Logger, ar *activeRequest, summary *BundleSummary, remaining int, expired bool) error {
-	earlyNeed := 2*h.donConfig.F + 1
-	minQuorum := h.donConfig.F + 1
-	nodes := len(h.donConfig.Members)
+	earlyNeed := 2*shard.F + 1
+	minQuorum := shard.F + 1
+	nodes := len(shard.Members)
 	unanswered := nodes - summary.Total()
+	remaining := unanswered
+	if expired {
+		remaining = 0
+	}
 	maxPossibleSigned := summary.Signed() + remaining
+
 	if summary.Signed() >= earlyNeed {
-		return h.forwardBundle(ctx, l, ar, summary)
+		return h.forwardBundle(ctx, l, ar, shard, summary)
 	}
 	if remaining == 0 && summary.Signed() >= minQuorum {
 		l.Infow("no more responses expected; forwarding partial signed bundle",
@@ -504,7 +569,7 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 			"undecodable", summary.Undecodable(),
 			"nodeErrors", summary.NodeErrorsFormatted(),
 		)
-		return h.forwardBundle(ctx, l, ar, summary)
+		return h.forwardBundle(ctx, l, ar, shard, summary)
 	}
 	if maxPossibleSigned < minQuorum {
 		// A user-level node error means the request is invalid for every node,
@@ -558,7 +623,7 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 				summary.Signed(), maxPossibleSigned, minQuorum, summary.Total(), nodes, remaining, summary.Error(), summary.Undecodable())))
 	}
 	if !expired && summary.Signed() >= minQuorum {
-		h.startQuorumGrace(l, ar, summary)
+		h.startQuorumGrace(l, ar, summary, shard)
 	}
 	l.Debugw("waiting for more signed relay responses before forwarding bundle",
 		"signed", summary.Signed(),
@@ -582,7 +647,7 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 // that was viable within milliseconds is forwarded to nobody. The deadline is swept
 // by the cleanup goroutine rather than a timer, so no completion path runs on an
 // untracked goroutine.
-func (h *handler) startQuorumGrace(l logger.Logger, ar *activeRequest, summary *BundleSummary) {
+func (h *handler) startQuorumGrace(l logger.Logger, ar *activeRequest, summary *BundleSummary, shard *gwhandlers.ShardEndpoint) {
 	if h.quorumGrace <= 0 {
 		return
 	}
@@ -590,11 +655,12 @@ func (h *handler) startQuorumGrace(l logger.Logger, ar *activeRequest, summary *
 		return
 	}
 	l.Infow("relay quorum reached below earlyNeed; starting grace window",
+		"shard", shard.DonID,
 		"signed", summary.Signed(),
-		"minQuorum", h.donConfig.F+1,
-		"earlyNeed", 2*h.donConfig.F+1,
+		"minQuorum", shard.F+1,
+		"earlyNeed", 2*shard.F+1,
 		"collected", summary.Total(),
-		"nodes", len(h.donConfig.Members),
+		"nodes", len(shard.Members),
 		"grace", h.quorumGrace,
 	)
 }
@@ -620,7 +686,8 @@ func (h *handler) forwardGracedRequests(ctx context.Context) {
 
 func (h *handler) forwardAfterGrace(ctx context.Context, ar *activeRequest) {
 	l := h.requestLogger(ar.req, ar.labels)
-	summary, err := h.bundler.Bundle(ar.req, ar.copiedResponses(), l)
+	shard := ar.shard
+	summary, err := h.bundler.Bundle(ar.req, filterResponses(ar.copiedResponses(), shard), l)
 	if err != nil {
 		l.Errorw("failed to build relay response bundle after quorum grace", "error", err)
 		if sendErr := h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err)); sendErr != nil {
@@ -629,8 +696,8 @@ func (h *handler) forwardAfterGrace(ctx context.Context, ar *activeRequest) {
 		return
 	}
 
-	minQuorum := h.donConfig.F + 1
-	nodes := len(h.donConfig.Members)
+	minQuorum := shard.F + 1
+	nodes := len(shard.Members)
 	if summary.Signed() < minQuorum {
 		l.Warnw("quorum grace elapsed below quorum; leaving request to expiry",
 			"signed", summary.Signed(),
@@ -644,7 +711,7 @@ func (h *handler) forwardAfterGrace(ctx context.Context, ar *activeRequest) {
 	l.Infow("quorum grace elapsed; forwarding partial signed bundle",
 		"signed", summary.Signed(),
 		"minQuorum", minQuorum,
-		"earlyNeed", 2*h.donConfig.F+1,
+		"earlyNeed", 2*shard.F+1,
 		"collected", summary.Total(),
 		"nodes", nodes,
 		"unanswered", nodes-summary.Total(),
@@ -653,23 +720,24 @@ func (h *handler) forwardAfterGrace(ctx context.Context, ar *activeRequest) {
 		"undecodable", summary.Undecodable(),
 		"nodeErrors", summary.NodeErrorsFormatted(),
 	)
-	if err := h.forwardBundle(ctx, l, ar, summary); err != nil {
+	if err := h.forwardBundle(ctx, l, ar, shard, summary); err != nil {
 		l.Errorw("error forwarding bundle after quorum grace", "error", err)
 	}
 }
 
-// forwardBundle sends a previously-built bundle to the enclave. The gateway makes
+// forwardBundle sends a previously-built shard bundle to the enclave. The gateway makes
 // no trust decision; the enclave verifies signatures and reaches quorum.
-func (h *handler) forwardBundle(ctx context.Context, l logger.Logger, ar *activeRequest, summary *BundleSummary) error {
-	nodes := len(h.donConfig.Members)
+func (h *handler) forwardBundle(ctx context.Context, l logger.Logger, ar *activeRequest, shard *gwhandlers.ShardEndpoint, summary *BundleSummary) error {
+	nodes := len(shard.Members)
 	rawResponse, err := jsonrpc.EncodeResponse(summary.Response())
 	if err != nil {
 		l.Errorw("failed to encode response", "error", err)
 		return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.NodeReponseEncodingError, err))
 	}
 	l.Infow("forwarding relay response bundle to enclave",
+		"shard", shard.DonID,
 		"signedResponses", summary.Signed(),
-		"earlyNeed", 2*h.donConfig.F+1,
+		"earlyNeed", 2*shard.F+1,
 		"collected", summary.Total(),
 		"nodes", nodes,
 		"remaining", nodes-summary.Total(),
@@ -683,11 +751,14 @@ func (h *handler) forwardBundle(ctx context.Context, l logger.Logger, ar *active
 	})
 }
 
+// fanOutToNodes sends the request to every member of the shard this request was
+// routed to, via that shard's own connection manager.
 func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
 	var (
 		group      errgroup.Group
 		nodeErrors atomic.Uint32
 	)
+	shard := ar.shard
 
 	// Each send is bounded independently. A node whose websocket accepts no writes blocks
 	// until its context is cancelled, and because the caller only reads the response callback
@@ -696,9 +767,9 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	sendCtx, cancel := context.WithTimeout(ctx, h.nodeSendTimeout)
 	defer cancel()
 
-	for _, node := range h.donConfig.Members {
+	for _, node := range shard.Members {
 		group.Go(func() error {
-			err := h.don.SendToNode(sendCtx, node.Address, &ar.req)
+			err := shard.ConnMgr.SendToNode(sendCtx, node.Address, &ar.req)
 			if err != nil {
 				nodeErrors.Add(1)
 				l.Errorw("error sending request to node", "node", node.Address, "error", err)
@@ -710,15 +781,15 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	_ = group.Wait()
 
 	numNodeErrors := nodeErrors.Load()
-	remainingPossibleResponses := len(h.donConfig.Members) - int(numNodeErrors)
-	if remainingPossibleResponses < h.donConfig.F+1 && numNodeErrors > 0 {
+	remainingPossibleResponses := len(shard.Members) - int(numNodeErrors)
+	if remainingPossibleResponses < shard.F+1 && numNodeErrors > 0 {
 		// The individual send failures are logged above; this is the aggregate
 		// decision that ends the request, so it gets its own line.
 		l.Errorw("too few relay nodes reachable to reach quorum; failing request",
 			"nodeErrors", numNodeErrors,
 			"reachable", remainingPossibleResponses,
-			"minQuorum", h.donConfig.F+1,
-			"nodes", len(h.donConfig.Members),
+			"minQuorum", shard.F+1,
+			"nodes", len(shard.Members),
 		)
 		return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
@@ -749,26 +820,27 @@ func (h *handler) sendResponseAndClearRequest(ctx context.Context, ar *activeReq
 		return sendErr
 	}
 
-	h.recordMetrics(ctx, payload.ErrorCode)
+	h.recordMetrics(ctx, ar, payload.ErrorCode)
 	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "executionID", ar.labels.ExecutionID, "errorCode", payload.ErrorCode)
 	return nil
 }
 
-func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
+func (h *handler) recordMetrics(ctx context.Context, ar *activeRequest, errorCode api.ErrorCode) {
+	donID := ar.shard.DonID
 	//nolint:exhaustive // do not record other errors
 	switch errorCode {
 	case api.HandlerError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonID),
+			attribute.String("don_id", donID),
 			attribute.String("error", errorCode.String()),
 		))
 	case api.UnsupportedDONIdError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonID),
+			attribute.String("don_id", donID),
 		))
 	case api.NoError:
 		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonID),
+			attribute.String("don_id", donID),
 		))
 	}
 }

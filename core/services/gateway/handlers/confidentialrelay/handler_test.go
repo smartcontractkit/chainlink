@@ -23,9 +23,27 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	gwhandlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 )
+
+// singleShardDONs wraps one legacy single-shard DONConfig/DON pair into the
+// *gwhandlers.ShardedDONs matrix NewHandler now takes, so existing single-shard test
+// setups keep their exact F/Members/node-address expectations.
+func singleShardDONs(t *testing.T, donConfig *config.DONConfig, don gwhandlers.DON) *gwhandlers.ShardedDONs {
+	t.Helper()
+	dons, err := gwhandlers.NewShardedDONs(
+		[]config.ShardedDONConfig{{
+			DonName: donConfig.DonID,
+			F:       donConfig.F,
+			Shards:  []config.Shard{{Nodes: donConfig.Members}},
+		}},
+		[][]gwhandlers.DON{{don}},
+	)
+	require.NoError(t, err)
+	return dons
+}
 
 type barrierDON struct {
 	total       int
@@ -133,7 +151,7 @@ func setupHandlerWithConfig(t *testing.T, numNodes, f int, handlerConfig Config)
 
 	clock := clockwork.NewFakeClock()
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory)
+	h, err := NewHandler(methodConfig, singleShardDONs(t, donConfig, don), lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	// The default bundler is the real one; tests that need a failure inject a mock.
 	cb := common.NewCallback()
@@ -851,7 +869,7 @@ func TestConfidentialRelayHandler_QuorumGraceConfig(t *testing.T) {
 			donConfig := &config.DONConfig{DonID: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
 			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 
-			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory)
+			h, err := NewHandler(methodConfig, singleShardDONs(t, donConfig, mocks.NewDON(t)), lggr, clockwork.NewFakeClock(), limitsFactory)
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.wantGraceMs, h.quorumGrace.Milliseconds())
@@ -865,7 +883,7 @@ func TestConfidentialRelayHandler_DuplicateRequestID(t *testing.T) {
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-dup",
 		Method: MethodCapabilityExec,
@@ -899,7 +917,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	}
 	clock := clockwork.NewFakeClock()
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory)
+	h, err := NewHandler(methodConfig, singleShardDONs(t, donConfig, don), lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	h.globalNodeRateLimiter = limits.GlobalRateLimiter(rate.Limit(100), 100)
 	h.perNodeRateLimiters[nodeOne.Address] = limits.GlobalRateLimiter(rate.Limit(0.001), 1)
@@ -907,7 +925,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	cb := common.NewCallback()
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-ratelimit",
 		Method: MethodCapabilityExec,
@@ -992,7 +1010,7 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("connection refused"))
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-allfail",
 		Method: MethodCapabilityExec,
@@ -1033,7 +1051,7 @@ func TestConfidentialRelayHandler_FanOutWaitsWhileQuorumStillPossible(t *testing
 		},
 	)
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-still-possible",
 		Method: MethodCapabilityExec,
@@ -1065,7 +1083,7 @@ func TestConfidentialRelayHandler_FanOutFailsWhenQuorumBecomesImpossible(t *test
 		},
 	)
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-quorum-impossible",
 		Method: MethodCapabilityExec,
@@ -1113,11 +1131,11 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 	require.NoError(t, err)
 
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clockwork.NewFakeClock(), limitsFactory)
+	h, err := NewHandler(methodConfig, singleShardDONs(t, donConfig, don), lggr, clockwork.NewFakeClock(), limitsFactory)
 	require.NoError(t, err)
 
 	cb := common.NewCallback()
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-concurrent-fanout",
 		Method: MethodCapabilityExec,
@@ -1166,7 +1184,7 @@ func TestConfidentialRelayHandler_NodeSendTimeoutConfig(t *testing.T) {
 			donConfig := &config.DONConfig{DonID: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
 			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 
-			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory)
+			h, err := NewHandler(methodConfig, singleShardDONs(t, donConfig, mocks.NewDON(t)), lggr, clockwork.NewFakeClock(), limitsFactory)
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.wantSendMs, h.nodeSendTimeout.Milliseconds())
@@ -1197,12 +1215,12 @@ func TestConfidentialRelayHandler_BlockedNodeDoesNotStallFanOut(t *testing.T) {
 	methodConfig, err := json.Marshal(Config{RequestTimeoutSec: 30})
 	require.NoError(t, err)
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clockwork.NewFakeClock(), limitsFactory)
+	h, err := NewHandler(methodConfig, singleShardDONs(t, donConfig, don), lggr, clockwork.NewFakeClock(), limitsFactory)
 	require.NoError(t, err)
 	// Shortened so the test exercises the bound without waiting the production default.
 	h.nodeSendTimeout = 50 * time.Millisecond
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-blocked-node",
 		Method: MethodCapabilityExec,
@@ -1231,4 +1249,138 @@ func TestConfidentialRelayHandler_BlockedNodeDoesNotStallFanOut(t *testing.T) {
 func capExecSignedRespPtr(t *testing.T, id string, result relaytypes.CapabilityResponseResult, signer []byte) *jsonrpc.Response[json.RawMessage] {
 	r := capExecSignedResponse(t, id, result, signer)
 	return &r
+}
+
+// setupMultiShardHandler builds a handler backed by one DON split into shards, one per
+// entry in shardSizes, every shard sharing F. Node addresses are assigned sequentially
+// across shards (shard 0 gets the first shardSizes[0] addresses, and so on), and each
+// shard gets its own mock connection manager so tests can assert routing stays confined
+// to the owning shard.
+func setupMultiShardHandler(t *testing.T, f int, shardSizes ...int) (*handler, *common.Callback, []*mocks.DON, *clockwork.FakeClock) {
+	t.Helper()
+	lggr := logger.Test(t)
+
+	shards := make([]config.Shard, len(shardSizes))
+	conns := make([]gwhandlers.DON, len(shardSizes))
+	mockConns := make([]*mocks.DON, len(shardSizes))
+	addr := 0
+	for i, size := range shardSizes {
+		members := make([]config.NodeConfig, size)
+		for j := range size {
+			members[j] = config.NodeConfig{Name: fmt.Sprintf("node%d", addr), Address: fmt.Sprintf("0x%04d", addr)}
+			addr++
+		}
+		shards[i] = config.Shard{Nodes: members}
+		don := mocks.NewDON(t)
+		conns[i] = don
+		mockConns[i] = don
+	}
+
+	dons, err := gwhandlers.NewShardedDONs(
+		[]config.ShardedDONConfig{{DonName: "test_relay_don", F: f, Shards: shards}},
+		[][]gwhandlers.DON{conns},
+	)
+	require.NoError(t, err)
+
+	methodConfig, err := json.Marshal(Config{RequestTimeoutSec: 30})
+	require.NoError(t, err)
+
+	clock := clockwork.NewFakeClock()
+	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
+	h, err := NewHandler(methodConfig, dons, lggr, clock, limitsFactory)
+	require.NoError(t, err)
+	cb := common.NewCallback()
+	return h, cb, mockConns, clock
+}
+
+// capParamsForShard returns capability-exec params targeting a specific shard index.
+func capParamsForShard(t *testing.T, workflowID string, shardIndex int) json.RawMessage {
+	t.Helper()
+	params := validCapParams(workflowID)
+	params.ShardIndex = new(shardIndex)
+	raw, err := json.Marshal(params)
+	require.NoError(t, err)
+	return raw
+}
+
+// A request naming shard 1 fans out only to shard 1's connection manager and ignores
+// shard 0 entirely: shard 0's mock DON has no expectations set, so mockery fails the
+// test if fan-out ever reaches it.
+func TestConfidentialRelayHandler_Sharded_RoutesToSelectedShardOnly(t *testing.T) {
+	t.Parallel()
+	h, cb, conns, _ := setupMultiShardHandler(t, 1, 4, 4) // F=1: minQuorum=2, earlyNeed=3 per shard
+	conns[1].On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	params := capParamsForShard(t, "wf1", 1)
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-sharded-routed",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+	result := relaytypes.CapabilityResponseResult{Payload: "result"}
+
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		resp, err := cb.Wait(t.Context())
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
+		assert.Equal(t, api.NoError, resp.ErrorCode)
+		var jsonResp jsonrpc.Response[json.RawMessage]
+		if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) {
+			return
+		}
+		var bundle relaytypes.SignedCapabilityResponseBundle
+		if !assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle)) {
+			return
+		}
+		assert.Len(t, bundle.Responses, 3)
+	})
+
+	// A response from a shard 0 node address must not count toward this request's
+	// quorum, even though it shares a rate limiter map with shard 1's nodes.
+	require.NoError(t, h.HandleNodeMessage(t.Context(),
+		capExecSignedRespPtr(t, req.ID, result, []byte("signer-foreign")), "0x0000"))
+	require.NotNil(t, h.getActiveRequest(req.ID), "a foreign-shard response must not complete the request")
+
+	// Shard 1 is nodes 0x0004-0x0007; reaching 3 signed responses hits 2F+1 there.
+	for i := 4; i < 7; i++ {
+		require.NoError(t, h.HandleNodeMessage(t.Context(),
+			capExecSignedRespPtr(t, req.ID, result, fmt.Appendf(nil, "signer-%d", i)),
+			fmt.Sprintf("0x%04d", i)))
+	}
+	wg.Wait()
+	require.Nil(t, h.getActiveRequest(req.ID))
+}
+
+func TestConfidentialRelayHandler_ShardIndexMissing(t *testing.T) {
+	t.Parallel()
+	h, cb, _, _ := setupHandler(t, 4)
+
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-no-shard",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+
+	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
+	require.EqualError(t, err, "shard_index is required")
+}
+
+func TestConfidentialRelayHandler_ShardIndexOutOfRange(t *testing.T) {
+	t.Parallel()
+	h, cb, _, _ := setupHandler(t, 4)
+
+	params := capParamsForShard(t, "wf1", 1)
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-shard-oor",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+
+	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
+	require.EqualError(t, err, "shard index 1 out of range: handler has 1 shard(s)")
 }
