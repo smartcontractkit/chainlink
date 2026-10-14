@@ -32,14 +32,6 @@ func offchainReg(version uint64, dons map[uint32]map[string]*capabilitiespb.Capa
 	return reg
 }
 
-func onchainDON(id uint32, capIDs ...string) registry.DON {
-	cfgs := map[string]registry.CapabilityConfiguration{}
-	for _, c := range capIDs {
-		cfgs[c] = registry.CapabilityConfiguration{}
-	}
-	return registry.DON{ID: id, Name: testDONName(id), CapabilityConfigurations: cfgs}
-}
-
 func newCrossCheckMgr(t *testing.T, allowlisted ...string) *localCapabilityManager {
 	al := map[string]bool{}
 	for _, c := range allowlisted {
