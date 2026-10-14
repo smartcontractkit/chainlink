@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"math/big"
+	"slices"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 
@@ -99,28 +101,6 @@ func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactory
 	return cfg, signing, nil
 }
 
-// SelectOCRKeyBundleForConfig returns the key bundle whose signer public key appears in
-// the on-chain OCR config. It disambiguates when a node holds multiple EVM OCR key
-// bundles by picking the one the registry registered as a signer. Returns false when no
-// config is provided or none of the bundles match.
-func SelectOCRKeyBundleForConfig(bundles []ocr2key.KeyBundle, cc *ocrtypes.ContractConfig) (ocr2key.KeyBundle, bool) {
-	if cc == nil {
-		return nil, false
-	}
-	for _, kb := range bundles {
-		pub := kb.PublicKey()
-		multichainPub, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
-			string(corekeys.EVM): pub,
-		})
-		for _, s := range cc.Signers {
-			if bytes.Equal(s, pub) || (err == nil && bytes.Equal(s, multichainPub)) {
-				return kb, true
-			}
-		}
-	}
-	return nil, false
-}
-
 // SelectOCRKeyBundlesForConfig locates this node's signer in the on-chain OCR config and
 // returns the key bundles, keyed by chain family name, that make up that signer, along
 // with the signer's index in cc.Signers. A signer is either a raw EVM public key or a
@@ -174,19 +154,18 @@ func matchSigner(bundles []ocr2key.KeyBundle, signer ocrtypes.OnchainPublicKey) 
 	return matched, true
 }
 
-// TransmitterForSigner returns the transmitter account paired with the given signer in
-// the on-chain OCR config. Signers[i] and Transmitters[i] describe the same oracle, so
-// locating this node's signer yields the transmitter the OCR config expects for it.
-func TransmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPublicKey) (string, bool) {
-	multichainSigner, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
-		string(corekeys.EVM): signer,
-	})
-	for i, s := range cc.Signers {
-		if bytes.Equal(s, signer) || (err == nil && bytes.Equal(s, multichainSigner)) {
-			return TransmitterAt(cc, i)
-		}
+// OffchainKeyBundle picks the bundle whose offchain keys are used for OCR from the
+// bundles matching this node's signer. The EVM bundle is preferred; otherwise the
+// bundle of the lexicographically first family is used for determinism.
+func OffchainKeyBundle(kbs map[string]ocr2key.KeyBundle) ocr2key.KeyBundle {
+	if kb, ok := kbs[string(corekeys.EVM)]; ok {
+		return kb
 	}
-	return "", false
+	families := slices.Sorted(maps.Keys(kbs))
+	if len(families) == 0 {
+		return nil
+	}
+	return kbs[families[0]]
 }
 
 // TransmitterAt returns the transmitter account at index i of the on-chain OCR config,

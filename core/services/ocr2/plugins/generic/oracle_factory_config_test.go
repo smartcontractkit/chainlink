@@ -81,7 +81,9 @@ func TestResolveOracleFactoryConfig_transmitterFromOCRConfig(t *testing.T) {
 		Transmitters: []ocrtypes.Account{"0xOther", "0xMine"},
 	}
 
-	transmitter, ok := TransmitterForSigner(*cc, kb.PublicKey())
+	_, idx, ok := SelectOCRKeyBundlesForConfig([]ocr2key.KeyBundle{kb}, cc)
+	require.True(t, ok)
+	transmitter, ok := TransmitterAt(*cc, idx)
 	require.True(t, ok)
 	assert.Equal(t, "0xMine", transmitter)
 
@@ -123,80 +125,25 @@ func TestResolveOracleFactoryConfig_keyBundlesFillSigning(t *testing.T) {
 	assert.Equal(t, kb.ID(), signing.Config["evm"])
 }
 
-func TestTransmitterForSigner(t *testing.T) {
+func TestOffchainKeyBundle(t *testing.T) {
 	t.Parallel()
 
-	cc := ocrtypes.ContractConfig{
-		Signers:      []ocrtypes.OnchainPublicKey{[]byte("a"), []byte("b")},
-		Transmitters: []ocrtypes.Account{"0xA", "0xB"},
-	}
-
-	got, ok := TransmitterForSigner(cc, []byte("b"))
-	require.True(t, ok)
-	assert.Equal(t, "0xB", got)
-
-	_, ok = TransmitterForSigner(cc, []byte("missing"))
-	assert.False(t, ok)
-
-	// Signer present but transmitter list too short.
-	short := ocrtypes.ContractConfig{
-		Signers:      []ocrtypes.OnchainPublicKey{[]byte("a")},
-		Transmitters: nil,
-	}
-	_, ok = TransmitterForSigner(short, []byte("a"))
-	assert.False(t, ok)
-
-	multichainSigner, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
-		string(corekeys.EVM): []byte("b"),
-	})
+	evm, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
-	got, ok = TransmitterForSigner(ocrtypes.ContractConfig{
-		Signers:      []ocrtypes.OnchainPublicKey{multichainSigner},
-		Transmitters: []ocrtypes.Account{"0xMultiChain"},
-	}, []byte("b"))
-	require.True(t, ok)
-	assert.Equal(t, "0xMultiChain", got)
-
-	got, ok = TransmitterForSigner(ocrtypes.ContractConfig{
-		Signers:      []ocrtypes.OnchainPublicKey{[]byte("a")},
-		Transmitters: []ocrtypes.Account{"736ea02dd58a4eff74565801cb9cf1d13ceb9134"},
-	}, []byte("a"))
-	require.True(t, ok)
-	assert.Equal(t, "0x736ea02Dd58A4EFF74565801cB9Cf1D13CEB9134", got)
-}
-
-func TestSelectOCRKeyBundleForConfig(t *testing.T) {
-	t.Parallel()
-
-	kb1, err := ocr2key.New(corekeys.EVM)
+	sol, err := ocr2key.New(corekeys.Solana)
 	require.NoError(t, err)
-	kb2, err := ocr2key.New(corekeys.EVM)
+	apt, err := ocr2key.New(corekeys.Aptos)
 	require.NoError(t, err)
 
-	cc := &ocrtypes.ContractConfig{
-		Signers: []ocrtypes.OnchainPublicKey{kb2.PublicKey()},
-	}
-
-	got, ok := SelectOCRKeyBundleForConfig([]ocr2key.KeyBundle{kb1, kb2}, cc)
-	require.True(t, ok)
-	assert.Equal(t, kb2.ID(), got.ID())
-
-	_, ok = SelectOCRKeyBundleForConfig([]ocr2key.KeyBundle{kb1, kb2}, nil)
-	assert.False(t, ok)
-
-	noMatch := &ocrtypes.ContractConfig{Signers: []ocrtypes.OnchainPublicKey{[]byte("nope")}}
-	_, ok = SelectOCRKeyBundleForConfig([]ocr2key.KeyBundle{kb1, kb2}, noMatch)
-	assert.False(t, ok)
-
-	multichainSigner, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
-		string(corekeys.EVM): kb2.PublicKey(),
-	})
-	require.NoError(t, err)
-	got, ok = SelectOCRKeyBundleForConfig([]ocr2key.KeyBundle{kb1, kb2}, &ocrtypes.ContractConfig{
-		Signers: []ocrtypes.OnchainPublicKey{multichainSigner},
-	})
-	require.True(t, ok)
-	assert.Equal(t, kb2.ID(), got.ID())
+	assert.Nil(t, OffchainKeyBundle(nil))
+	assert.Equal(t, evm.ID(), OffchainKeyBundle(map[string]ocr2key.KeyBundle{
+		string(corekeys.Solana): sol,
+		string(corekeys.EVM):    evm,
+	}).ID())
+	assert.Equal(t, apt.ID(), OffchainKeyBundle(map[string]ocr2key.KeyBundle{
+		string(corekeys.Solana): sol,
+		string(corekeys.Aptos):  apt,
+	}).ID())
 }
 
 func TestSelectOCRKeyBundlesForConfig(t *testing.T) {

@@ -599,27 +599,33 @@ func (d *Delegate) NewServices(
 	lggr := logger.Sugared(d.lggr.Named(string(job.OffchainReporting2)).Named(externalJobID.String()).With(lggrCtx.Args()...))
 	ctx = lggrCtx.ContextWithValues(ctx)
 
-	// Resolve the OCR key from the registry signer set. Nodes launched without a
-	// job spec do not necessarily configure OCR2.KeyBundleID.
-	kb, err := registryOCRKeyBundle(d.ks, registryOCRConfig)
+	// Resolve the OCR key bundles from the registry signer set. Nodes launched without a
+	// job spec do not necessarily configure OCR2.KeyBundleID. The signer may be a
+	// multichain key covering several chain families, so all families are matched.
+	kbs, signerIndex, err := registryOCRKeyBundles(d.ks, registryOCRConfig)
 	if err != nil {
 		return nil, err
 	}
-	if kb == nil {
-		kbID, keyIDErr := d.cfg.OCR2().KeyBundleID()
+	if len(kbs) == 0 {
+		configuredKBID, keyIDErr := d.cfg.OCR2().KeyBundleID()
 		if keyIDErr != nil {
 			return nil, fmt.Errorf("failed to get default OCR2 key bundle ID: %w", keyIDErr)
 		}
-		if kbID == "" {
-			return nil, errors.New("no EVM OCR2 key matches the registry config and OCR2.KeyBundleID is not configured")
+		if configuredKBID == "" {
+			return nil, errors.New("no OCR2 key matches the registry config and OCR2.KeyBundleID is not configured")
 		}
-		configuredKB, getErr := d.ks.Get(kbID)
+		configuredKB, getErr := d.ks.Get(configuredKBID)
 		if getErr != nil {
 			return nil, fmt.Errorf("failed to get OCR2 key bundle: %w", getErr)
 		}
-		kb = configuredKB
+		kbs = map[string]ocr2key.KeyBundle{string(configuredKB.ChainType()): configuredKB}
 	}
+	kb := generic.OffchainKeyBundle(kbs)
 	kbID := kb.ID()
+	signingConfig := make(map[string]any, len(kbs))
+	for family, familyKB := range kbs {
+		signingConfig[family] = familyKB.ID()
+	}
 
 	// Resolve bootstrap peers from TOML config defaults.
 	bootstrapPeers := d.defaultBootstrappers
@@ -627,11 +633,11 @@ func (d *Delegate) NewServices(
 		bootstrapPeers = d.peerWrapper.P2PConfig().V2().DefaultBootstrappers()
 	}
 
-	// Resolve transmitter from the on-chain OCR config when available,
-	// falling back to a keystore round-robin address.
+	// Resolve transmitter paired with this node's signer in the on-chain OCR config
+	// when available, falling back to a keystore round-robin address.
 	var transmitterID string
 	if registryOCRConfig != nil {
-		if t, ok := generic.TransmitterForSigner(*registryOCRConfig, kb.PublicKey()); ok {
+		if t, ok := generic.TransmitterAt(*registryOCRConfig, signerIndex); ok {
 			transmitterID = t
 		}
 	}
@@ -657,7 +663,7 @@ func (d *Delegate) NewServices(
 		OCRKeyBundleID:     null.StringFrom(kbID),
 		OnchainSigningStrategy: job.JSONConfig{
 			"strategyName": "multi-chain",
-			"config":       map[string]any{"evm": kbID},
+			"config":       signingConfig,
 		},
 		PluginConfig: job.JSONConfig{},
 	}
@@ -715,17 +721,23 @@ func registryOCR2RelayConfig(chainID string, pluginType types.OCR2PluginType, tr
 	}
 }
 
-func registryOCRKeyBundle(ks keystore.OCR2, registryOCRConfig *ocrtypes.ContractConfig) (ocr2key.KeyBundle, error) {
+// registryOCRKeyBundles returns the node's OCR key bundles, keyed by chain family, that
+// make up its signer in the registry OCR config, along with the signer's index. It
+// returns no bundles and index -1 when there is no config or no signer matches.
+func registryOCRKeyBundles(ks keystore.OCR2, registryOCRConfig *ocrtypes.ContractConfig) (map[string]ocr2key.KeyBundle, int, error) {
 	if registryOCRConfig == nil {
-		return nil, nil
+		return nil, -1, nil
 	}
 
-	bundles, err := ks.GetAllOfType(corekeys.EVM)
+	bundles, err := ks.GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get EVM OCR2 key bundles: %w", err)
+		return nil, -1, fmt.Errorf("failed to get OCR2 key bundles: %w", err)
 	}
-	kb, _ := generic.SelectOCRKeyBundleForConfig(bundles, registryOCRConfig)
-	return kb, nil
+	kbs, idx, ok := generic.SelectOCRKeyBundlesForConfig(bundles, registryOCRConfig)
+	if !ok {
+		return nil, -1, nil
+	}
+	return kbs, idx, nil
 }
 
 // bootstrapPeersToStrings converts BootstrapperLocator slice to string slice

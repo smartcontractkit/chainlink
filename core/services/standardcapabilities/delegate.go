@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto"
 	"fmt"
-	"maps"
-	"slices"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -261,7 +259,7 @@ func (d *Delegate) NewServices(
 		if kbs, idx, ok := generic.SelectOCRKeyBundlesForConfig(allBundles, ocrContractConfig); ok {
 			ocrKeyBundles = kbs
 			signerIndex = idx
-			offchainKB = offchainKeyBundle(kbs)
+			offchainKB = generic.OffchainKeyBundle(kbs)
 		} else {
 			log.Warnw("none of the node's OCR key bundles match the signers in the on-chain OCR config; using the first EVM bundle, which may cause unexpected behavior",
 				"numBundles", len(allBundles))
@@ -408,20 +406,6 @@ func (d *Delegate) NewServices(
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, dependencies)
 
 	return []job.ServiceCtx{standardCapability}, nil
-}
-
-// offchainKeyBundle picks the bundle whose offchain keys are used for OCR from the
-// bundles matching this node's signer. The EVM bundle is preferred; otherwise the
-// bundle of the lexicographically first family is used for determinism.
-func offchainKeyBundle(kbs map[string]ocr2key.KeyBundle) ocr2key.KeyBundle {
-	if kb, ok := kbs[string(corekeys.EVM)]; ok {
-		return kb
-	}
-	families := slices.Sorted(maps.Keys(kbs))
-	if len(families) == 0 {
-		return nil
-	}
-	return kbs[families[0]]
 }
 
 // resolveCapabilityDonID best-effort resolves the on-chain DON ID this node is
