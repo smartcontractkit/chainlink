@@ -98,18 +98,18 @@ func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error 
 }
 
 func removeChainIDFromFlag(flag string) string {
-	lastIdx := strings.LastIndex(flag, "-")
-	if lastIdx == -1 {
+	before, after, ok := strings.CutLast(flag, "-")
+	if !ok {
 		return flag
 	}
 
-	maybeChainIDStr := flag[lastIdx+1:]
+	maybeChainIDStr := after
 	_, err := strconv.Atoi(maybeChainIDStr)
 	if err != nil {
 		return flag
 	}
 
-	return flag[:lastIdx]
+	return before
 }
 
 func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) error {

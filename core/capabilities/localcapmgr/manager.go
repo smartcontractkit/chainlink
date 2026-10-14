@@ -208,7 +208,7 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	// binary (e.g. consensus, cron). OCR2-based capabilities (e.g. dontime) run
 	// in-process and do not need a binary, so an empty command is allowed there;
 	// the newServicesFn routes on capability ID and ignores it.
-	command := m.resolveCapabilityBinary(info.capID)
+	command := conversions.GetCommandFromCapabilityID(info.capID)
 	configJSON, err := m.buildConfigJSON(info)
 	if err != nil {
 		return nil, fmt.Errorf("build config for %s: %w", info.capID, err)
@@ -248,42 +248,20 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	}, nil
 }
 
-func (m *localCapabilityManager) resolveCapabilityBinary(capID string) string {
-	if m.localCfg != nil {
-		capCfg := m.localCfg.GetCapabilityConfig(capID)
-		if capCfg != nil && capCfg.BinaryPathOverride() != "" {
-			m.lggr.Debugw("Using binary path override from TOML", "capID", capID, "path", capCfg.BinaryPathOverride())
-			return capCfg.BinaryPathOverride()
-		}
-	}
-
-	// fall back to default command based on capability ID
-	return conversions.GetCommandFromCapabilityID(capID)
-}
-
-// buildConfigJSON merges the node-local TOML config with the onchain SpecConfig
-// into a flat JSON object. Onchain values take precedence over local ones.
+// buildConfigJSON renders the onchain SpecConfig into a flat JSON object.
 func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, error) {
 	merged := make(map[string]any)
-
-	if m.localCfg != nil {
-		capCfg := m.localCfg.GetCapabilityConfig(info.capID)
-		if capCfg != nil {
-			for k, v := range capCfg.Config() {
-				merged[k] = v
-			}
-		}
-	}
 
 	if len(info.config.Config) > 0 {
 		capCfg, err := info.config.Unmarshal()
 		if err != nil {
-			m.lggr.Warnw("Failed to unmarshal onchain config, using local config only",
-				"capID", info.capID, "error", err)
-		} else if capCfg.SpecConfig != nil {
-			unwrapped, err := capCfg.SpecConfig.Unwrap()
-			if err != nil {
-				return "", fmt.Errorf("unwrap onchain spec config for %s: %w", info.capID, err)
+			return "", fmt.Errorf("failed to unmarshal cap registry config for %s: %w", info.capID, err)
+		}
+
+		if capCfg.SpecConfig != nil {
+			unwrapped, err2 := capCfg.SpecConfig.Unwrap()
+			if err2 != nil {
+				return "", fmt.Errorf("unwrap onchain spec config for %s: %w", info.capID, err2)
 			}
 			if onchain, ok := unwrapped.(map[string]any); ok {
 				maps.Copy(merged, onchain)

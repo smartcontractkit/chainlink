@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write/config"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write/report"
 )
