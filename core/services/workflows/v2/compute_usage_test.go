@@ -3,21 +3,29 @@ package v2_test
 import (
 	"context"
 	"errors"
+	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 	meteringpb "github.com/smartcontractkit/chainlink-protos/metering/go"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
@@ -46,10 +54,16 @@ func (r *recordingEmitter) all() []*meteringpb.MeterRecord {
 	return append([]*meteringpb.MeterRecord(nil), r.records...)
 }
 
-// runOneExecution starts an engine with cfg, fires one trigger event whose
-// module execution returns execErr (reporting computeDurationMs if set), and
+// moduleRun is what the mocked module does for the one trigger execution.
+type moduleRun struct {
+	result    *sdkpb.ExecutionResult
+	err       error
+	onExecute func()
+}
+
+// runOneExecution starts an engine with cfg, fires one trigger event, and
 // returns the execution id.
-func runOneExecution(t *testing.T, cfg *v2.EngineConfig, execErr error, computeDurationMs *int64) string {
+func runOneExecution(t *testing.T, cfg *v2.EngineConfig, run moduleRun) string {
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
 	module.EXPECT().Close()
@@ -84,11 +98,11 @@ func runOneExecution(t *testing.T, cfg *v2.EngineConfig, execErr error, computeD
 	require.NoError(t, <-initDoneCh)
 	require.Equal(t, []string{"id_0"}, <-subscribedCh)
 
-	var execRes *sdkpb.ExecutionResult
-	if computeDurationMs != nil {
-		execRes = &sdkpb.ExecutionResult{ComputeDurationMs: computeDurationMs}
-	}
-	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(execRes, execErr).Once()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Run(func(context.Context, *sdkpb.ExecuteRequest, host.ExecutionHelper) {
+		if run.onExecute != nil {
+			run.onExecute()
+		}
+	}).Return(run.result, run.err).Once()
 	eventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "usage_event"}}
 	executionID := <-finishedCh
 	require.NoError(t, engine.Close())
@@ -117,7 +131,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		cfg.UsageMeter = rm
 		cfg.UsageIdentity = identity
 
-		executionID := runOneExecution(t, cfg, nil, nil)
+		executionID := runOneExecution(t, cfg, moduleRun{})
 
 		records := emitter.all()
 		require.Len(t, records, 1)
@@ -151,7 +165,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		cfg.UsageMeter = rm
 		cfg.UsageIdentity = identity
 
-		runOneExecution(t, cfg, errors.New("module failed"), nil)
+		runOneExecution(t, cfg, moduleRun{err: errors.New("module failed")})
 
 		require.Len(t, emitter.all(), 1)
 	})
@@ -162,13 +176,27 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		rm, emitter := newUsageMeter(t)
 		cfg.UsageMeter = rm
 		cfg.UsageIdentity = identity
-		computeDurationMs := int64(1234)
-
-		runOneExecution(t, cfg, nil, &computeDurationMs)
+		runOneExecution(t, cfg, moduleRun{result: &sdkpb.ExecutionResult{ComputeDurationMs: proto.Int64(1234)}})
 
 		records := emitter.all()
 		require.Len(t, records, 1)
 		require.Equal(t, "1234", records[0].GetUtilizations()[0].GetValue())
+	})
+
+	t.Run("falls back to wall-clock when the module reports no duration", func(t *testing.T) {
+		t.Parallel()
+		cfg := defaultTestConfig(t, nil)
+		rm, emitter := newUsageMeter(t)
+		cfg.UsageMeter = rm
+		cfg.UsageIdentity = identity
+
+		runOneExecution(t, cfg, moduleRun{onExecute: func() { time.Sleep(20 * time.Millisecond) }})
+
+		records := emitter.all()
+		require.Len(t, records, 1)
+		ms, err := strconv.ParseInt(records[0].GetUtilizations()[0].GetValue(), 10, 64)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, ms, int64(20))
 	})
 
 	t.Run("emits nothing when no usage meter is configured", func(t *testing.T) {
@@ -177,8 +205,101 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		cfg := defaultTestConfig(t, nil)
 		cfg.Lggr = lggr
 
-		runOneExecution(t, cfg, nil, nil)
+		runOneExecution(t, cfg, moduleRun{})
 
 		require.Empty(t, obs.FilterMessage("Emitted capability usage meter record").All())
 	})
+}
+
+// A TEE-routed trigger is metered from the duration the enclave set on the result.
+func TestEngine_ComputeUsageMeterRecord_ConfidentialRun(t *testing.T) {
+	t.Parallel()
+	const capID = "confidential-workflows@1.0.0-alpha"
+	lggr := logger.Test(t)
+	cfg := defaultTestConfig(t, nil)
+	emitter := &recordingEmitter{}
+	cfg.UsageMeter = resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
+		MeterRecordsEnabled: true,
+		Emitter:             emitter,
+	})
+	cfg.UsageIdentity = resourcemanager.WithWorkflowUsagePool(resourcemanager.ResourceIdentity{Product: "cre", Service: resourcemanager.EmittingServiceWorkflowEngine}, resourcemanager.ResourceTypeWorkflowCompute)
+
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	execCap := capmocks.NewExecutableCapability(t)
+	capreg.EXPECT().GetExecutable(matches.AnyContext, capID).Return(execCap, nil)
+
+	tees, err := anypb.New(&confworkflowtypes.ProvidedTeesResponse{Tee: []*sdkpb.TeeTypeAndRegions{
+		{Type: sdkpb.TeeType_TEE_TYPE_AWS_NITRO, Regions: []string{"us-east-1"}},
+	}})
+	require.NoError(t, err)
+	execCap.EXPECT().Execute(matches.AnyContext, mock.MatchedBy(func(req capabilities.CapabilityRequest) bool {
+		return req.Method == "ProvidedTees"
+	})).Return(capabilities.CapabilityResponse{Payload: tees}, nil).Once()
+	// The enclave runs the same WASM host, which sets compute_duration_ms.
+	enclaveResp, err := anypb.New(&confworkflowtypes.ConfidentialWorkflowResponse{SdkExecutionResult: &sdkpb.ExecutionResult{
+		Result:            &sdkpb.ExecutionResult_Value{Value: valuespb.NewStringValue("enclave-output")},
+		ComputeDurationMs: proto.Int64(1234),
+	}})
+	require.NoError(t, err)
+	execCap.EXPECT().Execute(matches.AnyContext, mock.MatchedBy(func(req capabilities.CapabilityRequest) bool {
+		return req.Method == "Execute"
+	})).Run(func(context.Context, capabilities.CapabilityRequest) {
+		time.Sleep(20 * time.Millisecond) // round trip the engine must not bill
+	}).Return(capabilities.CapabilityResponse{Payload: enclaveResp}, nil).Once()
+
+	conf, err := v2.NewConfidentialModule(capreg, &confidentialrelay.ExecutionHandlers{}, "https://example.com/binary.wasm", []byte("hash"),
+		cfg.WorkflowID, cfg.WorkflowOwner, cfg.WorkflowName.String(), cfg.WorkflowTag,
+		func(context.Context, string) (string, error) { return "org-123", nil },
+		limits.NewGateLimiter(true), cfg.LocalLimiters.Settings, lggr)
+	require.NoError(t, err)
+
+	local := modulemocks.NewModuleV2(t)
+	local.EXPECT().Start().Maybe()
+	local.EXPECT().Close().Maybe()
+	teeSubs := newTriggerSubs(1)
+	teeSubs.GetTriggerSubscriptions().Subscriptions[0].Requirements = &sdkpb.Requirements{Tee: &sdkpb.Tee{
+		Item: &sdkpb.Tee_AnyRegions{AnyRegions: &sdkpb.Regions{Regions: []string{"us-east-1"}}},
+	}}
+	// Subscribe runs locally; the trigger is routed to the enclave.
+	local.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(teeSubs, nil).Once()
+	cfg.Module = host.NewRequirementSelectingModule(host.ModuleAndHandler{Module: local}, []host.ModuleAndHandler{{
+		Module:              conf,
+		RequirementsHandler: host.RequirementsHandler{Tee: conf.Tee},
+	}})
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = setupMockBillingClient(t)
+	cfg.OrgResolver = &mockOrgResolver{orgID: "org-123"}
+
+	initDoneCh := make(chan error)
+	subscribedCh := make(chan []string, 1)
+	finishedCh := make(chan string)
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized:          func(err error) { initDoneCh <- err },
+		OnSubscribedToTriggers: func(ids []string) { subscribedCh <- ids },
+		OnExecutionFinished:    func(id string, _ string) { finishedCh <- id },
+	}
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+	eventCh := make(chan capabilities.TriggerResponse)
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{"id_0"}, <-subscribedCh)
+
+	eventCh <- capabilities.TriggerResponse{Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "confidential_event"}}
+	executionID := <-finishedCh
+	require.NoError(t, engine.Close())
+
+	records := emitter.all()
+	require.Len(t, records, 1)
+	u := records[0].GetUtilizations()[0]
+	require.Equal(t, cfg.WorkflowID+":"+executionID, u.GetResourceId())
+	require.Equal(t, "1234", u.GetValue(), "enclave-measured duration, not the round trip")
 }
