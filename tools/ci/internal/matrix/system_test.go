@@ -236,6 +236,8 @@ func TestBuildCRESmokeMatrix_AdditionalOverrides(t *testing.T) {
 import "testing"
 
 func Test_CRE_V2_FailoverManualSwap(t *testing.T) {}
+func Test_CRE_V2_FailoverManualSwapCoordinated(t *testing.T) {}
+func Test_CRE_V2_ShardManualAssignmentCoordinated(t *testing.T) {}
 func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {}
 func Test_CRE_V2_ShardManualAssignmentSharedVault(t *testing.T) {}
 func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {}
@@ -247,7 +249,7 @@ func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {}
 		RunID: "123456",
 	})
 	require.NoError(t, err)
-	require.Len(t, res, 4)
+	require.Len(t, res, 6)
 
 	byName := make(map[string]matrix.CRESmokeEntry, len(res))
 	for _, entry := range res {
@@ -257,6 +259,14 @@ func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {}
 	failoverManualSwap := byName["Test_CRE_V2_FailoverManualSwap"]
 	assert.Equal(t, "workflow-gateway-failover", failoverManualSwap.Topology)
 	assert.Equal(t, "configs/workflow-gateway-failover-don.toml", failoverManualSwap.Configs)
+
+	failoverManualSwapCoordinated := byName["Test_CRE_V2_FailoverManualSwapCoordinated"]
+	assert.Equal(t, "workflow-gateway-failover-coordinated", failoverManualSwapCoordinated.Topology)
+	assert.Equal(t, "configs/workflow-gateway-failover-coordinated-don.toml", failoverManualSwapCoordinated.Configs)
+
+	manualCoordinated := byName["Test_CRE_V2_ShardManualAssignmentCoordinated"]
+	assert.Equal(t, "workflow-gateway-sharded-manual", manualCoordinated.Topology)
+	assert.Equal(t, "configs/workflow-gateway-sharded-manual.toml", manualCoordinated.Configs)
 
 	shardedCapabilities := byName["Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger"]
 	assert.Equal(t, "workflow-sharded-capabilities", shardedCapabilities.Topology)
