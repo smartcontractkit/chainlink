@@ -87,7 +87,7 @@ const (
 	shutdownDrainWaitThenClose
 )
 
-// TestEngine_Lifecycle runs the same Close and Drain scenarios against both engines. Each
+// TestEngine_Lifecycle runs the same Close, Drain and replacement scenarios against both engines. Each
 // scenario asserts the behavior every engine is expected to have, so the two must not diverge.
 //
 // The scenarios hold executions in the module on channels, or let them run to completion, and order
@@ -112,6 +112,7 @@ func TestEngine_Lifecycle(t *testing.T) {
 		{"ExecuteTrigger_WhileDraining", testLifecycleExecuteTriggerWhileDraining},
 		{"Drain_KeepsInFlightExecutionRunning", testLifecycleDrainKeepsInFlightExecutionRunning},
 		{"Drain_ThenClose_CancelsInFlightExecution", testLifecycleDrainThenCloseCancelsInFlightExecution},
+		{"Replace_NextEventRunsOnNewEngine", testLifecycleReplaceNextEventRunsOnNewEngine},
 	}
 	for _, mode := range []lifecycleEngineMode{lifecycleLegacy, lifecycleCoordinated} {
 		t.Run(string(mode), func(t *testing.T) {
@@ -400,6 +401,26 @@ func testLifecycleDrainThenCloseCancelsInFlightExecution(t *testing.T, mode life
 		eventExecutionCanceled, eventExecutionFinished, eventModuleClosed, eventCloseReturned)
 }
 
+// testLifecycleReplaceNextEventRunsOnNewEngine closes an engine and replaces it with a new one for
+// the same workflow. It asserts that the next trigger event runs on the new engine. In coordinated
+// mode the workflow's trigger registration stays live across the swap, so the coordinator must
+// route the event to the new engine; in legacy mode the new engine registers its own triggers.
+func testLifecycleReplaceNextEventRunsOnNewEngine(t *testing.T, mode lifecycleEngineMode) {
+	h := newEngineLifecycleHarness(t, mode)
+	h.start()
+	h.blocker.release()
+
+	h.deliver(admissionTimeout)
+	require.Eventually(t, func() bool { return h.moduleExecutions.Load() == 1 }, admissionTimeout, 5*time.Millisecond,
+		"the first event to run on the original engine")
+
+	h.replaceEngine()
+
+	h.deliver(admissionTimeout)
+	require.Eventually(t, func() bool { return h.moduleExecutions.Load() == 2 }, admissionTimeout, 5*time.Millisecond,
+		"the next event to run on the replacement engine")
+}
+
 // engineLifecycleHarness is a real engine of the harness's mode over a mock module whose executions
 // are held by an executionBlocker until the test releases them or their context is canceled. In
 // coordinated mode a real trigger coordinator registers the engine's triggers, delivers its events
@@ -573,7 +594,7 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	require.NoError(t, err)
 	h.engine = engine
 	// Set before the engine starts, so the coordinator's readers never see it unset.
-	h.engines.engine = engine
+	h.engines.set(engine)
 
 	// Close the engine before the mocks and limiters it uses go away. The test's context is
 	// already canceled by now, which returns any execution still held by the blocker. An engine
@@ -723,6 +744,35 @@ func (h *engineLifecycleHarness) close() error {
 	return err
 }
 
+// replaceEngine closes the engine under test and starts a new one of the same mode for the same
+// workflow. In coordinated mode the new engine only replaces the old one in the registry, leaving
+// the coordinator registration untouched, as when a workflow's engine changes while its
+// registration stays live. In legacy mode the new engine registers its own triggers.
+func (h *engineLifecycleHarness) replaceEngine() {
+	h.t.Helper()
+	require.NoError(h.t, h.close())
+
+	cfg := *h.cfg
+	cfg.Module = h.newModule()
+	construct := v2.NewCoordinatedEngine
+	if h.mode == lifecycleLegacy {
+		// NewEngine set the old engine as its own acknowledger; the new one must acknowledge through itself.
+		cfg.TriggerAcknowledger = nil
+		construct = v2.NewEngine
+	}
+	engine, err := construct(&cfg)
+	require.NoError(h.t, err)
+	h.t.Cleanup(func() { _ = engine.Close() })
+	h.engine = engine
+	h.engines.set(engine)
+
+	require.NoError(h.t, engine.Start(h.t.Context()))
+	require.NoError(h.t, awaitLifecycle(h.t, h.initDoneCh, "replacement engine to initialize"))
+	if h.mode == lifecycleLegacy {
+		require.Equal(h.t, []string{lifecycleTriggerCapID}, awaitLifecycle(h.t, h.subscribedCh, "replacement engine to register triggers"))
+	}
+}
+
 // recordFinished is the OnExecutionFinished hook's record of an execution's status.
 func (h *engineLifecycleHarness) recordFinished(status string) {
 	h.finishedMu.Lock()
@@ -827,17 +877,28 @@ func (l *lifecycleLog) events() []lifecycleEvent {
 	return append([]lifecycleEvent(nil), l.logged...)
 }
 
-// lifecycleEngineRegistry is a triggers.EngineRegistry holding the one engine under test.
+// lifecycleEngineRegistry is a triggers.EngineRegistry holding the one engine under test. The
+// engine can be swapped while the coordinator reads it.
 type lifecycleEngineRegistry struct {
+	mu     sync.Mutex
 	engine v2.WorkflowEngine
 }
 
 // Get returns the engine under test if wid is its workflow.
 func (r *lifecycleEngineRegistry) Get(wid types.WorkflowID) (triggers.RegisteredEngine, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.engine == nil || wid.Hex() != r.engine.Tenant().Workflow {
 		return nil, false
 	}
 	return r.engine, true
+}
+
+// set makes e the engine under test.
+func (r *lifecycleEngineRegistry) set(e v2.WorkflowEngine) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.engine = e
 }
 
 // executionBlocker holds executions in the module until the test releases them or their context
