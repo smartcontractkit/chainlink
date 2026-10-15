@@ -119,7 +119,8 @@ func TestOffchainMethodConfigs_Overlay(t *testing.T) {
 									"Write": {
 										RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 											RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-												RequestTimeout: durationpb.New(time.Minute),
+												RequestTimeout:            durationpb.New(time.Minute),
+												ServerMaxParallelRequests: 10,
 											},
 										},
 									},
@@ -227,7 +228,8 @@ func TestOffchainMethodConfigs_GateOff_Unchanged(t *testing.T) {
 		"Write": {
 			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-					RequestTimeout: durationpb.New(30 * time.Second),
+					RequestTimeout:            durationpb.New(30 * time.Second),
+					ServerMaxParallelRequests: 10,
 				},
 			},
 		},
@@ -244,7 +246,8 @@ func TestOffchainMethodConfigs_GateOff_Unchanged(t *testing.T) {
 		"Write": {
 			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-					RequestTimeout: durationpb.New(time.Minute),
+					RequestTimeout:            durationpb.New(time.Minute),
+					ServerMaxParallelRequests: 10,
 				},
 			},
 		},
@@ -286,14 +289,16 @@ func TestOffchainMethodConfigs_GateOn_Overrides(t *testing.T) {
 		"Write": {
 			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-					RequestTimeout: durationpb.New(30 * time.Second),
+					RequestTimeout:            durationpb.New(30 * time.Second),
+					ServerMaxParallelRequests: 10,
 				},
 			},
 		},
 		"View": {
 			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-					RequestTimeout: durationpb.New(10 * time.Second),
+					RequestTimeout:            durationpb.New(10 * time.Second),
+					ServerMaxParallelRequests: 10,
 				},
 			},
 		},
@@ -314,7 +319,8 @@ func TestOffchainMethodConfigs_GateOn_Overrides(t *testing.T) {
 		"Write": {
 			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-					RequestTimeout: durationpb.New(time.Minute),
+					RequestTimeout:            durationpb.New(time.Minute),
+					ServerMaxParallelRequests: 10,
 				},
 			},
 		},
@@ -368,7 +374,8 @@ func TestOffchainMethodConfigs_NoThrashAcrossPasses(t *testing.T) {
 		"Write": {
 			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-					RequestTimeout: durationpb.New(30 * time.Second),
+					RequestTimeout:            durationpb.New(30 * time.Second),
+					ServerMaxParallelRequests: 10,
 				},
 			},
 		},
@@ -389,7 +396,8 @@ func TestOffchainMethodConfigs_NoThrashAcrossPasses(t *testing.T) {
 		"Extra": {
 			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-					RequestTimeout: durationpb.New(45 * time.Second),
+					RequestTimeout:            durationpb.New(45 * time.Second),
+					ServerMaxParallelRequests: 10,
 				},
 			},
 		},
@@ -415,4 +423,84 @@ func TestOffchainMethodConfigs_NoThrashAcrossPasses(t *testing.T) {
 
 	dispatcher.AssertNotCalled(t, "RemoveReceiverForMethod", fullCapID, capDONID, "Extra")
 	dispatcher.AssertNotCalled(t, "RemoveReceiverForMethod", fullCapID, capDONID, "Write")
+}
+
+// A disabled method must be pruned on the serving side and stay disabled on later passes,
+// without affecting methods omitted from the offchain payload. Restoring its remote config
+// must create a working shim again. Cover both publisher and executable-server paths.
+func TestOffchainMethodConfigs_ServedMethodDisableAndRestore(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []string{"trigger", "executable"} {
+		t.Run(kind, func(t *testing.T) {
+			t.Parallel()
+			lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+			reg := regpkg.NewRegistry(lggr)
+			const capID = "evm@1.0.0"
+			var config *capabilitiespb.CapabilityMethodConfig
+			var capabilityType capabilities.CapabilityType
+			var receiverType string
+			if kind == "trigger" {
+				capabilityType = capabilities.CapabilityTypeTrigger
+				receiverType = "*remote.triggerPublisher"
+				config = &capabilitiespb.CapabilityMethodConfig{RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{},
+				}}
+				require.NoError(t, reg.Add(t.Context(), newMockTrigger(capabilities.MustNewCapabilityInfo(capID, capabilityType, "test"))))
+			} else {
+				capabilityType = capabilities.CapabilityTypeTarget
+				receiverType = "*executable.server"
+				config = &capabilitiespb.CapabilityMethodConfig{RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+					RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+						RequestTimeout: durationpb.New(30 * time.Second), ServerMaxParallelRequests: 10,
+					},
+				}}
+				require.NoError(t, reg.Add(t.Context(), &mockCapability{CapabilityInfo: capabilities.MustNewCapabilityInfo(capID, capabilityType, "test")}))
+			}
+
+			capNodes, wfNodes := newNodes(4), newNodes(4)
+			const capDONID uint32 = 2
+			metadata := buildLocalRegistry()
+			addDON(metadata, 1, 0, 1, true, true, wfNodes, []string{"zone-a"}, 1, nil)
+			addDON(metadata, capDONID, 0, 1, true, false, capNodes, []string{"zone-a"}, 1, [][32]byte{RandomUTF8BytesWord()})
+			addCapabilityToDON(metadata, capDONID, capID, capabilityType, onchainMethodCfg(t, map[string]*capabilitiespb.CapabilityMethodConfig{
+				"Disable": config, "Keep": config,
+			}))
+			capDON := metadata.IDsToDONs[regpkg.DonID(capDONID)]
+			capDON.Name = "don-2"
+			wfDON := metadata.IDsToDONs[regpkg.DonID(1)]
+
+			dispatcher := remoteMocks.NewDispatcher(t)
+			peer := mocks.NewSharedPeer(t)
+			peer.On("ID").Return(capNodes[0])
+			launcher, err := NewLauncher(lggr, peer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0)
+			require.NoError(t, err)
+			require.NoError(t, launcher.Start(t.Context()))
+			t.Cleanup(func() { require.NoError(t, launcher.Close()) })
+
+			dispatcher.On("SetReceiverForMethod", capID, capDONID, "Disable", mock.AnythingOfType(receiverType)).Return(nil).Twice()
+			dispatcher.On("SetReceiverForMethod", capID, capDONID, "Keep", mock.AnythingOfType(receiverType)).Return(nil).Once()
+			dispatcher.On("RemoveReceiverForMethod", capID, capDONID, "Disable").Return().Once()
+
+			pass := func(snapshot *offchainMethodConfigs) {
+				t.Helper()
+				launcher.pruneStaleShims(t.Context(), computeWantedShimKeys(nil, []regpkg.DON{capDON}, snapshot))
+				launcher.serveCapabilities(t.Context(), capNodes[0], capDON, []regpkg.DON{wfDON}, snapshot)
+			}
+			serverCount := func() int {
+				return len(launcher.cachedShims.executableServers) + len(launcher.cachedShims.triggerPublishers)
+			}
+			pass(nil)
+			require.Equal(t, 2, serverCount())
+			gc := offchainMethodCfg(t, 1, "don-2", capID, map[string]*capabilitiespb.CapabilityMethodConfig{"Disable": {}})
+			disabled := newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{capDON, wfDON})
+			pass(disabled)
+			require.Equal(t, 1, serverCount(), "only the disabled method's shim must be removed")
+			pass(disabled)
+			require.Equal(t, 1, serverCount(), "the disabled method must not be recreated on the next pass")
+			gc = offchainMethodCfg(t, 2, "don-2", capID, map[string]*capabilitiespb.CapabilityMethodConfig{"Disable": config})
+			pass(newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{capDON, wfDON}))
+			require.Equal(t, 2, serverCount(), "restoring config must recreate the shim")
+			assert.Empty(t, logs.All(), "disabled methods must be skipped without a serving error")
+		})
+	}
 }

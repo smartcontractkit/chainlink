@@ -134,7 +134,8 @@ func TestOffchainDivergences_MethodConfigs(t *testing.T) {
 		return &capabilitiespb.CapabilityMethodConfig{
 			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-					RequestTimeout: durationpb.New(timeout),
+					RequestTimeout:            durationpb.New(timeout),
+					ServerMaxParallelRequests: 10,
 				},
 			},
 		}

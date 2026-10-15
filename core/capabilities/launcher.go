@@ -802,6 +802,11 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 		return fmt.Errorf("failed to get capability %s from registry: %w", capID, err)
 	}
 	for method, config := range methodConfig {
+		if config.RemoteTriggerConfig == nil && config.RemoteExecutableConfig == nil {
+			// An offchain entry with no remote config explicitly disables this method.
+			// computeWantedShimKeys has already removed any existing shim.
+			continue
+		}
 		if config.RemoteTriggerConfig != nil { // trigger
 			underlyingTriggerCapability, ok := underlying.(capabilities.TriggerCapability)
 			if !ok {
