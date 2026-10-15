@@ -294,6 +294,9 @@ func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, no
 			"node.index":       strconv.Itoa(nodeMetadata.Index),
 		}
 		resourceAttributes["don_family"] = donMetadata.DonFamily() // OTel label; mirrors nodeset pairing key
+		if donMetadata.IsShardDON() {
+			resourceAttributes["shardIndex"] = strconv.FormatUint(uint64(donMetadata.ShardIndex), 10)
+		}
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             new(true),
 			Endpoint:            new(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
