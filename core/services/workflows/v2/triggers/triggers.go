@@ -29,6 +29,10 @@ import (
 
 const _prefix = "trigger_reg"
 
+// ErrEngineDraining is returned when an engine rejects a trigger event because
+// it is draining ahead of deletion. It is expected during workflow deletion.
+var ErrEngineDraining = errors.New("engine is draining")
+
 // Handle is a registered trigger capability plus the registration
 // payload/method needed to unregister and re-deliver to it.
 type Handle struct {
@@ -67,6 +71,8 @@ type EventSink interface {
 	//     The implementation should ACKs the duplicate internally before returning.
 	//   - ErrMeteringReserveFailed — metering report reservation failed.
 	//     Implementation should not ACK; the caller may retry.
+	//   - ErrEngineDraining — the engine is draining ahead of deletion and
+	//     rejected the event.
 	//
 	// Execution errors are NOT returned as errors.
 	// Implementations should expose errors and execution state via lifecycle hooks.

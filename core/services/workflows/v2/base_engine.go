@@ -55,7 +55,7 @@ var (
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
 	ErrAdmissionCache          = errors.New("admission: event cached for failover")
 
-	ErrEngineDraining = errors.New("engine is draining")
+	ErrEngineDraining = triggers.ErrEngineDraining
 	ErrEngineClosed   = errors.New("engine is closed")
 	ErrQueueFull      = errors.New("trigger event queue is full")
 	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
