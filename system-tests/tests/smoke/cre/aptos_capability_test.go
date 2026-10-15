@@ -85,6 +85,7 @@ func aptosDefaultScenarios() []aptosScenario {
 	return []aptosScenario{
 		{name: "Aptos Write Read Roundtrip", requiresWrite: true, run: ExecuteAptosWriteReadRoundtripTest},
 		{name: "Aptos Write Expected Failure", requiresWrite: true, run: ExecuteAptosWriteExpectedFailureTest},
+		{name: "Aptos View User Error", requiresWrite: false, run: ExecuteAptosViewUserErrorTest},
 	}
 }
 
@@ -120,6 +121,11 @@ func resolveAptosScenarios(t *testing.T) []aptosScenario {
 			name:          "Aptos Write Expected Failure",
 			requiresWrite: true,
 			run:           ExecuteAptosWriteExpectedFailureTest,
+		},
+		"view-user-error": {
+			name:          "Aptos View User Error",
+			requiresWrite: false,
+			run:           ExecuteAptosViewUserErrorTest,
 		},
 	}
 
@@ -272,6 +278,35 @@ func ExecuteAptosReadTest(
 	expectedLog := "Aptos read consensus succeeded"
 	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, aptosWorkflowTimeout, t_helpers.WithUserLogWorkflowID(workflowID))
 	lggr.Info().Str("expected_log", expectedLog).Msg("Aptos read capability test passed")
+}
+
+// ExecuteAptosViewUserErrorTest deploys the read workflow in user-error mode: it calls View on a
+// module that doesn't exist, which the Aptos node rejects with HTTP 400, and asserts the workflow
+// receives it as a user-origin capability error rather than a system error.
+func ExecuteAptosViewUserErrorTest(
+	t *testing.T,
+	tenv *configuration.TestEnvironment,
+	aptosChain blockchains.Blockchain,
+	userLogsCh <-chan *workflowevents.UserLogs,
+	baseMessageCh <-chan *commonevents.BaseMessage,
+) {
+	lggr := framework.L
+
+	ensureAptosLedgerVersionPositive(t, aptosChain)
+
+	workflowName := uniqueAptosWorkflowName("aptos-view-user-error-workflow")
+	workflowConfig := t_helpers.AptosReadWorkflowConfig{
+		ChainSelector:   aptosChain.ChainSelector(),
+		WorkflowName:    workflowName,
+		ExpectUserError: true,
+	}
+
+	const workflowFileLocation = "./aptos/aptosread/main.go"
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+	expectedLog := "Aptos view user error classified as expected"
+	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, aptosWorkflowTimeout, t_helpers.WithUserLogWorkflowID(workflowID))
+	lggr.Info().Str("expected_log", expectedLog).Msg("Aptos view user error classification test passed")
 }
 
 // The local Aptos devnet can legitimately remain at ledger version 0 until the
