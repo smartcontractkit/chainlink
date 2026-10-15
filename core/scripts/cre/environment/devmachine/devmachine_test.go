@@ -282,3 +282,103 @@ func TestExpandPath(t *testing.T) {
 		t.Errorf("ExpandPath(/abs) = %q", got)
 	}
 }
+
+// writeFakeBinaries installs stub executables on PATH for the duration of the
+// test and returns the bin directory.
+func writeFakeBinaries(t *testing.T, scripts map[string]string) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "bin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range scripts {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o755); err != nil { //nolint:gosec // executable test stub
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return dir
+}
+
+func TestMachineRecreatesWhenRecordedInstanceIsTerminated(t *testing.T) {
+	writeFakeBinaries(t, map[string]string{
+		"aws": "#!/bin/sh\necho 'terminated 10.0.0.1'\n",
+		"kubectl": "#!/bin/sh\nfor a in \"$@\"; do\n  if [ \"$a\" = \"get\" ]; then\n" +
+			"    echo '{\"status\":{\"instanceId\":\"i-new\",\"privateIp\":\"10.0.0.2\",\"conditions\":[{\"type\":\"Ready\",\"status\":\"True\"}]}}'\n" +
+			"    exit 0\n  fi\ndone\nexit 0\n",
+	})
+
+	cfg := DefaultConfig()
+	cfg.Cluster.Privileged = true
+	cfg.Machine.Name = "hybrid-local-cre-test"
+	cfg.Machine.InstanceID = "i-stale"
+	cfg.Machine.PrivateIP = "10.0.0.1"
+	cfg.Machine.CreatedByTool = true
+
+	var out bytes.Buffer
+	run := NewRunner(&out, &out, false, false)
+	o := NewOrchestrator(cfg, &UpOptions{ConfigPath: filepath.Join(t.TempDir(), "cfg.yaml")}, run, NewPlainReporter(&out), NewPrompter(&out))
+
+	if err := o.Machine(context.Background()); err != nil {
+		t.Fatalf("Machine: %v", err)
+	}
+	if cfg.Machine.InstanceID != "i-new" {
+		t.Fatalf("expected a new instance id, got %q", cfg.Machine.InstanceID)
+	}
+	if !cfg.Machine.CreatedByTool {
+		t.Fatal("expected CreatedByTool to be true after recreation")
+	}
+}
+
+func TestMachineHonorsExplicitInstanceID(t *testing.T) {
+	writeFakeBinaries(t, map[string]string{
+		"aws": "#!/bin/sh\necho 'terminated 10.0.0.1'\n",
+	})
+
+	cfg := DefaultConfig()
+	cfg.Cluster.Privileged = true
+	cfg.Machine.Name = "hybrid-local-cre-test"
+
+	var out bytes.Buffer
+	run := NewRunner(&out, &out, false, false)
+	o := NewOrchestrator(cfg, &UpOptions{ConfigPath: filepath.Join(t.TempDir(), "cfg.yaml"), InstanceID: "i-explicit"}, run, NewPlainReporter(&out), NewPrompter(&out))
+
+	err := o.Machine(context.Background())
+	if err == nil {
+		t.Fatal("expected an error when an explicitly supplied instance is unusable")
+	}
+	if !strings.Contains(err.Error(), "terminated") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDownClearsMachineState(t *testing.T) {
+	writeFakeBinaries(t, map[string]string{
+		"kubectl": "#!/bin/sh\nexit 0\n",
+	})
+
+	cfgPath := filepath.Join(t.TempDir(), "cfg.yaml")
+	cfg := DefaultConfig()
+	cfg.Machine.Name = "hybrid-local-cre-test"
+	cfg.Machine.InstanceID = "i-abc"
+	cfg.Machine.PrivateIP = "10.0.0.1"
+	cfg.Machine.CreatedByTool = true
+	// Leave SSH.Alias empty so the test never touches the real ~/.ssh/config.
+
+	var out bytes.Buffer
+	run := NewRunner(&out, &out, false, false)
+	rep := NewPlainReporter(&out)
+	if err := Down(context.Background(), cfg, &DownOptions{ConfigPath: cfgPath}, run, rep); err != nil {
+		t.Fatalf("Down: %v", err)
+	}
+	if cfg.Machine.InstanceID != "" || cfg.Machine.PrivateIP != "" || cfg.Machine.CreatedByTool {
+		t.Fatalf("machine state not cleared: %+v", cfg.Machine)
+	}
+	reloaded, err := LoadConfig(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.Machine.InstanceID != "" {
+		t.Fatalf("persisted instanceId not cleared: %q", reloaded.Machine.InstanceID)
+	}
+}

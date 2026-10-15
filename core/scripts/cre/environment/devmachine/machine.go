@@ -26,11 +26,23 @@ func (o *Orchestrator) Machine(ctx context.Context) error {
 	}
 
 	// Non-privileged path (or an explicitly supplied instance id): adopt.
-	if o.opts.InstanceID != "" {
+	explicit := o.opts.InstanceID != ""
+	if explicit {
 		o.cfg.Machine.InstanceID = o.opts.InstanceID
 	}
 	if o.cfg.Machine.InstanceID != "" {
-		return o.adoptMachine(ctx)
+		err := o.adoptMachine(ctx)
+		if err == nil {
+			return nil
+		}
+		// A stale id recorded from a previous run must not block creating a new
+		// machine. An id passed explicitly on the command line is authoritative.
+		if explicit || !o.cfg.Cluster.Privileged {
+			return err
+		}
+		o.rep.Warn("recorded instance %s is unusable (%v); creating a new DevMachine", o.cfg.Machine.InstanceID, err)
+		o.cfg.Machine.InstanceID = ""
+		o.cfg.Machine.PrivateIP = ""
 	}
 	if !o.cfg.Cluster.Privileged {
 		return errors.New("no permission to create DevMachines and no --instance-id supplied; ask someone to create one and re-run with --instance-id")

@@ -145,6 +145,7 @@ type DownOptions struct {
 
 // Down tears down the machine (if the tool created it) and the managed ssh block.
 func Down(ctx context.Context, cfg *Config, opts *DownOptions, run *Runner, rep Reporter) error {
+	deleted := false
 	if cfg.Machine.CreatedByTool && !opts.KeepMachine {
 		if cfg.Machine.Name == "" {
 			return errors.New("no machine name recorded; nothing to delete")
@@ -153,6 +154,7 @@ func Down(ctx context.Context, cfg *Config, opts *DownOptions, run *Runner, rep 
 		if _, err := run.Run(ctx, "kubectl", "delete", "devmachine", cfg.Machine.Name, "-n", cfg.Cluster.Namespace); err != nil {
 			return errors.Wrap(err, "failed to delete DevMachine")
 		}
+		deleted = true
 	} else if !cfg.Machine.CreatedByTool {
 		rep.Info("machine was not created by this tool; skipping deletion")
 	}
@@ -162,6 +164,19 @@ func Down(ctx context.Context, cfg *Config, opts *DownOptions, run *Runner, rep 
 			return err
 		}
 		rep.Info("removed managed ssh config block for %q", cfg.SSH.Alias)
+	}
+
+	// Clear the recorded machine identity so a subsequent `up` creates a fresh
+	// machine instead of adopting the one we just deleted.
+	if deleted && !opts.KeepMachine {
+		cfg.Machine.InstanceID = ""
+		cfg.Machine.PrivateIP = ""
+		cfg.Machine.CreatedByTool = false
+		if !run.DryRun {
+			if err := cfg.Save(opts.ConfigPath); err != nil {
+				return errors.Wrap(err, "failed to update config after deletion")
+			}
+		}
 	}
 
 	if opts.PurgeCache {
