@@ -10,12 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -146,6 +149,7 @@ func userLogLines(t *testing.T, observer beholdertest.Observer) []string {
 // via configure before the harness starts the engine, and set up the second
 // Module.Execute expectation (for the per-execution call, if reached) themselves.
 type dropPathHarness struct {
+	engine              v2.WorkflowEngine
 	module              *modulemocks.ModuleV2
 	eventCh             chan capabilities.TriggerResponse
 	executionFinishedCh chan string
@@ -209,6 +213,7 @@ func newDropPathHarness(t *testing.T, billingClient *metmocks.BillingClient, con
 	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 
 	return &dropPathHarness{
+		engine:              engine,
 		module:              module,
 		eventCh:             eventCh,
 		executionFinishedCh: executionFinishedCh,
@@ -429,4 +434,183 @@ func TestEngine_UserLog_LogEventCheckFailure_KeepsDraining(t *testing.T) { //nol
 		assert.Contains(c, lines, "first line")
 		assert.Contains(c, lines, "second line")
 	}, 5*time.Second, 50*time.Millisecond)
+}
+
+// failingAcknowledger rejects every ACK, to exercise the logging when ACKing a denied event fails.
+type failingAcknowledger struct{ err error }
+
+func (a failingAcknowledger) Ack(context.Context, string, string, string) error { return a.err }
+
+// deliveryLog is the part of a trigger delivery log line that callers alert and query on.
+type deliveryLog struct {
+	Level  zapcore.Level
+	Msg    string
+	Fields map[string]any
+}
+
+// deliveryLogKeys are the fields pinned on every trigger delivery log line.
+var deliveryLogKeys = []string{"triggerID", "eventID", "err"}
+
+// deliveryLogMsgs are every message the legacy engine logs when it does not enqueue a trigger event.
+var deliveryLogMsgs = map[string]bool{
+	"Trigger event cached for failover, not enqueuing":          true,
+	"failed to ACK trigger after admission denial":              true,
+	"Failed to put routed trigger event":                        true,
+	"Engine is draining, dropping trigger event before enqueue": true,
+	"Dropping trigger event: engine draining":                   true,
+}
+
+// deliveryLogs returns the trigger delivery log lines observed so far, keeping only the pinned fields.
+func deliveryLogs(logs *observer.ObservedLogs) []deliveryLog {
+	var got []deliveryLog
+	for _, entry := range logs.All() {
+		if !deliveryLogMsgs[entry.Message] {
+			continue
+		}
+		ctx := entry.ContextMap()
+		fields := map[string]any{}
+		for _, key := range deliveryLogKeys {
+			if v, ok := ctx[key]; ok {
+				fields[key] = v
+			}
+		}
+		got = append(got, deliveryLog{Level: entry.Level, Msg: entry.Message, Fields: fields})
+	}
+	return got
+}
+
+// TestEngine_TriggerDeliveryLogging pins the log lines the legacy engine emits for each outcome of
+// delivering a trigger event: the level, the message and the triggerID/eventID/err fields. These lines
+// are what log-based alerts match on, so the trigger coordinator is held to the same contract.
+func TestEngine_TriggerDeliveryLogging(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+	const (
+		triggerID = "id_0"
+		eventID   = "event_delivery_logging"
+	)
+	errAck := errors.New("ack failed")
+
+	tests := []struct {
+		name         string
+		admissionErr error
+		ackErr       error
+		drain        bool
+		want         []deliveryLog
+	}{
+		{
+			name: "admitted",
+		},
+		{
+			name:         "cached for failover",
+			admissionErr: v2.ErrAdmissionCache,
+			want: []deliveryLog{
+				{
+					Level:  zapcore.InfoLevel,
+					Msg:    "Trigger event cached for failover, not enqueuing",
+					Fields: map[string]any{"triggerID": triggerID, "eventID": eventID},
+				},
+				{
+					Level:  zapcore.ErrorLevel,
+					Msg:    "Failed to put routed trigger event",
+					Fields: map[string]any{"triggerID": triggerID, "eventID": eventID, "err": v2.ErrAdmissionCache.Error()},
+				},
+			},
+		},
+		{
+			name:         "denied not owner",
+			admissionErr: v2.ErrShardDeniedNotOwner,
+			want: []deliveryLog{
+				{
+					Level:  zapcore.ErrorLevel,
+					Msg:    "Failed to put routed trigger event",
+					Fields: map[string]any{"triggerID": triggerID, "eventID": eventID, "err": v2.ErrShardDeniedNotOwner.Error()},
+				},
+			},
+		},
+		{
+			name:         "denied orchestrator error",
+			admissionErr: v2.ErrShardDeniedOrchestrator,
+			want: []deliveryLog{
+				{
+					Level:  zapcore.ErrorLevel,
+					Msg:    "Failed to put routed trigger event",
+					Fields: map[string]any{"triggerID": triggerID, "eventID": eventID, "err": v2.ErrShardDeniedOrchestrator.Error()},
+				},
+			},
+		},
+		{
+			name:         "denied and ACK fails",
+			admissionErr: v2.ErrShardDeniedNotOwner,
+			ackErr:       errAck,
+			want: []deliveryLog{
+				{
+					Level:  zapcore.ErrorLevel,
+					Msg:    "failed to ACK trigger after admission denial",
+					Fields: map[string]any{"eventID": eventID, "err": errAck.Error()},
+				},
+				{
+					Level:  zapcore.ErrorLevel,
+					Msg:    "Failed to put routed trigger event",
+					Fields: map[string]any{"triggerID": triggerID, "eventID": eventID, "err": v2.ErrShardDeniedNotOwner.Error()},
+				},
+			},
+		},
+		{
+			name:  "draining",
+			drain: true,
+			want: []deliveryLog{
+				{
+					Level:  zapcore.InfoLevel,
+					Msg:    "Engine is draining, dropping trigger event before enqueue",
+					Fields: map[string]any{"triggerID": triggerID, "eventID": eventID},
+				},
+				{
+					Level:  zapcore.InfoLevel,
+					Msg:    "Dropping trigger event: engine draining",
+					Fields: map[string]any{"triggerID": triggerID, "eventID": eventID},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests { //nolint:paralleltest // shares the package-level beholder singleton
+		t.Run(tc.name, func(t *testing.T) {
+			admitted := tc.admissionErr == nil && !tc.drain
+
+			// Only an admitted event reaches metering, so the drop paths expect no billing calls.
+			billingClient := metmocks.NewBillingClient(t)
+			if admitted {
+				billingClient = setupMockBillingClient(t)
+			}
+
+			var logs *observer.ObservedLogs
+			harness := newDropPathHarness(t, billingClient, func(cfg *v2.EngineConfig) {
+				cfg.Lggr, logs = logger.TestObserved(t, zapcore.DebugLevel)
+				cfg.Hooks.OnTriggerAdmission = func(context.Context, triggers.CoordinatedEvent) error {
+					return tc.admissionErr
+				}
+				if tc.ackErr != nil {
+					cfg.TriggerAcknowledger = failingAcknowledger{err: tc.ackErr}
+				}
+			})
+			if tc.drain {
+				require.True(t, harness.engine.Drain())
+			}
+			if admitted {
+				harness.module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(nil, nil).Once()
+			}
+
+			harness.eventCh <- capabilities.TriggerResponse{
+				Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: eventID},
+			}
+
+			if admitted {
+				require.NotEmpty(t, <-harness.executionFinishedCh)
+				assert.Empty(t, deliveryLogs(logs), "an admitted event logs no delivery drop")
+				return
+			}
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				assert.Equal(c, tc.want, deliveryLogs(logs))
+			}, 5*time.Second, 25*time.Millisecond)
+		})
+	}
 }
