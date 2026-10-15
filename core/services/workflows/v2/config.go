@@ -74,7 +74,7 @@ type EngineConfig struct {
 	// MeterRecordsEnabled emits a cre:workflow:compute usage record per execution.
 	MeterRecordsEnabled bool
 	UsageIdentity       resourcemanager.ResourceIdentity
-	// UsageEmitter overrides beholder's emitter; nil uses beholder.GetEmitter().
+	// UsageEmitter overrides the global durable emitter.
 	UsageEmitter resourcemanager.Emitter
 
 	// includes additional logging of events internal to user workflows

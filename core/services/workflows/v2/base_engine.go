@@ -21,11 +21,11 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
@@ -192,7 +192,11 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 	if cfg.MeterRecordsEnabled {
 		emitter := cfg.UsageEmitter
 		if emitter == nil {
-			emitter = beholder.GetEmitter()
+			if d := durableemitter.GetGlobalEmitter(); d != nil {
+				emitter = d
+			} else {
+				beholderLogger.Errorw("Compute usage metering enabled but no durable emitter is configured; compute usage records will not be delivered")
+			}
 		}
 		engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: true, Emitter: emitter})
 	}
