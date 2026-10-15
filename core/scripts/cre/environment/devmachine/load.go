@@ -29,5 +29,5 @@ docker images`,
 		jdTar, o.cfg.Images.JobDistributor, o.cfg.Images.JDLoadTag, clTar)
 
 	o.rep.Info("loading images on %s", o.cfg.SSH.Alias)
-	return o.run.Stream(ctx, "ssh", o.cfg.SSH.Alias, script)
+	return o.run.Stream(ctx, "ssh", "-o", "StrictHostKeyChecking=accept-new", o.cfg.SSH.Alias, script)
 }

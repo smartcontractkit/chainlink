@@ -37,8 +37,8 @@ func (o *Orchestrator) Transfer(ctx context.Context) error {
 	files = append(files, filepath.Join(cache, "remote-agent"))
 	files = append(files, tars...)
 
-	args := make([]string, 0, 2+len(files)+1)
-	args = append(args, "-avz", "--progress")
+	args := make([]string, 0, 4+len(files)+1)
+	args = append(args, "-avz", "--progress", "-e", "ssh -o StrictHostKeyChecking=accept-new")
 	args = append(args, files...)
 	args = append(args, o.cfg.SSH.Alias+":~/")
 

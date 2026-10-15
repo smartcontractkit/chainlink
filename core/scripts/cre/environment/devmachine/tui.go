@@ -109,11 +109,32 @@ func (m tuiModel) View() string {
 	return b.String()
 }
 
+// tuiWriter forwards subprocess output into the TUI as log lines.
+type tuiWriter struct {
+	ch chan<- tea.Msg
+}
+
+func (w tuiWriter) Write(p []byte) (int, error) {
+	s := strings.ReplaceAll(string(p), "\r", "\n")
+	for line := range strings.SplitSeq(s, "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		w.ch <- tuiMessage{kind: "info", text: line}
+	}
+	return len(p), nil
+}
+
 // runTUI drives phases from..to inside a Bubble Tea program and returns the
 // orchestrator error (if any).
 func runTUI(ctx context.Context, o *Orchestrator, from, to phaseID) error {
 	ch := make(chan tea.Msg, 256)
 	o.rep = &tuiReporter{ch: ch}
+
+	prevOut, prevErr := o.run.Out, o.run.Err
+	w := tuiWriter{ch: ch}
+	o.run.Out, o.run.Err = w, w
+	defer func() { o.run.Out, o.run.Err = prevOut, prevErr }()
 
 	p := tea.NewProgram(newTUIModel(ch), tea.WithContext(ctx))
 	go func() {

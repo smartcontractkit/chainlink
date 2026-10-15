@@ -44,6 +44,9 @@ func (o *Orchestrator) Preflight(ctx context.Context) error {
 	if err := o.resolveNaming(); err != nil {
 		return err
 	}
+	if err := o.checkSSHKey(ctx); err != nil {
+		return err
+	}
 	return o.save()
 }
 
@@ -344,4 +347,55 @@ func outputSaysYes(out string) bool {
 		}
 	}
 	return false
+}
+
+// checkSSHKey makes sure the configured private key exists and is loaded into
+// the ssh-agent. We never prompt for or store passphrases, so the key must be
+// usable non-interactively (e.g. added with ssh-add or held on a hardware key).
+func (o *Orchestrator) checkSSHKey(ctx context.Context) error {
+	keyPath := ExpandPath(o.cfg.SSH.Key)
+	if _, err := os.Stat(keyPath); err != nil {
+		return errors.Errorf("SSH key %s not found; set --ssh-key or generate one", keyPath)
+	}
+	if o.run.DryRun {
+		fmt.Fprintf(o.run.Out, "[dry-run] verify %s is loaded in ssh-agent\n", keyPath)
+		return nil
+	}
+
+	fingerprint := o.keyFingerprint(ctx, keyPath)
+	if fingerprint != "" {
+		if out, err := o.run.Run(ctx, "ssh-add", "-l"); err == nil && strings.Contains(out, fingerprint) {
+			o.rep.Info("ssh-agent has key %s", fingerprint)
+			return nil
+		}
+	}
+
+	if o.opts.Yes {
+		return errors.Errorf("SSH key %s is not loaded in ssh-agent; run 'ssh-add %s' first (passphrases are not handled by this tool)", keyPath, keyPath)
+	}
+
+	o.rep.Info("SSH key %s not in ssh-agent, adding it now", keyPath)
+	if err := o.run.Stream(ctx, "ssh-add", keyPath); err != nil {
+		return errors.Wrapf(err, "failed to add SSH key %s to ssh-agent", keyPath)
+	}
+	return nil
+}
+
+// keyFingerprint returns the SHA256 fingerprint of the key's public half, or ""
+// if it cannot be determined without a passphrase.
+func (o *Orchestrator) keyFingerprint(ctx context.Context, keyPath string) string {
+	pub := keyPath + ".pub"
+	if _, err := os.Stat(pub); err != nil {
+		return ""
+	}
+	out, err := o.run.Run(ctx, "ssh-keygen", "-lf", pub)
+	if err != nil {
+		return ""
+	}
+	for field := range strings.FieldsSeq(out) {
+		if strings.HasPrefix(field, "SHA256:") {
+			return field
+		}
+	}
+	return ""
 }
