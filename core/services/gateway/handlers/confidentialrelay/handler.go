@@ -106,28 +106,23 @@ func (h *handler) extractRequestLabels(req jsonrpc.Request[json.RawMessage]) req
 	return labels
 }
 
-// requestShardSelector is the shard-routing field both relay methods' params carry.
-// Unlike requestLabels, decoding this is not best-effort: a request that omits it, or
-// names a shard the handler does not have, is rejected rather than silently routed to
-// shard 0, since 0 is itself a valid shard and must not be indistinguishable from "not
-// set."
+// requestShardSelector is the shard-routing field both relay methods' params carry. A
+// request that omits it defaults to shard 0.
 type requestShardSelector struct {
-	ShardIndex *int `json:"shard_index"`
+	ShardIndex int `json:"shard_index"`
 }
 
-// extractShardIndex decodes the caller-selected shard index out of a request's params.
+// extractShardIndex decodes the caller-selected shard index out of a request's params,
+// defaulting to 0 if params is absent or does not carry the field.
 func extractShardIndex(req jsonrpc.Request[json.RawMessage]) (int, error) {
 	if req.Params == nil {
-		return 0, errors.New("shard_index is required")
+		return 0, nil
 	}
 	var sel requestShardSelector
 	if err := json.Unmarshal(*req.Params, &sel); err != nil {
 		return 0, fmt.Errorf("could not decode shard_index: %w", err)
 	}
-	if sel.ShardIndex == nil {
-		return 0, errors.New("shard_index is required")
-	}
-	return *sel.ShardIndex, nil
+	return sel.ShardIndex, nil
 }
 
 // shardAt resolves a caller-selected shard index to the shard it names.

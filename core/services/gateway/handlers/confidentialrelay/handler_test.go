@@ -1297,7 +1297,7 @@ func setupMultiShardHandler(t *testing.T, f int, shardSizes ...int) (*handler, *
 func capParamsForShard(t *testing.T, workflowID string, shardIndex int) json.RawMessage {
 	t.Helper()
 	params := validCapParams(workflowID)
-	params.ShardIndex = new(shardIndex)
+	params.ShardIndex = shardIndex
 	raw, err := json.Marshal(params)
 	require.NoError(t, err)
 	return raw
@@ -1355,9 +1355,12 @@ func TestConfidentialRelayHandler_Sharded_RoutesToSelectedShardOnly(t *testing.T
 	require.Nil(t, h.getActiveRequest(req.ID))
 }
 
-func TestConfidentialRelayHandler_ShardIndexMissing(t *testing.T) {
+// A request that omits shard_index defaults to shard 0: fan-out reaches only shard 0's
+// connection manager, never shard 1's.
+func TestConfidentialRelayHandler_ShardIndexMissingDefaultsToShardZero(t *testing.T) {
 	t.Parallel()
-	h, cb, _, _ := setupHandler(t, 4)
+	h, cb, conns, _ := setupMultiShardHandler(t, 1, 4, 4)
+	conns[0].On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
@@ -1366,8 +1369,26 @@ func TestConfidentialRelayHandler_ShardIndexMissing(t *testing.T) {
 		Params: &params,
 	}
 
-	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
-	require.EqualError(t, err, "shard_index is required")
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+
+	result := relaytypes.CapabilityResponseResult{Payload: "result"}
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		resp, err := cb.Wait(t.Context())
+		if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+			return
+		}
+		assert.Equal(t, api.NoError, resp.ErrorCode)
+	})
+
+	// Shard 0 is nodes 0x0000-0x0003; reaching 3 signed responses hits 2F+1 there.
+	for i := range 3 {
+		require.NoError(t, h.HandleNodeMessage(t.Context(),
+			capExecSignedRespPtr(t, req.ID, result, fmt.Appendf(nil, "signer-%d", i)),
+			fmt.Sprintf("0x%04d", i)))
+	}
+	wg.Wait()
+	require.Nil(t, h.getActiveRequest(req.ID))
 }
 
 func TestConfidentialRelayHandler_ShardIndexOutOfRange(t *testing.T) {
