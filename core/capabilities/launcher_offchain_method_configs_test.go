@@ -69,7 +69,8 @@ func offchainMethodCfg(t *testing.T, version uint64, donName string, capID strin
 	raw, err := protojson.Marshal(reg)
 	require.NoError(t, err)
 	gc := globalconfig.New()
-	require.NoError(t, gc.Store(globalconfig.Update{Raw: string(raw)}))
+	_, err = gc.Store(string(raw), "")
+	require.NoError(t, err)
 	return gc
 }
 

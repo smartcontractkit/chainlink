@@ -18,7 +18,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
@@ -109,8 +108,7 @@ type Opts struct {
 	ShardAssignmentSettings *loop.AtomicSettings
 
 	// OffchainCapabilitiesRegistry holds the offchain capabilities registry config delivered
-	// via the cresettings job (config_type=capabilities_registry). The LocalCapabilityManager
-	// cross-validates it against the on-chain registry (Phase 2, telemetry only).
+	// via the cresettings job (config_type=capabilities_registry). Read by the Launcher.
 	OffchainCapabilitiesRegistry *globalconfig.GlobalConfig
 }
 
@@ -239,7 +237,8 @@ func (s *Services) newSubservices(
 				opts.CapabilitiesRegistry,
 				opts.ExecutionHandlers,
 				keyStore.P2P(),
-				confidentialRelayPeerID(cfg, capCfg),
+				// [P2P].PeerID is not set on any node in practice; GetOrFirst falls back to the node's single P2P key.
+				cfg.P2P().PeerID(),
 				lggr,
 				opts.LimitsFactory,
 				attestationValidator,
@@ -339,15 +338,6 @@ func (s *Services) newSubservices(
 	srvs = append(srvs, wfSyncerSrvcs...)
 
 	return srvs, nil
-}
-
-// Same peerID resolution pattern as core/services/standardcapabilities/delegate.go: prefer a
-// configured peerID, fall through to GetOrFirst(zero) so single-key nodes still resolve cleanly.
-func confidentialRelayPeerID(cfg Config, capCfg config.Capabilities) p2pkey.PeerID {
-	if id := capCfg.Peering().PeerID(); id != (p2pkey.PeerID{}) {
-		return id
-	}
-	return cfg.P2P().PeerID()
 }
 
 // Config is the minimal interface needed from GeneralConfig for CRE
@@ -516,13 +506,10 @@ func (s *Services) newRegistrySyncer(
 	}
 	srvcs = append(srvcs, wfLauncher)
 
-	// Wire the offchain capabilities registry into the launcher so its method_configs
-	// overlay onto the on-chain ones under the same UseOffchainRegistry gate the
-	// LocalCapabilityManager uses below.
-	wfLauncher.SetOffchainRegistry(opts.OffchainCapabilitiesRegistry, capCfg.Local().UseOffchainRegistry())
+	localCfg := cfg.Capabilities().Local()
+	wfLauncher.SetOffchainRegistry(opts.OffchainCapabilitiesRegistry, localCfg != nil && localCfg.UseOffchainRegistry())
 
 	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
-	localCfg := cfg.Capabilities().Local()
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
 		// Both delegates are wired into a single LocalCapabilityManager.
 		// The newServicesFn routes to the correct delegate based on the capability ID:
@@ -545,7 +532,7 @@ func (s *Services) newRegistrySyncer(
 				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), oracleFactoryConfig, donID, ocr3Config)
 			}
 
-			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn, opts.OffchainCapabilitiesRegistry, localCfg.UseOffchainRegistry())
+			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn, localCfg.UseOffchainRegistry())
 			if lcmErr != nil {
 				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}

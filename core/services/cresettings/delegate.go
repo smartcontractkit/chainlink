@@ -66,19 +66,19 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 
 	switch configType {
 	case ConfigTypeCapRegistry:
+		var version uint64
 		payload, err := extractOffchainConfig(spec.Settings)
 		if err == nil {
-			err = d.capRegistry.Store(globalconfig.Update{Raw: payload, Hash: spec.Hash})
+			version, err = d.capRegistry.Store(payload, spec.Hash)
 		}
 		domain, env := globalconfig.PayloadLabels(payload)
 		if err != nil {
-			d.capRegMetrics.RecordApplyError(ctx, domain, env)
+			d.capRegMetrics.RecordValidationError(ctx, domain, env)
 			d.activeJobIDs.CompareAndDelete(configType, j.ID)
 			return nil, fmt.Errorf("failed to store capabilities registry config: %w", err)
 		}
-		_, version := d.capRegistry.Load()
 		d.capRegMetrics.RecordAppliedVersion(ctx, domain, env, version)
-		d.lggr.Infow("Updated capabilities registry config", "hash", spec.Hash, "version", version)
+		d.lggr.Infow("Updated capabilities registry config", "hash", spec.Hash, "offchainVersion", version)
 
 	case ConfigTypeShardAssignment:
 		if err := d.shardAssignmentSettings.Store(core.SettingsUpdate{
@@ -108,10 +108,10 @@ func (d *delegate) BeforeJobDeleted(j job.Job) {}
 
 func (d *delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 	configType := d.configType(jb.CRESettingsSpec)
+	// A deleted capabilities_registry job keeps its payload applied: JD replaces a job by deleting
+	// and re-creating it, and clearing in between would briefly launch capabilities without config.
 	if !d.activeJobIDs.CompareAndDelete(configType, jb.ID) {
 		d.lggr.Errorf("job %d was not the active %s job for config_type %q", jb.ID, job.CRESettings, configType)
-	} else if configType == ConfigTypeCapRegistry {
-		d.capRegistry.Clear()
 	}
 	return nil
 }

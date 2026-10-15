@@ -24,12 +24,8 @@ type DonFamilyGatewayPair struct {
 type gatewayDonFamilyPairingState struct {
 	gatewayDONNamesByFamily  map[string][]string // don_family → gateway nodesets.name
 	workflowDONNamesByFamily map[string][]string // don_family → workflow nodesets.name
-	// unscopedGatewayDONs are gateway DONs without don_families. They are not
-	// family-scoped - gateways are reached over public URLs, not by don-family
-	// routing - so they pair with every workflow DON (see
-	// buildDonFamilyPairingState).
-	unscopedGatewayDONs []string
-	pairs               []DonFamilyGatewayPair
+	unscopedGatewayDONs      []string
+	pairs                    []DonFamilyGatewayPair
 }
 
 // initDonFamilyGatewayPairing validates gateway↔workflow don_family wiring when the topology
@@ -84,8 +80,6 @@ func (t *Topology) ensureGatewayConnectorIndex() {
 // A workflow DON is paired with a gateway DON if they share ANY don_family, not
 // just their primary (first) one. Both maps are keyed by every family a DON
 // belongs to, so a DON with N families can be discovered/paired via any of them.
-// A gateway DON without don_families is not family-scoped (gateways are reached
-// over public URLs, not by don-family routing) and pairs with every workflow DON.
 func (t *Topology) buildDonFamilyPairingState() (*gatewayDonFamilyPairingState, error) {
 	wfDONs, err := t.DonsMetadata.WorkflowDONs()
 	if err != nil {
@@ -102,9 +96,6 @@ func (t *Topology) buildDonFamilyPairingState() (*gatewayDonFamilyPairingState, 
 			continue
 		}
 		if len(d.DonFamilies) == 0 {
-			// A gateway without don_families is not family-scoped: it pairs with
-			// every workflow DON below (gateways are reached over public URLs,
-			// not by don-family routing).
 			state.unscopedGatewayDONs = append(state.unscopedGatewayDONs, d.Name)
 			continue
 		}
@@ -133,10 +124,6 @@ func (t *Topology) buildDonFamilyPairingState() (*gatewayDonFamilyPairingState, 
 				})
 			}
 		}
-		// Gateways without don_families are not family-scoped, so they pair with
-		// every workflow DON. The pair's family is the workflow DON's primary
-		// family - it is informational only (used in summaries); unscoped
-		// gateways route on nothing.
 		for _, gwName := range state.unscopedGatewayDONs {
 			if _, ok := pairedGateways[gwName]; ok {
 				continue
@@ -206,8 +193,6 @@ func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnec
 		return GatewayConnectors{}
 	}
 
-	// Gateways without don_families are not family-scoped, so they are reachable
-	// from every family and included in every lookup.
 	gatewayNames := slices.Clone(t.gatewayDonFamilyPairing.gatewayDONNamesByFamily[donFamily])
 	gatewayNames = append(gatewayNames, t.gatewayDonFamilyPairing.unscopedGatewayDONs...)
 
@@ -220,15 +205,6 @@ func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnec
 	return GatewayConnectors{Configurations: configs}
 }
 
-// GatewayConnectorsForCapabilitiesDon returns gateway connector configs for a capabilities DON
-// (e.g. a shared vault DON) by ANY don_family it shares with a workflow DON that is already
-// paired with a gateway — mirroring buildDonFamilyPairingState, which pairs by ANY shared
-// family, not just the primary one. A shared capabilities DON may belong only to per-shard
-// families while the gateway belongs to the common one, so a primary-family lookup
-// (GatewayConnectorsForDonFamily) can return nothing even though a gateway is reachable
-// through the paired workflow DONs. Without a connector the capabilities DON's nodes get an
-// empty [Capabilities.GatewayConnector].Gateways and the gateway cannot forward user
-// requests (e.g. vault secrets CRUD) to them.
 func (t *Topology) GatewayConnectorsForCapabilitiesDon(don *DonMetadata) GatewayConnectors {
 	if t.GatewayConnectors == nil || t.gatewayDonFamilyPairing == nil || don == nil {
 		return GatewayConnectors{}

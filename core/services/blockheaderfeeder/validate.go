@@ -43,13 +43,16 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	// Required fields
 	if spec.CoordinatorV1Address != nil && spec.CoordinatorV1Address.Hex() != emptyCoordinatorAddress {
 		return jb, errors.New(
-			`coordinatorV1Address is no longer supported; use coordinatorV2Address or coordinatorV2PlusAddress`)
+			`coordinatorV1Address is no longer supported; use coordinatorV2PlusAddress`)
 	}
-	hasV2 := spec.CoordinatorV2Address != nil && spec.CoordinatorV2Address.Hex() != emptyCoordinatorAddress
-	hasV2Plus := spec.CoordinatorV2PlusAddress != nil && spec.CoordinatorV2PlusAddress.Hex() != emptyCoordinatorAddress
-	if !hasV2 && !hasV2Plus {
+	if spec.CoordinatorV2Address != nil && spec.CoordinatorV2Address.Hex() != emptyCoordinatorAddress {
 		return jb, errors.New(
-			`at least one of "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`)
+			`coordinatorV2Address is no longer supported; use coordinatorV2PlusAddress`)
+	}
+	hasV2Plus := spec.CoordinatorV2PlusAddress != nil && spec.CoordinatorV2PlusAddress.Hex() != emptyCoordinatorAddress
+	if !hasV2Plus {
+		return jb, errors.New(
+			`"coordinatorV2PlusAddress" must be set`)
 	}
 	if spec.BlockhashStoreAddress == "" {
 		return jb, notSet("blockhashStoreAddress")

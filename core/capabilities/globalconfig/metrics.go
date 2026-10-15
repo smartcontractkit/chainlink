@@ -16,7 +16,6 @@ import (
 const (
 	MetricAppliedVersion   = "platform_cap_config_applied_version"
 	MetricValidationErrors = "platform_cap_config_validation_errors_total"
-	MetricApplyErrors      = "platform_cap_config_apply_errors_total"
 
 	labelDomain = "domain"
 	labelEnv    = "env"
@@ -27,7 +26,6 @@ const (
 type Metrics struct {
 	appliedVersion   metric.Int64Gauge
 	validationErrors metric.Int64Counter
-	applyErrors      metric.Int64Counter
 }
 
 // NewMetrics registers the metrics on meter.
@@ -42,12 +40,7 @@ func NewMetrics(meter metric.Meter) (*Metrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	applyErrors, err := meter.Int64Counter(MetricApplyErrors,
-		metric.WithDescription("Failures applying committed offchain capabilities registry config"))
-	if err != nil {
-		return nil, err
-	}
-	return &Metrics{appliedVersion: appliedVersion, validationErrors: validationErrors, applyErrors: applyErrors}, nil
+	return &Metrics{appliedVersion: appliedVersion, validationErrors: validationErrors}, nil
 }
 
 var defaultMetrics = sync.OnceValue(func() *Metrics {
@@ -74,20 +67,12 @@ func (m *Metrics) RecordAppliedVersion(ctx context.Context, domain, env string, 
 }
 
 // RecordValidationError counts a payload rejected by validation (malformed, or not newer than
-// the committed version).
+// the applied version).
 func (m *Metrics) RecordValidationError(ctx context.Context, domain, env string) {
 	if m == nil {
 		return
 	}
 	m.validationErrors.Add(ctx, 1, labels(domain, env))
-}
-
-// RecordApplyError counts a failure to bring the runtime config in line with committed state.
-func (m *Metrics) RecordApplyError(ctx context.Context, domain, env string) {
-	if m == nil {
-		return
-	}
-	m.applyErrors.Add(ctx, 1, labels(domain, env))
 }
 
 // PayloadLabels extracts domain and env from a payload for metric labels. It is best-effort and

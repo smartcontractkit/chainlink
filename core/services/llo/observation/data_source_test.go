@@ -179,7 +179,10 @@ func (m *mockTelemeter) GetOutcomeTelemetryCh() chan<- *lloprotocol.LLOOutcomeTe
 	return nil
 }
 func (m *mockTelemeter) GetReportTelemetryCh() chan<- *lloprotocol.LLOReportTelemetry { return nil }
-func (m *mockTelemeter) CaptureEATelemetry() bool                                     { return true }
+func (m *mockTelemeter) GetAttributedObservationTelemetryCh() chan<- *lloprotocol.LLOAttributedObservationTelemetry {
+	return nil
+}
+func (m *mockTelemeter) CaptureEATelemetry() bool { return true }
 
 func (m *mockTelemeter) CaptureObservationTelemetry() bool { return true }
 

@@ -267,21 +267,6 @@ GlobalBurst = 200
 PerSenderRPS = 200.0
 PerSenderBurst = 200
 
-[Capabilities.Peering]
-IncomingMessageBufferSize = 13
-OutgoingMessageBufferSize = 17
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
-TraceLogging = true
-EnableExperimentalRageP2P = true
-
-[Capabilities.Peering.V2]
-Enabled = false
-AnnounceAddresses = ['a', 'b', 'c']
-DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
-DeltaDial = '1m0s'
-DeltaReconcile = '2s'
-ListenAddresses = ['foo', 'bar']
-
 [Capabilities.SharedPeering]
 Enabled = false
 Bootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
@@ -355,13 +340,6 @@ URL = 'wss://localhost:8081/node'
 [Capabilities.Local]
 RegistryBasedLaunchAllowlist = ['^cron@1\.0\.0$', '^http-action@.*$']
 UseOffchainRegistry = true
-
-[Capabilities.Local.Capabilities]
-[Capabilities.Local.Capabilities.'cron@1.0.0']
-BinaryPathOverride = '/opt/chainlink/binaries/cron'
-
-[Capabilities.Local.Capabilities.'http-action@1.0.0']
-BinaryPathOverride = '/opt/chainlink/binaries/http_action'
 
 [Telemetry]
 Enabled = true

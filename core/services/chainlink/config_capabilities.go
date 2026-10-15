@@ -19,10 +19,6 @@ type capabilitiesConfig struct {
 	c toml.Capabilities
 }
 
-func (c *capabilitiesConfig) Peering() config.P2P {
-	return &p2p{c: c.c.Peering}
-}
-
 func (c *capabilitiesConfig) SharedPeering() config.SharedPeering {
 	return &sharedPeering{s: c.c.SharedPeering}
 }
@@ -414,17 +410,6 @@ func (l *localCapabilities) UseOffchainRegistry() bool {
 	return l.c.UseOffchainRegistry != nil && *l.c.UseOffchainRegistry
 }
 
-func (l *localCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
-	if l.c.Capabilities == nil {
-		return nil
-	}
-	result := make(map[string]config.CapabilityNodeConfig, len(l.c.Capabilities))
-	for k, v := range l.c.Capabilities {
-		result[k] = &capabilityNodeConfig{c: v}
-	}
-	return result
-}
-
 func (l *localCapabilities) compileRegexes() {
 	l.compiledRegexes = make([]*regexp.Regexp, 0, len(l.c.RegistryBasedLaunchAllowlist))
 	for _, pattern := range l.c.RegistryBasedLaunchAllowlist {
@@ -444,27 +429,4 @@ func (l *localCapabilities) IsAllowlisted(capabilityID string) bool {
 		}
 	}
 	return false
-}
-
-func (l *localCapabilities) GetCapabilityConfig(capabilityID string) config.CapabilityNodeConfig {
-	if l.c.Capabilities == nil {
-		return nil
-	}
-	if c, ok := l.c.Capabilities[capabilityID]; ok {
-		return &capabilityNodeConfig{c: c}
-	}
-	return nil
-}
-
-var _ config.CapabilityNodeConfig = (*capabilityNodeConfig)(nil)
-
-type capabilityNodeConfig struct {
-	c toml.CapabilityNodeConfig
-}
-
-func (c *capabilityNodeConfig) BinaryPathOverride() string {
-	if c.c.BinaryPathOverride == nil {
-		return ""
-	}
-	return *c.c.BinaryPathOverride
 }

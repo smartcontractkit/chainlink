@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -29,13 +28,10 @@ const (
 	// VRF-only events.
 	randomWordsRequestedV2Plus string = "RandomWordsRequested"
 	randomWordsFulfilledV2Plus string = "RandomWordsFulfilled"
-	randomWordsRequestedV2     string = "RandomWordsRequested"
-	randomWordsFulfilledV2     string = "RandomWordsFulfilled"
 )
 
 var (
 	vrfCoordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalMetaData.ABI)
-	vrfCoordinatorV2ABI     = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2MetaData.ABI)
 
 	_     Coordinator = &TestCoordinator{}
 	_     BHS         = &TestBHS{}
@@ -402,105 +398,6 @@ func (test testCase) testFeeder(t *testing.T) {
 	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.Collect(maps.Keys(feeder.stored)))
 }
 
-func TestFeederWithLogPollerVRFv2(t *testing.T) {
-	for _, test := range tests {
-		t.Run(test.name, test.testFeederWithLogPollerVRFv2)
-	}
-}
-
-func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
-	coordinatorAddress := common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
-
-	// Instantiate log poller & coordinator.
-	lp := &lpmocks.LogPoller{}
-	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-	c, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, nil)
-	require.NoError(t, err)
-	coordinator := &V2Coordinator{
-		c:  c,
-		lp: lp,
-	}
-
-	// Assert search window.
-	latest := int64(test.latest) //nolint:gosec // G115
-	fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
-	toBlock := mathutil.Max(latest-int64(test.wait), 0)
-
-	// Construct request logs.
-	var requestLogs []logpoller.Log
-	for _, r := range test.requests {
-		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) { //nolint:gosec // G115: fromBlock/toBlock are non-negative (clamped below)
-			continue // do not include blocks outside our search window
-		}
-		reqID, ok := big.NewInt(0).SetString(r.ID, 10)
-		require.True(t, ok)
-		requestLogs = append(
-			requestLogs,
-			newRandomnessRequestedLogV2(t, r.Block, reqID, coordinatorAddress),
-		)
-	}
-
-	// Construct fulfillment logs.
-	fulfillmentLogs := make([]logpoller.Log, 0, len(test.fulfillments))
-	for _, r := range test.fulfillments {
-		reqID, ok := big.NewInt(0).SetString(r.ID, 10)
-		require.True(t, ok)
-		fulfillmentLogs = append(
-			fulfillmentLogs,
-			newRandomnessFulfilledLogV2(t, r.Block, reqID, coordinatorAddress),
-		)
-	}
-
-	// Mock log poller.
-	lp.On("LatestBlock", mock.Anything).
-		Return(logpoller.Block{BlockNumber: latest}, nil)
-	lp.On(
-		"LogsWithSigs",
-		mock.Anything,
-		fromBlock,
-		toBlock,
-		[]common.Hash{
-			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
-		},
-		coordinatorAddress,
-	).Return(requestLogs, nil)
-	lp.On(
-		"LogsWithSigs",
-		mock.Anything,
-		fromBlock,
-		latest,
-		[]common.Hash{
-			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
-		},
-		coordinatorAddress,
-	).Return(fulfillmentLogs, nil)
-
-	// Instantiate feeder.
-	feeder := NewFeeder(
-		logger.TestLogger(t),
-		coordinator,
-		&test.bhs,
-		lp,
-		0,
-		test.wait,
-		test.lookback,
-		600*time.Second,
-		func(ctx context.Context) (uint64, error) {
-			return test.latest, nil
-		},
-	)
-
-	// Run feeder and assert correct results.
-	err = feeder.Run(t.Context())
-	if test.expectedErrMsg == "" {
-		require.NoError(t, err)
-	} else {
-		require.EqualError(t, err, test.expectedErrMsg)
-	}
-	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.Collect(maps.Keys(feeder.stored)))
-}
-
 func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, test.testFeederWithLogPollerVRFv2Plus)
@@ -638,147 +535,6 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 	}
 	require.NoError(t, feeder.Run(t.Context()))
 	require.Empty(t, feeder.stored)
-}
-
-func newRandomnessRequestedLogV2(
-	t *testing.T,
-	requestBlock uint64,
-	requestID *big.Int,
-	coordinatorAddress common.Address,
-) logpoller.Log {
-	e := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
-		RequestId:                   requestID,
-		PreSeed:                     big.NewInt(0),
-		MinimumRequestConfirmations: 0,
-		CallbackGasLimit:            0,
-		NumWords:                    0,
-		Sender:                      common.HexToAddress("0xeFF41C8725be95e66F6B10489B6bF34b08055853"),
-		Raw: types.Log{
-			BlockNumber: requestBlock,
-		},
-	}
-	var unindexed abi.Arguments
-	for _, a := range vrfCoordinatorV2ABI.Events[randomWordsRequestedV2].Inputs {
-		if !a.Indexed {
-			unindexed = append(unindexed, a)
-		}
-	}
-	nonIndexedData, err := unindexed.Pack(
-		e.RequestId,
-		e.PreSeed,
-		e.MinimumRequestConfirmations,
-		e.CallbackGasLimit,
-		e.NumWords,
-	)
-	require.NoError(t, err)
-
-	keyHashType, err := abi.NewType("bytes32", "", nil)
-	require.NoError(t, err)
-
-	subIDType, err := abi.NewType("uint64", "", nil)
-	require.NoError(t, err)
-
-	senderType, err := abi.NewType("address", "", nil)
-	require.NoError(t, err)
-
-	keyHashArg := abi.Arguments{abi.Argument{
-		Name:    "keyHash",
-		Type:    keyHashType,
-		Indexed: true,
-	}}
-	subIDArg := abi.Arguments{abi.Argument{
-		Name:    "subId",
-		Type:    subIDType,
-		Indexed: true,
-	}}
-
-	senderArg := abi.Arguments{abi.Argument{
-		Name:    "sender",
-		Type:    senderType,
-		Indexed: true,
-	}}
-
-	topic1, err := keyHashArg.Pack(e.KeyHash)
-	require.NoError(t, err)
-	topic2, err := subIDArg.Pack(e.SubId)
-	require.NoError(t, err)
-	topic3, err := senderArg.Pack(e.Sender)
-	require.NoError(t, err)
-
-	topic0 := vrfCoordinatorV2ABI.Events[randomWordsRequestedV2].ID
-	lg := logpoller.Log{
-		Address: coordinatorAddress,
-		Data:    nonIndexedData,
-		Topics: [][]byte{
-			// first topic is the event signature
-			topic0.Bytes(),
-			// second topic is keyHash since it's indexed
-			topic1,
-			// third topic is subId since it's indexed
-			topic2,
-			// third topic is sender since it's indexed
-			topic3,
-		},
-		BlockNumber: int64(requestBlock), //nolint:gosec // G115
-		EventSig:    topic0,
-	}
-	return lg
-}
-
-func newRandomnessFulfilledLogV2(
-	t *testing.T,
-	requestBlock uint64,
-	requestID *big.Int,
-	coordinatorAddress common.Address,
-) logpoller.Log {
-	e := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{
-		RequestId:  requestID,
-		OutputSeed: big.NewInt(0),
-		Payment:    big.NewInt(0),
-		Success:    true,
-		Raw: types.Log{
-			BlockNumber: requestBlock,
-		},
-	}
-	var unindexed abi.Arguments
-	for _, a := range vrfCoordinatorV2ABI.Events[randomWordsFulfilledV2].Inputs {
-		if !a.Indexed {
-			unindexed = append(unindexed, a)
-		}
-	}
-	nonIndexedData, err := unindexed.Pack(
-		e.OutputSeed,
-		e.Payment,
-		e.Success,
-	)
-	require.NoError(t, err)
-
-	requestIDType, err := abi.NewType("uint256", "", nil)
-	require.NoError(t, err)
-
-	requestIDArg := abi.Arguments{abi.Argument{
-		Name:    "requestId",
-		Type:    requestIDType,
-		Indexed: true,
-	}}
-
-	topic1, err := requestIDArg.Pack(e.RequestId)
-	require.NoError(t, err)
-
-	topic0 := vrfCoordinatorV2ABI.Events[randomWordsFulfilledV2].ID
-	lg := logpoller.Log{
-		Address: coordinatorAddress,
-		Data:    nonIndexedData,
-		Topics: [][]byte{
-			// first topic is the event signature
-			topic0.Bytes(),
-			// second topic is requestId since it's indexed
-			topic1,
-		},
-		BlockNumber: int64(requestBlock), //nolint:gosec // 115
-		EventSig:    topic0,
-	}
-	return lg
 }
 
 func newRandomnessRequestedLogV2Plus(
