@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -1024,6 +1025,168 @@ func Test_Server_DuplicateRequestRemainsDedupedPastRequestTimeout(t *testing.T) 
 	require.Never(t, func() bool { return dispatcher.Len() > 1 }, 100*time.Millisecond, 10*time.Millisecond)
 }
 
+func Test_Server_Receive_DoesNotBlockWhenExecutorSlotsAreFull(t *testing.T) {
+	t.Parallel()
+	capability := &blockingCapability{started: make(chan struct{}, 100), release: make(chan struct{})}
+	h := newSlotTestHarness(t, capability, time.Minute)
+
+	// exec-1 claims the only executor slot and blocks in the capability.
+	h.receiveReturns(h.newMsg("exec-1", h.requesterA))
+	<-capability.started
+
+	// Messages that cannot get a slot wait for one without blocking Receive, up to 10x the number of slots.
+	for i := range 10 {
+		h.receiveReturns(h.newMsg(fmt.Sprintf("exec-wait-%d", i), h.requesterA))
+	}
+	require.Never(t, func() bool { return h.dispatcher.Len() > 0 }, 100*time.Millisecond, 10*time.Millisecond)
+
+	// Once the wait queue is full, messages are rejected immediately.
+	h.receiveReturns(h.newMsg("exec-rejected", h.requesterA))
+	require.Eventually(t, func() bool { return h.dispatcher.Len() == 1 }, 5*time.Second, 10*time.Millisecond)
+	h.requireRejected(h.dispatcher.Sent()[0], "exec-rejected", h.requesterA)
+
+	// exec-1 from another requester does not need a slot, as the execution is already claimed.
+	h.receiveReturns(h.newMsg("exec-1", h.requesterB))
+	require.Never(t, func() bool { return h.dispatcher.Len() > 1 }, 100*time.Millisecond, 10*time.Millisecond)
+
+	// Once the capability unblocks, both requesters of exec-1 and all waiting messages get results.
+	close(capability.release)
+	require.Eventually(t, func() bool { return h.dispatcher.Len() == 13 }, 5*time.Second, 10*time.Millisecond)
+	responses := map[string]int{}
+	for _, msg := range h.dispatcher.Sent()[1:] {
+		assert.Equal(t, remotetypes.Error_OK, msg.Error)
+		responses[string(msg.MessageId)]++
+	}
+	assert.Len(t, responses, 11)
+	assert.Equal(t, 2, responses[remotetypes.MethodExecute+":exec-1"])
+}
+
+func Test_Server_Receive_RejectsWhenNoSlotFreesBeforeDeadline(t *testing.T) {
+	t.Parallel()
+	// The capability ignores cancellation, so the slot stays occupied past the request deadline.
+	capability := &blockingCapability{started: make(chan struct{}, 100), release: make(chan struct{}), ignoreCancel: true}
+	h := newSlotTestHarness(t, capability, 200*time.Millisecond)
+	defer close(capability.release)
+
+	h.receiveReturns(h.newMsg("exec-1", h.requesterA))
+	<-capability.started
+
+	h.receiveReturns(h.newMsg("exec-2", h.requesterA))
+	require.Eventually(t, func() bool {
+		for _, msg := range h.dispatcher.Sent() {
+			if string(msg.MessageId) == remotetypes.MethodExecute+":exec-2" {
+				h.requireRejected(msg, "exec-2", h.requesterA)
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second, 10*time.Millisecond)
+}
+
+type slotTestHarness struct {
+	t          *testing.T
+	server     executable.Server
+	dispatcher *noopDispatcher
+	serverPeer p2ptypes.PeerID
+	requesterA p2ptypes.PeerID
+	requesterB p2ptypes.PeerID
+}
+
+// newSlotTestHarness starts a server with a single executor slot and a calling DON with F=0, so that
+// a single message reaches quorum and claims the execution.
+func newSlotTestHarness(t *testing.T, capability commoncap.ExecutableCapability, requestTimeout time.Duration) *slotTestHarness {
+	h := &slotTestHarness{
+		t:          t,
+		dispatcher: &noopDispatcher{},
+		serverPeer: NewP2PPeerID(t),
+		requesterA: NewP2PPeerID(t),
+		requesterB: NewP2PPeerID(t),
+	}
+	h.server = executable.NewServer("cap_id@1.0.0", "", h.serverPeer, h.dispatcher, limits.NewGateLimiter(false), logger.Test(t))
+
+	cfg := &commoncap.RemoteExecutableConfig{
+		RequestTimeout:            requestTimeout,
+		ServerMaxParallelRequests: 1,
+	}
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "cap_id@1.0.0",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+	}
+	localDON := commoncap.DON{
+		ID:      1,
+		Members: []p2ptypes.PeerID{h.serverPeer},
+		F:       0,
+	}
+	workflowDONs := map[uint32]commoncap.DON{
+		2: {
+			ID:      2,
+			Members: []p2ptypes.PeerID{h.requesterA, h.requesterB},
+			F:       0,
+		},
+	}
+	require.NoError(t, h.server.SetConfig(cfg, capability, capInfo, localDON, workflowDONs, executable.NewSimpleHasher(executable.OptInHasherConfig{})))
+	servicetest.Run(t, h.server)
+	return h
+}
+
+func (h *slotTestHarness) newMsg(executionID string, sender p2ptypes.PeerID) *remotetypes.MessageBody {
+	rawRequest, err := pb.MarshalCapabilityRequest(commoncap.CapabilityRequest{
+		Metadata: commoncap.RequestMetadata{WorkflowExecutionID: executionID},
+	})
+	require.NoError(h.t, err)
+	return &remotetypes.MessageBody{
+		CapabilityId:    "cap_id@1.0.0",
+		CapabilityDonId: 1,
+		CallerDonId:     2,
+		Method:          remotetypes.MethodExecute,
+		Payload:         rawRequest,
+		MessageId:       []byte(remotetypes.MethodExecute + ":" + executionID),
+		Sender:          sender[:],
+		Receiver:        h.serverPeer[:],
+	}
+}
+
+func (h *slotTestHarness) receiveReturns(msg *remotetypes.MessageBody) {
+	done := make(chan struct{})
+	go func() {
+		h.server.Receive(h.t.Context(), msg)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		require.FailNow(h.t, "Receive blocked")
+	}
+}
+
+func (h *slotTestHarness) requireRejected(msg *remotetypes.MessageBody, executionID string, requester p2ptypes.PeerID) {
+	assert.Equal(h.t, remotetypes.Error_TIMEOUT, msg.Error)
+	assert.Contains(h.t, msg.ErrorMsg, "at capacity")
+	assert.Equal(h.t, []byte(remotetypes.MethodExecute+":"+executionID), msg.MessageId)
+	assert.Equal(h.t, requester[:], msg.Receiver)
+}
+
+type blockingCapability struct {
+	abstractTestCapability
+	started      chan struct{}
+	release      chan struct{}
+	ignoreCancel bool
+}
+
+func (c *blockingCapability) Execute(ctx context.Context, _ commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
+	c.started <- struct{}{}
+	if c.ignoreCancel {
+		<-c.release
+		return commoncap.CapabilityResponse{}, nil
+	}
+	select {
+	case <-c.release:
+	case <-ctx.Done():
+		return commoncap.CapabilityResponse{}, ctx.Err()
+	}
+	return commoncap.CapabilityResponse{}, nil
+}
+
 type noopDispatcher struct {
 	services.StateMachine
 	mu   sync.Mutex
@@ -1061,4 +1224,10 @@ func (n *noopDispatcher) Len() int {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	return len(n.sent)
+}
+
+func (n *noopDispatcher) Sent() []*remotetypes.MessageBody {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return slices.Clone(n.sent)
 }

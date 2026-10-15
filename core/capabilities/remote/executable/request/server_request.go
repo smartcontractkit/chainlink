@@ -264,6 +264,18 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	return nil
 }
 
+// ExecutionClaimed reports whether a message has already claimed the right to execute the
+// capability. Once claimed, OnMessage never executes the capability, so it only performs
+// short bookkeeping and response fan-out.
+func (e *ServerRequest) ExecutionClaimed() bool {
+	return e.executionClaimed.Load()
+}
+
+// Deadline returns the time after which the request is considered expired.
+func (e *ServerRequest) Deadline() time.Time {
+	return e.createdTime.Add(e.requestTimeout)
+}
+
 func (e *ServerRequest) Expired() bool {
 	return time.Since(e.createdTime) > e.requestTimeout
 }

@@ -5,12 +5,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -46,12 +49,29 @@ type server struct {
 	stopCh      services.StopChan
 	wg          sync.WaitGroup
 
-	parallelExecutor *remote.ParallelExecutor
+	parallelExecutor        *remote.ParallelExecutor
+	rejectedRequestsCounter metric.Int64Counter
+
+	// Messages that could not get an executor slot immediately wait for one in their own goroutine,
+	// never in the dispatcher's receive goroutine. The number of such waiting messages is capped.
+	waitingForSlot    atomic.Int64
+	maxWaitingForSlot int64
 
 	// workflowDONBindingGate, when open, makes each ServerRequest require the
 	// request's Metadata.WorkflowDonID to match the authenticated calling DON.
 	workflowDONBindingGate limits.GateLimiter
 }
+
+const (
+	// errServerAtCapacity is sent to requesters whose request was rejected because no executor slot became available.
+	errServerAtCapacity = "executable capability server at capacity, request rejected"
+
+	// maxWaitingForSlotPerSlot bounds the number of messages waiting for an executor slot, relative to the number of slots.
+	maxWaitingForSlotPerSlot = 10
+
+	rejectReasonWaitQueueFull = "wait_queue_full"
+	rejectReasonWaitTimeout   = "wait_timeout"
+)
 
 type dynamicServerConfig struct {
 	remoteExecutableConfig *commoncap.RemoteExecutableConfig
@@ -177,6 +197,7 @@ func (r *server) Start(ctx context.Context) error {
 			attribute.String("capMethodName", r.capMethodName),
 		}
 		r.parallelExecutor = remote.NewParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests), "executable_server", slotUsageAttrs...)
+		r.maxWaitingForSlot = int64(cfg.remoteExecutableConfig.ServerMaxParallelRequests) * maxWaitingForSlotPerSlot
 
 		r.wg.Go(func() {
 			ticker := time.NewTicker(getServerTickerInterval(cfg))
@@ -194,7 +215,13 @@ func (r *server) Start(ctx context.Context) error {
 			}
 		})
 
-		err := r.parallelExecutor.Start(ctx)
+		var err error
+		r.rejectedRequestsCounter, err = beholder.GetMeter().Int64Counter("platform_executable_capability_server_rejected_request_count")
+		if err != nil {
+			return fmt.Errorf("failed to register platform_executable_capability_server_rejected_request_count: %w", err)
+		}
+
+		err = r.parallelExecutor.Start(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to start parallel executor: %w", err)
 		}
@@ -252,9 +279,6 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		return
 	}
 
-	r.receiveLock.Lock()
-	defer r.receiveLock.Unlock()
-
 	switch msg.Method {
 	case types.MethodExecute:
 	default:
@@ -280,6 +304,77 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	r.lggr.Debugw("received request", "msgId", msg.MessageId, "requestID", requestID)
 
+	reqAndMsgID, ok := r.getOrCreateRequest(cfg, msg, messageID, requestID)
+	if !ok {
+		return
+	}
+
+	onMessage := func(ctx context.Context) {
+		if err := reqAndMsgID.request.OnMessage(ctx, msg); err != nil {
+			r.lggr.Errorw("failed to execute on message", "messageID", reqAndMsgID.messageID, "err", err)
+		}
+	}
+
+	// Once another message has claimed the execution, OnMessage only records the requester and fans out
+	// the response (if any), so it is handled inline without taking an executor slot.
+	if reqAndMsgID.request.ExecutionClaimed() {
+		onMessage(ctx)
+		return
+	}
+
+	// Never block waiting for an executor slot: Receive is called from the dispatcher's single receive
+	// goroutine for this capability, so blocking here stalls all inbound messages and causes drops.
+	executeTaskErr := r.parallelExecutor.TryExecuteTask(ctx, onMessage)
+	if errors.Is(executeTaskErr, remote.ErrNoSlotAvailable) {
+		r.waitForSlot(ctx, cfg, msg, reqAndMsgID, onMessage)
+		return
+	}
+	if executeTaskErr != nil {
+		r.lggr.Errorw("failed to execute on message task", "messageID", messageID, "err", executeTaskErr)
+	}
+}
+
+// waitForSlot waits for an executor slot in a separate goroutine until the request deadline and then
+// runs onMessage. If too many messages are already waiting, or no slot frees up before the deadline,
+// the message is rejected so that the requester gets an error instead of a silent timeout.
+func (r *server) waitForSlot(ctx context.Context, cfg *dynamicServerConfig, msg *types.MessageBody, reqAndMsgID requestAndMsgID, onMessage func(context.Context)) {
+	if r.waitingForSlot.Add(1) > r.maxWaitingForSlot {
+		r.waitingForSlot.Add(-1)
+		r.rejectMessage(ctx, cfg, msg, reqAndMsgID.messageID, rejectReasonWaitQueueFull)
+		return
+	}
+
+	started := r.IfNotStopped(func() {
+		r.wg.Go(func() {
+			defer r.waitingForSlot.Add(-1)
+
+			waitCtx, cancel := r.stopCh.Ctx(ctx)
+			defer cancel()
+			waitCtx, cancelDeadline := context.WithDeadline(waitCtx, reqAndMsgID.request.Deadline())
+			defer cancelDeadline()
+
+			err := r.parallelExecutor.ExecuteTaskWithWaitContext(waitCtx, ctx, onMessage)
+			switch {
+			case err == nil:
+			case errors.Is(err, context.DeadlineExceeded):
+				r.rejectMessage(ctx, cfg, msg, reqAndMsgID.messageID, rejectReasonWaitTimeout)
+			default:
+				r.lggr.Debugw("stopped waiting for executor slot", "messageID", reqAndMsgID.messageID, "err", err)
+			}
+		})
+	})
+	if !started {
+		r.waitingForSlot.Add(-1)
+	}
+}
+
+// getOrCreateRequest records the message in the request bookkeeping maps and returns the request it
+// belongs to, creating it if needed. receiveLock is held only for this bookkeeping and never across
+// blocking calls, so that expireRequests can always make progress.
+func (r *server) getOrCreateRequest(cfg *dynamicServerConfig, msg *types.MessageBody, messageID, requestID string) (requestAndMsgID, bool) {
+	r.receiveLock.Lock()
+	defer r.receiveLock.Unlock()
+
 	requestIDs, requestIDsOK := r.messageIDToRequestIDsCount[messageID]
 	if requestIDsOK {
 		requestIDs[requestID]++
@@ -294,14 +389,14 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		callingDon, ok := cfg.workflowDONs[msg.CallerDonId]
 		if !ok {
 			r.lggr.Errorw("received request from unregistered don", "donId", msg.CallerDonId)
-			return
+			return requestAndMsgID{}, false
 		}
 
 		sr, ierr := request.NewServerRequest(cfg.underlying, msg.Method, cfg.capInfo.ID, cfg.localDonInfo.ID, r.peerID,
 			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.workflowDONBindingGate, r.lggr)
 		if ierr != nil {
 			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
-			return
+			return requestAndMsgID{}, false
 		}
 
 		r.requestIDToRequest[requestID] = requestAndMsgID{
@@ -315,15 +410,46 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		r.messageIDToRequestIDsCount[messageID] = map[string]int{requestID: 1}
 	}
 
-	reqAndMsgID := r.requestIDToRequest[requestID]
-	if executeTaskErr := r.parallelExecutor.ExecuteTask(ctx,
-		func(ctx context.Context) {
-			err = reqAndMsgID.request.OnMessage(ctx, msg)
-			if err != nil {
-				r.lggr.Errorw("failed to execute on message", "messageID", reqAndMsgID.messageID, "err", err)
-			}
-		}); executeTaskErr != nil {
-		r.lggr.Errorw("failed to execute on message task", "messageID", messageID, "err", executeTaskErr)
+	return r.requestIDToRequest[requestID], true
+}
+
+// rejectMessage responds to the sender with a TIMEOUT error without executing the request. It does not
+// touch the shared ServerRequest, so execution on behalf of other requesters is unaffected. The error
+// message is constant so that clients can aggregate identical errors from multiple overloaded nodes.
+func (r *server) rejectMessage(ctx context.Context, cfg *dynamicServerConfig, msg *types.MessageBody, messageID string, reason string) {
+	r.lggr.Warnw("no executor slot available, rejecting request", "messageID", messageID, "reason", reason,
+		"maxParallelRequests", cfg.remoteExecutableConfig.ServerMaxParallelRequests)
+	r.rejectedRequestsCounter.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("capabilityID", r.capabilityID),
+		attribute.String("capMethodName", r.capMethodName),
+		attribute.String("reason", reason),
+	))
+
+	requester, err := remote.ToPeerID(msg.Sender)
+	if err != nil {
+		r.lggr.Errorw("failed to convert message sender to PeerID", "messageID", messageID, "err", err)
+		return
+	}
+	callingDon, ok := cfg.workflowDONs[msg.CallerDonId]
+	if !ok || !slices.Contains(callingDon.Members, requester) {
+		r.lggr.Errorw("rejected request from peer not in calling don", "messageID", messageID, "donId", msg.CallerDonId, "peer", requester)
+		return
+	}
+
+	err = r.dispatcher.Send(requester, &types.MessageBody{
+		CapabilityId:     cfg.capInfo.ID,
+		CapabilityDonId:  cfg.localDonInfo.ID,
+		CallerDonId:      msg.CallerDonId,
+		Method:           types.MethodExecute,
+		MessageId:        []byte(messageID),
+		Sender:           r.peerID[:],
+		Receiver:         requester[:],
+		CapabilityMethod: r.capMethodName,
+		Error:            types.Error_TIMEOUT,
+		ErrorMsg:         errServerAtCapacity,
+	})
+	if err != nil {
+		r.lggr.Errorw("failed to send rejection response", "messageID", messageID, "err", err)
 	}
 }
 
