@@ -3,11 +3,11 @@ package localcapmgr
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"sync"
 	"time"
 
@@ -28,8 +28,10 @@ import (
 type LocalCapabilityManager interface {
 	services.Service
 
-	// Called by Launcher.OnNewRegistry() for each registry update.
-	Reconcile(ctx context.Context, allMyDONs []registry.DON) error
+	// Called by Launcher.OnNewRegistry() for each registry update. offchainReg is the Launcher's
+	// snapshot of the offchain capabilities registry for this pass; nil when none is applied.
+	// Calls must not overlap.
+	Reconcile(ctx context.Context, allMyDONs []registry.DON, offchainReg *capabilitiespb.OffchainCapabilitiesRegistry) error
 }
 
 // runningCapability tracks a started capability.
@@ -42,9 +44,22 @@ type runningCapability struct {
 
 // capabilityInfo describes a capability that should be running.
 type capabilityInfo struct {
-	capID      string
-	donID      uint32
-	config     registry.CapabilityConfiguration
+	capID  string
+	donID  uint32
+	config registry.CapabilityConfiguration
+	// useOffchain selects the spec config source: offchainSpecConfig when true, the on-chain
+	// SpecConfig otherwise. The two are never merged.
+	useOffchain bool
+	// offchainSpecConfig is the offchain spec_config for (capID, donID) from this reconcile's
+	// snapshot. Nil when the payload has no entry for this capability on this DON.
+	offchainSpecConfig map[string]any
+	// configJSON is the effective config the capability is launched with (see buildConfigJSON)
+	// and configErr the error building it, if any.
+	configJSON string
+	configErr  error
+	// configHash identifies the effective launch inputs (on-chain config bytes + effective
+	// config JSON). A change in either, including an offchain-only change, restarts the
+	// capability.
 	configHash string
 }
 
@@ -58,6 +73,9 @@ type localCapabilityManager struct {
 
 	localCfg      config.LocalCapabilities
 	newServicesFn NewServicesFn
+	// useOffchainRegistry is the cutover gate. When true, capabilities are launched with the
+	// offchain spec_config only and the on-chain SpecConfig is ignored.
+	useOffchainRegistry bool
 
 	runningCapabilities map[string]*runningCapability
 	mu                  sync.RWMutex
@@ -72,15 +90,24 @@ type localCapabilityManager struct {
 // none is present; it lets the delegate align the node's signer/transmitter with the registry.
 type NewServicesFn func(ctx context.Context, capID string, donID uint32, command string, configJSON string, ocr3Config *ocrtypes.ContractConfig) ([]job.ServiceCtx, error)
 
-func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabilities, newServicesFn NewServicesFn) (LocalCapabilityManager, error) {
+// useOffchainRegistry is the cutover gate. When false (default), the offchain registry passed to
+// Reconcile is used for cross-validation telemetry only.
+func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabilities, newServicesFn NewServicesFn, useOffchainRegistry bool) (LocalCapabilityManager, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local capability manager metrics: %w", err)
 	}
+	named := logger.Named(lggr, "LocalCapabilityManager")
+
+	if useOffchainRegistry {
+		named.Info("Offchain capabilities registry cutover ENABLED: offchain spec_config wins over on-chain")
+	}
+
 	return &localCapabilityManager{
-		lggr:                logger.Named(lggr, "LocalCapabilityManager"),
+		lggr:                named,
 		localCfg:            localCfg,
 		newServicesFn:       newServicesFn,
+		useOffchainRegistry: useOffchainRegistry,
 		runningCapabilities: make(map[string]*runningCapability),
 		metrics:             metrics,
 	}, nil
@@ -126,11 +153,21 @@ func (m *localCapabilityManager) Name() string {
 
 // Reconcile compares running capabilities against the desired state from the registry.
 // It starts new capabilities, stops removed ones, and restarts those with changed config.
+// With the cutover on and no offchain payload applied, it leaves running capabilities untouched
+// rather than launching them without config.
 func (m *localCapabilityManager) Reconcile(
 	ctx context.Context,
 	allMyDONs []registry.DON,
+	offchainReg *capabilitiespb.OffchainCapabilitiesRegistry,
 ) error {
-	desired := m.buildDesiredState(allMyDONs)
+	offchainDONs := m.offchainDONsByID(offchainReg, allMyDONs)
+	m.recordOffchainDivergences(ctx, m.offchainDivergences(offchainDONs, allMyDONs))
+
+	if m.useOffchainRegistry && offchainReg == nil {
+		m.lggr.Warn("Offchain capabilities registry cutover is enabled but no payload is applied; skipping reconcile")
+		return nil
+	}
+	desired := m.buildDesiredState(allMyDONs, offchainDONs)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -179,9 +216,11 @@ func (m *localCapabilityManager) Reconcile(
 	return nil
 }
 
-// buildDesiredState extracts capabilities that should be running from DON configs.
-// Only includes capabilities that are in the RegistryBasedLaunchAllowlist.
-func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registry.DON) map[string]*capabilityInfo {
+// buildDesiredState extracts capabilities that should be running from DON configs, and
+// computes each one's effective config. Only includes capabilities that are in the
+// RegistryBasedLaunchAllowlist. offchainDONs holds the offchain config by on-chain DON ID; it is
+// only used when the cutover is on.
+func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registry.DON, offchainDONs map[uint32]*capabilitiespb.DONConfig) map[string]*capabilityInfo {
 	desired := make(map[string]*capabilityInfo)
 	for _, don := range myCapabilityDONs {
 		for capID, capCfg := range don.CapabilityConfigurations {
@@ -189,13 +228,16 @@ func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registry.D
 				continue
 			}
 
-			key := runningKey(capID, don.ID)
-			desired[key] = &capabilityInfo{
-				capID:      capID,
-				donID:      don.ID,
-				config:     capCfg,
-				configHash: configHash(capCfg.Config),
+			info := &capabilityInfo{
+				capID:              capID,
+				donID:              don.ID,
+				config:             capCfg,
+				useOffchain:        m.useOffchainRegistry,
+				offchainSpecConfig: m.offchainSpecConfig(offchainDONs[don.ID], capID, don.ID),
 			}
+			info.configJSON, info.configErr = m.buildConfigJSON(info)
+			info.configHash = effectiveConfigHash(capCfg.Config, info.configJSON)
+			desired[runningKey(capID, don.ID)] = info
 		}
 	}
 	return desired
@@ -208,11 +250,12 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	// binary (e.g. consensus, cron). OCR2-based capabilities (e.g. dontime) run
 	// in-process and do not need a binary, so an empty command is allowed there;
 	// the newServicesFn routes on capability ID and ignores it.
-	command := m.resolveCapabilityBinary(info.capID)
-	configJSON, err := m.buildConfigJSON(info)
-	if err != nil {
-		return nil, fmt.Errorf("build config for %s: %w", info.capID, err)
+	command := conversions.GetCommandFromCapabilityID(info.capID)
+	if info.configErr != nil {
+		return nil, fmt.Errorf("build config for %s: %w", info.capID, info.configErr)
 	}
+
+	configJSON := info.configJSON
 
 	// newServicesFn derives OracleFactoryConfig.Enabled from whether ocr3Config is
 	// present; node config/keystore fill in chain ID, contract address, key bundle
@@ -248,58 +291,46 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	}, nil
 }
 
-func (m *localCapabilityManager) resolveCapabilityBinary(capID string) string {
-	if m.localCfg != nil {
-		capCfg := m.localCfg.GetCapabilityConfig(capID)
-		if capCfg != nil && capCfg.BinaryPathOverride() != "" {
-			m.lggr.Debugw("Using binary path override from TOML", "capID", capID, "path", capCfg.BinaryPathOverride())
-			return capCfg.BinaryPathOverride()
-		}
-	}
-
-	// fall back to default command based on capability ID
-	return conversions.GetCommandFromCapabilityID(capID)
-}
-
-// buildConfigJSON merges the node-local TOML config with the onchain SpecConfig
-// into a flat JSON object. Onchain values take precedence over local ones.
+// buildConfigJSON renders the capability's spec config into a flat JSON object. With the
+// cutover on it is the offchain spec_config only (empty when the payload has none for this
+// capability); otherwise it is the on-chain SpecConfig only.
 func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, error) {
-	merged := make(map[string]any)
-
-	if m.localCfg != nil {
-		capCfg := m.localCfg.GetCapabilityConfig(info.capID)
-		if capCfg != nil {
-			for k, v := range capCfg.Config() {
-				merged[k] = v
-			}
+	specConfig := info.offchainSpecConfig
+	if !info.useOffchain {
+		var err error
+		if specConfig, err = parseOnchainSpecConfig(info); err != nil {
+			return "", err
 		}
 	}
 
-	if len(info.config.Config) > 0 {
-		capCfg, err := info.config.Unmarshal()
-		if err != nil {
-			m.lggr.Warnw("Failed to unmarshal onchain config, using local config only",
-				"capID", info.capID, "error", err)
-		} else if capCfg.SpecConfig != nil {
-			unwrapped, err := capCfg.SpecConfig.Unwrap()
-			if err != nil {
-				return "", fmt.Errorf("unwrap onchain spec config for %s: %w", info.capID, err)
-			}
-			if onchain, ok := unwrapped.(map[string]any); ok {
-				maps.Copy(merged, onchain)
-			}
-		}
-	}
-
-	if len(merged) == 0 {
+	if len(specConfig) == 0 {
 		return "{}", nil
 	}
 
-	b, err := json.Marshal(merged)
+	b, err := json.Marshal(specConfig)
 	if err != nil {
-		return "", fmt.Errorf("marshal merged config for %s: %w", info.capID, err)
+		return "", fmt.Errorf("marshal spec config for %s: %w", info.capID, err)
 	}
 	return string(b), nil
+}
+
+func parseOnchainSpecConfig(info *capabilityInfo) (map[string]any, error) {
+	if len(info.config.Config) > 0 {
+		capCfg, err := info.config.Unmarshal()
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal cap registry config for %s: %w", info.capID, err)
+		}
+		if capCfg.SpecConfig != nil {
+			unwrapped, err := capCfg.SpecConfig.Unwrap()
+			if err != nil {
+				return nil, fmt.Errorf("unwrap onchain spec config for %s: %w", info.capID, err)
+			}
+			if oc, ok := unwrapped.(map[string]any); ok {
+				return oc, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 // extractDefaultOCR3Config returns the `default` on-chain OCR3 config parsed from the
@@ -332,4 +363,19 @@ func configHash(configBytes []byte) string {
 	}
 	h := sha256.Sum256(configBytes)
 	return hex.EncodeToString(h[:])
+}
+
+// effectiveConfigHash hashes everything a capability is launched with that can change at
+// runtime: the raw on-chain capability config (which also carries OCR3 configs) and the
+// effective spec config JSON (on-chain or offchain). Hashing the effective JSON rather
+// than only the on-chain bytes is what makes an offchain-only change restart the capability.
+// buildConfigJSON marshals a map, so the JSON has sorted keys and is deterministic.
+func effectiveConfigHash(onchainConfig []byte, configJSON string) string {
+	h := sha256.New()
+	var n [8]byte
+	binary.BigEndian.PutUint64(n[:], uint64(len(onchainConfig)))
+	h.Write(n[:])
+	h.Write(onchainConfig)
+	h.Write([]byte(configJSON))
+	return hex.EncodeToString(h.Sum(nil))
 }

@@ -24,7 +24,6 @@ import (
 
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
-
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
 )

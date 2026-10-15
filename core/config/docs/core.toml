@@ -616,39 +616,6 @@ PerSenderRPS = 10 # Default
 # PerSenderBurst is the per-sender burst limit for the dispatcher.
 PerSenderBurst = 50 # Default
 
-[Capabilities.Peering]
-# IncomingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
-# capabilities P2P host are not configurable; for shared peering, use
-# `Capabilities.SharedPeering.StreamConfig`.
-IncomingMessageBufferSize = 10 # Default
-# OutgoingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
-# capabilities P2P host are not configurable; for shared peering, use
-# `Capabilities.SharedPeering.StreamConfig`.
-OutgoingMessageBufferSize = 10 # Default
-# PeerID is the peer ID to use for the capabilities P2P host; see
-# [`P2P.PeerID`](#p2p).
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
-# TraceLogging **DEPRECATED**: has no effect.
-TraceLogging = false # Default
-# EnableExperimentalRageP2P currently has no effect in this section; the
-# capabilities P2P host always uses the production ragep2p stack.
-EnableExperimentalRageP2P = false # Default
-
-[Capabilities.Peering.V2]
-# Enabled enables a dedicated P2P V2 host for capabilities (DON-to-DON)
-# communication, independent of the top-level `P2P` host.
-Enabled = false # Default
-# AnnounceAddresses: see [`P2P.V2.AnnounceAddresses`](#p2pv2).
-AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
-# DefaultBootstrappers: see [`P2P.V2.DefaultBootstrappers`](#p2pv2).
-DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
-# DeltaDial: see [`P2P.V2.DeltaDial`](#p2pv2).
-DeltaDial = '15s' # Default
-# DeltaReconcile: see [`P2P.V2.DeltaReconcile`](#p2pv2).
-DeltaReconcile = '1m' # Default
-# ListenAddresses: see [`P2P.V2.ListenAddresses`](#p2pv2).
-ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
-
 [Capabilities.GatewayConnector]
 # ChainIDForNodeKey is the ChainID of the network associated with a private key to be used for authentication with Gateway nodes
 ChainIDForNodeKey = '11155111' # Example
@@ -706,16 +673,12 @@ BytesRateLimiterCapacity = 10000000 # Default
 #   - '^http-action@.*$' matches any version of http-action
 #   - '.*' matches all capabilities
 RegistryBasedLaunchAllowlist = [] # Default
-
-# Per-capability configuration. Each capability ID can have its own configuration section.
-# Capability IDs must be in the format "name@version".
-# [Capabilities.Local.Capabilities."http-action@1.0.0"]
-# BinaryPathOverride overrides the default binary path for a LOOP capability.
-# BinaryPathOverride = '/opt/chainlink/binaries/http_action' # Example
-# [Capabilities.Local.Capabilities."http-action@1.0.0".Config]
-# Capability-specific configuration as key-value pairs.
-# proxyMode = 'gateway' # Example
-# allowedPorts = '443,8443' # Example
+# UseOffchainRegistry gates the offchain capabilities registry cutover. When false (default),
+# capability config is sourced from the on-chain registry and the offchain registry is used for
+# cross-validation telemetry only. When true, offchain capability config takes precedence over the
+# on-chain config, key by key. Binary paths, the launch allowlist and OCR3 config are unaffected.
+# The gate is per-node and reversible.
+UseOffchainRegistry = false # Default
 
 # The Chainlink node is equipped with an internal "nurse" service that can perform automatic `pprof` profiling when the certain resource thresholds are exceeded, such as memory and goroutine count. These profiles are saved to disk to facilitate fine-grained debugging of performance-related issues. In general, if you notice that your node has begun to accumulate profiles, forward them to the Chainlink team.
 #

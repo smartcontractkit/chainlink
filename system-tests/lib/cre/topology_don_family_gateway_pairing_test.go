@@ -74,14 +74,13 @@ func TestTopology_validateDonFamilyGatewayPairing_gatewayWithoutFamilies(t *test
 	require.NoError(t, err)
 
 	pairs := topology.DonFamilyGatewayPairings()
-	require.Len(t, pairs, 2) // one pair per workflow DON
+	require.Len(t, pairs, 2)
 	paired := []string{pairs[0].WorkflowDONName, pairs[1].WorkflowDONName}
 	require.ElementsMatch(t, []string{"workflow-a", "workflow-b"}, paired)
 	for _, pair := range pairs {
 		require.Equal(t, "bootstrap-gateway", pair.GatewayDONName)
 	}
 
-	// The unscoped gateway is reachable from every family, including an unknown one.
 	for _, family := range []string{"zone-a_workflows", "zone-a_shard-0", "unknown-family"} {
 		connectors := topology.GatewayConnectorsForDonFamily(family)
 		require.Len(t, connectors.Configurations, 1, family)
@@ -218,14 +217,6 @@ func TestGatewayServiceConfigsForGateway_reachesCapabilitiesDonViaWorkflowFamily
 	require.Equal(t, []string{"chain-capabilities-zone-a"}, scoped[0].DONs)
 }
 
-// TestGatewayConnectorsForCapabilitiesDon_reachesGatewayViaWorkflowFamily proves a
-// capabilities DON that shares no family with any gateway directly, but shares a
-// shard-specific family with a workflow DON already paired with that gateway, still
-// resolves a gateway connector — matching the sharded shared-vault layout, where the
-// vault DON belongs only to per-shard families ("zone-a_shard-0", "zone-a_shard-1")
-// while the gateway belongs only to the common family ("zone-a"). Without this, the
-// vault DON's nodes get an empty [Capabilities.GatewayConnector].Gateways and the
-// gateway cannot forward vault user requests to them.
 func TestGatewayConnectorsForCapabilitiesDon_reachesGatewayViaWorkflowFamily(t *testing.T) {
 	t.Parallel()
 
@@ -253,8 +244,6 @@ func TestGatewayConnectorsForCapabilitiesDon_reachesGatewayViaWorkflowFamily(t *
 	require.Len(t, connectors.Configurations, 1)
 	require.Equal(t, "gateway-node-0", connectors.Configurations[0].AuthGatewayID)
 
-	// A capabilities DON that shares no family with any gateway-paired workflow DON
-	// resolves no connector.
 	orphan := &Topology{
 		DonsMetadata: &DonsMetadata{
 			dons: []*DonMetadata{

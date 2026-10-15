@@ -11,10 +11,6 @@ replace github.com/smartcontractkit/chainlink/system-tests/lib => ../../system-t
 
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based => ./cre/environment/examples/workflows/proof-of-reserve/cron-based
 
-// chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
-// (pulled in transitively by mcms v0.47.x). Pin to the version the rest of the repo uses.
-replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
-
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
@@ -33,7 +29,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.112
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20261001213322-a2d686f610ca
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261007174852-7fabc093ff84
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261014202458-d375ab88face
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d
 	github.com/smartcontractkit/chainlink-deployments-framework v0.123.3
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20261007220634-788b8f7e8ae6
@@ -509,7 +505,7 @@ require (
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261005132539-b7d63d5fd549 // indirect
 	github.com/smartcontractkit/chainlink-common/x/config v0.0.0-20260928140953-a9b0d3a04daa // indirect
 	github.com/smartcontractkit/chainlink-confidential-compute v1.3.0 // indirect
-	github.com/smartcontractkit/chainlink-data-streams v1.1.2-0.20261002081259-6c2163b21db9 // indirect
+	github.com/smartcontractkit/chainlink-data-streams v1.1.2-0.20261009064810-68424c714170 // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20261006175356-44fa26a56c6c // indirect
@@ -521,7 +517,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-rules v0.0.0-20260505131349-78e491b80735 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260916140808-f5d22b3cb3ee // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20261013212015-e622e8b83b6b // indirect
 	github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36 // indirect
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305 // indirect
 	github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260729184203-90b4cdd48536 // indirect

@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -326,15 +325,10 @@ type stubLocalCapabilities struct {
 	allowlisted map[string]bool
 }
 
+func (s *stubLocalCapabilities) UseOffchainRegistry() bool { return false }
+
 func (s *stubLocalCapabilities) RegistryBasedLaunchAllowlist() []string { return nil }
-func (s *stubLocalCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
-	return nil
-}
 
 func (s *stubLocalCapabilities) IsAllowlisted(capabilityID string) bool {
 	return s.allowlisted[capabilityID]
-}
-
-func (s *stubLocalCapabilities) GetCapabilityConfig(string) config.CapabilityNodeConfig {
-	return nil
 }
