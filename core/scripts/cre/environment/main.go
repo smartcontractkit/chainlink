@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/devmachine"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/environment"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/root"
@@ -15,6 +16,7 @@ func init() {
 	root.RootCmd.AddCommand(examples.ExamplesCmd)
 	root.RootCmd.AddCommand(environment.BsCmd)
 	root.RootCmd.AddCommand(environment.ObsCmd)
+	root.RootCmd.AddCommand(devmachine.Cmd)
 }
 
 var (
