@@ -58,7 +58,7 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20261007220634-788b8f7e8ae6"
+      gitRef: "v0.3.4-0.20261015161422-ea52d84d2f7a"
       installPath: "./pkg/cmd/chainlink-evm"
 
   capability-cron:
