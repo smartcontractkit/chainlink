@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
@@ -47,6 +48,8 @@ type fakeEngine struct {
 	coordinated bool
 	// execute, if set, runs inside ExecuteTrigger on the reader goroutine.
 	execute func(ctx context.Context, event CoordinatedEvent)
+	// err is returned from every ExecuteTrigger call.
+	err error
 
 	mu      sync.Mutex
 	events  []CoordinatedEvent
@@ -61,7 +64,7 @@ func (e *fakeEngine) ExecuteTrigger(ctx context.Context, event CoordinatedEvent)
 	if e.execute != nil {
 		e.execute(ctx, event)
 	}
-	return nil
+	return e.err
 }
 
 func (e *fakeEngine) IsCoordinated() bool { return e.coordinated }
@@ -149,6 +152,12 @@ type coordinatorFixture struct {
 // already in the registry for testTenant's workflow.
 func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
 	t.Helper()
+	return newCoordinatorFixtureWithLogger(t, logger.Test(t))
+}
+
+// newCoordinatorFixtureWithLogger is newCoordinatorFixture with the coordinator logging to lggr.
+func newCoordinatorFixtureWithLogger(t *testing.T, lggr logger.Logger) *coordinatorFixture {
+	t.Helper()
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	engines := newFakeEngineRegistry()
 	wfLimits := &fakeWorkflowLimits{}
@@ -159,7 +168,9 @@ func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
 	engine := &fakeEngine{coordinated: true}
 	engines.set(wid, engine)
 
-	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), engines, wfLimits, clock)
+	deps := newRegisterDeps(t, capReg, limits.NewGateLimiter(true))
+	deps.Logger = lggr
+	c := NewCoordinator(deps, engines, wfLimits, clock)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{

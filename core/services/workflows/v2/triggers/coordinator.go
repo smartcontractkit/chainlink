@@ -332,7 +332,13 @@ func (c *coordinator) buildDeliverFn(wid types.WorkflowID, lggr logger.Logger) f
 
 		// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
 		if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
-			lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+			eventID := event.Event.Event.ID
+			// Draining is expected during workflow deletion, so it logs at info rather than error level.
+			if errors.Is(err, ErrEngineDraining) {
+				lggr.Infow("Dropping trigger event: engine draining", "triggerID", event.TriggerCapID, "eventID", eventID)
+			} else {
+				lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "eventID", eventID, "err", err)
+			}
 		}
 	}
 }

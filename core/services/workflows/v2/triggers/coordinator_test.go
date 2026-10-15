@@ -10,8 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
@@ -413,4 +416,96 @@ func TestCoordinator_CloseUnregistersRemainingWorkflows(t *testing.T) {
 	_, err = c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 	require.NoError(t, err)
 	require.NoError(t, c.Close())
+}
+
+// deliveryLog is the part of a trigger delivery log line that callers alert and query on.
+type deliveryLog struct {
+	Level  zapcore.Level
+	Msg    string
+	Fields map[string]any
+}
+
+// deliveryLogs returns the observed log lines for eventID that report a delivery failure,
+// keeping only the triggerID/eventID/err fields.
+func deliveryLogs(logs *observer.ObservedLogs, eventID string) []deliveryLog {
+	var got []deliveryLog
+	for _, entry := range logs.All() {
+		ctx := entry.ContextMap()
+		if ctx["eventID"] != eventID || entry.Level < zapcore.InfoLevel {
+			continue
+		}
+		fields := map[string]any{}
+		for _, key := range []string{"triggerID", "eventID", "err"} {
+			if v, ok := ctx[key]; ok {
+				fields[key] = v
+			}
+		}
+		got = append(got, deliveryLog{Level: entry.Level, Msg: entry.Message, Fields: fields})
+	}
+	return got
+}
+
+// TestCoordinator_DeliverLogging pins the log lines the coordinator emits for each outcome of delivering a
+// trigger event. They follow the legacy engine's contract in v2.TestEngine_TriggerDeliveryLogging: the same
+// level and the same triggerID/eventID/err fields, so log-based alerts behave the same on both paths.
+func TestCoordinator_DeliverLogging(t *testing.T) {
+	t.Parallel()
+
+	errExecute := errors.New("engine is closed")
+
+	tests := []struct {
+		name      string
+		engineErr error
+		want      []deliveryLog
+	}{
+		{
+			name: "executed",
+		},
+		{
+			name:      "draining",
+			engineErr: ErrEngineDraining,
+			want: []deliveryLog{
+				{
+					Level:  zapcore.InfoLevel,
+					Msg:    "Dropping trigger event: engine draining",
+					Fields: map[string]any{"triggerID": testTriggerCapID, "eventID": "evt-1"},
+				},
+			},
+		},
+		{
+			name:      "other error",
+			engineErr: errExecute,
+			want: []deliveryLog{
+				{
+					Level:  zapcore.ErrorLevel,
+					Msg:    "Failed to execute trigger event",
+					Fields: map[string]any{"triggerID": testTriggerCapID, "eventID": "evt-1", "err": errExecute.Error()},
+				},
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
+			f := newCoordinatorFixtureWithLogger(t, lggr)
+			f.engine.err = tc.engineErr
+			trigger, eventCh := f.expectTrigger(t)
+			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+
+			_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+			require.NoError(t, err)
+
+			// The channel is unbuffered: the second send only completes once the
+			// reader has finished delivering the first.
+			eventCh <- triggerEvent("evt-1")
+			eventCh <- triggerEvent("evt-2")
+
+			executed := f.engine.executed()
+			require.NotEmpty(t, executed)
+			assert.Equal(t, "evt-1", executed[0].Event.Event.ID, "the event is delivered to the engine")
+			assert.Equal(t, tc.want, deliveryLogs(logs, "evt-1"))
+		})
+	}
 }
