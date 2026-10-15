@@ -33,7 +33,7 @@ func NewCoordinatedEngine(cfg *EngineConfig) (WorkflowEngine, error) {
 		return nil, errors.New("trigger acknowledger not set")
 	}
 
-	base, lggr, err := newBaseEngine(cfg)
+	base, lggr, err := newBaseEngine(cfg, valueEngineModeCoordinated)
 	if err != nil {
 		return nil, err
 	}

@@ -2678,6 +2678,13 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	// The started engine registers the workflow's one trigger.
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Maybe()
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).
+		Return(make(chan capabilities.TriggerResponse), nil).Maybe()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Maybe()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	billingClient := setupMockBillingClient(t)
 
 	baseCfg := defaultTestConfig(t, nil)
@@ -2705,7 +2712,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 	}
 	t.Run("happy path completes with status completed", func(t *testing.T) {
 		t.Parallel()
-		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+		ew := newStartedTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(&sdkpb.ExecutionResult{
 					Result: &sdkpb.ExecutionResult_Value{},
@@ -2724,7 +2731,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 	t.Run("module execution error returns errored status", func(t *testing.T) {
 		t.Parallel()
 		execErr := errors.New("wasm panic: out of memory")
-		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+		ew := newStartedTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(nil, execErr).
 				Once()
@@ -2743,7 +2750,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 
 	t.Run("module result error returns errored status", func(t *testing.T) {
 		t.Parallel()
-		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+		ew := newStartedTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(&sdkpb.ExecutionResult{
 					Result: &sdkpb.ExecutionResult_Error{
@@ -2764,7 +2771,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 
 	t.Run("duplicate event ID is rejected with ErrDuplicateExecution", func(t *testing.T) {
 		t.Parallel()
-		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+		ew := newStartedTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			// Only ONE execution should reach Module.Execute.
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(&sdkpb.ExecutionResult{
@@ -2793,7 +2800,7 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 	t.Run("metering reserve failure returns ErrMeteringReserveFailed", func(t *testing.T) {
 		t.Parallel()
 		ack := &recordingAcknowledger{}
-		ew := newTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+		ew := newStartedTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
 			// No Module.Execute expectation: the execution must never reach WASM.
 		}, func(cfg *v2.EngineConfig) {
 			cfg.BillingClient = setupFailingReserveBillingClient(t)
@@ -3091,6 +3098,40 @@ func newTestEngine(
 	engine, err := newEngine(&testCfg)
 	require.NoError(t, err)
 	e.engine = engine
+	return e
+}
+
+// newStartedTestEngine is newTestEngine for tests that call ExecuteTrigger directly, which only
+// admits events once the engine is started. The module answers the engine's trigger subscribe
+// call with one trigger, and setupModule's expectations apply to every other execution. The
+// engine is closed at cleanup.
+func newStartedTestEngine(
+	t *testing.T,
+	baseCfg *v2.EngineConfig,
+	newEngine func(*v2.EngineConfig) (v2.WorkflowEngine, error),
+	setupModule func(module *modulemocks.ModuleV2),
+	cfgFn ...func(*v2.EngineConfig),
+) *testEngine {
+	t.Helper()
+	e := newTestEngine(t, baseCfg, newEngine, func(module *modulemocks.ModuleV2) {
+		module.EXPECT().Start().Maybe()
+		module.EXPECT().Close().Maybe()
+		// Declared first so the subscribe call never consumes setupModule's expectations.
+		module.EXPECT().Execute(matches.AnyContext, mock.MatchedBy(func(req *sdkpb.ExecuteRequest) bool {
+			_, ok := req.Request.(*sdkpb.ExecuteRequest_Subscribe)
+			return ok
+		}), mock.Anything).Return(newTriggerSubs(1), nil).Maybe()
+		setupModule(module)
+	}, append([]func(*v2.EngineConfig){func(cfg *v2.EngineConfig) {
+		// Closing an engine purges its workflow's executions, so engines built from one shared
+		// config must not share a store or parallel tests would erase each other's dedupe state.
+		cfg.ExecutionsStore = defaultTestConfig(t, nil).ExecutionsStore
+	}}, cfgFn...)...)
+	servicetest.Run(t, e.engine)
+	require.NoError(t, <-e.initializedCh)
+
+	// Starting the engine must not report an execution as finished
+	require.Zero(t, e.finishedCalls.Load())
 	return e
 }
 
