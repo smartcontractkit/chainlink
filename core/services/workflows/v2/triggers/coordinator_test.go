@@ -110,15 +110,33 @@ func TestCoordinator_RegisterTriggers(t *testing.T) {
 		assert.Equal(t, testTenant, f.limits.tenants[0])
 	})
 
-	t.Run("subscribe failure frees the limit", func(t *testing.T) {
+	t.Run("subscribe failure frees the limit and closes the queue", func(t *testing.T) {
 		t.Parallel()
-		f := newCoordinatorFixture(t)
+		admission, queues := newTrackedAdmission()
+		f := newCoordinatorFixtureWithAdmission(t, admission)
 		sub := newTestSubscriber()
 		sub.err = errors.New("wasm boom")
 
 		_, err := f.c.RegisterTriggers(t.Context(), sub, testParams(t))
 		require.ErrorContains(t, err, "failed to subscribe to triggers")
 		assert.Equal(t, 0, f.limits.inUse())
+		assert.False(t, f.registered())
+		assert.True(t, queues.get(t, 0).closed.Load(), "the registration's queue is closed")
+	})
+
+	t.Run("queue creation failure frees the limit and never subscribes", func(t *testing.T) {
+		t.Parallel()
+		admission := newTestAdmission()
+		admission.NewTriggerEventQueue = func() (limits.QueueLimiter[CoordinatedEvent], error) {
+			return nil, errors.New("queue boom")
+		}
+		f := newCoordinatorFixtureWithAdmission(t, admission)
+		sub := newTestSubscriber()
+
+		_, err := f.c.RegisterTriggers(t.Context(), sub, testParams(t))
+		require.ErrorContains(t, err, "failed to create trigger event queue")
+		assert.Equal(t, 0, f.limits.inUse())
+		assert.Zero(t, sub.calls)
 		assert.False(t, f.registered())
 	})
 
@@ -216,9 +234,10 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		require.ErrorIs(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID), ErrWorkflowNotCoordinated)
 	})
 
-	t.Run("registration state is gone and the slot is freed when no execution is in flight", func(t *testing.T) {
+	t.Run("registration state is gone, the slot is freed and the queue is closed when no execution is in flight", func(t *testing.T) {
 		t.Parallel()
-		f := newCoordinatorFixture(t)
+		admission, queues := newTrackedAdmission()
+		f := newCoordinatorFixtureWithAdmission(t, admission)
 		trigger, _ := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.MatchedBy(func(req capabilities.TriggerRegistrationRequest) bool {
 			return req.TriggerID == RegistrationID(validWorkflowID, 0) && req.Method == testMethod
@@ -230,6 +249,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 
 		require.Eventually(t, func() bool { return !f.registered() && f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
 		assert.Equal(t, 1, f.limits.freeCount())
+		assert.True(t, queues.get(t, 0).closed.Load(), "the registration's queue is closed")
 		f.limits.mu.Lock()
 		assert.Equal(t, testTenant, f.limits.tenants[len(f.limits.tenants)-1], "the limit is freed under the workflow's tenant")
 		f.limits.mu.Unlock()
@@ -344,7 +364,8 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 // ACK against its own handles.
 func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	t.Parallel()
-	f := newCoordinatorFixture(t)
+	admission, queues := newTrackedAdmission()
+	f := newCoordinatorFixtureWithAdmission(t, admission)
 
 	oldTrigger, oldCh := f.expectTrigger(t)
 	oldTrigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
@@ -382,6 +403,8 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	}, 100*time.Millisecond, 2*time.Millisecond, "the old waiter must not drop the new registration")
 	require.Eventually(t, func() bool { return f.limits.inUse() == 1 }, time.Second, time.Millisecond,
 		"the old waiter must still free its own slot")
+	assert.True(t, queues.get(t, 0).closed.Load(), "the old waiter closes its own queue")
+	assert.False(t, queues.get(t, 1).closed.Load(), "the old waiter must not close the new registration's queue")
 
 	regID := RegistrationID(validWorkflowID, 0)
 	newTrigger.EXPECT().AckEvent(mock.Anything, regID, "evt-2", testMethod).Return(nil).Once()
@@ -434,14 +457,17 @@ func TestCoordinator_Admission(t *testing.T) {
 		}
 		return admission, pool
 	}
+	// queueLen reports how many events wait on the registration's queue.
 	queueLen := func(f *coordinatorFixture) int {
-		n, err := f.admission.TriggerEventQueue.Len(t.Context())
+		cw, ok := f.c.workflows.get(validWorkflowID)
+		require.True(t, ok)
+		n, err := cw.queue.Len(t.Context())
 		require.NoError(t, err)
 		return n
 	}
 	t.Run("a full queue drops the event and the reader keeps reading", func(t *testing.T) { //nolint:paralleltest // see above
 		reader := useTestMeter(t) // before the fixture, so its metrics are read back
-		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.TriggerEventQueue = limits.NewQueueLimiter[CoordinatedEvent](1) })
+		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.NewTriggerEventQueue = newTestQueue(1) })
 		f := newCoordinatorFixtureWithAdmission(t, admission)
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()

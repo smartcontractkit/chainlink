@@ -78,15 +78,20 @@ type RegisteredEngine interface {
 	IsCoordinated() bool
 }
 
-// AdmissionLimiters are the limiters the coordinator admits trigger events
-// with. They must be the instances the legacy engines use: each is scoped per
-// tenant through the context, so legacy and coordinated executions count
-// against the same workflow, owner, org and global limits.
+// AdmissionLimiters are the limiters the coordinator admits trigger events with.
+// ExecutionConcurrency is shared by every registration; each registration gets
+// its own queue from NewTriggerEventQueue.
 type AdmissionLimiters struct {
-	// TriggerEventQueue buffers each workflow's events between its readers and
-	// its admitter. A full queue drops the event.
-	TriggerEventQueue limits.QueueLimiter[CoordinatedEvent]
-	// ExecutionConcurrency bounds how many executions run at the same time.
+	// NewTriggerEventQueue creates the queue that buffers one registration's
+	// events between its readers and its admitter. A full queue drops the event.
+	// RegisterTriggers calls it once per registration and fails if it returns an
+	// error.
+	NewTriggerEventQueue func() (limits.QueueLimiter[CoordinatedEvent], error)
+
+	// ExecutionConcurrency bounds how many executions run at the same time. It
+	// must be the instance the legacy engines use as the counts live in the
+	// instance.  Sharing it makes legacy and coordinated executions count
+	// against the same workflow, owner, org and global limits.
 	ExecutionConcurrency limits.ResourcePoolLimiter[int]
 }
 
@@ -144,6 +149,9 @@ type coordinatedWorkflow struct {
 	// holds a count while it runs, so the count only reaches zero once nothing
 	// can start another execution.
 	executions sync.WaitGroup
+	// queue carries events from the readers to the admitter. It belongs to this
+	// registration and is closed when the registration is released.
+	queue limits.QueueLimiter[CoordinatedEvent]
 
 	unregistered atomic.Bool // capability-side unregistration succeeded
 	releasing    atomic.Bool // release waiter spawned
@@ -212,6 +220,18 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		}
 	}()
 
+	queue, err := c.admission.NewTriggerEventQueue()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create trigger event queue: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			if closeErr := queue.Close(); closeErr != nil {
+				lggr.Errorw("Failed to close trigger event queue", "err", closeErr)
+			}
+		}
+	}()
+
 	subs, err := subscriber.Subscribe(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to subscribe to triggers: %w", err)
@@ -242,6 +262,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		donID:   params.WorkflowDonID,
 		cancel:  cancel,
 		handles: handles,
+		queue:   queue,
 		lggr:    lggr,
 		metrics: wfMetrics,
 	}
@@ -341,12 +362,12 @@ func (c *coordinator) close() error {
 }
 
 // buildEnqueueFn creates the readers' deliver function. It never waits for an
-// execution: it puts the event on the workflow's queue for the admitter, and
+// execution: it puts the event on the registration's queue for the admitter, and
 // drops it if the queue is full.
 func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Context, CoordinatedEvent) {
 	return func(ctx context.Context, event CoordinatedEvent) {
 		tm := cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID)
-		if err := c.admission.TriggerEventQueue.Put(ctx, event); err != nil {
+		if err := cw.queue.Put(ctx, event); err != nil {
 			tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
 			if _, isFull := errors.AsType[limits.ErrorQueueFull](err); isFull {
 				cw.lggr.Errorw("Trigger event queue is full, dropping event", "triggerID", event.TriggerCapID, "triggerIndex", event.TriggerIndex, "err", err)
@@ -363,13 +384,14 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 	}
 }
 
-// admit is the workflow's admitter. It takes events off the workflow's queue,
-// waits for an execution-concurrency slot, and runs each event on its own
+// admit is the registration's admitter. It takes events off the registration's
+// queue, waits for an execution-concurrency slot, and runs each event on its own
 // goroutine, which holds the slot until the execution returns. It returns when
-// ctx is cancelled, which happens when the workflow is unregistered.
+// ctx is cancelled, which happens when the registration is unregistered or the
+// coordinator closes.
 func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 	for {
-		event, err := c.admission.TriggerEventQueue.Wait(ctx)
+		event, err := cw.queue.Wait(ctx)
 		if err != nil {
 			return
 		}
@@ -426,6 +448,14 @@ func (c *coordinator) coordinatedEngine(cw *coordinatedWorkflow, event Coordinat
 // readers, its admitter and every execution the admitter started have returned.
 func (c *coordinator) releaseWhenDrained(ctx context.Context, cw *coordinatedWorkflow) {
 	ctx = contexts.WithCRE(ctx, cw.cre)
+
+	// Close the queue on every path out of this waiter: drained, timed out, or
+	// coordinator shutdown.
+	defer func() {
+		if err := cw.queue.Close(); err != nil {
+			cw.lggr.Errorw("Failed to close trigger event queue", "err", err)
+		}
+	}()
 
 	select {
 	case <-cw.drained():

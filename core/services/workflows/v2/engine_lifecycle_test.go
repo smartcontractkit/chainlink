@@ -401,10 +401,8 @@ func testLifecycleDrainThenCloseCancelsInFlightExecution(t *testing.T, mode life
 		eventExecutionCanceled, eventExecutionFinished, eventModuleClosed, eventCloseReturned)
 }
 
-// testLifecycleReplaceNextEventRunsOnNewEngine closes an engine and replaces it with a new one for
-// the same workflow. It asserts that the next trigger event runs on the new engine. In coordinated
-// mode the workflow's trigger registration stays live across the swap, so the coordinator must
-// route the event to the new engine; in legacy mode the new engine registers its own triggers.
+// testLifecycleReplaceNextEventRunsOnNewEngine asserts that after an engine is closed and replaced
+// by a new one for the same workflow, the next trigger event runs on the new engine.
 func testLifecycleReplaceNextEventRunsOnNewEngine(t *testing.T, mode lifecycleEngineMode) {
 	h := newEngineLifecycleHarness(t, mode)
 	h.start()
@@ -877,8 +875,8 @@ func (l *lifecycleLog) events() []lifecycleEvent {
 	return append([]lifecycleEvent(nil), l.logged...)
 }
 
-// lifecycleEngineRegistry is a triggers.EngineRegistry holding the one engine under test. The
-// engine can be swapped while the coordinator reads it.
+// lifecycleEngineRegistry is a triggers.EngineRegistry holding the one engine under test. It is
+// safe for concurrent use.
 type lifecycleEngineRegistry struct {
 	mu     sync.Mutex
 	engine v2.WorkflowEngine
