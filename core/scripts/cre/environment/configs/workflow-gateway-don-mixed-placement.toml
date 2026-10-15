@@ -2,6 +2,9 @@
 # This topology starts the workflow DON on the local machine and everything else on a remote
 # It requires that JD image (job-distributor:0.22.1) and CL node image (chainlink-amd:latest) is either present on the remote machine or can be pulled by it
 
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
@@ -50,7 +53,8 @@
   placement = "local"
 
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "evm-1337",  "read-contract-1337"]
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -59,9 +63,10 @@
 [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      image = "chainlink-tmp"
+      # docker_ctx = "../../../.."
+      # docker_file = "core/chainlink.Dockerfile"
+      # docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
 
 [[nodesets]]
   nodes = 4
@@ -79,7 +84,7 @@
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["web-api-target", "vault", "write-evm-2337", "read-contract-2337", "evm-2337"]
+  capabilities = ["vault", "evm-2337"]
 
   [nodesets.db]
     image = "postgres:12.0"
