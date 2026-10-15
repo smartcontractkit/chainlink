@@ -94,7 +94,7 @@ func (tw *telemetryIngressBatchWorker) logBufferFullWithExpBackoff(payload Telem
 	count := tw.dropMessageCount.Add(1)
 	TelemetryClientMessagesDropped.WithLabelValues(tw.endpointURL, string(tw.telemType)).Inc()
 
-	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
+	if shouldLogCount(count) {
 		tw.lggr.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
 	}
 }

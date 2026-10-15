@@ -44,6 +44,15 @@ SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 ChipIngressEnabled = false
+ChipIngressEndpoint = 'legacy-telemetry.example:443'
+ChipIngressInsecureConnection = true
+ChipIngressBufferSize = 2000
+ChipIngressMaxBatchSize = 200
+ChipIngressMaxConcurrentSends = 4
+ChipIngressSendInterval = '1s'
+ChipIngressSendTimeout = '5s'
+ChipIngressMaxGRPCRequestSize = 4194304
+ChipIngressDrainTimeout = '3s'
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'

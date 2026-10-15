@@ -86,6 +86,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -542,7 +543,38 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, globalLogger)
+	var telemChipService synchronization.ChipIngressService
+	if ti := cfg.TelemetryIngress(); ti.ChipIngressEnabled() && len(ti.Endpoints()) == 0 {
+		globalLogger.Warn("TelemetryIngress.ChipIngressEnabled is true but no TelemetryIngress.Endpoints are configured; no telemetry will be sent")
+	} else if ti.ChipIngressEnabled() {
+		chipClient, chipErr := synchronization.NewChipIngressClient(synchronization.ChipIngressClientConfig{
+			Endpoint:           ti.ChipIngressEndpoint(),
+			InsecureConnection: ti.ChipIngressInsecureConnection(),
+			AuthHeaders:        beholderAuthHeaders,
+			AuthHeadersTTL:     cfg.Telemetry().AuthHeadersTTL(),
+			AuthPublicKeyHex:   csaPubKeyHex,
+			AuthKeySigner:      csaKeystore,
+		})
+		if chipErr != nil {
+			return nil, fmt.Errorf("failed to create telemetry chip-ingress client: %w", chipErr)
+		}
+		telemChipService, chipErr = synchronization.NewChipIngressBatchClient(chipClient, csaPubKeyHex, synchronization.ChipIngressBatchConfig{
+			BufferSize:         ti.ChipIngressBufferSize(),
+			MaxBatchSize:       ti.ChipIngressMaxBatchSize(),
+			MaxConcurrentSends: ti.ChipIngressMaxConcurrentSends(),
+			SendInterval:       ti.ChipIngressSendInterval(),
+			SendTimeout:        ti.ChipIngressSendTimeout(),
+			MaxGRPCRequestSize: ti.ChipIngressMaxGRPCRequestSize(),
+			DrainTimeout:       ti.ChipIngressDrainTimeout(),
+			Logging:            ti.Logging(),
+		}, globalLogger)
+		if chipErr != nil {
+			_ = chipClient.Close() // the batch client never took ownership of chipClient
+			return nil, fmt.Errorf("failed to create telemetry chip-ingress batch client: %w", chipErr)
+		}
+		globalLogger.Infow("Telemetry will be sent via ChIP ingress", "endpoint", ti.ChipIngressEndpoint())
+	}
+	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, telemChipService, globalLogger)
 	srvcs = append(srvcs, telemetryManager)
 
 	backupCfg := cfg.Database().Backup()

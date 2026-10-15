@@ -32,8 +32,6 @@ type ChipIngressAgent struct {
 	lggr          logger.Logger
 
 	TelemType synchronization.TelemetryType // Empty for multitype endpoints
-	Domain    string                        // Derived from TelemetryType (empty for multitype)
-	Entity    string                        // Derived from TelemetryType (empty for multitype)
 }
 
 // NewChipIngressAgent creates a new agent for a single telemetry type endpoint.
@@ -55,8 +53,8 @@ func NewChipIngressAgent(
 		return nil, fmt.Errorf("failed to get chain details for chainID %s and network %s: %w", chainID, network, err)
 	}
 
-	domain, entity, err := synchronization.TelemetryTypeToDomainAndEntity(telemType)
-	if err != nil {
+	// Reject unmapped telemetry types up front so the caller gets a NoopAgent.
+	if _, _, err := synchronization.TelemetryTypeToDomainAndEntity(telemType); err != nil {
 		return nil, fmt.Errorf("failed to map telemetry type to domain/entity: %w", err)
 	}
 
@@ -65,8 +63,6 @@ func NewChipIngressAgent(
 		ChainID:       chainID,
 		ContractID:    contractID,
 		ChainSelector: details.ChainSelector,
-		Domain:        domain,
-		Entity:        entity,
 		TelemType:     telemType,
 		telemService:  telemService,
 		lggr:          lggr,
@@ -99,7 +95,7 @@ func NewChipIngressAgentMultitype(
 		ChainSelector: details.ChainSelector,
 		telemService:  telemService,
 		lggr:          lggr,
-		// TelemType, Domain, Entity left empty for multitype
+		// TelemType left empty for multitype
 	}, nil
 }
 
@@ -122,8 +118,6 @@ func (a *ChipIngressAgent) SendLog(log []byte) {
 		TelemType:     a.TelemType,
 		ContractID:    a.ContractID,
 		ChainSelector: a.ChainSelector,
-		Domain:        a.Domain,
-		Entity:        a.Entity,
 		Network:       a.Network,
 	}
 	a.telemService.Send(ctx, payload)
@@ -137,20 +131,11 @@ func (a *ChipIngressAgent) SendLog(log []byte) {
 // MonitoringEndpoint.SendLog signature for consistency. A background context is used internally.
 func (a *ChipIngressAgent) SendTypedLog(telemType synchronization.TelemetryType, log []byte) {
 	ctx := context.Background()
-
-	domain, entity, err := synchronization.TelemetryTypeToDomainAndEntity(telemType)
-	if err != nil {
-		a.lggr.Errorw("failed to map telemetry type to domain/entity", "error", err, "telemType", telemType)
-		return
-	}
-
 	payload := synchronization.TelemPayload{
 		Telemetry:     log,
 		TelemType:     telemType,
 		ContractID:    a.ContractID,
 		ChainSelector: a.ChainSelector,
-		Domain:        domain,
-		Entity:        entity,
 		Network:       a.Network,
 	}
 	a.telemService.Send(ctx, payload)

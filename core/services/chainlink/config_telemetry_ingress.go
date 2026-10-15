@@ -60,6 +60,42 @@ func (t *telemetryIngressConfig) ChipIngressEnabled() bool {
 	return *t.c.ChipIngressEnabled
 }
 
+func (t *telemetryIngressConfig) ChipIngressEndpoint() string {
+	return *t.c.ChipIngressEndpoint
+}
+
+func (t *telemetryIngressConfig) ChipIngressInsecureConnection() bool {
+	return *t.c.ChipIngressInsecureConnection
+}
+
+func (t *telemetryIngressConfig) ChipIngressBufferSize() uint {
+	return *t.c.ChipIngressBufferSize
+}
+
+func (t *telemetryIngressConfig) ChipIngressMaxBatchSize() uint {
+	return *t.c.ChipIngressMaxBatchSize
+}
+
+func (t *telemetryIngressConfig) ChipIngressMaxConcurrentSends() int {
+	return *t.c.ChipIngressMaxConcurrentSends
+}
+
+func (t *telemetryIngressConfig) ChipIngressDrainTimeout() time.Duration {
+	return t.c.ChipIngressDrainTimeout.Duration()
+}
+
+func (t *telemetryIngressConfig) ChipIngressSendInterval() time.Duration {
+	return t.c.ChipIngressSendInterval.Duration()
+}
+
+func (t *telemetryIngressConfig) ChipIngressSendTimeout() time.Duration {
+	return t.c.ChipIngressSendTimeout.Duration()
+}
+
+func (t *telemetryIngressConfig) ChipIngressMaxGRPCRequestSize() int {
+	return *t.c.ChipIngressMaxGRPCRequestSize
+}
+
 func (t *telemetryIngressEndpointConfig) Network() string {
 	return *t.c.Network
 }
@@ -68,13 +104,17 @@ func (t *telemetryIngressEndpointConfig) ChainID() string {
 	return *t.c.ChainID
 }
 
+// URL and ServerPubKey are optional in chip-ingress mode, where only Network and ChainID are used.
 func (t *telemetryIngressEndpointConfig) URL() *url.URL {
-	if t.c.URL.IsZero() {
+	if t.c.URL == nil || t.c.URL.IsZero() {
 		return nil
 	}
 	return t.c.URL.URL()
 }
 
 func (t *telemetryIngressEndpointConfig) ServerPubKey() string {
+	if t.c.ServerPubKey == nil {
+		return ""
+	}
 	return *t.c.ServerPubKey
 }

@@ -281,6 +281,15 @@ SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 UseBatchSend = true # Default
 ChipIngressEnabled = false # Default
+ChipIngressEndpoint = '' # Default
+ChipIngressInsecureConnection = false # Default
+ChipIngressBufferSize = 10000 # Default
+ChipIngressMaxBatchSize = 100 # Default
+ChipIngressMaxConcurrentSends = 10 # Default
+ChipIngressSendInterval = '500ms' # Default
+ChipIngressSendTimeout = '10s' # Default
+ChipIngressMaxGRPCRequestSize = 10485760 # Default
+ChipIngressDrainTimeout = '1s' # Default
 ```
 
 
@@ -300,13 +309,13 @@ Logging toggles verbose logging of the raw telemetry messages being sent.
 ```toml
 BufferSize = 100 # Default
 ```
-BufferSize is the number of telemetry messages to buffer before dropping new ones.
+BufferSize is the number of telemetry messages to buffer before dropping new ones. Ignored when ChipIngressEnabled is true.
 
 ### MaxBatchSize
 ```toml
 MaxBatchSize = 50 # Default
 ```
-MaxBatchSize is the maximum number of messages to batch into one telemetry request.
+MaxBatchSize is the maximum number of messages to batch into one telemetry request. Ignored when ChipIngressEnabled is true.
 
 ### SendInterval
 ```toml
@@ -330,7 +339,61 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 ```toml
 ChipIngressEnabled = false # Default
 ```
-ChipIngressEnabled enables sending telemetry to CHIP Ingress.
+ChipIngressEnabled sends all telemetry to ChipIngressEndpoint instead of the WSRPC Endpoints. Endpoints entries are still required and select which chains send telemetry; in this mode only their Network and ChainID are used.
+
+### ChipIngressEndpoint
+```toml
+ChipIngressEndpoint = '' # Default
+```
+ChipIngressEndpoint is the host:port of the chip-ingress legacy telemetry endpoint. Required when ChipIngressEnabled is true. Separate from Telemetry.ChipIngressEndpoint, which is Beholder's endpoint.
+
+### ChipIngressInsecureConnection
+```toml
+ChipIngressInsecureConnection = false # Default
+```
+ChipIngressInsecureConnection disables TLS to ChipIngressEndpoint. Only for local/test setups; not allowed for chain.link hosts.
+
+### ChipIngressBufferSize
+```toml
+ChipIngressBufferSize = 10000 # Default
+```
+ChipIngressBufferSize is the number of telemetry messages buffered for chip-ingress across all jobs; new messages are dropped when it is full. Between 1 and 100000.
+
+### ChipIngressMaxBatchSize
+```toml
+ChipIngressMaxBatchSize = 100 # Default
+```
+ChipIngressMaxBatchSize is the max number of messages per chip-ingress PublishBatch request. Between 1 and 500.
+
+### ChipIngressMaxConcurrentSends
+```toml
+ChipIngressMaxConcurrentSends = 10 # Default
+```
+ChipIngressMaxConcurrentSends limits parallel chip-ingress PublishBatch requests. Between 1 and 32.
+
+### ChipIngressSendInterval
+```toml
+ChipIngressSendInterval = '500ms' # Default
+```
+ChipIngressSendInterval is the max wait before flushing an incomplete chip-ingress batch. Between 50ms and 10s.
+
+### ChipIngressSendTimeout
+```toml
+ChipIngressSendTimeout = '10s' # Default
+```
+ChipIngressSendTimeout is the per-request timeout for chip-ingress PublishBatch. Between 1s and 1m.
+
+### ChipIngressMaxGRPCRequestSize
+```toml
+ChipIngressMaxGRPCRequestSize = 10485760 # Default
+```
+ChipIngressMaxGRPCRequestSize is the max serialized PublishBatch request size in bytes; larger batches are split. Between 1 MiB and 10 MiB, and must not exceed the server's receive limit.
+
+### ChipIngressDrainTimeout
+```toml
+ChipIngressDrainTimeout = '1s' # Default
+```
+ChipIngressDrainTimeout is the max time shutdown waits to publish buffered chip-ingress telemetry. Messages not sent by then count as send errors. With ChipIngressEnabled, must be less than half of ShutdownGracePeriod.
 
 ## TelemetryIngress.Endpoints
 ```toml

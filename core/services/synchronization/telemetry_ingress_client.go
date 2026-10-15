@@ -156,7 +156,7 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 // etc...
 func (tc *telemetryIngressClient) logBufferFullWithExpBackoff(payload TelemPayload) {
 	count := tc.dropMessageCount.Add(1)
-	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
+	if shouldLogCount(count) {
 		tc.eng.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
 	}
 }

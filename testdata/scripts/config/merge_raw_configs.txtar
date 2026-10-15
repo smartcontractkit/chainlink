@@ -191,6 +191,15 @@ SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
 ChipIngressEnabled = false
+ChipIngressEndpoint = ''
+ChipIngressInsecureConnection = false
+ChipIngressBufferSize = 10000
+ChipIngressMaxBatchSize = 100
+ChipIngressMaxConcurrentSends = 10
+ChipIngressSendInterval = '500ms'
+ChipIngressSendTimeout = '10s'
+ChipIngressMaxGRPCRequestSize = 10485760
+ChipIngressDrainTimeout = '1s'
 
 [AuditLogger]
 Enabled = false
