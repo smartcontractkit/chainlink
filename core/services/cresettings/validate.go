@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -48,6 +49,14 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 	}
 
 	switch configType {
+	case ConfigTypeCapRegistry:
+		payload, err2 := extractOffchainConfig(spec.Settings)
+		if err2 != nil {
+			return jb, errors.Wrap(err2, "invalid capabilities_registry config")
+		}
+		if err2 = globalconfig.Validate(payload); err2 != nil {
+			return jb, errors.Wrap(err2, "invalid capabilities_registry config")
+		}
 	case ConfigTypeShardAssignment:
 		if _, err = ParseShardAssignmentConfig(spec.Settings); err != nil {
 			return jb, errors.Wrap(err, "invalid shard_assignment config")
@@ -69,6 +78,21 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 	}
 
 	return jb, nil
+}
+
+// extractOffchainConfig returns the capabilities_registry proto-JSON payload carried in the
+// settings TOML under the offchain_config key.
+func extractOffchainConfig(settings string) (string, error) {
+	tree, err := toml.Load(settings)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse settings TOML: %w", err)
+	}
+	v := tree.Get(offchainConfigKey)
+	payload, ok := v.(string)
+	if !ok || payload == "" {
+		return "", fmt.Errorf("%s must be a non-empty string", offchainConfigKey)
+	}
+	return payload, nil
 }
 
 func extractConfigType(settings string) (string, bool) {

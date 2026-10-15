@@ -717,3 +717,44 @@ func TestGateway_Resolve_VaultHandlerAuth0TenantIDIsNumeric(t *testing.T) {
 	require.Len(t, decoded.GatewayConfig.Services[0].Handlers, 1)
 	assert.Equal(t, uint64(3), decoded.GatewayConfig.Services[0].Handlers[0].Config.Auth0.TenantID)
 }
+
+func TestGateway_buildServicesAndShardedDONs_Shards(t *testing.T) {
+	t.Parallel()
+
+	g := GatewayJob{
+		ServiceCentricFormatEnabled: true,
+		DONs: []TargetDON{
+			{
+				ID: "workflow",
+				F:  1,
+				Shards: [][]TargetDONMember{
+					{{Address: "0x01", Name: "n1"}},
+					{{Address: "0x02", Name: "n2"}},
+				},
+			},
+			{
+				ID:      "vault",
+				F:       0,
+				Members: []TargetDONMember{{Address: "0x03", Name: "n3"}},
+			},
+		},
+	}
+
+	dons, _, err := g.buildServicesAndShardedDONs()
+	require.NoError(t, err)
+	assert.Equal(t, []shardedDON{
+		{
+			DonName: "workflow",
+			F:       1,
+			Shards: []shard{
+				{Nodes: []member{{Address: "0x01", Name: "n1"}}},
+				{Nodes: []member{{Address: "0x02", Name: "n2"}}},
+			},
+		},
+		{
+			DonName: "vault",
+			F:       0,
+			Shards:  []shard{{Nodes: []member{{Address: "0x03", Name: "n3"}}}},
+		},
+	}, dons)
+}

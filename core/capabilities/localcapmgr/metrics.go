@@ -10,7 +10,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
-const keyCapabilityID = "capability_id"
+const (
+	keyCapabilityID   = "capability_id"
+	keyDivergenceKind = "kind"
+)
 
 type metrics struct {
 	launchesTotal  metric.Int64Counter
@@ -18,6 +21,9 @@ type metrics struct {
 	configUpdates  metric.Int64Counter
 	launchDuration metric.Float64Histogram
 	runningGauge   metric.Int64Gauge
+
+	// The applied version is emitted by the cresettings delegate.
+	offchainDivergences metric.Int64Gauge
 }
 
 func newMetrics() (*metrics, error) {
@@ -53,12 +59,19 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	offchainDivergences, err := meter.Int64Gauge("platform_offchain_registry_divergences",
+		metric.WithDescription("Allowlisted capabilities whose offchain config is missing or differs from on-chain, by kind"))
+	if err != nil {
+		return nil, err
+	}
+
 	return &metrics{
-		launchesTotal:  launchesTotal,
-		stopsTotal:     stopsTotal,
-		configUpdates:  configUpdates,
-		launchDuration: launchDuration,
-		runningGauge:   runningGauge,
+		launchesTotal:       launchesTotal,
+		stopsTotal:          stopsTotal,
+		configUpdates:       configUpdates,
+		launchDuration:      launchDuration,
+		runningGauge:        runningGauge,
+		offchainDivergences: offchainDivergences,
 	}, nil
 }
 
@@ -80,4 +93,11 @@ func (m *metrics) recordConfigUpdate(ctx context.Context, capID string) {
 
 func (m *metrics) recordRunning(ctx context.Context, count int64) {
 	m.runningGauge.Record(ctx, count)
+}
+
+// recordOffchainDivergences records the current divergence count per kind.
+func (m *localCapabilityManager) recordOffchainDivergences(ctx context.Context, divergences map[string]int64) {
+	for kind, count := range divergences {
+		m.metrics.offchainDivergences.Record(ctx, count, metric.WithAttributes(attribute.String(keyDivergenceKind, kind)))
+	}
 }

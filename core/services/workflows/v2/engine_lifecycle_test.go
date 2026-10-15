@@ -28,6 +28,7 @@ import (
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -52,8 +53,6 @@ const (
 // lifecycleTriggerCapID is the trigger every lifecycle workflow subscribes to.
 const lifecycleTriggerCapID = "id_0"
 
-const testTimeout = 10 * time.Second
-
 // lifecycleEvent is something the engine did that a lifecycle test orders its assertions on.
 type lifecycleEvent string
 
@@ -72,11 +71,28 @@ const (
 	eventCloseReturned lifecycleEvent = "close-returned"
 )
 
+// inFlightShutdown is how an InFlightTriggers scenario shuts the engine down while trigger events
+// are still arriving.
+type inFlightShutdown int
+
+const (
+	// shutdownClose closes the engine directly.
+	shutdownClose inFlightShutdown = iota + 1
+
+	// shutdownDrainThenClose drains the engine and closes it straight away.
+	shutdownDrainThenClose
+
+	// shutdownDrainWaitThenClose drains the engine, waits for its active executions to finish, then
+	// closes it.
+	shutdownDrainWaitThenClose
+)
+
 // TestEngine_Lifecycle runs the same Close and Drain scenarios against both engines. Each
 // scenario asserts the behavior every engine is expected to have, so the two must not diverge.
 //
-// The scenarios hold executions in the module on channels and order their assertions on a log of
-// engine events.
+// The scenarios hold executions in the module on channels, or let them run to completion, and order
+// their assertions on a log of engine events. The concurrent scenarios are meant to be run with the
+// race detector.
 func TestEngine_Lifecycle(t *testing.T) {
 	t.Parallel()
 
@@ -89,6 +105,9 @@ func TestEngine_Lifecycle(t *testing.T) {
 		{"Close_WaitsForExecutionBeforeClosingModule", testLifecycleCloseWaitsForExecutionBeforeClosingModule},
 		{"ExecuteTrigger_AfterClose", testLifecycleExecuteTriggerAfterClose},
 		{"ExecuteTrigger_ConcurrentWithClose", testLifecycleExecuteTriggerConcurrentWithClose},
+		{"InFlightTriggers_Close", testLifecycleInFlightTriggersClose},
+		{"InFlightTriggers_DrainThenClose", testLifecycleInFlightTriggersDrainThenClose},
+		{"InFlightTriggers_DrainWaitThenClose", testLifecycleInFlightTriggersDrainWaitThenClose},
 		{"ExecuteTrigger_ConcurrentWithDrainThenClose", testLifecycleExecuteTriggerConcurrentWithDrainThenClose},
 		{"ExecuteTrigger_WhileDraining", testLifecycleExecuteTriggerWhileDraining},
 		{"Drain_KeepsInFlightExecutionRunning", testLifecycleDrainKeepsInFlightExecutionRunning},
@@ -147,8 +166,8 @@ func testLifecycleCloseWaitsForExecutionBeforeClosingModule(t *testing.T, mode l
 	requireEventOrder(t, h.log.events(), eventExecutionFinished, eventModuleClosed, eventCloseReturned)
 }
 
-// testLifecycleExecuteTriggerAfterClose delivers a trigger event directly to a closed engine. It
-// asserts that the event is rejected without ever reaching the module.
+// testLifecycleExecuteTriggerAfterClose calls ExecuteTrigger directly on a closed engine. It asserts
+// that the event is rejected without ever reaching the module.
 func testLifecycleExecuteTriggerAfterClose(t *testing.T, mode lifecycleEngineMode) {
 	h := newEngineLifecycleHarness(t, mode)
 	h.start()
@@ -160,10 +179,10 @@ func testLifecycleExecuteTriggerAfterClose(t *testing.T, mode lifecycleEngineMod
 	require.Equal(t, int32(0), h.moduleExecutions.Load(), "executions that reached the module")
 }
 
-// testLifecycleExecuteTriggerConcurrentWithClose delivers trigger events from many goroutines
-// while the engine is closed. Every call races Close, so each may run to completion or be rejected.
-// It asserts that Close returns, that a rejected call reports the engine is closed, and that the
-// module is closed once. It is meant to be run with the race detector.
+// testLifecycleExecuteTriggerConcurrentWithClose calls ExecuteTrigger directly from many test
+// goroutines while an engine is closed. Every call races Close, so each may run to completion or be
+// rejected. It asserts that Close returns, that a rejected call reports the engine is closed, and
+// that the module is closed once.
 func testLifecycleExecuteTriggerConcurrentWithClose(t *testing.T, mode lifecycleEngineMode) {
 	const callers = 16
 
@@ -190,15 +209,72 @@ func testLifecycleExecuteTriggerConcurrentWithClose(t *testing.T, mode lifecycle
 	require.Equal(t, int32(1), h.moduleCloses.Load(), "module Close calls")
 }
 
+// testLifecycleInFlightTriggersClose closes an engine while trigger events are still arriving
+// through its real delivery path, so Close races the executions the engine starts for itself rather
+// than calls from test goroutines.
+func testLifecycleInFlightTriggersClose(t *testing.T, mode lifecycleEngineMode) {
+	testLifecycleInFlightTriggersShutdown(t, mode, shutdownClose)
+}
+
+// testLifecycleInFlightTriggersDrainThenClose drains an engine and closes it straight away while
+// trigger events are still arriving through its real delivery path.
+func testLifecycleInFlightTriggersDrainThenClose(t *testing.T, mode lifecycleEngineMode) {
+	testLifecycleInFlightTriggersShutdown(t, mode, shutdownDrainThenClose)
+}
+
+// testLifecycleInFlightTriggersDrainWaitThenClose drains an engine, waits for its active executions
+// to finish, then closes it, while trigger events are still arriving through its real delivery path.
+func testLifecycleInFlightTriggersDrainWaitThenClose(t *testing.T, mode lifecycleEngineMode) {
+	testLifecycleInFlightTriggersShutdown(t, mode, shutdownDrainWaitThenClose)
+}
+
+// testLifecycleInFlightTriggersShutdown shuts an engine down as shutdown describes while a feeder
+// keeps sending trigger events through its real delivery path. Executions run to completion when
+// they reach the module, keeping the delivery path busy. It asserts that Drain, when called, reports
+// the transition, that Close returns, that the module is closed once and only after every execution
+// that reached it has finished, and that no execution is left active.
+func testLifecycleInFlightTriggersShutdown(t *testing.T, mode lifecycleEngineMode, shutdown inFlightShutdown) {
+	// executions that must reach the module before shutdown, so delivery is under way when it starts
+	const warmup = 4
+
+	h := newEngineLifecycleHarness(t, mode)
+	h.start()
+	h.blocker.release()
+
+	// The feeder also stops when the test ends, so a test that fails before closing stop doesn't
+	// leave it running.
+	stop := make(chan struct{})
+	fed := h.feedEvents(stop)
+	for range warmup {
+		awaitLifecycle(t, h.blocker.started, "fed execution to start")
+	}
+
+	if shutdown != shutdownClose {
+		require.True(t, h.engine.Drain(), "Drain")
+	}
+	if shutdown == shutdownDrainWaitThenClose {
+		require.Eventually(t, func() bool { return h.engine.ActiveExecutions() == 0 },
+			testutils.WaitTimeout(t), 10*time.Millisecond, "active executions to finish after Drain")
+	}
+	require.NoError(t, h.close())
+	close(stop)
+	awaitLifecycle(t, fed, "feeder to exit")
+
+	require.Equal(t, int32(1), h.moduleCloses.Load(), "module Close calls")
+	require.Equal(t, int32(0), h.engine.ActiveExecutions(), "active executions after Close")
+	events := h.log.events()
+	requireAllBefore(t, events, eventExecutionFinished, eventModuleClosed)
+	requireEventOrder(t, events, eventModuleClosed, eventCloseReturned)
+}
+
 // testLifecycleExecuteTriggerConcurrentWithDrainThenClose runs the standard shutdown, Drain then
-// Close, while many ExecuteTrigger calls are in flight or arriving. The executions are held in the
-// module, so Close has to cancel them. A first wave is held in the module before shutdown begins. A
-// second wave races the shutdown, so each of its calls may be admitted and canceled, or rejected as
-// draining or closed. It asserts that Close cancels the held executions, that no call fails any
-// way but a rejection (a canceled execution reports through its status, not its error), that every execution
-// that reached the module finishes before the module is closed, and that Close returns.
-//
-// It is meant to be run with the race detector.
+// Close, while many direct ExecuteTrigger calls from test goroutines are in flight or arriving. The
+// executions are held in the module, so Close has to cancel them. A first wave is held in the module
+// before shutdown begins. A second wave races the shutdown, so each of its calls may be admitted and
+// canceled, or rejected as draining or closed. It asserts that Close cancels the held executions,
+// that no call fails any way but a rejection (a canceled execution reports through its status, not
+// its error), that every execution that reached the module finishes before the module is closed,
+// and that Close returns.
 func testLifecycleExecuteTriggerConcurrentWithDrainThenClose(t *testing.T, mode lifecycleEngineMode) {
 	const (
 		inflight = 50
@@ -275,8 +351,8 @@ func testLifecycleExecuteTriggerConcurrentWithDrainThenClose(t *testing.T, mode 
 	requireEventOrder(t, events, eventModuleClosed, eventCloseReturned)
 }
 
-// testLifecycleExecuteTriggerWhileDraining delivers a trigger event directly to a draining engine.
-// It asserts that the event is rejected without ever reaching the module.
+// testLifecycleExecuteTriggerWhileDraining calls ExecuteTrigger directly on a draining engine. It
+// asserts that the event is rejected without ever reaching the module.
 func testLifecycleExecuteTriggerWhileDraining(t *testing.T, mode lifecycleEngineMode) {
 	h := newEngineLifecycleHarness(t, mode)
 	h.start()
@@ -324,8 +400,8 @@ func testLifecycleDrainThenCloseCancelsInFlightExecution(t *testing.T, mode life
 		eventExecutionCanceled, eventExecutionFinished, eventModuleClosed, eventCloseReturned)
 }
 
-// engineLifecycleHarness is a real engine of the harness's mode over a mock module whose
-// executions are held by an executionBlocker until the test releases them or their context is canceled. In
+// engineLifecycleHarness is a real engine of the harness's mode over a mock module whose executions
+// are held by an executionBlocker until the test releases them or their context is canceled. In
 // coordinated mode a real trigger coordinator registers the engine's triggers, delivers its events
 // and acknowledges them; in legacy mode the engine does all of that itself.
 type engineLifecycleHarness struct {
@@ -365,6 +441,7 @@ type engineLifecycleHarness struct {
 // Sends never block, so a scenario that expects more signals than this must raise it.
 const defaultSignalBuffer = 16
 
+// harnessOptions holds the settings harnessOption values change.
 type harnessOptions struct {
 	signalBuffer  int
 	eventBuffer   int
@@ -423,7 +500,7 @@ func withSharedFlight(f *flightTracker) harnessOption {
 }
 
 // newEngineLifecycleHarness builds the engine for mode without starting it. Whatever the test
-// leaves running is released and closed at cleanup.
+// leaves running is canceled and closed at cleanup.
 func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...harnessOption) *engineLifecycleHarness {
 	t.Helper()
 
@@ -499,8 +576,11 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	h.engines.engine = engine
 
 	// Close the engine before the mocks and limiters it uses go away. The test's context is
-	// already canceled by now, which returns any execution still held by the blocker.
-	t.Cleanup(func() { _ = engine.Close() })
+	// already canceled by now, which returns any execution still held by the blocker. An engine
+	// that deadlocks here hangs until the suite timeout, which dumps every goroutine's stack.
+	t.Cleanup(func() {
+		_ = engine.Close()
+	})
 	return h
 }
 
@@ -588,12 +668,12 @@ func (h *engineLifecycleHarness) start() {
 	require.Equal(h.t, []string{lifecycleTriggerCapID}, awaitLifecycle(h.t, h.subscribedCh, "engine to register triggers"))
 }
 
-// startExecution delivers a trigger event through the engine's real delivery path and waits until
-// its execution is running in the module. It stays there until the blocker is released or its context is
-// canceled.
+// startExecution sends one trigger event through the engine's real delivery path and waits until
+// its execution is running in the module. It stays there until the blocker is released or its
+// context is canceled.
 func (h *engineLifecycleHarness) startExecution() {
 	h.t.Helper()
-	h.deliver(testTimeout)
+	h.deliver(testutils.WaitTimeout(h.t))
 	awaitLifecycle(h.t, h.blocker.started, "execution to start")
 }
 
@@ -615,17 +695,32 @@ func (h *engineLifecycleHarness) deliverEvent(id string, timeout time.Duration) 
 	}
 }
 
-// close closes the engine, logging when Close returns, and returns its error. Close runs on its
-// own goroutine so an engine that never returns fails the test instead of hanging it.
-func (h *engineLifecycleHarness) close() error {
-	h.t.Helper()
-	done := make(chan error, 1)
+// feedEvents sends trigger events through the engine's real delivery path until stop is closed or
+// the test ends. Unlike startExecution, it neither waits for an execution nor stops on its own, so
+// delivery can overlap shutdown. The returned channel is closed once the feeder has exited.
+func (h *engineLifecycleHarness) feedEvents(stop <-chan struct{}) <-chan struct{} {
+	exited := make(chan struct{})
 	go func() {
-		err := h.engine.Close()
-		h.log.record(eventCloseReturned)
-		done <- err
+		defer close(exited)
+		for {
+			event := h.event(fmt.Sprintf("fed-%d", h.nextEvent.Add(1))).Event
+			select {
+			case h.eventCh <- event:
+			case <-stop:
+				return
+			case <-h.t.Context().Done():
+				return
+			}
+		}
 	}()
-	return awaitLifecycle(h.t, done, "engine Close to return")
+	return exited
+}
+
+// close closes the engine, logging when Close returns, and returns its error.
+func (h *engineLifecycleHarness) close() error {
+	err := h.engine.Close()
+	h.log.record(eventCloseReturned)
+	return err
 }
 
 // recordFinished is the OnExecutionFinished hook's record of an execution's status.
@@ -648,7 +743,8 @@ func (h *engineLifecycleHarness) waitExecutionFinished() string {
 	return awaitLifecycle(h.t, h.finishedCh, "execution to finish")
 }
 
-// event returns a trigger event for the workflow's one trigger, for delivery straight to the engine.
+// event returns a trigger event for the workflow's one trigger. Callers pass it to ExecuteTrigger
+// directly, or send its Event through the real delivery path.
 func (h *engineLifecycleHarness) event(id string) triggers.CoordinatedEvent {
 	return triggers.CoordinatedEvent{
 		WorkflowID:   h.cfg.WorkflowID,
@@ -666,14 +762,14 @@ func (h *engineLifecycleHarness) tenantCtx() context.Context {
 	return contexts.WithCRE(h.t.Context(), h.engine.Tenant())
 }
 
-// awaitLifecycle returns the next value from ch, failing the test if none arrives within the
-// backstop.
+// awaitLifecycle returns the next value from ch, or the zero value once ch is closed, failing the
+// test if neither happens within testutils.WaitTimeout.
 func awaitLifecycle[T any](t *testing.T, ch <-chan T, what string) T {
 	t.Helper()
 	select {
 	case v := <-ch:
 		return v
-	case <-time.After(testTimeout):
+	case <-time.After(testutils.WaitTimeout(t)):
 		require.FailNow(t, "timed out waiting for "+what)
 		panic("unreachable")
 	}
@@ -717,6 +813,7 @@ type lifecycleLog struct {
 	logged []lifecycleEvent
 }
 
+// record appends e to the log.
 func (l *lifecycleLog) record(e lifecycleEvent) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -735,6 +832,7 @@ type lifecycleEngineRegistry struct {
 	engine v2.WorkflowEngine
 }
 
+// Get returns the engine under test if wid is its workflow.
 func (r *lifecycleEngineRegistry) Get(wid types.WorkflowID) (triggers.RegisteredEngine, bool) {
 	if r.engine == nil || wid.Hex() != r.engine.Tenant().Workflow {
 		return nil, false
@@ -742,14 +840,11 @@ func (r *lifecycleEngineRegistry) Get(wid types.WorkflowID) (triggers.Registered
 	return r.engine, true
 }
 
-// blockerBackstop bounds how long the executionBlocker holds an execution. It is shorter than
-// testTimeout so a stuck execution fails with its own message before a wait on Close times out.
-const blockerBackstop = testTimeout / 2
-
 // executionBlocker holds executions in the module until the test releases them or their context
-// is canceled. An execution nothing releases or cancels fails the test after blockerBackstop.
+// is canceled. An execution nothing releases or cancels fails the test after backstop.
 type executionBlocker struct {
 	t        *testing.T
+	backstop time.Duration
 	started  chan struct{}
 	canceled chan struct{} // signaled when a held execution observes its context's cancellation
 	released chan struct{}
@@ -761,9 +856,13 @@ type executionBlocker struct {
 	errAtRelease error // the context's error when a released execution resumed
 }
 
+// newExecutionBlocker returns a blocker whose started and canceled signals hold up to signalBuffer
+// unread values. Its backstop is half the test's wait budget, so a stuck execution fails with its
+// own message before the suite timeout.
 func newExecutionBlocker(t *testing.T, log *lifecycleLog, signalBuffer int) *executionBlocker {
 	return &executionBlocker{
 		t:        t,
+		backstop: testutils.WaitTimeout(t) / 2,
 		started:  make(chan struct{}, signalBuffer),
 		canceled: make(chan struct{}, signalBuffer),
 		released: make(chan struct{}),
@@ -774,12 +873,12 @@ func newExecutionBlocker(t *testing.T, log *lifecycleLog, signalBuffer int) *exe
 
 // block signals that an execution started and holds it. It returns nil once the blocker is
 // released, and the context's error, after logging the cancellation, if the context is canceled
-// first. It fails the test if neither happens within blockerBackstop.
+// first. It fails the test if neither happens within the backstop.
 func (b *executionBlocker) block(ctx context.Context) error {
 	// signal that a blocking execution has started
 	nonBlockingSend(b.started, struct{}{})
 
-	backstop := time.NewTimer(blockerBackstop)
+	backstop := time.NewTimer(b.backstop)
 	defer backstop.Stop()
 
 	select {
@@ -795,7 +894,7 @@ func (b *executionBlocker) block(ctx context.Context) error {
 		nonBlockingSend(b.canceled, struct{}{})
 		return ctx.Err()
 	case <-backstop.C:
-		b.t.Errorf("execution was held for %s without release or cancellation", blockerBackstop)
+		b.t.Errorf("execution was held for %s without release or cancellation", b.backstop)
 		return errors.New("execution blocker backstop elapsed")
 	case <-b.t.Context().Done():
 		return b.t.Context().Err()
@@ -807,7 +906,7 @@ func (b *executionBlocker) releaseOne() {
 	b.t.Helper()
 	select {
 	case b.step <- struct{}{}:
-	case <-time.After(testTimeout):
+	case <-time.After(b.backstop):
 		require.FailNow(b.t, "no held execution to release")
 	}
 }

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -22,7 +24,7 @@ static_default_assignment = [0, 1]
 
 func newTestDelegate(t *testing.T) *delegate {
 	t.Helper()
-	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{})
+	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New())
 }
 
 func cresettingsJob(id int32, settings string) job.Job {
@@ -114,5 +116,59 @@ func TestOnDeleteJobFreesSlotPerConfigType(t *testing.T) {
 	require.ErrorContains(t, err, "already active: 2")
 	require.NoError(t, d.OnDeleteJob(ctx, cresettingsJob(2, shardAssignmentToml)))
 	_, err = d.ServicesForSpec(ctx, cresettingsJob(7, shardAssignmentToml))
+	require.NoError(t, err)
+}
+
+const capRegPayload = `{"domain":"cre","env":"test","version":1,"dons":{"don-a":{"capabilities":{"cron@1.0.0":{"spec_config":{"fields":{"interval":{"stringValue":"30"}}}}}}}}`
+
+func capRegSettings(payload string) string {
+	return "config_type = \"capabilities_registry\"\noffchain_config = '''" + payload + "'''\n"
+}
+
+func TestServicesForSpecCapRegistry(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	gc := globalconfig.New()
+	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, gc)
+	capRegJob := func(id int32, payload string) job.Job {
+		jb := cresettingsJob(id, capRegSettings(payload))
+		jb.CRESettingsSpec.Hash = payload
+		return jb
+	}
+	jb := capRegJob(1, capRegPayload)
+
+	_, err := d.ServicesForSpec(ctx, jb)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), gc.LoadParsed().GetVersion())
+
+	// A second capabilities_registry job is rejected; other config types are independent.
+	_, err = d.ServicesForSpec(ctx, capRegJob(2, capRegPayload))
+	require.Error(t, err)
+	_, err = d.ServicesForSpec(ctx, cresettingsJob(3, settingsToml))
+	require.NoError(t, err)
+
+	// Deleting the job frees the slot but keeps the payload, so a JD replace (delete + create)
+	// whose new payload is rejected leaves the node on the old one.
+	require.NoError(t, d.OnDeleteJob(ctx, jb))
+	stale := `{"domain":"cre","env":"test","version":1,"dons":{}}`
+	_, err = d.ServicesForSpec(ctx, capRegJob(4, stale))
+	require.ErrorContains(t, err, "not newer")
+	assert.Contains(t, gc.LoadParsed().GetDons(), "don-a")
+
+	_, err = d.ServicesForSpec(ctx, capRegJob(5, capRegPayload))
+	require.NoError(t, err)
+}
+
+func TestServicesForSpecCapRegistryInvalidPayloadFreesSlot(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New())
+
+	_, err := d.ServicesForSpec(ctx, cresettingsJob(1, "config_type = \"capabilities_registry\"\n"))
+	require.Error(t, err)
+	// The failed job must not hold the slot.
+	_, err = d.ServicesForSpec(ctx, cresettingsJob(2, capRegSettings(capRegPayload)))
 	require.NoError(t, err)
 }
