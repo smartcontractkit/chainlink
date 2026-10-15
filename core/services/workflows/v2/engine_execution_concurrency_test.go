@@ -10,12 +10,14 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -625,4 +627,183 @@ func testAdmissionOneTriggerRunsUpToLimit(t *testing.T, mode lifecycleEngineMode
 	awaitLifecycle(t, h.blocker.started, "the extra execution to start once a slot frees")
 
 	require.Equal(t, int32(limit), h.moduleMaxFlight.Load(), "executions must never exceed ExecutionConcurrencyLimit")
+}
+
+// Workflows for the scenarios that run more than one engine on shared limiters.
+const (
+	sharedLimitsWorkflowB = "aaaabbbbccccddddeeeeffff0000111122223333444455556666777788889999"
+	sharedLimitsOwnerB    = "2200000000000000000000000000000000000000"
+)
+
+// newSharedLimiters returns one set of engine limiters, built from settingsJSON, for several
+// engines to share as the engines on a node do.
+func newSharedLimiters(t *testing.T, settingsJSON string) *v2.EngineLimiters {
+	t.Helper()
+	getter, err := settings.NewJSONGetter([]byte(settingsJSON))
+	require.NoError(t, err)
+	l, err := v2.NewLimiters(limits.Factory{Logger: logger.Test(t), Settings: getter}, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, l.Close()) })
+	return l
+}
+
+// TestEngine_SharedConcurrencyLimits asserts that the owner, org and global
+// execution-concurrency limits count every engine's executions together, whichever path admits
+// them. Each scenario sends more events than the limit allows and holds the executions, so
+// the extra events must wait for a slot.
+func TestEngine_SharedConcurrencyLimits(t *testing.T) {
+	t.Parallel()
+
+	t.Run("the global limit spans coordinated workflows", func(t *testing.T) {
+		t.Parallel()
+		limiters := newSharedLimiters(t, `{"global":{"WorkflowExecutionConcurrencyLimit":"2"}}`)
+		flight := &flightTracker{}
+		// Different owners, so only the global limit applies to both.
+		a := newEngineLifecycleHarness(t, lifecycleCoordinated, withLimiters(limiters), withSharedFlight(flight),
+			withWorkflow(testWorkflowID, testWorkflowOwnerA))
+		b := newEngineLifecycleHarness(t, lifecycleCoordinated, withLimiters(limiters), withSharedFlight(flight),
+			withWorkflow(sharedLimitsWorkflowB, sharedLimitsOwnerB))
+		requireSharedLimit(t, 2, flight, a, b)
+	})
+
+	t.Run("the owner limit spans legacy and coordinated workflows", func(t *testing.T) {
+		t.Parallel()
+		limiters := newSharedLimiters(t, `{"global":{"PerOwner":{"WorkflowExecutionConcurrencyLimit":"1"}}}`)
+		flight := &flightTracker{}
+		// The same owner, on different paths.
+		legacy := newEngineLifecycleHarness(t, lifecycleLegacy, withLimiters(limiters), withSharedFlight(flight),
+			withWorkflow(testWorkflowID, testWorkflowOwnerA))
+		coordinated := newEngineLifecycleHarness(t, lifecycleCoordinated, withLimiters(limiters), withSharedFlight(flight),
+			withWorkflow(sharedLimitsWorkflowB, testWorkflowOwnerA))
+		requireSharedLimit(t, 1, flight, legacy, coordinated)
+	})
+}
+
+// requireSharedLimit starts every harness, sends each two events, and asserts that only limit
+// executions run at once across all of them.
+func requireSharedLimit(t *testing.T, limit int32, flight *flightTracker, hs ...*engineLifecycleHarness) {
+	t.Helper()
+	total := int32(2 * len(hs))
+	sum := func(field func(*engineLifecycleHarness) int32) (n int32) {
+		for _, h := range hs {
+			n += field(h)
+		}
+		return n
+	}
+
+	for _, h := range hs {
+		h.start()
+	}
+	for _, h := range hs {
+		h.deliver(admissionTimeout)
+		h.deliver(admissionTimeout)
+	}
+
+	// limit executions get a slot and run. At least one more event asks for a slot and waits.
+	// An admitter handles one event at a time, so a waiting event holds back the rest of its
+	// workflow's events, and not every event asks for a slot yet.
+	require.Eventually(t, func() bool { return flight.inFlight.Load() == limit }, admissionTimeout, 5*time.Millisecond,
+		"executions holding a slot")
+	require.Eventually(t, func() bool { return sum(func(h *engineLifecycleHarness) int32 { return h.slots.waits.Load() }) > limit },
+		admissionTimeout, 5*time.Millisecond, "an event beyond the limit asked for a slot")
+	require.Equal(t, limit, sum(func(h *engineLifecycleHarness) int32 { return h.slots.acquired.Load() }),
+		"slots granted while an event waits for one")
+
+	// Let everything run: each freed slot goes to a waiting event. Waiting for all of them to
+	// finish also means none is still being scheduled when the harnesses close their engines.
+	for _, h := range hs {
+		h.blocker.release()
+	}
+	require.Eventually(t, func() bool {
+		return sum(func(h *engineLifecycleHarness) int32 { return h.moduleExecutions.Load() }) == total && flight.inFlight.Load() == 0
+	}, admissionTimeout, 5*time.Millisecond, "every event executed")
+	require.Equal(t, limit, flight.max.Load(), "executions must never exceed the shared limit")
+}
+
+// TestEngine_ConcurrencySlotsReturnToBaseline asserts that an execution that fails or is
+// cancelled gives back its execution-concurrency slot at every scope: workflow, owner, org and
+// global. A slot leaked at the owner or org scope would not show at the workflow scope.
+func TestEngine_ConcurrencySlotsReturnToBaseline(t *testing.T) {
+	t.Parallel()
+
+	scenarios := []struct {
+		name string
+		opts func(t *testing.T) []harnessOption
+		// run drives the failure and returns how many slots it should have taken and given back.
+		run func(t *testing.T, h *engineLifecycleHarness) int32
+	}{
+		{
+			name: "metering reserve failure",
+			opts: func(t *testing.T) []harnessOption {
+				return []harnessOption{withBillingClient(newTestBillingClient(t, false))}
+			},
+			run: func(t *testing.T, h *engineLifecycleHarness) int32 {
+				h.deliver(admissionTimeout) // aborted before the module runs
+				return 1
+			},
+		},
+		{
+			name: "duplicate execution",
+			run: func(t *testing.T, h *engineLifecycleHarness) int32 {
+				h.deliverEvent("duplicate", admissionTimeout)
+				awaitLifecycle(t, h.blocker.started, "execution to start")
+				h.blocker.releaseOne()
+				require.Eventually(t, func() bool { return h.slots.released.Load() == 1 }, admissionTimeout, 5*time.Millisecond)
+				h.deliverEvent("duplicate", admissionTimeout) // rejected as a duplicate before the module runs
+				return 2
+			},
+		},
+		{
+			name: "engine closed during an execution",
+			run: func(t *testing.T, h *engineLifecycleHarness) int32 {
+				h.startExecution()
+				require.NoError(t, h.close()) // cancels the held execution
+				return 1
+			},
+		},
+	}
+
+	scopes := []string{"workflow", "owner", "org", "global"} // the order of EngineLimiters.ExecutionConcurrency
+	for _, mode := range []lifecycleEngineMode{lifecycleLegacy, lifecycleCoordinated} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Parallel()
+			for _, s := range scenarios {
+				t.Run(s.name, func(t *testing.T) {
+					t.Parallel()
+					limiters := newSharedLimiters(t, `{}`)
+					opts := []harnessOption{withLimiters(limiters), withOrg("org-1")}
+					if s.opts != nil {
+						opts = append(opts, s.opts(t)...)
+					}
+					h := newEngineLifecycleHarness(t, mode, opts...)
+					h.start()
+
+					pools, ok := limiters.ExecutionConcurrency.(limits.MultiResourcePoolLimiter[int])
+					require.True(t, ok, "ExecutionConcurrency is %T", limiters.ExecutionConcurrency)
+					require.Len(t, pools, len(scopes))
+					ctx := contexts.WithCRE(t.Context(), h.engine.Tenant())
+					available := func() []int {
+						out := make([]int, len(pools))
+						for i, p := range pools {
+							n, err := p.Available(ctx)
+							require.NoError(t, err, "%s scope", scopes[i])
+							out[i] = n
+						}
+						return out
+					}
+					baseline := available()
+
+					slots := s.run(t, h)
+
+					require.Eventually(t, func() bool {
+						return h.slots.acquired.Load() == slots && h.slots.released.Load() == slots
+					}, admissionTimeout, 5*time.Millisecond, "every slot taken is given back")
+					got := available()
+					for i := range scopes {
+						assert.Equal(t, baseline[i], got[i], "%s scope", scopes[i])
+					}
+				})
+			}
+		})
+	}
 }

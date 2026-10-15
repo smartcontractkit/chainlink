@@ -351,8 +351,11 @@ type engineLifecycleHarness struct {
 
 	// slots counts requests for an execution-concurrency slot, made by whichever component
 	// admits events: the legacy engine or the coordinator.
-	slots     *slotCounter
-	nextEvent atomic.Int32
+	slots *slotCounter
+	// sharedFlight, if set, also counts this harness's executions, so scenarios with several
+	// harnesses can see how many run at once across all of them.
+	sharedFlight *flightTracker
+	nextEvent    atomic.Int32
 
 	finishedMu  sync.Mutex
 	finishedLog []string // status of every OnExecutionFinished call, which finishedCh drops when full
@@ -363,9 +366,15 @@ type engineLifecycleHarness struct {
 const defaultSignalBuffer = 16
 
 type harnessOptions struct {
-	signalBuffer int
-	eventBuffer  int
-	settings     func(*cresettings.Workflows)
+	signalBuffer  int
+	eventBuffer   int
+	settings      func(*cresettings.Workflows)
+	limiters      *v2.EngineLimiters
+	workflowID    string
+	workflowOwner string
+	orgID         string
+	billing       *metmocks.BillingClient
+	sharedFlight  *flightTracker
 }
 
 // harnessOption configures newEngineLifecycleHarness.
@@ -385,6 +394,32 @@ func withEventBuffer(n int) harnessOption {
 // withSettings overrides the CRE settings the engine's limiters are built from.
 func withSettings(fn func(*cresettings.Workflows)) harnessOption {
 	return func(o *harnessOptions) { o.settings = fn }
+}
+
+// withLimiters makes the engine use limiters, so several harnesses can share them as the
+// engines on a node do. It takes precedence over withSettings.
+func withLimiters(l *v2.EngineLimiters) harnessOption {
+	return func(o *harnessOptions) { o.limiters = l }
+}
+
+// withWorkflow sets the workflow ID and owner, so several harnesses can run distinct workflows.
+func withWorkflow(id, owner string) harnessOption {
+	return func(o *harnessOptions) { o.workflowID, o.workflowOwner = id, owner }
+}
+
+// withOrg makes the engine resolve its workflow owner to orgID.
+func withOrg(orgID string) harnessOption {
+	return func(o *harnessOptions) { o.orgID = orgID }
+}
+
+// withBillingClient replaces the default billing client, which accepts every call.
+func withBillingClient(c *metmocks.BillingClient) harnessOption {
+	return func(o *harnessOptions) { o.billing = c }
+}
+
+// withSharedFlight also counts the harness's executions in f.
+func withSharedFlight(f *flightTracker) harnessOption {
+	return func(o *harnessOptions) { o.sharedFlight = f }
 }
 
 // newEngineLifecycleHarness builds the engine for mode without starting it. Whatever the test
@@ -419,11 +454,27 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	cfg := defaultTestConfig(t, o.settings)
+	if o.limiters != nil {
+		// A copy, so wrapping its ExecutionConcurrency below does not change the shared struct.
+		// The copy still holds the shared limiter instances.
+		shared := *o.limiters
+		cfg.LocalLimiters = &shared
+	}
+	if o.workflowID != "" {
+		cfg.WorkflowID, cfg.WorkflowOwner = o.workflowID, o.workflowOwner
+	}
+	if o.orgID != "" {
+		cfg.OrgResolver = &mockOrgResolver{orgID: o.orgID}
+	}
+	h.sharedFlight = o.sharedFlight
 	h.slots = &slotCounter{ResourcePoolLimiter: cfg.LocalLimiters.ExecutionConcurrency}
 	cfg.LocalLimiters.ExecutionConcurrency = h.slots
 	cfg.CapRegistry = capreg
 	cfg.Module = h.newModule()
 	cfg.BillingClient = newLifecycleBillingClient(t)
+	if o.billing != nil {
+		cfg.BillingClient = o.billing
+	}
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized:          func(err error) { nonBlockingSend(h.initDoneCh, err) },
 		OnSubscribedToTriggers: func(ids []string) { nonBlockingSend(h.subscribedCh, ids) },
@@ -472,6 +523,10 @@ func (h *engineLifecycleHarness) newModule() *modulemocks.ModuleV2 {
 			defer h.moduleInFlight.Add(-1)
 			for maxFlight := h.moduleMaxFlight.Load(); inFlight > maxFlight && !h.moduleMaxFlight.CompareAndSwap(maxFlight, inFlight); {
 				maxFlight = h.moduleMaxFlight.Load()
+			}
+			if h.sharedFlight != nil {
+				h.sharedFlight.enter()
+				defer h.sharedFlight.exit()
 			}
 			if err := h.blocker.block(ctx); err != nil {
 				return nil, err
@@ -546,7 +601,12 @@ func (h *engineLifecycleHarness) startExecution() {
 // test if the node's reader does not take it within timeout.
 func (h *engineLifecycleHarness) deliver(timeout time.Duration) {
 	h.t.Helper()
-	id := fmt.Sprintf("event-%d", h.nextEvent.Add(1))
+	h.deliverEvent(fmt.Sprintf("event-%d", h.nextEvent.Add(1)), timeout)
+}
+
+// deliverEvent is deliver with a chosen event ID, for scenarios that send the same event twice.
+func (h *engineLifecycleHarness) deliverEvent(id string, timeout time.Duration) {
+	h.t.Helper()
 	select {
 	case h.eventCh <- h.event(id).Event:
 	case <-time.After(timeout):
@@ -769,13 +829,38 @@ func (b *executionBlocker) contextErrAtRelease() error {
 // an event is waiting for a slot.
 type slotCounter struct {
 	limits.ResourcePoolLimiter[int]
-	waits atomic.Int32
+	waits    atomic.Int32 // Wait calls
+	acquired atomic.Int32 // slots granted
+	released atomic.Int32 // slots given back
 }
 
 func (s *slotCounter) Wait(ctx context.Context, amount int) (func(), error) {
 	s.waits.Add(1)
-	return s.ResourcePoolLimiter.Wait(ctx, amount)
+	free, err := s.ResourcePoolLimiter.Wait(ctx, amount)
+	if err != nil {
+		return free, err
+	}
+	s.acquired.Add(1)
+	return func() {
+		free()
+		s.released.Add(1)
+	}, nil
 }
+
+// flightTracker counts executions running at once across several harnesses, and the most seen.
+type flightTracker struct {
+	inFlight atomic.Int32
+	max      atomic.Int32
+}
+
+func (f *flightTracker) enter() {
+	n := f.inFlight.Add(1)
+	for m := f.max.Load(); n > m && !f.max.CompareAndSwap(m, n); {
+		m = f.max.Load()
+	}
+}
+
+func (f *flightTracker) exit() { f.inFlight.Add(-1) }
 
 // nonBlockingSend sends v on ch unless it is full, so a hook never stalls the engine.
 func nonBlockingSend[T any](ch chan<- T, v T) {
@@ -788,6 +873,13 @@ func nonBlockingSend[T any](ch chan<- T, v T) {
 // newLifecycleBillingClient returns a billing client that accepts, but does not require, the calls
 // an execution makes, since not every scenario runs one.
 func newLifecycleBillingClient(t *testing.T) *metmocks.BillingClient {
+	t.Helper()
+	return newTestBillingClient(t, true)
+}
+
+// newTestBillingClient is newLifecycleBillingClient whose credit reservations succeed only if
+// reserveOK. A failed reservation makes the engine abort the execution before the module runs.
+func newTestBillingClient(t *testing.T, reserveOK bool) *metmocks.BillingClient {
 	t.Helper()
 	client := metmocks.NewBillingClient(t)
 	client.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
@@ -806,7 +898,7 @@ func newLifecycleBillingClient(t *testing.T) *metmocks.BillingClient {
 			},
 		}, nil).Maybe()
 	client.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-		Return(&billing.ReserveCreditsResponse{Success: true, Credits: "10000"}, nil).Maybe()
+		Return(&billing.ReserveCreditsResponse{Success: reserveOK, Credits: "10000"}, nil).Maybe()
 	client.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).Return(&emptypb.Empty{}, nil).Maybe()
 	return client
 }
