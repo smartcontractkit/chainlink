@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+
+	remoteclient "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/client"
 )
 
 // UpOptions captures all user supplied inputs for `devmachine up`.
@@ -216,7 +220,35 @@ func Status(ctx context.Context, cfg *Config, opts *StatusOptions, run *Runner, 
 	} else {
 		rep.Warn("ssh not reachable (run 'devmachine up' or check VPN)")
 	}
+
+	if cfg.Machine.PrivateIP != "" {
+		if line, err := probeAgent(ctx, cfg); err != nil {
+			rep.Warn("remote agent not reachable: %v", err)
+		} else {
+			fmt.Fprintf(run.Out, "Remote agent:    %s\n", line)
+		}
+	}
 	return nil
+}
+
+// probeAgent resolves the remote agent runtime from the recorded machine data
+// and queries its status endpoint.
+func probeAgent(ctx context.Context, cfg *Config) (string, error) {
+	runtime, err := remoteclient.ResolveRuntimeWithInput(zerolog.Nop(), remoteclient.RuntimeInput{
+		RemoteHostIP: cfg.Machine.PrivateIP,
+		AgentPort:    cfg.Agent.Port,
+	})
+	if err != nil {
+		return "", err
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	status, err := remoteclient.GetAgentStatus(probeCtx, runtime)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("reachable at %s (version %q, %d runtime component(s), uptime %ds)",
+		runtime.AgentBaseURL, status.AgentVersion, len(status.RuntimeComponents), status.UptimeSeconds), nil
 }
 
 func orDash(s string) string {
