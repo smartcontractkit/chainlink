@@ -214,6 +214,35 @@ func TestRunnerDryRun(t *testing.T) {
 	}
 }
 
+func TestRunnerIgnoresStderr(t *testing.T) {
+	var out bytes.Buffer
+	r := NewRunner(&out, &out, false, false)
+	// A command that prints a warning to stderr and "yes" to stdout must return
+	// only the stdout content.
+	got, err := r.Run(context.Background(), "sh", "-c", "echo 'warning: noisy' 1>&2; echo yes")
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if got != "yes" {
+		t.Errorf("Run returned %q, want %q", got, "yes")
+	}
+}
+
+func TestOutputSaysYes(t *testing.T) {
+	if !outputSaysYes("yes") {
+		t.Error("expected true for 'yes'")
+	}
+	if !outputSaysYes("Warning: something\nyes\n") {
+		t.Error("expected true when a warning precedes 'yes'")
+	}
+	if outputSaysYes("no") {
+		t.Error("expected false for 'no'")
+	}
+	if outputSaysYes("yesterday") {
+		t.Error("expected false for 'yesterday'")
+	}
+}
+
 func TestExpandPath(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {

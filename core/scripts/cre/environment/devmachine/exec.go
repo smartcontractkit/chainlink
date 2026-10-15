@@ -65,18 +65,21 @@ func (r *Runner) RunEnv(ctx context.Context, env []string, name string, args ...
 	if len(env) > 0 {
 		cmd.Env = append(os.Environ(), env...)
 	}
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 	if r.Verbose {
 		fmt.Fprintf(r.Out, "$ %s\n", format(name, args))
 	}
 	err := cmd.Run()
-	out := buf.String()
 	if err != nil {
-		return out, errors.Wrapf(err, "command failed: %s\n%s", format(name, args), strings.TrimSpace(out))
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = strings.TrimSpace(stdout.String())
+		}
+		return stdout.String(), errors.Wrapf(err, "command failed: %s\n%s", format(name, args), msg)
 	}
-	return strings.TrimSpace(out), nil
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 // Stream executes the command, streaming stdout/stderr to the runner's output.

@@ -109,7 +109,7 @@ func (o *Orchestrator) resolveCluster(ctx context.Context) error {
 
 	// Determine whether the caller may create DevMachines.
 	out, err := o.run.Run(ctx, "kubectl", "auth", "can-i", "create", "devmachines", "-n", o.cfg.Cluster.Namespace)
-	privileged := err == nil && strings.TrimSpace(out) == "yes"
+	privileged := err == nil && outputSaysYes(out)
 	if o.run.DryRun {
 		privileged = o.cfg.Cluster.Privileged
 	}
@@ -333,4 +333,15 @@ func oneLine(s string) string {
 		s = s[:200] + "..."
 	}
 	return s
+}
+
+// outputSaysYes reports whether any line of the output is exactly "yes". This
+// tolerates advisory lines that some clusters print alongside the answer.
+func outputSaysYes(out string) bool {
+	for line := range strings.SplitSeq(out, "\n") {
+		if strings.TrimSpace(line) == "yes" {
+			return true
+		}
+	}
+	return false
 }
