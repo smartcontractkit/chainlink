@@ -312,6 +312,7 @@ func TestReconcile_OffchainMatchesByDONName(t *testing.T) {
 	}
 	dons := []registry.DON{
 		named(42, "workflow_1_zone-a"), // matched by name; the ID is irrelevant
+		named(42, "workflow_1_zone-a"), // same DON passed twice (workflow DON that is also a capability DON)
 		named(43, ""),                  // unnamed (e.g. registry without DON names)
 		named(44, "shared"),            // ambiguous: two of this node's DONs share the name
 		named(45, "shared"),
@@ -324,6 +325,7 @@ func TestReconcile_OffchainMatchesByDONName(t *testing.T) {
 		assert.Equal(t, map[string]any{}, rec.configFor(t, "cron@1.0.0", id), "DON %d must get no offchain config", id)
 	}
 
+	dons = uniqueDONsByID(dons)
 	got := m.offchainDivergences(m.offchainDONsByID(gc.LoadParsed(), dons), dons)
 	assert.Equal(t, map[string]int64{divergenceMissing: 3, divergenceMismatch: 1}, got)
 }
