@@ -27,6 +27,7 @@ import (
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -50,10 +51,6 @@ const (
 
 // lifecycleTriggerCapID is the trigger every lifecycle workflow subscribes to.
 const lifecycleTriggerCapID = "id_0"
-
-// testTimeout bounds every wait in a lifecycle test, so an engine that never responds fails the test
-// instead of hanging it.
-const testTimeout = 10 * time.Second
 
 // lifecycleEvent is something the engine did that a lifecycle test orders its assertions on.
 type lifecycleEvent string
@@ -256,7 +253,7 @@ func testLifecycleInFlightTriggersShutdown(t *testing.T, mode lifecycleEngineMod
 	}
 	if shutdown == shutdownDrainWaitThenClose {
 		require.Eventually(t, func() bool { return h.engine.ActiveExecutions() == 0 },
-			testTimeout, 10*time.Millisecond, "active executions to finish after Drain")
+			testutils.WaitTimeout(t), 10*time.Millisecond, "active executions to finish after Drain")
 	}
 	require.NoError(t, h.close())
 	close(stop)
@@ -506,20 +503,10 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	h.engines.engine = engine
 
 	// Close the engine before the mocks and limiters it uses go away. The test's context is
-	// already canceled by now, which returns any execution still held by the blocker. Close is
-	// bounded so an engine that deadlocks fails the test instead of hanging it. A Close that never
-	// returns stays blocked in the background until the test binary exits.
+	// already canceled by now, which returns any execution still held by the blocker. An engine
+	// that deadlocks here hangs until the suite timeout, which dumps every goroutine's stack.
 	t.Cleanup(func() {
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			_ = engine.Close()
-		}()
-		select {
-		case <-done:
-		case <-time.After(testTimeout):
-			t.Errorf("engine Close did not return within %s at cleanup", testTimeout)
-		}
+		_ = engine.Close()
 	})
 	return h
 }
@@ -605,7 +592,7 @@ func (h *engineLifecycleHarness) startExecution() {
 	event := h.event(fmt.Sprintf("event-%d", h.nextEvent.Add(1))).Event
 	select {
 	case h.eventCh <- event:
-	case <-time.After(testTimeout):
+	case <-time.After(testutils.WaitTimeout(h.t)):
 		require.FailNow(h.t, "trigger event was not accepted")
 	}
 	awaitLifecycle(h.t, h.blocker.started, "execution to start")
@@ -632,17 +619,11 @@ func (h *engineLifecycleHarness) feedEvents(stop <-chan struct{}) <-chan struct{
 	return exited
 }
 
-// close closes the engine, logging when Close returns, and returns its error. Close runs on its
-// own goroutine so an engine that never returns fails the test instead of hanging it.
+// close closes the engine, logging when Close returns, and returns its error.
 func (h *engineLifecycleHarness) close() error {
-	h.t.Helper()
-	done := make(chan error, 1)
-	go func() {
-		err := h.engine.Close()
-		h.log.record(eventCloseReturned)
-		done <- err
-	}()
-	return awaitLifecycle(h.t, done, "engine Close to return")
+	err := h.engine.Close()
+	h.log.record(eventCloseReturned)
+	return err
 }
 
 // recordFinished is the OnExecutionFinished hook's record of an execution's status.
@@ -685,13 +666,13 @@ func (h *engineLifecycleHarness) tenantCtx() context.Context {
 }
 
 // awaitLifecycle returns the next value from ch, or the zero value once ch is closed, failing the
-// test if neither happens within testTimeout.
+// test if neither happens within testutils.WaitTimeout.
 func awaitLifecycle[T any](t *testing.T, ch <-chan T, what string) T {
 	t.Helper()
 	select {
 	case v := <-ch:
 		return v
-	case <-time.After(testTimeout):
+	case <-time.After(testutils.WaitTimeout(t)):
 		require.FailNow(t, "timed out waiting for "+what)
 		panic("unreachable")
 	}
@@ -762,14 +743,11 @@ func (r *lifecycleEngineRegistry) Get(wid types.WorkflowID) (triggers.Registered
 	return r.engine, true
 }
 
-// blockerBackstop bounds how long the executionBlocker holds an execution. It is shorter than
-// testTimeout so a stuck execution fails with its own message before a wait on Close times out.
-const blockerBackstop = testTimeout / 2
-
 // executionBlocker holds executions in the module until the test releases them or their context
-// is canceled. An execution nothing releases or cancels fails the test after blockerBackstop.
+// is canceled. An execution nothing releases or cancels fails the test after backstop.
 type executionBlocker struct {
 	t        *testing.T
+	backstop time.Duration
 	started  chan struct{}
 	canceled chan struct{} // signaled when a held execution observes its context's cancellation
 	released chan struct{}
@@ -781,10 +759,12 @@ type executionBlocker struct {
 }
 
 // newExecutionBlocker returns a blocker whose started and canceled signals hold up to signalBuffer
-// unread values.
+// unread values. Its backstop is half the test's wait budget, so a stuck execution fails with its
+// own message before the suite timeout.
 func newExecutionBlocker(t *testing.T, log *lifecycleLog, signalBuffer int) *executionBlocker {
 	return &executionBlocker{
 		t:        t,
+		backstop: testutils.WaitTimeout(t) / 2,
 		started:  make(chan struct{}, signalBuffer),
 		canceled: make(chan struct{}, signalBuffer),
 		released: make(chan struct{}),
@@ -794,12 +774,12 @@ func newExecutionBlocker(t *testing.T, log *lifecycleLog, signalBuffer int) *exe
 
 // block signals that an execution started and holds it. It returns nil once the blocker is
 // released, and the context's error, after logging the cancellation, if the context is canceled
-// first. It fails the test if neither happens within blockerBackstop.
+// first. It fails the test if neither happens within the backstop.
 func (b *executionBlocker) block(ctx context.Context) error {
 	// signal that a blocking execution has started
 	nonBlockingSend(b.started, struct{}{})
 
-	backstop := time.NewTimer(blockerBackstop)
+	backstop := time.NewTimer(b.backstop)
 	defer backstop.Stop()
 
 	select {
@@ -813,7 +793,7 @@ func (b *executionBlocker) block(ctx context.Context) error {
 		nonBlockingSend(b.canceled, struct{}{})
 		return ctx.Err()
 	case <-backstop.C:
-		b.t.Errorf("execution was held for %s without release or cancellation", blockerBackstop)
+		b.t.Errorf("execution was held for %s without release or cancellation", b.backstop)
 		return errors.New("execution blocker backstop elapsed")
 	case <-b.t.Context().Done():
 		return b.t.Context().Err()
