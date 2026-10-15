@@ -27,7 +27,8 @@ func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*ca
 			if m.localCfg == nil || !m.localCfg.IsAllowlisted(capID) {
 				continue
 			}
-			if _, ok := offDON.GetCapabilities()[capID]; !ok {
+			offCap, ok := offDON.GetCapabilities()[capID]
+			if !ok {
 				out[divergenceMissing]++
 				m.lggr.Debugw("Offchain registry has no config for capability", "donID", don.ID, "capID", capID)
 				continue
@@ -87,21 +88,6 @@ func methodConfigEqual(a, b capabilities.CapabilityMethodConfig) bool {
 	return reflect.DeepEqual(a.AggregatorConfig, b.AggregatorConfig)
 }
 
-// offchainDONsByID maps this node's on-chain DON IDs to their offchain config. DONs without a
-// usable name (see offchainDONNames) or without an offchain entry are left out.
-func (m *localCapabilityManager) offchainDONsByID(reg *capabilitiespb.OffchainCapabilitiesRegistry, dons []registry.DON) map[uint32]*capabilitiespb.DONConfig {
-	if reg == nil {
-		return nil
-	}
-	out := map[uint32]*capabilitiespb.DONConfig{}
-	for id, name := range m.offchainDONNames(dons) {
-		if d, ok := reg.GetDons()[name]; ok {
-			out[id] = d
-		}
-	}
-	return out
-}
-
 // offchainSpecConfig returns the offchain spec_config of capID on don, or nil when there is none.
 // A spec_config that cannot be converted is rejected at ingestion (globalconfig.Validate); if one
 // gets here anyway, it is treated as empty.
@@ -111,8 +97,8 @@ func (m *localCapabilityManager) offchainSpecConfig(don *capabilitiespb.DONConfi
 		m.lggr.Warnw("Invalid offchain spec_config, ignoring offchain override", "capID", capID, "donID", donID, "error", err)
 		return nil
 	}
-  
-  return out
+
+	return out
 }
 
 // offchainDONsByID maps this node's on-chain DON IDs to their offchain config. DONs without a
@@ -126,18 +112,6 @@ func (m *localCapabilityManager) offchainDONsByID(reg *capabilitiespb.OffchainCa
 		if d, ok := reg.GetDons()[name]; ok {
 			out[id] = d
 		}
-	}
-	return out
-}
-
-// offchainSpecConfig returns the offchain spec_config of capID on don, or nil when there is none.
-// A spec_config that cannot be converted is rejected at ingestion (globalconfig.Validate); if one
-// gets here anyway, it is treated as empty.
-func (m *localCapabilityManager) offchainSpecConfig(don *capabilitiespb.DONConfig, capID string, donID uint32) map[string]any {
-	out, err := globalconfig.SpecConfigMap(don.GetCapabilities()[capID].GetSpecConfig())
-	if err != nil {
-		m.lggr.Warnw("Invalid offchain spec_config, ignoring offchain override", "capID", capID, "donID", donID, "error", err)
-		return nil
 	}
 	return out
 }
