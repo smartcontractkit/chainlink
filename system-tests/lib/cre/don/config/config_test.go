@@ -128,7 +128,7 @@ func TestAddWorkerNodeConfig_MeteringAndChipIngress(t *testing.T) {
 	inputs := capabilitiesCommonInputs(routerURL)
 	inputs.enableMetering = true
 
-	config, err := addWorkerNodeConfig(corechainlink.Config{}, nil, testOCRPeeringData(), inputs, capabilitiesDonMetadata(), &cre.NodeMetadata{
+	config, err := addWorkerNodeConfig(corechainlink.Config{}, nil, testPeeringData(), inputs, capabilitiesDonMetadata(), &cre.NodeMetadata{
 		Index: 1,
 		Roles: []string{cre.WorkerNode},
 	})
@@ -153,7 +153,7 @@ func TestAddWorkerNodeConfig_MeteringDisabled(t *testing.T) {
 
 	const routerURL = "chip-router:50051"
 
-	config, err := addWorkerNodeConfig(corechainlink.Config{}, nil, testOCRPeeringData(), capabilitiesCommonInputs(routerURL), capabilitiesDonMetadata(), &cre.NodeMetadata{
+	config, err := addWorkerNodeConfig(corechainlink.Config{}, nil, testPeeringData(), capabilitiesCommonInputs(routerURL), capabilitiesDonMetadata(), &cre.NodeMetadata{
 		Index: 0,
 		Roles: []string{cre.WorkerNode},
 	})
@@ -182,11 +182,11 @@ func capabilitiesCommonInputs(routerURL string) *commonInputs {
 	}
 }
 
-func testOCRPeeringData() cre.OCRPeeringData {
-	return cre.OCRPeeringData{
-		OCRBootstrapperPeerID: "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X",
-		OCRBootstrapperHost:   "bootstrap",
-		Port:                  4222,
+func testPeeringData() cre.PeeringData {
+	return cre.PeeringData{
+		BootstrapperPeerID: "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X",
+		BootstrapperHost:   "bootstrap",
+		Port:               4222,
 	}
 }
 

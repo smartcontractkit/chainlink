@@ -410,7 +410,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *mobyclient.Client
 		logger.Info().Msgf("🔍 %s image not found.", name)
 		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [B]", name)
 
-		var input = defaultOption // default controlled by the caller (PullOption or BuildOption)
+		input := defaultOption // default controlled by the caller (PullOption or BuildOption)
 		if !noPrompt {
 			_, err := fmt.Scanln(&input)
 			if err != nil {
@@ -459,7 +459,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	// Check if Docker is installed
 	if !isCommandAvailable("docker") {
 		setupErr = errors.New("docker is not installed. Please install Docker and try again")
-		return
+		return setupErr
 	}
 	logger.Info().Msg("✓ Docker is installed")
 
@@ -467,27 +467,27 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	dockerClient, dockerClientErr := mobyclient.New()
 	if dockerClientErr != nil {
 		setupErr = errors.Wrap(dockerClientErr, "failed to create Docker client")
-		return
+		return setupErr
 	}
 
 	_, pingErr := dockerClient.Ping(ctx, mobyclient.PingOptions{})
 	if pingErr != nil {
 		setupErr = errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
-		return
+		return setupErr
 	}
 	logger.Info().Msg("✓ Docker is running")
 
 	// Check Docker configuration
 	if dockerConfigErr := checkDockerConfiguration(); dockerConfigErr != nil {
 		setupErr = errors.Wrap(dockerConfigErr, "failed to check Docker configuration")
-		return
+		return setupErr
 	}
 
 	// Check if AWS CLI is installed
 	if !noPrompt {
 		if !isCommandAvailable("aws") {
 			setupErr = errors.New("AWS CLI is not installed. Please install AWS CLI and try again")
-			return
+			return setupErr
 		}
 		logger.Info().Msg("✓ AWS CLI is installed")
 	}
@@ -495,13 +495,13 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	cfg, cfgErr := ReadSetupConfig(config.ConfigPath)
 	if cfgErr != nil {
 		setupErr = errors.Wrap(cfgErr, "failed to read config")
-		return
+		return setupErr
 	}
 
 	ghCli, ghCliErr := checkGHCli(ctx, cfg.General.MinGHCLIVersion, noPrompt)
 	if ghCliErr != nil {
 		setupErr = errors.Wrap(ghCliErr, "failed to ensure GitHub CLI")
-		return
+		return setupErr
 	}
 
 	// once we have GH CLI setup we can try to create the DX tracker
@@ -516,19 +516,19 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	bun, bunErr := checkBun(ctx, noPrompt)
 	if bunErr != nil {
 		setupErr = errors.Wrap(bunErr, "failed to ensure Bun")
-		return
+		return setupErr
 	}
 
 	if bun {
 		err := ensurePackageJSON(".")
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure package.json")
-			return
+			return setupErr
 		}
 
 		if err := installBunPackages(ctx); err != nil {
 			setupErr = errors.Wrap(err, "failed to install Bun packages")
-			return
+			return setupErr
 		}
 	}
 
@@ -545,7 +545,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 	if jdErr != nil {
 		setupErr = errors.Wrap(jdErr, "failed to ensure Job Distributor image")
-		return
+		return setupErr
 	}
 
 	var chipRouterLocalImage string
@@ -559,7 +559,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		chipRouterLocalImage, err = chipRouterConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Chip Router image")
-			return
+			return setupErr
 		}
 	} else {
 		logger.Warn().Str("config file", config.ConfigPath).Msg("Skipping Chip Router setup, because configuration is not provided in the config file")
@@ -576,7 +576,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		chipIngressLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Ingress image")
-			return
+			return setupErr
 		}
 	} else {
 		logger.Warn().Str("config file", config.ConfigPath).Msgf("Skipping Atlas Chip Ingress setup, because configuration is not provided in the config file")
@@ -593,7 +593,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		chipConfigLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Config image")
-			return
+			return setupErr
 		}
 	} else {
 		logger.Warn().Str("config file", config.ConfigPath).Msgf("Skipping Atlas Chip Config setup, because configuration is not provided in the config file")
@@ -603,7 +603,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	if withBilling {
 		if cfg.BillingService == nil {
 			setupErr = errors.New("billing service configuration is required when using --with-billing flag")
-			return
+			return setupErr
 		}
 
 		billingConfig := ImageConfig{
@@ -616,7 +616,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		billingLocalImage, billingErr = billingConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, BuildOption, purge)
 		if billingErr != nil {
 			setupErr = errors.Wrap(billingErr, "failed to ensure Billing Platform Service image")
-			return
+			return setupErr
 		}
 	} else {
 		logger.Warn().Msgf("Skipping Billing Platform Service setup, because the --with-billing flag was not provided")
@@ -630,7 +630,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		"", cfg.Observability.TargetPath)
 	if err != nil {
 		setupErr = errors.Wrap(err, "failed to clone observability repo")
-		return
+		return setupErr
 	}
 
 	// Print summary
@@ -852,7 +852,7 @@ func localImageExists(ctx context.Context, dockerClient *mobyclient.Client, loca
 }
 
 // pullImage pulls the configured image from its remote registry and retags it locally.
-func pullImage(ctx context.Context, awsProfile string, localImage, ecrImage string) (string, error) {
+func pullImage(ctx context.Context, awsProfile, localImage, ecrImage string) (string, error) {
 	logger := framework.L
 	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
 	name = cases.Title(language.English).String(name)
@@ -988,7 +988,7 @@ func checkIfGHLIIsInstalled(ctx context.Context, minGHCLIVersion string, noPromp
 
 	logger.Info().Msg("Would you like to download and install the GitHub CLI now? (y/n) [y]")
 
-	var input = "y" // Default to yes
+	input := "y" // Default to yes
 	if !noPrompt {
 		_, err = fmt.Scanln(&input)
 		if err != nil {
@@ -1101,7 +1101,7 @@ func checkIfBunIsInstalled(ctx context.Context, noPrompt bool) (installed bool, 
 
 	logger.Info().Msg("Would you like to install Bun now? (y/n) [y]")
 
-	var input = "y" // Default to yes
+	input := "y" // Default to yes
 	if !noPrompt {
 		_, err = fmt.Scanln(&input)
 		if err != nil {
@@ -1181,7 +1181,7 @@ func ensurePackageJSON(dir string) error {
   }
 }`
 
-	if err := os.WriteFile(packageJSONPath, []byte(content), 0644); err != nil { //nolint:gosec //G306: Expect WriteFile permissions to be 0600 or less. We want broad read access here.
+	if err := os.WriteFile(packageJSONPath, []byte(content), 0o644); err != nil { //nolint:gosec //G306: Expect WriteFile permissions to be 0600 or less. We want broad read access here.
 		return errors.Wrap(err, "failed to create package.json")
 	}
 

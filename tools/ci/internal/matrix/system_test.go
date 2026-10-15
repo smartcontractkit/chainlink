@@ -237,6 +237,10 @@ import "testing"
 
 func Test_CRE_V2_FailoverManualSwap(t *testing.T) {}
 func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {}
+func Test_CRE_V2_ShardManualAssignmentSharedVault(t *testing.T) {}
+func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {}
+func Test_CRE_V2_ShardManualAssignmentConfidentialWorkflows(t *testing.T) {}
+func Test_CRE_V2_ShardFailoverConfidentialWorkflows(t *testing.T) {}
 `
 	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
 
@@ -245,15 +249,37 @@ func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {}
 		RunID: "123456",
 	})
 	require.NoError(t, err)
-	require.Len(t, res, 2)
+	require.Len(t, res, 6)
 
-	assert.Equal(t, "Test_CRE_V2_FailoverManualSwap", res[0].TestName)
-	assert.Equal(t, "workflow-gateway-failover", res[0].Topology)
-	assert.Equal(t, "configs/workflow-gateway-failover-don.toml", res[0].Configs)
+	byName := make(map[string]matrix.CRESmokeEntry, len(res))
+	for _, entry := range res {
+		byName[entry.TestName] = entry
+	}
 
-	assert.Equal(t, "Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger", res[1].TestName)
-	assert.Equal(t, "workflow-sharded-capabilities", res[1].Topology)
-	assert.Equal(t, "configs/workflow-sharded-capabilities-don.toml", res[1].Configs)
+	failoverManualSwap := byName["Test_CRE_V2_FailoverManualSwap"]
+	assert.Equal(t, "workflow-gateway-failover", failoverManualSwap.Topology)
+	assert.Equal(t, "configs/workflow-gateway-failover-don.toml", failoverManualSwap.Configs)
+
+	shardedCapabilities := byName["Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger"]
+	assert.Equal(t, "workflow-sharded-capabilities", shardedCapabilities.Topology)
+	assert.Equal(t, "configs/workflow-sharded-capabilities-don.toml", shardedCapabilities.Configs)
+
+	manualSharedVault := byName["Test_CRE_V2_ShardManualAssignmentSharedVault"]
+	assert.Equal(t, "workflow-gateway-sharded-shared-vault-manual", manualSharedVault.Topology)
+	assert.Equal(t, "configs/workflow-gateway-sharded-shared-vault-manual.toml", manualSharedVault.Configs)
+
+	failoverSharedVault := byName["Test_CRE_V2_ShardFailoverSharedVault"]
+	assert.Equal(t, "workflow-gateway-sharded-shared-vault-failover", failoverSharedVault.Topology)
+	assert.Equal(t, "configs/workflow-gateway-sharded-shared-vault-failover.toml", failoverSharedVault.Configs)
+
+	// The sharded confidential-workflows tests get their own sharded confidential topologies.
+	manualConfidential := byName["Test_CRE_V2_ShardManualAssignmentConfidentialWorkflows"]
+	assert.Equal(t, "workflow-gateway-sharded-confidential-workflows-manual", manualConfidential.Topology)
+	assert.Equal(t, "configs/workflow-gateway-sharded-confidential-workflows-manual.toml", manualConfidential.Configs)
+
+	failoverConfidential := byName["Test_CRE_V2_ShardFailoverConfidentialWorkflows"]
+	assert.Equal(t, "workflow-gateway-sharded-confidential-workflows-failover", failoverConfidential.Topology)
+	assert.Equal(t, "configs/workflow-gateway-sharded-confidential-workflows-failover.toml", failoverConfidential.Configs)
 }
 
 func TestBuildCRERegressionMatrix_AdditionalOverrides(t *testing.T) {

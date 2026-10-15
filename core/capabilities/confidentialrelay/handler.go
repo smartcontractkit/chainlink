@@ -352,7 +352,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 
 	att := params.Attestation
 	params.Attestation = ""
-	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
+	if err := h.verifyAttestationHash(ctx, att, req, confidentialrelaytypes.DomainSecretsGet); err != nil {
 		l.Warnw("rejecting secrets request: attestation validation failed", "err", err)
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
@@ -480,7 +480,7 @@ func (h *Handler) fetchSecrets(
 		return nil, &relayError{code: jsonrpc.ErrInternal, err: fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID)}
 	}
 
-	vaultResp, err := handler.GetRawSecrets(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
+	vaultResp, err := handler.GetRawSecretsResponse(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
 	if err != nil {
 		// A user-origin caperrors.Error (e.g. an oversized GetSecrets batch
 		// rejected by the vault) keeps its classification across the remote
@@ -521,10 +521,14 @@ func (h *Handler) fetchSecrets(
 // translateVaultResponse converts a vault GetSecretsResponse to the enclave relay protocol format.
 // Encoding conversion: ciphertext hex (vault) -> base64 (enclave relay); encrypted shares may be
 // binary or hex (vault) -> base64 (enclave relay).
-func translateVaultResponse(vaultResp []*vault.SecretResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
-	result := &confidentialrelaytypes.SecretsResponseResult{}
+func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
+	// Forward the DKG instance's public key so the enclave verifies/aggregates these
+	// shares against the live key rather than its (possibly stale) configured key.
+	result := &confidentialrelaytypes.SecretsResponseResult{
+		RawVaultPublicKey: vaultResp.GetRawVaultPublicKey(),
+	}
 
-	for _, sr := range vaultResp {
+	for _, sr := range vaultResp.GetResponses() {
 		if sr.GetError() != "" {
 			return nil, newVaultSecretError(sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
 		}
@@ -607,7 +611,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 
 	att := params.Attestation
 	params.Attestation = ""
-	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
+	if err := h.verifyAttestationHash(ctx, att, req, confidentialrelaytypes.DomainCapabilityExec); err != nil {
 		l.Warnw("rejecting capability request: attestation validation failed", "err", err)
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
@@ -836,16 +840,16 @@ func (h *Handler) getEnclaveAttestationConfig(ctx context.Context) ([]json.RawMe
 	return measurements, caRootsPEM, nil
 }
 
-func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 string, cleanParams any, domainTag string) error {
+func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 string, req *jsonrpc.Request[json.RawMessage], domainTag string) error {
 	if attestationB64 == "" {
 		return errors.New("missing attestation")
 	}
 
-	paramsJSON, err := json.Marshal(cleanParams)
-	if err != nil {
-		return fmt.Errorf("failed to marshal params for attestation: %w", err)
+	if req.Params == nil {
+		return errors.New("missing request parameters")
 	}
 
+	paramsJSON := *req.Params
 	hash := teeattestation.DomainHash(domainTag, paramsJSON)
 
 	attestationBytes, err := base64.StdEncoding.DecodeString(attestationB64)

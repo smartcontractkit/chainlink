@@ -33,6 +33,8 @@ const (
 	LLOObservation TelemetryType = "llo-observation"
 	LLOOutcome     TelemetryType = "llo-outcome"
 	LLOReport      TelemetryType = "llo-report"
+
+	LLOAttributedObservation TelemetryType = "llo-attributed-observation"
 )
 
 type TelemPayload struct {
@@ -95,6 +97,8 @@ func TelemetryTypeToDomainAndEntity(telemType TelemetryType) (domain, entity str
 		return "data-streams.telemetry.llo-observation", "telem.LLOObservationTelemetry", nil
 	case LLOOutcome:
 		return "data-streams.telemetry.llo-outcome", "telem.LLOOutcomeTelemetry", nil
+	case LLOAttributedObservation:
+		return "data-streams.telemetry.llo-attributed-observation", "telem.LLOAttributedObservationTelemetry", nil
 	case FunctionsRequests:
 		return "functions.telemetry.functions-requests", "telem.FunctionsRequest", nil
 	case HeadReport:

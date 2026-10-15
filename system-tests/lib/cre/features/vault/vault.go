@@ -95,7 +95,7 @@ func (o *Vault) PreEnvStartup(
 	}
 
 	// Gateway connector injection scoped to this workflow DON's don_family (see topology_don_family.go).
-	cErr := don.ConfigureForGatewayAccess(registryChainID, topology.GatewayConnectorsForDonFamily(don.DonFamily()))
+	cErr := don.ConfigureForGatewayAccess(registryChainID, topology.GatewayConnectorsForCapabilitiesDon(don))
 	if cErr != nil {
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
@@ -319,7 +319,7 @@ func createJobs(
 
 	specs := make(map[string][]string)
 
-	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
+	peeringCfg, err := cre.PeeringCfgs(bootstrap)
 	if err != nil {
 		return errors.Wrap(err, "failed to get peering configs")
 	}
@@ -339,7 +339,7 @@ func createJobs(
 			"contractQualifier":    ContractQualifier + "_plugin",
 			"dkgContractQualifier": ContractQualifier + "_dkg",
 			"templateName":         "worker-vault",
-			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstrapperPeerID + "@" + ocrPeeringCfg.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
+			"bootstrapperOCR3Urls": []string{peeringCfg.BootstrapperPeerID + "@" + peeringCfg.BootstrapperHost + ":" + strconv.Itoa(peeringCfg.Port)},
 		},
 	}
 	if auth0Config.Auth0 != nil {

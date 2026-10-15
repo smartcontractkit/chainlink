@@ -371,8 +371,20 @@ type executionHelperWithRawSecrets struct {
 	*ExecutionHelper
 }
 
+// GetRawSecrets exists only to satisfy chainlink-common's
+// host.ExecutionHelperWithRawSecrets interface, which still declares it. It
+// delegates to GetRawSecretsResponse and drops the response public key. Remove
+// once chainlink-common drops GetRawSecrets from the interface.
 func (e *executionHelperWithRawSecrets) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vaultcommon.SecretResponse, error) {
-	return e.SecretsFetcher.(RawSecretsFetcher).GetRawSecrets(ctx, request, fetcher)
+	resp, err := e.GetRawSecretsResponse(ctx, request, fetcher)
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetResponses(), nil
+}
+
+func (e *executionHelperWithRawSecrets) GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vaultcommon.GetSecretsResponse, error) {
+	return e.SecretsFetcher.(RawSecretsFetcher).GetRawSecretsResponse(ctx, request, fetcher)
 }
 
 func (e *executionHelperWithRawSecrets) GetOwner() string {

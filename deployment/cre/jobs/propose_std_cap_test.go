@@ -79,6 +79,52 @@ func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 	assert.Len(t, reqs, 4)
 }
 
+func TestProposeStandardCapabilityJob_Apply_JDDONName(t *testing.T) {
+	// A DON name with no matching `don-<name>` label in JD.
+	const capRegDONName = "test-don-eth-hoodi"
+
+	newInput := func() jobs.ProposeStandardCapabilityJobInput {
+		return jobs.ProposeStandardCapabilityJobInput{
+			JobName:     "cron-cap-job",
+			Command:     "cron",
+			DONName:     capRegDONName,
+			Domain:      offchain.ProductLabel,
+			Environment: test.EnvironmentName,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: "environment", Value: test.EnvironmentName},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+		}
+	}
+
+	t.Run("resolves nodes via JDDONName", func(t *testing.T) {
+		h := test.NewTestHarness(t)
+
+		input := newInput()
+		input.JDDONName = test.DONName
+		task := runtime.ChangesetTask(jobs.ProposeStandardCapabilityJob{}, input)
+
+		require.NoError(t, h.Runtime.Exec(task))
+
+		out := h.Runtime.State().Outputs[task.ID()]
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := h.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+		assert.Len(t, reqs, 4)
+	})
+
+	t.Run("falls back to DONName when JDDONName is unset", func(t *testing.T) {
+		h := test.NewTestHarness(t)
+
+		task := runtime.ChangesetTask(jobs.ProposeStandardCapabilityJob{}, newInput())
+
+		err := h.Runtime.Exec(task)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), capRegDONName)
+	})
+}
+
 func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
 	h := test.NewTestHarness(t)
 

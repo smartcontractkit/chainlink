@@ -88,6 +88,12 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	"Test_CRE_V2_ShardRingOCROverrides": {
 		{Topology: "workflow-gateway-sharded-ringocr-overrides", Configs: "configs/workflow-gateway-sharded-ringocr-overrides.toml"},
 	},
+	"Test_CRE_V2_ShardManualAssignmentSharedVault": {
+		{Topology: "workflow-gateway-sharded-shared-vault-manual", Configs: "configs/workflow-gateway-sharded-shared-vault-manual.toml"},
+	},
+	"Test_CRE_V2_ShardFailoverSharedVault": {
+		{Topology: "workflow-gateway-sharded-shared-vault-failover", Configs: "configs/workflow-gateway-sharded-shared-vault-failover.toml"},
+	},
 	"Test_CRE_V2_FailoverManualSwap": {
 		{Topology: "workflow-gateway-failover", Configs: "configs/workflow-gateway-failover-don.toml"},
 	},
@@ -99,6 +105,15 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	},
 	"Test_CRE_V2_ConfidentialWorkflows_Relay": {
 		{Topology: "workflow-gateway-capabilities-confidential-workflows", Configs: "configs/workflow-gateway-capabilities-don-confidential-workflows.toml"},
+	},
+	"Test_CRE_V2_ShardManualAssignmentConfidentialWorkflows": {
+		{Topology: "workflow-gateway-sharded-confidential-workflows-manual", Configs: "configs/workflow-gateway-sharded-confidential-workflows-manual.toml"},
+	},
+	"Test_CRE_V2_ShardFailoverConfidentialWorkflows": {
+		{Topology: "workflow-gateway-sharded-confidential-workflows-failover", Configs: "configs/workflow-gateway-sharded-confidential-workflows-failover.toml"},
+	},
+	"Test_CRE_V2_OffchainCapabilitiesRegistry": {
+		{Topology: "workflow-gateway-capabilities-offchain-registry", Configs: "configs/workflow-gateway-capabilities-don-offchain-registry.toml"},
 	},
 }
 

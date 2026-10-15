@@ -69,8 +69,10 @@ type DelegateConfig struct {
 	JobName                     null.String
 	CaptureEATelemetry          bool
 	CaptureObservationTelemetry bool
-	CaptureOutcomeTelemetry     bool
-	CaptureReportTelemetry      bool
+	// CaptureOutcomeTelemetry and CaptureReportTelemetry apply to v30 instances.
+	// v31 instances read their plugin telemetry flags from V31Config.
+	CaptureOutcomeTelemetry bool
+	CaptureReportTelemetry  bool
 
 	// LLO
 	ChannelDefinitionCache   llotypes.ChannelDefinitionCache
@@ -114,6 +116,22 @@ type DelegateConfig struct {
 	// keys the database by config digest, so they get separate keyspaces.
 	// Required when any instance is v31.
 	KeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
+}
+
+// telemeterParams creates a telemetry channel when either plugin version needs
+// it. Each factory is only handed the channels its own version enables.
+func (cfg DelegateConfig) telemeterParams(lggr logger.Logger) telem.TelemeterParams {
+	return telem.TelemeterParams{
+		Logger:                                lggr,
+		MonitoringEndpoint:                    cfg.PluginMonitoringEndpoint,
+		DonID:                                 cfg.DonID,
+		CaptureEATelemetry:                    cfg.CaptureEATelemetry,
+		CaptureObservationTelemetry:           cfg.CaptureObservationTelemetry,
+		CaptureOutcomeTelemetry:               cfg.CaptureOutcomeTelemetry || cfg.V31Config.CaptureOutcomeTelemetry,
+		CaptureReportTelemetry:                cfg.CaptureReportTelemetry || cfg.V31Config.CaptureReportTelemetry,
+		CaptureAttributedObservationTelemetry: cfg.V31Config.CaptureAttributedObservationTelemetry,
+		SampleTelemetry:                       cfg.SampleTelemetry,
+	}
 }
 
 // anyV31 reports whether any protocol instance runs the v31 plugin. The
@@ -174,16 +192,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	}
 	reportCodecs := NewReportCodecs(codecLggr, cfg.DonID)
 
-	t := telem.NewTelemeterService(telem.TelemeterParams{
-		Logger:                      lggr,
-		MonitoringEndpoint:          cfg.PluginMonitoringEndpoint,
-		DonID:                       cfg.DonID,
-		CaptureEATelemetry:          cfg.CaptureEATelemetry,
-		CaptureObservationTelemetry: cfg.CaptureObservationTelemetry,
-		CaptureOutcomeTelemetry:     cfg.CaptureOutcomeTelemetry,
-		CaptureReportTelemetry:      cfg.CaptureReportTelemetry,
-		SampleTelemetry:             cfg.SampleTelemetry,
-	})
+	t := telem.NewTelemeterService(cfg.telemeterParams(lggr))
 
 	ds := observation.NewDataSource(logger.Named(lggr, "DataSource"), cfg.Registry, t)
 
@@ -262,22 +271,7 @@ func (d *delegate) newOracleV30(i int, configTracker ocr2types.ContractConfigTra
 		OffchainKeyring:              d.cfg.OffchainKeyring,
 		OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(d.cfg.OnchainKeyring),
 		ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
-			llov30.NewPluginFactory(
-				llov30.PluginFactoryParams{
-					Config:                           d.cfg.ReportingPluginConfig,
-					PredecessorRetirementReportCache: psrrc,
-					ShouldRetireCache:                d.src,
-					RetirementReportCodec:            d.cfg.RetirementReportCodec,
-					ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
-					DataSource:                       d.ds,
-					Logger:                           logger.Named(lggr, "ReportingPlugin"),
-					OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
-					ReportCodecs:                     d.reportCodecs,
-					OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
-					ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
-					DonID:                            d.cfg.DonID,
-				},
-			),
+			llov30.NewPluginFactory(d.v30FactoryParams(lggr, psrrc)),
 			lggr,
 			"",
 			d.cfg.ChainID,
@@ -287,12 +281,10 @@ func (d *delegate) newOracleV30(i int, configTracker ocr2types.ContractConfigTra
 	})
 }
 
-// v31FactoryParams assembles the v31 plugin factory params, mapping the job's
-// V31Config knobs onto it. Knobs left at zero are forwarded as zero, which the
-// factory reads as "apply the plugin default".
-func (d *delegate) v31FactoryParams(lggr logger.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) llov31.PluginFactoryParams {
-	return llov31.PluginFactoryParams{
-		VerboseLogging:                   d.cfg.ReportingPluginConfig.VerboseLogging || d.cfg.V31Config.VerboseLogging,
+// v30FactoryParams assembles the v30 plugin factory params.
+func (d *delegate) v30FactoryParams(lggr logger.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) llov30.PluginFactoryParams {
+	return llov30.PluginFactoryParams{
+		Config:                           d.cfg.ReportingPluginConfig,
 		PredecessorRetirementReportCache: psrrc,
 		ShouldRetireCache:                d.src,
 		RetirementReportCodec:            d.cfg.RetirementReportCodec,
@@ -301,8 +293,39 @@ func (d *delegate) v31FactoryParams(lggr logger.Logger, psrrc lloprotocol.Predec
 		Logger:                           logger.Named(lggr, "ReportingPlugin"),
 		OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
 		ReportCodecs:                     d.reportCodecs,
-		OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
-		ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
+		OutcomeTelemetryCh:               enabledCh(d.cfg.CaptureOutcomeTelemetry, d.telem.GetOutcomeTelemetryCh()),
+		ReportTelemetryCh:                enabledCh(d.cfg.CaptureReportTelemetry, d.telem.GetReportTelemetryCh()),
+		DonID:                            d.cfg.DonID,
+	}
+}
+
+// enabledCh returns ch when enabled and nil otherwise, so a protocol instance only
+// emits the plugin telemetry its own version enables.
+func enabledCh[T any](enabled bool, ch chan<- T) chan<- T {
+	if !enabled {
+		return nil
+	}
+	return ch
+}
+
+// v31FactoryParams assembles the v31 plugin factory params, mapping the job's
+// V31Config knobs onto it. Knobs left at zero are forwarded as zero, which the
+// factory reads as "apply the plugin default".
+func (d *delegate) v31FactoryParams(lggr logger.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) llov31.PluginFactoryParams {
+	return llov31.PluginFactoryParams{
+		VerboseLogging:                   d.cfg.ReportingPluginConfig.VerboseLogging || d.cfg.V31Config.VerboseLogging,
+		CaptureStagingTelemetry:          d.cfg.V31Config.CaptureStagingTelemetry,
+		PredecessorRetirementReportCache: psrrc,
+		ShouldRetireCache:                d.src,
+		RetirementReportCodec:            d.cfg.RetirementReportCodec,
+		ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
+		DataSource:                       d.ds,
+		Logger:                           logger.Named(lggr, "ReportingPlugin"),
+		OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
+		ReportCodecs:                     d.reportCodecs,
+		OutcomeTelemetryCh:               enabledCh(d.cfg.V31Config.CaptureOutcomeTelemetry, d.telem.GetOutcomeTelemetryCh()),
+		ReportTelemetryCh:                enabledCh(d.cfg.V31Config.CaptureReportTelemetry, d.telem.GetReportTelemetryCh()),
+		AttributedObservationTelemetryCh: enabledCh(d.cfg.V31Config.CaptureAttributedObservationTelemetry, d.telem.GetAttributedObservationTelemetryCh()),
 		DonID:                            d.cfg.DonID,
 		MaxSnapshotRounds:                d.cfg.V31Config.MaxSnapshotRounds,
 		BlobLifetimeRounds:               d.cfg.V31Config.BlobLifetimeRounds,

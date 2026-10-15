@@ -81,6 +81,7 @@ import (
 	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	datafeedswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write/config"
 	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
+	vaultsecretcron_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecretcron/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -324,6 +325,7 @@ type WorkflowConfig interface {
 		aptoswrite_config.Config |
 		aptoswriteroundtrip_config.Config |
 		crontypes.WorkflowConfig |
+		vaultsecretcron_config.Config |
 		HTTPWorkflowConfig |
 		consensus_negative_config.Config |
 		evmread_config.Config |
@@ -544,6 +546,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create Cron workflow config file")
 			testLogger.Info().Msg("Cron workflow config file created.")
+
+		case *vaultsecretcron_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create vault secret cron workflow config file")
+			testLogger.Info().Msg("Vault secret cron workflow config file created.")
 
 		case *consensus_negative_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)

@@ -44,6 +44,7 @@ flowchart LR
 	chainlink-ccip/deployment
 	click chainlink-ccip/deployment href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccv --> chainlink-ccip/chains/evm
+	chainlink-ccv --> chainlink-common/x/config
 	chainlink-ccv --> chainlink-protos/chainlink-ccv/committee-verifier
 	chainlink-ccv --> chainlink-protos/chainlink-ccv/heartbeat
 	chainlink-ccv --> chainlink-protos/chainlink-ccv/message-discovery
@@ -68,6 +69,8 @@ flowchart LR
 	click chainlink-common/keystore href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/chipingress
 	click chainlink-common/pkg/chipingress href "https://github.com/smartcontractkit/chainlink-common"
+	chainlink-common/x/config --> chainlink-common
+	click chainlink-common/x/config href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common/keystore
 	chainlink-data-streams --> chainlink-evm/gethwrappers
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
@@ -205,6 +208,7 @@ flowchart LR
 		 chainlink-common
 		 chainlink-common/keystore
 		 chainlink-common/pkg/chipingress
+		 chainlink-common/x/config
 	end
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
@@ -314,6 +318,7 @@ flowchart LR
 	chainlink-ccip/deployment
 	click chainlink-ccip/deployment href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccv --> chainlink-ccip/chains/evm
+	chainlink-ccv --> chainlink-common/x/config
 	chainlink-ccv --> chainlink-protos/chainlink-ccv/committee-verifier
 	chainlink-ccv --> chainlink-protos/chainlink-ccv/heartbeat
 	chainlink-ccv --> chainlink-protos/chainlink-ccv/message-discovery
@@ -343,6 +348,8 @@ flowchart LR
 	click chainlink-common/pkg/chipingress href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/monitoring
 	click chainlink-common/pkg/monitoring href "https://github.com/smartcontractkit/chainlink-common"
+	chainlink-common/x/config --> chainlink-common
+	click chainlink-common/x/config href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-confidential-compute --> tdh2/go/tdh2
 	click chainlink-confidential-compute href "https://github.com/smartcontractkit/chainlink-confidential-compute"
 	chainlink-confidential-compute/tests/testhelpers --> chainlink-confidential-compute
@@ -535,6 +542,7 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/solana/solwrite
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/vaultsecret
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/vaultsecretcron
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/consensus --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/regression/cre/consensus href "https://github.com/smartcontractkit/chainlink"
@@ -569,6 +577,8 @@ flowchart LR
 	chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip --> cre-sdk-go/capabilities/blockchain/aptos
 	chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/confidentialvaultsecretcron --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/confidentialvaultsecretcron href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/evm/evmread href "https://github.com/smartcontractkit/chainlink"
@@ -599,6 +609,8 @@ flowchart LR
 	click chainlink/system-tests/tests/smoke/cre/stellar/stellarwrite href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/vaultsecret --> cre-sdk-go/capabilities/networking/http
 	click chainlink/system-tests/tests/smoke/cre/vaultsecret href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/vaultsecretcron --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/vaultsecretcron href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-aptos/codec
 	chainlink/v2 --> chainlink-ccv
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
@@ -687,6 +699,7 @@ flowchart LR
 		 chainlink/system-tests/tests/smoke/cre/aptos/aptosread
 		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite
 		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip
+		 chainlink/system-tests/tests/smoke/cre/confidentialvaultsecretcron
 		 chainlink/system-tests/tests/smoke/cre/evm/evmread
 		 chainlink/system-tests/tests/smoke/cre/evm/logtrigger
 		 chainlink/system-tests/tests/smoke/cre/evmread
@@ -698,6 +711,7 @@ flowchart LR
 		 chainlink/system-tests/tests/smoke/cre/stellar/stellarread
 		 chainlink/system-tests/tests/smoke/cre/stellar/stellarwrite
 		 chainlink/system-tests/tests/smoke/cre/vaultsecret
+		 chainlink/system-tests/tests/smoke/cre/vaultsecretcron
 		 chainlink/v2
 		 chainlink/v2/tools/test
 	end
@@ -738,6 +752,7 @@ flowchart LR
 		 chainlink-common/keystore
 		 chainlink-common/pkg/chipingress
 		 chainlink-common/pkg/monitoring
+		 chainlink-common/x/config
 	end
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 

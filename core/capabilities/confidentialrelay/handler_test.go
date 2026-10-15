@@ -117,10 +117,11 @@ func (m *mockGatewayConnector) RemoveHandler(_ context.Context, _ []string) erro
 type mockExecutionHelper struct {
 	host.ExecutionHelperWithRawSecrets
 
-	capResp    *sdkpb.CapabilityResponse
-	capErr     error
-	rawSecrets []*vault.SecretResponse
-	secretsErr error
+	capResp      *sdkpb.CapabilityResponse
+	capErr       error
+	rawSecrets   []*vault.SecretResponse
+	rawPublicKey string
+	secretsErr   error
 
 	lastCapabilityRequest *sdkpb.CapabilityRequest
 	lastSecretsRequest    *sdkpb.GetSecretsRequest
@@ -138,6 +139,14 @@ func (m *mockExecutionHelper) CallCapability(ctx context.Context, req *sdkpb.Cap
 func (m *mockExecutionHelper) GetRawSecrets(_ context.Context, req *sdkpb.GetSecretsRequest, _ host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
 	m.lastSecretsRequest = req
 	return m.rawSecrets, m.secretsErr
+}
+
+func (m *mockExecutionHelper) GetRawSecretsResponse(_ context.Context, req *sdkpb.GetSecretsRequest, _ host.EncryptionKeyFetcher) (*vault.GetSecretsResponse, error) {
+	m.lastSecretsRequest = req
+	if m.secretsErr != nil {
+		return nil, m.secretsErr
+	}
+	return &vault.GetSecretsResponse{Responses: m.rawSecrets, RawVaultPublicKey: m.rawPublicKey}, nil
 }
 
 type mockCapRegistry struct {
@@ -953,7 +962,7 @@ func TestTranslateVaultResponse_BinaryShares(t *testing.T) {
 		},
 	}
 
-	result, err := translateVaultResponse(vaultResp.Responses, enclaveKey)
+	result, err := translateVaultResponse(vaultResp, enclaveKey)
 	require.NoError(t, err)
 	require.Len(t, result.Secrets, 1)
 	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
@@ -981,7 +990,7 @@ func TestTranslateVaultResponse_HexShares(t *testing.T) {
 		},
 	}
 
-	result, err := translateVaultResponse(vaultResp.Responses, enclaveKey)
+	result, err := translateVaultResponse(vaultResp, enclaveKey)
 	require.NoError(t, err)
 	require.Len(t, result.Secrets, 1)
 	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
@@ -1001,7 +1010,7 @@ func TestTranslateVaultResponse_VaultError(t *testing.T) {
 			},
 		}
 
-		result, err := translateVaultResponse(vaultResp, "aabbcc")
+		result, err := translateVaultResponse(&vault.GetSecretsResponse{Responses: vaultResp}, "aabbcc")
 		require.Nil(t, result)
 		require.Error(t, err)
 		assert.True(t, IsUserError(err), "vault per-secret error should be classified as user error")
@@ -1020,7 +1029,7 @@ func TestTranslateVaultResponse_VaultError(t *testing.T) {
 			},
 		}
 
-		result, err := translateVaultResponse(vaultResp, "aabbcc")
+		result, err := translateVaultResponse(&vault.GetSecretsResponse{Responses: vaultResp}, "aabbcc")
 		require.Nil(t, result)
 		require.Error(t, err)
 		assert.False(t, IsUserError(err), "vault system fallback must not be classified as a user error")

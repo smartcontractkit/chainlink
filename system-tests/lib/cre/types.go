@@ -444,8 +444,7 @@ type GenerateConfigsInput struct {
 	Blockchains               map[uint64]blockchains.Blockchain
 	RegistryChainSelector     uint64
 	Flags                     []string
-	CapabilitiesPeeringData   CapabilitiesPeeringData
-	OCRPeeringData            OCRPeeringData
+	PeeringData               PeeringData
 	ContractVersions          map[ContractType]*semver.Version
 	Topology                  *Topology
 	Provider                  infra.Provider
@@ -466,11 +465,8 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(g.Flags) == 0 {
 		return errors.New("flags not set")
 	}
-	if g.CapabilitiesPeeringData == (CapabilitiesPeeringData{}) {
+	if g.PeeringData == (PeeringData{}) {
 		return errors.New("peering data not set")
-	}
-	if g.OCRPeeringData == (OCRPeeringData{}) {
-		return errors.New("ocr peering data not set")
 	}
 	_, dsErr := g.Datastore.Addresses().Fetch()
 	if dsErr != nil {
@@ -492,13 +488,13 @@ func isChainCapability(flag string) bool {
 }
 
 func parseChainCapabilityFlag(flag string) (CapabilityFlag, uint64, bool, error) {
-	lastIdx := strings.LastIndex(flag, "-")
-	if lastIdx == -1 {
+	before, after, ok := strings.CutLast(flag, "-")
+	if !ok {
 		return "", 0, false, nil
 	}
 
-	base := flag[:lastIdx]
-	chainPart := flag[lastIdx+1:]
+	base := before
+	chainPart := after
 
 	if base == "" {
 		return "", 0, true, fmt.Errorf("capability flag %q is missing a capability name before the chain suffix", flag)
@@ -586,7 +582,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	c.CapabilityConfigs = capConfigs
 
 	donFamilies := normalizedDonFamilies(c.DonFamilies)
-	if len(donFamilies) == 0 {
+	if len(donFamilies) == 0 && donFamiliesRequired(c.DONTypes) {
 		return nil, fmt.Errorf("nodeset %q has no don_families; set don_families on every nodeset", c.Name)
 	}
 
@@ -604,6 +600,20 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	}
 
 	return out, nil
+}
+
+func donFamiliesRequired(donTypes []string) bool {
+	if len(donTypes) == 0 {
+		return true
+	}
+	for _, donType := range donTypes {
+		switch donType {
+		case BootstrapDON, GatewayDON:
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 // normalizedDonFamilies trims, drops empty entries and de-duplicates, preserving
@@ -662,12 +672,12 @@ func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (Capabilit
 		}
 
 		// Extract base capability name and copy its defaults to the chain-specific key
-		lastIdx := strings.LastIndex(flag, "-")
-		if lastIdx == -1 {
+		before, _, ok := strings.CutLast(flag, "-")
+		if !ok {
 			continue
 		}
 
-		flagWithoutChainID := flag[:lastIdx]
+		flagWithoutChainID := before
 		defaults[flag] = defaults[flagWithoutChainID]
 
 		chainCapabilitiesFound = append(chainCapabilitiesFound, flagWithoutChainID)
@@ -1417,16 +1427,10 @@ func (c *NodeSet) EVMChains() []uint64 {
 	return c.chainCapabilityIDs()
 }
 
-type CapabilitiesPeeringData struct {
-	GlobalBootstrapperPeerID string `toml:"global_bootstraper_peer_id" json:"global_bootstraper_peer_id"` // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	GlobalBootstrapperHost   string `toml:"global_bootstraper_host" json:"global_bootstraper_host"`       // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	Port                     int    `toml:"port" json:"port"`
-}
-
-type OCRPeeringData struct {
-	OCRBootstrapperPeerID string `toml:"ocr_bootstraper_peer_id" json:"ocr_bootstraper_peer_id"` // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	OCRBootstrapperHost   string `toml:"ocr_bootstraper_host" json:"ocr_bootstraper_host"`       // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	Port                  int    `toml:"port" json:"port"`
+type PeeringData struct {
+	BootstrapperPeerID string `toml:"bootstrapper_peer_id" json:"bootstrapper_peer_id"`
+	BootstrapperHost   string `toml:"bootstrapper_host" json:"bootstrapper_host"`
+	Port               int    `toml:"port" json:"port"`
 }
 
 func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
