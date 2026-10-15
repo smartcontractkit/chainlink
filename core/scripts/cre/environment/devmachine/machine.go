@@ -132,12 +132,13 @@ func (o *Orchestrator) adoptMachine(ctx context.Context) error {
 	if o.run.DryRun {
 		return nil
 	}
-	args := []string{"ec2", "describe-instances",
+	args := make([]string, 0, 10+len(o.profileArg()))
+	args = append(args, "ec2", "describe-instances",
 		"--instance-ids", o.cfg.Machine.InstanceID,
 		"--region", o.cfg.AWS.Region,
 		"--query", "Reservations[0].Instances[0].[State.Name,PrivateIpAddress]",
 		"--output", "text",
-	}
+	)
 	args = append(args, o.profileArg()...)
 	out, err := o.run.Run(ctx, "aws", args...)
 	if err != nil {

@@ -28,14 +28,17 @@ func (o *Orchestrator) Transfer(ctx context.Context) error {
 		}
 	}
 
-	files := []string{filepath.Join(cache, "remote-agent")}
 	tars, err := filepath.Glob(filepath.Join(cache, "*.tar"))
 	if err != nil {
 		return errors.Wrap(err, "failed to list cached image tarballs")
 	}
+
+	files := make([]string, 0, 1+len(tars))
+	files = append(files, filepath.Join(cache, "remote-agent"))
 	files = append(files, tars...)
 
-	args := []string{"-avz", "--progress"}
+	args := make([]string, 0, 2+len(files)+1)
+	args = append(args, "-avz", "--progress")
 	args = append(args, files...)
 	args = append(args, o.cfg.SSH.Alias+":~/")
 

@@ -41,7 +41,8 @@ func (o *Orchestrator) Bootstrap(ctx context.Context) error {
 	}
 
 	o.rep.Info("running remote bootstrap over SSM")
-	args := []string{"ssm", "send-command", "--region", o.cfg.AWS.Region, "--cli-input-json", string(raw), "--output", "json"}
+	args := make([]string, 0, 8+len(o.profileArg()))
+	args = append(args, "ssm", "send-command", "--region", o.cfg.AWS.Region, "--cli-input-json", string(raw), "--output", "json")
 	args = append(args, o.profileArg()...)
 	out, err := o.run.Run(ctx, "aws", args...)
 	if err != nil {
@@ -65,13 +66,14 @@ func (o *Orchestrator) waitForCommand(ctx context.Context, commandID string) err
 	}
 	deadline := time.Now().Add(15 * time.Minute)
 	for {
-		args := []string{"ssm", "get-command-invocation",
+		args := make([]string, 0, 12+len(o.profileArg()))
+		args = append(args, "ssm", "get-command-invocation",
 			"--command-id", commandID,
 			"--instance-id", o.cfg.Machine.InstanceID,
 			"--region", o.cfg.AWS.Region,
 			"--query", "{Status:Status,Out:StandardOutputContent,Err:StandardErrorContent}",
 			"--output", "json",
-		}
+		)
 		args = append(args, o.profileArg()...)
 		out, err := o.run.Run(ctx, "aws", args...)
 		if err != nil {

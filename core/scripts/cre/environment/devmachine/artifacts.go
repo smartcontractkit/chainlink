@@ -59,7 +59,7 @@ func (o *Orchestrator) buildAgent(ctx context.Context, cache string) error {
 		return errors.Wrap(err, "failed to build remote-agent")
 	}
 	if sha != "" {
-		_ = os.WriteFile(marker, []byte(sha), 0o644)
+		_ = os.WriteFile(marker, []byte(sha), 0o600)
 	}
 	return nil
 }
@@ -73,12 +73,9 @@ func (o *Orchestrator) buildImages(ctx context.Context, cache string) error {
 	}
 
 	jdTar := filepath.Join(cache, tarName(o.cfg.Images.JobDistributor))
-	if err := o.ensureImage(ctx, o.cfg.Images.JobDistributor, jdTar, func() error {
+	return o.ensureImage(ctx, o.cfg.Images.JobDistributor, jdTar, func() error {
 		return o.buildJobDistributorImage(ctx)
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 // ensureImage makes sure a tarball exists for image, building it first if the

@@ -205,11 +205,11 @@ func isRepoDir(dir string) bool {
 	if dir == "" {
 		return false
 	}
-	info, err := os.Stat(dir)
+	info, err := os.Stat(dir) //nolint:gosec // dir comes from user config, not attacker-controlled input
 	if err != nil || !info.IsDir() {
 		return false
 	}
-	_, err = os.Stat(filepath.Join(dir, ".git"))
+	_, err = os.Stat(filepath.Join(dir, ".git")) //nolint:gosec // see above
 	return err == nil
 }
 

@@ -59,7 +59,7 @@ func (o *Orchestrator) ensureSSHConfig() error {
 }
 
 func (o *Orchestrator) sshBlock() string {
-	proxy := fmt.Sprintf("aws ssm start-session --target %%h --region %s", o.cfg.AWS.Region)
+	proxy := "aws ssm start-session --target %h --region " + o.cfg.AWS.Region
 	if o.cfg.AWS.Profile != "" {
 		proxy += " --profile " + o.cfg.AWS.Profile
 	}
