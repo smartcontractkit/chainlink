@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -152,14 +153,13 @@ func (l *fakeWorkflowLimits) freeCount() int {
 }
 
 type coordinatorFixture struct {
-	c         *coordinator
-	admission AdmissionLimiters
-	capReg    *regmocks.CapabilitiesRegistry
-	engines   *fakeEngineRegistry
-	limits    *fakeWorkflowLimits
-	clock     *clockwork.FakeClock
-	wid       types.WorkflowID
-	engine    *fakeEngine
+	c       *coordinator
+	capReg  *regmocks.CapabilitiesRegistry
+	engines *fakeEngineRegistry
+	limits  *fakeWorkflowLimits
+	clock   *clockwork.FakeClock
+	wid     types.WorkflowID
+	engine  *fakeEngine
 }
 
 // newCoordinatorFixture starts a coordinator with one coordinated engine
@@ -186,7 +186,7 @@ func newCoordinatorFixtureWithAdmission(t *testing.T, admission AdmissionLimiter
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{
-		c: c.(*coordinator), admission: admission, capReg: capReg, engines: engines, limits: wfLimits,
+		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
 		clock: clock, wid: wid, engine: engine,
 	}
 }
@@ -205,9 +205,66 @@ func (f *coordinatorFixture) expectTrigger(t *testing.T) (*capmocks.TriggerCapab
 // newTestAdmission returns unscoped admission limiters with the production defaults.
 func newTestAdmission() AdmissionLimiters {
 	return AdmissionLimiters{
-		TriggerEventQueue:    limits.NewQueueLimiter[CoordinatedEvent](50),
+		NewTriggerEventQueue: newTestQueue(50),
 		ExecutionConcurrency: limits.GlobalResourcePoolLimiter(5),
 	}
+}
+
+// newTestQueue returns an AdmissionLimiters.NewTriggerEventQueue that builds an
+// unscoped queue of the given capacity for each registration. It goes through
+// the factory, as production does, because the static limits.NewQueueLimiter
+// panics on Close, and each registration closes its queue.
+func newTestQueue(capacity int) func() (limits.QueueLimiter[CoordinatedEvent], error) {
+	return func() (limits.QueueLimiter[CoordinatedEvent], error) {
+		return limits.MakeQueueLimiter[CoordinatedEvent](limits.Factory{}, settings.Int(capacity))
+	}
+}
+
+// closeTrackingQueue records whether its registration closed it.
+type closeTrackingQueue struct {
+	limits.QueueLimiter[CoordinatedEvent]
+	closed atomic.Bool
+}
+
+func (q *closeTrackingQueue) Close() error {
+	q.closed.Store(true)
+	return q.QueueLimiter.Close()
+}
+
+// queueTracker hands each registration a fresh closeTrackingQueue and keeps
+// them in creation order.
+type queueTracker struct {
+	mu     sync.Mutex
+	queues []*closeTrackingQueue
+}
+
+func (q *queueTracker) newQueue() (limits.QueueLimiter[CoordinatedEvent], error) {
+	inner, err := newTestQueue(50)()
+	if err != nil {
+		return nil, err
+	}
+	queue := &closeTrackingQueue{QueueLimiter: inner}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.queues = append(q.queues, queue)
+	return queue, nil
+}
+
+// get returns the queue of the i-th registration, failing the test if there is none.
+func (q *queueTracker) get(t *testing.T, i int) *closeTrackingQueue {
+	t.Helper()
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	require.Greater(t, len(q.queues), i, "queues created")
+	return q.queues[i]
+}
+
+// newTrackedAdmission returns test admission limiters whose queues record Close.
+func newTrackedAdmission() (AdmissionLimiters, *queueTracker) {
+	queues := &queueTracker{}
+	admission := newTestAdmission()
+	admission.NewTriggerEventQueue = queues.newQueue
+	return admission, queues
 }
 
 func newTestSubscriber() *fakeSubscriber {
