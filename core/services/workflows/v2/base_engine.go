@@ -238,21 +238,6 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 	return <-done
 }
 
-// executeQueuedTrigger runs an event from the engine's own trigger queue. It rejects events with
-// ErrEngineClosed once ctx is canceled and with ErrEngineDraining once Drain has been called.
-//
-// Must be run on the service engine's WaitGroup through GoCtx.
-func (e *baseEngine) executeQueuedTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	// The queue can still hand out an event after Close cancels ctx, so reject it rather than run it.
-	if ctx.Err() != nil {
-		return ErrEngineClosed
-	}
-	if e.Draining() {
-		return ErrEngineDraining
-	}
-	return e.executeTrigger(ctx, event)
-}
-
 // executeTrigger runs an admitted event, counting it as an active execution while it runs. It runs
 // until the execution finishes or ctx is done.
 //
