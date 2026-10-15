@@ -982,6 +982,14 @@ func newWorkflowRegistrySyncerV2(
 		handlerOpts = append(handlerOpts, syncerV2.WithSpecMeter(specMeter))
 	}
 
+	// Compute usage records share the [Metering].MeterRecordsEnabled gate.
+	if meterRecordsEnabled {
+		usageIdentity := meterIdentity
+		usageIdentity.Service = resourcemanager.EmittingServiceWorkflowEngine
+		usageIdentity = resourcemanager.WithWorkflowUsagePool(usageIdentity, resourcemanager.ResourceTypeWorkflowCompute)
+		handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(usageIdentity))
+	}
+
 	mc := capCfg.WorkflowRegistry().ModuleCache()
 	cacheEnabled := mc.Enabled()
 	diskMonitorEnabled := mc.DiskMonitorEnabled() || cacheEnabled

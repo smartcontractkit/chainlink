@@ -108,6 +108,10 @@ type eventHandler struct {
 	// disabled: its handler-facing methods are nil-receiver safe no-ops.
 	specMeter *SpecMeter
 
+	// meterRecordsEnabled gates the engines' compute usage records.
+	meterRecordsEnabled bool
+	usageIdentity       resourcemanager.ResourceIdentity
+
 	orgResolver    orgresolver.OrgResolver
 	secretsFetcher v2.SecretsFetcher
 	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
@@ -190,6 +194,14 @@ func WithTriggerCoordinator(tc triggers.Coordinator) func(*eventHandler) {
 func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
+	}
+}
+
+// WithUsageMetering enables compute usage records on the engines with identity.
+func WithUsageMetering(identity resourcemanager.ResourceIdentity) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.meterRecordsEnabled = true
+		e.usageIdentity = identity
 	}
 }
 
@@ -1505,6 +1517,8 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowRegistryAddress:           h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector:     h.workflowRegistryChainSelector,
 		OrgResolver:                       h.orgResolver,
+		MeterRecordsEnabled:               h.meterRecordsEnabled,
+		UsageIdentity:                     h.usageIdentity,
 		SecretsFetcher:                    h.secretsFetcher,
 		OverrideFetcher:                   h.overrideFetcherForOwner(owner),
 		DebugMode:                         h.debugMode,

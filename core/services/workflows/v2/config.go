@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -69,6 +70,12 @@ type EngineConfig struct {
 
 	// OrgResolver is used to resolve organization IDs from workflow owners
 	OrgResolver orgresolver.OrgResolver
+
+	// MeterRecordsEnabled emits a cre:workflow:compute usage record per execution.
+	MeterRecordsEnabled bool
+	UsageIdentity       resourcemanager.ResourceIdentity
+	// UsageEmitter overrides the global durable emitter.
+	UsageEmitter resourcemanager.Emitter
 
 	// includes additional logging of events internal to user workflows
 	DebugMode bool
