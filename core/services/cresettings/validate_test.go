@@ -2,6 +2,7 @@ package cresettings
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -108,4 +109,28 @@ Foo = "bar"
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestValidatedCRESettingsSpecCapRegistry(t *testing.T) {
+	t.Parallel()
+
+	// The settings payload itself contains a TOML literal string, so the outer spec carries it
+	// in a basic multi-line string (backslashes escaped).
+	spec := func(settings string) string {
+		return "type = \"cresettings\"\nschemaVersion = 1\nexternalJobID = \"" + uuid.NewString() + "\"\nsettings = \"\"\"\n" +
+			strings.ReplaceAll(settings, `\`, `\\`) + "\"\"\"\n"
+	}
+
+	jb, err := ValidatedCRESettingsSpec(spec(capRegSettings(capRegPayload)))
+	require.NoError(t, err)
+	require.NotEmpty(t, jb.CRESettingsSpec.Hash)
+
+	_, err = ValidatedCRESettingsSpec(spec("config_type = \"capabilities_registry\"\n"))
+	require.ErrorContains(t, err, "offchain_config")
+
+	_, err = ValidatedCRESettingsSpec(spec(capRegSettings(`{"domain":"cre","version":0}`)))
+	require.ErrorContains(t, err, "version")
+
+	_, err = ValidatedCRESettingsSpec(spec(capRegSettings(`{"domain":"cre","version":1,"bogus":true}`)))
+	require.Error(t, err)
 }

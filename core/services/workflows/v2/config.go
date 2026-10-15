@@ -292,10 +292,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
-	shardingFailoverSetting := settings.Bool(false)
-	shardingFailoverSetting.Key = "ShardingFailoverEnabled"
-	shardingFailoverSetting.Scope = settings.ScopeGlobal
-	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, shardingFailoverSetting)
+	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.ShardingFailoverEnabled)
 	if err != nil {
 		return err
 	}
