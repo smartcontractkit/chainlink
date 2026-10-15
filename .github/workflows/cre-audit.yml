@@ -1,16 +1,19 @@
 name: CRE Audit
 
-# AI security/correctness audit for CRE capabilities. Each pack below gets its own
-# `audit/<capability>` commit status. Audit logic, rubrics and findings live in
+# Optional AI security/correctness audit for CRE capabilities. Each pack below reports to its
+# own advisory `audit/<capability>` commit status. Audit logic, rubrics and findings live in
 # smartcontractkit/cre-docs (.agents/skills/cre-audit); nothing sensitive is posted here.
+#
+# Do NOT make audit/<capability> a required check or a merge-queue requirement: runs are
+# started by hand, take up to an hour, and do not run on merge-queue commits.
 #
 #   /audit                         audit every pack whose paths this PR touches
 #   /audit <pack>                  audit one pack
 #   /audit [<pack>] skip <reason>  bypass (write access required)
 #   model=opus|sonnet|haiku effort=low|medium|high|xhigh|max   optional overrides
 #
-# The pack→path map is read from the base branch (pull_request_target), so a PR cannot
-# change which paths require an audit.
+# A PR touching a pack's paths gets one comment suggesting /audit. The pack→path map is read
+# from the base branch (pull_request_target).
 
 on:
   pull_request_target:
@@ -63,10 +66,9 @@ jobs:
     with:
       packs: |
         vault=^(core/capabilities/vault/|core/services/ocr2/plugins/vault/|core/services/gateway/handlers/vault/|core/services/workflows/v2/secrets\.go|system-tests/tests/smoke/cre/vault_don_test\.go|system-tests/tests/smoke/cre/vault_don_test_helpers\.go|system-tests/lib/cre/vault/)
-      # Migration: also stamp the old required check and accept /vault-audit.
-      # Remove once branch protection requires audit/vault instead of vault-audit.
-      legacy_contexts: |
-        vault=vault-audit
+      # Keep the old command working for people used to it.
+      aliases: |
+        vault-audit=vault
     secrets:
       GATI_AWS_ROLE_ARN: ${{ secrets.CHAINLINK_CRE_DOCS_GATI_AWS_ROLE_ARN }}
       GATI_AWS_LAMBDA_URL: ${{ secrets.CHAINLINK_CRE_DOCS_GATI_AWS_LAMBDA_URL }}
