@@ -10,7 +10,7 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260828090428-9828cc37ebc2"
+      gitRef: "v0.0.0-20261015141323-398fb19195f8"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
@@ -94,7 +94,7 @@ plugins:
 
   capability-aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "8c63e69b4e241875e7e111d6e85d8d0596f22981"
+      gitRef: "9e93a8af323420aa671705eb619c7ea533041036"
       installPath: "."
 
   capability-stellar:
