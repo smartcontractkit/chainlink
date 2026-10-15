@@ -88,7 +88,8 @@ func (r *ReportingPlugin) validateDuplicateSecretIdentifierUserError(id *vaultco
 }
 
 func (r *ReportingPlugin) validateEncryptedSecretCiphertextSize(ctx context.Context, owner string, encryptedValue string) error {
-	if ierr := r.validator.ValidateCiphertextSize(ctx, owner, encryptedValue); ierr != nil {
+	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-6884
+	if ierr := r.validator.ValidateCiphertextSize(ctx, "", owner, encryptedValue); ierr != nil {
 		return vaulttypes.NewUserError(ierr.Error())
 	}
 	return nil

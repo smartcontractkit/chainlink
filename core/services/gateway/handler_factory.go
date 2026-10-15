@@ -82,7 +82,7 @@ func (hf *handlerFactory) NewHandler(
 		// shardedDONs/shardsConnMgrs support.
 		donConfig := shardedDONsToLegacy(dons.DONs[0])
 		don := dons.ConnMgrs[0][0]
-		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr, clockwork.NewRealClock(), hf.lf)
+		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr, clockwork.NewRealClock(), hf.lf, hf.orgResolver)
 	case ConfidentialRelayHandlerType:
 		// For backward compatibility, convert sharded config to legacy DONConfig
 		// using the first DON's first shard. TODO(CRE-1640): migrate to full

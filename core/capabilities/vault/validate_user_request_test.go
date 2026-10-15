@@ -450,7 +450,7 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_CoversAllGatewaySecretsMeth
 
 func mustNewGatewayVaultRequestProcessor(t *testing.T, validator *vault.RequestValidator, authorizer vault.Authorizer, stripOwnerPrefix bool) *vault.GatewayVaultRequestProcessor {
 	t.Helper()
-	processor, err := vault.NewGatewayVaultRequestProcessor(validator, authorizer, stripOwnerPrefix, logger.TestLogger(t))
+	processor, err := vault.NewGatewayVaultRequestProcessor(validator, authorizer, nil, stripOwnerPrefix, logger.TestLogger(t))
 	require.NoError(t, err)
 	return processor
 }
