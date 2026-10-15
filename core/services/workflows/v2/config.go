@@ -384,6 +384,16 @@ func (l *EngineLimiters) Close() error {
 	)
 }
 
+// Admission returns the limiters a trigger coordinator admits events with. They
+// are these same instances, so coordinated and legacy executions share every
+// queue and concurrency limit.
+func (l *EngineLimiters) Admission() triggers.AdmissionLimiters {
+	return triggers.AdmissionLimiters{
+		TriggerEventQueue:    l.TriggerEventQueue,
+		ExecutionConcurrency: l.ExecutionConcurrency,
+	}
+}
+
 type EngineFeatureFlags struct {
 	// WorkflowTagBackfill gates the reconciler backfill of workflow_specs_v2.workflow_tag.
 	// The Check succeeds only when time.Now() is inside the configured active period,

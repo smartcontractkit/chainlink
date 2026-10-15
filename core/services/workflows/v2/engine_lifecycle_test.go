@@ -501,6 +501,8 @@ func (h *engineLifecycleHarness) newCoordinator(capreg *regmocks.CapabilitiesReg
 			Logger:       commonlogger.Test(h.t),
 			Metrics:      monitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), em),
 		},
+		// The engine's own limiters, as in production, so the limits a scenario sets apply to both.
+		h.cfg.LocalLimiters.Admission(),
 		h.engines,
 		workflowLimits,
 		clockwork.NewFakeClock(),

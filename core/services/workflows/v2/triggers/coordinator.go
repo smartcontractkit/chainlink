@@ -78,6 +78,18 @@ type RegisteredEngine interface {
 	IsCoordinated() bool
 }
 
+// AdmissionLimiters are the limiters the coordinator admits trigger events
+// with. They must be the instances the legacy engines use: each is scoped per
+// tenant through the context, so legacy and coordinated executions count
+// against the same workflow, owner, org and global limits.
+type AdmissionLimiters struct {
+	// TriggerEventQueue buffers each workflow's events between its readers and
+	// its admitter. A full queue drops the event.
+	TriggerEventQueue limits.QueueLimiter[CoordinatedEvent]
+	// ExecutionConcurrency bounds how many executions run at the same time.
+	ExecutionConcurrency limits.ResourcePoolLimiter[int]
+}
+
 // EngineRegistry is the coordinator's read-only view of running engines. It is
 // how the coordinator resolves a workflow's engine at delivery time; the
 // coordinator keeps no engine map of its own.
@@ -95,6 +107,7 @@ type coordinator struct {
 	// deps carries the node-level logger and metrics; RegisterTriggers
 	// overrides both with the workflow-scoped ones.
 	deps           RegisterDeps
+	admission      AdmissionLimiters
 	engines        EngineRegistry
 	workflowLimits limits.ResourceLimiter[int]
 	clock          clockwork.Clock
@@ -124,10 +137,13 @@ type coordinatedWorkflow struct {
 	cancel  context.CancelFunc
 	handles map[string]*Handle
 
-	// readers tracks the reader goroutines for this registration. A reader
-	// only exits once its own delivery has returned, so once Wait() returns,
-	// nothing started by this registration can still ACK.
+	// readers counts the reader goroutines, one per trigger. Each reads the
+	// trigger's channel and puts events in the queue.
 	readers sync.WaitGroup
+	// executions counts the admitter and every execution it starts. The admitter
+	// holds a count while it runs, so the count only reaches zero once nothing
+	// can start another execution.
+	executions sync.WaitGroup
 
 	unregistered atomic.Bool // capability-side unregistration succeeded
 	releasing    atomic.Bool // release waiter spawned
@@ -138,6 +154,7 @@ type coordinatedWorkflow struct {
 
 func NewCoordinator(
 	deps RegisterDeps,
+	admission AdmissionLimiters,
 	engineRegistry EngineRegistry,
 	workflowLimits limits.ResourceLimiter[int],
 	clock clockwork.Clock,
@@ -145,6 +162,7 @@ func NewCoordinator(
 	c := &coordinator{
 		lggr:           logger.Named(deps.Logger, "TriggerCoordinator"),
 		deps:           deps,
+		admission:      admission,
 		engines:        engineRegistry,
 		workflowLimits: workflowLimits,
 		clock:          clock,
@@ -229,20 +247,26 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 	}
 
 	// Set before publishing cw: an UnregisterTriggers racing in right after
-	// must not see zero readers and release before they've even started.
+	// must not see zero readers or executions and release before they've even started.
 	cw.readers.Add(len(eventChans))
+	cw.executions.Add(1) // the admitter
 
 	c.workflows.set(workflowID, cw)
 	c.deps.Metrics.UpdateTriggerCoordinatorWorkflowsGauge(ctx, c.workflowsGauge.Add(1))
 	c.deps.Metrics.UpdateTriggerCoordinatorReadersGauge(ctx, c.readersGauge.Add(int64(len(eventChans))))
 
-	deliverFn := c.buildDeliverFn(cw.wid, cw.lggr)
+	c.eng.GoCtx(readerCtx, func(ctx context.Context) {
+		defer cw.executions.Done()
+		c.admit(ctx, cw)
+	})
+
+	enqueueFn := c.buildEnqueueFn(cw)
 	for idx, eventCh := range eventChans {
 		triggerCapID := triggerCapIDs[idx]
 		c.eng.GoCtx(readerCtx, func(ctx context.Context) {
 			defer cw.readers.Done()
 			defer c.deps.Metrics.UpdateTriggerCoordinatorReadersGauge(ctx, c.readersGauge.Add(-1))
-			ReadLoop(ctx, lggr, wfMetrics, c.clock, workflowID, triggerCapID, idx, eventCh, deliverFn)
+			ReadLoop(ctx, lggr, wfMetrics, c.clock, workflowID, triggerCapID, idx, eventCh, enqueueFn)
 		})
 	}
 
@@ -316,31 +340,90 @@ func (c *coordinator) close() error {
 	return errs
 }
 
-// buildDeliverFn creates a deliver function that looks up the engine fresh on every event
-// instead of caching it, since the engine for a workflow can change while this reader is running.
-func (c *coordinator) buildDeliverFn(wid types.WorkflowID, lggr logger.Logger) func(context.Context, CoordinatedEvent) {
+// buildEnqueueFn creates the readers' deliver function. It never waits for an
+// execution: it puts the event on the workflow's queue for the admitter, and
+// drops it if the queue is full.
+func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Context, CoordinatedEvent) {
 	return func(ctx context.Context, event CoordinatedEvent) {
-		engine, found := c.engines.Get(wid)
-		if !found {
-			lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
+		tm := cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID)
+		if err := c.admission.TriggerEventQueue.Put(ctx, event); err != nil {
+			tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
+			if _, isFull := errors.AsType[limits.ErrorQueueFull](err); isFull {
+				cw.lggr.Errorw("Trigger event queue is full, dropping event", "triggerID", event.TriggerCapID, "triggerIndex", event.TriggerIndex, "err", err)
+				tm.IncrementWorkflowTriggerEventQueueFullCounter(ctx)
+				tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueQueueFull)
+			} else {
+				tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueFailed)
+			}
+			cw.lggr.Errorw("Failed to enqueue trigger event", "triggerID", event.TriggerCapID, "triggerIndex", event.TriggerIndex, "err", err)
+			tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
 			return
 		}
-		if !engine.IsCoordinated() {
-			lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
-			return
-		}
-
-		// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
-		if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
-			lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
-		}
+		tm.IncrementTriggerEventEnqueuedCounter(ctx)
 	}
 }
 
+// admit is the workflow's admitter. It takes events off the workflow's queue,
+// waits for an execution-concurrency slot, and runs each event on its own
+// goroutine, which holds the slot until the execution returns. It returns when
+// ctx is cancelled, which happens when the workflow is unregistered.
+func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
+	for {
+		event, err := c.admission.TriggerEventQueue.Wait(ctx)
+		if err != nil {
+			return
+		}
+		tm := cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID)
+
+		engine, ok := c.coordinatedEngine(cw, event)
+		if !ok {
+			continue
+		}
+
+		semWaitStart := c.clock.Now()
+		free, err := c.admission.ExecutionConcurrency.Wait(ctx, 1)
+		tm.RecordExecutionSemaphoreWaitSeconds(ctx, c.clock.Now().Sub(semWaitStart).Seconds())
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			cw.lggr.Errorw("Failed to acquire executions semaphore", "err", err)
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExecutionSemaphoreWaitFailed)
+			continue
+		}
+
+		cw.executions.Add(1)
+		c.eng.Go(func(context.Context) {
+			defer cw.executions.Done()
+			defer free()
+			// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
+			if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
+				cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+			}
+		})
+	}
+}
+
+// coordinatedEngine looks up the workflow's engine fresh for every event
+// instead of caching it, since the engine for a workflow can change while the
+// registration is running. It reports false, after logging why, if there is no
+// engine to deliver to.
+func (c *coordinator) coordinatedEngine(cw *coordinatedWorkflow, event CoordinatedEvent) (RegisteredEngine, bool) {
+	engine, found := c.engines.Get(cw.wid)
+	if !found {
+		cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
+		return nil, false
+	}
+	if !engine.IsCoordinated() {
+		cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
+		return nil, false
+	}
+	return engine, true
+}
+
 // releaseWhenDrained drops the registration and frees the workflow-count limit
-// once no execution can still need it to ACK. Waiting for this registration's
-// readers to exit is enough: an ACK only ever happens while a reader is still
-// running its delivery.
+// once no execution can still need it to ACK: once this registration's
+// readers, its admitter and every execution the admitter started have returned.
 func (c *coordinator) releaseWhenDrained(ctx context.Context, cw *coordinatedWorkflow) {
 	ctx = contexts.WithCRE(ctx, cw.cre)
 
@@ -393,12 +476,15 @@ func (c *coordinator) freeWorkflowLimit(ctx context.Context, lggr logger.Logger)
 	}
 }
 
-// drained returns a channel that will be closed once all readers have finished, indicating that the workflow triggers have been fully drained.
+// drained returns a channel that is closed once the readers, the admitter and
+// every execution have returned. After that, nothing can still ACK, so the
+// handles can be dropped.
 func (cw *coordinatedWorkflow) drained() chan struct{} {
 	drained := make(chan struct{})
-	// Exits with the readers; outlives this waiter only on a timeout.
+	// Exits with the executions; outlives this waiter only on a timeout.
 	go func() {
 		cw.readers.Wait()
+		cw.executions.Wait()
 		close(drained)
 	}()
 	return drained
