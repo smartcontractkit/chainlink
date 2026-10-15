@@ -382,6 +382,141 @@ func (_c *TelemetryIngress_ChipIngressMaxConcurrentSends_Call) RunAndReturn(run 
 	return _c
 }
 
+// ChipIngressMaxGRPCRequestSize provides a mock function with no fields
+func (_m *TelemetryIngress) ChipIngressMaxGRPCRequestSize() int {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChipIngressMaxGRPCRequestSize")
+	}
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// TelemetryIngress_ChipIngressMaxGRPCRequestSize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChipIngressMaxGRPCRequestSize'
+type TelemetryIngress_ChipIngressMaxGRPCRequestSize_Call struct {
+	*mock.Call
+}
+
+// ChipIngressMaxGRPCRequestSize is a helper method to define mock.On call
+func (_e *TelemetryIngress_Expecter) ChipIngressMaxGRPCRequestSize() *TelemetryIngress_ChipIngressMaxGRPCRequestSize_Call {
+	return &TelemetryIngress_ChipIngressMaxGRPCRequestSize_Call{Call: _e.mock.On("ChipIngressMaxGRPCRequestSize")}
+}
+
+func (_c *TelemetryIngress_ChipIngressMaxGRPCRequestSize_Call) Run(run func()) *TelemetryIngress_ChipIngressMaxGRPCRequestSize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressMaxGRPCRequestSize_Call) Return(_a0 int) *TelemetryIngress_ChipIngressMaxGRPCRequestSize_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressMaxGRPCRequestSize_Call) RunAndReturn(run func() int) *TelemetryIngress_ChipIngressMaxGRPCRequestSize_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ChipIngressSendInterval provides a mock function with no fields
+func (_m *TelemetryIngress) ChipIngressSendInterval() time.Duration {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChipIngressSendInterval")
+	}
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// TelemetryIngress_ChipIngressSendInterval_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChipIngressSendInterval'
+type TelemetryIngress_ChipIngressSendInterval_Call struct {
+	*mock.Call
+}
+
+// ChipIngressSendInterval is a helper method to define mock.On call
+func (_e *TelemetryIngress_Expecter) ChipIngressSendInterval() *TelemetryIngress_ChipIngressSendInterval_Call {
+	return &TelemetryIngress_ChipIngressSendInterval_Call{Call: _e.mock.On("ChipIngressSendInterval")}
+}
+
+func (_c *TelemetryIngress_ChipIngressSendInterval_Call) Run(run func()) *TelemetryIngress_ChipIngressSendInterval_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressSendInterval_Call) Return(_a0 time.Duration) *TelemetryIngress_ChipIngressSendInterval_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressSendInterval_Call) RunAndReturn(run func() time.Duration) *TelemetryIngress_ChipIngressSendInterval_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ChipIngressSendTimeout provides a mock function with no fields
+func (_m *TelemetryIngress) ChipIngressSendTimeout() time.Duration {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChipIngressSendTimeout")
+	}
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// TelemetryIngress_ChipIngressSendTimeout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChipIngressSendTimeout'
+type TelemetryIngress_ChipIngressSendTimeout_Call struct {
+	*mock.Call
+}
+
+// ChipIngressSendTimeout is a helper method to define mock.On call
+func (_e *TelemetryIngress_Expecter) ChipIngressSendTimeout() *TelemetryIngress_ChipIngressSendTimeout_Call {
+	return &TelemetryIngress_ChipIngressSendTimeout_Call{Call: _e.mock.On("ChipIngressSendTimeout")}
+}
+
+func (_c *TelemetryIngress_ChipIngressSendTimeout_Call) Run(run func()) *TelemetryIngress_ChipIngressSendTimeout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressSendTimeout_Call) Return(_a0 time.Duration) *TelemetryIngress_ChipIngressSendTimeout_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TelemetryIngress_ChipIngressSendTimeout_Call) RunAndReturn(run func() time.Duration) *TelemetryIngress_ChipIngressSendTimeout_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Endpoints provides a mock function with no fields
 func (_m *TelemetryIngress) Endpoints() []config.TelemetryIngressEndpoint {
 	ret := _m.Called()

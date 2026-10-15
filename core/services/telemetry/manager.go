@@ -158,15 +158,6 @@ func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr common.Log
 	if e.ChainID() == "" {
 		return nil, errors.New("cannot add telemetry endpoint, chainID cannot be empty")
 	}
-
-	if e.URL() == nil {
-		return nil, errors.New("cannot add telemetry endpoint, URL cannot be empty")
-	}
-
-	if e.ServerPubKey() == "" {
-		return nil, errors.New("cannot add telemetry endpoint, ServerPubKey cannot be empty")
-	}
-
 	if _, found := m.getEndpoint(e.Network(), e.ChainID()); found {
 		return nil, errors.Errorf("cannot add telemetry endpoint for network %q and chainID %q, endpoint already exists", e.Network(), e.ChainID())
 	}
@@ -177,19 +168,28 @@ func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr common.Log
 		URL:     e.URL(),
 		PubKey:  e.ServerPubKey(),
 	}
-	m.endpoints = append(m.endpoints, te)
 
 	if m.chipService != nil {
-		// All chains share the injected chip service; the entry is only an allowlist.
+		// All chains share the injected chip service; the entry is only an allowlist,
+		// so the OTI-only URL and ServerPubKey are not required.
+		m.endpoints = append(m.endpoints, te)
 		return nil, nil
+	}
+
+	if te.URL == nil {
+		return nil, errors.New("cannot add telemetry endpoint, URL cannot be empty")
+	}
+	if te.PubKey == "" {
+		return nil, errors.New("cannot add telemetry endpoint, ServerPubKey cannot be empty")
 	}
 
 	lggr = common.Sugared(lggr).Named(e.Network()).Named(e.ChainID())
 	if m.useBatchSend {
-		te.client = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, cfg.Logging(), lggr, cfg.BufferSize(), cfg.MaxBatchSize(), cfg.SendInterval(), cfg.SendTimeout(), cfg.UniConn())
+		te.client = synchronization.NewTelemetryIngressBatchClient(te.URL, te.PubKey, m.ks, cfg.Logging(), lggr, cfg.BufferSize(), cfg.MaxBatchSize(), cfg.SendInterval(), cfg.SendTimeout(), cfg.UniConn())
 	} else {
-		te.client = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, lggr, cfg.BufferSize())
+		te.client = synchronization.NewTelemetryIngressClient(te.URL, te.PubKey, m.ks, lggr, cfg.BufferSize())
 	}
+	m.endpoints = append(m.endpoints, te)
 	return te.client, nil
 }
 

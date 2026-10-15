@@ -26,6 +26,11 @@ var (
 		Help: "Number of telemetry messages dropped",
 	}, []string{"endpoint", "telemetry_type"})
 
+	TelemetryClientMessagesUnsupported = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "telemetry_client_messages_unsupported",
+		Help: "Number of telemetry messages not sent because the endpoint does not support their telemetry type",
+	}, []string{"endpoint", "telemetry_type"})
+
 	TelemetryClientWorkers = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "telemetry_client_workers",
 		Help: "Number of telemetry workers",

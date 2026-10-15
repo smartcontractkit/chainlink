@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -139,6 +141,16 @@ func (c *Core) ValidateConfig() (err error) {
 		if c.Tracing.CollectorTarget == c.Telemetry.Endpoint {
 			err = errors.Join(err, configutils.InvalidError{Name: "Tracing.CollectorTarget", Value: *c.Tracing.CollectorTarget, Msg: "Same as Telemetry.Endpoint. Must be different or disabled."})
 		}
+	}
+
+	// The chip-ingress drain runs inside the shutdown grace period. If it can use most of
+	// it, a hung telemetry server makes the node force-exit before other services close.
+	// Only checked with the flag on, so configs with a short grace period keep working.
+	if ti := c.TelemetryIngress; ti.ChipIngressEnabled != nil && *ti.ChipIngressEnabled &&
+		ti.ChipIngressDrainTimeout != nil && c.ShutdownGracePeriod != nil &&
+		ti.ChipIngressDrainTimeout.Duration() >= c.ShutdownGracePeriod.Duration()/2 {
+		err = errors.Join(err, configutils.InvalidError{Name: "TelemetryIngress.ChipIngressDrainTimeout", Value: ti.ChipIngressDrainTimeout.Duration(),
+			Msg: fmt.Sprintf("must be less than half of ShutdownGracePeriod (%s)", c.ShutdownGracePeriod.Duration())})
 	}
 
 	return err
@@ -987,6 +999,9 @@ type TelemetryIngress struct {
 	ChipIngressBufferSize         *uint
 	ChipIngressMaxBatchSize       *uint
 	ChipIngressMaxConcurrentSends *int
+	ChipIngressSendInterval       *commonconfig.Duration
+	ChipIngressSendTimeout        *commonconfig.Duration
+	ChipIngressMaxGRPCRequestSize *int
 	ChipIngressDrainTimeout       *commonconfig.Duration
 }
 
@@ -1043,28 +1058,87 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	if v := f.ChipIngressDrainTimeout; v != nil {
 		t.ChipIngressDrainTimeout = v
 	}
+	if v := f.ChipIngressSendInterval; v != nil {
+		t.ChipIngressSendInterval = v
+	}
+	if v := f.ChipIngressSendTimeout; v != nil {
+		t.ChipIngressSendTimeout = v
+	}
+	if v := f.ChipIngressMaxGRPCRequestSize; v != nil {
+		t.ChipIngressMaxGRPCRequestSize = v
+	}
 }
 
+// Bounds for the chip-ingress batching settings. They are checked even when
+// ChipIngressEnabled is false, so a bad staged value can't stop the node from
+// booting at the moment the flag is turned on.
+const (
+	chipIngressMaxBufferSize         = 100_000
+	chipIngressMaxBatchSizeLimit     = 500 // the pinned library's batch split is O(n²) in batch size
+	chipIngressMaxConcurrentSendsCap = 32
+	chipIngressMinSendInterval       = 50 * time.Millisecond
+	chipIngressMaxSendInterval       = 10 * time.Second
+	chipIngressMinSendTimeout        = time.Second
+	chipIngressMaxSendTimeout        = time.Minute
+	chipIngressMinGRPCRequestSize    = 1 << 20  // the batch client clamps lower values up to this
+	chipIngressMaxGRPCRequestSize    = 10 << 20 // chip-ingress's default receive limit
+)
+
 func (t *TelemetryIngress) ValidateConfig() (err error) {
-	if t.ChipIngressEnabled == nil || !*t.ChipIngressEnabled {
-		return nil
-	}
-	if t.ChipIngressEndpoint == nil || *t.ChipIngressEndpoint == "" {
+	enabled := t.ChipIngressEnabled != nil && *t.ChipIngressEnabled
+	insecure := t.ChipIngressInsecureConnection != nil && *t.ChipIngressInsecureConnection
+	switch {
+	case t.ChipIngressEndpoint != nil && *t.ChipIngressEndpoint != "":
+		err = errors.Join(err, validateChipIngressEndpoint(*t.ChipIngressEndpoint, insecure))
+	case enabled:
 		err = errors.Join(err, configutils.MissingError{Name: "ChipIngressEndpoint", Msg: "must be set when ChipIngressEnabled is true"})
 	}
-	if v := t.ChipIngressBufferSize; v != nil && *v == 0 {
-		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressBufferSize", Value: *v, Msg: "must be greater than 0"})
-	}
-	if v := t.ChipIngressMaxBatchSize; v != nil && *v == 0 {
-		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressMaxBatchSize", Value: *v, Msg: "must be greater than 0"})
-	}
-	if v := t.ChipIngressMaxConcurrentSends; v != nil && *v <= 0 {
-		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressMaxConcurrentSends", Value: *v, Msg: "must be greater than 0"})
-	}
+	err = errors.Join(err,
+		inRange("ChipIngressBufferSize", t.ChipIngressBufferSize, 1, chipIngressMaxBufferSize),
+		inRange("ChipIngressMaxBatchSize", t.ChipIngressMaxBatchSize, 1, chipIngressMaxBatchSizeLimit),
+		inRange("ChipIngressMaxConcurrentSends", t.ChipIngressMaxConcurrentSends, 1, chipIngressMaxConcurrentSendsCap),
+		inRange("ChipIngressMaxGRPCRequestSize", t.ChipIngressMaxGRPCRequestSize, chipIngressMinGRPCRequestSize, chipIngressMaxGRPCRequestSize),
+		durationInRange("ChipIngressSendInterval", t.ChipIngressSendInterval, chipIngressMinSendInterval, chipIngressMaxSendInterval),
+		durationInRange("ChipIngressSendTimeout", t.ChipIngressSendTimeout, chipIngressMinSendTimeout, chipIngressMaxSendTimeout),
+	)
 	if v := t.ChipIngressDrainTimeout; v != nil && v.Duration() <= 0 {
 		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressDrainTimeout", Value: v.Duration(), Msg: "must be greater than 0"})
 	}
 	return err
+}
+
+// validateChipIngressEndpoint requires a bare host:port, which is what the gRPC client dials.
+func validateChipIngressEndpoint(endpoint string, insecure bool) error {
+	invalid := configutils.InvalidError{Name: "ChipIngressEndpoint", Value: endpoint, Msg: "must be host:port, without a scheme or whitespace"}
+	if strings.TrimSpace(endpoint) != endpoint || strings.Contains(endpoint, "://") {
+		return invalid
+	}
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil || host == "" {
+		return invalid
+	}
+	if p, err := strconv.Atoi(port); err != nil || p < 1 || p > 65535 {
+		return configutils.InvalidError{Name: "ChipIngressEndpoint", Value: endpoint, Msg: "port must be between 1 and 65535"}
+	}
+	if insecure && (host == "chain.link" || strings.HasSuffix(host, ".chain.link")) {
+		return configutils.InvalidError{Name: "ChipIngressInsecureConnection", Value: true, Msg: "must be false for a chain.link endpoint, or the CSA auth token is sent unencrypted"}
+	}
+	return nil
+}
+
+func inRange[T cmp.Ordered](name string, v *T, lo, hi T) error {
+	if v == nil || (*v >= lo && *v <= hi) {
+		return nil
+	}
+	return configutils.InvalidError{Name: name, Value: *v, Msg: fmt.Sprintf("must be between %v and %v", lo, hi)}
+}
+
+func durationInRange(name string, v *commonconfig.Duration, lo, hi time.Duration) error {
+	if v == nil {
+		return nil
+	}
+	d := v.Duration()
+	return inRange(name, &d, lo, hi)
 }
 
 type AuditLogger struct {

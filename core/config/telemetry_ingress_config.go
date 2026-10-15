@@ -21,6 +21,9 @@ type TelemetryIngress interface {
 	ChipIngressMaxBatchSize() uint
 	ChipIngressMaxConcurrentSends() int
 	ChipIngressDrainTimeout() time.Duration
+	ChipIngressSendInterval() time.Duration
+	ChipIngressSendTimeout() time.Duration
+	ChipIngressMaxGRPCRequestSize() int
 }
 
 type TelemetryIngressEndpoint interface {

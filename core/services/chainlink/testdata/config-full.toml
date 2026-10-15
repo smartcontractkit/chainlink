@@ -49,6 +49,9 @@ ChipIngressInsecureConnection = true
 ChipIngressBufferSize = 2000
 ChipIngressMaxBatchSize = 200
 ChipIngressMaxConcurrentSends = 4
+ChipIngressSendInterval = '1s'
+ChipIngressSendTimeout = '5s'
+ChipIngressMaxGRPCRequestSize = 4194304
 ChipIngressDrainTimeout = '3s'
 
 [[TelemetryIngress.Endpoints]]

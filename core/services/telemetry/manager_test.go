@@ -291,12 +291,12 @@ func TestManager_ChipIngressEndpoint(t *testing.T) {
 		tic := setupMockConfig(t, true)
 		endpoints := make([]config.TelemetryIngressEndpoint, 0, 2)
 		for _, chainID := range []string{"1", "137"} {
+			// Chip mode uses only Network and ChainID; the WSRPC URL and ServerPubKey may be unset.
 			te := mocks.NewTelemetryIngressEndpoint(t)
 			te.On("Network").Return("EVM")
 			te.On("ChainID").Return(chainID)
-			te.On("ServerPubKey").Return("some-pubkey")
-			u, _ := url.Parse("http://chip-ingress.test")
-			te.On("URL").Return(u)
+			te.On("ServerPubKey").Return("")
+			te.On("URL").Return(nil)
 			endpoints = append(endpoints, te)
 		}
 		tic.On("Endpoints").Return(endpoints)

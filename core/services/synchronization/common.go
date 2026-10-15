@@ -43,7 +43,6 @@ type TelemPayload struct {
 	ContractID    string
 	ChainSelector uint64
 	Network       string
-	ChainID       string
 }
 
 // shouldLogCount reports whether the n-th occurrence of a repeated warning

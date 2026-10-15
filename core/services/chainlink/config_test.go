@@ -259,6 +259,9 @@ func TestConfig_Marshal(t *testing.T) {
 		ChipIngressBufferSize:         new(uint(2000)),
 		ChipIngressMaxBatchSize:       new(uint(200)),
 		ChipIngressMaxConcurrentSends: new(4),
+		ChipIngressSendInterval:       commonconfig.MustNewDuration(time.Second),
+		ChipIngressSendTimeout:        commonconfig.MustNewDuration(5 * time.Second),
+		ChipIngressMaxGRPCRequestSize: new(4194304),
 		ChipIngressDrainTimeout:       commonconfig.MustNewDuration(3 * time.Second),
 		Endpoints: []toml.TelemetryIngressEndpoint{
 			{
@@ -922,6 +925,9 @@ ChipIngressInsecureConnection = true
 ChipIngressBufferSize = 2000
 ChipIngressMaxBatchSize = 200
 ChipIngressMaxConcurrentSends = 4
+ChipIngressSendInterval = '1s'
+ChipIngressSendTimeout = '5s'
+ChipIngressMaxGRPCRequestSize = 4194304
 ChipIngressDrainTimeout = '3s'
 
 [[TelemetryIngress.Endpoints]]
@@ -1495,18 +1501,44 @@ func TestConfig_Validate(t *testing.T) {
 ChipIngressEnabled = true
 ChipIngressEndpoint = ''
 `, exp: `invalid configuration: TelemetryIngress.ChipIngressEndpoint: missing: must be set when ChipIngressEnabled is true`},
-		{name: "TelemetryIngress chip batching must be positive", toml: `
+		{name: "TelemetryIngress chip settings validated with the flag off", toml: `
+[TelemetryIngress]
+ChipIngressEnabled = false
+ChipIngressBufferSize = 0
+ChipIngressMaxBatchSize = 501
+ChipIngressMaxConcurrentSends = 0
+ChipIngressSendInterval = '10ms'
+ChipIngressSendTimeout = '2m'
+ChipIngressMaxGRPCRequestSize = 1024
+ChipIngressDrainTimeout = '0s'
+`, exp: `invalid configuration: TelemetryIngress: 7 errors:
+		- ChipIngressBufferSize: invalid value (0): must be between 1 and 100000
+		- ChipIngressMaxBatchSize: invalid value (501): must be between 1 and 500
+		- ChipIngressMaxConcurrentSends: invalid value (0): must be between 1 and 32
+		- ChipIngressMaxGRPCRequestSize: invalid value (1024): must be between 1048576 and 10485760
+		- ChipIngressSendInterval: invalid value (10ms): must be between 50ms and 10s
+		- ChipIngressSendTimeout: invalid value (2m0s): must be between 1s and 1m0s
+		- ChipIngressDrainTimeout: invalid value (0s): must be greater than 0`},
+		{name: "TelemetryIngress chip endpoint must be host:port", toml: `
+[TelemetryIngress]
+ChipIngressEndpoint = 'https://chip.example:443'
+`, exp: `invalid configuration: TelemetryIngress.ChipIngressEndpoint: invalid value (https://chip.example:443): must be host:port, without a scheme or whitespace`},
+		{name: "TelemetryIngress chip endpoint port in range", toml: `
+[TelemetryIngress]
+ChipIngressEndpoint = 'chip.example:0'
+`, exp: `invalid configuration: TelemetryIngress.ChipIngressEndpoint: invalid value (chip.example:0): port must be between 1 and 65535`},
+		{name: "TelemetryIngress chip insecure not allowed for chain.link", toml: `
+[TelemetryIngress]
+ChipIngressEndpoint = 'legacy-telemetry.prod.telemetry.chain.link:443'
+ChipIngressInsecureConnection = true
+`, exp: `invalid configuration: TelemetryIngress.ChipIngressInsecureConnection: invalid value (true): must be false for a chain.link endpoint, or the CSA auth token is sent unencrypted`},
+		{name: "TelemetryIngress chip drain must fit in shutdown grace period", toml: `
+ShutdownGracePeriod = '4s'
 [TelemetryIngress]
 ChipIngressEnabled = true
-ChipIngressBufferSize = 0
-ChipIngressMaxBatchSize = 0
-ChipIngressMaxConcurrentSends = 0
-ChipIngressDrainTimeout = '0s'
-`, exp: `invalid configuration: TelemetryIngress: 4 errors:
-		- ChipIngressBufferSize: invalid value (0): must be greater than 0
-		- ChipIngressMaxBatchSize: invalid value (0): must be greater than 0
-		- ChipIngressMaxConcurrentSends: invalid value (0): must be greater than 0
-		- ChipIngressDrainTimeout: invalid value (0s): must be greater than 0`},
+ChipIngressEndpoint = 'chip.example:443'
+ChipIngressDrainTimeout = '2s'
+`, exp: `invalid configuration: TelemetryIngress.ChipIngressDrainTimeout: invalid value (2s): must be less than half of ShutdownGracePeriod (4s)`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config

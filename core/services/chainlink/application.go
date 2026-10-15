@@ -544,7 +544,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 
 	var telemChipService synchronization.ChipIngressService
-	if ti := cfg.TelemetryIngress(); ti.ChipIngressEnabled() {
+	if ti := cfg.TelemetryIngress(); ti.ChipIngressEnabled() && len(ti.Endpoints()) == 0 {
+		globalLogger.Warn("TelemetryIngress.ChipIngressEnabled is true but no TelemetryIngress.Endpoints are configured; no telemetry will be sent")
+	} else if ti.ChipIngressEnabled() {
 		chipClient, chipErr := synchronization.NewChipIngressClient(synchronization.ChipIngressClientConfig{
 			Endpoint:           ti.ChipIngressEndpoint(),
 			InsecureConnection: ti.ChipIngressInsecureConnection(),
@@ -560,8 +562,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			BufferSize:         ti.ChipIngressBufferSize(),
 			MaxBatchSize:       ti.ChipIngressMaxBatchSize(),
 			MaxConcurrentSends: ti.ChipIngressMaxConcurrentSends(),
-			SendInterval:       ti.SendInterval(),
-			SendTimeout:        ti.SendTimeout(),
+			SendInterval:       ti.ChipIngressSendInterval(),
+			SendTimeout:        ti.ChipIngressSendTimeout(),
+			MaxGRPCRequestSize: ti.ChipIngressMaxGRPCRequestSize(),
 			DrainTimeout:       ti.ChipIngressDrainTimeout(),
 			Logging:            ti.Logging(),
 		}, globalLogger)

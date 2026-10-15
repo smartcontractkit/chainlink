@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -105,18 +106,19 @@ func TestChipIngressBatchClient_Event(t *testing.T) {
 	client.Send(t.Context(), newTestPayload("0xabc"))
 	event := awaitFirstEvent(t, published)
 
-	// Source/type come from the telemetry type and pick the Kafka topic.
+	// Source/type are the telemetry type's domain/entity.
 	domain, entity, err := TelemetryTypeToDomainAndEntity(OCR2Median)
 	require.NoError(t, err)
 	assert.Equal(t, domain, event.Source())
 	assert.Equal(t, entity, event.Type())
 
-	// Exact extension set from the OTI-parity table plus the ones the
-	// library stamps (seqnum by the batch client, recordedtime by NewEvent).
+	// The exact extension set on the wire: the legacy-telemetry contract plus the two
+	// the library stamps (seqnum by the batch client, recordedtime by NewEvent).
+	// Anything else, e.g. receivedat, which chip-ingress owns, must not be sent.
 	exts := event.Extensions()
 	assert.ElementsMatch(t, []string{
 		"legacytelemetry", "telemetrytype", "chainselector", "networkname",
-		"contractid", "csapublickey", "partitionkey", "sentat", "receivedat",
+		"contractid", "csapublickey", "partitionkey", "sentat",
 		"seqnum", "recordedtime",
 	}, slices.Collect(maps.Keys(exts)))
 	assert.Equal(t, "true", exts["legacytelemetry"])
@@ -127,26 +129,58 @@ func TestChipIngressBatchClient_Event(t *testing.T) {
 	assert.Equal(t, "deadbeef", exts["csapublickey"])
 	assert.Equal(t, "0xabc-deadbeef", exts["partitionkey"])
 
-	// sentat is unix nanos; receivedat is unix millis of the same instant.
-	sentAt, err := strconv.ParseInt(exts["sentat"].(string), 10, 64)
+	sentAt, err := strconv.ParseInt(exts["sentat"].(string), 10, 64) // unix nanos
 	require.NoError(t, err)
-	receivedAt, err := strconv.ParseInt(exts["receivedat"].(string), 10, 64)
-	require.NoError(t, err)
-	assert.Equal(t, sentAt/1_000_000, receivedAt)
 	assert.WithinDuration(t, time.Now(), time.Unix(0, sentAt), time.Minute)
 }
 
-func TestChipIngressBatchClient_UnmappedTypeDropped(t *testing.T) { //nolint:paralleltest // asserts deltas on package-global prometheus metrics
+func TestChipIngressBatchClient_UnsupportedTypesCountedNotDropped(t *testing.T) { //nolint:paralleltest // asserts deltas on package-global prometheus metrics
 	client, published := startBatchClient(t, publishOK)
 
-	payload := newTestPayload("0xabc")
-	payload.TelemType = LLOReport // no chip domain/entity mapping
-	before := counterValue(TelemetryClientMessagesDropped, payload.TelemType)
-	// The event is rejected synchronously in Send, before it reaches the queue.
-	client.Send(t.Context(), payload)
+	// LLO nodes interleave llo-report (no chip mapping) with supported types.
+	const n = 50
+	unsupportedBefore := counterValue(TelemetryClientMessagesUnsupported, LLOReport)
+	droppedBefore := counterValue(TelemetryClientMessagesDropped, LLOReport)
+	for range n {
+		unsupported := newTestPayload("0xabc")
+		unsupported.TelemType = LLOReport
+		client.Send(t.Context(), unsupported)
+		client.Send(t.Context(), newTestPayload("0xabc"))
+	}
 
-	assert.InDelta(t, 1, counterValue(TelemetryClientMessagesDropped, payload.TelemType)-before, 0.001)
-	assert.Empty(t, published.snapshot(), "PublishBatch must never be called for unmapped types")
+	assert.InDelta(t, n, counterValue(TelemetryClientMessagesUnsupported, LLOReport)-unsupportedBefore, 0.001)
+	assert.InDelta(t, 0, counterValue(TelemetryClientMessagesDropped, LLOReport)-droppedBefore, 0.001,
+		"unsupported-by-design must not count as dropped, so dropped stays alertable")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		total := 0
+		for _, b := range published.snapshot() {
+			for _, e := range b {
+				assert.NotEqual(c, string(LLOReport), e.Attributes["telemetrytype"].GetCeString())
+				total++
+			}
+		}
+		assert.Equal(c, n, total, "only the supported messages are published")
+	}, testutils.WaitTimeout(t), 10*time.Millisecond)
+}
+
+func TestLogLimiter(t *testing.T) {
+	t.Parallel()
+	l := logLimiter{every: 50 * time.Millisecond}
+
+	ok, suppressed := l.allow("a")
+	assert.True(t, ok)
+	assert.Zero(t, suppressed)
+	for range 5 {
+		ok, _ = l.allow("a")
+		assert.False(t, ok, "repeats within the interval are suppressed")
+	}
+	ok, _ = l.allow("b")
+	assert.True(t, ok, "keys are limited independently")
+
+	time.Sleep(60 * time.Millisecond)
+	ok, suppressed = l.allow("a")
+	assert.True(t, ok)
+	assert.Equal(t, 5, suppressed, "the next line reports how many were suppressed")
 }
 
 func TestChipIngressBatchClient_CountsPerMessage(t *testing.T) { //nolint:paralleltest // asserts deltas on package-global prometheus metrics
@@ -171,12 +205,36 @@ func TestChipIngressBatchClient_CountsPerMessage(t *testing.T) { //nolint:parall
 	}
 }
 
-func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) { //nolint:paralleltest // resets a package-global prometheus gauge
-	// The status gauge is package-global; reset it so a value left by another test can't satisfy the check.
-	TelemetryClientConnectionStatus.WithLabelValues(chipIngressEndpointLabel).Set(0)
-	startBatchClient(t, publishOK)
+func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) { //nolint:paralleltest // drives a package-global prometheus gauge
+	gauge := TelemetryClientConnectionStatus.WithLabelValues(chipIngressEndpointLabel)
+	var reachable atomic.Bool
+	var failedPings atomic.Int32
+	chipClient := chipingressmocks.NewClient(t)
+	chipClient.On("Close").Return(nil).Maybe()
+	chipClient.EXPECT().Ping(mock.Anything, mock.Anything, mock.Anything).
+		RunAndReturn(func(context.Context, *chipingress.EmptyRequest, ...grpc.CallOption) (*chipingress.PingResponse, error) {
+			if reachable.Load() {
+				return &chipingress.PingResponse{}, nil
+			}
+			failedPings.Add(1)
+			return nil, assert.AnError
+		}).Maybe()
+	client := NewTestChipIngressBatchClient(t, chipClient, false, time.Second)
+	client.(*chipIngressBatchClient).pingInterval = time.Millisecond
+	gauge.Set(1)
+	servicetest.Run(t, client)
 
+	// A failed ping only drops the gauge; the service turns unhealthy after a sustained outage.
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		assert.InDelta(c, 1, testutil.ToFloat64(TelemetryClientConnectionStatus.WithLabelValues(chipIngressEndpointLabel)), 0.001)
-	}, testutils.WaitTimeout(t), 10*time.Millisecond)
+		assert.InDelta(c, 0, testutil.ToFloat64(gauge), 0.001)
+		assert.Error(c, client.HealthReport()[client.Name()])
+	}, testutils.WaitTimeout(t), time.Millisecond)
+	assert.GreaterOrEqual(t, failedPings.Load(), int32(unhealthyAfterPingFailures))
+
+	// One good ping restores both.
+	reachable.Store(true)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.InDelta(c, 1, testutil.ToFloat64(gauge), 0.001)
+		assert.NoError(c, client.HealthReport()[client.Name()])
+	}, testutils.WaitTimeout(t), time.Millisecond)
 }

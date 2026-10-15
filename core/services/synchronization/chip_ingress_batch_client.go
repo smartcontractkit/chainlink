@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	chipingress "github.com/smartcontractkit/chainlink-common/pkg/chipingress"
@@ -22,6 +22,13 @@ const (
 
 	healthPingInterval = 5 * time.Second
 	healthPingTimeout  = 2 * time.Second
+	// unhealthyAfterPingFailures marks the service unhealthy only after about a minute of
+	// failed pings, so a brief telemetry-server blip doesn't flip the node's /health.
+	unhealthyAfterPingFailures = 12
+	chipIngressUnreachable     = "chip-ingress unreachable"
+
+	// logEvery limits each kind of repeated warning (per telemetry type) to one line per interval.
+	logEvery = 30 * time.Second
 )
 
 // chipIngressBatchClient sends the node's legacy OCR telemetry to chip-ingress,
@@ -36,18 +43,19 @@ type chipIngressBatchClient struct {
 	batchClient  *batch.Client
 	csaPubKeyHex string
 	logging      bool
-	dropCount    atomic.Uint32
-	errorCount   atomic.Uint32
+	logs         logLimiter
+	pingInterval time.Duration // healthPingInterval; shortened by tests
 }
 
 // ChipIngressBatchConfig sizes the shared chip-ingress batch client. Values come from
-// [TelemetryIngress] (ChipIngress* fields plus SendInterval/SendTimeout).
+// the [TelemetryIngress] ChipIngress* settings.
 type ChipIngressBatchConfig struct {
 	BufferSize         uint          // messages buffered across all jobs before new ones are dropped
 	MaxBatchSize       uint          // messages per PublishBatch request
 	MaxConcurrentSends int           // PublishBatch requests in flight
 	SendInterval       time.Duration // max wait before flushing an incomplete batch
 	SendTimeout        time.Duration // per-request PublishBatch timeout
+	MaxGRPCRequestSize int           // max serialized PublishBatch request size; larger batches are split
 	DrainTimeout       time.Duration // max time Close waits to publish queued messages and run their callbacks
 	Logging            bool          // debug-log every successful send
 }
@@ -61,6 +69,7 @@ func NewChipIngressBatchClient(chipClient chipingress.Client, csaPubKeyHex strin
 		batch.WithMaxConcurrentSends(cfg.MaxConcurrentSends),
 		batch.WithBatchInterval(cfg.SendInterval),
 		batch.WithMaxPublishTimeout(cfg.SendTimeout),
+		batch.WithMaxGRPCRequestSize(cfg.MaxGRPCRequestSize),
 		batch.WithShutdownTimeout(cfg.DrainTimeout),
 		batch.WithClientName(legacyTelemetryBatchClientName),
 		// Send builds a fresh event per message and never touches it after queueing,
@@ -76,6 +85,8 @@ func NewChipIngressBatchClient(chipClient chipingress.Client, csaPubKeyHex strin
 		batchClient:  batchClient,
 		csaPubKeyHex: csaPubKeyHex,
 		logging:      cfg.Logging,
+		logs:         logLimiter{every: logEvery},
+		pingInterval: healthPingInterval,
 	}
 	c.Service, c.eng = services.Config{
 		Name:  "ChipIngressBatchClient",
@@ -86,19 +97,25 @@ func NewChipIngressBatchClient(chipClient chipingress.Client, csaPubKeyHex strin
 	return c, nil
 }
 
-// start starts the batch client and a periodic health ping that drives
-// telemetry_client_connection_status{endpoint="chip-ingress"}.
+// start starts the batch client and a periodic health ping. The ping drives
+// telemetry_client_connection_status{endpoint="chip-ingress"} on every probe, and
+// marks the service unhealthy only after a sustained outage.
 func (c *chipIngressBatchClient) start(ctx context.Context) error {
 	c.batchClient.Start(ctx)
-	c.eng.GoTick(services.TickerConfig{}.NewTicker(healthPingInterval), func(ctx context.Context) {
+	failures := 0 // only touched by the ticker goroutine
+	c.eng.GoTick(services.TickerConfig{}.NewTicker(c.pingInterval), func(ctx context.Context) {
 		pingCtx, cancel := context.WithTimeout(ctx, healthPingTimeout)
 		defer cancel()
-		connected := float64(1)
 		if _, err := c.chipClient.Ping(pingCtx, &chipingresspb.EmptyRequest{}); err != nil {
-			connected = 0
-			c.eng.EmitHealthErr(err)
+			TelemetryClientConnectionStatus.WithLabelValues(chipIngressEndpointLabel).Set(0)
+			if failures++; failures >= unhealthyAfterPingFailures {
+				c.eng.SetHealthCond(chipIngressUnreachable, err)
+			}
+			return
 		}
-		TelemetryClientConnectionStatus.WithLabelValues(chipIngressEndpointLabel).Set(connected)
+		TelemetryClientConnectionStatus.WithLabelValues(chipIngressEndpointLabel).Set(1)
+		failures = 0
+		c.eng.ClearHealthCond(chipIngressUnreachable)
 	})
 	return nil
 }
@@ -112,67 +129,59 @@ func (c *chipIngressBatchClient) close() error {
 }
 
 // Send builds the CloudEvent and queues it. It never blocks the caller (a libocr
-// goroutine): if the event can't be built or the buffer is full, the message is
-// dropped and counted.
+// goroutine). Types chip-ingress has no mapping for are counted as unsupported;
+// a full buffer or a shutting-down client drops the message.
 func (c *chipIngressBatchClient) Send(_ context.Context, payload TelemPayload) {
-	event, err := c.newEvent(payload, time.Now())
-	if err == nil {
-		err = c.batchClient.QueueMessage(event, c.onPublished(payload))
-	}
+	telemType := string(payload.TelemType)
+	domain, entity, err := TelemetryTypeToDomainAndEntity(payload.TelemType)
 	if err != nil {
-		c.drop(payload, err)
+		// Expected on LLO nodes (llo-report); OTI drops these types too.
+		TelemetryClientMessagesUnsupported.WithLabelValues(chipIngressEndpointLabel, telemType).Inc()
+		if ok, suppressed := c.logs.allow("unsupported:" + telemType); ok {
+			c.eng.Debugw("Telemetry type not supported by ChIP ingress; not sending", "telemType", telemType, "suppressed", suppressed)
+		}
 		return
 	}
-	c.dropCount.Store(0)
+	event, err := c.newEvent(payload, domain, entity, time.Now())
+	if err == nil {
+		err = c.batchClient.QueueMessage(event, c.onPublished(payload.TelemType, payload.ContractID))
+	}
+	if err != nil {
+		TelemetryClientMessagesDropped.WithLabelValues(chipIngressEndpointLabel, telemType).Inc()
+		if ok, suppressed := c.logs.allow("drop:" + telemType); ok {
+			c.eng.Warnw("Dropping telemetry message for ChIP ingress", "error", err, "telemType", telemType, "suppressed", suppressed)
+		}
+	}
 }
 
 // onPublished returns the callback the batch client runs once the message's batch
 // has been published, counting each message as sent or failed.
-func (c *chipIngressBatchClient) onPublished(payload TelemPayload) func(error) {
+func (c *chipIngressBatchClient) onPublished(telemType TelemetryType, contractID string) func(error) {
 	return func(err error) {
 		if err != nil {
-			TelemetryClientMessagesSendErrors.WithLabelValues(chipIngressEndpointLabel, string(payload.TelemType)).Inc()
-			if count := c.errorCount.Add(1); shouldLogCount(count) {
-				c.eng.Warnw("Could not send telemetry via ChIP ingress",
-					"error", err,
-					"errorCode", batch.ErrorCodeFor(err),
-					"telemType", payload.TelemType,
-					"errorCount", count)
+			TelemetryClientMessagesSendErrors.WithLabelValues(chipIngressEndpointLabel, string(telemType)).Inc()
+			code := batch.ErrorCodeFor(err)
+			if ok, suppressed := c.logs.allow("error:" + string(telemType) + ":" + code); ok {
+				c.eng.Warnw("Could not send telemetry via ChIP ingress", "error", err, "errorCode", code, "telemType", telemType, "suppressed", suppressed)
 			}
 			return
 		}
-		TelemetryClientMessagesSent.WithLabelValues(chipIngressEndpointLabel, string(payload.TelemType)).Inc()
+		TelemetryClientMessagesSent.WithLabelValues(chipIngressEndpointLabel, string(telemType)).Inc()
 		if c.logging {
-			c.eng.Debugw("Successfully sent telemetry to ChIP ingress", "contractID", payload.ContractID, "telemType", payload.TelemType)
+			c.eng.Debugw("Successfully sent telemetry to ChIP ingress", "contractID", contractID, "telemType", telemType)
 		}
-	}
-}
-
-// drop counts a message that never reached the queue: its telemetry type has no
-// chip-ingress mapping, the buffer is full, or the client is shutting down.
-func (c *chipIngressBatchClient) drop(payload TelemPayload, err error) {
-	TelemetryClientMessagesDropped.WithLabelValues(chipIngressEndpointLabel, string(payload.TelemType)).Inc()
-	if count := c.dropCount.Add(1); shouldLogCount(count) {
-		c.eng.Warnw("Dropping telemetry message for ChIP ingress",
-			"error", err,
-			"contractID", payload.ContractID,
-			"telemType", payload.TelemType,
-			"droppedCount", count)
 	}
 }
 
 // newEvent converts a payload into the CloudEvent chip-ingress expects for legacy
-// telemetry. The event source/type select the Kafka topic. Each extension becomes a
-// "ce_<name>" Kafka header; the comments name the header OTI used for the same value.
+// telemetry. Each extension becomes a "ce_<name>" Kafka header; the comments name the
+// header OTI used for the same value. A legacy-mode chip-ingress routes on telemetrytype
+// and chainselector; source/type (domain/entity) only matter to a non-legacy deployment.
 //
-// The node does not send nodeoperatorname/nodename: chip-ingress looks them up from
-// the CSA key (WithNOPLookup), and sending them too would duplicate those headers.
-// nodeoperatorkey is unknown to the node (spike INFOPLAT-19426).
-func (c *chipIngressBatchClient) newEvent(payload TelemPayload, now time.Time) (*chipingress.CloudEventPb, error) {
-	domain, entity, err := TelemetryTypeToDomainAndEntity(payload.TelemType)
-	if err != nil {
-		return nil, err
-	}
+// The node does not send nodeoperatorname/nodename or receivedat: chip-ingress derives
+// them from the CSA key's NOP info (WithNOPLookup) and its own clock. nodeoperatorkey is
+// unknown to the node (spike INFOPLAT-19426).
+func (c *chipIngressBatchClient) newEvent(payload TelemPayload, domain, entity string, now time.Time) (*chipingress.CloudEventPb, error) {
 	event, err := chipingress.NewEvent(domain, entity, payload.Telemetry, map[string]any{"time": now.UTC()})
 	if err != nil {
 		return nil, fmt.Errorf("failed creating CloudEvent: %w", err)
@@ -186,7 +195,40 @@ func (c *chipIngressBatchClient) newEvent(payload TelemPayload, now time.Time) (
 	event.SetExtension("csapublickey", c.csaPubKeyHex)                                 // "node-operator-csa-public-key"
 	event.SetExtension("partitionkey", payload.ContractID+"-"+c.csaPubKeyHex)          // Kafka record key
 	event.SetExtension("sentat", strconv.FormatInt(now.UnixNano(), 10))                // "sent-at", unix ns
-	event.SetExtension("receivedat", strconv.FormatInt(now.UnixMilli(), 10))           // "received-at", unix ms; chip-ingress may overwrite with its receive time
 
 	return chipingress.EventToProto(event)
+}
+
+// logLimiter allows one log line per key per interval and counts what it suppressed,
+// so repeated warnings stay readable however fast messages arrive.
+type logLimiter struct {
+	every time.Duration
+	mu    sync.Mutex
+	keys  map[string]*logLimiterKey
+}
+
+type logLimiterKey struct {
+	last       time.Time
+	suppressed int
+}
+
+func (l *logLimiter) allow(key string) (ok bool, suppressed int) {
+	now := time.Now()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.keys == nil {
+		l.keys = make(map[string]*logLimiterKey)
+	}
+	k, seen := l.keys[key]
+	if !seen {
+		l.keys[key] = &logLimiterKey{last: now}
+		return true, 0
+	}
+	if now.Sub(k.last) < l.every {
+		k.suppressed++
+		return false, 0
+	}
+	suppressed = k.suppressed
+	k.last, k.suppressed = now, 0
+	return true, suppressed
 }
