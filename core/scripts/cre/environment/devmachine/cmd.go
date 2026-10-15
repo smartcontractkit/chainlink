@@ -82,7 +82,7 @@ func runUp(ctx context.Context, opts *UpOptions) error {
 		if err := o.Preflight(ctx); err != nil {
 			return err
 		}
-		if err := runTUI(ctx, o, phaseMachine, phaseLoad); err != nil {
+		if err := runTUI(ctx, o, phaseMachine, phaseStartAgent); err != nil {
 			return err
 		}
 		fmt.Fprint(run.Out, handoffText(o.cfg))

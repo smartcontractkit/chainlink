@@ -96,6 +96,7 @@ func (o *Orchestrator) phaseSteps() []phaseStep {
 		{phaseArtifacts, o.Artifacts},
 		{phaseTransfer, o.Transfer},
 		{phaseLoad, o.Load},
+		{phaseStartAgent, o.StartAgent},
 		{phaseHandoff, o.Handoff},
 	}
 }

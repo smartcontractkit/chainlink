@@ -89,6 +89,20 @@ If `env stop` warns that remote components are still running, run `go run . env 
 
 Implementation and ownership boundaries are documented in [Remote Execution Architecture](../reference/remote-execution-architecture.md).
 
+## Provisioning a remote DevMachine
+
+The `devmachine` subcommand provisions an EC2 DevMachine for remote execution:
+it creates (or adopts) the machine, installs Docker, builds and loads the
+required images, and starts the remote agent as a systemd service.
+
+```bash
+go run . devmachine up --aws-profile <profile> --team <team> --cost-center <team>
+go run . devmachine status
+go run . devmachine down
+```
+
+See the [devmachine README](../../../core/scripts/cre/environment/devmachine/README.md) for prerequisites, flags and troubleshooting.
+
 ## Setup and Images
 
 By default Local CRE builds the Chainlink image from the local branch. To use a pre-built image instead, set `image` in each node definition in the topology TOML and omit `docker_ctx` and `docker_file`.

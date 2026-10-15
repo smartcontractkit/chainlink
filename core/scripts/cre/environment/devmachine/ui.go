@@ -47,13 +47,14 @@ func (p *plainReporter) Warn(format string, args ...any) {
 type phaseID string
 
 const (
-	phasePreflight phaseID = "P0"
-	phaseMachine   phaseID = "P1"
-	phaseBootstrap phaseID = "P2"
-	phaseArtifacts phaseID = "P3"
-	phaseTransfer  phaseID = "P4"
-	phaseLoad      phaseID = "P5"
-	phaseHandoff   phaseID = "P6"
+	phasePreflight  phaseID = "P0"
+	phaseMachine    phaseID = "P1"
+	phaseBootstrap  phaseID = "P2"
+	phaseArtifacts  phaseID = "P3"
+	phaseTransfer   phaseID = "P4"
+	phaseLoad       phaseID = "P5"
+	phaseStartAgent phaseID = "P6"
+	phaseHandoff    phaseID = "P7"
 )
 
 // orderedPhases is the execution order used by --from/--only.
@@ -64,6 +65,7 @@ var orderedPhases = []phaseID{
 	phaseArtifacts,
 	phaseTransfer,
 	phaseLoad,
+	phaseStartAgent,
 	phaseHandoff,
 }
 
@@ -81,6 +83,8 @@ func phaseTitle(id phaseID) string {
 		return "Transfer to machine"
 	case phaseLoad:
 		return "Load images"
+	case phaseStartAgent:
+		return "Start remote agent"
 	case phaseHandoff:
 		return "Handoff"
 	}
@@ -105,7 +109,9 @@ func parsePhase(s string) (phaseID, error) {
 		return phaseTransfer, nil
 	case "5", "P5", "LOAD":
 		return phaseLoad, nil
-	case "6", "P6", "HANDOFF":
+	case "6", "P6", "START", "AGENT", "START-AGENT":
+		return phaseStartAgent, nil
+	case "7", "P7", "HANDOFF":
 		return phaseHandoff, nil
 	}
 	return "", fmt.Errorf("unknown phase %q", s)

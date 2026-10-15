@@ -40,7 +40,7 @@ env:    { workdir: /.../chainlink/core/scripts/cre/environment, config: configs/
 ## CLI surface
 
 ```
-devmachine up       # P0–P5, then handoff (P6)
+devmachine up       # P0–P6, then handoff (P7)
 devmachine down     # delete DevMachine if tool-created; remove ssh block; --purge-cache
 devmachine status   # config + live checks (instance state, docker, agent port)
 devmachine handoff  # reprint the 3 manual commands
@@ -157,11 +157,22 @@ docker load -i chainlink-amd-latest.tar
 docker images
 ```
 
-### P6 — Handoff (print only)
+### P6 — Start remote agent
+
+Install and start the agent as a systemd service so it survives logout and
+restarts on failure/reboot (via ssh):
 
 ```
-ssh hybrid-local-cre-bartek
-# on machine: ~/remote-agent -addr 0.0.0.0:18080
+sudo tee /etc/systemd/system/remote-agent.service   # unit: User/Group ec2-user, SupplementaryGroups=docker
+sudo systemctl daemon-reload
+sudo systemctl enable --now remote-agent
+```
+
+### P7 — Handoff (print only)
+
+```
+# agent already runs as the 'remote-agent' systemd service
+ssh hybrid-local-cre-bartek 'systemctl status remote-agent'
 
 # on laptop, from <chainlink>/core/scripts/cre/environment:
 export CRE_REMOTE_AGENT_EC2_INSTANCE_ID=i-0d769858467ae9042
@@ -199,9 +210,10 @@ Optionally export `CRE_REMOTE_HOST_IP=<privateIp>` to skip the env's AWS lookup.
 4. P3 build+cache (agent → images).
 5. P4 transfer + managed ssh block.
 6. P5 load/retag.
-7. P6 handoff + `status`.
-8. `down` + `--dry-run`/`--from`.
-9. Bubble Tea TUI.
+7. P6 start agent (systemd).
+8. P7 handoff + `status`.
+9. `down` + `--dry-run`/`--from`.
+10. Bubble Tea TUI.
 
 ## Risks
 

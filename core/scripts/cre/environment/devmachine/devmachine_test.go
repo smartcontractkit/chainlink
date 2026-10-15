@@ -42,6 +42,16 @@ func TestParsePhase(t *testing.T) {
 			t.Errorf("parsePhase(%q) = %v, %v", in, got, err)
 		}
 	}
+	for _, in := range []string{"P6", "6", "start", "agent"} {
+		if got, err := parsePhase(in); err != nil || got != phaseStartAgent {
+			t.Errorf("parsePhase(%q) = %v, %v", in, got, err)
+		}
+	}
+	for _, in := range []string{"P7", "7", "handoff"} {
+		if got, err := parsePhase(in); err != nil || got != phaseHandoff {
+			t.Errorf("parsePhase(%q) = %v, %v", in, got, err)
+		}
+	}
 	if _, err := parsePhase("nope"); err == nil {
 		t.Error("expected error for unknown phase")
 	}
@@ -195,6 +205,23 @@ func TestBootstrapScript(t *testing.T) {
 	} {
 		if !strings.Contains(script, want) {
 			t.Errorf("bootstrap script missing %q", want)
+		}
+	}
+}
+
+func TestAgentServiceScript(t *testing.T) {
+	cfg := DefaultConfig()
+	script := agentServiceScript(cfg)
+	for _, want := range []string{
+		"/etc/systemd/system/remote-agent.service",
+		"ExecStart=/home/ec2-user/remote-agent -addr 0.0.0.0:18080",
+		"SupplementaryGroups=docker",
+		"WantedBy=multi-user.target",
+		"systemctl enable remote-agent",
+		"systemctl restart remote-agent",
+	} {
+		if !strings.Contains(script, want) {
+			t.Errorf("agent service script missing %q", want)
 		}
 	}
 }
