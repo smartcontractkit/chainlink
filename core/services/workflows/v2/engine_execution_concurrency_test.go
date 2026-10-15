@@ -683,7 +683,8 @@ func TestEngine_SharedConcurrencyLimits(t *testing.T) {
 // executions run at once across all of them.
 func requireSharedLimit(t *testing.T, limit int32, flight *flightTracker, hs ...*engineLifecycleHarness) {
 	t.Helper()
-	total := int32(2 * len(hs))
+	const eventsPerHarness = 2
+	total := int32(len(hs)) * eventsPerHarness //nolint:gosec // G115: hs is a short, fixed list of test harnesses
 	sum := func(field func(*engineLifecycleHarness) int32) (n int32) {
 		for _, h := range hs {
 			n += field(h)
@@ -695,8 +696,9 @@ func requireSharedLimit(t *testing.T, limit int32, flight *flightTracker, hs ...
 		h.start()
 	}
 	for _, h := range hs {
-		h.deliver(admissionTimeout)
-		h.deliver(admissionTimeout)
+		for range eventsPerHarness {
+			h.deliver(admissionTimeout)
+		}
 	}
 
 	// limit executions get a slot and run. At least one more event asks for a slot and waits.
