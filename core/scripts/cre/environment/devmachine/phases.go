@@ -156,7 +156,7 @@ func Down(ctx context.Context, cfg *Config, opts *DownOptions, run *Runner, rep 
 		rep.Info("machine was not created by this tool; skipping deletion")
 	}
 
-	if !run.DryRun {
+	if !run.DryRun && cfg.SSH.Alias != "" {
 		if err := removeSSHConfig(cfg.SSH.Alias); err != nil {
 			return err
 		}

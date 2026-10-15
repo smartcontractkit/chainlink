@@ -128,11 +128,12 @@ func (o *Orchestrator) buildJobDistributorImage(ctx context.Context) error {
 	o.rep.Info("building %s for linux/amd64", o.cfg.Images.JobDistributor)
 	runner := o.run.In(repo)
 
-	if !o.run.DryRun {
-		if _, err := runner.Run(ctx, "git", "checkout", o.cfg.Images.JDTag); err != nil {
-			return errors.Wrapf(err, "failed to checkout %s in job-distributor", o.cfg.Images.JDTag)
-		}
+	restore, err := o.checkoutJDTag(ctx, runner)
+	if err != nil {
+		return err
 	}
+	defer restore()
+
 	version := strings.TrimPrefix(o.cfg.Images.JDTag, "v")
 	if err := runner.StreamEnv(ctx,
 		[]string{"CGO_ENABLED=0", "GOOS=linux", "GOARCH=amd64"},
@@ -147,6 +148,31 @@ func (o *Orchestrator) buildJobDistributorImage(ctx context.Context) error {
 		"-t", o.cfg.Images.JobDistributor,
 		"--load",
 		".")
+}
+
+// checkoutJDTag checks out the requested job-distributor tag and returns a
+// best-effort function that restores the previous branch when the build is
+// done, so the user's working tree is not left on the tag.
+func (o *Orchestrator) checkoutJDTag(ctx context.Context, runner *Runner) (func(), error) {
+	if o.run.DryRun {
+		_, _ = runner.Run(ctx, "git", "checkout", o.cfg.Images.JDTag)
+		return func() {}, nil
+	}
+	if dirty, err := runner.Run(ctx, "git", "status", "--porcelain"); err == nil && strings.TrimSpace(dirty) != "" {
+		o.rep.Warn("job-distributor repo has uncommitted changes; checkout may fail")
+	}
+	prev, _ := runner.Run(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
+	if _, err := runner.Run(ctx, "git", "checkout", o.cfg.Images.JDTag); err != nil {
+		return nil, errors.Wrapf(err, "failed to checkout %s in job-distributor", o.cfg.Images.JDTag)
+	}
+	return func() {
+		if strings.TrimSpace(prev) == "" || prev == "HEAD" {
+			return
+		}
+		if _, err := runner.Run(context.Background(), "git", "checkout", prev); err != nil {
+			o.rep.Warn("failed to restore job-distributor branch %q: %v", prev, err)
+		}
+	}, nil
 }
 
 func (o *Orchestrator) git(ctx context.Context, dir string, args ...string) (string, error) {
