@@ -407,6 +407,8 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 		tm.RecordExecutionSemaphoreWaitSeconds(ctx, c.clock.Now().Sub(semWaitStart).Seconds())
 		if err != nil {
 			if ctx.Err() != nil {
+				tm.IncrementTriggerEventDequeueDroppedCounter(ctx)
+				tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonUnregistered)
 				return
 			}
 			cw.lggr.Errorw("Failed to acquire executions semaphore", "err", err)
@@ -450,8 +452,10 @@ func (c *coordinator) releaseWhenDrained(ctx context.Context, cw *coordinatedWor
 	ctx = contexts.WithCRE(ctx, cw.cre)
 
 	// Close the queue on every path out of this waiter: drained, timed out, or
-	// coordinator shutdown.
+	// coordinator shutdown. Events still queued are never admitted, so count
+	// them as drops first.
 	defer func() {
+		cw.dropQueued(context.WithoutCancel(ctx))
 		if err := cw.queue.Close(); err != nil {
 			cw.lggr.Errorw("Failed to close trigger event queue", "err", err)
 		}
@@ -518,6 +522,29 @@ func (cw *coordinatedWorkflow) drained() chan struct{} {
 		close(drained)
 	}()
 	return drained
+}
+
+// dropQueued empties the queue, recording each event left on it as dropped
+// because the registration was unregistered. Once drained, the readers and the
+// admitter have returned, so this sees every event left. After a drain timeout
+// or coordinator shutdown they may still be running: an event the admitter takes
+// is counted by the admitter instead, but one a reader enqueues after this
+// returns is discarded by Close uncounted.
+func (cw *coordinatedWorkflow) dropQueued(ctx context.Context) {
+	dropped := 0
+	for {
+		event, err := cw.queue.Get(ctx)
+		if err != nil {
+			break
+		}
+		dropped++
+		tm := cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID)
+		tm.IncrementTriggerEventDequeueDroppedCounter(ctx)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonUnregistered)
+	}
+	if dropped > 0 {
+		cw.lggr.Warnw("Dropped trigger events still queued at unregistration", "count", dropped)
+	}
 }
 
 // workflowRegistry guards the workflowID -> triggers map so coordinator

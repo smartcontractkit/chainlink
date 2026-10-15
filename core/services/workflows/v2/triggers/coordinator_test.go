@@ -512,4 +512,51 @@ func TestCoordinator_Admission(t *testing.T) {
 		assert.Equal(t, int64(1), counterTotal(t, reader, "platform_engine_trigger_event_enqueue_dropped_total", nil))
 		assert.Equal(t, int64(4), counterTotal(t, reader, "platform_engine_trigger_event_enqueued_total", nil), "evt-1, evt-2, evt-3 and evt-5")
 	})
+	unregistered := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonUnregistered}
+	t.Run("unregistering counts events not yet admitted as dropped", func(t *testing.T) { //nolint:paralleltest // see above
+		reader := useTestMeter(t)
+		queues := &queueTracker{}
+		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.NewTriggerEventQueue = queues.newQueue })
+		f := newCoordinatorFixtureWithAdmission(t, admission)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+		release := f.holdExecutions(t)
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		// evt-1 executes, evt-2 is held by the admitter waiting for the slot,
+		// and evt-3 waits on the queue.
+		eventCh <- triggerEvent("evt-1")
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+		eventCh <- triggerEvent("evt-2")
+		require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond)
+		eventCh <- triggerEvent("evt-3")
+		require.Eventually(t, func() bool { return queueLen(f) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+		release()
+		// The queue is closed only after its leftover events are counted.
+		require.Eventually(t, func() bool { return queues.get(t, 0).closed.Load() }, 5*time.Second, 5*time.Millisecond)
+
+		assert.Equal(t, []string{"evt-1"}, f.engine.executedIDs())
+		assert.Equal(t, int64(2), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", unregistered), "evt-2 and evt-3")
+		assert.Equal(t, int64(2), counterTotal(t, reader, "platform_engine_trigger_event_dequeue_dropped_total", nil))
+	})
+	t.Run("unregistering with nothing queued drops nothing", func(t *testing.T) { //nolint:paralleltest // see above
+		reader := useTestMeter(t)
+		admission, queues := newTrackedAdmission()
+		f := newCoordinatorFixtureWithAdmission(t, admission)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		eventCh <- triggerEvent("evt-1")
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+		require.Eventually(t, func() bool { return queues.get(t, 0).closed.Load() }, 5*time.Second, 5*time.Millisecond)
+
+		assert.Equal(t, int64(0), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", unregistered))
+	})
 }
