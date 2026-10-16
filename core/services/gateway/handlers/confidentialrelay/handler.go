@@ -107,11 +107,12 @@ func (h *handler) extractRequestLabels(req jsonrpc.Request[json.RawMessage]) req
 	return labels
 }
 
-// requestShardSelector is the routing fields both relay methods' params carry. A request
-// that omits shard_index defaults to shard 0; one that omits don_name targets the only DON.
+// requestShardSelector is the routing fields both relay methods' params carry: the
+// workflow DON that started the execution. A request that omits the shard index defaults
+// to shard 0; one that omits the DON name targets the only DON.
 type requestShardSelector struct {
-	DonName    string `json:"don_name"`
-	ShardIndex int    `json:"shard_index"`
+	DonName    string `json:"workflow_don_name"`
+	ShardIndex int    `json:"workflow_don_shard_index"`
 }
 
 func extractShardSelector(req jsonrpc.Request[json.RawMessage]) (requestShardSelector, error) {
@@ -130,7 +131,7 @@ func (h *handler) resolveShard(sel requestShardSelector) (*gwhandlers.ShardEndpo
 	donName := sel.DonName
 	if donName == "" {
 		if len(h.donNames) != 1 {
-			return nil, fmt.Errorf("don_name is required: handler serves %d DONs", len(h.donNames))
+			return nil, fmt.Errorf("workflow_don_name is required: handler serves %d DONs", len(h.donNames))
 		}
 		donName = h.donNames[0]
 	}

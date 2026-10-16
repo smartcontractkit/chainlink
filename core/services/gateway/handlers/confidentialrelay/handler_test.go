@@ -883,7 +883,7 @@ func TestConfidentialRelayHandler_DuplicateRequestID(t *testing.T) {
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-dup",
 		Method: MethodCapabilityExec,
@@ -925,7 +925,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	cb := common.NewCallback()
-	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-ratelimit",
 		Method: MethodCapabilityExec,
@@ -1010,7 +1010,7 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("connection refused"))
 
-	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-allfail",
 		Method: MethodCapabilityExec,
@@ -1051,7 +1051,7 @@ func TestConfidentialRelayHandler_FanOutWaitsWhileQuorumStillPossible(t *testing
 		},
 	)
 
-	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-still-possible",
 		Method: MethodCapabilityExec,
@@ -1083,7 +1083,7 @@ func TestConfidentialRelayHandler_FanOutFailsWhenQuorumBecomesImpossible(t *test
 		},
 	)
 
-	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-quorum-impossible",
 		Method: MethodCapabilityExec,
@@ -1135,7 +1135,7 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 	require.NoError(t, err)
 
 	cb := common.NewCallback()
-	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-concurrent-fanout",
 		Method: MethodCapabilityExec,
@@ -1220,7 +1220,7 @@ func TestConfidentialRelayHandler_BlockedNodeDoesNotStallFanOut(t *testing.T) {
 	// Shortened so the test exercises the bound without waiting the production default.
 	h.nodeSendTimeout = 50 * time.Millisecond
 
-	params := json.RawMessage(`{"workflow_id":"wf1","shard_index":0}`)
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-blocked-node",
 		Method: MethodCapabilityExec,
@@ -1297,7 +1297,7 @@ func setupMultiShardHandler(t *testing.T, f int, shardSizes ...int) (*handler, *
 func capParamsForShard(t *testing.T, workflowID string, shardIndex int) json.RawMessage {
 	t.Helper()
 	params := validCapParams(workflowID)
-	params.ShardIndex = shardIndex
+	params.WorkflowDONShardIndex = shardIndex
 	raw, err := json.Marshal(params)
 	require.NoError(t, err)
 	return raw
@@ -1355,7 +1355,7 @@ func TestConfidentialRelayHandler_Sharded_RoutesToSelectedShardOnly(t *testing.T
 	require.Nil(t, h.getActiveRequest(req.ID))
 }
 
-// A request that omits shard_index defaults to shard 0: fan-out reaches only shard 0's
+// A request that omits workflow_don_shard_index defaults to shard 0: fan-out reaches only shard 0's
 // connection manager, never shard 1's.
 func TestConfidentialRelayHandler_ShardIndexMissingDefaultsToShardZero(t *testing.T) {
 	t.Parallel()
@@ -1437,13 +1437,13 @@ func setupTwoDONHandler(t *testing.T) (*handler, *common.Callback, []*mocks.DON)
 func capParamsForDON(t *testing.T, donName string) json.RawMessage {
 	t.Helper()
 	params := validCapParams("wf1")
-	params.DonName = donName
+	params.WorkflowDonName = donName
 	raw, err := json.Marshal(params)
 	require.NoError(t, err)
 	return raw
 }
 
-// don_name selects the DON: fan-out reaches only don_b's connection manager.
+// workflow_don_name selects the DON: fan-out reaches only don_b's connection manager.
 func TestConfidentialRelayHandler_DonNameSelectsDON(t *testing.T) {
 	t.Parallel()
 	h, cb, conns := setupTwoDONHandler(t)
@@ -1461,7 +1461,7 @@ func TestConfidentialRelayHandler_DonNameRequiredWithMultipleDONs(t *testing.T) 
 
 	params := capParamsForDON(t, "")
 	req := jsonrpc.Request[json.RawMessage]{ID: "req-no-don", Method: MethodCapabilityExec, Params: &params}
-	require.EqualError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb), "don_name is required: handler serves 2 DONs")
+	require.EqualError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb), "workflow_don_name is required: handler serves 2 DONs")
 }
 
 func TestConfidentialRelayHandler_UnknownDonName(t *testing.T) {
