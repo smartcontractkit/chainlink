@@ -1,5 +1,23 @@
 # Changelog Chainlink Core
 
+## 2.70.0 - PREVIEW
+
+## added
+
+- [#23824](https://github.com/smartcontractkit/chainlink/pull/23824) [`7996394`](https://github.com/smartcontractkit/chainlink/commit/79963940158af5bdc717195f9f13e478335043d8) - #added Offchain capabilities registry: `cresettings` jobs accept `config_type = "capabilities_registry"` in their `settings` TOML, with the versioned `OffchainCapabilitiesRegistry` proto-JSON payload under `offchain_config` (`domain`, `env`, `version`, and per-DON `capabilities` keyed by on-chain DON name; only `spec_config` is supported). Unknown payload fields are rejected and versions must increase. With `[Capabilities.Local] UseOffchainRegistry = true` (default `false`), each capability is launched with the offchain `spec_config` for its (DON, capability) only; the on-chain `spec_config` is ignored (a capability with no offchain entry gets an empty config), and local capabilities are not reconciled until a payload is applied. Offchain-only updates reconfigure affected capabilities. At most one `capabilities_registry` job may be active; deleting it keeps the last payload applied. Emits `platform_cap_config_applied_version`, `platform_cap_config_validation_errors_total` and `platform_offchain_registry_divergences`.
+
+## bugfix
+
+- [#23958](https://github.com/smartcontractkit/chainlink/pull/23958) [`eade466`](https://github.com/smartcontractkit/chainlink/commit/eade4663b30c31c9b72c0d21e9e426b2c322c216) - #bugfix Standard capabilities and registry-launched OCR2 plugins (DON Time) launched with a Capabilities Registry OCR config now match multichain signers covering several chain families (e.g. EVM + Solana + Aptos), signing with every matched family's OCR key bundle and using the transmitter paired with the node's signer.
+
+- [#23916](https://github.com/smartcontractkit/chainlink/pull/23916) [`8555f50`](https://github.com/smartcontractkit/chainlink/commit/8555f50d2c907f23811c3b772a15c506eeaff670) - #bugfix wrap duplicate-key Import errors with ErrKeyExists for the Solana, Stellar, Starknet, Sui, TON and Tron keystores, so nodes that import those keys from config can restart against a persisted keystore
+
+- [#23996](https://github.com/smartcontractkit/chainlink/pull/23996) [`4251278`](https://github.com/smartcontractkit/chainlink/commit/4251278afbac3464086c3076850c70796180fc10) - #bugfix Offchain capabilities registry: a workflow DON that is also a capability DON no longer loses its offchain `spec_config` as an ambiguous DON name.
+
+## untagged
+
+- [#23982](https://github.com/smartcontractkit/chainlink/pull/23982) [`e20e6a5`](https://github.com/smartcontractkit/chainlink/commit/e20e6a5b6231a4ee885e032e45aacfb671912be6) - Minor bump to start next version
+
 ## 2.69.0
 
 ### Minor Changes
@@ -1229,11 +1247,11 @@ For DONs running OCR3, make sure that release 2.23.0 or newer has been deployed 
 
 - [#15974](https://github.com/smartcontractkit/chainlink/pull/15974) [`111fe84ec6`](https://github.com/smartcontractkit/chainlink/commit/111fe84ec692dff5c5be0da5c3f079540044b682) - add solana chain reader config support to plugin creator, remove evm specific code #added
 
-- [#16076](https://github.com/smartcontractkit/chainlink/pull/16076) [`c253fcc1cc`](https://github.com/smartcontractkit/chainlink/commit/c253fcc1cc371db094eb51941048890ce9bcf08f) - #updated Use chainlink-common logger instead of the chainlink in evm/\*.
+- [#16076](https://github.com/smartcontractkit/chainlink/pull/16076) [`c253fcc1cc`](https://github.com/smartcontractkit/chainlink/commit/c253fcc1cc371db094eb51941048890ce9bcf08f) - #updated Use chainlink-common logger instead of the chainlink in evm/*.
 
 - [#15974](https://github.com/smartcontractkit/chainlink/pull/15974) [`111fe84ec6`](https://github.com/smartcontractkit/chainlink/commit/111fe84ec692dff5c5be0da5c3f079540044b682) - Add solana chain writer config initialization #added
 
-- [#16092](https://github.com/smartcontractkit/chainlink/pull/16092) [`bed6e57335`](https://github.com/smartcontractkit/chainlink/commit/bed6e573351d744c7e1c3484404f15555948edb7) - #updated Use chainlink-common logger instead of chainlink in /evm/client/\*.
+- [#16092](https://github.com/smartcontractkit/chainlink/pull/16092) [`bed6e57335`](https://github.com/smartcontractkit/chainlink/commit/bed6e573351d744c7e1c3484404f15555948edb7) - #updated Use chainlink-common logger instead of chainlink in /evm/client/*.
 
 - [#15972](https://github.com/smartcontractkit/chainlink/pull/15972) [`7ba8f9adf2`](https://github.com/smartcontractkit/chainlink/commit/7ba8f9adf2f6b48e45e0eae0bd968eb44fbb354b) - #updated Move chainlink/common to chainlink-framework/chains.
 
@@ -1361,7 +1379,7 @@ For DONs running OCR3, make sure that release 2.23.0 or newer has been deployed 
 
 - [#15271](https://github.com/smartcontractkit/chainlink/pull/15271) [`1231f1417e`](https://github.com/smartcontractkit/chainlink/commit/1231f1417e7fddeca190c2ab037e84c4858181df) - Updated the Solana TXM compute unit limit estimation feature to use the max 1.4M compute unit limit for simulation and enable SigVerify #updated
 
-- [#15321](https://github.com/smartcontractkit/chainlink/pull/15321) [`29eb7554a6`](https://github.com/smartcontractkit/chainlink/commit/29eb7554a62d46f17b7d64674ad01910a03023d1) - Removing ccip-tests/\* dependencies and moving ccip tests under a directory in smoke
+- [#15321](https://github.com/smartcontractkit/chainlink/pull/15321) [`29eb7554a6`](https://github.com/smartcontractkit/chainlink/commit/29eb7554a62d46f17b7d64674ad01910a03023d1) - Removing ccip-tests/* dependencies and moving ccip tests under a directory in smoke
 
 - [#15539](https://github.com/smartcontractkit/chainlink/pull/15539) [`49b77048d1`](https://github.com/smartcontractkit/chainlink/commit/49b77048d1b5480a07b9f77b32b005379c679c44) - Adding OCR3 promwrapper to LLO #internal
 
@@ -1727,8 +1745,8 @@ For DONs running OCR3, make sure that release 2.23.0 or newer has been deployed 
   Adding `LogBroadcasterEnabled` allows certain chains to completely disable the `LogBroadcaster` feature, which is an old feature (getting replaced by logPoller) that only few products are using it:
 
   - OCR1 Median
-  - \*OCR2 Median when ChainReader is disabled
-  - \*pre-OCR2 Keeper
+  - *OCR2 Median when ChainReader is disabled
+  - *pre-OCR2 Keeper
   - Flux Monitor
   - Direct RequestOCR1 Median
 
@@ -2184,7 +2202,7 @@ For DONs running OCR3, make sure that release 2.23.0 or newer has been deployed 
 
 - [#13495](https://github.com/smartcontractkit/chainlink/pull/13495) [`483ee6ae06`](https://github.com/smartcontractkit/chainlink/commit/483ee6ae06f608d150ab360e0a3ffe6895b39d52) Thanks [@pavel-raykov](https://github.com/pavel-raykov)! - #updated Fix verb formatting in the log outputs.
 
-- [#13599](https://github.com/smartcontractkit/chainlink/pull/13599) [`e0ce0795b4`](https://github.com/smartcontractkit/chainlink/commit/e0ce0795b44f27539611327efce7c7c004511daa) Thanks [@pavel-raykov](https://github.com/pavel-raykov)! - #internal Add loggercheck linter to verify that \*w logging methods have even number of args.
+- [#13599](https://github.com/smartcontractkit/chainlink/pull/13599) [`e0ce0795b4`](https://github.com/smartcontractkit/chainlink/commit/e0ce0795b44f27539611327efce7c7c004511daa) Thanks [@pavel-raykov](https://github.com/pavel-raykov)! - #internal Add loggercheck linter to verify that *w logging methods have even number of args.
 
 ## 2.13.0 - 2024-07-01
 
@@ -2521,7 +2539,7 @@ For DONs running OCR3, make sure that release 2.23.0 or newer has been deployed 
 
 - [#12412](https://github.com/smartcontractkit/chainlink/pull/12412) [`83c8688a14`](https://github.com/smartcontractkit/chainlink/commit/83c8688a14ac04111f999d132673ebaf6a364b4a) Thanks [@poopoothegorilla](https://github.com/poopoothegorilla)! - Bump grafana to 1.1.1
 
-- [#12248](https://github.com/smartcontractkit/chainlink/pull/12248) [`e1950769ee`](https://github.com/smartcontractkit/chainlink/commit/e1950769ee3ff2a40ca5772b9634c45f8be241cc) Thanks [@FelixFan1992](https://github.com/FelixFan1992)! - Add version support for automation registry 2.\*
+- [#12248](https://github.com/smartcontractkit/chainlink/pull/12248) [`e1950769ee`](https://github.com/smartcontractkit/chainlink/commit/e1950769ee3ff2a40ca5772b9634c45f8be241cc) Thanks [@FelixFan1992](https://github.com/FelixFan1992)! - Add version support for automation registry 2.*
 
 ## 2.10.0 - 2024-04-05
 
@@ -3097,8 +3115,8 @@ The following `AUDIT_LOGGER_*` environment variables below configure this option
 
 An optional list of HTTP headers to be added for every optional audit log event. If the above `AUDIT_LOGGER_FORWARD_TO_URL` is set, audit log events will be POSTed to that URL, and will include headers specified in this environment variable. One example use case is auth for example: `AUDIT_LOGGER_HEADERS="Authorization||{{token}}"`.
 
-Header keys and values are delimited on ||, and multiple headers can be added with a forward slash delimiter ('\\'). An example of multiple key value pairs:
-`AUDIT_LOGGER_HEADERS="Authorization||{{token}}\Some-Other-Header||{{token2}}"`
+Header keys and values are delimited on ||, and multiple headers can be added with a forward slash delimiter ('\'). An example of multiple key value pairs:
+`AUDIT_LOGGER_HEADERS="Authorization||{{token}}Some-Other-Header||{{token2}}"`
 
 ##### AUDIT_LOGGER_JSON_WRAPPER_KEY
 
@@ -3310,7 +3328,7 @@ If minConfirmations > 0 and failOnRevert=true then the ethtx task will error on 
 
 If `minConfirmations` is not set on the task, the chain default will be used which is usually 12 and always greater than 0.
 
-- `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\\"X-Header-1\\", \\"value1\\", \\"X-Header-2\\", \\"value2\\"]"]`.
+- `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\"X-Header-1\", \"value1\", \"X-Header-2\", \"value2\"]"]`.
 
 ### Fixed
 
@@ -3326,7 +3344,7 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 
 ### Fixed
 
-- Ensure failed EthSubscribe didn't register a (\*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
+- Ensure failed EthSubscribe didn't register a (*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
 - Fixes parsing of float values on job specs
 
 ## [1.4.0] - 2022-05-02
@@ -3351,7 +3369,7 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 ### Added
 
 - Added support for Keeper registry v1.2 in keeper jobs
-- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` \* (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again. New environment variables related to this feature:
+- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` * (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again. New environment variables related to this feature:
   - `LOG_FILE_MAX_SIZE` (default: 5120mb) - this env var allows you to override the log file's max size (in megabytes) before file rotation.
   - `LOG_FILE_MAX_AGE` (default: 0) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the log file's max age (in days) before file rotation. Keeping this config with the default value means not to remove old log files.
   - `LOG_FILE_MAX_BACKUPS` (default: 1) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain 1 old log file at most (though `LOG_FILE_MAX_AGE` may still cause them to get deleted). If this is set to 0, the node will retain all old log files instead.
@@ -4294,7 +4312,7 @@ Note that it has no effect on FMv1 jobs. Node operators will need to upgrade to 
 - Task definitions in v2 jobs (those with TOML specs) now support quoting strings with angle brackets (which DOT already permitted). This is particularly useful when defining JSON blobs to post to external adapters. For example:
 
   ```
-  my_bridge [type=bridge name="my_bridge" requestData="{\\"hi\\": \\"hello\\"}"]
+  my_bridge [type=bridge name="my_bridge" requestData="{\"hi\": \"hello\"}"]
   ```
 
   ... can now be written as:
