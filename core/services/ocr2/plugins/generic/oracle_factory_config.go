@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"math/big"
+	"slices"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 
@@ -76,7 +78,6 @@ func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactory
 			signing.StrategyName = "multi-chain"
 		}
 		signing.Config = make(map[string]string)
-		// TODO: support other chain families besides EVM.
 		for family, kb := range params.OCRKeyBundles {
 			signing.Config[family] = kb.ID()
 		}
@@ -98,6 +99,100 @@ func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactory
 	}
 
 	return cfg, signing, nil
+}
+
+// SelectOCRKeyBundlesForConfig locates this node's signer in the on-chain OCR config and
+// returns the key bundles, keyed by chain family name, that make up that signer, along
+// with the signer's index in cc.Signers. A signer is either a raw EVM public key or a
+// multichain public key covering one or more chain families (e.g. EVM + Solana + Aptos);
+// the node matches only if it holds a bundle for every family in the signer. Returns
+// false when no config is provided or no signer matches.
+func SelectOCRKeyBundlesForConfig(bundles []ocr2key.KeyBundle, cc *ocrtypes.ContractConfig) (map[string]ocr2key.KeyBundle, int, bool) {
+	if cc == nil {
+		return nil, -1, false
+	}
+	for i, s := range cc.Signers {
+		if matched, ok := matchSigner(bundles, s); ok {
+			return matched, i, true
+		}
+	}
+	return nil, -1, false
+}
+
+func matchSigner(bundles []ocr2key.KeyBundle, signer ocrtypes.OnchainPublicKey) (map[string]ocr2key.KeyBundle, bool) {
+	if len(signer) == 0 {
+		return nil, false
+	}
+	for _, kb := range bundles {
+		if kb.ChainType() == corekeys.EVM && bytes.Equal(signer, kb.PublicKey()) {
+			return map[string]ocr2key.KeyBundle{string(corekeys.EVM): kb}, true
+		}
+	}
+
+	pubKeys, err := ocrcommon.UnmarshalMultichainPublicKey(signer)
+	if err != nil || len(pubKeys) == 0 {
+		return nil, false
+	}
+	matched := make(map[string]ocr2key.KeyBundle, len(pubKeys))
+	for family, pub := range pubKeys {
+		for _, kb := range bundles {
+			if string(kb.ChainType()) == family && bytes.Equal(pub, kb.PublicKey()) {
+				matched[family] = kb
+				break
+			}
+		}
+		if _, ok := matched[family]; !ok {
+			return nil, false
+		}
+	}
+	// Unmarshalling skips unknown families, so re-encode and compare to make sure the
+	// matched bundles produce exactly the signer in the config.
+	encoded, err := ocrcommon.MarshalMultichainKeyBundle(matched)
+	if err != nil || !bytes.Equal(encoded, signer) {
+		return nil, false
+	}
+	return matched, true
+}
+
+// OffchainKeyBundle picks the bundle whose offchain keys are used for OCR from the
+// bundles matching this node's signer. The EVM bundle is preferred; otherwise the
+// bundle of the lexicographically first family is used for determinism.
+func OffchainKeyBundle(kbs map[string]ocr2key.KeyBundle) ocr2key.KeyBundle {
+	if kb, ok := kbs[string(corekeys.EVM)]; ok {
+		return kb
+	}
+	families := slices.Sorted(maps.Keys(kbs))
+	if len(families) == 0 {
+		return nil
+	}
+	return kbs[families[0]]
+}
+
+// TransmitterAt returns the transmitter account at index i of the on-chain OCR config,
+// i.e. the transmitter paired with Signers[i]. EVM addresses are checksummed.
+func TransmitterAt(cc ocrtypes.ContractConfig, i int) (string, bool) {
+	if i < 0 || i >= len(cc.Transmitters) {
+		return "", false
+	}
+	transmitter := string(cc.Transmitters[i])
+	if gethCommon.IsHexAddress(transmitter) {
+		transmitter = gethCommon.HexToAddress(transmitter).Hex()
+	}
+	return transmitter, true
+}
+
+func DefaultTransmitterForChain(ctx context.Context, ethKS keystore.Eth, chainID string) (string, error) {
+	chainIDBig, ok := new(big.Int).SetString(chainID, 10)
+	if !ok {
+		return "", fmt.Errorf("invalid chain_id %q", chainID)
+	}
+
+	addr, err := ethKS.GetRoundRobinAddress(ctx, chainIDBig)
+	if err != nil {
+		return "", fmt.Errorf("failed to get transmitter for chain_id %s: %w", chainID, err)
+	}
+
+	return addr.String(), nil
 }
 
 // SelectOCRKeyBundleForConfig returns the key bundle whose signer public key appears in
@@ -142,18 +237,4 @@ func TransmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPub
 		}
 	}
 	return "", false
-}
-
-func DefaultTransmitterForChain(ctx context.Context, ethKS keystore.Eth, chainID string) (string, error) {
-	chainIDBig, ok := new(big.Int).SetString(chainID, 10)
-	if !ok {
-		return "", fmt.Errorf("invalid chain_id %q", chainID)
-	}
-
-	addr, err := ethKS.GetRoundRobinAddress(ctx, chainIDBig)
-	if err != nil {
-		return "", fmt.Errorf("failed to get transmitter for chain_id %s: %w", chainID, err)
-	}
-
-	return addr.String(), nil
 }
