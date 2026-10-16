@@ -62,6 +62,14 @@ type pendingRequest struct {
 	lastTry  time.Time
 }
 
+// retryState is the backoff state of a pending request that has been attempted
+// but not yet processed. Pending requests are rebuilt from the log poller on every
+// tick, so this is what carries attempts/lastTry across ticks.
+type retryState struct {
+	attempts int
+	lastTry  time.Time
+}
+
 type vrfPipelineResult struct {
 	err error
 	// maxFee indicates how much juels (link) or wei (ether) would be paid for the VRF request
