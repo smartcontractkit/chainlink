@@ -627,8 +627,9 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		})
 	})
 
-	t.Run("Executes full schedule", func(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver is not thread-safe
-		beholderTester := beholdertest.NewObserver(t)
+	t.Run("Executes full schedule", func(t *testing.T) {
+		t.Parallel()
+		rec := beholdertest.NewRecorder()
 		lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 
 		capPeers, capDonInfo, capInfo := capabilityDon(t, 3, 1)
@@ -652,6 +653,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			"",
 			nil,
 			0,
+			request.WithEmitter(rec),
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -699,10 +701,10 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		}
 
 		// Verify the TransmissionsScheduledEvent data
-		assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%v.%v", request.TransmissionEventProtoPkg, request.TransmissionEventEntity)))
+		assert.Equal(t, 1, rec.Len(t, "beholder_entity", fmt.Sprintf("%v.%v", request.TransmissionEventProtoPkg, request.TransmissionEventEntity)))
 
 		// Get the messages for the transmission event
-		messages := beholderTester.Messages(t, "beholder_entity", fmt.Sprintf("%v.%v", request.TransmissionEventProtoPkg, request.TransmissionEventEntity))
+		messages := rec.Messages(t, "beholder_entity", fmt.Sprintf("%v.%v", request.TransmissionEventProtoPkg, request.TransmissionEventEntity))
 		assert.Len(t, messages, 1)
 
 		// Unmarshal the message to verify its contents
