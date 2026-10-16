@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"math/big"
+	"slices"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 
@@ -64,9 +66,8 @@ func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactory
 		cfg.ChainID = params.CapRegistryChainID
 	}
 
-	// TODO: support other chain families besides EVM.
 	if cfg.OCRKeyBundleID == "" {
-		if kb, ok := params.OCRKeyBundles["evm"]; ok {
+		if kb := (OCRSignerMatch{KeyBundles: params.OCRKeyBundles}).PrimaryKeyBundle(); kb != nil {
 			cfg.OCRKeyBundleID = kb.ID()
 		}
 	}
@@ -76,7 +77,6 @@ func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactory
 			signing.StrategyName = "multi-chain"
 		}
 		signing.Config = make(map[string]string)
-		// TODO: support other chain families besides EVM.
 		for family, kb := range params.OCRKeyBundles {
 			signing.Config[family] = kb.ID()
 		}
@@ -100,48 +100,90 @@ func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactory
 	return cfg, signing, nil
 }
 
-// SelectOCRKeyBundleForConfig returns the key bundle whose signer public key appears in
-// the on-chain OCR config. It disambiguates when a node holds multiple EVM OCR key
-// bundles by picking the one the registry registered as a signer. Returns false when no
-// config is provided or none of the bundles match.
-func SelectOCRKeyBundleForConfig(bundles []ocr2key.KeyBundle, cc *ocrtypes.ContractConfig) (ocr2key.KeyBundle, bool) {
-	if cc == nil {
-		return nil, false
-	}
-	for _, kb := range bundles {
-		pub := kb.PublicKey()
-		multichainPub, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
-			string(corekeys.EVM): pub,
-		})
-		for _, s := range cc.Signers {
-			if bytes.Equal(s, pub) || (err == nil && bytes.Equal(s, multichainPub)) {
-				return kb, true
-			}
-		}
-	}
-	return nil, false
+// OCRSignerMatch describes the slot this node occupies in an on-chain OCR config.
+type OCRSignerMatch struct {
+	// Index is the position of this node's signer in ContractConfig.Signers (and of
+	// its transmitter in ContractConfig.Transmitters).
+	Index int
+	// KeyBundles maps chain family name (e.g. "evm", "solana") to the local OCR key
+	// bundle whose public key appears in the signer at Index. A plain (non-multichain)
+	// signer yields a single "evm" entry.
+	KeyBundles map[string]ocr2key.KeyBundle
 }
 
-// TransmitterForSigner returns the transmitter account paired with the given signer in
-// the on-chain OCR config. Signers[i] and Transmitters[i] describe the same oracle, so
-// locating this node's signer yields the transmitter the OCR config expects for it.
-func TransmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPublicKey) (string, bool) {
-	multichainSigner, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
-		string(corekeys.EVM): signer,
-	})
+// PrimaryKeyBundle returns the bundle used for the offchain keyring: the EVM bundle
+// when present, otherwise the bundle of the lowest-sorted family.
+func (m OCRSignerMatch) PrimaryKeyBundle() ocr2key.KeyBundle {
+	if kb, ok := m.KeyBundles[string(corekeys.EVM)]; ok {
+		return kb
+	}
+	families := slices.Sorted(maps.Keys(m.KeyBundles))
+	if len(families) == 0 {
+		return nil
+	}
+	return m.KeyBundles[families[0]]
+}
+
+// MatchOCRSigner locates this node's signer in the on-chain OCR config and returns the
+// local key bundles that make it up. Signers may be either a raw EVM onchain public
+// key or a multichain public key (see ocrcommon.MarshalMultichainPublicKey) combining
+// keys of several chain families. A multichain signer matches only when the node holds
+// a bundle for every family in it, since the onchain keyring must be able to sign for
+// all of them. When the node holds several bundles of the same family, the one
+// registered as a signer is picked. Returns false when no config is provided or no
+// signer matches.
+func MatchOCRSigner(bundles []ocr2key.KeyBundle, cc *ocrtypes.ContractConfig) (OCRSignerMatch, bool) {
+	if cc == nil {
+		return OCRSignerMatch{}, false
+	}
 	for i, s := range cc.Signers {
-		if bytes.Equal(s, signer) || (err == nil && bytes.Equal(s, multichainSigner)) {
-			if i < len(cc.Transmitters) {
-				transmitter := string(cc.Transmitters[i])
-				if gethCommon.IsHexAddress(transmitter) {
-					transmitter = gethCommon.HexToAddress(transmitter).Hex()
-				}
-				return transmitter, true
-			}
-			return "", false
+		if kbs, ok := matchSigner(bundles, s); ok {
+			return OCRSignerMatch{Index: i, KeyBundles: kbs}, true
 		}
 	}
-	return "", false
+	return OCRSignerMatch{}, false
+}
+
+func matchSigner(bundles []ocr2key.KeyBundle, signer ocrtypes.OnchainPublicKey) (map[string]ocr2key.KeyBundle, bool) {
+	if len(signer) == 0 {
+		return nil, false
+	}
+	// Raw (non-multichain) signers are EVM onchain public keys.
+	for _, kb := range bundles {
+		if kb.ChainType() == corekeys.EVM && bytes.Equal(signer, kb.PublicKey()) {
+			return map[string]ocr2key.KeyBundle{string(corekeys.EVM): kb}, true
+		}
+	}
+
+	pubKeys, err := ocrcommon.UnmarshalMultichainPublicKey(signer)
+	if err != nil || len(pubKeys) == 0 {
+		return nil, false
+	}
+	matched := make(map[string]ocr2key.KeyBundle, len(pubKeys))
+	for family, pub := range pubKeys {
+		idx := slices.IndexFunc(bundles, func(kb ocr2key.KeyBundle) bool {
+			return string(kb.ChainType()) == family && bytes.Equal(pub, kb.PublicKey())
+		})
+		if idx < 0 {
+			return nil, false
+		}
+		matched[family] = bundles[idx]
+	}
+	return matched, true
+}
+
+// TransmitterAt returns the transmitter account at the given oracle index of the
+// on-chain OCR config. Signers[i] and Transmitters[i] describe the same oracle, so the
+// index of this node's signer yields the transmitter the OCR config expects for it.
+func TransmitterAt(cc ocrtypes.ContractConfig, i int) (string, bool) {
+	if i < 0 || i >= len(cc.Transmitters) {
+		return "", false
+	}
+	transmitter := string(cc.Transmitters[i])
+	if gethCommon.IsHexAddress(transmitter) {
+		transmitter = gethCommon.HexToAddress(transmitter).Hex()
+	}
+	return transmitter, true
 }
 
 func DefaultTransmitterForChain(ctx context.Context, ethKS keystore.Eth, chainID string) (string, error) {
