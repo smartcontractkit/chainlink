@@ -242,7 +242,7 @@ WHERE feeds_manager_id = ANY($1)
 	var cfgs []ChainConfig
 	err := o.ds.SelectContext(ctx, &cfgs, stmt, mgrIDs)
 
-	return cfgs, errors.Wrap(err, "ListJobProposalsByManagersIDs failed")
+	return cfgs, errors.Wrap(err, "ListChainConfigsByManagerIDs failed")
 }
 
 // UpdateChainConfig updates a chain config.
