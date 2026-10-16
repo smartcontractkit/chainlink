@@ -248,6 +248,7 @@ func Test_initServerConfig(t *testing.T) {
 }
 
 func Test_initCCVCommand_returns_ccv_with_chain_statuses_subcommands(t *testing.T) {
+	t.Parallel()
 	s := &Shell{Logger: logger.TestLogger(t)}
 	ccvCmd := initCCVCommand(s)
 	require.Equal(t, "ccv", ccvCmd.Name)

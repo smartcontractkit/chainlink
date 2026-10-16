@@ -53,6 +53,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			sr := sessions.SessionRequest{Email: test.email, Password: test.pwd}
 			store := &cmd.MemoryCookieStore{}
 			tca := cmd.NewSessionCookieAuthenticator(cmd.ClientOpts{}, store, logger.TestLogger(t))
@@ -87,6 +88,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			sr := sessions.SessionRequest{Email: test.email, Password: test.pwd}
 			store := &cmd.MemoryCookieStore{}
 			tca := cmd.NewSessionCookieAuthenticator(app.NewClientOpts(), store, logger.TestLogger(t))
@@ -123,6 +125,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 	cfg := diskCookieStoreConfig{}
 
 	t.Run("missing cookie file", func(t *testing.T) {
+		t.Parallel()
 		store := cmd.DiskCookieStore{Config: cfg}
 		cookie, err := store.Retrieve()
 		require.NoError(t, err)
@@ -130,6 +133,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 	})
 
 	t.Run("invalid cookie file", func(t *testing.T) {
+		t.Parallel()
 		cfg.rootdir = "../internal/fixtures/badcookie"
 		store := cmd.DiskCookieStore{Config: cfg}
 		cookie, err := store.Retrieve()
@@ -138,6 +142,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 	})
 
 	t.Run("valid cookie file", func(t *testing.T) {
+		t.Parallel()
 		cfg.rootdir = "../internal/fixtures"
 		store := cmd.DiskCookieStore{Config: cfg}
 		cookie, err := store.Retrieve()
@@ -147,6 +152,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 }
 
 func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
+	t.Parallel()
 	email := "good@email.com"
 
 	tests := []struct {
@@ -162,6 +168,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			db := pgtest.NewSqlxDB(t)
 			lggr := logger.TestLogger(t)
@@ -193,6 +200,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 }
 
 func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
@@ -220,6 +228,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 }
 
 func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		file      string
@@ -231,6 +240,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			db := pgtest.NewSqlxDB(t)
 			lggr := logger.TestLogger(t)
@@ -257,6 +267,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 }
 
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 
@@ -271,6 +282,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			lggr := logger.TestLogger(t)
 			tfi := cmd.NewFileAPIInitializer(test.file)
@@ -296,6 +308,7 @@ func TestPromptingSessionRequestBuilder(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.email, func(t *testing.T) {
+			t.Parallel()
 			enteredStrings := []string{test.email, test.pwd}
 			prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 			builder := cmd.NewPromptingSessionRequestBuilder(prompter)
@@ -323,6 +336,7 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			sr, err := builder.Build(test.file)
 			assert.Equal(t, test.wantEmail, sr.Email)
 			if test.wantError {
@@ -335,6 +349,7 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 }
 
 func TestNewUserCache(t *testing.T) {
+	t.Parallel()
 	r, err := rand.Int(rand.Reader, big.NewInt(256*1024*1024))
 	require.NoError(t, err)
 	// NewUserCache owns it's Dir.
@@ -510,6 +525,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 
 	// not parallel; shared state
 	t.Run("no plugin, duplicate chains", func(t *testing.T) {
+		t.Parallel()
 		_, err := rf.NewStarkNet(ks, ksCSA, duplicateConfig.StarknetConfigs())
 		require.Error(t, err)
 	})
@@ -580,6 +596,7 @@ func getFuncName(i any) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
+//nolint:paralleltest // beholdertest.NewObserver registers a t.Cleanup that calls t.Setenv, which panics in parallel tests
 func TestShell_emitNodeConfig(t *testing.T) {
 	// t.Parallel() // beholder tester uses t.SetEnv and cannot use t.Parallel
 

@@ -9,6 +9,7 @@ import (
 )
 
 func TestReadPackagesRejectsDuplicatePaths(t *testing.T) {
+	t.Parallel()
 	_, err := readPackages(strings.NewReader("pkg/a\npkg/a\n"))
 	if err == nil || !strings.Contains(err.Error(), `duplicate package path "pkg/a"`) {
 		t.Fatalf("expected duplicate package error, got %v", err)
@@ -16,6 +17,7 @@ func TestReadPackagesRejectsDuplicatePaths(t *testing.T) {
 }
 
 func TestReadPackagesRejectsEmptyInput(t *testing.T) {
+	t.Parallel()
 	_, err := readPackages(strings.NewReader("\n\n"))
 	if err == nil || !strings.Contains(err.Error(), "no package paths provided on stdin") {
 		t.Fatalf("expected empty input error, got %v", err)
@@ -23,6 +25,7 @@ func TestReadPackagesRejectsEmptyInput(t *testing.T) {
 }
 
 func TestReadPackagesTrimsWhitespace(t *testing.T) {
+	t.Parallel()
 	packages, err := readPackages(strings.NewReader("  pkg/a  \n\tpkg/b\t\n"))
 	if err != nil {
 		t.Fatalf("readPackages failed: %v", err)
@@ -33,6 +36,7 @@ func TestReadPackagesTrimsWhitespace(t *testing.T) {
 }
 
 func TestReadPackagesIgnoresBlankLinesBetweenPackages(t *testing.T) {
+	t.Parallel()
 	packages, err := readPackages(strings.NewReader("pkg/a\n\n   \n\t\npkg/b\n"))
 	if err != nil {
 		t.Fatalf("readPackages failed: %v", err)
@@ -43,6 +47,7 @@ func TestReadPackagesIgnoresBlankLinesBetweenPackages(t *testing.T) {
 }
 
 func TestReadPackagesRejectsDuplicatePathsAfterTrimming(t *testing.T) {
+	t.Parallel()
 	_, err := readPackages(strings.NewReader("pkg/a\n  pkg/a  \n"))
 	if err == nil || !strings.Contains(err.Error(), `duplicate package path "pkg/a"`) {
 		t.Fatalf("expected duplicate package error after trimming, got %v", err)
@@ -50,6 +55,7 @@ func TestReadPackagesRejectsDuplicatePathsAfterTrimming(t *testing.T) {
 }
 
 func TestListReturnsPartitionWithoutOverlap(t *testing.T) {
+	t.Parallel()
 	input := "pkg/a\npkg/b\npkg/c\npkg/d\n"
 
 	seen := make(map[string]struct{})
@@ -71,6 +77,7 @@ func TestListReturnsPartitionWithoutOverlap(t *testing.T) {
 }
 
 func TestListWithSingleShardReturnsEntireInputInOrder(t *testing.T) {
+	t.Parallel()
 	input := "pkg/a\npkg/b\npkg/c\n"
 	packages := runListForTest(t, input, 1, 0)
 	want := []string{"pkg/a", "pkg/b", "pkg/c"}
@@ -85,6 +92,7 @@ func TestListWithSingleShardReturnsEntireInputInOrder(t *testing.T) {
 }
 
 func TestListProducesDeterministicOutput(t *testing.T) {
+	t.Parallel()
 	input := "pkg/a\npkg/b\npkg/c\npkg/d\npkg/e\n"
 	first := runListOutputForTest(t, input, 4, 2)
 	second := runListOutputForTest(t, input, 4, 2)
@@ -94,6 +102,7 @@ func TestListProducesDeterministicOutput(t *testing.T) {
 }
 
 func TestListCanProduceEmptyShard(t *testing.T) {
+	t.Parallel()
 	input := "pkg/a\npkg/b\n"
 	foundEmpty := false
 	for shardIndex := range 10 {
@@ -108,6 +117,7 @@ func TestListCanProduceEmptyShard(t *testing.T) {
 }
 
 func TestListAndVerifyAgreeOnPartition(t *testing.T) {
+	t.Parallel()
 	inputPackages := []string{
 		"pkg/a",
 		"pkg/b",
@@ -141,6 +151,7 @@ func TestListAndVerifyAgreeOnPartition(t *testing.T) {
 }
 
 func TestVerifyAllowsEmptyShard(t *testing.T) {
+	t.Parallel()
 	var stdout bytes.Buffer
 	err := run([]string{"verify", "--shard-count", "10"}, strings.NewReader("pkg/a\npkg/b\n"), &stdout)
 	if err != nil {
@@ -152,6 +163,7 @@ func TestVerifyAllowsEmptyShard(t *testing.T) {
 }
 
 func TestVerifyWithSingleShardCoversEntireInput(t *testing.T) {
+	t.Parallel()
 	var stdout bytes.Buffer
 	err := run([]string{"verify", "--shard-count", "1"}, strings.NewReader("pkg/a\npkg/b\npkg/c\n"), &stdout)
 	if err != nil {
@@ -168,6 +180,7 @@ func TestVerifyWithSingleShardCoversEntireInput(t *testing.T) {
 }
 
 func TestVerifyRejectsDuplicatePaths(t *testing.T) {
+	t.Parallel()
 	var stdout bytes.Buffer
 	err := run([]string{"verify", "--shard-count", "2"}, strings.NewReader("pkg/a\npkg/a\n"), &stdout)
 	if err == nil || !strings.Contains(err.Error(), `duplicate package path "pkg/a"`) {
@@ -176,6 +189,7 @@ func TestVerifyRejectsDuplicatePaths(t *testing.T) {
 }
 
 func TestVerifyRejectsDuplicatePathsAmongOthers(t *testing.T) {
+	t.Parallel()
 	var stdout bytes.Buffer
 	err := run([]string{"verify", "--shard-count", "2"}, strings.NewReader("pkg/a\npkg/b\npkg/c\npkg/d\npkg/e\npkg/a\n"), &stdout)
 	if err == nil || !strings.Contains(err.Error(), `duplicate package path "pkg/a"`) {
@@ -184,6 +198,7 @@ func TestVerifyRejectsDuplicatePathsAmongOthers(t *testing.T) {
 }
 
 func TestInvalidShardParamsFail(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		args []string
@@ -195,6 +210,7 @@ func TestInvalidShardParamsFail(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			err := run(tc.args, strings.NewReader("pkg/a\n"), &bytes.Buffer{})
 			if err == nil {
 				t.Fatal("expected error")
@@ -204,6 +220,7 @@ func TestInvalidShardParamsFail(t *testing.T) {
 }
 
 func TestUnknownSubcommandFails(t *testing.T) {
+	t.Parallel()
 	err := run([]string{"wat"}, strings.NewReader("pkg/a\n"), &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), `unknown subcommand "wat"`) {
 		t.Fatalf("expected unknown subcommand error, got %v", err)
@@ -211,6 +228,7 @@ func TestUnknownSubcommandFails(t *testing.T) {
 }
 
 func TestExtraPositionalArgsFail(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		args []string
@@ -222,6 +240,7 @@ func TestExtraPositionalArgsFail(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			err := run(tc.args, strings.NewReader("pkg/a\n"), &bytes.Buffer{})
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("expected %q, got %v", tc.want, err)
@@ -231,6 +250,7 @@ func TestExtraPositionalArgsFail(t *testing.T) {
 }
 
 func TestLargePackageListParses(t *testing.T) {
+	t.Parallel()
 	var builder strings.Builder
 	for i := range 500 {
 		fmt.Fprintf(&builder, "pkg/%03d\n", i)

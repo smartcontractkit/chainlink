@@ -39,6 +39,7 @@ func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	t.Run("effective", func(t *testing.T) {
+		t.Parallel()
 		resp, cleanup := client.Get("/v2/config/v2")
 		t.Cleanup(cleanup)
 		var effective web.ConfigV2Resource
@@ -48,6 +49,7 @@ func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 	})
 
 	t.Run("user", func(t *testing.T) {
+		t.Parallel()
 		resp, cleanup := client.Get("/v2/config/v2?userOnly=true")
 		t.Cleanup(cleanup)
 		var user web.ConfigV2Resource
@@ -94,6 +96,7 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 

@@ -37,6 +37,7 @@ func TestNewUser(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.email, func(t *testing.T) {
+			t.Parallel()
 			user, err := sessions.NewUser(test.email, test.pwd, test.role)
 			if test.wantError {
 				assert.Error(t, err)
@@ -53,6 +54,7 @@ func TestNewUser(t *testing.T) {
 }
 
 func TestUserGenerateAuthToken(t *testing.T) {
+	t.Parallel()
 	var user sessions.User
 	token, err := user.GenerateAuthToken()
 	require.NoError(t, err)
@@ -61,6 +63,7 @@ func TestUserGenerateAuthToken(t *testing.T) {
 }
 
 func TestAuthenticateUserByToken(t *testing.T) {
+	t.Parallel()
 	var user sessions.User
 
 	token, err := user.GenerateAuthToken()

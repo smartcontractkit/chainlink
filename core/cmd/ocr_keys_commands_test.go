@@ -129,6 +129,7 @@ func TestShell_DeleteOCRKeyBundle(t *testing.T) {
 }
 
 func TestShell_ImportExportOCRKey(t *testing.T) {
+	t.Parallel()
 	defer deleteKeyExportFile(t)
 	ctx := t.Context()
 
