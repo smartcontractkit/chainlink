@@ -229,37 +229,46 @@ func (d *Delegate) NewServices(
 		}
 	}
 
-	ocrEvmKeyBundles, err := d.ks.OCR2().GetAllOfType(corekeys.EVM)
-	if err != nil {
-		return nil, err
-	}
-
-	var ocrEvmKeyBundle ocr2key.KeyBundle
+	// ocrKeyBundles holds the bundles, keyed by chain family, that sign reports for this
+	// node. offchainKB provides the offchain keyring for OCR (the EVM bundle when present).
+	var ocrKeyBundles map[string]ocr2key.KeyBundle
+	var offchainKB ocr2key.KeyBundle
+	// signerIndex is this node's position in the on-chain OCR config, or -1 if unknown.
+	signerIndex := -1
 	if ocrContractConfig != nil {
-		// Always select the exact bundle matching the on-chain OCR config from the
-		// Capabilities Registry. If none matches, OCR won't work, so we fail here
-		// rather than silently picking a non-matching bundle.
-		// TODO: extend to cover other chain families besides EVM.
-		kb, ok := generic.SelectOCRKeyBundleForConfig(ocrEvmKeyBundles, ocrContractConfig)
-		if !ok {
-			log.Warnw("none of the node's EVM OCR key bundles match the signers in the on-chain OCR config; using the first bundle, which may cause unexpected behavior",
-				"numBundles", len(ocrEvmKeyBundles))
-			ocrEvmKeyBundle = ocrEvmKeyBundles[0]
-		} else {
-			ocrEvmKeyBundle = kb
+		// Select the bundles matching this node's signer in the on-chain OCR config from
+		// the Capabilities Registry. The signer may be a multichain key covering several
+		// chain families, so match against all of the node's OCR key bundles.
+		var allBundles []ocr2key.KeyBundle
+		allBundles, err = d.ks.OCR2().GetAll()
+		if err != nil {
+			return nil, err
 		}
-	} else {
-		// No on-chain OCR config available yet.
+		kbs, idx, ok := generic.SelectOCRKeyBundlesForConfig(allBundles, ocrContractConfig)
+		if !ok {
+			return nil, fmt.Errorf("none of the node's %d OCR key bundles match the signers in the on-chain OCR config", len(allBundles))
+		}
+		ocrKeyBundles = kbs
+		signerIndex = idx
+		offchainKB = generic.OffchainKeyBundle(kbs)
+	}
+	if offchainKB == nil {
+		var ocrEvmKeyBundles []ocr2key.KeyBundle
+		ocrEvmKeyBundles, err = d.ks.OCR2().GetAllOfType(corekeys.EVM)
+		if err != nil {
+			return nil, err
+		}
 		if len(ocrEvmKeyBundles) == 0 {
-			ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, corekeys.EVM)
+			offchainKB, err = d.ks.OCR2().Create(ctx, corekeys.EVM)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to create OCR key bundle")
 			}
 		} else {
 			// Use the first bundle as a fallback, which may cause unexpected behavior
 			// if using the OracleFactory.
-			ocrEvmKeyBundle = ocrEvmKeyBundles[0]
+			offchainKB = ocrEvmKeyBundles[0]
 		}
+		ocrKeyBundles = map[string]ocr2key.KeyBundle{string(corekeys.EVM): offchainKB}
 	}
 
 	// Best-effort resolve the authoritative capability DON ID for this plugin
@@ -278,15 +287,13 @@ func (d *Delegate) NewServices(
 	// transmitter the OCR config expects. Empty when no registry config is available.
 	var transmitter string
 	if ocrContractConfig != nil {
-		if t, ok := generic.TransmitterForSigner(*ocrContractConfig, ocrEvmKeyBundle.PublicKey()); ok {
+		if t, ok := generic.TransmitterAt(*ocrContractConfig, signerIndex); ok {
 			transmitter = t
 		} else {
 			log.Warnw("node signer not found in on-chain OCR config; falling back to round-robin transmitter",
-				"ocrKeyBundleID", ocrEvmKeyBundle.ID())
+				"ocrKeyBundleID", offchainKB.ID())
 		}
 	}
-
-	ocrKeyBundles := map[string]ocr2key.KeyBundle{"evm": ocrEvmKeyBundle}
 
 	// Always resolve the oracle factory config to fill in any missing fields
 	// (contract address, chain ID, key bundle, transmitter, signing strategy).
@@ -328,7 +335,7 @@ func (d *Delegate) NewServices(
 			JobORM:                 d.jobORM,
 			JobID:                  jobID,
 			JobName:                jobName,
-			KB:                     ocrEvmKeyBundle,
+			KB:                     offchainKB,
 			Config:                 oracleFactoryCfg,
 			OnchainSigningStrategy: resolvedSigning,
 			PeerWrapper:            d.ocrPeerWrapper,
@@ -350,7 +357,7 @@ func (d *Delegate) NewServices(
 			JobORM:                 d.jobORM,
 			JobID:                  jobID,
 			JobName:                jobName,
-			KB:                     ocrEvmKeyBundle,
+			KB:                     offchainKB,
 			Config:                 oracleFactoryCfg,
 			OnchainSigningStrategy: resolvedSigning,
 			PeerWrapper:            d.ocrPeerWrapper,
