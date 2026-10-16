@@ -3,6 +3,7 @@ package generic
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -76,7 +77,6 @@ func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactory
 			signing.StrategyName = "multi-chain"
 		}
 		signing.Config = make(map[string]string)
-		// TODO: support other chain families besides EVM.
 		for family, kb := range params.OCRKeyBundles {
 			signing.Config[family] = kb.ID()
 		}
@@ -100,48 +100,76 @@ func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactory
 	return cfg, signing, nil
 }
 
-// SelectOCRKeyBundleForConfig returns the key bundle whose signer public key appears in
-// the on-chain OCR config. It disambiguates when a node holds multiple EVM OCR key
-// bundles by picking the one the registry registered as a signer. Returns false when no
-// config is provided or none of the bundles match.
-func SelectOCRKeyBundleForConfig(bundles []ocr2key.KeyBundle, cc *ocrtypes.ContractConfig) (ocr2key.KeyBundle, bool) {
+// SelectOCRKeyBundlesForConfig locates this node's signer in the on-chain OCR config and
+// returns the key bundles, keyed by chain family name, that make up that signer, along
+// with the signer's index in cc.Signers. A signer is either a raw EVM public key or a
+// multichain public key covering one or more chain families (e.g. EVM + Solana + Aptos);
+// the node matches only if it holds a bundle for every family in the signer. Returns
+// false when no config is provided or no signer matches.
+func SelectOCRKeyBundlesForConfig(bundles []ocr2key.KeyBundle, cc *ocrtypes.ContractConfig) (map[string]ocr2key.KeyBundle, int, bool) {
 	if cc == nil {
-		return nil, false
+		return nil, -1, false
 	}
-	for _, kb := range bundles {
-		pub := kb.PublicKey()
-		multichainPub, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
-			string(corekeys.EVM): pub,
-		})
-		for _, s := range cc.Signers {
-			if bytes.Equal(s, pub) || (err == nil && bytes.Equal(s, multichainPub)) {
-				return kb, true
-			}
+	for i, s := range cc.Signers {
+		if matched, ok := matchSigner(bundles, s); ok {
+			return matched, i, true
 		}
 	}
-	return nil, false
+	return nil, -1, false
 }
 
-// TransmitterForSigner returns the transmitter account paired with the given signer in
-// the on-chain OCR config. Signers[i] and Transmitters[i] describe the same oracle, so
-// locating this node's signer yields the transmitter the OCR config expects for it.
-func TransmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPublicKey) (string, bool) {
-	multichainSigner, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
-		string(corekeys.EVM): signer,
-	})
-	for i, s := range cc.Signers {
-		if bytes.Equal(s, signer) || (err == nil && bytes.Equal(s, multichainSigner)) {
-			if i < len(cc.Transmitters) {
-				transmitter := string(cc.Transmitters[i])
-				if gethCommon.IsHexAddress(transmitter) {
-					transmitter = gethCommon.HexToAddress(transmitter).Hex()
-				}
-				return transmitter, true
+func matchSigner(bundles []ocr2key.KeyBundle, signer ocrtypes.OnchainPublicKey) (map[string]ocr2key.KeyBundle, bool) {
+	if len(signer) == 0 {
+		return nil, false
+	}
+	pubKeys, err := ocrcommon.UnmarshalMultichainPublicKey(signer)
+	if err != nil || len(pubKeys) == 0 {
+		return nil, false
+	}
+	matched := make(map[string]ocr2key.KeyBundle, len(pubKeys))
+	for family, pub := range pubKeys {
+		for _, kb := range bundles {
+			if string(kb.ChainType()) == family && bytes.Equal(pub, kb.PublicKey()) {
+				matched[family] = kb
+				break
 			}
-			return "", false
+		}
+		if _, ok := matched[family]; !ok {
+			return nil, false
 		}
 	}
-	return "", false
+	// Unmarshalling skips unknown families, so re-encode and compare to make sure the
+	// matched bundles produce exactly the signer in the config.
+	encoded, err := ocrcommon.MarshalMultichainKeyBundle(matched)
+	if err != nil || !bytes.Equal(encoded, signer) {
+		return nil, false
+	}
+	return matched, true
+}
+
+// OffchainEvmKeyBundle returns the EVM bundle from the bundles matching this node's
+// signer; its offchain keys are used for OCR. The deployment tooling always includes an
+// EVM key in the signer and publishes the EVM bundle's offchain public key in the OCR
+// config, so an error is returned when the signer has no EVM bundle.
+func OffchainEvmKeyBundle(kbs map[string]ocr2key.KeyBundle) (ocr2key.KeyBundle, error) {
+	kb, ok := kbs[string(corekeys.EVM)]
+	if !ok {
+		return nil, errors.New("no EVM OCR key bundle matches the signer in the on-chain OCR config; the offchain keyring is taken from the EVM bundle")
+	}
+	return kb, nil
+}
+
+// TransmitterAt returns the transmitter account at index i of the on-chain OCR config,
+// i.e. the transmitter paired with Signers[i]. EVM addresses are checksummed.
+func TransmitterAt(cc ocrtypes.ContractConfig, i int) (string, bool) {
+	if i < 0 || i >= len(cc.Transmitters) {
+		return "", false
+	}
+	transmitter := string(cc.Transmitters[i])
+	if gethCommon.IsHexAddress(transmitter) {
+		transmitter = gethCommon.HexToAddress(transmitter).Hex()
+	}
+	return transmitter, true
 }
 
 func DefaultTransmitterForChain(ctx context.Context, ethKS keystore.Eth, chainID string) (string, error) {
