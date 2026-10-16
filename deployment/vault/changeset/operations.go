@@ -450,7 +450,39 @@ func generateMCMSProposals(b operations.Bundle, deps VaultDeps, input BatchNativ
 }
 
 var erc20ABI = func() abi.ABI {
-	const abiJSON = `[{"name":"transfer","type":"function","inputs":[{"name":"to","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"name":"","type":"bool"}]}]`
+	const abiJSON = `[
+  {
+    "name": "transfer",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "name": "withdraw",
+    "type": "function",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  }
+]`
 	a, err := abi.JSON(strings.NewReader(abiJSON))
 	if err != nil {
 		panic(fmt.Sprintf("failed to parse ERC20 ABI: %v", err))
