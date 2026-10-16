@@ -923,7 +923,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		cfg.JobSpecReporter(),
 		jobSpawner,
 		feedsORM,
-		beholder.GetEmitter(),
+		beholder.GlobalEmitter(),
 		csaPubKeyHex,
 		static.Version,
 		hostname,

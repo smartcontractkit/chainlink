@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
@@ -581,7 +582,7 @@ func getFuncName(i any) string {
 }
 
 func TestShell_emitNodeConfig(t *testing.T) {
-	// t.Parallel() // beholder tester uses t.SetEnv and cannot use t.Parallel
+	t.Parallel()
 
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
@@ -590,16 +591,17 @@ func TestShell_emitNodeConfig(t *testing.T) {
 		// use defaults
 	})
 
+	rec := beholdertest.NewRecorder()
 	shell := &cmd.Shell{
-		Config: gcfg,
-		Logger: lggr,
+		Config:         gcfg,
+		Logger:         lggr,
+		BeholderClient: &beholder.Client{Emitter: rec},
 	}
 
-	beholderObserver := beholdertest.NewObserver(t)
 	shell.EmitNodeConfig(ctx)
 
 	// Verify that a BaseMessage was emitted
-	msgs := beholderObserver.Messages(t, "beholder_entity", "BaseMessage")
+	msgs := rec.Messages(t, "beholder_entity", "BaseMessage")
 	require.Len(t, msgs, 1, "Expected exactly one BaseMessage to be emitted")
 
 	// Verify the message content

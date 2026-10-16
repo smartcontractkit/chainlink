@@ -1121,6 +1121,8 @@ func (m *mockOrgResolver) Ready() error {
 }
 
 func TestEngine_Execution(t *testing.T) {
+	t.Parallel()
+
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
 	module.EXPECT().Close()
@@ -1151,8 +1153,8 @@ func TestEngine_Execution(t *testing.T) {
 			executionFinishedCh <- executionID
 		},
 	}
-	beholderObserver := beholdertest.NewObserver(t)
-	cfg.BeholderEmitter = custmsg.NewLabeler()
+	rec := beholdertest.NewRecorder()
+	cfg.BeholderEmitter = custmsg.NewLabelerWithEmitter(rec)
 
 	t.Run("successful execution with no capability calls", func(t *testing.T) {
 		t.Parallel()
@@ -1221,12 +1223,12 @@ func TestEngine_Execution(t *testing.T) {
 
 		require.NoError(t, engine.Close())
 
-		requireEventsLabels(t, beholderObserver, map[string]string{
+		requireEventsLabels(t, rec, map[string]string{
 			"workflowID":    cfg.WorkflowID,
 			"workflowOwner": cfg.WorkflowOwner,
 			"workflowName":  cfg.WorkflowName.String(),
 		})
-		requireEventsMessages(t, beholderObserver, []string{
+		requireEventsMessages(t, rec, []string{
 			"Started",
 			"Registering trigger",
 			"All triggers registered successfully",
@@ -3227,9 +3229,9 @@ type observedBaseMessage struct {
 // concurrent Emit under -race. Filter by beholder_entity so Messages uses the RLock path.
 const beholderEntityBaseMessage = "BaseMessage"
 
-func beholderBaseMessages(t *testing.T, observer beholdertest.Observer) []beholder.Message {
+func beholderBaseMessages(t *testing.T, rec *beholdertest.Recorder) []beholder.Message {
 	t.Helper()
-	return observer.Messages(t, "beholder_entity", beholderEntityBaseMessage)
+	return rec.Messages(t, "beholder_entity", beholderEntityBaseMessage)
 }
 
 func beholderUserLogMessages(t *testing.T, observer beholdertest.Observer) []beholder.Message {
@@ -3271,14 +3273,14 @@ func eventLabelsMatchStatus(msgs []beholder.Message, want map[string]string) (ob
 	return observed, want
 }
 
-func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, want map[string]string) {
+func requireEventsLabels(t *testing.T, rec *beholdertest.Recorder, want map[string]string) {
 	t.Helper()
 	if len(want) == 0 {
 		return
 	}
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		observed, missing := eventLabelsMatchStatus(beholderBaseMessages(t, beholderObserver), want)
+		observed, missing := eventLabelsMatchStatus(beholderBaseMessages(t, rec), want)
 		if missing != nil {
 			assert.Fail(c, fmt.Sprintf(
 				"event labels not found\n  expected labels: %v\n  observed base messages (%d):\n%s",
@@ -3320,14 +3322,14 @@ func eventMessagesMatchStatus(msgs []beholder.Message, expected []string) (obser
 
 // requireEventsMessages checks that all expected messages are present in the beholder observer.
 // It does not check the order of messages.
-func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer, expected []string) {
+func requireEventsMessages(t *testing.T, rec *beholdertest.Recorder, expected []string) {
 	t.Helper()
 	if len(expected) == 0 {
 		return
 	}
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		observed, missing := eventMessagesMatchStatus(beholderBaseMessages(t, beholderObserver), expected)
+		observed, missing := eventMessagesMatchStatus(beholderBaseMessages(t, rec), expected)
 		if len(missing) > 0 {
 			found := expected[:len(expected)-len(missing)]
 			assert.Fail(c, fmt.Sprintf(

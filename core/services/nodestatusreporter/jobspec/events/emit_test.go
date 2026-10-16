@@ -7,14 +7,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec/events"
 )
 
 func TestEmitJobSpecEvent_RoundTrip(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
-	emitter := beholder.GetEmitter()
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
 
 	event := &events.JobSpecEvent{
 		ExternalJobId:   "test-job-id",
@@ -23,10 +23,10 @@ func TestEmitJobSpecEvent_RoundTrip(t *testing.T) {
 		EmissionTrigger: events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT,
 	}
 
-	err := events.EmitJobSpecEvent(context.Background(), emitter, event)
+	err := events.EmitJobSpecEvent(context.Background(), rec, event)
 	require.NoError(t, err)
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
+	msgs := rec.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
 	require.Len(t, msgs, 1)
 
 	msg := msgs[0]
@@ -44,18 +44,19 @@ func TestEmitJobSpecEvent_RoundTrip(t *testing.T) {
 }
 
 func TestEmitJobSpecEvent_SetsTimestampIfEmpty(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
-	emitter := beholder.GetEmitter()
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
 
 	event := &events.JobSpecEvent{
 		ExternalJobId: "ts-test",
 	}
 	require.Empty(t, event.Timestamp)
 
-	err := events.EmitJobSpecEvent(context.Background(), emitter, event)
+	err := events.EmitJobSpecEvent(context.Background(), rec, event)
 	require.NoError(t, err)
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
+	msgs := rec.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
 	require.Len(t, msgs, 1)
 
 	var decoded events.JobSpecEvent
