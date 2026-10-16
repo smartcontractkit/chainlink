@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"math"
 	"math/big"
 
@@ -54,6 +55,8 @@ func ToDecimal(input any) (decimal.Decimal, error) {
 		return v, nil
 	case *decimal.Decimal:
 		return *v, nil
+	case json.Number:
+		return decimal.NewFromString(v.String())
 	default:
 		return decimal.Decimal{}, errors.Errorf("type %T cannot be converted to decimal.Decimal (%v)", input, input)
 	}
