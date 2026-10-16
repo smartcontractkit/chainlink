@@ -72,11 +72,13 @@ func TestResolveOracleFactoryConfig_transmitterFromOCRConfig(t *testing.T) {
 
 	kb, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
+	signer, err := ocrcommon.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{string(corekeys.EVM): kb})
+	require.NoError(t, err)
 
 	cc := &ocrtypes.ContractConfig{
 		Signers: []ocrtypes.OnchainPublicKey{
 			ocrtypes.OnchainPublicKey("other-signer"),
-			kb.PublicKey(),
+			signer,
 		},
 		Transmitters: []ocrtypes.Account{"0xOther", "0xMine"},
 	}
@@ -125,7 +127,7 @@ func TestResolveOracleFactoryConfig_keyBundlesFillSigning(t *testing.T) {
 	assert.Equal(t, kb.ID(), signing.Config["evm"])
 }
 
-func TestOffchainKeyBundle(t *testing.T) {
+func TestOffchainEvmKeyBundle(t *testing.T) {
 	t.Parallel()
 
 	evm, err := ocr2key.New(corekeys.EVM)
@@ -135,15 +137,21 @@ func TestOffchainKeyBundle(t *testing.T) {
 	apt, err := ocr2key.New(corekeys.Aptos)
 	require.NoError(t, err)
 
-	assert.Nil(t, OffchainKeyBundle(nil))
-	assert.Equal(t, evm.ID(), OffchainKeyBundle(map[string]ocr2key.KeyBundle{
+	got, err := OffchainEvmKeyBundle(map[string]ocr2key.KeyBundle{
 		string(corekeys.Solana): sol,
 		string(corekeys.EVM):    evm,
-	}).ID())
-	assert.Equal(t, apt.ID(), OffchainKeyBundle(map[string]ocr2key.KeyBundle{
+	})
+	require.NoError(t, err)
+	assert.Equal(t, evm.ID(), got.ID())
+
+	_, err = OffchainEvmKeyBundle(map[string]ocr2key.KeyBundle{
 		string(corekeys.Solana): sol,
 		string(corekeys.Aptos):  apt,
-	}).ID())
+	})
+	require.ErrorContains(t, err, "no EVM OCR key bundle matches the signer")
+
+	_, err = OffchainEvmKeyBundle(nil)
+	require.ErrorContains(t, err, "no EVM OCR key bundle matches the signer")
 }
 
 func TestSelectOCRKeyBundlesForConfig(t *testing.T) {
@@ -175,15 +183,23 @@ func TestSelectOCRKeyBundlesForConfig(t *testing.T) {
 		assert.Equal(t, -1, idx)
 	})
 
-	t.Run("raw EVM signer", func(t *testing.T) {
+	t.Run("EVM-only signer", func(t *testing.T) {
 		t.Parallel()
 		got, idx, ok := SelectOCRKeyBundlesForConfig(bundles, &ocrtypes.ContractConfig{
-			Signers: []ocrtypes.OnchainPublicKey{[]byte("other"), evm2.PublicKey()},
+			Signers: []ocrtypes.OnchainPublicKey{[]byte("other"), multichain(map[string]ocr2key.KeyBundle{"evm": evm2})},
 		})
 		require.True(t, ok)
 		assert.Equal(t, 1, idx)
 		require.Len(t, got, 1)
 		assert.Equal(t, evm2.ID(), got["evm"].ID())
+	})
+
+	t.Run("raw EVM signer is not matched", func(t *testing.T) {
+		t.Parallel()
+		_, _, ok := SelectOCRKeyBundlesForConfig(bundles, &ocrtypes.ContractConfig{
+			Signers: []ocrtypes.OnchainPublicKey{evm2.PublicKey()},
+		})
+		assert.False(t, ok)
 	})
 
 	t.Run("multi-family signer", func(t *testing.T) {

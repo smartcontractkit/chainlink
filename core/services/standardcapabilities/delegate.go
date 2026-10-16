@@ -242,7 +242,7 @@ func (d *Delegate) NewServices(
 	}
 
 	// ocrKeyBundles holds the bundles, keyed by chain family, that sign reports for this
-	// node. offchainKB provides the offchain keyring for OCR (the EVM bundle when present).
+	// node. offchainKB provides the offchain keyring for OCR (the EVM bundle).
 	var ocrKeyBundles map[string]ocr2key.KeyBundle
 	var offchainKB ocr2key.KeyBundle
 	// signerIndex is this node's position in the on-chain OCR config, or -1 if unknown.
@@ -262,7 +262,10 @@ func (d *Delegate) NewServices(
 		}
 		ocrKeyBundles = kbs
 		signerIndex = idx
-		offchainKB = generic.OffchainKeyBundle(kbs)
+		offchainKB, err = generic.OffchainEvmKeyBundle(kbs)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if offchainKB == nil {
 		var ocrEvmKeyBundles []ocr2key.KeyBundle

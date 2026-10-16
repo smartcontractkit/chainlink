@@ -605,7 +605,10 @@ func (d *Delegate) NewServices(
 	if err != nil {
 		return nil, err
 	}
-	kb := generic.OffchainKeyBundle(kbs)
+	kb, err := generic.OffchainEvmKeyBundle(kbs)
+	if err != nil {
+		return nil, err
+	}
 	kbID := kb.ID()
 	signingConfig := make(map[string]any, len(kbs))
 	for family, familyKB := range kbs {

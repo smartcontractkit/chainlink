@@ -3,10 +3,9 @@ package generic
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
-	"maps"
 	"math/big"
-	"slices"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 
@@ -123,12 +122,6 @@ func matchSigner(bundles []ocr2key.KeyBundle, signer ocrtypes.OnchainPublicKey) 
 	if len(signer) == 0 {
 		return nil, false
 	}
-	for _, kb := range bundles {
-		if kb.ChainType() == corekeys.EVM && bytes.Equal(signer, kb.PublicKey()) {
-			return map[string]ocr2key.KeyBundle{string(corekeys.EVM): kb}, true
-		}
-	}
-
 	pubKeys, err := ocrcommon.UnmarshalMultichainPublicKey(signer)
 	if err != nil || len(pubKeys) == 0 {
 		return nil, false
@@ -154,18 +147,16 @@ func matchSigner(bundles []ocr2key.KeyBundle, signer ocrtypes.OnchainPublicKey) 
 	return matched, true
 }
 
-// OffchainKeyBundle picks the bundle whose offchain keys are used for OCR from the
-// bundles matching this node's signer. The EVM bundle is preferred; otherwise the
-// bundle of the lexicographically first family is used for determinism.
-func OffchainKeyBundle(kbs map[string]ocr2key.KeyBundle) ocr2key.KeyBundle {
-	if kb, ok := kbs[string(corekeys.EVM)]; ok {
-		return kb
+// OffchainEvmKeyBundle returns the EVM bundle from the bundles matching this node's
+// signer; its offchain keys are used for OCR. The deployment tooling always includes an
+// EVM key in the signer and publishes the EVM bundle's offchain public key in the OCR
+// config, so an error is returned when the signer has no EVM bundle.
+func OffchainEvmKeyBundle(kbs map[string]ocr2key.KeyBundle) (ocr2key.KeyBundle, error) {
+	kb, ok := kbs[string(corekeys.EVM)]
+	if !ok {
+		return nil, errors.New("no EVM OCR key bundle matches the signer in the on-chain OCR config; the offchain keyring is taken from the EVM bundle")
 	}
-	families := slices.Sorted(maps.Keys(kbs))
-	if len(families) == 0 {
-		return nil
-	}
-	return kbs[families[0]]
+	return kb, nil
 }
 
 // TransmitterAt returns the transmitter account at index i of the on-chain OCR config,
