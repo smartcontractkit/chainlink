@@ -1403,5 +1403,72 @@ func TestConfidentialRelayHandler_ShardIndexOutOfRange(t *testing.T) {
 	}
 
 	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
-	require.EqualError(t, err, "shard index 1 out of range: handler has 1 shard(s)")
+	require.EqualError(t, err, `shard index 1 out of range: DON "test_relay_don" has 1 shard(s)`)
+}
+
+func setupTwoDONHandler(t *testing.T) (*handler, *common.Callback, []*mocks.DON) {
+	t.Helper()
+	lggr := logger.Test(t)
+	names := []string{"don_a", "don_b"}
+	cfgs := make([]config.ShardedDONConfig, 0, len(names))
+	conns := make([][]gwhandlers.DON, 0, len(names))
+	mockConns := make([]*mocks.DON, 0, len(names))
+	addr := 0
+	for _, name := range names {
+		members := make([]config.NodeConfig, 4)
+		for j := range members {
+			members[j] = config.NodeConfig{Name: fmt.Sprintf("node%d", addr), Address: fmt.Sprintf("0x%04d", addr)}
+			addr++
+		}
+		don := mocks.NewDON(t)
+		mockConns = append(mockConns, don)
+		cfgs = append(cfgs, config.ShardedDONConfig{DonName: name, F: 1, Shards: []config.Shard{{Nodes: members}}})
+		conns = append(conns, []gwhandlers.DON{don})
+	}
+	dons, err := gwhandlers.NewShardedDONs(cfgs, conns)
+	require.NoError(t, err)
+	methodConfig, err := json.Marshal(Config{RequestTimeoutSec: 30})
+	require.NoError(t, err)
+	h, err := NewHandler(methodConfig, dons, lggr, clockwork.NewFakeClock(), limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr})
+	require.NoError(t, err)
+	return h, common.NewCallback(), mockConns
+}
+
+func capParamsForDON(t *testing.T, donName string) json.RawMessage {
+	t.Helper()
+	params := validCapParams("wf1")
+	params.DonName = donName
+	raw, err := json.Marshal(params)
+	require.NoError(t, err)
+	return raw
+}
+
+// don_name selects the DON: fan-out reaches only don_b's connection manager.
+func TestConfidentialRelayHandler_DonNameSelectsDON(t *testing.T) {
+	t.Parallel()
+	h, cb, conns := setupTwoDONHandler(t)
+	conns[1].On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	params := capParamsForDON(t, "don_b")
+	req := jsonrpc.Request[json.RawMessage]{ID: "req-don-b", Method: MethodCapabilityExec, Params: &params}
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+	require.Equal(t, "don_b", h.getActiveRequest(req.ID).shard.DonName)
+}
+
+func TestConfidentialRelayHandler_DonNameRequiredWithMultipleDONs(t *testing.T) {
+	t.Parallel()
+	h, cb, _ := setupTwoDONHandler(t)
+
+	params := capParamsForDON(t, "")
+	req := jsonrpc.Request[json.RawMessage]{ID: "req-no-don", Method: MethodCapabilityExec, Params: &params}
+	require.EqualError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb), "don_name is required: handler serves 2 DONs")
+}
+
+func TestConfidentialRelayHandler_UnknownDonName(t *testing.T) {
+	t.Parallel()
+	h, cb, _ := setupTwoDONHandler(t)
+
+	params := capParamsForDON(t, "don_c")
+	req := jsonrpc.Request[json.RawMessage]{ID: "req-bad-don", Method: MethodCapabilityExec, Params: &params}
+	require.EqualError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb), `unknown DON "don_c"`)
 }

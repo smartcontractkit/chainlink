@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -106,31 +107,47 @@ func (h *handler) extractRequestLabels(req jsonrpc.Request[json.RawMessage]) req
 	return labels
 }
 
-// requestShardSelector is the shard-routing field both relay methods' params carry. A
-// request that omits it defaults to shard 0.
+// requestShardSelector is the routing fields both relay methods' params carry. A request
+// that omits shard_index defaults to shard 0; one that omits don_name targets the only DON.
 type requestShardSelector struct {
-	ShardIndex int `json:"shard_index"`
+	DonName    string `json:"don_name"`
+	ShardIndex int    `json:"shard_index"`
 }
 
-// extractShardIndex decodes the caller-selected shard index out of a request's params,
-// defaulting to 0 if params is absent or does not carry the field.
-func extractShardIndex(req jsonrpc.Request[json.RawMessage]) (int, error) {
-	if req.Params == nil {
-		return 0, nil
-	}
+func extractShardSelector(req jsonrpc.Request[json.RawMessage]) (requestShardSelector, error) {
 	var sel requestShardSelector
-	if err := json.Unmarshal(*req.Params, &sel); err != nil {
-		return 0, fmt.Errorf("could not decode shard_index: %w", err)
+	if req.Params == nil {
+		return sel, nil
 	}
-	return sel.ShardIndex, nil
+	if err := json.Unmarshal(*req.Params, &sel); err != nil {
+		return sel, fmt.Errorf("could not decode shard selector: %w", err)
+	}
+	return sel, nil
 }
 
-// shardAt resolves a caller-selected shard index to the shard it names.
-func (h *handler) shardAt(idx int) (*gwhandlers.ShardEndpoint, error) {
-	if idx < 0 || idx >= len(h.shards) {
-		return nil, fmt.Errorf("shard index %d out of range: handler has %d shard(s)", idx, len(h.shards))
+// resolveShard picks the shard named by the caller's DON name and shard index.
+func (h *handler) resolveShard(sel requestShardSelector) (*gwhandlers.ShardEndpoint, error) {
+	donName := sel.DonName
+	if donName == "" {
+		if len(h.donNames) != 1 {
+			return nil, fmt.Errorf("don_name is required: handler serves %d DONs", len(h.donNames))
+		}
+		donName = h.donNames[0]
 	}
-	return h.shards[idx], nil
+	var shardCount int
+	for _, shard := range h.shards {
+		if shard.DonName != donName {
+			continue
+		}
+		shardCount++
+		if shard.ShardIdx == sel.ShardIndex {
+			return shard, nil
+		}
+	}
+	if shardCount == 0 {
+		return nil, fmt.Errorf("unknown DON %q", donName)
+	}
+	return nil, fmt.Errorf("shard index %d out of range: DON %q has %d shard(s)", sel.ShardIndex, donName, shardCount)
 }
 
 type activeRequest struct {
@@ -231,16 +248,17 @@ type Config struct {
 
 type handler struct {
 	services.StateMachine
-	// shards is the DON×shard matrix this handler relays for. Quorum is evaluated
-	// independently per shard (each with its own F and members); the first shard to
-	// reach quorum produces the user response.
+	// shards is the DON×shard matrix this handler relays for. Each request names one
+	// shard; quorum is evaluated against that shard's own F and members.
 	shards []*gwhandlers.ShardEndpoint
 	// donID names the handler for logging/metrics; it is the first shard's DON name.
-	donID  string
-	codec  api.JSONRPCCodec
-	lggr   logger.Logger
-	mu     sync.RWMutex
-	stopCh services.StopChan
+	donID string
+	// donNames lists the distinct DON names behind shards, in config order.
+	donNames []string
+	codec    api.JSONRPCCodec
+	lggr     logger.Logger
+	mu       sync.RWMutex
+	stopCh   services.StopChan
 
 	globalNodeRateLimiter limits.RateLimiter
 	perNodeRateLimiters   map[string]limits.RateLimiter
@@ -299,6 +317,12 @@ func NewHandler(methodConfig json.RawMessage, dons *gwhandlers.ShardedDONs, lggr
 		return nil, errors.New("confidential relay handler requires at least one shard")
 	}
 	donID := shards[0].DonName
+	var donNames []string
+	for _, shard := range shards {
+		if !slices.Contains(donNames, shard.DonName) {
+			donNames = append(donNames, shard.DonName)
+		}
+	}
 
 	globalNodeRateLimiter, err := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayGlobalRate)
 	if err != nil {
@@ -323,6 +347,7 @@ func NewHandler(methodConfig json.RawMessage, dons *gwhandlers.ShardedDONs, lggr
 	return &handler{
 		shards:                shards,
 		donID:                 donID,
+		donNames:              donNames,
 		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donID),
 		requestTimeout:        time.Duration(cfg.RequestTimeoutSec) * time.Second,
 		nodeSendTimeout:       time.Duration(cfg.NodeSendTimeoutSec) * time.Second,
@@ -433,11 +458,11 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request ID is too long: " + strconv.Itoa(len(req.ID)) + ". max is 200 characters")
 	}
 
-	shardIndex, err := extractShardIndex(req)
+	sel, err := extractShardSelector(req)
 	if err != nil {
 		return err
 	}
-	shard, err := h.shardAt(shardIndex)
+	shard, err := h.resolveShard(sel)
 	if err != nil {
 		return err
 	}
