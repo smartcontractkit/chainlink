@@ -70,9 +70,10 @@ import (
 
 const triggerID = "basic-test-trigger@1.0.0"
 
-//nolint:paralleltest // swaps the global beholder client to assert the trigger subscription source metric
 func TestEngine_Init(t *testing.T) {
-	reader := setupInitFailureTestMeter(t)
+	t.Parallel()
+
+	meter, reader := newTestMeter(t)
 
 	module := modulemocks.NewModuleV2(t)
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -83,6 +84,7 @@ func TestEngine_Init(t *testing.T) {
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
+	cfg.Meter = meter
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -102,10 +104,10 @@ func TestEngine_Init(t *testing.T) {
 
 	require.NoError(t, <-initDoneCh)
 
-	// count may include foreign increments from parallel engine tests sharing
-	// the swapped meter; just confirm a "wasm" source was recorded
-	_, gotSources := collectCounterByAttr(t, reader, "platform_engine_trigger_subscription_source_total", "source")
-	require.Contains(t, gotSources, "wasm")
+	// the meter is private to this test, so the count is exact
+	gotCount, gotSources := collectCounterByAttr(t, reader, "platform_engine_trigger_subscription_source_total", "source")
+	require.Equal(t, int64(1), gotCount)
+	require.Equal(t, []string{"wasm"}, gotSources)
 
 	module.EXPECT().Close().Once()
 	require.NoError(t, engine.Close())
@@ -576,9 +578,10 @@ func TestEngine_Subscribe_CachedTriggerSubscriptions(t *testing.T) {
 		{Id: "id_1", Method: "method"},
 	}
 
-	//nolint:paralleltest // swaps the global beholder client to assert the trigger subscription source metric
 	t.Run("gate enabled: cache is used, WASM never executed", func(t *testing.T) {
-		reader := setupInitFailureTestMeter(t)
+		t.Parallel()
+
+		meter, reader := newTestMeter(t)
 
 		module := modulemocks.NewModuleV2(t)
 		module.EXPECT().Start()
@@ -601,6 +604,7 @@ func TestEngine_Subscribe_CachedTriggerSubscriptions(t *testing.T) {
 		cfg.CapRegistry = capreg
 		cfg.CachedTriggerSubscriptions = cachedSubs
 		cfg.CachedTriggerSubscriptionsEnabled = true
+		cfg.Meter = meter
 		initDoneCh := make(chan error, 1)
 		cfg.Hooks = v2.LifecycleHooks{
 			OnInitialized: func(err error) { initDoneCh <- err },
@@ -611,10 +615,10 @@ func TestEngine_Subscribe_CachedTriggerSubscriptions(t *testing.T) {
 		servicetest.Run(t, engine)
 		require.NoError(t, <-initDoneCh)
 
-		// count may include foreign increments from parallel engine tests
-		// sharing the swapped meter; just confirm a "cache" source was recorded
-		_, gotSources := collectCounterByAttr(t, reader, "platform_engine_trigger_subscription_source_total", "source")
-		require.Contains(t, gotSources, "cache")
+		// the meter is private to this subtest, so the count is exact
+		gotCount, gotSources := collectCounterByAttr(t, reader, "platform_engine_trigger_subscription_source_total", "source")
+		require.Equal(t, int64(1), gotCount)
+		require.Equal(t, []string{"cache"}, gotSources)
 	})
 
 	t.Run("gate disabled: cache is ignored, falls back to WASM", func(t *testing.T) {

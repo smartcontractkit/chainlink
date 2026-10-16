@@ -54,15 +54,17 @@ func Test_initFailureReasonForSubscribe(t *testing.T) {
 // TestEngine_WorkflowInitializationFailureCounter verifies the counter
 // records failures with the reason label, defaulting an empty reason to
 // "unknown".
-//
-//nolint:paralleltest // setupTestMeter swaps the global beholder client
 func TestEngine_WorkflowInitializationFailureCounter(t *testing.T) {
+	t.Parallel()
+
 	const counterName = "platform_engine_workflow_initialization_failures_total"
 
 	t.Run("records failures with reason label", func(t *testing.T) {
-		reader := setupTestMeter(t)
+		t.Parallel()
 
-		em, err := monitoring.InitMonitoringResources()
+		meter, reader := newTestMeter(t)
+
+		em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 		require.NoError(t, err)
 		labeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 
@@ -76,9 +78,11 @@ func TestEngine_WorkflowInitializationFailureCounter(t *testing.T) {
 	})
 
 	t.Run("not incremented on successful initialization", func(t *testing.T) {
-		reader := setupTestMeter(t)
+		t.Parallel()
 
-		em, err := monitoring.InitMonitoringResources()
+		meter, reader := newTestMeter(t)
+
+		em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 		require.NoError(t, err)
 		labeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 
