@@ -3,11 +3,13 @@ package localcapmgr
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
@@ -117,4 +119,72 @@ func TestOffchainSpecConfig_MalformedIsIgnored(t *testing.T) {
 		}}},
 	}}
 	assert.Nil(t, newCrossCheckMgr(t).offchainSpecConfig(bad, "cron@1.0.0", 7))
+}
+
+// TestOffchainDivergences_MethodConfigs covers the method_configs half of the mismatch
+// divergence: an offchain method config that would change the don2don wiring (a changed entry
+// or an added method) counts as a mismatch; an entry equal to the on-chain one, or an empty
+// method map, does not.
+func TestOffchainDivergences_MethodConfigs(t *testing.T) {
+	t.Parallel()
+
+	m := newCrossCheckMgr(t, "write-chain_evm_1@1.0.0")
+
+	execCfg := func(timeout time.Duration) *capabilitiespb.CapabilityMethodConfig {
+		return &capabilitiespb.CapabilityMethodConfig{
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					RequestTimeout:            durationpb.New(timeout),
+					ServerMaxParallelRequests: 10,
+				},
+			},
+		}
+	}
+	onchainWithMethods := func(methodConfigs map[string]*capabilitiespb.CapabilityMethodConfig) registry.CapabilityConfiguration {
+		t.Helper()
+		b, err := proto.Marshal(&capabilitiespb.CapabilityConfig{MethodConfigs: methodConfigs})
+		require.NoError(t, err)
+		return registry.CapabilityConfiguration{Config: b}
+	}
+
+	dons := []registry.DON{onchainDONWith(1, map[string]registry.CapabilityConfiguration{
+		"write-chain_evm_1@1.0.0": onchainWithMethods(map[string]*capabilitiespb.CapabilityMethodConfig{
+			"Write": execCfg(30 * time.Second),
+		}),
+	})}
+
+	check := func(off *capabilitiespb.CapabilityConfig) map[string]int64 {
+		reg := offchainReg(1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{1: {"write-chain_evm_1@1.0.0": off}})
+		return m.offchainDivergences(m.offchainDONsByID(reg, dons), dons)
+	}
+
+	t.Run("no offchain method_configs is not a mismatch", func(t *testing.T) {
+		t.Parallel()
+		assert.Equal(t, int64(0), check(&capabilitiespb.CapabilityConfig{})[divergenceMismatch])
+	})
+
+	t.Run("offchain entry equal to on-chain is not a mismatch", func(t *testing.T) {
+		t.Parallel()
+		got := check(&capabilitiespb.CapabilityConfig{MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"Write": execCfg(30 * time.Second),
+		}})
+		assert.Equal(t, int64(0), got[divergenceMismatch])
+	})
+
+	t.Run("changed offchain entry is a mismatch", func(t *testing.T) {
+		t.Parallel()
+		got := check(&capabilitiespb.CapabilityConfig{MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"Write": execCfg(time.Minute),
+		}})
+		assert.Equal(t, int64(1), got[divergenceMismatch])
+	})
+
+	t.Run("offchain-only method is a mismatch", func(t *testing.T) {
+		t.Parallel()
+		got := check(&capabilitiespb.CapabilityConfig{MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"Write": execCfg(30 * time.Second),
+			"View":  execCfg(10 * time.Second),
+		}})
+		assert.Equal(t, int64(1), got[divergenceMismatch])
+	})
 }

@@ -1,6 +1,9 @@
 package localcapmgr
 
 import (
+	"reflect"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
@@ -24,7 +27,8 @@ func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*ca
 			if m.localCfg == nil || !m.localCfg.IsAllowlisted(capID) {
 				continue
 			}
-			if _, ok := offDON.GetCapabilities()[capID]; !ok {
+			offCap, ok := offDON.GetCapabilities()[capID]
+			if !ok {
 				out[divergenceMissing]++
 				m.lggr.Debugw("Offchain registry has no config for capability", "donID", don.ID, "capID", capID)
 				continue
@@ -36,12 +40,64 @@ func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*ca
 			}
 			info.useOffchain = true
 			info.offchainSpecConfig = m.offchainSpecConfig(offDON, capID, don.ID)
-			if cutover, _ := m.buildConfigJSON(info); cutover != legacy {
+			cutover, _ := m.buildConfigJSON(info)
+			// A mismatch means turning the gate on changes this capability: either the launch
+			// config (spec_config) or the don2don method configs would differ.
+			methodsDiffer := offchainMethodConfigsDiffer(onchain, offCap)
+			if cutover != legacy || methodsDiffer {
 				out[divergenceMismatch]++
-				m.lggr.Debugw("Offchain spec_config differs from on-chain", "donID", don.ID, "capID", capID)
+				m.lggr.Debugw("Offchain config differs from on-chain", "donID", don.ID, "capID", capID, "specConfigDiffers", cutover != legacy, "methodConfigsDiffer", methodsDiffer)
 			}
 		}
 	}
+	return out
+}
+
+// offchainMethodConfigsDiffer reports whether the offchain method_configs would change the
+// don2don method configs the launcher wires for this capability, relative to the on-chain
+// method configs. A method present in both differs only when its converted config differs;
+// methods the offchain payload omits keep their on-chain config (not a difference); methods
+// only present offchain are additions (a difference).
+func offchainMethodConfigsDiffer(onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
+	offMethodConfigs, err := globalconfig.MethodConfigsFromProto(offCap.GetMethodConfigs())
+	if err != nil || len(offMethodConfigs) == 0 {
+		return false
+	}
+	onchainCfg, err := onchain.Unmarshal()
+	if err != nil {
+		return false
+	}
+	onMethodConfigs := onchainCfg.CapabilityMethodConfig
+	for method, offCfg := range offMethodConfigs {
+		if onCfg, ok := onMethodConfigs[method]; !ok || !methodConfigEqual(onCfg, offCfg) {
+			return true
+		}
+	}
+	return false
+}
+
+// methodConfigEqual compares two method configs for equality on the fields the launcher
+// consumes (remote trigger/executable config and aggregator config).
+func methodConfigEqual(a, b capabilities.CapabilityMethodConfig) bool {
+	if !reflect.DeepEqual(a.RemoteTriggerConfig, b.RemoteTriggerConfig) {
+		return false
+	}
+	if !reflect.DeepEqual(a.RemoteExecutableConfig, b.RemoteExecutableConfig) {
+		return false
+	}
+	return reflect.DeepEqual(a.AggregatorConfig, b.AggregatorConfig)
+}
+
+// offchainSpecConfig returns the offchain spec_config of capID on don, or nil when there is none.
+// A spec_config that cannot be converted is rejected at ingestion (globalconfig.Validate); if one
+// gets here anyway, it is treated as empty.
+func (m *localCapabilityManager) offchainSpecConfig(don *capabilitiespb.DONConfig, capID string, donID uint32) map[string]any {
+	out, err := globalconfig.SpecConfigMap(don.GetCapabilities()[capID].GetSpecConfig())
+	if err != nil {
+		m.lggr.Warnw("Invalid offchain spec_config, ignoring offchain override", "capID", capID, "donID", donID, "error", err)
+		return nil
+	}
+
 	return out
 }
 
@@ -56,18 +112,6 @@ func (m *localCapabilityManager) offchainDONsByID(reg *capabilitiespb.OffchainCa
 		if d, ok := reg.GetDons()[name]; ok {
 			out[id] = d
 		}
-	}
-	return out
-}
-
-// offchainSpecConfig returns the offchain spec_config of capID on don, or nil when there is none.
-// A spec_config that cannot be converted is rejected at ingestion (globalconfig.Validate); if one
-// gets here anyway, it is treated as empty.
-func (m *localCapabilityManager) offchainSpecConfig(don *capabilitiespb.DONConfig, capID string, donID uint32) map[string]any {
-	out, err := globalconfig.SpecConfigMap(don.GetCapabilities()[capID].GetSpecConfig())
-	if err != nil {
-		m.lggr.Warnw("Invalid offchain spec_config, ignoring offchain override", "capID", capID, "donID", donID, "error", err)
-		return nil
 	}
 	return out
 }

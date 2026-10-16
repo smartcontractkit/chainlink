@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sync"
 
@@ -283,6 +284,67 @@ func (w *launcher) loadOffchainRegistry() *capabilitiespb.OffchainCapabilitiesRe
 	return w.offchainRegistry.LoadParsed()
 }
 
+// offchainMethodConfigs is a per-pass snapshot of the offchain registry's method_configs,
+// keyed by on-chain DON name. Nil when the cutover gate is off or no payload is applied, in
+// which case every overlay call is a no-op and behavior is byte-for-byte the legacy one.
+type offchainMethodConfigs struct {
+	reg      *capabilitiespb.OffchainCapabilitiesRegistry
+	donNames map[uint32]string // on-chain DON ID -> offchain DON name
+}
+
+// newOffchainMethodConfigs builds the snapshot from the already-loaded offchain registry and
+// the DON set. DON names are resolved the same way the LocalCapabilityManager does (unnamed or
+// name-colliding DONs are left out, so they keep their on-chain method configs).
+func newOffchainMethodConfigs(reg *capabilitiespb.OffchainCapabilitiesRegistry, dons []registry.DON) *offchainMethodConfigs {
+	if reg == nil {
+		return nil
+	}
+	byName := make(map[string][]uint32, len(dons))
+	for _, don := range dons {
+		if don.Name == "" {
+			continue
+		}
+		byName[don.Name] = append(byName[don.Name], don.ID)
+	}
+	donNames := make(map[uint32]string, len(dons))
+	for name, ids := range byName {
+		if len(ids) == 1 {
+			donNames[ids[0]] = name
+		}
+	}
+	return &offchainMethodConfigs{reg: reg, donNames: donNames}
+}
+
+// overlay returns the method configs to wire for (capID, don): the on-chain map with the
+// offchain entries applied on top (offchain-wins per method). Methods the offchain payload
+// omits keep their on-chain config; a capability or DON absent offchain keeps its full
+// on-chain map. A nil snapshot returns onchain unchanged.
+func (o *offchainMethodConfigs) overlay(capID string, don registry.DON, onchain map[string]capabilities.CapabilityMethodConfig) map[string]capabilities.CapabilityMethodConfig {
+	if o == nil || o.reg == nil || onchain == nil {
+		return onchain
+	}
+	donName, ok := o.donNames[don.ID]
+	if !ok {
+		return onchain
+	}
+	offCap := o.reg.GetDons()[donName].GetCapabilities()[capID]
+	if offCap == nil {
+		return onchain
+	}
+	offMethodConfigs, err := globalconfig.MethodConfigsFromProto(offCap.GetMethodConfigs())
+	if err != nil {
+		// Rejected at ingestion (globalconfig.Validate); unreachable from an applied payload.
+		return onchain
+	}
+	if len(offMethodConfigs) == 0 {
+		return onchain
+	}
+	out := make(map[string]capabilities.CapabilityMethodConfig, len(onchain)+len(offMethodConfigs))
+	maps.Copy(out, onchain)
+	maps.Copy(out, offMethodConfigs)
+	return out
+}
+
 func (w *launcher) HealthReport() map[string]error {
 	return map[string]error{w.Name(): w.Healthy()}
 }
@@ -435,7 +497,18 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 	if belongsToACapabilityDON {
 		wantedServerDONs = myCapabilityDONs
 	}
-	w.pruneStaleShims(ctx, computeWantedShimKeys(wantedClientDONs, wantedServerDONs))
+
+	// Build the offchain method_configs snapshot from the same offchainReg loaded above, so
+	// pruning and the client/server shim wiring all see the same payload. Gate on only.
+	var offchainMC *offchainMethodConfigs
+	if w.useOffchainRegistry && offchainReg != nil {
+		allDONs := make([]registry.DON, 0, len(allDONIDs))
+		for _, id := range allDONIDs {
+			allDONs = append(allDONs, metadataRegistry.IDsToDONs[id])
+		}
+		offchainMC = newOffchainMethodConfigs(offchainReg, allDONs)
+	}
+	w.pruneStaleShims(ctx, computeWantedShimKeys(wantedClientDONs, wantedServerDONs, offchainMC))
 
 	// Reconcile local capabilities: start/stop/restart capabilities based on registry state.
 	if w.localCapMgr != nil {
@@ -460,13 +533,13 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 
 		w.warnOnDuplicateInFamilyCapabilities(ctx, remoteCapabilityDONs)
 		for _, rcd := range remoteCapabilityDONs {
-			w.addRemoteCapabilities(ctx, myDON, rcd, metadataRegistry)
+			w.addRemoteCapabilities(ctx, myDON, rcd, metadataRegistry, offchainMC)
 		}
 	}
 
 	if belongsToACapabilityDON {
 		for _, myDON := range myCapabilityDONs {
-			w.serveCapabilities(ctx, w.myPeerID, myDON, remoteWorkflowDONs)
+			w.serveCapabilities(ctx, w.myPeerID, myDON, remoteWorkflowDONs, offchainMC)
 		}
 	}
 
@@ -527,7 +600,7 @@ func donFamiliesOverlap(donA, donB []string) bool {
 // addRemoteCapabilities adds remote capabilities from a remote DON to the local node,
 // allowing the local node to use these capabilities in its workflows.
 // it is best effort to ensure that valid capabilities are added even if some fail
-func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON registry.DON, localRegistry *registry.RegistryMetadata) {
+func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON registry.DON, localRegistry *registry.RegistryMetadata, offchainMC *offchainMethodConfigs) {
 	for cid, c := range remoteDON.CapabilityConfigurations {
 		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
@@ -540,7 +613,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON r
 			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultSkipped)
 			continue
 		}
-		methodConfig := capabilityConfig.CapabilityMethodConfig
+		methodConfig := offchainMC.overlay(cid, remoteDON, capabilityConfig.CapabilityMethodConfig)
 		if methodConfig == nil {
 			w.lggr.Errorw("capability method config is nil", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid)
 			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultFailure)
@@ -565,7 +638,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON r
 
 // serveCapabilities exposes capabilities that are available on this node, as part of the given DON.
 // It is best effort, ensuring that valid capabilities are exposed even if some fail
-func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registry.DON, remoteWorkflowDONs []registry.DON) {
+func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registry.DON, remoteWorkflowDONs []registry.DON, offchainMC *offchainMethodConfigs) {
 	idsToDONs := map[uint32]capabilities.DON{}
 	for _, d := range remoteWorkflowDONs {
 		idsToDONs[d.ID] = d.DON
@@ -583,7 +656,7 @@ func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.Peer
 			w.metrics.recordLocalCapabilityExposed(ctx, cid, resultSkipped)
 			continue
 		}
-		methodConfig := capabilityConfig.CapabilityMethodConfig
+		methodConfig := offchainMC.overlay(cid, don, capabilityConfig.CapabilityMethodConfig)
 		if methodConfig == nil {
 			w.lggr.Errorw("capability method config is nil", "localDON", don, "capabilityID", cid, "error", err)
 			w.metrics.recordLocalCapabilityExposed(ctx, cid, resultFailure)
@@ -729,6 +802,11 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 		return fmt.Errorf("failed to get capability %s from registry: %w", capID, err)
 	}
 	for method, config := range methodConfig {
+		if config.RemoteTriggerConfig == nil && config.RemoteExecutableConfig == nil {
+			// An offchain entry with no remote config explicitly disables this method.
+			// computeWantedShimKeys has already removed any existing shim.
+			continue
+		}
 		if config.RemoteTriggerConfig != nil { // trigger
 			underlyingTriggerCapability, ok := underlying.(capabilities.TriggerCapability)
 			if !ok {
@@ -844,8 +922,10 @@ type wantedShimKeys struct {
 // run. It mirrors the filtering addRemoteCapabilities/serveCapabilities apply (unmarshal errors,
 // LocalOnly, missing method config) but only collects keys - it never creates or mutates anything.
 // Pass nil for remoteCapabilityDONs/myCapabilityDONs when the node doesn't currently belong to a
-// workflow/capability DON, matching the gating in onNewRegistry.
-func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON) wantedShimKeys {
+// workflow/capability DON, matching the gating in onNewRegistry. offchainMC is the same per-pass
+// offchain method_configs snapshot the create/update loops use, so the wanted set reflects the
+// post-overlay method maps (a method added or changed offchain-only is kept, not pruned).
+func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON, offchainMC *offchainMethodConfigs) wantedShimKeys {
 	wanted := wantedShimKeys{
 		combinedClients:    map[shimID]struct{}{},
 		triggerSubscribers: map[shimID]struct{}{},
@@ -859,6 +939,7 @@ func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON
 			if !ok {
 				continue
 			}
+			methodConfig = offchainMC.overlay(cid, remoteDON, methodConfig)
 			wanted.combinedClients[shimID{capID: cid, donID: remoteDON.ID}] = struct{}{}
 			for method, cfg := range methodConfig {
 				key := shimID{capID: cid, donID: remoteDON.ID, method: method}
@@ -877,6 +958,7 @@ func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON
 			if !ok {
 				continue
 			}
+			methodConfig = offchainMC.overlay(cid, myDON, methodConfig)
 			for method, cfg := range methodConfig {
 				key := shimID{capID: cid, donID: myDON.ID, method: method}
 				switch {

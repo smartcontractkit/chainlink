@@ -107,8 +107,8 @@ func TestValidate(t *testing.T) {
 	require.ErrorContains(t, Validate(`{"version":0}`), "version must be >= 1")
 	require.ErrorContains(t, Validate(`{"version":1,"dons":{"":{}}}`), "empty DON name")
 	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"":{}}}}}`), "empty capability ID")
-	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"c@1.0.0":{"ocr3Configs":{"default":{"f":1}}}}}}}`), "only spec_config is supported")
-	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"c@1.0.0":{"localOnly":true}}}}}`), "only spec_config is supported")
+	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"c@1.0.0":{"ocr3Configs":{"default":{"f":1}}}}}}}`), "only spec_config and method_configs are supported")
+	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"c@1.0.0":{"localOnly":true}}}}}`), "only spec_config and method_configs are supported")
 
 	t.Run("malformed spec_config is rejected at ingestion", func(t *testing.T) {
 		t.Parallel()
