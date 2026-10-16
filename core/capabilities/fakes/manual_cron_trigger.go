@@ -20,13 +20,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
-var _ services.Service = (*ManualCronTriggerService)(nil)
-var _ cronserver.CronCapability = (*ManualCronTriggerService)(nil)
+var (
+	_ services.Service          = (*ManualCronTriggerService)(nil)
+	_ cronserver.CronCapability = (*ManualCronTriggerService)(nil)
+)
 
-const ServiceName = "CronTriggerService"
-const ID = "cron-trigger@1.0.0"
-const defaultFastestScheduleIntervalSeconds = 1
-const allowSeconds = true
+const (
+	ServiceName                           = "CronTriggerService"
+	ID                                    = "cron-trigger@1.0.0"
+	defaultFastestScheduleIntervalSeconds = 1
+	allowSeconds                          = true
+)
 
 var manualCronTriggerInfo = capabilities.MustNewCapabilityInfo(
 	ID,
@@ -42,6 +46,7 @@ type ManualCronTriggerService struct {
 	capabilities.CapabilityInfo
 	config           ManualCronConfig
 	lggr             logger.Logger
+	eventEmitter     *events.Emitter
 	callbackCh       map[string]chan capabilities.TriggerAndId[*crontypedapi.Payload]
 	legacyCallbackCh chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload] //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 	workflowIDs      map[string]string                                           // triggerID -> workflowID mapping
@@ -61,6 +66,7 @@ func NewManualCronTriggerService(parentLggr logger.Logger) (*ManualCronTriggerSe
 		CapabilityInfo:   manualCronTriggerInfo,
 		config:           ManualCronConfig{FastestScheduleIntervalSeconds: 1},
 		lggr:             lggr,
+		eventEmitter:     events.DefaultEmitter(),
 		callbackCh:       make(map[string]chan capabilities.TriggerAndId[*crontypedapi.Payload]),
 		legacyCallbackCh: make(chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]), //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 		workflowIDs:      make(map[string]string),
@@ -112,7 +118,7 @@ func (f *ManualCronTriggerService) UnregisterLegacyTrigger(ctx context.Context, 
 	return nil
 }
 
-func (f *ManualCronTriggerService) AckEvent(ctx context.Context, triggerID string, eventID string, method string) caperrors.Error {
+func (f *ManualCronTriggerService) AckEvent(ctx context.Context, triggerID, eventID, method string) caperrors.Error {
 	return nil
 }
 
@@ -156,7 +162,7 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 		f.lggr.Errorw("failed to generate execution ID", "err", err)
 		workflowExecutionID = ""
 	}
-	err = events.EmitTriggerExecutionStarted(ctx, map[string]string{}, triggerEvent.Id, workflowExecutionID)
+	err = f.eventEmitter.EmitTriggerExecutionStarted(ctx, map[string]string{}, triggerEvent.Id, workflowExecutionID)
 	if err != nil {
 		f.lggr.Errorw("failed to emit trigger execution started event", "err", err)
 	}
