@@ -33,8 +33,8 @@ type baseAggregator struct {
 	// vaultHandlerDonID scopes registry lookup when several vault DONs exist.
 	//
 	// Source: gateway job TOML [[gatewayConfig.ShardedDONs]] DonName (see deployment/cre/jobs/pkg/gateway_job.go),
-	// loaded as ShardedDONConfig.DonName and passed as DONConfig.DonId (handler_factory.shardedDONsToLegacy;
-	// DonId is a legacy field name for that string, not the on-chain uint32 id).
+	// loaded as ShardedDONConfig.DonName and passed through as the handler's default DON name
+	// (newHandlerWithAuthorizer: dons.DONs[0].DonName).
 	//
 	// Matching: capabilities.DON.Name when non-empty (v2), else decimal capabilities.DON.ID string (v1 sync).
 	vaultHandlerDonID string
