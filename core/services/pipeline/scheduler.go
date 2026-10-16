@@ -182,6 +182,11 @@ func (s *scheduler) Run() {
 			result.Attempts++
 		}
 
+		// resolve the source timestamp: the task's own when set (e.g. parsed by
+		// a bridge task), otherwise the freshest among its propagatable inputs,
+		// so timestamps flow through intermediate tasks without their involvement
+		result.Result.Timestamp = s.resolveTimestamp(result.Task, result.Result.Timestamp)
+
 		// store task run
 		s.results[result.Task.ID()] = result
 
@@ -203,6 +208,7 @@ func (s *scheduler) Run() {
 		if err != nil {
 			s.logger.Panicf("Vars.Set error: %v", err)
 		}
+		s.vars.SetTimestamp(result.Task.DotID(), result.Result.Timestamp)
 
 		// if the task was marked as failEarly, and the result is a fail
 		if result.Result.Error != nil && result.Task.Base().FailEarly {
@@ -272,6 +278,26 @@ func (s *scheduler) Run() {
 	}
 
 	close(s.taskCh)
+}
+
+// resolveTimestamp returns the task's own source timestamp when set, otherwise
+// the freshest timestamp among its propagatable inputs. Timestamps propagate
+// through intermediate tasks (jsonparse, multiply, merge, ...) without those
+// tasks needing to be aware of them.
+func (s *scheduler) resolveTimestamp(task Task, own uint64) uint64 {
+	if own != 0 {
+		return own
+	}
+	var freshest uint64
+	for _, dep := range task.Inputs() {
+		if !dep.PropagateResult {
+			continue
+		}
+		if r, ok := s.results[dep.InputTask.ID()]; ok && r.Result.Timestamp > freshest {
+			freshest = r.Result.Timestamp
+		}
+	}
+	return freshest
 }
 
 func (s *scheduler) markRemaining(err error) {
