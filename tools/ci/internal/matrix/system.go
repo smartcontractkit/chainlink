@@ -82,6 +82,9 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	"Test_CRE_V2_ShardManualAssignmentBothSpecs": {
 		{Topology: "workflow-gateway-sharded-manual", Configs: "configs/workflow-gateway-sharded-manual.toml"},
 	},
+	"Test_CRE_V2_ShardManualAssignmentCoordinated": {
+		{Topology: "workflow-gateway-sharded-manual", Configs: "configs/workflow-gateway-sharded-manual.toml"},
+	},
 	"Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger": {
 		{Topology: "workflow-sharded-capabilities", Configs: "configs/workflow-sharded-capabilities-don.toml"},
 	},
@@ -96,6 +99,9 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	},
 	"Test_CRE_V2_FailoverManualSwap": {
 		{Topology: "workflow-gateway-failover", Configs: "configs/workflow-gateway-failover-don.toml"},
+	},
+	"Test_CRE_V2_FailoverManualSwapCoordinated": {
+		{Topology: "workflow-gateway-failover-coordinated", Configs: "configs/workflow-gateway-failover-coordinated-don.toml"},
 	},
 	"Test_CRE_V2_Module_Cache": {
 		{Topology: "workflow-gateway-cache-test", Configs: "configs/workflow-gateway-don-cache-test.toml"},

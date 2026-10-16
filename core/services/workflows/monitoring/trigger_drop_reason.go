@@ -14,6 +14,7 @@ const (
 	TriggerDropReasonDuplicateExecution               = "duplicate_execution"
 	TriggerDropReasonShardDeniedOrchestrator          = "shard_denied_orchestrator"
 	TriggerDropReasonShardDeniedNotOwner              = "shard_denied_not_owner"
+	TriggerDropReasonAdmissionDenied                  = "admission_denied"
 	TriggerDropReasonMeteringReserveFailed            = "metering_reserve_failed"
 	TriggerDropReasonExecutionTimeLimitReadFailed     = "execution_time_limit_read_failed"
 	TriggerDropReasonLogEventLimitReadFailed          = "log_event_limit_read_failed"
