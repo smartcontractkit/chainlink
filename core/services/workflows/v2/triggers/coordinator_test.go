@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -396,7 +398,7 @@ func TestCoordinator_CloseUnregistersRemainingWorkflows(t *testing.T) {
 	require.NoError(t, err)
 	engines.set(wid, &fakeEngine{coordinated: true})
 
-	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), engines, &fakeWorkflowLimits{}, clockwork.NewFakeClock())
+	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), newTestAdmission(), engines, &fakeWorkflowLimits{}, clockwork.NewFakeClock())
 	require.NoError(t, c.Start(t.Context()))
 
 	trigger := capmocks.NewTriggerCapability(t)
@@ -413,4 +415,75 @@ func TestCoordinator_CloseUnregistersRemainingWorkflows(t *testing.T) {
 	_, err = c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 	require.NoError(t, err)
 	require.NoError(t, c.Close())
+}
+
+// TestCoordinator_Admission covers the path between a workflow's readers and its
+// executions. Each case holds executions so that it controls exactly which events
+// wait on the queue.
+//
+//nolint:paralleltest // its cases read metrics through useTestMeter, which swaps a global
+func TestCoordinator_Admission(t *testing.T) {
+	// singleSlot returns admission limiters that run one execution at a time,
+	// and the pool, so the test can see when the admitter waits for the slot.
+	singleSlot := func(mutate func(*AdmissionLimiters)) (AdmissionLimiters, *countingPool) {
+		pool := &countingPool{ResourcePoolLimiter: limits.GlobalResourcePoolLimiter(1)}
+		admission := newTestAdmission()
+		admission.ExecutionConcurrency = pool
+		if mutate != nil {
+			mutate(&admission)
+		}
+		return admission, pool
+	}
+	queueLen := func(f *coordinatorFixture) int {
+		n, err := f.admission.TriggerEventQueue.Len(t.Context())
+		require.NoError(t, err)
+		return n
+	}
+	t.Run("a full queue drops the event and the reader keeps reading", func(t *testing.T) { //nolint:paralleltest // see above
+		reader := useTestMeter(t) // before the fixture, so its metrics are read back
+		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.TriggerEventQueue = limits.NewQueueLimiter[CoordinatedEvent](1) })
+		f := newCoordinatorFixtureWithAdmission(t, admission)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+		release := f.holdExecutions(t)
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		// Move one event to each stage, waiting for each before sending the next:
+		//   evt-1: executing, holding the only slot.
+		//   evt-2: taken off the queue by the admitter, which waits for that slot.
+		//   evt-3: in the queue, which is now full (1/1).
+		eventCh <- triggerEvent("evt-1")
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+		eventCh <- triggerEvent("evt-2")
+		// The admitter's 2nd slot request: it now holds evt-2 and waits.
+		require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond)
+		eventCh <- triggerEvent("evt-3")
+		// The admitter is busy waiting, so evt-3 stays in the queue.
+		require.Eventually(t, func() bool { return queueLen(f) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+		// The queue is full: evt-4 is dropped. The send only completes because
+		// the reader keeps reading. The reader handles one event at a time, so
+		// once the probe after it is taken, evt-4 has been dropped. ReadLoop
+		// drops the probe itself, as an errored trigger response, without
+		// enqueueing it.
+		eventCh <- triggerEvent("evt-4")
+		eventCh <- capabilities.TriggerResponse{Err: errors.New("probe")}
+
+		release()
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 3 }, 5*time.Second, 5*time.Millisecond)
+
+		// The queue is FIFO and there is one slot, so had evt-4 been queued it
+		// would run before evt-5. Once evt-5 has run, the list is final.
+		eventCh <- triggerEvent("evt-5")
+		require.Eventually(t, func() bool { return len(f.engine.executed()) >= 4 }, 5*time.Second, 5*time.Millisecond)
+		assert.Equal(t, []string{"evt-1", "evt-2", "evt-3", "evt-5"}, f.engine.executedIDs())
+
+		// The drop is counted as on the legacy engine (engine.go put).
+		queueFull := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonEnqueueQueueFull}
+		assert.Equal(t, int64(1), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", queueFull))
+		assert.Equal(t, int64(1), counterTotal(t, reader, "platform_engine_workflow_trigger_event_queue_full", nil))
+		assert.Equal(t, int64(1), counterTotal(t, reader, "platform_engine_trigger_event_enqueue_dropped_total", nil))
+		assert.Equal(t, int64(4), counterTotal(t, reader, "platform_engine_trigger_event_enqueued_total", nil), "evt-1, evt-2, evt-3 and evt-5")
+	})
 }
