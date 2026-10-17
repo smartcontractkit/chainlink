@@ -164,6 +164,20 @@ func TestAddWorkerNodeConfig_MeteringDisabled(t *testing.T) {
 	assert.Equal(t, routerURL, *config.Telemetry.ChipIngressEndpoint)
 }
 
+func TestBaseNodeConfig_ShardIndexResourceAttribute(t *testing.T) {
+	t.Parallel()
+
+	nodeMetadata := &cre.NodeMetadata{Index: 0}
+	shardDon := &cre.DonMetadata{Name: "shard-0", Flags: []string{cre.ShardDON}, ShardIndex: 1}
+
+	got := baseNodeConfig(capabilitiesCommonInputs(""), shardDon, nodeMetadata)
+	assert.Equal(t, "1", got.Telemetry.ResourceAttributes["shardIndex"])
+
+	got = baseNodeConfig(capabilitiesCommonInputs(""), capabilitiesDonMetadata(), nodeMetadata)
+	_, ok := got.Telemetry.ResourceAttributes["shardIndex"]
+	assert.False(t, ok)
+}
+
 func capabilitiesDonMetadata() *cre.DonMetadata {
 	return &cre.DonMetadata{
 		Name:  "capabilities",
