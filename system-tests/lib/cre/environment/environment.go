@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"strconv"
+	"uuid"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,10 +21,12 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -287,6 +291,49 @@ func SetupTestEnvironment(
 
 	// allow to pass custom job spec factories for extensibility
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
+
+	// ConsensusQueue
+	//TODO move? gate with flag?
+	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, func(input *cre.JobSpecInput) (cre.DonJobs, error) {
+		chainID, err := chainselectors.GetChainIDFromSelector(deployedBlockchains.RegistryChain().ChainSelector())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain ID from selector: %w", err)
+		}
+		evmChainID, err := strconv.ParseUint(chainID, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("non-integer chain ID: %s: %w", chainID, err)
+		}
+
+		don := dons.MustWorkflowDON()
+
+		bs, ok := dons.Bootstrap()
+		if !ok {
+			return nil, fmt.Errorf("failed to look up bootstrap node")
+		}
+		jobConfig := pkg.OCR3JobConfig{
+			JobName:            "consensus-queue-test",
+			ChainID:            chainID,
+			ContractID:         "0x0000000000000000000000000000000000000000", // TODO
+			P2Pv2Bootstrappers: []string{bs.Keys.P2PKey.PeerID.Raw() + "@" + bs.Host + ":" + strconv.Itoa(cre.OCRPeeringPort)},
+			ExternalJobID:      uuid.NewV4().String(), // TODO deterministic?
+			TemplateName:       "consensus-queue",
+		}
+
+		var donJobs cre.DonJobs
+		for _, node := range don.Nodes {
+			jobConfig.P2PID = node.PeerID()
+			jobConfig.OCR2EVMKeyBundleID = node.Keys.OCR2BundleIDs["evm"]
+			jobConfig.TransmitterID = node.Keys.EVM[evmChainID].PublicAddress.String()
+
+			jobSpec, err := jobConfig.ResolveJob()
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve OCR3 job spec: %w", err)
+			}
+			nodeID := node.JobDistributorDetails.NodeID
+			donJobs = append(donJobs, &job.ProposeJobRequest{NodeId: nodeID, Spec: jobSpec})
+		}
+		return donJobs, nil
+	})
 
 	createJobsDeps := CreateJobsWithJdOpDeps{
 		Logger:                        testLogger,
