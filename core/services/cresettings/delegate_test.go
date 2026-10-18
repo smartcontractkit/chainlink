@@ -72,6 +72,28 @@ func TestServicesForSpecDefaultConfigTypeSharesSettingsSlot(t *testing.T) {
 	require.ErrorContains(t, err, "already active: 2")
 }
 
+func TestServicesForSpecExplicitSettingsConfigType(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	d := newTestDelegate(t)
+
+	explicit := "config_type = \"settings\"\n" + settingsToml
+	_, err := d.ServicesForSpec(ctx, cresettingsJob(1, explicit))
+	require.NoError(t, err)
+
+	got, err := d.atomicSettings.Load()
+	require.NoError(t, err)
+	assert.Equal(t, explicit, got.Settings)
+
+	// explicit and implicit settings jobs share the same slot
+	_, err = d.ServicesForSpec(ctx, cresettingsJob(2, settingsToml))
+	require.ErrorContains(t, err, fmt.Sprintf("another %s job with config_type %q is already active: 1", job.CRESettings, ConfigTypeSettings))
+
+	_, err = d.ServicesForSpec(ctx, cresettingsJob(3, shardAssignmentToml))
+	require.NoError(t, err)
+}
+
 func TestServicesForSpecUnknownConfigType(t *testing.T) {
 	t.Parallel()
 

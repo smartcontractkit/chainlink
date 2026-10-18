@@ -15,12 +15,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-// ConfigTypeCapRegistry is the config_type of the offchain capabilities registry payload. The
-// payload is carried in the spec's settings TOML under the offchain_config key.
-const ConfigTypeCapRegistry = "capabilities_registry"
+const (
+	ConfigTypeSettings        = "settings"
+	ConfigTypeShardAssignment = "shard_assignment"
+	ConfigTypeCapRegistry     = "capabilities_registry"
 
-// offchainConfigKey is the settings TOML key holding the capabilities_registry proto-JSON payload.
-const offchainConfigKey = "offchain_config"
+	// offchainConfigKey is the settings TOML key holding the capabilities_registry proto-JSON payload.
+	offchainConfigKey = "offchain_config"
+)
 
 func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings, capRegistry *globalconfig.GlobalConfig) *delegate {
 	return &delegate{

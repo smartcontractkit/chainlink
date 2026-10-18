@@ -60,6 +60,20 @@ externalJobID = "7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"`, want: job.Job{
 				Hash:     "dca1decf4530b4aaa0b6cf8f11ed62f3af75b4ecc4915e4a35292c6918e9160a",
 			},
 		}},
+		{name: "explicit-settings", toml: `type = "cresettings"
+schemaVersion = 1
+externalJobID = "7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"
+settings = '''
+config_type = "settings"
+Foo = "bar"
+'''`, want: job.Job{
+			SchemaVersion: 1,
+			ExternalJobID: uuid.MustParse("7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"),
+			CRESettingsSpec: &job.CRESettingsSpec{
+				Settings: "config_type = \"settings\"\nFoo = \"bar\"\n",
+				Hash:     "c8dd0f5d66ec7f90e393897e44e31148e8e9b03bfe52d38702671428e1252a8f",
+			},
+		}},
 		{name: "wrong-type", toml: `type = "asdf"`, wantErr: "unsupported type"},
 		{name: "wrong-hash", toml: hashFn(`asdf`), wantErr: "invalid sha256 hash"},
 		{name: "shard-assignment", toml: `type = "cresettings"

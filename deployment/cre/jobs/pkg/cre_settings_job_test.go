@@ -33,7 +33,13 @@ Baz = "test"
 
 			got, err := cresettings.ValidatedCRESettingsSpec(spec)
 			require.NoError(t, err)
-			require.Equal(t, tt.settings, got.CRESettingsSpec.Settings)
+			require.Equal(t, "config_type = \"settings\"\n"+tt.settings, got.CRESettingsSpec.Settings)
+
+			var decoded struct {
+				ConfigType string `toml:"config_type"`
+			}
+			require.NoError(t, toml.Unmarshal([]byte(got.CRESettingsSpec.Settings), &decoded))
+			require.Equal(t, cresettings.ConfigTypeSettings, decoded.ConfigType)
 		})
 	}
 }

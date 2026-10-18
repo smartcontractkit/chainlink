@@ -27,16 +27,17 @@ type CRESettingsJob struct {
 }
 
 func (j CRESettingsJob) ResolveJob() (string, error) {
+	settings := "config_type = \"settings\"\n" + j.Settings
 	t, err := template.New("s").ParseFS(templates.FS, templateName)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse %s: %w", templateName, err)
 	}
 
-	shaSum := sha256.Sum256([]byte(j.Settings))
+	shaSum := sha256.Sum256([]byte(settings))
 	data := map[string]any{
 		"ExternalJobID": externalJobUUID,
 		"Hash":          hex.EncodeToString(shaSum[:]),
-		"Settings":      j.Settings,
+		"Settings":      settings,
 	}
 
 	b := &bytes.Buffer{}
